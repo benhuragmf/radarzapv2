@@ -201,7 +201,7 @@ export const config: AppConfig = {
   
   // WhatsApp Configuration
   WHATSAPP: {
-    SESSION_TIMEOUT: parseNumber(process.env.WHATSAPP_SESSION_TIMEOUT, 3600000), // 1 hour
+    SESSION_TIMEOUT: parseNumber(process.env.WHATSAPP_SESSION_TIMEOUT, 30 * 24 * 60 * 60 * 1000), // 30 days
     RECONNECT_ATTEMPTS: parseNumber(process.env.WHATSAPP_RECONNECT_ATTEMPTS, 3),
     HEADLESS: parseBoolean(process.env.WHATSAPP_HEADLESS, true),
     RATE_LIMIT_MESSAGES_PER_MINUTE: parseNumber(process.env.WHATSAPP_RATE_LIMIT, 20)

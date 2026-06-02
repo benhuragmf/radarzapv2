@@ -33,6 +33,8 @@
   "author": "Discord-WhatsApp Bot Team",
   "license": "MIT",
   "dependencies": {
+    "@bull-board/api": "^7.1.5",
+    "@bull-board/express": "^7.1.5",
     "@discordjs/builders": "^1.8.2",
     "@discordjs/rest": "^2.3.0",
     "@hapi/boom": "^10.0.1",

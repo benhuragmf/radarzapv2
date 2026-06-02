@@ -23,6 +23,7 @@ import { Rule } from '../../models/Rule';
 import { Template } from '../../models/Template';
 import { config } from '../../config/environment';
 import mongoose from 'mongoose';
+import { mountBullBoard } from '../monitoring/bullBoard';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -37,6 +38,33 @@ export class DashboardService {
   private sessionCache: SessionCache;
   private redisManager: RedisManager;
   private statsInterval: NodeJS.Timeout | null = null;
+  private discordUsernameCache = new Map<string, { name: string; expires: number }>();
+
+  /** Resolve Discord display name (global_name ou username) via API do bot */
+  private async resolveDiscordDisplayName(discordUserId: string): Promise<string> {
+    const cached = this.discordUsernameCache.get(discordUserId);
+    if (cached && cached.expires > Date.now()) return cached.name;
+
+    if (!config.DISCORD.TOKEN) return discordUserId;
+
+    try {
+      const res = await fetch(`https://discord.com/api/v10/users/${discordUserId}`, {
+        headers: { Authorization: `Bot ${config.DISCORD.TOKEN}` },
+      });
+      if (res.ok) {
+        const data = await res.json() as { username?: string; global_name?: string | null };
+        const name = data.global_name || data.username || discordUserId;
+        this.discordUsernameCache.set(discordUserId, {
+          name,
+          expires: Date.now() + 60 * 60 * 1000,
+        });
+        return name;
+      }
+    } catch {
+      // fallback abaixo
+    }
+    return discordUserId;
+  }
 
   private constructor(port = 3001) {
     this.port = port;
@@ -58,6 +86,11 @@ export class DashboardService {
   }
 
   // ─── Express ─────────────────────────────────────────────────────────────
+
+  /** URL do frontend — mesma porta do dashboard quando FRONTEND_URL não está definida */
+  private getFrontendBase(): string {
+    return process.env.FRONTEND_URL || `http://localhost:${this.port}`;
+  }
 
   private setupExpress(): void {
     this.app.use(express.json());
@@ -170,7 +203,7 @@ export class DashboardService {
         const tokenData = await tokenRes.json() as any;
         if (!tokenData.access_token) {
           logger.error('Discord token exchange failed', tokenData);
-          const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5174';
+          const frontendBase = this.getFrontendBase();
           return res.redirect(`${frontendBase}/?error=token_failed`);
         }
 
@@ -184,7 +217,7 @@ export class DashboardService {
         const dbUser = await User.findOne({ discordUserId: discordUser.id }).lean();
         if (!dbUser) {
           logger.warn(`Discord user ${discordUser.id} (${discordUser.username}) has no RadarZap account`);
-          const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5174';
+          const frontendBase = this.getFrontendBase();
           return res.redirect(`${frontendBase}/?error=no_account`);
         }
 
@@ -199,8 +232,7 @@ export class DashboardService {
 
         logger.info(`User logged in: ${discordUser.username} (${discordUser.id})`);
 
-        // In dev the frontend runs on :5174, in production on the same port
-        const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5174';
+        const frontendBase = this.getFrontendBase();
         res.redirect(`${frontendBase}/dashboard`);
 
       } catch (err) {
@@ -251,18 +283,33 @@ export class DashboardService {
     // ── Sessions ───────────────────────────────────────────────────────────
     r.get('/sessions', async (_req, res) => {
       try {
-        const docs = await WhatsAppSession.find({ status: 'active' }).lean();
-        const sessions = await Promise.all(docs.map(async (d) => {
-          const cached = await this.sessionCache.getWhatsAppSession(d.clientId.toString());
-          return {
-            clientId:     d.clientId.toString(),
-            discordUserId: (await User.findById(d.clientId).lean())?.discordUserId ?? '',
-            status:       cached?.status ?? d.status,
-            lastActivity: cached?.lastActivity ?? d.lastActivity,
-            qrCode:       cached?.qrCode,
-          };
-        }));
-        res.json(sessions);
+        res.json(await this.buildSessionsList());
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    /** Iniciar conexão WhatsApp (gera QR no painel) para o usuário logado ou primeiro usuário */
+    r.post('/sessions/connect', async (req, res) => {
+      try {
+        const sess = req.session as any;
+        const user = sess?.userId
+          ? await User.findById(sess.userId)
+          : await User.findOne({ discordUserId: { $ne: 'system' } });
+        if (!user) {
+          return res.status(400).json({
+            error: 'Nenhum usuário cadastrado. Use /setup no Discord primeiro.',
+          });
+        }
+
+        const clientId = (user._id as mongoose.Types.ObjectId).toString();
+        await this.queueManager.addJob(
+          'whatsapp-connection',
+          'connect-whatsapp',
+          { clientId },
+          { priority: 8 },
+        );
+        res.json({ ok: true, clientId });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -721,10 +768,46 @@ export class DashboardService {
   private setupSocket(): void {
     this.io.on('connection', (socket) => {
       logger.debug(`Dashboard client connected: ${socket.id}`);
-      // Send initial stats on connect
       this.buildStats().then(stats => socket.emit('stats', stats)).catch(() => {});
+      this.buildSessionsList().then(sessions => socket.emit('sessions', sessions)).catch(() => {});
       socket.on('disconnect', () => logger.debug(`Dashboard client disconnected: ${socket.id}`));
     });
+  }
+
+  /** Lista sessões WhatsApp (cache Redis + MongoDB) */
+  private async buildSessionsList(): Promise<Array<{
+    clientId: string;
+    discordUserId: string;
+    displayName: string;
+    status: string;
+    lastActivity?: Date | string;
+    qrCode?: string;
+  }>> {
+    const users = await User.find({ discordUserId: { $ne: 'system' } }).lean();
+
+    return Promise.all(users.map(async (u) => {
+      const clientId = (u._id as mongoose.Types.ObjectId).toString();
+      const cached = await this.sessionCache.getWhatsAppSession(clientId);
+      const doc = await WhatsAppSession.findOne({ clientId: u._id }).lean();
+
+      let status = 'disconnected';
+      if (cached?.status) {
+        status = cached.status;
+      } else if (doc?.status === 'active') {
+        status = 'connected';
+      }
+
+      const displayName = await this.resolveDiscordDisplayName(u.discordUserId);
+
+      return {
+        clientId,
+        discordUserId: u.discordUserId,
+        displayName,
+        status,
+        lastActivity: cached?.lastActivity ?? doc?.lastActivity,
+        qrCode: cached?.qrCode,
+      };
+    }));
   }
 
   private async buildStats() {
@@ -771,6 +854,25 @@ export class DashboardService {
         resolve();
       }).on('error', reject);
     });
+
+    // Real-time WhatsApp session updates (QR, connected, etc.)
+    try {
+      await this.redisManager.subscribe('radarzap:wa-session', (message) => {
+        try {
+          const payload = JSON.parse(message) as { clientId: string; status: string; qrCode?: string };
+          this.io.emit('session:update', payload);
+          this.buildSessionsList()
+            .then(sessions => this.io.emit('sessions', sessions))
+            .catch(() => {});
+        } catch {
+          // ignore malformed messages
+        }
+      });
+    } catch (err) {
+      logger.warn('Redis pub/sub for sessions unavailable — dashboard will poll only');
+    }
+
+    mountBullBoard(this.app, this.requireAuth.bind(this));
 
     // Broadcast stats every 10 s
     this.statsInterval = setInterval(async () => {

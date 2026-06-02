@@ -4,7 +4,7 @@ import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { RefreshCw, ListOrdered } from 'lucide-react'
+import { RefreshCw, ListOrdered, ExternalLink } from 'lucide-react'
 
 interface QueueStats {
   name: string
@@ -50,6 +50,19 @@ export default function Queue() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-400">Monitoramento das filas BullMQ em tempo real.</p>
+        <a
+          href="/api/admin/queues"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 text-sm text-brand-400 hover:text-brand-300"
+        >
+          <ExternalLink size={14} />
+          Bull Board (avancado)
+        </a>
+      </div>
+
       {/* Queue stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {queues.map((q) => (

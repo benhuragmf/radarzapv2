@@ -17,9 +17,16 @@ import { QueueManager } from '@/cache/QueueManager';
 import { RateLimiter } from '@/cache/RateLimiter';
 import { WhatsAppSession, User, Destination } from '@/models';
 import { CircuitBreaker } from '../common/CircuitBreaker';
+import { RedisManager } from '@/cache/RedisManager';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
+
+/** Redis cache TTL for live WA state (QR, connected) — 7 days */
+const WA_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
+/** MongoDB backup expiry — 30 days, renewed on activity */
+const WA_DB_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+const WA_SESSION_CHANNEL = 'radarzap:wa-session';
 
 /**
  * WhatsApp Service with autonomous session management
@@ -38,6 +45,54 @@ export class WhatsAppService {
   private isInitialized = false;
   private sessionCleanupInterval: NodeJS.Timeout | null = null;
   private destinationCleanupInterval: NodeJS.Timeout | null = null;
+
+  /** Read all Baileys auth files from the session directory */
+  private readSessionDirectory(sessionDir: string): Record<string, string> {
+    const files: Record<string, string> = {};
+    if (!fs.existsSync(sessionDir)) return files;
+    for (const name of fs.readdirSync(sessionDir)) {
+      const filePath = path.join(sessionDir, name);
+      if (fs.statSync(filePath).isFile()) {
+        files[name] = fs.readFileSync(filePath, 'utf8');
+      }
+    }
+    return files;
+  }
+
+  /** Write Baileys auth files back to disk (restore after restart) */
+  private writeSessionDirectory(sessionDir: string, files: Record<string, string>): void {
+    if (!fs.existsSync(sessionDir)) {
+      fs.mkdirSync(sessionDir, { recursive: true });
+    }
+    for (const [name, content] of Object.entries(files)) {
+      fs.writeFileSync(path.join(sessionDir, name), content, 'utf8');
+    }
+  }
+
+  /** Push session state to Redis cache + dashboard via pub/sub */
+  private async notifySessionUpdate(
+    clientId: string,
+    data: {
+      status: 'connecting' | 'connected' | 'disconnected' | 'qr-required';
+      qrCode?: string;
+      deviceInfo?: { platform: string; browser: string; version: string };
+      lastActivity?: Date;
+    },
+  ): Promise<void> {
+    await this.sessionCache.setWhatsAppSession(clientId, {
+      ...data,
+      lastActivity: data.lastActivity ?? new Date(),
+    }, WA_CACHE_TTL_SEC);
+
+    try {
+      await RedisManager.getInstance().publish(
+        WA_SESSION_CHANNEL,
+        JSON.stringify({ clientId, ...data, lastActivity: (data.lastActivity ?? new Date()).toISOString() }),
+      );
+    } catch {
+      // pub/sub optional — dashboard still polls /sessions
+    }
+  }
 
   constructor() {
     this.sessionCache = SessionCache.getInstance();
@@ -111,6 +166,11 @@ export class WhatsAppService {
         clearInterval(interval);
       }
       this.sessionIntervals.clear();
+
+      // Persist session files before closing sockets
+      for (const clientId of this.sessions.keys()) {
+        await this.saveSessionToDatabase(clientId);
+      }
 
       // Close all sessions
       await this.closeAllSessions();
@@ -228,8 +288,9 @@ export class WhatsAppService {
   private async restoreExistingSessions(): Promise<void> {
     try {
       const activeSessions = await WhatsAppSession.find({
-        status: 'active',
-        expiresAt: { $gt: new Date() }
+        status: { $in: ['active', 'inactive'] },
+        expiresAt: { $gt: new Date() },
+        sessionData: { $nin: ['no-creds', ''] },
       });
 
       this.serviceLogger.info(`Found ${activeSessions.length} active sessions to restore`);
@@ -266,8 +327,13 @@ export class WhatsAppService {
         return { success: true, message: 'Already connected' };
       }
 
-      // Register pending connection so createWhatsAppSession can send QR immediately
-      this.pendingConnections.set(clientId, { discordUserId, channelId });
+      // Register pending connection (Discord channel optional — web dashboard uses cache only)
+      this.pendingConnections.set(clientId, {
+        discordUserId: discordUserId ?? '',
+        channelId: channelId ?? '',
+      });
+
+      await this.notifySessionUpdate(clientId, { status: 'connecting' });
 
       // Create new WhatsApp session (QR is sent inside as soon as it's ready)
       const result = await this.createWhatsAppSession(clientId);
@@ -352,12 +418,18 @@ export class WhatsAppService {
           try {
             qrCode = await QRCode.toDataURL(qr);
             this.serviceLogger.info(`QR code generated for client: ${clientId}`);
-            // Send QR immediately — don't wait for the 60s timer
-            const msgId = await this.sendQRCodeToDiscord(this.pendingConnections.get(clientId)?.discordUserId, this.pendingConnections.get(clientId)?.channelId, qrCode);
-            // Store messageId in pendingConnections so recursive calls can access it
+
+            await this.notifySessionUpdate(clientId, {
+              status: 'qr-required',
+              qrCode,
+            });
+
             const pending = this.pendingConnections.get(clientId);
-            if (pending && msgId) {
-              this.pendingConnections.set(clientId, { ...pending, qrMessageId: msgId });
+            if (pending?.discordUserId && pending?.channelId) {
+              const msgId = await this.sendQRCodeToDiscord(pending.discordUserId, pending.channelId, qrCode);
+              if (msgId) {
+                this.pendingConnections.set(clientId, { ...pending, qrMessageId: msgId });
+              }
             }
           } catch (error) {
             this.serviceLogger.error('Failed to generate QR code:', error);
@@ -407,18 +479,17 @@ export class WhatsAppService {
             // Setup event handlers
             this.setupSocketEventHandlers(socket, clientId);
 
-            // Save session to database
-            await this.saveSessionToDatabase(clientId, socket);
+            // Save session to database (all auth files)
+            await this.saveSessionToDatabase(clientId);
 
-            // Update cache
-            await this.sessionCache.setWhatsAppSession(clientId, {
+            // Update cache + dashboard
+            await this.notifySessionUpdate(clientId, {
               status: 'connected',
-              lastActivity: new Date(),
               deviceInfo: {
                 platform: 'web',
                 browser: 'chrome',
-                version: '1.0.0'
-              }
+                version: '1.0.0',
+              },
             });
 
             this.serviceLogger.info(`WhatsApp connected successfully for client: ${clientId}`);
@@ -431,8 +502,7 @@ export class WhatsAppService {
 
       socket.ev.on('creds.update', async () => {
         saveCreds();
-        // Keep database in sync with latest creds
-        await this.saveSessionToDatabase(clientId, socket);
+        await this.saveSessionToDatabase(clientId);
       });
     });
   }
@@ -463,8 +533,8 @@ export class WhatsAppService {
           this.sessionStates.delete(clientId);
           await this.sessionCache.setWhatsAppSession(clientId, {
             status: 'connecting',
-            lastActivity: new Date()
-          });
+            lastActivity: new Date(),
+          }, WA_CACHE_TTL_SEC);
           // Reconnect in background — don't block the event handler
           this.createWhatsAppSession(clientId).then(() => {
             this.serviceLogger.info(`Reconnected successfully for client: ${clientId}`);
@@ -513,8 +583,8 @@ export class WhatsAppService {
       // Update cache
       await this.sessionCache.setWhatsAppSession(clientId, {
         status: 'disconnected',
-        lastActivity: new Date()
-      });
+        lastActivity: new Date(),
+      }, WA_CACHE_TTL_SEC);
 
       // Update database
       const sessionDoc = await WhatsAppSession.findOne({ clientId });
@@ -896,26 +966,27 @@ export class WhatsAppService {
   }
 
   /**
-   * Save session credentials to database (encrypted)
+   * Save all session auth files to database (encrypted bundle — survives restarts)
    */
-  private async saveSessionToDatabase(clientId: string, socket: WASocket): Promise<void> {
+  private async saveSessionToDatabase(clientId: string): Promise<void> {
     try {
       const sessionDir = path.join(process.cwd(), 'sessions', clientId);
-      const credsFile = path.join(sessionDir, 'creds.json');
+      const files = this.readSessionDirectory(sessionDir);
 
-      let sessionData = 'no-creds';
-      if (fs.existsSync(credsFile)) {
-        const raw = fs.readFileSync(credsFile, 'utf8');
-        // Encrypt before storing
-        const tempDoc = new WhatsAppSession();
-        sessionData = tempDoc.encrypt(raw);
+      if (!files['creds.json']) {
+        return;
       }
+
+      const tempDoc = new WhatsAppSession();
+      const sessionData = tempDoc.encrypt(JSON.stringify(files));
 
       const deviceInfo = {
         platform: 'web',
         browser: 'chrome',
-        version: '1.0.0'
+        version: '1.0.0',
       };
+
+      const expiresAt = new Date(Date.now() + WA_DB_EXPIRY_MS);
 
       await WhatsAppSession.findOneAndUpdate(
         { clientId },
@@ -926,26 +997,26 @@ export class WhatsAppService {
           status: 'active',
           deviceInfo,
           lastActivity: new Date(),
-          expiresAt: new Date(Date.now() + config.WHATSAPP.SESSION_TIMEOUT)
+          expiresAt,
         },
-        { upsert: true, new: true }
+        { upsert: true, new: true },
       );
 
-      this.serviceLogger.info(`Session saved to database for client: ${clientId}`);
+      this.serviceLogger.info(`Session saved to database for client: ${clientId} (${Object.keys(files).length} files)`);
     } catch (error) {
       this.serviceLogger.error('Failed to save session to database:', error);
     }
   }
 
   /**
-   * Restore session credentials from database to local files
+   * Restore all session auth files from database to local disk
    */
   private async restoreSessionFromDatabase(clientId: string): Promise<boolean> {
     try {
       const sessionDoc = await WhatsAppSession.findOne({
         clientId,
-        status: 'active',
-        expiresAt: { $gt: new Date() }
+        status: { $in: ['active', 'inactive'] },
+        expiresAt: { $gt: new Date() },
       });
 
       if (!sessionDoc || sessionDoc.sessionData === 'no-creds') {
@@ -953,15 +1024,25 @@ export class WhatsAppService {
       }
 
       const sessionDir = path.join(process.cwd(), 'sessions', clientId);
-      if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true });
+      const decrypted = sessionDoc.decrypt();
+
+      let files: Record<string, string>;
+      try {
+        files = JSON.parse(decrypted) as Record<string, string>;
+      } catch {
+        // Legacy: only creds.json was stored
+        files = { 'creds.json': decrypted };
       }
 
-      // Decrypt and write creds.json back to disk
-      const decrypted = sessionDoc.decrypt();
-      fs.writeFileSync(path.join(sessionDir, 'creds.json'), decrypted, 'utf8');
+      if (!files['creds.json']) {
+        return false;
+      }
 
-      this.serviceLogger.info(`Session credentials restored from database for client: ${clientId}`);
+      this.writeSessionDirectory(sessionDir, files);
+
+      this.serviceLogger.info(
+        `Session credentials restored from database for client: ${clientId} (${Object.keys(files).length} files)`,
+      );
       return true;
     } catch (error) {
       this.serviceLogger.error(`Failed to restore session from database for client ${clientId}:`, error);
