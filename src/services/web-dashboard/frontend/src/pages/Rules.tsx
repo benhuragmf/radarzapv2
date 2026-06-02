@@ -1,0 +1,430 @@
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { useGuild } from '../lib/guildContext'
+import { Card } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Spinner } from '../components/ui/Spinner'
+import { BookOpen, ToggleLeft, ToggleRight, Trash2, Plus, Pencil, X, Check } from 'lucide-react'
+
+interface Rule {
+  _id: string
+  name: string
+  isActive: boolean
+  matchCount: number
+  conditions: { channelIds?: string[]; requireKeywords?: string[] }
+  action: { templateName: string; priority: string; destinationIds: string[] }
+}
+
+interface Destination {
+  _id: string
+  name: string
+  identifier: string
+  type: string
+}
+
+interface Template {
+  _id: string
+  name: string
+}
+
+interface Channel {
+  _id: string
+  channelId: string
+  channelName: string
+  guildName: string
+}
+
+// ── Form state ────────────────────────────────────────────────────────────────
+interface RuleForm {
+  name: string
+  priority: 'high' | 'medium' | 'low'
+  templateName: string
+  keywords: string
+  destinationIdentifiers: string
+  channelIds: string[]
+}
+
+const emptyForm: RuleForm = {
+  name: '',
+  priority: 'medium',
+  templateName: 'radarzap-padrao',
+  keywords: '',
+  destinationIdentifiers: '',
+  channelIds: [],
+}
+
+function ruleToForm(r: Rule, destinations: Destination[]): RuleForm {
+  const destIds = new Set(r.action.destinationIds)
+  const identifiers = destinations
+    .filter(d => destIds.has(d._id))
+    .map(d => d.identifier)
+    .join(', ')
+  return {
+    name: r.name,
+    priority: r.action.priority as 'high' | 'medium' | 'low',
+    templateName: r.action.templateName,
+    keywords: (r.conditions.requireKeywords ?? []).join(', '),
+    destinationIdentifiers: identifiers,
+    channelIds: r.conditions.channelIds ?? [],
+  }
+}
+
+// ── Inline form component ─────────────────────────────────────────────────────
+function RuleFormPanel({
+  initial,
+  destinations,
+  templates,
+  channels,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initial: RuleForm
+  destinations: Destination[]
+  templates: Template[]
+  channels: Channel[]
+  onSave: (f: RuleForm) => void
+  onCancel: () => void
+  saving: boolean
+}) {
+  const [form, setForm] = useState<RuleForm>(initial)
+  const set = (k: keyof RuleForm, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const inputCls = 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
+  const labelCls = 'text-xs text-gray-500 mb-1 block'
+
+  const toggleChannel = (channelId: string) => {
+    setForm(f => ({
+      ...f,
+      channelIds: f.channelIds.includes(channelId)
+        ? f.channelIds.filter(id => id !== channelId)
+        : [...f.channelIds, channelId],
+    }))
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Name */}
+        <div className="md:col-span-2">
+          <label className={labelCls}>Nome da regra *</label>
+          <input value={form.name} onChange={e => set('name', e.currentTarget.value)}
+            placeholder="Ex: Promoções do canal #ofertas"
+            className={inputCls} />
+        </div>
+
+        {/* Priority */}
+        <div>
+          <label className={labelCls}>Prioridade</label>
+          <select value={form.priority} onChange={e => set('priority', e.currentTarget.value)}
+            className={inputCls}>
+            <option value="high">Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+          </select>
+        </div>
+
+        {/* Template */}
+        <div>
+          <label className={labelCls}>Template</label>
+          <select value={form.templateName} onChange={e => set('templateName', e.currentTarget.value)}
+            className={inputCls}>
+            {templates.length === 0 && (
+              <option value="radarzap-padrao">radarzap-padrao</option>
+            )}
+            {templates.map(t => (
+              <option key={t._id} value={t.name}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Channels */}
+        <div className="md:col-span-2">
+          <label className={labelCls}>
+            Canais monitorados
+            <span className="text-gray-600 ml-1">(vazio = todos os canais configurados)</span>
+          </label>
+          {channels.length === 0 ? (
+            <p className="text-xs text-gray-600">Nenhum canal configurado. Adicione em <a href="/channels" className="text-brand-400 hover:underline">Canais Discord</a>.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {channels.map(ch => (
+                <button
+                  key={ch._id}
+                  type="button"
+                  onClick={() => toggleChannel(ch.channelId)}
+                  className={`text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1 ${
+                    form.channelIds.includes(ch.channelId)
+                      ? 'bg-brand-600 border-brand-500 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  <span className="text-gray-400">#</span>
+                  {ch.channelName || ch.channelId}
+                  {ch.guildName && <span className="text-gray-500 text-[10px]"> · {ch.guildName}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Keywords */}
+        <div className="md:col-span-2">
+          <label className={labelCls}>Keywords obrigatórias (separadas por vírgula)</label>
+          <input value={form.keywords} onChange={e => set('keywords', e.currentTarget.value)}
+            placeholder="promoção, desconto, grátis"
+            className={inputCls} />
+        </div>
+
+        {/* Destinations */}
+        <div className="md:col-span-2">
+          <label className={labelCls}>
+            Destinos
+            <span className="text-gray-600 ml-1">(vazio = todos os destinos ativos)</span>
+          </label>
+          <input value={form.destinationIdentifiers}
+            onChange={e => set('destinationIdentifiers', e.currentTarget.value)}
+            placeholder="+5511976904921, +5566996819456"
+            className={inputCls} />
+          {destinations.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {destinations.map(d => (
+                <button
+                  key={d._id}
+                  type="button"
+                  onClick={() => {
+                    const current = form.destinationIdentifiers
+                      .split(',').map(s => s.trim()).filter(Boolean)
+                    const already = current.includes(d.identifier)
+                    const next = already
+                      ? current.filter(x => x !== d.identifier)
+                      : [...current, d.identifier]
+                    set('destinationIdentifiers', next.join(', '))
+                  }}
+                  className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                    form.destinationIdentifiers.includes(d.identifier)
+                      ? 'bg-brand-600 border-brand-500 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  {d.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <Button onClick={() => onSave(form)} disabled={!form.name.trim() || saving}>
+          {saving ? <Spinner size={12} /> : <Check size={12} />}
+          Salvar
+        </Button>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          <X size={12} /> Cancelar
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+export default function Rules() {
+  const qc = useQueryClient()
+  const { guildId } = useGuild()
+  const [creating, setCreating] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  const { data: rules = [], isLoading } = useQuery<Rule[]>({
+    queryKey: ['rules', guildId],
+    queryFn: () => api.get(`/rules${guildId ? `?guildId=${guildId}` : ''}`),
+    refetchInterval: 30_000,
+  })
+
+  const { data: destinations = [] } = useQuery<Destination[]>({
+    queryKey: ['destinations'],
+    queryFn: () => api.get('/destinations'),
+  })
+
+  const { data: templates = [] } = useQuery<Template[]>({
+    queryKey: ['templates'],
+    queryFn: () => api.get('/templates'),
+  })
+
+  const { data: channels = [] } = useQuery<Channel[]>({
+    queryKey: ['channels'],
+    queryFn: () => api.get('/channels'),
+  })
+
+  const toggle = useMutation({
+    mutationFn: (id: string) => api.post(`/rules/${id}/toggle`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rules'] }),
+  })
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/rules/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rules'] }),
+  })
+
+  const create = useMutation({
+    mutationFn: (f: RuleForm) => api.post('/rules', {
+      name: f.name,
+      priority: f.priority,
+      templateName: f.templateName,
+      keywords: f.keywords,
+      channelIds: f.channelIds,
+      destinationIdentifiers: f.destinationIdentifiers
+        .split(',').map(s => s.trim()).filter(Boolean),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rules'] })
+      setCreating(false)
+    },
+  })
+
+  const update = useMutation({
+    mutationFn: ({ id, form }: { id: string; form: RuleForm }) =>
+      api.put(`/rules/${id}`, {
+        name: form.name,
+        priority: form.priority,
+        templateName: form.templateName,
+        keywords: form.keywords,
+        channelIds: form.channelIds,
+        destinationIdentifiers: form.destinationIdentifiers
+          .split(',').map(s => s.trim()).filter(Boolean),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rules'] })
+      setEditingId(null)
+    },
+  })
+
+  if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-gray-400">{rules.length} regra(s) configurada(s)</p>
+        {!creating && (
+          <Button size="sm" onClick={() => { setCreating(true); setEditingId(null) }}>
+            <Plus size={12} /> Nova Regra
+          </Button>
+        )}
+      </div>
+
+      {/* Create form */}
+      {creating && (
+        <Card className="border-brand-700">
+          <p className="text-sm font-medium text-brand-400 mb-4">Nova Regra</p>
+          <RuleFormPanel
+            initial={emptyForm}
+            destinations={destinations}
+            templates={templates}
+            channels={channels}
+            onSave={f => create.mutate(f)}
+            onCancel={() => setCreating(false)}
+            saving={create.isPending}
+          />
+        </Card>
+      )}
+
+      {/* Empty state */}
+      {rules.length === 0 && !creating && (
+        <Card className="text-center py-12 text-gray-500">
+          <BookOpen size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="mb-3">Nenhuma regra configurada.</p>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus size={12} /> Criar primeira regra
+          </Button>
+        </Card>
+      )}
+
+      {/* Rule cards */}
+      {rules.map((r) => (
+        <Card key={r._id}>
+          {editingId === r._id ? (
+            <>
+              <p className="text-sm font-medium text-yellow-400 mb-4">Editando: {r.name}</p>
+              <RuleFormPanel
+                initial={ruleToForm(r, destinations)}
+                destinations={destinations}
+                templates={templates}
+                channels={channels}
+                onSave={f => update.mutate({ id: r._id, form: f })}
+                onCancel={() => setEditingId(null)}
+                saving={update.isPending}
+              />
+            </>
+          ) : (
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-medium text-sm truncate">{r.name}</span>
+                  <Badge label={r.isActive ? 'Ativa' : 'Inativa'} variant={r.isActive ? 'green' : 'gray'} />
+                  <Badge label={r.action.priority} variant="blue" />
+                </div>
+                <div className="text-xs text-gray-500 space-y-0.5">
+                  <p>Template: <span className="text-gray-300">{r.action.templateName}</span></p>
+                  {r.conditions.channelIds?.length ? (
+                    <p>Canais: <span className="text-gray-300">
+                      {r.conditions.channelIds.map(id => {
+                        const ch = channels.find(c => c.channelId === id)
+                        return ch ? `#${ch.channelName || id}` : `#${id}`
+                      }).join(', ')}
+                    </span></p>
+                  ) : null}
+                  {r.conditions.requireKeywords?.length ? (
+                    <p>Keywords: <span className="text-gray-300">{r.conditions.requireKeywords.join(', ')}</span></p>
+                  ) : null}
+                  <p>
+                    Destinos:{' '}
+                    <span className="text-gray-300">
+                      {r.action.destinationIds?.length
+                        ? (() => {
+                            const ids = new Set(r.action.destinationIds)
+                            const names = destinations.filter(d => ids.has(d._id)).map(d => d.name)
+                            return names.length ? names.join(', ') : `${r.action.destinationIds.length} destino(s)`
+                          })()
+                        : 'Todos os ativos'}
+                    </span>
+                  </p>
+                  <p>Matches: <span className="text-brand-400 font-medium">{r.matchCount}</span></p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => { setEditingId(r._id); setCreating(false) }}
+                  className="text-gray-600 hover:text-yellow-400 transition-colors"
+                  title="Editar"
+                >
+                  <Pencil size={15} />
+                </button>
+                <button
+                  onClick={() => toggle.mutate(r._id)}
+                  disabled={toggle.isPending}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  title={r.isActive ? 'Desativar' : 'Ativar'}
+                >
+                  {r.isActive
+                    ? <ToggleRight size={22} className="text-brand-500" />
+                    : <ToggleLeft size={22} />}
+                </button>
+                <button
+                  onClick={() => { if (window.confirm('Deletar esta regra?')) remove.mutate(r._id) }}
+                  disabled={remove.isPending}
+                  className="text-gray-600 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </Card>
+      ))}
+    </div>
+  )
+}

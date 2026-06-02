@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # Core Services
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/api-gateway.Dockerfile
+    ports:
+      - "3000:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - AUTO_SETUP=true
+      - HEALTH_CHECK_INTERVAL=30000
+      - JWT_SECRET=${JWT_SECRET:-default-jwt-secret}
+      - API_PORT=8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - discord-whatsapp-network
+
+  discord-bot:
+    build:
+      context: .
+      dockerfile: docker/discord-bot.Dockerfile
+    environment:
+      - NODE_ENV=production
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTO_RECONNECT=true
+      - GRACEFUL_SHUTDOWN=true
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - mongodb
+    networks:
+      - discord-whatsapp-network
+
+  whatsapp-service:
+    build:
+      context: .
+      dockerfile: docker/whatsapp-service.Dockerfile
+    volumes:
+      - whatsapp-sessions:/app/sessions
+      - whatsapp-media:/app/media
+    environment:
+      - NODE_ENV=production
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - AUTO_RESTART_SESSIONS=true
+      - SESSION_CLEANUP_INTERVAL=3600000
+      - HEADLESS_MODE=true
+      - PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - mongodb
+    networks:
+      - discord-whatsapp-network
+
+  queue-processor:
+    build:
+      context: .
+      dockerfile: docker/queue-processor.Dockerfile
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - WORKER_CONCURRENCY=5
+      - AUTO_SCALE=true
+      - PROCESS_TIMEOUT=300000
+      - MAX_RETRY_ATTEMPTS=3
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - mongodb
+    networks:
+      - discord-whatsapp-network
+
+  # Infrastructure Services
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-defaultpass}
+      - MONGO_INITDB_DATABASE=discord-whatsapp
+    restart: unless-stopped
+    command: mongod --auth --bind_ip_all
+    networks:
+      - discord-whatsapp-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    networks:
+      - discord-whatsapp-network
+
+  # Automation Services
+  auto-setup:
+    build:
+      context: .
+      dockerfile: docker/auto-setup.Dockerfile
+    environment:
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - SETUP_TIMEOUT=300000
+    depends_on:
+      - mongodb
+      - redis
+    restart: "no"
+    networks:
+      - discord-whatsapp-network
+
+  health-monitor:
+    build:
+      context: .
+      dockerfile: docker/health-monitor.Dockerfile
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - SERVICES_TO_MONITOR=api-gateway,discord-bot,whatsapp-service,queue-processor
+      - CHECK_INTERVAL=60000
+      - AUTO_RESTART=true
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - discord-whatsapp-network
+
+volumes:
+  mongodb-data:
+  redis-data:
+  whatsapp-sessions:
+  whatsapp-media:
+
+networks:
+  discord-whatsapp-network:
+    driver: bridge
