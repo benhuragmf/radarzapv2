@@ -3,6 +3,7 @@ import { RateLimiter } from '@/cache/RateLimiter';
 import { SessionCache } from '@/cache/SessionCache';
 import { RedisManager } from '@/cache/RedisManager';
 import { MessageQueue, User, Destination, SystemLog } from '@/models';
+import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
 import { RulesEngine } from '@/services/rules/RulesEngine';
 import { TemplateEngine } from '@/services/templates/TemplateEngine';
 import { createServiceLogger } from '@/utils/logger';
@@ -556,6 +557,17 @@ export class QueueProcessorService {
       }
     }, 30 * 60 * 1000); // Every 30 minutes
 
+    // Processar campanhas agendadas (painel Enviar agora)
+    const campaignInterval = global.setInterval(async () => {
+      if (this.isRunning) {
+        try {
+          await CampaignDispatchService.getInstance().processPending();
+        } catch (err) {
+          this.serviceLogger.error('Campaign queue tick failed:', err);
+        }
+      }
+    }, 15_000);
+
     // Log processing statistics
     const statsInterval = global.setInterval(() => {
       if (this.isRunning) {
@@ -576,7 +588,7 @@ export class QueueProcessorService {
     }, 5 * 60 * 1000); // Every 5 minutes
 
     // Store intervals for cleanup on stop
-    (this as any).intervals = [cleanupInterval, rateLimitCleanupInterval, statsInterval];
+    (this as any).intervals = [cleanupInterval, rateLimitCleanupInterval, campaignInterval, statsInterval];
 
     this.serviceLogger.info('✅ Monitoring and periodic tasks setup completed');
   }

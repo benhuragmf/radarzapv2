@@ -102,7 +102,7 @@ export class WhatsAppService {
       lastActivity: data.lastActivity ?? new Date(),
     }, WA_CACHE_TTL_SEC);
 
-    const state = cacheStatusToState(data.status, data.status === 'connected');
+    const state = cacheStatusToState(data.status, this.isLiveSession(clientId));
     const now = (data.lastActivity ?? new Date()).toISOString();
 
     const events: WaSessionEvent[] = [];
@@ -189,6 +189,42 @@ export class WhatsAppService {
       this.connectingClients.has(clientId) ||
       this.pendingConnections.has(clientId)
     );
+  }
+
+  /** Socket Baileys autenticado e pronto para enviar */
+  isClientConnected(clientId: string): boolean {
+    const socket = this.sessions.get(clientId);
+    return Boolean(socket?.user);
+  }
+
+  /** Envio de teste síncrono (painel web — sem fila) */
+  async sendTestMessageFromDashboard(
+    clientId: string,
+    destination: string,
+    message: string,
+  ): Promise<{ success: boolean; results: unknown[] }> {
+    return this.handleSendTestMessage({
+      clientId,
+      destination,
+      message,
+      discordUserId: null,
+      channelId: null,
+    });
+  }
+
+  /** Envio manual / campanha (sem prefixo de teste) */
+  async sendManualMessage(
+    clientId: string,
+    destination: string,
+    text: string,
+    image?: string,
+  ): Promise<{ success: boolean; messageId?: string }> {
+    return this.handleSendMessage({
+      clientId,
+      destination,
+      content: { text, ...(image ? { image } : {}) },
+      messageId: `manual-${Date.now()}`,
+    });
   }
 
   /** Evolution API: GET /instance/connectionState/:instanceName */
@@ -396,8 +432,11 @@ export class WhatsAppService {
 
     let status = liveStateToStatus(instance.state, cached?.status);
 
-    // Cache antigo de QR/conectando sem processo ativo → tratar como desconectado
-    if ((status === 'connecting' || status === 'qr-required') && !this.isLiveSession(clientId)) {
+    // Cache antigo sem socket ativo → tratar como desconectado
+    if (
+      (status === 'connected' || status === 'connecting' || status === 'qr-required') &&
+      !this.isLiveSession(clientId)
+    ) {
       status = 'disconnected';
       await this.sessionCache.deleteSession(`whatsapp:${clientId}`).catch(() => {});
     }
@@ -1163,31 +1202,34 @@ export class WhatsAppService {
 
       const names = destinations.map((d: any) => `**${d.name}**`).join(', ');
 
-      // Notify Discord of success
-      await this.queueManager.addJob(
-        'discord-notifications',
-        'send-notification',
-        {
-          discordUserId,
-          channelId,
-          message: `✅ Test message sent to ${names}!`
-        },
-        { priority: 7 }
-      );
+      if (discordUserId && channelId) {
+        await this.queueManager.addJob(
+          'discord-notifications',
+          'send-notification',
+          {
+            discordUserId,
+            channelId,
+            message: `✅ Test message sent to ${names}!`,
+          },
+          { priority: 7 },
+        );
+      }
 
       return { success: true, results };
 
     } catch (error) {
-      await this.queueManager.addJob(
-        'discord-notifications',
-        'send-notification',
-        {
-          discordUserId,
-          channelId,
-          message: `❌ Failed to send test message: ${(error as Error).message}`
-        },
-        { priority: 7 }
-      );
+      if (discordUserId && channelId) {
+        await this.queueManager.addJob(
+          'discord-notifications',
+          'send-notification',
+          {
+            discordUserId,
+            channelId,
+            message: `❌ Failed to send test message: ${(error as Error).message}`,
+          },
+          { priority: 7 },
+        );
+      }
       throw error;
     }
   }

@@ -18,7 +18,8 @@ import { createServiceLogger } from '../../utils/logger';
 import { QueueManager } from '../../cache/QueueManager';
 import { SessionCache } from '../../cache/SessionCache';
 import { RedisManager } from '../../cache/RedisManager';
-import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel } from '../../models';
+import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue } from '../../models';
+import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
 import { Rule } from '../../models/Rule';
 import { Template } from '../../models/Template';
 import { config } from '../../config/environment';
@@ -99,12 +100,24 @@ export class DashboardService {
 
   // ─── Express ─────────────────────────────────────────────────────────────
 
-  /** URL do frontend — mesma porta do dashboard quando FRONTEND_URL não está definida */
+  /** URL pública do painel (deve ser a mesma origem do browser para o cookie de sessão) */
   private getFrontendBase(): string {
-    return process.env.FRONTEND_URL || `http://localhost:${this.port}`;
+    return config.DASHBOARD.FRONTEND_URL;
+  }
+
+  /** Discord OAuth — redirect_uri deve coincidir com o portal do Discord e com FRONTEND_URL */
+  private getOAuthRedirectUri(): string {
+    return `${this.getFrontendBase()}/auth/discord/callback`;
+  }
+
+  private saveSession(req: Request): Promise<void> {
+    return new Promise((resolve, reject) => {
+      req.session.save(err => (err ? reject(err) : resolve()));
+    });
   }
 
   private setupExpress(): void {
+    this.app.set('trust proxy', 1);
     this.app.use(express.json());
 
     // Session middleware — custom Redis store using ioredis (survives restarts)
@@ -125,6 +138,12 @@ export class DashboardService {
           cb?.();
         } catch (e) { cb?.(e); }
       }
+      async touch(sid: string, sess: session.SessionData, cb?: (err?: any) => void) {
+        try {
+          await redisManager.setWithTTL(`${SESSION_PREFIX}${sid}`, JSON.stringify(sess), SESSION_TTL);
+          cb?.();
+        } catch (e) { cb?.(e); }
+      }
       async destroy(sid: string, cb?: (err?: any) => void) {
         try {
           await redisManager.del(`${SESSION_PREFIX}${sid}`);
@@ -133,15 +152,21 @@ export class DashboardService {
       }
     }
 
+    const isProd = config.NODE_ENV === 'production';
+
     this.app.use(session({
+      name: 'radarzap.sid',
       store: new IORedisSesionStore(),
       secret: config.SECURITY.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+      rolling: true,
       cookie: {
-        secure: false,
-        httpOnly: true,
+        secure: isProd ? config.SECURITY.COOKIE_SECURE : false,
+        httpOnly: config.SECURITY.COOKIE_HTTP_ONLY,
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        sameSite: 'lax',
+        path: '/',
       },
     }));
 
@@ -182,8 +207,13 @@ export class DashboardService {
    * Discord OAuth2 routes
    */
   private setupAuthRoutes(): void {
-    const REDIRECT_URI = `http://localhost:${this.port}/auth/discord/callback`;
+    const REDIRECT_URI = this.getOAuthRedirectUri();
     const SCOPES = 'identify';
+
+    logger.info('Discord OAuth redirect URI (cadastre no Discord Developer Portal)', {
+      redirectUri: REDIRECT_URI,
+      frontendUrl: this.getFrontendBase(),
+    });
 
     // Step 1 — redirect to Discord
     this.app.get('/auth/discord', (_req, res) => {
@@ -198,7 +228,8 @@ export class DashboardService {
     // Step 2 — Discord redirects back with code
     this.app.get('/auth/discord/callback', async (req: Request, res: Response) => {
       const { code } = req.query as { code?: string };
-      if (!code) return res.redirect('/?error=no_code');
+      const frontendBase = this.getFrontendBase();
+      if (!code) return res.redirect(`${frontendBase}/?error=no_code`);
 
       try {
         // Exchange code for access token
@@ -252,12 +283,12 @@ export class DashboardService {
           discordUser.id,
         ).catch(err => logger.warn('Guild sync failed on login', err));
 
-        const frontendBase = this.getFrontendBase();
+        await this.saveSession(req);
         res.redirect(`${frontendBase}/dashboard`);
 
       } catch (err) {
         logger.error('OAuth2 callback error:', err);
-        res.redirect('/?error=oauth_error');
+        res.redirect(`${frontendBase}/?error=oauth_error`);
       }
     });
 
@@ -525,10 +556,11 @@ export class DashboardService {
     // ── Destinations ───────────────────────────────────────────────────────
     r.get('/destinations', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
-        const sess = req.session as any;
-        const query: any = { isActive: true };
-        if (sess?.userId) query.clientId = sess.userId;
-        const destinations = await Destination.find(query).lean();
+        const auth = (req as DashboardRequest).auth!;
+        const destinations = await Destination.find({
+          clientId: auth.clientId,
+          isActive: true,
+        }).lean();
         res.json(destinations);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -539,13 +571,15 @@ export class DashboardService {
       try {
         const { type, identifier, name } = req.body;
         if (!type || !identifier || !name) return res.status(400).json({ error: 'type, identifier and name are required' });
-        const sess = req.session as any;
-        const user = sess?.userId
-          ? await User.findById(sess.userId).lean()
-          : await User.findOne().lean();
-        if (!user) return res.status(400).json({ error: 'No users registered' });
+        const auth = (req as DashboardRequest).auth!;
+        const user = await User.findById(auth.clientId);
+        if (!user) return res.status(400).json({ error: 'Usuário não encontrado' });
+        let normalizedId = String(identifier).trim();
+        if (type === 'contact' && !normalizedId.startsWith('+')) {
+          normalizedId = `+${normalizedId.replace(/\D/g, '')}`;
+        }
         const dest = await Destination.createDestination(
-          user._id as mongoose.Types.ObjectId, type, identifier, name, 'manual', '127.0.0.1'
+          user._id as mongoose.Types.ObjectId, type, normalizedId, name, 'manual', '127.0.0.1'
         );
         res.json(dest);
       } catch (e) {
@@ -824,29 +858,177 @@ export class DashboardService {
       }
     });
 
-    // ── Test Send ──────────────────────────────────────────────────────────
+    // ── Campanhas / Enviar agora ───────────────────────────────────────────
+    r.get('/campaigns', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const status = (req.query.status as string) || undefined;
+        const items = await MessageQueue.findByClientId(clientOid, status);
+        res.json(
+          items.map(m => ({
+            _id: m._id,
+            title: (m.content.variables as { title?: string })?.title ?? 'Envio',
+            message: m.content.text,
+            destinations: m.destinations,
+            status: m.status,
+            priority: m.priority,
+            scheduledFor: m.scheduledFor,
+            createdAt: m.createdAt,
+            processedAt: m.processedAt,
+            lastError: m.lastError,
+            delayBetweenMs: (m.content.variables as { delayBetweenMs?: number })?.delayBetweenMs,
+          })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/campaigns', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          title?: string;
+          message?: string;
+          destinationIds?: string[];
+          sendAt?: string | null;
+          priority?: CampaignPriority;
+          delayBetweenMs?: number;
+          requireConnected?: boolean;
+        };
+
+        if (!body.message?.trim()) {
+          return res.status(400).json({ error: 'A mensagem é obrigatória' });
+        }
+        if (!body.destinationIds?.length) {
+          return res.status(400).json({ error: 'Selecione ao menos um destino' });
+        }
+
+        const user = await User.findById(auth.clientId);
+        if (!user) return res.status(400).json({ error: 'Usuário não encontrado' });
+
+        if (!user.canSendMessage()) {
+          return res.status(429).json({
+            error: `Limite diário de mensagens atingido (${user.limits.messagesPerDay}).`,
+          });
+        }
+
+        const destDocs = await Destination.find({
+          _id: { $in: body.destinationIds },
+          clientId: user._id,
+          isActive: true,
+        });
+
+        if (destDocs.length !== body.destinationIds.length) {
+          return res.status(400).json({ error: 'Um ou mais destinos são inválidos ou inativos' });
+        }
+
+        let sendAt: Date | undefined;
+        if (body.sendAt) {
+          sendAt = new Date(body.sendAt);
+          if (Number.isNaN(sendAt.getTime())) {
+            return res.status(400).json({ error: 'Data/horário de agendamento inválido' });
+          }
+          if (sendAt <= new Date()) {
+            return res.status(400).json({ error: 'O agendamento deve ser no futuro' });
+          }
+        }
+
+        const wa = WhatsAppService.getInstance();
+        const isImmediate = !sendAt;
+        if (isImmediate && !wa.isClientConnected(auth.clientId)) {
+          return res.status(400).json({
+            error:
+              'WhatsApp não está conectado. Reconecte em Plataforma → Conexão WhatsApp antes de enviar agora.',
+          });
+        }
+
+        const dispatcher = CampaignDispatchService.getInstance();
+        const msg = await dispatcher.createCampaign({
+          clientId: auth.clientId,
+          title: body.title?.trim() || `Envio ${new Date().toLocaleString('pt-BR')}`,
+          message: body.message.trim(),
+          destinations: destDocs.map(d => ({
+            type: d.type as 'group' | 'contact',
+            identifier: d.identifier,
+            name: d.name,
+          })),
+          sendAt,
+          priority: body.priority,
+          delayBetweenMs: body.delayBetweenMs,
+          requireConnected: body.requireConnected,
+        });
+
+        const isScheduled = Boolean(sendAt && sendAt > new Date());
+
+        res.json({
+          ok: true,
+          id: msg._id,
+          status: msg.status,
+          scheduled: isScheduled,
+          message: isScheduled
+            ? `Agendado para ${sendAt!.toLocaleString('pt-BR')}`
+            : msg.status === 'sent'
+              ? `Enviado para ${destDocs.length} destino(s)`
+              : msg.lastError
+                ? `Falha: ${msg.lastError}`
+                : 'Processando envio…',
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/campaigns/:id', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const ok = await CampaignDispatchService.getInstance().cancelCampaign(
+          req.params.id,
+          auth.clientId,
+        );
+        if (!ok) return res.status(404).json({ error: 'Agendamento não encontrado ou já processado' });
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Test Send (legado — um destino) ────────────────────────────────────
     r.post('/test-send', requireCapability(Cap.SEND_TEST), async (req, res) => {
       try {
-        const { destination, message } = req.body;
-        if (!message) return res.status(400).json({ error: 'message is required' });
+        const auth = (req as DashboardRequest).auth!;
+        const { destination, message } = req.body as { destination?: string; message?: string };
+        if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
+        if (!destination?.trim()) {
+          return res.status(400).json({ error: 'Selecione um destino WhatsApp' });
+        }
 
-        // Find any active user to send from (first one found)
-        const user = await User.findOne().lean();
-        if (!user) return res.status(400).json({ error: 'No users registered' });
+        const user = await User.findById(auth.clientId);
+        if (!user) return res.status(400).json({ error: 'Usuário não encontrado' });
 
-        await this.queueManager.addJob(
-          'whatsapp-sending',
-          'send-test-message',
-          {
-            clientId:     (user._id as mongoose.Types.ObjectId).toString(),
-            message,
-            destination:  destination || null,
-            discordUserId: user.discordUserId,
-            channelId:    null,
-          },
-          { priority: 6, attempts: 3 }
-        );
-        res.json({ ok: true, message: 'Mensagem enfileirada com sucesso!' });
+        const clientId = auth.clientId;
+        const wa = WhatsAppService.getInstance();
+
+        if (!wa.isClientConnected(clientId)) {
+          return res.status(400).json({
+            error:
+              'WhatsApp não está conectado neste momento. Abra Plataforma → Conexão WhatsApp e escaneie o QR de novo (após reiniciar o servidor é necessário reconectar).',
+          });
+        }
+
+        const destDoc = await Destination.findByIdentifier(destination.trim(), user._id as mongoose.Types.ObjectId);
+        if (!destDoc) {
+          return res.status(400).json({ error: `Destino "${destination}" não encontrado na sua conta` });
+        }
+
+        await wa.sendTestMessageFromDashboard(clientId, destination.trim(), message.trim());
+
+        res.json({
+          ok: true,
+          message: `Mensagem enviada para ${destDoc.name}`,
+          destination: destDoc.name,
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

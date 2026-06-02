@@ -10,8 +10,16 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      '/api': 'http://localhost:3001',
-      '/auth': 'http://localhost:3001',
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        timeout: 120_000,
+      },
+      '/auth': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        timeout: 120_000,
+      },
       '/socket.io': {
         target: 'http://localhost:3001',
         ws: true,

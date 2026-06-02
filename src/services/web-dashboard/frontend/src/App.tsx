@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
@@ -8,8 +8,13 @@ import Rules from './pages/Rules'
 import Templates from './pages/Templates'
 import Queue from './pages/Queue'
 import Logs from './pages/Logs'
-import TestSend from './pages/TestSend'
+import SendNow from './pages/SendNow'
+import SendSchedules from './pages/SendSchedules'
+import SendHistory from './pages/SendHistory'
 import Destinations from './pages/Destinations'
+import WhatsAppGroups from './pages/WhatsAppGroups'
+import DestinationsHistory from './pages/DestinationsHistory'
+import DiscordSettings from './pages/DiscordSettings'
 import Channels from './pages/Channels'
 import Plans from './pages/Plans'
 import Settings from './pages/Settings'
@@ -25,6 +30,19 @@ function Guard({ user, path, children }: { user: AuthUser; path: string; childre
   return <ProtectedRoute user={user} path={path}>{children}</ProtectedRoute>
 }
 
+/** Links antigos /test-send e /send#agendados */
+function LegacySendRedirect() {
+  const { hash } = useLocation()
+  if (hash === '#agendados') return <Navigate to="/send/agendamentos" replace />
+  return <Navigate to="/send" replace />
+}
+
+function SendPage() {
+  const { hash } = useLocation()
+  if (hash === '#agendados') return <Navigate to="/send/agendamentos" replace />
+  return <SendNow />
+}
+
 export default function App() {
   const [user, setUser]       = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -33,6 +51,12 @@ export default function App() {
 
   useEffect(() => {
     getMe().then(u => { setUser(u); setLoading(false) })
+  }, [])
+
+  useEffect(() => {
+    const onFocus = () => getMe().then(u => u && setUser(u))
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   if (loading) {
@@ -57,13 +81,32 @@ export default function App() {
           {/* Cliente */}
           <Route path="dashboard" element={<Guard user={user} path="/dashboard"><Dashboard /></Guard>} />
           <Route path="sessions" element={<Guard user={user} path="/sessions"><Sessions /></Guard>} />
-          <Route path="channels" element={<Guard user={user} path="/channels"><Channels /></Guard>} />
           <Route path="destinations" element={<Guard user={user} path="/destinations"><Destinations /></Guard>} />
-          <Route path="rules" element={<Guard user={user} path="/rules"><Rules /></Guard>} />
-          <Route path="templates" element={<Guard user={user} path="/templates"><Templates /></Guard>} />
-          <Route path="queue" element={<Guard user={user} path="/queue"><Queue /></Guard>} />
-          <Route path="logs" element={<Guard user={user} path="/logs"><Logs /></Guard>} />
-          <Route path="test-send" element={<Guard user={user} path="/test-send"><TestSend /></Guard>} />
+          <Route path="grupos" element={<Guard user={user} path="/grupos"><WhatsAppGroups /></Guard>} />
+
+          {/* Discord — automação */}
+          <Route path="discord/channels" element={<Guard user={user} path="/discord/channels"><Channels /></Guard>} />
+          <Route path="discord/rules" element={<Guard user={user} path="/discord/rules"><Rules /></Guard>} />
+          <Route path="discord/templates" element={<Guard user={user} path="/discord/templates"><Templates /></Guard>} />
+          <Route path="discord/grupos" element={<Guard user={user} path="/discord/grupos"><WhatsAppGroups /></Guard>} />
+          <Route path="discord/destinations/historico" element={<Guard user={user} path="/discord/destinations/historico"><DestinationsHistory /></Guard>} />
+          <Route path="discord/destinations" element={<Guard user={user} path="/discord/destinations"><Destinations /></Guard>} />
+          <Route path="discord/destinations/novo" element={<Navigate to="/discord/destinations" replace />} />
+          <Route path="discord/destinations/contatos" element={<Navigate to="/discord/destinations" replace />} />
+          <Route path="discord/fila" element={<Guard user={user} path="/discord/fila"><Queue scope="discord" /></Guard>} />
+          <Route path="discord/logs" element={<Guard user={user} path="/discord/logs"><Logs scope="discord" /></Guard>} />
+          <Route path="discord/settings" element={<Guard user={user} path="/discord/settings"><DiscordSettings user={user} /></Guard>} />
+
+          {/* Legado → Discord */}
+          <Route path="channels" element={<Navigate to="/discord/channels" replace />} />
+          <Route path="rules" element={<Navigate to="/discord/rules" replace />} />
+          <Route path="templates" element={<Navigate to="/discord/templates" replace />} />
+          <Route path="queue" element={<Navigate to="/discord/fila" replace />} />
+          <Route path="logs" element={<Navigate to="/discord/logs" replace />} />
+          <Route path="send/agendamentos" element={<Guard user={user} path="/send/agendamentos"><SendSchedules /></Guard>} />
+          <Route path="send/historico" element={<Guard user={user} path="/send/historico"><SendHistory /></Guard>} />
+          <Route path="send" element={<Guard user={user} path="/send"><SendPage /></Guard>} />
+          <Route path="test-send" element={<LegacySendRedirect />} />
           <Route path="plans" element={<Guard user={user} path="/plans"><Plans user={user} /></Guard>} />
           <Route path="settings" element={<Guard user={user} path="/settings"><Settings user={user} /></Guard>} />
 

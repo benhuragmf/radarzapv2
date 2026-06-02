@@ -20,9 +20,11 @@ const corsOptions: cors.CorsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:5174',
+      config.DASHBOARD.FRONTEND_URL,
       'https://discord-whatsapp-bot.vercel.app',
       'https://radar-zap.web.app',
-      config.CORS_ORIGIN || 'http://localhost:3001'
+      config.CORS_ORIGIN || 'http://localhost:3001',
     ].filter(Boolean);
 
     // Check if origin is allowed

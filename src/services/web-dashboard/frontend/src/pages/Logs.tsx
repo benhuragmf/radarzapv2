@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { ScrollText, ChevronDown, ChevronRight } from 'lucide-react'
+import { DiscordPage } from '../components/discord/DiscordPage'
+import { DISCORD_LOG_SERVICES } from '../lib/discordRoutes'
 
 interface Log {
   _id: string
@@ -23,9 +26,16 @@ const levelVariant = {
   debug: 'gray',
 } as const
 
-export default function Logs() {
+interface Props {
+  scope?: 'all' | 'discord'
+}
+
+export default function Logs({ scope = 'all' }: Props) {
+  const { hash } = useLocation()
+  const isDiscord = scope === 'discord'
+  const isHistoryView = hash === '#historico'
   const [level, setLevel]     = useState('')
-  const [service, setService] = useState('')
+  const [service, setService] = useState(isDiscord ? 'QueueProcessorService' : '')
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const { data: logs = [], isLoading } = useQuery<Log[]>({
@@ -39,10 +49,32 @@ export default function Logs() {
     refetchInterval: 15_000,
   })
 
-  return (
+  const body = (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex gap-3">
+      {isHistoryView && !isDiscord && (
+        <p className="text-sm text-gray-400">
+          Histórico de envios manuais e agendados.
+        </p>
+      )}
+      {isDiscord && (
+        <div className="flex flex-wrap gap-2">
+          {DISCORD_LOG_SERVICES.map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setService(service === s ? '' : s)}
+              className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+                service === s
+                  ? 'border-brand-500 bg-brand-600/20 text-brand-300'
+                  : 'border-gray-700 text-gray-500 hover:border-gray-600'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-3">
         <select
           value={level}
           onChange={e => setLevel(e.target.value)}
@@ -109,4 +141,14 @@ export default function Logs() {
       </div>
     </div>
   )
+
+  if (isDiscord) {
+    return (
+      <DiscordPage description="Logs de processamento das regras e do bot Discord.">
+        {body}
+      </DiscordPage>
+    )
+  }
+
+  return body
 }

@@ -40,7 +40,7 @@ export function cacheStatusToState(
   status?: string,
   hasSocket?: boolean,
 ): WaConnectionState {
-  if (hasSocket || status === 'connected') return 'open';
+  if (hasSocket) return 'open';
   if (status === 'connecting' || status === 'qr-required') return 'connecting';
   return 'close';
 }

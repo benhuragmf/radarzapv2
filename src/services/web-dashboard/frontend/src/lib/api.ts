@@ -7,8 +7,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   })
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(err || `HTTP ${res.status}`)
+    const body = await res.text()
+    let message = body || `HTTP ${res.status}`
+    if (res.status === 502) {
+      message =
+        'Servidor indisponível ou tempo esgotado. Confira se `npm run dev` está rodando e reconecte o WhatsApp em Conexão.'
+    } else {
+      try {
+        const parsed = JSON.parse(body) as { error?: string; message?: string }
+        message = parsed.error ?? parsed.message ?? message
+      } catch {
+        /* corpo não é JSON */
+      }
+    }
+    throw new Error(message)
   }
   return res.json()
 }

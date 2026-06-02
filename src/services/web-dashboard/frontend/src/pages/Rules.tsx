@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useGuild } from '../lib/guildContext'
@@ -6,7 +7,8 @@ import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { BookOpen, ToggleLeft, ToggleRight, Trash2, Plus, Pencil, X, Check } from 'lucide-react'
+import { BookOpen, ToggleLeft, ToggleRight, Trash2, Plus, Pencil, X, Check, Hash } from 'lucide-react'
+import { DiscordPage } from '../components/discord/DiscordPage'
 
 interface Rule {
   _id: string
@@ -233,7 +235,7 @@ function RuleFormPanel({
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Rules() {
   const qc = useQueryClient()
-  const { guildId } = useGuild()
+  const { guildId, guildName } = useGuild()
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -303,17 +305,42 @@ export default function Rules() {
 
   if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
 
+  const activeRules = rules.filter(r => r.isActive).length
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-400">{rules.length} regra(s) configurada(s)</p>
-        {!creating && (
+    <DiscordPage
+      description="Quando uma mensagem chega em um canal monitorado, as regras definem template, destinos e prioridade do envio ao WhatsApp."
+      actions={
+        !creating ? (
           <Button size="sm" onClick={() => { setCreating(true); setEditingId(null) }}>
-            <Plus size={12} /> Nova Regra
+            <Plus size={12} /> Nova regra
           </Button>
-        )}
+        ) : undefined
+      }
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Card className="p-3">
+          <p className="text-xs text-gray-500">Regras</p>
+          <p className="text-xl font-bold">{rules.length}</p>
+        </Card>
+        <Card className="p-3">
+          <p className="text-xs text-gray-500">Ativas</p>
+          <p className="text-xl font-bold text-brand-400">{activeRules}</p>
+        </Card>
+        <Card className="p-3">
+          <p className="text-xs text-gray-500">Canais cadastrados</p>
+          <p className="text-xl font-bold">{channels.length}</p>
+        </Card>
       </div>
+
+      {!guildId && (
+        <p className="text-xs text-amber-500/90 flex items-center gap-1.5">
+          <Hash size={12} /> Selecione o servidor Discord na barra lateral para filtrar regras por guild.
+        </p>
+      )}
+      {guildName && (
+        <p className="text-xs text-gray-500">Exibindo regras do contexto · {guildName}</p>
+      )}
 
       {/* Create form */}
       {creating && (
@@ -425,6 +452,6 @@ export default function Rules() {
           )}
         </Card>
       ))}
-    </div>
+    </DiscordPage>
   )
 }

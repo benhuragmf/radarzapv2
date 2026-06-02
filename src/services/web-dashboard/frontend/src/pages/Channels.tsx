@@ -6,7 +6,10 @@ import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { Hash, Plus, Trash2, ToggleLeft, ToggleRight, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Hash, Plus, Trash2, ToggleLeft, ToggleRight, ChevronRight, BookOpen } from 'lucide-react'
+import { DiscordPage } from '../components/discord/DiscordPage'
+import { CardTitle, CardValue } from '../components/ui/Card'
 
 interface Channel {
   _id: string
@@ -86,13 +89,34 @@ export default function Channels() {
   const alreadyAdded = (channelId: string) =>
     channels.some(c => c.channelId === channelId)
 
+  const activeCount = channels.filter(c => c.isActive).length
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-400">{channels.length} canal(is) monitorado(s)</p>
+    <DiscordPage
+      description="Monitore canais do Discord selecionado. Novas mensagens nos canais ativos disparam as regras configuradas."
+      actions={
         <Button size="sm" onClick={() => { setShowForm(v => !v); setStep('guild') }}>
-          <Plus size={12} /> Adicionar Canal
+          <Plus size={12} /> Adicionar canal
         </Button>
+      }
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Card>
+          <CardTitle>Monitorados</CardTitle>
+          <CardValue>{channels.length}</CardValue>
+        </Card>
+        <Card>
+          <CardTitle>Ativos</CardTitle>
+          <CardValue>{activeCount}</CardValue>
+        </Card>
+        <Card className="col-span-2 sm:col-span-1 flex items-center">
+          <Link
+            to="/discord/rules"
+            className="text-xs text-brand-400 hover:underline flex items-center gap-1"
+          >
+            <BookOpen size={12} /> Configurar regras
+          </Link>
+        </Card>
       </div>
 
       {/* ── Picker form ── */}
@@ -104,7 +128,7 @@ export default function Channels() {
               onClick={() => { setStep('guild'); setSelectedChannel(null) }}
               className={step === 'guild' ? 'text-brand-400 font-medium' : 'hover:text-white'}
             >
-              Servidor
+              Discord
             </button>
             {selectedGuild && (
               <>
@@ -203,9 +227,10 @@ export default function Channels() {
       {!isLoading && channels.length === 0 && !showForm && (
         <Card className="text-center py-12 text-gray-500">
           <Hash size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="mb-3">Nenhum canal monitorado.</p>
+          <p className="font-medium text-gray-400">Nenhum canal monitorado</p>
+          <p className="text-sm mt-1 mb-4">Adicione canais de texto para iniciar a automação.</p>
           <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus size={12} /> Adicionar Canal
+            <Plus size={12} /> Adicionar canal
           </Button>
         </Card>
       )}
@@ -258,6 +283,6 @@ export default function Channels() {
           </Card>
         ))}
       </div>
-    </div>
+    </DiscordPage>
   )
 }

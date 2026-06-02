@@ -2,20 +2,8 @@ import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { logout, type AuthUser } from '../../lib/auth'
+import { pageTitleFor } from '../../lib/navConfig'
 import { Wifi, WifiOff, LogOut } from 'lucide-react'
-
-const titles: Record<string, string> = {
-  '/dashboard':    'Dashboard',
-  '/sessions':     'Sessões WhatsApp',
-  '/channels':     'Canais Discord',
-  '/destinations': 'Destinos',
-  '/rules':        'Regras',
-  '/templates':    'Templates',
-  '/queue':        'Fila de Mensagens',
-  '/logs':         'Logs',
-  '/test-send':    'Teste de Envio',
-  '/plans':        'Planos',
-}
 
 interface Props {
   user: AuthUser
@@ -23,8 +11,8 @@ interface Props {
 }
 
 export default function Header({ user, onLogout }: Props) {
-  const { pathname } = useLocation()
-  const title = titles[pathname] ?? 'RadarZap'
+  const { pathname, hash } = useLocation()
+  const title = pageTitleFor(pathname, hash)
 
   const { data } = useQuery({
     queryKey: ['health'],

@@ -17,6 +17,12 @@ export interface AppConfig {
   
   // CORS Configuration
   CORS_ORIGIN: string;
+
+  /** Painel web (OAuth redirect + cookies devem usar a mesma origem do browser) */
+  DASHBOARD: {
+    PORT: number;
+    FRONTEND_URL: string;
+  };
   
   // Discord Configuration
   DISCORD: {
@@ -155,6 +161,12 @@ export const config: AppConfig = {
   
   // CORS Configuration
   CORS_ORIGIN: getOptional('CORS_ORIGIN', 'http://localhost:3001'),
+
+  DASHBOARD: {
+    PORT: parseNumber(process.env.DASHBOARD_PORT, 3001),
+    /** URL que o usuário abre no browser (5174 = Vite dev; 3001 = só npm run dev) */
+    FRONTEND_URL: getOptional('FRONTEND_URL', 'http://localhost:5174').replace(/\/$/, ''),
+  },
   
   // Discord Configuration
   DISCORD: {

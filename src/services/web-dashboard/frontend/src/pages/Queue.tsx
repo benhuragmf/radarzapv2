@@ -5,6 +5,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { RefreshCw, ListOrdered, ExternalLink } from 'lucide-react'
+import { DiscordPage } from '../components/discord/DiscordPage'
 
 interface QueueStats {
   name: string
@@ -23,8 +24,14 @@ interface FailedJob {
   data: Record<string, unknown>
 }
 
-export default function Queue() {
+interface Props {
+  /** Filas só da automação Discord */
+  scope?: 'all' | 'discord'
+}
+
+export default function Queue({ scope = 'all' }: Props) {
   const qc = useQueryClient()
+  const isDiscord = scope === 'discord'
 
   const { data: queues = [], isLoading } = useQuery<QueueStats[]>({
     queryKey: ['queue'],
@@ -46,12 +53,22 @@ export default function Queue() {
     },
   })
 
+  const filtered = isDiscord
+    ? queues.filter(q =>
+        ['message-processing', 'discord-notifications'].includes(q.name),
+      )
+    : queues
+
   if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
 
-  return (
+  const content = (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-400">Monitoramento das filas BullMQ em tempo real.</p>
+        <p className="text-sm text-gray-400">
+          {isDiscord
+            ? 'Filas da automação Discord → WhatsApp (processamento e notificações).'
+            : 'Monitoramento das filas BullMQ em tempo real.'}
+        </p>
         <a
           href="/api/admin/queues"
           target="_blank"
@@ -65,7 +82,7 @@ export default function Queue() {
 
       {/* Queue stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {queues.map((q) => (
+        {filtered.map((q) => (
           <Card key={q.name}>
             <div className="flex items-center gap-2 mb-3">
               <ListOrdered size={14} className="text-gray-500" />
@@ -116,6 +133,22 @@ export default function Queue() {
           </div>
         </div>
       )}
+
+      {filtered.length === 0 && (
+        <Card className="text-center py-10 text-gray-500 text-sm">
+          Nenhuma fila Discord ativa no momento.
+        </Card>
+      )}
     </div>
   )
+
+  if (isDiscord) {
+    return (
+      <DiscordPage description="Acompanhe o processamento das mensagens vindas do Discord.">
+        {content}
+      </DiscordPage>
+    )
+  }
+
+  return content
 }
