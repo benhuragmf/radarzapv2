@@ -21,6 +21,14 @@ import { RedisManager } from '@/cache/RedisManager';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
+import {
+  WaConnectionState,
+  WaInstanceState,
+  WaQrCodePayload,
+  WaSessionEvent,
+  cacheStatusToState,
+  delay,
+} from './waSessionEvents';
 
 /** Redis cache TTL for live WA state (QR, connected) — 7 days */
 const WA_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
@@ -37,6 +45,8 @@ export class WhatsAppService {
   private sessionStates: Map<string, any> = new Map();
   private sessionIntervals: Map<string, NodeJS.Timeout> = new Map();
   private pendingConnections: Map<string, { discordUserId: string; channelId: string; qrMessageId?: string }> = new Map();
+  private qrCounts: Map<string, number> = new Map();
+  private connectingClients: Set<string> = new Set();
   private serviceLogger = createServiceLogger('WhatsAppService');
   private sessionCache: SessionCache;
   private queueManager: QueueManager;
@@ -69,12 +79,17 @@ export class WhatsAppService {
     }
   }
 
-  /** Push session state to Redis cache + dashboard via pub/sub */
+  /** Push session state to Redis cache + dashboard via pub/sub (Evolution-style events) */
   private async notifySessionUpdate(
     clientId: string,
     data: {
       status: 'connecting' | 'connected' | 'disconnected' | 'qr-required';
       qrCode?: string;
+      qrCodeRaw?: string;
+      qrCount?: number;
+      statusReason?: number;
+      wuid?: string;
+      profileName?: string;
       deviceInfo?: { platform: string; browser: string; version: string };
       lastActivity?: Date;
     },
@@ -84,10 +99,52 @@ export class WhatsAppService {
       lastActivity: data.lastActivity ?? new Date(),
     }, WA_CACHE_TTL_SEC);
 
+    const state = cacheStatusToState(data.status, data.status === 'connected');
+    const now = (data.lastActivity ?? new Date()).toISOString();
+
+    const events: WaSessionEvent[] = [];
+    if (data.qrCode) {
+      events.push({
+        event: 'QRCODE_UPDATED',
+        clientId,
+        data: {
+          qrcode: {
+            base64: data.qrCode,
+            code: data.qrCodeRaw ?? '',
+            count: data.qrCount ?? 1,
+          },
+        },
+        date_time: now,
+      });
+    }
+    events.push({
+      event: 'CONNECTION_UPDATE',
+      clientId,
+      data: {
+        state,
+        statusReason: data.statusReason,
+        wuid: data.wuid,
+        profileName: data.profileName,
+      },
+      date_time: now,
+    });
+
     try {
-      await RedisManager.getInstance().publish(
+      const redis = RedisManager.getInstance();
+      for (const ev of events) {
+        await redis.publish(WA_SESSION_CHANNEL, JSON.stringify(ev));
+      }
+      // Compat legado para o dashboard
+      await redis.publish(
         WA_SESSION_CHANNEL,
-        JSON.stringify({ clientId, ...data, lastActivity: (data.lastActivity ?? new Date()).toISOString() }),
+        JSON.stringify({
+          clientId,
+          status: data.status,
+          qrCode: data.qrCode,
+          qrCount: data.qrCount,
+          statusReason: data.statusReason,
+          lastActivity: now,
+        }),
       );
     } catch {
       // pub/sub optional — dashboard still polls /sessions
@@ -110,6 +167,141 @@ export class WhatsAppService {
       WhatsAppService.instance = new WhatsAppService();
     }
     return WhatsAppService.instance;
+  }
+
+  /** Evolution API: GET /instance/connectionState/:instanceName */
+  async getConnectionState(clientId: string): Promise<{ instance: WaInstanceState }> {
+    const socket = this.sessions.get(clientId);
+    if (socket?.user) {
+      const wuid = socket.user.id;
+      return {
+        instance: {
+          clientId,
+          state: 'open',
+          statusReason: 200,
+          wuid,
+          profileName: socket.user.name ?? undefined,
+        },
+      };
+    }
+
+    const cached = await this.sessionCache.getWhatsAppSession(clientId);
+    const state = cacheStatusToState(cached?.status, false);
+    return {
+      instance: {
+        clientId,
+        state,
+        statusReason: cached?.statusReason,
+        wuid: cached?.wuid,
+        profileName: cached?.profileName,
+      },
+    };
+  }
+
+  /** Evolution API: QR getter */
+  async getInstanceQrCode(clientId: string): Promise<{ qrcode?: WaQrCodePayload }> {
+    const cached = await this.sessionCache.getWhatsAppSession(clientId);
+    if (!cached?.qrCode) return {};
+    return {
+      qrcode: {
+        base64: cached.qrCode,
+        code: cached.qrCodeRaw ?? '',
+        count: cached.qrCount ?? this.qrCounts.get(clientId) ?? 1,
+      },
+    };
+  }
+
+  /** Evolution API: connect idempotente — retorna estado + QR sem bloquear até open */
+  async connectInstance(
+    clientId: string,
+    options?: { discordUserId?: string; channelId?: string },
+  ): Promise<{ instance: WaInstanceState; qrcode?: WaQrCodePayload }> {
+    const current = await this.getConnectionState(clientId);
+    if (current.instance.state === 'open') {
+      return { instance: current.instance };
+    }
+
+    const cachedQr = await this.getInstanceQrCode(clientId);
+    if (cachedQr.qrcode && current.instance.state === 'connecting') {
+      return { instance: current.instance, qrcode: cachedQr.qrcode };
+    }
+
+    if (!this.sessions.has(clientId) && !this.connectingClients.has(clientId)) {
+      this.pendingConnections.set(clientId, {
+        discordUserId: options?.discordUserId ?? '',
+        channelId: options?.channelId ?? '',
+      });
+      this.connectingClients.add(clientId);
+      await this.notifySessionUpdate(clientId, { status: 'connecting', statusReason: 200 });
+      this.createWhatsAppSession(clientId)
+        .then(() => this.connectingClients.delete(clientId))
+        .catch((err) => {
+          this.connectingClients.delete(clientId);
+          this.pendingConnections.delete(clientId);
+          this.serviceLogger.error(`Background connect failed for ${clientId}: ${err.message}`);
+        });
+    }
+
+    const waitMs = config.WHATSAPP.CONNECT_QR_WAIT_MS;
+    const steps = Math.ceil(waitMs / 500);
+    for (let i = 0; i < steps; i++) {
+      await delay(500);
+      const state = await this.getConnectionState(clientId);
+      if (state.instance.state === 'open') {
+        return { instance: state.instance };
+      }
+      const qr = await this.getInstanceQrCode(clientId);
+      if (qr.qrcode) {
+        return { instance: state.instance, qrcode: qr.qrcode };
+      }
+    }
+
+    const finalState = await this.getConnectionState(clientId);
+    const finalQr = await this.getInstanceQrCode(clientId);
+    return {
+      instance: finalState.instance,
+      qrcode: finalQr.qrcode,
+    };
+  }
+
+  /** Evolution API: DELETE /instance/logout — limpa credenciais WhatsApp */
+  async logoutInstance(clientId: string): Promise<{ success: boolean; message: string }> {
+    await this.disconnectSession(clientId);
+    return { success: true, message: 'Logged out successfully' };
+  }
+
+  /** Evolution API: disconnect temporário — fecha socket, mantém credenciais */
+  async temporaryDisconnect(clientId: string): Promise<{ success: boolean; message: string }> {
+    const socket = this.sessions.get(clientId);
+    if (socket) {
+      socket.end(undefined);
+      this.sessions.delete(clientId);
+      this.sessionStates.delete(clientId);
+    }
+
+    const interval = this.sessionIntervals.get(clientId);
+    if (interval) {
+      clearInterval(interval);
+      this.sessionIntervals.delete(clientId);
+    }
+
+    this.connectingClients.delete(clientId);
+    this.pendingConnections.delete(clientId);
+
+    await this.notifySessionUpdate(clientId, {
+      status: 'disconnected',
+      statusReason: 200,
+      lastActivity: new Date(),
+    });
+
+    return { success: true, message: 'Disconnected temporarily' };
+  }
+
+  /** Evolution API: POST /instance/restart */
+  async restartInstance(clientId: string): Promise<{ success: boolean; message: string }> {
+    await this.temporaryDisconnect(clientId);
+    await this.connectInstance(clientId);
+    return { success: true, message: 'Restart initiated' };
   }
 
   /**
@@ -209,7 +401,11 @@ export class WhatsAppService {
           case 'connect-whatsapp':
             return await this.handleConnectWhatsApp(data);
           case 'disconnect-whatsapp':
-            return await this.handleDisconnectWhatsApp(data);
+            return await this.handleTemporaryDisconnect(data);
+          case 'logout-whatsapp':
+            return await this.handleLogoutWhatsApp(data);
+          case 'restart-whatsapp':
+            return await this.handleRestartWhatsApp(data);
           case 'list-groups': {
             const { clientId, resultKey } = data;
             const groups = await this.listGroups(clientId);
@@ -314,7 +510,7 @@ export class WhatsAppService {
   }
 
   /**
-   * Handle WhatsApp connection request
+   * Handle WhatsApp connection request (non-blocking — retorna após QR ou timeout curto)
    */
   private async handleConnectWhatsApp(data: any): Promise<any> {
     const { clientId, discordUserId, channelId } = data;
@@ -322,53 +518,61 @@ export class WhatsAppService {
     try {
       this.serviceLogger.info(`Connecting WhatsApp for client: ${clientId}`);
 
-      // Check if session already exists
       if (this.sessions.has(clientId)) {
-        return { success: true, message: 'Already connected' };
+        const state = await this.getConnectionState(clientId);
+        return { success: true, message: 'Already connected', ...state };
       }
 
-      // Register pending connection (Discord channel optional — web dashboard uses cache only)
-      this.pendingConnections.set(clientId, {
-        discordUserId: discordUserId ?? '',
-        channelId: channelId ?? '',
-      });
-
-      await this.notifySessionUpdate(clientId, { status: 'connecting' });
-
-      // Create new WhatsApp session (QR is sent inside as soon as it's ready)
-      const result = await this.createWhatsAppSession(clientId);
+      const result = await this.connectInstance(clientId, { discordUserId, channelId });
 
       return {
         success: true,
-        message: result.connected ? 'Connected successfully' : 'QR code sent'
+        message: result.instance.state === 'open' ? 'Connected successfully' : 'QR code sent',
+        instance: result.instance,
+        qrcode: result.qrcode,
       };
 
     } catch (error) {
       this.pendingConnections.delete(clientId);
+      this.connectingClients.delete(clientId);
       this.serviceLogger.error(`Failed to connect WhatsApp for client ${clientId}: ${(error as Error).message}`, { stack: (error as Error).stack });
       this.circuitBreaker.recordFailure();
       throw error;
     }
   }
 
-  /**
-   * Handle WhatsApp disconnection request
-   */
-  private async handleDisconnectWhatsApp(data: any): Promise<any> {
+  /** Disconnect temporário (mantém credenciais para reconectar) */
+  private async handleTemporaryDisconnect(data: any): Promise<any> {
     const { clientId } = data;
-
     try {
-      this.serviceLogger.info(`Disconnecting WhatsApp for client: ${clientId}`);
-
-      await this.disconnectSession(clientId);
-
-      return {
-        success: true,
-        message: 'Disconnected successfully'
-      };
-
+      this.serviceLogger.info(`Temporary disconnect WhatsApp for client: ${clientId}`);
+      return await this.temporaryDisconnect(clientId);
     } catch (error) {
       this.serviceLogger.error(`Failed to disconnect WhatsApp for client ${clientId}:`, error);
+      throw error;
+    }
+  }
+
+  /** Logout completo (limpa credenciais) */
+  private async handleLogoutWhatsApp(data: any): Promise<any> {
+    const { clientId } = data;
+    try {
+      this.serviceLogger.info(`Logging out WhatsApp for client: ${clientId}`);
+      return await this.logoutInstance(clientId);
+    } catch (error) {
+      this.serviceLogger.error(`Failed to logout WhatsApp for client ${clientId}:`, error);
+      throw error;
+    }
+  }
+
+  /** Reinicia conexão sem apagar sessão */
+  private async handleRestartWhatsApp(data: any): Promise<any> {
+    const { clientId } = data;
+    try {
+      this.serviceLogger.info(`Restarting WhatsApp for client: ${clientId}`);
+      return await this.restartInstance(clientId);
+    } catch (error) {
+      this.serviceLogger.error(`Failed to restart WhatsApp for client ${clientId}:`, error);
       throw error;
     }
   }
@@ -416,12 +620,35 @@ export class WhatsAppService {
 
         if (qr && !resolved) {
           try {
+            const count = (this.qrCounts.get(clientId) ?? 0) + 1;
+            this.qrCounts.set(clientId, count);
+
+            if (count > config.WHATSAPP.QRCODE_LIMIT) {
+              this.serviceLogger.warn(`QR limit (${config.WHATSAPP.QRCODE_LIMIT}) reached for client: ${clientId}`);
+              await this.notifySessionUpdate(clientId, {
+                status: 'disconnected',
+                statusReason: 408,
+              });
+              this.connectingClients.delete(clientId);
+              this.pendingConnections.delete(clientId);
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(timeout);
+                socket.end(undefined);
+                reject(new Error('QR code limit reached'));
+              }
+              return;
+            }
+
             qrCode = await QRCode.toDataURL(qr);
-            this.serviceLogger.info(`QR code generated for client: ${clientId}`);
+            this.serviceLogger.info(`QR code #${count} generated for client: ${clientId}`);
 
             await this.notifySessionUpdate(clientId, {
               status: 'qr-required',
               qrCode,
+              qrCodeRaw: qr,
+              qrCount: count,
+              statusReason: 200,
             });
 
             const pending = this.pendingConnections.get(clientId);
@@ -485,12 +712,18 @@ export class WhatsAppService {
             // Update cache + dashboard
             await this.notifySessionUpdate(clientId, {
               status: 'connected',
+              statusReason: 200,
+              wuid: socket.user?.id,
+              profileName: socket.user?.name ?? undefined,
               deviceInfo: {
                 platform: 'web',
                 browser: 'chrome',
                 version: '1.0.0',
               },
             });
+
+            this.qrCounts.delete(clientId);
+            this.connectingClients.delete(clientId);
 
             this.serviceLogger.info(`WhatsApp connected successfully for client: ${clientId}`);
             this.circuitBreaker.recordSuccess();
@@ -581,10 +814,11 @@ export class WhatsAppService {
       this.sessionStates.delete(clientId);
 
       // Update cache
-      await this.sessionCache.setWhatsAppSession(clientId, {
+      await this.notifySessionUpdate(clientId, {
         status: 'disconnected',
+        statusReason: 401,
         lastActivity: new Date(),
-      }, WA_CACHE_TTL_SEC);
+      });
 
       // Update database
       const sessionDoc = await WhatsAppSession.findOne({ clientId });
@@ -900,6 +1134,8 @@ export class WhatsAppService {
 
     // Update cache
     await this.sessionCache.deleteSession(`whatsapp:${clientId}`);
+    this.qrCounts.delete(clientId);
+    this.connectingClients.delete(clientId);
 
     // Update database
     const sessionDoc = await WhatsAppSession.findOne({ clientId });

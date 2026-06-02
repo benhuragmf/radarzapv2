@@ -213,6 +213,11 @@ export class SessionCache {
     sessionData: {
       status: 'connecting' | 'connected' | 'disconnected' | 'qr-required';
       qrCode?: string;
+      qrCodeRaw?: string;
+      qrCount?: number;
+      statusReason?: number;
+      wuid?: string;
+      profileName?: string;
       deviceInfo?: any;
       lastActivity?: Date;
       connectionAttempts?: number;

@@ -62,6 +62,10 @@ export interface AppConfig {
     RECONNECT_ATTEMPTS: number;
     HEADLESS: boolean;
     RATE_LIMIT_MESSAGES_PER_MINUTE: number;
+    /** Máximo de QR codes antes de abortar (Evolution QRCODE.LIMIT) */
+    QRCODE_LIMIT: number;
+    /** Tempo máximo aguardando QR na API connect (ms) */
+    CONNECT_QR_WAIT_MS: number;
   };
   
   // Security Configuration
@@ -204,7 +208,9 @@ export const config: AppConfig = {
     SESSION_TIMEOUT: parseNumber(process.env.WHATSAPP_SESSION_TIMEOUT, 30 * 24 * 60 * 60 * 1000), // 30 days
     RECONNECT_ATTEMPTS: parseNumber(process.env.WHATSAPP_RECONNECT_ATTEMPTS, 3),
     HEADLESS: parseBoolean(process.env.WHATSAPP_HEADLESS, true),
-    RATE_LIMIT_MESSAGES_PER_MINUTE: parseNumber(process.env.WHATSAPP_RATE_LIMIT, 20)
+    RATE_LIMIT_MESSAGES_PER_MINUTE: parseNumber(process.env.WHATSAPP_RATE_LIMIT, 20),
+    QRCODE_LIMIT: parseNumber(process.env.WHATSAPP_QRCODE_LIMIT, 6),
+    CONNECT_QR_WAIT_MS: parseNumber(process.env.WHATSAPP_CONNECT_QR_WAIT_MS, 5000),
   },
   
   // Security Configuration

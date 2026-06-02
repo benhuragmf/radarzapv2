@@ -24,6 +24,8 @@ import { Template } from '../../models/Template';
 import { config } from '../../config/environment';
 import mongoose from 'mongoose';
 import { mountBullBoard } from '../monitoring/bullBoard';
+import { WhatsAppService } from '../whatsapp/WhatsAppService';
+import { cacheStatusToState } from '../whatsapp/waSessionEvents';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -289,7 +291,7 @@ export class DashboardService {
       }
     });
 
-    /** Iniciar conexão WhatsApp (gera QR no painel) para o usuário logado ou primeiro usuário */
+    /** Iniciar conexão WhatsApp (Evolution-style — retorna estado + QR) */
     r.post('/sessions/connect', async (req, res) => {
       try {
         const sess = req.session as any;
@@ -303,13 +305,30 @@ export class DashboardService {
         }
 
         const clientId = (user._id as mongoose.Types.ObjectId).toString();
-        await this.queueManager.addJob(
-          'whatsapp-connection',
-          'connect-whatsapp',
-          { clientId },
-          { priority: 8 },
-        );
-        res.json({ ok: true, clientId });
+        const wa = WhatsAppService.getInstance();
+        const result = await wa.connectInstance(clientId);
+        res.json({ ok: true, clientId, ...result });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    /** Evolution: GET /instance/connectionState/:instanceName */
+    r.get('/sessions/:id/connectionState', async (req, res) => {
+      try {
+        const wa = WhatsAppService.getInstance();
+        res.json(await wa.getConnectionState(req.params.id));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    /** Evolution: GET /instance/connect/:instanceName — connect + QR síncrono */
+    r.get('/sessions/:id/connect', async (req, res) => {
+      try {
+        const wa = WhatsAppService.getInstance();
+        const result = await wa.connectInstance(req.params.id);
+        res.json(result);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -317,19 +336,42 @@ export class DashboardService {
 
     r.post('/sessions/:id/connect', async (req, res) => {
       try {
-        await this.queueManager.addJob('whatsapp-connection', 'connect-whatsapp',
-          { clientId: req.params.id }, { priority: 8 });
-        res.json({ ok: true });
+        const wa = WhatsAppService.getInstance();
+        const result = await wa.connectInstance(req.params.id);
+        res.json({ ok: true, ...result });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
     });
 
+    /** Disconnect temporário — mantém credenciais */
     r.post('/sessions/:id/disconnect', async (req, res) => {
       try {
-        await this.queueManager.addJob('whatsapp-connection', 'disconnect-whatsapp',
-          { clientId: req.params.id }, { priority: 7 });
-        res.json({ ok: true });
+        const wa = WhatsAppService.getInstance();
+        const result = await wa.temporaryDisconnect(req.params.id);
+        res.json({ ok: true, ...result });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    /** Evolution: DELETE /instance/logout — limpa credenciais WhatsApp */
+    r.delete('/sessions/:id/logout', async (req, res) => {
+      try {
+        const wa = WhatsAppService.getInstance();
+        const result = await wa.logoutInstance(req.params.id);
+        res.json({ ok: true, ...result });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    /** Evolution: POST /instance/restart */
+    r.post('/sessions/:id/restart', async (req, res) => {
+      try {
+        const wa = WhatsAppService.getInstance();
+        const result = await wa.restartInstance(req.params.id);
+        res.json({ ok: true, ...result });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -780,8 +822,11 @@ export class DashboardService {
     discordUserId: string;
     displayName: string;
     status: string;
+    state: string;
     lastActivity?: Date | string;
     qrCode?: string;
+    qrCount?: number;
+    profileName?: string;
   }>> {
     const users = await User.find({ discordUserId: { $ne: 'system' } }).lean();
 
@@ -804,8 +849,11 @@ export class DashboardService {
         discordUserId: u.discordUserId,
         displayName,
         status,
+        state: cacheStatusToState(status, status === 'connected'),
         lastActivity: cached?.lastActivity ?? doc?.lastActivity,
         qrCode: cached?.qrCode,
+        qrCount: cached?.qrCount,
+        profileName: cached?.profileName,
       };
     }));
   }
@@ -859,8 +907,32 @@ export class DashboardService {
     try {
       await this.redisManager.subscribe('radarzap:wa-session', (message) => {
         try {
-          const payload = JSON.parse(message) as { clientId: string; status: string; qrCode?: string };
-          this.io.emit('session:update', payload);
+          const payload = JSON.parse(message) as Record<string, unknown>;
+
+          if (payload.event === 'QRCODE_UPDATED') {
+            const data = payload.data as { qrcode?: { base64?: string } };
+            this.io.emit('session:update', {
+              event: 'QRCODE_UPDATED',
+              clientId: payload.clientId,
+              qrCode: data?.qrcode?.base64,
+              status: 'qr-required',
+            });
+          } else if (payload.event === 'CONNECTION_UPDATE') {
+            const data = payload.data as { state?: string };
+            const statusMap: Record<string, string> = {
+              open: 'connected',
+              connecting: 'connecting',
+              close: 'disconnected',
+            };
+            this.io.emit('session:update', {
+              event: 'CONNECTION_UPDATE',
+              clientId: payload.clientId,
+              status: statusMap[data?.state ?? ''] ?? 'disconnected',
+            });
+          } else if (payload.clientId && payload.status) {
+            this.io.emit('session:update', payload);
+          }
+
           this.buildSessionsList()
             .then(sessions => this.io.emit('sessions', sessions))
             .catch(() => {});

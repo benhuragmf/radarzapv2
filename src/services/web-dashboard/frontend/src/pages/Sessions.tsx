@@ -13,8 +13,17 @@ interface Session {
   discordUserId: string
   displayName: string
   status: 'connected' | 'disconnected' | 'connecting' | 'qr-required'
+  state?: 'open' | 'connecting' | 'close'
   lastActivity: string
   qrCode?: string
+  qrCount?: number
+  profileName?: string
+}
+
+interface ConnectResponse {
+  ok?: boolean
+  instance?: { clientId: string; state: string }
+  qrcode?: { base64: string; code: string; count: number }
 }
 
 function statusBadge(status: Session['status']) {
@@ -47,14 +56,23 @@ export default function Sessions() {
   useEffect(() => {
     const socket = getSocket()
 
-    const onSessionUpdate = (payload: { clientId: string; qrCode?: string; status: string }) => {
-      if (payload.qrCode) {
-        setLiveQr(prev => ({ ...prev, [payload.clientId]: payload.qrCode! }))
+    const onSessionUpdate = (payload: {
+      clientId: string
+      qrCode?: string
+      status?: string
+      event?: string
+      data?: { qrcode?: { base64?: string } }
+    }) => {
+      const qr =
+        payload.qrCode ??
+        payload.data?.qrcode?.base64
+      if (qr) {
+        setLiveQr(prev => ({ ...prev, [payload.clientId]: qr }))
       }
-      if (payload.status === 'connected') {
+      if (payload.status === 'connected' || payload.event === 'CONNECTION_UPDATE') {
         setLiveQr(prev => {
           const next = { ...prev }
-          delete next[payload.clientId]
+          if (payload.status === 'connected') delete next[payload.clientId]
           return next
         })
       }
@@ -73,18 +91,34 @@ export default function Sessions() {
     }
   }, [qc])
 
+  const applyConnectResult = (clientId: string, data: ConnectResponse) => {
+    if (data.qrcode?.base64) {
+      setLiveQr(prev => ({ ...prev, [clientId]: data.qrcode!.base64 }))
+    }
+    qc.invalidateQueries({ queryKey: ['sessions'] })
+  }
+
   const startConnect = useMutation({
-    mutationFn: () => api.post('/sessions/connect', {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+    mutationFn: () => api.post<ConnectResponse>('/sessions/connect', {}),
+    onSuccess: (data) => {
+      const id = data.instance?.clientId
+      if (id) applyConnectResult(id, data)
+      else qc.invalidateQueries({ queryKey: ['sessions'] })
+    },
   })
 
   const connect = useMutation({
-    mutationFn: (id: string) => api.post(`/sessions/${id}/connect`),
+    mutationFn: (id: string) => api.post<ConnectResponse>(`/sessions/${id}/connect`),
+    onSuccess: (data, id) => applyConnectResult(id, data),
+  })
+
+  const logout = useMutation({
+    mutationFn: (id: string) => api.delete(`/sessions/${id}/logout`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })
 
-  const disconnect = useMutation({
-    mutationFn: (id: string) => api.post(`/sessions/${id}/disconnect`),
+  const restart = useMutation({
+    mutationFn: (id: string) => api.post(`/sessions/${id}/restart`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })
 
@@ -128,6 +162,9 @@ export default function Sessions() {
                 <Smartphone size={18} className="text-gray-500" />
                 <div>
                   <p className="text-sm font-medium">{s.displayName || s.discordUserId}</p>
+                  {s.profileName && s.status === 'connected' && (
+                    <p className="text-xs text-green-500/80">WhatsApp: {s.profileName}</p>
+                  )}
                   <p className="text-xs text-gray-500">
                     Última atividade: {s.lastActivity ? new Date(s.lastActivity).toLocaleString('pt-BR') : '—'}
                   </p>
@@ -149,14 +186,24 @@ export default function Sessions() {
                 )}
 
                 {s.status === 'connected' && (
-                  <Button
-                    size="sm" variant="danger"
-                    onClick={() => disconnect.mutate(s.clientId)}
-                    disabled={disconnect.isPending}
-                  >
-                    <Power size={12} />
-                    Desconectar
-                  </Button>
+                  <>
+                    <Button
+                      size="sm" variant="secondary"
+                      onClick={() => restart.mutate(s.clientId)}
+                      disabled={restart.isPending}
+                    >
+                      <RefreshCw size={12} />
+                      Reiniciar
+                    </Button>
+                    <Button
+                      size="sm" variant="danger"
+                      onClick={() => logout.mutate(s.clientId)}
+                      disabled={logout.isPending}
+                    >
+                      <Power size={12} />
+                      Desconectar
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -165,7 +212,10 @@ export default function Sessions() {
               <div className="mt-4 flex flex-col items-center gap-2 p-4 bg-gray-900/50 rounded-lg border border-yellow-500/20">
                 <p className="text-sm text-yellow-400 font-medium">Escaneie com WhatsApp → Aparelhos conectados</p>
                 <img src={qr} alt="QR Code WhatsApp" className="w-72 h-72 sm:w-80 sm:h-80 rounded-lg border border-gray-700 bg-white p-3" />
-                <p className="text-xs text-gray-500">O QR expira em ~2 minutos. Clique Conectar novamente se expirar.</p>
+                <p className="text-xs text-gray-500">
+                  {s.qrCount ? `QR #${s.qrCount} · ` : ''}
+                  O QR expira em ~2 minutos. Clique Conectar novamente se expirar.
+                </p>
               </div>
             )}
           </Card>
