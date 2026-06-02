@@ -17,6 +17,12 @@ export interface IWhatsAppSession extends Document {
     browser: string;
     version: string;
   };
+  whatsappProfile?: {
+    wuid?: string;
+    profileName?: string;
+    phoneNumber?: string;
+    profilePictureUrl?: string;
+  };
   lastActivity: Date;
   expiresAt: Date;
   createdAt: Date;
@@ -89,6 +95,13 @@ const WhatsAppSessionSchema = new Schema<IWhatsAppSession>({
       required: true,
       default: '1.0.0'
     }
+  },
+
+  whatsappProfile: {
+    wuid: { type: String },
+    profileName: { type: String },
+    phoneNumber: { type: String },
+    profilePictureUrl: { type: String },
   },
   
   lastActivity: {

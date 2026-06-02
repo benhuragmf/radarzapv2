@@ -28,6 +28,8 @@ import {
   WaSessionEvent,
   cacheStatusToState,
   delay,
+  liveStateToStatus,
+  wuidToPhone,
 } from './waSessionEvents';
 
 /** Redis cache TTL for live WA state (QR, connected) — 7 days */
@@ -90,6 +92,7 @@ export class WhatsAppService {
       statusReason?: number;
       wuid?: string;
       profileName?: string;
+      profilePictureUrl?: string;
       deviceInfo?: { platform: string; browser: string; version: string };
       lastActivity?: Date;
     },
@@ -169,6 +172,25 @@ export class WhatsAppService {
     return WhatsAppService.instance;
   }
 
+  /** Busca foto de perfil WA via Baileys */
+  private async fetchProfilePicture(socket: WASocket, jid?: string | null): Promise<string | undefined> {
+    if (!jid) return undefined;
+    try {
+      return await socket.profilePictureUrl(jid, 'image');
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Sessão ativa no processo (socket, QR ou tentativa de conexão) */
+  private isLiveSession(clientId: string): boolean {
+    return (
+      this.sessions.has(clientId) ||
+      this.connectingClients.has(clientId) ||
+      this.pendingConnections.has(clientId)
+    );
+  }
+
   /** Evolution API: GET /instance/connectionState/:instanceName */
   async getConnectionState(clientId: string): Promise<{ instance: WaInstanceState }> {
     const socket = this.sessions.get(clientId);
@@ -186,6 +208,12 @@ export class WhatsAppService {
     }
 
     const cached = await this.sessionCache.getWhatsAppSession(clientId);
+    if (!this.isLiveSession(clientId) && (cached?.status === 'connecting' || cached?.status === 'qr-required')) {
+      return {
+        instance: { clientId, state: 'close', statusReason: cached?.statusReason },
+      };
+    }
+
     const state = cacheStatusToState(cached?.status, false);
     return {
       instance: {
@@ -302,6 +330,104 @@ export class WhatsAppService {
     await this.temporaryDisconnect(clientId);
     await this.connectInstance(clientId);
     return { success: true, message: 'Restart initiated' };
+  }
+
+  /** Lê perfil WA dos creds locais (quando socket não está ativo) */
+  private readProfileFromCreds(clientId: string): { wuid?: string; profileName?: string } {
+    const credsPath = path.join(process.cwd(), 'sessions', clientId, 'creds.json');
+    if (!fs.existsSync(credsPath)) return {};
+    try {
+      const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8')) as {
+        me?: { id?: string; lid?: string; name?: string };
+      };
+      const wuid = creds.me?.id ?? creds.me?.lid;
+      const profileName = creds.me?.name;
+      return { wuid, profileName };
+    } catch {
+      return {};
+    }
+  }
+
+  /** Dados completos da instância para o dashboard (live + cache + Mongo) */
+  async getSessionDetails(clientId: string): Promise<{
+    clientId: string;
+    state: WaConnectionState;
+    status: 'connected' | 'disconnected' | 'connecting' | 'qr-required';
+    statusReason?: number;
+    wuid?: string;
+    profileName?: string;
+    phoneNumber?: string;
+    profilePictureUrl?: string;
+    qrCode?: string;
+    qrCount?: number;
+    lastActivity?: Date;
+    hasPersistedSession: boolean;
+  }> {
+    const { instance } = await this.getConnectionState(clientId);
+    const cached = await this.sessionCache.getWhatsAppSession(clientId);
+    const doc = await WhatsAppSession.findOne({ clientId }).lean();
+
+    const socket = this.sessions.get(clientId);
+    const credsProfile = this.readProfileFromCreds(clientId);
+    let wuid =
+      socket?.user?.id ??
+      instance.wuid ??
+      cached?.wuid ??
+      doc?.whatsappProfile?.wuid ??
+      credsProfile.wuid;
+    let profileName =
+      socket?.user?.name ??
+      instance.profileName ??
+      cached?.profileName ??
+      doc?.whatsappProfile?.profileName ??
+      credsProfile.profileName;
+
+    const phoneNumber =
+      wuidToPhone(wuid) ??
+      doc?.whatsappProfile?.phoneNumber;
+
+    let profilePictureUrl =
+      cached?.profilePictureUrl ??
+      doc?.whatsappProfile?.profilePictureUrl;
+
+    if (socket?.user?.id && !profilePictureUrl) {
+      profilePictureUrl = await this.fetchProfilePicture(socket, socket.user.id);
+    }
+
+    let status = liveStateToStatus(instance.state, cached?.status);
+
+    // Cache antigo de QR/conectando sem processo ativo → tratar como desconectado
+    if ((status === 'connecting' || status === 'qr-required') && !this.isLiveSession(clientId)) {
+      status = 'disconnected';
+      await this.sessionCache.deleteSession(`whatsapp:${clientId}`).catch(() => {});
+    }
+
+    const lastActivity = cached?.lastActivity
+      ? new Date(cached.lastActivity)
+      : doc?.lastActivity
+        ? new Date(doc.lastActivity)
+        : status === 'connected'
+          ? new Date()
+          : undefined;
+
+    if ((wuid || profileName || profilePictureUrl) && !doc?.whatsappProfile?.wuid) {
+      this.saveSessionToDatabase(clientId, { wuid, profileName, profilePictureUrl }).catch(() => {});
+    }
+
+    return {
+      clientId,
+      state: instance.state,
+      status,
+      statusReason: instance.statusReason ?? cached?.statusReason,
+      wuid,
+      profileName,
+      phoneNumber,
+      profilePictureUrl,
+      qrCode: cached?.qrCode,
+      qrCount: cached?.qrCount,
+      lastActivity,
+      hasPersistedSession: doc?.status === 'active' || doc?.status === 'inactive',
+    };
   }
 
   /**
@@ -581,6 +707,7 @@ export class WhatsAppService {
    * Create new WhatsApp session
    */
   private async createWhatsAppSession(clientId: string): Promise<{ qrCode?: string; connected: boolean }> {
+    this.connectingClients.add(clientId);
     const sessionDir = path.join(process.cwd(), 'sessions', clientId);
 
     // Ensure session directory exists
@@ -706,15 +833,20 @@ export class WhatsAppService {
             // Setup event handlers
             this.setupSocketEventHandlers(socket, clientId);
 
-            // Save session to database (all auth files)
-            await this.saveSessionToDatabase(clientId);
+            const wuid = socket.user?.id;
+            const profileName = socket.user?.name ?? undefined;
+            const profilePictureUrl = await this.fetchProfilePicture(socket, wuid);
+
+            // Save session to database (all auth files + perfil WA)
+            await this.saveSessionToDatabase(clientId, { wuid, profileName, profilePictureUrl });
 
             // Update cache + dashboard
             await this.notifySessionUpdate(clientId, {
               status: 'connected',
               statusReason: 200,
-              wuid: socket.user?.id,
-              profileName: socket.user?.name ?? undefined,
+              wuid,
+              profileName,
+              profilePictureUrl,
               deviceInfo: {
                 platform: 'web',
                 browser: 'chrome',
@@ -735,7 +867,12 @@ export class WhatsAppService {
 
       socket.ev.on('creds.update', async () => {
         saveCreds();
-        await this.saveSessionToDatabase(clientId);
+        const profilePictureUrl = await this.fetchProfilePicture(socket, socket.user?.id);
+        await this.saveSessionToDatabase(clientId, {
+          wuid: socket.user?.id,
+          profileName: socket.user?.name ?? undefined,
+          profilePictureUrl,
+        });
       });
     });
   }
@@ -1204,7 +1341,10 @@ export class WhatsAppService {
   /**
    * Save all session auth files to database (encrypted bundle — survives restarts)
    */
-  private async saveSessionToDatabase(clientId: string): Promise<void> {
+  private async saveSessionToDatabase(
+    clientId: string,
+    profile?: { wuid?: string; profileName?: string; profilePictureUrl?: string },
+  ): Promise<void> {
     try {
       const sessionDir = path.join(process.cwd(), 'sessions', clientId);
       const files = this.readSessionDirectory(sessionDir);
@@ -1222,6 +1362,16 @@ export class WhatsAppService {
         version: '1.0.0',
       };
 
+      const wuid = profile?.wuid;
+      const whatsappProfile = wuid || profile?.profileName || profile?.profilePictureUrl
+        ? {
+            wuid,
+            profileName: profile?.profileName,
+            phoneNumber: wuidToPhone(wuid),
+            profilePictureUrl: profile?.profilePictureUrl,
+          }
+        : undefined;
+
       const expiresAt = new Date(Date.now() + WA_DB_EXPIRY_MS);
 
       await WhatsAppSession.findOneAndUpdate(
@@ -1232,6 +1382,7 @@ export class WhatsAppService {
           sessionData,
           status: 'active',
           deviceInfo,
+          ...(whatsappProfile ? { whatsappProfile } : {}),
           lastActivity: new Date(),
           expiresAt,
         },

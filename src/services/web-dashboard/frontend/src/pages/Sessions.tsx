@@ -6,7 +6,7 @@ import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { Smartphone, RefreshCw, Power, QrCode } from 'lucide-react'
+import { Smartphone, RefreshCw, Power, QrCode, User } from 'lucide-react'
 
 interface Session {
   clientId: string
@@ -18,6 +18,10 @@ interface Session {
   qrCode?: string
   qrCount?: number
   profileName?: string
+  phoneNumber?: string
+  profilePictureUrl?: string
+  wuid?: string
+  hasPersistedSession?: boolean
 }
 
 interface ConnectResponse {
@@ -35,6 +39,23 @@ function statusBadge(status: Session['status']) {
   } as const
   const { label, variant } = map[status] ?? { label: status, variant: 'gray' as const }
   return <Badge label={label} variant={variant} />
+}
+
+function WaAvatar({ url, name }: { url?: string; name?: string }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={name ?? 'WhatsApp'}
+        className="w-12 h-12 rounded-full object-cover border border-gray-700 shrink-0"
+      />
+    )
+  }
+  return (
+    <div className="w-12 h-12 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center shrink-0">
+      <User size={20} className="text-gray-500" />
+    </div>
+  )
 }
 
 export default function Sessions() {
@@ -145,7 +166,8 @@ export default function Sessions() {
       {sessions.length === 0 && (
         <Card className="text-center py-12 text-gray-500">
           <Smartphone size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="mb-4">Nenhuma sessão encontrada.</p>
+          <p className="mb-1">Nenhum WhatsApp conectado.</p>
+          <p className="text-xs mb-4">Clique abaixo para iniciar a conexão via QR code.</p>
           <Button onClick={() => startConnect.mutate()} disabled={startConnect.isPending}>
             <QrCode size={14} />
             Conectar WhatsApp
@@ -155,37 +177,60 @@ export default function Sessions() {
 
       {sessions.map((s) => {
         const qr = liveQr[s.clientId] ?? s.qrCode
+        const isConnected = s.status === 'connected'
+        const isPending = s.status === 'connecting' || s.status === 'qr-required'
+
         return (
           <Card key={s.clientId}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Smartphone size={18} className="text-gray-500" />
-                <div>
-                  <p className="text-sm font-medium">{s.displayName || s.discordUserId}</p>
-                  {s.profileName && s.status === 'connected' && (
-                    <p className="text-xs text-green-500/80">WhatsApp: {s.profileName}</p>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 min-w-0">
+                {isConnected ? (
+                  <WaAvatar url={s.profilePictureUrl} name={s.profileName} />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gray-800/80 border border-dashed border-gray-600 flex items-center justify-center shrink-0">
+                    <QrCode size={18} className="text-gray-500" />
+                  </div>
+                )}
+
+                <div className="min-w-0 space-y-1">
+                  {isConnected ? (
+                    <>
+                      <p className="text-sm font-medium truncate">
+                        {s.profileName || s.phoneNumber || 'WhatsApp'}
+                      </p>
+                      {s.phoneNumber && (
+                        <p className="text-xs text-green-400/90 font-mono">{s.phoneNumber}</p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        Conectado · {s.lastActivity ? new Date(s.lastActivity).toLocaleString('pt-BR') : '—'}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium">Conectar WhatsApp</p>
+                      <p className="text-xs text-gray-500">
+                        {isPending ? 'Escaneie o QR code abaixo com seu celular' : 'Aguardando início da conexão…'}
+                      </p>
+                    </>
                   )}
-                  <p className="text-xs text-gray-500">
-                    Última atividade: {s.lastActivity ? new Date(s.lastActivity).toLocaleString('pt-BR') : '—'}
-                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 {statusBadge(s.status)}
 
-                {s.status !== 'connected' && (
+                {isPending && (
                   <Button
                     size="sm" variant="secondary"
                     onClick={() => connect.mutate(s.clientId)}
-                    disabled={connect.isPending || s.status === 'connecting' || s.status === 'qr-required'}
+                    disabled={connect.isPending}
                   >
                     <RefreshCw size={12} />
-                    Conectar
+                    Novo QR
                   </Button>
                 )}
 
-                {s.status === 'connected' && (
+                {isConnected && (
                   <>
                     <Button
                       size="sm" variant="secondary"
@@ -208,13 +253,13 @@ export default function Sessions() {
               </div>
             </div>
 
-            {qr && s.status !== 'connected' && (
+            {qr && isPending && (
               <div className="mt-4 flex flex-col items-center gap-2 p-4 bg-gray-900/50 rounded-lg border border-yellow-500/20">
                 <p className="text-sm text-yellow-400 font-medium">Escaneie com WhatsApp → Aparelhos conectados</p>
                 <img src={qr} alt="QR Code WhatsApp" className="w-72 h-72 sm:w-80 sm:h-80 rounded-lg border border-gray-700 bg-white p-3" />
                 <p className="text-xs text-gray-500">
                   {s.qrCount ? `QR #${s.qrCount} · ` : ''}
-                  O QR expira em ~2 minutos. Clique Conectar novamente se expirar.
+                  O QR expira em ~2 minutos. Clique Novo QR se expirar.
                 </p>
               </div>
             )}

@@ -25,7 +25,6 @@ import { config } from '../../config/environment';
 import mongoose from 'mongoose';
 import { mountBullBoard } from '../monitoring/bullBoard';
 import { WhatsAppService } from '../whatsapp/WhatsAppService';
-import { cacheStatusToState } from '../whatsapp/waSessionEvents';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -816,7 +815,7 @@ export class DashboardService {
     });
   }
 
-  /** Lista sessões WhatsApp (cache Redis + MongoDB) */
+  /** Lista sessões WhatsApp com estado live e perfil WA */
   private async buildSessionsList(): Promise<Array<{
     clientId: string;
     discordUserId: string;
@@ -827,35 +826,47 @@ export class DashboardService {
     qrCode?: string;
     qrCount?: number;
     profileName?: string;
+    phoneNumber?: string;
+    profilePictureUrl?: string;
+    wuid?: string;
+    hasPersistedSession: boolean;
   }>> {
+    const wa = WhatsAppService.getInstance();
     const users = await User.find({ discordUserId: { $ne: 'system' } }).lean();
 
-    return Promise.all(users.map(async (u) => {
+    const sessions = await Promise.all(users.map(async (u) => {
       const clientId = (u._id as mongoose.Types.ObjectId).toString();
-      const cached = await this.sessionCache.getWhatsAppSession(clientId);
-      const doc = await WhatsAppSession.findOne({ clientId: u._id }).lean();
-
-      let status = 'disconnected';
-      if (cached?.status) {
-        status = cached.status;
-      } else if (doc?.status === 'active') {
-        status = 'connected';
-      }
-
+      const details = await wa.getSessionDetails(clientId);
       const displayName = await this.resolveDiscordDisplayName(u.discordUserId);
 
       return {
         clientId,
         discordUserId: u.discordUserId,
         displayName,
-        status,
-        state: cacheStatusToState(status, status === 'connected'),
-        lastActivity: cached?.lastActivity ?? doc?.lastActivity,
-        qrCode: cached?.qrCode,
-        qrCount: cached?.qrCount,
-        profileName: cached?.profileName,
+        status: details.status,
+        state: details.state,
+        lastActivity: details.lastActivity,
+        qrCode: details.qrCode,
+        qrCount: details.qrCount,
+        profileName: details.profileName,
+        phoneNumber: details.phoneNumber,
+        profilePictureUrl: details.profilePictureUrl,
+        wuid: details.wuid,
+        hasPersistedSession: details.hasPersistedSession,
       };
     }));
+
+    return sessions
+      .filter((s) => s.status !== 'disconnected')
+      .sort((a, b) => {
+      const rank = (s: typeof a) => {
+        if (s.status === 'connected') return 0;
+        if (s.status === 'qr-required' || s.status === 'connecting') return 1;
+        if (s.hasPersistedSession) return 2;
+        return 3;
+      };
+      return rank(a) - rank(b);
+    });
   }
 
   private async buildStats() {

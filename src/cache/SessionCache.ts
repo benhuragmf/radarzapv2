@@ -218,6 +218,7 @@ export class SessionCache {
       statusReason?: number;
       wuid?: string;
       profileName?: string;
+      profilePictureUrl?: string;
       deviceInfo?: any;
       lastActivity?: Date;
       connectionAttempts?: number;
