@@ -1,0 +1,118 @@
+import { Request, Response, NextFunction } from 'express';
+import { User } from '@/models/User';
+import { Capability } from './capabilities';
+import { AuthContext } from './types';
+import { can } from './can';
+import { buildAuthContext } from './AuthContextService';
+
+export interface DashboardRequest extends Request {
+  auth?: AuthContext;
+  session: Request['session'] & {
+    userId?: string;
+    discordId?: string;
+    username?: string;
+    avatar?: string | null;
+  };
+}
+
+export async function loadAuthContext(
+  req: DashboardRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const sess = req.session;
+    if (!sess?.userId) {
+      res.status(401).json({ error: 'Unauthorized', loginUrl: '/auth/discord' });
+      return;
+    }
+
+    const user = await User.findById(sess.userId);
+    if (!user) {
+      res.status(401).json({ error: 'User not found', loginUrl: '/auth/discord' });
+      return;
+    }
+
+    req.auth = await buildAuthContext({
+      user,
+      userId: sess.userId,
+      discordUserId: sess.discordId ?? user.discordUserId,
+      username: sess.username ?? user.discordUserId,
+      avatar: sess.avatar ?? null,
+    });
+
+    next();
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+}
+
+export function requireCapability(
+  permission: Capability,
+  options?: { guildFromQuery?: boolean; guildFromBody?: boolean; guildFromParams?: string },
+) {
+  return (req: DashboardRequest, res: Response, next: NextFunction): void => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    let guildId: string | undefined;
+    if (options?.guildFromQuery) guildId = req.query.guildId as string | undefined;
+    if (options?.guildFromBody) guildId = (req.body as { guildId?: string })?.guildId;
+    if (options?.guildFromParams) guildId = req.params[options.guildFromParams];
+
+    if (!can(req.auth, permission, { guildId })) {
+      res.status(403).json({
+        error: 'Forbidden',
+        code: 'INSUFFICIENT_PERMISSIONS',
+        required: permission,
+      });
+      return;
+    }
+
+    next();
+  };
+}
+
+export function requireSelfOrStaff(paramName = 'id') {
+  return (req: DashboardRequest, res: Response, next: NextFunction): void => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const targetId = req.params[paramName];
+    const isSelf = targetId === req.auth.clientId || targetId === req.auth.userId;
+    const isStaff = req.auth.isInternalStaff;
+
+    if (!isSelf && !isStaff) {
+      res.status(403).json({ error: 'Forbidden', code: 'ACCESS_DENIED' });
+      return;
+    }
+
+    next();
+  };
+}
+
+export function assertOwnClient(req: DashboardRequest, clientId: string): boolean {
+  if (!req.auth) return false;
+  if (req.auth.isInternalStaff) return true;
+  return req.auth.clientId === clientId;
+}
+
+export function getTenantFilter(req: DashboardRequest, guildId?: string): Record<string, unknown> {
+  if (!req.auth) return { _id: null };
+
+  if (req.auth.isInternalStaff && !guildId) {
+    return {};
+  }
+
+  const filter: Record<string, unknown> = { clientId: req.auth.clientId };
+
+  if (guildId) {
+    filter.guildId = guildId;
+  }
+
+  return filter;
+}

@@ -20,6 +20,8 @@ export { MessageQueueModel as MessageQueue, IMessageQueue };
 export { TemplateModel as Template, ITemplate };
 export { DestinationModel as Destination, IDestination };
 export { SystemLogModel as SystemLog, ISystemLog };
+export { GuildMembership, IGuildMembership } from './GuildMembership';
+export { AuditLog, IAuditLog, writeAuditLog } from './AuditLog';
 
 // Create aliases for internal use
 const User = UserModel;

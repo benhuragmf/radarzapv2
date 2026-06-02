@@ -1,0 +1,33 @@
+/** Papéis globais do sistema (equipe interna RadarZap) */
+export enum SystemRole {
+  USER = 'USER',
+  SYSTEM_MODERATOR = 'SYSTEM_MODERATOR',
+  SYSTEM_ADMIN = 'SYSTEM_ADMIN',
+}
+
+/** Papel do usuário dentro de um servidor Discord */
+export enum GuildRole {
+  MEMBER = 'MEMBER',
+  ADMIN = 'ADMIN',
+  OWNER = 'OWNER',
+}
+
+/** Papel efetivo usado na UI e autorização */
+export enum UserRole {
+  USER = 'USER',
+  DISCORD_OWNER = 'DISCORD_OWNER',
+  DISCORD_ADMIN = 'DISCORD_ADMIN',
+  SYSTEM_MODERATOR = 'SYSTEM_MODERATOR',
+  SYSTEM_ADMIN = 'SYSTEM_ADMIN',
+}
+
+export function guildRoleToUserRole(guildRole: GuildRole): UserRole {
+  switch (guildRole) {
+    case GuildRole.OWNER:
+      return UserRole.DISCORD_OWNER;
+    case GuildRole.ADMIN:
+      return UserRole.DISCORD_ADMIN;
+    default:
+      return UserRole.USER;
+  }
+}

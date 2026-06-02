@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { createServiceLogger } from '@/utils/logger';
+import { SystemRole } from '@/auth/rbac/roles';
 
 const logger = createServiceLogger('UserModel');
 
@@ -9,6 +10,7 @@ const logger = createServiceLogger('UserModel');
 export interface IUser extends Document {
   discordUserId: string;
   email?: string;
+  systemRole: SystemRole;
   plan: 'free' | 'starter' | 'pro' | 'enterprise';
   limits: {
     messagesPerDay: number;
@@ -54,6 +56,13 @@ const UserSchema = new Schema<IUser>({
       validator: (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
       message: 'Invalid email format'
     }
+  },
+
+  systemRole: {
+    type: String,
+    enum: Object.values(SystemRole),
+    default: SystemRole.USER,
+    index: true,
   },
   
   plan: {

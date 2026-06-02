@@ -25,6 +25,17 @@ import { config } from '../../config/environment';
 import mongoose from 'mongoose';
 import { mountBullBoard } from '../monitoring/bullBoard';
 import { WhatsAppService } from '../whatsapp/WhatsAppService';
+import {
+  loadAuthContext,
+  requireCapability,
+  requireSelfOrStaff,
+  assertOwnClient,
+  authContextToJson,
+  buildAuthContext,
+  syncGuildMemberships,
+  Cap,
+  DashboardRequest,
+} from '../../auth/rbac';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -141,8 +152,10 @@ export class DashboardService {
     // Auth routes (public)
     this.setupAuthRoutes();
 
-    // Protected API routes
-    this.app.use('/api', this.requireAuth.bind(this));
+    // Protected API routes — carrega AuthContext + capabilities
+    this.app.use('/api', (req, res, next) => {
+      loadAuthContext(req as DashboardRequest, res, next).catch(next);
+    });
     this.setupRoutes();
 
     // SPA fallback — serve index.html for all non-API routes
@@ -233,6 +246,12 @@ export class DashboardService {
 
         logger.info(`User logged in: ${discordUser.username} (${discordUser.id})`);
 
+        // Sincroniza papéis Discord (owner/admin) nos servidores do bot
+        syncGuildMemberships(
+          (dbUser._id as mongoose.Types.ObjectId).toString(),
+          discordUser.id,
+        ).catch(err => logger.warn('Guild sync failed on login', err));
+
         const frontendBase = this.getFrontendBase();
         res.redirect(`${frontendBase}/dashboard`);
 
@@ -242,18 +261,25 @@ export class DashboardService {
       }
     });
 
-    // Get current session info (used by frontend)
-    this.app.get('/auth/me', (req: Request, res: Response) => {
+    // Get current session info + RBAC (used by frontend)
+    this.app.get('/auth/me', async (req: Request, res: Response) => {
       const sess = req.session as any;
-      if (sess?.userId) {
-        res.json({
-          userId:    sess.userId,
-          discordId: sess.discordId,
-          username:  sess.username,
-          avatar:    sess.avatar,
+      if (!sess?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      try {
+        const user = await User.findById(sess.userId);
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        const ctx = await buildAuthContext({
+          user,
+          userId: sess.userId,
+          discordUserId: sess.discordId ?? user.discordUserId,
+          username: sess.username ?? user.discordUserId,
+          avatar: sess.avatar ?? null,
         });
-      } else {
-        res.status(401).json({ error: 'Not authenticated' });
+        res.json(authContextToJson(ctx));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
       }
     });
 
@@ -267,7 +293,7 @@ export class DashboardService {
     const r = express.Router();
 
     // ── Stats ──────────────────────────────────────────────────────────────
-    r.get('/stats', async (_req, res) => {
+    r.get('/stats', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
       try {
         const stats = await this.buildStats();
         res.json(stats);
@@ -282,21 +308,19 @@ export class DashboardService {
     });
 
     // ── Sessions ───────────────────────────────────────────────────────────
-    r.get('/sessions', async (_req, res) => {
+    r.get('/sessions', requireCapability(Cap.WHATSAPP_SESSION_VIEW), async (req, res) => {
       try {
-        res.json(await this.buildSessionsList());
+        res.json(await this.buildSessionsList(req as DashboardRequest));
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
     });
 
     /** Iniciar conexão WhatsApp (Evolution-style — retorna estado + QR) */
-    r.post('/sessions/connect', async (req, res) => {
+    r.post('/sessions/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), async (req, res) => {
       try {
-        const sess = req.session as any;
-        const user = sess?.userId
-          ? await User.findById(sess.userId)
-          : await User.findOne({ discordUserId: { $ne: 'system' } });
+        const auth = (req as DashboardRequest).auth!;
+        const user = await User.findById(auth.clientId);
         if (!user) {
           return res.status(400).json({
             error: 'Nenhum usuário cadastrado. Use /setup no Discord primeiro.',
@@ -313,7 +337,7 @@ export class DashboardService {
     });
 
     /** Evolution: GET /instance/connectionState/:instanceName */
-    r.get('/sessions/:id/connectionState', async (req, res) => {
+    r.get('/sessions/:id/connectionState', requireCapability(Cap.WHATSAPP_SESSION_VIEW), requireSelfOrStaff('id'), async (req, res) => {
       try {
         const wa = WhatsAppService.getInstance();
         res.json(await wa.getConnectionState(req.params.id));
@@ -323,7 +347,7 @@ export class DashboardService {
     });
 
     /** Evolution: GET /instance/connect/:instanceName — connect + QR síncrono */
-    r.get('/sessions/:id/connect', async (req, res) => {
+    r.get('/sessions/:id/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
       try {
         const wa = WhatsAppService.getInstance();
         const result = await wa.connectInstance(req.params.id);
@@ -333,7 +357,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/sessions/:id/connect', async (req, res) => {
+    r.post('/sessions/:id/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
       try {
         const wa = WhatsAppService.getInstance();
         const result = await wa.connectInstance(req.params.id);
@@ -344,7 +368,7 @@ export class DashboardService {
     });
 
     /** Disconnect temporário — mantém credenciais */
-    r.post('/sessions/:id/disconnect', async (req, res) => {
+    r.post('/sessions/:id/disconnect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
       try {
         const wa = WhatsAppService.getInstance();
         const result = await wa.temporaryDisconnect(req.params.id);
@@ -355,7 +379,7 @@ export class DashboardService {
     });
 
     /** Evolution: DELETE /instance/logout — limpa credenciais WhatsApp */
-    r.delete('/sessions/:id/logout', async (req, res) => {
+    r.delete('/sessions/:id/logout', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
       try {
         const wa = WhatsAppService.getInstance();
         const result = await wa.logoutInstance(req.params.id);
@@ -366,7 +390,7 @@ export class DashboardService {
     });
 
     /** Evolution: POST /instance/restart */
-    r.post('/sessions/:id/restart', async (req, res) => {
+    r.post('/sessions/:id/restart', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
       try {
         const wa = WhatsAppService.getInstance();
         const result = await wa.restartInstance(req.params.id);
@@ -377,7 +401,7 @@ export class DashboardService {
     });
 
     // ── Rules ──────────────────────────────────────────────────────────────
-    r.get('/rules', async (req, res) => {
+    r.get('/rules', requireCapability(Cap.SEND_RULES_MANAGE, { guildFromQuery: true }), async (req, res) => {
       try {
         const sess = req.session as any;
         const { guildId } = req.query as { guildId?: string };
@@ -397,7 +421,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/rules', async (req, res) => {
+    r.post('/rules', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
         const { name, priority, templateName, keywords, destinationIdentifiers, channelIds } = req.body;
         if (!name) return res.status(400).json({ error: 'name is required' });
@@ -436,7 +460,7 @@ export class DashboardService {
       }
     });
 
-    r.put('/rules/:id', async (req, res) => {
+    r.put('/rules/:id', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
         const { name, priority, templateName, keywords, destinationIdentifiers, channelIds, isActive } = req.body;
 
@@ -468,7 +492,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/rules/:id/toggle', async (req, res) => {
+    r.post('/rules/:id/toggle', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
         const rule = await Rule.findById(req.params.id);
         if (!rule) return res.status(404).json({ error: 'Rule not found' });
@@ -479,7 +503,7 @@ export class DashboardService {
       }
     });
 
-    r.delete('/rules/:id', async (req, res) => {
+    r.delete('/rules/:id', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
         await Rule.findByIdAndDelete(req.params.id);
         res.json({ ok: true });
@@ -489,7 +513,7 @@ export class DashboardService {
     });
 
     // ── Templates ──────────────────────────────────────────────────────────
-    r.get('/templates', async (_req, res) => {
+    r.get('/templates', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (_req, res) => {
       try {
         const templates = await Template.find().sort({ isDefault: -1, name: 1 }).lean();
         res.json(templates);
@@ -499,7 +523,7 @@ export class DashboardService {
     });
 
     // ── Destinations ───────────────────────────────────────────────────────
-    r.get('/destinations', async (req, res) => {
+    r.get('/destinations', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const sess = req.session as any;
         const query: any = { isActive: true };
@@ -511,7 +535,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/destinations', async (req, res) => {
+    r.post('/destinations', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const { type, identifier, name } = req.body;
         if (!type || !identifier || !name) return res.status(400).json({ error: 'type, identifier and name are required' });
@@ -529,7 +553,7 @@ export class DashboardService {
       }
     });
 
-    r.delete('/destinations/:id', async (req, res) => {
+    r.delete('/destinations/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const dest = await Destination.findById(req.params.id);
         if (!dest) return res.status(404).json({ error: 'Destination not found' });
@@ -541,7 +565,7 @@ export class DashboardService {
     });
 
     // ── Discord Channels ───────────────────────────────────────────────────
-    r.get('/channels', async (req, res) => {
+    r.get('/channels', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromQuery: true }), async (req, res) => {
       try {
         const sess = req.session as any;
         const { guildId } = req.query as { guildId?: string };
@@ -556,19 +580,27 @@ export class DashboardService {
     });
 
     // ── Discord Guilds + Channels from bot (for channel picker) ────────────
-    r.get('/discord/guilds', async (_req, res) => {
+    r.get('/discord/guilds', requireCapability(Cap.DISCORD_SERVER_VIEW), async (req, res) => {
       try {
+        const auth = (req as DashboardRequest).auth!;
         const token = config.DISCORD.TOKEN;
         const botId  = config.DISCORD.CLIENT_ID;
         if (!token) return res.status(400).json({ error: 'DISCORD_TOKEN not configured' });
 
-        // Fetch guilds the bot is in
         const guildsRes = await fetch('https://discord.com/api/v10/users/@me/guilds', {
           headers: { Authorization: `Bot ${token}` },
         });
         const guilds = await guildsRes.json() as any[];
 
-        res.json(guilds.map((g: any) => ({
+        const allowedIds = auth.isInternalStaff
+          ? null
+          : new Set(auth.guilds.map(g => g.guildId));
+
+        const filtered = allowedIds
+          ? guilds.filter((g: any) => allowedIds.has(g.id))
+          : guilds;
+
+        res.json(filtered.map((g: any) => ({
           id:   g.id,
           name: g.name,
           icon: g.icon
@@ -580,7 +612,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/discord/guilds/:guildId/channels', async (req, res) => {
+    r.get('/discord/guilds/:guildId/channels', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromParams: 'guildId' }), async (req, res) => {
       try {
         const token = config.DISCORD.TOKEN;
         if (!token) return res.status(400).json({ error: 'DISCORD_TOKEN not configured' });
@@ -603,7 +635,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/channels', async (req, res) => {
+    r.post('/channels', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
         const { guildId, channelId, channelName } = req.body;
         if (!guildId || !channelId) return res.status(400).json({ error: 'guildId and channelId are required' });
@@ -624,7 +656,7 @@ export class DashboardService {
       }
     });
 
-    r.delete('/channels/:id', async (req, res) => {
+    r.delete('/channels/:id', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
         await DiscordChannel.findByIdAndDelete(req.params.id);
         res.json({ ok: true });
@@ -633,7 +665,7 @@ export class DashboardService {
       }
     });
 
-    r.patch('/channels/:id/toggle', async (req, res) => {
+    r.patch('/channels/:id/toggle', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
         const ch = await DiscordChannel.findById(req.params.id);
         if (!ch) return res.status(404).json({ error: 'Channel not found' });
@@ -676,7 +708,7 @@ export class DashboardService {
     });
 
     // ── Queue ──────────────────────────────────────────────────────────────
-    r.get('/queue', async (_req, res) => {
+    r.get('/queue', requireCapability(Cap.QUEUE_VIEW), async (_req, res) => {
       try {
         const stats = await this.queueManager.getQueueStats();
         const result = Object.entries(stats).map(([name, s]: [string, any]) => ({
@@ -693,7 +725,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/queue/failed', async (_req, res) => {
+    r.get('/queue/failed', requireCapability(Cap.QUEUE_VIEW), async (_req, res) => {
       try {
         // BullMQ doesn't expose failed jobs directly via QueueManager — return empty for now
         // TODO: expose getFailedJobs() in QueueManager
@@ -703,7 +735,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/queue/:id/retry', async (req, res) => {
+    r.post('/queue/:id/retry', requireCapability(Cap.QUEUE_RETRY), async (req, res) => {
       try {
         // TODO: implement retry via QueueManager
         res.json({ ok: true });
@@ -713,7 +745,7 @@ export class DashboardService {
     });
 
     // ── Logs ───────────────────────────────────────────────────────────────
-    r.get('/logs', async (req, res) => {
+    r.get('/logs', requireCapability(Cap.LOGS_VIEW), async (req, res) => {
       try {
         const { level, service, limit = '100' } = req.query as Record<string, string>;
         const query: any = {};
@@ -729,8 +761,27 @@ export class DashboardService {
       }
     });
 
-    // ── Users / Plans ──────────────────────────────────────────────────────
-    r.get('/users', async (_req, res) => {
+    // ── Billing (conta própria — USER) ───────────────────────────────────
+    r.get('/billing/me', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const user = await User.findById(auth.clientId).lean();
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json({
+          _id: auth.clientId,
+          discordUserId: user.discordUserId,
+          plan: user.plan,
+          limits: user.limits,
+          usage: user.usage,
+          primaryRole: auth.primaryRole,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Users / Plans (admin) ──────────────────────────────────────────────
+    r.get('/users', requireCapability(Cap.SYSTEM_USERS_VIEW), async (_req, res) => {
       try {
         const users = await User.find().sort({ createdAt: -1 }).lean();
         res.json(users.map(u => ({
@@ -746,7 +797,7 @@ export class DashboardService {
       }
     });
 
-    r.put('/users/:id/plan', async (req, res) => {
+    r.put('/users/:id/plan', requireCapability(Cap.SYSTEM_PLANS_MANAGE), async (req, res) => {
       try {
         const { plan } = req.body;
         const validPlans = ['free', 'starter', 'pro', 'enterprise'];
@@ -762,7 +813,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/users/:id/reset-usage', async (req, res) => {
+    r.post('/users/:id/reset-usage', requireCapability(Cap.SYSTEM_PLANS_MANAGE), async (req, res) => {
       try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ error: 'User not found' });
@@ -774,7 +825,7 @@ export class DashboardService {
     });
 
     // ── Test Send ──────────────────────────────────────────────────────────
-    r.post('/test-send', async (req, res) => {
+    r.post('/test-send', requireCapability(Cap.SEND_TEST), async (req, res) => {
       try {
         const { destination, message } = req.body;
         if (!message) return res.status(400).json({ error: 'message is required' });
@@ -810,13 +861,12 @@ export class DashboardService {
     this.io.on('connection', (socket) => {
       logger.debug(`Dashboard client connected: ${socket.id}`);
       this.buildStats().then(stats => socket.emit('stats', stats)).catch(() => {});
-      this.buildSessionsList().then(sessions => socket.emit('sessions', sessions)).catch(() => {});
       socket.on('disconnect', () => logger.debug(`Dashboard client disconnected: ${socket.id}`));
     });
   }
 
   /** Lista sessões WhatsApp com estado live e perfil WA */
-  private async buildSessionsList(): Promise<Array<{
+  private async buildSessionsList(req: DashboardRequest): Promise<Array<{
     clientId: string;
     discordUserId: string;
     displayName: string;
@@ -832,7 +882,13 @@ export class DashboardService {
     hasPersistedSession: boolean;
   }>> {
     const wa = WhatsAppService.getInstance();
-    const users = await User.find({ discordUserId: { $ne: 'system' } }).lean();
+    const auth = req.auth!;
+
+    const userQuery = auth.isInternalStaff
+      ? { discordUserId: { $ne: 'system' } }
+      : { _id: auth.clientId };
+
+    const users = await User.find(userQuery).lean();
 
     const sessions = await Promise.all(users.map(async (u) => {
       const clientId = (u._id as mongoose.Types.ObjectId).toString();
@@ -943,10 +999,6 @@ export class DashboardService {
           } else if (payload.clientId && payload.status) {
             this.io.emit('session:update', payload);
           }
-
-          this.buildSessionsList()
-            .then(sessions => this.io.emit('sessions', sessions))
-            .catch(() => {});
         } catch {
           // ignore malformed messages
         }
@@ -955,7 +1007,11 @@ export class DashboardService {
       logger.warn('Redis pub/sub for sessions unavailable — dashboard will poll only');
     }
 
-    mountBullBoard(this.app, this.requireAuth.bind(this));
+    mountBullBoard(this.app, (req, res, next) => {
+      loadAuthContext(req as DashboardRequest, res, () => {
+        requireCapability(Cap.QUEUE_GLOBAL)(req as DashboardRequest, res, next);
+      }).catch(next);
+    });
 
     // Broadcast stats every 10 s
     this.statsInterval = setInterval(async () => {

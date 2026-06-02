@@ -1,6 +1,7 @@
 import { CommandInteraction, EmbedBuilder, ChannelType } from 'discord.js';
 import { logger, createServiceLogger } from '@/utils/logger';
 import { User, DiscordChannel, Destination, WhatsAppSession } from '@/models';
+import { syncGuildMemberships } from '@/auth/rbac/GuildMembershipSync';
 import { Rule } from '@/models/Rule';
 import { SessionCache } from '@/cache/SessionCache';
 import { QueueManager } from '@/cache/QueueManager';
@@ -133,6 +134,12 @@ export class CommandHandler {
                 targetChannelId,
                 user._id
             );
+
+            // Sincroniza papel Discord (owner/admin) no RadarZap
+            syncGuildMemberships(
+                (user._id as mongoose.Types.ObjectId).toString(),
+                interaction.user.id,
+            ).catch(err => this.serviceLogger.warn('Guild sync after setup failed', err));
 
             const embed = new EmbedBuilder()
                 .setTitle('✅ Channel Setup Complete')
