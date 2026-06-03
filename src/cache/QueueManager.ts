@@ -1,7 +1,8 @@
 import { Queue, Worker, Job, JobsOptions, QueueOptions } from 'bullmq';
 import { RedisManager } from './RedisManager';
 import { config } from '@/config/environment';
-import { logger, createServiceLogger } from '@/utils/logger';
+import { createServiceLogger } from '@/utils/logger';
+import { LogThrottle } from '@/utils/logThrottle';
 
 /**
  * Queue Manager with Bull Queue and automatic job processing
@@ -13,6 +14,7 @@ export class QueueManager {
   private processors: Map<string, (job: Job) => Promise<any>> = new Map();
   private serviceLogger = createServiceLogger('QueueManager');
   private isInitialized = false;
+  private queueErrorThrottle = new LogThrottle(15_000);
 
   private constructor() {
     // Private constructor for singleton
@@ -136,6 +138,10 @@ export class QueueManager {
           maxRetriesPerRequest: null, // required by BullMQ
           enableReadyCheck: false,
           connectTimeout: 10000,
+          retryStrategy: (times: number) => {
+            if (times > 8) return null;
+            return Math.min(times * 300, 3_000);
+          },
         };
       } catch {
         // fallback below
@@ -151,6 +157,10 @@ export class QueueManager {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
       connectTimeout: 10000,
+      retryStrategy: (times: number) => {
+        if (times > 8) return null;
+        return Math.min(times * 300, 3_000);
+      },
     };
   }
 
@@ -173,7 +183,13 @@ export class QueueManager {
    */
   private setupQueueEventHandlers(queue: Queue, name: string): void {
     queue.on('error', (error) => {
-      this.serviceLogger.error(`Queue error in ${name}:`, error);
+      const gate = this.queueErrorThrottle.shouldLog('queue:redis');
+      if (!gate.ok) return;
+      const suffix = gate.suppressed ? ` (+${gate.suppressed} repetidos)` : '';
+      const msg = error instanceof Error ? error.message : String(error);
+      this.serviceLogger.warn(
+        `Filas BullMQ (${name}): ${msg}${suffix}`,
+      );
     });
 
     queue.on('waiting', (job) => {

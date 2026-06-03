@@ -45,7 +45,6 @@ const SystemLogSchema = new Schema<ISystemLog>({
   clientId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    index: true,
     sparse: true // Allow null values and don't index them
   },
   
@@ -63,7 +62,6 @@ const SystemLogSchema = new Schema<ISystemLog>({
   timestamp: {
     type: Date,
     default: Date.now,
-    index: true
   },
   
   traceId: {

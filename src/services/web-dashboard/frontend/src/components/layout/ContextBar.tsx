@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Smartphone } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
+import { formatWaSessionLabel } from '../../lib/destinationFormat'
 
 interface Props {
   user: AuthUser
@@ -26,7 +27,10 @@ export default function ContextBar({ user }: Props) {
 
   const connected = sessions.find(s => s.status === 'connected')
   const waLabel = connected
-    ? connected.phoneNumber ?? connected.profileName ?? 'Conectado'
+    ? formatWaSessionLabel({
+        phoneNumber: connected.phoneNumber,
+        profileName: connected.profileName,
+      })
     : sessions.some(s => s.status === 'qr-required')
       ? 'QR pendente'
       : 'Desconectado'

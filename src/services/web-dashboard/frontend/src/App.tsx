@@ -23,9 +23,8 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminClients from './pages/admin/AdminClients'
 import Login from './pages/Login'
 import { getMe, type AuthUser } from './lib/auth'
+import { AuthContext } from './lib/authContext'
 import { Spinner } from './components/ui/Spinner'
-
-export const AuthContext = { user: null as AuthUser | null }
 
 function Guard({ user, path, children }: { user: AuthUser; path: string; children: React.ReactNode }) {
   return <ProtectedRoute user={user} path={path}>{children}</ProtectedRoute>

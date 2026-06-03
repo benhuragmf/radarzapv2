@@ -7,14 +7,24 @@ import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import {
   ConsentStatus,
   CONSENT_ACCEPTED_REPLY,
+  CONSENT_OPT_OUT_CANCELLED_REPLY,
+  CONSENT_OPT_OUT_CONFIRM_PROMPT,
+  CONSENT_OPT_OUT_PENDING_HINT,
+  CONSENT_OPT_OUT_REPLY,
   CONSENT_REFUSED_REPLY,
+  CONSENT_RESUBSCRIBE_REPLY,
   MAX_PENDING_OUTBOUND,
+  canReplyToConsentPrompt,
   canSendPendingAttempt,
   canSendToContact,
   isBlockedStatus,
   nextRefusalStatus,
   ownerCanResetStatus,
   parseConsentReply,
+  parseOptOutAbort,
+  parseOptOutConfirm,
+  parseOptOutRequest,
+  parseResubscribeReply,
   type ConsentActionOrigin,
 } from '@/types/consent';
 import { createServiceLogger } from '@/utils/logger';
@@ -87,11 +97,13 @@ export class ConsentService {
     } else if (newStatus.startsWith('REFUSED')) {
       dest.consent.granted = false;
       dest.isActive = true;
-    } else if (newStatus === ConsentStatus.PENDING) {
+    } else     if (newStatus === ConsentStatus.PENDING) {
       dest.consent.granted = false;
       dest.isActive = true;
       dest.pendingOutboundCount = 0;
     }
+
+    dest.optOutConfirmPendingAt = undefined;
 
     await dest.save();
     await this.recordHistory(dest, prev, newStatus, origin, extra);
@@ -171,6 +183,71 @@ export class ConsentService {
     return null;
   }
 
+  /** Opt-out em duas etapas quando o contato já aceitou */
+  private async handleAcceptedInbound(
+    clientId: string,
+    dest: IDestination,
+    text: string,
+    wa: WhatsAppService,
+  ): Promise<void> {
+    const pending = !!dest.optOutConfirmPendingAt;
+
+    if (pending) {
+      if (parseOptOutAbort(text)) {
+        dest.optOutConfirmPendingAt = undefined;
+        await dest.save();
+        await wa.sendManualMessage(
+          clientId,
+          dest.identifier,
+          CONSENT_OPT_OUT_CANCELLED_REPLY,
+          undefined,
+          { skipConsentCheck: true, skipRateLimit: true },
+        );
+        logger.info('Opt-out abortado — usuário manteve inscrição', {
+          clientId,
+          phone: dest.identifier,
+        });
+        return;
+      }
+
+      if (parseOptOutConfirm(text)) {
+        await this.applyStatus(dest, ConsentStatus.REFUSED_FIRST, 'whatsapp-inbound', {
+          replyText: text,
+        });
+        await wa.sendManualMessage(clientId, dest.identifier, CONSENT_OPT_OUT_REPLY, undefined, {
+          skipConsentCheck: true,
+          skipRateLimit: true,
+        });
+        logger.info('Opt-out confirmado via WhatsApp', { clientId, phone: dest.identifier });
+        return;
+      }
+
+      if (parseResubscribeReply(text)) {
+        await wa.sendManualMessage(
+          clientId,
+          dest.identifier,
+          CONSENT_OPT_OUT_PENDING_HINT,
+          undefined,
+          { skipConsentCheck: true, skipRateLimit: true },
+        );
+      }
+      return;
+    }
+
+    if (parseOptOutRequest(text)) {
+      dest.optOutConfirmPendingAt = new Date();
+      await dest.save();
+      await wa.sendManualMessage(
+        clientId,
+        dest.identifier,
+        CONSENT_OPT_OUT_CONFIRM_PROMPT,
+        undefined,
+        { skipConsentCheck: true, skipRateLimit: true },
+      );
+      logger.info('Opt-out: aguardando confirmação', { clientId, phone: dest.identifier });
+    }
+  }
+
   /** Processa mensagem recebida no WhatsApp */
   async handleInboundMessage(
     clientId: string,
@@ -184,13 +261,43 @@ export class ConsentService {
       return;
     }
 
+    const prev = dest.consentStatus ?? ConsentStatus.PENDING;
+    const wa = WhatsAppService.getInstance();
+
+    if (prev === ConsentStatus.ACCEPTED) {
+      await this.handleAcceptedInbound(clientId, dest, text, wa);
+      return;
+    }
+
+    if (
+      prev === ConsentStatus.REFUSED_FIRST ||
+      prev === ConsentStatus.REFUSED_SECOND
+    ) {
+      if (parseResubscribeReply(text)) {
+        await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound', {
+          replyText: text,
+        });
+        await wa.sendManualMessage(
+          clientId,
+          dest.identifier,
+          CONSENT_RESUBSCRIBE_REPLY,
+          undefined,
+          { skipConsentCheck: true, skipRateLimit: true },
+        );
+        logger.info('Contato voltou a receber (entrar/aceitar)', {
+          clientId,
+          phone: dest.identifier,
+        });
+      }
+      return;
+    }
+
+    if (!canReplyToConsentPrompt(prev)) {
+      return;
+    }
+
     const reply = parseConsentReply(text);
     if (!reply) return;
-
-    const prev = dest.consentStatus ?? ConsentStatus.PENDING;
-    if (prev === ConsentStatus.ACCEPTED && reply === 'accept') return;
-
-    const wa = WhatsAppService.getInstance();
 
     if (reply === 'accept') {
       await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound', {

@@ -49,13 +49,7 @@ export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Extrai número legível do wuid Baileys (5511999999999@s.whatsapp.net) */
-export function wuidToPhone(wuid?: string): string | undefined {
-  if (!wuid) return undefined;
-  const raw = wuid.split('@')[0]?.replace(/\D/g, '');
-  if (!raw) return undefined;
-  return `+${raw}`;
-}
+export { wuidToPhone } from '@/utils/whatsapp-phone';
 
 /** Converte estado live + cache para status do dashboard */
 export function liveStateToStatus(

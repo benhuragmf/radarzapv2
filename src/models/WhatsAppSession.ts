@@ -44,7 +44,6 @@ const WhatsAppSessionSchema = new Schema<IWhatsAppSession>({
     type: Schema.Types.ObjectId,
     required: [true, 'Client ID is required'],
     ref: 'User',
-    index: true
   },
   
   type: {
@@ -113,7 +112,6 @@ const WhatsAppSessionSchema = new Schema<IWhatsAppSession>({
   expiresAt: {
     type: Date,
     required: true,
-    index: true,
     default: function() {
       // Default expiry: 24 hours from creation
       return new Date(Date.now() + 24 * 60 * 60 * 1000);

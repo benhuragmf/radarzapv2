@@ -1,21 +1,39 @@
 import pino from 'pino';
 import { config } from '../config/environment';
-import { safeStringify, createErrorMessage } from './helpers';
+import { sanitizeLogText } from './sanitizeLogText';
+
+const usePretty = config.LOGGING.FORMAT === 'pretty';
+
+function sanitizeLogArgs(args: unknown[]): unknown[] {
+  if (!usePretty || args.length === 0) return args;
+  const out = [...args];
+  const last = out.length - 1;
+  if (typeof out[last] === 'string') {
+    out[last] = sanitizeLogText(out[last] as string);
+  }
+  return out;
+}
 
 /**
  * Logger configuration based on environment
  */
 const loggerConfig: pino.LoggerOptions = {
   level: config.LOGGING.LEVEL,
+  hooks: usePretty
+    ? {
+        logMethod(args, method) {
+          return method.apply(this, sanitizeLogArgs(args));
+        },
+      }
+    : undefined,
   formatters: {
     level: (label) => ({ level: label }),
     bindings: (bindings) => ({
       pid: bindings.pid,
       hostname: bindings.hostname,
-      service: 'discord-whatsapp-bot',
     }),
   },
-  timestamp: pino.stdTimeFunctions.isoTime,
+  timestamp: usePretty ? false : pino.stdTimeFunctions.isoTime,
   redact: {
     paths: [
       'password',
@@ -33,15 +51,16 @@ const loggerConfig: pino.LoggerOptions = {
   },
 };
 
-// Configure transport based on environment
-if (config.NODE_ENV === 'development' && config.LOGGING.FORMAT === 'pretty') {
+if (usePretty) {
   loggerConfig.transport = {
     target: 'pino-pretty',
     options: {
-      colorize: true,
-      translateTime: 'SYS:standard',
-      ignore: 'pid,hostname',
-      messageFormat: '{service} [{level}] {msg}',
+      colorize: Boolean(process.stdout.isTTY),
+      translateTime: 'HH:MM:ss',
+      ignore: 'pid,hostname,service',
+      singleLine: true,
+      messageFormat: '[{service}] {msg}',
+      errorLikeObjectKeys: ['err', 'error'],
     },
   };
 }
@@ -54,7 +73,7 @@ export const logger = pino(loggerConfig);
 /**
  * Create a child logger with additional context
  */
-export function createChildLogger(context: Record<string, any>) {
+export function createChildLogger(context: Record<string, unknown>) {
   return logger.child(context);
 }
 
@@ -72,24 +91,29 @@ export function createRequestLogger() {
   return require('pino-http')({
     logger,
     autoLogging: true,
-    customProps: (req) => ({
+    customProps: (req: { get: (h: string) => string; ip: string; method: string; url: string }) => ({
       userAgent: req.get('User-Agent'),
       ip: req.ip,
       method: req.method,
       url: req.url,
     }),
-    customLogLevel: (req, res) => {
+    customLogLevel: (_req: unknown, res: { statusCode: number }) => {
       if (res.statusCode >= 400 && res.statusCode < 500) {
         return 'warn';
-      } else if (res.statusCode >= 500) {
+      }
+      if (res.statusCode >= 500) {
         return 'error';
       }
       return 'info';
     },
-    customSuccessMessage: (req, res) => {
+    customSuccessMessage: (req: { method: string; url: string }, res: { statusCode: number }) => {
       return `${req.method} ${req.url} - ${res.statusCode}`;
     },
-    customErrorMessage: (req, res, error) => {
+    customErrorMessage: (
+      req: { method: string; url: string },
+      res: { statusCode: number },
+      error: Error,
+    ) => {
       return `${req.method} ${req.url} - ${res.statusCode} - ${error.message}`;
     },
   });
@@ -98,79 +122,105 @@ export function createRequestLogger() {
 /**
  * Structured error logging
  */
-export function logError(error: Error, context?: Record<string, any>) {
-  logger.error({
-    error: {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
+export function logError(error: Error, context?: Record<string, unknown>) {
+  logger.error(
+    {
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      ...context,
     },
-    ...context,
-  }, 'Error occurred');
+    'Error occurred',
+  );
 }
 
 /**
  * Performance logging utility
  */
-export function logPerformance(operation: string, duration: number, context?: Record<string, any>) {
-  logger.info({
-    operation,
-    duration,
-    ...context,
-  }, `Performance: ${operation} completed in ${duration}ms`);
+export function logPerformance(
+  operation: string,
+  duration: number,
+  context?: Record<string, unknown>,
+) {
+  logger.info(
+    {
+      operation,
+      duration,
+      ...context,
+    },
+    `Performance: ${operation} completed in ${duration}ms`,
+  );
 }
 
 /**
  * Audit logging for security events
  */
-export function logAudit(event: string, userId?: string, details?: Record<string, any>) {
-  logger.info({
-    audit: true,
-    event,
-    userId,
-    timestamp: new Date().toISOString(),
-    ...details,
-  }, `Audit: ${event}`);
+export function logAudit(event: string, userId?: string, details?: Record<string, unknown>) {
+  logger.info(
+    {
+      audit: true,
+      event,
+      userId,
+      timestamp: new Date().toISOString(),
+      ...details,
+    },
+    `Audit: ${event}`,
+  );
 }
 
 /**
  * Health check logging
  */
-export function logHealthCheck(service: string, status: 'healthy' | 'unhealthy', details?: Record<string, any>) {
+export function logHealthCheck(
+  service: string,
+  status: 'healthy' | 'unhealthy',
+  details?: Record<string, unknown>,
+) {
   const logLevel = status === 'healthy' ? 'info' : 'error';
-  logger[logLevel]({
-    healthCheck: true,
-    service,
-    status,
-    ...details,
-  }, `Health Check: ${service} is ${status}`);
+  logger[logLevel](
+    {
+      healthCheck: true,
+      service,
+      status,
+      ...details,
+    },
+    `Health Check: ${service} is ${status}`,
+  );
 }
 
 /**
  * Metrics logging
  */
 export function logMetrics(metrics: Record<string, number | string>) {
-  logger.info({
-    metrics: true,
-    ...metrics,
-  }, 'System metrics');
+  logger.info(
+    {
+      metrics: true,
+      ...metrics,
+    },
+    'System metrics',
+  );
 }
 
 /**
  * Business event logging
  */
-export function logBusinessEvent(event: string, data: Record<string, any>) {
-  logger.info({
-    businessEvent: true,
-    event,
-    ...data,
-  }, `Business Event: ${event}`);
+export function logBusinessEvent(event: string, data: Record<string, unknown>) {
+  logger.info(
+    {
+      businessEvent: true,
+      event,
+      ...data,
+    },
+    `Business Event: ${event}`,
+  );
 }
 
 /**
  * Debug logging with conditional execution
  */
-export function logDebug(message: string, data?: Record<string, any>) {
+export function logDebug(message: string, data?: Record<string, unknown>) {
   if (config.LOGGING.LEVEL === 'debug') {
     logger.debug(data, message);
   }
@@ -189,35 +239,19 @@ export class LogManager {
     return LogManager.instance;
   }
 
-  /**
-   * Setup log rotation (if using file transport)
-   */
   setupRotation(): void {
-    // This would be implemented with a file transport
-    // For now, we're using stdout/stderr which is handled by the container runtime
     logger.info('Log rotation setup completed');
   }
 
-  /**
-   * Cleanup old log files
-   */
   async cleanup(retentionDays: number = 30): Promise<void> {
-    // Implementation would depend on the log storage mechanism
     logger.info({ retentionDays }, 'Log cleanup completed');
   }
 
-  /**
-   * Archive logs for compliance
-   */
   async archive(fromDate: Date, toDate: Date): Promise<string> {
-    // Implementation for log archival
     const archivePath = `/archives/logs-${fromDate.toISOString().split('T')[0]}-${toDate.toISOString().split('T')[0]}.tar.gz`;
     logger.info({ fromDate, toDate, archivePath }, 'Logs archived');
     return archivePath;
   }
 }
 
-/**
- * Export logger instance as default
- */
 export default logger;

@@ -7,11 +7,8 @@ import { Card, CardTitle, CardValue } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import {
-  DestinationRow,
-  avatarLabel,
-  type Destination,
-} from '../lib/destinationUi'
+import { DestinationRow, type Destination } from '../lib/destinationUi'
+import { avatarLabel, formatWaSessionLabel } from '../lib/destinationFormat'
 import { Plus, RefreshCw, Search, Smartphone, Users, AlertCircle } from 'lucide-react'
 
 const inputCls =
@@ -137,7 +134,12 @@ export default function WhatsAppGroups() {
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            Sessão: {connectedSession.profileName ?? connectedSession.phoneNumber ?? 'Conectada'}
+            Sessão:{' '}
+            {formatWaSessionLabel({
+              phoneNumber: connectedSession.phoneNumber,
+              profileName: connectedSession.profileName,
+              fallback: 'Conectada',
+            })}
           </p>
 
           {loadingGroups && (

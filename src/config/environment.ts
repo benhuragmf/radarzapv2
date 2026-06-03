@@ -150,6 +150,16 @@ function getOptional(key: string, defaultValue: string): string {
   return process.env[key] || defaultValue;
 }
 
+/** `npm run dev` sempre usa pretty; produção/docker usa JSON salvo em LOG_FORMAT. */
+function resolveLogFormat(): string {
+  if (process.env.npm_lifecycle_event === 'dev') {
+    return 'pretty';
+  }
+  const explicit = process.env.LOG_FORMAT?.trim();
+  if (explicit) return explicit;
+  return process.env.NODE_ENV === 'production' ? 'json' : 'pretty';
+}
+
 /**
  * Application configuration
  */
@@ -249,7 +259,7 @@ export const config: AppConfig = {
   // Logging Configuration
   LOGGING: {
     LEVEL: getOptional('LOG_LEVEL', 'info'),
-    FORMAT: getOptional('LOG_FORMAT', 'json'),
+    FORMAT: resolveLogFormat(),
     ENABLE_CONSOLE: parseBoolean(process.env.LOG_ENABLE_CONSOLE, true),
     ENABLE_FILE: parseBoolean(process.env.LOG_ENABLE_FILE, false),
     ENABLE_DATABASE: parseBoolean(process.env.LOG_ENABLE_DATABASE, false)

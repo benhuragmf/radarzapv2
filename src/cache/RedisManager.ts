@@ -1,6 +1,7 @@
 import Redis, { Cluster } from 'ioredis';
 import { config } from '@/config/environment';
-import { logger, createServiceLogger } from '@/utils/logger';
+import { createServiceLogger } from '@/utils/logger';
+import { LogThrottle } from '@/utils/logThrottle';
 
 /**
  * Singleton Redis Manager with automatic reconnection and clustering support
@@ -15,6 +16,8 @@ export class RedisManager {
   private maxReconnectAttempts = 10;
   private reconnectDelay = 5000; // 5 seconds
   private serviceLogger = createServiceLogger('RedisManager');
+  private logThrottle = new LogThrottle(15_000);
+  private gaveUpReconnect = false;
 
   private constructor() {
     // Private constructor for singleton
@@ -58,18 +61,19 @@ export class RedisManager {
 
       // Wait for connection
       await this.waitForConnection();
+      await this.connectPubSubClients();
 
       this.reconnectAttempts = 0;
       this.isConnecting = false;
 
-      this.serviceLogger.info('✅ Redis connected successfully');
+      this.serviceLogger.info('Redis conectado (cache + pub/sub)');
       
       // Initialize Redis structures
       await this.initializeRedisStructures();
       
     } catch (error) {
       this.isConnecting = false;
-      this.serviceLogger.error('❌ Redis connection failed:', error);
+      this.serviceLogger.error('Falha ao conectar Redis:', error);
       
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         await this.scheduleReconnect();
@@ -93,6 +97,10 @@ export class RedisManager {
       keepAlive: 30000,
       connectTimeout: 10000,
       commandTimeout: 5000,
+      retryStrategy: (times: number) => {
+        if (times > 8) return null;
+        return Math.min(times * 300, 3_000);
+      },
     };
 
     // Check if URL contains cluster configuration
@@ -119,33 +127,75 @@ export class RedisManager {
   private setupEventHandlers(): void {
     if (!this.client) return;
 
-    this.client.on('connect', () => {
-      this.serviceLogger.info('🔗 Redis connecting...');
-    });
-
     this.client.on('ready', () => {
-      this.serviceLogger.info('✅ Redis ready');
+      this.gaveUpReconnect = false;
+      this.reconnectAttempts = 0;
+      this.serviceLogger.info('Redis conectado');
     });
 
     this.client.on('error', (error) => {
-      this.serviceLogger.error('🚨 Redis error:', error);
+      this.throttledLog('redis:error', 'warn', 'Redis indisponível', error);
     });
 
     this.client.on('close', () => {
-      this.serviceLogger.warn('🔌 Redis connection closed');
-      
-      if (!this.isConnecting) {
-        this.scheduleReconnect();
+      if (this.gaveUpReconnect) return;
+      this.throttledLog('redis:close', 'warn', 'Conexão Redis fechada');
+      if (!this.isConnecting && this.reconnectAttempts < this.maxReconnectAttempts) {
+        void this.scheduleReconnect();
       }
     });
 
-    this.client.on('reconnecting', () => {
-      this.serviceLogger.info('🔄 Redis reconnecting...');
-    });
-
     this.client.on('end', () => {
-      this.serviceLogger.info('🔒 Redis connection ended');
+      this.throttledLog('redis:end', 'debug', 'Conexão Redis encerrada');
     });
+  }
+
+  private throttledLog(
+    key: string,
+    level: 'warn' | 'error' | 'debug' | 'info',
+    message: string,
+    error?: unknown,
+  ): void {
+    const gate = this.logThrottle.shouldLog(key);
+    if (!gate.ok) return;
+    const suffix = gate.suppressed ? ` (+${gate.suppressed} repetidos)` : '';
+    const errMsg =
+      error instanceof Error ? error.message : error != null ? String(error) : undefined;
+    const full = errMsg ? `${message}: ${errMsg}${suffix}` : `${message}${suffix}`;
+    this.serviceLogger[level](full);
+  }
+
+  /** Conecta clientes dedicados a subscribe/publish (Bull usa outro socket). */
+  private async connectPubSubClients(): Promise<void> {
+    const clients = [this.subscriber, this.publisher].filter(Boolean) as Redis[];
+    await Promise.all(
+      clients.map(
+        (c) =>
+          new Promise<void>((resolve, reject) => {
+            if (c.status === 'ready') {
+              resolve();
+              return;
+            }
+            const onReady = () => {
+              cleanup();
+              resolve();
+            };
+            const onError = (err: Error) => {
+              cleanup();
+              reject(err);
+            };
+            const cleanup = () => {
+              c.off('ready', onReady);
+              c.off('error', onError);
+            };
+            c.once('ready', onReady);
+            c.once('error', onError);
+            if (c.status === 'wait') {
+              c.connect().catch(reject);
+            }
+          }),
+      ),
+    );
   }
 
   /**
@@ -203,7 +253,7 @@ export class RedisManager {
       // Initialize rate limiting structure
       await this.client.set('rate_limit:global:initialized', '1', 'EX', 3600);
 
-      this.serviceLogger.info('✅ Redis structures initialized');
+      this.serviceLogger.info('Estruturas Redis inicializadas');
     } catch (error) {
       this.serviceLogger.error('Failed to initialize Redis structures:', error);
     }
@@ -214,7 +264,14 @@ export class RedisManager {
    */
   private async scheduleReconnect(): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.serviceLogger.error('❌ Max Redis reconnection attempts reached');
+      if (!this.gaveUpReconnect) {
+        this.gaveUpReconnect = true;
+        this.throttledLog(
+          'redis:max',
+          'error',
+          `Redis: desistindo após ${this.maxReconnectAttempts} tentativas (suba o container: npm run docker:up)`,
+        );
+      }
       return;
     }
 
@@ -345,7 +402,7 @@ export class RedisManager {
       
       return await command();
     } catch (error) {
-      this.serviceLogger.error('Redis command failed:', error);
+      this.throttledLog('redis:command', 'debug', 'Comando Redis falhou', error);
       return null;
     }
   }

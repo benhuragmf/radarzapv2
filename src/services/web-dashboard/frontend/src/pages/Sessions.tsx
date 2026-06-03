@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { Smartphone, RefreshCw, Power, QrCode, User } from 'lucide-react'
+import { formatPhone } from '../lib/destinationFormat'
 
 interface Session {
   clientId: string
@@ -198,10 +199,13 @@ export default function Sessions() {
                   {isConnected ? (
                     <>
                       <p className="text-sm font-medium truncate">
-                        {s.profileName || s.phoneNumber || 'WhatsApp'}
+                        {s.profileName ||
+                          (s.phoneNumber ? formatPhone(s.phoneNumber) : 'WhatsApp')}
                       </p>
-                      {s.phoneNumber && (
-                        <p className="text-xs text-green-400/90 font-mono">{s.phoneNumber}</p>
+                      {s.phoneNumber && s.profileName && (
+                        <p className="text-xs text-green-400/90 font-mono">
+                          {formatPhone(s.phoneNumber)}
+                        </p>
                       )}
                       <p className="text-xs text-gray-500">
                         Conectado · {s.lastActivity ? new Date(s.lastActivity).toLocaleString('pt-BR') : '—'}

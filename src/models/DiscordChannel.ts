@@ -73,13 +73,11 @@ const DiscordChannelSchema = new Schema<IDiscordChannel>({
     type: Schema.Types.ObjectId,
     required: [true, 'Client ID is required'],
     ref: 'User',
-    index: true
   },
   
   isActive: {
     type: Boolean,
     default: true,
-    index: true
   },
   
   filters: {

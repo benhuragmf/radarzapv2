@@ -32,8 +32,12 @@ class Application {
    */
   async start(): Promise<void> {
     try {
-      logger.info('🚀 Starting Discord-WhatsApp Bot Application...');
-      logger.info(`Environment: ${config.NODE_ENV}`);
+      logger.info('Iniciando RadarZap...');
+      const envLabel =
+        process.env.npm_lifecycle_event === 'dev'
+          ? 'development (npm run dev)'
+          : config.NODE_ENV;
+      logger.info(`Environment: ${envLabel}`);
       logger.info(`Service: ${config.SERVICE_NAME || 'all'}`);
 
       // Initialize core infrastructure
@@ -45,10 +49,10 @@ class Application {
       // Setup graceful shutdown
       this.setupGracefulShutdown();
 
-      logger.info('✅ Application started successfully!');
+      logger.info('Aplicacao iniciada com sucesso');
 
     } catch (error) {
-      logger.error('❌ Failed to start application:', error);
+      logger.error('Falha ao iniciar aplicacao:', error);
       process.exit(1);
     }
   }
@@ -57,17 +61,17 @@ class Application {
    * Initialize core infrastructure (database, redis)
    */
   private async initializeInfrastructure(): Promise<void> {
-    logger.info('🔧 Initializing infrastructure...');
+    logger.info('Inicializando infraestrutura...');
 
     // Initialize database
     const dbManager = DatabaseManager.getInstance();
     await dbManager.connect();
-    logger.info('✅ Database connected');
+    logger.info('Banco de dados OK');
 
     // Initialize Redis
     const redisManager = RedisManager.getInstance();
     await redisManager.connect();
-    logger.info('✅ Redis connected');
+    logger.info('Redis OK');
   }
 
   /**
@@ -230,6 +234,15 @@ async function main() {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  const infraOffline =
+    /ECONNREFUSED|ECONNRESET|Redis|Mongo|max retries/i.test(msg);
+
+  if (config.NODE_ENV === 'development' && infraOffline) {
+    logger.warn(`Infra offline (promise): ${msg}`);
+    return;
+  }
+
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });

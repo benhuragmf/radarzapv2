@@ -9,6 +9,7 @@ import {
   effectiveConsentStatus,
   type ConsentStatus,
 } from './consentUi'
+import { avatarLabel, formatPhone } from './destinationFormat'
 
 export interface Destination {
   _id: string
@@ -24,18 +25,6 @@ export interface Destination {
 
 export const inputCls =
   'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
-
-export function avatarLabel(name: string) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1f2937&color=4ade80&size=48&bold=true`
-}
-
-export function formatPhone(id: string) {
-  const digits = id.replace(/\D/g, '')
-  if (digits.length >= 12 && digits.startsWith('55')) {
-    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`
-  }
-  return id
-}
 
 function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false)

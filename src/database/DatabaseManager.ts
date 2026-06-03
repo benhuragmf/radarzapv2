@@ -1,6 +1,7 @@
 import mongoose, { Connection } from 'mongoose';
 import { config } from '@/config/environment';
-import { logger, createServiceLogger } from '@/utils/logger';
+import { createServiceLogger } from '@/utils/logger';
+import { LogThrottle } from '@/utils/logThrottle';
 
 /**
  * Singleton Database Manager with automatic reconnection and pooling
@@ -13,6 +14,8 @@ export class DatabaseManager {
   private maxReconnectAttempts = 10;
   private reconnectDelay = 5000; // 5 seconds
   private serviceLogger = createServiceLogger('DatabaseManager');
+  private logThrottle = new LogThrottle(15_000);
+  private gaveUpReconnect = false;
 
   private constructor() {
     this.setupEventHandlers();
@@ -56,7 +59,7 @@ export class DatabaseManager {
       this.reconnectAttempts = 0;
       this.isConnecting = false;
 
-      this.serviceLogger.info('✅ MongoDB connected successfully');
+      this.serviceLogger.info('MongoDB conectado com sucesso');
       
       // Run health check
       await this.healthCheck();
@@ -217,29 +220,43 @@ export class DatabaseManager {
    */
   private setupEventHandlers(): void {
     mongoose.connection.on('connected', () => {
-      this.serviceLogger.info('🔗 MongoDB connected');
+      this.gaveUpReconnect = false;
+      this.reconnectAttempts = 0;
+      this.serviceLogger.info('MongoDB conectado');
     });
 
     mongoose.connection.on('error', (error) => {
-      this.serviceLogger.error('🚨 MongoDB connection error:', error);
+      this.throttledLog('mongo:error', 'warn', 'MongoDB indisponível', error);
     });
 
     mongoose.connection.on('disconnected', () => {
-      this.serviceLogger.warn('🔌 MongoDB disconnected');
-      
-      if (!this.isConnecting) {
-        this.scheduleReconnect();
+      if (this.gaveUpReconnect) return;
+      this.throttledLog('mongo:disconnected', 'warn', 'MongoDB desconectado');
+      if (!this.isConnecting && this.reconnectAttempts < this.maxReconnectAttempts) {
+        void this.scheduleReconnect();
       }
     });
 
     mongoose.connection.on('reconnected', () => {
-      this.serviceLogger.info('🔄 MongoDB reconnected');
+      this.gaveUpReconnect = false;
       this.reconnectAttempts = 0;
+      this.serviceLogger.info('MongoDB reconectado');
     });
+  }
 
-    mongoose.connection.on('close', () => {
-      this.serviceLogger.info('🔒 MongoDB connection closed');
-    });
+  private throttledLog(
+    key: string,
+    level: 'warn' | 'error' | 'info',
+    message: string,
+    error?: unknown,
+  ): void {
+    const gate = this.logThrottle.shouldLog(key);
+    if (!gate.ok) return;
+    const suffix = gate.suppressed ? ` (+${gate.suppressed} repetidos)` : '';
+    const errMsg =
+      error instanceof Error ? error.message : error != null ? String(error) : undefined;
+    const full = errMsg ? `${message}: ${errMsg}${suffix}` : `${message}${suffix}`;
+    this.serviceLogger[level](full);
   }
 
   /**
@@ -247,7 +264,14 @@ export class DatabaseManager {
    */
   private async scheduleReconnect(): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.serviceLogger.error('❌ Max reconnection attempts reached');
+      if (!this.gaveUpReconnect) {
+        this.gaveUpReconnect = true;
+        this.throttledLog(
+          'mongo:max',
+          'error',
+          `MongoDB: desistindo após ${this.maxReconnectAttempts} tentativas (verifique MONGODB_URL / docker)`,
+        );
+      }
       return;
     }
 

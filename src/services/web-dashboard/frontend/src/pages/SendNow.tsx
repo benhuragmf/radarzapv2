@@ -21,6 +21,7 @@ import {
   effectiveConsentStatus,
   type ConsentStatus,
 } from '../lib/consentUi'
+import { formatWaSessionLabel } from '../lib/destinationFormat'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
@@ -274,7 +275,10 @@ export default function SendNow() {
           <Smartphone size={14} className="text-brand-500" />
           Sessão ativa:{' '}
           <Badge
-            label={connected.phoneNumber ?? connected.profileName ?? 'Conectado'}
+            label={formatWaSessionLabel({
+              phoneNumber: connected.phoneNumber,
+              profileName: connected.profileName,
+            })}
             variant="green"
           />
         </div>

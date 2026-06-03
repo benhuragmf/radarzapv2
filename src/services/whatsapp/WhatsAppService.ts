@@ -71,6 +71,8 @@ export class WhatsAppService {
   private reconnectingClients = new Set<string>();
   /** Mensagens enviadas (necessário para decifrar votos em enquetes de consentimento) */
   private outboundMessages = new Map<string, WAMessage>();
+  private lastWaConnectionLogKey = new Map<string, string>();
+  private lastSessionSaveLogAt = new Map<string, number>();
 
   /** Read all Baileys auth files from the session directory */
   private readSessionDirectory(sessionDir: string): Record<string, string> {
@@ -366,6 +368,29 @@ export class WhatsAppService {
   }
 
   /** Push session state to Redis cache + dashboard via pub/sub (Evolution-style events) */
+  private logConnectionUpdate(
+    clientId: string,
+    connection: ConnectionState['connection'],
+    hasQr: boolean,
+    errorCode?: number,
+  ): void {
+    if (!connection && !hasQr && errorCode === undefined) return;
+
+    const key = `${connection ?? 'none'}:qr=${hasQr}:err=${errorCode ?? ''}`;
+    if (this.lastWaConnectionLogKey.get(clientId) === key) return;
+    this.lastWaConnectionLogKey.set(clientId, key);
+
+    const msg = `WA ${clientId}: ${connection ?? 'sync'}${hasQr ? ', QR' : ''}${
+      errorCode != null ? `, code=${errorCode}` : ''
+    }`;
+
+    if (connection === 'open' || connection === 'close' || hasQr || errorCode != null) {
+      this.serviceLogger.info(msg);
+    } else {
+      this.serviceLogger.debug(msg);
+    }
+  }
+
   private async notifySessionUpdate(
     clientId: string,
     data: {
@@ -497,7 +522,7 @@ export class WhatsAppService {
     });
   }
 
-  /** Envia solicitação de consentimento (enquete clicável + texto de fallback) */
+  /** Envia solicitação de consentimento (somente texto — resposta 1 ou 2) */
   async sendConsentRequest(clientId: string, destination: string): Promise<void> {
     const socket = this.sessions.get(clientId);
     if (!socket) {
@@ -520,48 +545,10 @@ export class WhatsAppService {
       /* usa jid formatado */
     }
 
-    const { CONSENT_POLL_QUESTION, CONSENT_REQUEST_MESSAGE } = await import('@/types/consent');
-
-    const pollOptions = ['✅ Aceito', '❌ Recuso'] as const;
+    const { CONSENT_REQUEST_MESSAGE } = await import('@/types/consent');
 
     const intro = await socket.sendMessage(resolvedJid, { text: CONSENT_REQUEST_MESSAGE });
     this.storeOutboundMessage(intro ?? undefined);
-
-    try {
-      const pollMsg = await socket.sendMessage(resolvedJid, {
-        poll: {
-          name: CONSENT_POLL_QUESTION,
-          values: [...pollOptions],
-          selectableCount: 1,
-        },
-      });
-      this.storeOutboundMessage(pollMsg ?? undefined);
-
-      const secret = pollMsg?.message?.messageContextInfo?.messageSecret;
-      const creatorJid = socket.user?.id ? jidNormalizedUser(socket.user.id) : undefined;
-      if (pollMsg?.key?.id && secret) {
-        await ConsentPoll.findOneAndUpdate(
-          {
-            clientId: clientObjectId,
-            pollMsgId: pollMsg.key.id,
-          },
-          {
-            clientId: clientObjectId,
-            pollMsgId: pollMsg.key.id,
-            remoteJid: pollMsg.key.remoteJid ?? resolvedJid,
-            messageSecretB64: Buffer.from(secret).toString('base64'),
-            optionNames: [...pollOptions],
-            creatorJid,
-          },
-          { upsert: true },
-        );
-        this.serviceLogger.info('Consent poll persisted', { pollId: pollMsg.key.id });
-      } else {
-        this.serviceLogger.warn('Consent poll sem messageSecret — use resposta 1/2 ou aceito/recuso');
-      }
-    } catch (pollErr) {
-      this.serviceLogger.warn('Consent poll failed (texto de resposta 1/2 continua válido)', pollErr);
-    }
   }
 
   /** Envio manual / campanha (sem prefixo de teste) */
@@ -1276,7 +1263,12 @@ export class WhatsAppService {
       socket.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
         const { connection, lastDisconnect, qr } = update;
 
-        this.serviceLogger.info(`Connection update for ${clientId}: connection=${connection}, hasQR=${!!qr}, errorCode=${(lastDisconnect?.error as Boom)?.output?.statusCode}`);
+        this.logConnectionUpdate(
+          clientId,
+          connection,
+          !!qr,
+          (lastDisconnect?.error as Boom)?.output?.statusCode,
+        );
 
         if (qr && !resolved) {
           try {
@@ -1470,11 +1462,6 @@ export class WhatsAppService {
         if (msg.key.remoteJid?.endsWith('@g.us')) continue;
 
         if (msg.message?.pollUpdateMessage) {
-          try {
-            await this.handlePollVoteMessage(clientId, socket, msg);
-          } catch (err) {
-            this.serviceLogger.warn('Consent poll vote error', err);
-          }
           continue;
         }
 
@@ -1501,54 +1488,7 @@ export class WhatsAppService {
       }
     });
 
-    socket.ev.on('messages.update', async (updates) => {
-      const meId = jidNormalizedUser(socket.user?.id);
-      for (const { key, update } of updates) {
-        if (!update.pollUpdates?.length || !key.id) continue;
-        try {
-          const resolved = await this.resolveConsentPollForVote(clientId, key);
-          if (!resolved) continue;
-
-          const pollCreation = await this.getStoredMessageContent(clientId, key);
-          if (!pollCreation) continue;
-
-          for (const pu of update.pollUpdates) {
-            const voteKey = pu.pollUpdateMessageKey;
-            if (!voteKey) continue;
-
-            let voteMsg = pu.vote as proto.Message.IPollVoteMessage | undefined;
-            const enc = pu.vote as proto.Message.IPollEncValue | undefined;
-            if (!voteMsg?.selectedOptions?.length && enc?.encPayload) {
-              voteMsg = this.decryptConsentPollVote(
-                enc,
-                resolved.pollEncKey,
-                key.id!,
-                meId,
-                key,
-                voteKey,
-                resolved.creatorJid,
-              ) ?? undefined;
-            }
-            if (!voteMsg?.selectedOptions?.length) {
-              const chatJid = voteKey.remoteJid ?? key.remoteJid;
-              if (chatJid) await this.sendConsentPollFallback(socket, chatJid);
-              continue;
-            }
-
-            await this.applyConsentFromPollChoice(
-              clientId,
-              socket,
-              voteMsg,
-              resolved.optionNames,
-              voteKey,
-              key,
-            );
-          }
-        } catch (err) {
-          this.serviceLogger.warn('Consent poll handler error', err);
-        }
-      }
-    });
+    /* Enquete de consentimento desativada — apenas respostas 1/2 por texto */
 
     // Keep session alive - store interval reference for cleanup
     const keepAliveInterval = setInterval(async () => {
@@ -2069,7 +2009,14 @@ export class WhatsAppService {
         { upsert: true, new: true },
       );
 
-      this.serviceLogger.info(`Session saved to database for client: ${clientId} (${Object.keys(files).length} files)`);
+      const now = Date.now();
+      const last = this.lastSessionSaveLogAt.get(clientId) ?? 0;
+      if (now - last >= 10_000) {
+        this.lastSessionSaveLogAt.set(clientId, now);
+        this.serviceLogger.info(
+          `Sessao salva no banco: ${clientId} (${Object.keys(files).length} arquivos)`,
+        );
+      }
     } catch (error) {
       this.serviceLogger.error('Failed to save session to database:', error);
     }

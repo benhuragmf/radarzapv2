@@ -23,6 +23,8 @@ export interface IDestination extends Document {
   consentStatus: ConsentStatus;
   pendingOutboundCount: number;
   lastConsentPromptAt?: Date;
+  /** Aguardando 2ª mensagem para confirmar opt-out (sair) */
+  optOutConfirmPendingAt?: Date;
   isActive: boolean;
   lastMessageSent?: Date;
   createdAt: Date;
@@ -138,6 +140,8 @@ const DestinationSchema = new Schema<IDestination>({
   },
 
   lastConsentPromptAt: Date,
+
+  optOutConfirmPendingAt: Date,
   
   isActive: {
     type: Boolean,
