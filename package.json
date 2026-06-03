@@ -7,6 +7,7 @@
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
+    "dev:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
     "dashboard": "ts-node -r tsconfig-paths/register start-dashboard.ts",
     "dashboard:frontend": "npm run dev --prefix src/services/web-dashboard/frontend",
     "register-commands": "ts-node -r tsconfig-paths/register register-guild-commands.ts",

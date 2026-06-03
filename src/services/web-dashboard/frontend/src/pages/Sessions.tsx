@@ -26,6 +26,7 @@ interface Session {
 
 interface ConnectResponse {
   ok?: boolean
+  clientId?: string
   instance?: { clientId: string; state: string }
   qrcode?: { base64: string; code: string; count: number }
 }
@@ -120,12 +121,13 @@ export default function Sessions() {
   }
 
   const startConnect = useMutation({
-    mutationFn: () => api.post<ConnectResponse>('/sessions/connect', {}),
+    mutationFn: () => api.post<ConnectResponse>('/sessions/connect', { forceQr: true }),
     onSuccess: (data) => {
-      const id = data.instance?.clientId
+      const id = data.instance?.clientId ?? data.clientId
       if (id) applyConnectResult(id, data)
       else qc.invalidateQueries({ queryKey: ['sessions'] })
     },
+    onError: (err: Error) => alert(err.message ?? 'Falha ao iniciar conexão WhatsApp'),
   })
 
   const connect = useMutation({
@@ -156,10 +158,10 @@ export default function Sessions() {
         <Button
           size="sm"
           onClick={() => startConnect.mutate()}
-          disabled={startConnect.isPending || waitingQr}
+          disabled={startConnect.isPending}
         >
           <QrCode size={14} />
-          {waitingQr ? 'Aguardando QR…' : 'Conectar WhatsApp'}
+          {startConnect.isPending ? 'Gerando QR…' : 'Conectar WhatsApp'}
         </Button>
       </div>
 

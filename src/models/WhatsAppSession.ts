@@ -130,13 +130,17 @@ const WhatsAppSessionSchema = new Schema<IWhatsAppSession>({
 const ENCRYPTION_KEY = process.env.SESSION_ENCRYPTION_KEY || 'default-key-change-in-production-32-chars';
 const ALGORITHM = 'aes-256-cbc';
 
+function sessionCryptoKey(): Buffer {
+  return crypto.scryptSync(ENCRYPTION_KEY, 'radarzap-wa-session-v1', 32);
+}
+
 /**
  * Instance Methods
  */
 WhatsAppSessionSchema.methods.encrypt = function(this: IWhatsAppSession, data: string): string {
   try {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(ALGORITHM, ENCRYPTION_KEY);
+    const cipher = crypto.createCipheriv(ALGORITHM, sessionCryptoKey(), iv);
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     return iv.toString('hex') + ':' + encrypted;
@@ -152,14 +156,14 @@ WhatsAppSessionSchema.methods.decrypt = function(this: IWhatsAppSession): string
     if (parts.length !== 2) {
       throw new Error('Invalid encrypted data format');
     }
-    
+
     const iv = Buffer.from(parts[0], 'hex');
     const encryptedData = parts[1];
-    
-    const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);
+
+    const decipher = crypto.createDecipheriv(ALGORITHM, sessionCryptoKey(), iv);
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   } catch (error) {
     logger.error('Decryption failed:', error);

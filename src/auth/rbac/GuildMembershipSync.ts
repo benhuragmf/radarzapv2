@@ -1,6 +1,7 @@
 import { config } from '@/config/environment';
 import { GuildRole, SystemRole } from '@/auth/rbac/roles';
 import { GuildMembership } from '@/models/GuildMembership';
+import { OrganizationService } from '@/services/organization/OrganizationService';
 import { writeAuditLog } from '@/models/AuditLog';
 import { createServiceLogger } from '@/utils/logger';
 import mongoose from 'mongoose';
@@ -90,6 +91,13 @@ export async function syncGuildMemberships(
 
   const botGuilds = await botGuildsRes.json() as Array<{ id: string; name: string }>;
   const userObjectId = new mongoose.Types.ObjectId(userId);
+  const orgSvc = OrganizationService.getInstance();
+  let organizationId: mongoose.Types.ObjectId;
+  try {
+    organizationId = new mongoose.Types.ObjectId(await orgSvc.resolveClientId(userId));
+  } catch {
+    organizationId = userObjectId;
+  }
   const now = new Date();
   const activeGuildIds = new Set<string>();
 
@@ -132,6 +140,7 @@ export async function syncGuildMemberships(
         {
           userId: userObjectId,
           discordUserId,
+          organizationId,
           discordGuildId: guild.id,
           guildName: guildData.name ?? guild.name,
           roleInGuild,
@@ -141,6 +150,10 @@ export async function syncGuildMemberships(
         },
         { upsert: true, new: true },
       );
+
+      if (roleInGuild === GuildRole.OWNER || roleInGuild === GuildRole.ADMIN) {
+        await orgSvc.linkGuildToOrganization(organizationId.toString(), guild.id);
+      }
 
       if (prevRole && prevRole !== roleInGuild) {
         await writeAuditLog({

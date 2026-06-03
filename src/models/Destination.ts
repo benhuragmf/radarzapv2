@@ -1,5 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { createServiceLogger } from '@/utils/logger';
+import { ConsentStatus } from '@/types/consent';
+import { canSendToContact, canSendPendingAttempt } from '@/types/consent';
 
 const logger = createServiceLogger('DestinationModel');
 
@@ -13,10 +15,14 @@ export interface IDestination extends Document {
   name: string;
   consent: {
     granted: boolean;
-    grantedAt: Date;
-    source: string;
-    ipAddress: string;
+    grantedAt?: Date;
+    source?: string;
+    ipAddress?: string;
   };
+  /** Fluxo opt-in WhatsApp (somente contatos) */
+  consentStatus: ConsentStatus;
+  pendingOutboundCount: number;
+  lastConsentPromptAt?: Date;
   isActive: boolean;
   lastMessageSent?: Date;
   createdAt: Date;
@@ -99,28 +105,39 @@ const DestinationSchema = new Schema<IDestination>({
         return this.consent.granted;
       },
       enum: {
-        values: ['manual', 'opt-in', 'import', 'api', 'discord-command'],
+        values: ['manual', 'opt-in', 'import', 'api', 'discord-command', 'owner-reset'],
         message: 'Invalid consent source'
       }
     },
     
     ipAddress: {
       type: String,
-      required: function(this: IDestination) {
-        return this.consent.granted;
-      },
       validate: {
         validator: function(v: string) {
           if (!v) return true;
-          // Basic IP validation (IPv4 and IPv6)
           const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
           const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
-          return ipv4Regex.test(v) || ipv6Regex.test(v);
+          return ipv4Regex.test(v) || ipv6Regex.test(v) || v === '0.0.0.0';
         },
         message: 'Invalid IP address format'
       }
     }
   },
+
+  consentStatus: {
+    type: String,
+    enum: Object.values(ConsentStatus),
+    default: ConsentStatus.PENDING,
+    index: true,
+  },
+
+  pendingOutboundCount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+
+  lastConsentPromptAt: Date,
   
   isActive: {
     type: Boolean,
@@ -145,6 +162,8 @@ DestinationSchema.methods.grantConsent = async function(this: IDestination, sour
   this.consent.grantedAt = new Date();
   this.consent.source = source;
   this.consent.ipAddress = ipAddress;
+  this.consentStatus = ConsentStatus.ACCEPTED;
+  this.pendingOutboundCount = 0;
   this.isActive = true;
   
   await this.save();
@@ -174,7 +193,17 @@ DestinationSchema.methods.revokeConsent = async function(this: IDestination): Pr
 };
 
 DestinationSchema.methods.hasValidConsent = function(this: IDestination): boolean {
-  return this.consent.granted && this.isActive;
+  if (this.type === 'group') {
+    return this.consent.granted && this.isActive;
+  }
+  const st = this.consentStatus ?? (this.consent.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING);
+  if (st === ConsentStatus.MANUALLY_BLOCKED || st === ConsentStatus.REFUSED_THREE) {
+    return false;
+  }
+  if (canSendToContact(st)) return this.isActive;
+  // PENDING: permitir envio de solicitação de consentimento mesmo se cleanup marcou inativo
+  if (canSendPendingAttempt(st, this.pendingOutboundCount ?? 0)) return true;
+  return false;
 };
 
 DestinationSchema.methods.updateLastMessageSent = async function(this: IDestination): Promise<void> {
@@ -220,9 +249,7 @@ DestinationSchema.statics.findByClientId = function(clientId: mongoose.Types.Obj
   const query: any = { clientId };
   if (activeOnly) {
     query.isActive = true;
-    query['consent.granted'] = true;
   }
-  
   return this.find(query).sort({ name: 1 });
 };
 
@@ -253,18 +280,18 @@ DestinationSchema.statics.createDestination = async function(
     throw new Error('Destination with this identifier already exists for this client');
   }
   
+  const isGroup = type === 'group';
   const destination = new this({
     clientId,
     type,
     identifier,
     name,
-    consent: {
-      granted: true,
-      grantedAt: new Date(),
-      source: consentSource,
-      ipAddress
-    },
-    isActive: true
+    consent: isGroup
+      ? { granted: true, grantedAt: new Date(), source: consentSource, ipAddress }
+      : { granted: false },
+    consentStatus: isGroup ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING,
+    pendingOutboundCount: 0,
+    isActive: true,
   });
   
   await destination.save();
@@ -400,12 +427,26 @@ DestinationSchema.pre('save', function(this: IDestination, next) {
     }
   }
   
+  if (this.consent.source === 'whatsapp-inbound') {
+    this.consent.source = 'opt-in';
+  }
+
   // Ensure consent data consistency
   if (!this.consent.granted) {
     this.consent.grantedAt = undefined;
     this.consent.source = undefined;
     this.consent.ipAddress = undefined;
-    this.isActive = false;
+    // Contatos PENDING/recusa parcial permanecem ativos para o fluxo LGPD
+    if (this.type === 'contact' && this.consentStatus) {
+      if (
+        this.consentStatus === ConsentStatus.REFUSED_THREE ||
+        this.consentStatus === ConsentStatus.MANUALLY_BLOCKED
+      ) {
+        this.isActive = false;
+      }
+    } else {
+      this.isActive = false;
+    }
   }
   
   next();

@@ -114,10 +114,12 @@ export class CommandHandler {
             const channelOption = (interaction as any).options?.get('channel');
             const targetChannelId = channelOption?.channel?.id || interaction.channelId;
 
-            // Get or create user
+            // Get or create user + organization
             const user = await this.getOrCreateUser(interaction.user.id);
+            const orgSvc = (await import('@/services/organization/OrganizationService')).OrganizationService.getInstance();
+            const clientId = await orgSvc.resolveClientId((user._id as mongoose.Types.ObjectId).toString());
+            await orgSvc.linkGuildToOrganization(clientId, interaction.guildId);
 
-            // Check if channel is already configured
             const existingChannel = await DiscordChannel.findOne({
                 guildId: interaction.guildId,
                 channelId: targetChannelId
@@ -132,7 +134,7 @@ export class CommandHandler {
             await DiscordChannel.createChannel(
                 interaction.guildId,
                 targetChannelId,
-                user._id
+                new mongoose.Types.ObjectId(clientId),
             );
 
             // Sincroniza papel Discord (owner/admin) no RadarZap

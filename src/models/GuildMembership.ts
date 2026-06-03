@@ -4,6 +4,7 @@ import { GuildRole } from '@/auth/rbac/roles';
 export interface IGuildMembership extends Document {
   userId: mongoose.Types.ObjectId;
   discordUserId: string;
+  organizationId?: mongoose.Types.ObjectId;
   discordGuildId: string;
   guildName?: string;
   roleInGuild: GuildRole;
@@ -30,6 +31,11 @@ const GuildMembershipSchema = new Schema<IGuildMembership>({
   discordGuildId: {
     type: String,
     required: true,
+    index: true,
+  },
+  organizationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Organization',
     index: true,
   },
   guildName: { type: String },

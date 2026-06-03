@@ -220,6 +220,7 @@ export class SessionCache {
       profileName?: string;
       profilePictureUrl?: string;
       deviceInfo?: any;
+      waAccountType?: 'web' | 'business';
       lastActivity?: Date;
       connectionAttempts?: number;
     },

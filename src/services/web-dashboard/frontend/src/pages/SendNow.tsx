@@ -2,6 +2,25 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import {
+  WHATSAPP_LIMITS,
+  ALLOWED_SAFE_CAMPAIGN_DELAYS_MS,
+  ALLOWED_RISK_CAMPAIGN_DELAYS_MS,
+  estimateCampaignDurationMs,
+  estimateBatchCount,
+  formatDuration,
+  isUnlimited,
+  exceedsPlanQuota,
+  remainingDailyMessages,
+  effectiveSafeBatchSize,
+} from '../lib/limits'
+import {
+  ConsentDot,
+  CONSENT_STATUS_META,
+  canSelectForSend,
+  effectiveConsentStatus,
+  type ConsentStatus,
+} from '../lib/consentUi'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
@@ -19,6 +38,7 @@ import {
   Search,
   Plus,
   RefreshCw,
+  ShieldAlert,
 } from 'lucide-react'
 
 interface Destination {
@@ -26,6 +46,9 @@ interface Destination {
   name: string
   identifier: string
   type: 'contact' | 'group'
+  consentStatus?: ConsentStatus
+  consent?: { granted?: boolean }
+  pendingOutboundCount?: number
 }
 
 interface Session {
@@ -33,6 +56,7 @@ interface Session {
   status: string
   phoneNumber?: string
   profileName?: string
+  waAccountType?: 'web' | 'business'
 }
 
 interface WAGroup {
@@ -45,6 +69,14 @@ type Priority = 'high' | 'medium' | 'low'
 
 const inputCls =
   'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
+
+const MIN_DELAY_MS = WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS
+
+interface BillingMe {
+  plan: string
+  limits: { messagesPerDay: number; groupsMax: number; templatesMax: number }
+  usage: { messagesUsed: number }
+}
 
 const labelCls = 'text-xs text-gray-500 mb-1 block'
 
@@ -65,12 +97,34 @@ export default function SendNow() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'contact' | 'group'>('all')
   const [priority, setPriority] = useState<Priority>('medium')
-  const [delayBetweenMs, setDelayBetweenMs] = useState(3000)
+  const [delayBetweenMs, setDelayBetweenMs] = useState<number>(MIN_DELAY_MS)
   const [requireConnected, setRequireConnected] = useState(true)
   const [scheduleMode, setScheduleMode] = useState(false)
   const [sendAtLocal, setSendAtLocal] = useState(defaultScheduleLocal)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [acceptWhatsAppRisk, setAcceptWhatsAppRisk] = useState(false)
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false)
   const [showGroups, setShowGroups] = useState(false)
+
+  const { data: billing } = useQuery<BillingMe>({
+    queryKey: ['billing-me'],
+    queryFn: () => api.get('/billing/me'),
+    refetchInterval: 30_000,
+  })
+
+  const remainingToday = billing
+    ? remainingDailyMessages(billing.usage, billing.limits)
+    : Number.POSITIVE_INFINITY
+  const planQuotaExceeded = billing
+    ? exceedsPlanQuota(selectedIds.size, billing.limits, billing.usage)
+    : false
+  const messageTooLong = message.length > WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH
+  const delayOptions = acceptWhatsAppRisk
+    ? ALLOWED_RISK_CAMPAIGN_DELAYS_MS
+    : ALLOWED_SAFE_CAMPAIGN_DELAYS_MS
+  const minDelay = acceptWhatsAppRisk
+    ? WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS
+    : WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS
 
   const { data: destinations = [] } = useQuery<Destination[]>({
     queryKey: ['destinations'],
@@ -84,6 +138,18 @@ export default function SendNow() {
   })
 
   const connected = sessions.find(s => s.status === 'connected')
+  const isBusiness = connected?.waAccountType === 'business'
+  const safeBatch = effectiveSafeBatchSize(isBusiness)
+
+  const durationEst = estimateCampaignDurationMs(
+    selectedIds.size,
+    delayBetweenMs,
+    acceptWhatsAppRisk,
+    isBusiness,
+  )
+  const batchCount = estimateBatchCount(selectedIds.size, acceptWhatsAppRisk, isBusiness)
+  const usesSafeQueue =
+    !acceptWhatsAppRisk && selectedIds.size > safeBatch
 
   const { data: waGroups = [], isLoading: loadingGroups, refetch: refetchGroups } = useQuery<WAGroup[]>({
     queryKey: ['wa-groups', connected?.clientId],
@@ -105,10 +171,19 @@ export default function SendNow() {
   }, [destinations, search, typeFilter])
 
   const toggleDest = (id: string) => {
+    const dest = destinations.find(d => d._id === id)
+      if (dest?.type === 'contact') {
+        const st = effectiveConsentStatus(dest.consentStatus, dest.consent?.granted)
+        if (!canSelectForSend(st, dest.pendingOutboundCount ?? 0)) return
+      }
     setSelectedIds(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+        return next
+      }
+      if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) return prev
+      next.add(id)
       return next
     })
   }
@@ -116,9 +191,28 @@ export default function SendNow() {
   const selectAllFiltered = () => {
     setSelectedIds(prev => {
       const next = new Set(prev)
-      filteredDest.forEach(d => next.add(d._id))
+      for (const d of filteredDest) {
+        if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) break
+        if (d.type === 'contact') {
+          const st = effectiveConsentStatus(d.consentStatus, d.consent?.granted)
+          if (!canSelectForSend(st, d.pendingOutboundCount ?? 0)) continue
+        }
+        next.add(d._id)
+      }
       return next
     })
+  }
+
+  const handleRiskToggle = (enabled: boolean) => {
+    setAcceptWhatsAppRisk(enabled)
+    if (!enabled) {
+      setRiskAcknowledged(false)
+      if (delayBetweenMs < WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS) {
+        setDelayBetweenMs(WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS)
+      }
+    } else if (delayBetweenMs < WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS) {
+      setDelayBetweenMs(WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS)
+    }
   }
 
   const importGroup = useMutation({
@@ -135,8 +229,9 @@ export default function SendNow() {
         message: message.trim(),
         destinationIds: Array.from(selectedIds),
         priority,
-        delayBetweenMs,
+        delayBetweenMs: Math.max(minDelay, delayBetweenMs),
         requireConnected,
+        acceptWhatsAppRisk: acceptWhatsAppRisk && riskAcknowledged,
       }
       if (scheduleMode) {
         body.sendAt = new Date(sendAtLocal).toISOString()
@@ -146,6 +241,7 @@ export default function SendNow() {
     onSuccess: data => {
       setResult({ success: true, message: data?.message ?? 'Campanha criada com sucesso!' })
       qc.invalidateQueries({ queryKey: ['campaigns'] })
+      qc.invalidateQueries({ queryKey: ['billing-me'] })
       if (!scheduleMode) {
         setMessage('')
         setSelectedIds(new Set())
@@ -184,6 +280,39 @@ export default function SendNow() {
         </div>
       )}
 
+      {billing && (
+        <Card className="border-gray-800 bg-gray-900/50 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="text-gray-400">
+              Plano <span className="text-white capitalize font-medium">{billing.plan}</span>
+              {' · '}
+              Destinos cadastrados:{' '}
+              <span className="text-white">{destinations.length}</span>
+              {!isUnlimited(billing.limits.groupsMax) && (
+                <span className="text-gray-500"> / {billing.limits.groupsMax}</span>
+              )}
+            </div>
+            <div className="text-gray-400">
+              Mensagens hoje:{' '}
+              <span className={remainingToday === 0 ? 'text-amber-400' : 'text-brand-400'}>
+                {billing.usage.messagesUsed}
+                {!isUnlimited(billing.limits.messagesPerDay) && (
+                  <> / {billing.limits.messagesPerDay}</>
+                )}
+              </span>
+              {isUnlimited(billing.limits.messagesPerDay) && (
+                <span className="text-gray-500"> (ilimitado)</span>
+              )}
+            </div>
+          </div>
+          {remainingToday === 0 && !isUnlimited(billing.limits.messagesPerDay) && (
+            <p className="text-[11px] text-amber-500/90 mt-2">
+              Limite diário atingido. Aguarde a renovação ou faça upgrade em Planos.
+            </p>
+          )}
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3 space-y-4">
             <Card>
@@ -216,8 +345,17 @@ export default function SendNow() {
               </div>
 
               <p className="text-xs text-gray-500 mb-2">
-                {selectedIds.size} selecionado(s) · {destinations.length} cadastrado(s)
+                {selectedIds.size} selecionado(s)
+                {selectedIds.size > safeBatch && !acceptWhatsAppRisk && (
+                  <span className="text-brand-400/90"> · fila segura ({batchCount} lotes)</span>
+                )}
               </p>
+              {planQuotaExceeded && billing && (
+                <p className="text-[11px] text-amber-500/90 mb-2">
+                  Cota do plano: {remainingToday} msg restante(s) hoje — o excedente pausa e retoma
+                  amanhã automaticamente.
+                </p>
+              )}
 
               <div className="max-h-52 overflow-y-auto space-y-1 border border-gray-800 rounded-lg p-2">
                 {filteredDest.length === 0 ? (
@@ -228,19 +366,36 @@ export default function SendNow() {
                     </Link>
                   </p>
                 ) : (
-                  filteredDest.map(d => (
+                  filteredDest.map(d => {
+                    const consentSt =
+                      d.type === 'contact'
+                        ? effectiveConsentStatus(d.consentStatus, d.consent?.granted)
+                        : null
+                    const blocked = consentSt != null && !canSelectForSend(consentSt, d.pendingOutboundCount ?? 0)
+                    return (
                     <label
                       key={d._id}
-                      className={`flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer transition-colors ${
-                        selectedIds.has(d._id) ? 'bg-brand-600/15 border border-brand-600/30' : 'hover:bg-gray-800'
+                      className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-colors ${
+                        blocked
+                          ? 'opacity-50 cursor-not-allowed'
+                          : selectedIds.has(d._id)
+                            ? 'bg-brand-600/15 border border-brand-600/30 cursor-pointer'
+                            : 'hover:bg-gray-800 cursor-pointer'
                       }`}
+                      style={
+                        consentSt
+                          ? { borderLeft: `3px solid ${CONSENT_STATUS_META[consentSt].color}` }
+                          : undefined
+                      }
                     >
                       <input
                         type="checkbox"
                         checked={selectedIds.has(d._id)}
+                        disabled={blocked}
                         onChange={() => toggleDest(d._id)}
                         className="rounded border-gray-600"
                       />
+                      {consentSt && <ConsentDot status={consentSt} />}
                       {d.type === 'group' ? (
                         <Hash size={14} className="text-brand-500 shrink-0" />
                       ) : (
@@ -252,7 +407,8 @@ export default function SendNow() {
                       </div>
                       <Badge label={d.type === 'group' ? 'grupo' : 'contato'} variant={d.type === 'group' ? 'green' : 'blue'} />
                     </label>
-                  ))
+                    )
+                  })
                 )}
               </div>
 
@@ -325,6 +481,7 @@ export default function SendNow() {
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                     placeholder="Ex: Promoção março"
+                    maxLength={WHATSAPP_LIMITS.MAX_CAMPAIGN_TITLE_LENGTH}
                     className={inputCls}
                   />
                 </div>
@@ -334,10 +491,13 @@ export default function SendNow() {
                     value={message}
                     onChange={e => setMessage(e.target.value)}
                     rows={5}
+                    maxLength={WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
                     placeholder="Digite a mensagem que será enviada no WhatsApp..."
-                    className={`${inputCls} resize-none`}
+                    className={`${inputCls} resize-none ${messageTooLong ? 'border-amber-600' : ''}`}
                   />
-                  <p className="text-[11px] text-gray-600 mt-1 text-right">{message.length} / 4096</p>
+                  <p className={`text-[11px] mt-1 text-right ${messageTooLong ? 'text-amber-400' : 'text-gray-600'}`}>
+                    {message.length} / {WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -404,14 +564,75 @@ export default function SendNow() {
                       onChange={e => setDelayBetweenMs(Number(e.target.value))}
                       className={inputCls}
                     >
-                      <option value={0}>Sem intervalo</option>
-                      <option value={3000}>3 segundos</option>
-                      <option value={5000}>5 segundos</option>
-                      <option value={10000}>10 segundos</option>
-                      <option value={30000}>30 segundos</option>
+                      {delayOptions.map(ms => (
+                        <option key={ms} value={ms}>
+                          {ms / 1000} segundos
+                          {ms === minDelay ? ' (mínimo)' : ''}
+                        </option>
+                      ))}
                     </select>
+                    <p className="text-[10px] text-gray-600 mt-1">
+                      {acceptWhatsAppRisk
+                        ? 'Modo sem proteção — intervalos menores aumentam risco de banimento.'
+                        : `Modo protegido: lotes de ${safeBatch} msg/min com pausa de 1 min${isBusiness ? ' (WhatsApp Business — limite dobrado)' : ''}.`}
+                    </p>
                   </div>
                 </div>
+
+                <Card className={`border ${acceptWhatsAppRisk ? 'border-red-800/60 bg-red-950/20' : 'border-gray-800 bg-gray-900/40'}`}>
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert
+                      size={18}
+                      className={acceptWhatsAppRisk ? 'text-red-400 shrink-0' : 'text-amber-400 shrink-0'}
+                    />
+                    <div className="space-y-3 flex-1">
+                      <div>
+                        <p className="text-sm font-medium text-gray-200">
+                          Proteção anti-banimento do WhatsApp
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                          {acceptWhatsAppRisk
+                            ? 'Proteção DESATIVADA. Envios mais rápidos podem fazer o WhatsApp banir ou suspender sua conta permanentemente.'
+                            : 'Ativa por padrão. Envios grandes vão para fila automática (~20 msg/min) até entregar todos os destinos.'}
+                        </p>
+                      </div>
+                      <label className="flex items-start gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={acceptWhatsAppRisk}
+                          onChange={e => handleRiskToggle(e.target.checked)}
+                          className="mt-0.5 rounded border-gray-600"
+                        />
+                        <span className={acceptWhatsAppRisk ? 'text-red-300' : 'text-gray-400'}>
+                          Desativar proteção e aceitar risco de banimento da conta WhatsApp
+                        </span>
+                      </label>
+                      {acceptWhatsAppRisk && (
+                        <label className="flex items-start gap-2 text-xs text-red-200/90 cursor-pointer pl-6 border-l-2 border-red-800">
+                          <input
+                            type="checkbox"
+                            checked={riskAcknowledged}
+                            onChange={e => setRiskAcknowledged(e.target.checked)}
+                            className="mt-0.5 rounded border-red-700"
+                          />
+                          <span>
+                            Tenho ciência de que o RadarZap não se responsabiliza e que minha
+                            conta WhatsApp pode ser <strong>banida ou perdida</strong> se eu
+                            continuar.
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+
+                {usesSafeQueue && (
+                  <p className="text-xs text-brand-400/90 flex items-start gap-1.5">
+                    <Clock size={12} className="shrink-0 mt-0.5" />
+                    {selectedIds.size} destinos serão entregues em fila segura (~
+                    {formatDuration(durationEst)}). Você pode acompanhar em Agendamentos.
+                  </p>
+                )}
 
                 <label className="flex items-start gap-2 text-sm text-gray-400 cursor-pointer">
                   <input
@@ -445,8 +666,25 @@ export default function SendNow() {
                 </li>
                 <li>
                   <strong className="text-gray-400">Intervalo:</strong>{' '}
-                  {delayBetweenMs === 0 ? 'nenhum' : `${delayBetweenMs / 1000}s`}
+                  {Math.max(minDelay, delayBetweenMs) / 1000}s
+                  {selectedIds.size > 1 && (
+                    <span className="text-gray-600"> · {formatDuration(durationEst)} total</span>
+                  )}
                 </li>
+                <li>
+                  <strong className="text-gray-400">Proteção:</strong>{' '}
+                  {acceptWhatsAppRisk && riskAcknowledged ? (
+                    <span className="text-red-400">desativada (risco aceito)</span>
+                  ) : (
+                    <span className="text-brand-400">ativa — fila segura</span>
+                  )}
+                </li>
+                {billing && !isUnlimited(billing.limits.messagesPerDay) && (
+                  <li>
+                    <strong className="text-gray-400">Plano hoje:</strong>{' '}
+                    {billing.usage.messagesUsed}/{billing.limits.messagesPerDay} usadas
+                  </li>
+                )}
               </ul>
 
               <Button
@@ -457,9 +695,10 @@ export default function SendNow() {
                 disabled={
                   !message.trim() ||
                   selectedIds.size === 0 ||
+                  messageTooLong ||
                   submit.isPending ||
                   (!scheduleMode && !connected) ||
-                  message.length > 4096
+                  (acceptWhatsAppRisk && !riskAcknowledged)
                 }
                 className="w-full justify-center"
               >
@@ -496,7 +735,9 @@ export default function SendNow() {
                 <Clock size={12} /> Dicas
               </p>
               <p>• Contatos em Destinos → Contatos; grupos só por importação em Grupos.</p>
-              <p>• Use intervalo entre envios para reduzir bloqueios.</p>
+              <p>• Modo protegido: fila automática (~{safeBatch} msg/min{isBusiness ? ', Business' : ''}) entrega todos os destinos.</p>
+              <p>• Contatos com borda colorida: amarelo=aguardando aceite, verde=aceito, vermelho=recusou.</p>
+              <p>• Desativar proteção só se você aceitar o risco de perder a conta WhatsApp.</p>
               <p>• Regras automáticas do Discord ficam na aba Discord → Regras.</p>
             </Card>
           </div>

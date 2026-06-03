@@ -165,7 +165,7 @@ class Application {
       logger.info('✅ API Gateway service started');
     } catch (error) {
       logger.error('❌ Failed to start API Gateway service:', error);
-      throw error;
+      // Não fatal em dev — costuma ser porta 8080 (PORT) já em uso
     }
   }
 

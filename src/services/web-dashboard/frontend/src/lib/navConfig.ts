@@ -63,7 +63,7 @@ export const PLATFORM_TOOLS_NAV: NavEntry[] = [
     link('send-history', 'Histórico', History, '/send/historico', 'send:test'),
   ]),
   group('grp-wa-dest', 'Destinos WhatsApp', Users, [
-    link('wa-contacts', 'Contatos', Phone, '/destinations', 'send:destination:manage'),
+    link('wa-contacts', 'Contatos', Phone, '/destinations', 'consent:view'),
     link('wa-groups', 'Grupos', Users, '/grupos', 'send:destination:manage'),
   ], 'send:destination:manage'),
   group('grp-api', 'Integrações', Key, [
@@ -82,6 +82,7 @@ export const USER_PLATFORM_NAV: NavEntry[] = [
   group('grp-account', 'Conta', Settings, [
     link('plans', 'Planos', Crown, '/plans', 'billing:view'),
     link('settings', 'Configurações', Settings, '/settings', 'account:settings'),
+    link('team', 'Equipe', Users, '/settings/team', 'company:members:manage'),
   ]),
 ]
 
@@ -92,6 +93,7 @@ export const CLIENT_PLATFORM_NAV: NavEntry[] = [
   group('grp-account', 'Conta', Settings, [
     link('plans', 'Planos', Crown, '/plans', 'billing:view'),
     link('settings', 'Configurações', Settings, '/settings', 'account:settings'),
+    link('team', 'Equipe', Users, '/settings/team', 'company:members:manage'),
   ]),
 ]
 
@@ -102,7 +104,7 @@ export const DISCORD_NAV: NavEntry[] = [
   link('auto-rules', 'Regras', BookOpen, '/discord/rules', 'send:rules:manage', true),
   link('auto-format', 'Formato no WhatsApp', FileText, '/discord/templates', 'send:templates:manage', true),
   group('grp-discord-dest', 'Destinos WhatsApp', Users, [
-    link('d-contacts', 'Contatos', Phone, '/discord/destinations', 'send:destination:manage', true),
+    link('d-contacts', 'Contatos', Phone, '/discord/destinations', 'consent:view', true),
     link('d-groups', 'Grupos', Users, '/discord/grupos', 'send:destination:manage', true),
     link('d-hist', 'Histórico', History, '/discord/destinations/historico', 'send:destination:manage', true),
   ], 'send:destination:manage'),
@@ -179,11 +181,10 @@ export function detectNavMode(pathname: string, hash = ''): NavMode {
   return 'platform'
 }
 
-/** Pode usar aba Discord (tem servidor configurado) */
+/** Pode usar aba Discord (bot no servidor vinculado à empresa) */
 export function userHasDiscordMode(user: AuthUser): boolean {
   if (user.isInternalStaff) return true
-  if (can(user, 'discord:channels:manage') || can(user, 'discord:server:view')) return true
-  return user.guilds.some(g => g.role === 'OWNER' || g.role === 'ADMIN')
+  return user.hasDiscordAccess === true
 }
 
 function linkAllowed(entry: NavLink, user: AuthUser | null): boolean {
@@ -268,9 +269,9 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/sessions': 'whatsapp:session:view',
   '/channels': 'discord:channels:manage',
   '/discord/channels': 'discord:channels:manage',
-  '/destinations': 'send:destination:manage',
+  '/destinations': 'consent:view',
   '/grupos': 'send:destination:manage',
-  '/discord/destinations': 'send:destination:manage',
+  '/discord/destinations': 'consent:view',
   '/discord/grupos': 'send:destination:manage',
   '/discord/destinations/historico': 'send:destination:manage',
   '/rules': 'send:rules:manage',
@@ -287,6 +288,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/send/historico': 'send:test',
   '/plans': 'billing:view',
   '/settings': 'account:settings',
+  '/settings/team': 'company:members:manage',
   '/admin/dashboard': 'dashboard:global',
   '/admin/clients': 'system:users:view',
   '/admin/servers': 'system:servers:view',
@@ -325,6 +327,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/send/historico': 'Histórico de envios',
   '/plans': 'Planos',
   '/settings': 'Configurações',
+  '/settings/team': 'Equipe',
   '/admin/dashboard': 'Dashboard global',
   '/admin/clients': 'Clientes',
   '/admin/servers': 'Servidores',

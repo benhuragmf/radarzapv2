@@ -8,8 +8,12 @@ const logger = createServiceLogger('UserModel');
  * User interface
  */
 export interface IUser extends Document {
-  discordUserId: string;
+  discordUserId?: string;
+  googleId?: string;
   email?: string;
+  displayName?: string;
+  authProviders: ('google' | 'discord')[];
+  primaryOrganizationId?: mongoose.Types.ObjectId;
   systemRole: SystemRole;
   plan: 'free' | 'starter' | 'pro' | 'enterprise';
   limits: {
@@ -38,13 +42,34 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>({
   discordUserId: {
     type: String,
-    required: [true, 'Discord User ID is required'],
+    sparse: true,
     unique: true,
     index: true,
     validate: {
-      validator: (v: string) => /^\d{17,19}$/.test(v),
-      message: 'Invalid Discord User ID format'
-    }
+      validator: (v: string) => !v || /^\d{17,19}$/.test(v),
+      message: 'Invalid Discord User ID format',
+    },
+  },
+
+  googleId: {
+    type: String,
+    sparse: true,
+    unique: true,
+    index: true,
+  },
+
+  displayName: { type: String, trim: true, maxlength: 120 },
+
+  authProviders: {
+    type: [String],
+    enum: ['google', 'discord'],
+    default: [],
+  },
+
+  primaryOrganizationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Organization',
+    index: true,
   },
   
   email: {
@@ -143,9 +168,9 @@ UserSchema.methods.incrementUsage = async function(this: IUser): Promise<void> {
   await this.save();
   
   logger.info('Usage incremented', {
-    userId: this.discordUserId,
+    userId: this._id?.toString(),
     messagesUsed: this.usage.messagesUsed,
-    limit: this.limits.messagesPerDay
+    limit: this.limits.messagesPerDay,
   });
 };
 
@@ -154,9 +179,7 @@ UserSchema.methods.resetDailyUsage = async function(this: IUser): Promise<void> 
   this.usage.lastReset = new Date();
   await this.save();
   
-  logger.info('Daily usage reset', {
-    userId: this.discordUserId
-  });
+  logger.info('Daily usage reset', { userId: this._id?.toString() });
 };
 
 UserSchema.methods.upgradePlan = async function(this: IUser, newPlan: 'free' | 'starter' | 'pro' | 'enterprise'): Promise<void> {
@@ -167,7 +190,7 @@ UserSchema.methods.upgradePlan = async function(this: IUser, newPlan: 'free' | '
   this.limits.groupsMax      = limits.groupsMax;
   this.limits.templatesMax   = limits.templatesMax;
   await this.save();
-  logger.info('Plan upgraded', { userId: this.discordUserId, oldPlan, newPlan, newLimits: this.limits });
+  logger.info('Plan upgraded', { userId: this._id?.toString(), oldPlan, newPlan, newLimits: this.limits });
 };
 
 UserSchema.methods.getUsagePercentage = function(this: IUser): number {
@@ -196,7 +219,8 @@ UserSchema.statics.createUser = async function(discordUserId: string, email?: st
   const user = new this({
     discordUserId,
     email,
-    plan: 'free'
+    authProviders: ['discord'],
+    plan: 'free',
   });
   
   await user.save();
@@ -227,6 +251,14 @@ UserSchema.statics.getUserStats = async function() {
 /**
  * Middleware
  */
+UserSchema.pre('validate', function(this: IUser, next) {
+  if (!this.discordUserId && !this.googleId) {
+    next(new Error('User must have googleId or discordUserId'));
+    return;
+  }
+  next();
+});
+
 UserSchema.pre('save', function(this: IUser, next) {
   if (this.isModified('plan')) {
     const limits = User.getPlanLimits(this.plan);
@@ -239,9 +271,9 @@ UserSchema.pre('save', function(this: IUser, next) {
 
 UserSchema.post('save', function(this: IUser) {
   logger.debug('User saved', {
-    userId: this.discordUserId,
+    userId: this._id?.toString(),
     plan: this.plan,
-    usage: this.usage
+    usage: this.usage,
   });
 });
 

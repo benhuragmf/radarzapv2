@@ -18,6 +18,7 @@ import DiscordSettings from './pages/DiscordSettings'
 import Channels from './pages/Channels'
 import Plans from './pages/Plans'
 import Settings from './pages/Settings'
+import TeamMembers from './pages/TeamMembers'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminClients from './pages/admin/AdminClients'
 import Login from './pages/Login'
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="send" element={<Guard user={user} path="/send"><SendPage /></Guard>} />
           <Route path="test-send" element={<LegacySendRedirect />} />
           <Route path="plans" element={<Guard user={user} path="/plans"><Plans user={user} /></Guard>} />
+          <Route path="settings/team" element={<Guard user={user} path="/settings/team"><TeamMembers /></Guard>} />
           <Route path="settings" element={<Guard user={user} path="/settings"><Settings user={user} /></Guard>} />
 
           {/* Admin interno */}

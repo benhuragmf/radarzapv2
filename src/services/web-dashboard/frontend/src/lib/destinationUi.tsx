@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { Badge } from '../components/ui/Badge'
-import { Check, Copy, Trash2 } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Check, Copy, Trash2, History, RotateCcw, ShieldOff } from 'lucide-react'
+import {
+  ConsentBadge,
+  ConsentDot,
+  CONSENT_STATUS_META,
+  effectiveConsentStatus,
+  type ConsentStatus,
+} from './consentUi'
 
 export interface Destination {
   _id: string
@@ -9,6 +17,9 @@ export interface Destination {
   type: 'contact' | 'group'
   isActive: boolean
   lastMessageSent?: string
+  consentStatus?: ConsentStatus
+  pendingOutboundCount?: number
+  consent?: { granted?: boolean }
 }
 
 export const inputCls =
@@ -48,16 +59,55 @@ export function DestinationRow({
   d,
   onRemove,
   removing,
+  onRequestRenewal,
+  onClearRefusal,
+  onShowHistory,
+  canRequestRenewal,
+  canClearRefusal,
+  canDelete,
+  requestingRenewal,
+  clearingRefusal,
 }: {
   d: Destination
   onRemove: () => void
   removing: boolean
+  onRequestRenewal?: () => void
+  onClearRefusal?: () => void
+  onShowHistory?: () => void
+  canRequestRenewal?: boolean
+  canClearRefusal?: boolean
+  canDelete?: boolean
+  requestingRenewal?: boolean
+  clearingRefusal?: boolean
 }) {
+  const consentSt =
+    d.type === 'contact'
+      ? effectiveConsentStatus(d.consentStatus, d.consent?.granted)
+      : null
+
   return (
-    <div className="flex items-center gap-4 py-3 px-4 rounded-lg bg-gray-800/50 border border-gray-800 hover:border-gray-700 transition-colors">
+    <div
+      className="flex items-center gap-4 py-3 px-4 rounded-lg bg-gray-800/50 border border-gray-800 hover:border-gray-700 transition-colors"
+      style={
+        consentSt
+          ? {
+              borderLeftWidth: 4,
+              borderLeftColor: CONSENT_STATUS_META[consentSt].color,
+            }
+          : undefined
+      }
+    >
       <img src={avatarLabel(d.name)} alt="" className="w-11 h-11 rounded-full shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">{d.name}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-medium text-white truncate">{d.name}</p>
+          {consentSt && <ConsentBadge status={consentSt} />}
+          {consentSt === 'PENDING' && (d.pendingOutboundCount ?? 0) > 0 && (
+            <span className="text-[10px] text-yellow-600/90">
+              {d.pendingOutboundCount}/{3} tentativas
+            </span>
+          )}
+        </div>
         <p className="text-xs text-gray-500 font-mono truncate">
           {d.type === 'contact' ? formatPhone(d.identifier) : d.identifier}
         </p>
@@ -68,17 +118,60 @@ export function DestinationRow({
         )}
       </div>
       <Badge label={d.type === 'contact' ? 'contato' : 'grupo'} variant={d.type === 'contact' ? 'blue' : 'green'} />
+      {onShowHistory && d.type === 'contact' && (
+        <button
+          type="button"
+          title="Histórico de consentimento"
+          onClick={onShowHistory}
+          className="text-gray-600 hover:text-brand-400 transition-colors p-1"
+        >
+          <History size={16} />
+        </button>
+      )}
+      {canRequestRenewal &&
+        onRequestRenewal &&
+        consentSt &&
+        consentSt !== 'ACCEPTED' &&
+        consentSt !== 'REFUSED_THREE' &&
+        consentSt !== 'MANUALLY_BLOCKED' &&
+        (consentSt.startsWith('REFUSED') ||
+          (consentSt === 'PENDING' && (d.pendingOutboundCount ?? 0) >= 3)) && (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={requestingRenewal}
+            onClick={onRequestRenewal}
+            title="Solicita aprovação do dono da empresa"
+          >
+            <RotateCcw size={12} /> Novo aceite
+          </Button>
+        )}
+      {canClearRefusal && onClearRefusal && (consentSt === 'REFUSED_FIRST' || consentSt === 'REFUSED_SECOND') && (
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={clearingRefusal}
+          onClick={onClearRefusal}
+          title="Apenas o dono pode apagar a recusa"
+        >
+          <ShieldOff size={12} /> Apagar recusa
+        </Button>
+      )}
       <CopyBtn text={d.identifier} />
-      <button
-        type="button"
-        disabled={removing}
-        onClick={() => {
-          if (window.confirm(`Remover "${d.name}"?`)) onRemove()
-        }}
-        className="text-gray-600 hover:text-red-400 transition-colors shrink-0 disabled:opacity-50"
-      >
-        <Trash2 size={16} />
-      </button>
+      {canDelete !== false && (
+        <button
+          type="button"
+          disabled={removing}
+          onClick={() => {
+            if (window.confirm(`Remover "${d.name}"?`)) onRemove()
+          }}
+          className="text-gray-600 hover:text-red-400 transition-colors shrink-0 disabled:opacity-50"
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
     </div>
   )
 }
+
+export { ConsentDot, effectiveConsentStatus }

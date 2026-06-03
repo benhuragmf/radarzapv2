@@ -1,7 +1,8 @@
 import { config as dotenvConfig } from 'dotenv';
+import path from 'path';
 
-// Load environment variables
-dotenvConfig();
+// Load environment variables from project root .env
+dotenvConfig({ path: path.resolve(process.cwd(), '.env') });
 
 export interface AppConfig {
   // Server Configuration
@@ -32,6 +33,11 @@ export interface AppConfig {
     ENABLE_SLASH_COMMANDS: boolean;
     AUTO_RECONNECT: boolean;
     MAX_RECONNECT_ATTEMPTS: number;
+  };
+
+  GOOGLE: {
+    CLIENT_ID: string;
+    CLIENT_SECRET: string;
   };
   
   // Database Configuration
@@ -176,6 +182,11 @@ export const config: AppConfig = {
     ENABLE_SLASH_COMMANDS: parseBoolean(process.env.DISCORD_ENABLE_SLASH_COMMANDS, true),
     AUTO_RECONNECT: parseBoolean(process.env.DISCORD_AUTO_RECONNECT, true),
     MAX_RECONNECT_ATTEMPTS: parseNumber(process.env.DISCORD_MAX_RECONNECT_ATTEMPTS, 5)
+  },
+
+  GOOGLE: {
+    CLIENT_ID: getOptional('GOOGLE_CLIENT_ID', ''),
+    CLIENT_SECRET: getOptional('GOOGLE_CLIENT_SECRET', ''),
   },
   
   // Database Configuration

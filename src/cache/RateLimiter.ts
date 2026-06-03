@@ -158,12 +158,12 @@ export class RateLimiter {
   async checkWhatsAppSendingLimit(
     sessionId: string
   ): Promise<{ allowed: boolean; tokensRemaining: number; resetTime: number }> {
-    // WhatsApp Web has strict limits: 1 message per 3 seconds per session
+    const maxPerMinute = config.WHATSAPP.RATE_LIMIT_MESSAGES_PER_MINUTE;
     return await this.checkRateLimit(
       `whatsapp:${sessionId}:sending`,
-      20, // 20 messages per minute max
-      20 / 60, // refill rate: 20 tokens per 60 seconds
-      60 * 1000 // 1 minute window
+      maxPerMinute,
+      maxPerMinute / 60,
+      60 * 1000,
     );
   }
 

@@ -23,7 +23,7 @@ export async function loadAuthContext(
   try {
     const sess = req.session;
     if (!sess?.userId) {
-      res.status(401).json({ error: 'Unauthorized', loginUrl: '/auth/discord' });
+      res.status(401).json({ error: 'Unauthorized', loginUrl: '/auth/google' });
       return;
     }
 
@@ -37,8 +37,10 @@ export async function loadAuthContext(
       user,
       userId: sess.userId,
       discordUserId: sess.discordId ?? user.discordUserId,
-      username: sess.username ?? user.discordUserId,
+      username: sess.username ?? user.displayName ?? user.email ?? 'Usuário',
       avatar: sess.avatar ?? null,
+      authProvider: (sess as { authProvider?: 'google' | 'discord' }).authProvider,
+      email: (sess as { email?: string }).email ?? user.email,
     });
 
     next();

@@ -20,9 +20,23 @@ import { SessionCache } from '../../cache/SessionCache';
 import { RedisManager } from '../../cache/RedisManager';
 import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue } from '../../models';
 import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
+import { ConsentService } from '../consent/ConsentService';
+import { OrganizationService } from '../organization/OrganizationService';
+import { Organization } from '../../models/Organization';
+import { CompanyMember } from '../../models/CompanyMember';
+import { CompanyRole } from '../../auth/rbac/roles';
+import { isBlockedStatus, ConsentStatus } from '../../types/consent';
 import { Rule } from '../../models/Rule';
 import { Template } from '../../models/Template';
 import { config } from '../../config/environment';
+import {
+  normalizeDelayBetweenMs,
+  validateCampaignCreate,
+  validateCampaignTitle,
+  validateDestinationAdd,
+  validateMessageText,
+  WHATSAPP_LIMITS,
+} from '../../config/limits';
 import mongoose from 'mongoose';
 import { mountBullBoard } from '../monitoring/bullBoard';
 import { WhatsAppService } from '../whatsapp/WhatsAppService';
@@ -203,12 +217,19 @@ export class DashboardService {
     }
   }
 
+  /** Google OAuth redirect URI */
+  private getGoogleOAuthRedirectUri(): string {
+    return `${this.getFrontendBase()}/auth/google/callback`;
+  }
+
   /**
    * Discord OAuth2 routes
    */
   private setupAuthRoutes(): void {
     const REDIRECT_URI = this.getOAuthRedirectUri();
+    const GOOGLE_REDIRECT_URI = this.getGoogleOAuthRedirectUri();
     const SCOPES = 'identify';
+    const orgSvc = OrganizationService.getInstance();
 
     logger.info('Discord OAuth redirect URI (cadastre no Discord Developer Portal)', {
       redirectUri: REDIRECT_URI,
@@ -259,19 +280,22 @@ export class DashboardService {
         const discordUser = await userRes.json() as any;
 
         // Check if this Discord user has a RadarZap account
-        const dbUser = await User.findOne({ discordUserId: discordUser.id }).lean();
+        let dbUser = await User.findOne({ discordUserId: discordUser.id });
         if (!dbUser) {
           logger.warn(`Discord user ${discordUser.id} (${discordUser.username}) has no RadarZap account`);
-          const frontendBase = this.getFrontendBase();
           return res.redirect(`${frontendBase}/?error=no_account`);
         }
 
+        await orgSvc.ensureOrganization(dbUser);
+
         // Store in session
         const sess = req.session as any;
-        sess.userId      = (dbUser._id as mongoose.Types.ObjectId).toString();
-        sess.discordId   = discordUser.id;
-        sess.username    = discordUser.username;
-        sess.avatar      = discordUser.avatar
+        sess.userId       = (dbUser._id as mongoose.Types.ObjectId).toString();
+        sess.discordId    = discordUser.id;
+        sess.authProvider = 'discord';
+        sess.username     = discordUser.username;
+        sess.email        = dbUser.email ?? null;
+        sess.avatar       = discordUser.avatar
           ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
           : null;
 
@@ -292,6 +316,87 @@ export class DashboardService {
       }
     });
 
+    // ── Google OAuth (dono da empresa / pagante) ───────────────────────────
+    this.app.get('/auth/google', (_req, res) => {
+      const clientId = config.GOOGLE.CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        return res.status(503).json({ error: 'Google OAuth não configurado (GOOGLE_CLIENT_ID)' });
+      }
+      const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      url.searchParams.set('client_id', clientId);
+      url.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI);
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('scope', 'openid email profile');
+      url.searchParams.set('access_type', 'online');
+      url.searchParams.set('prompt', 'select_account');
+      res.redirect(url.toString());
+    });
+
+    this.app.get('/auth/google/callback', async (req: Request, res: Response) => {
+      const { code } = req.query as { code?: string };
+      const frontendBase = this.getFrontendBase();
+      const clientId = config.GOOGLE.CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = config.GOOGLE.CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+      if (!code) return res.redirect(`${frontendBase}/?error=no_code`);
+      if (!clientId || !clientSecret) {
+        return res.redirect(`${frontendBase}/?error=google_not_configured`);
+      }
+
+      try {
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code,
+            client_id: clientId,
+            client_secret: clientSecret,
+            redirect_uri: GOOGLE_REDIRECT_URI,
+            grant_type: 'authorization_code',
+          }),
+        });
+        const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+        if (!tokenData.access_token) {
+          logger.error('Google token exchange failed', tokenData);
+          return res.redirect(`${frontendBase}/?error=token_failed`);
+        }
+
+        const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const profile = await profileRes.json() as {
+          sub?: string;
+          email?: string;
+          name?: string;
+          picture?: string;
+        };
+        if (!profile.sub || !profile.email) {
+          return res.redirect(`${frontendBase}/?error=google_profile`);
+        }
+
+        const { user } = await orgSvc.getOrCreateForGoogle({
+          sub: profile.sub,
+          email: profile.email,
+          name: profile.name,
+          picture: profile.picture,
+        });
+
+        const sess = req.session as any;
+        sess.userId = (user._id as mongoose.Types.ObjectId).toString();
+        sess.authProvider = 'google';
+        sess.email = profile.email;
+        sess.username = profile.name ?? profile.email;
+        sess.avatar = profile.picture ?? null;
+        sess.discordId = user.discordUserId ?? null;
+
+        logger.info(`Google login: ${profile.email}`);
+        await this.saveSession(req);
+        res.redirect(`${frontendBase}/dashboard`);
+      } catch (err) {
+        logger.error('Google OAuth callback error:', err);
+        res.redirect(`${frontendBase}/?error=oauth_error`);
+      }
+    });
+
     // Get current session info + RBAC (used by frontend)
     this.app.get('/auth/me', async (req: Request, res: Response) => {
       const sess = req.session as any;
@@ -305,8 +410,10 @@ export class DashboardService {
           user,
           userId: sess.userId,
           discordUserId: sess.discordId ?? user.discordUserId,
-          username: sess.username ?? user.discordUserId,
+          username: sess.username ?? user.displayName ?? user.email ?? 'Usuário',
           avatar: sess.avatar ?? null,
+          authProvider: sess.authProvider,
+          email: sess.email ?? user.email,
         });
         res.json(authContextToJson(ctx));
       } catch (e) {
@@ -351,16 +458,17 @@ export class DashboardService {
     r.post('/sessions/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const user = await User.findById(auth.clientId);
+        const clientId = auth.clientId;
+        const user = await User.findById(clientId);
         if (!user) {
           return res.status(400).json({
-            error: 'Nenhum usuário cadastrado. Use /setup no Discord primeiro.',
+            error: 'Conta não encontrada. Faça login novamente.',
           });
         }
 
-        const clientId = (user._id as mongoose.Types.ObjectId).toString();
+        const forceQr = (req.body as { forceQr?: boolean })?.forceQr === true;
         const wa = WhatsAppService.getInstance();
-        const result = await wa.connectInstance(clientId);
+        const result = await wa.connectInstance(clientId, { forceQr });
         res.json({ ok: true, clientId, ...result });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -554,14 +662,20 @@ export class DashboardService {
     });
 
     // ── Destinations ───────────────────────────────────────────────────────
-    r.get('/destinations', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.get('/destinations', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const destinations = await Destination.find({
           clientId: auth.clientId,
-          isActive: true,
         }).lean();
-        res.json(destinations);
+        res.json(
+          destinations.map(d => ({
+            ...d,
+            consentStatus:
+              d.consentStatus ??
+              (d.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING),
+          })),
+        );
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -574,6 +688,14 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const user = await User.findById(auth.clientId);
         if (!user) return res.status(400).json({ error: 'Usuário não encontrado' });
+
+        const activeCount = await Destination.countDocuments({
+          clientId: user._id,
+          isActive: true,
+        });
+        const destQuota = validateDestinationAdd(user.limits, activeCount);
+        if (destQuota.ok === false) return res.status(429).json({ error: destQuota.error });
+
         let normalizedId = String(identifier).trim();
         if (type === 'contact' && !normalizedId.startsWith('+')) {
           normalizedId = `+${normalizedId.replace(/\D/g, '')}`;
@@ -589,12 +711,106 @@ export class DashboardService {
 
     r.delete('/destinations/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
+        const auth = (req as DashboardRequest).auth!;
         const dest = await Destination.findById(req.params.id);
         if (!dest) return res.status(404).json({ error: 'Destination not found' });
+        if (dest.clientId.toString() !== auth.clientId) {
+          return res.status(403).json({ error: 'Sem permissão' });
+        }
+        if (dest.type === 'contact') {
+          const st =
+            dest.consentStatus ??
+            (dest.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING);
+          if (isBlockedStatus(st) && !auth.capabilities.includes(Cap.CONSENT_CLEAR_REFUSAL)) {
+            return res.status(403).json({
+              error:
+                'Contato com recusa registrada — apenas o dono pode remover. Use "Solicitar novo aceite" se o plano permitir.',
+            });
+          }
+        }
         await dest.deleteOne();
         res.json({ ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/:id/consent/history', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const dest = await Destination.findOne({
+          _id: req.params.id,
+          clientId: auth.clientId,
+        });
+        if (!dest) return res.status(404).json({ error: 'Contato não encontrado' });
+        const history = await ConsentService.getInstance().getHistory(auth.clientId, req.params.id);
+        res.json(history);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/destinations/:id/consent/request-renewal', requireCapability(Cap.CONSENT_REQUEST_RENEWAL), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { reason } = req.body as { reason?: string };
+        const reqDoc = await ConsentService.getInstance().requestRenewal(
+          auth.clientId,
+          req.params.id,
+          { userId: auth.userId, username: auth.username ?? auth.userId },
+          reason,
+        );
+        res.json(reqDoc);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/destinations/:id/consent/clear-refusal', requireCapability(Cap.CONSENT_CLEAR_REFUSAL), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await ConsentService.getInstance().clearRefusal(
+          auth.clientId,
+          req.params.id,
+          { userId: auth.userId, username: auth.username ?? auth.userId },
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/consent/renewals', requireCapability(Cap.CONSENT_APPROVE_RENEWAL), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const items = await ConsentService.getInstance().listPendingRenewals(auth.clientId);
+        res.json(items);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/consent/renewals/:id/approve', requireCapability(Cap.CONSENT_APPROVE_RENEWAL), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await ConsentService.getInstance().approveRenewal(
+          auth.clientId,
+          req.params.id,
+          { userId: auth.userId, username: auth.username ?? auth.userId },
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/admin/destinations/:id/block', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId);
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 
@@ -795,18 +1011,68 @@ export class DashboardService {
       }
     });
 
+    // ── Equipe da empresa ──────────────────────────────────────────────────
+    r.get('/team/members', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const members = await OrganizationService.getInstance().listMembers(auth.organizationId);
+        res.json(members);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/team/members', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { email, role } = req.body as { email?: string; role?: CompanyRole };
+        if (!email?.trim()) return res.status(400).json({ error: 'E-mail obrigatório' });
+        const validRoles = [CompanyRole.ADMIN, CompanyRole.ATTENDANT];
+        if (!role || !validRoles.includes(role)) {
+          return res.status(400).json({ error: 'Papel inválido (ADMIN ou ATTENDANT)' });
+        }
+        const member = await OrganizationService.getInstance().inviteMember(
+          auth.organizationId,
+          email.trim(),
+          role,
+          auth.userId,
+        );
+        res.json(member);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/team/members/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        if (auth.companyRole !== CompanyRole.OWNER) {
+          return res.status(403).json({ error: 'Apenas o dono pode remover membros' });
+        }
+        await OrganizationService.getInstance().removeMember(
+          auth.organizationId,
+          req.params.id,
+          auth.companyRole!,
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     // ── Billing (conta própria — USER) ───────────────────────────────────
     r.get('/billing/me', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const user = await User.findById(auth.clientId).lean();
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        const org = await Organization.findById(auth.organizationId).lean();
+        if (!org) return res.status(404).json({ error: 'Organization not found' });
         res.json({
-          _id: auth.clientId,
-          discordUserId: user.discordUserId,
-          plan: user.plan,
-          limits: user.limits,
-          usage: user.usage,
+          _id: auth.organizationId,
+          organizationName: org.name,
+          plan: org.plan,
+          limits: org.limits,
+          usage: org.usage,
+          companyRole: auth.companyRole,
           primaryRole: auth.primaryRole,
         });
       } catch (e) {
@@ -865,12 +1131,26 @@ export class DashboardService {
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
         const status = (req.query.status as string) || undefined;
         const items = await MessageQueue.findByClientId(clientOid, status);
+        const destDocs = await Destination.find({ clientId: clientOid }).lean();
+        const consentByPhone = new Map(
+          destDocs
+            .filter(d => d.type === 'contact')
+            .map(d => [
+              d.identifier,
+              d.consentStatus ??
+                (d.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING),
+            ]),
+        );
         res.json(
           items.map(m => ({
             _id: m._id,
             title: (m.content.variables as { title?: string })?.title ?? 'Envio',
             message: m.content.text,
-            destinations: m.destinations,
+            destinations: m.destinations.map(d => ({
+              ...d,
+              consentStatus:
+                d.type === 'contact' ? consentByPhone.get(d.identifier) : undefined,
+            })),
             status: m.status,
             priority: m.priority,
             scheduledFor: m.scheduledFor,
@@ -878,6 +1158,8 @@ export class DashboardService {
             processedAt: m.processedAt,
             lastError: m.lastError,
             delayBetweenMs: (m.content.variables as { delayBetweenMs?: number })?.delayBetweenMs,
+            sentCount: (m.content.variables as { sentCount?: number })?.sentCount ?? 0,
+            acceptWhatsAppRisk: (m.content.variables as { acceptWhatsAppRisk?: boolean })?.acceptWhatsAppRisk === true,
           })),
         );
       } catch (e) {
@@ -896,32 +1178,52 @@ export class DashboardService {
           priority?: CampaignPriority;
           delayBetweenMs?: number;
           requireConnected?: boolean;
+          acceptWhatsAppRisk?: boolean;
         };
 
-        if (!body.message?.trim()) {
-          return res.status(400).json({ error: 'A mensagem é obrigatória' });
-        }
+        const msgCheck = validateMessageText(body.message);
+        if (msgCheck.ok === false) return res.status(400).json({ error: msgCheck.error });
+
+        const titleCheck = validateCampaignTitle(body.title);
+        if (titleCheck.ok === false) return res.status(400).json({ error: titleCheck.error });
+
         if (!body.destinationIds?.length) {
           return res.status(400).json({ error: 'Selecione ao menos um destino' });
         }
 
-        const user = await User.findById(auth.clientId);
-        if (!user) return res.status(400).json({ error: 'Usuário não encontrado' });
-
-        if (!user.canSendMessage()) {
-          return res.status(429).json({
-            error: `Limite diário de mensagens atingido (${user.limits.messagesPerDay}).`,
-          });
+        const createCheck = validateCampaignCreate(body.destinationIds.length);
+        if (createCheck.ok === false) {
+          return res.status(400).json({ error: createCheck.error });
         }
 
+        const acceptRisk = body.acceptWhatsAppRisk === true;
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
         const destDocs = await Destination.find({
           _id: { $in: body.destinationIds },
-          clientId: user._id,
-          isActive: true,
+          clientId: clientOid,
         });
 
         if (destDocs.length !== body.destinationIds.length) {
           return res.status(400).json({ error: 'Um ou mais destinos são inválidos ou inativos' });
+        }
+
+        const consentSvc = ConsentService.getInstance();
+        for (const d of destDocs) {
+          if (d.type === 'group') {
+            if (!d.isActive) {
+              return res.status(400).json({ error: `${d.name}: grupo inativo ou removido` });
+            }
+            continue;
+          }
+          const err = consentSvc.assertCanSend(d);
+          if (err) {
+            return res.status(400).json({ error: `${d.name}: ${err}` });
+          }
+          if (!d.isActive && d.hasValidConsent()) {
+            d.isActive = true;
+            await d.save();
+          }
         }
 
         let sendAt: Date | undefined;
@@ -956,24 +1258,38 @@ export class DashboardService {
           })),
           sendAt,
           priority: body.priority,
-          delayBetweenMs: body.delayBetweenMs,
+          delayBetweenMs: normalizeDelayBetweenMs(body.delayBetweenMs, acceptRisk),
           requireConnected: body.requireConnected,
+          acceptWhatsAppRisk: acceptRisk,
         });
 
         const isScheduled = Boolean(sendAt && sendAt > new Date());
+        const vars = msg.content.variables as { sentIndex?: number; sentCount?: number };
+        const queued = msg.status === 'pending' && (vars.sentIndex ?? 0) < destDocs.length;
+
+        let resultMessage: string;
+        if (isScheduled) {
+          resultMessage = `Agendado para ${sendAt!.toLocaleString('pt-BR')}`;
+        } else if (msg.status === 'sent') {
+          resultMessage = `Enviado para ${destDocs.length} destino(s)`;
+        } else if (queued) {
+          const done = vars.sentCount ?? vars.sentIndex ?? 0;
+          resultMessage = acceptRisk
+            ? `Enviando ${done}/${destDocs.length}… restante continua na fila.`
+            : `Fila segura: ${done}/${destDocs.length} enviados — lotes de ~${WHATSAPP_LIMITS.SAFE_BATCH_SIZE}/min até concluir.`;
+        } else if (msg.lastError) {
+          resultMessage = msg.lastError;
+        } else {
+          resultMessage = 'Campanha criada — acompanhe em Agendamentos / Histórico.';
+        }
 
         res.json({
           ok: true,
           id: msg._id,
           status: msg.status,
           scheduled: isScheduled,
-          message: isScheduled
-            ? `Agendado para ${sendAt!.toLocaleString('pt-BR')}`
-            : msg.status === 'sent'
-              ? `Enviado para ${destDocs.length} destino(s)`
-              : msg.lastError
-                ? `Falha: ${msg.lastError}`
-                : 'Processando envio…',
+          queued,
+          message: resultMessage,
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -1059,10 +1375,11 @@ export class DashboardService {
     qrCount?: number;
     profileName?: string;
     phoneNumber?: string;
-    profilePictureUrl?: string;
-    wuid?: string;
-    hasPersistedSession: boolean;
-  }>> {
+        profilePictureUrl?: string;
+        wuid?: string;
+        hasPersistedSession: boolean;
+        waAccountType?: 'web' | 'business';
+      }>> {
     const wa = WhatsAppService.getInstance();
     const auth = req.auth!;
 
@@ -1090,12 +1407,16 @@ export class DashboardService {
         phoneNumber: details.phoneNumber,
         profilePictureUrl: details.profilePictureUrl,
         wuid: details.wuid,
+        waAccountType: details.waAccountType,
         hasPersistedSession: details.hasPersistedSession,
       };
     }));
 
     return sessions
-      .filter((s) => s.status !== 'disconnected')
+      .filter((s) => {
+        if (s.clientId === auth.clientId) return true;
+        return s.status !== 'disconnected';
+      })
       .sort((a, b) => {
       const rank = (s: typeof a) => {
         if (s.status === 'connected') return 0;

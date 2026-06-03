@@ -6,7 +6,13 @@ import makeWASocket, {
   proto,
   MessageUpsertType,
   WAMessage,
-  BaileysEventMap
+  WAMessageKey,
+  BaileysEventMap,
+  jidNormalizedUser,
+  getKeyAuthor,
+  decryptPollVote,
+  sha256,
+  normalizeMessageContent,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
@@ -15,9 +21,12 @@ import { logger, createServiceLogger } from '@/utils/logger';
 import { SessionCache } from '@/cache/SessionCache';
 import { QueueManager } from '@/cache/QueueManager';
 import { RateLimiter } from '@/cache/RateLimiter';
-import { WhatsAppSession, User, Destination } from '@/models';
+import { WhatsAppSession, User, Destination, Organization } from '@/models';
+import { ConsentPoll } from '@/models/ConsentPoll';
 import { CircuitBreaker } from '../common/CircuitBreaker';
 import { RedisManager } from '@/cache/RedisManager';
+import { validateMessageText } from '@/config/limits';
+import { ConsentService } from '@/services/consent/ConsentService';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -57,6 +66,11 @@ export class WhatsAppService {
   private isInitialized = false;
   private sessionCleanupInterval: NodeJS.Timeout | null = null;
   private destinationCleanupInterval: NodeJS.Timeout | null = null;
+  private autoReconnectInterval: NodeJS.Timeout | null = null;
+  /** Evita múltiplos createWhatsAppSession simultâneos (causa erro 440) */
+  private reconnectingClients = new Set<string>();
+  /** Mensagens enviadas (necessário para decifrar votos em enquetes de consentimento) */
+  private outboundMessages = new Map<string, WAMessage>();
 
   /** Read all Baileys auth files from the session directory */
   private readSessionDirectory(sessionDir: string): Record<string, string> {
@@ -69,6 +83,276 @@ export class WhatsAppService {
       }
     }
     return files;
+  }
+
+  private messageKeyString(key: WAMessageKey): string {
+    return `${key.remoteJid ?? ''}:${key.id ?? ''}`;
+  }
+
+  private storeOutboundMessage(msg: WAMessage | undefined): void {
+    if (!msg?.key?.id || !msg.key.remoteJid) return;
+    this.outboundMessages.set(this.messageKeyString(msg.key), msg);
+    // Índice secundário por msg id — remoteJid muda entre envio e voto (BR 9º dígito, @lid)
+    this.outboundMessages.set(`id:${msg.key.id}`, msg);
+    if (this.outboundMessages.size > 1000) {
+      const first = this.outboundMessages.keys().next().value;
+      if (first) this.outboundMessages.delete(first);
+    }
+  }
+
+  private findOutboundByMsgId(msgId: string | undefined | null): WAMessage | undefined {
+    if (!msgId) return undefined;
+    return this.outboundMessages.get(`id:${msgId}`);
+  }
+
+  private pollProtoFromPersisted(poll: {
+    messageSecretB64: string;
+    optionNames: string[];
+  }): proto.IMessage {
+    return {
+      messageContextInfo: {
+        messageSecret: Buffer.from(poll.messageSecretB64, 'base64'),
+      },
+      pollCreationMessageV3: {
+        name: 'Consentimento',
+        selectableOptionsCount: 1,
+        options: poll.optionNames.map(optionName => ({ optionName })),
+      },
+    };
+  }
+
+  /** Recupera enquete para decifrar voto (Baileys 7 exige getMessage / messageSecret) */
+  private async resolveConsentPollForVote(
+    clientId: string,
+    creationKey: WAMessageKey,
+  ): Promise<{ pollEncKey: Uint8Array; optionNames: string[]; creatorJid?: string } | null> {
+    if (!creationKey.id) return null;
+
+    const stored = this.findOutboundByMsgId(creationKey.id);
+    if (stored?.message) {
+      const pollEncKey = stored.message.messageContextInfo?.messageSecret;
+      const pollContent =
+        stored.message.pollCreationMessageV3 ??
+        stored.message.pollCreationMessageV2 ??
+        stored.message.pollCreationMessage;
+      const optionNames = pollContent?.options?.map(o => o.optionName || '').filter(Boolean) ?? [];
+      if (pollEncKey && optionNames.length) {
+        return { pollEncKey, optionNames, creatorJid: undefined };
+      }
+    }
+
+    const persisted = await ConsentPoll.findByPollId(clientId, creationKey.id);
+    if (persisted) {
+      return {
+        pollEncKey: Buffer.from(persisted.messageSecretB64, 'base64'),
+        optionNames: persisted.optionNames,
+        creatorJid: persisted.creatorJid,
+      };
+    }
+
+    return null;
+  }
+
+  /** Implementação de getMessage exigida pelo Baileys (retries + enquetes) */
+  private async getStoredMessageContent(
+    clientId: string,
+    key: WAMessageKey,
+  ): Promise<proto.IMessage | undefined> {
+    const cached = this.findOutboundByMsgId(key.id);
+    if (cached?.message) return cached.message;
+
+    if (key.id) {
+      const persisted = await ConsentPoll.findByPollId(clientId, key.id);
+      if (persisted) return this.pollProtoFromPersisted(persisted);
+    }
+
+    return undefined;
+  }
+
+  /** Pastas em sessions/ com creds.json (reconexão sem depender só do MongoDB) */
+  private discoverLocalSessionClientIds(): string[] {
+    const sessionsDir = path.join(process.cwd(), 'sessions');
+    if (!fs.existsSync(sessionsDir)) return [];
+    return fs.readdirSync(sessionsDir).filter(name => {
+      const creds = path.join(sessionsDir, name, 'creds.json');
+      return fs.statSync(path.join(sessionsDir, name)).isDirectory() && fs.existsSync(creds);
+    });
+  }
+
+  private extractInboundText(msg: WAMessage): string {
+    const m = normalizeMessageContent(msg.message);
+    if (!m) return '';
+    return (
+      m.conversation ??
+      m.extendedTextMessage?.text ??
+      m.buttonsResponseMessage?.selectedDisplayText ??
+      m.buttonsResponseMessage?.selectedButtonId ??
+      m.templateButtonReplyMessage?.selectedDisplayText ??
+      m.templateButtonReplyMessage?.selectedId ??
+      m.listResponseMessage?.singleSelectReply?.selectedRowId ??
+      m.listResponseMessage?.title ??
+      ''
+    ).trim();
+  }
+
+  private toPollEncKey(secret: Uint8Array | Buffer): Uint8Array {
+    return secret instanceof Uint8Array ? secret : new Uint8Array(secret);
+  }
+
+  /**
+   * Decifra voto de enquete (Baileys 7 não faz isso automaticamente).
+   * Após normaliseKey o creationKey vem com fromMe:false — forçamos fromMe:true pois nós enviamos a enquete.
+   */
+  private decryptConsentPollVote(
+    vote: proto.Message.IPollEncValue,
+    pollEncKey: Uint8Array | Buffer,
+    pollMsgId: string,
+    meId: string,
+    creationKey: WAMessageKey,
+    msgKey: WAMessageKey,
+    storedCreatorJid?: string,
+  ): proto.Message.IPollVoteMessage | null {
+    const encKey = this.toPollEncKey(pollEncKey);
+    const meNorm = jidNormalizedUser(meId);
+    const creationAsOurs: WAMessageKey = { ...creationKey, fromMe: true };
+    const voterJidPrimary = jidNormalizedUser(getKeyAuthor(msgKey, meNorm));
+
+    const creatorCandidates = [
+      storedCreatorJid ? jidNormalizedUser(storedCreatorJid) : undefined,
+      storedCreatorJid,
+      jidNormalizedUser(getKeyAuthor(creationAsOurs, meNorm)),
+      meNorm,
+      meId,
+    ].filter((j): j is string => !!j)
+      .filter((j, i, a) => a.indexOf(j) === i);
+
+    const voterCandidates = [
+      voterJidPrimary,
+      msgKey.remoteJidAlt ? jidNormalizedUser(msgKey.remoteJidAlt) : undefined,
+      msgKey.remoteJid ? jidNormalizedUser(msgKey.remoteJid) : undefined,
+      msgKey.participant ? jidNormalizedUser(msgKey.participant) : undefined,
+    ].filter((j): j is string => !!j)
+      .filter((j, i, a) => a.indexOf(j) === i);
+
+    for (const pollCreatorJid of creatorCandidates) {
+      for (const voterJid of voterCandidates) {
+        try {
+          return decryptPollVote(vote, { pollEncKey: encKey, pollCreatorJid, pollMsgId, voterJid });
+        } catch {
+          /* próxima combinação */
+        }
+      }
+    }
+    return null;
+  }
+
+  private async applyConsentFromPollChoice(
+    clientId: string,
+    socket: WASocket,
+    voteMsg: proto.Message.IPollVoteMessage,
+    optionNames: string[],
+    voterMsgKey: WAMessageKey,
+    creationKey: WAMessageKey,
+  ): Promise<boolean> {
+    const selectedHashes = new Set(
+      (voteMsg.selectedOptions ?? []).map(o => Buffer.from(o as Uint8Array).toString()),
+    );
+    let chosenName = '';
+    for (const name of optionNames) {
+      const hash = sha256(Buffer.from(name)).toString();
+      if (selectedHashes.has(hash)) {
+        chosenName = name;
+        break;
+      }
+    }
+    if (!chosenName) {
+      this.serviceLogger.warn('Poll vote: opção não reconhecida após decifra', {
+        pollId: creationKey.id,
+        optionNames,
+      });
+      return false;
+    }
+
+    const meId = jidNormalizedUser(socket.user?.id);
+    const voterJid = jidNormalizedUser(getKeyAuthor(voterMsgKey, meId));
+    this.serviceLogger.info('Poll vote received', { clientId, voterJid, chosenName });
+
+    const replyText = chosenName.toLowerCase().includes('aceito') ? 'aceito' : 'recusar';
+    await ConsentService.getInstance().handleInboundMessage(
+      clientId,
+      voterJid,
+      replyText,
+      voterMsgKey.remoteJidAlt ?? creationKey.remoteJid ?? undefined,
+    );
+    return true;
+  }
+
+  private async sendConsentPollFallback(socket: WASocket, chatJid: string): Promise<void> {
+    try {
+      await socket.sendMessage(chatJid, {
+        text: '⚠️ Não registramos o toque na enquete. Responda *1* (aceito) ou *2* (recuso) para confirmar.',
+      });
+    } catch (err) {
+      this.serviceLogger.warn('Falha ao enviar dica de consentimento (fallback enquete)', err);
+    }
+  }
+
+  /** Processa voto em enquete de consentimento (Baileys 7 não decifra automaticamente) */
+  private async handlePollVoteMessage(
+    clientId: string,
+    socket: WASocket,
+    msg: WAMessage,
+  ): Promise<void> {
+    const pollUpdate = msg.message?.pollUpdateMessage;
+    if (!pollUpdate?.pollCreationMessageKey || !pollUpdate.vote) return;
+
+    const creationKey = pollUpdate.pollCreationMessageKey;
+    const resolved = await this.resolveConsentPollForVote(clientId, creationKey);
+
+    if (!resolved) {
+      this.serviceLogger.warn('Poll vote: enquete não encontrada (cache/db)', {
+        pollId: creationKey.id,
+        creationRemoteJid: creationKey.remoteJid,
+        voterRemoteJid: msg.key.remoteJid,
+      });
+      return;
+    }
+
+    const { pollEncKey, optionNames, creatorJid } = resolved;
+
+    const meId = jidNormalizedUser(socket.user?.id ?? '');
+    const voteMsg = this.decryptConsentPollVote(
+      pollUpdate.vote,
+      pollEncKey,
+      creationKey.id!,
+      meId,
+      creationKey,
+      msg.key,
+      creatorJid,
+    );
+
+    const chatJid = msg.key.remoteJid ?? msg.key.remoteJidAlt;
+    if (!voteMsg) {
+      this.serviceLogger.warn('Poll vote decrypt failed', {
+        pollId: creationKey.id,
+        meId,
+        creatorJid,
+        creationRemoteJid: creationKey.remoteJid,
+        voterRemoteJid: msg.key.remoteJid,
+      });
+      if (chatJid) await this.sendConsentPollFallback(socket, chatJid);
+      return;
+    }
+
+    const ok = await this.applyConsentFromPollChoice(
+      clientId,
+      socket,
+      voteMsg,
+      optionNames,
+      msg.key,
+      creationKey,
+    );
+    if (!ok && chatJid) await this.sendConsentPollFallback(socket, chatJid);
   }
 
   /** Write Baileys auth files back to disk (restore after restart) */
@@ -93,6 +377,7 @@ export class WhatsAppService {
       wuid?: string;
       profileName?: string;
       profilePictureUrl?: string;
+      waAccountType?: 'web' | 'business';
       deviceInfo?: { platform: string; browser: string; version: string };
       lastActivity?: Date;
     },
@@ -212,19 +497,98 @@ export class WhatsAppService {
     });
   }
 
+  /** Envia solicitação de consentimento (enquete clicável + texto de fallback) */
+  async sendConsentRequest(clientId: string, destination: string): Promise<void> {
+    const socket = this.sessions.get(clientId);
+    if (!socket) {
+      throw new Error('WhatsApp session not found or not connected');
+    }
+
+    const clientObjectId = new mongoose.Types.ObjectId(clientId);
+    const destinationDoc = await Destination.findByIdentifier(destination, clientObjectId);
+    if (!destinationDoc) {
+      throw new Error('Destination not found or not configured');
+    }
+
+    const jid = this.formatJid(destination, 'contact');
+    let resolvedJid = jid;
+    try {
+      const plainNumber = this.plainWhatsAppId(jid);
+      const [result] = await socket.onWhatsApp(plainNumber);
+      if (result?.exists && result.jid) resolvedJid = result.jid;
+    } catch {
+      /* usa jid formatado */
+    }
+
+    const { CONSENT_POLL_QUESTION, CONSENT_REQUEST_MESSAGE } = await import('@/types/consent');
+
+    const pollOptions = ['✅ Aceito', '❌ Recuso'] as const;
+
+    const intro = await socket.sendMessage(resolvedJid, { text: CONSENT_REQUEST_MESSAGE });
+    this.storeOutboundMessage(intro ?? undefined);
+
+    try {
+      const pollMsg = await socket.sendMessage(resolvedJid, {
+        poll: {
+          name: CONSENT_POLL_QUESTION,
+          values: [...pollOptions],
+          selectableCount: 1,
+        },
+      });
+      this.storeOutboundMessage(pollMsg ?? undefined);
+
+      const secret = pollMsg?.message?.messageContextInfo?.messageSecret;
+      const creatorJid = socket.user?.id ? jidNormalizedUser(socket.user.id) : undefined;
+      if (pollMsg?.key?.id && secret) {
+        await ConsentPoll.findOneAndUpdate(
+          {
+            clientId: clientObjectId,
+            pollMsgId: pollMsg.key.id,
+          },
+          {
+            clientId: clientObjectId,
+            pollMsgId: pollMsg.key.id,
+            remoteJid: pollMsg.key.remoteJid ?? resolvedJid,
+            messageSecretB64: Buffer.from(secret).toString('base64'),
+            optionNames: [...pollOptions],
+            creatorJid,
+          },
+          { upsert: true },
+        );
+        this.serviceLogger.info('Consent poll persisted', { pollId: pollMsg.key.id });
+      } else {
+        this.serviceLogger.warn('Consent poll sem messageSecret — use resposta 1/2 ou aceito/recuso');
+      }
+    } catch (pollErr) {
+      this.serviceLogger.warn('Consent poll failed (texto de resposta 1/2 continua válido)', pollErr);
+    }
+  }
+
   /** Envio manual / campanha (sem prefixo de teste) */
   async sendManualMessage(
     clientId: string,
     destination: string,
     text: string,
     image?: string,
+    options?: { skipRateLimit?: boolean; skipConsentCheck?: boolean; consentOrigin?: string },
   ): Promise<{ success: boolean; messageId?: string }> {
     return this.handleSendMessage({
       clientId,
       destination,
       content: { text, ...(image ? { image } : {}) },
       messageId: `manual-${Date.now()}`,
+      skipRateLimit: options?.skipRateLimit === true,
+      skipConsentCheck: options?.skipConsentCheck === true,
+      consentOrigin: options?.consentOrigin ?? 'dashboard-send',
     });
+  }
+
+  /** Detecta WhatsApp Business pela sessão Baileys */
+  detectAccountType(user: { verifiedName?: string | null; lid?: string | null; id?: string } | undefined): 'web' | 'business' {
+    if (!user) return 'web';
+    if (user.verifiedName) return 'business';
+    if (user.lid) return 'business';
+    return 'web';
   }
 
   /** Evolution API: GET /instance/connectionState/:instanceName */
@@ -278,19 +642,44 @@ export class WhatsAppService {
   /** Evolution API: connect idempotente — retorna estado + QR sem bloquear até open */
   async connectInstance(
     clientId: string,
-    options?: { discordUserId?: string; channelId?: string },
+    options?: { discordUserId?: string; channelId?: string; forceQr?: boolean },
   ): Promise<{ instance: WaInstanceState; qrcode?: WaQrCodePayload }> {
     const current = await this.getConnectionState(clientId);
     if (current.instance.state === 'open') {
       return { instance: current.instance };
     }
 
+    await this.abortClientConnection(clientId);
+
+    if (options?.forceQr) {
+      await this.clearCredentials(clientId);
+    }
+
+    let result = await this.startConnectAndWaitForQr(clientId, options);
+
+    const credsPath = path.join(process.cwd(), 'sessions', clientId, 'creds.json');
+    const hasCreds = fs.existsSync(credsPath);
+    if (!result.qrcode && result.instance.state !== 'open' && hasCreds && !options?.forceQr) {
+      this.serviceLogger.info(`No QR with existing creds for ${clientId} — clearing for fresh scan`);
+      await this.clearCredentials(clientId);
+      await this.abortClientConnection(clientId);
+      result = await this.startConnectAndWaitForQr(clientId, options);
+    }
+
+    return result;
+  }
+
+  private async startConnectAndWaitForQr(
+    clientId: string,
+    options?: { discordUserId?: string; channelId?: string },
+  ): Promise<{ instance: WaInstanceState; qrcode?: WaQrCodePayload }> {
     const cachedQr = await this.getInstanceQrCode(clientId);
+    const current = await this.getConnectionState(clientId);
     if (cachedQr.qrcode && current.instance.state === 'connecting') {
       return { instance: current.instance, qrcode: cachedQr.qrcode };
     }
 
-    if (!this.sessions.has(clientId) && !this.connectingClients.has(clientId)) {
+    if (!this.sessions.has(clientId) && !this.connectingClients.has(clientId) && !this.reconnectingClients.has(clientId)) {
       this.pendingConnections.set(clientId, {
         discordUserId: options?.discordUserId ?? '',
         channelId: options?.channelId ?? '',
@@ -298,7 +687,9 @@ export class WhatsAppService {
       this.connectingClients.add(clientId);
       await this.notifySessionUpdate(clientId, { status: 'connecting', statusReason: 200 });
       this.createWhatsAppSession(clientId)
-        .then(() => this.connectingClients.delete(clientId))
+        .then(() => {
+          this.connectingClients.delete(clientId);
+        })
         .catch((err) => {
           this.connectingClients.delete(clientId);
           this.pendingConnections.delete(clientId);
@@ -306,7 +697,7 @@ export class WhatsAppService {
         });
     }
 
-    const waitMs = config.WHATSAPP.CONNECT_QR_WAIT_MS;
+    const waitMs = Math.max(config.WHATSAPP.CONNECT_QR_WAIT_MS, 20_000);
     const steps = Math.ceil(waitMs / 500);
     for (let i = 0; i < steps; i++) {
       await delay(500);
@@ -326,6 +717,49 @@ export class WhatsAppService {
       instance: finalState.instance,
       qrcode: finalQr.qrcode,
     };
+  }
+
+  /** Encerra sockets/tentativas em andamento sem apagar credenciais */
+  private async abortClientConnection(clientId: string): Promise<void> {
+    const socket = this.sessions.get(clientId);
+    if (socket) {
+      try {
+        socket.end(undefined);
+      } catch {
+        /* ignore */
+      }
+    }
+    this.sessions.delete(clientId);
+    this.sessionStates.delete(clientId);
+    this.connectingClients.delete(clientId);
+    this.reconnectingClients.delete(clientId);
+    this.pendingConnections.delete(clientId);
+
+    const interval = this.sessionIntervals.get(clientId);
+    if (interval) {
+      clearInterval(interval);
+      this.sessionIntervals.delete(clientId);
+    }
+  }
+
+  /** Remove credenciais locais para forçar novo QR */
+  private async clearCredentials(clientId: string): Promise<void> {
+    const sessionDir = path.join(process.cwd(), 'sessions', clientId);
+    if (fs.existsSync(sessionDir)) {
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+    }
+    this.qrCounts.delete(clientId);
+    await this.sessionCache.deleteSession(`whatsapp:${clientId}`).catch(() => {});
+  }
+
+  /** Desconecta sem invalidar credenciais no disco */
+  private async softDisconnect(clientId: string, statusReason = 503): Promise<void> {
+    await this.abortClientConnection(clientId);
+    await this.notifySessionUpdate(clientId, {
+      status: 'disconnected',
+      statusReason,
+      lastActivity: new Date(),
+    });
   }
 
   /** Evolution API: DELETE /instance/logout — limpa credenciais WhatsApp */
@@ -398,6 +832,7 @@ export class WhatsAppService {
     qrCount?: number;
     lastActivity?: Date;
     hasPersistedSession: boolean;
+    waAccountType?: 'web' | 'business';
   }> {
     const { instance } = await this.getConnectionState(clientId);
     const cached = await this.sessionCache.getWhatsAppSession(clientId);
@@ -449,8 +884,14 @@ export class WhatsAppService {
           ? new Date()
           : undefined;
 
+    const waAccountType: 'web' | 'business' =
+      cached?.waAccountType ??
+      (doc?.type === 'business' ? 'business' : socket?.user ? this.detectAccountType(socket.user) : 'web');
+
     if ((wuid || profileName || profilePictureUrl) && !doc?.whatsappProfile?.wuid) {
-      this.saveSessionToDatabase(clientId, { wuid, profileName, profilePictureUrl }).catch(() => {});
+      this.saveSessionToDatabase(clientId, { wuid, profileName, profilePictureUrl }, waAccountType).catch(err => {
+        this.serviceLogger.warn(`Failed to persist session profile for ${clientId}`, err);
+      });
     }
 
     return {
@@ -466,6 +907,7 @@ export class WhatsAppService {
       qrCount: cached?.qrCount,
       lastActivity,
       hasPersistedSession: doc?.status === 'active' || doc?.status === 'inactive',
+      waAccountType,
     };
   }
 
@@ -490,6 +932,9 @@ export class WhatsAppService {
 
       // Restore existing sessions
       await this.restoreExistingSessions();
+
+      // Reconecta sessões salvas em disco se caírem (ex.: após restart do dev server)
+      this.setupAutoReconnect();
 
       this.isInitialized = true;
       this.serviceLogger.info('✅ WhatsApp Service started successfully');
@@ -516,6 +961,11 @@ export class WhatsAppService {
       if (this.destinationCleanupInterval) {
         clearInterval(this.destinationCleanupInterval);
         this.destinationCleanupInterval = null;
+      }
+
+      if (this.autoReconnectInterval) {
+        clearInterval(this.autoReconnectInterval);
+        this.autoReconnectInterval = null;
       }
 
       // Clear all session intervals
@@ -644,7 +1094,7 @@ export class WhatsAppService {
   }
 
   /**
-   * Restore existing sessions from database
+   * Restore existing sessions from database and local disk
    */
   private async restoreExistingSessions(): Promise<void> {
     try {
@@ -654,16 +1104,24 @@ export class WhatsAppService {
         sessionData: { $nin: ['no-creds', ''] },
       });
 
-      this.serviceLogger.info(`Found ${activeSessions.length} active sessions to restore`);
+      const clientIds = new Set<string>(
+        activeSessions.map(s => s.clientId.toString()),
+      );
+      for (const id of this.discoverLocalSessionClientIds()) {
+        clientIds.add(id);
+      }
 
-      for (const sessionDoc of activeSessions) {
+      this.serviceLogger.info(`Found ${clientIds.size} session(s) to restore (db+disk)`);
+
+      for (const clientId of clientIds) {
         try {
-          await this.restoreSession(sessionDoc.clientId.toString());
+          if (this.sessions.has(clientId) || this.connectingClients.has(clientId)) continue;
+          await this.restoreSession(clientId);
         } catch (error) {
           const msg = (error as Error).message;
-          this.serviceLogger.error(`Failed to restore session for client ${sessionDoc.clientId}:`, error);
-          // Only expire if it's not just missing local files (those can be re-authenticated)
-          if (!msg.includes('Session files not found')) {
+          this.serviceLogger.error(`Failed to restore session for client ${clientId}:`, error);
+          const sessionDoc = await WhatsAppSession.findOne({ clientId });
+          if (sessionDoc && !msg.includes('Session files not found')) {
             await sessionDoc.markAsExpired();
           }
         }
@@ -671,6 +1129,40 @@ export class WhatsAppService {
 
     } catch (error) {
       this.serviceLogger.error('Error restoring existing sessions:', error);
+    }
+  }
+
+  /** Tenta reconectar sessões com credenciais salvas sem exigir visita manual a /sessions */
+  private setupAutoReconnect(): void {
+    if (this.autoReconnectInterval) clearInterval(this.autoReconnectInterval);
+
+    const tick = () => {
+      this.ensurePersistedSessionsConnected().catch(err => {
+        this.serviceLogger.warn('Auto-reconnect tick failed', err);
+      });
+    };
+
+    tick();
+    this.autoReconnectInterval = setInterval(tick, 60_000);
+  }
+
+  private async ensurePersistedSessionsConnected(): Promise<void> {
+    for (const clientId of this.discoverLocalSessionClientIds()) {
+      if (
+        this.sessions.has(clientId) ||
+        this.connectingClients.has(clientId) ||
+        this.reconnectingClients.has(clientId)
+      ) {
+        continue;
+      }
+
+      const state = await this.getConnectionState(clientId);
+      if (state.instance.state === 'open') continue;
+
+      this.serviceLogger.info(`Auto-reconnecting WhatsApp session: ${clientId}`);
+      this.connectInstance(clientId).catch(err => {
+        this.serviceLogger.warn(`Auto-reconnect failed for ${clientId}: ${(err as Error).message}`);
+      });
     }
   }
 
@@ -755,6 +1247,7 @@ export class WhatsAppService {
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    const service = this;
 
     const socket = makeWASocket({
       auth: state,
@@ -764,7 +1257,8 @@ export class WhatsAppService {
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       keepAliveIntervalMs: 30000,
-      markOnlineOnConnect: false
+      markOnlineOnConnect: false,
+      getMessage: async (key) => service.getStoredMessageContent(clientId, key),
     });
 
     return new Promise((resolve, reject) => {
@@ -877,17 +1371,19 @@ export class WhatsAppService {
             const profilePictureUrl = await this.fetchProfilePicture(socket, wuid);
 
             // Save session to database (all auth files + perfil WA)
-            await this.saveSessionToDatabase(clientId, { wuid, profileName, profilePictureUrl });
+            const waAccountType = this.detectAccountType(socket.user);
 
-            // Update cache + dashboard
+            await this.saveSessionToDatabase(clientId, { wuid, profileName, profilePictureUrl }, waAccountType);
+
             await this.notifySessionUpdate(clientId, {
               status: 'connected',
               statusReason: 200,
               wuid,
               profileName,
               profilePictureUrl,
+              waAccountType,
               deviceInfo: {
-                platform: 'web',
+                platform: waAccountType === 'business' ? 'business' : 'web',
                 browser: 'chrome',
                 version: '1.0.0',
               },
@@ -907,11 +1403,12 @@ export class WhatsAppService {
       socket.ev.on('creds.update', async () => {
         saveCreds();
         const profilePictureUrl = await this.fetchProfilePicture(socket, socket.user?.id);
+        const waAccountType = this.detectAccountType(socket.user);
         await this.saveSessionToDatabase(clientId, {
           wuid: socket.user?.id,
           profileName: socket.user?.name ?? undefined,
           profilePictureUrl,
-        });
+        }, waAccountType);
       });
     });
   }
@@ -927,38 +1424,130 @@ export class WhatsAppService {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
         const isLoggedOut = statusCode === DisconnectReason.loggedOut ||
                             statusCode === DisconnectReason.forbidden;
+        const isReplaced = statusCode === DisconnectReason.connectionReplaced;
 
         this.serviceLogger.warn(`WhatsApp connection closed for client: ${clientId} (code=${statusCode})`);
 
         if (isLoggedOut) {
-          // Permanent disconnect — clean up everything
           this.serviceLogger.info(`Client ${clientId} logged out, cleaning up session`);
           await this.handleSessionDisconnect(clientId);
+        } else if (isReplaced) {
+          this.serviceLogger.warn(
+            `Client ${clientId}: conexão substituída (440) — pare outras sessões WhatsApp Web`,
+          );
+          await this.softDisconnect(clientId, 440);
+        } else if (this.reconnectingClients.has(clientId)) {
+          /* reconexão já em andamento */
         } else {
-          // Transient disconnect (428, 408, etc.) — attempt silent reconnect
           this.serviceLogger.info(`Transient disconnect for client ${clientId}, attempting reconnect...`);
-          // Remove stale socket from map but keep session files
           this.sessions.delete(clientId);
           this.sessionStates.delete(clientId);
           await this.sessionCache.setWhatsAppSession(clientId, {
             status: 'connecting',
             lastActivity: new Date(),
           }, WA_CACHE_TTL_SEC);
-          // Reconnect in background — don't block the event handler
-          this.createWhatsAppSession(clientId).then(() => {
-            this.serviceLogger.info(`Reconnected successfully for client: ${clientId}`);
-          }).catch((err) => {
-            this.serviceLogger.error(`Reconnect failed for client ${clientId}: ${err.message}`);
-            // Fall back to full cleanup so the user can /connect-whatsapp again
-            this.handleSessionDisconnect(clientId).catch(() => {});
-          });
+
+          this.reconnectingClients.add(clientId);
+          this.createWhatsAppSession(clientId)
+            .then(() => {
+              this.serviceLogger.info(`Reconnected successfully for client: ${clientId}`);
+            })
+            .catch((err) => {
+              this.serviceLogger.error(`Reconnect failed for client ${clientId}: ${err.message}`);
+              this.softDisconnect(clientId, 503).catch(() => {});
+            })
+            .finally(() => {
+              this.reconnectingClients.delete(clientId);
+            });
         }
       }
     });
 
     socket.ev.on('messages.upsert', async (m) => {
-      // Handle incoming messages if needed
-      this.serviceLogger.debug(`Received ${m.messages.length} messages for client: ${clientId}`);
+      if (m.type !== 'notify' && m.type !== 'append') return;
+      for (const msg of m.messages) {
+        if (msg.key.fromMe) continue;
+        if (msg.key.remoteJid?.endsWith('@g.us')) continue;
+
+        if (msg.message?.pollUpdateMessage) {
+          try {
+            await this.handlePollVoteMessage(clientId, socket, msg);
+          } catch (err) {
+            this.serviceLogger.warn('Consent poll vote error', err);
+          }
+          continue;
+        }
+
+        const text = this.extractInboundText(msg);
+        if (!text || !msg.key.remoteJid) continue;
+
+        this.serviceLogger.info('WA inbound texto (consent)', {
+          text: text.slice(0, 40),
+          remoteJid: msg.key.remoteJid,
+          remoteJidAlt: msg.key.remoteJidAlt,
+          upsertType: m.type,
+        });
+
+        try {
+          await ConsentService.getInstance().handleInboundMessage(
+            clientId,
+            msg.key.remoteJid,
+            text,
+            msg.key.remoteJidAlt,
+          );
+        } catch (err) {
+          this.serviceLogger.warn('Consent inbound handler error', err);
+        }
+      }
+    });
+
+    socket.ev.on('messages.update', async (updates) => {
+      const meId = jidNormalizedUser(socket.user?.id);
+      for (const { key, update } of updates) {
+        if (!update.pollUpdates?.length || !key.id) continue;
+        try {
+          const resolved = await this.resolveConsentPollForVote(clientId, key);
+          if (!resolved) continue;
+
+          const pollCreation = await this.getStoredMessageContent(clientId, key);
+          if (!pollCreation) continue;
+
+          for (const pu of update.pollUpdates) {
+            const voteKey = pu.pollUpdateMessageKey;
+            if (!voteKey) continue;
+
+            let voteMsg = pu.vote as proto.Message.IPollVoteMessage | undefined;
+            const enc = pu.vote as proto.Message.IPollEncValue | undefined;
+            if (!voteMsg?.selectedOptions?.length && enc?.encPayload) {
+              voteMsg = this.decryptConsentPollVote(
+                enc,
+                resolved.pollEncKey,
+                key.id!,
+                meId,
+                key,
+                voteKey,
+                resolved.creatorJid,
+              ) ?? undefined;
+            }
+            if (!voteMsg?.selectedOptions?.length) {
+              const chatJid = voteKey.remoteJid ?? key.remoteJid;
+              if (chatJid) await this.sendConsentPollFallback(socket, chatJid);
+              continue;
+            }
+
+            await this.applyConsentFromPollChoice(
+              clientId,
+              socket,
+              voteMsg,
+              resolved.optionNames,
+              voteKey,
+              key,
+            );
+          }
+        } catch (err) {
+          this.serviceLogger.warn('Consent poll handler error', err);
+        }
+      }
     });
 
     // Keep session alive - store interval reference for cleanup
@@ -1080,15 +1669,37 @@ export class WhatsAppService {
     try {
       const clientObjectId = new mongoose.Types.ObjectId(clientId);
 
-      // Check rate limiting
-      const rateLimitResult = await this.rateLimiter.checkWhatsAppSendingLimit(clientId);
-      if (!rateLimitResult.allowed) {
-        throw new Error('Rate limit exceeded for WhatsApp sending');
+      // Check rate limiting (campanhas com risco aceito podem pular)
+      if (!data.skipRateLimit) {
+        const rateLimitResult = await this.rateLimiter.checkWhatsAppSendingLimit(clientId);
+        if (!rateLimitResult.allowed) {
+          throw new Error('Limite de envio do WhatsApp atingido — aguarde alguns segundos e tente novamente.');
+        }
       }
 
       const socket = this.sessions.get(clientId);
       if (!socket) {
         throw new Error('WhatsApp session not found or not connected');
+      }
+
+      const org = await Organization.findById(clientId);
+      if (org && !org.canSendMessage()) {
+        throw new Error(
+          `Limite diário de mensagens atingido (${org.limits.messagesPerDay}/dia no plano).`,
+        );
+      } else {
+        const user = await User.findById(clientId);
+        if (user && !user.canSendMessage()) {
+          throw new Error(
+            `Limite diário de mensagens atingido (${user.limits.messagesPerDay}/dia no plano).`,
+          );
+        }
+      }
+
+      const text = String(content?.text ?? '');
+      const msgCheck = validateMessageText(text);
+      if (msgCheck.ok === false) {
+        throw new Error(msgCheck.error);
       }
 
       // Validate destination and consent before sending
@@ -1097,8 +1708,14 @@ export class WhatsAppService {
         throw new Error('Destination not found or not configured');
       }
 
-      if (!destinationDoc.hasValidConsent()) {
-        throw new Error('Destination does not have valid consent for messaging');
+      if (!data.skipConsentCheck) {
+        const consentErr = ConsentService.getInstance().assertCanSend(destinationDoc);
+        if (consentErr) throw new Error(consentErr);
+        if (!destinationDoc.hasValidConsent()) {
+          throw new Error('Destino sem consentimento válido para envio');
+        }
+      } else if (!destinationDoc.isActive && destinationDoc.type === 'group') {
+        throw new Error('Destino inativo');
       }
 
       // Format JID correctly for Baileys
@@ -1123,17 +1740,37 @@ export class WhatsAppService {
 
       // Send message
       const result = await socket.sendMessage(resolvedJid, {
-        text: content.text,
+        text,
         ...(content.image && { image: { url: content.image } })
       });
+      this.storeOutboundMessage(result ?? undefined);
 
       // Update destination last message sent
       await destinationDoc.updateLastMessageSent();
 
+      if (!data.skipConsentCheck && destinationDoc.type === 'contact') {
+        try {
+          await ConsentService.getInstance().afterOutboundSend(
+            clientId,
+            destinationDoc,
+            (data.consentOrigin as 'dashboard-send' | 'campaign') ?? 'dashboard-send',
+          );
+        } catch (consentErr) {
+          this.serviceLogger.error('Falha ao enviar mensagem de consentimento (mensagem principal já enviada)', {
+            clientId,
+            destination,
+            error: (consentErr as Error).message,
+          });
+        }
+      }
+
       // Update user usage
-      const user = await User.findById(clientId);
-      if (user) {
-        await user.incrementUsage();
+      const orgDoc = await Organization.findById(clientId);
+      if (orgDoc) {
+        await orgDoc.incrementUsage();
+      } else {
+        const user = await User.findById(clientId);
+        if (user) await user.incrementUsage();
       }
 
       this.serviceLogger.info(`Message sent successfully`, {
@@ -1386,6 +2023,7 @@ export class WhatsAppService {
   private async saveSessionToDatabase(
     clientId: string,
     profile?: { wuid?: string; profileName?: string; profilePictureUrl?: string },
+    waAccountType: 'web' | 'business' = 'web',
   ): Promise<void> {
     try {
       const sessionDir = path.join(process.cwd(), 'sessions', clientId);
@@ -1399,7 +2037,7 @@ export class WhatsAppService {
       const sessionData = tempDoc.encrypt(JSON.stringify(files));
 
       const deviceInfo = {
-        platform: 'web',
+        platform: waAccountType === 'business' ? 'business' : 'web',
         browser: 'chrome',
         version: '1.0.0',
       };
@@ -1417,10 +2055,10 @@ export class WhatsAppService {
       const expiresAt = new Date(Date.now() + WA_DB_EXPIRY_MS);
 
       await WhatsAppSession.findOneAndUpdate(
-        { clientId },
+        { clientId: new mongoose.Types.ObjectId(clientId) },
         {
-          clientId,
-          type: 'web',
+          clientId: new mongoose.Types.ObjectId(clientId),
+          type: waAccountType,
           sessionData,
           status: 'active',
           deviceInfo,
@@ -1527,6 +2165,14 @@ export class WhatsAppService {
     }
   }
 
+  /** Número/grupo para checagem via onWhatsApp (sem +, @ ou sufixos). */
+  private plainWhatsAppId(destination: string): string {
+    return destination
+      .replace(/@s\.whatsapp\.net|@g\.us/g, '')
+      .replace(/^\+/, '')
+      .replace(/\D/g, '');
+  }
+
   /**
    * Validate destination (contact or group) on WhatsApp
    */
@@ -1539,8 +2185,7 @@ export class WhatsAppService {
 
       // Check if destination exists on WhatsApp
       try {
-        // onWhatsApp expects plain number without suffix
-        const plainNumber = destination.replace(/@s\.whatsapp\.net|@g\.us/, '');
+        const plainNumber = this.plainWhatsAppId(destination);
         const [result] = await socket.onWhatsApp(plainNumber);
         return Boolean(result?.exists) || false;
       } catch (error) {
@@ -1590,6 +2235,10 @@ export class WhatsAppService {
 
       for (const destination of destinations) {
         try {
+          // Contatos em fluxo de consentimento não são desativados automaticamente —
+          // onWhatsApp pode falhar intermitente e bloquearia envios legítimos.
+          if (destination.type === 'contact') continue;
+
           const isValid = await this.validateDestination(clientId, destination.identifier);
 
           if (!isValid) {

@@ -5,6 +5,13 @@ export enum SystemRole {
   SYSTEM_ADMIN = 'SYSTEM_ADMIN',
 }
 
+/** Papel do usuário dentro da empresa (tenant) */
+export enum CompanyRole {
+  OWNER = 'OWNER',
+  ADMIN = 'ADMIN',
+  ATTENDANT = 'ATTENDANT',
+}
+
 /** Papel do usuário dentro de um servidor Discord */
 export enum GuildRole {
   MEMBER = 'MEMBER',
@@ -17,6 +24,7 @@ export enum UserRole {
   USER = 'USER',
   DISCORD_OWNER = 'DISCORD_OWNER',
   DISCORD_ADMIN = 'DISCORD_ADMIN',
+  DISCORD_ATTENDANT = 'DISCORD_ATTENDANT',
   SYSTEM_MODERATOR = 'SYSTEM_MODERATOR',
   SYSTEM_ADMIN = 'SYSTEM_ADMIN',
 }
@@ -27,6 +35,8 @@ export function guildRoleToUserRole(guildRole: GuildRole): UserRole {
       return UserRole.DISCORD_OWNER;
     case GuildRole.ADMIN:
       return UserRole.DISCORD_ADMIN;
+    case GuildRole.MEMBER:
+      return UserRole.DISCORD_ATTENDANT;
     default:
       return UserRole.USER;
   }
