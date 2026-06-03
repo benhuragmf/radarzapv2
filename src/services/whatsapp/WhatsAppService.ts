@@ -545,9 +545,9 @@ export class WhatsAppService {
       /* usa jid formatado */
     }
 
-    const { CONSENT_REQUEST_MESSAGE } = await import('@/types/consent');
+    const text = await ConsentService.getInstance().getRequestMessage(clientId);
 
-    const intro = await socket.sendMessage(resolvedJid, { text: CONSENT_REQUEST_MESSAGE });
+    const intro = await socket.sendMessage(resolvedJid, { text });
     this.storeOutboundMessage(intro ?? undefined);
   }
 

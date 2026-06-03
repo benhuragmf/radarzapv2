@@ -3,16 +3,12 @@ import { Destination, IDestination } from '@/models/Destination';
 import { ConsentHistory } from '@/models/ConsentHistory';
 import { ConsentRenewalRequest, IConsentRenewalRequest } from '@/models/ConsentRenewalRequest';
 import { User } from '@/models/User';
+import { Organization } from '@/models/Organization';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import {
   ConsentStatus,
-  CONSENT_ACCEPTED_REPLY,
-  CONSENT_OPT_OUT_CANCELLED_REPLY,
-  CONSENT_OPT_OUT_CONFIRM_PROMPT,
-  CONSENT_OPT_OUT_PENDING_HINT,
-  CONSENT_OPT_OUT_REPLY,
-  CONSENT_REFUSED_REPLY,
-  CONSENT_RESUBSCRIBE_REPLY,
+  buildConsentMessages,
+  type ConsentMessages,
   MAX_PENDING_OUTBOUND,
   canReplyToConsentPrompt,
   canSendPendingAttempt,
@@ -42,6 +38,27 @@ export class ConsentService {
     return ConsentService.instance;
   }
 
+  /** Nome da empresa no cadastro (Organization.name / painel Configurações). */
+  async resolveCompanyName(clientId: string): Promise<string> {
+    const oid = new mongoose.Types.ObjectId(clientId);
+    const org = await Organization.findById(oid).select('name').lean();
+    if (org?.name?.trim()) return org.name.trim();
+
+    const user = await User.findById(oid).select('displayName email').lean();
+    if (user?.displayName?.trim()) return user.displayName.trim();
+    const email = user?.email?.split('@')[0]?.trim();
+    return email || '';
+  }
+
+  async getMessages(clientId: string): Promise<ConsentMessages> {
+    const name = await this.resolveCompanyName(clientId);
+    return buildConsentMessages(name);
+  }
+
+  async getRequestMessage(clientId: string): Promise<string> {
+    return (await this.getMessages(clientId)).request;
+  }
+
   /** Contatos novos entram PENDING; grupos seguem fluxo anterior */
   initialStatusForType(type: 'contact' | 'group'): ConsentStatus {
     return type === 'contact' ? ConsentStatus.PENDING : ConsentStatus.ACCEPTED;
@@ -59,12 +76,12 @@ export class ConsentService {
       requestedByUsername?: string;
     },
   ): Promise<void> {
-    const user = await User.findById(dest.clientId).lean();
+    const companyName = await this.resolveCompanyName(dest.clientId.toString());
     await ConsentHistory.create({
       clientId: dest.clientId,
       destinationId: dest._id,
       phone: dest.identifier,
-      companyName: user?.email ?? user?.discordUserId,
+      companyName: companyName || undefined,
       previousStatus,
       newStatus,
       origin,
@@ -190,6 +207,7 @@ export class ConsentService {
     text: string,
     wa: WhatsAppService,
   ): Promise<void> {
+    const msgs = await this.getMessages(clientId);
     const pending = !!dest.optOutConfirmPendingAt;
 
     if (pending) {
@@ -199,7 +217,7 @@ export class ConsentService {
         await wa.sendManualMessage(
           clientId,
           dest.identifier,
-          CONSENT_OPT_OUT_CANCELLED_REPLY,
+          msgs.optOutCancelled,
           undefined,
           { skipConsentCheck: true, skipRateLimit: true },
         );
@@ -214,7 +232,7 @@ export class ConsentService {
         await this.applyStatus(dest, ConsentStatus.REFUSED_FIRST, 'whatsapp-inbound', {
           replyText: text,
         });
-        await wa.sendManualMessage(clientId, dest.identifier, CONSENT_OPT_OUT_REPLY, undefined, {
+        await wa.sendManualMessage(clientId, dest.identifier, msgs.optOutConfirmed, undefined, {
           skipConsentCheck: true,
           skipRateLimit: true,
         });
@@ -226,7 +244,7 @@ export class ConsentService {
         await wa.sendManualMessage(
           clientId,
           dest.identifier,
-          CONSENT_OPT_OUT_PENDING_HINT,
+          msgs.optOutPendingHint,
           undefined,
           { skipConsentCheck: true, skipRateLimit: true },
         );
@@ -240,7 +258,7 @@ export class ConsentService {
       await wa.sendManualMessage(
         clientId,
         dest.identifier,
-        CONSENT_OPT_OUT_CONFIRM_PROMPT,
+        msgs.optOutConfirm,
         undefined,
         { skipConsentCheck: true, skipRateLimit: true },
       );
@@ -274,13 +292,14 @@ export class ConsentService {
       prev === ConsentStatus.REFUSED_SECOND
     ) {
       if (parseResubscribeReply(text)) {
+        const msgs = await this.getMessages(clientId);
         await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound', {
           replyText: text,
         });
         await wa.sendManualMessage(
           clientId,
           dest.identifier,
-          CONSENT_RESUBSCRIBE_REPLY,
+          msgs.resubscribe,
           undefined,
           { skipConsentCheck: true, skipRateLimit: true },
         );
@@ -299,11 +318,13 @@ export class ConsentService {
     const reply = parseConsentReply(text);
     if (!reply) return;
 
+    const msgs = await this.getMessages(clientId);
+
     if (reply === 'accept') {
       await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound', {
         replyText: text,
       });
-      await wa.sendManualMessage(clientId, dest.identifier, CONSENT_ACCEPTED_REPLY, undefined, {
+      await wa.sendManualMessage(clientId, dest.identifier, msgs.accepted, undefined, {
         skipConsentCheck: true,
         skipRateLimit: true,
       });
@@ -313,7 +334,7 @@ export class ConsentService {
 
     const next = nextRefusalStatus(prev);
     await this.applyStatus(dest, next, 'whatsapp-inbound', { replyText: text });
-    await wa.sendManualMessage(clientId, dest.identifier, CONSENT_REFUSED_REPLY, undefined, {
+    await wa.sendManualMessage(clientId, dest.identifier, msgs.refused, undefined, {
       skipConsentCheck: true,
       skipRateLimit: true,
     });

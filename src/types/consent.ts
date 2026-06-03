@@ -140,39 +140,12 @@ export function ownerCanResetStatus(status: ConsentStatus): boolean {
   );
 }
 
-export const CONSENT_REQUEST_MESSAGE = `📋 *RadarZap — consentimento*
-
-Responda nesta conversa:
-
-✅ *Aceitar:* digite *1*, ou escreva aceito, sim, quero, ok ou autorizo
-❌ *Recusar:* digite *2*, ou escreva não, recuso ou recusar
-
-Sua escolha será registrada conforme a LGPD.`;
-
 /** IDs de botões (se o cliente suportar resposta por botão) */
 export const CONSENT_BUTTON_ACCEPT_ID = 'radarzap_consent_aceito';
 export const CONSENT_BUTTON_REFUSE_ID = 'radarzap_consent_recuso';
 
-export const CONSENT_ACCEPTED_REPLY =
-  '✅ Consentimento registrado. Você passará a receber mensagens desta empresa. Para parar de receber, envie "sair" em qualquer momento.';
-export const CONSENT_REFUSED_REPLY =
-  '❌ Entendido. Você não receberá mais mensagens desta empresa por este canal.';
-export const CONSENT_OPT_OUT_CONFIRM_PROMPT = `⚠️ Tem certeza que *não* quer mais receber mensagens desta empresa?
-
-Para *confirmar* o cancelamento: responda *sair* ou *sim*.
-Para *desistir* do cancelamento: responda *não* ou *continuar*.`;
-
-export const CONSENT_OPT_OUT_REPLY =
-  '❌ Cancelamento confirmado. Você não receberá mais mensagens desta empresa. Para voltar a receber, envie *entrar* ou *aceitar*.';
-
-export const CONSENT_OPT_OUT_CANCELLED_REPLY =
-  '✅ Você continuará recebendo mensagens desta empresa.';
-
-export const CONSENT_RESUBSCRIBE_REPLY =
-  '✅ Você voltou a receber mensagens desta empresa. Para parar de novo, envie "sair" em qualquer momento.';
-
-export const CONSENT_OPT_OUT_PENDING_HINT =
-  'Para confirmar que não quer mais mensagens, responda *sair* ou *sim*. Para desistir do cancelamento, responda *não* ou *continuar*.';
+export type { ConsentMessages } from './consentMessages';
+export { buildConsentMessages } from './consentMessages';
 
 export type ConsentActionOrigin =
   | 'whatsapp-inbound'
