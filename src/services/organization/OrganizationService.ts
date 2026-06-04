@@ -162,6 +162,38 @@ export class OrganizationService {
     await org.linkGuild(guildId);
   }
 
+  /**
+   * IDs de tenant para buscar regras, canais e destinos (org + dono + membros).
+   * Evita falha quando regras foram criadas com user._id e o canal usa organizationId.
+   */
+  async getRelatedClientIds(clientId: string): Promise<mongoose.Types.ObjectId[]> {
+    const ids = new Set<string>([clientId]);
+
+    const oid = new mongoose.Types.ObjectId(clientId);
+    const org = await Organization.findById(oid).lean();
+    if (org) {
+      ids.add(org.ownerUserId.toString());
+      const members = await CompanyMember.find({ organizationId: org._id, isActive: true })
+        .select('userId')
+        .lean();
+      for (const m of members) {
+        if (m.userId) ids.add(m.userId.toString());
+      }
+    }
+
+    const user = await User.findById(oid).select('primaryOrganizationId').lean();
+    if (user?.primaryOrganizationId) {
+      ids.add(user.primaryOrganizationId.toString());
+    }
+
+    const member = await CompanyMember.findActiveByUserId(oid);
+    if (member) {
+      ids.add(member.organizationId.toString());
+    }
+
+    return [...ids].map(id => new mongoose.Types.ObjectId(id));
+  }
+
   async listMembers(organizationId: string): Promise<ICompanyMember[]> {
     return CompanyMember.findByOrg(organizationId);
   }

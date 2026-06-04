@@ -7,6 +7,8 @@ export const WHATSAPP_LIMITS = {
   /** Intervalo mínimo se o usuário aceitar risco de banimento. */
   RISK_MIN_DELAY_BETWEEN_MS: 1000,
   MAX_MESSAGE_LENGTH: 4096,
+  /** Legenda de imagem no WhatsApp (~1024); margem para não cortar link/rodapé. */
+  MAX_IMAGE_CAPTION_LENGTH: 900,
   MAX_CAMPAIGN_TITLE_LENGTH: 120,
   MAX_MESSAGES_PER_MINUTE: config.WHATSAPP.RATE_LIMIT_MESSAGES_PER_MINUTE,
   /** Máximo de destinos por campanha (resto vai em fila). */

@@ -1,4 +1,5 @@
 import { Template, ITemplate } from '@/models/Template';
+import { DISCORD_WHATSAPP_TEMPLATES } from '@/constants/discord-whatsapp-templates';
 import { createServiceLogger } from '@/utils/logger';
 import mongoose from 'mongoose';
 
@@ -65,76 +66,26 @@ export class TemplateEngine {
    */
   private async initializeDefaultTemplates(): Promise<void> {
     try {
-      const defaultTemplates = [
-        {
-          name: 'game-promotion-basic',
-          content: '🎮 **{title}**\n\n💰 Preço: {price}\n🏪 Loja: {store}\n🔗 Link: {purchaseLink}',
-          description: 'Template básico para promoções de jogos'
-        },
-        {
-          name: 'game-promotion-discount',
-          content: '🎮 **{title}**\n\n💰 ~~{originalPrice}~~ **{price}** ({discount}% OFF)\n🏪 {store}\n⏰ Oferta por tempo limitado!\n\n🔗 {purchaseLink}',
-          description: 'Template para jogos com desconto'
-        },
-        {
-          name: 'game-free',
-          content: '🆓 **JOGO GRÁTIS!**\n\n🎮 {title}\n🏪 {store}\n⏰ Disponível até: {endDate}\n\n🔗 Pegue agora: {purchaseLink}',
-          description: 'Template para jogos gratuitos'
-        },
-        {
-          name: 'game-dlc',
-          content: '🎮 **{title}** - {dlcName}\n\n💰 Preço: {price}\n🏪 {store}\n📦 DLC/Expansão\n\n🔗 {purchaseLink}',
-          description: 'Template para DLCs e expansões'
-        },
-        {
-          name: 'custom-message',
-          content: '{message}',
-          description: 'Template simples para mensagens personalizadas'
-        },
-        // ── Templates RadarZap ──────────────────────────────────────────────
-        {
-          name: 'radarzap-padrao',
-          content: '📢 *{canal}* — {servidor}\n\n{mensagem}\n\n🔗 {link}\n\n_Enviado em {data} às {hora}_',
-          description: 'Template padrão do RadarZap com canal, servidor e link'
-        },
-        {
-          name: 'radarzap-com-embed',
-          content: '📢 *{embed_titulo}*\n\n{embed_desc}\n\n🔗 {link}\n\n_Via {canal} • {data}_',
-          description: 'Template RadarZap para mensagens com embed'
-        },
-        {
-          name: 'radarzap-simples',
-          content: '{mensagem}',
-          description: 'Template RadarZap minimalista — só o texto da mensagem'
-        },
-        {
-          name: 'radarzap-alerta',
-          content: '🚨 *ALERTA — {canal}*\n\n{mensagem}\n\n_Por {autor} em {data} às {hora}_',
-          description: 'Template RadarZap para alertas com autor e horário'
-        }
-      ];
-
-      for (const template of defaultTemplates) {
+      for (const def of DISCORD_WHATSAPP_TEMPLATES) {
         try {
-          const existing = await Template.findByName(template.name);
+          let existing = await Template.findByName(def.name);
           if (!existing) {
-            const newTemplate = await Template.createTemplate(
-              template.name,
-              template.content,
-              undefined, // No clientId for global templates
-              true // isDefault
-            );
-            this.defaultTemplates.set(template.name, newTemplate);
-            logger.info('Default template created', { name: template.name });
-          } else {
-            this.defaultTemplates.set(template.name, existing);
+            existing = await Template.createTemplate(def.name, def.content, undefined, true);
+            logger.info('Discord→WA template created', { name: def.name });
+          } else if (existing.isDefault && !existing.clientId) {
+            existing.content = def.content;
+            existing.description = def.description;
+            existing.discordKind = def.discordKind;
+            existing.variables = def.variables;
+            await existing.save();
           }
+          this.defaultTemplates.set(def.name, existing);
         } catch (error) {
-          logger.error('Failed to create default template', error as Error, { name: template.name });
+          logger.error('Failed to sync template', error as Error, { name: def.name });
         }
       }
 
-      logger.info('Default templates initialized', { count: this.defaultTemplates.size });
+      logger.info('Discord→WA templates initialized', { count: this.defaultTemplates.size });
     } catch (error) {
       logger.error('Failed to initialize default templates', error as Error);
     }
@@ -214,8 +165,8 @@ export class TemplateEngine {
       
       // Fallback to default template if not found
       if (!template && options.fallbackToDefault) {
-        template = this.defaultTemplates.get('radarzap-padrao') ||
-                   this.defaultTemplates.get('game-promotion-basic') ||
+        template = this.defaultTemplates.get('dw-padrao') ||
+                   this.defaultTemplates.get('dw-embed') ||
                    null;
         if (template) {
           logger.warn('Using fallback template', { requestedTemplate: templateName, fallbackTemplate: template.name });

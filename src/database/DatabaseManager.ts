@@ -211,8 +211,25 @@ export class DatabaseManager {
       { service: 1, level: 1, timestamp: -1 },
       { name: 'log_query_idx', background: true }
     );
+
+    await this.fixUsersAuthIndexes(db);
     
     this.serviceLogger.info('✅ Performance indexes created');
+  }
+
+  /** Permite vários usuários Google-only (sem discordUserId) — índice legado era unique sem sparse */
+  private async fixUsersAuthIndexes(db: { collection: (name: string) => { indexes: () => Promise<Array<{ name?: string; sparse?: boolean }>>; dropIndex: (name: string) => Promise<unknown>; createIndex: (spec: object, opts: object) => Promise<unknown> } }): Promise<void> {
+    const users = db.collection('users');
+    const indexes = await users.indexes();
+    const discordIdx = indexes.find(i => i.name === 'discordUserId_1');
+    if (discordIdx && !discordIdx.sparse) {
+      await users.dropIndex('discordUserId_1');
+      await users.createIndex(
+        { discordUserId: 1 },
+        { unique: true, sparse: true, name: 'discordUserId_1', background: true },
+      );
+      this.serviceLogger.info('Índice users.discordUserId corrigido (unique + sparse)');
+    }
   }
 
   /**

@@ -18,6 +18,14 @@ Write-Host "Parando RadarZap v2 (portas 3001 e 5174)..."
 Stop-ListenersOnPort 3001
 Stop-ListenersOnPort 5174
 
+# Qualquer Node do projeto radarzapv2 (evita 2x npm run dev)
+Get-CimInstance Win32_Process -Filter "name='node.exe'" |
+  Where-Object { $_.CommandLine -like '*radarzapv2*' } |
+  ForEach-Object {
+    Write-Host "Encerrando node radarzapv2 PID $($_.ProcessId)..."
+    taskkill /F /PID $_.ProcessId /T 2>$null | Out-Null
+  }
+
 # ts-node-dev órfão (wrapper sem porta)
 Get-CimInstance Win32_Process -Filter "name='node.exe'" |
   Where-Object { $_.CommandLine -like '*radarzapv2*ts-node-dev*' -or $_.CommandLine -like '*radarzapv2*wrap.js*' } |

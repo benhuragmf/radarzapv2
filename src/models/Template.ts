@@ -11,6 +11,10 @@ export interface ITemplate extends Document {
   name: string;
   content: string;
   variables: string[];
+  /** Tipo de post Discord (dw-*) */
+  discordKind?: string;
+  /** Descrição para o painel */
+  description?: string;
   isDefault: boolean;
   usage: {
     timesUsed: number;
@@ -58,6 +62,18 @@ const TemplateSchema = new Schema<ITemplate>({
     maxlength: [4096, 'Template content cannot exceed 4096 characters']
   },
   
+  discordKind: {
+    type: String,
+    maxlength: [40, 'discordKind too long'],
+    default: undefined,
+  },
+
+  description: {
+    type: String,
+    maxlength: [500, 'Description too long'],
+    default: undefined,
+  },
+
   variables: {
     type: [String],
     default: [],
@@ -168,16 +184,23 @@ TemplateSchema.methods.clone = async function(this: ITemplate, newName: string, 
  * Static Methods
  */
 TemplateSchema.statics.findByName = function(name: string, clientId?: mongoose.Types.ObjectId) {
+  const isSystemDw =
+    name.startsWith('dw-') || name.startsWith('radarzap-');
+
+  if (isSystemDw) {
+    return this.findOne({ name, clientId: null, isDefault: true });
+  }
+
   const query: any = { name };
   if (clientId) {
     query.$or = [
       { clientId },
-      { clientId: null, isDefault: true } // Include global default templates
+      { clientId: null, isDefault: true },
     ];
   } else {
     query.clientId = null;
   }
-  
+
   return this.findOne(query);
 };
 

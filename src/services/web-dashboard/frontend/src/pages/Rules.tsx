@@ -29,6 +29,7 @@ interface Destination {
 interface Template {
   _id: string
   name: string
+  discordKind?: string
 }
 
 interface Channel {
@@ -51,7 +52,7 @@ interface RuleForm {
 const emptyForm: RuleForm = {
   name: '',
   priority: 'medium',
-  templateName: 'radarzap-padrao',
+  templateName: 'dw-padrao',
   keywords: '',
   destinationIdentifiers: '',
   channelIds: [],
@@ -133,12 +134,26 @@ function RuleFormPanel({
           <label className={labelCls}>Template</label>
           <select value={form.templateName} onChange={e => set('templateName', e.currentTarget.value)}
             className={inputCls}>
-            {templates.length === 0 && (
-              <option value="radarzap-padrao">radarzap-padrao</option>
+            <option value="dw-padrao">dw-padrao (automático — recomendado)</option>
+            <optgroup label="Discord → WhatsApp">
+              {templates
+                .filter(t => t.name.startsWith('dw-') && t.name !== 'dw-padrao')
+                .map(t => (
+                  <option key={t._id} value={t.name}>
+                    {t.name}
+                    {t.discordKind ? ` — ${t.discordKind}` : ''}
+                  </option>
+                ))}
+            </optgroup>
+            {templates.some(t => !t.name.startsWith('dw-')) && (
+              <optgroup label="Legado">
+                {templates
+                  .filter(t => !t.name.startsWith('dw-'))
+                  .map(t => (
+                    <option key={t._id} value={t.name}>{t.name}</option>
+                  ))}
+              </optgroup>
             )}
-            {templates.map(t => (
-              <option key={t._id} value={t.name}>{t.name}</option>
-            ))}
           </select>
         </div>
 

@@ -21,6 +21,12 @@ export class CommandHandler {
         this.queueManager = QueueManager.getInstance();
     }
 
+    /** organizationId usado em WhatsApp, regras e destinos */
+    private async tenantClientId(user: { _id: unknown }): Promise<string> {
+        const { OrganizationService } = await import('@/services/organization/OrganizationService');
+        return OrganizationService.getInstance().resolveClientId(String(user._id));
+    }
+
     /**
      * Handle slash command interactions
      */
@@ -181,14 +187,15 @@ export class CommandHandler {
                 return;
             }
 
-            // Get WhatsApp session status
-            const whatsappSession = await this.sessionCache.getWhatsAppSession(user._id.toString());
+            const clientId = await this.tenantClientId(user);
+            const wa = WhatsAppService.getInstance();
+            const waConnected = wa.isClientConnected(clientId);
 
             // Get configured channels
-            const channels = await DiscordChannel.findByClientId(user._id as any);
+            const channels = await DiscordChannel.findByClientId(new mongoose.Types.ObjectId(clientId));
 
             // Get destinations
-            const destinations = await Destination.findByClientId(user._id as any);
+            const destinations = await Destination.findByClientId(new mongoose.Types.ObjectId(clientId));
 
             const embed = new EmbedBuilder()
                 .setTitle('📊 Bot Status')
@@ -200,7 +207,7 @@ export class CommandHandler {
                     },
                     {
                         name: '📱 WhatsApp Status',
-                        value: whatsappSession ? `**${whatsappSession.status.toUpperCase()}**` : '**DISCONNECTED**',
+                        value: waConnected ? '**CONNECTED**' : '**DISCONNECTED**',
                         inline: true
                     },
                     {
@@ -219,7 +226,7 @@ export class CommandHandler {
                         inline: true
                     }
                 ])
-                .setColor(whatsappSession?.status === 'connected' ? 0x00ff00 : 0xff9900)
+                .setColor(waConnected ? 0x00ff00 : 0xff9900)
                 .setTimestamp();
 
             await this.editReply(interaction, { embeds: [embed] });
@@ -238,8 +245,9 @@ export class CommandHandler {
             const user = await this.getOrCreateUser(interaction.user.id);
 
             // Check if already connected
-            const existingSession = await this.sessionCache.getWhatsAppSession(user._id.toString());
-            if (existingSession && existingSession.status === 'connected') {
+            const clientId = await this.tenantClientId(user);
+            const wa = WhatsAppService.getInstance();
+            if (wa.isClientConnected(clientId)) {
                 await this.editReply(interaction, '✅ WhatsApp is already connected!');
                 return;
             }
@@ -270,7 +278,7 @@ export class CommandHandler {
                 'whatsapp-connection',
                 'connect-whatsapp',
                 {
-                    clientId: user._id.toString(),
+                    clientId,
                     discordUserId: interaction.user.id,
                     channelId: interaction.channelId
                 },
@@ -350,7 +358,7 @@ export class CommandHandler {
                 'whatsapp-connection',
                 'disconnect-whatsapp',
                 {
-                    clientId: user._id.toString(),
+                    clientId: await this.tenantClientId(user),
                     discordUserId: interaction.user.id
                 },
                 {
@@ -381,8 +389,11 @@ export class CommandHandler {
                 return;
             }
 
+            const clientId = await this.tenantClientId(user);
+            const clientOid = new mongoose.Types.ObjectId(clientId);
+
             // Check user limits
-            const existingDestinations = await Destination.findByClientId(user._id);
+            const existingDestinations = await Destination.findByClientId(clientOid);
             if (existingDestinations.length >= user.limits.groupsMax && user.limits.groupsMax !== -1) {
                 await this.editReply(interaction, `❌ You have reached your destination limit (${user.limits.groupsMax}). Upgrade your plan for more destinations.`);
                 return;
@@ -390,7 +401,7 @@ export class CommandHandler {
 
             // Create destination
             await Destination.createDestination(
-                user._id,
+                clientOid,
                 type,
                 identifier,
                 name,
@@ -441,7 +452,8 @@ export class CommandHandler {
                 return;
             }
 
-            const destinations = await Destination.findByClientId(user._id as any);
+            const clientId = await this.tenantClientId(user);
+            const destinations = await Destination.findByClientId(new mongoose.Types.ObjectId(clientId));
 
             if (destinations.length === 0) {
                 await this.editReply(interaction, '📭 You have no WhatsApp destinations configured. Use `/add-destination` to add some.');
@@ -506,8 +518,9 @@ export class CommandHandler {
                 return;
             }
 
+            const clientId = await this.tenantClientId(user);
             const destination = await Destination.findOne({
-                clientId: user._id,
+                clientId: new mongoose.Types.ObjectId(clientId),
                 identifier
             });
 
@@ -552,11 +565,12 @@ export class CommandHandler {
             await this.editReply(interaction, `✅ Test message queued for sending ${destInfo}. Check your WhatsApp!`);
 
             // Then enqueue
+            const clientId = await this.tenantClientId(user);
             await this.queueManager.addJob(
                 'whatsapp-sending',
                 'send-test-message',
                 {
-                    clientId: user._id.toString(),
+                    clientId,
                     message,
                     destination: destination || null, // null = send to all destinations
                     discordUserId: interaction.user.id,
@@ -785,11 +799,13 @@ export class CommandHandler {
         }
 
         const user = await this.getOrCreateUser(interaction.user.id);
+        const clientId = await this.tenantClientId(user);
+        const clientOid = new mongoose.Types.ObjectId(clientId);
         const opts = (interaction as any).options;
 
         const name = opts?.get('name')?.value as string;
         const priority = (opts?.get('priority')?.value as 'high' | 'medium' | 'low') ?? 'medium';
-        const templateName = (opts?.get('template')?.value as string) ?? 'radarzap-padrao';
+        const templateName = (opts?.get('template')?.value as string) ?? 'dw-padrao';
         const requireKeywords = (opts?.get('keywords')?.value as string ?? '')
             .split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean);
         const destinationsRaw = (opts?.get('destinations')?.value as string ?? '');
@@ -804,7 +820,7 @@ export class CommandHandler {
         if (destinationsRaw.trim()) {
             const identifiers = destinationsRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
             for (const identifier of identifiers) {
-                const dest = await Destination.findOne({ clientId: user._id, identifier });
+                const dest = await Destination.findOne({ clientId: clientOid, identifier });
                 if (dest) {
                     destinationIds.push(dest._id);
                 } else {
@@ -816,7 +832,7 @@ export class CommandHandler {
         // Empty destinationIds = use all destinations (handled by QueueProcessorService)
 
         const rule = await Rule.create({
-            clientId: user._id,
+            clientId: clientOid,
             name,
             isActive: true,
             conditions: {
@@ -859,20 +875,33 @@ export class CommandHandler {
             return;
         }
 
-        const rules = await Rule.findByClientId(user._id as any);
+        const { OrganizationService } = await import('@/services/organization/OrganizationService');
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(
+            await this.tenantClientId(user),
+        );
+        const rules = (
+            await Promise.all(relatedIds.map(id => Rule.findByClientId(id)))
+        ).flat();
+        const seen = new Set<string>();
+        const uniqueRules = rules.filter(r => {
+            const k = r._id.toString();
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        });
 
-        if (rules.length === 0) {
+        if (uniqueRules.length === 0) {
             await this.editReply(interaction, '📭 No rules configured. Use `/rules create` to add one.');
             return;
         }
 
         const embed = new EmbedBuilder()
             .setTitle('📋 Your Rules')
-            .setDescription(`${rules.length} rule(s) configured`)
+            .setDescription(`${uniqueRules.length} rule(s) configured`)
             .setColor(0x0099ff)
             .setTimestamp();
 
-        for (const rule of rules.slice(0, 10)) {
+        for (const rule of uniqueRules.slice(0, 10)) {
             embed.addFields([{
                 name: `${rule.isActive ? '🟢' : '🔴'} ${rule.name}`,
                 value: `Priority: **${rule.action.priority}** | Template: **${rule.action.templateName}** | Matches: **${rule.matchCount}**\nID: \`${rule._id}\``,
@@ -880,8 +909,8 @@ export class CommandHandler {
             }]);
         }
 
-        if (rules.length > 10) {
-            embed.setFooter({ text: `Showing 10 of ${rules.length} rules` });
+        if (uniqueRules.length > 10) {
+            embed.setFooter({ text: `Showing 10 of ${uniqueRules.length} rules` });
         }
 
         await this.editReply(interaction, { embeds: [embed] });
@@ -902,7 +931,11 @@ export class CommandHandler {
             return;
         }
 
-        const rule = await Rule.findOne({ _id: ruleId, clientId: user._id });
+        const { OrganizationService } = await import('@/services/organization/OrganizationService');
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(
+            await this.tenantClientId(user),
+        );
+        const rule = await Rule.findOne({ _id: ruleId, clientId: { $in: relatedIds } });
 
         if (!rule) {
             await this.editReply(interaction, '❌ Rule not found.');
@@ -928,7 +961,11 @@ export class CommandHandler {
             return;
         }
 
-        const rule = await Rule.findOneAndDelete({ _id: ruleId, clientId: user._id });
+        const { OrganizationService } = await import('@/services/organization/OrganizationService');
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(
+            await this.tenantClientId(user),
+        );
+        const rule = await Rule.findOneAndDelete({ _id: ruleId, clientId: { $in: relatedIds } });
 
         if (!rule) {
             await this.editReply(interaction, '❌ Rule not found.');
@@ -951,7 +988,7 @@ export class CommandHandler {
             }
 
             const whatsappService = WhatsAppService.getInstance();
-            const clientId = user._id.toString();
+            const clientId = await this.tenantClientId(user);
 
             let groups: Array<{ id: string; name: string; participantsCount: number; isAdmin: boolean }>;
 

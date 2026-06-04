@@ -418,6 +418,20 @@ export class RedisManager {
     return result === 'OK';
   }
 
+  /** SET key NX — retorna true se gravou (primeira vez). */
+  async setIfNotExists(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    const result = await this.execute(async () => {
+      return await this.getClient().set(key, value, 'EX', ttlSeconds, 'NX');
+    });
+    return result === 'OK';
+  }
+
+  async deleteKey(key: string): Promise<void> {
+    await this.execute(async () => {
+      await this.getClient().del(key);
+    });
+  }
+
   /**
    * Get value
    */
@@ -425,6 +439,17 @@ export class RedisManager {
     return await this.execute(async () => {
       return await this.getClient().get(key);
     });
+  }
+
+  /** Contador atômico com TTL (espaçamento de envios no canal). */
+  async increment(key: string, ttlSeconds: number): Promise<number> {
+    const result = await this.execute(async () => {
+      const client = this.getClient();
+      const n = await client.incr(key);
+      if (n === 1) await client.expire(key, ttlSeconds);
+      return n;
+    });
+    return result ?? 1;
   }
 
   /**

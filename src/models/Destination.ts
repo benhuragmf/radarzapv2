@@ -197,8 +197,9 @@ DestinationSchema.methods.revokeConsent = async function(this: IDestination): Pr
 };
 
 DestinationSchema.methods.hasValidConsent = function(this: IDestination): boolean {
+  // Grupos: só precisam estar ativos (sem fluxo LGPD de contato)
   if (this.type === 'group') {
-    return this.consent.granted && this.isActive;
+    return this.isActive;
   }
   const st = this.consentStatus ?? (this.consent.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING);
   if (st === ConsentStatus.MANUALLY_BLOCKED || st === ConsentStatus.REFUSED_THREE) {

@@ -1,29 +1,55 @@
-import { DatabaseManager } from '@/database/DatabaseManager';
-import { Template } from '@/models/Template';
+/**
+ * Sincroniza templates Discord → WhatsApp (dw-*) no MongoDB.
+ * Uso: npm run seed:templates
+ */
+import dotenv from 'dotenv';
+dotenv.config();
 
-const templates = [
-  { name: 'radarzap-padrao',  content: '📢 *{canal}* — {servidor}\n\n{mensagem}\n\n🔗 {link}\n\n_Enviado em {data} às {hora}_' },
-  { name: 'radarzap-jogo',    content: '🎮 *Jogo encontrado!*\n\n{mensagem}\n\n🔗 {link}\n\n_Via {canal} • {data}_' },
-  { name: 'radarzap-live',    content: '🔴 *Live ao vivo!*\n\n{mensagem}\n\n🔗 {link}\n\n_Por {autor} em {canal}_' },
-  { name: 'radarzap-link',    content: '🔗 *{canal}*\n\n{mensagem}\n\n{link}\n\n_{data} às {hora}_' },
-  { name: 'radarzap-simples', content: '{mensagem}' },
-  { name: 'radarzap-alerta',  content: '🚨 *ALERTA — {canal}*\n\n{mensagem}\n\n_Por {autor} em {data} às {hora}_' },
-];
+import mongoose from 'mongoose';
+import { DISCORD_WHATSAPP_TEMPLATES } from './src/constants/discord-whatsapp-templates';
+
+const MONGODB_URL =
+  process.env.MONGODB_URL ||
+  'mongodb://localhost:27017/discord-whatsapp';
 
 async function main() {
-  await DatabaseManager.getInstance().connect();
+  await mongoose.connect(MONGODB_URL);
+  console.log('Sincronizando templates Discord → WhatsApp…');
 
-  for (const t of templates) {
-    const existing = await Template.findOne({ name: t.name });
-    if (!existing) {
-      await Template.createTemplate(t.name, t.content, undefined, true);
-      console.log(`✅ Created: ${t.name}`);
-    } else {
-      console.log(`⏭  Already exists: ${t.name}`);
-    }
+  const col = mongoose.connection.collection('templates');
+
+  for (const def of DISCORD_WHATSAPP_TEMPLATES) {
+    const variables = [...new Set(def.variables)];
+    const result = await col.updateOne(
+      { name: def.name, clientId: null },
+      {
+        $set: {
+          name: def.name,
+          content: def.content,
+          description: def.description,
+          discordKind: def.discordKind,
+          variables,
+          isDefault: true,
+          clientId: null,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          usage: { timesUsed: 0, lastUsed: new Date() },
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+
+    const tag = result.upsertedCount ? '+' : '~';
+    console.log(`  ${tag} ${def.name}`);
   }
 
-  process.exit(0);
+  console.log(`Concluído: ${DISCORD_WHATSAPP_TEMPLATES.length} templates.`);
+  await mongoose.disconnect();
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch(e => {
+  console.error(e);
+  process.exit(1);
+});

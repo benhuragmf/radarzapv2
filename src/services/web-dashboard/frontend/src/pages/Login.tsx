@@ -8,6 +8,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   oauth_error: 'Erro durante o login. Tente novamente.',
   google_not_configured: 'Login Google não configurado no servidor (GOOGLE_CLIENT_ID).',
   google_profile: 'Não foi possível obter e-mail do Google.',
+  google_redirect_mismatch: 'Redirect URI incorreto no Google Cloud Console. Cadastre http://localhost:5174/auth/google/callback',
+  google_account_conflict: 'Não foi possível criar conta Google (conflito no banco). Reinicie o backend ou contate suporte.',
   no_code: 'Login cancelado ou código ausente.',
 }
 

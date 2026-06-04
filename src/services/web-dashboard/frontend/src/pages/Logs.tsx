@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { ScrollText, ChevronDown, ChevronRight } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
-import { DISCORD_LOG_SERVICES } from '../lib/discordRoutes'
+import { DISCORD_LOG_SERVICES, PIPELINE_STAGES } from '../lib/discordRoutes'
 
 interface Log {
   _id: string
@@ -26,6 +26,27 @@ const levelVariant = {
   debug: 'gray',
 } as const
 
+const stageVariant: Record<string, 'green' | 'blue' | 'yellow' | 'red' | 'gray' | 'purple'> = {
+  capture: 'blue',
+  skip: 'yellow',
+  queue: 'purple',
+  render: 'blue',
+  send: 'purple',
+  send_ok: 'green',
+  send_fail: 'red',
+  error: 'red',
+}
+
+function stageFromLog(log: Log): string | undefined {
+  const meta = log.metadata?.stage
+  if (typeof meta === 'string') return meta
+  const m = log.message.match(/^(CAPTURE|SKIP|QUEUE|RENDER|SEND OK|SEND FAIL|SEND|ERROR):/i)
+  if (!m) return undefined
+  const raw = m[1].toLowerCase().replace(/\s+/g, '_')
+  if (raw === 'send') return log.message.startsWith('SEND OK') ? 'send_ok' : 'send'
+  return raw
+}
+
 interface Props {
   scope?: 'all' | 'discord'
 }
@@ -35,18 +56,24 @@ export default function Logs({ scope = 'all' }: Props) {
   const isDiscord = scope === 'discord'
   const isHistoryView = hash === '#historico'
   const [level, setLevel]     = useState('')
-  const [service, setService] = useState(isDiscord ? 'QueueProcessorService' : '')
+  const [service, setService] = useState(isDiscord ? '' : '')
+  const [stage, setStage]     = useState('')
+  const [search, setSearch]   = useState(isDiscord ? 'pipeline' : '')
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const { data: logs = [], isLoading } = useQuery<Log[]>({
-    queryKey: ['logs', level, service],
+    queryKey: ['logs', level, service, stage, search, isDiscord],
     queryFn: () => {
       const params = new URLSearchParams()
       if (level)   params.set('level', level)
       if (service) params.set('service', service)
+      if (stage)   params.set('stage', stage)
+      if (search)  params.set('q', search)
+      if (isDiscord) params.set('discord', '1')
+      params.set('limit', isDiscord ? '200' : '100')
       return api.get(`/logs?${params}`)
     },
-    refetchInterval: 15_000,
+    refetchInterval: isDiscord ? 5_000 : 15_000,
   })
 
   const body = (
@@ -57,22 +84,44 @@ export default function Logs({ scope = 'all' }: Props) {
         </p>
       )}
       {isDiscord && (
-        <div className="flex flex-wrap gap-2">
-          {DISCORD_LOG_SERVICES.map(s => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setService(service === s ? '' : s)}
-              className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
-                service === s
-                  ? 'border-brand-500 bg-brand-600/20 text-brand-300'
-                  : 'border-gray-700 text-gray-500 hover:border-gray-600'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        <>
+          <p className="text-sm text-gray-400">
+            Pipeline: <span className="text-gray-300">CAPTURE → RENDER → QUEUE → SEND → SEND OK</span>.
+            Filtre por etapa ou busque <code className="text-brand-400">send</code>.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DISCORD_LOG_SERVICES.map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setService(service === s ? '' : s)}
+                className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+                  service === s
+                    ? 'border-brand-500 bg-brand-600/20 text-brand-300'
+                    : 'border-gray-700 text-gray-500 hover:border-gray-600'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PIPELINE_STAGES.map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStage(stage === s ? '' : s)}
+                className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+                  stage === s
+                    ? 'border-emerald-500 bg-emerald-600/20 text-emerald-300'
+                    : 'border-gray-700 text-gray-500 hover:border-gray-600'
+                }`}
+              >
+                {s === 'send_ok' ? 'send ✓' : s}
+              </button>
+            ))}
+          </div>
+        </>
       )}
       <div className="flex flex-wrap gap-3">
         <select
@@ -89,8 +138,14 @@ export default function Logs({ scope = 'all' }: Props) {
         <input
           value={service}
           onChange={e => setService(e.target.value)}
-          placeholder="Filtrar por serviço..."
+          placeholder="Serviço..."
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-brand-500 w-48"
+        />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={isDiscord ? 'Buscar (send, hellfps, trace…)…' : 'Buscar mensagem…'}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-brand-500 flex-1 min-w-[12rem]"
         />
         <span className="ml-auto text-xs text-gray-500 self-center">{logs.length} registros</span>
       </div>
@@ -105,7 +160,9 @@ export default function Logs({ scope = 'all' }: Props) {
       )}
 
       <div className="space-y-1.5">
-        {logs.map((log) => (
+        {logs.map((log) => {
+          const st = stageFromLog(log)
+          return (
           <div
             key={log._id}
             className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden"
@@ -119,32 +176,49 @@ export default function Logs({ scope = 'all' }: Props) {
                 : <ChevronRight size={14} className="text-gray-500 shrink-0" />
               }
               <Badge label={log.level} variant={levelVariant[log.level]} />
+              {st && (
+                <Badge
+                  label={st === 'send_ok' ? 'SEND' : st.toUpperCase()}
+                  variant={stageVariant[st] ?? 'gray'}
+                />
+              )}
               <span className="text-xs text-gray-500 shrink-0">
                 {new Date(log.timestamp).toLocaleTimeString('pt-BR')}
               </span>
               <span className="text-xs text-blue-400 shrink-0">{log.service}</span>
-              <span className="text-sm text-gray-300 truncate">{log.message}</span>
+              <span className="text-sm text-gray-300 truncate flex-1 min-w-0">
+                {log.message}
+                {typeof log.metadata?.preview === 'string' && (
+                  <span className="text-gray-500"> — {log.metadata.preview as string}</span>
+                )}
+                {typeof log.metadata?.streamer === 'string' && (
+                  <span className="text-emerald-600/80"> @{log.metadata.streamer as string}</span>
+                )}
+              </span>
+              {typeof log.metadata?.template === 'string' && (
+                <span className="text-[10px] text-gray-600 shrink-0">{log.metadata.template as string}</span>
+              )}
             </button>
 
             {expanded === log._id && (
               <div className="px-4 pb-3 border-t border-gray-800">
                 <p className="text-xs text-gray-500 mt-2 mb-1">traceId: <code className="text-gray-400">{log.traceId}</code></p>
                 {Object.keys(log.metadata ?? {}).length > 0 && (
-                  <pre className="text-xs text-gray-400 bg-gray-950 rounded p-2 overflow-x-auto">
+                  <pre className="text-xs text-gray-400 bg-gray-950 rounded p-2 overflow-x-auto max-h-64 overflow-y-auto">
                     {JSON.stringify(log.metadata, null, 2)}
                   </pre>
                 )}
               </div>
             )}
           </div>
-        ))}
+        )})}
       </div>
     </div>
   )
 
   if (isDiscord) {
     return (
-      <DiscordPage description="Logs de processamento das regras e do bot Discord.">
+      <DiscordPage description="Pipeline Discord → WhatsApp (captura, fila, envio).">
         {body}
       </DiscordPage>
     )

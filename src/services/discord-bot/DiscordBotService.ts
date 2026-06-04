@@ -17,6 +17,13 @@ import { SessionCache } from '@/cache/SessionCache';
 import { RateLimiter } from '@/cache/RateLimiter';
 import { DiscordChannel, User, MessageQueue } from '@/models';
 import { MessageExtractor } from './MessageExtractor';
+import {
+  shouldSkipBotWebhookPreamble,
+  shouldSkipNonPrimaryLivePost,
+  waitForStreamEmbed,
+  collectPrimaryLink,
+} from '@/utils/discord-wa-format';
+import { logPipeline } from '@/utils/pipeline-log';
 import { CommandHandler } from './CommandHandler';
 import { CircuitBreaker } from '../common/CircuitBreaker';
 
@@ -443,9 +450,6 @@ export class DiscordBotService {
         if (!discordChannel.filters.allowedUserIds.includes(message.author.id)) return;
       }
 
-      // Verificar filtros de conteúdo (keywords)
-      if (!discordChannel.matchesFilters(message.content)) return;
-
       // Rate limiting global
       const rateLimitResult = await this.rateLimiter.checkGlobalLimit('message-processing', 100, 60000);
       if (!rateLimitResult.allowed) {
@@ -453,17 +457,65 @@ export class DiscordBotService {
         return;
       }
 
-      // Extrair dados da mensagem
-      const extractedData = this.messageExtractor.extract(message);
+      const workMessage = await waitForStreamEmbed(message);
+      const workHasEmbed = workMessage.embeds.length > 0;
+
+      if (
+        shouldSkipBotWebhookPreamble({
+          isBot: workMessage.author.bot,
+          hasEmbed: workHasEmbed,
+          content: workMessage.content ?? '',
+        })
+      ) {
+        await logPipeline('DiscordBotService', 'skip', 'Webhook preamble ignorado', {
+          messageId: workMessage.id,
+          channelId: workMessage.channelId,
+          reason: 'aguardando embed do bot',
+        });
+        return;
+      }
+
+      const extractedData = this.messageExtractor.extract(workMessage);
+      const primaryLink = collectPrimaryLink(extractedData);
+
+      if (shouldSkipNonPrimaryLivePost(extractedData)) {
+        await logPipeline('DiscordBotService', 'skip', 'Post intermediário #live-on', {
+          messageId: workMessage.id,
+          channelId: workMessage.channelId,
+          captureKind: extractedData.captureKind,
+          reason: 'só card live/vídeo/short',
+        });
+        return;
+      }
+
+      // Filtro de palavras-chave (inclui título/descrição/fields do embed)
+      const filterText = extractedData.searchText ?? message.content ?? '';
+      if (!discordChannel.matchesFilters(filterText)) return;
 
       // Adicionar na fila de processamento
+      const streamerSlug = primaryLink.match(/twitch\.tv\/([^/?]+)/i)?.[1] ?? '';
+
+      await logPipeline('DiscordBotService', 'capture', 'Mensagem capturada', {
+        messageId: workMessage.id,
+        channelId: workMessage.channelId,
+        clientId: discordChannel.clientId.toString(),
+        captureKind: extractedData.captureKind,
+        hasEmbed: workHasEmbed,
+        hasLink: Boolean(primaryLink),
+        primaryLink,
+        streamer: streamerSlug || extractedData.embedAuthorName,
+        embedTitle: extractedData.embedTitles?.[0],
+        author: extractedData.authorName,
+        waitedEmbed: !hasEmbed && workHasEmbed,
+      }, discordChannel.clientId.toString());
+
       await this.queueManager.addJob(
         'message-processing',
         'process-discord-message',
         {
-          messageId: message.id,
-          channelId: message.channelId,
-          guildId: message.guildId,
+          messageId: workMessage.id,
+          channelId: workMessage.channelId,
+          guildId: workMessage.guildId,
           clientId: discordChannel.clientId.toString(),
           extractedData,
           timestamp: new Date(),
@@ -476,12 +528,12 @@ export class DiscordBotService {
       );
 
       this.serviceLogger.info('Message queued for processing', {
-        messageId: message.id,
-        channelId: message.channelId,
-        isBot: message.author.bot,
-        hasEmbed,
-        hasLink,
-        hasImage,
+        messageId: workMessage.id,
+        channelId: workMessage.channelId,
+        isBot: workMessage.author.bot,
+        hasEmbed: workHasEmbed,
+        hasLink: Boolean(primaryLink),
+        captureKind: extractedData.captureKind,
       });
 
     } catch (error) {

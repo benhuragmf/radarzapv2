@@ -2,11 +2,28 @@ import { QueueManager } from '@/cache/QueueManager';
 import { RateLimiter } from '@/cache/RateLimiter';
 import { SessionCache } from '@/cache/SessionCache';
 import { RedisManager } from '@/cache/RedisManager';
-import { MessageQueue, User, Destination, SystemLog } from '@/models';
+import { MessageQueue, User, Destination, SystemLog, Organization } from '@/models';
 import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
 import { RulesEngine } from '@/services/rules/RulesEngine';
 import { TemplateEngine } from '@/services/templates/TemplateEngine';
+import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
+import { OrganizationService } from '@/services/organization/OrganizationService';
 import { createServiceLogger } from '@/utils/logger';
+import { isDevelopment } from '@/config/environment';
+import { renderCatalogTemplate } from '@/constants/discord-whatsapp-templates';
+import {
+  previewOutbound,
+  resolveStreamTemplate,
+  streamLinkFromExtracted,
+} from '@/utils/stream-template';
+import { inferTwitchSlug, isLiveOnChannel } from '@/utils/discord-wa-format';
+import { buildDiscordWhatsAppVariables } from '@/utils/discord-wa-variables';
+import {
+  applyStandardWhatsAppLayout,
+  buildContentFingerprint,
+  collectPrimaryLink,
+} from '@/utils/discord-wa-format';
+import { logPipeline } from '@/utils/pipeline-log';
 import { CircuitBreaker } from '@/services/common/CircuitBreaker';
 import { Job } from 'bullmq';
 import mongoose from 'mongoose';
@@ -33,7 +50,7 @@ export class QueueProcessorService {
 
   // Deduplication config
   private static readonly DEDUP_WINDOW_HOURS = 6;
-  private static readonly MIN_SEND_DELAY_MS = 3000;
+  private static readonly MIN_SEND_DELAY_MS = isDevelopment() ? 1000 : 3000;
 
   constructor() {
     this.queueManager = QueueManager.getInstance();
@@ -144,25 +161,42 @@ export class QueueProcessorService {
     try {
       this.serviceLogger.info('Processing Discord message', logMeta);
 
-      // ── 1. User validation ────────────────────────────────────────────────
-      const user = await User.findById(new mongoose.Types.ObjectId(clientId));
-      if (!user) {
-        await SystemLog.createLog('warn', 'QueueProcessorService', 'User not found', logMeta, undefined, traceId);
-        return { success: false, reason: 'User not found' };
+      const clientOid = new mongoose.Types.ObjectId(clientId);
+
+      // ── 1. Tenant (organização ou usuário legado) ───────────────────────────
+      const org = await Organization.findById(clientOid);
+      let user = await User.findById(clientOid);
+      if (!org && !user) {
+        this.serviceLogger.warn('Tenant não encontrado — mensagem Discord ignorada', logMeta);
+        await SystemLog.createLog('warn', 'QueueProcessorService', 'Tenant not found', logMeta, undefined, traceId);
+        return { success: false, reason: 'Tenant not found' };
+      }
+      if (!user && org) {
+        user = await User.findById(org.ownerUserId);
       }
 
-      if (!user.canSendMessage()) {
+      const logUserId = (user?._id ?? clientOid) as mongoose.Types.ObjectId;
+
+      if (org && !org.canSendMessage()) {
+        this.serviceLogger.warn('Limite diário da organização atingido', logMeta);
         await SystemLog.createLog('warn', 'QueueProcessorService', 'Message limit exceeded', {
-          ...logMeta, limit: user.limits.messagesPerDay, used: user.usage.messagesUsed
-        }, user._id as mongoose.Types.ObjectId, traceId);
+          ...logMeta, limit: org.limits.messagesPerDay, used: org.usage.messagesUsed, tenant: 'organization',
+        }, logUserId, traceId);
+        return { success: false, reason: 'Message limit exceeded' };
+      }
+      if (user && !org && !user.canSendMessage()) {
+        await SystemLog.createLog('warn', 'QueueProcessorService', 'Message limit exceeded', {
+          ...logMeta, limit: user.limits.messagesPerDay, used: user.usage.messagesUsed, tenant: 'user',
+        }, logUserId, traceId);
         return { success: false, reason: 'Message limit exceeded' };
       }
 
-      // ── 2. WhatsApp session check ─────────────────────────────────────────
-      const whatsappSession = await this.sessionCache.getWhatsAppSession(clientId);
-      if (!whatsappSession || whatsappSession.status !== 'connected') {
+      // ── 2. WhatsApp (socket ativo no processo, não só cache Redis) ─────────
+      const wa = WhatsAppService.getInstance();
+      if (!wa.isClientConnected(clientId)) {
+        this.serviceLogger.warn('WhatsApp não conectado — mensagem Discord não encaminhada', logMeta);
         await SystemLog.createLog('warn', 'QueueProcessorService', 'WhatsApp not connected', logMeta,
-          user._id as mongoose.Types.ObjectId, traceId);
+          logUserId, traceId);
         return { success: false, reason: 'WhatsApp not connected' };
       }
 
@@ -171,84 +205,262 @@ export class QueueProcessorService {
 
       await SystemLog.createLog('info', 'QueueProcessorService', 'Rules evaluated', {
         ...logMeta, rulesMatched: matches.length
-      }, user._id as mongoose.Types.ObjectId, traceId);
+      }, logUserId, traceId);
 
       if (matches.length === 0) {
+        this.serviceLogger.warn('Nenhuma regra ativa bateu com a mensagem Discord', {
+          ...logMeta,
+          channelId: extractedData?.channelId,
+        });
         await SystemLog.createLog('info', 'QueueProcessorService', 'No rules matched — message skipped', logMeta,
-          user._id as mongoose.Types.ObjectId, traceId);
+          logUserId, traceId);
         return { success: true, reason: 'No rules matched', jobsEnqueued: 0 };
+      }
+
+      // Uma mensagem Discord → uma regra (maior prioridade), evita 5 posts no WhatsApp
+      const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      const activeMatches =
+        matches.length > 1
+          ? [
+              [...matches].sort(
+                (a, b) => priorityRank[a.priority] - priorityRank[b.priority]
+              )[0],
+            ]
+          : matches;
+
+      if (matches.length > 1) {
+        this.serviceLogger.info('Múltiplas regras — usando só a de maior prioridade', {
+          ...logMeta,
+          total: matches.length,
+          picked: activeMatches[0].rule.name,
+          template: activeMatches[0].templateName,
+        });
+      }
+
+      const liveOnChannel = /live-on|live_on/i.test(extractedData.channelName ?? '');
+      const skipStreamContentDedup = liveOnChannel && !extractedData.isBot;
+
+      if (!skipStreamContentDedup) {
+        const contentFp = buildContentFingerprint(channelId, extractedData);
+        const contentDedupKey = `wa-content:${clientId}:${channelId}:${contentFp}`;
+        const dedupTtlSec = liveOnChannel ? 300 : 120;
+
+        const isNewContent = await this.redisManager.setIfNotExists(
+          contentDedupKey,
+          messageId,
+          dedupTtlSec
+        );
+        if (!isNewContent) {
+          await logPipeline('QueueProcessorService', 'skip', 'Conteúdo duplicado no canal', {
+            ...logMeta,
+            contentFp,
+            dedupTtlSec,
+            reason: 'mesmo streamer/thumb em janela curta',
+          }, logUserId, traceId);
+          return { success: true, reason: 'Duplicate content', jobsEnqueued: 0 };
+        }
       }
 
       // ── 4. For each match: template + dedup + enqueue ─────────────────────
       let jobsEnqueued = 0;
-      const now = Date.now();
 
-      for (const match of matches) {
+      for (const match of activeMatches) {
         const { destinationIds, templateName, priority, addDelay, rule } = match;
 
-        // Build template variables from extractedData
-        const variables = this.buildTemplateVariables(extractedData);
-
-        // Render template
-        let renderedMessage: string;
-        try {
-          renderedMessage = await this.templateEngine.renderTemplate(
-            templateName,
-            variables,
-            user._id as mongoose.Types.ObjectId,
-            { fallbackToDefault: true, removeUnusedVariables: true }
-          );
-        } catch (templateError) {
-          await SystemLog.createLog('error', 'QueueProcessorService', 'Template render failed', {
-            ...logMeta, templateName, error: (templateError as Error).message, ruleId: rule._id
-          }, user._id as mongoose.Types.ObjectId, traceId);
-          continue;
+        const linkForRoute = streamLinkFromExtracted(extractedData);
+        if (
+          linkForRoute &&
+          /twitch\.tv|youtube\.com|youtu\.be/i.test(linkForRoute) &&
+          extractedData.captureKind !== 'embed_list'
+        ) {
+          extractedData.captureKind = 'live';
         }
+
+        const { template: resolvedTemplate, linkKind, link: routedLink } =
+          resolveStreamTemplate(
+            templateName,
+            extractedData.captureKind ?? 'text',
+            extractedData
+          );
+
+        if (routedLink && !extractedData.primaryLink) {
+          extractedData.primaryLink = routedLink;
+        }
+        const slug = inferTwitchSlug(extractedData);
+        if (slug && !extractedData.embedAuthorName) {
+          extractedData.embedAuthorName = slug;
+        }
+
+        const { variables, primaryImage, extraImages } =
+          buildDiscordWhatsAppVariables(extractedData);
+
+        // Templates dw-* sempre do catálogo global (evita cópia antiga do cliente no Mongo)
+        const useGlobalTemplate =
+          resolvedTemplate.startsWith('dw-') ||
+          resolvedTemplate.startsWith('radarzap-');
+
+        const linkFinal =
+          collectPrimaryLink(extractedData) ||
+          variables.link_principal ||
+          variables.link ||
+          '';
+
+        if (
+          !linkFinal &&
+          (extractedData.captureKind === 'live' ||
+            extractedData.captureKind === 'video' ||
+            extractedData.captureKind === 'short')
+        ) {
+          this.serviceLogger.warn('Link vazio na fila — recompõe no envio', {
+            ...logMeta,
+            template: resolvedTemplate,
+            streamer: variables.streamer,
+          });
+        }
+
+        let renderedMessage =
+          renderCatalogTemplate(resolvedTemplate, variables as Record<string, string>) ?? '';
+
+        if (!renderedMessage && useGlobalTemplate) {
+          const fallbackTpl =
+            extractedData.captureKind === 'short'
+              ? 'dw-short'
+              : extractedData.captureKind === 'video'
+                ? 'dw-video'
+                : extractedData.captureKind === 'live'
+                  ? 'dw-live'
+                  : 'dw-padrao';
+          renderedMessage =
+            renderCatalogTemplate(fallbackTpl, variables as Record<string, string>) ?? '';
+        }
+
+        if (!renderedMessage && !useGlobalTemplate) {
+          try {
+            renderedMessage = await this.templateEngine.renderTemplate(
+              resolvedTemplate,
+              variables,
+              logUserId,
+              { fallbackToDefault: true, removeUnusedVariables: true }
+            );
+          } catch (templateError) {
+            await SystemLog.createLog('error', 'QueueProcessorService', 'Template render failed', {
+              ...logMeta, templateName, error: (templateError as Error).message, ruleId: rule._id
+            }, logUserId, traceId);
+            continue;
+          }
+        }
+
+        renderedMessage = applyStandardWhatsAppLayout(
+          renderedMessage,
+          variables.rodape || '',
+          linkFinal
+        );
+
+        await logPipeline('QueueProcessorService', 'render', 'Mensagem montada', {
+          ...logMeta,
+          template: resolvedTemplate,
+          ruleTemplate: templateName,
+          linkKind,
+          streamer: variables.streamer,
+          captureKind: extractedData.captureKind,
+          chars: renderedMessage.length,
+          hasLink: renderedMessage.includes('https://'),
+          hasRodape: renderedMessage.includes('via radarzap'),
+          hasImage: Boolean(primaryImage || variables.imagem),
+          linkFinal: linkFinal || undefined,
+          preview: previewOutbound(renderedMessage),
+        }, logUserId, traceId);
+
+        this.serviceLogger.info('Mensagem WA montada', {
+          ...logMeta,
+          template: resolvedTemplate,
+          chars: renderedMessage.length,
+          hasLink: renderedMessage.includes('https://'),
+          hasRodape: renderedMessage.includes('via radarzap'),
+        });
 
         // If rule has no specific destinations, use all active destinations of the user
         let resolvedDestinationIds = destinationIds;
         if (!resolvedDestinationIds || resolvedDestinationIds.length === 0) {
-          const allDests = await Destination.findByClientId(user._id as mongoose.Types.ObjectId, true);
-          resolvedDestinationIds = allDests.map((d: any) => d._id);
+          const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(clientId);
+          const allDests = (
+            await Promise.all(relatedIds.map(id => Destination.findByClientId(id, true)))
+          ).flat();
+          const seenDest = new Set<string>();
+          resolvedDestinationIds = allDests
+            .filter(d => {
+              const key = String(d._id);
+              if (seenDest.has(key)) return false;
+              seenDest.add(key);
+              return true;
+            })
+            .map(d => d._id as mongoose.Types.ObjectId);
           this.serviceLogger.debug('Rule has no destinations — using all active destinations', {
             clientId, ruleId: rule._id, count: resolvedDestinationIds.length
           });
         }
+
+        const seenWaDest = new Set<string>();
 
         // Enqueue one job per destination
         for (const destinationId of resolvedDestinationIds) {
           const destination = await Destination.findById(destinationId);
           if (!destination || !destination.isActive) continue;
 
+          if (seenWaDest.has(destination.identifier)) continue;
+          seenWaDest.add(destination.identifier);
+
           // ── Deduplication ─────────────────────────────────────────────────
           const dedupHash = crypto
             .createHash('sha256')
-            .update(`${clientId}:${destinationId}:${renderedMessage}`)
+            .update(`${clientId}:${destinationId}:${messageId}`)
             .digest('hex');
 
           const dedupKey = `dedup:${dedupHash}`;
           const isDuplicate = await this.redisManager.exists(dedupKey);
 
           if (isDuplicate) {
-            await SystemLog.createLog('info', 'QueueProcessorService', 'Duplicate message skipped', {
-              ...logMeta, ruleId: rule._id, destinationId, dedupHash
-            }, user._id as mongoose.Types.ObjectId, traceId);
+            await logPipeline('QueueProcessorService', 'skip', 'Mensagem já enviada (dedup messageId)', {
+              ...logMeta,
+              ruleId: String(rule._id),
+              destination: destination.identifier,
+              dedupHash,
+            }, logUserId, traceId);
             continue;
           }
 
-          // Mark as sent (TTL = dedup window)
-          await this.redisManager.setWithTTL(
-            dedupKey,
-            '1',
-            QueueProcessorService.DEDUP_WINDOW_HOURS * 3600
-          );
-
           // ── Enqueue send job ──────────────────────────────────────────────
           const priorityValue = priority === 'high' ? 8 : priority === 'medium' ? 5 : 2;
-          const delay = addDelay + (jobsEnqueued * QueueProcessorService.MIN_SEND_DELAY_MS);
+          const streamInPost = /twitch\.tv|youtube\.com|youtu\.be/i.test(linkForRoute);
+          const webhookSettleMs =
+            extractedData.isBot &&
+            streamInPost &&
+            (extractedData.captureKind === 'live' ||
+              extractedData.captureKind === 'video' ||
+              extractedData.captureKind === 'short')
+              ? 1500
+              : 0;
+          const humanEmbedSettleMs =
+            !extractedData.isBot &&
+            streamInPost &&
+            !extractedData.embedThumbnail &&
+            !extractedData.hasEmbed
+              ? 800
+              : 0;
+          const channelSeq = await this.redisManager.increment(
+            `wa-channel-seq:${clientId}:${channelId}`,
+            120
+          );
+          const channelStaggerMs = (channelSeq - 1) * QueueProcessorService.MIN_SEND_DELAY_MS;
+          const delay =
+            addDelay +
+            webhookSettleMs +
+            humanEmbedSettleMs +
+            channelStaggerMs +
+            jobsEnqueued * QueueProcessorService.MIN_SEND_DELAY_MS;
 
-          // Include thumbnail as image if available
-          const thumbnail = variables.thumbnail || variables.imagem || '';
+          const image =
+            primaryImage || variables.imagem || variables.thumbnail || '';
 
           await this.queueManager.addJob(
             'whatsapp-sending',
@@ -258,12 +470,18 @@ export class QueueProcessorService {
               destination: destination.identifier,
               content: {
                 text: renderedMessage,
-                ...(thumbnail ? { image: thumbnail } : {}),
+                ...(image ? { image } : {}),
+                ...(extraImages.length > 0 ? { extraImages } : {}),
               },
               messageId,
               ruleId: rule._id.toString(),
-              templateName,
+              templateName: resolvedTemplate,
+              resolvedTemplate,
+              extractedData,
               traceId,
+              dedupKey,
+              dedupTtlSeconds: QueueProcessorService.DEDUP_WINDOW_HOURS * 3600,
+              jobDelay: delay,
             },
             {
               priority: priorityValue,
@@ -275,15 +493,22 @@ export class QueueProcessorService {
 
           jobsEnqueued++;
 
-          await SystemLog.createLog('info', 'QueueProcessorService', 'Send job enqueued', {
+          await logPipeline('QueueProcessorService', 'queue', 'Job WA enfileirado', {
             ...logMeta,
-            ruleId: rule._id,
+            ruleId: String(rule._id),
             ruleName: rule.name,
-            templateName,
+            template: resolvedTemplate,
+            ruleTemplate: templateName,
+            streamer: variables.streamer,
+            linkKind,
             destination: destination.identifier,
             priority,
             delay,
-          }, user._id as mongoose.Types.ObjectId, traceId);
+            channelStaggerMs,
+            webhookSettleMs,
+            humanEmbedSettleMs,
+            preview: previewOutbound(renderedMessage),
+          }, logUserId, traceId);
         }
       }
 
@@ -310,89 +535,6 @@ export class QueueProcessorService {
 
       throw error;
     }
-  }
-
-  /**
-   * Build template variables from an ExtractedMessage.
-   * Maps the ExtractedMessage fields to the variable names used in RadarZap templates.
-   */
-  private buildTemplateVariables(extractedData: any): Record<string, string> {
-    const now = new Date();
-    const link = extractedData.links?.[0] ?? '';
-
-    // Detect if it's a live/video embed
-    const isLive    = extractedData.embedType === 'twitch' || extractedData.embedType === 'live';
-    const isYoutube = extractedData.embedType === 'youtube';
-
-    // Best title: embed title > embed description first line > text first line
-    const embedTitle = extractedData.embedTitles?.[0] ?? '';
-    const embedDesc  = extractedData.embedDescriptions?.[0] ?? '';
-    const textTitle  = extractedData.text?.split('\n').find((l: string) => l.trim()) ?? '';
-
-    // If embed title is "StreamerName - Twitch/YouTube", it's the channel name not the stream title
-    // Use description first line as the real title in that case
-    const isTitleChannelName = /[-–]\s*(Twitch|YouTube|Twitch\.tv)$/i.test(embedTitle);
-
-    // Filter out lines that are just URLs from description
-    const descLines = embedDesc.split('\n').filter((l: string) => l.trim() && !/^https?:\/\//i.test(l.trim()));
-    const descClean = descLines.join('\n').trim();
-
-    const titulo = isTitleChannelName
-      ? (descClean.split('\n').find((l: string) => l.trim()) || embedTitle)
-      : (embedTitle || textTitle || descClean.split('\n')[0] || '');
-
-    // Streamer: prefer embed.author.name, fallback to channel name from title
-    const streamerRaw = extractedData.embedAuthorName || extractedData.authorName || '';
-    const streamer = streamerRaw || (isTitleChannelName
-      ? embedTitle.replace(/\s*[-–]\s*(Twitch|YouTube|Twitch\.tv)$/i, '').trim()
-      : '');
-
-    // Best description: embed description > text (skip URL-only lines)
-    const descricao = descClean || extractedData.text || '';
-
-    // Game
-    const jogo = extractedData.embedGame || '';
-
-    // Viewers
-    const viewers = extractedData.embedViewers || '';
-
-    // Thumbnail
-    const thumbnail = extractedData.embedThumbnail || extractedData.imageUrls?.[0] || '';
-
-    // Platform label
-    const plataforma = isLive ? '🔴 Twitch' : isYoutube ? '▶️ YouTube' : '🎮';
-
-    return {
-      // RadarZap core
-      servidor:     extractedData.guildName   ?? '',
-      canal:        extractedData.channelName ?? '',
-      autor:        extractedData.authorName  ?? '',
-      mensagem:     extractedData.text        ?? '',
-      link,
-      links:        (extractedData.links ?? []).join('\n'),
-      imagem:       thumbnail,
-      embed_titulo: embedTitle,
-      embed_desc:   embedDesc,
-      data:         now.toLocaleDateString('pt-BR'),
-      hora:         now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      timestamp:    now.toISOString(),
-
-      // Enriquecidos
-      titulo,
-      descricao,
-      streamer,
-      jogo,
-      viewers,
-      thumbnail,
-      plataforma,
-
-      // Legacy
-      title:        titulo,
-      price:        extractedData.price        ?? '',
-      store:        extractedData.store        ?? '',
-      purchaseLink: link,
-      message:      extractedData.text        ?? '',
-    };
   }
 
   /**

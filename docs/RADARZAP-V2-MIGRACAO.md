@@ -52,6 +52,36 @@ C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\
 - `start-dashboard.ts`, `seed-templates.ts`, `update-templates.ts`, `register-guild-commands.ts`
 - Config: `package.json`, `tsconfig.json`, `jest.config.js`, `.eslintrc.js`, `.gitignore`, `.dockerignore`
 
+## Desenvolvimento local (importante)
+
+**Stack v2 apenas** — Docker usa volumes `radarzapv2_*`. Não monte volumes do projeto `radarzap` (v1).
+
+**Não rode** `docker compose up -d` completo (sobe `auto-setup` = segundo bot). Use só infra:
+
+```bash
+npm run docker:infra   # Redis :6380 + Mongo :27017 (volumes radarzapv2)
+npm run dev            # um terminal
+npm run dashboard:frontend
+```
+
+Se aparecer `ECONNREFUSED 127.0.0.1:6380` ou `:27017`, o Docker infra está parado.
+
+Para parar tudo: `npm run dev:stop` + `docker compose down` (na pasta v2).
+
+**Não** rode ao mesmo tempo: Docker app v1 + Docker app v2 + `npm run dev`.
+
+### Migrar dados do v1 para v2 (uma vez)
+
+Se você tinha dados no Mongo do projeto antigo e quer copiar **sem** usar o Docker v1 no dia a dia:
+
+```bash
+npm run migrate:v1-db
+```
+
+Isso faz `mongodump` do volume `radarzap_mongodb-data` (leitura única), recria `radarzapv2_mongodb-data` com a senha do `.env` e restaura. Depois disso, só volumes v2.
+
+O v1 continua existindo na pasta `radarzap` apenas como **referência de código**, não como infraestrutura.
+
 ## Próximos passos sugeridos
 
 1. Inicializar git em `radarzapv2` e fazer primeiro commit

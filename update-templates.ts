@@ -1,34 +1,40 @@
-import { DatabaseManager } from '@/database/DatabaseManager';
-import { Template } from '@/models/Template';
+/**
+ * Atualiza templates legados radarzap-* no Mongo (conteúdo do v1).
+ * Uso: npm run update:templates
+ */
+import dotenv from 'dotenv';
+dotenv.config();
 
-const templates = [
+import mongoose from 'mongoose';
+import { Template } from './src/models/Template';
+
+const MONGODB_URL =
+  process.env.MONGODB_URL ||
+  'mongodb://localhost:27017/discord-whatsapp';
+
+/** Conteúdo alinhado ao v1 — variáveis preenchidas por buildDiscordWhatsAppVariables */
+const LEGACY_UPDATES = [
   {
     name: 'radarzap-live',
-    // streamer = embed.author.name (ex: "skulksgamer")
-    // titulo   = embed.title (ex: "Fizemos TUDO errado... || ENDLESS Space 2 #04")
-    // descricao = embed.description (ex: "O SkulksGamer está jogando PUBG")
-    // link     = embed.url (ex: "https://twitch.tv/skulksgamer")
     content: `🔴 *{streamer} está ao vivo!*
-
-📺 {titulo}
 
 {descricao}
 
-🔗 {link}
+{link_bloco}
 
-_Ao vivo agora • {hora}_`,
+_{rodape}_`,
   },
   {
     name: 'radarzap-video',
-    content: `▶️ *Novo vídeo de {streamer}!*
+    content: `▶️ *Novo vídeo* — {plataforma}
 
-📹 {titulo}
+*{titulo}*
 
 {descricao}
 
-🔗 {link}
+{link_bloco}
 
-_Publicado em {data}_`,
+_{rodape}_`,
   },
   {
     name: 'radarzap-jogo',
@@ -36,23 +42,39 @@ _Publicado em {data}_`,
 
 {descricao}
 
-🔗 {link}
+{link_bloco}
 
-_Via {canal} • {data}_`,
+_{rodape}_`,
+  },
+  {
+    name: 'radarzap-com-embed',
+    content: `📰 *{embed_titulo}*
+
+{descricao}
+
+{link_bloco}
+
+_{rodape}_`,
   },
 ];
 
 async function main() {
-  await DatabaseManager.getInstance().connect();
-  for (const t of templates) {
-    const existing = await Template.findOne({ name: t.name });
+  await mongoose.connect(MONGODB_URL);
+  for (const t of LEGACY_UPDATES) {
+    const existing = await Template.findOne({ name: t.name, clientId: null });
     if (existing) {
       existing.content = t.content;
       await existing.save();
-      console.log(`✅ Updated: ${t.name}`);
+      console.log(`~ ${t.name}`);
+    } else {
+      console.log(`  (skip) ${t.name} — não existe no Mongo`);
     }
   }
-  process.exit(0);
+  console.log('Concluído.');
+  await mongoose.disconnect();
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch(e => {
+  console.error(e);
+  process.exit(1);
+});

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Rule, IRule } from '@/models/Rule';
 import { ExtractedMessage } from '@/services/discord-bot/MessageExtractor';
+import { OrganizationService } from '@/services/organization/OrganizationService';
 import { createServiceLogger } from '@/utils/logger';
 
 export interface RuleMatch {
@@ -25,41 +26,49 @@ export class RulesEngine {
    */
   async evaluate(message: ExtractedMessage, clientId: string): Promise<RuleMatch[]> {
     const matches: RuleMatch[] = [];
+    const clientIds = await OrganizationService.getInstance().getRelatedClientIds(clientId);
+    const seenRuleIds = new Set<string>();
+    let rulesChecked = 0;
 
-    const rules = await Rule.findActiveByClientId(
-      new mongoose.Types.ObjectId(clientId)
-    );
+    for (const cid of clientIds) {
+      const rules = await Rule.findActiveByClientId(cid);
+      rulesChecked += rules.length;
 
-    if (rules.length === 0) {
-      this.serviceLogger.debug('No active rules for client', { clientId });
-      return matches;
+      for (const rule of rules) {
+        const ruleKey = rule._id.toString();
+        if (seenRuleIds.has(ruleKey)) continue;
+
+        if (this.matchesConditions(message, rule)) {
+          seenRuleIds.add(ruleKey);
+          matches.push({
+            rule,
+            destinationIds: rule.action.destinationIds,
+            templateName: rule.action.templateName,
+            priority: rule.action.priority,
+            addDelay: rule.action.addDelay ?? 0,
+          });
+
+          rule.incrementMatchCount().catch(() => {});
+
+          this.serviceLogger.debug('Rule matched', {
+            ruleId: rule._id,
+            ruleName: rule.name,
+            messageId: message.messageId,
+            ruleClientId: cid.toString(),
+          });
+        }
+      }
     }
 
-    for (const rule of rules) {
-      if (this.matchesConditions(message, rule)) {
-        matches.push({
-          rule,
-          destinationIds: rule.action.destinationIds,
-          templateName: rule.action.templateName,
-          priority: rule.action.priority,
-          addDelay: rule.action.addDelay ?? 0,
-        });
-
-        // Incrementa contador de matches em background
-        rule.incrementMatchCount().catch(() => {});
-
-        this.serviceLogger.debug('Rule matched', {
-          ruleId: rule._id,
-          ruleName: rule.name,
-          messageId: message.messageId,
-        });
-      }
+    if (rulesChecked === 0) {
+      this.serviceLogger.debug('No active rules for client', { clientId, relatedIds: clientIds.map(String) });
+      return matches;
     }
 
     this.serviceLogger.info('Rules evaluated', {
       clientId,
       messageId: message.messageId,
-      rulesChecked: rules.length,
+      rulesChecked,
       matchesFound: matches.length,
     });
 
@@ -94,15 +103,26 @@ export class RulesEngine {
     if (c.onlyUsers && message.isBot) return false;
 
     // Palavras-chave obrigatórias (qualquer uma basta — OR)
+    const searchable = [
+      message.text,
+      message.searchText,
+      message.whatsappBody,
+      message.embedFieldsText,
+      message.embedTitles.join(' '),
+      message.embedDescriptions.join(' '),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
     if (c.requireKeywords && c.requireKeywords.length > 0) {
-      const text = (message.text + ' ' + message.embedTitles.join(' ') + ' ' + message.embedDescriptions.join(' ')).toLowerCase();
-      const hasKeyword = c.requireKeywords.some(kw => text.includes(kw.toLowerCase()));
+      const hasKeyword = c.requireKeywords.some(kw => searchable.includes(kw.toLowerCase()));
       if (!hasKeyword) return false;
     }
 
     // Palavras proibidas (nenhuma pode estar presente)
     if (c.excludeKeywords && c.excludeKeywords.length > 0) {
-      const text = (message.text + ' ' + message.embedTitles.join(' ') + ' ' + message.embedDescriptions.join(' ')).toLowerCase();
+      const text = searchable;
       const hasExcluded = c.excludeKeywords.some(kw => text.includes(kw.toLowerCase()));
       if (hasExcluded) return false;
     }

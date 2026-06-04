@@ -7,12 +7,14 @@ import { config, validateServiceConfig } from '@/config/environment';
 import { createServiceLogger } from '@/utils/logger';
 import { DatabaseManager } from '@/database/DatabaseManager';
 import { RedisManager } from '@/cache/RedisManager';
+import { QueueManager } from '@/cache/QueueManager';
 import { DiscordBotService } from '@/services/discord-bot/DiscordBotService';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { QueueProcessorService } from '@/services/queue/QueueProcessorService';
 import { APIGateway } from '@/services/api-gateway/APIGateway';
 import { DashboardService } from '@/services/web-dashboard/DashboardService';
 import { GracefulShutdown } from '@/utils/GracefulShutdown';
+import { acquireDevInstanceLock, releaseDevInstanceLock } from '@/utils/dev-instance-lock';
 
 const logger = createServiceLogger('MainApp');
 
@@ -72,6 +74,11 @@ class Application {
     const redisManager = RedisManager.getInstance();
     await redisManager.connect();
     logger.info('Redis OK');
+
+    await acquireDevInstanceLock(config.DASHBOARD.PORT);
+
+    await QueueManager.getInstance().initialize();
+    logger.info('Filas Bull OK');
   }
 
   /**
@@ -80,16 +87,16 @@ class Application {
   private async startServices(): Promise<void> {
     const serviceName = config.SERVICE_NAME;
 
-    if (!serviceName || serviceName === 'discord-bot') {
-      await this.startDiscordBot();
-    }
-
     if (!serviceName || serviceName === 'whatsapp-service') {
       await this.startWhatsAppService();
     }
 
     if (!serviceName || serviceName === 'queue-processor') {
       await this.startQueueProcessor();
+    }
+
+    if (!serviceName || serviceName === 'discord-bot') {
+      await this.startDiscordBot();
     }
 
     if (!serviceName || serviceName === 'api-gateway') {
@@ -206,6 +213,7 @@ class Application {
 
       // Close infrastructure connections
       try {
+        await releaseDevInstanceLock();
         await RedisManager.getInstance().disconnect();
         logger.info('✅ Redis disconnected');
       } catch (error) {

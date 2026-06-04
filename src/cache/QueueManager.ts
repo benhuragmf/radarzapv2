@@ -12,9 +12,11 @@ export class QueueManager {
   private queues: Map<string, Queue> = new Map();
   private workers: Map<string, Worker> = new Map();
   private processors: Map<string, (job: Job) => Promise<any>> = new Map();
+  private workerConcurrency: Map<string, number> = new Map();
   private serviceLogger = createServiceLogger('QueueManager');
   private isInitialized = false;
   private queueErrorThrottle = new LogThrottle(15_000);
+  private stuckQueueWatchdog: NodeJS.Timeout | null = null;
 
   private constructor() {
     // Private constructor for singleton
@@ -50,6 +52,8 @@ export class QueueManager {
 
       // Setup global error handlers
       this.setupGlobalErrorHandlers();
+
+      this.startStuckQueueWatchdog();
 
       this.isInitialized = true;
       this.serviceLogger.info('✅ Queue manager initialized');
@@ -224,31 +228,95 @@ export class QueueManager {
     processor: (job: Job) => Promise<any>,
     concurrency: number = config.QUEUE.CONCURRENCY
   ): Promise<void> {
-    const queue = await this.getOrCreateQueue(queueName);
-    
+    await this.getOrCreateQueue(queueName);
+
     this.processors.set(queueName, processor);
-    
-    // Create worker for processing jobs
-    const worker = new Worker(queueName, async (job: Job) => {
+    this.workerConcurrency.set(queueName, concurrency);
+
+    const previous = this.workers.get(queueName);
+    if (previous) {
       try {
-        this.serviceLogger.debug(`Processing job ${job.id} in queue ${queueName}`);
-        const result = await processor(job);
-        this.serviceLogger.debug(`Job ${job.id} completed successfully`);
-        return result;
-      } catch (error) {
-        this.serviceLogger.error(`Job ${job.id} failed:`, error);
-        throw error;
+        await previous.close();
+      } catch {
+        /* worker já encerrado */
       }
-    }, {
-      connection: this.buildBullMQConnection(),
-      prefix: config.QUEUE.REDIS_KEY_PREFIX,
-      lockDuration: 120000,
-      lockRenewTime: 30000,
-      concurrency
+      this.workers.delete(queueName);
+    }
+
+    const worker = new Worker(
+      queueName,
+      async (job: Job) => {
+        try {
+          this.serviceLogger.info(`Job iniciado: ${queueName}/${job.name}`, {
+            jobId: job.id,
+            delay: job.opts?.delay,
+          });
+          const result = await processor(job);
+          this.serviceLogger.info(`Job concluído: ${queueName}/${job.name}`, { jobId: job.id });
+          return result;
+        } catch (error) {
+          this.serviceLogger.error(`Job falhou: ${queueName}/${job.name}`, {
+            jobId: job.id,
+            error: (error as Error).message,
+          });
+          throw error;
+        }
+      },
+      {
+        connection: this.buildBullMQConnection(),
+        prefix: config.QUEUE.REDIS_KEY_PREFIX,
+        lockDuration: 120000,
+        lockRenewTime: 30000,
+        concurrency,
+      }
+    );
+
+    worker.on('failed', (job, err) => {
+      this.serviceLogger.error(`Bull failed: ${queueName}`, {
+        jobId: job?.id,
+        name: job?.name,
+        error: err?.message,
+      });
     });
 
     this.workers.set(queueName, worker);
     this.serviceLogger.info(`Processor registered for queue: ${queueName} (concurrency: ${concurrency})`);
+  }
+
+  /** Reinicia worker (ex.: após npm run clear:test com servidor ligado). */
+  async restartWorker(queueName: string): Promise<void> {
+    const processor = this.processors.get(queueName);
+    if (!processor) return;
+    const concurrency = this.workerConcurrency.get(queueName) ?? config.QUEUE.CONCURRENCY;
+    this.serviceLogger.warn(`Reiniciando worker da fila ${queueName}`);
+    await this.registerProcessor(queueName, processor, concurrency);
+  }
+
+  private startStuckQueueWatchdog(): void {
+    if (this.stuckQueueWatchdog) return;
+
+    const watch = ['whatsapp-sending', 'message-processing'];
+    this.stuckQueueWatchdog = setInterval(async () => {
+      for (const name of watch) {
+        try {
+          const queue = this.queues.get(name);
+          const worker = this.workers.get(name);
+          if (!queue || !worker || !this.processors.has(name)) continue;
+
+          const counts = await queue.getJobCounts();
+          const waiting = counts.waiting ?? 0;
+          const delayed = counts.delayed ?? 0;
+          const active = counts.active ?? 0;
+          // Jobs delayed são agendados — não significa worker travado
+          if (waiting > 0 && active === 0 && delayed === 0) {
+            this.serviceLogger.warn(`Fila ${name} com ${waiting} job(s) waiting e 0 active — reiniciando worker`);
+            await this.restartWorker(name);
+          }
+        } catch (err) {
+          this.serviceLogger.debug('Watchdog fila ignorado', { name, err: (err as Error).message });
+        }
+      }
+    }, 20_000);
   }
 
   /**
@@ -260,8 +328,12 @@ export class QueueManager {
     data: any,
     options?: JobsOptions
   ): Promise<Job> {
+    if (!this.workers.has(queueName) && this.processors.has(queueName)) {
+      await this.restartWorker(queueName);
+    }
+
     const queue = await this.getOrCreateQueue(queueName);
-    
+
     const jobOptions: JobsOptions = {
       priority: this.calculatePriority(data),
       delay: options?.delay || 0,
@@ -270,10 +342,18 @@ export class QueueManager {
     };
 
     const job = await queue.add(jobName, data, jobOptions);
-    
-    this.serviceLogger.debug(`Job added to ${queueName}: ${job.id}`);
+
+    if (queueName === 'whatsapp-sending' || queueName === 'message-processing') {
+      this.serviceLogger.info(`Job enfileirado: ${queueName}/${jobName}`, {
+        jobId: job.id,
+        delay: jobOptions.delay,
+        destination: data?.destination,
+      });
+    } else {
+      this.serviceLogger.debug(`Job added to ${queueName}: ${job.id}`);
+    }
     this.updateQueueStats(queueName, 'pending', 1);
-    
+
     return job;
   }
 

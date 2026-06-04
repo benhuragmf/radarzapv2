@@ -26,6 +26,17 @@ import { ConsentPoll } from '@/models/ConsentPoll';
 import { CircuitBreaker } from '../common/CircuitBreaker';
 import { RedisManager } from '@/cache/RedisManager';
 import { validateMessageText } from '@/config/limits';
+import {
+  buildFinalWhatsAppBody,
+  splitImageCaption,
+} from '@/utils/discord-wa-format';
+import { logPipeline } from '@/utils/pipeline-log';
+import {
+  previewOutbound,
+  resolveOutboundTemplate,
+  shouldUseLiveTemplate,
+  streamLinkFromExtracted,
+} from '@/utils/stream-template';
 import { ConsentService } from '@/services/consent/ConsentService';
 import mongoose from 'mongoose';
 import fs from 'fs';
@@ -503,8 +514,40 @@ export class WhatsAppService {
 
   /** Socket Baileys autenticado e pronto para enviar */
   isClientConnected(clientId: string): boolean {
-    const socket = this.sessions.get(clientId);
+    const socket = this.sessions.get(String(clientId));
     return Boolean(socket?.user);
+  }
+
+  /**
+   * Aguarda socket ativo (ou tenta restaurar credenciais salvas).
+   */
+  async ensureClientReady(clientId: string, timeoutMs = 45_000): Promise<void> {
+    const id = String(clientId);
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const socket = this.sessions.get(id);
+      if (socket?.user) return;
+
+      if (
+        !this.connectingClients.has(id) &&
+        !this.reconnectingClients.has(id) &&
+        !this.sessions.has(id)
+      ) {
+        try {
+          await this.restoreSession(id);
+        } catch (err) {
+          this.serviceLogger.debug('ensureClientReady restore tentativa', {
+            clientId: id,
+            error: (err as Error).message,
+          });
+        }
+      }
+
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    throw new Error('WhatsApp session not found or not connected');
   }
 
   /** Envio de teste síncrono (painel web — sem fila) */
@@ -908,20 +951,20 @@ export class WhatsAppService {
       // Ensure sessions directory exists
       await this.ensureSessionsDirectory();
 
-      // Register queue processors
-      await this.registerQueueProcessors();
-
       // Setup session cleanup
       this.setupSessionCleanup();
 
       // Setup destination cleanup
       this.setupDestinationCleanup();
 
-      // Restore existing sessions
+      // Sessão WA antes dos workers — evita jobs falhando sem socket no Map
       await this.restoreExistingSessions();
 
       // Reconecta sessões salvas em disco se caírem (ex.: após restart do dev server)
       this.setupAutoReconnect();
+
+      // Workers só depois do restore (fila whatsapp-sending)
+      await this.registerQueueProcessors();
 
       this.isInitialized = true;
       this.serviceLogger.info('✅ WhatsApp Service started successfully');
@@ -1027,7 +1070,8 @@ export class WhatsAppService {
     await this.queueManager.registerProcessor(
       'whatsapp-sending',
       async (job: any) => {
-        const { name, data } = job;
+        const name = job?.name ?? job?.data?.jobName;
+        const data = job?.data ?? job;
 
         switch (name) {
           case 'send-message':
@@ -1617,8 +1661,9 @@ export class WhatsAppService {
         }
       }
 
-      const socket = this.sessions.get(clientId);
-      if (!socket) {
+      await this.ensureClientReady(clientId);
+      const socket = this.sessions.get(String(clientId));
+      if (!socket?.user) {
         throw new Error('WhatsApp session not found or not connected');
       }
 
@@ -1636,8 +1681,102 @@ export class WhatsAppService {
         }
       }
 
-      const text = String(content?.text ?? '');
-      const msgCheck = validateMessageText(text);
+      let text = String(content?.text ?? '').trim();
+      const hasImage = Boolean(content?.image);
+
+      const extracted = data.extractedData;
+      const streamLink = extracted ? streamLinkFromExtracted(extracted) : '';
+      if (extracted && streamLink && !extracted.primaryLink) {
+        extracted.primaryLink = streamLink;
+      }
+
+      if (extracted) {
+        const tpl = resolveOutboundTemplate(extracted, {
+          text,
+          streamLink,
+          resolvedTemplate: data.resolvedTemplate,
+          fallbackTemplate: data.templateName || 'dw-padrao',
+        });
+        text = buildFinalWhatsAppBody(tpl, extracted, text);
+      }
+
+      let captionFollowUp = '';
+      if (hasImage && text) {
+        const split = splitImageCaption(text);
+        text = split.caption;
+        captionFollowUp = split.followUp;
+      }
+
+      const previewCheck = `${text}\n${captionFollowUp}`.trim();
+      if (
+        extracted &&
+        hasImage &&
+        (!/via radarzap/i.test(previewCheck) || !/https?:\/\//i.test(previewCheck))
+      ) {
+        const rebuildTpl = extracted
+          ? resolveOutboundTemplate(extracted, {
+              text,
+              streamLink,
+              resolvedTemplate: data.resolvedTemplate,
+              fallbackTemplate: data.templateName || 'dw-padrao',
+            })
+          : 'dw-live';
+        const full = buildFinalWhatsAppBody(rebuildTpl, extracted);
+        const split = splitImageCaption(full);
+        text = split.caption;
+        captionFollowUp = split.followUp;
+      }
+
+      if (!text && hasImage) {
+        text = '📷';
+      }
+
+      const fullOutbound = `${text}\n${captionFollowUp}`.trim();
+      const hasLink = /https?:\/\//i.test(fullOutbound);
+      const hasRodape = /via radarzap/i.test(fullOutbound);
+
+      await logPipeline('WhatsAppService', 'send', 'Enviando ao WhatsApp', {
+        clientId,
+        messageId: data.messageId,
+        traceId: data.traceId,
+        destination,
+        template: data.resolvedTemplate ?? data.templateName,
+        streamer: data.extractedData?.embedAuthorName,
+        streamLink: streamLink || undefined,
+        captureKind: data.extractedData?.captureKind,
+        captionLen: text.length,
+        followUpLen: captionFollowUp.length,
+        hasLink,
+        hasRodape,
+        hasImage,
+        weakCaption: extracted ? shouldUseLiveTemplate(extracted, text, streamLink) : false,
+        preview: previewOutbound(`${text}\n${captionFollowUp}`.trim()),
+        delay: data.jobDelay,
+      }, clientObjectId, data.traceId);
+
+      this.serviceLogger.info('WA envio preparado', {
+        clientId,
+        destination,
+        template: data.resolvedTemplate ?? data.templateName,
+        captionLen: text.length,
+        followUpLen: captionFollowUp.length,
+        hasLink,
+        hasRodape,
+        withImage: hasImage,
+      });
+
+      if (!hasLink && data.extractedData?.captureKind === 'live') {
+        this.serviceLogger.warn('Live sem link na mensagem final', {
+          clientId,
+          messageId: data.messageId,
+          streamer: data.extractedData?.embedAuthorName,
+        });
+      }
+
+      const textToValidate = captionFollowUp
+        ? `${text}\n\n${captionFollowUp}`
+        : text;
+      const msgCheck = validateMessageText(textToValidate);
       if (msgCheck.ok === false) {
         throw new Error(msgCheck.error);
       }
@@ -1678,12 +1817,79 @@ export class WhatsAppService {
         }
       }
 
-      // Send message
-      const result = await socket.sendMessage(resolvedJid, {
-        text,
-        ...(content.image && { image: { url: content.image } })
-      });
-      this.storeOutboundMessage(result ?? undefined);
+      // Send message (imagem com legenda; imagens extras em mensagens seguintes)
+      let result: Awaited<ReturnType<typeof socket.sendMessage>> | undefined;
+      if (content.image) {
+        try {
+          result = await socket.sendMessage(resolvedJid, {
+            image: { url: content.image },
+            caption: text,
+          });
+          this.storeOutboundMessage(result ?? undefined);
+          if (captionFollowUp) {
+            await new Promise(r => setTimeout(r, 600));
+            try {
+              const follow = await socket.sendMessage(resolvedJid, { text: captionFollowUp });
+              this.storeOutboundMessage(follow ?? undefined);
+              await logPipeline('WhatsAppService', 'send_ok', 'Legenda extra (link/rodapé)', {
+                clientId,
+                messageId: data.messageId,
+                traceId: data.traceId,
+                destination,
+                followUpLen: captionFollowUp.length,
+              }, clientObjectId, data.traceId);
+            } catch (followErr) {
+              await logPipeline('WhatsAppService', 'send_fail', 'Falha legenda extra', {
+                clientId,
+                messageId: data.messageId,
+                traceId: data.traceId,
+                destination,
+                error: (followErr as Error).message,
+                followUpLen: captionFollowUp.length,
+              }, clientObjectId, data.traceId);
+              const merged = [text, captionFollowUp].filter(Boolean).join('\n\n').trim();
+              const retry = await socket.sendMessage(resolvedJid, { text: merged });
+              this.storeOutboundMessage(retry ?? undefined);
+            }
+          }
+        } catch (imgErr) {
+          const errMsg = (imgErr as Error).message;
+          await logPipeline('WhatsAppService', 'send_fail', 'Imagem falhou — fallback texto', {
+            clientId,
+            messageId: data.messageId,
+            traceId: data.traceId,
+            destination,
+            error: errMsg,
+          }, clientObjectId, data.traceId);
+          let fallbackText = [text, captionFollowUp].filter(Boolean).join('\n\n').trim();
+          if (data.extractedData && streamLink) {
+            const fbTpl = resolveOutboundTemplate(data.extractedData, {
+              text: fallbackText,
+              streamLink,
+              resolvedTemplate: data.resolvedTemplate,
+              fallbackTemplate: data.templateName || 'dw-padrao',
+            });
+            fallbackText = buildFinalWhatsAppBody(fbTpl, data.extractedData, fallbackText);
+          }
+          result = await socket.sendMessage(resolvedJid, {
+            text: fallbackText || content.text || '_(imagem indisponível)_',
+          });
+          this.storeOutboundMessage(result ?? undefined);
+        }
+      } else {
+        const outbound = captionFollowUp ? `${text}\n\n${captionFollowUp}` : text;
+        result = await socket.sendMessage(resolvedJid, { text: outbound });
+        this.storeOutboundMessage(result ?? undefined);
+      }
+
+      const extraImages: string[] = Array.isArray(content.extraImages)
+        ? content.extraImages.filter((u: string) => u && u !== content.image).slice(0, 3)
+        : [];
+      for (const imgUrl of extraImages) {
+        await new Promise(r => setTimeout(r, 800));
+        const extra = await socket.sendMessage(resolvedJid, { image: { url: imgUrl } });
+        this.storeOutboundMessage(extra ?? undefined);
+      }
 
       // Update destination last message sent
       await destinationDoc.updateLastMessageSent();
@@ -1713,11 +1919,37 @@ export class WhatsAppService {
         if (user) await user.incrementUsage();
       }
 
+      if (data.dedupKey) {
+        try {
+          const redis = (await import('@/cache/RedisManager')).RedisManager.getInstance();
+          await redis.setWithTTL(data.dedupKey, '1', data.dedupTtlSeconds ?? 6 * 3600);
+        } catch {
+          /* dedup opcional */
+        }
+      }
+
       this.serviceLogger.info(`Message sent successfully`, {
         clientId,
         destination,
-        messageId: result?.key?.id
+        messageId: result?.key?.id,
+        traceId: data.traceId,
       });
+
+      await logPipeline('WhatsAppService', 'send_ok', 'Mensagem enviada', {
+        clientId,
+        destination,
+        waMessageId: result?.key?.id,
+        traceId: data.traceId,
+        template: data.resolvedTemplate ?? data.templateName,
+        streamer: data.extractedData?.embedAuthorName,
+        streamLink: streamLink || undefined,
+        captureKind: data.extractedData?.captureKind,
+        hasLink,
+        hasRodape,
+        captionLen: text.length,
+        followUpLen: captionFollowUp.length,
+        preview: previewOutbound(fullOutbound),
+      }, clientObjectId, data.traceId);
 
       this.circuitBreaker.recordSuccess();
 
@@ -1729,7 +1961,26 @@ export class WhatsAppService {
 
     } catch (error) {
       const errMsg = (error as Error).message || 'Unknown error during send';
-      this.serviceLogger.error(`Failed to send message: ${errMsg}`, { stack: (error as Error).stack, destination, clientId });
+      this.serviceLogger.error(`Failed to send message: ${errMsg}`, {
+        stack: (error as Error).stack,
+        destination,
+        clientId,
+        traceId: data?.traceId,
+      });
+      await logPipeline(
+        'WhatsAppService',
+        'send_fail',
+        errMsg,
+        {
+          clientId,
+          destination,
+          traceId: data?.traceId,
+          messageId: data?.messageId,
+          template: data?.resolvedTemplate ?? data?.templateName,
+        },
+        clientId,
+        data?.traceId
+      );
       this.circuitBreaker.recordFailure();
       throw new Error(errMsg);
     }

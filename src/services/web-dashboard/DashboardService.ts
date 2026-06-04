@@ -14,7 +14,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createServer, Server as HTTPServer } from 'http';
 import session, { Store } from 'express-session';
 import path from 'path';
-import { createServiceLogger } from '../../utils/logger';
+import { createServiceLogger, logError } from '../../utils/logger';
 import { QueueManager } from '../../cache/QueueManager';
 import { SessionCache } from '../../cache/SessionCache';
 import { RedisManager } from '../../cache/RedisManager';
@@ -148,7 +148,11 @@ export class DashboardService {
       }
       async set(sid: string, sess: session.SessionData, cb?: (err?: any) => void) {
         try {
-          await redisManager.setWithTTL(`${SESSION_PREFIX}${sid}`, JSON.stringify(sess), SESSION_TTL);
+          const ok = await redisManager.setWithTTL(`${SESSION_PREFIX}${sid}`, JSON.stringify(sess), SESSION_TTL);
+          if (!ok) {
+            cb?.(new Error('Falha ao gravar sessão no Redis'));
+            return;
+          }
           cb?.();
         } catch (e) { cb?.(e); }
       }
@@ -235,6 +239,10 @@ export class DashboardService {
       redirectUri: REDIRECT_URI,
       frontendUrl: this.getFrontendBase(),
     });
+    logger.info('Google OAuth redirect URI (cadastre no Google Cloud Console → Credentials → Redirect URIs)', {
+      redirectUri: GOOGLE_REDIRECT_URI,
+      frontendUrl: this.getFrontendBase(),
+    });
 
     // Step 1 — redirect to Discord
     this.app.get('/auth/discord', (_req, res) => {
@@ -279,14 +287,17 @@ export class DashboardService {
         });
         const discordUser = await userRes.json() as any;
 
-        // Check if this Discord user has a RadarZap account
         let dbUser = await User.findOne({ discordUserId: discordUser.id });
         if (!dbUser) {
-          logger.warn(`Discord user ${discordUser.id} (${discordUser.username}) has no RadarZap account`);
-          return res.redirect(`${frontendBase}/?error=no_account`);
+          const created = await orgSvc.getOrCreateForDiscord(discordUser.id);
+          dbUser = await User.findById(created._id);
+          if (!dbUser) throw new Error('Falha ao criar usuário Discord');
+          logger.info(`Conta RadarZap criada no login Discord: ${discordUser.username}`);
+        } else {
+          await orgSvc.ensureOrganization(dbUser);
         }
 
-        await orgSvc.ensureOrganization(dbUser);
+        const tenantId = await orgSvc.resolveClientId((dbUser._id as mongoose.Types.ObjectId).toString());
 
         // Store in session
         const sess = req.session as any;
@@ -299,7 +310,10 @@ export class DashboardService {
           ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
           : null;
 
-        logger.info(`User logged in: ${discordUser.username} (${discordUser.id})`);
+        logger.info(`User logged in: ${discordUser.username} (${discordUser.id})`, {
+          userId: sess.userId,
+          organizationId: tenantId,
+        });
 
         // Sincroniza papéis Discord (owner/admin) nos servidores do bot
         syncGuildMemberships(
@@ -354,10 +368,23 @@ export class DashboardService {
             grant_type: 'authorization_code',
           }),
         });
-        const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
-        if (!tokenData.access_token) {
-          logger.error('Google token exchange failed', tokenData);
+        const tokenRaw = await tokenRes.text();
+        let tokenData: { access_token?: string; error?: string; error_description?: string };
+        try {
+          tokenData = JSON.parse(tokenRaw) as typeof tokenData;
+        } catch (parseErr) {
+          logError(parseErr as Error, { step: 'google_token_json', status: tokenRes.status, raw: tokenRaw.slice(0, 200) });
           return res.redirect(`${frontendBase}/?error=token_failed`);
+        }
+        if (!tokenData.access_token) {
+          logger.error('Google token exchange failed', {
+            status: tokenRes.status,
+            error: tokenData.error,
+            description: tokenData.error_description,
+            redirectUri: GOOGLE_REDIRECT_URI,
+          });
+          const errCode = tokenData.error === 'redirect_uri_mismatch' ? 'google_redirect_mismatch' : 'token_failed';
+          return res.redirect(`${frontendBase}/?error=${errCode}`);
         }
 
         const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -370,6 +397,7 @@ export class DashboardService {
           picture?: string;
         };
         if (!profile.sub || !profile.email) {
+          logger.warn('Google profile incomplete', { status: profileRes.status, profile });
           return res.redirect(`${frontendBase}/?error=google_profile`);
         }
 
@@ -388,12 +416,14 @@ export class DashboardService {
         sess.avatar = profile.picture ?? null;
         sess.discordId = user.discordUserId ?? null;
 
-        logger.info(`Google login: ${profile.email}`);
+        logger.info(`Google login: ${profile.email}`, { userId: sess.userId });
         await this.saveSession(req);
         res.redirect(`${frontendBase}/dashboard`);
       } catch (err) {
-        logger.error('Google OAuth callback error:', err);
-        res.redirect(`${frontendBase}/?error=oauth_error`);
+        const message = (err as Error).message ?? '';
+        logError(err as Error, { step: 'google_oauth_callback', redirectUri: GOOGLE_REDIRECT_URI });
+        const errParam = message.includes('E11000') ? 'google_account_conflict' : 'oauth_error';
+        res.redirect(`${frontendBase}/?error=${errParam}`);
       }
     });
 
@@ -459,8 +489,9 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const clientId = auth.clientId;
-        const user = await User.findById(clientId);
-        if (!user) {
+        const user = await User.findById(auth.userId);
+        const org = await Organization.findById(clientId);
+        if (!user && !org) {
           return res.status(400).json({
             error: 'Conta não encontrada. Faça login novamente.',
           });
@@ -542,9 +573,11 @@ export class DashboardService {
     // ── Rules ──────────────────────────────────────────────────────────────
     r.get('/rules', requireCapability(Cap.SEND_RULES_MANAGE, { guildFromQuery: true }), async (req, res) => {
       try {
-        const sess = req.session as any;
+        const auth = (req as DashboardRequest).auth!;
+        const orgSvc = OrganizationService.getInstance();
+        const relatedIds = await orgSvc.getRelatedClientIds(auth.clientId);
         const { guildId } = req.query as { guildId?: string };
-        const query: any = sess?.userId ? { clientId: sess.userId } : {};
+        const query: any = { clientId: { $in: relatedIds } };
         // Filter by guild if provided (rules have channelIds from that guild)
         if (guildId) {
           const channels = await DiscordChannel.find({ guildId, isActive: true }).lean();
@@ -562,6 +595,8 @@ export class DashboardService {
 
     r.post('/rules', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
         const { name, priority, templateName, keywords, destinationIdentifiers, channelIds } = req.body;
         if (!name) return res.status(400).json({ error: 'name is required' });
 
@@ -569,17 +604,13 @@ export class DashboardService {
         let destinationIds: mongoose.Types.ObjectId[] = [];
         if (destinationIdentifiers?.length) {
           for (const identifier of destinationIdentifiers) {
-            const dest = await Destination.findOne({ identifier });
+            const dest = await Destination.findOne({ clientId: clientOid, identifier });
             if (dest) destinationIds.push(dest._id as mongoose.Types.ObjectId);
           }
         }
 
-        // Use first active user as owner (single-tenant for now)
-        const user = await User.findOne().lean();
-        if (!user) return res.status(400).json({ error: 'No users registered' });
-
         const rule = await Rule.create({
-          clientId: user._id,
+          clientId: clientOid,
           name,
           isActive: true,
           conditions: {
@@ -588,7 +619,7 @@ export class DashboardService {
           },
           action: {
             destinationIds,
-            templateName: templateName || 'radarzap-padrao',
+            templateName: templateName || 'dw-padrao',
             priority: priority || 'medium',
             addDelay: 0,
           },
@@ -651,11 +682,93 @@ export class DashboardService {
       }
     });
 
-    // ── Templates ──────────────────────────────────────────────────────────
-    r.get('/templates', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (_req, res) => {
+    // ── Templates (Discord → WhatsApp) ───────────────────────────────────────
+    r.get('/templates', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
       try {
-        const templates = await Template.find().sort({ isDefault: -1, name: 1 }).lean();
-        res.json(templates);
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const globals = await Template.find({ clientId: null, isDefault: true })
+          .sort({ discordKind: 1, name: 1 })
+          .lean();
+        const overrides = await Template.find({ clientId: clientOid, isDefault: false })
+          .sort({ name: 1 })
+          .lean();
+        const overrideByName = new Map(overrides.map(t => [t.name, t]));
+        const merged = globals.map(g => overrideByName.get(g.name) ?? g);
+        for (const o of overrides) {
+          if (!merged.some(m => m.name === o.name)) merged.push(o);
+        }
+        res.json(merged);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/templates/variables', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (_req, res) => {
+      try {
+        const { DISCORD_WA_VARIABLE_DOCS } = await import('@/constants/discord-whatsapp-templates');
+        res.json(DISCORD_WA_VARIABLE_DOCS);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/templates/:id', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { content, description } = req.body as { content?: string; description?: string };
+        if (!content?.trim()) return res.status(400).json({ error: 'content is required' });
+
+        const tpl = await Template.findById(req.params.id);
+        if (!tpl) return res.status(404).json({ error: 'Template not found' });
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+
+        if (tpl.isDefault && !tpl.clientId) {
+          let customDoc = await Template.findOne({ name: tpl.name, clientId: clientOid });
+          if (!customDoc) {
+            const created = await Template.createTemplate(
+              tpl.name,
+              content.trim(),
+              clientOid,
+              false
+            );
+            created.description = description ?? tpl.description;
+            created.discordKind = tpl.discordKind;
+            await created.save();
+            return res.json(created.toObject());
+          } else {
+            customDoc.content = content.trim();
+            if (description !== undefined) customDoc.description = description;
+            await customDoc.save();
+          }
+          return res.json(customDoc.toObject());
+        }
+
+        if (tpl.clientId && tpl.clientId.toString() !== auth.clientId) {
+          return res.status(403).json({ error: 'Sem permissão' });
+        }
+
+        tpl.content = content.trim();
+        if (description !== undefined) tpl.description = description;
+        await tpl.save();
+        res.json(tpl);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/templates/:id/reset', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const tpl = await Template.findById(req.params.id);
+        if (!tpl) return res.status(404).json({ error: 'Template not found' });
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        await Template.deleteOne({ name: tpl.name, clientId: clientOid, isDefault: false });
+
+        const fresh = await Template.findByName(tpl.name);
+        res.json(fresh ?? { ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -686,14 +799,17 @@ export class DashboardService {
         const { type, identifier, name } = req.body;
         if (!type || !identifier || !name) return res.status(400).json({ error: 'type, identifier and name are required' });
         const auth = (req as DashboardRequest).auth!;
-        const user = await User.findById(auth.clientId);
-        if (!user) return res.status(400).json({ error: 'Usuário não encontrado' });
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const org = await Organization.findById(clientOid);
+        const user = await User.findById(auth.userId);
+        if (!user && !org) return res.status(400).json({ error: 'Usuário não encontrado' });
 
+        const limits = org?.limits ?? user!.limits;
         const activeCount = await Destination.countDocuments({
-          clientId: user._id,
+          clientId: clientOid,
           isActive: true,
         });
-        const destQuota = validateDestinationAdd(user.limits, activeCount);
+        const destQuota = validateDestinationAdd(limits, activeCount);
         if (destQuota.ok === false) return res.status(429).json({ error: destQuota.error });
 
         let normalizedId = String(identifier).trim();
@@ -701,7 +817,7 @@ export class DashboardService {
           normalizedId = `+${normalizedId.replace(/\D/g, '')}`;
         }
         const dest = await Destination.createDestination(
-          user._id as mongoose.Types.ObjectId, type, normalizedId, name, 'manual', '127.0.0.1'
+          clientOid, type, normalizedId, name, 'manual', '127.0.0.1'
         );
         res.json(dest);
       } catch (e) {
@@ -817,10 +933,10 @@ export class DashboardService {
     // ── Discord Channels ───────────────────────────────────────────────────
     r.get('/channels', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromQuery: true }), async (req, res) => {
       try {
-        const sess = req.session as any;
+        const auth = (req as DashboardRequest).auth!;
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
         const { guildId } = req.query as { guildId?: string };
-        const query: any = { isActive: true };
-        if (sess?.userId) query.clientId = sess.userId;
+        const query: any = { isActive: true, clientId: { $in: relatedIds } };
         if (guildId) query.guildId = guildId;
         const channels = await DiscordChannel.find(query).lean();
         res.json(channels);
@@ -887,15 +1003,14 @@ export class DashboardService {
 
     r.post('/channels', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
         const { guildId, channelId, channelName } = req.body;
         if (!guildId || !channelId) return res.status(400).json({ error: 'guildId and channelId are required' });
-        const user = await User.findOne().lean();
-        if (!user) return res.status(400).json({ error: 'No users registered' });
         const existing = await DiscordChannel.findOne({ guildId, channelId });
         if (existing) return res.status(409).json({ error: 'Channel already configured' });
-        const ch = await DiscordChannel.createChannel(
-          guildId, channelId, user._id as mongoose.Types.ObjectId
-        );
+        await OrganizationService.getInstance().linkGuildToOrganization(auth.clientId, guildId);
+        const ch = await DiscordChannel.createChannel(guildId, channelId, clientOid);
         // Store channelName if provided (best-effort update)
         if (channelName) {
           await DiscordChannel.findByIdAndUpdate(ch._id, { channelName });
@@ -997,13 +1112,51 @@ export class DashboardService {
     // ── Logs ───────────────────────────────────────────────────────────────
     r.get('/logs', requireCapability(Cap.LOGS_VIEW), async (req, res) => {
       try {
-        const { level, service, limit = '100' } = req.query as Record<string, string>;
-        const query: any = {};
-        if (level)   query.level   = level;
-        if (service) query.service = service;
+        const {
+          level,
+          service,
+          stage,
+          q,
+          discord,
+          limit = '100',
+        } = req.query as Record<string, string>;
+
+        const and: Record<string, unknown>[] = [];
+        if (level) and.push({ level });
+        if (stage) and.push({ 'metadata.stage': stage });
+        if (service) {
+          and.push({ service });
+        } else if (discord === '1') {
+          and.push({
+            service: {
+              $in: [
+                'DiscordBotService',
+                'QueueProcessorService',
+                'WhatsAppService',
+                'RulesEngine',
+              ],
+            },
+          });
+        }
+        if (q?.trim()) {
+          const term = q.trim();
+          and.push({
+            $or: [
+              { message: { $regex: term, $options: 'i' } },
+              { traceId: term },
+              { 'metadata.messageId': term },
+              { 'metadata.destination': { $regex: term, $options: 'i' } },
+              { 'metadata.primaryLink': { $regex: term, $options: 'i' } },
+              { 'metadata.pipeline': term },
+            ],
+          });
+        }
+
+        const query = and.length > 0 ? { $and: and } : {};
+
         const logs = await SystemLog.find(query)
           .sort({ timestamp: -1 })
-          .limit(parseInt(limit))
+          .limit(Math.min(parseInt(limit, 10) || 100, 300))
           .lean();
         res.json(logs);
       } catch (e) {
@@ -1320,20 +1473,18 @@ export class DashboardService {
           return res.status(400).json({ error: 'Selecione um destino WhatsApp' });
         }
 
-        const user = await User.findById(auth.clientId);
-        if (!user) return res.status(400).json({ error: 'Usuário não encontrado' });
-
         const clientId = auth.clientId;
+        const clientOid = new mongoose.Types.ObjectId(clientId);
         const wa = WhatsAppService.getInstance();
 
         if (!wa.isClientConnected(clientId)) {
           return res.status(400).json({
             error:
-              'WhatsApp não está conectado neste momento. Abra Plataforma → Conexão WhatsApp e escaneie o QR de novo (após reiniciar o servidor é necessário reconectar).',
+              'WhatsApp não está conectado nesta empresa. Abra Plataforma → Conexão WhatsApp (com a mesma conta do painel) e escaneie o QR.',
           });
         }
 
-        const destDoc = await Destination.findByIdentifier(destination.trim(), user._id as mongoose.Types.ObjectId);
+        const destDoc = await Destination.findByIdentifier(destination.trim(), clientOid);
         if (!destDoc) {
           return res.status(400).json({ error: `Destino "${destination}" não encontrado na sua conta` });
         }
@@ -1383,14 +1534,38 @@ export class DashboardService {
     const wa = WhatsAppService.getInstance();
     const auth = req.auth!;
 
-    const userQuery = auth.isInternalStaff
-      ? { discordUserId: { $ne: 'system' } }
-      : { _id: auth.clientId };
+    if (!auth.isInternalStaff) {
+      const clientId = auth.clientId;
+      const details = await wa.getSessionDetails(clientId);
+      const user = await User.findById(auth.userId).lean();
+      const displayName =
+        auth.organizationName ??
+        (await this.resolveDiscordDisplayName(user?.discordUserId)) ??
+        auth.username;
 
-    const users = await User.find(userQuery).lean();
+      return [{
+        clientId,
+        discordUserId: user?.discordUserId ?? auth.discordUserId ?? '',
+        displayName,
+        status: details.status,
+        state: details.state,
+        lastActivity: details.lastActivity,
+        qrCode: details.qrCode,
+        qrCount: details.qrCount,
+        profileName: details.profileName,
+        phoneNumber: details.phoneNumber,
+        profilePictureUrl: details.profilePictureUrl,
+        wuid: details.wuid,
+        waAccountType: details.waAccountType,
+        hasPersistedSession: details.hasPersistedSession,
+      }];
+    }
+
+    const users = await User.find({ discordUserId: { $ne: 'system' } }).lean();
 
     const sessions = await Promise.all(users.map(async (u) => {
-      const clientId = (u._id as mongoose.Types.ObjectId).toString();
+      const userId = (u._id as mongoose.Types.ObjectId).toString();
+      const clientId = await OrganizationService.getInstance().resolveClientId(userId);
       const details = await wa.getSessionDetails(clientId);
       const displayName = await this.resolveDiscordDisplayName(u.discordUserId);
 
