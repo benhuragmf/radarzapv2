@@ -18,7 +18,7 @@ import { createServiceLogger, logError } from '../../utils/logger';
 import { QueueManager } from '../../cache/QueueManager';
 import { SessionCache } from '../../cache/SessionCache';
 import { RedisManager } from '../../cache/RedisManager';
-import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue } from '../../models';
+import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue, ContactGroup } from '../../models';
 import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
 import { ConsentService } from '../consent/ConsentService';
 import { OrganizationService } from '../organization/OrganizationService';
@@ -55,7 +55,9 @@ import {
 } from '../platform/platformTemplateCatalog';
 import { renderPlatformTemplateForClient } from '../platform/platformTemplateRender';
 import { buildPlatformWhatsAppVariables } from '../../utils/platform-wa-variables';
-import { BirthdayAutomationRule } from '../../models/BirthdayAutomationRule';
+import { BirthdayAutomationRule, type IBirthdayAutomationRule } from '../../models/BirthdayAutomationRule';
+import { DiscordNavAlertsService } from '../discord/DiscordNavAlertsService';
+import { RuleGroupBlockService } from '../rules/RuleGroupBlockService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
 import {
   validateAutomationPayload,
@@ -628,7 +630,40 @@ export class DashboardService {
           }
         }
         const rules = await Rule.find(query).sort({ createdAt: -1 }).lean();
-        res.json(rules);
+        const blockSvc = RuleGroupBlockService.getInstance();
+        const enriched = await Promise.all(
+          rules.map(async rule => {
+            if (!rule.isActive) return rule;
+            const block = await blockSvc.checkRuleBlocked(
+              auth.clientId,
+              rule.action?.destinationIds as mongoose.Types.ObjectId[] | undefined,
+            );
+            if (!block.blocked) return rule;
+            return {
+              ...rule,
+              executionBlock: {
+                reason: block.reason,
+                blockedGroupNames: block.blockedGroupNames,
+              },
+            };
+          }),
+        );
+        res.json(enriched);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Alertas do menu Discord (notificação em Regras, Logs, etc.) ───────
+    r.get('/discord/nav-alerts', requireCapability(Cap.SEND_RULES_MANAGE, { guildFromQuery: true }), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { guildId } = req.query as { guildId?: string };
+        const data = await DiscordNavAlertsService.getInstance().getAlerts(
+          auth.clientId,
+          guildId,
+        );
+        res.json(data);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -835,9 +870,168 @@ export class DashboardService {
       }
     });
 
+    // ── Grupos de contato (listas / segmentos) ─────────────────────────────
+    r.get('/contact-groups', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const groups = await ContactGroup.find({ clientId: clientOid })
+          .sort({ name: 1 })
+          .lean();
+
+        const counts = await Destination.aggregate<{ _id: mongoose.Types.ObjectId; count: number }>([
+          { $match: { clientId: clientOid, type: 'contact', isActive: true } },
+          { $unwind: '$contactGroupIds' },
+          { $group: { _id: '$contactGroupIds', count: { $sum: 1 } } },
+        ]);
+        const countMap = new Map(counts.map(c => [String(c._id), c.count]));
+
+        res.json(
+          groups.map(g => ({
+            ...g,
+            memberCount: countMap.get(String(g._id)) ?? 0,
+          })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/contact-groups', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, description } = req.body as { name?: string; description?: string };
+        const trimmed = name?.trim();
+        if (!trimmed) return res.status(400).json({ error: 'name is required' });
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const existing = await ContactGroup.findOne({ clientId: clientOid, name: trimmed });
+        if (existing) return res.status(409).json({ error: 'Já existe um grupo com este nome' });
+
+        const group = await ContactGroup.create({
+          clientId: clientOid,
+          name: trimmed,
+          description: description?.trim() || undefined,
+        });
+        res.json({ ...group.toObject(), memberCount: 0 });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/contact-groups/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, description } = req.body as { name?: string; description?: string };
+        const group = await ContactGroup.findOne({
+          _id: req.params.id,
+          clientId: auth.clientId,
+        });
+        if (!group) return res.status(404).json({ error: 'Grupo não encontrado' });
+
+        if (name !== undefined) {
+          const trimmed = name.trim();
+          if (!trimmed) return res.status(400).json({ error: 'name cannot be empty' });
+          const dup = await ContactGroup.findOne({
+            clientId: auth.clientId,
+            name: trimmed,
+            _id: { $ne: group._id },
+          });
+          if (dup) return res.status(409).json({ error: 'Já existe um grupo com este nome' });
+          group.name = trimmed;
+        }
+        if (description !== undefined) {
+          group.description = description.trim() || undefined;
+        }
+        await group.save();
+
+        const memberCount = await Destination.countDocuments({
+          clientId: auth.clientId,
+          type: 'contact',
+          isActive: true,
+          contactGroupIds: group._id,
+        });
+        res.json({ ...group.toObject(), memberCount });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/contact-groups/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const group = await ContactGroup.findOne({
+          _id: req.params.id,
+          clientId: auth.clientId,
+        });
+        if (!group) return res.status(404).json({ error: 'Grupo não encontrado' });
+
+        await Destination.updateMany(
+          { clientId: auth.clientId, contactGroupIds: group._id },
+          { $pull: { contactGroupIds: group._id } },
+        );
+        await group.deleteOne();
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/destinations/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const dest = await Destination.findOne({
+          _id: req.params.id,
+          clientId: auth.clientId,
+        });
+        if (!dest) return res.status(404).json({ error: 'Destino não encontrado' });
+
+        const { name, contactGroupIds, email, notes, organization } = req.body as {
+          name?: string;
+          contactGroupIds?: string[];
+          email?: string;
+          notes?: string;
+          organization?: string;
+        };
+
+        if (name !== undefined) {
+          const trimmed = name.trim();
+          if (!trimmed) return res.status(400).json({ error: 'name cannot be empty' });
+          dest.name = trimmed;
+        }
+        if (email !== undefined) dest.email = email.trim() || undefined;
+        if (notes !== undefined) dest.notes = notes.trim() || undefined;
+        if (organization !== undefined) dest.organization = organization.trim() || undefined;
+
+        if (contactGroupIds !== undefined) {
+          if (!Array.isArray(contactGroupIds)) {
+            return res.status(400).json({ error: 'contactGroupIds must be an array' });
+          }
+          const validGroups = await ContactGroup.find({
+            clientId: auth.clientId,
+            _id: { $in: contactGroupIds.filter(Boolean) },
+          }).select('_id');
+          const validIds = new Set(validGroups.map(g => String(g._id)));
+          dest.contactGroupIds = contactGroupIds
+            .filter(id => validIds.has(String(id)))
+            .map(id => new mongoose.Types.ObjectId(id));
+        }
+
+        await dest.save();
+        res.json({
+          ...dest.toObject(),
+          consentStatus:
+            dest.consentStatus ??
+            (dest.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING),
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.post('/destinations', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
-        const { type, identifier, name } = req.body;
+        const { type, identifier, name, contactGroupIds, email, organization, notes } = req.body;
         if (!type || !identifier || !name) return res.status(400).json({ error: 'type, identifier and name are required' });
         const auth = (req as DashboardRequest).auth!;
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
@@ -860,7 +1054,33 @@ export class DashboardService {
         const dest = await Destination.createDestination(
           clientOid, type, normalizedId, name, 'manual', '127.0.0.1'
         );
-        res.json(dest);
+
+        if (type === 'contact') {
+          if (email !== undefined && String(email).trim()) {
+            dest.email = String(email).trim();
+          }
+          if (organization !== undefined && String(organization).trim()) {
+            dest.organization = String(organization).trim();
+          }
+          if (notes !== undefined && String(notes).trim()) {
+            dest.notes = String(notes).trim();
+          }
+          if (Array.isArray(contactGroupIds) && contactGroupIds.length > 0) {
+            const validGroups = await ContactGroup.find({
+              clientId: auth.clientId,
+              _id: { $in: contactGroupIds.filter(Boolean) },
+            }).select('_id');
+            dest.contactGroupIds = validGroups.map(g => g._id as mongoose.Types.ObjectId);
+          }
+          await dest.save();
+        }
+
+        res.json({
+          ...dest.toObject(),
+          consentStatus:
+            dest.consentStatus ??
+            (dest.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING),
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -1621,8 +1841,14 @@ export class DashboardService {
           intervalMonths?: number;
           nthBusinessDay?: number;
           weekday?: number;
+          scheduledAt?: string;
           sendTime?: string;
           active?: boolean;
+          destinationScope?: string;
+          contactGroupIds?: string[];
+          whatsappDestinationIds?: string[];
+          messageMode?: string;
+          customMessage?: string;
           destinationFilterTags?: string[];
           mensagemExtra?: string;
         };
@@ -1637,8 +1863,16 @@ export class DashboardService {
           intervalMonths: body.intervalMonths,
           nthBusinessDay: body.nthBusinessDay,
           weekday: body.weekday,
+          scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
           sendTime: body.sendTime?.trim() || '09:00',
           active: body.active !== false,
+          destinationScope: body.destinationScope ?? 'contacts',
+          contactGroupIds: body.contactGroupIds?.map(id => new mongoose.Types.ObjectId(id)),
+          whatsappDestinationIds: body.whatsappDestinationIds?.map(
+            id => new mongoose.Types.ObjectId(id),
+          ),
+          messageMode: body.messageMode ?? 'platform_template',
+          customMessage: body.customMessage?.trim(),
           destinationFilterTags: body.destinationFilterTags?.filter(Boolean),
           mensagemExtra: body.mensagemExtra?.trim(),
         });
@@ -1657,15 +1891,51 @@ export class DashboardService {
         });
         if (!doc) return res.status(404).json({ error: 'Regra não encontrada' });
         const body = req.body as Record<string, unknown>;
-        const allowed = [
-          'name', 'templateName', 'triggerType', 'dayOfMonth', 'intervalMonths',
-          'nthBusinessDay', 'weekday', 'sendTime', 'active', 'destinationFilterTags', 'mensagemExtra',
-        ];
-        for (const key of allowed) {
-          if (body[key] !== undefined) {
-            (doc as Record<string, unknown>)[key] = body[key];
-          }
+        const merged = {
+          triggerType: (body.triggerType ?? doc.triggerType) as string,
+          dayOfMonth: (body.dayOfMonth ?? doc.dayOfMonth) as number | undefined,
+          intervalMonths: (body.intervalMonths ?? doc.intervalMonths) as number | undefined,
+          nthBusinessDay: (body.nthBusinessDay ?? doc.nthBusinessDay) as number | undefined,
+          weekday: (body.weekday ?? doc.weekday) as number | undefined,
+          scheduledAt: (body.scheduledAt ?? doc.scheduledAt?.toISOString()) as string | undefined,
+          messageMode: (body.messageMode ?? doc.messageMode) as string,
+          customMessage: (body.customMessage ?? doc.customMessage) as string | undefined,
+          mensagemExtra: (body.mensagemExtra ?? doc.mensagemExtra) as string | undefined,
+          destinationScope: (body.destinationScope ?? doc.destinationScope) as string,
+        };
+        const validationErr = validateAutomationPayload(merged);
+        if (validationErr) return res.status(400).json({ error: validationErr });
+        if (body.name !== undefined) doc.name = String(body.name).trim() || 'Automação';
+        if (body.templateName !== undefined) doc.templateName = String(body.templateName).trim();
+        if (body.triggerType !== undefined) doc.triggerType = body.triggerType as IBirthdayAutomationRule['triggerType'];
+        if (body.dayOfMonth !== undefined) doc.dayOfMonth = Number(body.dayOfMonth);
+        if (body.intervalMonths !== undefined) doc.intervalMonths = Number(body.intervalMonths);
+        if (body.nthBusinessDay !== undefined) doc.nthBusinessDay = Number(body.nthBusinessDay);
+        if (body.weekday !== undefined) doc.weekday = Number(body.weekday);
+        if (body.scheduledAt !== undefined) doc.scheduledAt = new Date(String(body.scheduledAt));
+        if (body.sendTime !== undefined) doc.sendTime = String(body.sendTime).trim();
+        if (body.active !== undefined) doc.active = Boolean(body.active);
+        if (body.destinationScope !== undefined) {
+          doc.destinationScope = body.destinationScope as IBirthdayAutomationRule['destinationScope'];
         }
+        if (body.contactGroupIds !== undefined) {
+          doc.contactGroupIds = (body.contactGroupIds as string[]).map(
+            id => new mongoose.Types.ObjectId(id),
+          );
+        }
+        if (body.whatsappDestinationIds !== undefined) {
+          doc.whatsappDestinationIds = (body.whatsappDestinationIds as string[]).map(
+            id => new mongoose.Types.ObjectId(id),
+          );
+        }
+        if (body.messageMode !== undefined) {
+          doc.messageMode = body.messageMode as IBirthdayAutomationRule['messageMode'];
+        }
+        if (body.customMessage !== undefined) doc.customMessage = String(body.customMessage).trim();
+        if (body.destinationFilterTags !== undefined) {
+          doc.destinationFilterTags = (body.destinationFilterTags as string[]).filter(Boolean);
+        }
+        if (body.mensagemExtra !== undefined) doc.mensagemExtra = String(body.mensagemExtra).trim();
         await doc.save();
         res.json(doc);
       } catch (e) {

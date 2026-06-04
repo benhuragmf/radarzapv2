@@ -1,6 +1,6 @@
 /**
  * Gatilhos de automação de mensagens (plataforma).
- * Agendamento pontual (data/hora única) → Mensagens → Agendamentos (/send/agendamentos).
+ * Envio pontual (once_at) também disponível em /platform/automacoes.
  */
 
 export type PlatformAutomationTriggerType =
@@ -9,7 +9,15 @@ export type PlatformAutomationTriggerType =
   | 'interval_months'
   | 'calendar_day_of_month'
   | 'nth_business_day_of_month'
-  | 'weekly';
+  | 'weekly'
+  | 'once_at';
+
+export type PlatformAutomationDestinationScope =
+  | 'contacts'
+  | 'whatsapp_groups'
+  | 'both';
+
+export type PlatformAutomationMessageMode = 'platform_template' | 'plain';
 
 export const PLATFORM_AUTOMATION_TRIGGER_TYPES: PlatformAutomationTriggerType[] = [
   'on_contact_birthday',
@@ -18,6 +26,7 @@ export const PLATFORM_AUTOMATION_TRIGGER_TYPES: PlatformAutomationTriggerType[] 
   'calendar_day_of_month',
   'nth_business_day_of_month',
   'weekly',
+  'once_at',
 ];
 
 export const TRIGGER_REQUIRES_BIRTHDAY = new Set<PlatformAutomationTriggerType>([
@@ -33,6 +42,7 @@ export const TRIGGER_LABELS: Record<PlatformAutomationTriggerType, string> = {
   calendar_day_of_month: 'Dia fixo do calendário (todo mês, dia N)',
   nth_business_day_of_month: 'N-ésimo dia útil do mês (seg–sex)',
   weekly: 'Toda semana no dia da semana escolhido',
+  once_at: 'Uma vez em data e hora específicas',
 };
 
 export const TRIGGER_HINTS: Record<PlatformAutomationTriggerType, string> = {
@@ -42,6 +52,7 @@ export const TRIGGER_HINTS: Record<PlatformAutomationTriggerType, string> = {
   calendar_day_of_month: 'Ex.: dia 5 de todo mês → todos os contatos (com tags, se filtrar).',
   nth_business_day_of_month: 'Ex.: 5º dia útil → contatos VIP no 5º seg–sex do mês.',
   weekly: 'Ex.: toda segunda às 09:00 para a base filtrada.',
+  once_at: 'Ex.: envio único em 15/06/2026 às 14:30 — não repete.',
 };
 
 export function isValidTriggerType(v: string): v is PlatformAutomationTriggerType {
@@ -54,10 +65,29 @@ export function validateAutomationPayload(body: {
   intervalMonths?: number;
   nthBusinessDay?: number;
   weekday?: number;
+  scheduledAt?: string;
+  messageMode?: string;
+  customMessage?: string;
+  mensagemExtra?: string;
+  destinationScope?: string;
 }): string | null {
   const triggerType = body.triggerType ?? 'on_contact_birthday';
   if (!isValidTriggerType(triggerType)) {
     return 'triggerType inválido';
+  }
+  if (triggerType === 'once_at') {
+    if (!body.scheduledAt || Number.isNaN(Date.parse(body.scheduledAt))) {
+      return 'scheduledAt (data/hora) é obrigatório para envio único';
+    }
+  }
+  if (body.messageMode === 'plain' && !body.customMessage?.trim() && !body.mensagemExtra?.trim()) {
+    return 'Informe o texto da mensagem no modo manual';
+  }
+  if (
+    body.destinationScope &&
+    !['contacts', 'whatsapp_groups', 'both'].includes(body.destinationScope)
+  ) {
+    return 'destinationScope inválido';
   }
   if (triggerType === 'day_of_month' || triggerType === 'calendar_day_of_month') {
     if (!body.dayOfMonth || body.dayOfMonth < 1 || body.dayOfMonth > 31) {

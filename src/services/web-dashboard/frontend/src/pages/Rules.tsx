@@ -7,8 +7,10 @@ import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { BookOpen, ToggleLeft, ToggleRight, Trash2, Plus, Pencil, X, Check, Hash } from 'lucide-react'
+import { BookOpen, ToggleLeft, ToggleRight, Trash2, Plus, Pencil, X, Check, Hash, AlertTriangle } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
+import DestinationMultiSelect from '../components/discord/DestinationMultiSelect'
+import { discordNavAlertsQueryKey } from '../lib/useDiscordNavAlerts'
 
 interface Rule {
   _id: string
@@ -17,6 +19,10 @@ interface Rule {
   matchCount: number
   conditions: { channelIds?: string[]; requireKeywords?: string[] }
   action: { templateName: string; priority: string; destinationIds: string[] }
+  executionBlock?: {
+    reason: string | null
+    blockedGroupNames: string[]
+  }
 }
 
 interface Destination {
@@ -45,7 +51,7 @@ interface RuleForm {
   priority: 'high' | 'medium' | 'low'
   templateName: string
   keywords: string
-  destinationIdentifiers: string
+  destinationIdentifiers: string[]
   channelIds: string[]
 }
 
@@ -54,7 +60,7 @@ const emptyForm: RuleForm = {
   priority: 'medium',
   templateName: 'dw-padrao',
   keywords: '',
-  destinationIdentifiers: '',
+  destinationIdentifiers: [],
   channelIds: [],
 }
 
@@ -63,7 +69,6 @@ function ruleToForm(r: Rule, destinations: Destination[]): RuleForm {
   const identifiers = destinations
     .filter(d => destIds.has(d._id))
     .map(d => d.identifier)
-    .join(', ')
   return {
     name: r.name,
     priority: r.action.priority as 'high' | 'medium' | 'low',
@@ -198,39 +203,15 @@ function RuleFormPanel({
         {/* Destinations */}
         <div className="md:col-span-2">
           <label className={labelCls}>
-            Destinos
+            Destinos WhatsApp
             <span className="text-gray-600 ml-1">(vazio = todos os destinos ativos)</span>
           </label>
-          <input value={form.destinationIdentifiers}
-            onChange={e => set('destinationIdentifiers', e.currentTarget.value)}
-            placeholder="+5511976904921, +5566996819456"
-            className={inputCls} />
-          {destinations.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {destinations.map(d => (
-                <button
-                  key={d._id}
-                  type="button"
-                  onClick={() => {
-                    const current = form.destinationIdentifiers
-                      .split(',').map(s => s.trim()).filter(Boolean)
-                    const already = current.includes(d.identifier)
-                    const next = already
-                      ? current.filter(x => x !== d.identifier)
-                      : [...current, d.identifier]
-                    set('destinationIdentifiers', next.join(', '))
-                  }}
-                  className={`text-xs px-2 py-0.5 rounded border transition-colors ${
-                    form.destinationIdentifiers.includes(d.identifier)
-                      ? 'bg-brand-600 border-brand-500 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
-                  }`}
-                >
-                  {d.name}
-                </button>
-              ))}
-            </div>
-          )}
+          <DestinationMultiSelect
+            destinations={destinations}
+            value={form.destinationIdentifiers}
+            onChange={ids => setForm(f => ({ ...f, destinationIdentifiers: ids }))}
+            destinationsLink="/discord/contact"
+          />
         </div>
       </div>
 
@@ -275,14 +256,19 @@ export default function Rules() {
     queryFn: () => api.get('/channels'),
   })
 
+  const invalidateRuleQueries = () => {
+    qc.invalidateQueries({ queryKey: ['rules'] })
+    qc.invalidateQueries({ queryKey: discordNavAlertsQueryKey(guildId) })
+  }
+
   const toggle = useMutation({
     mutationFn: (id: string) => api.post(`/rules/${id}/toggle`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['rules'] }),
+    onSuccess: invalidateRuleQueries,
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/rules/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['rules'] }),
+    onSuccess: invalidateRuleQueries,
   })
 
   const create = useMutation({
@@ -292,11 +278,10 @@ export default function Rules() {
       templateName: f.templateName,
       keywords: f.keywords,
       channelIds: f.channelIds,
-      destinationIdentifiers: f.destinationIdentifiers
-        .split(',').map(s => s.trim()).filter(Boolean),
+      destinationIdentifiers: f.destinationIdentifiers,
     }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['rules'] })
+      invalidateRuleQueries()
       setCreating(false)
     },
   })
@@ -309,11 +294,10 @@ export default function Rules() {
         templateName: form.templateName,
         keywords: form.keywords,
         channelIds: form.channelIds,
-        destinationIdentifiers: form.destinationIdentifiers
-          .split(',').map(s => s.trim()).filter(Boolean),
+        destinationIdentifiers: form.destinationIdentifiers,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['rules'] })
+      invalidateRuleQueries()
       setEditingId(null)
     },
   })
@@ -321,6 +305,7 @@ export default function Rules() {
   if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
 
   const activeRules = rules.filter(r => r.isActive).length
+  const blockedRules = rules.filter(r => r.isActive && r.executionBlock?.reason)
 
   return (
     <DiscordPage
@@ -333,6 +318,25 @@ export default function Rules() {
         ) : undefined
       }
     >
+      {blockedRules.length > 0 && (
+        <div
+          className="flex items-start gap-3 rounded-lg border border-red-800/50 bg-red-950/25 px-4 py-3 text-sm text-red-200"
+          role="alert"
+        >
+          <AlertTriangle size={18} className="shrink-0 text-red-400 mt-0.5" />
+          <div>
+            <p className="font-medium text-red-300">
+              {blockedRules.length === 1
+                ? '1 regra bloqueada para envio'
+                : `${blockedRules.length} regras bloqueadas para envio`}
+            </p>
+            <p className="mt-1 text-red-200/90">
+              Regras com grupo destino inacessível não são executadas. Entre no grupo com o número da sessão ou ajuste os destinos.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Card className="p-3">
           <p className="text-xs text-gray-500">Regras</p>
@@ -385,8 +389,10 @@ export default function Rules() {
       )}
 
       {/* Rule cards */}
-      {rules.map((r) => (
-        <Card key={r._id}>
+      {rules.map((r) => {
+        const blocked = Boolean(r.isActive && r.executionBlock?.reason)
+        return (
+        <Card key={r._id} className={blocked ? 'border-red-800/50' : undefined}>
           {editingId === r._id ? (
             <>
               <p className="text-sm font-medium text-yellow-400 mb-4">Editando: {r.name}</p>
@@ -405,9 +411,19 @@ export default function Rules() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-medium text-sm truncate">{r.name}</span>
-                  <Badge label={r.isActive ? 'Ativa' : 'Inativa'} variant={r.isActive ? 'green' : 'gray'} />
+                  {blocked ? (
+                    <Badge label="Bloqueada" variant="red" />
+                  ) : (
+                    <Badge label={r.isActive ? 'Ativa' : 'Inativa'} variant={r.isActive ? 'green' : 'gray'} />
+                  )}
                   <Badge label={r.action.priority} variant="blue" />
                 </div>
+                {blocked && r.executionBlock?.reason && (
+                  <p className="text-xs text-red-300/90 mb-2 flex items-start gap-1.5">
+                    <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <span>Não executa: {r.executionBlock.reason}</span>
+                  </p>
+                )}
                 <div className="text-xs text-gray-500 space-y-0.5">
                   <p>Template: <span className="text-gray-300">{r.action.templateName}</span></p>
                   {r.conditions.channelIds?.length ? (
@@ -466,7 +482,8 @@ export default function Rules() {
             </div>
           )}
         </Card>
-      ))}
+        )
+      })}
     </DiscordPage>
   )
 }

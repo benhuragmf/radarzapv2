@@ -210,7 +210,7 @@ export default function PlatformContacts() {
 
         {' · '}
 
-        <Link to="/destinations" className="text-brand-400 hover:underline">
+        <Link to="/contact" className="text-brand-400 hover:underline">
 
           Contatos atuais (Destinos) →
 

@@ -12,6 +12,8 @@ import {
   type NavLink,
   type NavMode,
 } from '../../lib/navConfig'
+import type { NavAlertItem } from '../../lib/navAlerts'
+import { useDiscordNavAlerts } from '../../lib/useDiscordNavAlerts'
 import DiscordGuildPicker from '../discord/DiscordGuildPicker'
 import type { Guild } from '../../lib/guild'
 
@@ -23,14 +25,29 @@ interface Props {
   onGuildChange: (guild: Guild | null) => void
 }
 
+function NavAlertDot({ alert, active }: { alert: NavAlertItem; active: boolean }) {
+  const isError = alert.severity === 'error'
+  return (
+    <span
+      className={`shrink-0 w-2 h-2 rounded-full ${
+        isError ? 'bg-red-500' : 'bg-amber-500'
+      } ${active ? 'ring-2 ring-white/30' : ''}`}
+      title={alert.summary}
+      aria-label={alert.summary}
+    />
+  )
+}
+
 function NavLinkItem({
   entry,
   depth,
   guildReady,
+  alert,
 }: {
   entry: NavLink
   depth: number
   guildReady: boolean
+  alert?: NavAlertItem
 }) {
   const { pathname, hash, search } = useLocation()
   const blocked = entry.requiresGuild && !guildReady
@@ -51,17 +68,30 @@ function NavLinkItem({
     )
   }
 
+  const alertRing =
+    alert && !active
+      ? alert.severity === 'error'
+        ? 'ring-1 ring-red-500/40'
+        : 'ring-1 ring-amber-500/40'
+      : ''
+
   return (
     <Link
       to={to}
-      className={`flex items-center gap-3 ${pad} py-2 rounded-lg text-sm transition-colors ${
+      title={alert?.summary}
+      className={`flex items-center gap-3 ${pad} py-2 rounded-lg text-sm transition-colors ${alertRing} ${
         active
           ? 'bg-brand-600 text-white font-medium'
-          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          : alert
+            ? alert.severity === 'error'
+              ? 'text-red-300 hover:text-white hover:bg-gray-800'
+              : 'text-amber-200/90 hover:text-white hover:bg-gray-800'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800'
       }`}
     >
       <Icon size={16} className="shrink-0" />
       <span className="flex-1 truncate">{entry.label}</span>
+      {alert && <NavAlertDot alert={alert} active={active} />}
       {entry.badge && (
         <span
           className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded font-medium ${
@@ -78,14 +108,20 @@ function NavLinkItem({
 function NavGroupItem({
   entry,
   guildReady,
+  navAlerts,
 }: {
   entry: Extract<NavEntry, { kind: 'group' }>
   guildReady: boolean
+  navAlerts?: Record<string, NavAlertItem>
 }) {
   const { pathname, hash, search } = useLocation()
   const isActive = isNavGroupActive(entry, pathname, hash, search)
   const [open, setOpen] = useState(isActive)
   const Icon = entry.icon
+  const childAlerts = entry.children
+    .map(c => navAlerts?.[c.id])
+    .filter((a): a is NavAlertItem => Boolean(a))
+  const groupAlert = childAlerts.find(a => a.severity === 'error') ?? childAlerts[0]
 
   useEffect(() => {
     if (isActive) setOpen(true)
@@ -104,6 +140,7 @@ function NavGroupItem({
       >
         <Icon size={16} className="shrink-0" />
         <span className="flex-1 text-left">{entry.label}</span>
+        {groupAlert && <NavAlertDot alert={groupAlert} active={isActive} />}
         {open
           ? <ChevronDown size={14} className="shrink-0 opacity-60" />
           : <ChevronRight size={14} className="shrink-0 opacity-60" />}
@@ -111,7 +148,13 @@ function NavGroupItem({
       {open && (
         <div className="mt-0.5 space-y-0.5">
           {entry.children.map(child => (
-            <NavLinkItem key={child.id} entry={child} depth={1} guildReady={guildReady} />
+            <NavLinkItem
+              key={child.id}
+              entry={child}
+              depth={1}
+              guildReady={guildReady}
+              alert={navAlerts?.[child.id]}
+            />
           ))}
         </div>
       )}
@@ -132,7 +175,15 @@ function NavSection({ entry }: { entry: Extract<NavEntry, { kind: 'section' }> }
   )
 }
 
-function NavTree({ entries, guildReady }: { entries: NavEntry[]; guildReady: boolean }) {
+function NavTree({
+  entries,
+  guildReady,
+  navAlerts,
+}: {
+  entries: NavEntry[]
+  guildReady: boolean
+  navAlerts?: Record<string, NavAlertItem>
+}) {
   return (
     <>
       {entries.map(entry => {
@@ -140,9 +191,24 @@ function NavTree({ entries, guildReady }: { entries: NavEntry[]; guildReady: boo
           return <NavSection key={entry.id} entry={entry} />
         }
         if (entry.kind === 'group') {
-          return <NavGroupItem key={entry.id} entry={entry} guildReady={guildReady} />
+          return (
+            <NavGroupItem
+              key={entry.id}
+              entry={entry}
+              guildReady={guildReady}
+              navAlerts={navAlerts}
+            />
+          )
         }
-        return <NavLinkItem key={entry.id} entry={entry} depth={0} guildReady={guildReady} />
+        return (
+          <NavLinkItem
+            key={entry.id}
+            entry={entry}
+            depth={0}
+            guildReady={guildReady}
+            alert={navAlerts?.[entry.id]}
+          />
+        )
       })}
     </>
   )
@@ -154,6 +220,11 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
   const navGuildReady = mode !== 'discord' || guildReady
   const showToggle = userHasDiscordMode(user)
   const nav = navForUser(user, mode)
+  const { data: navAlertsData } = useDiscordNavAlerts(
+    guild?.id,
+    mode === 'discord' && guildReady,
+  )
+  const navAlerts = mode === 'discord' ? navAlertsData?.items : undefined
 
   useEffect(() => {
     if (showToggle) onModeChange(detectNavMode(pathname, hash))
@@ -210,7 +281,7 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
             Escolha o servidor para liberar o menu de automação.
           </p>
         )}
-        <NavTree entries={nav} guildReady={navGuildReady} />
+        <NavTree entries={nav} guildReady={navGuildReady} navAlerts={navAlerts} />
       </nav>
 
       <div className="px-5 py-4 border-t border-gray-800 text-xs text-gray-600">

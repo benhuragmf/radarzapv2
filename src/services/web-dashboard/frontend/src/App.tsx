@@ -91,7 +91,8 @@ export default function App() {
           <Route path="platform/contacts" element={<Guard user={user} path="/platform/contacts"><PlatformContacts /></Guard>} />
           <Route path="platform" element={<Guard user={user} path="/platform"><PlatformOverview /></Guard>} />
           <Route path="sessions" element={<Guard user={user} path="/sessions"><Sessions /></Guard>} />
-          <Route path="destinations" element={<Guard user={user} path="/destinations"><Destinations /></Guard>} />
+          <Route path="contact" element={<Guard user={user} path="/contact"><Destinations /></Guard>} />
+          <Route path="destinations" element={<Navigate to="/contact" replace />} />
           <Route path="grupos" element={<Guard user={user} path="/grupos"><WhatsAppGroups /></Guard>} />
 
           {/* Discord — automação */}
@@ -99,10 +100,12 @@ export default function App() {
           <Route path="discord/rules" element={<Guard user={user} path="/discord/rules"><Rules /></Guard>} />
           <Route path="discord/templates" element={<Guard user={user} path="/discord/templates"><Templates /></Guard>} />
           <Route path="discord/grupos" element={<Guard user={user} path="/discord/grupos"><WhatsAppGroups /></Guard>} />
-          <Route path="discord/destinations/historico" element={<Guard user={user} path="/discord/destinations/historico"><DestinationsHistory /></Guard>} />
-          <Route path="discord/destinations" element={<Guard user={user} path="/discord/destinations"><Destinations /></Guard>} />
-          <Route path="discord/destinations/novo" element={<Navigate to="/discord/destinations" replace />} />
-          <Route path="discord/destinations/contatos" element={<Navigate to="/discord/destinations" replace />} />
+          <Route path="discord/contact/historico" element={<Guard user={user} path="/discord/contact/historico"><DestinationsHistory /></Guard>} />
+          <Route path="discord/contact" element={<Guard user={user} path="/discord/contact"><Destinations /></Guard>} />
+          <Route path="discord/destinations/historico" element={<Navigate to="/discord/contact/historico" replace />} />
+          <Route path="discord/destinations" element={<Navigate to="/discord/contact" replace />} />
+          <Route path="discord/destinations/novo" element={<Navigate to="/discord/contact" replace />} />
+          <Route path="discord/destinations/contatos" element={<Navigate to="/discord/contact" replace />} />
           <Route path="discord/fila" element={<Guard user={user} path="/discord/fila"><Queue scope="discord" /></Guard>} />
           <Route path="discord/logs" element={<Guard user={user} path="/discord/logs"><Logs scope="discord" /></Guard>} />
           <Route path="discord/settings" element={<Guard user={user} path="/discord/settings"><DiscordSettings user={user} /></Guard>} />

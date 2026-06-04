@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Check, Copy, Trash2, History, RotateCcw, ShieldOff } from 'lucide-react'
+import { Check, Copy, Trash2, History, RotateCcw, ShieldOff, Pencil } from 'lucide-react'
 import {
   ConsentBadge,
   ConsentDot,
@@ -24,6 +24,7 @@ export interface Destination {
   consent?: { granted?: boolean }
   birthday?: string
   tags?: string[]
+  contactGroupIds?: string[]
   email?: string
   notes?: string
   organization?: string
@@ -59,6 +60,8 @@ export function DestinationRow({
   onRequestRenewal,
   onClearRefusal,
   onShowHistory,
+  onEdit,
+  canEdit,
   canRequestRenewal,
   canClearRefusal,
   canDelete,
@@ -71,6 +74,8 @@ export function DestinationRow({
   onRequestRenewal?: () => void
   onClearRefusal?: () => void
   onShowHistory?: () => void
+  onEdit?: () => void
+  canEdit?: boolean
   canRequestRenewal?: boolean
   canClearRefusal?: boolean
   canDelete?: boolean
@@ -128,6 +133,16 @@ export function DestinationRow({
         )}
       </div>
       <Badge label={d.type === 'contact' ? 'contato' : 'grupo'} variant={d.type === 'contact' ? 'blue' : 'green'} />
+      {canEdit && onEdit && d.type === 'contact' && (
+        <button
+          type="button"
+          title="Editar contato"
+          onClick={onEdit}
+          className="text-gray-600 hover:text-yellow-400 transition-colors p-1"
+        >
+          <Pencil size={16} />
+        </button>
+      )}
       {onShowHistory && d.type === 'contact' && (
         <button
           type="button"

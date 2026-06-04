@@ -51,9 +51,16 @@ interface Destination {
   name: string
   identifier: string
   type: 'contact' | 'group'
+  contactGroupIds?: string[]
   consentStatus?: ConsentStatus
   consent?: { granted?: boolean }
   pendingOutboundCount?: number
+}
+
+interface ContactGroupOption {
+  _id: string
+  name: string
+  memberCount: number
 }
 
 interface Session {
@@ -113,7 +120,10 @@ export default function SendNow() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState<'all' | 'contact' | 'group'>('all')
+  const [destinationScope, setDestinationScope] = useState<
+    'contacts' | 'whatsapp_groups' | 'both'
+  >('both')
+  const [contactGroupFilter, setContactGroupFilter] = useState<string>('all')
   const [priority, setPriority] = useState<Priority>('medium')
   const [delayBetweenMs, setDelayBetweenMs] = useState<number>(MIN_DELAY_MS)
   const [requireConnected, setRequireConnected] = useState(true)
@@ -188,6 +198,11 @@ export default function SendNow() {
   const { data: destinations = [] } = useQuery<Destination[]>({
     queryKey: ['destinations'],
     queryFn: () => api.get('/destinations'),
+  })
+
+  const { data: contactGroups = [] } = useQuery<ContactGroupOption[]>({
+    queryKey: ['contact-groups'],
+    queryFn: () => api.get('/contact-groups'),
   })
 
   const { data: sessions = [] } = useQuery<Session[]>({
@@ -288,14 +303,50 @@ export default function SendNow() {
   const filteredDest = useMemo(() => {
     const q = search.trim().toLowerCase()
     return destinations.filter(d => {
-      if (typeFilter !== 'all' && d.type !== typeFilter) return false
+      if (destinationScope === 'contacts' && d.type !== 'contact') return false
+      if (destinationScope === 'whatsapp_groups' && d.type !== 'group') return false
+      if (contactGroupFilter !== 'all') {
+        if (d.type === 'group') return false
+        const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === contactGroupFilter)
+        if (!inGroup) return false
+      }
       if (!q) return true
       return (
         d.name.toLowerCase().includes(q) ||
         d.identifier.toLowerCase().includes(q)
       )
     })
-  }, [destinations, search, typeFilter])
+  }, [destinations, search, destinationScope, contactGroupFilter])
+
+  const selectContactGroup = () => {
+    if (contactGroupFilter === 'all') return
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      for (const d of destinations) {
+        if (d.type !== 'contact') continue
+        if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) break
+        const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === contactGroupFilter)
+        if (!inGroup) continue
+        const st = effectiveConsentStatus(d.consentStatus, d.consent?.granted)
+        if (!canSelectForSend(st, d.pendingOutboundCount ?? 0)) continue
+        if (hasSelectedGroup && contactsNotInGroupIds.has(d._id)) continue
+        next.add(d._id)
+      }
+      return next
+    })
+  }
+
+  const selectAllWaGroups = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      for (const d of filteredDest) {
+        if (d.type !== 'group') continue
+        if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) break
+        next.add(d._id)
+      }
+      return next
+    })
+  }
 
   const toggleDest = (id: string) => {
     const dest = destinations.find(d => d._id === id)
@@ -458,6 +509,31 @@ export default function SendNow() {
             <Card>
               <h2 className="text-sm font-medium text-gray-300 mb-3">1. Destinatários</h2>
               <div className="flex flex-wrap gap-2 mb-3">
+                {(
+                  [
+                    ['contacts', 'Contatos'],
+                    ['whatsapp_groups', 'Grupos WA'],
+                    ['both', 'Ambos'],
+                  ] as const
+                ).map(([scope, label]) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => {
+                      setDestinationScope(scope)
+                      if (scope === 'whatsapp_groups') setContactGroupFilter('all')
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                      destinationScope === scope
+                        ? 'border-brand-500 bg-brand-950/40 text-brand-200'
+                        : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
                 <div className="relative flex-1 min-w-[140px]">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
@@ -467,15 +543,31 @@ export default function SendNow() {
                     className={`${inputCls} pl-9`}
                   />
                 </div>
-                <select
-                  value={typeFilter}
-                  onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
-                >
-                  <option value="all">Todos</option>
-                  <option value="contact">Contatos</option>
-                  <option value="group">Grupos</option>
-                </select>
+                {destinationScope !== 'whatsapp_groups' && (
+                  <select
+                    value={contactGroupFilter}
+                    onChange={e => setContactGroupFilter(e.target.value)}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 max-w-[180px]"
+                    title="Filtrar por grupo de contatos"
+                  >
+                    <option value="all">Grupo contato: todos</option>
+                    {contactGroups.map(g => (
+                      <option key={g._id} value={g._id}>
+                        {g.name} ({g.memberCount})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {contactGroupFilter !== 'all' && destinationScope !== 'whatsapp_groups' && (
+                  <Button variant="ghost" size="sm" onClick={selectContactGroup}>
+                    Marcar grupo
+                  </Button>
+                )}
+                {destinationScope !== 'contacts' && (
+                  <Button variant="ghost" size="sm" onClick={selectAllWaGroups}>
+                    Marcar grupos WA
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={selectAllFiltered}>
                   Marcar visíveis
                 </Button>
@@ -507,7 +599,7 @@ export default function SendNow() {
                 {filteredDest.length === 0 ? (
                   <p className="text-xs text-gray-600 text-center py-4">
                     Nenhum destino.{' '}
-                    <Link to="/destinations" className="text-brand-400 hover:underline">
+                    <Link to="/contact" className="text-brand-400 hover:underline">
                       Cadastrar destinos
                     </Link>
                   </p>

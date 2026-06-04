@@ -23,6 +23,7 @@ export { SystemLogModel as SystemLog, ISystemLog };
 export { GuildMembership, IGuildMembership } from './GuildMembership';
 export { Organization, IOrganization } from './Organization';
 export { CompanyMember, ICompanyMember } from './CompanyMember';
+export { ContactGroup, IContactGroup } from './ContactGroup';
 export { AuditLog, IAuditLog, writeAuditLog } from './AuditLog';
 
 // Create aliases for internal use

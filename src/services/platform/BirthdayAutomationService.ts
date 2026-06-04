@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 import { Destination, type IDestination } from '@/models/Destination';
 import { BirthdayAutomationRule, type IBirthdayAutomationRule } from '@/models/BirthdayAutomationRule';
-import { Organization } from '@/models/Organization';
-import { User } from '@/models/User';
+import { Organization, type IOrganization } from '@/models/Organization';
+import { User, type IUser } from '@/models/User';
 import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
 import { ConsentService } from '@/services/consent/ConsentService';
 import { buildPlatformWhatsAppVariables } from '@/utils/platform-wa-variables';
@@ -31,14 +31,20 @@ function triggerRequiresBirthday(type: PlatformAutomationTriggerType): boolean {
   return TRIGGER_REQUIRES_BIRTHDAY.has(type);
 }
 
+function applyPlainVariables(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? `{${key}}`);
+}
+
 function scheduleMatchesToday(
   rule: Pick<
     IBirthdayAutomationRule,
-    'triggerType' | 'dayOfMonth' | 'nthBusinessDay' | 'weekday'
+    'triggerType' | 'dayOfMonth' | 'nthBusinessDay' | 'weekday' | 'scheduledAt'
   >,
   refDate: Date,
 ): boolean {
   switch (rule.triggerType) {
+    case 'once_at':
+      return true;
     case 'calendar_day_of_month':
       return isCalendarDayOfMonth(refDate, rule.dayOfMonth ?? 0);
     case 'nth_business_day_of_month':
@@ -48,6 +54,10 @@ function scheduleMatchesToday(
     default:
       return true;
   }
+}
+
+function onceAtRunKey(scheduledAt: Date): string {
+  return scheduledAt.toISOString().slice(0, 16);
 }
 
 export class BirthdayAutomationService {
@@ -65,14 +75,25 @@ export class BirthdayAutomationService {
     let enqueued = 0;
 
     for (const rule of rules) {
-      if (!isSendTimeReached(rule.sendTime, refDate)) continue;
-      const todayKey = refDate.toISOString().slice(0, 10);
-      if (rule.lastRunDate === todayKey) continue;
       try {
-        enqueued += await this.processRule(
-          rule as IBirthdayAutomationRule,
-          refDate,
-        );
+        if (rule.triggerType === 'once_at') {
+          if (!rule.scheduledAt) continue;
+          const sched = new Date(rule.scheduledAt);
+          if (refDate < sched) continue;
+          const runKey = onceAtRunKey(sched);
+          if (rule.lastRunDate === runKey) continue;
+          enqueued += await this.processRule(rule as IBirthdayAutomationRule, refDate);
+          await BirthdayAutomationRule.updateOne(
+            { _id: rule._id },
+            { $set: { lastRunDate: runKey } },
+          );
+          continue;
+        }
+
+        if (!isSendTimeReached(rule.sendTime, refDate)) continue;
+        const todayKey = refDate.toISOString().slice(0, 10);
+        if (rule.lastRunDate === todayKey) continue;
+        enqueued += await this.processRule(rule as IBirthdayAutomationRule, refDate);
         await BirthdayAutomationRule.updateOne(
           { _id: rule._id },
           { $set: { lastRunDate: todayKey } },
@@ -99,6 +120,54 @@ export class BirthdayAutomationService {
     if (!scheduleMatchesToday(rule, refDate)) return 0;
 
     const clientId = rule.organizationId.toString();
+    const scope = rule.destinationScope ?? 'contacts';
+    const includeContacts = scope === 'contacts' || scope === 'both';
+    const includeGroups = scope === 'whatsapp_groups' || scope === 'both';
+
+    const org = await Organization.findById(clientId);
+    const owner = org
+      ? await User.findById(org.ownerUserId)
+      : await User.findById(clientId);
+
+    const dispatcher = CampaignDispatchService.getInstance();
+    const ruleTitle = rule.name?.trim() || rule.templateName;
+    let count = 0;
+
+    if (includeContacts) {
+      count += await this.processContactTargets(
+        rule,
+        refDate,
+        clientId,
+        org,
+        owner,
+        dispatcher,
+        ruleTitle,
+      );
+    }
+
+    if (includeGroups) {
+      count += await this.processGroupTargets(
+        rule,
+        clientId,
+        org,
+        owner,
+        dispatcher,
+        ruleTitle,
+      );
+    }
+
+    return count;
+  }
+
+  private async processContactTargets(
+    rule: IBirthdayAutomationRule,
+    refDate: Date,
+    clientId: string,
+    org: IOrganization | null,
+    owner: IUser | null,
+    dispatcher: CampaignDispatchService,
+    ruleTitle: string,
+  ): Promise<number> {
     const needsBirthday = triggerRequiresBirthday(rule.triggerType);
 
     const query: Record<string, unknown> = {
@@ -111,12 +180,6 @@ export class BirthdayAutomationService {
     }
 
     const contacts = await Destination.find(query);
-
-    const org = await Organization.findById(clientId);
-    const owner = org
-      ? await User.findById(org.ownerUserId)
-      : await User.findById(clientId);
-
     const consentSvc = ConsentService.getInstance();
     const toSend: IDestination[] = [];
 
@@ -135,11 +198,7 @@ export class BirthdayAutomationService {
         }
       }
 
-      if (rule.destinationFilterTags?.length) {
-        const tags = dest.tags ?? [];
-        const hasTag = rule.destinationFilterTags.some(t => tags.includes(t));
-        if (!hasTag) continue;
-      }
+      if (!this.matchesContactFilters(rule, dest)) continue;
 
       const consentErr = consentSvc.assertCanSend(dest);
       if (consentErr) continue;
@@ -148,18 +207,15 @@ export class BirthdayAutomationService {
 
     if (toSend.length === 0) return 0;
 
-    const dispatcher = CampaignDispatchService.getInstance();
-    const ruleTitle = rule.name?.trim() || rule.templateName;
     let count = 0;
 
     for (const dest of toSend) {
-      const vars = buildPlatformWhatsAppVariables(dest, org, owner, {
-        mensagem: rule.mensagemExtra,
-      });
-      const text = await renderPlatformTemplateForClient(
+      const text = await this.buildMessage(
+        rule,
+        dest,
+        org,
+        owner,
         new mongoose.Types.ObjectId(clientId),
-        rule.templateName,
-        vars,
       );
       if (!text?.trim()) continue;
 
@@ -178,8 +234,9 @@ export class BirthdayAutomationService {
         delayBetweenMs: 3000,
         requireConnected: true,
         acceptWhatsAppRisk: false,
-        messageMode: 'platform_template',
-        platformTemplateName: rule.templateName,
+        messageMode: rule.messageMode === 'plain' ? 'plain' : 'platform_template',
+        platformTemplateName:
+          rule.messageMode === 'plain' ? undefined : rule.templateName,
         templateVariables: { mensagem: rule.mensagemExtra },
         perDestinationRender: false,
       });
@@ -192,6 +249,101 @@ export class BirthdayAutomationService {
     }
 
     return count;
+  }
+
+  private async processGroupTargets(
+    rule: IBirthdayAutomationRule,
+    clientId: string,
+    org: IOrganization | null,
+    owner: IUser | null,
+    dispatcher: CampaignDispatchService,
+    ruleTitle: string,
+  ): Promise<number> {
+    const groups = await this.getWhatsAppGroupTargets(rule, clientId);
+    if (groups.length === 0) return 0;
+
+    let count = 0;
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+
+    for (const dest of groups) {
+      const text = await this.buildMessage(rule, dest, org, owner, clientOid);
+      if (!text?.trim()) continue;
+
+      await dispatcher.createCampaign({
+        clientId,
+        title: `${ruleTitle} — ${dest.name}`,
+        message: text,
+        destinations: [
+          {
+            type: 'group',
+            identifier: dest.identifier,
+            name: dest.name,
+          },
+        ],
+        priority: 'medium',
+        delayBetweenMs: 3000,
+        requireConnected: true,
+        acceptWhatsAppRisk: false,
+        messageMode: rule.messageMode === 'plain' ? 'plain' : 'platform_template',
+        platformTemplateName:
+          rule.messageMode === 'plain' ? undefined : rule.templateName,
+        templateVariables: { mensagem: rule.mensagemExtra },
+        perDestinationRender: false,
+      });
+      count++;
+    }
+
+    return count;
+  }
+
+  private matchesContactFilters(rule: IBirthdayAutomationRule, dest: IDestination): boolean {
+    if (rule.contactGroupIds?.length) {
+      const allowed = new Set(rule.contactGroupIds.map(id => id.toString()));
+      const inGroup = (dest.contactGroupIds ?? []).some(gid => allowed.has(gid.toString()));
+      if (!inGroup) return false;
+    }
+
+    if (rule.destinationFilterTags?.length) {
+      const tags = dest.tags ?? [];
+      const hasTag = rule.destinationFilterTags.some(t => tags.includes(t));
+      if (!hasTag) return false;
+    }
+
+    return true;
+  }
+
+  private async getWhatsAppGroupTargets(
+    rule: IBirthdayAutomationRule,
+    clientId: string,
+  ): Promise<IDestination[]> {
+    const query: Record<string, unknown> = {
+      clientId: new mongoose.Types.ObjectId(clientId),
+      type: 'group',
+      isActive: true,
+    };
+    if (rule.whatsappDestinationIds?.length) {
+      query._id = { $in: rule.whatsappDestinationIds };
+    }
+    return Destination.find(query);
+  }
+
+  private async buildMessage(
+    rule: IBirthdayAutomationRule,
+    dest: IDestination,
+    org: IOrganization | null,
+    owner: IUser | null,
+    clientOid: mongoose.Types.ObjectId,
+  ): Promise<string> {
+    const vars = buildPlatformWhatsAppVariables(dest, org, owner, {
+      mensagem: rule.mensagemExtra,
+    });
+
+    if (rule.messageMode === 'plain') {
+      const raw = (rule.customMessage || rule.mensagemExtra || '').trim();
+      return applyPlainVariables(raw, vars);
+    }
+
+    return renderPlatformTemplateForClient(clientOid, rule.templateName, vars);
   }
 
   matchesBirthdayTrigger(

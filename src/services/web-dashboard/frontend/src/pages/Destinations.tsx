@@ -9,11 +9,8 @@ import { Card, CardTitle, CardValue } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { isUnlimited } from '../lib/limits'
-import {
-  DestinationRow,
-  inputCls,
-  type Destination,
-} from '../lib/destinationUi'
+import ContactGroupsSidebar, { type ContactGroupItem } from '../components/contacts/ContactGroupsSidebar'
+import ContactEditorModal, { type ContactFormData } from '../components/contacts/ContactEditorModal'
 import { effectiveConsentStatus, type ConsentStatus } from '../lib/consentUi'
 import {
   Phone,
@@ -27,7 +24,14 @@ import {
   ListOrdered,
   ScrollText,
   FileText,
+  FolderOpen,
+  Pencil,
 } from 'lucide-react'
+import {
+  DestinationRow,
+  inputCls,
+  type Destination,
+} from '../lib/destinationUi'
 
 export default function Destinations() {
   const qc = useQueryClient()
@@ -39,12 +43,50 @@ export default function Destinations() {
     | 'refused'
     | 'blocked'
     | null
-  const isDiscord = pathname.startsWith('/discord/destinations')
+  const isDiscord = pathname.startsWith('/discord/contact')
+  const basePath = isDiscord ? '/discord/contact' : '/contact'
   const { guildName } = useGuild()
   const [search, setSearch] = useState('')
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [form, setForm] = useState({ identifier: '', name: '' })
+  const [editor, setEditor] = useState<
+    | { mode: 'create'; initial: ContactFormData }
+    | { mode: 'edit'; contact: Destination; initial: ContactFormData }
+    | null
+  >(null)
   const [historyDestId, setHistoryDestId] = useState<string | null>(null)
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+
+  const emptyContactForm = (groupIds: string[] = []): ContactFormData => ({
+    identifier: '',
+    name: '',
+    email: '',
+    organization: '',
+    notes: '',
+    contactGroupIds: groupIds,
+  })
+
+  const contactToForm = (d: Destination): ContactFormData => ({
+    identifier: d.identifier,
+    name: d.name,
+    email: d.email ?? '',
+    organization: d.organization ?? '',
+    notes: d.notes ?? '',
+    contactGroupIds: (d.contactGroupIds ?? []).map(String),
+  })
+
+  const openCreateEditor = () => {
+    setEditor({
+      mode: 'create',
+      initial: emptyContactForm(selectedGroupId ? [selectedGroupId] : []),
+    })
+  }
+
+  const openEditEditor = (contact: Destination) => {
+    setEditor({
+      mode: 'edit',
+      contact,
+      initial: contactToForm(contact),
+    })
+  }
 
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],
@@ -62,6 +104,17 @@ export default function Destinations() {
     refetchInterval: 30_000,
   })
 
+  const { data: contactGroups = [], isLoading: loadingGroups } = useQuery<ContactGroupItem[]>({
+    queryKey: ['contact-groups'],
+    queryFn: () => api.get('/contact-groups'),
+    refetchInterval: 30_000,
+  })
+
+  const invalidateContacts = () => {
+    qc.invalidateQueries({ queryKey: ['destinations'] })
+    qc.invalidateQueries({ queryKey: ['contact-groups'] })
+  }
+
   const { data: billing } = useQuery<{
     limits: { groupsMax: number }
   }>({
@@ -75,24 +128,54 @@ export default function Destinations() {
     !isUnlimited(destLimit) &&
     destinations.length >= destLimit
 
-  const add = useMutation({
-    mutationFn: () =>
-      api.post('/destinations', {
+  const createContact = useMutation({
+    mutationFn: (data: ContactFormData) =>
+      api.post<Destination>('/destinations', {
         type: 'contact',
-        identifier: form.identifier,
-        name: form.name,
+        identifier: data.identifier,
+        name: data.name,
+        email: data.email || undefined,
+        organization: data.organization || undefined,
+        notes: data.notes || undefined,
+        contactGroupIds: data.contactGroupIds,
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['destinations'] })
-      setShowAddForm(false)
-      setForm({ identifier: '', name: '' })
+    onSuccess: (_created, variables) => {
+      invalidateContacts()
+      setEditor(null)
+      if (variables.contactGroupIds.length === 0) {
+        setSelectedGroupId(null)
+      } else if (
+        selectedGroupId &&
+        !variables.contactGroupIds.includes(selectedGroupId)
+      ) {
+        setSelectedGroupId(null)
+      }
+    },
+    onError: (err: Error) => alert(err.message),
+  })
+
+  const updateContact = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ContactFormData }) =>
+      api.patch(`/destinations/${id}`, {
+        name: data.name,
+        email: data.email || undefined,
+        organization: data.organization || undefined,
+        notes: data.notes || undefined,
+        contactGroupIds: data.contactGroupIds,
+      }),
+    onSuccess: (_res, { data }) => {
+      invalidateContacts()
+      setEditor(null)
+      if (selectedGroupId && !data.contactGroupIds.includes(selectedGroupId)) {
+        setSelectedGroupId(null)
+      }
     },
     onError: (err: Error) => alert(err.message),
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/destinations/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['destinations'] }),
+    onSuccess: invalidateContacts,
     onError: (err: Error) => alert(err.message),
   })
 
@@ -110,7 +193,7 @@ export default function Destinations() {
 
   const clearRefusal = useMutation({
     mutationFn: (id: string) => api.post(`/destinations/${id}/consent/clear-refusal`, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['destinations'] }),
+    onSuccess: invalidateContacts,
     onError: (err: Error) => alert(err.message),
   })
 
@@ -118,7 +201,7 @@ export default function Destinations() {
     mutationFn: (id: string) => api.post(`/consent/renewals/${id}/approve`, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['consent-renewals'] })
-      qc.invalidateQueries({ queryKey: ['destinations'] })
+      invalidateContacts()
     },
     onError: (err: Error) => alert(err.message),
   })
@@ -179,11 +262,19 @@ export default function Destinations() {
   }
 
   const q = search.trim().toLowerCase()
+  const allContacts = useMemo(
+    () => destinations.filter(d => d.type === 'contact'),
+    [destinations],
+  )
+
   const contacts = useMemo(
     () =>
-      destinations
-        .filter(d => d.type === 'contact')
+      allContacts
         .filter(matchesConsentFilter)
+        .filter(d => {
+          if (!selectedGroupId) return true
+          return (d.contactGroupIds ?? []).some(gid => String(gid) === selectedGroupId)
+        })
         .filter(
           d =>
             !q ||
@@ -194,8 +285,17 @@ export default function Destinations() {
             (d.tags?.some(t => t.toLowerCase().includes(q)) ?? false) ||
             (d.secondaryPhone?.toLowerCase().includes(q) ?? false),
         ),
-    [destinations, q, consentFilter],
+    [allContacts, q, consentFilter, selectedGroupId],
   )
+
+  const groupNameById = useMemo(
+    () => new Map(contactGroups.map(g => [g._id, g.name])),
+    [contactGroups],
+  )
+
+  const selectedGroup = selectedGroupId
+    ? contactGroups.find(g => g._id === selectedGroupId)
+    : null
 
   const groupsCount = destinations.filter(d => d.type === 'group').length
 
@@ -231,9 +331,10 @@ export default function Destinations() {
 
       {!isDiscord && (
         <p className="text-sm text-gray-400">
-          Números de WhatsApp para envio manual e API. Grupos são importados pela sessão conectada —{' '}
+          Gerencie contatos, organize em grupos (VIP, Clientes…) e use no envio manual e na API.
+          Grupos WhatsApp são importados pela sessão —{' '}
           <Link to="/grupos" className="text-brand-400 hover:underline">
-            ver Grupos
+            ver Grupos WhatsApp
           </Link>
           .
         </p>
@@ -249,12 +350,16 @@ export default function Destinations() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 max-w-md">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl">
         <Card>
           <CardTitle>Contatos</CardTitle>
-          <CardValue>{contacts.length}</CardValue>
+          <CardValue>{allContacts.length}</CardValue>
         </Card>
         <Card>
+          <CardTitle>Grupos de contato</CardTitle>
+          <CardValue>{contactGroups.length}</CardValue>
+        </Card>
+        <Card className="col-span-2 sm:col-span-1">
           <CardTitle>Total cadastrado</CardTitle>
           <CardValue>
             {destinations.length}
@@ -269,11 +374,48 @@ export default function Destinations() {
         <p className="text-xs text-brand-400/90">
           Filtro: <strong>{consentFilterLabel[consentFilter]}</strong>
           {' · '}
-          <Link to="/destinations" className="underline hover:text-brand-300">
+          <Link to={basePath} className="underline hover:text-brand-300">
             Ver todos os contatos
           </Link>
         </p>
       )}
+
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <ContactGroupsSidebar
+          groups={contactGroups}
+          totalContacts={allContacts.length}
+          selectedGroupId={selectedGroupId}
+          onSelectGroup={setSelectedGroupId}
+          canManage={canManage}
+          loading={loadingGroups}
+          onCreate={async data => {
+            await api.post('/contact-groups', data)
+            invalidateContacts()
+          }}
+          onUpdate={async (id, data) => {
+            await api.patch(`/contact-groups/${id}`, data)
+            invalidateContacts()
+          }}
+          onDelete={async id => {
+            await api.delete(`/contact-groups/${id}`)
+            invalidateContacts()
+          }}
+        />
+
+        <div className="flex-1 min-w-0 space-y-4 w-full">
+          {selectedGroup && (
+            <p className="text-xs text-gray-500">
+              Exibindo contatos do grupo <strong className="text-gray-300">{selectedGroup.name}</strong>
+              {' · '}
+              <button
+                type="button"
+                onClick={() => setSelectedGroupId(null)}
+                className="text-brand-400 hover:underline"
+              >
+                Ver todos
+              </button>
+            </p>
+          )}
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
@@ -285,7 +427,7 @@ export default function Destinations() {
             className={`${inputCls} pl-9`}
           />
         </div>
-        <Button size="sm" onClick={() => setShowAddForm(v => !v)} disabled={atDestLimit || !canManage}>
+        <Button size="sm" onClick={openCreateEditor} disabled={atDestLimit || !canManage}>
           <Plus size={12} /> Novo contato
         </Button>
       </div>
@@ -339,84 +481,88 @@ export default function Destinations() {
         </p>
       )}
 
-      {showAddForm && (
-        <Card className="border-brand-700/60">
-          <p className="text-sm font-medium text-brand-400 mb-3">Cadastrar contato</p>
-          <p className="text-xs text-gray-500 mb-3">
-            Novos contatos entram como <strong className="text-yellow-500">Aguardando aceite</strong>.
-            Na primeira mensagem, o RadarZap envia automaticamente o pedido de consentimento LGPD.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Número WhatsApp</label>
-              <input
-                value={form.identifier}
-                onChange={e => setForm(f => ({ ...f, identifier: e.target.value }))}
-                placeholder="+5511999999999"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Nome exibido</label>
-              <input
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Ex: Suporte, João"
-                className={inputCls}
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Button
-              onClick={() => add.mutate()}
-              disabled={
-                !form.identifier.trim() ||
-                !form.name.trim() ||
-                add.isPending ||
-                atDestLimit
-              }
-            >
-              {add.isPending ? <Spinner size={12} /> : <Plus size={12} />} Salvar
-            </Button>
-            <Button variant="ghost" onClick={() => setShowAddForm(false)}>
-              Cancelar
-            </Button>
-          </div>
-        </Card>
-      )}
-
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Spinner size={32} />
         </div>
-      ) : contacts.length === 0 ? (
+      ) : allContacts.length === 0 ? (
         <Card className="text-center py-12 text-gray-500">
           <Phone size={32} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium text-gray-400">Nenhum contato cadastrado</p>
           <p className="text-sm mt-1">Adicione um número com DDI, ex: +5511999999999</p>
         </Card>
+      ) : contacts.length === 0 ? (
+        <Card className="text-center py-12 text-gray-500">
+          <FolderOpen size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="font-medium text-gray-400">
+            {selectedGroup ? 'Nenhum contato neste grupo' : 'Nenhum resultado'}
+          </p>
+          <p className="text-sm mt-1">
+            {selectedGroup
+              ? 'Edite um contato e marque este grupo, ou cadastre um novo já no grupo.'
+              : 'Ajuste a busca ou o filtro de consentimento.'}
+          </p>
+          {selectedGroup && (
+            <Button size="sm" variant="secondary" className="mt-4" onClick={() => setSelectedGroupId(null)}>
+              Ver todos os contatos
+            </Button>
+          )}
+        </Card>
       ) : (
         <div className="space-y-2">
-          {contacts.map(d => (
-            <DestinationRow
-              key={d._id}
-              d={d}
-              removing={remove.isPending}
-              onRemove={() => remove.mutate(d._id)}
-              canDelete={canManage}
-              canRequestRenewal={canRequestRenewal}
-              canClearRefusal={canClearRefusal}
-              requestingRenewal={requestRenewal.isPending}
-              clearingRefusal={clearRefusal.isPending}
-              onRequestRenewal={() => requestRenewal.mutate(d._id)}
-              onClearRefusal={() => {
-                if (window.confirm(`Apagar recusa de "${d.name}" e voltar para aguardando aceite?`)) {
-                  clearRefusal.mutate(d._id)
-                }
-              }}
-              onShowHistory={() => setHistoryDestId(d._id)}
-            />
-          ))}
+          {contacts.map(d => {
+            const memberGroupIds = (d.contactGroupIds ?? []).map(String)
+            return (
+            <div key={d._id} className="relative">
+              <DestinationRow
+                d={d}
+                removing={remove.isPending}
+                onRemove={() => remove.mutate(d._id)}
+                canDelete={canManage}
+                canEdit={canManage}
+                onEdit={() => openEditEditor(d)}
+                canRequestRenewal={canRequestRenewal}
+                canClearRefusal={canClearRefusal}
+                requestingRenewal={requestRenewal.isPending}
+                clearingRefusal={clearRefusal.isPending}
+                onRequestRenewal={() => requestRenewal.mutate(d._id)}
+                onClearRefusal={() => {
+                  if (window.confirm(`Apagar recusa de "${d.name}" e voltar para aguardando aceite?`)) {
+                    clearRefusal.mutate(d._id)
+                  }
+                }}
+                onShowHistory={() => setHistoryDestId(d._id)}
+              />
+              <div className="flex flex-wrap items-center gap-2 px-4 -mt-1 mb-1">
+                {memberGroupIds.some(id => groupNameById.has(id)) && (
+                  <div className="flex flex-wrap gap-1">
+                    {memberGroupIds.map(id => {
+                      const label = groupNameById.get(id)
+                      if (!label) return null
+                      return (
+                      <span
+                        key={id}
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-gray-700 bg-gray-800/60 text-gray-400"
+                      >
+                        {label}
+                      </span>
+                      )
+                    })}
+                  </div>
+                )}
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => openEditEditor(d)}
+                    className="text-[11px] text-brand-400 hover:underline flex items-center gap-1 ml-auto"
+                  >
+                    <Pencil size={11} /> Editar / grupos
+                  </button>
+                )}
+              </div>
+            </div>
+            )
+          })}
         </div>
       )}
 
@@ -465,16 +611,36 @@ export default function Destinations() {
           </Button>
         </Link>
       </div>
+        </div>
+      </div>
+
+      {editor && (
+        <ContactEditorModal
+          mode={editor.mode}
+          contactName={editor.mode === 'edit' ? editor.contact.name : undefined}
+          contactPhone={editor.mode === 'edit' ? editor.contact.identifier : undefined}
+          initial={editor.initial}
+          groups={contactGroups}
+          onClose={() => setEditor(null)}
+          onSave={async data => {
+            if (editor.mode === 'create') {
+              await createContact.mutateAsync(data)
+            } else {
+              await updateContact.mutateAsync({ id: editor.contact._id, data })
+            }
+          }}
+        />
+      )}
     </>
   )
 
   if (isDiscord) {
     return (
-      <DiscordPage description="Contatos de WhatsApp usados nas regras do Discord e no envio manual.">
+      <DiscordPage description="Contatos WhatsApp, grupos de segmentação e consentimento LGPD para automação Discord.">
         {body}
       </DiscordPage>
     )
   }
 
-  return <div className="space-y-5 max-w-4xl">{body}</div>
+  return <div className="space-y-5 max-w-6xl">{body}</div>
 }

@@ -18,6 +18,7 @@ export function buildPipelineTrackingMeta(
     canalRota: formatCanalRota(extracted),
     channelName: extracted.channelName,
     guildName: extracted.guildName,
+    guildId: extracted.guildId,
     captureKind: extracted.captureKind,
     primaryLink: extracted.primaryLink,
     ...extra,

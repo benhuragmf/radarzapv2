@@ -33,6 +33,8 @@ export interface IDestination extends Document {
   /** Último envio automático de aniversário (dedup anual / intervalo) */
   birthdayLastSentAt?: Date;
   tags?: string[];
+  /** Grupos de contato (listas / segmentos) */
+  contactGroupIds?: mongoose.Types.ObjectId[];
   email?: string;
   notes?: string;
   /** Empresa / ORG do VCF ou coluna CSV */
@@ -181,6 +183,11 @@ const DestinationSchema = new Schema<IDestination>({
 
   tags: {
     type: [String],
+    default: undefined,
+  },
+
+  contactGroupIds: {
+    type: [{ type: Schema.Types.ObjectId, ref: 'ContactGroup' }],
     default: undefined,
   },
 

@@ -55,6 +55,7 @@ export interface PipelineLogMeta {
   canalRota?: string;
   channelName?: string;
   guildName?: string;
+  guildId?: string;
   rodape?: string;
   primaryLink?: string;
   channelStaggerMs?: number;

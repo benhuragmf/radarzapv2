@@ -1,5 +1,9 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import type { PlatformAutomationTriggerType } from '@/constants/platform-automation-triggers';
+import type {
+  PlatformAutomationDestinationScope,
+  PlatformAutomationMessageMode,
+  PlatformAutomationTriggerType,
+} from '@/constants/platform-automation-triggers';
 
 /** @deprecated use PlatformAutomationTriggerType */
 export type BirthdayTriggerType = PlatformAutomationTriggerType;
@@ -18,9 +22,21 @@ export interface IBirthdayAutomationRule extends Document {
   nthBusinessDay?: number;
   /** 1=seg … 7=dom — weekly */
   weekday?: number;
+  /** Envio único — once_at */
+  scheduledAt?: Date;
   sendTime: string;
   active: boolean;
-  /** Tags do contato — vazio = todos com birthday */
+  /** contacts | whatsapp_groups | both */
+  destinationScope?: PlatformAutomationDestinationScope;
+  /** Grupos de contato (Destination.contactGroupIds) */
+  contactGroupIds?: mongoose.Types.ObjectId[];
+  /** Destinos type=group (grupos WhatsApp) */
+  whatsappDestinationIds?: mongoose.Types.ObjectId[];
+  /** platform_template | plain */
+  messageMode?: PlatformAutomationMessageMode;
+  /** Texto completo quando messageMode=plain */
+  customMessage?: string;
+  /** Tags do contato — vazio = todos (legado) */
   destinationFilterTags?: string[];
   mensagemExtra?: string;
   /** YYYY-MM-DD — última execução do lote diário */
@@ -59,6 +75,7 @@ const BirthdayAutomationRuleSchema = new Schema<IBirthdayAutomationRule>(
         'calendar_day_of_month',
         'nth_business_day_of_month',
         'weekly',
+        'once_at',
       ],
       default: 'on_contact_birthday',
       required: true,
@@ -83,6 +100,9 @@ const BirthdayAutomationRuleSchema = new Schema<IBirthdayAutomationRule>(
       min: 1,
       max: 7,
     },
+    scheduledAt: {
+      type: Date,
+    },
     sendTime: {
       type: String,
       required: true,
@@ -93,6 +113,29 @@ const BirthdayAutomationRuleSchema = new Schema<IBirthdayAutomationRule>(
       type: Boolean,
       default: true,
       index: true,
+    },
+    destinationScope: {
+      type: String,
+      enum: ['contacts', 'whatsapp_groups', 'both'],
+      default: 'contacts',
+    },
+    contactGroupIds: {
+      type: [Schema.Types.ObjectId],
+      default: undefined,
+    },
+    whatsappDestinationIds: {
+      type: [Schema.Types.ObjectId],
+      default: undefined,
+    },
+    messageMode: {
+      type: String,
+      enum: ['platform_template', 'plain'],
+      default: 'platform_template',
+    },
+    customMessage: {
+      type: String,
+      maxlength: 4000,
+      trim: true,
     },
     destinationFilterTags: {
       type: [String],

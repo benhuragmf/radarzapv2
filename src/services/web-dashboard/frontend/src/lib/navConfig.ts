@@ -96,22 +96,22 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
 
   section('sec-3', 'Contatos e destinos', 'WhatsApp e consentimento LGPD'),
   group('grp-dest', 'Contatos e destinos', Users, [
-    link('wa-contacts', 'Contatos', Phone, '/destinations', 'consent:view'),
+    link('wa-contacts', 'Contatos', Phone, '/contact', 'consent:view'),
     link('wa-groups', 'Grupos', Users, '/grupos', 'send:destination:manage'),
     soon('wa-segments', 'Listas / Segmentos', ListOrdered, 'segmentos', 'send:destination:manage'),
     link('wa-import', 'Importar CSV / VCF', Upload, '/platform/contacts', 'send:destination:manage'),
   ], 'consent:view'),
   group('grp-consent', 'Consentimento', ShieldCheck, [
-    link('consent-pending', 'Pendentes', ShieldCheck, '/destinations', 'consent:view', false, {
+    link('consent-pending', 'Pendentes', ShieldCheck, '/contact', 'consent:view', false, {
       search: '?consent=pending',
     }),
-    link('consent-accepted', 'Aceitos', ShieldCheck, '/destinations', 'consent:view', false, {
+    link('consent-accepted', 'Aceitos', ShieldCheck, '/contact', 'consent:view', false, {
       search: '?consent=accepted',
     }),
-    link('consent-refused', 'Recusados', UserX, '/destinations', 'consent:view', false, {
+    link('consent-refused', 'Recusados', UserX, '/contact', 'consent:view', false, {
       search: '?consent=refused',
     }),
-    link('consent-blocked', 'Bloqueados manualmente', Ban, '/destinations', 'consent:view', false, {
+    link('consent-blocked', 'Bloqueados manualmente', Ban, '/contact', 'consent:view', false, {
       search: '?consent=blocked',
     }),
   ], 'consent:view'),
@@ -223,9 +223,9 @@ export const DISCORD_NAV: NavEntry[] = [
   link('auto-rules', 'Regras e filtros', BookOpen, '/discord/rules', 'send:rules:manage', true),
   link('auto-format', 'Formato no WhatsApp', FileText, '/discord/templates', 'send:templates:manage', true),
   group('grp-discord-dest', 'Destinos WhatsApp', Users, [
-    link('d-contacts', 'Contatos', Phone, '/discord/destinations', 'consent:view', true),
+    link('d-contacts', 'Contatos', Phone, '/discord/contact', 'consent:view', true),
     link('d-groups', 'Grupos', Users, '/discord/grupos', 'send:destination:manage', true),
-    link('d-hist', 'Histórico de envios', History, '/discord/destinations/historico', 'send:destination:manage', true),
+    link('d-hist', 'Histórico de envios', History, '/discord/contact/historico', 'send:destination:manage', true),
   ], 'send:destination:manage'),
   section('sec-watch', 'Monitoramento'),
   link('watch-queue', 'Fila de envio', ListOrdered, '/discord/fila', 'queue:view', true),
@@ -242,7 +242,7 @@ const LEGACY_DISCORD_ROUTES = new Set([
 
 const PLATFORM_ROUTES = new Set([
   '/dashboard', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
-  '/sessions', '/destinations', '/grupos', '/send', '/send/agendamentos', '/platform/automacoes',
+  '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/platform/automacoes',
   '/send/historico', '/plans', '/settings', '/settings/team', '/em-breve',
 ])
 
@@ -371,10 +371,13 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/sessions': 'whatsapp:session:view',
   '/channels': 'discord:channels:manage',
   '/discord/channels': 'discord:channels:manage',
+  '/contact': 'consent:view',
   '/destinations': 'consent:view',
   '/grupos': 'send:destination:manage',
+  '/discord/contact': 'consent:view',
   '/discord/destinations': 'consent:view',
   '/discord/grupos': 'send:destination:manage',
+  '/discord/contact/historico': 'send:destination:manage',
   '/discord/destinations/historico': 'send:destination:manage',
   '/rules': 'send:rules:manage',
   '/discord/rules': 'send:rules:manage',
@@ -416,10 +419,13 @@ export const PAGE_TITLES: Record<string, string> = {
   '/sessions': 'Conexões WhatsApp',
   '/channels': 'Canais do Discord',
   '/discord/channels': 'Canais do Discord',
+  '/contact': 'Contatos',
   '/destinations': 'Contatos',
   '/grupos': 'Grupos WhatsApp',
+  '/discord/contact': 'Contatos WhatsApp',
   '/discord/destinations': 'Contatos WhatsApp',
   '/discord/grupos': 'Grupos WhatsApp',
+  '/discord/contact/historico': 'Histórico de envios',
   '/discord/destinations/historico': 'Histórico de envios',
   '/rules': 'Regras',
   '/discord/rules': 'Regras e filtros',
@@ -469,7 +475,7 @@ const CONSENT_PAGE_TITLES: Record<string, string> = {
 }
 
 export function pageTitleFor(pathname: string, hash: string, search = ''): string {
-  if (pathname === '/destinations' && search) {
+  if ((pathname === '/contact' || pathname === '/destinations') && search) {
     return CONSENT_PAGE_TITLES[search] ?? PAGE_TITLES[pathname] ?? 'Contatos'
   }
   const key = hash ? `${pathname}${hash}` : pathname

@@ -223,7 +223,7 @@ export default function WhatsAppGroups() {
         )}
       </section>
 
-      <Link to={`${prefix}/destinations`} className="text-xs text-brand-400 hover:underline">
+      <Link to={`${prefix}/contact`} className="text-xs text-brand-400 hover:underline">
         ← Voltar para Contatos
       </Link>
     </>

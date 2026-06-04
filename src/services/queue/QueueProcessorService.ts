@@ -6,6 +6,7 @@ import { MessageQueue, User, Destination, SystemLog, Organization } from '@/mode
 import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
 import { BirthdayAutomationService } from '@/services/platform/BirthdayAutomationService';
 import { RulesEngine } from '@/services/rules/RulesEngine';
+import { RuleGroupBlockService } from '@/services/rules/RuleGroupBlockService';
 import { TemplateEngine } from '@/services/templates/TemplateEngine';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { OrganizationService } from '@/services/organization/OrganizationService';
@@ -276,6 +277,36 @@ export class QueueProcessorService {
 
       for (const match of activeMatches) {
         const { destinationIds, templateName, priority, addDelay, rule } = match;
+
+        const ruleBlock = await RuleGroupBlockService.getInstance().checkRuleBlocked(
+          clientId,
+          destinationIds,
+        );
+        if (ruleBlock.blocked) {
+          await logPipeline(
+            'QueueProcessorService',
+            'skip',
+            `Regra bloqueada: ${ruleBlock.reason}`,
+            {
+              ...logMeta,
+              ...pipelineTracking(),
+              ruleId: String(rule._id),
+              ruleName: rule.name,
+              error: ruleBlock.reason,
+              blockedGroups: ruleBlock.blockedGroupNames,
+              guildId: extractedData.guildId,
+            },
+            logUserId,
+            traceId,
+          );
+          this.serviceLogger.warn('Regra não executada — número fora do grupo destino', {
+            ...logMeta,
+            ruleId: rule._id,
+            ruleName: rule.name,
+            reason: ruleBlock.reason,
+          });
+          continue;
+        }
 
         const linkForRoute = streamLinkFromExtracted(extractedData);
         if (

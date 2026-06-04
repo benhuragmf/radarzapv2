@@ -10,7 +10,7 @@ export const DISCORD_LOG_SERVICES = [
   'QueueProcessorService',
   'WhatsAppService',
   'RulesEngine',
-]
+] as const
 
 /** Etapas do pipeline (metadata.stage nos logs) */
 export const PIPELINE_STAGES = [
