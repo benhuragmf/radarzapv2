@@ -12,6 +12,7 @@
     "dashboard:frontend": "npm run dev --prefix src/services/web-dashboard/frontend",
     "register-commands": "ts-node -r tsconfig-paths/register register-guild-commands.ts",
     "seed:templates": "ts-node -r dotenv/config -r tsconfig-paths/register seed-templates.ts",
+    "seed:platform-templates": "ts-node -r dotenv/config -r tsconfig-paths/register seed-platform-templates.ts",
     "update:templates": "ts-node -r dotenv/config -r tsconfig-paths/register update-templates.ts",
     "clear:test": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/clear-test-state.ts",
     "test": "jest",

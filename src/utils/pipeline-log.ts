@@ -44,6 +44,19 @@ export interface PipelineLogMeta {
   streamLink?: string;
   linkKind?: string;
   linkFinal?: string;
+  /** Conta/empresa RadarZap (painel) */
+  tenantSender?: string;
+  organizationName?: string;
+  /** Quem postou no canal Discord */
+  discordPoster?: string;
+  discordPosterTag?: string;
+  discordAuthorId?: string;
+  discordAuthorUser?: string;
+  canalRota?: string;
+  channelName?: string;
+  guildName?: string;
+  rodape?: string;
+  primaryLink?: string;
   channelStaggerMs?: number;
   weakCaption?: boolean;
   [key: string]: unknown;

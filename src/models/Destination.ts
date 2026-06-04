@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 import { createServiceLogger } from '@/utils/logger';
 import { ConsentStatus } from '@/types/consent';
 import { canSendToContact, canSendPendingAttempt } from '@/types/consent';
+import { CONTACT_PHONE_TYPES, type ContactPhoneType } from '@/types/contact-fields';
 
 const logger = createServiceLogger('DestinationModel');
 
@@ -27,6 +28,19 @@ export interface IDestination extends Document {
   optOutConfirmPendingAt?: Date;
   isActive: boolean;
   lastMessageSent?: Date;
+  /** YYYY-MM-DD — import CSV / campanhas aniversário */
+  birthday?: string;
+  /** Último envio automático de aniversário (dedup anual / intervalo) */
+  birthdayLastSentAt?: Date;
+  tags?: string[];
+  email?: string;
+  notes?: string;
+  /** Empresa / ORG do VCF ou coluna CSV */
+  organization?: string;
+  /** Segunda linha TEL (VCF / phone 2) */
+  secondaryPhone?: string;
+  /** Tipo da linha principal: whatsapp, cell, home, work, other */
+  phoneType?: ContactPhoneType;
   createdAt: Date;
   
   // Instance methods
@@ -152,7 +166,62 @@ const DestinationSchema = new Schema<IDestination>({
   lastMessageSent: {
     type: Date,
     index: true
-  }
+  },
+
+  birthday: {
+    type: String,
+    trim: true,
+    maxlength: 10,
+  },
+
+  birthdayLastSentAt: {
+    type: Date,
+    index: true,
+  },
+
+  tags: {
+    type: [String],
+    default: undefined,
+  },
+
+  email: {
+    type: String,
+    trim: true,
+    maxlength: 254,
+    lowercase: true,
+  },
+
+  notes: {
+    type: String,
+    maxlength: 2000,
+    trim: true,
+  },
+
+  organization: {
+    type: String,
+    maxlength: 200,
+    trim: true,
+  },
+
+  secondaryPhone: {
+    type: String,
+    trim: true,
+    validate: {
+      validator(v: string) {
+        if (!v) return true;
+        return /^\+?[1-9]\d{1,14}$/.test(v.replace(/[\s\-()]/g, ''));
+      },
+      message: 'Formato inválido para telefone secundário',
+    },
+  },
+
+  phoneType: {
+    type: String,
+    enum: {
+      values: CONTACT_PHONE_TYPES,
+      message: 'Tipo de telefone inválido',
+    },
+  },
 }, {
   timestamps: true,
   collection: 'destinations'

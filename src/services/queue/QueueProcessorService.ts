@@ -4,6 +4,7 @@ import { SessionCache } from '@/cache/SessionCache';
 import { RedisManager } from '@/cache/RedisManager';
 import { MessageQueue, User, Destination, SystemLog, Organization } from '@/models';
 import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
+import { BirthdayAutomationService } from '@/services/platform/BirthdayAutomationService';
 import { RulesEngine } from '@/services/rules/RulesEngine';
 import { TemplateEngine } from '@/services/templates/TemplateEngine';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
@@ -24,6 +25,8 @@ import {
   collectPrimaryLink,
 } from '@/utils/discord-wa-format';
 import { logPipeline } from '@/utils/pipeline-log';
+import { buildPipelineTrackingMeta } from '@/utils/pipeline-tracking';
+import { resolveTenantSenderLabelAsync } from '@/utils/radarzap-sender';
 import { CircuitBreaker } from '@/services/common/CircuitBreaker';
 import { Job } from 'bullmq';
 import mongoose from 'mongoose';
@@ -175,6 +178,12 @@ export class QueueProcessorService {
         user = await User.findById(org.ownerUserId);
       }
 
+      extractedData.radarzapSenderLabel = await resolveTenantSenderLabelAsync(org, user);
+      const pipelineTracking = () =>
+        buildPipelineTrackingMeta(extractedData, {
+          organizationName: org?.name,
+        });
+
       const logUserId = (user?._id ?? clientOid) as mongoose.Types.ObjectId;
 
       if (org && !org.canSendMessage()) {
@@ -253,6 +262,7 @@ export class QueueProcessorService {
         if (!isNewContent) {
           await logPipeline('QueueProcessorService', 'skip', 'Conteúdo duplicado no canal', {
             ...logMeta,
+            ...pipelineTracking(),
             contentFp,
             dedupTtlSec,
             reason: 'mesmo streamer/thumb em janela curta',
@@ -358,10 +368,12 @@ export class QueueProcessorService {
 
         await logPipeline('QueueProcessorService', 'render', 'Mensagem montada', {
           ...logMeta,
+          ...pipelineTracking(),
           template: resolvedTemplate,
           ruleTemplate: templateName,
           linkKind,
           streamer: variables.streamer,
+          rodape: variables.rodape,
           captureKind: extractedData.captureKind,
           chars: renderedMessage.length,
           hasLink: renderedMessage.includes('https://'),
@@ -422,6 +434,7 @@ export class QueueProcessorService {
           if (isDuplicate) {
             await logPipeline('QueueProcessorService', 'skip', 'Mensagem já enviada (dedup messageId)', {
               ...logMeta,
+              ...pipelineTracking(),
               ruleId: String(rule._id),
               destination: destination.identifier,
               dedupHash,
@@ -495,11 +508,13 @@ export class QueueProcessorService {
 
           await logPipeline('QueueProcessorService', 'queue', 'Job WA enfileirado', {
             ...logMeta,
+            ...pipelineTracking(),
             ruleId: String(rule._id),
             ruleName: rule.name,
             template: resolvedTemplate,
             ruleTemplate: templateName,
             streamer: variables.streamer,
+            rodape: variables.rodape,
             linkKind,
             destination: destination.identifier,
             priority,
@@ -709,6 +724,18 @@ export class QueueProcessorService {
         }
       }
     }, 15_000);
+
+    // Aniversários automáticos (pw-*) — verifica regras após sendTime, 1x/dia por regra
+    const runBirthdayTick = async () => {
+      if (!this.isRunning) return;
+      try {
+        await BirthdayAutomationService.getInstance().processAllOrganizations();
+      } catch (err) {
+        this.serviceLogger.error('Birthday automation tick failed:', err);
+      }
+    };
+    void runBirthdayTick();
+    const birthdayInterval = global.setInterval(runBirthdayTick, 15 * 60 * 1000);
 
     // Log processing statistics
     const statsInterval = global.setInterval(() => {

@@ -10,6 +10,7 @@ import {
   type ConsentStatus,
 } from './consentUi'
 import { avatarLabel, formatPhone } from './destinationFormat'
+import { ContactExtraMeta } from './contactMetaUi'
 
 export interface Destination {
   _id: string
@@ -21,6 +22,13 @@ export interface Destination {
   consentStatus?: ConsentStatus
   pendingOutboundCount?: number
   consent?: { granted?: boolean }
+  birthday?: string
+  tags?: string[]
+  email?: string
+  notes?: string
+  organization?: string
+  secondaryPhone?: string
+  phoneType?: string
 }
 
 export const inputCls =
@@ -100,6 +108,19 @@ export function DestinationRow({
         <p className="text-xs text-gray-500 font-mono truncate">
           {d.type === 'contact' ? formatPhone(d.identifier) : d.identifier}
         </p>
+        {d.type === 'contact' && (
+          <ContactExtraMeta
+            c={{
+              organization: d.organization,
+              secondaryPhone: d.secondaryPhone,
+              phoneType: d.phoneType,
+              birthday: d.birthday,
+              email: d.email,
+              tags: d.tags,
+              notes: d.notes,
+            }}
+          />
+        )}
         {d.lastMessageSent && (
           <p className="text-[11px] text-gray-600 mt-0.5">
             Último envio: {new Date(d.lastMessageSent).toLocaleString('pt-BR')}

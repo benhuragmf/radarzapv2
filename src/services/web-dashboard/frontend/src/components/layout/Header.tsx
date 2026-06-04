@@ -11,8 +11,8 @@ interface Props {
 }
 
 export default function Header({ user, onLogout }: Props) {
-  const { pathname, hash } = useLocation()
-  const title = pageTitleFor(pathname, hash)
+  const { pathname, hash, search } = useLocation()
+  const title = pageTitleFor(pathname, hash, search)
 
   const { data } = useQuery({
     queryKey: ['health'],

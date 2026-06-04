@@ -25,6 +25,7 @@ import {
 } from '@/utils/discord-wa-format';
 import { contentSourceMessage, isDiscordForwardMessage } from '@/utils/discord-forward';
 import { logPipeline } from '@/utils/pipeline-log';
+import { buildPipelineTrackingMeta } from '@/utils/pipeline-tracking';
 import { CommandHandler } from './CommandHandler';
 import { CircuitBreaker } from '../common/CircuitBreaker';
 
@@ -509,15 +510,14 @@ export class DiscordBotService {
         messageId: workMessage.id,
         channelId: workMessage.channelId,
         clientId: discordChannel.clientId.toString(),
-        captureKind: extractedData.captureKind,
-        hasEmbed: workHasEmbed,
-        hasLink: Boolean(primaryLink),
-        primaryLink,
-        streamer: streamerSlug || extractedData.embedAuthorName,
-        embedTitle: extractedData.embedTitles?.[0],
-        author: extractedData.authorName,
-        waitedEmbed: !hasEmbed && workHasEmbed,
-        forwarded: isDiscordForwardMessage(workMessage),
+        ...buildPipelineTrackingMeta(extractedData, {
+          hasEmbed: workHasEmbed,
+          hasLink: Boolean(primaryLink),
+          streamer: streamerSlug || extractedData.embedAuthorName,
+          embedTitle: extractedData.embedTitles?.[0],
+          waitedEmbed: !hasEmbed && workHasEmbed,
+          forwarded: isDiscordForwardMessage(workMessage),
+        }),
       }, discordChannel.clientId.toString());
 
       await this.queueManager.addJob(

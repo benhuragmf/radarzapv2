@@ -37,6 +37,29 @@ import {
   validateMessageText,
   WHATSAPP_LIMITS,
 } from '../../config/limits';
+import { processContactImport } from '../destinations/contactCsvImportService';
+import { exportContactsCsv } from '../destinations/contactCsvExportService';
+import {
+  PlatformTemplate,
+  extractTemplateVariables,
+  type PlatformTemplateCategory,
+} from '../../models/PlatformTemplate';
+import {
+  PLATFORM_WA_VARIABLE_DOCS,
+  renderPlatformCatalogTemplate,
+  previewPlatformTemplateContent,
+  isPlatformCatalogName,
+} from '../../constants/platform-whatsapp-templates';
+import {
+  listMergedPlatformTemplates,
+} from '../platform/platformTemplateCatalog';
+import { renderPlatformTemplateForClient } from '../platform/platformTemplateRender';
+import { buildPlatformWhatsAppVariables } from '../../utils/platform-wa-variables';
+import { BirthdayAutomationRule } from '../../models/BirthdayAutomationRule';
+import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
+import {
+  validateAutomationPayload,
+} from '../../constants/platform-automation-triggers';
 import mongoose from 'mongoose';
 import { mountBullBoard } from '../monitoring/bullBoard';
 import { WhatsAppService } from '../whatsapp/WhatsAppService';
@@ -132,7 +155,8 @@ export class DashboardService {
 
   private setupExpress(): void {
     this.app.set('trust proxy', 1);
-    this.app.use(express.json());
+    /** VCF/CSV com milhares de contatos; padrão Express é 100kb */
+    this.app.use(express.json({ limit: '16mb' }));
 
     // Session middleware — custom Redis store using ioredis (survives restarts)
     const redisManager = this.redisManager;
@@ -295,6 +319,14 @@ export class DashboardService {
           logger.info(`Conta RadarZap criada no login Discord: ${discordUser.username}`);
         } else {
           await orgSvc.ensureOrganization(dbUser);
+        }
+
+        const panelName =
+          (discordUser.global_name as string | null)?.trim() ||
+          (discordUser.username as string)?.trim();
+        if (panelName) {
+          dbUser.displayName = panelName;
+          await dbUser.save();
         }
 
         const tenantId = await orgSvc.resolveClientId((dbUser._id as mongoose.Types.ObjectId).toString());
@@ -465,6 +497,15 @@ export class DashboardService {
       try {
         const stats = await this.buildStats();
         res.json(stats);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/stats', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await this.buildPlatformStats(auth));
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -825,6 +866,277 @@ export class DashboardService {
       }
     });
 
+    r.post('/destinations/import-csv', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          csv?: string;
+          content?: string;
+          dryRun?: boolean;
+          format?: 'csv' | 'vcf' | 'auto';
+        };
+        const { dryRun = false, format = 'auto' } = body;
+        const fileText =
+          typeof body.content === 'string' && body.content.trim()
+            ? body.content
+            : body.csv;
+        if (!fileText || typeof fileText !== 'string' || !fileText.trim()) {
+          return res.status(400).json({
+            error: 'Campo csv ou content é obrigatório (texto do arquivo)',
+          });
+        }
+        const result = await processContactImport(auth.clientId, fileText, {
+          dryRun: Boolean(dryRun),
+          ipAddress: req.ip ?? '127.0.0.1',
+          format,
+        });
+        res.json({
+          success: true,
+          format: result.format,
+          profile: result.profile,
+          preview: result.preview,
+          totalLinhasDados: result.totalLinhasDados,
+          report: result.report,
+        });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/export-csv', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const profile = req.query.profile as string | undefined;
+        const { csv, filename, count, profile: usedProfile } = await exportContactsCsv(
+          auth.clientId,
+          profile,
+        );
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('X-Export-Profile', usedProfile);
+        res.setHeader('X-Export-Count', String(count));
+        res.send(csv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Templates Plataforma (pw-*, espelha fluxo dw-* Discord) ───────────
+    const platformCats: PlatformTemplateCategory[] = [
+      'birthday', 'informative', 'promo', 'reminder', 'custom',
+    ];
+
+    r.get('/platform/templates', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const merged = await listMergedPlatformTemplates(clientOid);
+        res.json(merged);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/templates/variables', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (_req, res) => {
+      try {
+        res.json(PLATFORM_WA_VARIABLE_DOCS);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/templates/preview', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, content, variables, destinationId, mensagem } = req.body as {
+          name?: string;
+          content?: string;
+          variables?: Record<string, string>;
+          destinationId?: string;
+          mensagem?: string;
+        };
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        let vars = variables ?? {};
+
+        if (destinationId) {
+          const dest = await Destination.findOne({
+            _id: destinationId,
+            clientId: clientOid,
+          });
+          if (!dest) {
+            return res.status(404).json({ error: 'Destino não encontrado' });
+          }
+          const org = await Organization.findById(auth.clientId);
+          const owner = org
+            ? await User.findById(org.ownerUserId)
+            : await User.findById(auth.clientId);
+          vars = {
+            ...buildPlatformWhatsAppVariables(dest, org, owner, {
+              mensagem: mensagem?.trim(),
+            }),
+            ...vars,
+          };
+        }
+
+        let text: string | null = null;
+        if (name?.trim()) {
+          text = await renderPlatformTemplateForClient(clientOid, name.trim(), vars);
+          if (!text) {
+            text = renderPlatformCatalogTemplate(name.trim(), vars);
+          }
+        }
+        if (!text && content?.trim()) {
+          if (Object.keys(vars).length > 0) {
+            let out = content.trim();
+            for (const [k, v] of Object.entries(vars)) {
+              out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v ?? ''));
+            }
+            text = out.replace(/\{[^}]+\}/g, '').trim();
+          } else {
+            text = previewPlatformTemplateContent(content.trim());
+          }
+        }
+        if (!text) {
+          return res.status(400).json({ error: 'Informe name (catálogo) ou content' });
+        }
+        res.json({ preview: text, variables: vars });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/platform/templates/:id', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { content, description } = req.body as { content?: string; description?: string };
+        if (!content?.trim()) return res.status(400).json({ error: 'content é obrigatório' });
+
+        const tpl = await PlatformTemplate.findById(req.params.id);
+        if (!tpl) return res.status(404).json({ error: 'Modelo não encontrado' });
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+
+        if (tpl.isDefault && !tpl.clientId) {
+          let customDoc = await PlatformTemplate.findOne({
+            name: tpl.name,
+            clientId: clientOid,
+            isDefault: false,
+          });
+          if (!customDoc) {
+            customDoc = await PlatformTemplate.create({
+              organizationId: auth.organizationId
+                ? new mongoose.Types.ObjectId(auth.organizationId)
+                : null,
+              clientId: clientOid,
+              name: tpl.name,
+              category: tpl.category,
+              content: content.trim(),
+              description: description ?? tpl.description,
+              variables: extractTemplateVariables(content),
+              isDefault: false,
+            });
+            return res.json(customDoc.toObject());
+          }
+          customDoc.content = content.trim();
+          if (description !== undefined) customDoc.description = description;
+          customDoc.variables = extractTemplateVariables(customDoc.content);
+          await customDoc.save();
+          return res.json(customDoc.toObject());
+        }
+
+        if (tpl.clientId && tpl.clientId.toString() !== auth.clientId) {
+          return res.status(403).json({ error: 'Sem permissão' });
+        }
+
+        tpl.content = content.trim();
+        if (description !== undefined) tpl.description = description;
+        tpl.variables = extractTemplateVariables(tpl.content);
+        await tpl.save();
+        res.json(tpl);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/templates/:id/reset', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const tpl = await PlatformTemplate.findById(req.params.id);
+        if (!tpl) return res.status(404).json({ error: 'Modelo não encontrado' });
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        await PlatformTemplate.deleteOne({
+          name: tpl.name,
+          clientId: clientOid,
+          isDefault: false,
+        });
+
+        const fresh = await PlatformTemplate.findByName(tpl.name, clientOid);
+        res.json(fresh ?? { ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/templates', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, category, content } = req.body as {
+          name?: string;
+          category?: PlatformTemplateCategory;
+          content?: string;
+        };
+        if (!name?.trim() || !content?.trim()) {
+          return res.status(400).json({ error: 'name e content são obrigatórios' });
+        }
+        const trimmedName = name.trim();
+        if (isPlatformCatalogName(trimmedName)) {
+          return res.status(400).json({
+            error: 'Nomes pw-* são reservados ao catálogo. Edite o modelo existente.',
+          });
+        }
+        const cat = category && platformCats.includes(category) ? category : 'custom';
+        const doc = await PlatformTemplate.create({
+          organizationId: auth.organizationId
+            ? new mongoose.Types.ObjectId(auth.organizationId)
+            : null,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+          name: trimmedName,
+          category: cat,
+          content: content.trim(),
+          variables: extractTemplateVariables(content),
+          isDefault: false,
+        });
+        res.status(201).json(doc);
+      } catch (e: unknown) {
+        const msg = (e as { code?: number }).code === 11000
+          ? 'Já existe um modelo com este nome'
+          : (e as Error).message;
+        res.status(400).json({ error: msg });
+      }
+    });
+
+    r.delete('/platform/templates/:id', requireCapability(Cap.SEND_TEMPLATES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const doc = await PlatformTemplate.findById(req.params.id);
+        if (!doc) return res.status(404).json({ error: 'Modelo não encontrado' });
+        if (doc.isDefault && !doc.clientId) {
+          return res.status(403).json({ error: 'Modelos do catálogo pw-* não podem ser removidos' });
+        }
+        if (isPlatformCatalogName(doc.name) && doc.clientId === null) {
+          return res.status(403).json({ error: 'Modelos do catálogo pw-* não podem ser removidos' });
+        }
+        if (doc.clientId && doc.clientId.toString() !== auth.clientId) {
+          return res.status(403).json({ error: 'Sem permissão' });
+        }
+        await doc.deleteOne();
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.delete('/destinations/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -1112,16 +1424,23 @@ export class DashboardService {
     // ── Logs ───────────────────────────────────────────────────────────────
     r.get('/logs', requireCapability(Cap.LOGS_VIEW), async (req, res) => {
       try {
+        const auth = (req as DashboardRequest).auth!;
         const {
           level,
           service,
           stage,
           q,
           discord,
+          tenant,
           limit = '100',
         } = req.query as Record<string, string>;
 
         const and: Record<string, unknown>[] = [];
+        const wantsTenant = tenant === '1';
+        const hasGlobalLogs = auth.capabilities.includes(Cap.LOGS_GLOBAL);
+        if (wantsTenant || (!hasGlobalLogs && !auth.isInternalStaff)) {
+          and.push({ clientId: new mongoose.Types.ObjectId(auth.clientId) });
+        }
         if (level) and.push({ level });
         if (stage) and.push({ 'metadata.stage': stage });
         if (service) {
@@ -1277,6 +1596,121 @@ export class DashboardService {
       }
     });
 
+    const mountPlatformAutomationRoutes = (basePath: string) => {
+    r.get(basePath, requireCapability(Cap.SEND_SCHEDULE_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const orgOid = new mongoose.Types.ObjectId(auth.clientId);
+        const rules = await BirthdayAutomationRule.find({ organizationId: orgOid })
+          .sort({ updatedAt: -1 })
+          .lean();
+        res.json(rules);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post(basePath, requireCapability(Cap.SEND_SCHEDULE_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          name?: string;
+          templateName?: string;
+          triggerType?: string;
+          dayOfMonth?: number;
+          intervalMonths?: number;
+          nthBusinessDay?: number;
+          weekday?: number;
+          sendTime?: string;
+          active?: boolean;
+          destinationFilterTags?: string[];
+          mensagemExtra?: string;
+        };
+        const validationErr = validateAutomationPayload(body);
+        if (validationErr) return res.status(400).json({ error: validationErr });
+        const doc = await BirthdayAutomationRule.create({
+          organizationId: new mongoose.Types.ObjectId(auth.clientId),
+          name: body.name?.trim() || 'Automação',
+          templateName: body.templateName?.trim() || 'pw-aniversario',
+          triggerType: body.triggerType ?? 'on_contact_birthday',
+          dayOfMonth: body.dayOfMonth,
+          intervalMonths: body.intervalMonths,
+          nthBusinessDay: body.nthBusinessDay,
+          weekday: body.weekday,
+          sendTime: body.sendTime?.trim() || '09:00',
+          active: body.active !== false,
+          destinationFilterTags: body.destinationFilterTags?.filter(Boolean),
+          mensagemExtra: body.mensagemExtra?.trim(),
+        });
+        res.status(201).json(doc);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch(`${basePath}/:id`, requireCapability(Cap.SEND_SCHEDULE_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const doc = await BirthdayAutomationRule.findOne({
+          _id: req.params.id,
+          organizationId: new mongoose.Types.ObjectId(auth.clientId),
+        });
+        if (!doc) return res.status(404).json({ error: 'Regra não encontrada' });
+        const body = req.body as Record<string, unknown>;
+        const allowed = [
+          'name', 'templateName', 'triggerType', 'dayOfMonth', 'intervalMonths',
+          'nthBusinessDay', 'weekday', 'sendTime', 'active', 'destinationFilterTags', 'mensagemExtra',
+        ];
+        for (const key of allowed) {
+          if (body[key] !== undefined) {
+            (doc as Record<string, unknown>)[key] = body[key];
+          }
+        }
+        await doc.save();
+        res.json(doc);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete(`${basePath}/:id`, requireCapability(Cap.SEND_SCHEDULE_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await BirthdayAutomationRule.deleteOne({
+          _id: req.params.id,
+          organizationId: new mongoose.Types.ObjectId(auth.clientId),
+        });
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ error: 'Regra não encontrada' });
+        }
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post(`${basePath}/run-now`, requireCapability(Cap.SEND_SCHEDULE_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const rules = await BirthdayAutomationRule.find({
+          organizationId: new mongoose.Types.ObjectId(auth.clientId),
+          active: true,
+        });
+        const svc = BirthdayAutomationService.getInstance();
+        let total = 0;
+        for (const rule of rules) {
+          total += await svc.processRule(rule);
+        }
+        res.json({ ok: true, enqueued: total });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+    };
+
+    mountPlatformAutomationRoutes('/platform/automations');
+    mountPlatformAutomationRoutes('/platform/birthday-automation');
+
     // ── Campanhas / Enviar agora ───────────────────────────────────────────
     r.get('/campaigns', requireCapability(Cap.SEND_TEST), async (req, res) => {
       try {
@@ -1313,8 +1747,87 @@ export class DashboardService {
             delayBetweenMs: (m.content.variables as { delayBetweenMs?: number })?.delayBetweenMs,
             sentCount: (m.content.variables as { sentCount?: number })?.sentCount ?? 0,
             acceptWhatsAppRisk: (m.content.variables as { acceptWhatsAppRisk?: boolean })?.acceptWhatsAppRisk === true,
+            messageMode: (m.content.variables as { messageMode?: string })?.messageMode,
+            platformTemplateName: (m.content.variables as { platformTemplateName?: string })?.platformTemplateName,
           })),
         );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/campaigns/validate-destinations', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const destinationIds = (req.body as { destinationIds?: string[] })?.destinationIds;
+        if (!destinationIds?.length) {
+          return res.json({ ok: true });
+        }
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const destDocs = await Destination.find({
+          _id: { $in: destinationIds },
+          clientId: clientOid,
+        });
+
+        const groupDests = destDocs
+          .filter(d => d.type === 'group')
+          .map(d => ({
+            identifier: d.identifier,
+            name: d.name,
+            destinationId: String(d._id),
+          }));
+        const contactDests = destDocs
+          .filter(d => d.type === 'contact')
+          .map(d => ({
+            identifier: d.identifier,
+            name: d.name,
+            destinationId: String(d._id),
+          }));
+
+        if (groupDests.length === 0) {
+          return res.json({ ok: true, contactsNotInGroup: [] as string[] });
+        }
+
+        const waCheck = WhatsAppService.getInstance();
+        if (!waCheck.isClientConnected(auth.clientId)) {
+          return res.json({
+            ok: false,
+            error:
+              'WhatsApp não conectado — reconecte para validar envio em grupos.',
+            contactsNotInGroup: [] as string[],
+          });
+        }
+
+        const allContactDocs = await Destination.find({
+          clientId: clientOid,
+          type: 'contact',
+        });
+        const contactsNotInGroup = await waCheck.listContactIdsNotInGroups(
+          auth.clientId,
+          groupDests,
+          allContactDocs.map(d => ({
+            identifier: d.identifier,
+            destinationId: String(d._id),
+          })),
+        );
+
+        const { error: groupErr, invalidDestinationIds } =
+          await waCheck.validateGroupMembershipDetailed(
+            auth.clientId,
+            groupDests,
+            contactDests,
+          );
+        if (groupErr) {
+          return res.json({
+            ok: false,
+            error: groupErr,
+            invalidDestinationIds,
+            contactsNotInGroup: [], // erro de sessão — não marcar todos os contatos
+          });
+        }
+
+        res.json({ ok: true, contactsNotInGroup });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -1332,10 +1845,20 @@ export class DashboardService {
           delayBetweenMs?: number;
           requireConnected?: boolean;
           acceptWhatsAppRisk?: boolean;
+          messageMode?: 'plain' | 'platform_template';
+          platformTemplateName?: string;
+          templateMensagem?: string;
         };
 
-        const msgCheck = validateMessageText(body.message);
-        if (msgCheck.ok === false) return res.status(400).json({ error: msgCheck.error });
+        const usePlatformTemplate =
+          body.messageMode === 'platform_template' && !!body.platformTemplateName?.trim();
+
+        if (!usePlatformTemplate) {
+          const msgCheck = validateMessageText(body.message);
+          if (msgCheck.ok === false) return res.status(400).json({ error: msgCheck.error });
+        } else if (!body.platformTemplateName?.startsWith('pw-')) {
+          return res.status(400).json({ error: 'Selecione um modelo plataforma (pw-*)' });
+        }
 
         const titleCheck = validateCampaignTitle(body.title);
         if (titleCheck.ok === false) return res.status(400).json({ error: titleCheck.error });
@@ -1379,6 +1902,39 @@ export class DashboardService {
           }
         }
 
+        const groupDests = destDocs
+          .filter(d => d.type === 'group')
+          .map(d => ({
+            identifier: d.identifier,
+            name: d.name,
+            destinationId: String(d._id),
+          }));
+        const contactDests = destDocs
+          .filter(d => d.type === 'contact')
+          .map(d => ({
+            identifier: d.identifier,
+            name: d.name,
+            destinationId: String(d._id),
+          }));
+
+        if (groupDests.length > 0) {
+          const waCheck = WhatsAppService.getInstance();
+          if (!waCheck.isClientConnected(auth.clientId)) {
+            return res.status(400).json({
+              error:
+                'WhatsApp não está conectado. Reconecte em Plataforma → Conexão WhatsApp antes de enviar para grupos.',
+            });
+          }
+          const groupErr = await waCheck.validateGroupMembershipForSend(
+            auth.clientId,
+            groupDests,
+            contactDests,
+          );
+          if (groupErr) {
+            return res.status(400).json({ error: groupErr });
+          }
+        }
+
         let sendAt: Date | undefined;
         if (body.sendAt) {
           sendAt = new Date(body.sendAt);
@@ -1403,7 +1959,7 @@ export class DashboardService {
         const msg = await dispatcher.createCampaign({
           clientId: auth.clientId,
           title: body.title?.trim() || `Envio ${new Date().toLocaleString('pt-BR')}`,
-          message: body.message.trim(),
+          message: (body.message ?? '').trim() || ' ',
           destinations: destDocs.map(d => ({
             type: d.type as 'group' | 'contact',
             identifier: d.identifier,
@@ -1414,6 +1970,14 @@ export class DashboardService {
           delayBetweenMs: normalizeDelayBetweenMs(body.delayBetweenMs, acceptRisk),
           requireConnected: body.requireConnected,
           acceptWhatsAppRisk: acceptRisk,
+          messageMode: usePlatformTemplate ? 'platform_template' : 'plain',
+          platformTemplateName: usePlatformTemplate
+            ? body.platformTemplateName!.trim()
+            : undefined,
+          templateVariables: usePlatformTemplate
+            ? { mensagem: body.templateMensagem?.trim() }
+            : undefined,
+          perDestinationRender: true,
         });
 
         const isScheduled = Boolean(sendAt && sendAt > new Date());
@@ -1502,6 +2066,20 @@ export class DashboardService {
     });
 
     this.app.use('/api', r);
+
+    this.app.use((err: { type?: string; status?: number; statusCode?: number; message?: string }, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const tooLarge =
+        err?.type === 'entity.too.large' ||
+        err?.status === 413 ||
+        err?.statusCode === 413;
+      if (tooLarge) {
+        return res.status(413).json({
+          error:
+            'Arquivo muito grande. O limite é 16 MB por importação (até ~5000 contatos em VCF/CSV).',
+        });
+      }
+      next(err);
+    });
   }
 
   // ─── Socket.IO ────────────────────────────────────────────────────────────
@@ -1603,6 +2181,49 @@ export class DashboardService {
     });
   }
 
+  private async buildPlatformStats(auth: DashboardRequest['auth']) {
+    const clientOid = new mongoose.Types.ObjectId(auth!.clientId);
+    const orgOid = new mongoose.Types.ObjectId(auth!.organizationId);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const wa = WhatsAppService.getInstance();
+    const [contactsCount, messagesToday, waState, org, queuePending, discordRules] =
+      await Promise.all([
+        Destination.countDocuments({ clientId: clientOid, type: 'contact', isActive: true }),
+        SystemLog.countDocuments({
+          clientId: clientOid,
+          message: 'Message sent successfully',
+          timestamp: { $gte: startOfDay },
+        }),
+        wa.getConnectionState(auth!.clientId).catch(() => ({ state: 'close', status: 'disconnected' })),
+        Organization.findById(orgOid).lean(),
+        MessageQueue.countDocuments({
+          clientId: clientOid,
+          status: { $in: ['pending', 'processing'] },
+        }),
+        Rule.countDocuments({ clientId: clientOid, isActive: true }),
+      ]);
+
+    const linkedGuilds = org?.linkedGuildIds?.length ?? 0;
+    const waStatus =
+      (waState as { status?: string }).status ??
+      ((waState as { state?: string }).state === 'open' ? 'connected' : 'disconnected');
+
+    return {
+      contactsCount,
+      messagesToday,
+      waStatus,
+      waState: (waState as { state?: string }).state ?? 'close',
+      queuePending,
+      discord: {
+        linkedGuilds,
+        activeRules: discordRules,
+        enabled: linkedGuilds > 0 || discordRules > 0,
+      },
+    };
+  }
+
   private async buildStats() {
     const now = new Date();
     const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -1675,7 +2296,10 @@ export class DashboardService {
               status: statusMap[data?.state ?? ''] ?? 'disconnected',
             });
           } else if (payload.clientId && payload.status) {
-            this.io.emit('session:update', payload);
+            this.io.emit('session:update', {
+              ...payload,
+              status: payload.status,
+            });
           }
         } catch {
           // ignore malformed messages

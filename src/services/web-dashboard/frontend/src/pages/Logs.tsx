@@ -48,12 +48,13 @@ function stageFromLog(log: Log): string | undefined {
 }
 
 interface Props {
-  scope?: 'all' | 'discord'
+  scope?: 'all' | 'discord' | 'tenant'
 }
 
 export default function Logs({ scope = 'all' }: Props) {
   const { hash } = useLocation()
   const isDiscord = scope === 'discord'
+  const isTenant = scope === 'tenant'
   const isHistoryView = hash === '#historico'
   const [level, setLevel]     = useState('')
   const [service, setService] = useState(isDiscord ? '' : '')
@@ -62,7 +63,7 @@ export default function Logs({ scope = 'all' }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const { data: logs = [], isLoading } = useQuery<Log[]>({
-    queryKey: ['logs', level, service, stage, search, isDiscord],
+    queryKey: ['logs', level, service, stage, search, isDiscord, isTenant],
     queryFn: () => {
       const params = new URLSearchParams()
       if (level)   params.set('level', level)
@@ -70,6 +71,7 @@ export default function Logs({ scope = 'all' }: Props) {
       if (stage)   params.set('stage', stage)
       if (search)  params.set('q', search)
       if (isDiscord) params.set('discord', '1')
+      if (isTenant) params.set('tenant', '1')
       params.set('limit', isDiscord ? '200' : '100')
       return api.get(`/logs?${params}`)
     },
@@ -78,7 +80,12 @@ export default function Logs({ scope = 'all' }: Props) {
 
   const body = (
     <div className="space-y-4">
-      {isHistoryView && !isDiscord && (
+      {isTenant && (
+        <p className="text-sm text-gray-400">
+          Apenas logs da sua empresa (filtro por tenant).
+        </p>
+      )}
+      {isHistoryView && !isDiscord && !isTenant && (
         <p className="text-sm text-gray-400">
           Histórico de envios manuais e agendados.
         </p>
@@ -144,7 +151,7 @@ export default function Logs({ scope = 'all' }: Props) {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder={isDiscord ? 'Buscar (send, hellfps, trace…)…' : 'Buscar mensagem…'}
+          placeholder={isDiscord ? 'Buscar (tenantSender, skulks, trace…)…' : 'Buscar mensagem…'}
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-brand-500 flex-1 min-w-[12rem]"
         />
         <span className="ml-auto text-xs text-gray-500 self-center">{logs.length} registros</span>
@@ -191,8 +198,14 @@ export default function Logs({ scope = 'all' }: Props) {
                 {typeof log.metadata?.preview === 'string' && (
                   <span className="text-gray-500"> — {log.metadata.preview as string}</span>
                 )}
+                {typeof log.metadata?.tenantSender === 'string' && (
+                  <span className="text-violet-400/90"> [{log.metadata.tenantSender as string}]</span>
+                )}
+                {typeof log.metadata?.discordPosterTag === 'string' && (
+                  <span className="text-amber-600/80"> {log.metadata.discordPosterTag as string}</span>
+                )}
                 {typeof log.metadata?.streamer === 'string' && (
-                  <span className="text-emerald-600/80"> @{log.metadata.streamer as string}</span>
+                  <span className="text-emerald-600/80"> live:{log.metadata.streamer as string}</span>
                 )}
               </span>
               {typeof log.metadata?.template === 'string' && (

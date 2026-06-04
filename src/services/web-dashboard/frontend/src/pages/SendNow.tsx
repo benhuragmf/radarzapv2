@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { getSocket } from '../lib/socket'
 import {
   WHATSAPP_LIMITS,
   ALLOWED_SAFE_CAMPAIGN_DELAYS_MS,
@@ -40,7 +41,10 @@ import {
   Plus,
   RefreshCw,
   ShieldAlert,
+  FileText,
+  Eye,
 } from 'lucide-react'
+import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
 
 interface Destination {
   _id: string
@@ -67,6 +71,14 @@ interface WAGroup {
 }
 
 type Priority = 'high' | 'medium' | 'low'
+type MessageMode = 'plain' | 'platform_template'
+
+interface PlatformTemplateOption {
+  _id: string
+  name: string
+  label?: string
+  platformKind?: string
+}
 
 const inputCls =
   'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
@@ -93,7 +105,12 @@ export default function SendNow() {
   const qc = useQueryClient()
 
   const [title, setTitle] = useState('')
+  const [messageMode, setMessageMode] = useState<MessageMode>('plain')
+  const [platformTemplateName, setPlatformTemplateName] = useState('pw-padrao')
+  const [templateMensagem, setTemplateMensagem] = useState('')
   const [message, setMessage] = useState('')
+  const [previewText, setPreviewText] = useState('')
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'contact' | 'group'>('all')
@@ -119,13 +136,54 @@ export default function SendNow() {
   const planQuotaExceeded = billing
     ? exceedsPlanQuota(selectedIds.size, billing.limits, billing.usage)
     : false
-  const messageTooLong = message.length > WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH
+  const messageTooLong =
+    messageMode === 'plain' && message.length > WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH
+  const canSubmitMessage =
+    messageMode === 'platform_template'
+      ? !!platformTemplateName
+      : !!message.trim()
   const delayOptions = acceptWhatsAppRisk
     ? ALLOWED_RISK_CAMPAIGN_DELAYS_MS
     : ALLOWED_SAFE_CAMPAIGN_DELAYS_MS
   const minDelay = acceptWhatsAppRisk
     ? WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS
     : WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS
+
+  const { data: platformTemplates = [] } = useQuery<PlatformTemplateOption[]>({
+    queryKey: ['platform-templates-send'],
+    queryFn: async () => {
+      const list = await api.get<PlatformTemplateOption[]>('/platform/templates')
+      return list.filter(t => t.name.startsWith('pw-'))
+    },
+  })
+
+  const firstSelectedDestId = useMemo(() => {
+    const id = Array.from(selectedIds)[0]
+    return id ?? null
+  }, [selectedIds])
+
+  useEffect(() => {
+    if (messageMode !== 'platform_template' || !platformTemplateName) {
+      setPreviewText('')
+      return
+    }
+    const t = setTimeout(async () => {
+      setPreviewLoading(true)
+      try {
+        const res = await api.post<{ preview: string }>('/platform/templates/preview', {
+          name: platformTemplateName,
+          destinationId: firstSelectedDestId ?? undefined,
+          mensagem: templateMensagem.trim() || undefined,
+        })
+        setPreviewText(res.preview)
+      } catch {
+        setPreviewText('')
+      } finally {
+        setPreviewLoading(false)
+      }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [messageMode, platformTemplateName, templateMensagem, firstSelectedDestId])
 
   const { data: destinations = [] } = useQuery<Destination[]>({
     queryKey: ['destinations'],
@@ -141,6 +199,74 @@ export default function SendNow() {
   const connected = sessions.find(s => s.status === 'connected')
   const isBusiness = connected?.waAccountType === 'business'
   const safeBatch = effectiveSafeBatchSize(isBusiness)
+
+  const hasSelectedGroup = useMemo(
+    () => destinations.some(d => selectedIds.has(d._id) && d.type === 'group'),
+    [destinations, selectedIds],
+  )
+
+  const selectedDestIdsKey = useMemo(
+    () => Array.from(selectedIds).sort().join(','),
+    [selectedIds],
+  )
+
+  const { data: groupValidation, isFetching: validatingGroups } = useQuery<{
+    ok: boolean
+    error?: string
+    invalidDestinationIds?: string[]
+    contactsNotInGroup?: string[]
+  }>({
+    queryKey: ['campaign-validate-destinations', connected?.clientId, selectedDestIdsKey],
+    queryFn: () =>
+      api.post('/campaigns/validate-destinations', {
+        destinationIds: Array.from(selectedIds),
+      }),
+    enabled: hasSelectedGroup && !!connected,
+    staleTime: 0,
+  })
+
+  const GROUP_INLINE_ERROR = 'Número não cadastrado no grupo selecionado'
+
+  const groupMembershipError =
+    groupValidation?.ok === false ? GROUP_INLINE_ERROR : null
+
+  const contactsNotInGroupIds = useMemo(
+    () => new Set(groupValidation?.contactsNotInGroup ?? []),
+    [groupValidation?.contactsNotInGroup],
+  )
+
+  const selectedGroupIdsWithError = useMemo(() => {
+    const ids = new Set<string>()
+    if (!hasSelectedGroup || groupValidation?.ok !== false) return ids
+    for (const d of destinations) {
+      if (d.type !== 'group' || !selectedIds.has(d._id)) continue
+      if (groupValidation.invalidDestinationIds?.includes(d._id)) {
+        ids.add(d._id)
+        continue
+      }
+      // Erro de sessão no grupo selecionado
+      if (groupValidation.error) ids.add(d._id)
+    }
+    return ids
+  }, [destinations, selectedIds, hasSelectedGroup, groupValidation])
+
+  useEffect(() => {
+    const socket = getSocket()
+    const onSessionUpdate = (payload: { status?: string; event?: string }) => {
+      if (
+        payload.status === 'connected' ||
+        payload.status === 'disconnected' ||
+        payload.event === 'CONNECTION_UPDATE'
+      ) {
+        qc.invalidateQueries({ queryKey: ['sessions'] })
+        qc.invalidateQueries({ queryKey: ['campaign-validate-destinations'] })
+      }
+    }
+    socket.on('session:update', onSessionUpdate)
+    return () => {
+      socket.off('session:update', onSessionUpdate)
+    }
+  }, [qc])
 
   const durationEst = estimateCampaignDurationMs(
     selectedIds.size,
@@ -173,10 +299,11 @@ export default function SendNow() {
 
   const toggleDest = (id: string) => {
     const dest = destinations.find(d => d._id === id)
-      if (dest?.type === 'contact') {
-        const st = effectiveConsentStatus(dest.consentStatus, dest.consent?.granted)
-        if (!canSelectForSend(st, dest.pendingOutboundCount ?? 0)) return
-      }
+    if (dest?.type === 'contact') {
+      const st = effectiveConsentStatus(dest.consentStatus, dest.consent?.granted)
+      if (!canSelectForSend(st, dest.pendingOutboundCount ?? 0)) return
+      if (hasSelectedGroup && contactsNotInGroupIds.has(id)) return
+    }
     setSelectedIds(prev => {
       const next = new Set(prev)
       if (next.has(id)) {
@@ -197,6 +324,7 @@ export default function SendNow() {
         if (d.type === 'contact') {
           const st = effectiveConsentStatus(d.consentStatus, d.consent?.granted)
           if (!canSelectForSend(st, d.pendingOutboundCount ?? 0)) continue
+          if (hasSelectedGroup && contactsNotInGroupIds.has(d._id)) continue
         }
         next.add(d._id)
       }
@@ -227,12 +355,20 @@ export default function SendNow() {
     mutationFn: () => {
       const body: Record<string, unknown> = {
         title: title.trim() || undefined,
-        message: message.trim(),
+        message:
+          messageMode === 'platform_template'
+            ? previewText || ' '
+            : message.trim(),
         destinationIds: Array.from(selectedIds),
         priority,
         delayBetweenMs: Math.max(minDelay, delayBetweenMs),
         requireConnected,
         acceptWhatsAppRisk: acceptWhatsAppRisk && riskAcknowledged,
+        messageMode,
+        platformTemplateName:
+          messageMode === 'platform_template' ? platformTemplateName : undefined,
+        templateMensagem:
+          messageMode === 'platform_template' ? templateMensagem.trim() : undefined,
       }
       if (scheduleMode) {
         body.sendAt = new Date(sendAtLocal).toISOString()
@@ -360,6 +496,12 @@ export default function SendNow() {
                   amanhã automaticamente.
                 </p>
               )}
+              {groupMembershipError && (
+                <p className="text-[11px] text-red-400/95 mb-2 flex items-start gap-1.5">
+                  <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                  {validatingGroups ? 'Verificando grupo…' : groupMembershipError}
+                </p>
+              )}
 
               <div className="max-h-52 overflow-y-auto space-y-1 border border-gray-800 rounded-lg p-2">
                 {filteredDest.length === 0 ? (
@@ -376,14 +518,28 @@ export default function SendNow() {
                         ? effectiveConsentStatus(d.consentStatus, d.consent?.granted)
                         : null
                     const blocked = consentSt != null && !canSelectForSend(consentSt, d.pendingOutboundCount ?? 0)
+                    const contactNotInGroup =
+                      hasSelectedGroup &&
+                      d.type === 'contact' &&
+                      contactsNotInGroupIds.has(d._id)
+                    const groupNotInGroup =
+                      d.type === 'group' &&
+                      selectedIds.has(d._id) &&
+                      !validatingGroups &&
+                      selectedGroupIdsWithError.has(d._id)
+                    const groupValidating =
+                      d.type === 'group' && selectedIds.has(d._id) && validatingGroups
+                    const blockedForGroup = contactNotInGroup && selectedIds.has(d._id)
                     return (
                     <label
                       key={d._id}
                       className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-colors ${
-                        blocked
+                        blocked || blockedForGroup
                           ? 'opacity-50 cursor-not-allowed'
                           : selectedIds.has(d._id)
-                            ? 'bg-brand-600/15 border border-brand-600/30 cursor-pointer'
+                            ? groupNotInGroup
+                              ? 'bg-red-950/20 border border-red-800/40 cursor-pointer'
+                              : 'bg-brand-600/15 border border-brand-600/30 cursor-pointer'
                             : 'hover:bg-gray-800 cursor-pointer'
                       }`}
                       style={
@@ -395,7 +551,7 @@ export default function SendNow() {
                       <input
                         type="checkbox"
                         checked={selectedIds.has(d._id)}
-                        disabled={blocked}
+                        disabled={blocked || blockedForGroup}
                         onChange={() => toggleDest(d._id)}
                         className="rounded border-gray-600"
                       />
@@ -408,6 +564,15 @@ export default function SendNow() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{d.name}</p>
                         <p className="text-[11px] text-gray-500 font-mono truncate">{d.identifier}</p>
+                        {groupValidating && (
+                          <p className="text-[10px] text-gray-500 mt-0.5">Verificando grupo…</p>
+                        )}
+                        {groupNotInGroup && (
+                          <p className="text-[10px] text-red-400 mt-0.5">{GROUP_INLINE_ERROR}</p>
+                        )}
+                        {contactNotInGroup && (
+                          <p className="text-[10px] text-red-400 mt-0.5">{GROUP_INLINE_ERROR}</p>
+                        )}
                       </div>
                       <Badge label={d.type === 'group' ? 'grupo' : 'contato'} variant={d.type === 'group' ? 'green' : 'blue'} />
                     </label>
@@ -489,20 +654,102 @@ export default function SendNow() {
                     className={inputCls}
                   />
                 </div>
-                <div>
-                  <label className={labelCls}>Texto da mensagem *</label>
-                  <textarea
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                    rows={5}
-                    maxLength={WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
-                    placeholder="Digite a mensagem que será enviada no WhatsApp..."
-                    className={`${inputCls} resize-none ${messageTooLong ? 'border-amber-600' : ''}`}
-                  />
-                  <p className={`text-[11px] mt-1 text-right ${messageTooLong ? 'text-amber-400' : 'text-gray-600'}`}>
-                    {message.length} / {WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
-                  </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMessageMode('plain')}
+                    className={`flex-1 py-2 rounded-lg text-xs border ${
+                      messageMode === 'plain'
+                        ? 'border-brand-500 bg-brand-600/20 text-white'
+                        : 'border-gray-700 text-gray-400'
+                    }`}
+                  >
+                    Texto livre
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessageMode('platform_template')}
+                    className={`flex-1 py-2 rounded-lg text-xs border ${
+                      messageMode === 'platform_template'
+                        ? 'border-brand-500 bg-brand-600/20 text-white'
+                        : 'border-gray-700 text-gray-400'
+                    }`}
+                  >
+                    <FileText size={12} className="inline mr-1" />
+                    Modelo Plataforma (pw-*)
+                  </button>
                 </div>
+                <p className="text-[10px] text-gray-600">
+                  Modelos Discord (dw-*) ficam na aba Discord → Formatos. Aqui só catálogo
+                  plataforma para envio manual e agendado.
+                </p>
+                {messageMode === 'platform_template' ? (
+                  <>
+                    <div>
+                      <label className={labelCls}>Modelo pw-*</label>
+                      <select
+                        value={platformTemplateName}
+                        onChange={e => setPlatformTemplateName(e.target.value)}
+                        className={inputCls}
+                      >
+                        {platformTemplates.map(t => (
+                          <option key={t._id} value={t.name}>
+                            {t.label ?? t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>
+                        Texto extra ({'{mensagem}'}) — opcional
+                      </label>
+                      <textarea
+                        value={templateMensagem}
+                        onChange={e => setTemplateMensagem(e.target.value)}
+                        rows={2}
+                        placeholder="Complemento inserido no modelo..."
+                        className={`${inputCls} resize-none`}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Eye size={12} />
+                      Pré-visualização
+                      {firstSelectedDestId ? (
+                        <span className="text-brand-400/80">(1º destino selecionado)</span>
+                      ) : (
+                        <span>(amostra — selecione um contato para personalizar)</span>
+                      )}
+                    </div>
+                    {previewLoading ? (
+                      <div className="flex justify-center py-4">
+                        <Spinner size={20} />
+                      </div>
+                    ) : (
+                      <WhatsAppPreviewBubble text={previewText} />
+                    )}
+                    <Link
+                      to="/platform/templates"
+                      className="text-xs text-brand-400 hover:underline"
+                    >
+                      Editar modelos em Plataforma → Modelos
+                    </Link>
+                  </>
+                ) : (
+                  <div>
+                    <label className={labelCls}>Texto da mensagem *</label>
+                    <textarea
+                      value={message}
+                      onChange={e => setMessage(e.target.value)}
+                      rows={5}
+                      maxLength={WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
+                      placeholder="Digite a mensagem que será enviada no WhatsApp..."
+                      className={`${inputCls} resize-none ${messageTooLong ? 'border-amber-600' : ''}`}
+                    />
+                    <p className={`text-[11px] mt-1 text-right ${messageTooLong ? 'text-amber-400' : 'text-gray-600'}`}>
+                      {message.length} / {WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
+                    </p>
+                  </div>
+                )}
               </div>
             </Card>
 
@@ -697,12 +944,14 @@ export default function SendNow() {
                   submit.mutate()
                 }}
                 disabled={
-                  !message.trim() ||
+                  !canSubmitMessage ||
                   selectedIds.size === 0 ||
                   messageTooLong ||
                   submit.isPending ||
                   (!scheduleMode && !connected) ||
-                  (acceptWhatsAppRisk && !riskAcknowledged)
+                  (acceptWhatsAppRisk && !riskAcknowledged) ||
+                  Boolean(groupMembershipError) ||
+                  (hasSelectedGroup && validatingGroups)
                 }
                 className="w-full justify-center"
               >

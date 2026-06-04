@@ -67,6 +67,7 @@ export default function TeamMembers() {
 
   return (
     <div className="max-w-2xl space-y-5">
+      <h1 className="text-lg font-semibold text-white">Cargos e acessos</h1>
       <p className="text-sm text-gray-500">
         Convide funcionários da sua empresa. Eles entram com Google (e-mail convidado) ou Discord, conforme o
         vínculo. Papéis da empresa são independentes dos cargos no servidor Discord.

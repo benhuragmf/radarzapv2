@@ -21,6 +21,12 @@ import Settings from './pages/Settings'
 import TeamMembers from './pages/TeamMembers'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminClients from './pages/admin/AdminClients'
+import PlatformOverview from './pages/platform/PlatformOverview'
+import PlatformTemplates from './pages/platform/PlatformTemplates'
+import PlatformReports from './pages/platform/PlatformReports'
+import PlatformContacts from './pages/platform/PlatformContacts'
+import PlatformAutomations from './pages/platform/PlatformAutomations'
+import ComingSoon from './pages/ComingSoon'
 import Login from './pages/Login'
 import { getMe, type AuthUser } from './lib/auth'
 import { AuthContext } from './lib/authContext'
@@ -80,6 +86,10 @@ export default function App() {
 
           {/* Cliente */}
           <Route path="dashboard" element={<Guard user={user} path="/dashboard"><Dashboard /></Guard>} />
+          <Route path="platform/templates" element={<Guard user={user} path="/platform/templates"><PlatformTemplates /></Guard>} />
+          <Route path="platform/reports" element={<Guard user={user} path="/platform/reports"><PlatformReports /></Guard>} />
+          <Route path="platform/contacts" element={<Guard user={user} path="/platform/contacts"><PlatformContacts /></Guard>} />
+          <Route path="platform" element={<Guard user={user} path="/platform"><PlatformOverview /></Guard>} />
           <Route path="sessions" element={<Guard user={user} path="/sessions"><Sessions /></Guard>} />
           <Route path="destinations" element={<Guard user={user} path="/destinations"><Destinations /></Guard>} />
           <Route path="grupos" element={<Guard user={user} path="/grupos"><WhatsAppGroups /></Guard>} />
@@ -104,12 +114,16 @@ export default function App() {
           <Route path="queue" element={<Navigate to="/discord/fila" replace />} />
           <Route path="logs" element={<Navigate to="/discord/logs" replace />} />
           <Route path="send/agendamentos" element={<Guard user={user} path="/send/agendamentos"><SendSchedules /></Guard>} />
+          <Route path="platform/automacoes" element={<Guard user={user} path="/platform/automacoes"><PlatformAutomations /></Guard>} />
+          <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />
           <Route path="send/historico" element={<Guard user={user} path="/send/historico"><SendHistory /></Guard>} />
           <Route path="send" element={<Guard user={user} path="/send"><SendPage /></Guard>} />
           <Route path="test-send" element={<LegacySendRedirect />} />
           <Route path="plans" element={<Guard user={user} path="/plans"><Plans user={user} /></Guard>} />
           <Route path="settings/team" element={<Guard user={user} path="/settings/team"><TeamMembers /></Guard>} />
+          <Route path="settings/equipe" element={<Navigate to="/settings/team" replace />} />
           <Route path="settings" element={<Guard user={user} path="/settings"><Settings user={user} /></Guard>} />
+          <Route path="em-breve/:slug" element={<Guard user={user} path="/em-breve"><ComingSoon /></Guard>} />
 
           {/* Admin interno */}
           <Route path="admin/dashboard" element={<Guard user={user} path="/admin/dashboard"><AdminDashboard /></Guard>} />

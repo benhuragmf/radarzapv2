@@ -13,6 +13,10 @@ export interface ExtractedMessage {
   authorId: string;
   authorName: string;
   authorTag: string;
+  /** Quem postou no canal Discord (apelido global ou @username) */
+  discordPosterLabel?: string;
+  /** Conta/empresa RadarZap (painel) — preenchido na fila */
+  radarzapSenderLabel?: string;
   isBot: boolean;
 
   text: string;
@@ -68,6 +72,10 @@ export class MessageExtractor {
       channelName: (message.channel as any).name ?? '',
       authorId: message.author.id,
       authorName: message.author.username,
+      discordPosterLabel:
+        message.member?.displayName?.trim() ||
+        message.author.globalName?.trim() ||
+        message.author.username,
       authorTag: message.author.tag,
       isBot: message.author.bot,
       text: message.content,

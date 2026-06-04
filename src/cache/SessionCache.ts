@@ -223,6 +223,7 @@ export class SessionCache {
       waAccountType?: 'web' | 'business';
       lastActivity?: Date;
       connectionAttempts?: number;
+      manualDisconnect?: boolean;
     },
     ttlSeconds: number = config.WHATSAPP.SESSION_TIMEOUT / 1000
   ): Promise<boolean> {

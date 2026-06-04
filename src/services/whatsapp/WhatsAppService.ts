@@ -31,6 +31,7 @@ import {
   splitImageCaption,
 } from '@/utils/discord-wa-format';
 import { logPipeline } from '@/utils/pipeline-log';
+import { buildPipelineTrackingMeta } from '@/utils/pipeline-tracking';
 import {
   previewOutbound,
   resolveOutboundTemplate,
@@ -38,6 +39,7 @@ import {
   streamLinkFromExtracted,
 } from '@/utils/stream-template';
 import { ConsentService } from '@/services/consent/ConsentService';
+import { isPhoneInParticipants } from '@/utils/group-membership';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -80,6 +82,8 @@ export class WhatsAppService {
   private autoReconnectInterval: NodeJS.Timeout | null = null;
   /** Evita múltiplos createWhatsAppSession simultâneos (causa erro 440) */
   private reconnectingClients = new Set<string>();
+  /** Desconexão manual (Discord/painel) — não auto-reconectar */
+  private manuallyDisconnectedClients = new Set<string>();
   /** Mensagens enviadas (necessário para decifrar votos em enquetes de consentimento) */
   private outboundMessages = new Map<string, WAMessage>();
   private lastWaConnectionLogKey = new Map<string, string>();
@@ -416,10 +420,18 @@ export class WhatsAppService {
       waAccountType?: 'web' | 'business';
       deviceInfo?: { platform: string; browser: string; version: string };
       lastActivity?: Date;
+      manualDisconnect?: boolean;
     },
   ): Promise<void> {
+    if (data.status === 'connected') {
+      this.manuallyDisconnectedClients.delete(clientId);
+    }
+
     await this.sessionCache.setWhatsAppSession(clientId, {
       ...data,
+      manualDisconnect:
+        data.manualDisconnect === true ||
+        (data.status === 'disconnected' && this.manuallyDisconnectedClients.has(clientId)),
       lastActivity: data.lastActivity ?? new Date(),
     }, WA_CACHE_TTL_SEC);
 
@@ -532,15 +544,21 @@ export class WhatsAppService {
       if (
         !this.connectingClients.has(id) &&
         !this.reconnectingClients.has(id) &&
-        !this.sessions.has(id)
+        !this.sessions.has(id) &&
+        !this.manuallyDisconnectedClients.has(id)
       ) {
-        try {
-          await this.restoreSession(id);
-        } catch (err) {
-          this.serviceLogger.debug('ensureClientReady restore tentativa', {
-            clientId: id,
-            error: (err as Error).message,
-          });
+        const cached = await this.sessionCache.getWhatsAppSession(id);
+        if (cached?.manualDisconnect) {
+          this.manuallyDisconnectedClients.add(id);
+        } else {
+          try {
+            await this.restoreSession(id);
+          } catch (err) {
+            this.serviceLogger.debug('ensureClientReady restore tentativa', {
+              clientId: id,
+              error: (err as Error).message,
+            });
+          }
         }
       }
 
@@ -674,6 +692,8 @@ export class WhatsAppService {
     clientId: string,
     options?: { discordUserId?: string; channelId?: string; forceQr?: boolean },
   ): Promise<{ instance: WaInstanceState; qrcode?: WaQrCodePayload }> {
+    this.manuallyDisconnectedClients.delete(clientId);
+
     const current = await this.getConnectionState(clientId);
     if (current.instance.state === 'open') {
       return { instance: current.instance };
@@ -800,6 +820,8 @@ export class WhatsAppService {
 
   /** Evolution API: disconnect temporário — fecha socket, mantém credenciais */
   async temporaryDisconnect(clientId: string): Promise<{ success: boolean; message: string }> {
+    this.manuallyDisconnectedClients.add(clientId);
+
     const socket = this.sessions.get(clientId);
     if (socket) {
       socket.end(undefined);
@@ -820,6 +842,7 @@ export class WhatsAppService {
       status: 'disconnected',
       statusReason: 200,
       lastActivity: new Date(),
+      manualDisconnect: true,
     });
 
     return { success: true, message: 'Disconnected temporarily' };
@@ -1040,7 +1063,8 @@ export class WhatsAppService {
     await this.queueManager.registerProcessor(
       'whatsapp-connection',
       async (job: any) => {
-        const { name, data } = job;
+        const name = job?.name ?? job?.data?.jobName;
+        const data = job?.data ?? job;
 
         switch (name) {
           case 'connect-whatsapp':
@@ -1147,6 +1171,11 @@ export class WhatsAppService {
       for (const clientId of clientIds) {
         try {
           if (this.sessions.has(clientId) || this.connectingClients.has(clientId)) continue;
+          const cached = await this.sessionCache.getWhatsAppSession(clientId);
+          if (cached?.manualDisconnect) {
+            this.manuallyDisconnectedClients.add(clientId);
+            continue;
+          }
           await this.restoreSession(clientId);
         } catch (error) {
           const msg = (error as Error).message;
@@ -1182,8 +1211,15 @@ export class WhatsAppService {
       if (
         this.sessions.has(clientId) ||
         this.connectingClients.has(clientId) ||
-        this.reconnectingClients.has(clientId)
+        this.reconnectingClients.has(clientId) ||
+        this.manuallyDisconnectedClients.has(clientId)
       ) {
+        continue;
+      }
+
+      const cached = await this.sessionCache.getWhatsAppSession(clientId);
+      if (cached?.manualDisconnect) {
+        this.manuallyDisconnectedClients.add(clientId);
         continue;
       }
 
@@ -1464,6 +1500,11 @@ export class WhatsAppService {
 
         this.serviceLogger.warn(`WhatsApp connection closed for client: ${clientId} (code=${statusCode})`);
 
+        if (this.manuallyDisconnectedClients.has(clientId)) {
+          await this.softDisconnect(clientId, statusCode ?? 200);
+          return;
+        }
+
         if (isLoggedOut) {
           this.serviceLogger.info(`Client ${clientId} logged out, cleaning up session`);
           await this.handleSessionDisconnect(clientId);
@@ -1741,17 +1782,18 @@ export class WhatsAppService {
         traceId: data.traceId,
         destination,
         template: data.resolvedTemplate ?? data.templateName,
-        streamer: data.extractedData?.embedAuthorName,
-        streamLink: streamLink || undefined,
-        captureKind: data.extractedData?.captureKind,
-        captionLen: text.length,
-        followUpLen: captionFollowUp.length,
-        hasLink,
-        hasRodape,
-        hasImage,
-        weakCaption: extracted ? shouldUseLiveTemplate(extracted, text, streamLink) : false,
-        preview: previewOutbound(`${text}\n${captionFollowUp}`.trim()),
-        delay: data.jobDelay,
+        ...buildPipelineTrackingMeta(extracted, {
+          streamer: data.extractedData?.embedAuthorName,
+          streamLink: streamLink || undefined,
+          captionLen: text.length,
+          followUpLen: captionFollowUp.length,
+          hasLink,
+          hasRodape,
+          hasImage,
+          weakCaption: extracted ? shouldUseLiveTemplate(extracted, text, streamLink) : false,
+          preview: previewOutbound(`${text}\n${captionFollowUp}`.trim()),
+          delay: data.jobDelay,
+        }),
       }, clientObjectId, data.traceId);
 
       this.serviceLogger.info('WA envio preparado', {
@@ -1795,6 +1837,14 @@ export class WhatsAppService {
         }
       } else if (!destinationDoc.isActive && destinationDoc.type === 'group') {
         throw new Error('Destino inativo');
+      }
+
+      if (destinationDoc.type === 'group') {
+        const groupErr = await this.validateGroupMembershipForSend(
+          clientId,
+          [{ identifier: destinationDoc.identifier, name: destinationDoc.name }],
+        );
+        if (groupErr) throw new Error(groupErr);
       }
 
       // Format JID correctly for Baileys
@@ -1941,14 +1991,15 @@ export class WhatsAppService {
         waMessageId: result?.key?.id,
         traceId: data.traceId,
         template: data.resolvedTemplate ?? data.templateName,
-        streamer: data.extractedData?.embedAuthorName,
-        streamLink: streamLink || undefined,
-        captureKind: data.extractedData?.captureKind,
-        hasLink,
-        hasRodape,
-        captionLen: text.length,
-        followUpLen: captionFollowUp.length,
-        preview: previewOutbound(fullOutbound),
+        ...buildPipelineTrackingMeta(extracted, {
+          streamer: data.extractedData?.embedAuthorName,
+          streamLink: streamLink || undefined,
+          hasLink,
+          hasRodape,
+          captionLen: text.length,
+          followUpLen: captionFollowUp.length,
+          preview: previewOutbound(fullOutbound),
+        }),
       }, clientObjectId, data.traceId);
 
       this.circuitBreaker.recordSuccess();
@@ -2537,6 +2588,164 @@ export class WhatsAppService {
       this.serviceLogger.error(`Failed to remove destination ${identifier}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Valida envio para grupos: sessão conectada (e contatos selecionados) devem ser participantes.
+   * Retorna mensagem de erro ou null se OK.
+   */
+  private normalizeGroupJid(identifier: string): string {
+    return this.formatJid(identifier, 'group');
+  }
+
+  private groupJidMatches(a: string, b: string): boolean {
+    const strip = (id: string) => id.replace(/@g\.us$/i, '').replace(/\D/g, '');
+    return strip(a) === strip(b);
+  }
+
+  /** Carrega participantes ou mensagem amigável (ex.: número fora do grupo). */
+  private async loadGroupParticipantsForValidation(
+    clientId: string,
+    group: { identifier: string; name: string },
+  ): Promise<{ participants: Array<{ id: string }>; error: string | null }> {
+    const socket = this.sessions.get(clientId);
+    if (!socket?.user) {
+      return { participants: [], error: 'WhatsApp não conectado' };
+    }
+
+    const groupJid = this.normalizeGroupJid(group.identifier);
+    const sessionPhone = wuidToPhone(socket.user.id);
+    const phoneHint = sessionPhone ?? 'Seu número WhatsApp';
+
+    try {
+      const metadata = await socket.groupMetadata(groupJid);
+      return { participants: metadata.participants ?? [], error: null };
+    } catch {
+      try {
+        const participating = await socket.groupFetchAllParticipating();
+        const stillMember = Object.values(participating).some(g =>
+          this.groupJidMatches(g.id, groupJid) || this.groupJidMatches(g.id, group.identifier),
+        );
+        if (!stillMember) {
+          return {
+            participants: [],
+            error:
+              `Número não cadastrado no grupo "${group.name}". ` +
+              `${phoneHint} não participa deste grupo — entre pelo celular ou remova o grupo dos destinos.`,
+          };
+        }
+      } catch {
+        /* fall through */
+      }
+
+      return {
+        participants: [],
+        error:
+          `Não foi possível verificar o grupo "${group.name}". ` +
+          'Confirme que seu WhatsApp ainda participa dele e tente reconectar.',
+      };
+    }
+  }
+
+  async validateGroupMembershipForSend(
+    clientId: string,
+    groups: Array<{ identifier: string; name: string }>,
+    contacts: Array<{ identifier: string; name: string }> = [],
+  ): Promise<string | null> {
+    const result = await this.validateGroupMembershipDetailed(clientId, groups, contacts);
+    return result.error;
+  }
+
+  /** Valida participação em grupos; retorna IDs de destinos com falha (contatos ou grupos). */
+  async validateGroupMembershipDetailed(
+    clientId: string,
+    groups: Array<{ identifier: string; name: string; destinationId?: string }>,
+    contacts: Array<{ identifier: string; name: string; destinationId?: string }> = [],
+  ): Promise<{ error: string | null; invalidDestinationIds: string[] }> {
+    if (groups.length === 0) {
+      return { error: null, invalidDestinationIds: [] };
+    }
+
+    const socket = this.sessions.get(clientId);
+    if (!socket?.user) {
+      return { error: 'WhatsApp não conectado', invalidDestinationIds: [] };
+    }
+
+    const sessionPhone = wuidToPhone(socket.user.id);
+    if (!sessionPhone) {
+      return { error: 'Número da sessão WhatsApp indisponível', invalidDestinationIds: [] };
+    }
+
+    const invalidIds = new Set<string>();
+
+    for (const group of groups) {
+      const { participants, error: loadErr } = await this.loadGroupParticipantsForValidation(
+        clientId,
+        group,
+      );
+      if (loadErr) {
+        if (group.destinationId) invalidIds.add(group.destinationId);
+        return { error: loadErr, invalidDestinationIds: [...invalidIds] };
+      }
+
+      if (!isPhoneInParticipants(sessionPhone, participants)) {
+        if (group.destinationId) invalidIds.add(group.destinationId);
+        return {
+          error:
+            `Número não cadastrado no grupo "${group.name}". ` +
+            'Seu WhatsApp conectado não participa deste grupo.',
+          invalidDestinationIds: [...invalidIds],
+        };
+      }
+
+      for (const contact of contacts) {
+        if (!isPhoneInParticipants(contact.identifier, participants)) {
+          if (contact.destinationId) invalidIds.add(contact.destinationId);
+          return {
+            error:
+              `${contact.name}: número não cadastrado no grupo "${group.name}". ` +
+              'Este contato precisa estar no grupo para enviar junto com ele.',
+            invalidDestinationIds: [...invalidIds],
+          };
+        }
+      }
+    }
+
+    return { error: null, invalidDestinationIds: [] };
+  }
+
+  /** Contatos que não participam de algum dos grupos (só quando participantes foram carregados). */
+  async listContactIdsNotInGroups(
+    clientId: string,
+    groups: Array<{ identifier: string; name: string }>,
+    contacts: Array<{ identifier: string; destinationId?: string }>,
+  ): Promise<string[]> {
+    if (groups.length === 0 || contacts.length === 0) return [];
+
+    const socket = this.sessions.get(clientId);
+    if (!socket?.user) return [];
+
+    const notIn: string[] = [];
+
+    for (const group of groups) {
+      const { participants, error } = await this.loadGroupParticipantsForValidation(
+        clientId,
+        group,
+      );
+      // Erro de sessão/grupo — não marcar contatos individualmente
+      if (error || participants.length === 0) {
+        continue;
+      }
+
+      for (const contact of contacts) {
+        if (!contact.destinationId) continue;
+        if (!isPhoneInParticipants(contact.identifier, participants)) {
+          notIn.push(contact.destinationId);
+        }
+      }
+    }
+
+    return [...new Set(notIn)];
   }
 
   /**

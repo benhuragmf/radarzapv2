@@ -8,6 +8,11 @@ import { ConsentService } from '@/services/consent/ConsentService';
 import { delay } from '@/services/whatsapp/waSessionEvents';
 import { createServiceLogger } from '@/utils/logger';
 import { User } from '@/models/User';
+import { renderPlatformTemplateForClient } from '@/services/platform/platformTemplateRender';
+import {
+  buildPlatformWhatsAppVariables,
+  type PlatformWaVariableContext,
+} from '@/utils/platform-wa-variables';
 import {
   getDispatchBatchSize,
   normalizeDelayBetweenMs,
@@ -25,6 +30,8 @@ const PRIORITY_MAP = { high: 8, medium: 5, low: 2 } as const;
 
 export type CampaignPriority = keyof typeof PRIORITY_MAP;
 
+export type CampaignMessageMode = 'plain' | 'platform_template';
+
 export interface CreateCampaignInput {
   clientId: string;
   title: string;
@@ -36,6 +43,11 @@ export interface CreateCampaignInput {
   delayBetweenMs?: number;
   requireConnected?: boolean;
   acceptWhatsAppRisk?: boolean;
+  /** pw-* — render por destino no dispatch */
+  messageMode?: CampaignMessageMode;
+  platformTemplateName?: string;
+  templateVariables?: PlatformWaVariableContext;
+  perDestinationRender?: boolean;
 }
 
 interface CampaignVars {
@@ -48,6 +60,10 @@ interface CampaignVars {
   sentCount?: number;
   dispatchErrors?: string[];
   pauseReason?: string;
+  messageMode?: CampaignMessageMode;
+  platformTemplateName?: string;
+  templateVariables?: PlatformWaVariableContext;
+  perDestinationRender?: boolean;
 }
 
 function readVars(msg: IMessageQueue): CampaignVars {
@@ -98,12 +114,48 @@ export class CampaignDispatchService {
       destCount / getDispatchBatchSize(acceptRisk, isBusiness),
     );
 
+    const messageMode: CampaignMessageMode =
+      input.messageMode === 'platform_template' && input.platformTemplateName
+        ? 'platform_template'
+        : 'plain';
+
+    let queueText = input.message.trim();
+    if (messageMode === 'platform_template' && input.platformTemplateName) {
+      const clientOid = new mongoose.Types.ObjectId(input.clientId);
+      const first = input.destinations[0];
+      if (first) {
+        const destDoc = await Destination.findByIdentifier(first.identifier, clientOid);
+        const org = await Organization.findById(input.clientId);
+        const user = await User.findById(org?.ownerUserId ?? input.clientId);
+        const baseDest = destDoc ?? {
+          name: first.name,
+          identifier: first.identifier,
+          type: first.type,
+        };
+        const waVars = buildPlatformWhatsAppVariables(
+          baseDest as Parameters<typeof buildPlatformWhatsAppVariables>[0],
+          org,
+          user,
+          input.templateVariables,
+        );
+        const rendered = await renderPlatformTemplateForClient(
+          clientOid,
+          input.platformTemplateName,
+          waVars,
+        );
+        if (rendered?.trim()) queueText = rendered;
+      }
+      if (!queueText) {
+        throw new Error('Não foi possível renderizar o modelo plataforma');
+      }
+    }
+
     const msg = await MessageQueue.createMessage(
       new mongoose.Types.ObjectId(input.clientId),
       {
-        text: input.message.trim(),
+        text: queueText,
         image: input.image,
-        template: 'manual-send',
+        template: messageMode === 'platform_template' ? 'platform-send' : 'manual-send',
         variables: {
           title: input.title,
           delayBetweenMs: normalizeDelayBetweenMs(input.delayBetweenMs, acceptRisk),
@@ -113,6 +165,10 @@ export class CampaignDispatchService {
           sentIndex: 0,
           sentCount: 0,
           dispatchErrors: [],
+          messageMode,
+          platformTemplateName: input.platformTemplateName,
+          templateVariables: input.templateVariables,
+          perDestinationRender: input.perDestinationRender !== false,
         },
       },
       input.destinations,
@@ -134,7 +190,7 @@ export class CampaignDispatchService {
     const pending = await MessageQueue.findPendingMessages(15);
     const processing = await MessageQueue.find({
       status: 'processing',
-      'content.template': 'manual-send',
+      'content.template': { $in: ['manual-send', 'platform-send'] },
       scheduledFor: { $lte: new Date() },
     }).limit(5);
 
@@ -151,9 +207,46 @@ export class CampaignDispatchService {
     return processed;
   }
 
+  private async resolveOutboundText(
+    msg: IMessageQueue,
+    dest: { type: 'group' | 'contact'; identifier: string; name: string },
+    vars: CampaignVars,
+  ): Promise<string> {
+    if (
+      vars.messageMode !== 'platform_template' ||
+      !vars.platformTemplateName ||
+      vars.perDestinationRender === false
+    ) {
+      return msg.content.text;
+    }
+
+    const destDoc = await Destination.findByIdentifier(dest.identifier, msg.clientId);
+    const org = await Organization.findById(msg.clientId);
+    const user = await User.findById(org?.ownerUserId ?? msg.clientId);
+    const baseDest = destDoc ?? {
+      name: dest.name,
+      identifier: dest.identifier,
+      type: dest.type,
+    };
+    const waVars = buildPlatformWhatsAppVariables(
+      baseDest as Parameters<typeof buildPlatformWhatsAppVariables>[0],
+      org,
+      user,
+      vars.templateVariables,
+    );
+    const rendered = await renderPlatformTemplateForClient(
+      msg.clientId,
+      vars.platformTemplateName,
+      waVars,
+    );
+    return rendered?.trim() || msg.content.text;
+  }
+
   async dispatchOne(msg: IMessageQueue): Promise<void> {
     if (msg.status !== 'pending' && msg.status !== 'processing') return;
-    if (msg.content.template !== 'manual-send') return;
+    if (msg.content.template !== 'manual-send' && msg.content.template !== 'platform-send') {
+      return;
+    }
 
     const vars = readVars(msg);
     const clientId = msg.clientId.toString();
@@ -230,10 +323,12 @@ export class CampaignDispatchService {
           }
         }
 
+        const outboundText = await this.resolveOutboundText(msg, dest, vars);
+
         await wa.sendManualMessage(
           clientId,
           dest.identifier,
-          msg.content.text,
+          outboundText,
           msg.content.image,
           { skipRateLimit: acceptRisk, consentOrigin: 'campaign' },
         );

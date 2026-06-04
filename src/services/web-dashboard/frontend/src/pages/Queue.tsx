@@ -26,12 +26,13 @@ interface FailedJob {
 
 interface Props {
   /** Filas só da automação Discord */
-  scope?: 'all' | 'discord'
+  scope?: 'all' | 'discord' | 'tenant'
 }
 
 export default function Queue({ scope = 'all' }: Props) {
   const qc = useQueryClient()
   const isDiscord = scope === 'discord'
+  const isTenant = scope === 'tenant'
 
   const { data: queues = [], isLoading } = useQuery<QueueStats[]>({
     queryKey: ['queue'],
@@ -67,7 +68,9 @@ export default function Queue({ scope = 'all' }: Props) {
         <p className="text-sm text-gray-400">
           {isDiscord
             ? 'Filas da automação Discord → WhatsApp (processamento e notificações).'
-            : 'Monitoramento das filas BullMQ em tempo real.'}
+            : isTenant
+              ? 'Filas BullMQ — visão agregada do servidor (jobs por tenant ainda não detalhados na API).'
+              : 'Monitoramento das filas BullMQ em tempo real.'}
         </p>
         <a
           href="/api/admin/queues"

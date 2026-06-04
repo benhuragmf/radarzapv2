@@ -107,6 +107,30 @@ export function extractStreamSlug(extracted: ExtractedMessage): string {
   return resolveStreamerIdentity(extracted, link);
 }
 
+/** Remetente no rodapé: tenant RadarZap (org/conta do painel), definido na fila. */
+export function resolveSenderLabel(extracted: ExtractedMessage): string {
+  const label = extracted.radarzapSenderLabel?.trim();
+  if (label) return label.replace(/\s+/g, ' ');
+  return 'radarzap';
+}
+
+/** @usuario que postou no canal Discord (ex.: @'Skulks). */
+export function formatDiscordPoster(extracted: ExtractedMessage): string {
+  const name =
+    extracted.discordPosterLabel?.trim() || extracted.authorName?.trim() || '';
+  if (!name) return '';
+  return name.startsWith('@') ? name : `@${name}`;
+}
+
+/** Trecho @poster > #canal do rodapé. */
+export function formatCanalRota(extracted: ExtractedMessage): string {
+  const canal = extracted.channelName
+    ? `#${extracted.channelName.replace(/^#/, '')}`
+    : '#canal';
+  const poster = formatDiscordPoster(extracted);
+  return poster ? `${poster} > ${canal}` : canal;
+}
+
 /** Ignora o 1º post do webhook (só texto+URL) antes do embed completo. */
 export function shouldSkipBotWebhookPreamble(opts: {
   isBot: boolean;
@@ -226,29 +250,21 @@ export function buildContentFingerprint(
   return crypto.createHash('sha256').update(norm).digest('hex').slice(0, 24);
 }
 
-/** Rodapé padrão: skulksgamer via radarzap • #live-on • SK2 Staff • 04/06/2026 02:41 */
+/**
+ * Rodapé: {empresa/conta painel} via radarzap • @{quem postou} > #canal • servidor • data hora
+ * Ex.: SoContabilida via radarzap • @'Skulks > #live-on • SK2 Staff • 04/06/2026 12:12
+ */
 export function buildRodape(
   extracted: ExtractedMessage,
   data: string,
   hora: string,
-  streamerOverride?: string
+  senderOverride?: string
 ): string {
-  const link = collectPrimaryLink(extracted);
-  const autor = (
-    streamerOverride ||
-    resolveStreamerIdentity(extracted, link) ||
-    'radarzap'
-  )
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '');
-
-  const canal = extracted.channelName
-    ? `#${extracted.channelName.replace(/^#/, '')}`
-    : '#canal';
+  const tenant = (senderOverride || resolveSenderLabel(extracted)).trim() || 'radarzap';
+  const rota = formatCanalRota(extracted);
   const servidor = extracted.guildName?.trim() || 'Discord';
 
-  return `${autor || 'radarzap'} via radarzap • ${canal} • ${servidor} • ${data} ${hora}`;
+  return `${tenant} via radarzap • ${rota} • ${servidor} • ${data} ${hora}`;
 }
 
 export function collectPrimaryLink(extracted: ExtractedMessage): string {

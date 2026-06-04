@@ -92,7 +92,11 @@ export default function Sessions() {
       if (qr) {
         setLiveQr(prev => ({ ...prev, [payload.clientId]: qr }))
       }
-      if (payload.status === 'connected' || payload.event === 'CONNECTION_UPDATE') {
+      if (
+        payload.status === 'connected' ||
+        payload.status === 'disconnected' ||
+        payload.event === 'CONNECTION_UPDATE'
+      ) {
         setLiveQr(prev => {
           const next = { ...prev }
           if (payload.status === 'connected') delete next[payload.clientId]

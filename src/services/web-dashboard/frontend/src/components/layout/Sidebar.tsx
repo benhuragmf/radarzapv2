@@ -32,9 +32,10 @@ function NavLinkItem({
   depth: number
   guildReady: boolean
 }) {
-  const { pathname, hash } = useLocation()
+  const { pathname, hash, search } = useLocation()
   const blocked = entry.requiresGuild && !guildReady
-  const active = isNavItemActive(entry.to, pathname, hash)
+  const to = entry.search ? `${entry.to}${entry.search}` : entry.to
+  const active = isNavItemActive(entry.to, pathname, hash, search, entry.search)
   const Icon = entry.icon
   const pad = depth > 0 ? 'pl-9 pr-3' : 'px-3'
 
@@ -52,7 +53,7 @@ function NavLinkItem({
 
   return (
     <Link
-      to={entry.to}
+      to={to}
       className={`flex items-center gap-3 ${pad} py-2 rounded-lg text-sm transition-colors ${
         active
           ? 'bg-brand-600 text-white font-medium'
@@ -60,7 +61,16 @@ function NavLinkItem({
       }`}
     >
       <Icon size={16} className="shrink-0" />
-      {entry.label}
+      <span className="flex-1 truncate">{entry.label}</span>
+      {entry.badge && (
+        <span
+          className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded font-medium ${
+            active ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-500'
+          }`}
+        >
+          {entry.badge}
+        </span>
+      )}
     </Link>
   )
 }
@@ -72,8 +82,8 @@ function NavGroupItem({
   entry: Extract<NavEntry, { kind: 'group' }>
   guildReady: boolean
 }) {
-  const { pathname, hash } = useLocation()
-  const isActive = isNavGroupActive(entry, pathname, hash)
+  const { pathname, hash, search } = useLocation()
+  const isActive = isNavGroupActive(entry, pathname, hash, search)
   const [open, setOpen] = useState(isActive)
   const Icon = entry.icon
 

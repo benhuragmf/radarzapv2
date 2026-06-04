@@ -16,12 +16,17 @@ import {
 
   collectPrimaryLink,
 
+  formatCanalRota,
+
+  formatDiscordPoster,
+
   extractCreatorSlugFromUrl,
 
   formatLinkBlock,
 
   platformLabelFromLink,
 
+  resolveSenderLabel,
   resolveStreamerIdentity,
 
 } from '@/utils/discord-wa-format';
@@ -295,11 +300,15 @@ export function buildDiscordWhatsAppVariables(extracted: ExtractedMessage): Disc
 
     embed_desc: embedDesc,
 
-    autor: (streamer || 'radarzap').toLowerCase(),
+    autor: resolveSenderLabel(extracted),
 
     canal: extracted.channelName ?? '',
 
     canal_hash: canalHash,
+
+    discord_poster: formatDiscordPoster(extracted),
+
+    canal_rota: formatCanalRota(extracted),
 
     servidor: extracted.guildName ?? '',
 

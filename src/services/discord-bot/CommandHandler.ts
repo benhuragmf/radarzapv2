@@ -351,7 +351,7 @@ export class CommandHandler {
             }
 
             // Reply first to avoid interaction timeout
-            await this.editReply(interaction, '✅ WhatsApp disconnection initiated. Your session will be terminated shortly.');
+            await this.editReply(interaction, '✅ WhatsApp desconectado. A sessão foi encerrada no painel também.');
 
             // Then enqueue
             await this.queueManager.addJob(

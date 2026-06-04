@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { getMe, can, isCompanyOwner, type AuthUser } from '../lib/auth'
@@ -14,6 +14,7 @@ import {
   inputCls,
   type Destination,
 } from '../lib/destinationUi'
+import { effectiveConsentStatus, type ConsentStatus } from '../lib/consentUi'
 import {
   Phone,
   Plus,
@@ -31,6 +32,13 @@ import {
 export default function Destinations() {
   const qc = useQueryClient()
   const { pathname } = useLocation()
+  const [searchParams] = useSearchParams()
+  const consentFilter = searchParams.get('consent') as
+    | 'pending'
+    | 'accepted'
+    | 'refused'
+    | 'blocked'
+    | null
   const isDiscord = pathname.startsWith('/discord/destinations')
   const { guildName } = useGuild()
   const [search, setSearch] = useState('')
@@ -148,18 +156,45 @@ export default function Destinations() {
     enabled: Boolean(historyDestId),
   })
 
+  function matchesConsentFilter(d: Destination): boolean {
+    if (!consentFilter) return true
+    const st = effectiveConsentStatus(
+      d.consentStatus as ConsentStatus | undefined,
+      d.consent?.granted,
+    )
+    if (consentFilter === 'pending') return st === 'PENDING'
+    if (consentFilter === 'accepted') return st === 'ACCEPTED'
+    if (consentFilter === 'refused') {
+      return st === 'REFUSED_FIRST' || st === 'REFUSED_SECOND' || st === 'REFUSED_THREE'
+    }
+    if (consentFilter === 'blocked') return st === 'MANUALLY_BLOCKED'
+    return true
+  }
+
+  const consentFilterLabel: Record<string, string> = {
+    pending: 'Pendentes',
+    accepted: 'Aceitos',
+    refused: 'Recusados',
+    blocked: 'Bloqueados manualmente',
+  }
+
   const q = search.trim().toLowerCase()
   const contacts = useMemo(
     () =>
       destinations
         .filter(d => d.type === 'contact')
+        .filter(matchesConsentFilter)
         .filter(
           d =>
             !q ||
             d.name.toLowerCase().includes(q) ||
-            d.identifier.toLowerCase().includes(q),
+            d.identifier.toLowerCase().includes(q) ||
+            (d.organization?.toLowerCase().includes(q) ?? false) ||
+            (d.email?.toLowerCase().includes(q) ?? false) ||
+            (d.tags?.some(t => t.toLowerCase().includes(q)) ?? false) ||
+            (d.secondaryPhone?.toLowerCase().includes(q) ?? false),
         ),
-    [destinations, q],
+    [destinations, q, consentFilter],
   )
 
   const groupsCount = destinations.filter(d => d.type === 'group').length
@@ -230,13 +265,23 @@ export default function Destinations() {
         </Card>
       </div>
 
+      {!isDiscord && consentFilter && (
+        <p className="text-xs text-brand-400/90">
+          Filtro: <strong>{consentFilterLabel[consentFilter]}</strong>
+          {' · '}
+          <Link to="/destinations" className="underline hover:text-brand-300">
+            Ver todos os contatos
+          </Link>
+        </p>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar nome ou número..."
+            placeholder="Buscar nome, número, empresa ou e-mail..."
             className={`${inputCls} pl-9`}
           />
         </div>
