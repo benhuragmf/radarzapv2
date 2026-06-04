@@ -3,6 +3,7 @@ import type { Message } from 'discord.js';
 import type { ExtractedMessage } from '@/services/discord-bot/MessageExtractor';
 import { WHATSAPP_LIMITS } from '@/config/limits';
 import { renderCatalogTemplate } from '@/constants/discord-whatsapp-templates';
+import { contentSourceMessage } from '@/utils/discord-forward';
 import { buildDiscordWhatsAppVariables } from '@/utils/discord-wa-variables';
 
 const URL_IN_TEXT = /https?:\/\/[^\s<>"{}|\\^`[\])]+/gi;
@@ -15,8 +16,10 @@ const STREAM_HOST = /twitch\.tv|youtube\.com|youtu\.be/i;
 
 /** Discord monta o embed alguns ms depois do MessageCreate — espera antes de capturar. */
 export async function waitForStreamEmbed(message: Message, ms = 2800): Promise<Message> {
-  const content = message.content ?? '';
-  if (!STREAM_HOST.test(content) || message.embeds.length > 0) return message;
+  const source = contentSourceMessage(message);
+  const content = `${message.content ?? ''} ${source.content ?? ''}`;
+  const hasEmbed = message.embeds.length > 0 || source.embeds.length > 0;
+  if (!STREAM_HOST.test(content) || hasEmbed) return message;
   await new Promise(r => setTimeout(r, ms));
   try {
     return await message.fetch();

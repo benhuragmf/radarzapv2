@@ -23,6 +23,7 @@ import {
   waitForStreamEmbed,
   collectPrimaryLink,
 } from '@/utils/discord-wa-format';
+import { contentSourceMessage, isDiscordForwardMessage } from '@/utils/discord-forward';
 import { logPipeline } from '@/utils/pipeline-log';
 import { CommandHandler } from './CommandHandler';
 import { CircuitBreaker } from '../common/CircuitBreaker';
@@ -430,11 +431,19 @@ export class DiscordBotService {
         }
       }
 
-      // Verificar filtros de tipo de mensagem (bot/link/imagem/embed)
-      const hasLink = /https?:\/\//.test(message.content) || message.embeds.some(e => e.url);
-      const hasImage = message.attachments.some(a => a.contentType?.startsWith('image/')) ||
-                       message.embeds.some(e => e.image || e.thumbnail);
-      const hasEmbed = message.embeds.length > 0;
+      // Verificar filtros de tipo de mensagem (bot/link/imagem/embed; forwards usam snapshot)
+      const contentSrc = contentSourceMessage(message);
+      const hasLink =
+        /https?:\/\//.test(message.content ?? '') ||
+        /https?:\/\//.test(contentSrc.content ?? '') ||
+        message.embeds.some(e => e.url) ||
+        contentSrc.embeds.some(e => e.url);
+      const hasImage =
+        message.attachments.some(a => a.contentType?.startsWith('image/')) ||
+        contentSrc.attachments.some(a => a.contentType?.startsWith('image/')) ||
+        message.embeds.some(e => e.image || e.thumbnail) ||
+        contentSrc.embeds.some(e => e.image || e.thumbnail);
+      const hasEmbed = message.embeds.length > 0 || contentSrc.embeds.length > 0;
 
       if (!discordChannel.matchesMessageFilters(message.author.bot, hasLink, hasImage, hasEmbed)) {
         return;
@@ -458,7 +467,8 @@ export class DiscordBotService {
       }
 
       const workMessage = await waitForStreamEmbed(message);
-      const workHasEmbed = workMessage.embeds.length > 0;
+      const workSrc = contentSourceMessage(workMessage);
+      const workHasEmbed = workMessage.embeds.length > 0 || workSrc.embeds.length > 0;
 
       if (
         shouldSkipBotWebhookPreamble({
@@ -507,6 +517,7 @@ export class DiscordBotService {
         embedTitle: extractedData.embedTitles?.[0],
         author: extractedData.authorName,
         waitedEmbed: !hasEmbed && workHasEmbed,
+        forwarded: isDiscordForwardMessage(workMessage),
       }, discordChannel.clientId.toString());
 
       await this.queueManager.addJob(

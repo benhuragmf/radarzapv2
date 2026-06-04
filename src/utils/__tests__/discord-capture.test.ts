@@ -3,7 +3,9 @@ import {
   isUsefulLink,
   captureDiscordMessage,
 } from '../discord-capture';
+import { contentSourceMessage } from '../discord-forward';
 import { ComponentType, Message } from 'discord.js';
+import { MessageReferenceType } from 'discord-api-types/v10';
 
 describe('discord-capture', () => {
   describe('isUsefulLink', () => {
@@ -82,6 +84,54 @@ describe('discord-capture', () => {
       expect(r.whatsappBody).not.toContain('Total: 24');
       expect(r.linksSection).toContain('Ver Itch.io');
       expect(r.storeButtons.length).toBeGreaterThan(0);
+    });
+
+    it('lê conteúdo de mensagem encaminhada via messageSnapshots', () => {
+      const snapshot = {
+        content:
+          '42.19.0 released on unstable branch. https://theindiestone.com/forums/index.php?/topic/95733-build-42190-unstable-released/',
+        embeds: [
+          {
+            title: 'Build 42.19.0 UNSTABLE Released',
+            description:
+              'As always it is recommended that you create a new save with no mods after updates.',
+            url: 'https://theindiestone.com/forums/index.php?/topic/95733-build-42190-unstable-released/',
+            provider: { name: 'The Indie Stone Forums' },
+          },
+        ],
+        attachments: { values: () => [] },
+        components: [],
+      } as unknown as Message;
+
+      const wrapper = {
+        id: 'fwd1',
+        content: '',
+        embeds: [],
+        attachments: { values: () => [] },
+        components: [],
+        reference: {
+          type: MessageReferenceType.Forward,
+          channelId: 'ch1',
+          guildId: 'g1',
+          messageId: 'orig1',
+        },
+        messageSnapshots: {
+          size: 1,
+          first: () => snapshot,
+        },
+        author: { username: 'skulksgamer', bot: false },
+        channel: { name: 'live-on' },
+      } as unknown as Message;
+
+      expect(contentSourceMessage(wrapper)).toBe(snapshot);
+
+      const r = captureDiscordMessage(wrapper);
+
+      expect(r.whatsappBody).toContain('42.19.0');
+      expect(r.whatsappBody).toContain('Build 42.19.0 UNSTABLE Released');
+      expect(r.primaryLink).toContain('theindiestone.com');
+      expect(r.kind).toBe('news');
+      expect(r.linksSection).toContain('theindiestone.com');
     });
   });
 });

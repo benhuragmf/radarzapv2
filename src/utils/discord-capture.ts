@@ -5,6 +5,7 @@
 
 import type { Message } from 'discord.js';
 import { ComponentType } from 'discord.js';
+import { contentSourceMessage } from '@/utils/discord-forward';
 import {
   classifyLinksInMessage,
   classifyLinkUrl,
@@ -238,8 +239,9 @@ function formatFieldBlock(name: string, value: string): { block: string; links: 
 
 /** Texto completo para filtros de palavra-chave (conteúdo + embeds). */
 export function discordMessageSearchText(message: Message, captured?: DiscordCaptureResult): string {
-  const parts: string[] = [message.content ?? ''];
-  for (const e of message.embeds) {
+  const source = contentSourceMessage(message);
+  const parts: string[] = [message.content ?? '', source.content ?? ''];
+  for (const e of source.embeds.length > 0 ? source.embeds : message.embeds) {
     if (e.title) parts.push(e.title);
     if (e.description) parts.push(e.description);
     for (const f of e.fields) {
@@ -352,6 +354,7 @@ function truncate(text: string, max: number): string {
 
 /** Captura completa de uma mensagem Discord para envio ao WhatsApp. */
 export function captureDiscordMessage(message: Message): DiscordCaptureResult {
+  const source = contentSourceMessage(message);
   const bodyParts: string[] = [];
   const allLinks: string[] = [];
   const storeLabels: string[] = [];
@@ -362,14 +365,14 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
   const fieldValues: string[] = [];
   let hasPoll = false;
 
-  if (message.content?.trim()) {
-    const c = discordMarkdownToWhatsApp(message.content);
+  if (source.content?.trim()) {
+    const c = discordMarkdownToWhatsApp(source.content);
     const clean = sanitizeDiscordForWhatsApp(c.text);
     if (clean) bodyParts.push(clean);
     allLinks.push(...c.links);
   }
 
-  for (const attachment of message.attachments.values()) {
+  for (const attachment of source.attachments.values()) {
     if (attachment.contentType?.startsWith('image/')) {
       imageUrls.push(attachment.url);
     } else if (attachment.url) {
@@ -389,7 +392,7 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
   let firstEmbedProvider: string | undefined;
   let firstEmbedTypeRaw: string | undefined;
 
-  for (const embed of message.embeds) {
+  for (const embed of source.embeds) {
     if (!firstEmbedProvider && embed.provider?.name) {
       firstEmbedProvider = embed.provider.name;
     }
@@ -428,7 +431,7 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
       if (f.text) bodyParts.push(`_${f.text}_`);
     }
 
-    for (const field of embed.fields) {
+    for (const field of embed.fields ?? []) {
       hasFields = true;
       fieldValues.push(field.value);
       const fb = formatFieldBlock(field.name, field.value);
@@ -445,17 +448,17 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
     }
   }
 
-  const storeButtons = extractStoreButtons(message);
+  const storeButtons = extractStoreButtons(source);
   for (const b of storeButtons) allLinks.push(b.url);
 
   const usefulLinks = [...new Set(allLinks.filter(isUsefulLink))];
   const primaryLink = pickBestLink([...storeButtons.map(b => b.url), ...usefulLinks]);
 
-  const embedUrl = message.embeds[0]?.url ?? primaryLink ?? '';
+  const embedUrl = source.embeds[0]?.url ?? primaryLink ?? '';
   if (embedUrl) embedType = detectEmbedType(embedUrl);
 
-  if (!embedGame && message.embeds[0]?.description) {
-    const desc = message.embeds[0].description;
+  if (!embedGame && source.embeds[0]?.description) {
+    const desc = source.embeds[0].description;
     const m =
       desc.match(/playing\s+(.+)/i) ||
       desc.match(/jogando\s+(.+)/i) ||
@@ -476,7 +479,7 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
   const embedFieldsText = stripFooterNoise(fieldBlocks.join('\n\n').trim()) || dedupedBody;
 
   const channelName = (message.channel as { name?: string } | null)?.name ?? '';
-  const contentRaw = message.content ?? '';
+  const contentRaw = source.content ?? message.content ?? '';
   const mediaUrls = [embedUrl, primaryLink, ...usefulLinks].filter(Boolean);
 
   const textBlob = `${contentRaw} ${embedTitles.join(' ')} ${embedDescriptions.join(' ')}`;
@@ -488,7 +491,7 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
   else if (linkClass.captureKind) kind = linkClass.captureKind;
   else if (isLiveAnnouncement(contentRaw, embedTitles, embedUrl)) kind = 'live';
   else if (
-    message.embeds.length > 0 &&
+    source.embeds.length > 0 &&
     isArticleEmbed({
       embedUrl,
       providerName: firstEmbedProvider,
@@ -499,16 +502,16 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
   ) {
     kind = 'news';
     linkContentType = 'news';
-  } else if (detectLog(channelName, message.author.bot, message.content ?? '', embedTitles)) kind = 'log';
-  else if (detectAlert(embedTitles, embedDescriptions, message.content ?? '')) kind = 'alert';
+  }   else if (detectLog(channelName, message.author.bot, contentRaw, embedTitles)) kind = 'log';
+  else if (detectAlert(embedTitles, embedDescriptions, contentRaw)) kind = 'alert';
   else if (detectPromo(embedTitles, embedDescriptions, fieldValues)) kind = 'promo';
   else if (hasFields) kind = 'embed_list';
   else if (attachmentFiles.length > 0 && imageUrls.length === 0 && !dedupedBody) kind = 'file';
-  else if (message.embeds.length > 0) kind = 'embed';
+  else if (source.embeds.length > 0) kind = 'embed';
   else if (imageUrls.length > 0 && !dedupedBody) kind = 'media';
-  else if (message.content && (message.embeds.length > 0 || attachmentFiles.length > 0))
+  else if (contentRaw && (source.embeds.length > 0 || attachmentFiles.length > 0))
     kind = 'mixed';
-  else if (!message.content?.trim() && !message.embeds.length) kind = 'text';
+  else if (!contentRaw.trim() && !source.embeds.length) kind = 'text';
 
   const twitchSlug = twitchSlugFromUrls(embedUrl, primaryLink, ...usefulLinks, contentRaw);
   if (twitchSlug && !embedAuthorName) embedAuthorName = twitchSlug;
@@ -534,7 +537,7 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
 
   const title =
     embedTitles[0] ||
-    message.content?.split('\n').find(l => l.trim())?.slice(0, 120) ||
+    contentRaw.split('\n').find(l => l.trim())?.slice(0, 120) ||
     message.author.username;
 
   return {

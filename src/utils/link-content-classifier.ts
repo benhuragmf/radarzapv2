@@ -67,6 +67,7 @@ export function isNewsUrl(url: string): boolean {
   if (isTwitchUrl(u) || isYoutubeUrl(u)) return false;
   if (/discord\.com|discordapp\.com|cdn\.discordapp/i.test(u)) return false;
   if (NEWS_PATH_HINTS.test(u)) return true;
+  if (/\/forums?\//i.test(u) || /\/topic\//i.test(u)) return true;
   return NEWS_HOST_HINTS.some(h => u.includes(h));
 }
 
