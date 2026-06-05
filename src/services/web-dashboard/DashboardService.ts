@@ -62,7 +62,10 @@ import {
   listMergedPlatformTemplates,
 } from '../platform/platformTemplateCatalog';
 import { renderPlatformTemplateForClient } from '../platform/platformTemplateRender';
-import { buildPlatformWhatsAppVariables } from '../../utils/platform-wa-variables';
+import {
+  buildPlatformPreviewSampleVariables,
+  buildPlatformWhatsAppVariables,
+} from '../../utils/platform-wa-variables';
 import { BirthdayAutomationRule, type IBirthdayAutomationRule } from '../../models/BirthdayAutomationRule';
 import { ApiKey } from '../../models/ApiKey';
 import { WebhookEndpoint, WEBHOOK_EVENTS, type WebhookEvent } from '../../models/WebhookEndpoint';
@@ -1189,7 +1192,12 @@ export class DashboardService {
           mensagem?: string;
         };
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const org = await Organization.findById(auth.clientId);
+        const owner = org
+          ? await User.findById(org.ownerUserId)
+          : await User.findById(auth.clientId);
         let vars = variables ?? {};
+        const extraCtx = { mensagem: mensagem?.trim() };
 
         if (destinationId) {
           const dest = await Destination.findOne({
@@ -1199,14 +1207,13 @@ export class DashboardService {
           if (!dest) {
             return res.status(404).json({ error: 'Destino não encontrado' });
           }
-          const org = await Organization.findById(auth.clientId);
-          const owner = org
-            ? await User.findById(org.ownerUserId)
-            : await User.findById(auth.clientId);
           vars = {
-            ...buildPlatformWhatsAppVariables(dest, org, owner, {
-              mensagem: mensagem?.trim(),
-            }),
+            ...buildPlatformWhatsAppVariables(dest, org, owner, extraCtx),
+            ...vars,
+          };
+        } else {
+          vars = {
+            ...buildPlatformPreviewSampleVariables(org, owner, extraCtx),
             ...vars,
           };
         }
@@ -1232,7 +1239,11 @@ export class DashboardService {
         if (!text) {
           return res.status(400).json({ error: 'Informe name (catálogo) ou content' });
         }
-        res.json({ preview: text, variables: vars });
+        res.json({
+          preview: text,
+          variables: vars,
+          sampleSource: destinationId ? 'destination' : 'tenant',
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -1854,6 +1865,7 @@ export class DashboardService {
           intervalMonths?: number;
           nthBusinessDay?: number;
           weekday?: number;
+          weekdays?: number[];
           scheduledAt?: string;
           sendTime?: string;
           active?: boolean;
@@ -1875,7 +1887,8 @@ export class DashboardService {
           dayOfMonth: body.dayOfMonth,
           intervalMonths: body.intervalMonths,
           nthBusinessDay: body.nthBusinessDay,
-          weekday: body.weekday,
+          weekday: body.weekdays?.length ? body.weekdays[0] : body.weekday,
+          weekdays: body.weekdays?.length ? body.weekdays : undefined,
           scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
           sendTime: body.sendTime?.trim() || '09:00',
           active: body.active !== false,
@@ -1910,6 +1923,7 @@ export class DashboardService {
           intervalMonths: (body.intervalMonths ?? doc.intervalMonths) as number | undefined,
           nthBusinessDay: (body.nthBusinessDay ?? doc.nthBusinessDay) as number | undefined,
           weekday: (body.weekday ?? doc.weekday) as number | undefined,
+          weekdays: (body.weekdays ?? doc.weekdays) as number[] | undefined,
           scheduledAt: (body.scheduledAt ?? doc.scheduledAt?.toISOString()) as string | undefined,
           messageMode: (body.messageMode ?? doc.messageMode) as string,
           customMessage: (body.customMessage ?? doc.customMessage) as string | undefined,
@@ -1925,6 +1939,11 @@ export class DashboardService {
         if (body.intervalMonths !== undefined) doc.intervalMonths = Number(body.intervalMonths);
         if (body.nthBusinessDay !== undefined) doc.nthBusinessDay = Number(body.nthBusinessDay);
         if (body.weekday !== undefined) doc.weekday = Number(body.weekday);
+        if (body.weekdays !== undefined) {
+          const days = (body.weekdays as number[]).filter(d => d >= 1 && d <= 7);
+          doc.weekdays = days.length ? days : undefined;
+          if (days.length) doc.weekday = days[0];
+        }
         if (body.scheduledAt !== undefined) doc.scheduledAt = new Date(String(body.scheduledAt));
         if (body.sendTime !== undefined) doc.sendTime = String(body.sendTime).trim();
         if (body.active !== undefined) doc.active = Boolean(body.active);

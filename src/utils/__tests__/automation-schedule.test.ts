@@ -2,6 +2,7 @@ import {
   isCalendarDayOfMonth,
   isNthBusinessDayOfMonth,
   weekdayMatches,
+  weekdaysMatch,
 } from '../automation-schedule';
 
 describe('automation-schedule', () => {
@@ -23,5 +24,14 @@ describe('automation-schedule', () => {
     const mon = new Date(2026, 5, 1, 9, 0, 0);
     expect(weekdayMatches(mon, 1)).toBe(true);
     expect(weekdayMatches(mon, 2)).toBe(false);
+  });
+
+  it('weekdays múltiplos', () => {
+    const mon = new Date(2026, 5, 1, 9, 0, 0);
+    const wed = new Date(2026, 5, 3, 9, 0, 0);
+    const tue = new Date(2026, 5, 2, 9, 0, 0);
+    expect(weekdaysMatch(mon, [1, 3, 5])).toBe(true);
+    expect(weekdaysMatch(wed, [1, 3, 5])).toBe(true);
+    expect(weekdaysMatch(tue, [1, 3, 5])).toBe(false);
   });
 });

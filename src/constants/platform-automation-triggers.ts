@@ -36,24 +36,50 @@ export const TRIGGER_REQUIRES_BIRTHDAY = new Set<PlatformAutomationTriggerType>(
 ]);
 
 export const TRIGGER_LABELS: Record<PlatformAutomationTriggerType, string> = {
-  on_contact_birthday: 'Aniversário do contato (dia mês+dia do birthday)',
-  day_of_month: 'Contatos que nasceram no dia N (qualquer mês)',
-  interval_months: 'Aniversário + reenvio a cada N meses',
-  calendar_day_of_month: 'Dia fixo do calendário (todo mês, dia N)',
+  on_contact_birthday: 'No dia do aniversário do contato',
+  day_of_month: 'Todo dia N — quem nasceu nesse dia (qualquer mês)',
+  interval_months: 'No aniversário, a cada N meses',
+  calendar_day_of_month: 'Todo dia N do mês (calendário)',
   nth_business_day_of_month: 'N-ésimo dia útil do mês (seg–sex)',
-  weekly: 'Toda semana no dia da semana escolhido',
-  once_at: 'Uma vez em data e hora específicas',
+  weekly: 'Toda semana nos dias escolhidos',
+  once_at: 'Uma vez em data e hora',
 };
 
 export const TRIGGER_HINTS: Record<PlatformAutomationTriggerType, string> = {
-  on_contact_birthday: 'Ex.: contato com birthday 1992-03-20 recebe todo 20/03.',
-  day_of_month: 'Ex.: todos nascidos no dia 10 recebem no dia 10 de cada mês.',
-  interval_months: 'No aniversário, só se passaram ≥ N meses desde o último envio automático.',
-  calendar_day_of_month: 'Ex.: dia 5 de todo mês → todos os contatos (com tags, se filtrar).',
-  nth_business_day_of_month: 'Ex.: 5º dia útil → contatos VIP no 5º seg–sex do mês.',
-  weekly: 'Ex.: toda segunda às 09:00 para a base filtrada.',
-  once_at: 'Ex.: envio único em 15/06/2026 às 14:30 — não repete.',
+  on_contact_birthday:
+    'Usa o campo birthday do contato. Ex.: nascido em 20/03 → envia todo dia 20 de março.',
+  day_of_month:
+    'Filtra contatos pelo dia do mês da data de nascimento. Ex.: dia 10 → todos que nasceram dia 10.',
+  interval_months:
+    'No aniversário, só envia se já passaram pelo menos N meses desde o último envio automático.',
+  calendar_day_of_month:
+    'Dia fixo do calendário, independente de aniversário. Ex.: dia 5 → todo dia 5 de cada mês.',
+  nth_business_day_of_month:
+    'Conta só segunda a sexta. O 5º dia útil não é o dia 5 do calendário — é o 5º dia seg–sex do mês (ex.: se o mês começa numa quarta, o 1º útil é quarta).',
+  weekly: 'Pode marcar vários dias (ex.: segunda e quinta). Dispara no horário configurado.',
+  once_at: 'Envio único — não repete após executar.',
 };
+
+export const WEEKDAY_LABELS: Record<number, string> = {
+  1: 'Seg',
+  2: 'Ter',
+  3: 'Qua',
+  4: 'Qui',
+  5: 'Sex',
+  6: 'Sáb',
+  7: 'Dom',
+};
+
+export function formatWeekdays(weekdays: number[] | undefined, fallbackWeekday?: number): string {
+  const list =
+    weekdays?.length ? weekdays : fallbackWeekday ? [fallbackWeekday] : [];
+  if (!list.length) return '—';
+  return list
+    .slice()
+    .sort((a, b) => a - b)
+    .map(w => WEEKDAY_LABELS[w] ?? String(w))
+    .join(', ');
+}
 
 export function isValidTriggerType(v: string): v is PlatformAutomationTriggerType {
   return (PLATFORM_AUTOMATION_TRIGGER_TYPES as string[]).includes(v);
@@ -65,6 +91,7 @@ export function validateAutomationPayload(body: {
   intervalMonths?: number;
   nthBusinessDay?: number;
   weekday?: number;
+  weekdays?: number[];
   scheduledAt?: string;
   messageMode?: string;
   customMessage?: string;
@@ -105,8 +132,17 @@ export function validateAutomationPayload(body: {
     }
   }
   if (triggerType === 'weekly') {
-    if (!body.weekday || body.weekday < 1 || body.weekday > 7) {
-      return 'weekday é obrigatório (1=segunda … 7=domingo)';
+    const days =
+      body.weekdays?.length
+        ? body.weekdays
+        : body.weekday
+          ? [body.weekday]
+          : [];
+    if (!days.length) {
+      return 'Selecione ao menos um dia da semana';
+    }
+    if (days.some(d => d < 1 || d > 7)) {
+      return 'Dias da semana inválidos (1=segunda … 7=domingo)';
     }
   }
   return null;

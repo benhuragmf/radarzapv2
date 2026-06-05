@@ -15,6 +15,7 @@ import {
   isCalendarDayOfMonth,
   isNthBusinessDayOfMonth,
   weekdayMatches,
+  weekdaysMatch,
 } from '@/utils/automation-schedule';
 import {
   contactBirthdayMatchesToday,
@@ -38,7 +39,7 @@ function applyPlainVariables(text: string, vars: Record<string, string>): string
 function scheduleMatchesToday(
   rule: Pick<
     IBirthdayAutomationRule,
-    'triggerType' | 'dayOfMonth' | 'nthBusinessDay' | 'weekday' | 'scheduledAt'
+    'triggerType' | 'dayOfMonth' | 'nthBusinessDay' | 'weekday' | 'weekdays' | 'scheduledAt'
   >,
   refDate: Date,
 ): boolean {
@@ -49,8 +50,10 @@ function scheduleMatchesToday(
       return isCalendarDayOfMonth(refDate, rule.dayOfMonth ?? 0);
     case 'nth_business_day_of_month':
       return isNthBusinessDayOfMonth(refDate, rule.nthBusinessDay ?? 0);
-    case 'weekly':
+    case 'weekly': {
+      if (rule.weekdays?.length) return weekdaysMatch(refDate, rule.weekdays);
       return weekdayMatches(refDate, rule.weekday ?? 0);
+    }
     default:
       return true;
   }

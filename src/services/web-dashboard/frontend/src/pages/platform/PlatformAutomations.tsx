@@ -8,16 +8,27 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { Badge } from '../../components/ui/Badge'
 import { WhatsAppPreviewBubble } from '../../components/platform/WhatsAppPreviewBubble'
-import { Workflow, Plus, Play, Trash2, Pencil, Users, MessageSquare } from 'lucide-react'
-
-type TriggerType =
-  | 'on_contact_birthday'
-  | 'day_of_month'
-  | 'interval_months'
-  | 'calendar_day_of_month'
-  | 'nth_business_day_of_month'
-  | 'weekly'
-  | 'once_at'
+import {
+  Workflow,
+  Plus,
+  Play,
+  Trash2,
+  Pencil,
+  Users,
+  MessageSquare,
+  Phone,
+  UsersRound,
+  Eye,
+} from 'lucide-react'
+import {
+  TRIGGER_LABELS,
+  TRIGGER_HINTS,
+  TRIGGER_GROUPS,
+  WEEKDAYS,
+  describeTrigger,
+  type TriggerType,
+} from '../../lib/automation-triggers'
+import { usePlatformMessagePreview } from '../../lib/usePlatformMessagePreview'
 
 type DestinationScope = 'contacts' | 'whatsapp_groups' | 'both'
 type MessageMode = 'platform_template' | 'plain'
@@ -31,6 +42,7 @@ interface AutomationRule {
   intervalMonths?: number
   nthBusinessDay?: number
   weekday?: number
+  weekdays?: number[]
   scheduledAt?: string
   sendTime: string
   active: boolean
@@ -55,48 +67,40 @@ interface DestinationOption {
   name: string
   identifier: string
   type: 'contact' | 'group'
+  birthday?: string
 }
 
-const TRIGGER_LABELS: Record<TriggerType, string> = {
-  on_contact_birthday: 'Aniversário do contato (mês+dia do birthday)',
-  day_of_month: 'Aniversariantes do dia N (qualquer mês)',
-  interval_months: 'Aniversário + a cada N meses',
-  calendar_day_of_month: 'Dia fixo do calendário (todo mês)',
-  nth_business_day_of_month: 'N-ésimo dia útil do mês (seg–sex)',
-  weekly: 'Semanal (dia da semana)',
-  once_at: 'Envio único (data e hora)',
-}
+const SCOPE_OPTIONS: {
+  id: DestinationScope
+  label: string
+  hint: string
+  icon: typeof Phone
+}[] = [
+  {
+    id: 'contacts',
+    label: 'Contatos',
+    hint: 'Pessoas cadastradas com consentimento aceito',
+    icon: Phone,
+  },
+  {
+    id: 'whatsapp_groups',
+    label: 'Grupos WhatsApp',
+    hint: 'Grupos cadastrados como destino no WhatsApp',
+    icon: UsersRound,
+  },
+  {
+    id: 'both',
+    label: 'Contatos + grupos',
+    hint: 'Envia para contatos e grupos WhatsApp na mesma regra',
+    icon: Users,
+  },
+]
 
 const SCOPE_LABELS: Record<DestinationScope, string> = {
   contacts: 'Contatos',
   whatsapp_groups: 'Grupos WhatsApp',
-  both: 'Contatos + grupos WA',
+  both: 'Contatos + grupos',
 }
-
-const TRIGGER_GROUPS: { label: string; types: TriggerType[] }[] = [
-  {
-    label: 'Aniversário e contatos',
-    types: ['on_contact_birthday', 'day_of_month', 'interval_months'],
-  },
-  {
-    label: 'Calendário e rotinas',
-    types: ['calendar_day_of_month', 'nth_business_day_of_month', 'weekly'],
-  },
-  {
-    label: 'Pontual',
-    types: ['once_at'],
-  },
-]
-
-const WEEKDAYS = [
-  { v: 1, label: 'Segunda' },
-  { v: 2, label: 'Terça' },
-  { v: 3, label: 'Quarta' },
-  { v: 4, label: 'Quinta' },
-  { v: 5, label: 'Sexta' },
-  { v: 6, label: 'Sábado' },
-  { v: 7, label: 'Domingo' },
-]
 
 const inputCls =
   'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
@@ -126,6 +130,7 @@ const DEFAULT_FORM = {
   intervalMonths: 6,
   nthBusinessDay: 5,
   weekday: 1,
+  weekdays: [1] as number[],
   scheduledAt: defaultScheduledAtLocal(),
   sendTime: '09:00',
   active: true,
@@ -169,6 +174,11 @@ export default function PlatformAutomations() {
     queryFn: () => api.get('/destinations'),
   })
 
+  const { data: variableDocs = {} } = useQuery<Record<string, string>>({
+    queryKey: ['platform-template-variables'],
+    queryFn: () => api.get('/platform/templates/variables'),
+  })
+
   const waGroups = useMemo(
     () => destinations.filter(d => d.type === 'group'),
     [destinations],
@@ -194,6 +204,40 @@ export default function PlatformAutomations() {
     form.destinationScope === 'contacts' || form.destinationScope === 'both'
   const showWaPicker =
     form.destinationScope === 'whatsapp_groups' || form.destinationScope === 'both'
+
+  const contactDestinations = useMemo(
+    () => destinations.filter(d => d.type === 'contact'),
+    [destinations],
+  )
+
+  const previewDestinationId = useMemo(() => {
+    if (showContactPicker && contactDestinations.length > 0) {
+      return contactDestinations[0]._id
+    }
+    if (showWaPicker && waGroups.length > 0) {
+      return waGroups[0]._id
+    }
+    return contactDestinations[0]?._id ?? waGroups[0]?._id ?? null
+  }, [showContactPicker, showWaPicker, contactDestinations, waGroups])
+
+  const previewDestinationName = useMemo(() => {
+    if (!previewDestinationId) return null
+    return destinations.find(d => d._id === previewDestinationId)?.name ?? null
+  }, [previewDestinationId, destinations])
+
+  const { previewText, previewLoading, previewSource } = usePlatformMessagePreview({
+    enabled: showForm,
+    messageMode: form.messageMode,
+    templateName: form.templateName,
+    customMessage: form.customMessage,
+    mensagemExtra: form.mensagemExtra,
+    destinationId: previewDestinationId,
+  })
+
+  const variableChips = useMemo(
+    () => Object.keys(variableDocs).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [variableDocs],
+  )
 
   const toggleId = (list: string[], id: string): string[] =>
     list.includes(id) ? list.filter(x => x !== id) : [...list, id]
@@ -233,7 +277,9 @@ export default function PlatformAutomations() {
         body.nthBusinessDay = form.nthBusinessDay
       }
       if (form.triggerType === 'weekly') {
-        body.weekday = form.weekday
+        const days = form.weekdays.length ? form.weekdays : [form.weekday]
+        body.weekdays = days
+        body.weekday = days[0]
       }
       if (editing) {
         return api.patch(`/platform/automations/${editing._id}`, body)
@@ -273,6 +319,11 @@ export default function PlatformAutomations() {
       intervalMonths: r.intervalMonths ?? 6,
       nthBusinessDay: r.nthBusinessDay ?? 5,
       weekday: r.weekday ?? 1,
+      weekdays: r.weekdays?.length
+        ? r.weekdays
+        : r.weekday
+          ? [r.weekday]
+          : [1],
       scheduledAt: r.scheduledAt ? toDatetimeLocal(r.scheduledAt) : defaultScheduledAtLocal(),
       sendTime: r.sendTime,
       active: r.active,
@@ -287,10 +338,14 @@ export default function PlatformAutomations() {
     setShowForm(true)
   }
 
-  const previewText =
-    form.messageMode === 'plain'
-      ? form.customMessage || '(texto vazio)'
-      : `[Modelo ${form.templateName}]${form.mensagemExtra ? `\n\n{mensagem}: ${form.mensagemExtra}` : ''}`
+  const insertVariable = (key: string) => {
+    const token = `{${key}}`
+    if (form.messageMode === 'plain') {
+      setForm(f => ({ ...f, customMessage: `${f.customMessage}${f.customMessage ? ' ' : ''}${token}` }))
+    } else {
+      setForm(f => ({ ...f, mensagemExtra: `${f.mensagemExtra}${f.mensagemExtra ? ' ' : ''}${token}` }))
+    }
+  }
 
   return (
     <PlatformPage
@@ -391,6 +446,9 @@ export default function PlatformAutomations() {
                 </optgroup>
               ))}
             </select>
+            <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">
+              {TRIGGER_HINTS[form.triggerType]}
+            </p>
           </div>
 
           {form.triggerType === 'once_at' ? (
@@ -449,7 +507,9 @@ export default function PlatformAutomations() {
           )}
           {form.triggerType === 'nth_business_day_of_month' && (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Qual dia útil (1º a 23º)</label>
+              <label className="text-xs text-gray-500 block mb-1">
+                Qual dia útil do mês? (1º a 23º, só seg–sex)
+              </label>
               <input
                 type="number"
                 min={1}
@@ -460,127 +520,239 @@ export default function PlatformAutomations() {
                 }
                 className={inputCls}
               />
+              <p className="text-[11px] text-gray-600 mt-1">
+                Ex.: <strong className="text-gray-400">5</strong> = 5ª segunda a sexta do mês, não o dia 5 do calendário.
+              </p>
             </div>
           )}
           {form.triggerType === 'weekly' && (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Dia da semana</label>
-              <select
-                value={form.weekday}
-                onChange={e => setForm(f => ({ ...f, weekday: Number(e.target.value) }))}
-                className={inputCls}
-              >
-                {WEEKDAYS.map(w => (
-                  <option key={w.v} value={w.v}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
+              <label className="text-xs text-gray-500 block mb-2">Dias da semana</label>
+              <div className="flex flex-wrap gap-2">
+                {WEEKDAYS.map(w => {
+                  const on = form.weekdays.includes(w.v)
+                  return (
+                    <button
+                      key={w.v}
+                      type="button"
+                      title={w.full}
+                      onClick={() =>
+                        setForm(f => {
+                          const next = toggleId(f.weekdays, w.v)
+                          return {
+                            ...f,
+                            weekdays: next.length ? next : [w.v],
+                            weekday: (next.length ? next : [w.v])[0],
+                          }
+                        })
+                      }
+                      className={`min-w-[2.75rem] px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                        on
+                          ? 'border-brand-500 bg-brand-600 text-white'
+                          : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                      }`}
+                    >
+                      {w.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-gray-600 mt-2">
+                Marque um ou mais dias. Pelo menos um dia deve ficar ativo.
+              </p>
             </div>
           )}
 
           <div>
             <label className="text-xs text-gray-500 block mb-2 flex items-center gap-1">
-              <Users size={12} /> Destinos
+              <Users size={12} /> Quem recebe
             </label>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {(['contacts', 'whatsapp_groups', 'both'] as DestinationScope[]).map(scope => (
+            <div className="grid gap-2 sm:grid-cols-3 mb-4">
+              {SCOPE_OPTIONS.map(({ id, label, hint, icon: Icon }) => (
                 <button
-                  key={scope}
+                  key={id}
                   type="button"
-                  onClick={() => setForm(f => ({ ...f, destinationScope: scope }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
-                    form.destinationScope === scope
-                      ? 'border-brand-500 bg-brand-950/40 text-brand-200'
-                      : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                  onClick={() => setForm(f => ({ ...f, destinationScope: id }))}
+                  className={`text-left rounded-lg border p-3 transition-colors ${
+                    form.destinationScope === id
+                      ? 'border-brand-500 bg-brand-950/30'
+                      : 'border-gray-800 hover:border-gray-700'
                   }`}
                 >
-                  {SCOPE_LABELS[scope]}
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-200">
+                    <Icon size={14} className="text-brand-400 shrink-0" />
+                    {label}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1 leading-snug">{hint}</p>
                 </button>
               ))}
             </div>
 
             {showContactPicker && (
-              <div className="mb-3 rounded-lg border border-gray-800 p-3 space-y-2">
-                <p className="text-xs text-gray-400">
-                  Grupos de contato (vazio = todos os contatos elegíveis)
-                </p>
-                <input
-                  value={groupSearch}
-                  onChange={e => setGroupSearch(e.target.value)}
-                  placeholder="Buscar grupo..."
-                  className={inputCls}
-                />
-                <div className="max-h-36 overflow-y-auto space-y-1">
-                  {filteredContactGroups.length === 0 ? (
-                    <p className="text-xs text-gray-600 py-2">
-                      Nenhum grupo —{' '}
-                      <Link to="/contact" className="text-brand-400 hover:underline">
-                        criar em Contatos
-                      </Link>
-                    </p>
-                  ) : (
-                    filteredContactGroups.map(g => (
-                      <label
-                        key={g._id}
-                        className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:bg-gray-800/50 rounded px-2 py-1"
+              <div className="mb-3 rounded-lg border border-gray-800 p-3 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-gray-300">Contatos</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-[11px] text-brand-400 hover:underline"
+                      onClick={() => setForm(f => ({ ...f, contactGroupIds: [] }))}
+                    >
+                      Todos os contatos
+                    </button>
+                    {contactGroups.length > 0 && (
+                      <button
+                        type="button"
+                        className="text-[11px] text-gray-500 hover:text-gray-300"
+                        onClick={() =>
+                          setForm(f => ({
+                            ...f,
+                            contactGroupIds: contactGroups.map(g => g._id),
+                          }))
+                        }
                       >
-                        <input
-                          type="checkbox"
-                          checked={form.contactGroupIds.includes(g._id)}
-                          onChange={() =>
-                            setForm(f => ({
-                              ...f,
-                              contactGroupIds: toggleId(f.contactGroupIds, g._id),
-                            }))
-                          }
-                          className="rounded border-gray-600"
-                        />
-                        {g.name}
-                        <span className="text-gray-600 text-xs">({g.memberCount})</span>
-                      </label>
-                    ))
-                  )}
+                        Todos os segmentos
+                      </button>
+                    )}
+                  </div>
                 </div>
+                <p className="text-[11px] text-gray-600">
+                  {form.contactGroupIds.length === 0
+                    ? 'Todos os contatos elegíveis (consentimento aceito).'
+                    : `${form.contactGroupIds.length} segmento(s) selecionado(s).`}
+                </p>
+                {contactGroups.length > 0 && (
+                  <>
+                    <input
+                      value={groupSearch}
+                      onChange={e => setGroupSearch(e.target.value)}
+                      placeholder="Buscar segmento..."
+                      className={inputCls}
+                    />
+                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg bg-gray-950/40 p-1">
+                      {filteredContactGroups.length === 0 ? (
+                        <p className="text-xs text-gray-600 py-2 px-2">Nenhum segmento encontrado.</p>
+                      ) : (
+                        filteredContactGroups.map(g => {
+                          const on = form.contactGroupIds.includes(g._id)
+                          return (
+                            <button
+                              key={g._id}
+                              type="button"
+                              onClick={() =>
+                                setForm(f => ({
+                                  ...f,
+                                  contactGroupIds: toggleId(f.contactGroupIds, g._id),
+                                }))
+                              }
+                              className={`w-full flex items-center justify-between gap-2 text-sm rounded-md px-2 py-1.5 transition-colors ${
+                                on
+                                  ? 'bg-brand-600/20 text-brand-100'
+                                  : 'text-gray-400 hover:bg-gray-800/60'
+                              }`}
+                            >
+                              <span className="truncate">{g.name}</span>
+                              <span className="text-xs text-gray-600 shrink-0">{g.memberCount}</span>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
+                {contactGroups.length === 0 && (
+                  <p className="text-xs text-gray-600">
+                    <Link to="/contact" className="text-brand-400 hover:underline">
+                      Criar segmentos em Contatos
+                    </Link>
+                  </p>
+                )}
               </div>
             )}
 
             {showWaPicker && (
-              <div className="rounded-lg border border-gray-800 p-3 space-y-2">
-                <p className="text-xs text-gray-400">
-                  Grupos WhatsApp (vazio = todos os grupos cadastrados)
-                </p>
-                <input
-                  value={waSearch}
-                  onChange={e => setWaSearch(e.target.value)}
-                  placeholder="Buscar grupo WA..."
-                  className={inputCls}
-                />
-                <div className="max-h-36 overflow-y-auto space-y-1">
-                  {filteredWaGroups.length === 0 ? (
-                    <p className="text-xs text-gray-600 py-2">Nenhum grupo WhatsApp cadastrado.</p>
-                  ) : (
-                    filteredWaGroups.map(g => (
-                      <label
-                        key={g._id}
-                        className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:bg-gray-800/50 rounded px-2 py-1"
+              <div className="rounded-lg border border-gray-800 p-3 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-gray-300">Grupos WhatsApp</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-[11px] text-brand-400 hover:underline"
+                      onClick={() => setForm(f => ({ ...f, whatsappDestinationIds: [] }))}
+                    >
+                      Todos os grupos
+                    </button>
+                    {waGroups.length > 0 && (
+                      <button
+                        type="button"
+                        className="text-[11px] text-gray-500 hover:text-gray-300"
+                        onClick={() =>
+                          setForm(f => ({
+                            ...f,
+                            whatsappDestinationIds: waGroups.map(g => g._id),
+                          }))
+                        }
                       >
-                        <input
-                          type="checkbox"
-                          checked={form.whatsappDestinationIds.includes(g._id)}
-                          onChange={() =>
-                            setForm(f => ({
-                              ...f,
-                              whatsappDestinationIds: toggleId(f.whatsappDestinationIds, g._id),
-                            }))
-                          }
-                          className="rounded border-gray-600"
-                        />
-                        {g.name}
-                      </label>
-                    ))
-                  )}
+                        Selecionar todos
+                      </button>
+                    )}
+                  </div>
                 </div>
+                <p className="text-[11px] text-gray-600">
+                  {form.whatsappDestinationIds.length === 0
+                    ? 'Todos os grupos WhatsApp cadastrados.'
+                    : `${form.whatsappDestinationIds.length} grupo(s) selecionado(s).`}
+                </p>
+                {waGroups.length > 0 ? (
+                  <>
+                    <input
+                      value={waSearch}
+                      onChange={e => setWaSearch(e.target.value)}
+                      placeholder="Buscar grupo..."
+                      className={inputCls}
+                    />
+                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg bg-gray-950/40 p-1">
+                      {filteredWaGroups.length === 0 ? (
+                        <p className="text-xs text-gray-600 py-2 px-2">Nenhum grupo encontrado.</p>
+                      ) : (
+                        filteredWaGroups.map(g => {
+                          const on = form.whatsappDestinationIds.includes(g._id)
+                          return (
+                            <button
+                              key={g._id}
+                              type="button"
+                              onClick={() =>
+                                setForm(f => ({
+                                  ...f,
+                                  whatsappDestinationIds: toggleId(
+                                    f.whatsappDestinationIds,
+                                    g._id,
+                                  ),
+                                }))
+                              }
+                              className={`w-full flex items-center justify-between gap-2 text-sm rounded-md px-2 py-1.5 text-left transition-colors ${
+                                on
+                                  ? 'bg-brand-600/20 text-brand-100'
+                                  : 'text-gray-400 hover:bg-gray-800/60'
+                              }`}
+                            >
+                              <span className="truncate">{g.name}</span>
+                              <span className="text-[10px] text-gray-600 shrink-0 font-mono">
+                                {g.identifier.slice(-8)}
+                              </span>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-600">
+                    <Link to="/grupos" className="text-brand-400 hover:underline">
+                      Cadastrar grupos WhatsApp
+                    </Link>
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -645,21 +817,54 @@ export default function PlatformAutomations() {
             ) : (
               <div>
                 <label className="text-xs text-gray-500 block mb-1">
-                  Texto completo — use {'{nome}'}, {'{mensagem}'}, {'{empresa}'}, etc.
+                  Texto completo — clique nas variáveis abaixo ou digite {'{nome}'}, {'{empresa}'}, etc.
                 </label>
                 <textarea
                   rows={6}
                   value={form.customMessage}
                   onChange={e => setForm(f => ({ ...f, customMessage: e.target.value }))}
-                  placeholder="Olá {nome}! ..."
+                  placeholder="Olá {nome}! Somos a {empresa}."
                   className={`${inputCls} resize-none font-mono text-xs`}
                 />
               </div>
             )}
 
-            <div className="mt-3 max-w-sm">
-              <p className="text-[11px] text-gray-600 mb-1">Prévia</p>
-              <WhatsAppPreviewBubble text={previewText} />
+            {variableChips.length > 0 && (
+              <div className="mt-3">
+                <p className="text-[11px] text-gray-600 mb-1.5">Variáveis disponíveis</p>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                  {variableChips.map(key => (
+                    <button
+                      key={key}
+                      type="button"
+                      title={variableDocs[key]}
+                      onClick={() => insertVariable(key)}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-mono border border-gray-700 text-brand-300 hover:border-brand-600 hover:bg-brand-950/40"
+                    >
+                      {'{'}{key}{'}'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3 max-w-md">
+              <div className="flex items-center gap-2 text-[11px] text-gray-600 mb-1">
+                <Eye size={12} />
+                Prévia
+                {previewSource === 'destination' && previewDestinationName ? (
+                  <span className="text-brand-400/90">({previewDestinationName})</span>
+                ) : (
+                  <span className="text-gray-500">(amostra com dados da sua conta)</span>
+                )}
+              </div>
+              {previewLoading ? (
+                <div className="flex justify-center py-6">
+                  <Spinner size={20} />
+                </div>
+              ) : (
+                <WhatsAppPreviewBubble text={previewText || ' '} />
+              )}
             </div>
           </div>
 
@@ -722,7 +927,7 @@ export default function PlatformAutomations() {
                     <Badge label={SCOPE_LABELS[r.destinationScope]} variant="blue" />
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{TRIGGER_LABELS[r.triggerType]}</p>
+                <p className="text-xs text-gray-500 mt-1">{describeTrigger(r)}</p>
                 <p className="text-xs text-gray-600 mt-0.5">
                   {r.messageMode === 'plain' ? 'Texto manual' : `Modelo ${r.templateName}`}
                   {r.triggerType === 'once_at' && r.scheduledAt

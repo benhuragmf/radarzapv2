@@ -20,8 +20,10 @@ export interface IBirthdayAutomationRule extends Document {
   intervalMonths?: number;
   /** 1–23 — nth_business_day_of_month (ex.: 5 = 5º dia útil) */
   nthBusinessDay?: number;
-  /** 1=seg … 7=dom — weekly */
+  /** 1=seg … 7=dom — weekly (legado, um dia) */
   weekday?: number;
+  /** 1=seg … 7=dom — weekly (vários dias) */
+  weekdays?: number[];
   /** Envio único — once_at */
   scheduledAt?: Date;
   sendTime: string;
@@ -99,6 +101,10 @@ const BirthdayAutomationRuleSchema = new Schema<IBirthdayAutomationRule>(
       type: Number,
       min: 1,
       max: 7,
+    },
+    weekdays: {
+      type: [Number],
+      default: undefined,
     },
     scheduledAt: {
       type: Date,

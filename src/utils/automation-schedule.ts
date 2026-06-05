@@ -10,6 +10,12 @@ export function weekdayMatches(refDate: Date, weekdayIso: number): boolean {
   return iso === weekdayIso;
 }
 
+/** Um ou mais dias da semana (ISO 1–7). */
+export function weekdaysMatch(refDate: Date, weekdays: number[]): boolean {
+  if (!weekdays?.length) return false;
+  return weekdays.some(w => weekdayMatches(refDate, w));
+}
+
 /** Dia N do calendário no mês atual (1–31). */
 export function isCalendarDayOfMonth(refDate: Date, dayOfMonth: number): boolean {
   if (dayOfMonth < 1 || dayOfMonth > 31) return false;
