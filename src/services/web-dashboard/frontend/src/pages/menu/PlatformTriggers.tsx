@@ -13,7 +13,7 @@ const TRIGGERS = [
 export default function PlatformTriggers() {
   return (
     <PlatformPage
-      title="Gatilhos avançados"
+      title="Gatilhos"
       description="Configure quando as mensagens automáticas disparam. Todos os gatilhos ficam em Mensagens automáticas."
     >
       <Link

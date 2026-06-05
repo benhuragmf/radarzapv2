@@ -21,7 +21,7 @@ export default function PlatformAudit() {
 
   return (
     <PlatformPage
-      title="Auditoria resumida"
+      title="Auditoria"
       description="Resumo dos últimos 7 dias da sua conta — envios, erros e base de contatos."
     >
       {isLoading ? (

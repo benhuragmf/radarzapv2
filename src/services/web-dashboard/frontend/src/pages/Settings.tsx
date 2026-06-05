@@ -16,7 +16,7 @@ const API_SECTIONS = [
   { id: 'api-chaves', title: 'Chaves de API', Component: ApiKeysPanel },
   { id: 'api-webhooks', title: 'Webhooks', Component: WebhooksPanel },
   { id: 'api-docs', title: 'Documentação', Component: ApiDocsPanel },
-  { id: 'api-rate', title: 'Rate Limit', Component: RateLimitPanel },
+  { id: 'api-rate', title: 'Limites da API', Component: RateLimitPanel },
 ] as const
 
 export default function Settings({ user }: Props) {

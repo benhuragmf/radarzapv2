@@ -22,7 +22,7 @@ export default function ContactSegments() {
 
   return (
     <PlatformPage
-      title="Listas / Segmentos"
+      title="Segmentos"
       description="Grupos de contato para segmentar envios, automações e filtros no painel."
     >
       <Link to="/contact">

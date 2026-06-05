@@ -148,6 +148,7 @@ export default function App() {
           <Route path="platform/gatilhos" element={<Guard user={user} path="/platform/gatilhos"><PlatformTriggers /></Guard>} />
           <Route path="platform/wa-logs" element={<Guard user={user} path="/platform/wa-logs"><WaLogs /></Guard>} />
           <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
+          <Route path="platform/fila" element={<Guard user={user} path="/platform/fila"><Queue scope="tenant" /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />
           <Route path="send/historico" element={<Guard user={user} path="/send/historico"><SendHistory /></Guard>} />
           <Route path="send" element={<Guard user={user} path="/send"><SendPage /></Guard>} />

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Building2, ChevronDown, ChevronRight, Radio, Zap } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Radio, Shield, Zap } from 'lucide-react'
 import type { AuthUser } from '../../lib/auth'
 import {
   detectNavMode,
   isNavGroupActive,
   isNavItemActive,
   navForUser,
+  userHasAdminMode,
   userHasDiscordMode,
   type NavEntry,
   type NavLink,
@@ -139,7 +140,7 @@ function NavGroupItem({
         }`}
       >
         <Icon size={16} className="shrink-0" />
-        <span className="flex-1 text-left">{entry.label}</span>
+        <span className="flex-1 text-left truncate">{entry.label}</span>
         {groupAlert && <NavAlertDot alert={groupAlert} active={isActive} />}
         {open
           ? <ChevronDown size={14} className="shrink-0 opacity-60" />
@@ -214,11 +215,39 @@ function NavTree({
   )
 }
 
+function ModeTab({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: typeof Building2
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-[11px] font-medium transition-colors truncate ${
+        active ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+      }`}
+      title={label}
+    >
+      <Icon size={13} className="shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
+  )
+}
+
 export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange }: Props) {
   const { pathname, hash } = useLocation()
   const guildReady = Boolean(guild?.id)
   const navGuildReady = mode !== 'discord' || guildReady
-  const showToggle = userHasDiscordMode(user)
+  const showDiscord = userHasDiscordMode(user)
+  const showAdmin = userHasAdminMode(user)
+  const tabCount = 1 + (showDiscord ? 1 : 0) + (showAdmin ? 1 : 0)
   const nav = navForUser(user, mode)
   const { data: navAlertsData } = useDiscordNavAlerts(
     guild?.id,
@@ -227,8 +256,8 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
   const navAlerts = mode === 'discord' ? navAlertsData?.items : undefined
 
   useEffect(() => {
-    if (showToggle) onModeChange(detectNavMode(pathname, hash))
-  }, [pathname, hash, showToggle, onModeChange])
+    onModeChange(detectNavMode(pathname, hash))
+  }, [pathname, hash, onModeChange])
 
   return (
     <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
@@ -237,41 +266,42 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
         <div className="min-w-0">
           <span className="font-bold text-lg tracking-tight block">RadarZap</span>
           <span className="text-[10px] text-gray-500 uppercase tracking-wider">
-            {user.isInternalStaff ? 'Administrador' : user.primaryRole.replace('_', ' ')}
+            {mode === 'admin' ? 'Admin RadarZap' : mode === 'discord' ? 'Discord' : 'Plataforma'}
           </span>
         </div>
       </div>
 
-      {showToggle && (
-        <div className="px-3 pt-3 pb-1 grid grid-cols-2 gap-1">
-          <button
-            type="button"
+      {tabCount > 1 && (
+        <div
+          className="px-3 pt-3 pb-1 grid gap-1"
+          style={{ gridTemplateColumns: `repeat(${tabCount}, minmax(0, 1fr))` }}
+        >
+          <ModeTab
+            active={mode === 'platform'}
             onClick={() => onModeChange('platform')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
-              mode === 'platform'
-                ? 'bg-brand-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            <Building2 size={13} />
-            Plataforma
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange('discord')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
-              mode === 'discord'
-                ? 'bg-brand-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            <Radio size={13} />
-            Discord
-          </button>
+            icon={Building2}
+            label="Plataforma"
+          />
+          {showDiscord && (
+            <ModeTab
+              active={mode === 'discord'}
+              onClick={() => onModeChange('discord')}
+              icon={Radio}
+              label="Discord"
+            />
+          )}
+          {showAdmin && (
+            <ModeTab
+              active={mode === 'admin'}
+              onClick={() => onModeChange('admin')}
+              icon={Shield}
+              label="Admin"
+            />
+          )}
         </div>
       )}
 
-      {showToggle && mode === 'discord' && (
+      {showDiscord && mode === 'discord' && (
         <DiscordGuildPicker user={user} selected={guild} onChange={onGuildChange} />
       )}
 

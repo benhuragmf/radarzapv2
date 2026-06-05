@@ -5,12 +5,12 @@ import { Button } from '../components/ui/Button'
 
 const TITLES: Record<string, string> = {
   campanhas: 'Campanhas',
-  segmentos: 'Listas / Segmentos',
-  'auditoria-resumida': 'Auditoria resumida',
-  gatilhos: 'Gatilhos automáticos',
+  segmentos: 'Segmentos',
+  'auditoria-resumida': 'Auditoria',
+  gatilhos: 'Gatilhos',
   'regras-envio': 'Regras de envio',
-  'wa-status': 'Status das conexões',
-  'wa-logs': 'Logs WhatsApp',
+  'wa-status': 'Status',
+  'wa-logs': 'Logs',
   monitoramento: 'Monitoramento',
   erros: 'Erros do sistema',
   permissoes: 'Permissões',
@@ -18,7 +18,7 @@ const TITLES: Record<string, string> = {
   backup: 'Backup',
   pagamentos: 'Pagamentos',
   moderacao: 'Moderação',
-  'audit-global': 'Auditoria global',
+  'audit-global': 'Auditoria',
 }
 
 export default function ComingSoon() {
@@ -37,12 +37,12 @@ export default function ComingSoon() {
         <div className="flex flex-wrap justify-center gap-2 pt-2">
           <Link to="/dashboard">
             <Button size="sm" variant="secondary">
-              Visão geral
+              Início
             </Button>
           </Link>
           <Link to="/settings/team">
             <Button size="sm" variant="secondary">
-              Cargos e acessos
+              Equipe e cargos
             </Button>
           </Link>
         </div>
