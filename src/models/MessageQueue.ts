@@ -377,7 +377,9 @@ MessageQueueSchema.pre('save', function(this: IMessageQueue, next) {
     return next(new Error('At least one destination is required'));
   }
   
-  // Ensure scheduledFor is not in the past (unless it's a retry)
+  if (this.isNew && this.scheduledFor.getTime() < Date.now() - 60_000) {
+    return next(new Error('Agendamento não pode ser no passado'));
+  }
   if (this.isNew && this.scheduledFor < new Date()) {
     this.scheduledFor = new Date();
   }

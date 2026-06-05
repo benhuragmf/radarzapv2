@@ -25,7 +25,7 @@ describe('validateAutomationScheduleTimes', () => {
         { triggerType: 'on_contact_birthday', sendTime: '09:00' },
         now,
       ),
-    ).toMatch(/passou/i);
+    ).toMatch(/passou|futuro/i);
   });
 
   it('aceita sendTime futuro no mesmo dia', () => {

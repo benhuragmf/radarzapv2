@@ -66,6 +66,7 @@ import {
   buildPlatformPreviewSampleVariables,
   buildPlatformWhatsAppVariables,
 } from '../../utils/platform-wa-variables';
+import { validateOptionalCampaignSendAt } from '../../utils/schedule-time';
 import { BirthdayAutomationRule, type IBirthdayAutomationRule } from '../../models/BirthdayAutomationRule';
 import { ApiKey } from '../../models/ApiKey';
 import { WebhookEndpoint, WEBHOOK_EVENTS, type WebhookEvent } from '../../models/WebhookEndpoint';
@@ -2246,16 +2247,11 @@ export class DashboardService {
           }
         }
 
-        let sendAt: Date | undefined;
-        if (body.sendAt) {
-          sendAt = new Date(body.sendAt);
-          if (Number.isNaN(sendAt.getTime())) {
-            return res.status(400).json({ error: 'Data/horário de agendamento inválido' });
-          }
-          if (sendAt <= new Date()) {
-            return res.status(400).json({ error: 'O agendamento deve ser no futuro' });
-          }
+        const sendAtCheck = validateOptionalCampaignSendAt(body.sendAt ?? undefined);
+        if (sendAtCheck.ok === false) {
+          return res.status(400).json({ error: sendAtCheck.error });
         }
+        const sendAt = sendAtCheck.date;
 
         const wa = WhatsAppService.getInstance();
         const isImmediate = !sendAt;

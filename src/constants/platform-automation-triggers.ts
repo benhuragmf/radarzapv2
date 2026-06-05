@@ -9,6 +9,10 @@ import {
   isNthBusinessDayOfMonth,
   weekdaysMatch,
 } from '@/utils/automation-schedule';
+import {
+  validateFutureSchedule,
+  validateFutureTimeToday,
+} from '@/utils/schedule-time';
 
 export type PlatformAutomationTriggerType =
   | 'on_contact_birthday'
@@ -142,24 +146,14 @@ export function validateAutomationScheduleTimes(
   },
   refDate: Date = new Date(),
 ): string | null {
-  const graceMs = 60_000;
-  const now = refDate.getTime();
-
   if (body.triggerType === 'once_at') {
-    if (!body.scheduledAt || Number.isNaN(Date.parse(body.scheduledAt))) {
-      return 'Informe data e hora futuras para o envio único';
-    }
-    if (new Date(body.scheduledAt).getTime() < now - graceMs) {
-      return 'Data e hora devem ser no futuro';
-    }
+    const check = validateFutureSchedule(body.scheduledAt, refDate);
+    if (check.ok === false) return check.error;
     return null;
   }
 
   if (body.sendTime?.trim() && triggerMatchesCalendarToday(body, refDate)) {
-    const sendAt = buildSendAtToday(body.sendTime, refDate);
-    if (sendAt && sendAt.getTime() < now - graceMs) {
-      return 'Horário já passou hoje — escolha um horário futuro';
-    }
+    return validateFutureTimeToday(body.sendTime, refDate);
   }
   return null;
 }

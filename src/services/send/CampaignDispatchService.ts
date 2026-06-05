@@ -20,6 +20,7 @@ import {
   validateCampaignCreate,
   WHATSAPP_LIMITS,
 } from '@/config/limits';
+import { validateOptionalCampaignSendAt } from '@/utils/schedule-time';
 
 const logger = createServiceLogger('CampaignDispatchService');
 
@@ -112,9 +113,10 @@ export class CampaignDispatchService {
 
     const acceptRisk = input.acceptWhatsAppRisk === true;
     const isBusiness = await this.isWhatsAppBusiness(input.clientId);
-    const scheduledFor = input.sendAt && input.sendAt > new Date()
-      ? input.sendAt
-      : new Date();
+
+    const sendAtCheck = validateOptionalCampaignSendAt(input.sendAt);
+    if (sendAtCheck.ok === false) throw new Error(sendAtCheck.error);
+    const scheduledFor = sendAtCheck.date ?? new Date();
 
     const batchCount = Math.ceil(
       destCount / getDispatchBatchSize(acceptRisk, isBusiness),

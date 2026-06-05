@@ -1,4 +1,12 @@
 import type { TriggerType } from './automation-triggers'
+import {
+  currentTimeHHmm,
+  minDatetimeLocalFromNow,
+  toDatetimeLocal,
+  validateFutureSchedule,
+} from './schedule-time'
+
+export { toDatetimeLocal, minDatetimeLocalFromNow, currentTimeHHmm }
 
 const WEEKDAY_ISO = (d: Date) => (d.getDay() === 0 ? 7 : d.getDay())
 
@@ -9,23 +17,6 @@ function parseHm(sendTime: string): { h: number; min: number } | null {
   const min = Number(m[2])
   if (h < 0 || h > 23 || min < 0 || min > 59) return null
   return { h, min }
-}
-
-export function toDatetimeLocal(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
-export function minDatetimeLocalFromNow(d: Date = new Date()): string {
-  const next = new Date(d)
-  next.setSeconds(0, 0)
-  next.setMinutes(next.getMinutes() + 1)
-  return toDatetimeLocal(next)
-}
-
-export function currentTimeHHmm(d: Date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function isCalendarDay(refDate: Date, dayOfMonth: number): boolean {
@@ -96,27 +87,16 @@ export function validateAutomationScheduleTimes(
   },
   refDate: Date = new Date(),
 ): string | null {
-  const graceMs = 60_000
-  const now = refDate.getTime()
-
   if (form.triggerType === 'once_at') {
-    if (!form.scheduledAt) return 'Informe data e hora futuras'
-    const sched = new Date(form.scheduledAt)
-    if (Number.isNaN(sched.getTime()) || sched.getTime() < now - graceMs) {
-      return 'Data e hora devem ser no futuro'
-    }
-    return null
+    return validateFutureSchedule(form.scheduledAt, refDate)
   }
 
   if (form.sendTime && triggerMatchesCalendarToday(form, refDate)) {
     const parsed = parseHm(form.sendTime)
-    if (parsed) {
-      const sendAt = new Date(refDate)
-      sendAt.setHours(parsed.h, parsed.min, 0, 0)
-      if (sendAt.getTime() < now - graceMs) {
-        return 'Horário já passou hoje — escolha um horário futuro'
-      }
-    }
+    if (!parsed) return 'Horário inválido'
+    const sendAt = new Date(refDate)
+    sendAt.setHours(parsed.h, parsed.min, 0, 0)
+    return validateFutureSchedule(sendAt, refDate)
   }
   return null
 }

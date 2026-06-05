@@ -45,6 +45,11 @@ import {
   Eye,
 } from 'lucide-react'
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
+import {
+  clampDatetimeLocal,
+  minDatetimeLocalFromNow,
+  validateFutureSchedule,
+} from '../lib/schedule-time'
 
 interface Destination {
   _id: string
@@ -105,7 +110,8 @@ function defaultScheduleLocal(): string {
   d.setMinutes(d.getMinutes() + 30)
   d.setSeconds(0, 0)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const raw = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return clampDatetimeLocal(raw, minDatetimeLocalFromNow())
 }
 
 export default function SendNow() {
@@ -129,6 +135,7 @@ export default function SendNow() {
   const [requireConnected, setRequireConnected] = useState(true)
   const [scheduleMode, setScheduleMode] = useState(false)
   const [sendAtLocal, setSendAtLocal] = useState(defaultScheduleLocal)
+  const minSendAtLocal = useMemo(() => minDatetimeLocalFromNow(), [scheduleMode])
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
   const [acceptWhatsAppRisk, setAcceptWhatsAppRisk] = useState(false)
   const [riskAcknowledged, setRiskAcknowledged] = useState(false)
@@ -404,6 +411,11 @@ export default function SendNow() {
 
   const submit = useMutation({
     mutationFn: () => {
+      if (scheduleMode) {
+        const err = validateFutureSchedule(sendAtLocal)
+        if (err) throw new Error(err)
+      }
+
       const body: Record<string, unknown> = {
         title: title.trim() || undefined,
         message:
@@ -881,9 +893,15 @@ export default function SendNow() {
                     <input
                       type="datetime-local"
                       value={sendAtLocal}
-                      onChange={e => setSendAtLocal(e.target.value)}
+                      min={minSendAtLocal}
+                      onChange={e =>
+                        setSendAtLocal(clampDatetimeLocal(e.target.value, minSendAtLocal))
+                      }
                       className={inputCls}
                     />
+                    <p className="text-[11px] text-gray-600 mt-1">
+                      Data e hora devem ser no futuro.
+                    </p>
                   </div>
                 )}
 
