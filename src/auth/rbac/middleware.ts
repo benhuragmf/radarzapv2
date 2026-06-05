@@ -1,3 +1,10 @@
+/*
+ * RadarZap / RadarGamer
+ * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
+ * Todos os direitos reservados.
+ * Uso, cópia, distribuição ou modificação sem autorização é proibido.
+ */
+
 import { Request, Response, NextFunction } from 'express';
 import { User } from '@/models/User';
 import { Capability } from './capabilities';

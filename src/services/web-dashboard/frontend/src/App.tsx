@@ -1,3 +1,10 @@
+/*
+ * RadarZap / RadarGamer
+ * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
+ * Todos os direitos reservados.
+ * Uso, cópia, distribuição ou modificação sem autorização é proibido.
+ */
+
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'

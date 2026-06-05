@@ -1,5 +1,8 @@
 # RadarZap v2.0
 
+> **Software proprietário** — Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria.  
+> Ver [LICENSE.md](LICENSE.md) e [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
 Plataforma SaaS para **envio e automação de mensagens WhatsApp**, com módulo opcional de **Discord → WhatsApp** (captura em canais, regras, templates e fila).
 
 Esta pasta é a **versão limpa 2.0** do projeto original (`radarzap`): microserviços TypeScript, painel React e sem scripts legados de teste/deploy (GCP, Railway, Oracle, `minimal-index`, etc.).
@@ -314,6 +317,8 @@ radarzapv2/
 | [docs/MENU-PAGES-REGISTRY.md](docs/MENU-PAGES-REGISTRY.md) | Mapa rota → componente → API |
 | [docs/RADARZAP-V2-MIGRACAO.md](docs/RADARZAP-V2-MIGRACAO.md) | Diferenças v1/v2 e dev local |
 | [docs/CONTATOS-CSV-IMPORTACAO.md](docs/CONTATOS-CSV-IMPORTACAO.md) | Importação/exportação de contatos (CSV/VCF) |
+| [LICENSE.md](LICENSE.md) | Licença proprietária |
+| [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) | Licenças de bibliotecas open source |
 
 ---
 
@@ -339,4 +344,14 @@ Detalhes: [docs/RADARZAP-V2-MIGRACAO.md](docs/RADARZAP-V2-MIGRACAO.md).
 
 ## Licença
 
-MIT
+Este projeto é **software proprietário e fechado**.
+
+O código-fonte, estrutura, regras de negócio, integrações, bots, APIs, painéis,
+design, banco de dados e documentação pertencem a **Benhur Augusto Gomes Monteiro Faria**
+(projetos RadarZap / RadarGamer).
+
+Nenhuma parte deste sistema pode ser copiada, distribuída, vendida, publicada,
+modificada, sublicenciada ou reutilizada sem **autorização expressa por escrito**.
+
+- Termos completos: [LICENSE.md](LICENSE.md)
+- Bibliotecas open source usadas: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
