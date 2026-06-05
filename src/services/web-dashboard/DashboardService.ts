@@ -30,6 +30,7 @@ import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQ
 import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
 import { StatusDispatchService } from '../send/StatusDispatchService';
 import { StatusPost } from '../../models/StatusPost';
+import { parseAndValidateStatusImage } from '../../utils/safe-image-upload';
 import { ConsentService } from '../consent/ConsentService';
 import { OrganizationService } from '../organization/OrganizationService';
 import { Organization } from '../../models/Organization';
@@ -2826,10 +2827,11 @@ export class DashboardService {
           .lean();
         res.json(
           posts.map(p => {
-            const { image: _img, ...rest } = p;
+            const { image: _img, imageData: _buf, ...rest } = p;
             return {
               ...rest,
-              hasImage: Boolean(_img),
+              hasImage: Boolean(_img || (_buf && _buf.length)),
+              viewCount: p.viewCount ?? p.viewEvents?.length ?? 0,
             };
           }),
         );
@@ -2868,6 +2870,9 @@ export class DashboardService {
           }
         } else if (!body.image?.trim()) {
           return res.status(400).json({ error: 'Selecione uma imagem para o status' });
+        } else {
+          const imgCheck = parseAndValidateStatusImage(body.image);
+          if (imgCheck.ok === false) return res.status(400).json({ error: imgCheck.error });
         }
 
         const wa = WhatsAppService.getInstance();
@@ -2907,6 +2912,50 @@ export class DashboardService {
           statusJidCount: post.statusJidCount,
           lastError: post.lastError,
         });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/status-posts/:id', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const post = await StatusPost.findOne({
+          _id: req.params.id,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+        }).lean();
+        if (!post) return res.status(404).json({ error: 'Publicação não encontrada' });
+
+        const { image: _img, imageData: _buf, ...rest } = post;
+        res.json({
+          ...rest,
+          hasImage: Boolean(_img || (_buf && _buf.length)),
+          viewCount: post.viewCount ?? post.viewEvents?.length ?? 0,
+          viewEvents: (post.viewEvents ?? []).map(v => ({
+            ...v,
+            viewedAt: v.viewedAt,
+          })),
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/status-posts/:id/media', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const post = await StatusPost.findOne({
+          _id: req.params.id,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+        });
+        if (!post || post.type !== 'image') {
+          return res.status(404).json({ error: 'Imagem não encontrada' });
+        }
+        const media = StatusDispatchService.getInstance().resolvePostImageBuffer(post);
+        if (!media) return res.status(404).json({ error: 'Imagem não encontrada' });
+        res.setHeader('Content-Type', media.mime);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.send(media.data);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

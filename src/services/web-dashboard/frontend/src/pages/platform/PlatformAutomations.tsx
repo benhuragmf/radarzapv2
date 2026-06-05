@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { Badge } from '../../components/ui/Badge'
 import { WhatsAppPreviewBubble } from '../../components/platform/WhatsAppPreviewBubble'
+import { WhatsAppTextEditor } from '../../components/whatsapp/WhatsAppTextEditor'
 import {
   Workflow,
   Plus,
@@ -852,28 +853,34 @@ export default function PlatformAutomations() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    Texto extra → {'{mensagem}'}
-                  </label>
-                  <textarea
-                    rows={3}
+                  <WhatsAppTextEditor
+                    label={
+                      <label className="text-xs text-gray-500 block mb-1">
+                        Texto extra → {'{mensagem}'}
+                      </label>
+                    }
                     value={form.mensagemExtra}
-                    onChange={e => setForm(f => ({ ...f, mensagemExtra: e.target.value }))}
-                    className={`${inputCls} resize-none`}
+                    onChange={v => setForm(f => ({ ...f, mensagemExtra: v }))}
+                    rows={3}
+                    showHint={false}
                   />
                 </div>
               </div>
             ) : (
               <div>
-                <label className="text-xs text-gray-500 block mb-1">
-                  Texto completo — clique nas variáveis abaixo ou digite {'{nome}'}, {'{empresa}'}, etc.
-                </label>
-                <textarea
-                  rows={6}
+                <WhatsAppTextEditor
+                  label={
+                    <label className="text-xs text-gray-500 block mb-1">
+                      Texto completo — clique nas variáveis abaixo ou digite {'{nome}'},{' '}
+                      {'{empresa}'}, etc.
+                    </label>
+                  }
                   value={form.customMessage}
-                  onChange={e => setForm(f => ({ ...f, customMessage: e.target.value }))}
+                  onChange={v => setForm(f => ({ ...f, customMessage: v }))}
+                  rows={6}
                   placeholder="Olá {nome}! Somos a {empresa}."
-                  className={`${inputCls} resize-none font-mono text-xs`}
+                  monospace
+                  showHint={false}
                 />
               </div>
             )}

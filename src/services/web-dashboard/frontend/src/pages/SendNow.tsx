@@ -45,6 +45,7 @@ import {
   Eye,
 } from 'lucide-react'
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
+import { WhatsAppTextEditor } from '../components/whatsapp/WhatsAppTextEditor'
 import {
   clampDatetimeLocal,
   minDatetimeLocalFromNow,
@@ -819,15 +820,17 @@ export default function SendNow() {
                       </select>
                     </div>
                     <div>
-                      <label className={labelCls}>
-                        Texto extra ({'{mensagem}'}) — opcional
-                      </label>
-                      <textarea
+                      <WhatsAppTextEditor
+                        label={
+                          <label className={labelCls}>
+                            Texto extra ({'{mensagem}'}) — opcional
+                          </label>
+                        }
                         value={templateMensagem}
-                        onChange={e => setTemplateMensagem(e.target.value)}
+                        onChange={setTemplateMensagem}
                         rows={2}
+                        showHint={false}
                         placeholder="Complemento inserido no modelo..."
-                        className={`${inputCls} resize-none`}
                       />
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -855,18 +858,21 @@ export default function SendNow() {
                   </>
                 ) : (
                   <div>
-                    <label className={labelCls}>Texto da mensagem *</label>
-                    <textarea
+                    <WhatsAppTextEditor
+                      label={<label className={labelCls}>Texto da mensagem *</label>}
                       value={message}
-                      onChange={e => setMessage(e.target.value)}
+                      onChange={setMessage}
                       rows={5}
                       maxLength={WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
                       placeholder="Digite a mensagem que será enviada no WhatsApp..."
-                      className={`${inputCls} resize-none ${messageTooLong ? 'border-amber-600' : ''}`}
+                      showPreview
+                      className={messageTooLong ? '[&_textarea]:border-amber-600' : ''}
                     />
-                    <p className={`text-[11px] mt-1 text-right ${messageTooLong ? 'text-amber-400' : 'text-gray-600'}`}>
-                      {message.length} / {WHATSAPP_LIMITS.MAX_MESSAGE_LENGTH}
-                    </p>
+                    {messageTooLong && (
+                      <p className="text-[11px] mt-1 text-right text-amber-400">
+                        Mensagem acima do limite recomendado
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

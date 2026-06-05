@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { Badge } from '../../components/ui/Badge'
 import { Cake, Plus, Play, Trash2, Pencil } from 'lucide-react'
+import { WhatsAppTextEditor } from '../../components/whatsapp/WhatsAppTextEditor'
 
 type TriggerType = 'on_contact_birthday' | 'day_of_month' | 'interval_months'
 
@@ -289,14 +290,16 @@ export default function PlatformBirthdayAutomation() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Texto extra → variável {'{mensagem}'}
-            </label>
-            <textarea
-              rows={2}
+            <WhatsAppTextEditor
+              label={
+                <label className="text-xs text-gray-500 block mb-1">
+                  Texto extra → variável {'{mensagem}'}
+                </label>
+              }
               value={form.mensagemExtra}
-              onChange={e => setForm(f => ({ ...f, mensagemExtra: e.target.value }))}
-              className={`${inputCls} resize-none`}
+              onChange={v => setForm(f => ({ ...f, mensagemExtra: v }))}
+              rows={2}
+              showHint={false}
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-400">

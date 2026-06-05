@@ -5,6 +5,7 @@ import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Zap } from 'lucide-react'
+import { WhatsAppTextEditor } from '../whatsapp/WhatsAppTextEditor'
 
 interface DestOption {
   _id: string
@@ -64,11 +65,12 @@ export function ApiPlayground() {
       </div>
       <div>
         <label className="text-xs text-gray-500 block mb-1">Mensagem</label>
-        <textarea
-          rows={3}
+        <WhatsAppTextEditor
           value={message}
-          onChange={e => setMessage(e.target.value)}
-          className={`${inputCls} resize-none`}
+          onChange={setMessage}
+          rows={3}
+          placeholder="Mensagem de teste"
+          showHint={false}
         />
       </div>
       <Button

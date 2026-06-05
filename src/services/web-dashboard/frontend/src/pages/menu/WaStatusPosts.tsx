@@ -16,12 +16,18 @@ import {
   Trash2,
   AlertCircle,
   Smartphone,
+  ChevronRight,
+  Eye,
 } from 'lucide-react'
 import {
   clampDatetimeLocal,
   minDatetimeLocalFromNow,
   validateFutureSchedule,
 } from '../../lib/schedule-time'
+import { WhatsAppTextEditor } from '../../components/whatsapp/WhatsAppTextEditor'
+import { StatusImageUpload } from '../../components/whatsapp/StatusImageUpload'
+import { StatusPostDetailModal } from '../../components/whatsapp/StatusPostDetailModal'
+import { statusFontPreviewClass, type WaStatusFont } from '../../lib/whatsapp-status-fonts'
 
 type StatusType = 'text' | 'image'
 type StatusAudience = 'whatsapp' | 'all_contacts' | 'consented'
@@ -41,6 +47,7 @@ interface StatusPost {
   lastError?: string
   statusJidCount?: number
   hasImage?: boolean
+  viewCount?: number
   createdAt: string
 }
 
@@ -56,13 +63,6 @@ const STATUS_COLORS = [
   { id: 'blue', value: '#D1E9FF', label: 'Azul' },
   { id: 'mint', value: '#CFF5E7', label: 'Menta' },
   { id: 'dark', value: '#1F2C34', label: 'Escuro' },
-]
-
-const STATUS_FONTS = [
-  { value: 0, label: 'Padrão' },
-  { value: 1, label: 'Serif' },
-  { value: 2, label: 'Manuscrito' },
-  { value: 3, label: 'Elegante' },
 ]
 
 const STATUS_LABEL: Record<StatusPost['status'], string> = {
@@ -107,11 +107,12 @@ export default function WaStatusPosts() {
   const [imageData, setImageData] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [backgroundColor, setBackgroundColor] = useState(STATUS_COLORS[0].value)
-  const [font, setFont] = useState(0)
+  const [font, setFont] = useState<WaStatusFont>(0)
   const [audience, setAudience] = useState<StatusAudience>('whatsapp')
   const [scheduleMode, setScheduleMode] = useState(false)
   const [sendAtLocal, setSendAtLocal] = useState(defaultScheduleLocal)
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [detailPostId, setDetailPostId] = useState<string | null>(null)
 
   const minSendAtLocal = useMemo(() => minDatetimeLocalFromNow(), [scheduleMode])
 
@@ -196,19 +197,9 @@ export default function WaStatusPosts() {
     onError: (err: Error) => alert(err.message),
   })
 
-  const onPickImage = (file: File | null) => {
-    if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Imagem muito grande — máximo 5 MB')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const data = reader.result as string
-      setImageData(data)
-      setImagePreview(data)
-    }
-    reader.readAsDataURL(file)
+  const onPickImage = (dataUrl: string | null, preview: string | null) => {
+    setImageData(dataUrl)
+    setImagePreview(preview)
   }
 
   const handleSubmit = () => {
@@ -318,18 +309,23 @@ export default function WaStatusPosts() {
 
           {statusType === 'text' ? (
             <>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">
-                  Texto ({text.length}/700)
-                </label>
-                <textarea
-                  className={`${inputCls} min-h-[120px] resize-y`}
-                  placeholder="O que você quer publicar no status?"
-                  value={text}
-                  onChange={e => setText(e.target.value.slice(0, 700))}
-                  maxLength={700}
-                />
-              </div>
+              <WhatsAppTextEditor
+                label={
+                  <label className="text-xs text-gray-500 block">
+                    Texto ({text.length}/700)
+                  </label>
+                }
+                value={text}
+                onChange={v => setText(v.slice(0, 700))}
+                maxLength={700}
+                rows={5}
+                minHeight="120px"
+                placeholder="O que você quer publicar no status?"
+                showPreview
+                showFontPicker
+                font={font}
+                onFontChange={setFont}
+              />
               <div>
                 <label className="text-xs text-gray-500 mb-2 block">Cor de fundo</label>
                 <div className="flex flex-wrap gap-2">
@@ -347,44 +343,30 @@ export default function WaStatusPosts() {
                   ))}
                 </div>
               </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Fonte</label>
-                <select
-                  className={inputCls}
-                  value={font}
-                  onChange={e => setFont(Number(e.target.value))}
-                >
-                  {STATUS_FONTS.map(f => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </>
           ) : (
             <>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Imagem (máx. 5 MB)</label>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="text-sm text-gray-400"
-                  onChange={e => onPickImage(e.target.files?.[0] ?? null)}
+                <label className="text-xs text-gray-500 mb-2 block">Imagem do status</label>
+                <StatusImageUpload
+                  preview={imagePreview}
+                  onChange={onPickImage}
+                  onError={msg => setResult({ ok: false, message: msg })}
                 />
               </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">
-                  Legenda opcional ({caption.length}/700)
-                </label>
-                <textarea
-                  className={`${inputCls} min-h-[80px] resize-y`}
-                  placeholder="Legenda da foto"
-                  value={caption}
-                  onChange={e => setCaption(e.target.value.slice(0, 700))}
-                  maxLength={700}
-                />
-              </div>
+              <WhatsAppTextEditor
+                label={
+                  <label className="text-xs text-gray-500 block">
+                    Legenda opcional ({caption.length}/700)
+                  </label>
+                }
+                value={caption}
+                onChange={v => setCaption(v.slice(0, 700))}
+                maxLength={700}
+                rows={3}
+                placeholder="Legenda da foto"
+                showHint={false}
+              />
             </>
           )}
 
@@ -480,7 +462,7 @@ export default function WaStatusPosts() {
                 className="w-full h-full flex items-center justify-center p-6 text-center"
                 style={{ backgroundColor }}
               >
-                <p className={`text-lg font-medium leading-snug ${previewTextStyle}`}>
+                <p className={`text-lg font-medium leading-snug ${previewTextStyle} ${statusFontPreviewClass(font)}`}>
                   {text.trim() || 'Seu texto aparece aqui'}
                 </p>
               </div>
@@ -547,28 +529,56 @@ export default function WaStatusPosts() {
             ) : (
               <div className="space-y-2">
                 {history.slice(0, 20).map(p => (
-                  <Card key={p._id} className="py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm text-white">{p.title}</span>
-                      <Badge label={STATUS_LABEL[p.status]} variant={STATUS_BADGE[p.status]} />
-                      {p.statusJidCount != null && p.status === 'sent' && (
-                        <span className="text-xs text-gray-500">
-                          {p.statusJidCount} contato(s)
-                        </span>
-                      )}
+                  <div
+                    key={p._id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDetailPostId(p._id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') setDetailPostId(p._id)
+                    }}
+                  >
+                    <Card className="py-3 cursor-pointer hover:border-gray-600 transition-colors group">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="text-sm text-white">{p.title}</span>
+                        <Badge label={STATUS_LABEL[p.status]} variant={STATUS_BADGE[p.status]} />
+                        <Badge label={p.type === 'image' ? 'Foto' : 'Texto'} variant="blue" />
+                        {p.statusJidCount != null && p.status === 'sent' && (
+                          <span className="text-xs text-gray-500">
+                            {p.statusJidCount} na audiência
+                          </span>
+                        )}
+                        {p.status === 'sent' && (p.viewCount ?? 0) > 0 && (
+                          <span className="text-xs text-brand-400/90 flex items-center gap-0.5">
+                            <Eye size={11} /> {p.viewCount} visualizações
+                          </span>
+                        )}
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        className="text-gray-600 group-hover:text-brand-400 shrink-0"
+                      />
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
                       {p.processedAt ? formatWhen(p.processedAt) : formatWhen(p.scheduledFor)}
+                      {p.text && ` · ${p.text.slice(0, 60)}${p.text.length > 60 ? '…' : ''}`}
                       {p.lastError && (
                         <span className="text-red-400 block mt-1">{p.lastError}</span>
                       )}
                     </p>
-                  </Card>
+                    <p className="text-[10px] text-gray-600 mt-1">Clique para ver conteúdo e visualizações</p>
+                    </Card>
+                  </div>
                 ))}
               </div>
             )}
           </section>
         </>
+      )}
+
+      {detailPostId && (
+        <StatusPostDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} />
       )}
     </div>
   )

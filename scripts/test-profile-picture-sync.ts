@@ -10,7 +10,9 @@ async function main() {
   const uri = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/radarzap';
   await mongoose.connect(uri);
 
-  const withMime = await Destination.countDocuments({ profilePictureMime: { $exists: true, $ne: null, $ne: '' } });
+  const withMime = await Destination.countDocuments({
+    profilePictureMime: { $exists: true, $nin: [null, ''] },
+  });
   const total = await Destination.countDocuments({ type: 'contact', isActive: true });
   const sample = await Destination.find({ type: 'contact', isActive: true })
     .select('name identifier profilePictureMime profilePictureUpdatedAt')
@@ -39,7 +41,9 @@ async function main() {
   const result = await wa.syncDestinationProfilePictures(clientId, { limit: 3 });
   console.log('Sync resultado:', result);
 
-  const after = await Destination.countDocuments({ profilePictureMime: { $exists: true, $ne: null, $ne: '' } });
+  const after = await Destination.countDocuments({
+    profilePictureMime: { $exists: true, $nin: [null, ''] },
+  });
   console.log('Com foto após sync:', after);
 
   await mongoose.disconnect();

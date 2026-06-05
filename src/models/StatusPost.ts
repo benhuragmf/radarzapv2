@@ -4,12 +4,22 @@ export type StatusPostType = 'text' | 'image';
 export type StatusPostAudience = 'whatsapp' | 'all_contacts' | 'consented';
 export type StatusPostStatus = 'pending' | 'processing' | 'sent' | 'failed';
 
+export interface IStatusViewEvent {
+  jid: string;
+  phone?: string;
+  name?: string;
+  viewedAt: Date;
+}
+
 export interface IStatusPost extends Document {
   clientId: mongoose.Types.ObjectId;
   title: string;
   type: StatusPostType;
   text?: string;
+  /** Legado: data URL completa — preferir imageData + imageMime */
   image?: string;
+  imageData?: Buffer;
+  imageMime?: string;
   caption?: string;
   backgroundColor?: string;
   font?: number;
@@ -20,6 +30,8 @@ export interface IStatusPost extends Document {
   lastError?: string;
   statusJidCount?: number;
   whatsappMessageId?: string;
+  viewEvents?: IStatusViewEvent[];
+  viewCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,11 +64,13 @@ const StatusPostSchema = new Schema<IStatusPost>(
       validate: {
         validator(v: string) {
           if (!v) return true;
-          return /^(https?:\/\/|data:image\/)/.test(v);
+          return /^data:image\/(jpeg|png|webp);base64,/.test(v);
         },
-        message: 'Imagem deve ser URL ou base64 data:image',
+        message: 'Imagem deve ser data URL JPEG, PNG ou WebP',
       },
     },
+    imageData: { type: Buffer },
+    imageMime: { type: String, maxlength: 32 },
     caption: {
       type: String,
       maxlength: 700,
@@ -90,6 +104,15 @@ const StatusPostSchema = new Schema<IStatusPost>(
     lastError: String,
     statusJidCount: Number,
     whatsappMessageId: String,
+    viewEvents: [
+      {
+        jid: { type: String, required: true },
+        phone: String,
+        name: String,
+        viewedAt: { type: Date, required: true },
+      },
+    ],
+    viewCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

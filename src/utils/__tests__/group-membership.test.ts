@@ -4,6 +4,7 @@ jest.mock('@whiskeysockets/baileys', () => ({
 
 import {
   isPhoneInParticipants,
+  isWaIdentityInParticipants,
   phoneMatchesParticipant,
 } from '@/utils/group-membership';
 
@@ -36,6 +37,27 @@ describe('group-membership', () => {
         { id: '558184384907@s.whatsapp.net' },
       ]);
       expect(ok).toBe(false);
+    });
+
+    it('matches via phoneNumber when participant id is @lid', () => {
+      const ok = isPhoneInParticipants('+5511976904921', [
+        {
+          id: '39488566902931@lid',
+          phoneNumber: '5511976904921@s.whatsapp.net',
+          lid: '39488566902931@lid',
+        },
+      ]);
+      expect(ok).toBe(true);
+    });
+  });
+
+  describe('isWaIdentityInParticipants', () => {
+    it('matches session by LID when phone is only on phoneNumber field', () => {
+      const ok = isWaIdentityInParticipants(
+        { phone: '+5511976904921', lid: '39488566902931@lid' },
+        [{ id: '39488566902931@lid', lid: '39488566902931@lid' }],
+      );
+      expect(ok).toBe(true);
     });
   });
 });

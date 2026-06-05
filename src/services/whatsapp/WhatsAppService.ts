@@ -47,8 +47,9 @@ import {
 } from '@/utils/stream-template';
 import { ConsentService } from '@/services/consent/ConsentService';
 import { ConsentStatus } from '@/types/consent';
-import { isPhoneInParticipants } from '@/utils/group-membership';
+import { isPhoneInParticipants, isWaIdentityInParticipants } from '@/utils/group-membership';
 import { downloadProfilePictureFromUrl } from '@/utils/profile-picture-download';
+import { StatusViewService } from '@/services/send/StatusViewService';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -603,13 +604,27 @@ export class WhatsAppService {
     }
 
     const dests = await Destination.find(query).sort({ updatedAt: -1 }).limit(limit).lean();
+    const totalActive = await Destination.countDocuments({ clientId: clientOid, isActive: true });
     let updated = 0;
     let skipped = 0;
     let failed = 0;
 
     this.serviceLogger.info(
-      `Sincronizando fotos de perfil: client=${clientId} destinos=${dests.length}`,
+      `Sincronizando fotos de perfil: client=${clientId} fila=${dests.length} cadastrados=${totalActive}`,
     );
+
+    if (dests.length === 0) {
+      if (totalActive === 0) {
+        this.serviceLogger.debug(
+          'Fotos de perfil: nenhum contato ativo em /contact — sync só roda para destinos cadastrados no RadarZap.',
+        );
+      } else {
+        this.serviceLogger.debug(
+          'Fotos de perfil: fila vazia — contatos já sincronizados nos últimos 7 dias ou marcados sem foto (none).',
+        );
+      }
+      return { updated, skipped, failed };
+    }
 
     for (const d of dests) {
       try {
@@ -2111,6 +2126,29 @@ export class WhatsAppService {
     });
   }
 
+  /** Registra quem visualizou status publicados (receipts de status@broadcast). */
+  private setupStatusViewTracking(socket: WASocket, clientId: string): void {
+    socket.ev.on('message-receipt.update', updates => {
+      for (const item of updates) {
+        const key = item.key;
+        if (!key?.fromMe || key.remoteJid !== 'status@broadcast' || !key.id) continue;
+        const receipt = item.receipt as {
+          userJid?: string;
+          readTimestamp?: number;
+          receiptTimestamp?: number;
+        };
+        const ts = receipt.readTimestamp ?? receipt.receiptTimestamp;
+        const viewerJid = receipt.userJid;
+        if (!ts || !viewerJid) continue;
+        void StatusViewService.getInstance()
+          .recordView(clientId, key.id, viewerJid, new Date(ts * 1000))
+          .catch(err => {
+            this.serviceLogger.debug('Falha ao registrar view de status', err);
+          });
+      }
+    });
+  }
+
   private warmWaStatusContactCache(socket: WASocket, clientId: string): void {
     if (typeof socket.resyncAppState === 'function') {
       socket.resyncAppState(['regular', 'regular_high'], false).catch(err => {
@@ -2131,6 +2169,7 @@ export class WhatsAppService {
    */
   private setupSocketEventHandlers(socket: WASocket, clientId: string): void {
     this.setupWaStatusContactSync(socket, clientId);
+    this.setupStatusViewTracking(socket, clientId);
 
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect } = update;
@@ -3316,7 +3355,8 @@ export class WhatsAppService {
     }
 
     const sessionPhone = wuidToPhone(socket.user.id);
-    if (!sessionPhone) {
+    const sessionLid = (socket.user as { lid?: string } | undefined)?.lid;
+    if (!sessionPhone && !sessionLid) {
       return { error: 'Número da sessão WhatsApp indisponível', invalidDestinationIds: [] };
     }
 
@@ -3332,7 +3372,7 @@ export class WhatsAppService {
         return { error: loadErr, invalidDestinationIds: [...invalidIds] };
       }
 
-      if (!isPhoneInParticipants(sessionPhone, participants)) {
+      if (!isWaIdentityInParticipants({ phone: sessionPhone, lid: sessionLid }, participants)) {
         if (group.destinationId) invalidIds.add(group.destinationId);
         return {
           error:

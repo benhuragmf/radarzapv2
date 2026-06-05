@@ -27,6 +27,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
+import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
 
 interface Template {
   _id: string
@@ -93,15 +94,6 @@ function previewContent(content: string): string {
     out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v)
   }
   return out.replace(/\{[^}]+\}/g, '').trim()
-}
-
-function WhatsAppBubble({ text }: { text: string }) {
-  return (
-    <div className="rounded-2xl rounded-tl-sm bg-[#005c4b] text-[#e9edef] text-xs leading-relaxed px-3 py-2 shadow-lg max-w-full whitespace-pre-wrap break-words border border-[#0a7a62]/40">
-      {text || '…'}
-      <p className="text-[10px] text-right text-[#99beb3] mt-1 opacity-80">14:10 ✓✓</p>
-    </div>
-  )
 }
 
 function DiscordPostMock({ title }: { title: string }) {
@@ -254,7 +246,7 @@ export default function Templates() {
           <div>
             <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2 font-medium">WhatsApp</p>
             <div className="rounded-xl bg-[#0b141a] p-4 min-h-[120px] border border-[#1f2c34]">
-              <WhatsAppBubble text={previewText} />
+              <WhatsAppPreviewBubble text={previewText} timeLabel="14:10 ✓✓" />
             </div>
           </div>
         </div>
@@ -310,7 +302,7 @@ export default function Templates() {
             <div>
               <p className="text-xs text-gray-500 mb-2">Pré-visualização no WhatsApp</p>
               <div className="rounded-xl bg-[#0b141a] p-4 border border-[#1f2c34] min-h-[280px]">
-                <WhatsAppBubble text={previewContent(draftContent)} />
+                <WhatsAppPreviewBubble text={previewContent(draftContent)} timeLabel="14:10 ✓✓" />
               </div>
             </div>
           </div>

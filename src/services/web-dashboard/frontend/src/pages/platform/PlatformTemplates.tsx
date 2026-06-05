@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlatformPage } from '../../components/platform/PlatformPage'
+import { WhatsAppPreviewBubble } from '../../components/platform/WhatsAppPreviewBubble'
+import { WhatsAppTextEditor } from '../../components/whatsapp/WhatsAppTextEditor'
 import { api } from '../../lib/api'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
@@ -76,15 +78,6 @@ function previewContent(content: string): string {
     out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v)
   }
   return out.replace(/\{[^}]+\}/g, '').trim()
-}
-
-function WhatsAppBubble({ text }: { text: string }) {
-  return (
-    <div className="rounded-2xl rounded-tl-sm bg-[#005c4b] text-[#e9edef] text-xs leading-relaxed px-3 py-2 shadow-lg max-w-full whitespace-pre-wrap break-words border border-[#0a7a62]/40">
-      {text || '…'}
-      <p className="text-[10px] text-right text-[#99beb3] mt-1 opacity-80">14:30 ✓✓</p>
-    </div>
-  )
 }
 
 function ContactMock({ name }: { name: string }) {
@@ -224,10 +217,12 @@ export default function PlatformTemplates() {
             value={customForm.name}
             onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
           />
-          <textarea
-            className="w-full text-xs font-mono bg-gray-950 border border-gray-800 rounded-lg p-3 text-gray-300 min-h-[100px]"
+          <WhatsAppTextEditor
             value={customForm.content}
-            onChange={(e) => setCustomForm((f) => ({ ...f, content: e.target.value }))}
+            onChange={v => setCustomForm(f => ({ ...f, content: v }))}
+            rows={6}
+            monospace
+            showHint={false}
           />
           <Button
             size="sm"
@@ -280,7 +275,7 @@ export default function PlatformTemplates() {
           <div>
             <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2 font-medium">WhatsApp</p>
             <div className="rounded-xl bg-[#0b141a] p-4 min-h-[120px] border border-[#1f2c34]">
-              <WhatsAppBubble text={previewText} />
+              <WhatsAppPreviewBubble text={previewText} timeLabel="14:30 ✓✓" />
             </div>
           </div>
         </div>
@@ -304,11 +299,13 @@ export default function PlatformTemplates() {
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_1fr] gap-4">
             <div>
-              <textarea
+              <WhatsAppTextEditor
                 value={draftContent}
-                onChange={(e) => setDraftContent(e.target.value)}
+                onChange={setDraftContent}
                 rows={16}
-                className="w-full text-xs font-mono bg-gray-950 border border-gray-800 rounded-lg p-3 text-gray-300 focus:border-brand-500 outline-none leading-relaxed"
+                minHeight="320px"
+                monospace
+                showHint={false}
               />
               <input
                 value={draftDesc}
@@ -345,7 +342,7 @@ export default function PlatformTemplates() {
             <div>
               <p className="text-xs text-gray-500 mb-2">Pré-visualização no WhatsApp</p>
               <div className="rounded-xl bg-[#0b141a] p-4 border border-[#1f2c34] min-h-[280px]">
-                <WhatsAppBubble text={previewContent(draftContent)} />
+                <WhatsAppPreviewBubble text={previewContent(draftContent)} timeLabel="14:30 ✓✓" />
               </div>
             </div>
           </div>

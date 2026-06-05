@@ -3,6 +3,7 @@ import { StatusPost, IStatusPost } from '@/models/StatusPost';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { createServiceLogger } from '@/utils/logger';
 import { validateOptionalCampaignSendAt } from '@/utils/schedule-time';
+import { parseAndValidateStatusImage } from '@/utils/safe-image-upload';
 
 const logger = createServiceLogger('StatusDispatchService');
 
@@ -34,27 +35,36 @@ export class StatusDispatchService {
     if (sendAtCheck.ok === false) throw new Error(sendAtCheck.error);
     const scheduledFor = sendAtCheck.date ?? new Date();
 
+    let imageValidated: ReturnType<typeof parseAndValidateStatusImage> | null = null;
     if (input.type === 'text') {
       const text = (input.text ?? '').trim();
       if (!text) throw new Error('Informe o texto do status');
       if (text.length > 700) throw new Error('Texto do status: máximo 700 caracteres');
     } else {
       if (!input.image?.trim()) throw new Error('Selecione uma imagem para o status');
+      imageValidated = parseAndValidateStatusImage(input.image);
+      if (imageValidated.ok === false) throw new Error(imageValidated.error);
     }
 
-    const post = await StatusPost.create({
+    const createPayload: Record<string, unknown> = {
       clientId: new mongoose.Types.ObjectId(input.clientId),
       title: input.title.trim(),
       type: input.type,
       text: input.text?.trim(),
-      image: input.image,
       caption: input.caption?.trim(),
       backgroundColor: input.backgroundColor,
       font: input.font,
       audience: input.audience ?? 'whatsapp',
       status: 'pending',
       scheduledFor,
-    });
+    };
+
+    if (imageValidated?.ok) {
+      createPayload.imageData = imageValidated.data;
+      createPayload.imageMime = imageValidated.mime;
+    }
+
+    const post = await StatusPost.create(createPayload);
 
     return post;
   }
@@ -125,7 +135,7 @@ export class StatusDispatchService {
       const result = await wa.sendStatusUpdate(clientId, {
         type: post.type,
         text: post.text,
-        image: post.image,
+        image: this.resolvePostImageDataUrl(post),
         caption: post.caption,
         backgroundColor: post.backgroundColor,
         font: post.font,
@@ -154,5 +164,25 @@ export class StatusDispatchService {
       status: 'pending',
     });
     return result.deletedCount > 0;
+  }
+
+  /** Data URL para envio ao WhatsApp (buffer novo ou legado em `image`). */
+  resolvePostImageDataUrl(post: IStatusPost): string | undefined {
+    if (post.imageData?.length && post.imageMime) {
+      return `data:${post.imageMime};base64,${post.imageData.toString('base64')}`;
+    }
+    return post.image;
+  }
+
+  /** Buffer + MIME para servir mídia no painel. */
+  resolvePostImageBuffer(post: IStatusPost): { data: Buffer; mime: string } | null {
+    if (post.imageData?.length && post.imageMime) {
+      return { data: post.imageData, mime: post.imageMime };
+    }
+    if (post.image?.startsWith('data:')) {
+      const validated = parseAndValidateStatusImage(post.image);
+      if (validated.ok) return { data: validated.data, mime: validated.mime };
+    }
+    return null;
   }
 }
