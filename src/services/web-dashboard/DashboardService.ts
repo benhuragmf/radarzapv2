@@ -994,6 +994,125 @@ export class DashboardService {
       }
     });
 
+    r.post('/contact-groups/:id/members/bulk', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const group = await ContactGroup.findOne({ _id: req.params.id, clientId: clientOid });
+        if (!group) return res.status(404).json({ error: 'Segmento não encontrado' });
+
+        const body = req.body as {
+          destinationIds?: string[];
+          fromGroupId?: string;
+          action?: 'add' | 'remove';
+        };
+        const action = body.action === 'remove' ? 'remove' : 'add';
+        let destIds: mongoose.Types.ObjectId[] = [];
+
+        if (body.fromGroupId) {
+          const fromGroup = await ContactGroup.findOne({ _id: body.fromGroupId, clientId: clientOid });
+          if (!fromGroup) return res.status(404).json({ error: 'Segmento de origem não encontrado' });
+          const fromDests = await Destination.find({
+            clientId: clientOid,
+            type: 'contact',
+            isActive: true,
+            contactGroupIds: fromGroup._id,
+          }).select('_id');
+          destIds = fromDests.map(d => d._id as mongoose.Types.ObjectId);
+        } else if (body.destinationIds?.length) {
+          destIds = body.destinationIds.map(id => new mongoose.Types.ObjectId(id));
+        } else {
+          return res.status(400).json({ error: 'Informe destinationIds ou fromGroupId' });
+        }
+
+        if (action === 'add') {
+          await Destination.updateMany(
+            { clientId: clientOid, _id: { $in: destIds }, type: 'contact' },
+            { $addToSet: { contactGroupIds: group._id } },
+          );
+        } else {
+          await Destination.updateMany(
+            { clientId: clientOid, _id: { $in: destIds } },
+            { $pull: { contactGroupIds: group._id } },
+          );
+        }
+
+        const memberCount = await Destination.countDocuments({
+          clientId: clientOid,
+          type: 'contact',
+          isActive: true,
+          contactGroupIds: group._id,
+        });
+        res.json({ ok: true, memberCount, affected: destIds.length });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/contact-groups/:id/export-csv', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const group = await ContactGroup.findOne({ _id: req.params.id, clientId: clientOid });
+        if (!group) return res.status(404).json({ error: 'Segmento não encontrado' });
+
+        const contacts = await Destination.find({
+          clientId: clientOid,
+          type: 'contact',
+          isActive: true,
+          contactGroupIds: group._id,
+        }).lean();
+
+        const header = 'nome,telefone,email,aniversario,tags\n';
+        const rows = contacts.map(d => {
+          const nome = (d.name ?? '').replace(/"/g, '""');
+          const tel = d.identifier ?? '';
+          const email = (d.email ?? '').replace(/"/g, '""');
+          const bday = d.birthday ?? '';
+          const tags = (d.tags ?? []).join(';');
+          return `"${nome}",${tel},"${email}",${bday},"${tags}"`;
+        });
+        const csv = header + rows.join('\n');
+        const safeName = group.name.replace(/[^a-zA-Z0-9-_]/g, '_');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="segmento-${safeName}.csv"`);
+        res.send('\uFEFF' + csv);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/contact-groups/:id/members', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const group = await ContactGroup.findOne({ _id: req.params.id, clientId: clientOid });
+        if (!group) return res.status(404).json({ error: 'Segmento não encontrado' });
+
+        const contacts = await Destination.find({
+          clientId: clientOid,
+          type: 'contact',
+          isActive: true,
+          contactGroupIds: group._id,
+        })
+          .select('name identifier email birthday tags consentStatus')
+          .sort({ name: 1 })
+          .lean();
+
+        res.json(contacts.map(c => ({
+          _id: c._id,
+          name: c.name,
+          identifier: c.identifier,
+          email: c.email,
+          birthday: c.birthday,
+          tags: c.tags,
+          consentStatus: c.consentStatus,
+        })));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.patch('/destinations/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -1647,10 +1766,61 @@ export class DashboardService {
       }
     });
 
+    r.get('/queue/tenant-campaigns', requireCapability(Cap.QUEUE_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const status = (req.query.status as string) || undefined;
+        const source = (req.query.source as string) || undefined;
+
+        const query: Record<string, unknown> = {
+          clientId: clientOid,
+          'content.template': { $in: ['manual-send', 'platform-send'] },
+        };
+        if (status) query.status = status;
+        if (source === 'automation') {
+          query['content.variables.source'] = 'automation';
+        } else if (source === 'manual') {
+          query['content.variables.source'] = { $ne: 'automation' };
+        }
+
+        const items = await MessageQueue.find(query)
+          .sort({ scheduledFor: 1 })
+          .limit(50)
+          .lean();
+
+        const stats = await MessageQueue.aggregate([
+          { $match: { clientId: clientOid, 'content.template': { $in: ['manual-send', 'platform-send'] } } },
+          { $group: { _id: '$status', count: { $sum: 1 } } },
+        ]);
+        const byStatus = Object.fromEntries(stats.map((s: { _id: string; count: number }) => [s._id, s.count]));
+
+        res.json({
+          stats: {
+            pending: byStatus.pending ?? 0,
+            processing: byStatus.processing ?? 0,
+            sent: byStatus.sent ?? 0,
+            failed: byStatus.failed ?? 0,
+          },
+          items: items.map(m => ({
+            _id: m._id,
+            title: (m.content?.variables as { title?: string })?.title ?? 'Envio',
+            status: m.status,
+            scheduledFor: m.scheduledFor,
+            destinations: m.destinations?.length ?? 0,
+            sentCount: (m.content?.variables as { sentCount?: number })?.sentCount ?? 0,
+            lastError: m.lastError,
+            source: (m.content?.variables as { source?: string })?.source ?? 'manual',
+            automationRuleId: (m.content?.variables as { automationRuleId?: string })?.automationRuleId,
+          })),
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/queue/failed', requireCapability(Cap.QUEUE_VIEW), async (_req, res) => {
       try {
-        // BullMQ doesn't expose failed jobs directly via QueueManager — return empty for now
-        // TODO: expose getFailedJobs() in QueueManager
         res.json([]);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -1791,6 +1961,122 @@ export class DashboardService {
           usage: org.usage,
           companyRole: auth.companyRole,
           primaryRole: auth.primaryRole,
+          phone: org.phone,
+          email: org.email,
+          website: org.website,
+          taxId: org.taxId,
+          address: org.address,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/organization/profile', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const org = await Organization.findById(auth.organizationId).lean();
+        if (!org) return res.status(404).json({ error: 'Empresa não encontrada' });
+        res.json({
+          name: org.name,
+          phone: org.phone ?? '',
+          email: org.email ?? '',
+          website: org.website ?? '',
+          taxId: org.taxId ?? '',
+          address: org.address ?? '',
+          plan: org.plan,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/organization/profile', requireCapability(Cap.BILLING_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          name?: string;
+          phone?: string;
+          email?: string;
+          website?: string;
+          taxId?: string;
+          address?: string;
+        };
+        const org = await Organization.findById(auth.organizationId);
+        if (!org) return res.status(404).json({ error: 'Empresa não encontrada' });
+
+        if (body.name !== undefined) {
+          const trimmed = body.name.trim();
+          if (!trimmed) return res.status(400).json({ error: 'Nome da empresa é obrigatório' });
+          org.name = trimmed.slice(0, 120);
+        }
+        if (body.phone !== undefined) org.phone = body.phone.trim().slice(0, 32) || undefined;
+        if (body.email !== undefined) org.email = body.email.trim().slice(0, 120) || undefined;
+        if (body.website !== undefined) org.website = body.website.trim().slice(0, 200) || undefined;
+        if (body.taxId !== undefined) org.taxId = body.taxId.trim().slice(0, 20) || undefined;
+        if (body.address !== undefined) org.address = body.address.trim().slice(0, 240) || undefined;
+
+        await org.save();
+        res.json({
+          name: org.name,
+          phone: org.phone ?? '',
+          email: org.email ?? '',
+          website: org.website ?? '',
+          taxId: org.taxId ?? '',
+          address: org.address ?? '',
+          plan: org.plan,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/account-stats', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const org = await Organization.findById(auth.organizationId).lean();
+        const wa = WhatsAppService.getInstance();
+        const sessionDetails = await wa.getSessionDetails(auth.clientId);
+
+        const [campaignStats, automationRules, contactCount, groupCount] = await Promise.all([
+          MessageQueue.aggregate([
+            { $match: { clientId: clientOid, 'content.template': { $in: ['manual-send', 'platform-send'] } } },
+            { $group: { _id: '$status', count: { $sum: 1 } } },
+          ]),
+          BirthdayAutomationRule.countDocuments({ organizationId: clientOid, active: true }),
+          Destination.countDocuments({ clientId: clientOid, type: 'contact', isActive: true }),
+          ContactGroup.countDocuments({ clientId: clientOid }),
+        ]);
+
+        const byStatus = Object.fromEntries(campaignStats.map((s: { _id: string; count: number }) => [s._id, s.count]));
+        const automationCampaigns = await MessageQueue.countDocuments({
+          clientId: clientOid,
+          'content.variables.source': 'automation',
+        });
+
+        res.json({
+          organizationName: org?.name ?? auth.organizationName,
+          plan: org?.plan ?? 'free',
+          usage: org?.usage ?? { messagesUsed: 0, lastReset: new Date() },
+          limits: org?.limits,
+          whatsapp: {
+            status: sessionDetails.status,
+            state: sessionDetails.state,
+            phoneNumber: sessionDetails.phoneNumber,
+            profileName: sessionDetails.profileName,
+            lastActivity: sessionDetails.lastActivity,
+            waAccountType: sessionDetails.waAccountType,
+          },
+          campaigns: {
+            pending: byStatus.pending ?? 0,
+            processing: byStatus.processing ?? 0,
+            sent: byStatus.sent ?? 0,
+            failed: byStatus.failed ?? 0,
+            automationTotal: automationCampaigns,
+          },
+          automations: { activeRules: automationRules },
+          contacts: { total: contactCount, segments: groupCount },
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -2027,7 +2313,18 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
         const status = (req.query.status as string) || undefined;
-        const items = await MessageQueue.findByClientId(clientOid, status);
+        const source = (req.query.source as string) || undefined;
+
+        let items = await MessageQueue.findByClientId(clientOid, status);
+        if (source === 'automation') {
+          items = items.filter(
+            m => (m.content.variables as { source?: string })?.source === 'automation',
+          );
+        } else if (source === 'manual') {
+          items = items.filter(
+            m => (m.content.variables as { source?: string })?.source !== 'automation',
+          );
+        }
         const destDocs = await Destination.find({ clientId: clientOid }).lean();
         const consentByPhone = new Map(
           destDocs

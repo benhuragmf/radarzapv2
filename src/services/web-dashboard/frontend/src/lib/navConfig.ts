@@ -80,7 +80,6 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   group('grp-msg', 'Mensagens', Send, [
     link('send-now', 'Enviar agora', Send, '/send', 'send:test'),
     link('send-campaigns', 'Campanhas', Megaphone, '/platform/campanhas', 'send:test'),
-    link('send-sched', 'Agendamentos', Calendar, '/send/agendamentos', 'send:schedule:manage'),
     link('send-history', 'Histórico de envios', History, '/send/historico', 'send:test'),
     link('plat-templates', 'Modelos', FileText, '/platform/templates', 'send:templates:manage'),
   ]),
@@ -110,7 +109,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-auto', 'Automações'),
   group('grp-auto', 'Automações', Repeat, [
     link('auto-rules', 'Regras automáticas', Workflow, '/platform/automacoes', 'send:schedule:manage'),
-    link('auto-sched', 'Agendamentos', Calendar, '/send/agendamentos', 'send:schedule:manage'),
+    link('auto-sched', 'Agend. automação', Calendar, '/send/agendamentos', 'send:schedule:manage'),
     link('auto-triggers', 'Gatilhos', Zap, '/platform/gatilhos', 'send:schedule:manage'),
   ]),
 
@@ -465,7 +464,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/discord/logs': 'Logs',
   '/discord/settings': 'Configurações do servidor',
   '/send': 'Enviar agora',
-  '/send/agendamentos': 'Agendamentos',
+  '/send/agendamentos': 'Agend. automação',
   '/platform/automacoes': 'Regras automáticas',
   '/send/historico': 'Histórico de envios',
   '/plans': 'Plano e limites',

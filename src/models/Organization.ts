@@ -18,6 +18,11 @@ export interface IOrganization extends Document {
     lastReset: Date;
   };
   linkedGuildIds: string[];
+  phone?: string;
+  email?: string;
+  website?: string;
+  taxId?: string;
+  address?: string;
   createdAt: Date;
   updatedAt: Date;
 
@@ -57,6 +62,11 @@ const OrganizationSchema = new Schema<IOrganization>({
     lastReset: { type: Date, default: Date.now },
   },
   linkedGuildIds: { type: [String], default: [], index: true },
+  phone: { type: String, trim: true, maxlength: 32 },
+  email: { type: String, trim: true, maxlength: 120 },
+  website: { type: String, trim: true, maxlength: 200 },
+  taxId: { type: String, trim: true, maxlength: 20 },
+  address: { type: String, trim: true, maxlength: 240 },
 }, {
   timestamps: true,
   collection: 'organizations',

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { PlatformPage } from '../../components/platform/PlatformPage'
@@ -151,6 +151,7 @@ const DEFAULT_FORM = {
 
 export default function PlatformAutomations() {
   const qc = useQueryClient()
+  const location = useLocation()
   const [editing, setEditing] = useState<AutomationRule | null>(null)
   const [form, setForm] = useState(DEFAULT_FORM)
   const [showForm, setShowForm] = useState(false)
@@ -352,6 +353,14 @@ export default function PlatformAutomations() {
     })
     setShowForm(true)
   }
+
+  useEffect(() => {
+    const editId = (location.state as { editId?: string } | null)?.editId
+    if (!editId || rules.length === 0) return
+    const rule = rules.find(r => r._id === editId)
+    if (rule) openEdit(rule)
+    window.history.replaceState({}, document.title)
+  }, [location.state, rules])
 
   const insertVariable = (key: string) => {
     const token = `{${key}}`

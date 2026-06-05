@@ -7,6 +7,7 @@ import { ApiKeysPanel } from '../components/integrations/ApiKeysPanel'
 import { WebhooksPanel } from '../components/integrations/WebhooksPanel'
 import { ApiDocsPanel } from '../components/integrations/ApiDocsPanel'
 import { RateLimitPanel } from '../components/integrations/RateLimitPanel'
+import { CompanyProfilePanel } from '../components/settings/CompanyProfilePanel'
 
 interface Props {
   user: AuthUser
@@ -32,6 +33,13 @@ export default function Settings({ user }: Props) {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <section id="empresa">
+        <h2 className="text-lg font-semibold mb-3">Dados da empresa</h2>
+        <Card>
+          <CompanyProfilePanel user={user} />
+        </Card>
+      </section>
+
       <section id="conta">
         <h2 className="text-lg font-semibold mb-3">Configurações da Conta</h2>
         <Card className="space-y-3">
