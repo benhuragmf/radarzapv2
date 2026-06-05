@@ -215,29 +215,52 @@ function NavTree({
   )
 }
 
-function ModeTab({
-  active,
-  onClick,
-  icon: Icon,
-  label,
+function ModeSwitcher({
+  mode,
+  onModeChange,
+  showDiscord,
+  showAdmin,
 }: {
-  active: boolean
-  onClick: () => void
-  icon: typeof Building2
-  label: string
+  mode: NavMode
+  onModeChange: (mode: NavMode) => void
+  showDiscord: boolean
+  showAdmin: boolean
 }) {
+  const tabs: { id: NavMode; icon: typeof Building2; label: string }[] = [
+    { id: 'platform', icon: Building2, label: 'Plataforma' },
+  ]
+  if (showDiscord) tabs.push({ id: 'discord', icon: Radio, label: 'Discord' })
+  if (showAdmin) tabs.push({ id: 'admin', icon: Shield, label: 'Admin' })
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-[11px] font-medium transition-colors truncate ${
-        active ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-      }`}
-      title={label}
+    <div
+      className="flex rounded-xl bg-gray-950/80 border border-gray-800 p-1 gap-0.5"
+      role="tablist"
+      aria-label="Área do painel"
     >
-      <Icon size={13} className="shrink-0" />
-      <span className="truncate">{label}</span>
-    </button>
+      {tabs.map(({ id, icon: Icon, label }) => {
+        const active = mode === id
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-label={label}
+            title={id === 'admin' ? 'Admin RadarZap' : label}
+            onClick={() => onModeChange(id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg min-w-0 transition-all ${
+              active
+                ? 'bg-brand-600 text-white shadow-sm shadow-brand-900/40'
+                : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/60'
+            }`}
+          >
+            <Icon size={15} className="shrink-0" strokeWidth={active ? 2.25 : 2} />
+            <span className="text-[10px] font-semibold leading-none tracking-tight">{label}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -260,7 +283,7 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
   }, [pathname, hash, onModeChange])
 
   return (
-    <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
+    <aside className="w-60 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-800">
         <Zap className="text-brand-500" size={22} />
         <div className="min-w-0">
@@ -272,32 +295,13 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
       </div>
 
       {tabCount > 1 && (
-        <div
-          className="px-3 pt-3 pb-1 grid gap-1"
-          style={{ gridTemplateColumns: `repeat(${tabCount}, minmax(0, 1fr))` }}
-        >
-          <ModeTab
-            active={mode === 'platform'}
-            onClick={() => onModeChange('platform')}
-            icon={Building2}
-            label="Plataforma"
+        <div className="px-3 pt-3 pb-2">
+          <ModeSwitcher
+            mode={mode}
+            onModeChange={onModeChange}
+            showDiscord={showDiscord}
+            showAdmin={showAdmin}
           />
-          {showDiscord && (
-            <ModeTab
-              active={mode === 'discord'}
-              onClick={() => onModeChange('discord')}
-              icon={Radio}
-              label="Discord"
-            />
-          )}
-          {showAdmin && (
-            <ModeTab
-              active={mode === 'admin'}
-              onClick={() => onModeChange('admin')}
-              icon={Shield}
-              label="Admin"
-            />
-          )}
         </div>
       )}
 

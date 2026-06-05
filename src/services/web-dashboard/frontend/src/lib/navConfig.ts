@@ -72,8 +72,7 @@ function group(
 /** Menu Plataforma — uso diário do cliente (tenant). Staff vê o mesmo menu nesta aba. */
 export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-inicio', 'Início'),
-  link('dash-inicio', 'Início', LayoutDashboard, '/dashboard', 'dashboard:view'),
-  link('plat-resumo', 'Resumo da plataforma', Activity, '/platform', 'dashboard:view'),
+  link('dash-visao', 'Visão geral', LayoutDashboard, '/dashboard', 'dashboard:view'),
   link('plat-reports', 'Relatórios', ScrollText, '/platform/reports', 'logs:view'),
   link('plat-audit', 'Auditoria', ShieldCheck, '/platform/audit', 'logs:view'),
 
@@ -82,16 +81,18 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
     link('send-now', 'Enviar agora', Send, '/send', 'send:test'),
     link('send-campaigns', 'Campanhas', Megaphone, '/platform/campanhas', 'send:test'),
     link('send-sched', 'Agendamentos', Calendar, '/send/agendamentos', 'send:schedule:manage'),
-    link('send-history', 'Histórico', History, '/send/historico', 'send:test'),
+    link('send-history', 'Histórico de envios', History, '/send/historico', 'send:test'),
     link('plat-templates', 'Modelos', FileText, '/platform/templates', 'send:templates:manage'),
   ]),
 
   section('sec-contatos', 'Contatos'),
   group('grp-contatos', 'Contatos', Users, [
     link('wa-contacts', 'Contatos', Phone, '/contact', 'consent:view'),
-    link('wa-segments', 'Segmentos', ListOrdered, '/platform/segmentos', 'send:destination:manage'),
+    link('wa-segments', 'Segmentos / Listas', ListOrdered, '/platform/segmentos', 'send:destination:manage'),
     link('wa-groups', 'Grupos WhatsApp', Users, '/grupos', 'send:destination:manage'),
     link('wa-import', 'Importar / Exportar', Upload, '/platform/contacts', 'send:destination:manage'),
+  ], 'consent:view'),
+  group('grp-consent', 'Consentimento', ShieldCheck, [
     link('consent-pending', 'Pendentes', ShieldCheck, '/contact', 'consent:view', false, {
       search: '?consent=pending',
     }),
@@ -115,7 +116,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-wa', 'WhatsApp'),
   group('grp-wa', 'WhatsApp', Smartphone, [
     link('wa-sessions', 'Sessões e QR Code', Smartphone, '/sessions', 'whatsapp:session:view'),
-    link('wa-status', 'Status', Activity, '/platform/wa-status', 'whatsapp:session:view'),
+    link('wa-status', 'Status das conexões', Activity, '/platform/wa-status', 'whatsapp:session:view'),
     link('wa-queue', 'Fila de envio', ListOrdered, '/platform/fila', 'queue:view'),
     link('wa-logs', 'Logs', ScrollText, '/platform/wa-logs', 'logs:view'),
   ], 'whatsapp:session:view'),
@@ -124,10 +125,10 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   group('grp-api', 'Integrações', Key, [
     link('api-keys', 'Chaves de API', Key, '/settings#api-chaves', 'api:key:create'),
     link('api-webhooks', 'Webhooks', Webhook, '/settings#api-webhooks', 'api:key:create'),
-    link('api-play', 'Playground', Zap, '/send#playground', 'send:test'),
+    link('api-play', 'Playground', Zap, '/integrations/playground', 'send:test'),
     link('api-docs', 'Documentação', FileCode, '/settings#api-docs', 'api:logs:view'),
-    link('api-rate', 'Limites da API', Gauge, '/settings#api-rate', 'api:logs:view'),
-  ], 'api:key:create'),
+    link('api-rate', 'Limites da API', Gauge, '/settings#api-rate', 'billing:view'),
+  ]),
 
   section('sec-empresa', 'Empresa'),
   group('grp-empresa', 'Empresa', Building2, [
@@ -143,7 +144,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
 /** Admin RadarZap — somente staff interno (aba separada). */
 export const ADMIN_RADARZAP_NAV: NavEntry[] = [
   section('sec-admin-inicio', 'Início'),
-  link('admin-dash', 'Início global', LayoutDashboard, '/admin/dashboard', 'dashboard:global'),
+  link('admin-dash', 'Dashboard global', LayoutDashboard, '/admin/dashboard', 'dashboard:global'),
 
   section('sec-admin-ops', 'Operação'),
   group('grp-ops', 'Operação', ListOrdered, [
@@ -152,7 +153,7 @@ export const ADMIN_RADARZAP_NAV: NavEntry[] = [
     link('admin-logs', 'Logs globais', ScrollText, '/admin/logs', 'logs:global'),
     link('ops-monitor', 'Monitoramento', Activity, '/admin/monitoring', 'logs:global'),
     link('ops-errors', 'Erros do sistema', Ban, '/admin/errors', 'logs:global'),
-    link('admin-api', 'Integrações globais', Key, '/admin/api', 'api:global'),
+    link('admin-api', 'API global', Key, '/admin/api', 'api:global'),
   ]),
 
   section('sec-admin-gestao', 'Clientes e planos'),
@@ -167,13 +168,16 @@ export const ADMIN_RADARZAP_NAV: NavEntry[] = [
   section('sec-admin-sys', 'Sistema'),
   group('grp-sys', 'Sistema', Settings, [
     link('admin-settings', 'Configurações gerais', Settings, '/admin/settings', 'system:settings:manage'),
+    link('admin-perms', 'Permissões', Lock, '/admin/permissions', 'system:settings:manage'),
+    link('admin-security', 'Segurança', Shield, '/admin/security', 'system:settings:manage'),
+    link('admin-backup', 'Backup', Database, '/admin/backup', 'system:settings:manage'),
     link('admin-audit', 'Auditoria', Activity, '/admin/audit', 'system:audit:view'),
   ]),
 ]
 
 export const MODERATOR_ADMIN_NAV: NavEntry[] = [
   section('sec-admin-inicio', 'Início'),
-  link('mod-dash', 'Início global', LayoutDashboard, '/admin/dashboard', 'dashboard:global'),
+  link('mod-dash', 'Dashboard global', LayoutDashboard, '/admin/dashboard', 'dashboard:global'),
   section('sec-admin-ops', 'Operação'),
   group('grp-mod-ops', 'Operação', ListOrdered, [
     link('mod-sessions', 'Sessões WhatsApp', Smartphone, '/admin/sessions', 'whatsapp:session:view'),
@@ -199,14 +203,12 @@ export const PLATFORM_TOOLS_NAV: NavEntry[] = []
 /** Aba Discord — automação Discord → WhatsApp */
 export const DISCORD_NAV: NavEntry[] = [
   section('sec-discord-inicio', 'Início Discord'),
-  link('discord-home', 'Visão geral', LayoutDashboard, '/discord/channels', 'discord:channels:manage', true),
+  link('discord-home', 'Início Discord', LayoutDashboard, '/discord', 'discord:channels:manage', true),
 
   section('sec-discord-auto', 'Automação Discord'),
-  group('grp-discord-auto', 'Automação Discord', Hash, [
-    link('auto-ch', 'Canais monitorados', Hash, '/discord/channels', 'discord:channels:manage', true),
-    link('auto-rules', 'Regras e filtros', BookOpen, '/discord/rules', 'send:rules:manage', true),
-    link('auto-format', 'Formato da mensagem', FileText, '/discord/templates', 'send:templates:manage', true),
-  ], 'discord:channels:manage'),
+  link('auto-ch', 'Canais monitorados', Hash, '/discord/channels', 'discord:channels:manage', true),
+  link('auto-rules', 'Regras e filtros', BookOpen, '/discord/rules', 'send:rules:manage', true),
+  link('auto-format', 'Formato da mensagem', FileText, '/discord/templates', 'send:templates:manage', true),
 
   section('sec-discord-dest', 'Destinos WhatsApp'),
   group('grp-discord-dest', 'Destinos WhatsApp', Users, [
@@ -222,7 +224,7 @@ export const DISCORD_NAV: NavEntry[] = [
   ], 'queue:view'),
 
   section('sec-discord-account', 'Servidor'),
-  link('discord-settings', 'Configurações', Settings, '/discord/settings', 'account:settings', true),
+  link('discord-settings', 'Configurações do servidor', Settings, '/discord/settings', 'account:settings', true),
 ]
 
 export const SERVER_DISCORD_NAV = DISCORD_NAV
@@ -235,6 +237,7 @@ const PLATFORM_ROUTES = new Set([
   '/dashboard', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
   '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/gatilhos',
   '/platform/wa-logs', '/platform/wa-status', '/platform/fila',
+  '/integrations/playground',
   '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/platform/automacoes',
   '/send/historico', '/plans', '/settings', '/settings/team', '/settings/permissions', '/settings/security', '/settings/backup',
   '/em-breve',
@@ -246,7 +249,9 @@ export type ServerNavMode = NavMode
 export function detectNavMode(pathname: string, hash = ''): NavMode {
   if (pathname === '/rules' && hash === '#agendamentos') return 'platform'
   if (pathname.startsWith('/admin/')) return 'admin'
-  if (pathname.startsWith('/discord') || LEGACY_DISCORD_ROUTES.has(pathname)) return 'discord'
+  if (pathname === '/discord' || pathname.startsWith('/discord/') || LEGACY_DISCORD_ROUTES.has(pathname)) {
+    return 'discord'
+  }
   if (pathname.startsWith('/em-breve')) return 'platform'
   if (PLATFORM_ROUTES.has(pathname) || pathname.startsWith('/platform')) return 'platform'
   return 'platform'
@@ -371,8 +376,10 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/wa-status': 'whatsapp:session:view',
   '/platform/fila': 'queue:view',
   '/platform/contacts': 'consent:view',
+  '/integrations/playground': 'send:test',
   '/sessions': 'whatsapp:session:view',
   '/channels': 'discord:channels:manage',
+  '/discord': 'discord:channels:manage',
   '/discord/channels': 'discord:channels:manage',
   '/contact': 'consent:view',
   '/destinations': 'consent:view',
@@ -416,23 +423,28 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/errors': 'logs:global',
   '/admin/api': 'api:global',
   '/admin/settings': 'system:settings:manage',
+  '/admin/permissions': 'system:settings:manage',
+  '/admin/security': 'system:settings:manage',
+  '/admin/backup': 'system:settings:manage',
 }
 
 export const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Início',
-  '/platform': 'Resumo da plataforma',
+  '/dashboard': 'Visão geral',
+  '/platform': 'Visão geral',
   '/platform/templates': 'Modelos',
   '/platform/reports': 'Relatórios',
   '/platform/audit': 'Auditoria',
   '/platform/campanhas': 'Campanhas',
-  '/platform/segmentos': 'Segmentos',
+  '/platform/segmentos': 'Segmentos / Listas',
   '/platform/gatilhos': 'Gatilhos',
   '/platform/wa-logs': 'Logs',
-  '/platform/wa-status': 'Status',
+  '/platform/wa-status': 'Status das conexões',
   '/platform/fila': 'Fila de envio',
   '/platform/contacts': 'Importar / Exportar',
+  '/integrations/playground': 'Playground',
   '/sessions': 'Sessões e QR Code',
   '/channels': 'Canais monitorados',
+  '/discord': 'Início Discord',
   '/discord/channels': 'Canais monitorados',
   '/contact': 'Contatos',
   '/destinations': 'Contatos',
@@ -454,14 +466,14 @@ export const PAGE_TITLES: Record<string, string> = {
   '/send': 'Enviar agora',
   '/send/agendamentos': 'Agendamentos',
   '/platform/automacoes': 'Regras automáticas',
-  '/send/historico': 'Histórico',
+  '/send/historico': 'Histórico de envios',
   '/plans': 'Plano e limites',
   '/settings': 'Minha empresa',
   '/settings/team': 'Equipe e cargos',
   '/settings/permissions': 'Permissões',
   '/settings/security': 'Segurança',
   '/settings/backup': 'Backup',
-  '/admin/dashboard': 'Início global',
+  '/admin/dashboard': 'Dashboard global',
   '/admin/clients': 'Clientes',
   '/admin/servers': 'Servidores',
   '/admin/sessions': 'Sessões WhatsApp',
@@ -473,8 +485,11 @@ export const PAGE_TITLES: Record<string, string> = {
   '/admin/audit': 'Auditoria',
   '/admin/monitoring': 'Monitoramento',
   '/admin/errors': 'Erros do sistema',
-  '/admin/api': 'Integrações globais',
+  '/admin/api': 'API global',
   '/admin/settings': 'Configurações gerais',
+  '/admin/permissions': 'Permissões',
+  '/admin/security': 'Segurança',
+  '/admin/backup': 'Backup',
 }
 
 const HASH_PAGE_TITLES: Record<string, string> = {

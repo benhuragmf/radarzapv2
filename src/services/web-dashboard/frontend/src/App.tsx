@@ -21,7 +21,6 @@ import Settings from './pages/Settings'
 import TeamMembers from './pages/TeamMembers'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminClients from './pages/admin/AdminClients'
-import PlatformOverview from './pages/platform/PlatformOverview'
 import PlatformTemplates from './pages/platform/PlatformTemplates'
 import PlatformReports from './pages/platform/PlatformReports'
 import PlatformContacts from './pages/platform/PlatformContacts'
@@ -39,6 +38,12 @@ import AdminServers from './pages/menu/AdminServers'
 import AdminAuditPage from './pages/menu/AdminAuditPage'
 import AdminModeration from './pages/menu/AdminModeration'
 import AdminSettingsPage from './pages/menu/AdminSettingsPage'
+import AdminApiPage from './pages/menu/AdminApiPage'
+import AdminPaymentsPage from './pages/menu/AdminPaymentsPage'
+import AdminPermissionsPage from './pages/menu/AdminPermissionsPage'
+import AdminSecurityPage from './pages/menu/AdminSecurityPage'
+import AdminBackupPage from './pages/menu/AdminBackupPage'
+import DiscordHome from './pages/discord/DiscordHome'
 import PermissionsPage from './pages/menu/PermissionsPage'
 import SecuritySettings from './pages/menu/SecuritySettings'
 import BackupExport from './pages/menu/BackupExport'
@@ -59,17 +64,20 @@ function LegacySendRedirect() {
   return <Navigate to="/send" replace />
 }
 
+function ApiPlaygroundPage() {
+  return (
+    <div className="max-w-2xl space-y-4">
+      <h1 className="text-lg font-semibold text-white">Playground</h1>
+      <p className="text-sm text-gray-500">Teste envios e respostas da API sem sair do painel.</p>
+      <ApiPlayground />
+    </div>
+  )
+}
+
 function SendPage() {
   const { hash } = useLocation()
   if (hash === '#agendados') return <Navigate to="/send/agendamentos" replace />
-  if (hash === '#playground') {
-    return (
-      <div className="max-w-2xl space-y-4">
-        <h1 className="text-lg font-semibold text-white">Playground API</h1>
-        <ApiPlayground />
-      </div>
-    )
-  }
+  if (hash === '#playground') return <Navigate to="/integrations/playground" replace />
   return <SendNow />
 }
 
@@ -100,7 +108,7 @@ export default function App() {
   if (!user) return <Login error={urlError} />
 
   AuthContext.user = user
-  const home = user.isInternalStaff ? '/admin/dashboard' : '/dashboard'
+  const home = '/dashboard'
 
   return (
     <BrowserRouter>
@@ -113,13 +121,14 @@ export default function App() {
           <Route path="platform/templates" element={<Guard user={user} path="/platform/templates"><PlatformTemplates /></Guard>} />
           <Route path="platform/reports" element={<Guard user={user} path="/platform/reports"><PlatformReports /></Guard>} />
           <Route path="platform/contacts" element={<Guard user={user} path="/platform/contacts"><PlatformContacts /></Guard>} />
-          <Route path="platform" element={<Guard user={user} path="/platform"><PlatformOverview /></Guard>} />
+          <Route path="platform" element={<Navigate to="/dashboard" replace />} />
           <Route path="sessions" element={<Guard user={user} path="/sessions"><Sessions /></Guard>} />
           <Route path="contact" element={<Guard user={user} path="/contact"><Destinations /></Guard>} />
           <Route path="destinations" element={<Navigate to="/contact" replace />} />
           <Route path="grupos" element={<Guard user={user} path="/grupos"><WhatsAppGroups /></Guard>} />
 
           {/* Discord — automação */}
+          <Route path="discord" element={<Guard user={user} path="/discord"><DiscordHome /></Guard>} />
           <Route path="discord/channels" element={<Guard user={user} path="/discord/channels"><Channels /></Guard>} />
           <Route path="discord/rules" element={<Guard user={user} path="/discord/rules"><Rules /></Guard>} />
           <Route path="discord/templates" element={<Guard user={user} path="/discord/templates"><Templates /></Guard>} />
@@ -154,6 +163,7 @@ export default function App() {
           <Route path="send" element={<Guard user={user} path="/send"><SendPage /></Guard>} />
           <Route path="test-send" element={<LegacySendRedirect />} />
           <Route path="plans" element={<Guard user={user} path="/plans"><Plans user={user} /></Guard>} />
+          <Route path="integrations/playground" element={<Guard user={user} path="/integrations/playground"><ApiPlaygroundPage /></Guard>} />
           <Route path="settings/team" element={<Guard user={user} path="/settings/team"><TeamMembers /></Guard>} />
           <Route path="settings/permissions" element={<Guard user={user} path="/settings/permissions"><PermissionsPage /></Guard>} />
           <Route path="settings/security" element={<Guard user={user} path="/settings/security"><SecuritySettings /></Guard>} />
@@ -172,11 +182,14 @@ export default function App() {
           <Route path="admin/monitoring" element={<Guard user={user} path="/admin/monitoring"><AdminMonitoring /></Guard>} />
           <Route path="admin/errors" element={<Guard user={user} path="/admin/errors"><AdminErrors /></Guard>} />
           <Route path="admin/plans" element={<Guard user={user} path="/admin/plans"><Plans user={user} admin /></Guard>} />
-          <Route path="admin/payments" element={<Guard user={user} path="/admin/payments"><AdminDashboard title="Pagamentos" /></Guard>} />
+          <Route path="admin/payments" element={<Guard user={user} path="/admin/payments"><AdminPaymentsPage /></Guard>} />
           <Route path="admin/moderation" element={<Guard user={user} path="/admin/moderation"><AdminModeration /></Guard>} />
           <Route path="admin/audit" element={<Guard user={user} path="/admin/audit"><AdminAuditPage /></Guard>} />
-          <Route path="admin/api" element={<Guard user={user} path="/admin/api"><AdminDashboard title="API Global" /></Guard>} />
+          <Route path="admin/api" element={<Guard user={user} path="/admin/api"><AdminApiPage /></Guard>} />
           <Route path="admin/settings" element={<Guard user={user} path="/admin/settings"><AdminSettingsPage /></Guard>} />
+          <Route path="admin/permissions" element={<Guard user={user} path="/admin/permissions"><AdminPermissionsPage /></Guard>} />
+          <Route path="admin/security" element={<Guard user={user} path="/admin/security"><AdminSecurityPage /></Guard>} />
+          <Route path="admin/backup" element={<Guard user={user} path="/admin/backup"><AdminBackupPage /></Guard>} />
         </Route>
       </Routes>
     </BrowserRouter>

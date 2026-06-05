@@ -14,7 +14,7 @@ export default function AdminSettingsPage() {
     <div className="space-y-5 max-w-2xl">
       <h1 className="text-lg font-semibold text-white flex items-center gap-2">
         <Settings size={20} />
-        Configurações do sistema
+        Configurações gerais
       </h1>
       <p className="text-sm text-gray-500">Parâmetros globais e saúde dos serviços.</p>
 

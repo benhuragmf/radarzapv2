@@ -66,7 +66,13 @@ export const OPENAPI_DASHBOARD = {
       post: { summary: 'Registrar webhook', tags: ['Integrações'] },
     },
     '/integrations/playground': {
-      post: { summary: 'Testar envio (mesmo contrato de /test-send)', tags: ['Integrações'] },
+      post: { summary: 'Testar envio (destino cadastrado + WA conectado)', tags: ['Integrações'] },
+    },
+    '/integrations/rate-limit': {
+      get: { summary: 'Limites e uso do plano (mensagens/dia, janela API)', tags: ['Integrações'] },
+    },
+    '/integrations/openapi': {
+      get: { summary: 'Este contrato OpenAPI (JSON)', tags: ['Integrações'] },
     },
     '/billing/me': {
       get: { summary: 'Plano, limites e uso (rate limit)', tags: ['Conta'] },

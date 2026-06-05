@@ -25,6 +25,7 @@ export default function SendHistory() {
 
   return (
     <div className="max-w-3xl space-y-4">
+      <h1 className="text-lg font-semibold text-white">Histórico de envios</h1>
       <p className="text-sm text-gray-500">
         Envios já processados — enviados, em andamento ou com falha.
       </p>

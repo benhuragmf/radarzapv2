@@ -13,15 +13,16 @@ interface Props {
 }
 
 const API_SECTIONS = [
-  { id: 'api-chaves', title: 'Chaves de API', Component: ApiKeysPanel },
-  { id: 'api-webhooks', title: 'Webhooks', Component: WebhooksPanel },
-  { id: 'api-docs', title: 'Documentação', Component: ApiDocsPanel },
-  { id: 'api-rate', title: 'Limites da API', Component: RateLimitPanel },
+  { id: 'api-chaves', title: 'Chaves de API', Component: ApiKeysPanel, permission: 'api:key:create' as const },
+  { id: 'api-webhooks', title: 'Webhooks', Component: WebhooksPanel, permission: 'api:key:create' as const },
+  { id: 'api-docs', title: 'Documentação', Component: ApiDocsPanel, permission: 'api:logs:view' as const },
+  { id: 'api-rate', title: 'Limites da API', Component: RateLimitPanel, permission: 'billing:view' as const },
 ] as const
 
 export default function Settings({ user }: Props) {
   const { hash } = useLocation()
-  const showApi = can(user, 'api:key:create')
+  const visibleSections = API_SECTIONS.filter(s => can(user, s.permission))
+  const showApiBlock = visibleSections.length > 0
 
   useEffect(() => {
     if (!hash) return
@@ -61,15 +62,15 @@ export default function Settings({ user }: Props) {
         </Card>
       </section>
 
-      {showApi && (
+      {showApiBlock && (
         <section>
           <h2 className="text-lg font-semibold mb-3">Integrações API</h2>
           <p className="text-xs text-gray-500 mb-4">
-            Padrão REST em <code className="text-gray-400">/api</code> — qualquer sistema pode integrar
-            com header <code className="text-gray-400">X-API-Key</code>.
+            Padrão REST em <code className="text-gray-400">/api</code> — integrações externas usam{' '}
+            <code className="text-gray-400">X-API-Key</code>; o painel usa cookie de sessão.
           </p>
           <div className="space-y-6">
-            {API_SECTIONS.map(({ id, title, Component }) => (
+            {visibleSections.map(({ id, title, Component }) => (
               <div key={id} id={id} className="scroll-mt-4">
                 <h3 className="text-sm font-medium text-gray-300 mb-2">{title}</h3>
                 <Card className={hash === `#${id}` ? 'ring-1 ring-brand-600/50' : ''}>

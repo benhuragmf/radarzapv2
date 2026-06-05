@@ -25,172 +25,125 @@ Configuração do menu: `src/services/web-dashboard/frontend/src/lib/navConfig.t
 
 | Menu | Rota | Função |
 |------|------|--------|
-| **Início** | `/dashboard` | Métricas do dia: mensagens, sessões, fila, falhas, gráfico por hora |
-| **Resumo da plataforma** | `/platform` | Cards do tenant: contatos, WA, fila, atalhos |
-| **Relatórios** | `/platform/reports` | Logs e fila **do tenant** |
+| **Visão geral** | `/dashboard` | Métricas do dia, sessões, fila, falhas, gráfico e atalhos |
+| **Relatórios** | `/platform/reports` | Logs e fila **do tenant** (sem aba admin) |
 | **Auditoria** | `/platform/audit` | Resumo 7 dias: envios, erros, campanhas, contatos |
 
 ### Mensagens
 
 | Menu | Rota | Função |
 |------|------|--------|
-| Enviar agora | `/send` | Envio manual: contatos, grupos WA, modelos pw-* |
-| Campanhas | `/platform/campanhas` | Lotes pendentes e histórico de campanhas |
+| Enviar agora | `/send` | Envio manual com validação LGPD |
+| Campanhas | `/platform/campanhas` | Lotes pendentes e histórico |
 | Agendamentos | `/send/agendamentos` | Envio único em data/hora futura |
-| Histórico | `/send/historico` | Campanhas já processadas |
-| Modelos | `/platform/templates` | Templates pw-* (aniversário, campanhas, etc.) |
+| Histórico de envios | `/send/historico` | Campanhas já processadas |
+| Modelos | `/platform/templates` | Templates pw-* |
 
 ### Contatos
 
 | Menu | Rota | Função |
 |------|------|--------|
-| Contatos | `/contact` | CRUD, grupos de contato (sidebar), consentimento |
-| Segmentos | `/platform/segmentos` | Visão dos grupos de contato |
+| Contatos | `/contact` | CRUD, grupos de contato, tags |
+| Segmentos / Listas | `/platform/segmentos` | Grupos internos de segmentação |
 | Grupos WhatsApp | `/grupos` | Destinos coletivos no WA |
 | Importar / Exportar | `/platform/contacts` | CSV e VCF |
-| Pendentes / Aceitos / Recusados / Bloqueados | `/contact?consent=…` | Filtros LGPD |
 
-> **Contato** — cadastro individual (nome, telefone, tags, birthday, grupos de contato).  
-> **Grupo de contato** — segmento interno para filtros (≠ grupo WhatsApp).  
-> **Grupo WhatsApp** — destino `type: group` para envio ao grupo.
+**Consentimento** (grupo separado):
+
+| Menu | Rota |
+|------|------|
+| Pendentes | `/contact?consent=pending` |
+| Aceitos | `/contact?consent=accepted` |
+| Recusados | `/contact?consent=refused` |
+| Bloqueados | `/contact?consent=blocked` |
 
 ### Automações
 
-| Menu | Rota | Função |
-|------|------|--------|
-| Regras automáticas | `/platform/automacoes` | Gatilhos, destinos, modelos ou texto manual |
-| Gatilhos | `/platform/gatilhos` | Guia dos tipos de gatilho |
+| Menu | Rota |
+|------|------|
+| Regras automáticas | `/platform/automacoes` |
+| Gatilhos | `/platform/gatilhos` |
 
 ### WhatsApp
 
-| Menu | Rota | Função |
-|------|------|--------|
-| Sessões e QR Code | `/sessions` | Conectar WA, QR, desconectar (QR dentro desta tela) |
-| Status | `/platform/wa-status` | Monitoramento das sessões |
-| Fila de envio | `/platform/fila` | Fila **do tenant** |
-| Logs | `/platform/wa-logs` | Logs WhatsAppService do tenant |
+| Menu | Rota |
+|------|------|
+| Sessões e QR Code | `/sessions` |
+| Status das conexões | `/platform/wa-status` |
+| Fila de envio | `/platform/fila` |
+| Logs | `/platform/wa-logs` |
 
 ### Integrações
 
-| Menu | Rota | Função |
-|------|------|--------|
-| Chaves de API | `/settings#api-chaves` | Gerar/revogar `X-API-Key` |
-| Webhooks | `/settings#api-webhooks` | URLs HTTPS para eventos |
-| Playground | `/send#playground` | Teste de envio via API |
-| Documentação | `/settings#api-docs` | OpenAPI do painel |
-| Limites da API | `/settings#api-rate` | Cota do plano e janela de requests |
+| Menu | Rota |
+|------|------|
+| Chaves de API | `/settings#api-chaves` |
+| Webhooks | `/settings#api-webhooks` |
+| Playground | `/integrations/playground` |
+| Documentação | `/settings#api-docs` |
+| Limites da API | `/settings#api-rate` |
 
 ### Empresa
 
-| Menu | Rota | Função |
-|------|------|--------|
-| Minha empresa | `/settings` | Conta, plano, integrações API |
-| Equipe e cargos | `/settings/team` | Convites OWNER / ADMIN / ATTENDANT |
-| Plano e limites | `/plans` | Plano e cotas |
-| Permissões | `/settings/permissions` | Papéis da empresa |
-| Segurança | `/settings/security` | Chaves e boas práticas |
-| Backup | `/settings/backup` | Export CSV de contatos |
+| Menu | Rota |
+|------|------|
+| Minha empresa | `/settings` |
+| Equipe e cargos | `/settings/team` |
+| Plano e limites | `/plans` |
+| Permissões | `/settings/permissions` |
+| Segurança | `/settings/security` |
+| Backup | `/settings/backup` |
 
 ---
 
 ## 2. Discord
 
-Requer servidor selecionado no topo da sidebar.
-
-### Início Discord
+Requer servidor selecionado na sidebar.
 
 | Menu | Rota | Função |
 |------|------|--------|
-| Visão geral | `/discord/channels` | Entrada da automação (canais monitorados) |
-
-### Automação Discord
-
-| Menu | Rota | Função |
-|------|------|--------|
+| Início Discord | `/discord` | Resumo: canais, regras, atalhos |
 | Canais monitorados | `/discord/channels` | Canais vinculados ao bot |
-| Regras e filtros | `/discord/rules` | Discord → WhatsApp, destinos, bloqueio por grupo |
+| Regras e filtros | `/discord/rules` | Discord → WhatsApp |
 | Formato da mensagem | `/discord/templates` | Templates dw-* |
-
-### Destinos WhatsApp
-
-| Menu | Rota | Função |
-|------|------|--------|
-| Contatos | `/discord/contact` | Contatos no contexto Discord |
+| Contatos (destinos) | `/discord/contact` | Contatos no contexto Discord |
 | Grupos WhatsApp | `/discord/grupos` | Grupos WA para regras |
-
-### Monitoramento
-
-| Menu | Rota | Função |
-|------|------|--------|
-| Fila | `/discord/fila` | Fila da automação Discord |
+| Fila | `/discord/fila` | Fila da automação |
 | Histórico | `/discord/contact/historico` | Envios originados das regras |
 | Logs | `/discord/logs` | Pipeline Discord → WhatsApp |
-
-### Servidor
-
-| Menu | Rota | Função |
-|------|------|--------|
-| Configurações | `/discord/settings` | Preferências do guild |
+| Configurações do servidor | `/discord/settings` | Preferências do guild |
 
 ---
 
 ## 3. Admin RadarZap
 
-Somente staff (`isInternalStaff`). Aba **Admin** — separada da Plataforma.
+Somente staff (`isInternalStaff`). Aba **Admin**.
 
-### Início
-
-| Menu | Rota | Função |
-|------|------|--------|
-| Início global | `/admin/dashboard` | Dashboard interno RadarZap |
-
-### Operação
-
-| Menu | Rota | Função |
-|------|------|--------|
-| Sessões WhatsApp | `/admin/sessions` | Todas as sessões |
-| Fila global | `/admin/queue` | BullMQ sem filtro de tenant |
-| Logs globais | `/admin/logs` | SystemLog de todos os clientes |
-| Monitoramento | `/admin/monitoring` | Saúde MongoDB/Redis + stats |
-| Erros do sistema | `/admin/errors` | Logs error 24h |
-| Integrações globais | `/admin/api` | Visão admin de API |
-
-### Clientes e planos
-
-| Menu | Rota | Função |
-|------|------|--------|
-| Clientes | `/admin/clients` | Usuários e organizações |
-| Servidores | `/admin/servers` | WA + Discord agregado |
-| Planos | `/admin/plans` | Gestão de planos |
-| Pagamentos | `/admin/payments` | Pagamentos |
-| Moderação | `/admin/moderation` | Bloqueios e consentimento |
-
-### Sistema
-
-| Menu | Rota | Função |
-|------|------|--------|
-| Configurações gerais | `/admin/settings` | Health dos serviços |
-| Auditoria | `/admin/audit` | AuditLog administrativo |
-
----
-
-## Glossário
-
-| Termo | Significado |
-|-------|-------------|
-| Contato | Pessoa (E.164) cadastrada |
-| Grupo de contato | Segmento interno — filtro em envios |
-| Grupo WhatsApp | Destino coletivo no WA |
-| Campanha | Lote enfileirado (manual ou agendado) |
-| Automação | Regra com gatilho (recorrente ou única) |
-| Template pw-* | Modelo plataforma |
-| Template dw-* | Modelo Discord → WhatsApp |
+| Menu | Rota |
+|------|------|
+| Dashboard global | `/admin/dashboard` |
+| Sessões WhatsApp | `/admin/sessions` |
+| Fila global | `/admin/queue` |
+| Logs globais | `/admin/logs` |
+| Monitoramento | `/admin/monitoring` |
+| Erros do sistema | `/admin/errors` |
+| API global | `/admin/api` |
+| Clientes | `/admin/clients` |
+| Servidores | `/admin/servers` |
+| Planos | `/admin/plans` |
+| Pagamentos | `/admin/payments` |
+| Moderação | `/admin/moderation` |
+| Configurações gerais | `/admin/settings` |
+| Permissões | `/admin/permissions` |
+| Segurança | `/admin/security` |
+| Backup | `/admin/backup` |
+| Auditoria | `/admin/audit` |
 
 ---
 
 ## Referências
 
-- Mapa técnico rota → código: `docs/MENU-PAGES-REGISTRY.md`
-- Regra IA para evoluir menus: `.cursor/rules/menu-content-automatic.mdc`
+- Mapa técnico: `docs/MENU-PAGES-REGISTRY.md`
+- Regra IA: `.cursor/rules/menu-content-automatic.mdc`
 
-*Última atualização: reorganização menu SaaS (Plataforma / Discord / Admin).*
+*Última atualização: alinhamento menu ↔ spec produto (Visão geral única, Consentimento, Discord Home, Admin Sistema).*
