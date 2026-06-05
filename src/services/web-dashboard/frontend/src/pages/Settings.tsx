@@ -3,17 +3,21 @@ import { useLocation } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import type { AuthUser } from '../lib/auth'
 import { can } from '../lib/auth'
+import { ApiKeysPanel } from '../components/integrations/ApiKeysPanel'
+import { WebhooksPanel } from '../components/integrations/WebhooksPanel'
+import { ApiDocsPanel } from '../components/integrations/ApiDocsPanel'
+import { RateLimitPanel } from '../components/integrations/RateLimitPanel'
 
 interface Props {
   user: AuthUser
 }
 
 const API_SECTIONS = [
-  { id: 'api-chaves', title: 'Chaves de API', desc: 'Gere e revogue chaves para integração externa.' },
-  { id: 'api-webhooks', title: 'Webhooks', desc: 'Receba eventos do RadarZap no seu sistema.' },
-  { id: 'api-docs', title: 'Documentação', desc: 'Referência dos endpoints disponíveis.' },
-  { id: 'api-rate', title: 'Rate Limit', desc: 'Limites de requisição do seu plano.' },
-]
+  { id: 'api-chaves', title: 'Chaves de API', Component: ApiKeysPanel },
+  { id: 'api-webhooks', title: 'Webhooks', Component: WebhooksPanel },
+  { id: 'api-docs', title: 'Documentação', Component: ApiDocsPanel },
+  { id: 'api-rate', title: 'Rate Limit', Component: RateLimitPanel },
+] as const
 
 export default function Settings({ user }: Props) {
   const { hash } = useLocation()
@@ -60,13 +64,16 @@ export default function Settings({ user }: Props) {
       {showApi && (
         <section>
           <h2 className="text-lg font-semibold mb-3">Integrações API</h2>
-          <div className="space-y-3">
-            {API_SECTIONS.map(s => (
-              <div key={s.id} id={s.id} className="scroll-mt-4">
-                <Card className={hash === `#${s.id}` ? 'ring-1 ring-brand-600/50' : ''}>
-                  <p className="text-sm font-medium text-white">{s.title}</p>
-                  <p className="text-xs text-gray-500 mt-1">{s.desc}</p>
-                  <p className="text-xs text-gray-600 mt-3">Em desenvolvimento.</p>
+          <p className="text-xs text-gray-500 mb-4">
+            Padrão REST em <code className="text-gray-400">/api</code> — qualquer sistema pode integrar
+            com header <code className="text-gray-400">X-API-Key</code>.
+          </p>
+          <div className="space-y-6">
+            {API_SECTIONS.map(({ id, title, Component }) => (
+              <div key={id} id={id} className="scroll-mt-4">
+                <h3 className="text-sm font-medium text-gray-300 mb-2">{title}</h3>
+                <Card className={hash === `#${id}` ? 'ring-1 ring-brand-600/50' : ''}>
+                  <Component />
                 </Card>
               </div>
             ))}

@@ -49,15 +49,16 @@ function stageFromLog(log: Log): string | undefined {
 
 interface Props {
   scope?: 'all' | 'discord' | 'tenant'
+  serviceFilter?: string
 }
 
-export default function Logs({ scope = 'all' }: Props) {
+export default function Logs({ scope = 'all', serviceFilter }: Props) {
   const { hash } = useLocation()
   const isDiscord = scope === 'discord'
   const isTenant = scope === 'tenant'
   const isHistoryView = hash === '#historico'
   const [level, setLevel]     = useState('')
-  const [service, setService] = useState(isDiscord ? '' : '')
+  const [service, setService] = useState(serviceFilter ?? (isDiscord ? '' : ''))
   const [stage, setStage]     = useState('')
   const [search, setSearch]   = useState(isDiscord ? 'pipeline' : '')
   const [expanded, setExpanded] = useState<string | null>(null)

@@ -76,19 +76,19 @@ function group(
 
 /**
  * Menu Plataforma (tenant) — hierarquia oficial RadarZap.
- * Itens "Em breve" → /em-breve/:slug. Gestão/admin no final (ADMIN_PLATFORM_NAV).
+ * URLs legadas /em-breve/:slug redirecionam via EmBreveRedirect.
  */
 export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-1', 'Dashboard', 'Resumo da sua conta'),
   link('dash-overview', 'Visão geral', LayoutDashboard, '/dashboard', 'dashboard:view'),
   link('plat-overview', 'Plataforma', Activity, '/platform', 'dashboard:view'),
   link('plat-reports', 'Relatórios', ScrollText, '/platform/reports', 'logs:view'),
-  soon('plat-audit', 'Auditoria resumida', ShieldCheck, 'auditoria-resumida', 'logs:view'),
+  link('plat-audit', 'Auditoria resumida', ShieldCheck, '/platform/audit', 'logs:view'),
 
   section('sec-2', 'Mensagens', 'Envio manual e modelos'),
   group('grp-msg', 'Mensagens', Send, [
     link('send-now', 'Enviar agora', Send, '/send', 'send:test'),
-    soon('send-campaigns', 'Campanhas', Megaphone, 'campanhas', 'send:test'),
+    link('send-campaigns', 'Campanhas', Megaphone, '/platform/campanhas', 'send:test'),
     link('send-sched', 'Agendamentos', Calendar, '/send/agendamentos', 'send:schedule:manage'),
     link('send-history', 'Histórico de envios', History, '/send/historico', 'send:test'),
     link('plat-templates', 'Modelos de mensagem', FileText, '/platform/templates', 'send:templates:manage'),
@@ -98,7 +98,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   group('grp-dest', 'Contatos e destinos', Users, [
     link('wa-contacts', 'Contatos', Phone, '/contact', 'consent:view'),
     link('wa-groups', 'Grupos', Users, '/grupos', 'send:destination:manage'),
-    soon('wa-segments', 'Listas / Segmentos', ListOrdered, 'segmentos', 'send:destination:manage'),
+    link('wa-segments', 'Listas / Segmentos', ListOrdered, '/platform/segmentos', 'send:destination:manage'),
     link('wa-import', 'Importar CSV / VCF', Upload, '/platform/contacts', 'send:destination:manage'),
   ], 'consent:view'),
   group('grp-consent', 'Consentimento', ShieldCheck, [
@@ -119,7 +119,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-4', 'Automações', 'Regras recorrentes (gatilhos)'),
   group('grp-auto', 'Automações', Repeat, [
     link('auto-rules', 'Mensagens automáticas', Workflow, '/platform/automacoes', 'send:schedule:manage'),
-    soon('auto-triggers', 'Gatilhos avançados', Zap, 'gatilhos', 'send:schedule:manage'),
+    link('auto-triggers', 'Gatilhos avançados', Zap, '/platform/gatilhos', 'send:schedule:manage'),
   ]),
 
   section('sec-5', 'WhatsApp', 'Conexão e fila'),
@@ -127,9 +127,9 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
     link('wa-connect', 'Conexões WhatsApp', Smartphone, '/sessions', 'whatsapp:session:view'),
     link('wa-sessions', 'Sessões WhatsApp', Smartphone, '/sessions', 'whatsapp:session:view'),
     link('wa-qr', 'QR Code', QrCode, '/sessions', 'whatsapp:session:view'),
-    soon('wa-status', 'Status das conexões', Activity, 'wa-status', 'whatsapp:session:view'),
+    link('wa-status', 'Status das conexões', Activity, '/platform/wa-status', 'whatsapp:session:view'),
     link('wa-queue', 'Fila de envio', ListOrdered, '/admin/queue', 'queue:global'),
-    soon('wa-logs', 'Logs WhatsApp', ScrollText, 'wa-logs', 'logs:view'),
+    link('wa-logs', 'Logs WhatsApp', ScrollText, '/platform/wa-logs', 'logs:view'),
   ], 'whatsapp:session:view'),
 
   section('sec-6', 'Integrações', 'API e webhooks'),
@@ -146,9 +146,9 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
     link('empresa-team', 'Cargos e acessos', UserCog, '/settings/team', 'company:members:manage'),
     link('empresa-plans', 'Plano e limites', Crown, '/plans', 'billing:view'),
     link('empresa-settings', 'Configurações gerais', Settings, '/settings', 'account:settings'),
-    soon('empresa-perms', 'Permissões', Lock, 'permissoes', 'company:members:manage'),
-    soon('empresa-security', 'Segurança', Shield, 'seguranca', 'account:settings'),
-    soon('empresa-backup', 'Backup', Database, 'backup', 'account:settings'),
+    link('empresa-perms', 'Permissões', Lock, '/settings/permissions', 'company:members:manage'),
+    link('empresa-security', 'Segurança', Shield, '/settings/security', 'account:settings'),
+    link('empresa-backup', 'Backup', Database, '/settings/backup', 'account:settings'),
   ]),
 ]
 
@@ -160,7 +160,7 @@ function buildAdminNav(): NavEntry[] {
     link('dash-overview', 'Visão geral', LayoutDashboard, '/dashboard', 'dashboard:view'),
     link('plat-overview', 'Plataforma', Activity, '/platform', 'dashboard:view'),
     link('plat-reports', 'Relatórios', ScrollText, '/platform/reports', 'logs:view'),
-    soon('plat-audit', 'Auditoria resumida', ShieldCheck, 'auditoria-resumida', 'logs:view'),
+    link('plat-audit', 'Auditoria resumida', ShieldCheck, '/platform/audit', 'logs:view'),
     ...TENANT_PLATFORM_NAV.slice(4),
     section('sec-7', 'Operação', 'RadarZap interno'),
     group('grp-ops', 'Operação', ListOrdered, [
@@ -168,8 +168,8 @@ function buildAdminNav(): NavEntry[] {
       link('admin-queue', 'Fila global', ListOrdered, '/admin/queue', 'queue:global'),
       link('admin-logs', 'Logs globais', ScrollText, '/admin/logs', 'logs:global'),
       link('admin-api', 'API global', Key, '/admin/api', 'api:global'),
-      soon('ops-monitor', 'Monitoramento', Activity, 'monitoramento', 'logs:global'),
-      soon('ops-errors', 'Erros do sistema', Ban, 'erros', 'logs:global'),
+      link('ops-monitor', 'Monitoramento', Activity, '/admin/monitoring', 'logs:global'),
+      link('ops-errors', 'Erros do sistema', Ban, '/admin/errors', 'logs:global'),
     ]),
     section('sec-8', 'Gestão', 'Por último — clientes e planos'),
     group('grp-gestao', 'Gestão', Users, [
@@ -183,9 +183,9 @@ function buildAdminNav(): NavEntry[] {
     section('sec-9', 'Sistema'),
     group('grp-sys', 'Sistema', Settings, [
       link('admin-settings', 'Configurações gerais', Settings, '/admin/settings', 'system:settings:manage'),
-      soon('sys-perms', 'Permissões', Lock, 'permissoes', 'system:settings:manage'),
-      soon('sys-security', 'Segurança', Shield, 'seguranca', 'system:settings:manage'),
-      soon('sys-backup', 'Backup', Database, 'backup', 'system:settings:manage'),
+      link('sys-perms', 'Permissões', Lock, '/settings/permissions', 'system:settings:manage'),
+      link('sys-security', 'Segurança', Shield, '/settings/security', 'system:settings:manage'),
+      link('sys-backup', 'Backup', Database, '/settings/backup', 'system:settings:manage'),
     ]),
   ]
 }
@@ -242,8 +242,11 @@ const LEGACY_DISCORD_ROUTES = new Set([
 
 const PLATFORM_ROUTES = new Set([
   '/dashboard', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
+  '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/gatilhos',
+  '/platform/wa-logs', '/platform/wa-status',
   '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/platform/automacoes',
-  '/send/historico', '/plans', '/settings', '/settings/team', '/em-breve',
+  '/send/historico', '/plans', '/settings', '/settings/team', '/settings/permissions', '/settings/security', '/settings/backup',
+  '/em-breve',
 ])
 
 export type NavMode = 'platform' | 'discord'
@@ -367,6 +370,12 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform': 'dashboard:view',
   '/platform/templates': 'send:templates:manage',
   '/platform/reports': 'logs:view',
+  '/platform/audit': 'logs:view',
+  '/platform/campanhas': 'send:test',
+  '/platform/segmentos': 'send:destination:manage',
+  '/platform/gatilhos': 'send:schedule:manage',
+  '/platform/wa-logs': 'logs:view',
+  '/platform/wa-status': 'whatsapp:session:view',
   '/platform/contacts': 'consent:view',
   '/sessions': 'whatsapp:session:view',
   '/channels': 'discord:channels:manage',
@@ -395,6 +404,9 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/plans': 'billing:view',
   '/settings': 'account:settings',
   '/settings/team': 'company:members:manage',
+  '/settings/permissions': 'company:members:manage',
+  '/settings/security': 'account:settings',
+  '/settings/backup': 'account:settings',
   '/em-breve': 'dashboard:view',
   '/admin/dashboard': 'dashboard:global',
   '/admin/clients': 'system:users:view',
@@ -406,6 +418,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/payments': 'system:payments:view',
   '/admin/moderation': 'system:moderation:action',
   '/admin/audit': 'system:audit:view',
+  '/admin/monitoring': 'logs:global',
+  '/admin/errors': 'logs:global',
   '/admin/api': 'api:global',
   '/admin/settings': 'system:settings:manage',
 }
@@ -415,6 +429,12 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform': 'Plataforma',
   '/platform/templates': 'Modelos de mensagem',
   '/platform/reports': 'Relatórios',
+  '/platform/audit': 'Auditoria resumida',
+  '/platform/campanhas': 'Campanhas',
+  '/platform/segmentos': 'Listas / Segmentos',
+  '/platform/gatilhos': 'Gatilhos avançados',
+  '/platform/wa-logs': 'Logs WhatsApp',
+  '/platform/wa-status': 'Status das conexões',
   '/platform/contacts': 'Importar contatos',
   '/sessions': 'Conexões WhatsApp',
   '/channels': 'Canais do Discord',
@@ -443,6 +463,9 @@ export const PAGE_TITLES: Record<string, string> = {
   '/plans': 'Plano e limites',
   '/settings': 'Configurações gerais',
   '/settings/team': 'Cargos e acessos',
+  '/settings/permissions': 'Permissões',
+  '/settings/security': 'Segurança',
+  '/settings/backup': 'Backup',
   '/admin/dashboard': 'Dashboard global',
   '/admin/clients': 'Clientes',
   '/admin/servers': 'Servidores',
@@ -453,6 +476,8 @@ export const PAGE_TITLES: Record<string, string> = {
   '/admin/payments': 'Pagamentos',
   '/admin/moderation': 'Moderação',
   '/admin/audit': 'Auditoria',
+  '/admin/monitoring': 'Monitoramento',
+  '/admin/errors': 'Erros do sistema',
   '/admin/api': 'API global',
   '/admin/settings': 'Configurações do sistema',
 }

@@ -18,6 +18,7 @@ import { createServiceLogger, logError } from '../../utils/logger';
 import { QueueManager } from '../../cache/QueueManager';
 import { SessionCache } from '../../cache/SessionCache';
 import { RedisManager } from '../../cache/RedisManager';
+import { DatabaseManager } from '../../database/DatabaseManager';
 import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue, ContactGroup } from '../../models';
 import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
 import { ConsentService } from '../consent/ConsentService';
@@ -56,6 +57,11 @@ import {
 import { renderPlatformTemplateForClient } from '../platform/platformTemplateRender';
 import { buildPlatformWhatsAppVariables } from '../../utils/platform-wa-variables';
 import { BirthdayAutomationRule, type IBirthdayAutomationRule } from '../../models/BirthdayAutomationRule';
+import { ApiKey } from '../../models/ApiKey';
+import { WebhookEndpoint, WEBHOOK_EVENTS, type WebhookEvent } from '../../models/WebhookEndpoint';
+import { AuditLog } from '../../models/AuditLog';
+import { generateApiKeyRaw, hashApiKey, apiKeyPrefix, generateWebhookSecret } from '../../utils/api-key';
+import { OPENAPI_DASHBOARD } from '../../constants/openapi-dashboard';
 import { DiscordNavAlertsService } from '../discord/DiscordNavAlertsService';
 import { RuleGroupBlockService } from '../rules/RuleGroupBlockService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
@@ -2292,6 +2298,293 @@ export class DashboardService {
         );
         if (!ok) return res.status(404).json({ error: 'Agendamento não encontrado ou já processado' });
         res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Integrações (API keys, webhooks, docs) ─────────────────────────────
+    r.get('/integrations/openapi', requireCapability(Cap.API_LOGS_VIEW), (_req, res) => {
+      res.json(OPENAPI_DASHBOARD);
+    });
+
+    r.get('/integrations/rate-limit', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const org = await Organization.findById(auth.organizationId).lean();
+        if (!org) return res.status(404).json({ error: 'Organization not found' });
+        res.json({
+          plan: org.plan,
+          limits: org.limits,
+          usage: org.usage,
+          api: {
+            windowMs: config.RATE_LIMIT?.WINDOW_MS ?? 60_000,
+            maxRequestsPerWindow: config.RATE_LIMIT?.MAX_REQUESTS ?? 100,
+            header: 'X-API-Key',
+          },
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/integrations/api-keys', requireCapability(Cap.API_KEY_CREATE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const keys = await ApiKey.find({
+          organizationId: new mongoose.Types.ObjectId(auth.organizationId),
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+        res.json(
+          keys.map(k => ({
+            _id: k._id,
+            name: k.name,
+            keyPrefix: k.keyPrefix,
+            active: k.active,
+            lastUsedAt: k.lastUsedAt,
+            createdAt: k.createdAt,
+          })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/integrations/api-keys', requireCapability(Cap.API_KEY_CREATE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const name = String((req.body as { name?: string }).name ?? '').trim() || 'Chave API';
+        const raw = generateApiKeyRaw();
+        const doc = await ApiKey.create({
+          organizationId: new mongoose.Types.ObjectId(auth.organizationId),
+          name,
+          keyPrefix: apiKeyPrefix(raw),
+          keyHash: hashApiKey(raw),
+          active: true,
+        });
+        res.status(201).json({
+          _id: doc._id,
+          name: doc.name,
+          keyPrefix: doc.keyPrefix,
+          key: raw,
+          createdAt: doc.createdAt,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/integrations/api-keys/:id', requireCapability(Cap.API_KEY_CREATE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await ApiKey.deleteOne({
+          _id: req.params.id,
+          organizationId: new mongoose.Types.ObjectId(auth.organizationId),
+        });
+        if (result.deletedCount === 0) return res.status(404).json({ error: 'Chave não encontrada' });
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/integrations/webhooks', requireCapability(Cap.API_KEY_CREATE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const hooks = await WebhookEndpoint.find({
+          organizationId: new mongoose.Types.ObjectId(auth.organizationId),
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+        res.json(
+          hooks.map(h => ({
+            _id: h._id,
+            url: h.url,
+            events: h.events,
+            active: h.active,
+            description: h.description,
+            lastDeliveryAt: h.lastDeliveryAt,
+            lastDeliveryStatus: h.lastDeliveryStatus,
+            createdAt: h.createdAt,
+          })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/integrations/webhooks', requireCapability(Cap.API_KEY_CREATE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          url?: string;
+          events?: string[];
+          description?: string;
+        };
+        const url = body.url?.trim();
+        if (!url?.startsWith('https://')) {
+          return res.status(400).json({ error: 'URL deve começar com https://' });
+        }
+        const events = (body.events ?? ['campaign.sent', 'campaign.failed']).filter(
+          (e): e is WebhookEvent => (WEBHOOK_EVENTS as readonly string[]).includes(e),
+        );
+        const secret = generateWebhookSecret();
+        const doc = await WebhookEndpoint.create({
+          organizationId: new mongoose.Types.ObjectId(auth.organizationId),
+          url,
+          events: events.length ? events : ['campaign.sent'],
+          secret,
+          description: body.description?.trim(),
+          active: true,
+        });
+        res.status(201).json({
+          _id: doc._id,
+          url: doc.url,
+          events: doc.events,
+          secret,
+          createdAt: doc.createdAt,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/integrations/webhooks/:id', requireCapability(Cap.API_KEY_CREATE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const doc = await WebhookEndpoint.findOne({
+          _id: req.params.id,
+          organizationId: new mongoose.Types.ObjectId(auth.organizationId),
+        });
+        if (!doc) return res.status(404).json({ error: 'Webhook não encontrado' });
+        const body = req.body as { active?: boolean; events?: string[]; description?: string };
+        if (body.active !== undefined) doc.active = Boolean(body.active);
+        if (body.description !== undefined) doc.description = body.description.trim();
+        if (body.events?.length) {
+          doc.events = body.events.filter((e): e is WebhookEvent =>
+            (WEBHOOK_EVENTS as readonly string[]).includes(e),
+          );
+        }
+        await doc.save();
+        res.json(doc);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/integrations/webhooks/:id', requireCapability(Cap.API_KEY_CREATE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await WebhookEndpoint.deleteOne({
+          _id: req.params.id,
+          organizationId: new mongoose.Types.ObjectId(auth.organizationId),
+        });
+        if (result.deletedCount === 0) return res.status(404).json({ error: 'Webhook não encontrado' });
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/integrations/playground', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { destination, message } = req.body as { destination?: string; message?: string };
+        if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
+        if (!destination?.trim()) return res.status(400).json({ error: 'destination is required' });
+
+        const clientId = auth.clientId;
+        const clientOid = new mongoose.Types.ObjectId(clientId);
+        const wa = WhatsAppService.getInstance();
+        if (!wa.isClientConnected(clientId)) {
+          return res.status(400).json({ error: 'WhatsApp não conectado' });
+        }
+        const destDoc = await Destination.findByIdentifier(destination.trim(), clientOid);
+        if (!destDoc) return res.status(400).json({ error: 'Destino não encontrado' });
+        await wa.sendTestMessageFromDashboard(clientId, destination.trim(), message.trim());
+        res.json({ ok: true, destination: destDoc.name });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/integrations/audit-summary', requireCapability(Cap.LOGS_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const [sentLogs, errorLogs, campaigns, contacts] = await Promise.all([
+          SystemLog.countDocuments({
+            clientId: clientOid,
+            timestamp: { $gte: since },
+            level: { $in: ['info', 'success'] },
+            'metadata.stage': 'sent',
+          }),
+          SystemLog.countDocuments({
+            clientId: clientOid,
+            timestamp: { $gte: since },
+            level: 'error',
+          }),
+          MessageQueue.countDocuments({ clientId: clientOid, createdAt: { $gte: since } }),
+          Destination.countDocuments({ clientId: clientOid, type: 'contact', isActive: true }),
+        ]);
+        res.json({ periodDays: 7, messagesSent: sentLogs, errors: errorLogs, campaigns, activeContacts: contacts });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/monitoring', requireCapability(Cap.LOGS_GLOBAL), async (_req, res) => {
+      try {
+        const stats = await this.buildStats();
+        const health = {
+          mongodb: DatabaseManager.getInstance().isConnected(),
+          redis: RedisManager.getInstance().isConnected(),
+        };
+        res.json({ health, stats, timestamp: new Date().toISOString() });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/errors', requireCapability(Cap.LOGS_GLOBAL), async (_req, res) => {
+      try {
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const logs = await SystemLog.find({ level: 'error', timestamp: { $gte: since } })
+          .sort({ timestamp: -1 })
+          .limit(80)
+          .lean();
+        res.json({ logs, failedJobs: [], since: since.toISOString() });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/audit-logs', requireCapability(Cap.SYSTEM_AUDIT_VIEW), async (req, res) => {
+      try {
+        const limit = Math.min(parseInt(String(req.query.limit ?? '100'), 10) || 100, 200);
+        const logs = await AuditLog.find({})
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .lean();
+        res.json(logs);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/servers-summary', requireCapability(Cap.SYSTEM_SERVERS_VIEW), async (_req, res) => {
+      try {
+        const sessions = await WhatsAppSession.find({}).lean();
+        const channels = await DiscordChannel.find({ isActive: true }).lean();
+        const guildIds = new Set(channels.map(c => c.guildId));
+        res.json({
+          whatsappSessions: sessions.length,
+          connectedSessions: sessions.filter(s => s.status === 'active').length,
+          discordGuilds: guildIds.size,
+          activeChannels: channels.length,
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

@@ -26,7 +26,23 @@ import PlatformTemplates from './pages/platform/PlatformTemplates'
 import PlatformReports from './pages/platform/PlatformReports'
 import PlatformContacts from './pages/platform/PlatformContacts'
 import PlatformAutomations from './pages/platform/PlatformAutomations'
-import ComingSoon from './pages/ComingSoon'
+import EmBreveRedirect from './pages/menu/EmBreveRedirect'
+import PlatformAudit from './pages/menu/PlatformAudit'
+import PlatformCampaigns from './pages/menu/PlatformCampaigns'
+import ContactSegments from './pages/menu/ContactSegments'
+import PlatformTriggers from './pages/menu/PlatformTriggers'
+import WaLogs from './pages/menu/WaLogs'
+import WaStatus from './pages/menu/WaStatus'
+import AdminMonitoring from './pages/menu/AdminMonitoring'
+import AdminErrors from './pages/menu/AdminErrors'
+import AdminServers from './pages/menu/AdminServers'
+import AdminAuditPage from './pages/menu/AdminAuditPage'
+import AdminModeration from './pages/menu/AdminModeration'
+import AdminSettingsPage from './pages/menu/AdminSettingsPage'
+import PermissionsPage from './pages/menu/PermissionsPage'
+import SecuritySettings from './pages/menu/SecuritySettings'
+import BackupExport from './pages/menu/BackupExport'
+import { ApiPlayground } from './components/integrations/ApiPlayground'
 import Login from './pages/Login'
 import { getMe, type AuthUser } from './lib/auth'
 import { AuthContext } from './lib/authContext'
@@ -46,6 +62,14 @@ function LegacySendRedirect() {
 function SendPage() {
   const { hash } = useLocation()
   if (hash === '#agendados') return <Navigate to="/send/agendamentos" replace />
+  if (hash === '#playground') {
+    return (
+      <div className="max-w-2xl space-y-4">
+        <h1 className="text-lg font-semibold text-white">Playground API</h1>
+        <ApiPlayground />
+      </div>
+    )
+  }
   return <SendNow />
 }
 
@@ -118,29 +142,40 @@ export default function App() {
           <Route path="logs" element={<Navigate to="/discord/logs" replace />} />
           <Route path="send/agendamentos" element={<Guard user={user} path="/send/agendamentos"><SendSchedules /></Guard>} />
           <Route path="platform/automacoes" element={<Guard user={user} path="/platform/automacoes"><PlatformAutomations /></Guard>} />
+          <Route path="platform/audit" element={<Guard user={user} path="/platform/audit"><PlatformAudit /></Guard>} />
+          <Route path="platform/campanhas" element={<Guard user={user} path="/platform/campanhas"><PlatformCampaigns /></Guard>} />
+          <Route path="platform/segmentos" element={<Guard user={user} path="/platform/segmentos"><ContactSegments /></Guard>} />
+          <Route path="platform/gatilhos" element={<Guard user={user} path="/platform/gatilhos"><PlatformTriggers /></Guard>} />
+          <Route path="platform/wa-logs" element={<Guard user={user} path="/platform/wa-logs"><WaLogs /></Guard>} />
+          <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />
           <Route path="send/historico" element={<Guard user={user} path="/send/historico"><SendHistory /></Guard>} />
           <Route path="send" element={<Guard user={user} path="/send"><SendPage /></Guard>} />
           <Route path="test-send" element={<LegacySendRedirect />} />
           <Route path="plans" element={<Guard user={user} path="/plans"><Plans user={user} /></Guard>} />
           <Route path="settings/team" element={<Guard user={user} path="/settings/team"><TeamMembers /></Guard>} />
+          <Route path="settings/permissions" element={<Guard user={user} path="/settings/permissions"><PermissionsPage /></Guard>} />
+          <Route path="settings/security" element={<Guard user={user} path="/settings/security"><SecuritySettings /></Guard>} />
+          <Route path="settings/backup" element={<Guard user={user} path="/settings/backup"><BackupExport /></Guard>} />
           <Route path="settings/equipe" element={<Navigate to="/settings/team" replace />} />
           <Route path="settings" element={<Guard user={user} path="/settings"><Settings user={user} /></Guard>} />
-          <Route path="em-breve/:slug" element={<Guard user={user} path="/em-breve"><ComingSoon /></Guard>} />
+          <Route path="em-breve/:slug" element={<Guard user={user} path="/em-breve"><EmBreveRedirect /></Guard>} />
 
           {/* Admin interno */}
           <Route path="admin/dashboard" element={<Guard user={user} path="/admin/dashboard"><AdminDashboard /></Guard>} />
           <Route path="admin/clients" element={<Guard user={user} path="/admin/clients"><AdminClients /></Guard>} />
-          <Route path="admin/servers" element={<Guard user={user} path="/admin/servers"><AdminDashboard title="Servidores" /></Guard>} />
+          <Route path="admin/servers" element={<Guard user={user} path="/admin/servers"><AdminServers /></Guard>} />
           <Route path="admin/sessions" element={<Guard user={user} path="/admin/sessions"><Sessions /></Guard>} />
           <Route path="admin/queue" element={<Guard user={user} path="/admin/queue"><Queue /></Guard>} />
           <Route path="admin/logs" element={<Guard user={user} path="/admin/logs"><Logs /></Guard>} />
+          <Route path="admin/monitoring" element={<Guard user={user} path="/admin/monitoring"><AdminMonitoring /></Guard>} />
+          <Route path="admin/errors" element={<Guard user={user} path="/admin/errors"><AdminErrors /></Guard>} />
           <Route path="admin/plans" element={<Guard user={user} path="/admin/plans"><Plans user={user} admin /></Guard>} />
           <Route path="admin/payments" element={<Guard user={user} path="/admin/payments"><AdminDashboard title="Pagamentos" /></Guard>} />
-          <Route path="admin/moderation" element={<Guard user={user} path="/admin/moderation"><AdminDashboard title="Moderação" /></Guard>} />
-          <Route path="admin/audit" element={<Guard user={user} path="/admin/audit"><AdminDashboard title="Auditoria" /></Guard>} />
+          <Route path="admin/moderation" element={<Guard user={user} path="/admin/moderation"><AdminModeration /></Guard>} />
+          <Route path="admin/audit" element={<Guard user={user} path="/admin/audit"><AdminAuditPage /></Guard>} />
           <Route path="admin/api" element={<Guard user={user} path="/admin/api"><AdminDashboard title="API Global" /></Guard>} />
-          <Route path="admin/settings" element={<Guard user={user} path="/admin/settings"><AdminDashboard title="Configurações do Sistema" /></Guard>} />
+          <Route path="admin/settings" element={<Guard user={user} path="/admin/settings"><AdminSettingsPage /></Guard>} />
         </Route>
       </Routes>
     </BrowserRouter>

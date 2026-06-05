@@ -1,0 +1,116 @@
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../../lib/api'
+import { Card } from '../ui/Card'
+import { Button } from '../ui/Button'
+import { Spinner } from '../ui/Spinner'
+import { Webhook, Plus, Trash2 } from 'lucide-react'
+
+const EVENTS = [
+  'campaign.sent',
+  'campaign.failed',
+  'consent.updated',
+  'session.connected',
+  'session.disconnected',
+] as const
+
+interface WebhookRow {
+  _id: string
+  url: string
+  events: string[]
+  active: boolean
+  description?: string
+  lastDeliveryAt?: string
+  lastDeliveryStatus?: number
+}
+
+export function WebhooksPanel() {
+  const qc = useQueryClient()
+  const [url, setUrl] = useState('')
+  const [newSecret, setNewSecret] = useState<string | null>(null)
+
+  const { data: hooks = [], isLoading } = useQuery<WebhookRow[]>({
+    queryKey: ['webhooks'],
+    queryFn: () => api.get('/integrations/webhooks'),
+  })
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.post<{ secret: string; url: string }>('/integrations/webhooks', {
+        url: url.trim(),
+        events: ['campaign.sent', 'campaign.failed'],
+      }),
+    onSuccess: data => {
+      setNewSecret(data.secret)
+      setUrl('')
+      qc.invalidateQueries({ queryKey: ['webhooks'] })
+    },
+    onError: (e: Error) => alert(e.message),
+  })
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/integrations/webhooks/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+  })
+
+  const inputCls =
+    'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200'
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-gray-500">
+        POST JSON para sua URL com header <code className="text-gray-400">X-RadarZap-Signature</code>{' '}
+        (HMAC com o secret abaixo).
+      </p>
+
+      {newSecret && (
+        <Card className="border-amber-800/40 bg-amber-950/20 space-y-1">
+          <p className="text-sm text-amber-200">Secret do webhook (guarde com segurança)</p>
+          <code className="text-xs break-all text-gray-300">{newSecret}</code>
+        </Card>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="https://seu-sistema.com/webhooks/radarzap"
+          className={`${inputCls} flex-1 min-w-[240px]`}
+        />
+        <Button size="sm" onClick={() => create.mutate()} disabled={create.isPending || !url.trim()}>
+          {create.isPending ? <Spinner size={14} /> : <Plus size={14} />}
+          Adicionar
+        </Button>
+      </div>
+
+      <p className="text-[11px] text-gray-600">Eventos disponíveis: {EVENTS.join(', ')}</p>
+
+      {isLoading ? (
+        <div className="flex justify-center py-6"><Spinner size={24} /></div>
+      ) : hooks.length === 0 ? (
+        <Card className="text-center py-8 text-gray-500 text-sm">Nenhum webhook.</Card>
+      ) : (
+        <div className="space-y-2">
+          {hooks.map(h => (
+            <Card key={h._id} className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-gray-200 flex items-center gap-2 truncate">
+                  <Webhook size={14} className="text-brand-500 shrink-0" />
+                  <span className="truncate">{h.url}</span>
+                </p>
+                <p className="text-xs text-gray-500 mt-1">{h.events.join(', ')}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.confirm('Remover webhook?') && remove.mutate(h._id)}
+                className="p-2 text-gray-500 hover:text-red-400 shrink-0"
+              >
+                <Trash2 size={16} />
+              </button>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
