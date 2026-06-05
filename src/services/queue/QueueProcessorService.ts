@@ -12,6 +12,10 @@ import { RedisManager } from '@/cache/RedisManager';
 import { MessageQueue, User, Destination, SystemLog, Organization } from '@/models';
 import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
 import { BirthdayAutomationService } from '@/services/platform/BirthdayAutomationService';
+import {
+  AUTOMATION_IMMINENT_PLAN_MS,
+  AUTOMATION_RECURRING_PLAN_MS,
+} from '@/constants/automation-scheduler';
 import { RulesEngine } from '@/services/rules/RulesEngine';
 import { RuleGroupBlockService } from '@/services/rules/RuleGroupBlockService';
 import { TemplateEngine } from '@/services/templates/TemplateEngine';
@@ -763,17 +767,34 @@ export class QueueProcessorService {
       }
     }, 15_000);
 
-    // Automações da plataforma — verifica regras no minuto exato do sendTime, 1x/dia por regra
-    const runBirthdayTick = async () => {
+    // Automações: iminentes (once_at) a cada 1 min; recorrentes planejam fila a cada 5 min
+    const automationSvc = BirthdayAutomationService.getInstance();
+    const runImminentAutomation = async () => {
       if (!this.isRunning) return;
       try {
-        await BirthdayAutomationService.getInstance().processAllOrganizations();
+        await automationSvc.planImminentOnceAt();
       } catch (err) {
-        this.serviceLogger.error('Birthday automation tick failed:', err);
+        this.serviceLogger.error('Automation imminent plan failed:', err);
       }
     };
-    void runBirthdayTick();
-    const birthdayInterval = global.setInterval(runBirthdayTick, 60 * 1000);
+    const runRecurringAutomation = async () => {
+      if (!this.isRunning) return;
+      try {
+        await automationSvc.planRecurringRules();
+      } catch (err) {
+        this.serviceLogger.error('Automation recurring plan failed:', err);
+      }
+    };
+    void runImminentAutomation();
+    void runRecurringAutomation();
+    const automationImminentInterval = global.setInterval(
+      runImminentAutomation,
+      AUTOMATION_IMMINENT_PLAN_MS,
+    );
+    const automationRecurringInterval = global.setInterval(
+      runRecurringAutomation,
+      AUTOMATION_RECURRING_PLAN_MS,
+    );
 
     // Log processing statistics
     const statsInterval = global.setInterval(() => {

@@ -17,6 +17,8 @@ export interface Campaign {
   delayBetweenMs?: number
   sentCount?: number
   acceptWhatsAppRisk?: boolean
+  source?: 'manual' | 'automation'
+  automationRuleId?: string
 }
 
 const statusBadge: Record<Campaign['status'], 'green' | 'yellow' | 'red' | 'blue'> = {
@@ -48,6 +50,9 @@ export function CampaignRow({
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium truncate">{c.title}</p>
           <Badge label={statusLabel[c.status]} variant={statusBadge[c.status]} />
+          {c.source === 'automation' && (
+            <Badge label="Automação" variant="blue" />
+          )}
         </div>
         <p className="text-xs text-gray-500 mt-1 line-clamp-2">{c.message}</p>
         {c.destinations.some(d => d.consentStatus) && (

@@ -130,7 +130,7 @@ export default function PlatformBirthdayAutomation() {
         <Link to="/platform/contacts" className="text-brand-400 hover:underline">
           Contatos
         </Link>
-        ). Dispara no horário configurado (verificação a cada minuto; máx. 1x por dia por regra).
+        ). Os envios aparecem em Agendamentos; recorrentes são planejados a cada 5 min no dia do gatilho.
       </p>
 
       <Card className="border-brand-800/40 bg-brand-950/15 text-xs text-gray-400 space-y-2">

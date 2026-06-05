@@ -372,7 +372,8 @@ export default function PlatformAutomations() {
           </li>
         </ul>
         <p className="text-gray-500">
-          Dispara no horário configurado (verificação a cada minuto; máx. 1 execução por dia por regra recorrente).
+          Envios entram em Agendamentos com o horário programado. Únicos/iminentes: checagem a cada 1 min.
+          Recorrentes: planejamento a cada 5 min quando o gatilho bate no dia (cada destino na fila).
           {needsBirthday(form.triggerType) && (
             <>
               {' '}
@@ -933,7 +934,7 @@ export default function PlatformAutomations() {
                   {r.triggerType === 'once_at' && r.scheduledAt
                     ? ` · ${new Date(r.scheduledAt).toLocaleString('pt-BR')}`
                     : ` · ${r.sendTime}`}
-                  {r.lastRunDate && ` · última execução ${r.lastRunDate}`}
+                  {r.lastRunDate && ` · enfileirado ${r.lastRunDate.replace(/^rec:|^once:/, '')}`}
                 </p>
               </div>
               <div className="flex gap-1">

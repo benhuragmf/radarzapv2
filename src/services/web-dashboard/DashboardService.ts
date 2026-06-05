@@ -1902,6 +1902,9 @@ export class DashboardService {
           destinationFilterTags: body.destinationFilterTags?.filter(Boolean),
           mensagemExtra: body.mensagemExtra?.trim(),
         });
+        if (doc.active) {
+          void BirthdayAutomationService.getInstance().planSingleRule(doc).catch(() => {});
+        }
         res.status(201).json(doc);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -1969,6 +1972,9 @@ export class DashboardService {
         }
         if (body.mensagemExtra !== undefined) doc.mensagemExtra = String(body.mensagemExtra).trim();
         await doc.save();
+        if (doc.active) {
+          void BirthdayAutomationService.getInstance().planSingleRule(doc).catch(() => {});
+        }
         res.json(doc);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -2001,7 +2007,7 @@ export class DashboardService {
         const svc = BirthdayAutomationService.getInstance();
         let total = 0;
         for (const rule of rules) {
-          total += await svc.processRule(rule);
+          total += await svc.processRule(rule, new Date(), { force: true });
         }
         res.json({ ok: true, enqueued: total });
       } catch (e) {
@@ -2051,6 +2057,8 @@ export class DashboardService {
             acceptWhatsAppRisk: (m.content.variables as { acceptWhatsAppRisk?: boolean })?.acceptWhatsAppRisk === true,
             messageMode: (m.content.variables as { messageMode?: string })?.messageMode,
             platformTemplateName: (m.content.variables as { platformTemplateName?: string })?.platformTemplateName,
+            source: (m.content.variables as { source?: string })?.source ?? 'manual',
+            automationRuleId: (m.content.variables as { automationRuleId?: string })?.automationRuleId,
           })),
         );
       } catch (e) {

@@ -34,8 +34,8 @@ export default function SendSchedules() {
   return (
     <div className="max-w-3xl space-y-4">
       <p className="text-sm text-gray-500">
-        Envios programados para o futuro. O sistema tenta enviar a cada 15 segundos quando chegar o horário.
-        Use modelos <strong className="text-gray-400">pw-*</strong> em Enviar agora → Modelo Plataforma.
+        Envios programados (manuais e automações). Disparo a cada ~15 s quando chega o horário.
+        Automações recorrentes entram aqui assim que o gatilho bate no dia.
       </p>
 
       <Card className="flex flex-wrap items-center justify-between gap-3 border-brand-800/30 bg-brand-950/10">
@@ -44,7 +44,7 @@ export default function SendSchedules() {
           <div>
             <p className="text-sm font-medium text-gray-300">Aniversários automáticos</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Regras recorrentes (dia do aniversário, dia 10 do mês, a cada N meses). Dispara no horário marcado.
+              Regras em Mensagens automáticas aparecem aqui antes do horário de envio.
             </p>
           </div>
         </div>

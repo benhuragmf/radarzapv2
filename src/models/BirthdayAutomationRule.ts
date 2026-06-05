@@ -41,7 +41,7 @@ export interface IBirthdayAutomationRule extends Document {
   /** Tags do contato — vazio = todos (legado) */
   destinationFilterTags?: string[];
   mensagemExtra?: string;
-  /** YYYY-MM-DD — última execução do lote diário */
+  /** Chave da última ocorrência enfileirada (rec:YYYY-MM-DD ou once:ISO-minuto) */
   lastRunDate?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -155,7 +155,7 @@ const BirthdayAutomationRuleSchema = new Schema<IBirthdayAutomationRule>(
     lastRunDate: {
       type: String,
       trim: true,
-      maxlength: 10,
+      maxlength: 32,
     },
   },
   {

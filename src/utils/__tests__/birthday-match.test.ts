@@ -6,6 +6,10 @@ import {
   intervalMonthsElapsed,
   isSendTimeDue,
   isScheduledAtDue,
+  buildSendAtToday,
+  isOnceAtPlanWindow,
+  isRecurringPlanWindow,
+  recurringOccurrenceKey,
 } from '@/utils/birthday-match';
 
 describe('birthday-match', () => {
@@ -50,5 +54,24 @@ describe('birthday-match', () => {
     expect(isScheduledAtDue(sched, new Date(2026, 5, 10, 14, 30, 45))).toBe(true);
     expect(isScheduledAtDue(sched, new Date(2026, 5, 10, 14, 31, 0))).toBe(false);
     expect(isScheduledAtDue(sched, new Date(2026, 5, 10, 14, 29, 59))).toBe(false);
+  });
+
+  it('buildSendAtToday monta horário no dia', () => {
+    const ref = new Date(2026, 5, 4, 8, 0, 0);
+    const at = buildSendAtToday('09:30', ref);
+    expect(at?.getHours()).toBe(9);
+    expect(at?.getMinutes()).toBe(30);
+    expect(at?.getDate()).toBe(4);
+  });
+
+  it('janelas de planejamento once_at e recorrente', () => {
+    const now = new Date(2026, 5, 4, 10, 0, 0);
+    const in5min = new Date(2026, 5, 4, 10, 5, 0);
+    const in3days = new Date(2026, 5, 7, 10, 0, 0);
+    expect(isOnceAtPlanWindow(in5min, now)).toBe(true);
+    expect(isOnceAtPlanWindow(in3days, now)).toBe(false);
+    const sendAt = buildSendAtToday('09:00', now)!;
+    expect(isRecurringPlanWindow(sendAt, now)).toBe(true);
+    expect(recurringOccurrenceKey(now)).toBe('2026-06-04');
   });
 });

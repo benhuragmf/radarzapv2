@@ -17,12 +17,16 @@ import {
   weekdayMatches,
   weekdaysMatch,
 } from '@/utils/automation-schedule';
+import { QUEUED_RUN_PREFIX } from '@/constants/automation-scheduler';
 import {
+  buildSendAtToday,
   contactBirthdayMatchesToday,
   contactBirthdayDayOfMonth,
   intervalMonthsElapsed,
-  isScheduledAtDue,
-  isSendTimeDue,
+  isOnceAtPlanWindow,
+  isRecurringPlanWindow,
+  onceAtOccurrenceKey,
+  recurringOccurrenceKey,
   wasBirthdaySentThisYear,
 } from '@/utils/birthday-match';
 import { createServiceLogger } from '@/utils/logger';
@@ -60,8 +64,27 @@ function scheduleMatchesToday(
   }
 }
 
-function onceAtRunKey(scheduledAt: Date): string {
-  return scheduledAt.toISOString().slice(0, 16);
+export interface ProcessRuleOptions {
+  /** Enfileira para envio futuro (fila de campanhas / Agendamentos). */
+  sendAt?: Date;
+  /** Ignora dedup de ocorrência — usado em "testar agora". */
+  force?: boolean;
+}
+
+function recurringQueueKey(refDate: Date): string {
+  return `${QUEUED_RUN_PREFIX.recurring}${recurringOccurrenceKey(refDate)}`;
+}
+
+function onceQueueKey(scheduledAt: Date): string {
+  return `${QUEUED_RUN_PREFIX.once}${onceAtOccurrenceKey(scheduledAt)}`;
+}
+
+function isLegacyQueuedForToday(lastRunDate: string | undefined, refDate: Date): boolean {
+  if (!lastRunDate) return false;
+  if (lastRunDate.startsWith(QUEUED_RUN_PREFIX.recurring) || lastRunDate.startsWith(QUEUED_RUN_PREFIX.once)) {
+    return false;
+  }
+  return lastRunDate === recurringOccurrenceKey(refDate);
 }
 
 export class BirthdayAutomationService {
@@ -74,52 +97,108 @@ export class BirthdayAutomationService {
     return BirthdayAutomationService.instance;
   }
 
-  async processAllOrganizations(refDate: Date = new Date()): Promise<number> {
-    const rules = await BirthdayAutomationRule.find({ active: true }).lean();
+  /** Envios únicos / iminentes — tick a cada 1 min. */
+  async planImminentOnceAt(refDate: Date = new Date()): Promise<number> {
+    const rules = await BirthdayAutomationRule.find({
+      active: true,
+      triggerType: 'once_at',
+      scheduledAt: { $exists: true, $ne: null },
+    }).lean();
+    return this.planRules(rules as IBirthdayAutomationRule[], refDate, 'imminent');
+  }
+
+  /** Regras recorrentes — tick a cada 5 min; pré-enfileira na fila de campanhas. */
+  async planRecurringRules(refDate: Date = new Date()): Promise<number> {
+    const rules = await BirthdayAutomationRule.find({
+      active: true,
+      triggerType: { $ne: 'once_at' },
+    }).lean();
+    return this.planRules(rules as IBirthdayAutomationRule[], refDate, 'recurring');
+  }
+
+  /** Ao criar/editar regra no painel — planeja imediatamente se aplicável. */
+  async planSingleRule(
+    rule: IBirthdayAutomationRule | { _id: mongoose.Types.ObjectId; toObject?: () => IBirthdayAutomationRule },
+    refDate: Date = new Date(),
+  ): Promise<number> {
+    const doc =
+      typeof (rule as IBirthdayAutomationRule).toObject === 'function'
+        ? (rule as IBirthdayAutomationRule).toObject()
+        : (rule as IBirthdayAutomationRule);
+    if (!doc.active) return 0;
+    const mode = doc.triggerType === 'once_at' ? 'imminent' : 'recurring';
+    return this.planRules([doc], refDate, mode, true);
+  }
+
+  private async planRules(
+    rules: IBirthdayAutomationRule[],
+    refDate: Date,
+    mode: 'imminent' | 'recurring',
+    force = false,
+  ): Promise<number> {
     let enqueued = 0;
 
     for (const rule of rules) {
       try {
-        if (rule.triggerType === 'once_at') {
-          if (!rule.scheduledAt) continue;
+        if (mode === 'imminent') {
+          if (rule.triggerType !== 'once_at' || !rule.scheduledAt) continue;
           const sched = new Date(rule.scheduledAt);
-          if (!isScheduledAtDue(sched, refDate)) continue;
-          const runKey = onceAtRunKey(sched);
-          if (rule.lastRunDate === runKey) continue;
-          enqueued += await this.processRule(rule as IBirthdayAutomationRule, refDate);
-          await BirthdayAutomationRule.updateOne(
-            { _id: rule._id },
-            { $set: { lastRunDate: runKey } },
-          );
+          if (!isOnceAtPlanWindow(sched, refDate)) continue;
+          const qKey = onceQueueKey(sched);
+          if (!force && (rule.lastRunDate === qKey || isLegacyQueuedForToday(rule.lastRunDate, refDate))) {
+            continue;
+          }
+          const count = await this.processRule(rule, refDate, { sendAt: sched });
+          if (count > 0) {
+            await BirthdayAutomationRule.updateOne({ _id: rule._id }, { $set: { lastRunDate: qKey } });
+            enqueued += count;
+          }
           continue;
         }
 
-        if (!isSendTimeDue(rule.sendTime, refDate)) continue;
-        const todayKey = refDate.toISOString().slice(0, 10);
-        if (rule.lastRunDate === todayKey) continue;
-        enqueued += await this.processRule(rule as IBirthdayAutomationRule, refDate);
-        await BirthdayAutomationRule.updateOne(
-          { _id: rule._id },
-          { $set: { lastRunDate: todayKey } },
-        );
+        if (rule.triggerType === 'once_at') continue;
+        if (!scheduleMatchesToday(rule, refDate)) continue;
+
+        const sendAt = buildSendAtToday(rule.sendTime, refDate);
+        if (!sendAt || !isRecurringPlanWindow(sendAt, refDate)) continue;
+
+        const qKey = recurringQueueKey(refDate);
+        if (!force && (rule.lastRunDate === qKey || isLegacyQueuedForToday(rule.lastRunDate, refDate))) {
+          continue;
+        }
+
+        const count = await this.processRule(rule, refDate, { sendAt });
+        if (count > 0) {
+          await BirthdayAutomationRule.updateOne({ _id: rule._id }, { $set: { lastRunDate: qKey } });
+          enqueued += count;
+        }
       } catch (err) {
-        logger.error('Automation rule failed', {
+        logger.error('Automation plan failed', {
           ruleId: rule._id,
           organizationId: rule.organizationId,
+          mode,
           err,
         });
       }
     }
 
     if (enqueued > 0) {
-      logger.info('Platform automation enqueued campaigns', { enqueued });
+      logger.info('Platform automation planned campaigns', { enqueued, mode });
     }
     return enqueued;
+  }
+
+  /** @deprecated use planImminentOnceAt + planRecurringRules */
+  async processAllOrganizations(refDate: Date = new Date()): Promise<number> {
+    const a = await this.planImminentOnceAt(refDate);
+    const b = await this.planRecurringRules(refDate);
+    return a + b;
   }
 
   async processRule(
     rule: IBirthdayAutomationRule,
     refDate: Date = new Date(),
+    options: ProcessRuleOptions = {},
   ): Promise<number> {
     if (!scheduleMatchesToday(rule, refDate)) return 0;
 
@@ -135,6 +214,14 @@ export class BirthdayAutomationService {
 
     const dispatcher = CampaignDispatchService.getInstance();
     const ruleTitle = rule.name?.trim() || rule.templateName;
+    const sendAt = options.sendAt;
+    const deferSend = !!sendAt && sendAt.getTime() > Date.now() + 2000;
+    const dispatchOpts = {
+      sendAt: deferSend ? sendAt : undefined,
+      perDestinationRender: deferSend,
+      source: 'automation' as const,
+      automationRuleId: rule._id.toString(),
+    };
     let count = 0;
 
     if (includeContacts) {
@@ -146,6 +233,7 @@ export class BirthdayAutomationService {
         owner,
         dispatcher,
         ruleTitle,
+        dispatchOpts,
       );
     }
 
@@ -157,6 +245,7 @@ export class BirthdayAutomationService {
         owner,
         dispatcher,
         ruleTitle,
+        dispatchOpts,
       );
     }
 
@@ -171,6 +260,12 @@ export class BirthdayAutomationService {
     owner: IUser | null,
     dispatcher: CampaignDispatchService,
     ruleTitle: string,
+    dispatchOpts: {
+      sendAt?: Date;
+      perDestinationRender?: boolean;
+      source: 'automation';
+      automationRuleId: string;
+    },
   ): Promise<number> {
     const needsBirthday = triggerRequiresBirthday(rule.triggerType);
 
@@ -212,6 +307,7 @@ export class BirthdayAutomationService {
     if (toSend.length === 0) return 0;
 
     let count = 0;
+    const deferred = !!dispatchOpts.sendAt;
 
     for (const dest of toSend) {
       const text = await this.buildMessage(
@@ -234,6 +330,7 @@ export class BirthdayAutomationService {
             name: dest.name,
           },
         ],
+        sendAt: dispatchOpts.sendAt,
         priority: 'medium',
         delayBetweenMs: 3000,
         requireConnected: true,
@@ -242,10 +339,13 @@ export class BirthdayAutomationService {
         platformTemplateName:
           rule.messageMode === 'plain' ? undefined : rule.templateName,
         templateVariables: { mensagem: rule.mensagemExtra },
-        perDestinationRender: false,
+        perDestinationRender: dispatchOpts.perDestinationRender ?? false,
+        source: dispatchOpts.source,
+        automationRuleId: dispatchOpts.automationRuleId,
+        automationBirthdayTouch: needsBirthday,
       });
 
-      if (needsBirthday) {
+      if (needsBirthday && !deferred) {
         dest.birthdayLastSentAt = refDate;
         await dest.save();
       }
@@ -262,6 +362,12 @@ export class BirthdayAutomationService {
     owner: IUser | null,
     dispatcher: CampaignDispatchService,
     ruleTitle: string,
+    dispatchOpts: {
+      sendAt?: Date;
+      perDestinationRender?: boolean;
+      source: 'automation';
+      automationRuleId: string;
+    },
   ): Promise<number> {
     const groups = await this.getWhatsAppGroupTargets(rule, clientId);
     if (groups.length === 0) return 0;
@@ -284,6 +390,7 @@ export class BirthdayAutomationService {
             name: dest.name,
           },
         ],
+        sendAt: dispatchOpts.sendAt,
         priority: 'medium',
         delayBetweenMs: 3000,
         requireConnected: true,
@@ -292,7 +399,9 @@ export class BirthdayAutomationService {
         platformTemplateName:
           rule.messageMode === 'plain' ? undefined : rule.templateName,
         templateVariables: { mensagem: rule.mensagemExtra },
-        perDestinationRender: false,
+        perDestinationRender: dispatchOpts.perDestinationRender ?? false,
+        source: dispatchOpts.source,
+        automationRuleId: dispatchOpts.automationRuleId,
       });
       count++;
     }

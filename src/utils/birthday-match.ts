@@ -131,6 +131,42 @@ export function isScheduledAtDue(scheduledAt: Date, refDate: Date = new Date()):
   );
 }
 
+/** Monta Date com sendTime (HH:mm) no dia de refDate (fuso local). */
+export function buildSendAtToday(sendTime: string, refDate: Date = new Date()): Date | null {
+  const parsed = parseSendTimeHm(sendTime);
+  if (!parsed) return null;
+  const d = new Date(refDate);
+  d.setHours(parsed.h, parsed.min, 0, 0);
+  return d;
+}
+
+/** Chave de ocorrência recorrente no dia (evita enfileirar o mesmo gatilho duas vezes). */
+export function recurringOccurrenceKey(refDate: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${refDate.getFullYear()}-${pad(refDate.getMonth() + 1)}-${pad(refDate.getDate())}`;
+}
+
+/** Chave de envio único (data+hora até o minuto). */
+export function onceAtOccurrenceKey(scheduledAt: Date): string {
+  return scheduledAt.toISOString().slice(0, 16);
+}
+
+/** Janela para enfileirar envio único: até 48h à frente ou até 30 min após o horário. */
+export function isOnceAtPlanWindow(scheduledAt: Date, refDate: Date = new Date()): boolean {
+  const aheadMs = 48 * 60 * 60 * 1000;
+  const graceMs = 30 * 60 * 1000;
+  const t = scheduledAt.getTime();
+  const now = refDate.getTime();
+  return t <= now + aheadMs && t >= now - graceMs;
+}
+
+/** Recorrente: ainda dá para enfileirar (futuro ou até 2h após o horário do dia). */
+export function isRecurringPlanWindow(sendAt: Date, refDate: Date = new Date()): boolean {
+  const graceMs = 2 * 60 * 60 * 1000;
+  const now = refDate.getTime();
+  return sendAt.getTime() >= now - graceMs;
+}
+
 /** @deprecated Use isSendTimeDue — mantido para compatibilidade em testes legados. */
 export function isSendTimeReached(sendTime: string, refDate: Date = new Date()): boolean {
   return isSendTimeDue(sendTime, refDate);

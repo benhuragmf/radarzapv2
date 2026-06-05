@@ -110,6 +110,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-auto', 'Automações'),
   group('grp-auto', 'Automações', Repeat, [
     link('auto-rules', 'Regras automáticas', Workflow, '/platform/automacoes', 'send:schedule:manage'),
+    link('auto-sched', 'Agendamentos', Calendar, '/send/agendamentos', 'send:schedule:manage'),
     link('auto-triggers', 'Gatilhos', Zap, '/platform/gatilhos', 'send:schedule:manage'),
   ]),
 

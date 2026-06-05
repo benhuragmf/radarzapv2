@@ -48,6 +48,9 @@ export interface CreateCampaignInput {
   platformTemplateName?: string;
   templateVariables?: PlatformWaVariableContext;
   perDestinationRender?: boolean;
+  source?: 'manual' | 'automation';
+  automationRuleId?: string;
+  automationBirthdayTouch?: boolean;
 }
 
 interface CampaignVars {
@@ -64,6 +67,9 @@ interface CampaignVars {
   platformTemplateName?: string;
   templateVariables?: PlatformWaVariableContext;
   perDestinationRender?: boolean;
+  source?: 'manual' | 'automation';
+  automationRuleId?: string;
+  automationBirthdayTouch?: boolean;
 }
 
 function readVars(msg: IMessageQueue): CampaignVars {
@@ -169,6 +175,9 @@ export class CampaignDispatchService {
           platformTemplateName: input.platformTemplateName,
           templateVariables: input.templateVariables,
           perDestinationRender: input.perDestinationRender !== false,
+          source: input.source ?? 'manual',
+          automationRuleId: input.automationRuleId,
+          automationBirthdayTouch: input.automationBirthdayTouch === true,
         },
       },
       input.destinations,
@@ -332,6 +341,12 @@ export class CampaignDispatchService {
           msg.content.image,
           { skipRateLimit: acceptRisk, consentOrigin: 'campaign' },
         );
+        if (vars.automationBirthdayTouch && dest.type === 'contact') {
+          await Destination.updateOne(
+            { identifier: dest.identifier, clientId: msg.clientId },
+            { $set: { birthdayLastSentAt: new Date() } },
+          );
+        }
         sentThisBatch++;
         successCount++;
         sentIndex = i + 1;
