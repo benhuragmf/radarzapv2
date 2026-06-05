@@ -29,6 +29,12 @@ import {
   type TriggerType,
 } from '../../lib/automation-triggers'
 import { usePlatformMessagePreview } from '../../lib/usePlatformMessagePreview'
+import {
+  currentTimeHHmm,
+  minDatetimeLocalFromNow,
+  triggerMatchesCalendarToday,
+  validateAutomationScheduleTimes,
+} from '../../lib/automation-schedule-validation'
 
 type DestinationScope = 'contacts' | 'whatsapp_groups' | 'both'
 type MessageMode = 'platform_template' | 'plain'
@@ -239,11 +245,20 @@ export default function PlatformAutomations() {
     [variableDocs],
   )
 
+  const minScheduledAt = useMemo(() => minDatetimeLocalFromNow(), [showForm])
+  const minSendTime = useMemo(
+    () => (triggerMatchesCalendarToday(form) ? currentTimeHHmm() : undefined),
+    [form.triggerType, form.dayOfMonth, form.nthBusinessDay, form.weekday, form.weekdays],
+  )
+
   const toggleId = (list: string[], id: string): string[] =>
     list.includes(id) ? list.filter(x => x !== id) : [...list, id]
 
   const saveRule = useMutation({
     mutationFn: () => {
+      const scheduleErr = validateAutomationScheduleTimes(form)
+      if (scheduleErr) throw new Error(scheduleErr)
+
       const tags = form.destinationFilterTags
         .split(/[;,]/)
         .map(s => s.trim())
@@ -458,7 +473,14 @@ export default function PlatformAutomations() {
               <input
                 type="datetime-local"
                 value={form.scheduledAt}
-                onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))}
+                min={minScheduledAt}
+                onChange={e => {
+                  const v = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    scheduledAt: v && v < minScheduledAt ? minScheduledAt : v,
+                  }))
+                }}
                 className={inputCls}
               />
               <p className="text-[11px] text-gray-600 mt-1">
@@ -471,9 +493,22 @@ export default function PlatformAutomations() {
               <input
                 type="time"
                 value={form.sendTime}
-                onChange={e => setForm(f => ({ ...f, sendTime: e.target.value }))}
+                min={minSendTime}
+                onChange={e => {
+                  const v = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    sendTime:
+                      minSendTime && v && v < minSendTime ? minSendTime : v,
+                  }))
+                }}
                 className={inputCls}
               />
+              {minSendTime && (
+                <p className="text-[11px] text-gray-600 mt-1">
+                  O gatilho bate hoje — horário deve ser futuro.
+                </p>
+              )}
             </div>
           )}
 

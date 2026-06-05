@@ -3,6 +3,13 @@
  * Envio pontual (once_at) também disponível em /platform/automacoes.
  */
 
+import { buildSendAtToday } from '@/utils/birthday-match';
+import {
+  isCalendarDayOfMonth,
+  isNthBusinessDayOfMonth,
+  weekdaysMatch,
+} from '@/utils/automation-schedule';
+
 export type PlatformAutomationTriggerType =
   | 'on_contact_birthday'
   | 'day_of_month'
@@ -85,6 +92,78 @@ export function isValidTriggerType(v: string): v is PlatformAutomationTriggerTyp
   return (PLATFORM_AUTOMATION_TRIGGER_TYPES as string[]).includes(v);
 }
 
+/** Gatilho bate no calendário hoje (envio seria hoje). */
+export function triggerMatchesCalendarToday(
+  body: {
+    triggerType?: string;
+    dayOfMonth?: number;
+    nthBusinessDay?: number;
+    weekday?: number;
+    weekdays?: number[];
+  },
+  refDate: Date = new Date(),
+): boolean {
+  const triggerType = body.triggerType ?? 'on_contact_birthday';
+  switch (triggerType) {
+    case 'once_at':
+      return false;
+    case 'calendar_day_of_month':
+    case 'day_of_month':
+      return isCalendarDayOfMonth(refDate, body.dayOfMonth ?? 0);
+    case 'nth_business_day_of_month':
+      return isNthBusinessDayOfMonth(refDate, body.nthBusinessDay ?? 0);
+    case 'weekly': {
+      const days =
+        body.weekdays?.length
+          ? body.weekdays
+          : body.weekday
+            ? [body.weekday]
+            : [];
+      return days.length > 0 && weekdaysMatch(refDate, days);
+    }
+    case 'on_contact_birthday':
+    case 'interval_months':
+      return true;
+    default:
+      return true;
+  }
+}
+
+/** Bloqueia data/hora no passado (envio único ou horário diário quando o gatilho é hoje). */
+export function validateAutomationScheduleTimes(
+  body: {
+    triggerType?: string;
+    scheduledAt?: string;
+    sendTime?: string;
+    dayOfMonth?: number;
+    nthBusinessDay?: number;
+    weekday?: number;
+    weekdays?: number[];
+  },
+  refDate: Date = new Date(),
+): string | null {
+  const graceMs = 60_000;
+  const now = refDate.getTime();
+
+  if (body.triggerType === 'once_at') {
+    if (!body.scheduledAt || Number.isNaN(Date.parse(body.scheduledAt))) {
+      return 'Informe data e hora futuras para o envio único';
+    }
+    if (new Date(body.scheduledAt).getTime() < now - graceMs) {
+      return 'Data e hora devem ser no futuro';
+    }
+    return null;
+  }
+
+  if (body.sendTime?.trim() && triggerMatchesCalendarToday(body, refDate)) {
+    const sendAt = buildSendAtToday(body.sendTime, refDate);
+    if (sendAt && sendAt.getTime() < now - graceMs) {
+      return 'Horário já passou hoje — escolha um horário futuro';
+    }
+  }
+  return null;
+}
+
 export function validateAutomationPayload(body: {
   triggerType?: string;
   dayOfMonth?: number;
@@ -93,6 +172,7 @@ export function validateAutomationPayload(body: {
   weekday?: number;
   weekdays?: number[];
   scheduledAt?: string;
+  sendTime?: string;
   messageMode?: string;
   customMessage?: string;
   mensagemExtra?: string;
@@ -107,6 +187,8 @@ export function validateAutomationPayload(body: {
       return 'scheduledAt (data/hora) é obrigatório para envio único';
     }
   }
+  const scheduleErr = validateAutomationScheduleTimes(body);
+  if (scheduleErr) return scheduleErr;
   if (body.messageMode === 'plain' && !body.customMessage?.trim() && !body.mensagemExtra?.trim()) {
     return 'Informe o texto da mensagem no modo manual';
   }

@@ -1928,6 +1928,7 @@ export class DashboardService {
           weekday: (body.weekday ?? doc.weekday) as number | undefined,
           weekdays: (body.weekdays ?? doc.weekdays) as number[] | undefined,
           scheduledAt: (body.scheduledAt ?? doc.scheduledAt?.toISOString()) as string | undefined,
+          sendTime: (body.sendTime ?? doc.sendTime) as string | undefined,
           messageMode: (body.messageMode ?? doc.messageMode) as string,
           customMessage: (body.customMessage ?? doc.customMessage) as string | undefined,
           mensagemExtra: (body.mensagemExtra ?? doc.mensagemExtra) as string | undefined,

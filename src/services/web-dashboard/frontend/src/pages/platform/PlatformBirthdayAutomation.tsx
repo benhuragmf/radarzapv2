@@ -1,4 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import {
+  currentTimeHHmm,
+  validateAutomationScheduleTimes,
+} from '../../lib/automation-schedule-validation'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
@@ -62,8 +66,17 @@ export default function PlatformBirthdayAutomation() {
     },
   })
 
+  const minSendTime = useMemo(() => currentTimeHHmm(), [showForm])
+
   const saveRule = useMutation({
     mutationFn: () => {
+      const scheduleErr = validateAutomationScheduleTimes({
+        triggerType: form.triggerType,
+        sendTime: form.sendTime,
+        dayOfMonth: form.dayOfMonth,
+      })
+      if (scheduleErr) throw new Error(scheduleErr)
+
       const tags = form.destinationFilterTags
         .split(/[;,]/)
         .map(s => s.trim())
@@ -198,9 +211,19 @@ export default function PlatformBirthdayAutomation() {
               <input
                 type="time"
                 value={form.sendTime}
-                onChange={e => setForm(f => ({ ...f, sendTime: e.target.value }))}
+                min={minSendTime}
+                onChange={e => {
+                  const v = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    sendTime: v && v < minSendTime ? minSendTime : v,
+                  }))
+                }}
                 className={inputCls}
               />
+              <p className="text-[11px] text-gray-600 mt-1">
+                Horário deve ser futuro se o envio for hoje.
+              </p>
             </div>
           </div>
           <div>
