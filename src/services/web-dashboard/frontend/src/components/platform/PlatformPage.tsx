@@ -30,7 +30,7 @@ export function PlatformPage({ title, description, phase = 'MVP', children }: Pr
           <p className="text-xs text-gray-500 mt-3">
             Fase planejada: <span className="text-brand-400">{phase}</span>
             {' · '}
-            Ver <code className="text-gray-400">docs/PLATAFORMA-PRODUCAO-ROADMAP.md</code>
+            Ver <code className="text-gray-400">docs/MENUS-SISTEMA.md</code>
           </p>
         </div>
       </Card>

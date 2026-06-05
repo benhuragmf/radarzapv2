@@ -1,8 +1,7 @@
 # Contatos — importação e exportação CSV
 
 **Última atualização:** junho/2026  
-**Escopo:** Fase 3 da Plataforma (`/platform/contacts`), API `POST /api/destinations/client/:clientId/bulk-import`, export GDPR.  
-**Roadmap:** [PLATAFORMA-PRODUCAO-ROADMAP.md](./PLATAFORMA-PRODUCAO-ROADMAP.md) §6.
+**Escopo:** Fase 3 da Plataforma (`/platform/contacts`), API `POST /api/destinations/import-csv`, export CSV/VCF.
 
 ---
 

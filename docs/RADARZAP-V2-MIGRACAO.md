@@ -16,8 +16,7 @@ C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\
 
 1. Reproduzir o erro na **v2** (`radarzapv2`).
 2. Se faltar arquivo, script ou comportamento: abrir o mesmo caminho no **v1** (`radarzap`) e comparar.
-3. Consultar [RADARZAP-STATUS.md](RADARZAP-STATUS.md) — limitações conhecidas.
-4. Só portar do v1 para v2 o que for realmente necessário (evitar recopiar lixo).
+3. Só portar do v1 para v2 o que for realmente necessário (evitar recopiar lixo).
 
 ### O que só existe no v1 (não está na v2)
 
@@ -48,7 +47,7 @@ C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\
 
 - `src/` (exceto legados acima)
 - `docker/` (exceto `oracle.Dockerfile`)
-- `docker-compose.yml`, `scripts/`, `docs/RADARZAP-*.md`
+- `docker-compose.yml`, `scripts/`, `docs/`
 - `start-dashboard.ts`, `seed-templates.ts`, `update-templates.ts`, `register-guild-commands.ts`
 - Config: `package.json`, `tsconfig.json`, `jest.config.js`, `.eslintrc.js`, `.gitignore`, `.dockerignore`
 

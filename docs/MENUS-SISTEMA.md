@@ -144,6 +144,5 @@ Somente staff (`isInternalStaff`). Aba **Admin**.
 ## Referências
 
 - Mapa técnico: `docs/MENU-PAGES-REGISTRY.md`
-- Regra IA: `.cursor/rules/menu-content-automatic.mdc`
 
 *Última atualização: alinhamento menu ↔ spec produto (Visão geral única, Consentimento, Discord Home, Admin Sistema).*
