@@ -372,7 +372,7 @@ export default function PlatformAutomations() {
           </li>
         </ul>
         <p className="text-gray-500">
-          Job a cada ~15 min após o horário (máx. 1 execução por dia por regra recorrente).
+          Dispara no horário configurado (verificação a cada minuto; máx. 1 execução por dia por regra recorrente).
           {needsBirthday(form.triggerType) && (
             <>
               {' '}

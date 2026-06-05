@@ -763,7 +763,7 @@ export class QueueProcessorService {
       }
     }, 15_000);
 
-    // Aniversários automáticos (pw-*) — verifica regras após sendTime, 1x/dia por regra
+    // Automações da plataforma — verifica regras no minuto exato do sendTime, 1x/dia por regra
     const runBirthdayTick = async () => {
       if (!this.isRunning) return;
       try {
@@ -773,7 +773,7 @@ export class QueueProcessorService {
       }
     };
     void runBirthdayTick();
-    const birthdayInterval = global.setInterval(runBirthdayTick, 15 * 60 * 1000);
+    const birthdayInterval = global.setInterval(runBirthdayTick, 60 * 1000);
 
     // Log processing statistics
     const statsInterval = global.setInterval(() => {

@@ -130,7 +130,7 @@ export default function PlatformBirthdayAutomation() {
         <Link to="/platform/contacts" className="text-brand-400 hover:underline">
           Contatos
         </Link>
-        ). O job roda a cada 15 min após o horário configurado (máx. 1x por dia por regra).
+        ). Dispara no horário configurado (verificação a cada minuto; máx. 1x por dia por regra).
       </p>
 
       <Card className="border-brand-800/40 bg-brand-950/15 text-xs text-gray-400 space-y-2">

@@ -4,6 +4,8 @@ import {
   parseBirthday,
   wasBirthdaySentThisYear,
   intervalMonthsElapsed,
+  isSendTimeDue,
+  isScheduledAtDue,
 } from '@/utils/birthday-match';
 
 describe('birthday-match', () => {
@@ -35,5 +37,18 @@ describe('birthday-match', () => {
     expect(intervalMonthsElapsed(fiveMonthsAgo, 6, ref)).toBe(false);
     const sevenMonthsAgo = new Date(2025, 10, 4);
     expect(intervalMonthsElapsed(sevenMonthsAgo, 6, ref)).toBe(true);
+  });
+
+  it('isSendTimeDue só no minuto exato', () => {
+    expect(isSendTimeDue('09:00', new Date(2026, 5, 4, 9, 0, 30))).toBe(true);
+    expect(isSendTimeDue('09:00', new Date(2026, 5, 4, 9, 1, 0))).toBe(false);
+    expect(isSendTimeDue('09:00', new Date(2026, 5, 4, 8, 59, 59))).toBe(false);
+  });
+
+  it('isScheduledAtDue no minuto da data/hora agendada', () => {
+    const sched = new Date(2026, 5, 10, 14, 30, 0);
+    expect(isScheduledAtDue(sched, new Date(2026, 5, 10, 14, 30, 45))).toBe(true);
+    expect(isScheduledAtDue(sched, new Date(2026, 5, 10, 14, 31, 0))).toBe(false);
+    expect(isScheduledAtDue(sched, new Date(2026, 5, 10, 14, 29, 59))).toBe(false);
   });
 });

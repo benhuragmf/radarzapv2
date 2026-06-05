@@ -104,14 +104,34 @@ export function intervalMonthsElapsed(
   return monthsSinceLastSend(lastSentAt, refDate) >= intervalMonths;
 }
 
-/** HH:mm no fuso local do servidor — compara se já passou o horário de envio hoje. */
-export function isSendTimeReached(sendTime: string, refDate: Date = new Date()): boolean {
+function parseSendTimeHm(sendTime: string): { h: number; min: number } | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(sendTime.trim());
-  if (!m) return true;
+  if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
-  if (h < 0 || h > 23 || min < 0 || min > 59) return true;
-  const nowMin = refDate.getHours() * 60 + refDate.getMinutes();
-  const target = h * 60 + min;
-  return nowMin >= target;
+  if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return { h, min };
+}
+
+/** HH:mm no fuso local — verdadeiro apenas no minuto exato do horário (job a cada 1 min). */
+export function isSendTimeDue(sendTime: string, refDate: Date = new Date()): boolean {
+  const parsed = parseSendTimeHm(sendTime);
+  if (!parsed) return false;
+  return refDate.getHours() === parsed.h && refDate.getMinutes() === parsed.min;
+}
+
+/** Envio único — dispara no minuto exato de scheduledAt (data + hora). */
+export function isScheduledAtDue(scheduledAt: Date, refDate: Date = new Date()): boolean {
+  return (
+    refDate.getFullYear() === scheduledAt.getFullYear() &&
+    refDate.getMonth() === scheduledAt.getMonth() &&
+    refDate.getDate() === scheduledAt.getDate() &&
+    refDate.getHours() === scheduledAt.getHours() &&
+    refDate.getMinutes() === scheduledAt.getMinutes()
+  );
+}
+
+/** @deprecated Use isSendTimeDue — mantido para compatibilidade em testes legados. */
+export function isSendTimeReached(sendTime: string, refDate: Date = new Date()): boolean {
+  return isSendTimeDue(sendTime, refDate);
 }

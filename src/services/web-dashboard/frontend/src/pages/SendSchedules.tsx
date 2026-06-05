@@ -44,7 +44,7 @@ export default function SendSchedules() {
           <div>
             <p className="text-sm font-medium text-gray-300">Aniversários automáticos</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Regras recorrentes (dia do aniversário, dia 10 do mês, a cada N meses). Job a cada 15 min.
+              Regras recorrentes (dia do aniversário, dia 10 do mês, a cada N meses). Dispara no horário marcado.
             </p>
           </div>
         </div>

@@ -21,7 +21,8 @@ import {
   contactBirthdayMatchesToday,
   contactBirthdayDayOfMonth,
   intervalMonthsElapsed,
-  isSendTimeReached,
+  isScheduledAtDue,
+  isSendTimeDue,
   wasBirthdaySentThisYear,
 } from '@/utils/birthday-match';
 import { createServiceLogger } from '@/utils/logger';
@@ -82,7 +83,7 @@ export class BirthdayAutomationService {
         if (rule.triggerType === 'once_at') {
           if (!rule.scheduledAt) continue;
           const sched = new Date(rule.scheduledAt);
-          if (refDate < sched) continue;
+          if (!isScheduledAtDue(sched, refDate)) continue;
           const runKey = onceAtRunKey(sched);
           if (rule.lastRunDate === runKey) continue;
           enqueued += await this.processRule(rule as IBirthdayAutomationRule, refDate);
@@ -93,7 +94,7 @@ export class BirthdayAutomationService {
           continue;
         }
 
-        if (!isSendTimeReached(rule.sendTime, refDate)) continue;
+        if (!isSendTimeDue(rule.sendTime, refDate)) continue;
         const todayKey = refDate.toISOString().slice(0, 10);
         if (rule.lastRunDate === todayKey) continue;
         enqueued += await this.processRule(rule as IBirthdayAutomationRule, refDate);
