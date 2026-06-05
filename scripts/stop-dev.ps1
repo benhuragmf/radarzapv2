@@ -6,10 +6,10 @@ $ErrorActionPreference = 'SilentlyContinue'
 function Stop-ListenersOnPort([int]$Port) {
   $lines = netstat -ano | Select-String ":\s*$Port\s+.*LISTENING"
   foreach ($line in $lines) {
-    $pid = ($line -split '\s+')[-1]
-    if ($pid -match '^\d+$' -and $pid -ne '0') {
-      Write-Host "Encerrando PID $pid (porta $Port)..."
-      taskkill /F /PID $pid /T 2>$null | Out-Null
+    $targetPid = ($line -split '\s+')[-1]
+    if ($targetPid -match '^\d+$' -and $targetPid -ne '0') {
+      Write-Host "Encerrando PID $targetPid (porta $Port)..."
+      taskkill /F /PID $targetPid /T 2>$null | Out-Null
     }
   }
 }
@@ -43,5 +43,12 @@ Get-CimInstance Win32_Process -Filter "name='node.exe'" |
   }
 
 Start-Sleep -Seconds 1
+
+# taskkill não chama graceful shutdown — libera lock dev no Redis
+Write-Host "Liberando lock dev no Redis..."
+node scripts/clear-dev-lock.cjs 2>$null
+
 Write-Host "`nPortas após limpeza:"
-netstat -ano | Select-String "LISTENING" | Select-String ":3001 |:5174 "
+$listening = netstat -ano | Select-String "LISTENING" | Select-String ":3001 |:5174 "
+if ($listening) { $listening } else { Write-Host "  3001 e 5174 livres." }
+Write-Host "`nPronto. Agora pode executar: npm run dev"

@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { getSocket } from '../lib/socket'
@@ -116,6 +116,10 @@ function defaultScheduleLocal(): string {
 
 export default function SendNow() {
   const qc = useQueryClient()
+  const location = useLocation()
+  const preselectedFromContacts = (
+    location.state as { preselectedDestinationIds?: string[] } | null
+  )?.preselectedDestinationIds
 
   const [title, setTitle] = useState('')
   const [messageMode, setMessageMode] = useState<MessageMode>('plain')
@@ -206,6 +210,17 @@ export default function SendNow() {
     queryKey: ['destinations'],
     queryFn: () => api.get('/destinations'),
   })
+
+  useEffect(() => {
+    if (!preselectedFromContacts?.length || destinations.length === 0) return
+    const valid = preselectedFromContacts.filter(id =>
+      destinations.some(d => d._id === id),
+    )
+    if (valid.length > 0) {
+      setSelectedIds(new Set(valid))
+      setDestinationScope('contacts')
+    }
+  }, [preselectedFromContacts, destinations])
 
   const { data: contactGroups = [] } = useQuery<ContactGroupOption[]>({
     queryKey: ['contact-groups'],

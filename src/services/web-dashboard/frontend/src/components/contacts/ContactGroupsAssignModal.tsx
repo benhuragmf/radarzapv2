@@ -5,7 +5,10 @@ import { Spinner } from '../ui/Spinner'
 import type { ContactGroupItem } from './ContactGroupsSidebar'
 
 interface Props {
-  contactName: string
+  contactName?: string
+  title?: string
+  subtitle?: string
+  saveLabel?: string
   groups: ContactGroupItem[]
   selectedGroupIds: string[]
   onSave: (groupIds: string[]) => Promise<void>
@@ -14,6 +17,9 @@ interface Props {
 
 export default function ContactGroupsAssignModal({
   contactName,
+  title,
+  subtitle,
+  saveLabel = 'Salvar grupos',
   groups,
   selectedGroupIds,
   onSave,
@@ -55,9 +61,11 @@ export default function ContactGroupsAssignModal({
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
           <div>
             <p id="assign-groups-title" className="text-sm font-medium text-white">
-              Grupos do contato
+              {title ?? 'Grupos do contato'}
             </p>
-            <p className="text-xs text-gray-500 truncate max-w-[280px]">{contactName}</p>
+            <p className="text-xs text-gray-500 truncate max-w-[280px]">
+              {subtitle ?? contactName}
+            </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-500 hover:text-white p-1">
             <X size={18} />
@@ -104,7 +112,7 @@ export default function ContactGroupsAssignModal({
             Cancelar
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving || groups.length === 0}>
-            {saving ? <Spinner size={12} /> : 'Salvar grupos'}
+            {saving ? <Spinner size={12} /> : saveLabel}
           </Button>
         </div>
       </div>

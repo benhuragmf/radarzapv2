@@ -17,6 +17,7 @@ import Queue from './pages/Queue'
 import Logs from './pages/Logs'
 import SendNow from './pages/SendNow'
 import SendSchedules from './pages/SendSchedules'
+import SendAutoSchedules from './pages/SendAutoSchedules'
 import SendHistory from './pages/SendHistory'
 import Destinations from './pages/Destinations'
 import WhatsAppGroups from './pages/WhatsAppGroups'
@@ -39,6 +40,7 @@ import ContactSegments from './pages/menu/ContactSegments'
 import PlatformTriggers from './pages/menu/PlatformTriggers'
 import WaLogs from './pages/menu/WaLogs'
 import WaStatus from './pages/menu/WaStatus'
+import WaStatusPosts from './pages/menu/WaStatusPosts'
 import AdminMonitoring from './pages/menu/AdminMonitoring'
 import AdminErrors from './pages/menu/AdminErrors'
 import AdminServers from './pages/menu/AdminServers'
@@ -157,12 +159,14 @@ export default function App() {
           <Route path="queue" element={<Navigate to="/discord/fila" replace />} />
           <Route path="logs" element={<Navigate to="/discord/logs" replace />} />
           <Route path="send/agendamentos" element={<Guard user={user} path="/send/agendamentos"><SendSchedules /></Guard>} />
+          <Route path="send/autoagendamentos" element={<Guard user={user} path="/send/autoagendamentos"><SendAutoSchedules /></Guard>} />
           <Route path="platform/automacoes" element={<Guard user={user} path="/platform/automacoes"><PlatformAutomations /></Guard>} />
           <Route path="platform/audit" element={<Guard user={user} path="/platform/audit"><PlatformAudit /></Guard>} />
           <Route path="platform/campanhas" element={<Guard user={user} path="/platform/campanhas"><PlatformCampaigns /></Guard>} />
           <Route path="platform/segmentos" element={<Guard user={user} path="/platform/segmentos"><ContactSegments /></Guard>} />
           <Route path="platform/gatilhos" element={<Guard user={user} path="/platform/gatilhos"><PlatformTriggers /></Guard>} />
           <Route path="platform/wa-logs" element={<Guard user={user} path="/platform/wa-logs"><WaLogs /></Guard>} />
+          <Route path="platform/wa-stories" element={<Guard user={user} path="/platform/wa-stories"><WaStatusPosts /></Guard>} />
           <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
           <Route path="platform/fila" element={<Guard user={user} path="/platform/fila"><Queue scope="tenant" /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />

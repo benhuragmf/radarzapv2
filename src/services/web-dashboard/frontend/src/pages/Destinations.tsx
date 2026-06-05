@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { getMe, can, isCompanyOwner, type AuthUser } from '../lib/auth'
@@ -11,6 +11,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { isUnlimited } from '../lib/limits'
 import ContactGroupsSidebar, { type ContactGroupItem } from '../components/contacts/ContactGroupsSidebar'
 import ContactEditorModal, { type ContactFormData } from '../components/contacts/ContactEditorModal'
+import ContactGroupsAssignModal from '../components/contacts/ContactGroupsAssignModal'
 import { effectiveConsentStatus, type ConsentStatus } from '../lib/consentUi'
 import {
   Phone,
@@ -25,7 +26,11 @@ import {
   ScrollText,
   FileText,
   FolderOpen,
-  Pencil,
+  Upload,
+  RefreshCw,
+  Trash2,
+  FolderMinus,
+  CheckSquare,
 } from 'lucide-react'
 import {
   DestinationRow,
@@ -35,6 +40,7 @@ import {
 
 export default function Destinations() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const consentFilter = searchParams.get('consent') as
@@ -54,7 +60,8 @@ export default function Destinations() {
   >(null)
   const [historyDestId, setHistoryDestId] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
-
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkGroupsMode, setBulkGroupsMode] = useState<'add' | 'remove' | null>(null)
   const emptyContactForm = (groupIds: string[] = []): ContactFormData => ({
     identifier: '',
     name: '',
@@ -102,6 +109,32 @@ export default function Destinations() {
     queryKey: ['destinations'],
     queryFn: () => api.get('/destinations'),
     refetchInterval: 30_000,
+  })
+
+  const { data: sessions = [] } = useQuery<Array<{ status: string }>>({
+    queryKey: ['sessions'],
+    queryFn: () => api.get('/sessions'),
+    enabled: !isDiscord,
+    refetchInterval: 15_000,
+  })
+
+  const waConnected = sessions.some(s => s.status === 'connected')
+
+  const syncProfilePhotos = useMutation({
+    mutationFn: (limit = 50) =>
+      api.post<{ updated: number; skipped: number; failed: number }>(
+        '/destinations/sync-profile-pictures',
+        { limit },
+      ),
+    onSuccess: (result) => {
+      invalidateContacts()
+      if (result.updated > 0) {
+        console.info(`Fotos WhatsApp: ${result.updated} atualizada(s)`)
+      }
+    },
+    onError: (err: Error) => {
+      if (!err.message.includes('não conectado')) alert(err.message)
+    },
   })
 
   const { data: contactGroups = [], isLoading: loadingGroups } = useQuery<ContactGroupItem[]>({
@@ -176,6 +209,43 @@ export default function Destinations() {
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/destinations/${id}`),
     onSuccess: invalidateContacts,
+    onError: (err: Error) => alert(err.message),
+  })
+
+  const bulkAction = useMutation({
+    mutationFn: (payload: {
+      action: 'delete' | 'addToGroups' | 'removeFromGroups'
+      destinationIds: string[]
+      groupIds?: string[]
+    }) =>
+      api.post<{
+        deleted?: number
+        skipped?: number
+        skippedDetails?: Array<{ id: string; name: string; reason: string }>
+        affected?: number
+      }>('/destinations/bulk', payload),
+    onSuccess: (result, variables) => {
+      invalidateContacts()
+      setSelectedIds(new Set())
+      if (variables.action === 'delete') {
+        const skipped = result.skipped ?? 0
+        const deleted = result.deleted ?? 0
+        if (skipped > 0) {
+          const names = (result.skippedDetails ?? [])
+            .slice(0, 5)
+            .map(s => s.name)
+            .join(', ')
+          alert(
+            `${deleted} contato(s) removido(s). ${skipped} ignorado(s) (recusa — apenas o dono pode apagar): ${names}${skipped > 5 ? '…' : ''}`,
+          )
+        } else if (deleted > 0) {
+          alert(`${deleted} contato(s) removido(s).`)
+        }
+      } else if (variables.groupIds?.length) {
+        const verb = variables.action === 'addToGroups' ? 'adicionado(s) a' : 'removido(s) de'
+        alert(`${result.affected ?? variables.destinationIds.length} contato(s) ${verb} ${variables.groupIds.length} grupo(s).`)
+      }
+    },
     onError: (err: Error) => alert(err.message),
   })
 
@@ -299,6 +369,72 @@ export default function Destinations() {
 
   const groupsCount = destinations.filter(d => d.type === 'group').length
 
+  const contactIds = useMemo(() => contacts.map(c => c._id), [contacts])
+  const allVisibleSelected =
+    contactIds.length > 0 && contactIds.every(id => selectedIds.has(id))
+  const someVisibleSelected = contactIds.some(id => selectedIds.has(id))
+
+  const toggleContactSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(contactIds))
+  }
+
+  const clearSelection = () => setSelectedIds(new Set())
+
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) clearSelection()
+    else selectAllVisible()
+  }
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    if (
+      !window.confirm(
+        `Remover ${ids.length} contato(s) selecionado(s)? Esta ação não pode ser desfeita.`,
+      )
+    ) {
+      return
+    }
+    bulkAction.mutate({ action: 'delete', destinationIds: ids })
+  }
+
+  const handleBulkRemoveFromCurrentGroup = () => {
+    if (!selectedGroupId) return
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    if (
+      !window.confirm(
+        `Remover ${ids.length} contato(s) do grupo "${selectedGroup?.name ?? ''}"?`,
+      )
+    ) {
+      return
+    }
+    bulkAction.mutate({
+      action: 'removeFromGroups',
+      destinationIds: ids,
+      groupIds: [selectedGroupId],
+    })
+  }
+
+  const handleBulkGroupsSave = async (groupIds: string[]) => {
+    if (!bulkGroupsMode || groupIds.length === 0) return
+    await bulkAction.mutateAsync({
+      action: bulkGroupsMode === 'add' ? 'addToGroups' : 'removeFromGroups',
+      destinationIds: Array.from(selectedIds),
+      groupIds,
+    })
+    setBulkGroupsMode(null)
+  }
+
   const prefix = isDiscord ? '/discord' : ''
 
   const body = (
@@ -417,7 +553,7 @@ export default function Destinations() {
             </p>
           )}
 
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
@@ -427,9 +563,71 @@ export default function Destinations() {
             className={`${inputCls} pl-9`}
           />
         </div>
-        <Button size="sm" onClick={openCreateEditor} disabled={atDestLimit || !canManage}>
-          <Plus size={12} /> Novo contato
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={openCreateEditor} disabled={atDestLimit || !canManage}>
+            <Plus size={12} /> Novo contato
+          </Button>
+          {!isDiscord && canManage && (
+            <>
+              <Link
+                to={
+                  selectedGroupId
+                    ? `/platform/contacts?segment=${selectedGroupId}`
+                    : '/platform/contacts'
+                }
+              >
+                <Button size="sm" variant="secondary">
+                  <Upload size={12} /> Importar CSV/VCF
+                </Button>
+              </Link>
+              <Link to="/platform/segmentos">
+                <Button size="sm" variant="ghost">
+                  <ListOrdered size={12} /> Segmentos
+                </Button>
+              </Link>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={syncProfilePhotos.isPending}
+                onClick={() => {
+                  syncProfilePhotos.mutate(60, {
+                    onSuccess: (r) => {
+                      alert(
+                        `Fotos WhatsApp: ${r.updated} salva(s), ${r.skipped} sem foto ou ignorada(s), ${r.failed} erro(s).`,
+                      )
+                    },
+                  })
+                }}
+                title={
+                  waConnected
+                    ? 'Força um lote extra agora (o servidor já sincroniza em background)'
+                    : 'Requer WhatsApp conectado em Sessões'
+                }
+              >
+                <RefreshCw
+                  size={12}
+                  className={syncProfilePhotos.isPending ? 'animate-spin' : ''}
+                />{' '}
+                {syncProfilePhotos.isPending ? 'Buscando fotos…' : 'Forçar fotos agora'}
+              </Button>
+            </>
+          )}
+        </div>
+        {!isDiscord && waConnected && allContacts.length > 0 && (
+          <p className="text-[11px] text-gray-600">
+            Fotos de perfil são sincronizadas automaticamente pelo servidor em lotes
+            pequenos — não precisa manter esta página aberta.
+          </p>
+        )}
+        {!isDiscord && !waConnected && allContacts.length > 0 && (
+          <p className="text-[11px] text-gray-600">
+            Conecte o WhatsApp em{' '}
+            <Link to="/sessions" className="text-brand-400 hover:underline">
+              Sessões
+            </Link>{' '}
+            para o servidor sincronizar fotos de perfil em background.
+          </p>
+        )}
       </div>
 
       {canApproveRenewal && renewals.length > 0 && (
@@ -510,13 +708,107 @@ export default function Destinations() {
         </Card>
       ) : (
         <div className="space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-xs text-gray-600">
+              {contacts.length} contato(s)
+              {selectedGroup && ` em "${selectedGroup.name}"`}
+              {selectedIds.size > 0 && (
+                <span className="text-brand-400/90"> · {selectedIds.size} selecionado(s)</span>
+              )}
+            </p>
+            {canManage && contacts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    ref={el => {
+                      if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected
+                    }}
+                    onChange={toggleSelectAllVisible}
+                    className="rounded border-gray-600"
+                  />
+                  Marcar visíveis
+                </label>
+                {selectedIds.size > 0 && (
+                  <Button size="sm" variant="ghost" onClick={clearSelection}>
+                    Limpar seleção
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {canManage && selectedIds.size > 0 && (
+            <Card className="sticky top-2 z-10 border-brand-700/40 bg-brand-950/30 p-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <p className="text-sm text-brand-200 flex items-center gap-2">
+                  <CheckSquare size={16} />
+                  {selectedIds.size} selecionado(s)
+                </p>
+                <div className="flex flex-wrap gap-2 sm:ml-auto">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setBulkGroupsMode('add')}
+                    disabled={bulkAction.isPending || contactGroups.length === 0}
+                  >
+                    <FolderOpen size={12} /> Adicionar a grupos
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setBulkGroupsMode('remove')}
+                    disabled={bulkAction.isPending || contactGroups.length === 0}
+                  >
+                    <FolderMinus size={12} /> Remover de grupos
+                  </Button>
+                  {selectedGroupId && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleBulkRemoveFromCurrentGroup}
+                      disabled={bulkAction.isPending}
+                    >
+                      <FolderMinus size={12} /> Sair de &quot;{selectedGroup?.name}&quot;
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      navigate('/send', {
+                        state: { preselectedDestinationIds: Array.from(selectedIds) },
+                      })
+                    }
+                  >
+                    <Send size={12} /> Enviar mensagem
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-400 hover:text-red-300"
+                    onClick={handleBulkDelete}
+                    disabled={bulkAction.isPending}
+                  >
+                    <Trash2 size={12} /> Apagar
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {contacts.map(d => {
             const memberGroupIds = (d.contactGroupIds ?? []).map(String)
+            const segmentLabels = memberGroupIds
+              .map(id => groupNameById.get(id))
+              .filter((n): n is string => Boolean(n))
             return (
-            <div key={d._id} className="relative">
               <DestinationRow
+                key={d._id}
                 d={d}
-                removing={remove.isPending}
+                segmentLabels={segmentLabels}
+                removing={remove.isPending || bulkAction.isPending}
                 onRemove={() => remove.mutate(d._id)}
                 canDelete={canManage}
                 canEdit={canManage}
@@ -532,35 +824,9 @@ export default function Destinations() {
                   }
                 }}
                 onShowHistory={() => setHistoryDestId(d._id)}
+                selected={selectedIds.has(d._id)}
+                onToggleSelect={canManage ? () => toggleContactSelect(d._id) : undefined}
               />
-              <div className="flex flex-wrap items-center gap-2 px-4 -mt-1 mb-1">
-                {memberGroupIds.some(id => groupNameById.has(id)) && (
-                  <div className="flex flex-wrap gap-1">
-                    {memberGroupIds.map(id => {
-                      const label = groupNameById.get(id)
-                      if (!label) return null
-                      return (
-                      <span
-                        key={id}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-gray-700 bg-gray-800/60 text-gray-400"
-                      >
-                        {label}
-                      </span>
-                      )
-                    })}
-                  </div>
-                )}
-                {canManage && (
-                  <button
-                    type="button"
-                    onClick={() => openEditEditor(d)}
-                    className="text-[11px] text-brand-400 hover:underline flex items-center gap-1 ml-auto"
-                  >
-                    <Pencil size={11} /> Editar / grupos
-                  </button>
-                )}
-              </div>
-            </div>
             )
           })}
         </div>
@@ -629,6 +895,18 @@ export default function Destinations() {
               await updateContact.mutateAsync({ id: editor.contact._id, data })
             }
           }}
+        />
+      )}
+
+      {bulkGroupsMode && (
+        <ContactGroupsAssignModal
+          title={bulkGroupsMode === 'add' ? 'Adicionar a grupos' : 'Remover de grupos'}
+          subtitle={`${selectedIds.size} contato(s) selecionado(s)`}
+          saveLabel={bulkGroupsMode === 'add' ? 'Adicionar aos grupos' : 'Remover dos grupos'}
+          groups={contactGroups}
+          selectedGroupIds={[]}
+          onClose={() => setBulkGroupsMode(null)}
+          onSave={handleBulkGroupsSave}
         />
       )}
     </>

@@ -58,9 +58,17 @@ export async function acquireDevInstanceLock(apiPort: number): Promise<void> {
       'Já existe outro RadarZap rodando nesta máquina. Feche o outro terminal ou execute: npm run dev:stop',
       { otherPid: existing.pid, otherPort: existing.port, thisPid: process.pid }
     );
-    throw new Error(
-      `RadarZap já em execução (PID ${existing.pid}). Use npm run dev:stop antes de subir de novo.`
-    );
+    const msg =
+      `RadarZap já em execução (PID ${existing.pid}, porta ${existing.port ?? '?'}). ` +
+      'Não é permitido duas instâncias em dev. Feche o outro terminal ou execute: npm run dev:stop';
+    throw new Error(msg);
+  }
+
+  if (existing && existing.pid !== process.pid && !isPidAlive(existing.pid)) {
+    logger.warn('Lock dev órfão (processo encerrado) — substituindo', {
+      stalePid: existing.pid,
+      thisPid: process.pid,
+    });
   }
 
   await redis.setWithTTL(LOCK_KEY, payload, LOCK_TTL_SEC);

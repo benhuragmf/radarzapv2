@@ -4,7 +4,7 @@ import {
   ListOrdered, ScrollText, Send, Crown, Settings, Shield, Server, History,
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
-  UserCog, Lock, Database, Building2,
+  UserCog, Lock, Database, Building2, Circle,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -79,7 +79,9 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-msg', 'Mensagens'),
   group('grp-msg', 'Mensagens', Send, [
     link('send-now', 'Enviar agora', Send, '/send', 'send:test'),
+    link('wa-stories', 'Publicar status', Circle, '/platform/wa-stories', 'send:test'),
     link('send-campaigns', 'Campanhas', Megaphone, '/platform/campanhas', 'send:test'),
+    link('send-sched', 'Agendamentos', Calendar, '/send/agendamentos', 'send:schedule:manage'),
     link('send-history', 'Histórico de envios', History, '/send/historico', 'send:test'),
     link('plat-templates', 'Modelos', FileText, '/platform/templates', 'send:templates:manage'),
   ]),
@@ -109,7 +111,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-auto', 'Automações'),
   group('grp-auto', 'Automações', Repeat, [
     link('auto-rules', 'Regras automáticas', Workflow, '/platform/automacoes', 'send:schedule:manage'),
-    link('auto-sched', 'Agend. automação', Calendar, '/send/agendamentos', 'send:schedule:manage'),
+    link('auto-sched', 'Agend. automação', Calendar, '/send/autoagendamentos', 'send:schedule:manage'),
     link('auto-triggers', 'Gatilhos', Zap, '/platform/gatilhos', 'send:schedule:manage'),
   ]),
 
@@ -236,9 +238,9 @@ const LEGACY_DISCORD_ROUTES = new Set([
 const PLATFORM_ROUTES = new Set([
   '/dashboard', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
   '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/gatilhos',
-  '/platform/wa-logs', '/platform/wa-status', '/platform/fila',
+  '/platform/wa-logs', '/platform/wa-stories', '/platform/wa-status', '/platform/fila',
   '/integrations/playground',
-  '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/platform/automacoes',
+  '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/send/autoagendamentos', '/platform/automacoes',
   '/send/historico', '/plans', '/settings', '/settings/team', '/settings/permissions', '/settings/security', '/settings/backup',
   '/em-breve',
 ])
@@ -373,6 +375,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/segmentos': 'send:destination:manage',
   '/platform/gatilhos': 'send:schedule:manage',
   '/platform/wa-logs': 'logs:view',
+  '/platform/wa-stories': 'send:test',
   '/platform/wa-status': 'whatsapp:session:view',
   '/platform/fila': 'queue:view',
   '/platform/contacts': 'consent:view',
@@ -400,6 +403,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/discord/settings': 'account:settings',
   '/send': 'send:test',
   '/send/agendamentos': 'send:schedule:manage',
+  '/send/autoagendamentos': 'send:schedule:manage',
   '/platform/automacoes': 'send:schedule:manage',
   '/send/historico': 'send:test',
   '/plans': 'billing:view',
@@ -438,6 +442,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/segmentos': 'Segmentos / Listas',
   '/platform/gatilhos': 'Gatilhos',
   '/platform/wa-logs': 'Logs',
+  '/platform/wa-stories': 'Publicar status WhatsApp',
   '/platform/wa-status': 'Status das conexões',
   '/platform/fila': 'Fila de envio',
   '/platform/contacts': 'Importar / Exportar',
@@ -464,7 +469,8 @@ export const PAGE_TITLES: Record<string, string> = {
   '/discord/logs': 'Logs',
   '/discord/settings': 'Configurações do servidor',
   '/send': 'Enviar agora',
-  '/send/agendamentos': 'Agend. automação',
+  '/send/agendamentos': 'Agendamentos',
+  '/send/autoagendamentos': 'Agend. automação',
   '/platform/automacoes': 'Regras automáticas',
   '/send/historico': 'Histórico de envios',
   '/plans': 'Plano e limites',

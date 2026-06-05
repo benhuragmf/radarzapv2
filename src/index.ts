@@ -61,7 +61,14 @@ class Application {
       logger.info('Aplicacao iniciada com sucesso');
 
     } catch (error) {
-      logger.error('Falha ao iniciar aplicacao:', error);
+      const dup =
+        error instanceof Error &&
+        error.message.includes('Não é permitido duas instâncias em dev');
+      if (dup) {
+        logger.error(error.message);
+      } else {
+        logger.error('Falha ao iniciar aplicacao:', error);
+      }
       process.exit(1);
     }
   }

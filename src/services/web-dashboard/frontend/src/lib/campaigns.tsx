@@ -3,6 +3,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Trash2 } from 'lucide-react'
 import { ConsentDot, type ConsentStatus } from './consentUi'
+import { scheduleCountdown } from './schedule-display'
 
 export interface Campaign {
   _id: string
@@ -19,6 +20,8 @@ export interface Campaign {
   acceptWhatsAppRisk?: boolean
   source?: 'manual' | 'automation'
   automationRuleId?: string
+  messageMode?: string
+  platformTemplateName?: string
 }
 
 const statusBadge: Record<Campaign['status'], 'green' | 'yellow' | 'red' | 'blue'> = {
@@ -50,6 +53,11 @@ export function CampaignRow({
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium truncate">{c.title}</p>
           <Badge label={statusLabel[c.status]} variant={statusBadge[c.status]} />
+          {c.status === 'pending' && (
+            <span className="text-[10px] text-brand-400/90 font-medium">
+              {scheduleCountdown(c.scheduledFor)}
+            </span>
+          )}
           {c.source === 'automation' && (
             <Badge label="Automação" variant="blue" />
           )}

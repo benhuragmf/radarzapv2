@@ -11,6 +11,7 @@ import { SessionCache } from '@/cache/SessionCache';
 import { RedisManager } from '@/cache/RedisManager';
 import { MessageQueue, User, Destination, SystemLog, Organization } from '@/models';
 import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
+import { StatusDispatchService } from '@/services/send/StatusDispatchService';
 import { BirthdayAutomationService } from '@/services/platform/BirthdayAutomationService';
 import {
   AUTOMATION_IMMINENT_PLAN_MS,
@@ -761,6 +762,7 @@ export class QueueProcessorService {
       if (this.isRunning) {
         try {
           await CampaignDispatchService.getInstance().processPending();
+          await StatusDispatchService.getInstance().processPending();
         } catch (err) {
           this.serviceLogger.error('Campaign queue tick failed:', err);
         }

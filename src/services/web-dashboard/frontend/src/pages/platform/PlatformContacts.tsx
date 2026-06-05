@@ -4,12 +4,12 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 
 import { PlatformPage } from '../../components/platform/PlatformPage'
 
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { api, downloadFile } from '../../lib/api'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Download } from 'lucide-react'
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Download, ListOrdered } from 'lucide-react'
 
 type ExportProfile = 'radarzap-native' | 'google-compatible' | 'apple-compatible'
 
@@ -79,9 +79,24 @@ function detectLocalFormat(text: string): ImportFileFormat {
 
 
 
+interface ContactGroupOption {
+  _id: string
+  name: string
+  memberCount: number
+}
+
+interface ImportPayload {
+  text: string
+  format: ImportFileFormat
+  contactGroupIds?: string[]
+  mapGruposToSegments?: boolean
+}
+
 export default function PlatformContacts() {
 
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const preselectedSegment = searchParams.get('segment') ?? ''
 
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -95,6 +110,10 @@ export default function PlatformContacts() {
 
   const [importResult, setImportResult] = useState<ImportCsvResponse | null>(null)
   const [exporting, setExporting] = useState<ExportProfile | null>(null)
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(
+    preselectedSegment ? [preselectedSegment] : [],
+  )
+  const [mapGruposToSegments, setMapGruposToSegments] = useState(false)
 
 
 
@@ -108,17 +127,25 @@ export default function PlatformContacts() {
 
   const canManage = can(me ?? null, 'send:destination:manage')
 
+  const { data: contactGroups = [] } = useQuery<ContactGroupOption[]>({
+    queryKey: ['contact-groups'],
+    queryFn: () => api.get('/contact-groups'),
+    enabled: canManage,
+  })
 
+  const buildImportBody = (payload: ImportPayload, dryRun: boolean) => ({
+    content: payload.text,
+    format: payload.format,
+    dryRun,
+    contactGroupIds: payload.contactGroupIds?.length ? payload.contactGroupIds : undefined,
+    mapGruposToSegments: payload.mapGruposToSegments === true,
+  })
 
   const previewMutation = useMutation({
 
-    mutationFn: ({ text, format }: { text: string; format: ImportFileFormat }) =>
+    mutationFn: (payload: ImportPayload) =>
 
-      api.post<ImportCsvResponse>('/destinations/import-csv', {
-        content: text,
-        format,
-        dryRun: true,
-      }),
+      api.post<ImportCsvResponse>('/destinations/import-csv', buildImportBody(payload, true)),
 
     onSuccess: (data) => {
 
@@ -136,19 +163,16 @@ export default function PlatformContacts() {
 
   const importMutation = useMutation({
 
-    mutationFn: ({ text, format }: { text: string; format: ImportFileFormat }) =>
+    mutationFn: (payload: ImportPayload) =>
 
-      api.post<ImportCsvResponse>('/destinations/import-csv', {
-        content: text,
-        format,
-        dryRun: false,
-      }),
+      api.post<ImportCsvResponse>('/destinations/import-csv', buildImportBody(payload, false)),
 
     onSuccess: (data) => {
 
       setImportResult(data)
 
       qc.invalidateQueries({ queryKey: ['destinations'] })
+      qc.invalidateQueries({ queryKey: ['contact-groups'] })
 
     },
 
@@ -180,7 +204,12 @@ export default function PlatformContacts() {
 
       setImportResult(null)
 
-      previewMutation.mutate({ text, format })
+      previewMutation.mutate({
+        text,
+        format,
+        contactGroupIds: selectedGroupIds,
+        mapGruposToSegments,
+      })
 
     }
 
@@ -213,6 +242,14 @@ export default function PlatformContacts() {
         <Link to="/contact" className="text-brand-400 hover:underline">
 
           Contatos atuais (Destinos) →
+
+        </Link>
+
+        {' · '}
+
+        <Link to="/platform/segmentos" className="text-brand-400 hover:underline">
+
+          Segmentos / Listas →
 
         </Link>
 
@@ -274,6 +311,70 @@ export default function PlatformContacts() {
       {canManage && (
 
         <Card className="space-y-4 border-gray-700/80">
+
+          <div className="space-y-3 pb-3 border-b border-gray-800">
+            <p className="text-sm text-gray-300 font-medium flex items-center gap-2">
+              <ListOrdered size={16} className="text-brand-400" />
+              Segmentos na importação
+            </p>
+            <p className="text-xs text-gray-500">
+              Opcional: coloque todos os contatos do arquivo em um ou mais segmentos. A coluna{' '}
+              <code className="text-gray-400">grupos</code> do CSV também pode virar segmento automaticamente.
+            </p>
+            {contactGroups.length === 0 ? (
+              <p className="text-xs text-gray-500">
+                Nenhum segmento ainda.{' '}
+                <Link to="/platform/segmentos" className="text-brand-400 hover:underline">
+                  Criar segmento
+                </Link>
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
+                {contactGroups.map(g => {
+                  const on = selectedGroupIds.includes(g._id)
+                  return (
+                    <button
+                      key={g._id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedGroupIds(prev =>
+                          on ? prev.filter(id => id !== g._id) : [...prev, g._id],
+                        )
+                      }
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                        on
+                          ? 'border-brand-500 bg-brand-600/20 text-brand-300'
+                          : 'border-gray-700 text-gray-500 hover:border-gray-600'
+                      }`}
+                    >
+                      {g.name} ({g.memberCount})
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {selectedGroupIds.length > 0 && (
+              <button
+                type="button"
+                className="text-xs text-gray-500 hover:text-gray-300"
+                onClick={() => setSelectedGroupIds([])}
+              >
+                Limpar seleção de segmentos
+              </button>
+            )}
+            <label className="flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mapGruposToSegments}
+                onChange={e => setMapGruposToSegments(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Usar coluna <strong className="text-gray-300">Grupos</strong> do arquivo para criar ou
+                vincular segmentos (ex.: Google Group Membership, coluna grupos no CSV RadarZap)
+              </span>
+            </label>
+          </div>
 
           <div className="flex flex-wrap items-center gap-3">
 
@@ -487,6 +588,16 @@ export default function PlatformContacts() {
 
 
 
+              {(selectedGroupIds.length > 0 || mapGruposToSegments) && (
+                <p className="text-xs text-brand-400/90">
+                  Na confirmação:{' '}
+                  {selectedGroupIds.length > 0 &&
+                    `${selectedGroupIds.length} segmento(s) fixo(s)`}
+                  {selectedGroupIds.length > 0 && mapGruposToSegments && ' · '}
+                  {mapGruposToSegments && 'segmentos pela coluna Grupos do arquivo'}
+                </p>
+              )}
+
               <Button
 
                 type="button"
@@ -494,7 +605,12 @@ export default function PlatformContacts() {
                 onClick={() =>
                   fileText &&
                   fileFormat &&
-                  importMutation.mutate({ text: fileText, format: fileFormat })
+                  importMutation.mutate({
+                    text: fileText,
+                    format: fileFormat,
+                    contactGroupIds: selectedGroupIds,
+                    mapGruposToSegments,
+                  })
                 }
 
                 disabled={!fileText || !fileFormat || importMutation.isPending}

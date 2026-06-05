@@ -51,6 +51,16 @@ export const OPENAPI_DASHBOARD = {
     '/sessions': {
       get: { summary: 'Status das sessões WhatsApp', tags: ['WhatsApp'] },
     },
+    '/status-posts': {
+      get: { summary: 'Listar status WhatsApp (stories) agendados e histórico', tags: ['WhatsApp'] },
+      post: { summary: 'Publicar ou agendar status (texto ou imagem)', tags: ['WhatsApp'] },
+    },
+    '/status-posts/audience-preview': {
+      get: {
+        summary: 'Prévia de audiência (modos RadarZap — opcional)',
+        tags: ['WhatsApp'],
+      },
+    },
     '/queue': {
       get: { summary: 'Estatísticas da fila', tags: ['Operação'] },
     },

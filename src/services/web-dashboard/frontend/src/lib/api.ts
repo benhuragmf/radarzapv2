@@ -22,11 +22,18 @@ function parseApiErrorBody(body: string, status: number): string {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',          // always send session cookie
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      credentials: 'include',          // always send session cookie
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    })
+  } catch {
+    throw new Error(
+      'Falha de conexão com a API. Confira se `npm run dev` está rodando e recarregue a página.',
+    )
+  }
   if (!res.ok) {
     const body = await res.text()
     throw new Error(parseApiErrorBody(body, res.status))

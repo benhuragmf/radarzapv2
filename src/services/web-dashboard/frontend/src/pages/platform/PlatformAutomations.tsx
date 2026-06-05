@@ -396,7 +396,11 @@ export default function PlatformAutomations() {
           </li>
         </ul>
         <p className="text-gray-500">
-          Envios entram em Agendamentos com o horário programado. Únicos/iminentes: checagem a cada 1 min.
+          Envios entram em{' '}
+          <Link to="/send/autoagendamentos" className="text-brand-400 hover:underline">
+            Agend. automação
+          </Link>{' '}
+          com o horário programado. Únicos/iminentes: checagem a cada 1 min.
           Recorrentes: planejamento a cada 5 min quando o gatilho bate no dia (cada destino na fila).
           {needsBirthday(form.triggerType) && (
             <>

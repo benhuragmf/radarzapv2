@@ -140,9 +140,16 @@ export default function ContactSegments() {
         <Button size="sm" onClick={() => setCreating(true)}>
           <Plus size={14} /> Novo segmento
         </Button>
-        <Link to="/platform/contacts">
+        <Link
+          to={
+            selectedId
+              ? `/platform/contacts?segment=${selectedId}`
+              : '/platform/contacts'
+          }
+        >
           <Button size="sm" variant="secondary">
-            <Upload size={14} /> Importar contatos (CSV/VCF)
+            <Upload size={14} />
+            {selectedId ? 'Importar para este segmento' : 'Importar contatos (CSV/VCF)'}
           </Button>
         </Link>
         <Link to="/contact">

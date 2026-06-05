@@ -43,6 +43,10 @@ export interface IDestination extends Document {
   secondaryPhone?: string;
   /** Tipo da linha principal: whatsapp, cell, home, work, other */
   phoneType?: ContactPhoneType;
+  /** Foto de perfil WhatsApp persistida (binário) */
+  profilePictureData?: Buffer;
+  profilePictureMime?: string;
+  profilePictureUpdatedAt?: Date;
   createdAt: Date;
   
   // Instance methods
@@ -221,6 +225,17 @@ const DestinationSchema = new Schema<IDestination>({
       message: 'Formato inválido para telefone secundário',
     },
   },
+
+  profilePictureData: {
+    type: Buffer,
+  },
+
+  profilePictureMime: {
+    type: String,
+    maxlength: 64,
+  },
+
+  profilePictureUpdatedAt: Date,
 
   phoneType: {
     type: String,

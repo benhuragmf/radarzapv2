@@ -46,7 +46,9 @@ import {
   streamLinkFromExtracted,
 } from '@/utils/stream-template';
 import { ConsentService } from '@/services/consent/ConsentService';
+import { ConsentStatus } from '@/types/consent';
 import { isPhoneInParticipants } from '@/utils/group-membership';
+import { downloadProfilePictureFromUrl } from '@/utils/profile-picture-download';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -86,6 +88,9 @@ export class WhatsAppService {
   private isInitialized = false;
   private sessionCleanupInterval: NodeJS.Timeout | null = null;
   private destinationCleanupInterval: NodeJS.Timeout | null = null;
+  private profilePictureSyncInterval: NodeJS.Timeout | null = null;
+  private profilePictureSyncRunning = false;
+  private profilePictureSyncClientCursor = 0;
   private autoReconnectInterval: NodeJS.Timeout | null = null;
   /** Evita múltiplos createWhatsAppSession simultâneos (causa erro 440) */
   private reconnectingClients = new Set<string>();
@@ -95,6 +100,8 @@ export class WhatsAppService {
   private outboundMessages = new Map<string, WAMessage>();
   private lastWaConnectionLogKey = new Map<string, string>();
   private lastSessionSaveLogAt = new Map<string, number>();
+  /** JIDs de contatos 1:1 sincronizados pela sessão WA (para status/stories) */
+  private waStatusContactJids = new Map<string, Set<string>>();
 
   /** Read all Baileys auth files from the session directory */
   private readSessionDirectory(sessionDir: string): Record<string, string> {
@@ -512,14 +519,150 @@ export class WhatsAppService {
     return WhatsAppService.instance;
   }
 
-  /** Busca foto de perfil WA via Baileys */
+  /** Busca foto de perfil WA via Baileys (alta resolução, depois preview). */
   private async fetchProfilePicture(socket: WASocket, jid?: string | null): Promise<string | undefined> {
     if (!jid) return undefined;
-    try {
-      return await socket.profilePictureUrl(jid, 'image');
-    } catch {
-      return undefined;
+    for (const picType of ['image', 'preview'] as const) {
+      try {
+        const url = await socket.profilePictureUrl(jid, picType);
+        if (url) return url;
+      } catch {
+        /* tenta próximo tipo */
+      }
     }
+    return undefined;
+  }
+
+  /** Resolve JID real no WhatsApp (número BR, LID, etc.). */
+  private async resolveDestinationJid(
+    socket: WASocket,
+    identifier: string,
+    type: 'contact' | 'group',
+  ): Promise<string> {
+    const jid = this.formatJid(identifier, type);
+    if (type !== 'contact') return jid;
+    try {
+      const plainNumber = this.plainWhatsAppId(jid);
+      const [result] = await socket.onWhatsApp(plainNumber);
+      if (result?.exists && result.jid) return result.jid;
+    } catch {
+      /* usa jid formatado */
+    }
+    return jid;
+  }
+
+  /** Foto de perfil de um contato ou grupo WhatsApp */
+  async getDestinationProfilePicture(
+    clientId: string,
+    identifier: string,
+    type: 'contact' | 'group' = 'contact',
+  ): Promise<string | undefined> {
+    const id = String(clientId);
+    if (!this.isClientConnected(id)) {
+      try {
+        await this.ensureClientReady(id, 10_000);
+      } catch {
+        return undefined;
+      }
+    }
+    const socket = this.sessions.get(id);
+    if (!socket?.user) return undefined;
+    const jid = await this.resolveDestinationJid(socket, identifier, type);
+    return this.fetchProfilePicture(socket, jid);
+  }
+
+  /**
+   * Atualiza fotos de perfil em cache nos destinos (rate-limit entre chamadas).
+   */
+  async syncDestinationProfilePictures(
+    clientId: string,
+    options: { limit?: number; destinationIds?: string[]; maxAgeDays?: number } = {},
+  ): Promise<{ updated: number; skipped: number; failed: number }> {
+    const limit = Math.min(Math.max(options.limit ?? 30, 1), 80);
+    const maxAgeMs = (options.maxAgeDays ?? 7) * 86_400_000;
+    const cutoff = new Date(Date.now() - maxAgeMs);
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+
+    const query: Record<string, unknown> = {
+      clientId: clientOid,
+      isActive: true,
+    };
+
+    if (options.destinationIds?.length) {
+      query._id = {
+        $in: options.destinationIds.map(id => new mongoose.Types.ObjectId(id)),
+      };
+    } else {
+      query.$or = [
+        { profilePictureMime: { $exists: false } },
+        { profilePictureMime: null },
+        { profilePictureMime: '' },
+        { profilePictureUpdatedAt: { $lt: cutoff } },
+        { profilePictureUpdatedAt: { $exists: false } },
+      ];
+    }
+
+    const dests = await Destination.find(query).sort({ updatedAt: -1 }).limit(limit).lean();
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    this.serviceLogger.info(
+      `Sincronizando fotos de perfil: client=${clientId} destinos=${dests.length}`,
+    );
+
+    for (const d of dests) {
+      try {
+        const url = await this.getDestinationProfilePicture(
+          clientId,
+          d.identifier,
+          d.type as 'contact' | 'group',
+        );
+        if (!url) {
+          await Destination.updateOne(
+            { _id: d._id },
+            {
+              $unset: { profilePictureData: '' },
+              profilePictureMime: 'none',
+              profilePictureUpdatedAt: new Date(),
+            },
+          );
+          skipped++;
+          await this.sleep(280);
+          continue;
+        }
+
+        const img = await downloadProfilePictureFromUrl(url);
+        if (img) {
+          await Destination.updateOne(
+            { _id: d._id },
+            {
+              profilePictureData: img.data,
+              profilePictureMime: img.mime,
+              profilePictureUpdatedAt: new Date(),
+            },
+          );
+          updated++;
+        } else {
+          this.serviceLogger.warn(
+            `Falha ao baixar foto de ${d.identifier} (${d.name}) — URL obtida, download falhou`,
+          );
+          skipped++;
+        }
+      } catch (err) {
+        failed++;
+        this.serviceLogger.warn(
+          `Erro ao sincronizar foto de ${d.identifier}: ${(err as Error).message}`,
+        );
+      }
+      await this.sleep(280);
+    }
+
+    this.serviceLogger.info(
+      `Fotos de perfil: atualizadas=${updated} ignoradas=${skipped} falhas=${failed}`,
+    );
+
+    return { updated, skipped, failed };
   }
 
   /** Sessão ativa no processo (socket, QR ou tentativa de conexão) */
@@ -617,6 +760,397 @@ export class WhatsAppService {
 
     const intro = await socket.sendMessage(resolvedJid, { text });
     this.storeOutboundMessage(intro ?? undefined);
+  }
+
+  private static readonly STATUS_JID_MAX = 500;
+  private static readonly STATUS_DEFAULT_BG = '#FFFCF5';
+  /** Evolution envia status em lotes de 10 com o mesmo messageId */
+  private static readonly STATUS_SEND_BATCH = 10;
+  /** Pré-carga device-list na conexão — não resolver centenas de números a cada post */
+  private static readonly STATUS_DEVICE_PRELOAD = 80;
+
+  /** Baileys ignora font 0 (falsy). Evolution/WhatsApp exigem 1–5 para status texto. */
+  private normalizeStatusFont(font: number | undefined): number {
+    const ui = Math.max(0, Math.min(3, font ?? 0));
+    return ui + 1;
+  }
+
+  private dedupeStatusJids(jids: Iterable<string>): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of jids) {
+      if (!raw || !this.isPersonalWaJid(raw)) continue;
+      const normalized = jidNormalizedUser(raw);
+      const userPart = normalized.split('@')[0] ?? normalized;
+      if (seen.has(userPart)) continue;
+      seen.add(userPart);
+      out.push(normalized);
+    }
+    return out;
+  }
+
+  private orderStatusJidsSelfFirst(list: string[], socket: WASocket): string[] {
+    const selfUsers = new Set<string>();
+    if (socket.user?.id) {
+      selfUsers.add(jidNormalizedUser(socket.user.id).split('@')[0] ?? '');
+    }
+    const userLid = (socket.user as { lid?: string } | undefined)?.lid;
+    if (userLid) {
+      const lid = userLid.includes('@') ? userLid : `${userLid}@lid`;
+      selfUsers.add(jidNormalizedUser(lid).split('@')[0] ?? '');
+    }
+    selfUsers.delete('');
+
+    const selfFirst: string[] = [];
+    const rest: string[] = [];
+    for (const jid of list) {
+      const userPart = jidNormalizedUser(jid).split('@')[0] ?? jid;
+      if (selfUsers.has(userPart)) selfFirst.push(jid);
+      else rest.push(jid);
+    }
+    return [...selfFirst, ...rest];
+  }
+
+  private validateTextStatusPayload(result: WAMessage): void {
+    const ext = result.message?.extendedTextMessage;
+    if (!ext?.backgroundArgb) {
+      this.serviceLogger.error('Status texto sem backgroundArgb — não aparece no app', {
+        messageId: result.key?.id,
+      });
+      throw new Error(
+        'WhatsApp não montou o status corretamente. Reconecte em Sessões e tente de novo.',
+      );
+    }
+  }
+
+  private async sendStatusInBatches(
+    socket: WASocket,
+    content: Record<string, unknown>,
+    opts: {
+      broadcast: true;
+      statusJidList: string[];
+      backgroundColor?: string;
+      font?: number;
+    },
+  ): Promise<WAMessage> {
+    const fullList = opts.statusJidList;
+    if (fullList.length === 0) {
+      throw new Error('Lista de audiência vazia para status');
+    }
+
+    const batches: string[][] = [];
+    for (let i = 0; i < fullList.length; i += WhatsAppService.STATUS_SEND_BATCH) {
+      batches.push(fullList.slice(i, i + WhatsAppService.STATUS_SEND_BATCH));
+    }
+
+    const { statusJidList: _list, ...baseOpts } = opts;
+
+    const first = await socket.sendMessage('status@broadcast', content as never, {
+      ...baseOpts,
+      statusJidList: batches[0],
+    });
+
+    const msgId = first?.key?.id;
+    if (!msgId) {
+      throw new Error('WhatsApp não confirmou a publicação do status.');
+    }
+
+    for (let b = 1; b < batches.length; b++) {
+      try {
+        await socket.sendMessage('status@broadcast', content as never, {
+          ...baseOpts,
+          statusJidList: batches[b],
+          messageId: msgId,
+        });
+      } catch (err) {
+        this.serviceLogger.warn(`Status lote ${b + 1}/${batches.length} falhou`, err);
+      }
+    }
+
+    return first;
+  }
+
+  /** Prévia de audiência (painel wa-stories) — leve, sem resync completo. */
+  async previewStatusAudience(
+    clientId: string,
+    audience: 'whatsapp' | 'all_contacts' | 'consented',
+  ): Promise<{ count: number; waCache: number; deviceListPhones: number; radarzapContacts: number }> {
+    await this.ensureClientReady(clientId, 10_000);
+    const socket = this.sessions.get(String(clientId));
+    if (!socket?.user) {
+      throw new Error('WhatsApp não conectado');
+    }
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const radarzapContacts = await Destination.countDocuments({
+      clientId: clientOid,
+      type: 'contact',
+      isActive: true,
+      ...(audience === 'consented' ? { consentStatus: ConsentStatus.ACCEPTED } : {}),
+    });
+    const list = await this.buildStatusJidList(clientId, socket, audience, { sync: false });
+    return {
+      count: list.length,
+      waCache: this.waStatusContactJids.get(clientId)?.size ?? 0,
+      deviceListPhones: this.loadDeviceListPhonesFromSession(clientId).length,
+      radarzapContacts,
+    };
+  }
+
+  /** Publica status (stories) no WhatsApp — texto ou imagem */
+  async sendStatusUpdate(
+    clientId: string,
+    input: {
+      type: 'text' | 'image';
+      text?: string;
+      image?: string;
+      caption?: string;
+      backgroundColor?: string;
+      font?: number;
+      audience: 'whatsapp' | 'all_contacts' | 'consented';
+    },
+  ): Promise<{ messageId?: string; statusJidCount: number }> {
+    await this.ensureClientReady(clientId, 20_000);
+    const socket = this.sessions.get(String(clientId));
+    if (!socket?.user) {
+      throw new Error('WhatsApp não conectado');
+    }
+
+    const statusJidList = this.orderStatusJidsSelfFirst(
+      await this.buildStatusJidList(clientId, socket, input.audience),
+      socket,
+    );
+    if (statusJidList.length === 0) {
+      throw new Error('Sessão WhatsApp sem identidade — reconecte em Sessões');
+    }
+
+    const relayOpts = {
+      broadcast: true as const,
+      statusJidList,
+      ...(input.type === 'text'
+        ? {
+            backgroundColor: input.backgroundColor || WhatsAppService.STATUS_DEFAULT_BG,
+            font: this.normalizeStatusFont(input.font),
+          }
+        : {}),
+    };
+
+    try {
+      await socket.sendPresenceUpdate('available');
+    } catch {
+      /* não bloqueia publicação */
+    }
+
+    let result: WAMessage;
+
+    if (input.type === 'image' && input.image) {
+      const imagePayload = input.image.startsWith('data:')
+        ? Buffer.from(input.image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64')
+        : { url: input.image };
+      const caption = (input.caption || input.text || '').trim();
+      result = await this.sendStatusInBatches(
+        socket,
+        {
+          image: imagePayload,
+          ...(caption ? { caption } : {}),
+          ...(Buffer.isBuffer(imagePayload) ? { mimetype: 'image/jpeg' } : {}),
+        },
+        relayOpts,
+      );
+    } else {
+      const text = (input.text ?? '').trim();
+      if (!text) throw new Error('Texto do status é obrigatório');
+      const msgCheck = validateMessageText(text);
+      if (msgCheck.ok === false) throw new Error(msgCheck.error);
+      result = await this.sendStatusInBatches(socket, { text }, relayOpts);
+      this.validateTextStatusPayload(result);
+    }
+
+    this.serviceLogger.info('Status WhatsApp publicado', {
+      clientId,
+      type: input.type,
+      statusJidCount: statusJidList.length,
+      messageId: result.key?.id,
+      batches: Math.ceil(statusJidList.length / WhatsAppService.STATUS_SEND_BATCH),
+      hasBackground: !!result.message?.extendedTextMessage?.backgroundArgb,
+    });
+
+    if (!result?.key?.id) {
+      throw new Error(
+        'WhatsApp não confirmou a publicação do status. Reconecte em Sessões e tente novamente.',
+      );
+    }
+
+    return {
+      messageId: result.key.id,
+      statusJidCount: statusJidList.length,
+    };
+  }
+
+  private isPersonalWaJid(jid: string | undefined | null): boolean {
+    if (!jid || jid === 'status@broadcast') return false;
+    return jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid');
+  }
+
+  private cacheWaStatusContactJid(clientId: string, jid: string | undefined | null): void {
+    if (!this.isPersonalWaJid(jid)) return;
+    let set = this.waStatusContactJids.get(clientId);
+    if (!set) {
+      set = new Set();
+      this.waStatusContactJids.set(clientId, set);
+    }
+    set.add(jid!);
+    if (set.size > WhatsAppService.STATUS_JID_MAX * 2) {
+      const trimmed = [...set].slice(-WhatsAppService.STATUS_JID_MAX);
+      this.waStatusContactJids.set(clientId, new Set(trimmed));
+    }
+  }
+
+  private addSelfToStatusJidList(jids: Set<string>, socket: WASocket): void {
+    if (socket.user?.id) {
+      jids.add(socket.user.id);
+      jids.add(jidNormalizedUser(socket.user.id));
+    }
+    const userLid = (socket.user as { lid?: string } | undefined)?.lid;
+    if (userLid) {
+      jids.add(userLid.includes('@') ? userLid : `${userLid}@lid`);
+    }
+  }
+
+  private loadDeviceListPhonesFromSession(clientId: string): string[] {
+    const sessionDir = path.join(process.cwd(), 'sessions', clientId);
+    if (!fs.existsSync(sessionDir)) return [];
+    const phones: string[] = [];
+    for (const name of fs.readdirSync(sessionDir)) {
+      const match = /^device-list-(\d+)\.json$/i.exec(name);
+      if (match?.[1]) phones.push(match[1]);
+    }
+    return phones;
+  }
+
+  private async resolvePhonesToStatusJids(socket: WASocket, phones: string[]): Promise<string[]> {
+    const jids: string[] = [];
+    const BATCH = 40;
+    for (let i = 0; i < phones.length; i += BATCH) {
+      const batch = phones.slice(i, i + BATCH);
+      try {
+        const results = await socket.onWhatsApp(...batch);
+        for (const r of results ?? []) {
+          if (r?.exists && r.jid) jids.push(r.jid);
+        }
+      } catch (err) {
+        this.serviceLogger.warn('onWhatsApp falhou ao resolver telefones para status', err);
+        for (const p of batch) {
+          jids.push(this.formatJid(p, 'contact'));
+        }
+      }
+    }
+    return jids;
+  }
+
+  private async syncWaStatusContactsBeforePublish(_clientId: string, socket: WASocket): Promise<void> {
+    if (typeof socket.resyncAppState !== 'function') return;
+    try {
+      await Promise.race([
+        socket.resyncAppState(['regular', 'regular_high'], false),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('resyncAppState timeout')), 8_000),
+        ),
+      ]);
+    } catch (err) {
+      this.serviceLogger.debug('resyncAppState antes do status', err);
+    }
+  }
+
+  private async preloadDeviceListContacts(clientId: string, socket: WASocket): Promise<void> {
+    const phones = this.loadDeviceListPhonesFromSession(clientId).slice(
+      0,
+      WhatsAppService.STATUS_DEVICE_PRELOAD,
+    );
+    if (phones.length === 0) return;
+    const resolved = await this.resolvePhonesToStatusJids(socket, phones);
+    for (const jid of resolved) this.cacheWaStatusContactJid(clientId, jid);
+    this.serviceLogger.debug('Device-list pré-carregado para status', {
+      clientId,
+      phones: phones.length,
+      resolved: resolved.length,
+    });
+  }
+
+  private async appendDestinationContactJids(
+    clientId: string,
+    socket: WASocket,
+    jids: Set<string>,
+    consentedOnly: boolean,
+  ): Promise<void> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const query: Record<string, unknown> = {
+      clientId: clientOid,
+      type: 'contact',
+      isActive: true,
+    };
+    if (consentedOnly) {
+      query.consentStatus = ConsentStatus.ACCEPTED;
+    }
+
+    const contacts = await Destination.find(query)
+      .select('identifier')
+      .limit(WhatsAppService.STATUS_JID_MAX)
+      .lean();
+
+    const phones: string[] = [];
+    for (const c of contacts) {
+      const plain = this.plainWhatsAppId(c.identifier);
+      if (plain.length >= 8) phones.push(plain);
+    }
+
+    const resolved = await this.resolvePhonesToStatusJids(socket, phones);
+    for (const jid of resolved) {
+      if (jids.size >= WhatsAppService.STATUS_JID_MAX) break;
+      jids.add(jid);
+    }
+  }
+
+  private async buildStatusJidList(
+    clientId: string,
+    socket: WASocket,
+    audience: 'whatsapp' | 'all_contacts' | 'consented',
+    options: { sync?: boolean } = {},
+  ): Promise<string[]> {
+    if (options.sync !== false) {
+      await this.syncWaStatusContactsBeforePublish(clientId, socket);
+    }
+
+    const jids = new Set<string>();
+    this.addSelfToStatusJidList(jids, socket);
+
+    const cached = this.waStatusContactJids.get(clientId);
+    if (cached) {
+      for (const jid of cached) {
+        if (jids.size >= WhatsAppService.STATUS_JID_MAX) break;
+        jids.add(jid);
+      }
+    }
+
+    const phones = this.loadDeviceListPhonesFromSession(clientId);
+
+    if (audience !== 'whatsapp') {
+      await this.appendDestinationContactJids(
+        clientId,
+        socket,
+        jids,
+        audience === 'consented',
+      );
+    }
+
+    const list = this.dedupeStatusJids(jids).slice(0, WhatsAppService.STATUS_JID_MAX);
+    this.serviceLogger.info(`statusJidList: ${list.length} destinatário(s)`, {
+      clientId,
+      audience,
+      waCached: cached?.size ?? 0,
+      deviceListPhones: phones.length,
+      sample: list.slice(0, 4),
+    });
+    return list;
   }
 
   /** Envio manual / campanha (sem prefixo de teste) */
@@ -987,6 +1521,9 @@ export class WhatsAppService {
       // Setup destination cleanup
       this.setupDestinationCleanup();
 
+      // Fotos de perfil em background (lotes pequenos, não bloqueia envios)
+      this.setupProfilePictureBackgroundSync();
+
       // Sessão WA antes dos workers — evita jobs falhando sem socket no Map
       await this.restoreExistingSessions();
 
@@ -1021,6 +1558,11 @@ export class WhatsAppService {
       if (this.destinationCleanupInterval) {
         clearInterval(this.destinationCleanupInterval);
         this.destinationCleanupInterval = null;
+      }
+
+      if (this.profilePictureSyncInterval) {
+        clearInterval(this.profilePictureSyncInterval);
+        this.profilePictureSyncInterval = null;
       }
 
       if (this.autoReconnectInterval) {
@@ -1153,6 +1695,50 @@ export class WhatsAppService {
     }, 24 * 60 * 60 * 1000); // 24 hours
 
     this.serviceLogger.info('✅ Destination cleanup scheduled');
+  }
+
+  /**
+   * Sincroniza fotos de perfil em lotes pequenos, em background.
+   * Um cliente conectado por ciclo; ignora tick se o lote anterior ainda estiver rodando.
+   */
+  private setupProfilePictureBackgroundSync(): void {
+    const INTERVAL_MS = 90_000;
+    const BATCH_SIZE = 6;
+    const INITIAL_DELAY_MS = 45_000;
+
+    const tick = async (): Promise<void> => {
+      if (this.profilePictureSyncRunning) return;
+
+      const connected = Array.from(this.sessions.keys()).filter(id =>
+        this.isClientConnected(id),
+      );
+      if (connected.length === 0) return;
+
+      this.profilePictureSyncRunning = true;
+      try {
+        const idx = this.profilePictureSyncClientCursor % connected.length;
+        this.profilePictureSyncClientCursor += 1;
+        const clientId = connected[idx]!;
+        await this.syncDestinationProfilePictures(clientId, { limit: BATCH_SIZE });
+      } catch (error) {
+        this.serviceLogger.warn('Background profile picture sync failed:', error);
+      } finally {
+        this.profilePictureSyncRunning = false;
+      }
+    };
+
+    setTimeout(() => {
+      tick().catch(error => {
+        this.serviceLogger.warn('Initial profile picture sync failed:', error);
+      });
+      this.profilePictureSyncInterval = setInterval(() => {
+        tick().catch(error => {
+          this.serviceLogger.warn('Scheduled profile picture sync failed:', error);
+        });
+      }, INTERVAL_MS);
+    }, INITIAL_DELAY_MS);
+
+    this.serviceLogger.info('✅ Profile picture background sync scheduled');
   }
 
   /**
@@ -1444,6 +2030,7 @@ export class WhatsAppService {
 
             // Setup event handlers
             this.setupSocketEventHandlers(socket, clientId);
+            this.warmWaStatusContactCache(socket, clientId);
 
             const wuid = socket.user?.id;
             const profileName = socket.user?.name ?? undefined;
@@ -1492,10 +2079,59 @@ export class WhatsAppService {
     });
   }
 
+  /** Mantém cache de contatos WA para publicar status (não usa /contact do RadarZap). */
+  private setupWaStatusContactSync(socket: WASocket, clientId: string): void {
+    const cache = (jid: string | undefined | null) => this.cacheWaStatusContactJid(clientId, jid);
+    const cacheContact = (c: { id?: string | null; lid?: string | null; phoneNumber?: string | null }) => {
+      cache(c.id);
+      if (c.lid) cache(c.lid.includes('@') ? c.lid : `${c.lid}@lid`);
+      if (c.phoneNumber) {
+        cache(c.phoneNumber.includes('@') ? c.phoneNumber : `${c.phoneNumber}@s.whatsapp.net`);
+      }
+    };
+
+    socket.ev.on('contacts.upsert', (contacts) => {
+      for (const c of contacts) cacheContact(c);
+    });
+    socket.ev.on('contacts.update', (contacts) => {
+      for (const c of contacts) cacheContact(c);
+    });
+    socket.ev.on('messaging-history.set', ({ contacts, chats }) => {
+      for (const c of contacts ?? []) cacheContact(c);
+      for (const ch of chats ?? []) cache(ch.id);
+    });
+    socket.ev.on('chats.upsert', (chats) => {
+      for (const ch of chats) cache(ch.id);
+    });
+    socket.ev.on('messages.upsert', ({ messages }) => {
+      for (const msg of messages) {
+        cache(msg.key?.remoteJid);
+        cache(msg.key?.participant);
+      }
+    });
+  }
+
+  private warmWaStatusContactCache(socket: WASocket, clientId: string): void {
+    if (typeof socket.resyncAppState === 'function') {
+      socket.resyncAppState(['regular', 'regular_high'], false).catch(err => {
+        this.serviceLogger.debug('resyncAppState para contatos de status', err);
+      });
+    }
+    void this.preloadDeviceListContacts(clientId, socket).catch(err => {
+      this.serviceLogger.debug('Pré-carga device-list para status', err);
+    });
+    this.serviceLogger.debug('Cache de contatos WA para status ativo', {
+      clientId,
+      cached: this.waStatusContactJids.get(clientId)?.size ?? 0,
+    });
+  }
+
   /**
    * Setup socket event handlers
    */
   private setupSocketEventHandlers(socket: WASocket, clientId: string): void {
+    this.setupWaStatusContactSync(socket, clientId);
+
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect } = update;
 
@@ -2183,6 +2819,7 @@ export class WhatsAppService {
     // Remove from memory
     this.sessions.delete(clientId);
     this.sessionStates.delete(clientId);
+    this.waStatusContactJids.delete(clientId);
 
     // Clear session interval if exists
     const interval = this.sessionIntervals.get(clientId);

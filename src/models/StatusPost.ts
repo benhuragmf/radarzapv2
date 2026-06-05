@@ -1,0 +1,100 @@
+import mongoose, { Schema, Document, Model } from 'mongoose';
+
+export type StatusPostType = 'text' | 'image';
+export type StatusPostAudience = 'whatsapp' | 'all_contacts' | 'consented';
+export type StatusPostStatus = 'pending' | 'processing' | 'sent' | 'failed';
+
+export interface IStatusPost extends Document {
+  clientId: mongoose.Types.ObjectId;
+  title: string;
+  type: StatusPostType;
+  text?: string;
+  image?: string;
+  caption?: string;
+  backgroundColor?: string;
+  font?: number;
+  audience: StatusPostAudience;
+  status: StatusPostStatus;
+  scheduledFor: Date;
+  processedAt?: Date;
+  lastError?: string;
+  statusJidCount?: number;
+  whatsappMessageId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const StatusPostSchema = new Schema<IStatusPost>(
+  {
+    clientId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'User',
+      index: true,
+    },
+    title: {
+      type: String,
+      required: true,
+      maxlength: 120,
+      trim: true,
+    },
+    type: {
+      type: String,
+      enum: ['text', 'image'],
+      required: true,
+    },
+    text: {
+      type: String,
+      maxlength: 700,
+    },
+    image: {
+      type: String,
+      validate: {
+        validator(v: string) {
+          if (!v) return true;
+          return /^(https?:\/\/|data:image\/)/.test(v);
+        },
+        message: 'Imagem deve ser URL ou base64 data:image',
+      },
+    },
+    caption: {
+      type: String,
+      maxlength: 700,
+    },
+    backgroundColor: {
+      type: String,
+      maxlength: 16,
+    },
+    font: {
+      type: Number,
+      min: 0,
+      max: 4,
+    },
+    audience: {
+      type: String,
+      enum: ['whatsapp', 'all_contacts', 'consented'],
+      default: 'whatsapp',
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'processing', 'sent', 'failed'],
+      default: 'pending',
+      index: true,
+    },
+    scheduledFor: {
+      type: Date,
+      required: true,
+      index: true,
+    },
+    processedAt: Date,
+    lastError: String,
+    statusJidCount: Number,
+    whatsappMessageId: String,
+  },
+  { timestamps: true },
+);
+
+StatusPostSchema.index({ clientId: 1, status: 1, scheduledFor: 1 });
+
+export const StatusPost: Model<IStatusPost> =
+  mongoose.models.StatusPost ?? mongoose.model<IStatusPost>('StatusPost', StatusPostSchema);

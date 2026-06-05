@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Destination } from '@/models/Destination';
+import { ContactGroup } from '@/models/ContactGroup';
 import {
   CanonicalContactRow,
   CsvRowError,
@@ -16,6 +17,69 @@ import { createServiceLogger } from '@/utils/logger';
 const logger = createServiceLogger('ContactCsvImport');
 
 export type ContactImportFormat = 'csv' | 'vcf' | 'auto';
+
+export interface ContactImportOptions {
+  dryRun?: boolean;
+  ipAddress?: string;
+  format?: ContactImportFormat;
+  /** Segmentos fixos — todos os contatos importados entram nestas listas */
+  contactGroupIds?: string[];
+  /** Coluna grupos/tags do arquivo vira segmento (cria se não existir) */
+  mapGruposToSegments?: boolean;
+}
+
+async function resolveSegmentIds(
+  clientOid: mongoose.Types.ObjectId,
+  groupIds: string[],
+): Promise<mongoose.Types.ObjectId[]> {
+  if (!groupIds.length) return [];
+  const groups = await ContactGroup.find({
+    clientId: clientOid,
+    _id: { $in: groupIds.filter(Boolean) },
+  });
+  return groups.map(g => g._id as mongoose.Types.ObjectId);
+}
+
+async function resolveOrCreateSegmentsByName(
+  clientOid: mongoose.Types.ObjectId,
+  names: string[],
+): Promise<mongoose.Types.ObjectId[]> {
+  const result: mongoose.Types.ObjectId[] = [];
+  for (const raw of names) {
+    const name = raw.trim().slice(0, 80);
+    if (!name) continue;
+    let group = await ContactGroup.findOne({ clientId: clientOid, name });
+    if (!group) {
+      group = await ContactGroup.create({ clientId: clientOid, name });
+    }
+    result.push(group._id as mongoose.Types.ObjectId);
+  }
+  return result;
+}
+
+async function applySegmentMembership(
+  dest: InstanceType<typeof Destination>,
+  clientOid: mongoose.Types.ObjectId,
+  row: CanonicalContactRow,
+  importOpts: Pick<ContactImportOptions, 'contactGroupIds' | 'mapGruposToSegments'>,
+): Promise<void> {
+  const ids = new Set<string>((dest.contactGroupIds ?? []).map(String));
+
+  if (importOpts.contactGroupIds?.length) {
+    const fixed = await resolveSegmentIds(clientOid, importOpts.contactGroupIds);
+    for (const oid of fixed) ids.add(String(oid));
+  }
+
+  if (importOpts.mapGruposToSegments && row.grupos?.length) {
+    const fromNames = await resolveOrCreateSegmentsByName(clientOid, row.grupos);
+    for (const oid of fromNames) ids.add(String(oid));
+  }
+
+  if (ids.size === 0) return;
+
+  dest.contactGroupIds = [...ids].map(id => new mongoose.Types.ObjectId(id));
+  await dest.save();
+}
 
 function identifierCandidates(e164: string): string[] {
   const digits = e164.replace(/\D/g, '');
@@ -59,6 +123,7 @@ export async function importCanonicalContacts(
   clientId: string,
   rows: CanonicalContactRow[],
   ipAddress: string = '127.0.0.1',
+  segmentOpts: Pick<ContactImportOptions, 'contactGroupIds' | 'mapGruposToSegments'> = {},
 ): Promise<ImportCsvReport> {
   const clientOid = new mongoose.Types.ObjectId(clientId);
   const report: ImportCsvReport = {
@@ -77,6 +142,7 @@ export async function importCanonicalContacts(
           existing.identifier = row.telefone;
         }
         await existing.save();
+        await applySegmentMembership(existing, clientOid, row, segmentOpts);
         report.atualizados++;
         continue;
       }
@@ -91,6 +157,7 @@ export async function importCanonicalContacts(
       );
       applyOptionalFields(dest, row);
       await dest.save();
+      await applySegmentMembership(dest, clientOid, row, segmentOpts);
       report.criados++;
     } catch (err) {
       const msg = (err as Error).message;
@@ -115,11 +182,7 @@ export async function importCanonicalContacts(
 export async function processContactImport(
   clientId: string,
   fileText: string,
-  options: {
-    dryRun?: boolean;
-    ipAddress?: string;
-    format?: ContactImportFormat;
-  } = {},
+  options: ContactImportOptions = {},
 ): Promise<{
   profile: string;
   format: 'csv' | 'vcf';
@@ -156,6 +219,10 @@ export async function processContactImport(
     clientId,
     parsed.rows,
     options.ipAddress ?? '127.0.0.1',
+    {
+      contactGroupIds: options.contactGroupIds,
+      mapGruposToSegments: options.mapGruposToSegments,
+    },
   );
   report.erros = [...parsed.erros, ...report.erros];
 

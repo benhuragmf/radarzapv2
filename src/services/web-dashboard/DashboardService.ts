@@ -28,6 +28,8 @@ import { RedisManager } from '../../cache/RedisManager';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue, ContactGroup } from '../../models';
 import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
+import { StatusDispatchService } from '../send/StatusDispatchService';
+import { StatusPost } from '../../models/StatusPost';
 import { ConsentService } from '../consent/ConsentService';
 import { OrganizationService } from '../organization/OrganizationService';
 import { Organization } from '../../models/Organization';
@@ -873,15 +875,72 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const destinations = await Destination.find({
           clientId: auth.clientId,
-        }).lean();
+        })
+          .select('-profilePictureData')
+          .lean();
         res.json(
           destinations.map(d => ({
             ...d,
             consentStatus:
               d.consentStatus ??
               (d.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING),
+            hasProfilePicture: Boolean(
+              d.profilePictureMime?.startsWith('image/'),
+            ),
           })),
         );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/:id/profile-picture', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const dest = await Destination.findOne({
+          _id: req.params.id,
+          clientId: auth.clientId,
+        })
+          .select('profilePictureData profilePictureMime profilePictureUpdatedAt')
+          .lean();
+
+        if (!dest) return res.status(404).end();
+
+        const mime = dest.profilePictureMime ?? '';
+        if (!mime.startsWith('image/') || !dest.profilePictureData?.length) {
+          return res.status(404).end();
+        }
+
+        const body = Buffer.isBuffer(dest.profilePictureData)
+          ? dest.profilePictureData
+          : Buffer.from((dest.profilePictureData as { buffer: ArrayBuffer }).buffer);
+
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Cache-Control', 'private, max-age=604800');
+        if (dest.profilePictureUpdatedAt) {
+          res.setHeader('Last-Modified', dest.profilePictureUpdatedAt.toUTCString());
+        }
+        res.send(body);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/destinations/sync-profile-pictures', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as { limit?: number; destinationIds?: string[] };
+        const wa = WhatsAppService.getInstance();
+        if (!wa.isClientConnected(auth.clientId)) {
+          return res.status(409).json({
+            error: 'WhatsApp não conectado. Conecte em Sessões e QR Code para buscar fotos.',
+          });
+        }
+        const result = await wa.syncDestinationProfilePictures(auth.clientId, {
+          limit: body.limit,
+          destinationIds: body.destinationIds,
+        });
+        res.json({ ok: true, ...result });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -1230,8 +1289,10 @@ export class DashboardService {
           content?: string;
           dryRun?: boolean;
           format?: 'csv' | 'vcf' | 'auto';
+          contactGroupIds?: string[];
+          mapGruposToSegments?: boolean;
         };
-        const { dryRun = false, format = 'auto' } = body;
+        const { dryRun = false, format = 'auto', contactGroupIds, mapGruposToSegments } = body;
         const fileText =
           typeof body.content === 'string' && body.content.trim()
             ? body.content
@@ -1245,6 +1306,8 @@ export class DashboardService {
           dryRun: Boolean(dryRun),
           ipAddress: req.ip ?? '127.0.0.1',
           format,
+          contactGroupIds: Array.isArray(contactGroupIds) ? contactGroupIds : undefined,
+          mapGruposToSegments: mapGruposToSegments === true,
         });
         res.json({
           success: true,
@@ -1496,6 +1559,101 @@ export class DashboardService {
         }
         await doc.deleteOne();
         res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/destinations/bulk', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          action?: 'delete' | 'addToGroups' | 'removeFromGroups';
+          destinationIds?: string[];
+          groupIds?: string[];
+        };
+        const action = body.action ?? 'delete';
+        const destIds = (body.destinationIds ?? [])
+          .filter(Boolean)
+          .map(id => new mongoose.Types.ObjectId(id));
+        if (destIds.length === 0) {
+          return res.status(400).json({ error: 'Informe destinationIds' });
+        }
+
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const canClearRefusal = auth.capabilities.includes(Cap.CONSENT_CLEAR_REFUSAL);
+
+        if (action === 'delete') {
+          const destinations = await Destination.find({
+            _id: { $in: destIds },
+            clientId: clientOid,
+          });
+          const toDelete: typeof destinations = [];
+          const skipped: Array<{ id: string; name: string; reason: string }> = [];
+
+          for (const dest of destinations) {
+            if (dest.type === 'contact') {
+              const st =
+                dest.consentStatus ??
+                (dest.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING);
+              if (isBlockedStatus(st) && !canClearRefusal) {
+                skipped.push({
+                  id: dest._id.toString(),
+                  name: dest.name,
+                  reason: 'recusa registrada — apenas o dono pode remover',
+                });
+                continue;
+              }
+            }
+            toDelete.push(dest);
+          }
+
+          if (toDelete.length > 0) {
+            await Destination.deleteMany({ _id: { $in: toDelete.map(d => d._id) } });
+          }
+
+          return res.json({
+            ok: true,
+            deleted: toDelete.length,
+            skipped: skipped.length,
+            skippedDetails: skipped,
+          });
+        }
+
+        if (action === 'addToGroups' || action === 'removeFromGroups') {
+          const groupIds = (body.groupIds ?? [])
+            .filter(Boolean)
+            .map(id => new mongoose.Types.ObjectId(id));
+          if (groupIds.length === 0) {
+            return res.status(400).json({ error: 'Informe groupIds' });
+          }
+
+          const groups = await ContactGroup.find({
+            _id: { $in: groupIds },
+            clientId: clientOid,
+          });
+          if (groups.length !== groupIds.length) {
+            return res.status(404).json({ error: 'Um ou mais grupos não encontrados' });
+          }
+
+          const filter = { clientId: clientOid, _id: { $in: destIds }, type: 'contact' as const };
+          if (action === 'addToGroups') {
+            await Destination.updateMany(filter, {
+              $addToSet: { contactGroupIds: { $each: groupIds } },
+            });
+          } else {
+            for (const gid of groupIds) {
+              await Destination.updateMany(
+                { clientId: clientOid, _id: { $in: destIds } },
+                { $pull: { contactGroupIds: gid } },
+              );
+            }
+          }
+
+          return res.json({ ok: true, affected: destIds.length, groups: groups.length });
+        }
+
+        return res.status(400).json({ error: 'Ação inválida' });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -2631,6 +2789,145 @@ export class DashboardService {
       }
     });
 
+    // ── Status WhatsApp (stories) ───────────────────────────────────────────
+    r.get('/status-posts/audience-preview', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const audience = (req.query.audience as string) || 'whatsapp';
+        if (!['whatsapp', 'all_contacts', 'consented'].includes(audience)) {
+          return res.status(400).json({ error: 'Audiência inválida' });
+        }
+        const wa = WhatsAppService.getInstance();
+        if (!wa.isClientConnected(auth.clientId)) {
+          return res.status(409).json({
+            error: 'WhatsApp não conectado',
+            count: 0,
+          });
+        }
+        const preview = await wa.previewStatusAudience(
+          auth.clientId,
+          audience as 'whatsapp' | 'all_contacts' | 'consented',
+        );
+        res.json({
+          ...preview,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/status-posts', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
+        const posts = await StatusPost.find({ clientId: clientOid })
+          .sort({ scheduledFor: -1 })
+          .limit(100)
+          .lean();
+        res.json(
+          posts.map(p => {
+            const { image: _img, ...rest } = p;
+            return {
+              ...rest,
+              hasImage: Boolean(_img),
+            };
+          }),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/status-posts', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          title?: string;
+          type?: 'text' | 'image';
+          text?: string;
+          image?: string;
+          caption?: string;
+          backgroundColor?: string;
+          font?: number;
+          audience?: 'whatsapp' | 'all_contacts' | 'consented';
+          sendAt?: string | null;
+        };
+
+        const titleCheck = validateCampaignTitle(body.title);
+        if (titleCheck.ok === false) return res.status(400).json({ error: titleCheck.error });
+
+        if (body.type !== 'text' && body.type !== 'image') {
+          return res.status(400).json({ error: 'Tipo inválido — use text ou image' });
+        }
+
+        if (body.type === 'text') {
+          const text = (body.text ?? '').trim();
+          if (!text) return res.status(400).json({ error: 'Informe o texto do status' });
+          if (text.length > 700) {
+            return res.status(400).json({ error: 'Texto do status: máximo 700 caracteres' });
+          }
+        } else if (!body.image?.trim()) {
+          return res.status(400).json({ error: 'Selecione uma imagem para o status' });
+        }
+
+        const wa = WhatsAppService.getInstance();
+        const sendAtCheck = validateOptionalCampaignSendAt(body.sendAt ?? undefined);
+        if (sendAtCheck.ok === false) return res.status(400).json({ error: sendAtCheck.error });
+
+        const immediate = !sendAtCheck.date;
+        if (immediate && !wa.isClientConnected(auth.clientId)) {
+          return res.status(409).json({
+            error: 'WhatsApp não conectado. Conecte em Sessões ou agende para mais tarde.',
+          });
+        }
+
+        const post = await StatusDispatchService.getInstance().createStatusPost({
+          clientId: auth.clientId,
+          title: body.title!.trim(),
+          type: body.type,
+          text: body.text,
+          image: body.image,
+          caption: body.caption,
+          backgroundColor: body.backgroundColor,
+          font: body.font,
+          audience: body.audience ?? 'whatsapp',
+          sendAt: sendAtCheck.date,
+        });
+
+        if (immediate) {
+          StatusDispatchService.getInstance().queueImmediateDispatch(String(post._id));
+        }
+
+        res.json({
+          ok: true,
+          _id: post._id,
+          status: post.status,
+          queued: immediate,
+          scheduledFor: post.scheduledFor,
+          statusJidCount: post.statusJidCount,
+          lastError: post.lastError,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/status-posts/:id', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const ok = await StatusDispatchService.getInstance().cancelStatusPost(
+          auth.clientId,
+          req.params.id,
+        );
+        if (!ok) {
+          return res.status(404).json({ error: 'Agendamento não encontrado ou já processado' });
+        }
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     // ── Integrações (API keys, webhooks, docs) ─────────────────────────────
     r.get('/integrations/openapi', requireCapability(Cap.API_LOGS_VIEW), (_req, res) => {
       res.json(OPENAPI_DASHBOARD);
@@ -2966,7 +3263,7 @@ export class DashboardService {
       if (tooLarge) {
         return res.status(413).json({
           error:
-            'Arquivo muito grande. O limite é 16 MB por importação (até ~5000 contatos em VCF/CSV).',
+            'Arquivo muito grande. O limite é 16 MB por requisição (imagem de status ou importação CSV/VCF).',
         });
       }
       next(err);

@@ -1,5 +1,5 @@
-export function avatarLabel(name: string) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1f2937&color=4ade80&size=48&bold=true`
+export function avatarLabel(name: string, size = 48) {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1f2937&color=4ade80&size=${size}&bold=true`
 }
 
 /** BR móvel: 55 + DDD + 9 dígitos (13 no total). */

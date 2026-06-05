@@ -168,8 +168,8 @@ export default function Queue({ scope = 'all' }: Props) {
 
         <p className="text-xs text-gray-600 mt-6">
           Histórico completo de automações:{' '}
-          <Link to="/send/agendamentos" className="text-brand-400 hover:underline">
-            Agendamentos de automação
+          <Link to="/send/autoagendamentos" className="text-brand-400 hover:underline">
+            Agend. automação
           </Link>
         </p>
       </PlatformPage>

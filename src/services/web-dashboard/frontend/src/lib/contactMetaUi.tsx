@@ -32,8 +32,14 @@ function phoneTypeLabel(t?: string): string | null {
   return PHONE_TYPE_LABELS[t] ?? t
 }
 
-/** Metadados extras do contato (import VCF/CSV ou edição futura) */
-export function ContactExtraMeta({ c }: { c: ContactExtraFields }) {
+/** Metadados extras do contato (import VCF/CSV ou edição) */
+export function ContactExtraMeta({
+  c,
+  compact = false,
+}: {
+  c: ContactExtraFields
+  compact?: boolean
+}) {
   const has =
     c.organization ||
     c.email ||
@@ -48,6 +54,46 @@ export function ContactExtraMeta({ c }: { c: ContactExtraFields }) {
   const typeLabel = phoneTypeLabel(c.phoneType)
   const notesShort =
     c.notes && c.notes.length > 80 ? `${c.notes.slice(0, 77)}…` : c.notes
+
+  if (compact) {
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+        {typeLabel && (
+          <span
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] ${
+              c.phoneType === 'whatsapp'
+                ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
+                : 'bg-gray-800/80 text-gray-400 border border-gray-700'
+            }`}
+          >
+            {c.phoneType === 'whatsapp' && <MessageCircle size={10} />}
+            {typeLabel}
+          </span>
+        )}
+        {c.organization && (
+          <span className="truncate max-w-[140px]" title={c.organization}>
+            {c.organization}
+          </span>
+        )}
+        {c.email && (
+          <span className="truncate max-w-[160px] text-gray-600" title={c.email}>
+            {c.email}
+          </span>
+        )}
+        {c.birthday && (
+          <span className="text-gray-600">Aniv. {formatBirthdayDisplay(c.birthday)}</span>
+        )}
+        {c.secondaryPhone && (
+          <span className="font-mono text-gray-600">{formatPhone(c.secondaryPhone)}</span>
+        )}
+        {notesShort && (
+          <span className="text-gray-600 italic truncate max-w-[200px]" title={c.notes}>
+            {notesShort}
+          </span>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="mt-1.5 space-y-1 text-[11px] text-gray-500">
