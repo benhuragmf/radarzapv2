@@ -45,10 +45,12 @@ export default function Destinations() {
   const [searchParams] = useSearchParams()
   const consentFilter = searchParams.get('consent') as
     | 'pending'
+    | 'waiting'
     | 'accepted'
     | 'refused'
     | 'blocked'
     | null
+  const isWaitingView = consentFilter === 'waiting'
   const isDiscord = pathname.startsWith('/discord/contact')
   const basePath = isDiscord ? '/discord/contact' : '/contact'
   const { guildName } = useGuild()
@@ -310,6 +312,7 @@ export default function Destinations() {
   })
 
   function matchesConsentFilter(d: Destination): boolean {
+    if (isWaitingView) return false
     if (!consentFilter) return true
     const st = effectiveConsentStatus(
       d.consentStatus as ConsentStatus | undefined,
@@ -326,6 +329,7 @@ export default function Destinations() {
 
   const consentFilterLabel: Record<string, string> = {
     pending: 'Pendentes',
+    waiting: 'Aguardando aprovação',
     accepted: 'Aceitos',
     refused: 'Recusados',
     blocked: 'Bloqueados manualmente',
@@ -630,7 +634,7 @@ export default function Destinations() {
         )}
       </div>
 
-      {canApproveRenewal && renewals.length > 0 && (
+      {canApproveRenewal && renewals.length > 0 && !isWaitingView && (
         <Card className="border-amber-700/40 bg-amber-950/20">
           <p className="text-sm font-medium text-amber-400 mb-2">
             Solicitações de novo aceite ({renewals.length})
@@ -673,6 +677,59 @@ export default function Destinations() {
         </Card>
       )}
 
+      {isWaitingView && (
+        <Card className="border-amber-700/40 bg-amber-950/20">
+          <p className="text-sm font-medium text-amber-400 mb-2">
+            Solicitações de novo aceite ({renewals.length})
+          </p>
+          <p className="text-xs text-gray-500 mb-3">
+            Quem tem permissão de aprovar solicitações pode liberar contatos que recusaram. Recusa
+            definitiva (3x) não pode ser liberada. Cada contato pode receber até 2 liberações — na
+            3ª recusa não há novo aceite.
+          </p>
+          {!canApproveRenewal ? (
+            <p className="text-sm text-gray-500">Você não tem permissão para aprovar solicitações.</p>
+          ) : renewals.length === 0 ? (
+            <p className="text-sm text-gray-500">Nenhuma solicitação pendente no momento.</p>
+          ) : (
+            <div className="space-y-2">
+              {renewals.map(r => (
+                <div
+                  key={r._id}
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 px-3 rounded-lg bg-gray-900/60 border border-gray-800"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{r.contactName}</p>
+                    <p className="text-xs text-gray-500 font-mono">{r.phone}</p>
+                    <p className="text-[11px] text-gray-600">
+                      Status: {r.previousStatus} · por {r.requestedByUsername} ·{' '}
+                      {new Date(r.createdAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={approveRenewal.isPending || r.previousStatus === 'REFUSED_THREE'}
+                    onClick={() => {
+                      if (r.previousStatus === 'REFUSED_THREE') {
+                        alert(
+                          'Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte RadarZap.',
+                        )
+                        return
+                      }
+                      if (window.confirm(`Aprovar novo aceite para ${r.contactName}?`)) {
+                        approveRenewal.mutate(r._id)
+                      }
+                    }}
+                  >
+                    Aprovar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       {atDestLimit && (
         <p className="text-xs text-amber-500/90">
           Limite de destinos do plano ({destLimit}) atingido. Remova um destino ou faça upgrade em Planos.
@@ -683,7 +740,7 @@ export default function Destinations() {
         <div className="flex justify-center py-16">
           <Spinner size={32} />
         </div>
-      ) : allContacts.length === 0 ? (
+      ) : isWaitingView ? null : allContacts.length === 0 ? (
         <Card className="text-center py-12 text-gray-500">
           <Phone size={32} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium text-gray-400">Nenhum contato cadastrado</p>

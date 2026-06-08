@@ -5,7 +5,7 @@ import { OrganizationService } from '@/services/organization/OrganizationService
 import { AuthContext, GuildAccess, UserOrganizationSummary } from './types';
 import { SystemRole, GuildRole, UserRole, guildRoleToUserRole, CompanyRole } from './roles';
 import { Capability } from './capabilities';
-import { parseOrgRoleCapabilities } from './companyRolePresets';
+import { parseOrgRoleCapabilities, findCustomRoleCapabilities } from './companyRolePresets';
 import { buildCapabilities, resolvePrimaryRole } from './can';
 import { resolveSystemRole } from './GuildMembershipSync';
 import { CompanyMember } from '@/models/CompanyMember';
@@ -77,6 +77,10 @@ export async function buildAuthContext(params: {
 
   const plan = org?.plan ?? user.plan;
   const orgRoleCapabilities = parseOrgRoleCapabilities(org?.roleCapabilities);
+  const customRoleCaps = findCustomRoleCapabilities(
+    member?.customRoleId,
+    (org?.customRoles ?? []) as Parameters<typeof findCustomRoleCapabilities>[1],
+  );
   const primaryRole = resolvePrimaryRole(systemRole, guilds);
   const capabilities = needsOrganizationChoice
     ? []
@@ -89,6 +93,7 @@ export async function buildAuthContext(params: {
         {
           extra: (member?.extraCapabilities ?? []) as Capability[],
           denied: (member?.deniedCapabilities ?? []) as Capability[],
+          customRoleCapabilities: customRoleCaps ?? undefined,
         },
         orgRoleCapabilities,
       );

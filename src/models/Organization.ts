@@ -20,6 +20,13 @@ export interface IOrganization extends Document {
   linkedGuildIds: string[];
   /** Permissões por papel definidas pelo dono (sobrescreve presets globais) */
   roleCapabilities?: Partial<Record<string, string[]>>;
+  /** Papéis personalizados nomeados (quantos o cliente quiser) */
+  customRoles?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    capabilities: string[];
+  }>;
   phone?: string;
   email?: string;
   website?: string;
@@ -65,6 +72,17 @@ const OrganizationSchema = new Schema<IOrganization>({
   },
   linkedGuildIds: { type: [String], default: [], index: true },
   roleCapabilities: { type: Schema.Types.Mixed, default: {} },
+  customRoles: {
+    type: [
+      {
+        id: { type: String, required: true },
+        name: { type: String, required: true, maxlength: 80 },
+        description: { type: String, maxlength: 300 },
+        capabilities: { type: [String], default: [] },
+      },
+    ],
+    default: [],
+  },
   phone: { type: String, trim: true, maxlength: 32 },
   email: { type: String, trim: true, maxlength: 120 },
   website: { type: String, trim: true, maxlength: 200 },

@@ -6,11 +6,20 @@ import { CompanyRole } from '@/auth/rbac/roles';
 import { Cap, type Capability } from '@/auth/rbac/capabilities';
 import {
   assignableCapabilitiesForOrg,
+  buildAllPresetsForOrg,
   buildPresetsForOrg,
   INVITEABLE_ROLES,
   parseOrgRoleCapabilities,
   resolveMemberCapabilities,
 } from '@/auth/rbac/companyRolePresets';
+import {
+  customRoleIdFromKey,
+  customRoleKey,
+  defaultOrgCustomRoles,
+  isCustomRoleKey,
+  OrgCustomRole,
+} from '@/types/org-custom-role';
+import crypto from 'crypto';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('OrganizationService');
@@ -398,14 +407,31 @@ export class OrganizationService {
     return assignableCapabilitiesForOrg(hasDiscordIntegration);
   }
 
+  async ensureOrgCustomRoles(org: IOrganization): Promise<OrgCustomRole[]> {
+    const existing = (org.customRoles ?? []) as OrgCustomRole[];
+    if (existing.length > 0) return existing;
+
+    const defaults = defaultOrgCustomRoles();
+    org.customRoles = defaults;
+    org.markModified('customRoles');
+    await org.save();
+    return defaults;
+  }
+
   async getOrgRolePresets(organizationId: string) {
-    const org = await Organization.findById(organizationId).select('linkedGuildIds roleCapabilities').lean();
-    const hasDiscordIntegration = (org?.linkedGuildIds?.length ?? 0) > 0;
-    const orgRoleCapabilities = parseOrgRoleCapabilities(org?.roleCapabilities);
+    const org = await Organization.findById(organizationId).select(
+      'linkedGuildIds roleCapabilities customRoles',
+    );
+    if (!org) throw new Error('Organização não encontrada');
+
+    const customRoles = await this.ensureOrgCustomRoles(org);
+    const hasDiscordIntegration = (org.linkedGuildIds?.length ?? 0) > 0;
+    const orgRoleCapabilities = parseOrgRoleCapabilities(org.roleCapabilities);
     return {
-      presets: buildPresetsForOrg(orgRoleCapabilities),
+      presets: buildAllPresetsForOrg(orgRoleCapabilities, customRoles),
       hasDiscordIntegration,
       orgRoleCapabilities,
+      customRoles,
     };
   }
 
@@ -462,10 +488,125 @@ export class OrganizationService {
     await org.save();
   }
 
+  async createCustomRole(
+    organizationId: string,
+    requesterRole: CompanyRole,
+    data: { name: string; description?: string; capabilities?: Capability[] },
+  ): Promise<OrgCustomRole> {
+    if (requesterRole !== CompanyRole.OWNER) {
+      throw new Error('Apenas o dono pode criar papéis personalizados');
+    }
+    const name = data.name?.trim();
+    if (!name) throw new Error('Nome do papel é obrigatório');
+
+    const org = await Organization.findById(organizationId);
+    if (!org) throw new Error('Organização não encontrada');
+
+    const assignable = new Set(await this.assignableCapabilitiesForOrg(organizationId));
+    const capabilities = (data.capabilities ?? []).filter(c => assignable.has(c));
+
+    const role: OrgCustomRole = {
+      id: crypto.randomUUID(),
+      name,
+      description: data.description?.trim() || undefined,
+      capabilities,
+    };
+
+    const roles = [...((org.customRoles ?? []) as OrgCustomRole[]), role];
+    org.customRoles = roles;
+    org.markModified('customRoles');
+    await org.save();
+    return role;
+  }
+
+  async updateCustomRole(
+    organizationId: string,
+    roleId: string,
+    requesterRole: CompanyRole,
+    data: { name?: string; description?: string; capabilities?: Capability[] },
+  ): Promise<OrgCustomRole> {
+    if (requesterRole !== CompanyRole.OWNER) {
+      throw new Error('Apenas o dono pode editar papéis personalizados');
+    }
+
+    const org = await Organization.findById(organizationId);
+    if (!org) throw new Error('Organização não encontrada');
+
+    const roles = [...((org.customRoles ?? []) as OrgCustomRole[])];
+    const idx = roles.findIndex(r => r.id === roleId);
+    if (idx < 0) throw new Error('Papel personalizado não encontrado');
+
+    if (data.name?.trim()) roles[idx].name = data.name.trim();
+    if (data.description !== undefined) {
+      roles[idx].description = data.description.trim() || undefined;
+    }
+    if (data.capabilities) {
+      const assignable = new Set(await this.assignableCapabilitiesForOrg(organizationId));
+      roles[idx].capabilities = data.capabilities.filter(c => assignable.has(c));
+    }
+
+    org.customRoles = roles;
+    org.markModified('customRoles');
+    await org.save();
+    return roles[idx];
+  }
+
+  async deleteCustomRole(
+    organizationId: string,
+    roleId: string,
+    requesterRole: CompanyRole,
+  ): Promise<void> {
+    if (requesterRole !== CompanyRole.OWNER) {
+      throw new Error('Apenas o dono pode excluir papéis personalizados');
+    }
+
+    const inUse = await CompanyMember.countDocuments({
+      organizationId,
+      isActive: true,
+      customRoleId: roleId,
+    });
+    if (inUse > 0) {
+      throw new Error('Este papel está em uso — altere os membros antes de excluir');
+    }
+
+    const org = await Organization.findById(organizationId);
+    if (!org) throw new Error('Organização não encontrada');
+
+    const roles = ((org.customRoles ?? []) as OrgCustomRole[]).filter(r => r.id !== roleId);
+    org.customRoles = roles;
+    org.markModified('customRoles');
+    await org.save();
+  }
+
+  private parseMemberRoleSelection(roleKey: string): {
+    companyRole: CompanyRole;
+    customRoleId?: string;
+  } {
+    const customId = customRoleIdFromKey(roleKey);
+    if (customId) {
+      return { companyRole: CompanyRole.CUSTOM, customRoleId: customId };
+    }
+    if (!INVITEABLE_ROLES.includes(roleKey as CompanyRole)) {
+      throw new Error('Papel inválido');
+    }
+    return { companyRole: roleKey as CompanyRole, customRoleId: undefined };
+  }
+
+  private async assertCustomRoleExists(orgId: string, customRoleId: string): Promise<void> {
+    const org = await Organization.findById(orgId).select('customRoles').lean();
+    const roles = (org?.customRoles ?? []) as OrgCustomRole[];
+    if (!roles.some(r => r.id === customRoleId)) {
+      throw new Error('Papel personalizado não encontrado');
+    }
+  }
+
   async listMembersEnriched(organizationId: string) {
     const members = await this.listMembers(organizationId);
-    const org = await Organization.findById(organizationId).select('roleCapabilities').lean();
+    const org = await Organization.findById(organizationId)
+      .select('roleCapabilities customRoles')
+      .lean();
     const orgRoleCapabilities = parseOrgRoleCapabilities(org?.roleCapabilities);
+    const customRoles = (org?.customRoles ?? []) as OrgCustomRole[];
     const userIds = members.map(m => m.userId).filter(Boolean) as mongoose.Types.ObjectId[];
     const users = await User.find({ _id: { $in: userIds } }).select('email displayName').lean();
     const userMap = new Map(users.map(u => [String(u._id), u]));
@@ -484,13 +625,20 @@ export class OrganizationService {
         (m.extraCapabilities ?? []) as Capability[],
         (m.deniedCapabilities ?? []) as Capability[],
         orgRoleCapabilities,
+        m.customRoleId
+          ? customRoles.find(r => r.id === m.customRoleId)?.capabilities ?? null
+          : null,
       );
+      const customRoleName = m.customRoleId
+        ? customRoles.find(r => r.id === m.customRoleId)?.name
+        : undefined;
       return {
         ...m.toObject(),
         displayEmail: displayEmail ?? '—',
         resolvedEmail,
         linked: Boolean(m.userId),
         effectiveCapabilities,
+        customRoleName,
       };
     });
   }
@@ -501,7 +649,9 @@ export class OrganizationService {
     requesterRole: CompanyRole,
     patch: {
       companyRole?: CompanyRole;
+      customRoleId?: string | null;
       whatsappPhone?: string | null;
+      roleKey?: string;
     },
   ): Promise<ICompanyMember> {
     const member = await CompanyMember.findOne({ _id: memberId, organizationId, isActive: true });
@@ -510,7 +660,17 @@ export class OrganizationService {
       throw new Error('Não é possível alterar o dono da empresa');
     }
 
-    if (patch.companyRole !== undefined) {
+    if (patch.roleKey !== undefined) {
+      const parsed = this.parseMemberRoleSelection(patch.roleKey);
+      if (parsed.companyRole === CompanyRole.ADMIN && requesterRole !== CompanyRole.OWNER) {
+        throw new Error('Apenas o dono pode promover a administrador');
+      }
+      if (parsed.customRoleId) {
+        await this.assertCustomRoleExists(organizationId, parsed.customRoleId);
+      }
+      member.companyRole = parsed.companyRole;
+      member.customRoleId = parsed.customRoleId;
+    } else if (patch.companyRole !== undefined) {
       if (!INVITEABLE_ROLES.includes(patch.companyRole)) {
         throw new Error('Papel inválido');
       }
@@ -518,6 +678,14 @@ export class OrganizationService {
         throw new Error('Apenas o dono pode promover a administrador');
       }
       member.companyRole = patch.companyRole;
+      if (patch.customRoleId === null) member.customRoleId = undefined;
+      else if (patch.customRoleId) {
+        await this.assertCustomRoleExists(organizationId, patch.customRoleId);
+        member.customRoleId = patch.customRoleId;
+        member.companyRole = CompanyRole.CUSTOM;
+      } else if (patch.companyRole !== CompanyRole.CUSTOM) {
+        member.customRoleId = undefined;
+      }
     }
 
     if (patch.whatsappPhone !== undefined) {
@@ -634,12 +802,13 @@ export class OrganizationService {
   async inviteMember(
     organizationId: string,
     email: string,
-    role: CompanyRole,
+    roleKey: string,
     invitedByUserId: string,
     options?: { extraCapabilities?: Capability[]; deniedCapabilities?: Capability[] },
   ): Promise<ICompanyMember> {
-    if (!INVITEABLE_ROLES.includes(role)) {
-      throw new Error('Papel inválido para convite');
+    const { companyRole: role, customRoleId } = this.parseMemberRoleSelection(roleKey);
+    if (customRoleId) {
+      await this.assertCustomRoleExists(organizationId, customRoleId);
     }
     const normalized = email.trim().toLowerCase();
 
@@ -669,6 +838,7 @@ export class OrganizationService {
       }
       existing.isActive = true;
       existing.companyRole = role;
+      existing.customRoleId = customRoleId;
       existing.extraCapabilities = options?.extraCapabilities ?? [];
       existing.deniedCapabilities = options?.deniedCapabilities ?? [];
       existing.invitedByUserId = new mongoose.Types.ObjectId(invitedByUserId);
@@ -684,6 +854,7 @@ export class OrganizationService {
         userId: user?._id,
         email: normalized,
         companyRole: role,
+        customRoleId,
         extraCapabilities: options?.extraCapabilities ?? [],
         deniedCapabilities: options?.deniedCapabilities ?? [],
         invitedByUserId: new mongoose.Types.ObjectId(invitedByUserId),

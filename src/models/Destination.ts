@@ -23,6 +23,8 @@ export interface IDestination extends Document {
   /** Fluxo opt-in WhatsApp (somente contatos) */
   consentStatus: ConsentStatus;
   pendingOutboundCount: number;
+  /** Quantas vezes o dono/admin aprovou novo aceite (máx. 2 — na 3ª recusa é definitivo) */
+  consentRenewalApprovals: number;
   lastConsentPromptAt?: Date;
   /** Aguardando 2ª mensagem para confirmar opt-out (sair) */
   optOutConfirmPendingAt?: Date;
@@ -157,6 +159,13 @@ const DestinationSchema = new Schema<IDestination>({
     type: Number,
     default: 0,
     min: 0,
+  },
+
+  consentRenewalApprovals: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 2,
   },
 
   lastConsentPromptAt: Date,

@@ -36,7 +36,7 @@ export default function Settings({ user, onUserUpdate }: Props) {
   }, [hash])
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 w-full max-w-4xl">
       <section id="empresa">
         <h2 className="text-lg font-semibold mb-3">Dados da empresa</h2>
         <Card>

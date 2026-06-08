@@ -124,10 +124,13 @@ export class ConsentService {
     } else if (newStatus.startsWith('REFUSED')) {
       dest.consent.granted = false;
       dest.isActive = true;
-    } else     if (newStatus === ConsentStatus.PENDING) {
+    } else if (newStatus === ConsentStatus.PENDING) {
       dest.consent.granted = false;
       dest.isActive = true;
-      dest.pendingOutboundCount = 0;
+      if (origin !== 'owner-approve-renewal' && origin !== 'owner-reset') {
+        dest.pendingOutboundCount = 0;
+        dest.consentRenewalApprovals = 0;
+      }
     }
 
     dest.optOutConfirmPendingAt = undefined;
@@ -496,6 +499,15 @@ export class ConsentService {
       throw new Error('Recusa definitiva (3x) — não pode ser liberada pelo dono.');
     }
 
+    const prevApprovals = dest.consentRenewalApprovals ?? 0;
+    if (prevApprovals >= 2) {
+      throw new Error('Limite de 2 liberações atingido — na 3ª recusa não há novo aceite.');
+    }
+
+    const nextApprovals = prevApprovals + 1;
+    dest.consentRenewalApprovals = nextApprovals;
+    dest.pendingOutboundCount = nextApprovals;
+
     await this.applyStatus(dest, ConsentStatus.PENDING, 'owner-approve-renewal', {
       requestedByUserId: owner.userId,
       requestedByUsername: owner.username,
@@ -527,6 +539,8 @@ export class ConsentService {
       throw new Error('Este contato não está em status de recusa liberável.');
     }
 
+    dest.consentRenewalApprovals = 0;
+    dest.pendingOutboundCount = 0;
     await this.applyStatus(dest, ConsentStatus.PENDING, 'owner-reset', {
       requestedByUserId: owner.userId,
       requestedByUsername: owner.username,

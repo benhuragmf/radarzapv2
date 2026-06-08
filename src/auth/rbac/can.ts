@@ -82,7 +82,7 @@ export function buildCapabilities(
   guilds: GuildAccess[],
   plan: string,
   linkedGuildIds: string[],
-  memberOverrides?: { extra?: Capability[]; denied?: Capability[] },
+  memberOverrides?: { extra?: Capability[]; denied?: Capability[]; customRoleCapabilities?: Capability[] },
   orgRoleCapabilities?: OrgRoleCapabilities,
 ): Capability[] {
   const capSet = new Set<Capability>();
@@ -94,8 +94,14 @@ export function buildCapabilities(
   }
 
   if (companyRole) {
-    for (const c of effectiveCapabilitiesForRole(companyRole, orgRoleCapabilities)) {
-      capSet.add(c);
+    if (memberOverrides?.customRoleCapabilities?.length) {
+      for (const c of memberOverrides.customRoleCapabilities) {
+        capSet.add(c);
+      }
+    } else {
+      for (const c of effectiveCapabilitiesForRole(companyRole, orgRoleCapabilities)) {
+        capSet.add(c);
+      }
     }
     for (const c of memberOverrides?.extra ?? []) {
       capSet.add(c);

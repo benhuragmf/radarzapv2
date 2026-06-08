@@ -31,7 +31,7 @@ export default function Header({ user, onLogout, onUserUpdate }: Props) {
   }
 
   return (
-    <header className="h-14 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-6">
+    <header className="h-14 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 sm:px-6">
       <h1 className="font-semibold text-base">{title}</h1>
 
       <div className="flex items-center gap-4">

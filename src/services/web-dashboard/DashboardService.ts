@@ -2921,25 +2921,78 @@ export class DashboardService {
       }
     });
 
+    r.post('/team/custom-roles', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, description, capabilities } = req.body as {
+          name?: string;
+          description?: string;
+          capabilities?: Capability[];
+        };
+        const role = await OrganizationService.getInstance().createCustomRole(
+          auth.organizationId,
+          auth.companyRole!,
+          { name: name ?? '', description, capabilities },
+        );
+        res.status(201).json(role);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/team/custom-roles/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, description, capabilities } = req.body as {
+          name?: string;
+          description?: string;
+          capabilities?: Capability[];
+        };
+        const role = await OrganizationService.getInstance().updateCustomRole(
+          auth.organizationId,
+          req.params.id,
+          auth.companyRole!,
+          { name, description, capabilities },
+        );
+        res.json(role);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/team/custom-roles/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await OrganizationService.getInstance().deleteCustomRole(
+          auth.organizationId,
+          req.params.id,
+          auth.companyRole!,
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     r.post('/team/members', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { email, role, capabilities } = req.body as {
+        const { email, role, roleKey, capabilities } = req.body as {
           email?: string;
           role?: CompanyRole;
+          roleKey?: string;
           capabilities?: Capability[];
         };
         if (!email?.trim()) return res.status(400).json({ error: 'E-mail obrigatório' });
-        if (!role || !INVITEABLE_ROLES.includes(role)) {
-          return res.status(400).json({ error: 'Papel inválido' });
-        }
-        if (role === CompanyRole.ADMIN && auth.companyRole !== CompanyRole.OWNER) {
+        const selectedRole = roleKey ?? role;
+        if (!selectedRole) return res.status(400).json({ error: 'Papel inválido' });
+        if (selectedRole === CompanyRole.ADMIN && auth.companyRole !== CompanyRole.OWNER) {
           return res.status(403).json({ error: 'Apenas o dono pode convidar administrador' });
         }
         const member = await OrganizationService.getInstance().inviteMember(
           auth.organizationId,
           email.trim(),
-          role,
+          selectedRole,
           auth.userId,
         );
         res.json(member);
@@ -2951,7 +3004,11 @@ export class DashboardService {
     r.patch('/team/members/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { role, whatsappPhone } = req.body as { role?: CompanyRole; whatsappPhone?: string | null };
+        const { role, roleKey, whatsappPhone } = req.body as {
+          role?: CompanyRole;
+          roleKey?: string;
+          whatsappPhone?: string | null;
+        };
         if (!auth.companyRole) {
           return res.status(403).json({ error: 'Sem permissão' });
         }
@@ -2959,7 +3016,7 @@ export class DashboardService {
           auth.organizationId,
           req.params.id,
           auth.companyRole,
-          { companyRole: role, whatsappPhone },
+          { roleKey: roleKey ?? role, whatsappPhone },
         );
         res.json(member);
       } catch (e) {

@@ -1,6 +1,7 @@
 import { Cap, Capability, capabilitiesForCompanyRole } from './capabilities';
 
 import { CompanyRole } from './roles';
+import { customRoleKey, OrgCustomRole } from '@/types/org-custom-role';
 
 
 
@@ -348,7 +349,7 @@ export function assignableCapabilitiesForOrg(hasDiscordIntegration: boolean): Ca
 
 export interface CompanyRolePreset {
 
-  role: CompanyRole;
+  role: string;
 
   label: string;
 
@@ -359,6 +360,10 @@ export interface CompanyRolePreset {
   capabilities: Capability[];
 
   customized?: boolean;
+
+  isCustom?: boolean;
+
+  customRoleId?: string;
 
 }
 
@@ -444,7 +449,7 @@ export const COMPANY_ROLE_PRESETS: CompanyRolePreset[] = [
 
     description: 'Acesso definido pelo dono — marque cada aba e permissão manualmente.',
 
-    inviteable: true,
+    inviteable: false,
 
     capabilities: capabilitiesForCompanyRole(CompanyRole.CUSTOM),
 
@@ -518,11 +523,69 @@ export function buildPresetsForOrg(
 
     ...preset,
 
-    capabilities: effectiveCapabilitiesForRole(preset.role, orgRoleCapabilities),
+    role: preset.role as string,
+
+    capabilities: effectiveCapabilitiesForRole(preset.role as CompanyRole, orgRoleCapabilities),
 
     customized: Object.prototype.hasOwnProperty.call(orgRoleCapabilities ?? {}, preset.role),
 
   }));
+
+}
+
+
+
+export function buildAllPresetsForOrg(
+
+  orgRoleCapabilities?: OrgRoleCapabilities,
+
+  customRoles: OrgCustomRole[] = [],
+
+): CompanyRolePreset[] {
+
+  const system = buildPresetsForOrg(orgRoleCapabilities).filter(
+    p => p.role !== CompanyRole.CUSTOM,
+  );
+
+  const customPresets: CompanyRolePreset[] = customRoles.map(cr => ({
+
+    role: customRoleKey(cr.id),
+
+    label: cr.name,
+
+    description: cr.description ?? 'Papel personalizado da empresa',
+
+    inviteable: true,
+
+    capabilities: cr.capabilities,
+
+    customized: true,
+
+    isCustom: true,
+
+    customRoleId: cr.id,
+
+  }));
+
+  return [...system, ...customPresets];
+
+}
+
+
+
+export function findCustomRoleCapabilities(
+
+  customRoleId: string | undefined,
+
+  customRoles: OrgCustomRole[] = [],
+
+): Capability[] | null {
+
+  if (!customRoleId) return null;
+
+  const role = customRoles.find(r => r.id === customRoleId);
+
+  return role ? role.capabilities : null;
 
 }
 
@@ -538,7 +601,21 @@ export function resolveMemberCapabilities(
 
   orgRoleCapabilities?: OrgRoleCapabilities,
 
+  customRoleCapabilities?: Capability[] | null,
+
 ): Capability[] {
+
+  if (customRoleCapabilities?.length) {
+
+    const base = new Set(customRoleCapabilities);
+
+    for (const c of extra) base.add(c);
+
+    for (const c of denied) base.delete(c);
+
+    return [...base];
+
+  }
 
   const base = new Set(effectiveCapabilitiesForRole(role, orgRoleCapabilities));
 

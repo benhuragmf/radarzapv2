@@ -283,7 +283,7 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
   }, [pathname, hash, onModeChange])
 
   return (
-    <aside className="w-60 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
+    <aside className="w-full lg:w-60 lg:sticky lg:top-0 lg:h-screen bg-gray-900 border-b lg:border-b-0 lg:border-r border-gray-800 flex flex-col shrink-0 lg:overflow-y-auto lg:overscroll-contain">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-800">
         <Zap className="text-brand-500" size={22} />
         <div className="min-w-0">

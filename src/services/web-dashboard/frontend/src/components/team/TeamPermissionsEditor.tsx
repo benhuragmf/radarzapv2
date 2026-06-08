@@ -12,12 +12,14 @@ export interface PermissionGroup {
 }
 
 export interface RolePreset {
-  role: CompanyRole
+  role: string
   label: string
   description: string
   inviteable: boolean
   capabilities: string[]
   customized?: boolean
+  isCustom?: boolean
+  customRoleId?: string
 }
 
 const CAP_LABELS: Record<string, string> = {
@@ -293,11 +295,17 @@ function RolePermissionsAccordion({
 }
 
 interface MemberRoleModalProps {
-  member: { _id: string; displayEmail?: string; companyRole: CompanyRole; whatsappPhone?: string }
+  member: {
+    _id: string
+    displayEmail?: string
+    companyRole: CompanyRole
+    customRoleId?: string
+    whatsappPhone?: string
+  }
   presets: RolePreset[]
   isOwner: boolean
   onClose: () => void
-  onSave: (role: CompanyRole, whatsappPhone?: string) => Promise<void>
+  onSave: (roleKey: string, whatsappPhone?: string) => Promise<void>
 }
 
 export function TeamMemberRoleModal({
@@ -307,7 +315,10 @@ export function TeamMemberRoleModal({
   onClose,
   onSave,
 }: MemberRoleModalProps) {
-  const [role, setRole] = useState<CompanyRole>(member.companyRole)
+  const initialRoleKey = member.customRoleId
+    ? `custom:${member.customRoleId}`
+    : member.companyRole
+  const [role, setRole] = useState(initialRoleKey)
   const [whatsappPhone, setWhatsappPhone] = useState(member.whatsappPhone ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -338,7 +349,7 @@ export function TeamMemberRoleModal({
             <label className="text-xs text-gray-500 mb-1 block">Papel</label>
             <select
               value={role}
-              onChange={e => setRole(e.target.value as CompanyRole)}
+              onChange={e => setRole(e.currentTarget.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
             >
               {presets
@@ -390,10 +401,11 @@ interface RolesPanelProps {
   permissionGroups: PermissionGroup[]
   hasDiscordIntegration?: boolean
   canEdit: boolean
-  selectedRole: CompanyRole
-  onSelectRole: (role: CompanyRole) => void
-  onSave: (role: CompanyRole, capabilities: string[]) => Promise<void>
-  onReset: (role: CompanyRole) => Promise<void>
+  selectedRole: string
+  onSelectRole: (role: string) => void
+  onSave: (role: string, capabilities: string[]) => Promise<void>
+  onReset: (role: string) => Promise<void>
+  onCreateCustomRole?: () => Promise<void>
 }
 
 export function RolesSystemPanel({
@@ -405,6 +417,7 @@ export function RolesSystemPanel({
   onSelectRole,
   onSave,
   onReset,
+  onCreateCustomRole,
 }: RolesPanelProps) {
   const preset = presets.find(p => p.role === selectedRole) ?? presets[0]
   const [draftCaps, setDraftCaps] = useState<string[]>(preset?.capabilities ?? [])
@@ -439,7 +452,7 @@ export function RolesSystemPanel({
   const totalAvailable = allAssignable.length
   const progressPct = totalAvailable > 0 ? Math.round((totalActive / totalAvailable) * 100) : 0
 
-  const handleSelectRole = (role: CompanyRole) => {
+  const handleSelectRole = (role: string) => {
     if (role === selectedRole) return
     if (dirty && !window.confirm('Descartar alterações não salvas neste papel?')) return
     onSelectRole(role)
@@ -459,8 +472,11 @@ export function RolesSystemPanel({
   }
 
   const handleReset = async () => {
-    if (!preset?.inviteable) return
-    if (!window.confirm(`Restaurar "${preset.label}" para o padrão do sistema?`)) return
+    if (!preset || (!preset.inviteable && !preset.isCustom)) return
+    const msg = preset.isCustom
+      ? `Excluir o papel "${preset.label}"? Membros usando este papel precisam ser reatribuídos antes.`
+      : `Restaurar "${preset.label}" para o padrão do sistema?`
+    if (!window.confirm(msg)) return
     setSaving(true)
     setError(null)
     try {
@@ -475,11 +491,11 @@ export function RolesSystemPanel({
   if (!preset) return null
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden flex flex-col max-h-[calc(100vh-12rem)]">
+    <div className="rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden">
       {/* Seletor de papéis */}
-      <div className="p-4 border-b border-gray-800 bg-gray-950/40 shrink-0">
+      <div className="p-4 border-b border-gray-800 bg-gray-950/40">
         <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-2">Papel</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
           {presets.map(p => {
             const selected = p.role === selectedRole
             return (
@@ -493,13 +509,13 @@ export function RolesSystemPanel({
                     : 'border-gray-800 bg-gray-900/60 hover:border-gray-700 hover:bg-gray-800/50'
                 }`}
               >
-                <span className={`block text-xs font-medium truncate ${selected ? 'text-white' : 'text-gray-400'}`}>
+                <span className={`block text-xs font-medium truncate ${selected ? 'text-white' : 'text-gray-400'}`} title={p.label}>
                   {p.label}
                 </span>
                 <span className="block text-[10px] text-gray-600 mt-0.5">
                   {formatPermCount(p.capabilities.length)}
                 </span>
-                {p.customized && (
+                {(p.customized || p.isCustom) && (
                   <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
                 )}
                 {!p.inviteable && (
@@ -508,18 +524,27 @@ export function RolesSystemPanel({
               </button>
             )
           })}
+          {canEdit && onCreateCustomRole && (
+            <button
+              type="button"
+              onClick={() => void onCreateCustomRole()}
+              className="px-3 py-2.5 rounded-lg border border-dashed border-gray-700 text-gray-500 hover:border-brand-500/50 hover:text-brand-400 text-xs font-medium"
+            >
+              + Novo papel
+            </button>
+          )}
         </div>
       </div>
 
       {/* Cabeçalho do papel + ações */}
-      <div className="px-4 py-4 border-b border-gray-800/80 space-y-3 shrink-0">
+      <div className="px-4 py-4 border-b border-gray-800/80 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-semibold text-white">{preset.label}</h3>
-              {preset.customized && (
+              {(preset.customized || preset.isCustom) && (
                 <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  personalizado
+                  {preset.isCustom ? 'personalizado' : 'ajustado'}
                 </span>
               )}
             </div>
@@ -542,7 +567,7 @@ export function RolesSystemPanel({
               >
                 Bloquear tudo
               </button>
-              {preset.customized && (
+              {(preset.customized || preset.isCustom) && canEdit && (
                 <button
                   type="button"
                   onClick={handleReset}
@@ -550,7 +575,7 @@ export function RolesSystemPanel({
                   className="text-xs px-3 py-1.5 rounded-lg text-gray-400 border border-gray-700 hover:bg-gray-800 transition-colors inline-flex items-center gap-1"
                 >
                   <RotateCcw size={12} />
-                  Padrão
+                  {preset.isCustom ? 'Excluir' : 'Padrão'}
                 </button>
               )}
             </div>
@@ -575,7 +600,7 @@ export function RolesSystemPanel({
 
       {/* Busca + expandir */}
       {preset.inviteable && (
-        <div className="px-4 py-3 border-b border-gray-800/60 flex flex-col sm:flex-row gap-2 shrink-0 bg-gray-950/30">
+        <div className="px-4 py-3 border-b border-gray-800/60 flex flex-col sm:flex-row gap-2 bg-gray-950/30">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -615,8 +640,8 @@ export function RolesSystemPanel({
         </div>
       )}
 
-      {/* Permissões — área rolável */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* Permissões */}
+      <div>
       {!preset.inviteable ? (
         <div className="p-8 text-center">
           <Shield size={32} className="mx-auto text-brand-500/40 mb-3" />
@@ -644,13 +669,13 @@ export function RolesSystemPanel({
       </div>
 
       {error && (
-        <div className="mx-4 my-2 text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-lg px-3 py-2 shrink-0">
+        <div className="mx-4 my-2 text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-lg px-3 py-2">
           {error}
         </div>
       )}
 
       {preset.inviteable && (
-        <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-800 bg-gray-950/95 backdrop-blur-md z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-gray-800 bg-gray-950/40">
           {!canEdit ? (
             <p className="text-xs text-gray-500">Somente o dono pode editar papéis.</p>
           ) : (

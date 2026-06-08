@@ -17,15 +17,6 @@ const INTERNAL_RANK_TIERS = [
   { rank: 5, title: '5ª instância', hint: 'Só quem está na 4ª instância pode transferir.' },
 ] as const
 
-const SECTOR_LEVELS = [
-  {
-    value: 0,
-    title: 'Público — menu WhatsApp',
-    hint: 'O cliente escolhe este setor na triagem pelo WhatsApp.',
-  },
-  ...INTERNAL_RANK_TIERS.map(t => ({ value: t.rank, title: t.title, hint: t.hint })),
-]
-
 function internalRankLabel(rank: number): string {
   const tier = INTERNAL_RANK_TIERS.find(t => t.rank === rank)
   if (tier) return tier.title
@@ -57,6 +48,13 @@ interface TeamOption {
 
 const inputCls =
   'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
+
+const sectorTypeBtnCls = (active: boolean) =>
+  `flex items-center gap-2 text-xs px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+    active
+      ? 'border-brand-500 bg-brand-950/40 text-brand-200'
+      : 'border-gray-700 text-gray-400 hover:border-gray-600'
+  }`
 
 export default function InboxSectors() {
   const qc = useQueryClient()
@@ -111,19 +109,6 @@ export default function InboxSectors() {
     setFormMembers(prev =>
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId],
     )
-  }
-
-  const formSectorLevel = formClientVisible ? 0 : formInternalRank
-  const selectedSectorLevel =
-    SECTOR_LEVELS.find(l => l.value === formSectorLevel) ?? SECTOR_LEVELS[0]
-
-  const setFormSectorLevel = (level: number) => {
-    if (level === 0) {
-      setFormClientVisible(true)
-      return
-    }
-    setFormClientVisible(false)
-    setFormInternalRank(level)
   }
 
   const saveCreate = useMutation({
@@ -262,19 +247,52 @@ export default function InboxSectors() {
             <MemberPicker />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Nível do setor *</label>
+            <label className="text-xs text-gray-500 mb-2 block">Tipo de setor</label>
+            <div className="flex flex-wrap gap-2 mb-1">
+              <button
+                type="button"
+                className={sectorTypeBtnCls(formClientVisible)}
+                onClick={() => setFormClientVisible(true)}
+              >
+                Público — aparece no menu WhatsApp
+              </button>
+              <button
+                type="button"
+                className={sectorTypeBtnCls(!formClientVisible)}
+                onClick={() => {
+                  setFormClientVisible(false)
+                  if (formInternalRank < 2) setFormInternalRank(2)
+                }}
+              >
+                Interno — só equipe transfere
+              </button>
+            </div>
+            <p className="text-xs text-gray-600">
+              {formClientVisible
+                ? 'O cliente escolhe este setor na triagem pelo WhatsApp.'
+                : 'Invisível ao cliente. Escolha a instância de escalação abaixo.'}
+            </p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Instância interna</label>
             <select
-              value={formSectorLevel}
-              onChange={e => setFormSectorLevel(Number(e.currentTarget.value))}
-              className={inputCls}
+              value={formClientVisible ? '' : formInternalRank}
+              disabled={formClientVisible}
+              onChange={e => setFormInternalRank(Number(e.currentTarget.value))}
+              className={`${inputCls} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {SECTOR_LEVELS.map(level => (
-                <option key={level.value} value={level.value}>
-                  {level.title}
+              {formClientVisible && <option value="">— Setor público —</option>}
+              {INTERNAL_RANK_TIERS.map(tier => (
+                <option key={tier.rank} value={tier.rank}>
+                  {tier.title}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-600 mt-1">{selectedSectorLevel.hint}</p>
+            <p className="text-xs text-gray-600 mt-1">
+              {formClientVisible
+                ? 'Disponível ao escolher setor interno.'
+                : INTERNAL_RANK_TIERS.find(t => t.rank === formInternalRank)?.hint}
+            </p>
           </div>
           <div className="flex gap-2">
             <Button

@@ -19,6 +19,8 @@ interface Member {
   email?: string
   displayEmail?: string
   companyRole: CompanyRole
+  customRoleId?: string
+  customRoleName?: string
   userId?: string
   linked?: boolean
   whatsappPhone?: string
@@ -51,8 +53,8 @@ export default function TeamMembers() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('equipe')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<CompanyRole>('ATTENDANT')
-  const [editingRole, setEditingRole] = useState<CompanyRole>('ATTENDANT')
+  const [role, setRole] = useState<string>('ATTENDANT')
+  const [editingRole, setEditingRole] = useState<string>('ATTENDANT')
   const [editingMember, setEditingMember] = useState<Member | null>(null)
 
   const { data: me } = useQuery<AuthUser | null>({
@@ -83,7 +85,7 @@ export default function TeamMembers() {
   const invitePreset = presets.find(p => p.role === role)
 
   const invite = useMutation({
-    mutationFn: () => api.post('/team/members', { email, role }),
+    mutationFn: () => api.post('/team/members', { email, roleKey: role }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['team-members'] })
       setEmail('')
@@ -91,21 +93,42 @@ export default function TeamMembers() {
     onError: (err: Error) => alert(err.message),
   })
 
-  const updateMemberRole = async (id: string, newRole: CompanyRole, whatsappPhone?: string) => {
-    await api.patch(`/team/members/${id}`, { role: newRole, whatsappPhone: whatsappPhone ?? null })
+  const updateMemberRole = async (id: string, roleKey: string, whatsappPhone?: string) => {
+    await api.patch(`/team/members/${id}`, { roleKey, whatsappPhone: whatsappPhone ?? null })
     qc.invalidateQueries({ queryKey: ['team-members'] })
   }
 
-  const saveRolePreset = async (roleKey: CompanyRole, capabilities: string[]) => {
-    await api.patch(`/team/roles/${roleKey}`, { capabilities })
+  const saveRolePreset = async (roleKey: string, capabilities: string[]) => {
+    if (roleKey.startsWith('custom:')) {
+      await api.patch(`/team/custom-roles/${roleKey.slice(7)}`, { capabilities })
+    } else {
+      await api.patch(`/team/roles/${roleKey}`, { capabilities })
+    }
     await qc.invalidateQueries({ queryKey: ['team-roles'] })
     await qc.invalidateQueries({ queryKey: ['team-members'] })
   }
 
-  const resetRolePreset = async (roleKey: CompanyRole) => {
-    await api.delete(`/team/roles/${roleKey}`)
+  const resetRolePreset = async (roleKey: string) => {
+    if (roleKey.startsWith('custom:')) {
+      await api.delete(`/team/custom-roles/${roleKey.slice(7)}`)
+      setEditingRole('ATTENDANT')
+    } else {
+      await api.delete(`/team/roles/${roleKey}`)
+    }
     await qc.invalidateQueries({ queryKey: ['team-roles'] })
     await qc.invalidateQueries({ queryKey: ['team-members'] })
+  }
+
+  const createCustomRole = async () => {
+    const name = window.prompt('Nome do novo papel personalizado:')
+    if (!name?.trim()) return
+    const created = await api.post<{ id: string }>('/team/custom-roles', {
+      name: name.trim(),
+      capabilities: ['dashboard:view'],
+    })
+    await qc.invalidateQueries({ queryKey: ['team-roles'] })
+    setEditingRole(`custom:${created.id}`)
+    setTab('papeis')
   }
 
   const remove = useMutation({
@@ -123,7 +146,7 @@ export default function TeamMembers() {
   }
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="w-full max-w-6xl space-y-5">
       <div>
         <h1 className="text-xl font-semibold text-white">Equipe e permissões</h1>
         <p className="text-sm text-gray-500 mt-1 max-w-xl">
@@ -153,6 +176,11 @@ export default function TeamMembers() {
         </button>
       </div>
 
+      <p className="text-xs text-gray-600 -mt-2">
+        Papéis fixos (Dono, Admin, Atendente…) + quantos personalizados quiser em{' '}
+        <span className="text-gray-500">+ Novo papel</span>.
+      </p>
+
       <Card className="border-brand-500/20 bg-brand-500/[0.03]">
         <CardTitle>
           <span className="flex items-center gap-2 text-sm">
@@ -161,9 +189,10 @@ export default function TeamMembers() {
           </span>
         </CardTitle>
         <p className="text-xs text-gray-500 mt-2 max-w-xl">
-          Membros com papel <span className="text-gray-400">Atendente</span> ou{' '}
-          <span className="text-gray-400">Gerente</span> podem usar o Inbox. Após convidar, vincule-os
-          aos setores e configure respostas automáticas.
+          Membros com papel <span className="text-gray-400">Atendente</span>,{' '}
+          <span className="text-gray-400">Atendente 2ª instância</span> ou{' '}
+          <span className="text-gray-400">Gerente</span> podem usar o Inbox. Crie papéis
+          personalizados em <span className="text-gray-400">Papéis do sistema</span> (+ Novo papel).
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {can(me ?? null, 'inbox:view') && (
@@ -228,7 +257,7 @@ export default function TeamMembers() {
                 <label className="text-xs text-gray-500 mb-1 block">Papel</label>
                 <select
                   value={role}
-                  onChange={e => setRole(e.target.value as CompanyRole)}
+                  onChange={e => setRole(e.currentTarget.value)}
                   className={inputCls}
                 >
                   {presets
@@ -301,7 +330,7 @@ export default function TeamMembers() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate text-gray-100">{m.displayEmail ?? m.email ?? '—'}</p>
                         <p className="text-xs text-gray-500">
-                          {ROLE_LABEL[m.companyRole]}
+                          {m.customRoleName ?? ROLE_LABEL[m.companyRole]}
                           {m.whatsappPhone && (
                             <span className="text-gray-600"> · WA cadastrado</span>
                           )}
@@ -354,6 +383,7 @@ export default function TeamMembers() {
           onSelectRole={setEditingRole}
           onSave={saveRolePreset}
           onReset={resetRolePreset}
+          onCreateCustomRole={isOwner ? createCustomRole : undefined}
         />
       )}
 

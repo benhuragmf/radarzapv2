@@ -4,7 +4,7 @@ import {
   ListOrdered, ScrollText, Send, Crown, Settings, Shield, Server, History,
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
-  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3, Ticket,
+  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3, Ticket, Clock,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -105,6 +105,9 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   group('grp-consent', 'Consentimento', ShieldCheck, [
     link('consent-pending', 'Pendentes', ShieldCheck, '/contact', 'consent:view', false, {
       search: '?consent=pending',
+    }),
+    link('consent-waiting', 'Aguardando aprovação', Clock, '/contact', 'consent:approve-renewal', false, {
+      search: '?consent=waiting',
     }),
     link('consent-accepted', 'Aceitos', ShieldCheck, '/contact', 'consent:view', false, {
       search: '?consent=accepted',
@@ -533,6 +536,7 @@ const HASH_PAGE_TITLES: Record<string, string> = {
 
 const CONSENT_PAGE_TITLES: Record<string, string> = {
   '?consent=pending': 'Pendentes',
+  '?consent=waiting': 'Aguardando aprovação',
   '?consent=accepted': 'Aceitos',
   '?consent=refused': 'Recusados',
   '?consent=blocked': 'Bloqueados',

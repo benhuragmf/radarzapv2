@@ -27,21 +27,23 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
     <EventNotificationProvider user={user}>
       <NavModeContext.Provider value={navMode}>
         <GuildContext.Provider value={{ guildId: guild?.id ?? null, guildName: guild?.name ?? null }}>
-          <div className="flex h-screen overflow-hidden">
-          <Sidebar
-            user={user}
-            mode={navMode}
-            onModeChange={setNavMode}
-            guild={guild}
-            onGuildChange={setGuild}
-          />
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <Header user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} />
-            <ContextBar user={user} />
-            <main className="flex-1 overflow-y-auto p-6">
-              <Outlet />
-            </main>
-          </div>
+          <div className="flex flex-col lg:flex-row min-h-screen w-full bg-gray-950">
+            <Sidebar
+              user={user}
+              mode={navMode}
+              onModeChange={setNavMode}
+              guild={guild}
+              onGuildChange={setGuild}
+            />
+            <div className="flex flex-col flex-1 min-w-0">
+              <div className="sticky top-0 z-30 shrink-0 bg-gray-950/95 backdrop-blur-sm">
+                <Header user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} />
+                <ContextBar user={user} />
+              </div>
+              <main className="flex-1 p-4 sm:p-6 lg:p-8">
+                <Outlet />
+              </main>
+            </div>
           </div>
         </GuildContext.Provider>
       </NavModeContext.Provider>

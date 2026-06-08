@@ -13,7 +13,7 @@ interface Props {
 export function PlatformPage({ title, description, phase = 'MVP', children }: Props) {
   if (children) {
     return (
-      <div className="space-y-5 max-w-4xl">
+      <div className="space-y-5 w-full max-w-6xl">
         <p className="text-sm text-gray-400 leading-relaxed">{description}</p>
         {children}
       </div>
@@ -21,7 +21,7 @@ export function PlatformPage({ title, description, phase = 'MVP', children }: Pr
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-5 w-full max-w-6xl">
       <Card className="flex items-start gap-4 border-gray-700/80 bg-gray-900/50">
         <Construction size={28} className="text-brand-500 shrink-0 mt-0.5" />
         <div>
