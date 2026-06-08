@@ -71,7 +71,12 @@ export default function ChooseCompany({ user, onSelected }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{org.organizationName}</p>
-                  <p className="text-xs text-gray-500">{ROLE_LABEL[org.companyRole]}</p>
+                  <p className="text-xs text-gray-500">
+                    {ROLE_LABEL[org.companyRole]}
+                    {org.companyRole !== 'OWNER' && org.ownerEmail && (
+                      <> · Dono: <span className="text-gray-400">{org.ownerEmail}</span></>
+                    )}
+                  </p>
                 </div>
                 {loadingId === org.organizationId ? (
                   <Spinner size={18} />

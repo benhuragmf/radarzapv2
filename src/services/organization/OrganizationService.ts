@@ -48,15 +48,52 @@ export class OrganizationService {
     if (!members.length) return [];
 
     const orgIds = members.map(m => m.organizationId);
-    const orgs = await Organization.find({ _id: { $in: orgIds } }).select('name').lean();
-    const orgMap = new Map(orgs.map(o => [String(o._id), o.name]));
+    const orgs = await Organization.find({ _id: { $in: orgIds } })
+      .select('name ownerUserId')
+      .lean();
+    const orgMap = new Map(
+      orgs.map(o => [
+        String(o._id),
+        { name: o.name, ownerUserId: o.ownerUserId },
+      ]),
+    );
+
+    const ownerIds = [...new Set(orgs.map(o => o.ownerUserId.toString()))];
+    const owners = await User.find({ _id: { $in: ownerIds } })
+      .select('email displayName discordUserId')
+      .lean();
+    const ownerMap = new Map(owners.map(u => [String(u._id), u]));
+
+    const ownerMembers = await CompanyMember.find({
+      organizationId: { $in: orgIds },
+      companyRole: CompanyRole.OWNER,
+      isActive: true,
+    })
+      .select('organizationId email userId')
+      .lean();
+    const ownerMemberEmailByOrg = new Map(
+      ownerMembers.map(om => [String(om.organizationId), om.email?.trim() || null]),
+    );
 
     return members
-      .map(m => ({
-        organizationId: m.organizationId.toString(),
-        organizationName: orgMap.get(String(m.organizationId)) ?? 'Empresa',
-        companyRole: m.companyRole,
-      }))
+      .map(m => {
+        const org = orgMap.get(String(m.organizationId));
+        const owner = org ? ownerMap.get(org.ownerUserId.toString()) : undefined;
+        const ownerMemberEmail = ownerMemberEmailByOrg.get(String(m.organizationId)) ?? null;
+        const ownerEmail =
+          owner?.email?.trim() ||
+          ownerMemberEmail ||
+          (owner?.displayName?.trim() ? `${owner.displayName} (Discord)` : null) ||
+          (owner?.discordUserId ? `Discord ${owner.discordUserId}` : null);
+        const ownerName = owner?.displayName?.trim() || null;
+        return {
+          organizationId: m.organizationId.toString(),
+          organizationName: org?.name ?? 'Empresa',
+          companyRole: m.companyRole,
+          ownerEmail,
+          ownerName,
+        };
+      })
       .sort((a, b) => a.organizationName.localeCompare(b.organizationName, 'pt-BR'));
   }
 

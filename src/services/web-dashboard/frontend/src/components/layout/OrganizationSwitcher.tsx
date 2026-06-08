@@ -81,7 +81,12 @@ export default function OrganizationSwitcher({ user, onOrganizationChange }: Pro
                     <p className={`text-sm truncate ${active ? 'text-brand-300' : 'text-gray-200'}`}>
                       {org.organizationName}
                     </p>
-                    <p className="text-xs text-gray-500">{ROLE_LABEL[org.companyRole] ?? org.companyRole}</p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {ROLE_LABEL[org.companyRole] ?? org.companyRole}
+                      {org.companyRole !== 'OWNER' && org.ownerEmail && (
+                        <> · {org.ownerEmail}</>
+                      )}
+                    </p>
                   </div>
                   {loadingId === org.organizationId && <Spinner size={14} />}
                 </button>

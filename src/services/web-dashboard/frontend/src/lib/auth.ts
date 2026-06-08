@@ -12,6 +12,8 @@ export interface UserOrganization {
   organizationId: string
   organizationName: string
   companyRole: CompanyRole
+  ownerEmail: string | null
+  ownerName: string | null
 }
 
 export interface GuildAccess {

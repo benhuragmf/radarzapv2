@@ -13,6 +13,8 @@ export interface UserOrganizationSummary {
   organizationId: string;
   organizationName: string;
   companyRole: CompanyRole;
+  ownerEmail: string | null;
+  ownerName: string | null;
 }
 
 export interface AuthContext {
