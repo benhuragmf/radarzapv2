@@ -74,6 +74,8 @@ Atendente responde / transfere / finaliza
 | POST | `/inbox/conversations/:id/reply` | `inbox:reply` | Responder no WhatsApp |
 | POST | `/inbox/conversations/:id/transfer` | `inbox:transfer` | Transferir setor |
 | POST | `/inbox/conversations/:id/resolve` | `inbox:reply` | Finalizar |
+| GET | `/inbox/settings` | `inbox:department:manage` | Config do bot |
+| PATCH | `/inbox/settings` | `inbox:department:manage` | Salvar bot / horários / round-robin |
 
 ## Permissões
 
@@ -92,26 +94,40 @@ Atendente responde / transfere / finaliza
 - **Consentimento inbound:** quem escreve primeiro não recebe prompt 1/2 — vai direto ao menu. Campanhas/envios ativos continuam com `assertCanSend` (LGPD outbound)
 - **Menu 1–4:** exclusivo do atendimento (não é mais o fluxo de opt-in)
 
-## Menu fixo (Fase 1)
+## Bot configurável (Fase 2)
 
-```txt
-Olá! Escolha o setor:
+Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`.
 
-1 - Comercial
-2 - Financeiro
-3 - Suporte
-4 - Falar com atendente
-```
+| Campo | Uso |
+|-------|-----|
+| `welcomeWithCompany` / `welcomeGeneric` | Cabeçalho do menu (`{company}`) |
+| `menuIntro` / `menuFooter` | Texto antes/depois das opções |
+| `queueMessage` / `waitingMessage` | Confirmação na fila (`{department}`, `{waiting}`) |
+| `outsideHoursMessage` | Fora do horário comercial |
+| `invalidMenuHint` | Opção inválida (`{options}`) |
+| `resolvedMessage` / `transferMessage` | Finalizar / transferir |
+| `businessHoursEnabled` + `schedule` + `timezone` | Horário comercial (Intl timezone) |
+| `roundRobinEnabled` | Indica prioridade (não força aceite) |
+| `roundRobinPullTimeoutSeconds` | Segundos até outro atendente poder puxar (padrão 120) |
 
-Palavras-chave: `comercial`, `financeiro`, `suporte`, `atendente`.
+API: `GET/PATCH /api/inbox/settings` (`inbox:department:manage`).
+
+Setores continuam em `inboxDepartments` — o menu é montado dinamicamente a partir deles.
+
+## Tempo real e round-robin (Fase 3)
+
+- **WebSocket** (Socket.IO): sala `inbox:{clientId}` — eventos `inbox:conversation`, `inbox:message`
+- **Round-robin (prioridade)**: ao entrar na fila, define `suggestedUserId` + `suggestedAt` — status permanece `waiting_queue` até aceite
+- **UI**: borda amarela → escurece com cronômetro; atendente indicado clica **Aceitar prioridade**
+- **Puxar**: outro atendente pode assumir se o indicado tem conversa `in_progress` ou após `roundRobinPullTimeoutSeconds`
+- Painel Inbox usa `useInboxSocket` + polling de fallback (30s)
 
 ## Fases futuras
 
 | Fase | Escopo |
 |------|--------|
-| 2 | Bot configurável (`InboxBotFlow` / passos no painel) |
-| 3 | Round-robin, supervisor, relatórios, WebSocket tempo real |
-| 4 | `WhatsAppChannelProvider` — Cloud API Meta (planos Enterprise) |
+| 4 | Relatórios de atendimento, supervisor em tempo real |
+| 5 | `WhatsAppChannelProvider` — Cloud API Meta (planos Enterprise) |
 
 ## Painel
 
@@ -119,6 +135,7 @@ Palavras-chave: `comercial`, `financeiro`, `suporte`, `atendente`.
 |------|------------|
 | `/platform/inbox` | `pages/menu/Inbox.tsx` |
 | `/platform/inbox/setores` | `pages/menu/InboxSectors.tsx` |
+| `/platform/inbox/bot` | `pages/menu/InboxBotSettings.tsx` |
 | `/settings/team` | `TeamMembers.tsx` — convidar atendentes |
 
 Menu: **Plataforma → Atendimento → Inbox** / **Setores do Inbox**

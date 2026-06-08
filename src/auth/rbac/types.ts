@@ -9,13 +9,21 @@ export interface GuildAccess {
   apiAccessEnabled: boolean;
 }
 
+export interface UserOrganizationSummary {
+  organizationId: string;
+  organizationName: string;
+  companyRole: CompanyRole;
+}
+
 export interface AuthContext {
   userId: string;
   /** Tenant id (Organization._id) */
   clientId: string;
-  organizationId: string;
+  organizationId: string | null;
   organizationName?: string;
   companyRole: CompanyRole | null;
+  organizations: UserOrganizationSummary[];
+  needsOrganizationChoice: boolean;
   discordUserId?: string;
   authProvider?: 'google' | 'discord';
   email?: string;

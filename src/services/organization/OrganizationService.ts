@@ -24,9 +24,76 @@ export class OrganizationService {
     return OrganizationService.instance;
   }
 
+  /** Membro ativo — prioriza convite (ADMIN/ATTENDANT) sobre org solo criada por engano no login. */
+  async getActiveMemberForUser(userId: string): Promise<ICompanyMember | null> {
+    const user = await User.findById(userId);
+    if (user?.primaryOrganizationId) {
+      const preferred = await CompanyMember.findOne({
+        userId,
+        organizationId: user.primaryOrganizationId,
+        isActive: true,
+      });
+      if (preferred) return preferred;
+    }
+
+    const members = await CompanyMember.find({ userId, isActive: true });
+    const invited = members.find(
+      m => m.companyRole === CompanyRole.ADMIN || m.companyRole === CompanyRole.ATTENDANT,
+    );
+    return invited ?? members[0] ?? null;
+  }
+
+  async listOrganizationsForUser(userId: string) {
+    const members = await CompanyMember.find({ userId, isActive: true });
+    if (!members.length) return [];
+
+    const orgIds = members.map(m => m.organizationId);
+    const orgs = await Organization.find({ _id: { $in: orgIds } }).select('name').lean();
+    const orgMap = new Map(orgs.map(o => [String(o._id), o.name]));
+
+    return members
+      .map(m => ({
+        organizationId: m.organizationId.toString(),
+        organizationName: orgMap.get(String(m.organizationId)) ?? 'Empresa',
+        companyRole: m.companyRole,
+      }))
+      .sort((a, b) => a.organizationName.localeCompare(b.organizationName, 'pt-BR'));
+  }
+
+  async getMemberInOrganization(
+    userId: string,
+    organizationId: string,
+  ): Promise<ICompanyMember | null> {
+    return CompanyMember.findOne({ userId, organizationId, isActive: true });
+  }
+
+  async setPrimaryOrganization(userId: string, organizationId: string): Promise<void> {
+    const member = await this.getMemberInOrganization(userId, organizationId);
+    if (!member) throw new Error('Você não pertence a esta empresa');
+
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+
+    user.primaryOrganizationId = new mongoose.Types.ObjectId(organizationId);
+    await user.save();
+  }
+
   /** Tenant id usado em clientId (Destination, WhatsApp, etc.) */
-  async resolveClientId(userId: string): Promise<string> {
-    const member = await CompanyMember.findActiveByUserId(userId);
+  async resolveClientId(userId: string, sessionOrganizationId?: string): Promise<string | null> {
+    if (sessionOrganizationId) {
+      const sessionMember = await this.getMemberInOrganization(userId, sessionOrganizationId);
+      if (sessionMember) return sessionMember.organizationId.toString();
+    }
+
+    const organizations = await this.listOrganizationsForUser(userId);
+    if (organizations.length === 1) {
+      return organizations[0].organizationId;
+    }
+    if (organizations.length > 1) {
+      return null;
+    }
+
+    const member = await this.getActiveMemberForUser(userId);
     if (member) return member.organizationId.toString();
 
     const user = await User.findById(userId);
@@ -36,14 +103,78 @@ export class OrganizationService {
     return org._id.toString();
   }
 
-  async getOrganizationForUser(userId: string): Promise<IOrganization | null> {
-    const clientId = await this.resolveClientId(userId);
+  async getOrganizationForUser(
+    userId: string,
+    sessionOrganizationId?: string,
+  ): Promise<IOrganization | null> {
+    const clientId = await this.resolveClientId(userId, sessionOrganizationId);
+    if (!clientId) return null;
     return Organization.findById(clientId);
   }
 
   async getMemberRole(userId: string): Promise<CompanyRole | null> {
-    const member = await CompanyMember.findActiveByUserId(userId);
+    const member = await this.getActiveMemberForUser(userId);
     return member?.companyRole ?? null;
+  }
+
+  private async findInviteByEmail(email: string): Promise<ICompanyMember | null> {
+    return CompanyMember.findOne({
+      email: email.toLowerCase().trim(),
+      isActive: true,
+      companyRole: { $in: [CompanyRole.ADMIN, CompanyRole.ATTENDANT] },
+    });
+  }
+
+  /** Vincula usuário ao convite e usa a organização do dono (não cria empresa nova). */
+  private async joinOrganizationViaInvite(
+    user: IUser,
+    invite: ICompanyMember,
+  ): Promise<IOrganization> {
+    invite.userId = user._id as mongoose.Types.ObjectId;
+    if (!invite.email && user.email) invite.email = user.email.toLowerCase();
+    await invite.save();
+
+    user.primaryOrganizationId = invite.organizationId;
+    await user.save();
+
+    await this.cleanupSoloOwnerOrgIfInvitedElsewhere(user);
+
+    const org = await Organization.findById(invite.organizationId);
+    if (!org) throw new Error('Organização do convite não encontrada');
+    return org;
+  }
+
+  /** Remove membership OWNER órfã quando o usuário entrou por convite em outra empresa. */
+  private async cleanupSoloOwnerOrgIfInvitedElsewhere(user: IUser): Promise<void> {
+    const userId = user._id as mongoose.Types.ObjectId;
+    const invitedElsewhere = await CompanyMember.findOne({
+      userId,
+      isActive: true,
+      companyRole: { $in: [CompanyRole.ADMIN, CompanyRole.ATTENDANT] },
+    });
+    if (!invitedElsewhere) return;
+
+    const soloOwner = await CompanyMember.findOne({
+      userId,
+      organizationId: userId,
+      companyRole: CompanyRole.OWNER,
+      isActive: true,
+    });
+    if (!soloOwner) return;
+
+    soloOwner.isActive = false;
+    await soloOwner.save();
+    logger.info('Membership OWNER solo desativada após aceitar convite', {
+      userId: userId.toString(),
+      joinedOrg: invitedElsewhere.organizationId.toString(),
+    });
+  }
+
+  private applyGoogleProfileToUser(user: IUser, profile: GoogleProfile): void {
+    if (!user.googleId) user.googleId = profile.sub;
+    if (!user.authProviders.includes('google')) user.authProviders.push('google');
+    if (profile.email && !user.email) user.email = profile.email.toLowerCase();
+    if (profile.name && !user.displayName) user.displayName = profile.name;
   }
 
   /** Migração: usuários legados (Discord /setup) — org._id = user._id */
@@ -81,30 +212,29 @@ export class OrganizationService {
   }
 
   async getOrCreateForGoogle(profile: GoogleProfile): Promise<{ user: IUser; org: IOrganization }> {
+    const email = profile.email?.toLowerCase().trim();
+    const invite = email ? await this.findInviteByEmail(email) : null;
+
     let user = await User.findOne({ googleId: profile.sub });
-    if (!user && profile.email) {
-      user = await User.findOne({ email: profile.email.toLowerCase() });
+    if (!user && email) {
+      user = await User.findOne({ email });
     }
 
     if (user) {
-      if (!user.googleId) {
-        user.googleId = profile.sub;
-        if (!user.authProviders.includes('google')) user.authProviders.push('google');
-        if (profile.email && !user.email) user.email = profile.email.toLowerCase();
-        if (profile.name && !user.displayName) user.displayName = profile.name;
-        await user.save();
+      this.applyGoogleProfileToUser(user, profile);
+      await user.save();
+
+      if (invite) {
+        const org = await this.joinOrganizationViaInvite(user, invite);
+        logger.info('Google login via convite de equipe', {
+          userId: user._id.toString(),
+          email,
+          organizationId: org._id.toString(),
+          role: invite.companyRole,
+        });
+        return { user, org };
       }
-      const pending = profile.email
-        ? await CompanyMember.findOne({
-            email: profile.email.toLowerCase(),
-            userId: { $exists: false },
-            isActive: true,
-          })
-        : null;
-      if (pending && !await CompanyMember.findActiveByUserId(user._id as mongoose.Types.ObjectId)) {
-        pending.userId = user._id as mongoose.Types.ObjectId;
-        await pending.save();
-      }
+
       const org = await this.ensureOrganization(user);
       return { user, org };
     }
@@ -113,11 +243,22 @@ export class OrganizationService {
     user = await User.create({
       _id: userId,
       googleId: profile.sub,
-      email: profile.email?.toLowerCase(),
+      email,
       displayName: profile.name ?? profile.email,
       authProviders: ['google'],
       plan: 'free',
     });
+
+    if (invite) {
+      const org = await this.joinOrganizationViaInvite(user, invite);
+      logger.info('Novo usuário Google entrou por convite', {
+        userId: userId.toString(),
+        email,
+        organizationId: org._id.toString(),
+        role: invite.companyRole,
+      });
+      return { user, org };
+    }
 
     const org = await Organization.create({
       _id: userId,
@@ -132,7 +273,7 @@ export class OrganizationService {
     await CompanyMember.create({
       organizationId: org._id,
       userId,
-      email: profile.email?.toLowerCase(),
+      email,
       companyRole: CompanyRole.OWNER,
       isActive: true,
     });
@@ -196,6 +337,27 @@ export class OrganizationService {
 
   async listMembers(organizationId: string): Promise<ICompanyMember[]> {
     return CompanyMember.findByOrg(organizationId);
+  }
+
+  async listMembersEnriched(organizationId: string) {
+    const members = await this.listMembers(organizationId);
+    const userIds = members.map(m => m.userId).filter(Boolean) as mongoose.Types.ObjectId[];
+    const users = await User.find({ _id: { $in: userIds } }).select('email displayName').lean();
+    const userMap = new Map(users.map(u => [String(u._id), u]));
+
+    return members.map(m => {
+      const u = m.userId ? userMap.get(String(m.userId)) : undefined;
+      const displayEmail =
+        m.email?.trim() ||
+        u?.email?.trim() ||
+        u?.displayName?.trim() ||
+        (m.companyRole === CompanyRole.OWNER ? 'Dono da conta' : undefined);
+      return {
+        ...m.toObject(),
+        displayEmail: displayEmail ?? '—',
+        linked: Boolean(m.userId),
+      };
+    });
   }
 
   async inviteMember(

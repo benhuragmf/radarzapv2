@@ -8,6 +8,12 @@ export type UserRole =
 
 export type CompanyRole = 'OWNER' | 'ADMIN' | 'ATTENDANT'
 
+export interface UserOrganization {
+  organizationId: string
+  organizationName: string
+  companyRole: CompanyRole
+}
+
 export interface GuildAccess {
   id: string
   name?: string
@@ -29,6 +35,8 @@ export interface AuthUser {
   companyRole: CompanyRole | null
   organizationId: string | null
   organizationName: string | null
+  organizations: UserOrganization[]
+  needsOrganizationChoice: boolean
   hasDiscordAccess: boolean
   capabilities: string[]
   guilds: GuildAccess[]
@@ -57,6 +65,20 @@ export function loginWithGoogle() {
 export async function logout() {
   await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
   window.location.href = '/'
+}
+
+export async function switchOrganization(organizationId: string): Promise<AuthUser> {
+  const res = await fetch('/auth/organization', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ organizationId }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as { error?: string }).error ?? 'Falha ao trocar empresa')
+  }
+  return res.json()
 }
 
 export function can(user: AuthUser | null, permission: string, guildId?: string): boolean {

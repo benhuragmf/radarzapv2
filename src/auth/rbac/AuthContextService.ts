@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { IUser } from '@/models/User';
 import { GuildMembership } from '@/models/GuildMembership';
 import { OrganizationService } from '@/services/organization/OrganizationService';
-import { AuthContext, GuildAccess } from './types';
+import { AuthContext, GuildAccess, UserOrganizationSummary } from './types';
 import { SystemRole, GuildRole, UserRole, guildRoleToUserRole, CompanyRole } from './roles';
 import { buildCapabilities, resolvePrimaryRole } from './can';
 import { resolveSystemRole } from './GuildMembershipSync';
@@ -16,17 +16,32 @@ export async function buildAuthContext(params: {
   avatar: string | null;
   authProvider?: 'google' | 'discord';
   email?: string;
+  sessionOrganizationId?: string;
 }): Promise<AuthContext> {
-  const { user, userId, discordUserId, username, avatar, authProvider, email } = params;
+  const { user, userId, discordUserId, username, avatar, authProvider, email, sessionOrganizationId } =
+    params;
   const orgSvc = OrganizationService.getInstance();
 
-  const organizationId = await orgSvc.resolveClientId(userId);
-  const org = await orgSvc.getOrganizationForUser(userId);
-
-  let member = await CompanyMember.findActiveByUserId(userId);
-  if (!member && user.discordUserId) {
+  let organizations: UserOrganizationSummary[] = await orgSvc.listOrganizationsForUser(userId);
+  if (!organizations.length && user.discordUserId) {
     await orgSvc.ensureOrganization(user);
-    member = await CompanyMember.findActiveByUserId(userId);
+    organizations = await orgSvc.listOrganizationsForUser(userId);
+  }
+
+  const organizationId = await orgSvc.resolveClientId(userId, sessionOrganizationId);
+  const org = organizationId
+    ? await orgSvc.getOrganizationForUser(userId, sessionOrganizationId)
+    : null;
+  const needsOrganizationChoice = organizations.length > 1 && !organizationId;
+
+  let member = organizationId
+    ? await orgSvc.getMemberInOrganization(userId, organizationId)
+    : await orgSvc.getActiveMemberForUser(userId);
+  if (!member && user.discordUserId && !needsOrganizationChoice) {
+    await orgSvc.ensureOrganization(user);
+    member = organizationId
+      ? await orgSvc.getMemberInOrganization(userId, organizationId)
+      : await orgSvc.getActiveMemberForUser(userId);
   }
   let companyRole: CompanyRole | null = member?.companyRole ?? null;
   if (!companyRole && org && org.ownerUserId.toString() === userId) {
@@ -61,14 +76,18 @@ export async function buildAuthContext(params: {
   const hasDiscordAccess = guilds.length > 0;
   const plan = org?.plan ?? user.plan;
   const primaryRole = resolvePrimaryRole(systemRole, guilds);
-  const capabilities = buildCapabilities(systemRole, companyRole, guilds, plan, linkedGuildIds);
+  const capabilities = needsOrganizationChoice
+    ? []
+    : buildCapabilities(systemRole, companyRole, guilds, plan, linkedGuildIds);
 
   return {
     userId,
-    clientId: organizationId,
+    clientId: organizationId ?? '',
     organizationId,
     organizationName: org?.name,
     companyRole,
+    organizations,
+    needsOrganizationChoice,
     discordUserId,
     authProvider,
     email: email ?? user.email,
@@ -100,6 +119,8 @@ export function authContextToJson(ctx: AuthContext) {
     companyRole: ctx.companyRole,
     organizationId: ctx.organizationId,
     organizationName: ctx.organizationName ?? null,
+    organizations: ctx.organizations,
+    needsOrganizationChoice: ctx.needsOrganizationChoice,
     hasDiscordAccess: ctx.hasDiscordAccess,
     capabilities: ctx.capabilities,
     guilds: ctx.guilds.map(g => ({

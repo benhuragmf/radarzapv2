@@ -13,9 +13,10 @@ import { detectNavMode, type NavMode } from '../../lib/navConfig'
 interface Props {
   user: AuthUser
   onLogout: () => void
+  onUserUpdate: (user: AuthUser) => void
 }
 
-export default function Layout({ user, onLogout }: Props) {
+export default function Layout({ user, onLogout, onUserUpdate }: Props) {
   const { pathname, hash } = useLocation()
   const initial = getSelectedGuild()
   const [guild, setGuild] = useState<Guild | null>(initial)
@@ -33,7 +34,7 @@ export default function Layout({ user, onLogout }: Props) {
             onGuildChange={setGuild}
           />
           <div className="flex flex-col flex-1 overflow-hidden">
-            <Header user={user} onLogout={onLogout} />
+            <Header user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} />
             <ContextBar user={user} />
             <main className="flex-1 overflow-y-auto p-6">
               <Outlet />

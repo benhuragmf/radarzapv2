@@ -8,6 +8,9 @@ export interface IInboxConversation extends Document {
   contactName: string;
   departmentId?: mongoose.Types.ObjectId;
   assignedUserId?: mongoose.Types.ObjectId;
+  /** Indicado pelo round-robin — aguardando aceite voluntário */
+  suggestedUserId?: mongoose.Types.ObjectId;
+  suggestedAt?: Date;
   status: InboxConversationStatus;
   channel: InboxChannel;
   lastMessageAt: Date;
@@ -25,6 +28,8 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     contactName: { type: String, required: true, maxlength: 120 },
     departmentId: { type: Schema.Types.ObjectId, ref: 'InboxDepartment', index: true },
     assignedUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    suggestedUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    suggestedAt: { type: Date, index: true },
     status: {
       type: String,
       enum: Object.values(InboxConversationStatus),

@@ -10,8 +10,10 @@ import { Users, UserPlus, Trash2 } from 'lucide-react'
 interface Member {
   _id: string
   email?: string
+  displayEmail?: string
   companyRole: 'OWNER' | 'ADMIN' | 'ATTENDANT'
   userId?: string
+  linked?: boolean
   createdAt: string
 }
 
@@ -139,8 +141,13 @@ export default function TeamMembers() {
                 className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-800/50 border border-gray-800"
               >
                 <div>
-                  <p className="text-sm font-medium">{m.email ?? m.userId ?? '—'}</p>
-                  <p className="text-xs text-gray-500">{ROLE_LABEL[m.companyRole]}</p>
+                  <p className="text-sm font-medium">{m.displayEmail ?? m.email ?? '—'}</p>
+                  <p className="text-xs text-gray-500">
+                    {ROLE_LABEL[m.companyRole]}
+                    {m.companyRole !== 'OWNER' && m.linked === false && (
+                      <span className="text-amber-500/90"> · aguardando primeiro login</span>
+                    )}
+                  </p>
                 </div>
                 {isCompanyOwner(me ?? null) && m.companyRole !== 'OWNER' && (
                   <button

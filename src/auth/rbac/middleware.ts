@@ -19,6 +19,7 @@ export interface DashboardRequest extends Request {
     discordId?: string;
     username?: string;
     avatar?: string | null;
+    organizationId?: string;
   };
 }
 
@@ -48,7 +49,16 @@ export async function loadAuthContext(
       avatar: sess.avatar ?? null,
       authProvider: (sess as { authProvider?: 'google' | 'discord' }).authProvider,
       email: (sess as { email?: string }).email ?? user.email,
+      sessionOrganizationId: sess.organizationId,
     });
+
+    if (req.auth.needsOrganizationChoice) {
+      res.status(403).json({
+        error: 'Selecione uma empresa para continuar',
+        code: 'ORGANIZATION_REQUIRED',
+      });
+      return;
+    }
 
     next();
   } catch (err) {

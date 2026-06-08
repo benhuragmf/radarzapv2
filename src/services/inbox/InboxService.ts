@@ -12,12 +12,24 @@ import {
   buildAgentJoinMessage,
   buildInboxTriageMenu,
   buildInvalidMenuHint,
+  buildOutsideHoursMessage,
   buildQueueConfirmation,
+  buildResolvedMessage,
+  buildTransferMessage,
   loadActiveDepartments,
+  loadInboxSettings,
   parseInboxMenuChoice,
 } from '@/constants/inbox-triage';
+import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
 import { User } from '@/models/User';
 import { InboxConversationStatus } from '@/types/inbox';
+import { INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
+import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
+import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
+import {
+  getQueuePriorityState,
+  isSuggestedUserBusy,
+} from '@/services/inbox/inbox-queue-priority';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('InboxService');
@@ -37,6 +49,146 @@ export class InboxService {
 
   async ensureDepartments(clientId: string) {
     return loadActiveDepartments(clientId);
+  }
+
+  async getSettings(clientId: string): Promise<IInboxSettings> {
+    return loadInboxSettings(clientId);
+  }
+
+  async updateSettings(
+    clientId: string,
+    patch: Partial<{
+      welcomeWithCompany: string;
+      welcomeGeneric: string;
+      menuIntro: string;
+      menuFooter: string;
+      queueMessage: string;
+      waitingMessage: string;
+      outsideHoursMessage: string;
+      invalidMenuHint: string;
+      resolvedMessage: string;
+      transferMessage: string;
+      businessHoursEnabled: boolean;
+      timezone: string;
+      schedule: InboxWeeklySchedule;
+      roundRobinEnabled: boolean;
+      roundRobinPullTimeoutSeconds: number;
+    }>,
+  ): Promise<IInboxSettings> {
+    const settings = await InboxSettings.getOrCreate(clientId);
+    if (patch.welcomeWithCompany !== undefined) {
+      settings.welcomeWithCompany = patch.welcomeWithCompany.trim();
+    }
+    if (patch.welcomeGeneric !== undefined) settings.welcomeGeneric = patch.welcomeGeneric.trim();
+    if (patch.menuIntro !== undefined) settings.menuIntro = patch.menuIntro.trim();
+    if (patch.menuFooter !== undefined) settings.menuFooter = patch.menuFooter.trim();
+    if (patch.queueMessage !== undefined) settings.queueMessage = patch.queueMessage.trim();
+    if (patch.waitingMessage !== undefined) settings.waitingMessage = patch.waitingMessage.trim();
+    if (patch.outsideHoursMessage !== undefined) {
+      settings.outsideHoursMessage = patch.outsideHoursMessage.trim();
+    }
+    if (patch.invalidMenuHint !== undefined) settings.invalidMenuHint = patch.invalidMenuHint.trim();
+    if (patch.resolvedMessage !== undefined) settings.resolvedMessage = patch.resolvedMessage.trim();
+    if (patch.transferMessage !== undefined) settings.transferMessage = patch.transferMessage.trim();
+    if (patch.businessHoursEnabled !== undefined) {
+      settings.businessHoursEnabled = Boolean(patch.businessHoursEnabled);
+    }
+    if (patch.roundRobinEnabled !== undefined) {
+      settings.roundRobinEnabled = Boolean(patch.roundRobinEnabled);
+    }
+    if (patch.roundRobinPullTimeoutSeconds !== undefined) {
+      const sec = Math.min(900, Math.max(30, Number(patch.roundRobinPullTimeoutSeconds) || 120));
+      settings.roundRobinPullTimeoutSeconds = sec;
+    }
+    if (patch.timezone !== undefined) {
+      settings.timezone = patch.timezone.trim() || 'America/Sao_Paulo';
+    }
+    if (patch.schedule) {
+      for (const day of INBOX_WEEKDAYS) {
+        const incoming = patch.schedule[day];
+        if (!incoming) continue;
+        settings.schedule[day] = {
+          enabled: Boolean(incoming.enabled),
+          start: incoming.start?.trim() || '09:00',
+          end: incoming.end?.trim() || '18:00',
+        };
+      }
+      settings.markModified('schedule');
+    }
+    await settings.save();
+    return settings;
+  }
+
+  private notifyConversation(clientId: string, conv: IInboxConversation): void {
+    emitInboxEvent(clientId, 'inbox:conversation', {
+      clientId,
+      conversationId: String(conv._id),
+      status: conv.status,
+      departmentId: conv.departmentId ? String(conv.departmentId) : undefined,
+      assignedUserId: conv.assignedUserId ? String(conv.assignedUserId) : undefined,
+      suggestedUserId: conv.suggestedUserId ? String(conv.suggestedUserId) : undefined,
+    });
+  }
+
+  private async enrichConversationRow(
+    row: Record<string, unknown>,
+    userId: string,
+    clientId: string,
+    agentMap: Map<string, string>,
+    pullTimeoutSeconds: number,
+  ) {
+    const suggestedId = row.suggestedUserId
+      ? String(row.suggestedUserId)
+      : undefined;
+    const assignedId = row.assignedUserId ? String(row.assignedUserId) : undefined;
+    const status = String(row.status);
+    const convId = String(row._id);
+
+    let canAccept = false;
+    let canPull = false;
+    let priorityForMe = false;
+    let suggestedUserBusy = false;
+
+    if (status === InboxConversationStatus.WAITING_QUEUE && suggestedId) {
+      priorityForMe = suggestedId === userId;
+      canAccept = priorityForMe;
+      if (!priorityForMe) {
+        suggestedUserBusy = await isSuggestedUserBusy(clientId, suggestedId, convId);
+        const { pullAllowedByTimeout } = getQueuePriorityState(
+          row.suggestedAt as Date | string | undefined,
+          pullTimeoutSeconds,
+        );
+        canPull = suggestedUserBusy || pullAllowedByTimeout;
+      }
+    } else if (status === InboxConversationStatus.WAITING_QUEUE && !assignedId) {
+      canAccept = true;
+      canPull = true;
+    }
+
+    const priority = getQueuePriorityState(
+      row.suggestedAt as Date | string | undefined,
+      pullTimeoutSeconds,
+    );
+
+    return {
+      ...row,
+      assignedUserName: assignedId ? agentMap.get(assignedId) : undefined,
+      suggestedUserName: suggestedId ? agentMap.get(suggestedId) : undefined,
+      priorityForMe,
+      canAccept,
+      canPull,
+      suggestedUserBusy,
+      pullTimeoutSeconds,
+      queueElapsedSec: suggestedId ? priority.elapsedSec : 0,
+      queueUrgency: suggestedId ? priority.urgency : 0,
+    };
+  }
+
+  private notifyMessage(clientId: string, conversationId: string): void {
+    emitInboxEvent(clientId, 'inbox:message', {
+      clientId,
+      conversationId,
+    });
   }
 
   async listTeamMembersForAssignment(clientId: string) {
@@ -189,13 +341,28 @@ export class InboxService {
     const trimmed = text.trim();
     if (!trimmed) return;
 
+    const settings = await loadInboxSettings(clientId);
+    const openHours = isWithinBusinessHours(
+      settings.businessHoursEnabled,
+      settings.timezone,
+      settings.schedule,
+    );
+
     let conversation = await this.findOpenConversation(clientId, dest._id as mongoose.Types.ObjectId);
     const isNew = !conversation;
     if (!conversation) {
       conversation = await this.createConversation(clientId, dest);
+      this.notifyConversation(clientId, conversation);
     }
 
-    await this.recordInbound(conversation, trimmed);
+    await this.recordInbound(conversation, trimmed, clientId);
+
+    if (!openHours) {
+      const outsideMsg = await buildOutsideHoursMessage(clientId);
+      await this.sendToContact(clientId, dest.identifier, outsideMsg);
+      await this.appendSystemMessage(conversation, outsideMsg);
+      return;
+    }
 
     if (conversation.status === InboxConversationStatus.BOT_TRIAGE) {
       const choice = await parseInboxMenuChoice(clientId, trimmed);
@@ -209,7 +376,11 @@ export class InboxService {
     }
   }
 
-  private async recordInbound(conversation: IInboxConversation, body: string): Promise<void> {
+  private async recordInbound(
+    conversation: IInboxConversation,
+    body: string,
+    clientId?: string,
+  ): Promise<void> {
     await InboxMessage.create({
       clientId: conversation.clientId,
       conversationId: conversation._id,
@@ -219,6 +390,8 @@ export class InboxService {
     conversation.lastInboundAt = new Date();
     conversation.lastMessageAt = new Date();
     await conversation.save();
+    this.notifyMessage(clientId ?? String(conversation.clientId), String(conversation._id));
+    this.notifyConversation(clientId ?? String(conversation.clientId), conversation);
   }
 
   private async findOpenConversation(
@@ -275,19 +448,79 @@ export class InboxService {
     }
 
     conversation.departmentId = department._id as mongoose.Types.ObjectId;
-    conversation.status = InboxConversationStatus.WAITING_QUEUE;
     conversation.assignedUserId = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
+    conversation.status = InboxConversationStatus.WAITING_QUEUE;
     conversation.lastMessageAt = new Date();
-    await conversation.save();
 
-    const confirm = buildQueueConfirmation(department.name);
+    const suggested = await this.tryRoundRobinSuggest(clientId, conversation, department);
+    await conversation.save();
+    this.notifyConversation(clientId, conversation);
+
+    const confirm = await buildQueueConfirmation(clientId, department.name);
     await this.sendToContact(clientId, dest.identifier, confirm);
-    await this.appendSystemMessage(conversation, confirm);
+    await this.appendSystemMessage(conversation, confirm, undefined, clientId);
     logger.info('Conversa direcionada para fila', {
       clientId,
       conversationId: conversation._id,
       department: department.name,
+      suggestedUserId: suggested?.toString(),
     });
+  }
+
+  /** Indica prioridade ao próximo atendente — não assume automaticamente. */
+  private async tryRoundRobinSuggest(
+    clientId: string,
+    conversation: IInboxConversation,
+    department: IInboxDepartment,
+  ): Promise<mongoose.Types.ObjectId | null> {
+    const settings = await loadInboxSettings(clientId);
+    if (!settings.roundRobinEnabled) return null;
+
+    const candidates = await this.resolveRoundRobinCandidates(clientId, department);
+    if (!candidates.length) return null;
+
+    const lastIdx = department.lastRoundRobinIndex ?? -1;
+    const nextIdx = (lastIdx + 1) % candidates.length;
+    const userId = candidates[nextIdx];
+
+    department.lastRoundRobinIndex = nextIdx;
+    await department.save();
+
+    conversation.suggestedUserId = userId;
+    conversation.suggestedAt = new Date();
+    conversation.assignedUserId = undefined;
+
+    const agentName = await this.resolveAgentDisplayName(userId.toString());
+    await this.appendSystemMessage(
+      conversation,
+      `Prioridade para *${agentName}* — aguardando aceite no painel.`,
+      userId,
+      clientId,
+    );
+
+    logger.info('Round-robin sugeriu atendente', {
+      clientId,
+      conversationId: conversation._id,
+      departmentId: department._id,
+      userId: userId.toString(),
+    });
+    return userId;
+  }
+
+  private async resolveRoundRobinCandidates(
+    clientId: string,
+    department: IInboxDepartment,
+  ): Promise<mongoose.Types.ObjectId[]> {
+    if (department.memberUserIds.length > 0) {
+      return department.memberUserIds;
+    }
+
+    const members = await CompanyMember.findByOrg(clientId);
+    return members
+      .filter(m => m.isActive && m.userId && m.companyRole !== CompanyRole.OWNER)
+      .map(m => m.userId as mongoose.Types.ObjectId);
   }
 
   async listConversations(
@@ -315,8 +548,12 @@ export class InboxService {
     }
 
     if (filters.mine) {
-      query.assignedUserId = new mongoose.Types.ObjectId(userId);
+      const userOid = new mongoose.Types.ObjectId(userId);
+      query.$or = [{ assignedUserId: userOid }, { suggestedUserId: userOid }];
     }
+
+    const settings = await loadInboxSettings(clientId);
+    const pullTimeoutSeconds = settings.roundRobinPullTimeoutSeconds ?? 120;
 
     const rows = await InboxConversation.find(query)
       .sort({ lastMessageAt: -1 })
@@ -327,7 +564,13 @@ export class InboxService {
     const depts = await InboxDepartment.find({ _id: { $in: deptIds } }).lean();
     const deptMap = new Map(depts.map(d => [String(d._id), d.name]));
 
-    const agentIds = [...new Set(rows.map(r => r.assignedUserId?.toString()).filter(Boolean))];
+    const agentIds = [
+      ...new Set(
+        rows
+          .flatMap(r => [r.assignedUserId?.toString(), r.suggestedUserId?.toString()])
+          .filter(Boolean) as string[],
+      ),
+    ];
     const agents = await User.find({ _id: { $in: agentIds } }).select('displayName email').lean();
     const agentMap = new Map(
       agents.map(a => [
@@ -336,17 +579,36 @@ export class InboxService {
       ]),
     );
 
-    return rows.map(r => ({
-      ...r,
-      departmentName: r.departmentId ? deptMap.get(String(r.departmentId)) : undefined,
-      assignedUserName: r.assignedUserId
-        ? agentMap.get(String(r.assignedUserId))
-        : undefined,
-    }));
+    const enriched = await Promise.all(
+      rows.map(r =>
+        this.enrichConversationRow(
+          { ...r, departmentName: r.departmentId ? deptMap.get(String(r.departmentId)) : undefined },
+          userId,
+          clientId,
+          agentMap,
+          pullTimeoutSeconds,
+        ),
+      ),
+    );
+    return enriched;
   }
 
   async getConversationDetail(clientId: string, userId: string, conversationId: string) {
     const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
+    const settings = await loadInboxSettings(clientId);
+    const pullTimeoutSeconds = settings.roundRobinPullTimeoutSeconds ?? 120;
+
+    const agentIds = [conv.assignedUserId, conv.suggestedUserId]
+      .filter(Boolean)
+      .map(id => String(id));
+    const agents = await User.find({ _id: { $in: agentIds } }).select('displayName email').lean();
+    const agentMap = new Map(
+      agents.map(a => [
+        String(a._id),
+        a.displayName?.trim() || a.email?.split('@')[0] || 'Atendente',
+      ]),
+    );
+
     const messages = await InboxMessage.find({
       conversationId: conv._id,
     })
@@ -357,7 +619,16 @@ export class InboxService {
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
-    return { conversation: conv.toObject(), messages, transfers };
+
+    const conversation = await this.enrichConversationRow(
+      conv.toObject() as Record<string, unknown>,
+      userId,
+      clientId,
+      agentMap,
+      pullTimeoutSeconds,
+    );
+
+    return { conversation, messages, transfers };
   }
 
   async assignConversation(clientId: string, userId: string, conversationId: string) {
@@ -365,16 +636,68 @@ export class InboxService {
     if (TERMINAL_STATUSES.has(conv.status)) {
       throw new Error('Conversa já finalizada');
     }
+
+    if (conv.status === InboxConversationStatus.IN_PROGRESS) {
+      if (conv.assignedUserId?.toString() === userId) {
+        return conv.toObject();
+      }
+      throw new Error('Conversa em atendimento por outro agente');
+    }
+
+    if (conv.status === InboxConversationStatus.WAITING_QUEUE) {
+      await this.assertCanTakeQueueConversation(clientId, userId, conv);
+    }
+
     const prevAssigned = conv.assignedUserId?.toString();
+    const pulledFrom = conv.suggestedUserId?.toString();
+    const wasPull = pulledFrom && pulledFrom !== userId;
+
+    conv.suggestedUserId = undefined;
+    conv.suggestedAt = undefined;
     conv.assignedUserId = new mongoose.Types.ObjectId(userId);
     conv.status = InboxConversationStatus.IN_PROGRESS;
     conv.lastMessageAt = new Date();
     await conv.save();
 
-    if (prevAssigned !== userId) {
+    if (wasPull) {
+      const pullerName = await this.resolveAgentDisplayName(userId);
+      await this.appendSystemMessage(
+        conv,
+        `${pullerName} assumiu a conversa (prioridade anterior expirada ou atendente ocupado).`,
+        new mongoose.Types.ObjectId(userId),
+        clientId,
+      );
+    }
+
+    if (!prevAssigned || prevAssigned !== userId) {
       await this.announceAgentJoin(clientId, conv, userId);
     }
+    this.notifyConversation(clientId, conv);
     return conv.toObject();
+  }
+
+  private async assertCanTakeQueueConversation(
+    clientId: string,
+    userId: string,
+    conv: IInboxConversation,
+  ): Promise<void> {
+    const suggestedId = conv.suggestedUserId?.toString();
+    if (!suggestedId) return;
+
+    if (suggestedId === userId) return;
+
+    const settings = await loadInboxSettings(clientId);
+    const busy = await isSuggestedUserBusy(clientId, suggestedId, String(conv._id));
+    const { pullAllowedByTimeout } = getQueuePriorityState(
+      conv.suggestedAt,
+      settings.roundRobinPullTimeoutSeconds ?? 120,
+    );
+
+    if (!busy && !pullAllowedByTimeout) {
+      throw new Error(
+        'Esta conversa está em prioridade para outro atendente. Aguarde o tempo ou até ele ficar ocupado.',
+      );
+    }
   }
 
   async replyToConversation(
@@ -391,10 +714,24 @@ export class InboxService {
       throw new Error('Conversa já finalizada');
     }
 
+    if (conv.status === InboxConversationStatus.WAITING_QUEUE) {
+      if (conv.suggestedUserId && conv.suggestedUserId.toString() !== userId) {
+        throw new Error('Aceite ou aguarde a prioridade desta conversa antes de responder');
+      }
+      if (!conv.assignedUserId) {
+        throw new Error('Assuma a conversa antes de responder');
+      }
+    }
+
     const prevAssigned = conv.assignedUserId?.toString();
     if (!conv.assignedUserId || prevAssigned !== userId) {
+      if (conv.assignedUserId && prevAssigned !== userId) {
+        throw new Error('Conversa em atendimento por outro agente');
+      }
       conv.assignedUserId = new mongoose.Types.ObjectId(userId);
       conv.status = InboxConversationStatus.IN_PROGRESS;
+      conv.suggestedUserId = undefined;
+      conv.suggestedAt = undefined;
       await conv.save();
       if (prevAssigned !== userId) {
         await this.announceAgentJoin(clientId, conv, userId);
@@ -412,6 +749,8 @@ export class InboxService {
     });
     conv.lastMessageAt = new Date();
     await conv.save();
+    this.notifyMessage(clientId, String(conv._id));
+    this.notifyConversation(clientId, conv);
     return { ok: true, messageId: result.messageId };
   }
 
@@ -443,13 +782,18 @@ export class InboxService {
 
     conv.departmentId = target._id as mongoose.Types.ObjectId;
     conv.assignedUserId = undefined;
+    conv.suggestedUserId = undefined;
+    conv.suggestedAt = undefined;
     conv.status = InboxConversationStatus.WAITING_QUEUE;
     conv.lastMessageAt = new Date();
-    await conv.save();
 
-    const notify = `Sua conversa foi transferida para *${target.name}*. Aguarde um atendente.`;
+    await this.tryRoundRobinSuggest(clientId, conv, target);
+    await conv.save();
+    this.notifyConversation(clientId, conv);
+
+    const notify = await buildTransferMessage(clientId, target.name);
     await this.sendToContact(clientId, conv.contactIdentifier, notify);
-    await this.appendSystemMessage(conv, notify, new mongoose.Types.ObjectId(userId));
+    await this.appendSystemMessage(conv, notify, new mongoose.Types.ObjectId(userId), clientId);
 
     return conv.toObject();
   }
@@ -459,11 +803,14 @@ export class InboxService {
     conv.status = InboxConversationStatus.RESOLVED;
     conv.resolvedAt = new Date();
     conv.lastMessageAt = new Date();
+    conv.suggestedUserId = undefined;
+    conv.suggestedAt = undefined;
     await conv.save();
 
-    const closing = 'Atendimento finalizado. Se precisar de algo, envie uma nova mensagem.';
+    const closing = await buildResolvedMessage(clientId);
     await this.sendToContact(clientId, conv.contactIdentifier, closing);
-    await this.appendSystemMessage(conv, closing, new mongoose.Types.ObjectId(userId));
+    await this.appendSystemMessage(conv, closing, new mongoose.Types.ObjectId(userId), clientId);
+    this.notifyConversation(clientId, conv);
     return conv.toObject();
   }
 
@@ -521,6 +868,7 @@ export class InboxService {
     conversation: IInboxConversation,
     body: string,
     authorUserId?: mongoose.Types.ObjectId,
+    clientId?: string,
   ): Promise<void> {
     await InboxMessage.create({
       clientId: conversation.clientId,
@@ -531,6 +879,9 @@ export class InboxService {
     });
     conversation.lastMessageAt = new Date();
     await conversation.save();
+    const cid = clientId ?? String(conversation.clientId);
+    this.notifyMessage(cid, String(conversation._id));
+    this.notifyConversation(cid, conversation);
   }
 
   private async sendToContact(

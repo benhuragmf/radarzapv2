@@ -80,6 +80,7 @@ import { OPENAPI_DASHBOARD } from '../../constants/openapi-dashboard';
 import { DiscordNavAlertsService } from '../discord/DiscordNavAlertsService';
 import { RuleGroupBlockService } from '../rules/RuleGroupBlockService';
 import { InboxService } from '../inbox/InboxService';
+import { setInboxSocketServer } from '../inbox/InboxRealtime';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
 import {
   validateAutomationPayload,
@@ -187,6 +188,37 @@ export class DashboardService {
     return new Promise((resolve, reject) => {
       req.session.save(err => (err ? reject(err) : resolve()));
     });
+  }
+
+  /** Uma empresa → dashboard; várias → tela de escolha (mantém sessão se já válida). */
+  private async resolvePostLoginPath(req: Request, userId: string): Promise<string> {
+    const orgSvc = OrganizationService.getInstance();
+    let orgs = await orgSvc.listOrganizationsForUser(userId);
+
+    if (!orgs.length) {
+      const user = await User.findById(userId);
+      if (user) {
+        await orgSvc.ensureOrganization(user);
+        orgs = await orgSvc.listOrganizationsForUser(userId);
+      }
+    }
+
+    const sess = req.session as { organizationId?: string };
+
+    if (orgs.length === 1) {
+      sess.organizationId = orgs[0].organizationId;
+      await orgSvc.setPrimaryOrganization(userId, orgs[0].organizationId).catch(() => undefined);
+      return '/dashboard';
+    }
+
+    if (orgs.length > 1) {
+      const remembered = orgs.find(o => o.organizationId === sess.organizationId);
+      if (remembered) return '/dashboard';
+      delete sess.organizationId;
+      return '/choose-company';
+    }
+
+    return '/dashboard';
   }
 
   private setupExpress(): void {
@@ -409,7 +441,8 @@ export class DashboardService {
         ).catch(err => logger.warn('Guild sync failed on login', err));
 
         await this.saveSession(req);
-        res.redirect(`${frontendBase}/dashboard`);
+        const postLoginPath = await this.resolvePostLoginPath(req, sess.userId);
+        res.redirect(`${frontendBase}${postLoginPath}`);
 
       } catch (err) {
         logger.error('OAuth2 callback error:', err);
@@ -513,7 +546,8 @@ export class DashboardService {
 
         logger.info(`Google login: ${profile.email}`, { userId: sess.userId });
         await this.saveSession(req);
-        res.redirect(`${frontendBase}/dashboard`);
+        const postLoginPath = await this.resolvePostLoginPath(req, sess.userId);
+        res.redirect(`${frontendBase}${postLoginPath}`);
       } catch (err) {
         const message = (err as Error).message ?? '';
         logError(err as Error, { step: 'google_oauth_callback', redirectUri: GOOGLE_REDIRECT_URI });
@@ -539,10 +573,54 @@ export class DashboardService {
           avatar: sess.avatar ?? null,
           authProvider: sess.authProvider,
           email: sess.email ?? user.email,
+          sessionOrganizationId: sess.organizationId,
         });
         res.json(authContextToJson(ctx));
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.post('/auth/organization', async (req: Request, res: Response) => {
+      const sess = req.session as {
+        userId?: string;
+        discordId?: string;
+        username?: string;
+        avatar?: string | null;
+        authProvider?: 'google' | 'discord';
+        email?: string;
+        organizationId?: string;
+      };
+      if (!sess?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const { organizationId } = req.body as { organizationId?: string };
+      if (!organizationId) {
+        return res.status(400).json({ error: 'organizationId obrigatório' });
+      }
+
+      try {
+        await orgSvc.setPrimaryOrganization(sess.userId, organizationId);
+        sess.organizationId = organizationId;
+        await this.saveSession(req);
+
+        const user = await User.findById(sess.userId);
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+        const ctx = await buildAuthContext({
+          user,
+          userId: sess.userId,
+          discordUserId: sess.discordId ?? user.discordUserId,
+          username: sess.username ?? user.displayName ?? user.email ?? 'Usuário',
+          avatar: sess.avatar ?? null,
+          authProvider: sess.authProvider,
+          email: sess.email ?? user.email,
+          sessionOrganizationId: organizationId,
+        });
+        res.json(authContextToJson(ctx));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 
@@ -886,6 +964,26 @@ export class DashboardService {
           req.params.id,
         );
         res.json(conv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/settings', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const settings = await inboxSvc.getSettings(auth.clientId);
+        res.json(settings);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/inbox/settings', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const settings = await inboxSvc.updateSettings(auth.clientId, req.body ?? {});
+        res.json(settings);
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -2263,7 +2361,9 @@ export class DashboardService {
     r.get('/team/members', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const members = await OrganizationService.getInstance().listMembers(auth.organizationId);
+        const members = await OrganizationService.getInstance().listMembersEnriched(
+          auth.organizationId,
+        );
         res.json(members);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -3524,8 +3624,29 @@ export class DashboardService {
   // ─── Socket.IO ────────────────────────────────────────────────────────────
 
   private setupSocket(): void {
-    this.io.on('connection', (socket) => {
+    setInboxSocketServer(this.io);
+    const orgSvc = OrganizationService.getInstance();
+
+    this.io.on('connection', async socket => {
       logger.debug(`Dashboard client connected: ${socket.id}`);
+
+      const sess = (socket.request as typeof socket.request & {
+        session?: { userId?: string; organizationId?: string };
+      }).session;
+
+      if (sess?.userId) {
+        try {
+          const clientId =
+            sess.organizationId ?? (await orgSvc.resolveClientId(sess.userId)) ?? undefined;
+          if (clientId) {
+            await socket.join(`inbox:${clientId}`);
+            socket.data.inboxClientId = clientId;
+          }
+        } catch (err) {
+          logger.debug('Socket inbox room skip', { err: (err as Error).message });
+        }
+      }
+
       this.buildStats().then(stats => socket.emit('stats', stats)).catch(() => {});
       socket.on('disconnect', () => logger.debug(`Dashboard client disconnected: ${socket.id}`));
     });

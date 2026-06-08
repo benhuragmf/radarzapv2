@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
@@ -8,7 +8,19 @@ import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import { MessageSquare, UserCheck, ArrowRightLeft, CheckCircle2, Send, Settings2 } from 'lucide-react'
+import {
+  MessageSquare,
+  UserCheck,
+  ArrowRightLeft,
+  CheckCircle2,
+  Send,
+  Settings2,
+  Bot,
+  Clock,
+  Hand,
+} from 'lucide-react'
+import { useInboxSocket } from '../../hooks/useInboxSocket'
+import { formatQueueTimer, liveQueueState, priorityBorderClass } from '../../lib/inboxQueueUi'
 
 interface Department {
   _id: string
@@ -25,6 +37,16 @@ interface Conversation {
   departmentId?: string
   assignedUserId?: string
   assignedUserName?: string
+  suggestedUserId?: string
+  suggestedUserName?: string
+  suggestedAt?: string
+  priorityForMe?: boolean
+  canAccept?: boolean
+  canPull?: boolean
+  suggestedUserBusy?: boolean
+  pullTimeoutSeconds?: number
+  queueElapsedSec?: number
+  queueUrgency?: number
   lastMessageAt: string
 }
 
@@ -53,6 +75,17 @@ const STATUS_VARIANT: Record<string, 'yellow' | 'blue' | 'green' | 'gray' | 'red
   closed: 'gray',
 }
 
+function conversationBadge(c: Conversation): { label: string; variant: 'yellow' | 'blue' | 'green' | 'gray' | 'red' } {
+  if (c.status === 'waiting_queue' && c.suggestedUserId) {
+    if (c.priorityForMe) return { label: 'Sua prioridade', variant: 'yellow' }
+    return { label: 'Aguardando aceite', variant: 'yellow' }
+  }
+  return {
+    label: STATUS_LABEL[c.status] ?? c.status,
+    variant: STATUS_VARIANT[c.status] ?? 'gray',
+  }
+}
+
 export default function Inbox() {
   const qc = useQueryClient()
   const { data: me } = useQuery<AuthUser | null>({
@@ -60,12 +93,14 @@ export default function Inbox() {
     queryFn: getMe,
   })
   const canManageSectors = can(me ?? null, 'inbox:department:manage')
+  useInboxSocket(Boolean(me))
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDept, setFilterDept] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
   const [reply, setReply] = useState('')
   const [transferDept, setTransferDept] = useState('')
+  const [tick, setTick] = useState(0)
 
   const { data: departments = [] } = useQuery({
     queryKey: ['inbox-departments'],
@@ -80,8 +115,18 @@ export default function Inbox() {
   const { data: conversations = [], isLoading: loadingList } = useQuery({
     queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly],
     queryFn: () => api.get<Conversation[]>(`/inbox/conversations?${listParams}`),
-    refetchInterval: 8000,
+    refetchInterval: 30_000,
   })
+
+  const hasPriorityQueue = conversations.some(
+    c => c.status === 'waiting_queue' && c.suggestedUserId,
+  )
+
+  useEffect(() => {
+    if (!hasPriorityQueue) return
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [hasPriorityQueue])
 
   const { data: detail, isLoading: loadingDetail } = useQuery({
     queryKey: ['inbox-conversation', selectedId],
@@ -90,7 +135,7 @@ export default function Inbox() {
         `/inbox/conversations/${selectedId}`,
       ),
     enabled: Boolean(selectedId),
-    refetchInterval: 5000,
+    refetchInterval: hasPriorityQueue ? 10_000 : 30_000,
   })
 
   const invalidate = () => {
@@ -127,20 +172,37 @@ export default function Inbox() {
   const messages = detail?.messages ?? []
   const isTerminal = conv?.status === 'resolved' || conv?.status === 'closed'
 
+  const convLive = conv?.suggestedAt
+    ? liveQueueState(conv.suggestedAt, conv.pullTimeoutSeconds ?? 120, tick)
+    : { elapsedSec: 0, urgency: 0 }
+
+  const convLiveCanPull =
+    Boolean(conv?.suggestedUserId) &&
+    !conv?.priorityForMe &&
+    conv?.status === 'waiting_queue' &&
+    (Boolean(conv?.suggestedUserBusy) || convLive.urgency >= 1)
+
   const selectCls = 'bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200'
 
   return (
     <PlatformPage
       title="Inbox"
-      description="Quem escreve no WhatsApp entra direto no menu de setores. Ao assumir, o cliente recebe o nome do atendente."
+      description="Round-robin indica prioridade — o atendente aceita quando puder. Outro pode puxar se estiver ocupado ou após o cronômetro."
     >
       <div className="flex flex-wrap gap-2 mb-4">
         {canManageSectors && (
-          <Link to="/platform/inbox/setores">
-            <Button size="sm" variant="secondary">
-              <Settings2 size={14} /> Setores e equipe
-            </Button>
-          </Link>
+          <>
+            <Link to="/platform/inbox/bot">
+              <Button size="sm" variant="secondary">
+                <Bot size={14} /> Bot e horários
+              </Button>
+            </Link>
+            <Link to="/platform/inbox/setores">
+              <Button size="sm" variant="secondary">
+                <Settings2 size={14} /> Setores e equipe
+              </Button>
+            </Link>
+          </>
         )}
         <select value={filterStatus} onChange={e => setFilterStatus(e.currentTarget.value)} className={selectCls}>
           <option value="">Todos os status</option>
@@ -156,7 +218,7 @@ export default function Inbox() {
         </select>
         <label className="flex items-center gap-1.5 text-xs text-gray-400">
           <input type="checkbox" checked={mineOnly} onChange={e => setMineOnly(e.currentTarget.checked)} />
-          Só minhas
+          Só minhas / prioridades
         </label>
       </div>
 
@@ -171,30 +233,55 @@ export default function Inbox() {
             ) : conversations.length === 0 ? (
               <p className="text-sm text-gray-500 p-4 text-center">Nenhuma conversa na fila.</p>
             ) : (
-              conversations.map(c => (
-                <button
-                  key={c._id}
-                  type="button"
-                  onClick={() => setSelectedId(c._id)}
-                  className={`w-full text-left px-3 py-3 border-b border-gray-800/80 hover:bg-gray-800/50 ${
-                    selectedId === c._id ? 'bg-brand-950/40 border-l-2 border-l-brand-500' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-sm font-medium truncate">{c.contactName}</span>
-                    <Badge
-                      label={STATUS_LABEL[c.status] ?? c.status}
-                      variant={STATUS_VARIANT[c.status] ?? 'gray'}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 truncate">{c.contactIdentifier}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {[c.departmentName, c.assignedUserName ? `· ${c.assignedUserName}` : null]
+              conversations.map(c => {
+                const live = c.suggestedAt
+                  ? liveQueueState(c.suggestedAt, c.pullTimeoutSeconds ?? 120, tick)
+                  : { elapsedSec: c.queueElapsedSec ?? 0, urgency: c.queueUrgency ?? 0 }
+                const badge = conversationBadge(c)
+                const liveCanPull =
+                  Boolean(c.suggestedUserId) &&
+                  !c.priorityForMe &&
+                  c.status === 'waiting_queue' &&
+                  (Boolean(c.suggestedUserBusy) || live.urgency >= 1)
+                const borderCls = priorityBorderClass(
+                  live.urgency,
+                  Boolean(c.priorityForMe),
+                  liveCanPull,
+                )
+                const subtitle = c.suggestedUserName && c.status === 'waiting_queue'
+                  ? c.priorityForMe
+                    ? `Prioridade para você · ${c.departmentName ?? ''}`
+                    : `Aguardando ${c.suggestedUserName}${c.suggestedUserBusy ? ' (ocupado)' : ''} · ${c.departmentName ?? ''}`
+                  : [c.departmentName, c.assignedUserName ? `· ${c.assignedUserName}` : null]
                       .filter(Boolean)
-                      .join(' ')}
-                  </p>
-                </button>
-              ))
+                      .join(' ')
+
+                return (
+                  <button
+                    key={c._id}
+                    type="button"
+                    onClick={() => setSelectedId(c._id)}
+                    className={`w-full text-left px-3 py-3 border-b border-gray-800/80 hover:bg-gray-800/50 transition-colors ${borderCls} ${
+                      selectedId === c._id ? 'bg-brand-950/40 border-l-2 border-l-brand-500' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-medium truncate">{c.contactName}</span>
+                      <Badge label={badge.label} variant={badge.variant} />
+                    </div>
+                    <p className="text-xs text-gray-500 truncate">{c.contactIdentifier}</p>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className="text-xs text-gray-400 truncate">{subtitle}</p>
+                      {c.suggestedUserId && c.status === 'waiting_queue' && (
+                        <span className="flex items-center gap-1 text-[10px] text-yellow-500/90 shrink-0 font-mono">
+                          <Clock size={10} />
+                          {formatQueueTimer(live.elapsedSec)}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })
             )}
           </div>
         </Card>
@@ -213,13 +300,56 @@ export default function Inbox() {
                 <div>
                   <p className="font-medium text-sm">{conv.contactName}</p>
                   <p className="text-xs text-gray-500">{conv.contactIdentifier}</p>
+                  {conv.suggestedUserId && conv.status === 'waiting_queue' && (
+                    <p className="text-xs text-yellow-500/90 mt-1 flex items-center gap-1.5">
+                      <Clock size={12} />
+                      {conv.priorityForMe
+                        ? `Sua prioridade · ${formatQueueTimer(convLive.elapsedSec)}`
+                        : `Prioridade: ${conv.suggestedUserName} · ${formatQueueTimer(convLive.elapsedSec)}`}
+                      {conv.suggestedUserBusy && !conv.priorityForMe && (
+                        <span className="text-orange-400">· ocupado — pode puxar</span>
+                      )}
+                      {convLiveCanPull && !conv.priorityForMe && !conv.suggestedUserBusy && (
+                        <span className="text-orange-400">· pode puxar</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {!isTerminal && conv.status !== 'in_progress' && (
-                    <Button size="sm" variant="secondary" onClick={() => assign.mutate(conv._id)} disabled={assign.isPending}>
-                      <UserCheck size={14} /> Assumir
+                  {!isTerminal && conv.canAccept && conv.priorityForMe && (
+                    <Button
+                      size="sm"
+                      onClick={() => assign.mutate(conv._id)}
+                      disabled={assign.isPending}
+                      className="bg-yellow-600 hover:bg-yellow-500 text-gray-950"
+                    >
+                      <UserCheck size={14} /> Aceitar prioridade
                     </Button>
                   )}
+                  {!isTerminal && convLiveCanPull && !conv.priorityForMe && conv.status === 'waiting_queue' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => assign.mutate(conv._id)}
+                      disabled={assign.isPending}
+                    >
+                      <Hand size={14} /> Puxar atendimento
+                    </Button>
+                  )}
+                  {!isTerminal &&
+                    conv.status !== 'in_progress' &&
+                    conv.canAccept &&
+                    !conv.priorityForMe &&
+                    !conv.suggestedUserId && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => assign.mutate(conv._id)}
+                        disabled={assign.isPending}
+                      >
+                        <UserCheck size={14} /> Assumir
+                      </Button>
+                    )}
                   {!isTerminal && (
                     <Button size="sm" variant="secondary" onClick={() => resolve.mutate(conv._id)} disabled={resolve.isPending}>
                       <CheckCircle2 size={14} /> Finalizar
@@ -245,7 +375,7 @@ export default function Inbox() {
                 ))}
               </div>
 
-              {!isTerminal && (
+              {!isTerminal && conv.status === 'in_progress' && conv.assignedUserId === me?.userId && (
                 <div className="border-t border-gray-800 p-3 space-y-2">
                   <div className="flex gap-2">
                     <input
@@ -291,6 +421,16 @@ export default function Inbox() {
                       <ArrowRightLeft size={14} /> Transferir
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {!isTerminal && conv.status === 'waiting_queue' && (
+                <div className="border-t border-gray-800 p-3 text-xs text-gray-500">
+                  {conv.priorityForMe
+                    ? 'Aceite a prioridade para começar a responder.'
+                    : convLiveCanPull
+                      ? 'Você pode puxar este atendimento — o indicado está ocupado ou o tempo de prioridade passou.'
+                      : 'Aguardando o atendente indicado aceitar a conversa.'}
                 </div>
               )}
             </>

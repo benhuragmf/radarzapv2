@@ -10,6 +10,8 @@ export interface IInboxDepartment extends Document {
   memberUserIds: mongoose.Types.ObjectId[];
   isActive: boolean;
   sortOrder: number;
+  /** Índice do último atendente no round-robin deste setor */
+  lastRoundRobinIndex: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +25,7 @@ const InboxDepartmentSchema = new Schema<IInboxDepartment>(
     memberUserIds: { type: [Schema.Types.ObjectId], default: [] },
     isActive: { type: Boolean, default: true, index: true },
     sortOrder: { type: Number, default: 0 },
+    lastRoundRobinIndex: { type: Number, default: -1 },
   },
   { timestamps: true, collection: 'inboxDepartments' },
 );

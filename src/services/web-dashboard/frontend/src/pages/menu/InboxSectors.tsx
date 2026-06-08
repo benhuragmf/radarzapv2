@@ -8,7 +8,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
-import { Building2, Plus, Pencil, Users, UserPlus } from 'lucide-react'
+import { Building2, Plus, Pencil, Users, UserPlus, Bot } from 'lucide-react'
 
 interface Department {
   _id: string
@@ -174,6 +174,11 @@ export default function InboxSectors() {
       <div className="flex flex-wrap gap-2 mb-4">
         <Link to="/platform/inbox">
           <Button size="sm" variant="secondary">← Voltar ao Inbox</Button>
+        </Link>
+        <Link to="/platform/inbox/bot">
+          <Button size="sm" variant="secondary">
+            <Bot size={14} /> Bot e horários
+          </Button>
         </Link>
         <Link to="/settings/team">
           <Button size="sm" variant="secondary">

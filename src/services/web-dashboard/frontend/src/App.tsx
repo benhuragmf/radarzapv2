@@ -43,6 +43,7 @@ import WaStatus from './pages/menu/WaStatus'
 import WaStatusPosts from './pages/menu/WaStatusPosts'
 import Inbox from './pages/menu/Inbox'
 import InboxSectors from './pages/menu/InboxSectors'
+import InboxBotSettings from './pages/menu/InboxBotSettings'
 import AdminMonitoring from './pages/menu/AdminMonitoring'
 import AdminErrors from './pages/menu/AdminErrors'
 import AdminServers from './pages/menu/AdminServers'
@@ -60,6 +61,7 @@ import SecuritySettings from './pages/menu/SecuritySettings'
 import BackupExport from './pages/menu/BackupExport'
 import { ApiPlayground } from './components/integrations/ApiPlayground'
 import Login from './pages/Login'
+import ChooseCompany from './pages/ChooseCompany'
 import { getMe, type AuthUser } from './lib/auth'
 import { AuthContext } from './lib/authContext'
 import { Spinner } from './components/ui/Spinner'
@@ -118,13 +120,22 @@ export default function App() {
 
   if (!user) return <Login error={urlError} />
 
+  if (user.needsOrganizationChoice) {
+    return (
+      <ChooseCompany
+        user={user}
+        onSelected={u => setUser(u)}
+      />
+    )
+  }
+
   AuthContext.user = user
   const home = '/dashboard'
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout user={user} onLogout={() => setUser(null)} />}>
+        <Route path="/" element={<Layout user={user} onLogout={() => setUser(null)} onUserUpdate={setUser} />}>
           <Route index element={<Navigate to={home} replace />} />
 
           {/* Cliente */}
@@ -171,6 +182,7 @@ export default function App() {
           <Route path="platform/wa-stories" element={<Guard user={user} path="/platform/wa-stories"><WaStatusPosts /></Guard>} />
           <Route path="platform/inbox" element={<Guard user={user} path="/platform/inbox"><Inbox /></Guard>} />
           <Route path="platform/inbox/setores" element={<Guard user={user} path="/platform/inbox/setores"><InboxSectors /></Guard>} />
+          <Route path="platform/inbox/bot" element={<Guard user={user} path="/platform/inbox/bot"><InboxBotSettings /></Guard>} />
           <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
           <Route path="platform/fila" element={<Guard user={user} path="/platform/fila"><Queue scope="tenant" /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />

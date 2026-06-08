@@ -17,6 +17,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/automacoes` | `PlatformAutomations.tsx` | `GET/POST /platform/automations` |
 | `/platform/inbox` | `menu/Inbox.tsx` | `GET/POST /inbox/*` |
 | `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
+| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` |
 
 ## Integrações API
 
@@ -56,6 +57,7 @@ Ver `pages/menu/EmBreveRedirect.tsx` → `SLUG_REDIRECTS`.
 
 ## Modelos backend
 
+- `src/models/InboxSettings.ts`
 - `src/models/InboxDepartment.ts`
 - `src/models/InboxConversation.ts`
 - `src/models/InboxMessage.ts`

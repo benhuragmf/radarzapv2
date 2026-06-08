@@ -4,13 +4,15 @@ import { api } from '../../lib/api'
 import { logout, type AuthUser } from '../../lib/auth'
 import { pageTitleFor } from '../../lib/navConfig'
 import { Wifi, WifiOff, LogOut } from 'lucide-react'
+import OrganizationSwitcher from './OrganizationSwitcher'
 
 interface Props {
   user: AuthUser
   onLogout: () => void
+  onUserUpdate: (user: AuthUser) => void
 }
 
-export default function Header({ user, onLogout }: Props) {
+export default function Header({ user, onLogout, onUserUpdate }: Props) {
   const { pathname, hash, search } = useLocation()
   const title = pageTitleFor(pathname, hash, search)
 
@@ -32,6 +34,8 @@ export default function Header({ user, onLogout }: Props) {
       <h1 className="font-semibold text-base">{title}</h1>
 
       <div className="flex items-center gap-4">
+        <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
+
         {/* Health indicator */}
         <div className="flex items-center gap-1.5 text-sm">
           {healthy === null ? (

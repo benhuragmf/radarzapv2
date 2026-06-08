@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { ConsentService } from '@/services/consent/ConsentService';
 import { InboxDepartment, IInboxDepartment } from '@/models/InboxDepartment';
+import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
+import { DEFAULT_INBOX_BOT_TEXTS } from '@/types/inbox-settings';
 
 export const DEFAULT_INBOX_DEPARTMENTS = [
   { name: 'Comercial', menuKey: '1', sortOrder: 1, description: 'Vendas e propostas' },
@@ -16,6 +18,14 @@ function normalizeChoiceText(text: string): string {
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .replace(/\s+/g, ' ');
+}
+
+function applyTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '');
+}
+
+export async function loadInboxSettings(clientId: string): Promise<IInboxSettings> {
+  return InboxSettings.getOrCreate(clientId);
 }
 
 export async function loadActiveDepartments(clientId: string): Promise<IInboxDepartment[]> {
@@ -41,16 +51,17 @@ export async function loadActiveDepartments(clientId: string): Promise<IInboxDep
 }
 
 export async function buildInboxTriageMenu(clientId: string): Promise<string> {
-  const company = await ConsentService.getInstance().resolveCompanyName(clientId);
-  const depts = await loadActiveDepartments(clientId);
-  const header = company
-    ? `Olá! Bem-vindo ao atendimento *${company}*.\n\n`
-    : 'Olá! Bem-vindo ao nosso atendimento.\n\n';
+  const [company, depts, settings] = await Promise.all([
+    ConsentService.getInstance().resolveCompanyName(clientId),
+    loadActiveDepartments(clientId),
+    loadInboxSettings(clientId),
+  ]);
+
+  const welcome = company
+    ? applyTemplate(settings.welcomeWithCompany, { company })
+    : settings.welcomeGeneric;
   const lines = depts.map(d => `${d.menuKey} - ${d.name}`).join('\n');
-  return (
-    `${header}Escolha o setor:\n\n${lines}\n\n` +
-    '_Responda com o número ou o nome do setor._'
-  );
+  return `${welcome}\n\n${settings.menuIntro}\n\n${lines}\n\n${settings.menuFooter}`;
 }
 
 /** Interpreta escolha do menu de triagem (número ou nome do setor). */
@@ -76,17 +87,42 @@ export async function parseInboxMenuChoice(
   return null;
 }
 
-export function buildQueueConfirmation(departmentName: string): string {
-  return (
-    `Você foi direcionado para *${departmentName}*.\n` +
-    'Um atendente responderá em breve. Enquanto isso, pode descrever sua solicitação.'
-  );
+export async function buildQueueConfirmation(
+  clientId: string,
+  departmentName: string,
+): Promise<string> {
+  const settings = await loadInboxSettings(clientId);
+  return applyTemplate(settings.queueMessage, {
+    department: departmentName,
+    waiting: settings.waitingMessage,
+  });
 }
 
 export async function buildInvalidMenuHint(clientId: string): Promise<string> {
-  const depts = await loadActiveDepartments(clientId);
+  const [depts, settings] = await Promise.all([
+    loadActiveDepartments(clientId),
+    loadInboxSettings(clientId),
+  ]);
   const keys = depts.map(d => d.menuKey).join(', ');
-  return `Opção inválida. Responda com ${keys} ou o nome do setor.`;
+  return applyTemplate(settings.invalidMenuHint, { options: keys });
+}
+
+export async function buildOutsideHoursMessage(clientId: string): Promise<string> {
+  const settings = await loadInboxSettings(clientId);
+  return settings.outsideHoursMessage || DEFAULT_INBOX_BOT_TEXTS.outsideHoursMessage;
+}
+
+export async function buildResolvedMessage(clientId: string): Promise<string> {
+  const settings = await loadInboxSettings(clientId);
+  return settings.resolvedMessage || DEFAULT_INBOX_BOT_TEXTS.resolvedMessage;
+}
+
+export async function buildTransferMessage(
+  clientId: string,
+  departmentName: string,
+): Promise<string> {
+  const settings = await loadInboxSettings(clientId);
+  return applyTemplate(settings.transferMessage, { department: departmentName });
 }
 
 export function buildAgentJoinMessage(agentName: string): string {
