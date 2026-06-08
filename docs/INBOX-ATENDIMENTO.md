@@ -42,7 +42,7 @@ Os segmentos aparecem em `/contact` na barra lateral de grupos, como qualquer ou
 
 | Coleção | Propósito |
 |---------|-----------|
-| `inboxDepartments` | Filas/setores (Comercial, Financeiro, …) |
+| `inboxDepartments` | Filas/setores (Comercial, Financeiro, …); `clientVisible: false` = interno (só equipe) |
 | `inboxConversations` | Ticket/conversa por contato + canal WA |
 | `inboxMessages` | Histórico inbound/outbound/system |
 | `inboxTransfers` | Auditoria de transferências |

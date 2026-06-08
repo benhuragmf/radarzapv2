@@ -1,12 +1,17 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { DEFAULT_INBOX_DEPARTMENTS } from '@/constants/inbox-triage';
+import { INBOX_INTERNAL_RANK_MIN } from '@/types/inbox-department';
 
 export interface IInboxDepartment extends Document {
   clientId: mongoose.Types.ObjectId;
   name: string;
   description?: string;
-  /** Tecla do menu fixo (1–4) */
+  /** Tecla do menu fixo (1–4) ou código interno (i1, i2…) — só setores visíveis usam o menu WhatsApp */
   menuKey: string;
+  /** false = setor interno: não aparece no menu do cliente; só equipe transfere/atende */
+  clientVisible: boolean;
+  /** 0 = público. Internos: 2 = 2ª instância, 3 = 3ª instância… */
+  internalRank: number;
   memberUserIds: mongoose.Types.ObjectId[];
   isActive: boolean;
   sortOrder: number;
@@ -22,6 +27,8 @@ const InboxDepartmentSchema = new Schema<IInboxDepartment>(
     name: { type: String, required: true, maxlength: 80 },
     description: { type: String, maxlength: 300 },
     menuKey: { type: String, required: true, maxlength: 8 },
+    clientVisible: { type: Boolean, default: true, index: true },
+    internalRank: { type: Number, default: 0, min: 0, max: 9, index: true },
     memberUserIds: { type: [Schema.Types.ObjectId], default: [] },
     isActive: { type: Boolean, default: true, index: true },
     sortOrder: { type: Number, default: 0 },
@@ -51,6 +58,8 @@ InboxDepartmentSchema.statics.ensureDefaults = async function ensureDefaults(
       menuKey: d.menuKey,
       sortOrder: d.sortOrder,
       isActive: true,
+      clientVisible: true,
+      internalRank: 0,
       memberUserIds: [],
     })),
   );

@@ -10,11 +10,37 @@ import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { Building2, Plus, Pencil, Users, UserPlus, Bot } from 'lucide-react'
 
+const INTERNAL_RANK_TIERS = [
+  { rank: 2, title: '2ª instância', hint: 'Atendentes da 1ª linha podem transferir para cá.' },
+  { rank: 3, title: '3ª instância', hint: 'Só quem está na 2ª instância pode transferir.' },
+  { rank: 4, title: '4ª instância', hint: 'Só quem está na 3ª instância pode transferir.' },
+  { rank: 5, title: '5ª instância', hint: 'Só quem está na 4ª instância pode transferir.' },
+] as const
+
+const SECTOR_LEVELS = [
+  {
+    value: 0,
+    title: 'Público — menu WhatsApp',
+    hint: 'O cliente escolhe este setor na triagem pelo WhatsApp.',
+  },
+  ...INTERNAL_RANK_TIERS.map(t => ({ value: t.rank, title: t.title, hint: t.hint })),
+]
+
+function internalRankLabel(rank: number): string {
+  const tier = INTERNAL_RANK_TIERS.find(t => t.rank === rank)
+  if (tier) return tier.title
+  if (rank <= 0) return 'Público'
+  return `${rank}ª instância`
+}
+
 interface Department {
   _id: string
   name: string
   description?: string
   menuKey: string
+  clientVisible: boolean
+  internalRank?: number
+  internalRankLabel?: string
   memberUserIds: string[]
   isActive: boolean
   sortOrder: number
@@ -39,6 +65,8 @@ export default function InboxSectors() {
   const [formName, setFormName] = useState('')
   const [formDesc, setFormDesc] = useState('')
   const [formMembers, setFormMembers] = useState<string[]>([])
+  const [formClientVisible, setFormClientVisible] = useState(true)
+  const [formInternalRank, setFormInternalRank] = useState<number>(2)
 
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],
@@ -48,8 +76,8 @@ export default function InboxSectors() {
   const canManage = can(me ?? null, 'inbox:department:manage')
 
   const { data: departments = [], isLoading } = useQuery({
-    queryKey: ['inbox-departments'],
-    queryFn: () => api.get<Department[]>('/inbox/departments'),
+    queryKey: ['inbox-departments', 'all'],
+    queryFn: () => api.get<Department[]>('/inbox/departments?all=1'),
     enabled: canManage,
   })
 
@@ -63,6 +91,8 @@ export default function InboxSectors() {
     setFormName('')
     setFormDesc('')
     setFormMembers([])
+    setFormClientVisible(true)
+    setFormInternalRank(2)
     setCreating(false)
     setEditingId(null)
   }
@@ -72,6 +102,8 @@ export default function InboxSectors() {
     setFormName(d.name)
     setFormDesc(d.description ?? '')
     setFormMembers(d.memberUserIds ?? [])
+    setFormClientVisible(d.clientVisible !== false)
+    setFormInternalRank(d.internalRank && d.internalRank >= 2 ? d.internalRank : 2)
     setCreating(false)
   }
 
@@ -81,12 +113,27 @@ export default function InboxSectors() {
     )
   }
 
+  const formSectorLevel = formClientVisible ? 0 : formInternalRank
+  const selectedSectorLevel =
+    SECTOR_LEVELS.find(l => l.value === formSectorLevel) ?? SECTOR_LEVELS[0]
+
+  const setFormSectorLevel = (level: number) => {
+    if (level === 0) {
+      setFormClientVisible(true)
+      return
+    }
+    setFormClientVisible(false)
+    setFormInternalRank(level)
+  }
+
   const saveCreate = useMutation({
     mutationFn: () =>
       api.post('/inbox/departments', {
         name: formName,
         description: formDesc,
         memberUserIds: formMembers,
+        clientVisible: formClientVisible,
+        internalRank: formClientVisible ? undefined : formInternalRank,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-departments'] })
@@ -101,6 +148,8 @@ export default function InboxSectors() {
         name: formName,
         description: formDesc,
         memberUserIds: formMembers,
+        clientVisible: formClientVisible,
+        internalRank: formClientVisible ? undefined : formInternalRank,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-departments'] })
@@ -169,7 +218,7 @@ export default function InboxSectors() {
   return (
     <PlatformPage
       title="Setores do Inbox"
-      description="Crie filas de atendimento e vincule atendentes da sua equipe. O menu WhatsApp usa estes setores automaticamente."
+      description="Setores visíveis aparecem no menu WhatsApp do cliente. Setores internos usam instâncias (2ª, 3ª…) — só quem está no nível anterior pode transferir para o próximo."
     >
       <div className="flex flex-wrap gap-2 mb-4">
         <Link to="/platform/inbox">
@@ -208,9 +257,24 @@ export default function InboxSectors() {
           <div>
             <label className="text-xs text-gray-500 mb-2 block">Atendentes deste setor</label>
             <p className="text-xs text-gray-600 mb-2">
-              Vazio = todos os atendentes veem a fila. Selecione para restringir.
+              Vazio = todos os atendentes veem a fila. Selecione para restringir (recomendado em setores internos).
             </p>
             <MemberPicker />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Nível do setor *</label>
+            <select
+              value={formSectorLevel}
+              onChange={e => setFormSectorLevel(Number(e.currentTarget.value))}
+              className={inputCls}
+            >
+              {SECTOR_LEVELS.map(level => (
+                <option key={level.value} value={level.value}>
+                  {level.title}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-600 mt-1">{selectedSectorLevel.hint}</p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -235,13 +299,22 @@ export default function InboxSectors() {
             <Card key={d._id} className={!d.isActive ? 'opacity-60' : undefined}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <Building2 size={16} className="text-brand-400" />
                     <span className="font-medium text-sm">{d.name}</span>
-                    <Badge label={`Tecla ${d.menuKey}`} variant="blue" />
+                    {d.clientVisible !== false ? (
+                      <Badge label={`Menu ${d.menuKey}`} variant="blue" />
+                    ) : (
+                      <Badge label={d.internalRankLabel ?? internalRankLabel(d.internalRank ?? 2)} variant="yellow" />
+                    )}
                     {!d.isActive && <Badge label="Inativo" variant="gray" />}
                   </div>
                   {d.description && <p className="text-xs text-gray-500">{d.description}</p>}
+                  <p className="text-xs text-gray-600 mt-1">
+                    {d.clientVisible === false
+                      ? `${d.internalRankLabel ?? internalRankLabel(d.internalRank ?? 2)} — transferência só pela equipe (nível anterior).`
+                      : 'Aparece no menu WhatsApp do cliente.'}
+                  </p>
                   <p className="text-xs text-gray-600 mt-1">
                     Atendentes:{' '}
                     {d.memberUserIds?.length

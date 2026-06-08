@@ -44,16 +44,23 @@ export async function loadActiveDepartments(clientId: string): Promise<IInboxDep
       menuKey: d.menuKey,
       sortOrder: d.sortOrder,
       isActive: true,
+      clientVisible: true,
       memberUserIds: [],
     })),
   );
   return docs;
 }
 
+/** Setores exibidos no menu WhatsApp do cliente (triagem). */
+export async function loadClientVisibleDepartments(clientId: string): Promise<IInboxDepartment[]> {
+  const depts = await loadActiveDepartments(clientId);
+  return depts.filter(d => d.clientVisible !== false);
+}
+
 export async function buildInboxTriageMenu(clientId: string): Promise<string> {
   const [company, depts, settings] = await Promise.all([
     ConsentService.getInstance().resolveCompanyName(clientId),
-    loadActiveDepartments(clientId),
+    loadClientVisibleDepartments(clientId),
     loadInboxSettings(clientId),
   ]);
 
@@ -69,7 +76,7 @@ export async function parseInboxMenuChoice(
   clientId: string,
   text: string,
 ): Promise<string | null> {
-  const depts = await loadActiveDepartments(clientId);
+  const depts = await loadClientVisibleDepartments(clientId);
   const norm = normalizeChoiceText(text);
   if (!norm) return null;
 
@@ -100,7 +107,7 @@ export async function buildQueueConfirmation(
 
 export async function buildInvalidMenuHint(clientId: string): Promise<string> {
   const [depts, settings] = await Promise.all([
-    loadActiveDepartments(clientId),
+    loadClientVisibleDepartments(clientId),
     loadInboxSettings(clientId),
   ]);
   const keys = depts.map(d => d.menuKey).join(', ');

@@ -43,6 +43,11 @@ import {
 } from '@/services/inbox/inbox-queue-priority';
 import { createServiceLogger } from '@/utils/logger';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
+import {
+  departmentInternalRank,
+  formatInternalRankLabel,
+  INBOX_INTERNAL_RANK_MIN,
+} from '@/types/inbox-department';
 
 const logger = createServiceLogger('InboxService');
 
@@ -83,6 +88,47 @@ export class InboxService {
 
   async ensureDepartments(clientId: string) {
     return loadActiveDepartments(clientId);
+  }
+
+  /** Lista setores para o painel — admins veem todos; atendentes só os permitidos + alvos de transferência. */
+  async listDepartmentsForUser(clientId: string, userId: string, opts?: { all?: boolean }) {
+    const depts = await loadActiveDepartments(clientId);
+    const visibility = await this.departmentVisibility(clientId, userId);
+    const isAdmin = !visibility.restricted;
+    const allowed = new Set(visibility.departmentIds.map(String));
+
+    const enriched = await Promise.all(
+      depts.map(async d => {
+        const canTransferTo =
+          isAdmin || (await this.canUserTransferToDepartment(clientId, userId, d));
+        const canViewQueue = isAdmin || allowed.has(String(d._id));
+        return this.serializeDepartment(d, { canTransferTo, canViewQueue });
+      }),
+    );
+
+    if (opts?.all) return enriched;
+    if (isAdmin) return enriched;
+    return enriched.filter(d => d.canViewQueue || d.canTransferTo);
+  }
+
+  private serializeDepartment(
+    d: IInboxDepartment,
+    extras?: { canTransferTo?: boolean; canViewQueue?: boolean },
+  ) {
+    const internalRank = departmentInternalRank(d);
+    return {
+      _id: String(d._id),
+      name: d.name,
+      description: d.description,
+      menuKey: d.menuKey,
+      clientVisible: d.clientVisible !== false,
+      internalRank,
+      internalRankLabel: formatInternalRankLabel(internalRank),
+      memberUserIds: (d.memberUserIds ?? []).map(String),
+      isActive: d.isActive,
+      sortOrder: d.sortOrder,
+      ...extras,
+    };
   }
 
   async getSettings(clientId: string): Promise<IInboxSettings> {
@@ -362,13 +408,25 @@ export class InboxService {
 
   async createDepartment(
     clientId: string,
-    data: { name: string; description?: string; memberUserIds?: string[] },
+    data: {
+      name: string;
+      description?: string;
+      memberUserIds?: string[];
+      clientVisible?: boolean;
+      internalRank?: number;
+    },
   ): Promise<IInboxDepartment> {
     const name = data.name?.trim();
     if (!name) throw new Error('Nome do setor é obrigatório');
 
     const clientOid = new mongoose.Types.ObjectId(clientId);
-    const menuKey = await this.nextMenuKey(clientOid);
+    const clientVisible = data.clientVisible !== false;
+    const internalRank = clientVisible
+      ? 0
+      : Math.max(INBOX_INTERNAL_RANK_MIN, data.internalRank ?? INBOX_INTERNAL_RANK_MIN);
+    const menuKey = clientVisible
+      ? await this.nextPublicMenuKey(clientOid)
+      : await this.nextInternalMenuKey(clientOid);
     const sortOrder = await InboxDepartment.countDocuments({ clientId: clientOid });
     const memberUserIds = await this.resolveMemberUserIds(clientId, data.memberUserIds ?? []);
 
@@ -377,6 +435,8 @@ export class InboxService {
       name,
       description: data.description?.trim() || undefined,
       menuKey,
+      clientVisible,
+      internalRank,
       sortOrder,
       memberUserIds,
       isActive: true,
@@ -392,6 +452,8 @@ export class InboxService {
       memberUserIds?: string[];
       isActive?: boolean;
       sortOrder?: number;
+      clientVisible?: boolean;
+      internalRank?: number;
     },
   ): Promise<IInboxDepartment> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
@@ -408,16 +470,139 @@ export class InboxService {
     if (data.memberUserIds) {
       dept.memberUserIds = await this.resolveMemberUserIds(clientId, data.memberUserIds);
     }
+    if (data.clientVisible !== undefined && data.clientVisible !== dept.clientVisible) {
+      dept.clientVisible = data.clientVisible;
+      dept.menuKey = data.clientVisible
+        ? await this.nextPublicMenuKey(clientOid, String(dept._id))
+        : await this.nextInternalMenuKey(clientOid, String(dept._id));
+      dept.internalRank = data.clientVisible
+        ? 0
+        : Math.max(INBOX_INTERNAL_RANK_MIN, dept.internalRank || INBOX_INTERNAL_RANK_MIN);
+    }
+    if (data.internalRank !== undefined && dept.clientVisible === false) {
+      dept.internalRank = Math.max(INBOX_INTERNAL_RANK_MIN, data.internalRank);
+    }
     await dept.save();
     return dept;
   }
 
-  private async nextMenuKey(clientOid: mongoose.Types.ObjectId): Promise<string> {
-    const depts = await InboxDepartment.find({ clientId: clientOid }).select('menuKey').lean();
+  private async nextPublicMenuKey(clientOid: mongoose.Types.ObjectId, excludeId?: string): Promise<string> {
+    const depts = await InboxDepartment.find({ clientId: clientOid }).select('menuKey _id').lean();
     const nums = depts
+      .filter(d => !excludeId || String(d._id) !== excludeId)
       .map(d => parseInt(d.menuKey, 10))
       .filter(n => !Number.isNaN(n));
     return String((nums.length ? Math.max(...nums) : 0) + 1);
+  }
+
+  private async nextInternalMenuKey(clientOid: mongoose.Types.ObjectId, excludeId?: string): Promise<string> {
+    const depts = await InboxDepartment.find({ clientId: clientOid }).select('menuKey _id').lean();
+    const nums = depts
+      .filter(d => !excludeId || String(d._id) !== excludeId)
+      .map(d => /^i(\d+)$/i.exec(d.menuKey)?.[1])
+      .filter(Boolean)
+      .map(n => parseInt(n!, 10));
+    return `i${(nums.length ? Math.max(...nums) : 0) + 1}`;
+  }
+
+  private async assertUserCanAccessDepartment(
+    clientId: string,
+    userId: string,
+    departmentId: mongoose.Types.ObjectId | string,
+  ): Promise<void> {
+    const visibility = await this.departmentVisibility(clientId, userId);
+    if (!visibility.restricted) return;
+    const id = String(departmentId);
+    if (!visibility.departmentIds.some(d => String(d) === id)) {
+      throw new Error('Sem permissão para este setor');
+    }
+  }
+
+  private getDepartmentRank(dept: IInboxDepartment): number {
+    return departmentInternalRank(dept);
+  }
+
+  private async hasActiveDepartmentsWithRank(clientId: string, rank: number): Promise<boolean> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    if (rank === 0) {
+      return (
+        (await InboxDepartment.countDocuments({
+          clientId: clientOid,
+          isActive: true,
+          clientVisible: { $ne: false },
+        })) > 0
+      );
+    }
+    return (
+      (await InboxDepartment.countDocuments({
+        clientId: clientOid,
+        isActive: true,
+        clientVisible: false,
+        internalRank: rank,
+      })) > 0
+    );
+  }
+
+  /** Membro de pelo menos um setor ativo no nível indicado (rank 0 = público). */
+  private async userIsMemberOfRank(clientId: string, userId: string, rank: number): Promise<boolean> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const userOid = new mongoose.Types.ObjectId(userId);
+    const query =
+      rank === 0
+        ? { clientId: clientOid, isActive: true, clientVisible: { $ne: false } }
+        : { clientId: clientOid, isActive: true, clientVisible: false, internalRank: rank };
+
+    const depts = await InboxDepartment.find(query).select('memberUserIds');
+    if (!depts.length) return false;
+
+    return depts.some(
+      d => d.memberUserIds.length === 0 || d.memberUserIds.some(id => id.equals(userOid)),
+    );
+  }
+
+  /** Escalação: rank R exige membro do rank R-1 (ou tier público se não houver nível intermediário). */
+  private async canUserTransferToDepartment(
+    clientId: string,
+    userId: string,
+    target: IInboxDepartment,
+  ): Promise<boolean> {
+    const visibility = await this.departmentVisibility(clientId, userId);
+    if (!visibility.restricted) return true;
+
+    const targetRank = this.getDepartmentRank(target);
+    if (targetRank === 0) {
+      return visibility.departmentIds.some(d => d.equals(target._id as mongoose.Types.ObjectId));
+    }
+
+    if (await this.userIsMemberOfRank(clientId, userId, targetRank)) {
+      return true;
+    }
+
+    let requiredRank = targetRank - 1;
+    while (requiredRank >= 0) {
+      if (await this.hasActiveDepartmentsWithRank(clientId, requiredRank)) {
+        return this.userIsMemberOfRank(clientId, userId, requiredRank);
+      }
+      requiredRank--;
+    }
+    return false;
+  }
+
+  private async assertUserCanTransferToDepartment(
+    clientId: string,
+    userId: string,
+    target: IInboxDepartment,
+  ): Promise<void> {
+    const can = await this.canUserTransferToDepartment(clientId, userId, target);
+    if (can) return;
+
+    const rank = this.getDepartmentRank(target);
+    if (rank >= INBOX_INTERNAL_RANK_MIN) {
+      throw new Error(
+        `Sem permissão para transferir para ${formatInternalRankLabel(rank)} — é preciso estar no nível anterior.`,
+      );
+    }
+    throw new Error('Sem permissão para transferir para este setor');
   }
 
   private async resolveMemberUserIds(
@@ -899,6 +1084,7 @@ export class InboxService {
       clientId: clientOid,
       menuKey: choice,
       isActive: true,
+      clientVisible: { $ne: false },
     });
     if (!department) {
       const hint = await buildInvalidMenuHint(clientId);
@@ -2174,6 +2360,8 @@ export class InboxService {
     });
     if (!target) throw new Error('Setor inválido');
 
+    await this.assertUserCanTransferToDepartment(clientId, userId, target);
+
     const fromDept = conv.departmentId;
     await InboxTransfer.create({
       clientId: clientOid,
@@ -2196,9 +2384,19 @@ export class InboxService {
     await conv.save();
     this.notifyConversation(clientId, conv);
 
-    const notify = await buildTransferMessage(clientId, target.name);
-    await this.sendToContact(clientId, conv.contactIdentifier, notify);
-    await this.appendSystemMessage(conv, notify, new mongoose.Types.ObjectId(userId), clientId);
+    if (target.clientVisible !== false) {
+      const notify = await buildTransferMessage(clientId, target.name);
+      await this.sendToContact(clientId, conv.contactIdentifier, notify);
+      await this.appendSystemMessage(conv, notify, new mongoose.Types.ObjectId(userId), clientId);
+    } else {
+      const agentName = await this.resolveAgentDisplayName(userId);
+      await this.appendSystemMessage(
+        conv,
+        `Transferência interna para *${target.name}* (${formatInternalRankLabel(this.getDepartmentRank(target))}) por ${agentName} — invisível ao cliente.`,
+        new mongoose.Types.ObjectId(userId),
+        clientId,
+      );
+    }
 
     return conv.toObject();
   }

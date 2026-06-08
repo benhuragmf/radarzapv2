@@ -965,7 +965,14 @@ export class DashboardService {
     r.get('/inbox/departments', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const departments = await inboxSvc.ensureDepartments(auth.clientId);
+        const all = req.query.all === '1' || req.query.all === 'true';
+        const canManageAll =
+          all && (req as DashboardRequest).auth!.capabilities.includes(Cap.INBOX_DEPARTMENT_MANAGE);
+        const departments = await inboxSvc.listDepartmentsForUser(
+          auth.clientId,
+          auth.userId,
+          { all: canManageAll },
+        );
         res.json(departments);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -985,15 +992,19 @@ export class DashboardService {
     r.post('/inbox/departments', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { name, description, memberUserIds } = req.body as {
+        const { name, description, memberUserIds, clientVisible, internalRank } = req.body as {
           name?: string;
           description?: string;
           memberUserIds?: string[];
+          clientVisible?: boolean;
+          internalRank?: number;
         };
         const dept = await inboxSvc.createDepartment(auth.clientId, {
           name: name ?? '',
           description,
           memberUserIds,
+          clientVisible,
+          internalRank,
         });
         res.status(201).json(dept);
       } catch (e) {
@@ -1004,12 +1015,14 @@ export class DashboardService {
     r.patch('/inbox/departments/:id', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { name, description, memberUserIds, isActive, sortOrder } = req.body as {
+        const { name, description, memberUserIds, isActive, sortOrder, clientVisible, internalRank } = req.body as {
           name?: string;
           description?: string;
           memberUserIds?: string[];
           isActive?: boolean;
           sortOrder?: number;
+          clientVisible?: boolean;
+          internalRank?: number;
         };
         const dept = await inboxSvc.updateDepartment(auth.clientId, req.params.id, {
           name,
@@ -1017,6 +1030,8 @@ export class DashboardService {
           memberUserIds,
           isActive,
           sortOrder,
+          clientVisible,
+          internalRank,
         });
         res.json(dept);
       } catch (e) {

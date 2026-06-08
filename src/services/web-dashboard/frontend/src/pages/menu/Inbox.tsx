@@ -41,6 +41,11 @@ interface Department {
   _id: string
   name: string
   menuKey: string
+  clientVisible?: boolean
+  internalRank?: number
+  internalRankLabel?: string
+  canTransferTo?: boolean
+  canViewQueue?: boolean
 }
 
 interface Conversation {
@@ -449,7 +454,7 @@ export default function Inbox() {
               className={`${selectCls} w-full`}
             >
               <option value="">Todos os setores</option>
-              {departments.map(d => (
+              {departments.filter(d => d.canViewQueue !== false).map(d => (
                 <option key={d._id} value={d._id}>
                   {d.name}
                 </option>
@@ -748,9 +753,14 @@ export default function Inbox() {
                       className={selectCls}
                     >
                       <option value="">Transferir para…</option>
-                      {departments.filter(d => d._id !== conv.departmentId).map(d => (
+                      {departments
+                        .filter(d => d._id !== conv.departmentId && d.canTransferTo !== false)
+                        .map(d => (
                         <option key={d._id} value={d._id}>
                           {d.name}
+                          {d.clientVisible === false
+                            ? ` (${d.internalRankLabel ?? 'interno'})`
+                            : ''}
                         </option>
                       ))}
                     </select>
