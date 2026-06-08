@@ -21,6 +21,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createServer, Server as HTTPServer } from 'http';
 import session, { Store } from 'express-session';
 import path from 'path';
+import crypto from 'crypto';
 import { createServiceLogger, logError } from '../../utils/logger';
 import { QueueManager } from '../../cache/QueueManager';
 import { SessionCache } from '../../cache/SessionCache';
@@ -142,7 +143,19 @@ export class DashboardService {
     this.port = port;
     this.app = express();
     this.server = createServer(this.app);
-    this.io = new SocketIOServer(this.server, { cors: { origin: '*' } });
+    const allowedSocketOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5174',
+      config.DASHBOARD.FRONTEND_URL,
+      config.CORS_ORIGIN,
+    ].filter(Boolean);
+    this.io = new SocketIOServer(this.server, {
+      cors: {
+        origin: allowedSocketOrigins,
+        credentials: true,
+      },
+    });
     this.queueManager = QueueManager.getInstance();
     this.sessionCache = SessionCache.getInstance();
     this.redisManager = RedisManager.getInstance();
@@ -218,7 +231,7 @@ export class DashboardService {
 
     const isProd = config.NODE_ENV === 'production';
 
-    this.app.use(session({
+    const sessionMiddleware = session({
       name: 'radarzap.sid',
       store: new IORedisSesionStore(),
       secret: config.SECURITY.SESSION_SECRET,
@@ -232,7 +245,18 @@ export class DashboardService {
         sameSite: 'lax',
         path: '/',
       },
-    }));
+    });
+
+    this.app.use(sessionMiddleware);
+    this.io.engine.use(sessionMiddleware);
+    this.io.use((socket, next) => {
+      const sess = (socket.request as typeof socket.request & { session?: { userId?: string } }).session;
+      if (config.NODE_ENV !== 'production' || sess?.userId) {
+        next();
+        return;
+      }
+      next(new Error('Unauthorized'));
+    });
 
     // Serve built React frontend
     const publicDir = path.join(__dirname, 'public');
@@ -292,19 +316,28 @@ export class DashboardService {
 
     // Step 1 — redirect to Discord
     this.app.get('/auth/discord', (_req, res) => {
+      const state = crypto.randomBytes(24).toString('hex');
+      const sess = _req.session as any;
+      sess.oauthStateDiscord = state;
       const url = new URL('https://discord.com/api/oauth2/authorize');
       url.searchParams.set('client_id', config.DISCORD.CLIENT_ID);
       url.searchParams.set('redirect_uri', REDIRECT_URI);
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', SCOPES);
+      url.searchParams.set('state', state);
       res.redirect(url.toString());
     });
 
     // Step 2 — Discord redirects back with code
     this.app.get('/auth/discord/callback', async (req: Request, res: Response) => {
-      const { code } = req.query as { code?: string };
+      const { code, state } = req.query as { code?: string; state?: string };
       const frontendBase = this.getFrontendBase();
       if (!code) return res.redirect(`${frontendBase}/?error=no_code`);
+      const sess = req.session as any;
+      if (!state || state !== sess.oauthStateDiscord) {
+        return res.redirect(`${frontendBase}/?error=oauth_state`);
+      }
+      delete sess.oauthStateDiscord;
 
       try {
         // Exchange code for access token
@@ -354,7 +387,6 @@ export class DashboardService {
         const tenantId = await orgSvc.resolveClientId((dbUser._id as mongoose.Types.ObjectId).toString());
 
         // Store in session
-        const sess = req.session as any;
         sess.userId       = (dbUser._id as mongoose.Types.ObjectId).toString();
         sess.discordId    = discordUser.id;
         sess.authProvider = 'discord';
@@ -390,6 +422,9 @@ export class DashboardService {
       if (!clientId) {
         return res.status(503).json({ error: 'Google OAuth não configurado (GOOGLE_CLIENT_ID)' });
       }
+      const state = crypto.randomBytes(24).toString('hex');
+      const sess = _req.session as any;
+      sess.oauthStateGoogle = state;
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       url.searchParams.set('client_id', clientId);
       url.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI);
@@ -397,15 +432,21 @@ export class DashboardService {
       url.searchParams.set('scope', 'openid email profile');
       url.searchParams.set('access_type', 'online');
       url.searchParams.set('prompt', 'select_account');
+      url.searchParams.set('state', state);
       res.redirect(url.toString());
     });
 
     this.app.get('/auth/google/callback', async (req: Request, res: Response) => {
-      const { code } = req.query as { code?: string };
+      const { code, state } = req.query as { code?: string; state?: string };
       const frontendBase = this.getFrontendBase();
       const clientId = config.GOOGLE.CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
       const clientSecret = config.GOOGLE.CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
       if (!code) return res.redirect(`${frontendBase}/?error=no_code`);
+      const sess = req.session as any;
+      if (!state || state !== sess.oauthStateGoogle) {
+        return res.redirect(`${frontendBase}/?error=oauth_state`);
+      }
+      delete sess.oauthStateGoogle;
       if (!clientId || !clientSecret) {
         return res.redirect(`${frontendBase}/?error=google_not_configured`);
       }
@@ -462,7 +503,6 @@ export class DashboardService {
           picture: profile.picture,
         });
 
-        const sess = req.session as any;
         sess.userId = (user._id as mongoose.Types.ObjectId).toString();
         sess.authProvider = 'google';
         sess.email = profile.email;

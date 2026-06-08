@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Destination } from '@/models/Destination';
+import { Destination, type IDestination } from '@/models/Destination';
 import { ContactGroup } from '@/models/ContactGroup';
 import {
   CanonicalContactRow,
@@ -58,7 +58,7 @@ async function resolveOrCreateSegmentsByName(
 }
 
 async function applySegmentMembership(
-  dest: InstanceType<typeof Destination>,
+  dest: IDestination,
   clientOid: mongoose.Types.ObjectId,
   row: CanonicalContactRow,
   importOpts: Pick<ContactImportOptions, 'contactGroupIds' | 'mapGruposToSegments'>,
@@ -106,7 +106,7 @@ async function findExistingContact(
 }
 
 function applyOptionalFields(
-  dest: InstanceType<typeof Destination>,
+  dest: IDestination,
   row: CanonicalContactRow,
 ): void {
   if (row.aniversario) dest.set('birthday', row.aniversario);

@@ -125,11 +125,18 @@ const WhatsAppSessionSchema = new Schema<IWhatsAppSession>({
 /**
  * Encryption key for session data
  */
-const ENCRYPTION_KEY = process.env.SESSION_ENCRYPTION_KEY || 'default-key-change-in-production-32-chars';
+const ENCRYPTION_KEY = process.env.SESSION_ENCRYPTION_KEY || '';
 const ALGORITHM = 'aes-256-cbc';
 
 function sessionCryptoKey(): Buffer {
-  return crypto.scryptSync(ENCRYPTION_KEY, 'radarzap-wa-session-v1', 32);
+  if (!ENCRYPTION_KEY) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('SESSION_ENCRYPTION_KEY is required in production');
+    }
+    logger.warn('Using development-only WhatsApp session encryption key');
+  }
+  const keyMaterial = ENCRYPTION_KEY || 'development-only-session-key-change-before-production';
+  return crypto.scryptSync(keyMaterial, 'radarzap-wa-session-v1', 32);
 }
 
 /**

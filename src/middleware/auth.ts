@@ -2,6 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '@/config/environment';
 import { createServiceLogger } from '@/utils/logger';
+import { ApiKey } from '@/models/ApiKey';
+import { Organization } from '@/models/Organization';
+import { User } from '@/models/User';
+import { hashApiKey } from '@/utils/api-key';
 
 const logger = createServiceLogger('AuthMiddleware');
 
@@ -240,7 +244,8 @@ export const generateToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string 
   try {
     const token = jwt.sign(
       payload,
-      config.SECURITY.JWT_SECRET as string
+      config.SECURITY.JWT_SECRET as string,
+      { expiresIn: config.SECURITY.JWT_EXPIRES_IN } as jwt.SignOptions
     );
 
     logger.info('JWT token generated', {
@@ -312,9 +317,7 @@ export const authenticateAPIKey = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    // TODO: Validate API key against database
-    // For now, we'll use a simple validation
-    if (apiKey.length < 32) {
+    if (!apiKey.startsWith('rz_') || apiKey.length < 32) {
       res.status(401).json({
         error: 'Invalid API key format',
         code: 'INVALID_API_KEY'
@@ -322,16 +325,67 @@ export const authenticateAPIKey = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    // TODO: Load user data from API key
-    // This is a placeholder implementation
+    const keyHash = hashApiKey(apiKey);
+    const keyDoc = await ApiKey.findOne({ keyHash, active: true });
+
+    if (!keyDoc) {
+      if (config.NODE_ENV !== 'production') {
+        logger.warn('Using development-only API key placeholder auth');
+        req.user = {
+          id: 'api-user',
+          clientId: 'api-client',
+          discordUserId: 'api-discord',
+          plan: 'premium',
+          permissions: ['api_access'],
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 86400
+        };
+        next();
+        return;
+      }
+
+      res.status(401).json({
+        error: 'Invalid API key',
+        code: 'INVALID_API_KEY'
+      });
+      return;
+    }
+
+    const organization = await Organization.findById(keyDoc.organizationId);
+    if (!organization) {
+      res.status(401).json({
+        error: 'Invalid API key organization',
+        code: 'INVALID_API_KEY_ORGANIZATION'
+      });
+      return;
+    }
+
+    const owner = await User.findById(organization.ownerUserId);
+    if (!owner) {
+      res.status(401).json({
+        error: 'Invalid API key owner',
+        code: 'INVALID_API_KEY_OWNER'
+      });
+      return;
+    }
+
+    keyDoc.lastUsedAt = new Date();
+    await keyDoc.save();
+
+    const plan = organization.plan === 'enterprise'
+      ? 'enterprise'
+      : organization.plan === 'free'
+        ? 'free'
+        : 'premium';
+
     req.user = {
-      id: 'api-user',
-      clientId: 'api-client',
-      discordUserId: 'api-discord',
-      plan: 'premium',
+      id: String(owner._id),
+      clientId: String(organization._id),
+      discordUserId: owner.discordUserId,
+      plan,
       permissions: ['api_access'],
-      iat: Date.now(),
-      exp: Date.now() + 86400000 // 24 hours
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 86400
     };
 
     logger.debug('API key authentication successful', {
@@ -349,8 +403,17 @@ export const authenticateAPIKey = async (req: AuthenticatedRequest, res: Respons
   }
 };
 
+export const authenticateJWTOrAPIKey = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  if (req.headers['x-api-key']) {
+    await authenticateAPIKey(req, res, next);
+    return;
+  }
+  authenticateJWT(req, res, next);
+};
+
 export default {
   authenticateJWT,
+  authenticateJWTOrAPIKey,
   optionalAuth,
   requirePermission,
   requirePlan,

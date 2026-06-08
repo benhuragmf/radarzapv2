@@ -12,10 +12,10 @@ services:
       - NODE_ENV=production
       - PORT=8080
       - REDIS_URL=redis://redis:6379
-      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/discord-whatsapp?authSource=admin
       - AUTO_SETUP=true
       - HEALTH_CHECK_INTERVAL=30000
-      - JWT_SECRET=${JWT_SECRET:-default-jwt-secret}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - API_PORT=8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -40,7 +40,7 @@ services:
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}
       - REDIS_URL=redis://redis:6379
-      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/discord-whatsapp?authSource=admin
       - JWT_SECRET=${JWT_SECRET}
       - AUTO_RECONNECT=true
       - GRACEFUL_SHUTDOWN=true
@@ -62,7 +62,8 @@ services:
       - NODE_ENV=production
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - REDIS_URL=redis://redis:6379
-      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/discord-whatsapp?authSource=admin
+      - SESSION_ENCRYPTION_KEY=${SESSION_ENCRYPTION_KEY:?SESSION_ENCRYPTION_KEY is required}
       - AUTO_RESTART_SESSIONS=true
       - SESSION_CLEANUP_INTERVAL=3600000
       - HEADLESS_MODE=true
@@ -81,7 +82,7 @@ services:
     environment:
       - NODE_ENV=production
       - REDIS_URL=redis://redis:6379
-      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/discord-whatsapp?authSource=admin
       - WORKER_CONCURRENCY=5
       - AUTO_SCALE=true
       - PROCESS_TIMEOUT=300000
@@ -103,7 +104,7 @@ services:
       - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-defaultpass}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:?MONGO_PASSWORD is required}
       - MONGO_INITDB_DATABASE=discord-whatsapp
     restart: unless-stopped
     command: mongod --auth --bind_ip_all
@@ -127,7 +128,7 @@ services:
       context: .
       dockerfile: docker/auto-setup.Dockerfile
     environment:
-      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/discord-whatsapp?authSource=admin
       - REDIS_URL=redis://redis:6379
       - SETUP_TIMEOUT=300000
     depends_on:
@@ -143,7 +144,7 @@ services:
       dockerfile: docker/health-monitor.Dockerfile
     environment:
       - NODE_ENV=production
-      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:-defaultpass}@mongodb:27017/discord-whatsapp?authSource=admin
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/discord-whatsapp?authSource=admin
       - REDIS_URL=redis://redis:6379
       - SERVICES_TO_MONITOR=api-gateway,discord-bot,whatsapp-service,queue-processor
       - CHECK_INTERVAL=60000

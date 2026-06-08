@@ -201,7 +201,8 @@ export class QueueManager {
     });
 
     queue.on('progress', (job, progress) => {
-      this.serviceLogger.debug(`Job progress in ${name}: ${job.id} - ${progress}%`);
+      const jobId = String(job);
+      this.serviceLogger.debug(`Job progress in ${name}: ${jobId} - ${progress}%`);
     });
   }
 

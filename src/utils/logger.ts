@@ -2,7 +2,8 @@ import pino from 'pino';
 import { config } from '../config/environment';
 import { sanitizeLogText } from './sanitizeLogText';
 
-const usePretty = config.LOGGING.FORMAT === 'pretty';
+const isJest = Boolean(process.env.JEST_WORKER_ID);
+const usePretty = config.LOGGING.FORMAT === 'pretty' && config.NODE_ENV !== 'test' && !isJest;
 
 function sanitizeLogArgs(args: unknown[]): unknown[] {
   if (!usePretty || args.length === 0) return args;
@@ -19,13 +20,6 @@ function sanitizeLogArgs(args: unknown[]): unknown[] {
  */
 const loggerConfig: pino.LoggerOptions = {
   level: config.LOGGING.LEVEL,
-  hooks: usePretty
-    ? {
-        logMethod(args, method) {
-          return method.apply(this, sanitizeLogArgs(args));
-        },
-      }
-    : undefined,
   formatters: {
     level: (label) => ({ level: label }),
     bindings: (bindings) => ({
@@ -52,6 +46,11 @@ const loggerConfig: pino.LoggerOptions = {
 };
 
 if (usePretty) {
+  loggerConfig.hooks = {
+    logMethod(args, method) {
+      return method.apply(this, sanitizeLogArgs(args));
+    },
+  };
   loggerConfig.transport = {
     target: 'pino-pretty',
     options: {

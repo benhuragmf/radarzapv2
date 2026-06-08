@@ -10,7 +10,7 @@
  * Starts services based on environment configuration
  */
 
-import { config, validateServiceConfig } from '@/config/environment';
+import { config, validateConfig, validateServiceConfig } from '@/config/environment';
 import { createServiceLogger } from '@/utils/logger';
 import { DatabaseManager } from '@/database/DatabaseManager';
 import { RedisManager } from '@/cache/RedisManager';
@@ -48,6 +48,7 @@ class Application {
           : config.NODE_ENV;
       logger.info(`Environment: ${envLabel}`);
       logger.info(`Service: ${config.SERVICE_NAME || 'all'}`);
+      validateConfig();
 
       // Initialize core infrastructure
       await this.initializeInfrastructure();

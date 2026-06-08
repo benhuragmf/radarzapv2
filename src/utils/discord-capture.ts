@@ -314,7 +314,8 @@ function detectEmbedType(url: string): 'twitch' | 'youtube' | 'live' | 'generic'
 
 export function extractStoreButtons(message: Message): StoreButton[] {
   const buttons: StoreButton[] = [];
-  for (const row of message.components) {
+  const components = Array.isArray(message.components) ? message.components : [];
+  for (const row of components) {
     if (!('components' in row) || !Array.isArray(row.components)) continue;
     for (const comp of row.components) {
       if (comp.type !== ComponentType.Button) continue;
@@ -420,7 +421,10 @@ export function captureDiscordMessage(message: Message): DiscordCaptureResult {
     if (embed.url) allLinks.push(cleanUrl(embed.url));
     if (embed.author?.name) embedAuthorName = embed.author.name;
     if (embed.author?.url) allLinks.push(cleanUrl(embed.author.url));
-    if (embed.thumbnail?.url) embedThumbnail = embed.thumbnail.url;
+    if (embed.thumbnail?.url) {
+      embedThumbnail = embed.thumbnail.url;
+      imageUrls.push(embed.thumbnail.url);
+    }
     if (embed.image?.url) {
       imageUrls.push(embed.image.url);
       if (!embedThumbnail) embedThumbnail = embed.image.url;

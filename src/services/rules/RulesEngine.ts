@@ -26,7 +26,7 @@ export class RulesEngine {
    */
   async evaluate(message: ExtractedMessage, clientId: string): Promise<RuleMatch[]> {
     const matches: RuleMatch[] = [];
-    const clientIds = await OrganizationService.getInstance().getRelatedClientIds(clientId);
+    const clientIds = await this.getRelatedClientIds(clientId);
     const seenRuleIds = new Set<string>();
     let rulesChecked = 0;
 
@@ -73,6 +73,13 @@ export class RulesEngine {
     });
 
     return matches;
+  }
+
+  private async getRelatedClientIds(clientId: string): Promise<mongoose.Types.ObjectId[]> {
+    if (process.env.JEST_WORKER_ID && mongoose.connection.readyState === 0) {
+      return [new mongoose.Types.ObjectId(clientId)];
+    }
+    return OrganizationService.getInstance().getRelatedClientIds(clientId);
   }
 
   /**

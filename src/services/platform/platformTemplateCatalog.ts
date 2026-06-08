@@ -76,7 +76,7 @@ export async function listMergedPlatformTemplates(
   const merged: PlatformTemplateListItem[] = globals.map(g => {
     const override = overrideByName.get(g.name);
     const def = catalogByName.get(g.name);
-    const base = (override ?? g) as PlatformTemplateListItem;
+    const base = (override ?? g) as unknown as PlatformTemplateListItem;
     if (def) {
       base.label = def.label;
       base.platformKind = def.platformKind;
@@ -89,7 +89,7 @@ export async function listMergedPlatformTemplates(
 
   for (const o of overrides) {
     if (!merged.some(m => m.name === o.name)) {
-      merged.push(o as PlatformTemplateListItem);
+      merged.push(o as unknown as PlatformTemplateListItem);
     }
   }
 

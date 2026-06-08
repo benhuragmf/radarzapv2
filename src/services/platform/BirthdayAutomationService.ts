@@ -104,7 +104,7 @@ export class BirthdayAutomationService {
       triggerType: 'once_at',
       scheduledAt: { $exists: true, $ne: null },
     }).lean();
-    return this.planRules(rules as IBirthdayAutomationRule[], refDate, 'imminent');
+    return this.planRules(rules as unknown as IBirthdayAutomationRule[], refDate, 'imminent');
   }
 
   /** Regras recorrentes — tick a cada 5 min; pré-enfileira na fila de campanhas. */
@@ -113,7 +113,7 @@ export class BirthdayAutomationService {
       active: true,
       triggerType: { $ne: 'once_at' },
     }).lean();
-    return this.planRules(rules as IBirthdayAutomationRule[], refDate, 'recurring');
+    return this.planRules(rules as unknown as IBirthdayAutomationRule[], refDate, 'recurring');
   }
 
   /** Ao criar/editar regra no painel — planeja imediatamente se aplicável. */

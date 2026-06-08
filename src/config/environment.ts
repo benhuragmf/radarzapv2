@@ -342,6 +342,18 @@ export function validateConfig(): void {
     if (config.SECURITY.SESSION_SECRET.includes('change-in-production')) {
       errors.push('SESSION_SECRET must be changed in production');
     }
+
+    if (config.SECURITY.SESSION_SECRET.length < 32) {
+      errors.push('SESSION_SECRET must be at least 32 characters in production');
+    }
+
+    if (!process.env.SESSION_ENCRYPTION_KEY || process.env.SESSION_ENCRYPTION_KEY.length < 32) {
+      errors.push('SESSION_ENCRYPTION_KEY must be set with at least 32 characters in production');
+    }
+
+    if (!config.SECURITY.COOKIE_SECURE) {
+      errors.push('COOKIE_SECURE must be true in production');
+    }
   }
   
   // Validate numeric ranges

@@ -135,7 +135,7 @@ export class APIGateway {
     this.app.post('/auth/logout', authMiddleware.authenticateJWT, this.logoutEndpoint);
 
     // API v1 routes
-    this.app.use('/api/v1/templates', templateRoutes);
+    this.app.use('/api/v1/templates', authMiddleware.authenticateJWTOrAPIKey, templateRoutes);
 
     // Protected routes examples
     this.app.get('/api/v1/profile', 
@@ -326,8 +326,15 @@ export class APIGateway {
    */
   private loginEndpoint = async (req: Request, res: Response): Promise<void> => {
     try {
-      // TODO: Implement actual authentication logic
       const { discordUserId, email } = req.body;
+
+      if (config.NODE_ENV === 'production') {
+        res.status(501).json({
+          error: 'Direct API login is not enabled in production',
+          code: 'LOGIN_NOT_ENABLED'
+        });
+        return;
+      }
 
       if (!discordUserId) {
         res.status(400).json({
