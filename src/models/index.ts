@@ -29,6 +29,7 @@ export { InboxDepartment, IInboxDepartment } from './InboxDepartment';
 export { InboxConversation, IInboxConversation } from './InboxConversation';
 export { InboxMessage, IInboxMessage } from './InboxMessage';
 export { InboxTransfer, IInboxTransfer } from './InboxTransfer';
+export { InboxTicket, IInboxTicket, IInboxTicketComment } from './InboxTicket';
 
 // Create aliases for internal use
 const User = UserModel;

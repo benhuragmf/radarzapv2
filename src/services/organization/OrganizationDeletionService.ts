@@ -17,6 +17,7 @@ import { InboxDepartment } from '@/models/InboxDepartment';
 import { InboxConversation } from '@/models/InboxConversation';
 import { InboxMessage } from '@/models/InboxMessage';
 import { InboxTransfer } from '@/models/InboxTransfer';
+import { InboxTicket } from '@/models/InboxTicket';
 import { ApiKey } from '@/models/ApiKey';
 import { WebhookEndpoint } from '@/models/WebhookEndpoint';
 import { BirthdayAutomationRule } from '@/models/BirthdayAutomationRule';
@@ -112,6 +113,7 @@ export class OrganizationDeletionService {
     await safeDelete('inboxConversations', () => InboxConversation.deleteMany({ clientId: oid }));
     await safeDelete('inboxMessages', () => InboxMessage.deleteMany({ clientId: oid }));
     await safeDelete('inboxTransfers', () => InboxTransfer.deleteMany({ clientId: oid }));
+    await safeDelete('inboxTickets', () => InboxTicket.deleteMany({ clientId: oid }));
     await safeDelete('apiKeys', () => ApiKey.deleteMany({ organizationId: oid }));
     await safeDelete('webhooks', () => WebhookEndpoint.deleteMany({ organizationId: oid }));
     await safeDelete('birthdayRules', () => BirthdayAutomationRule.deleteMany({ organizationId: oid }));

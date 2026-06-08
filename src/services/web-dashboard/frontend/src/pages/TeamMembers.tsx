@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { can, getMe, isCompanyOwner, type AuthUser, type CompanyRole } from '../lib/auth'
 import { Card, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { Users, UserPlus, Trash2, Pencil } from 'lucide-react'
+import { Users, UserPlus, Trash2, Pencil, MessageSquare, Ticket, Building2, Zap } from 'lucide-react'
 import {
   RolesSystemPanel,
   TeamMemberRoleModal,
@@ -20,6 +21,7 @@ interface Member {
   companyRole: CompanyRole
   userId?: string
   linked?: boolean
+  whatsappPhone?: string
   effectiveCapabilities?: string[]
   createdAt: string
 }
@@ -89,8 +91,8 @@ export default function TeamMembers() {
     onError: (err: Error) => alert(err.message),
   })
 
-  const updateMemberRole = async (id: string, newRole: CompanyRole) => {
-    await api.patch(`/team/members/${id}`, { role: newRole })
+  const updateMemberRole = async (id: string, newRole: CompanyRole, whatsappPhone?: string) => {
+    await api.patch(`/team/members/${id}`, { role: newRole, whatsappPhone: whatsappPhone ?? null })
     qc.invalidateQueries({ queryKey: ['team-members'] })
   }
 
@@ -150,6 +152,56 @@ export default function TeamMembers() {
           Papéis do sistema
         </button>
       </div>
+
+      <Card className="border-brand-500/20 bg-brand-500/[0.03]">
+        <CardTitle>
+          <span className="flex items-center gap-2 text-sm">
+            <MessageSquare size={16} className="text-brand-400" />
+            Atendimento WhatsApp
+          </span>
+        </CardTitle>
+        <p className="text-xs text-gray-500 mt-2 max-w-xl">
+          Membros com papel <span className="text-gray-400">Atendente</span> ou{' '}
+          <span className="text-gray-400">Gerente</span> podem usar o Inbox. Após convidar, vincule-os
+          aos setores e configure respostas automáticas.
+        </p>
+        <div className="flex flex-wrap gap-2 mt-4">
+          {can(me ?? null, 'inbox:view') && (
+            <Link to="/platform/inbox">
+              <Button size="sm" variant="secondary">
+                <MessageSquare size={14} /> Inbox
+              </Button>
+            </Link>
+          )}
+          {can(me ?? null, 'inbox:view') && (
+            <Link to="/platform/inbox/tickets">
+              <Button size="sm" variant="secondary">
+                <Ticket size={14} /> Tickets
+              </Button>
+            </Link>
+          )}
+          {can(me ?? null, 'inbox:department:manage') && (
+            <>
+              <Link to="/platform/inbox/setores">
+                <Button size="sm" variant="secondary">
+                  <Building2 size={14} /> Setores
+                </Button>
+              </Link>
+              <Link to="/platform/inbox/respostas">
+                <Button size="sm" variant="secondary">
+                  <Zap size={14} /> Respostas rápidas
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
+        {(role === 'ATTENDANT' || role === 'MANAGER') && tab === 'equipe' && (
+          <p className="text-[11px] text-amber-500/80 mt-3">
+            Convite selecionado: {ROLE_LABEL[role]} — inclui permissões de Inbox conforme o papel
+            configurado em Papéis do sistema.
+          </p>
+        )}
+      </Card>
 
       {tab === 'equipe' && (
         <>
@@ -250,6 +302,9 @@ export default function TeamMembers() {
                         <p className="text-sm font-medium truncate text-gray-100">{m.displayEmail ?? m.email ?? '—'}</p>
                         <p className="text-xs text-gray-500">
                           {ROLE_LABEL[m.companyRole]}
+                          {m.whatsappPhone && (
+                            <span className="text-gray-600"> · WA cadastrado</span>
+                          )}
                           {m.companyRole !== 'OWNER' && m.linked === false && (
                             <span className="text-amber-500/90"> · aguardando login</span>
                           )}
@@ -308,7 +363,7 @@ export default function TeamMembers() {
           presets={presets}
           isOwner={isOwner}
           onClose={() => setEditingMember(null)}
-          onSave={newRole => updateMemberRole(editingMember._id, newRole)}
+          onSave={(newRole, whatsappPhone) => updateMemberRole(editingMember._id, newRole, whatsappPhone)}
         />
       )}
     </div>

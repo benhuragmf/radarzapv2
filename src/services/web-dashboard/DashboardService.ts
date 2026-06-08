@@ -960,6 +960,7 @@ export class DashboardService {
 
     // ── Inbox — atendimento WhatsApp ───────────────────────────────────────
     const inboxSvc = InboxService.getInstance();
+    inboxSvc.startClientReplyGraceMonitor();
 
     r.get('/inbox/departments', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
@@ -1023,18 +1024,215 @@ export class DashboardService {
       }
     });
 
-    r.get('/inbox/conversations', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+    r.get('/inbox/tickets/stats', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { status, departmentId, mine } = req.query as {
+        const stats = await inboxSvc.getTicketStats(auth.clientId, auth.userId);
+        res.json(stats);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/tickets', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { status, departmentId, mine, search } = req.query as {
           status?: string;
           departmentId?: string;
           mine?: string;
+          search?: string;
+        };
+        const rows = await inboxSvc.listTickets(auth.clientId, auth.userId, {
+          status,
+          departmentId,
+          mine: mine === '1' || mine === 'true',
+          search,
+        });
+        res.json(rows);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/tickets/:ref', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const data = await inboxSvc.getTicketByRef(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+        );
+        res.json(data);
+      } catch (e) {
+        const msg = (e as Error).message;
+        res.status(msg.includes('não encontrado') ? 404 : 403).json({ error: msg });
+      }
+    });
+
+    r.post('/inbox/tickets/:ref/close', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await inboxSvc.closeTicket(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/inbox/tickets/:ref', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { assignedUserId, status } = req.body as {
+          assignedUserId?: string;
+          status?: string;
+        };
+        const ticket = await inboxSvc.updateTicket(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+          { assignedUserId, status: status as 'open' | 'in_progress' | 'closed' | undefined },
+        );
+        res.json(ticket);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/tickets/:ref/internal-notes', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { body } = req.body as { body?: string };
+        const note = await inboxSvc.addTicketInternalNote(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+          body ?? '',
+        );
+        res.status(201).json(note);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/tickets/:ref/comments', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { body, mentionedUserIds } = req.body as {
+          body?: string;
+          mentionedUserIds?: string[];
+        };
+        const comment = await inboxSvc.addTicketComment(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+          body ?? '',
+          mentionedUserIds ?? [],
+        );
+        res.status(201).json(comment);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/tickets/:ref/reopen', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await inboxSvc.reopenTicket(auth.clientId, auth.userId, req.params.ref);
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/tickets/:ref/client-update', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await inboxSvc.sendClientUpdate(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/tickets/:ref/notify-client', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await inboxSvc.sendClientUpdate(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/tickets/:ref/forward', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { targetUserId, phone, note } = req.body as {
+          targetUserId?: string;
+          phone?: string;
+          note?: string;
+        };
+        const result = await inboxSvc.forwardTicketWhatsApp(
+          auth.clientId,
+          auth.userId,
+          req.params.ref,
+          { targetUserId, phone, note },
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/inbox/tickets/:ref', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await inboxSvc.deleteTicket(auth.clientId, auth.userId, req.params.ref);
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/team-members', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const members = await inboxSvc.listTeamMembersForAssignment(auth.clientId);
+        res.json(members);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/conversations', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { status, departmentId, mine, hasTicket, search } = req.query as {
+          status?: string;
+          departmentId?: string;
+          mine?: string;
+          hasTicket?: string;
+          search?: string;
         };
         const rows = await inboxSvc.listConversations(auth.clientId, auth.userId, {
           status,
           departmentId,
           mine: mine === '1' || mine === 'true',
+          hasTicket: hasTicket === '1' || hasTicket === 'true',
+          search,
         });
         res.json(rows);
       } catch (e) {
@@ -2738,7 +2936,7 @@ export class DashboardService {
     r.patch('/team/members/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { role } = req.body as { role?: CompanyRole };
+        const { role, whatsappPhone } = req.body as { role?: CompanyRole; whatsappPhone?: string | null };
         if (!auth.companyRole) {
           return res.status(403).json({ error: 'Sem permissão' });
         }
@@ -2746,7 +2944,7 @@ export class DashboardService {
           auth.organizationId,
           req.params.id,
           auth.companyRole,
-          { companyRole: role },
+          { companyRole: role, whatsappPhone },
         );
         res.json(member);
       } catch (e) {

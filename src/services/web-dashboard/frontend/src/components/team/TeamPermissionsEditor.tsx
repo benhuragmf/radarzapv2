@@ -293,11 +293,11 @@ function RolePermissionsAccordion({
 }
 
 interface MemberRoleModalProps {
-  member: { _id: string; displayEmail?: string; companyRole: CompanyRole }
+  member: { _id: string; displayEmail?: string; companyRole: CompanyRole; whatsappPhone?: string }
   presets: RolePreset[]
   isOwner: boolean
   onClose: () => void
-  onSave: (role: CompanyRole) => Promise<void>
+  onSave: (role: CompanyRole, whatsappPhone?: string) => Promise<void>
 }
 
 export function TeamMemberRoleModal({
@@ -308,6 +308,7 @@ export function TeamMemberRoleModal({
   onSave,
 }: MemberRoleModalProps) {
   const [role, setRole] = useState<CompanyRole>(member.companyRole)
+  const [whatsappPhone, setWhatsappPhone] = useState(member.whatsappPhone ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const preset = presets.find(p => p.role === role)
@@ -316,7 +317,7 @@ export function TeamMemberRoleModal({
     setSaving(true)
     setError(null)
     try {
-      await onSave(role)
+      await onSave(role, whatsappPhone.trim() || undefined)
       onClose()
     } catch (e) {
       setError((e as Error).message)
@@ -350,6 +351,19 @@ export function TeamMemberRoleModal({
                 ))}
             </select>
             {preset && <p className="text-xs text-gray-500 mt-1.5">{preset.description}</p>}
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">WhatsApp (encaminhamentos de ticket)</label>
+            <input
+              type="tel"
+              value={whatsappPhone}
+              onChange={e => setWhatsappPhone(e.currentTarget.value)}
+              placeholder="5511999999999"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
+            />
+            <p className="text-[11px] text-gray-600 mt-1">
+              Usado para receber encaminhamentos e menções de tickets via WhatsApp.
+            </p>
           </div>
           {error && (
             <div className="text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-lg px-3 py-2">

@@ -2367,6 +2367,22 @@ export class WhatsAppService {
           upsertType: m.type,
         });
 
+        let ticketHandled = false;
+        try {
+          const { InboxService } = await import('@/services/inbox/InboxService');
+          ticketHandled = await InboxService.getInstance().handleTicketInboundMessage(
+            clientId,
+            msg.key.remoteJid,
+            text || '',
+            msg.key.remoteJidAlt,
+            mediaPayload,
+          );
+        } catch (err) {
+          this.serviceLogger.warn('Ticket inbound handler error', err);
+        }
+
+        if (ticketHandled) continue;
+
         try {
           await ConsentService.getInstance().handleInboundMessage(
             clientId,

@@ -7,6 +7,8 @@ export interface ICompanyMember extends Document {
   userId?: mongoose.Types.ObjectId;
   email?: string;
   companyRole: CompanyRole;
+  /** WhatsApp pessoal para encaminhamentos internos de tickets */
+  whatsappPhone?: string;
   /** Permissões extras além do papel base */
   extraCapabilities?: Capability[];
   /** Permissões revogadas em relação ao papel base */
@@ -43,6 +45,7 @@ const CompanyMemberSchema = new Schema<ICompanyMember>({
     required: true,
     index: true,
   },
+  whatsappPhone: { type: String, maxlength: 32, trim: true },
   extraCapabilities: { type: [String], default: [] },
   deniedCapabilities: { type: [String], default: [] },
   invitedByUserId: { type: Schema.Types.ObjectId, ref: 'User' },

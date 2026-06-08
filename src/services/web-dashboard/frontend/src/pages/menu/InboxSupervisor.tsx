@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
-import { formatQueueTimer, liveQueueState } from '../../lib/inboxQueueUi'
+import { formatQueueTimer, liveQueueState, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { Eye, RefreshCw } from 'lucide-react'
 
 interface Conversation {
@@ -112,7 +112,10 @@ export default function InboxSupervisor() {
                         <span className="text-yellow-500/90"> · prioridade: {c.suggestedUserName}</span>
                       )}
                       {c.suggestedAt && (
-                        <span className="text-gray-600"> · {formatQueueTimer(live.elapsedSec)}</span>
+                        <span className={queueUrgencyTimerClass(live.urgency)}>
+                          {' '}
+                          · {formatQueueTimer(live.elapsedSec)}
+                        </span>
                       )}
                     </p>
                   </div>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { History, MessageSquare } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Spinner } from '../ui/Spinner'
@@ -106,7 +107,15 @@ export function InboxContactSidebar({
                   <span className="text-[10px] text-gray-600">{STATUS_PT[c.status] ?? c.status}</span>
                 </div>
                 <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                  {c.ticketRef ? `${c.ticketRef} · ` : ''}
+                  {c.ticketRef ? (
+                    <Link
+                      to={`/platform/inbox/tickets/${c.ticketRef}`}
+                      className="font-mono text-amber-500/80 hover:underline"
+                    >
+                      {c.ticketRef}
+                    </Link>
+                  ) : null}
+                  {c.ticketRef ? ' · ' : ''}
                   {c.messageCount} msg
                   {c.departmentName ? ` · ${c.departmentName}` : ''}
                 </p>

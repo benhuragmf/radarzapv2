@@ -4,7 +4,7 @@ import {
   ListOrdered, ScrollText, Send, Crown, Settings, Shield, Server, History,
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
-  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3,
+  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3, Ticket,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -88,6 +88,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
 
   section('sec-atendimento', 'Atendimento'),
   link('inbox', 'Inbox WhatsApp', MessageSquare, '/platform/inbox', 'inbox:view'),
+  link('inbox-tickets', 'Tickets', Ticket, '/platform/inbox/tickets', 'inbox:view'),
   link('inbox-sectors', 'Setores do Inbox', Building2, '/platform/inbox/setores', 'inbox:department:manage'),
   link('inbox-bot', 'Bot do Inbox', Bot, '/platform/inbox/bot', 'inbox:department:manage'),
   link('inbox-quick-replies', 'Respostas rápidas', Zap, '/platform/inbox/respostas', 'inbox:department:manage'),
@@ -387,6 +388,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/wa-status': 'whatsapp:session:view',
   '/platform/fila': 'queue:view',
   '/platform/inbox': 'inbox:view',
+  '/platform/inbox/tickets': 'inbox:view',
   '/platform/inbox/setores': 'inbox:department:manage',
   '/platform/inbox/bot': 'inbox:department:manage',
   '/platform/inbox/respostas': 'inbox:department:manage',
@@ -460,6 +462,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/wa-status': 'Status das conexões',
   '/platform/fila': 'Fila de envio',
   '/platform/inbox': 'Inbox WhatsApp',
+  '/platform/inbox/tickets': 'Tickets de atendimento',
   '/platform/inbox/setores': 'Setores do Inbox',
   '/platform/inbox/bot': 'Bot do Inbox',
   '/platform/inbox/respostas': 'Respostas rápidas',

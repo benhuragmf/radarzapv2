@@ -19,12 +19,48 @@ export function formatQueueTimer(elapsedSec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function priorityBorderClass(urgency: number, priorityForMe: boolean, canPull: boolean): string {
-  if (priorityForMe) {
-    if (urgency < 0.25) return 'ring-2 ring-inset ring-yellow-400 shadow-[inset_0_0_0_1px_rgba(250,204,21,0.35)]'
-    if (urgency < 0.5) return 'ring-2 ring-inset ring-amber-500 shadow-[inset_0_0_12px_rgba(245,158,11,0.15)]'
-    if (urgency < 0.75) return 'ring-2 ring-inset ring-orange-600 shadow-[inset_0_0_16px_rgba(234,88,12,0.2)]'
-    return 'ring-2 ring-inset ring-red-900 shadow-[inset_0_0_20px_rgba(127,29,29,0.35)]'
+/** Cor do cronômetro: amarelo → âmbar → laranja → vermelho */
+export function queueUrgencyTimerClass(urgency: number): string {
+  if (urgency >= 0.85) return 'text-red-400'
+  if (urgency >= 0.6) return 'text-orange-400'
+  if (urgency >= 0.35) return 'text-amber-400'
+  return 'text-yellow-400'
+}
+
+/** Banner de prioridade no cabeçalho do chat */
+export function queueUrgencyPanelClass(urgency: number): string {
+  const base = 'mt-2 flex items-center gap-2 text-xs rounded-lg px-3 py-2 border '
+  if (urgency >= 0.85) return `${base}text-red-300 bg-red-500/10 border-red-500/30`
+  if (urgency >= 0.6) return `${base}text-orange-300 bg-orange-500/10 border-orange-500/30`
+  if (urgency >= 0.35) return `${base}text-amber-300 bg-amber-500/10 border-amber-500/30`
+  return `${base}text-yellow-300 bg-yellow-500/5 border-yellow-500/15`
+}
+
+export function priorityBorderClass(
+  urgency: number,
+  priorityForMe: boolean,
+  canPull: boolean,
+  hasPriorityTimer: boolean,
+): string {
+  if (hasPriorityTimer) {
+    if (urgency >= 0.85) {
+      return priorityForMe
+        ? 'ring-2 ring-inset ring-red-500 shadow-[inset_0_0_20px_rgba(239,68,68,0.25)]'
+        : 'ring-2 ring-inset ring-red-600/70'
+    }
+    if (urgency >= 0.6) {
+      return priorityForMe
+        ? 'ring-2 ring-inset ring-orange-500 shadow-[inset_0_0_16px_rgba(249,115,22,0.2)]'
+        : 'ring-2 ring-inset ring-orange-600/60'
+    }
+    if (urgency >= 0.35) {
+      return priorityForMe
+        ? 'ring-2 ring-inset ring-amber-500 shadow-[inset_0_0_12px_rgba(245,158,11,0.15)]'
+        : 'ring-2 ring-inset ring-amber-600/50'
+    }
+    return priorityForMe
+      ? 'ring-2 ring-inset ring-yellow-400 shadow-[inset_0_0_0_1px_rgba(250,204,21,0.35)]'
+      : 'ring-2 ring-inset ring-yellow-600/40'
   }
   if (canPull) {
     return 'ring-1 ring-inset ring-orange-700/60'

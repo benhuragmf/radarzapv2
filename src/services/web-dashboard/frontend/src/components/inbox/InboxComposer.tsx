@@ -29,10 +29,10 @@ export function InboxComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const slashMatches = useMemo(() => {
-    const m = value.match(/^\/(\w*)$/)
+    const m = value.match(/^\/(\w*)$/i)
     if (!m) return []
     const partial = m[1].toLowerCase()
-    return quickReplies.filter(q => q.code.startsWith(partial)).slice(0, 8)
+    return quickReplies.filter(q => q.code.toLowerCase().startsWith(partial)).slice(0, 12)
   }, [value, quickReplies])
 
   const insertEmoji = (emoji: string) => {
@@ -113,14 +113,14 @@ export function InboxComposer({
 
       {quickReplies.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {quickReplies.slice(0, 7).map(q => (
+          {quickReplies.map(q => (
             <button
               key={q.code}
               type="button"
               disabled={disabled}
               onClick={() => applySlash(q.code)}
               className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-gray-800/80 text-gray-500 hover:text-brand-400 border border-gray-700/60 disabled:opacity-40"
-              title={q.template}
+              title={q.label ? `${q.label} — ${q.template}` : q.template}
             >
               /{q.code}
             </button>

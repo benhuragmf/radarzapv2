@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { can, getMe, type AuthUser } from '../../lib/auth'
@@ -25,7 +25,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
-import { formatQueueTimer, liveQueueState, priorityBorderClass } from '../../lib/inboxQueueUi'
+import { formatQueueTimer, liveQueueState, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
@@ -35,6 +35,7 @@ import {
   type PreviousConversation,
 } from '../../components/inbox/InboxContactSidebar'
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
+import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 
 interface Department {
   _id: string
@@ -103,14 +104,21 @@ const STATUS_VARIANT: Record<string, 'yellow' | 'blue' | 'green' | 'gray' | 'red
   closed: 'gray',
 }
 
-type QuickFilter = 'all' | 'queue' | 'mine' | 'active' | 'triage'
+type QuickFilter = 'all' | 'queue' | 'mine' | 'active' | 'triage' | 'tickets'
 
-const QUICK_FILTERS: { id: QuickFilter; label: string; status?: string; mine?: boolean }[] = [
+const QUICK_FILTERS: {
+  id: QuickFilter
+  label: string
+  status?: string
+  mine?: boolean
+  hasTicket?: boolean
+}[] = [
   { id: 'all', label: 'Todos' },
   { id: 'queue', label: 'Fila', status: 'waiting_queue' },
   { id: 'mine', label: 'Minhas', mine: true },
   { id: 'active', label: 'Atendendo', status: 'in_progress' },
   { id: 'triage', label: 'Triagem', status: 'bot_triage' },
+  { id: 'tickets', label: 'Tickets', hasTicket: true },
 ]
 
 function conversationBadge(c: Conversation): { label: string; variant: 'yellow' | 'blue' | 'green' | 'gray' | 'red' } {
@@ -143,6 +151,7 @@ function ContactAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
 
 export default function Inbox() {
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],
@@ -155,6 +164,7 @@ export default function Inbox() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDept, setFilterDept] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
+  const [hasTicketOnly, setHasTicketOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [reply, setReply] = useState('')
   const [transferDept, setTransferDept] = useState('')
@@ -165,31 +175,46 @@ export default function Inbox() {
   const historyPanelRef = useRef<HTMLDivElement>(null)
 
   const activeQuickFilter: QuickFilter = useMemo(() => {
+    if (hasTicketOnly) return 'tickets'
     if (mineOnly) return 'mine'
     if (filterStatus === 'waiting_queue') return 'queue'
     if (filterStatus === 'in_progress') return 'active'
     if (filterStatus === 'bot_triage') return 'triage'
     return 'all'
-  }, [filterStatus, mineOnly])
+  }, [filterStatus, mineOnly, hasTicketOnly])
 
   const applyQuickFilter = (id: QuickFilter) => {
     const f = QUICK_FILTERS.find(x => x.id === id)
     setFilterStatus(f?.status ?? '')
     setMineOnly(Boolean(f?.mine))
+    setHasTicketOnly(Boolean(f?.hasTicket))
   }
+
+  useEffect(() => {
+    const convParam = searchParams.get('conv')
+    if (convParam) setSelectedId(convParam)
+  }, [searchParams])
 
   const { data: departments = [] } = useQuery({
     queryKey: ['inbox-departments'],
     queryFn: () => api.get<Department[]>('/inbox/departments'),
   })
 
+  const { data: quickReplies = [] } = useQuery({
+    queryKey: ['inbox-quick-replies'],
+    queryFn: () => api.get<QuickReplyItem[]>('/inbox/quick-replies'),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
+
   const listParams = new URLSearchParams()
   if (filterStatus) listParams.set('status', filterStatus)
   if (filterDept) listParams.set('departmentId', filterDept)
   if (mineOnly) listParams.set('mine', '1')
+  if (hasTicketOnly) listParams.set('hasTicket', '1')
 
   const { data: conversations = [], isLoading: loadingList } = useQuery({
-    queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly],
+    queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly, hasTicketOnly],
     queryFn: () => api.get<Conversation[]>(`/inbox/conversations?${listParams}`),
     refetchInterval: 30_000,
   })
@@ -212,20 +237,15 @@ export default function Inbox() {
       return (
         c.contactName.toLowerCase().includes(q) ||
         phone.includes(q) ||
-        (c.departmentName?.toLowerCase().includes(q) ?? false)
+        (c.departmentName?.toLowerCase().includes(q) ?? false) ||
+        (c.ticketRef?.toLowerCase().includes(q) ?? false)
       )
     })
   }, [conversations, search])
 
   const hasPriorityQueue = conversations.some(
-    c => c.status === 'waiting_queue' && c.suggestedUserId,
+    c => c.status === 'waiting_queue' && c.suggestedAt,
   )
-
-  useEffect(() => {
-    if (!hasPriorityQueue) return
-    const id = setInterval(() => setTick(t => t + 1), 1000)
-    return () => clearInterval(id)
-  }, [hasPriorityQueue])
 
   const { data: detail, isLoading: loadingDetail } = useQuery({
     queryKey: ['inbox-conversation', selectedId],
@@ -288,7 +308,6 @@ export default function Inbox() {
   })
 
   const conv = detail?.conversation
-  const quickReplies = detail?.quickReplies ?? []
   const isTerminal = conv?.status === 'resolved' || conv?.status === 'closed'
 
   const convLive = conv?.suggestedAt
@@ -300,6 +319,16 @@ export default function Inbox() {
     !conv?.priorityForMe &&
     conv?.status === 'waiting_queue' &&
     (Boolean(conv?.suggestedUserBusy) || convLive.urgency >= 1)
+
+  const needsLiveTimer =
+    hasPriorityQueue ||
+    Boolean(conv?.status === 'waiting_queue' && conv?.suggestedAt)
+
+  useEffect(() => {
+    if (!needsLiveTimer) return
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [needsLiveTimer])
 
   const selectCls =
     'bg-gray-900/80 border border-gray-700/80 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-brand-500/50'
@@ -319,6 +348,11 @@ export default function Inbox() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0">
+            <Link to="/platform/inbox/tickets">
+              <Button size="sm" variant="secondary">
+                <Ticket size={14} /> Tickets
+              </Button>
+            </Link>
             {canSupervise && (
               <Link to="/platform/inbox/supervisor">
                 <Button size="sm" variant="secondary">
@@ -355,6 +389,8 @@ export default function Inbox() {
           </div>
         </div>
 
+        <InboxAtendimentoNav me={me} className="mt-3" />
+
         {/* Métricas rápidas */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
           {[
@@ -385,7 +421,7 @@ export default function Inbox() {
                 type="search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar contato ou setor…"
+                placeholder="Buscar contato, ticket ou setor…"
                 className="w-full pl-9 pr-3 py-2 text-sm bg-gray-900/80 border border-gray-800 rounded-lg text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-brand-500/40"
               />
             </div>
@@ -445,6 +481,8 @@ export default function Inbox() {
                   ? liveQueueState(c.suggestedAt, c.pullTimeoutSeconds ?? 120, tick)
                   : { elapsedSec: c.queueElapsedSec ?? 0, urgency: c.queueUrgency ?? 0 }
                 const badge = conversationBadge(c)
+                const hasPriorityTimer =
+                  Boolean(c.suggestedUserId) && c.status === 'waiting_queue' && Boolean(c.suggestedAt)
                 const liveCanPull =
                   Boolean(c.suggestedUserId) &&
                   !c.priorityForMe &&
@@ -454,7 +492,9 @@ export default function Inbox() {
                   live.urgency,
                   Boolean(c.priorityForMe),
                   liveCanPull,
+                  hasPriorityTimer,
                 )
+                const timerCls = queueUrgencyTimerClass(live.urgency)
                 const subtitle =
                   c.suggestedUserName && c.status === 'waiting_queue'
                     ? c.priorityForMe
@@ -477,7 +517,18 @@ export default function Inbox() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-sm font-medium text-gray-100 truncate">{c.contactName}</span>
-                        <Badge label={badge.label} variant={badge.variant} />
+                        <div className="flex items-center gap-1 shrink-0">
+                          {c.ticketRef && (
+                            <Link
+                              to={`/platform/inbox/tickets/${c.ticketRef}`}
+                              onClick={e => e.stopPropagation()}
+                              className="text-[9px] font-mono text-amber-500/90 bg-amber-500/10 px-1 rounded hover:bg-amber-500/20"
+                            >
+                              {c.ticketRef}
+                            </Link>
+                          )}
+                          <Badge label={badge.label} variant={badge.variant} />
+                        </div>
                       </div>
                       <p className="text-xs text-gray-500 truncate mt-0.5">
                         {formatContactIdentifier(c.contactIdentifier, c.contactName)}
@@ -485,7 +536,7 @@ export default function Inbox() {
                       <div className="flex items-center justify-between gap-2 mt-1">
                         <p className="text-[11px] text-gray-600 truncate">{subtitle || '—'}</p>
                         {c.suggestedUserId && c.status === 'waiting_queue' ? (
-                          <span className="flex items-center gap-0.5 text-[10px] text-yellow-500/90 shrink-0 font-mono tabular-nums">
+                          <span className={`flex items-center gap-0.5 text-[10px] shrink-0 font-mono tabular-nums ${timerCls}`}>
                             <Clock size={10} />
                             {formatQueueTimer(live.elapsedSec)}
                           </span>
@@ -535,9 +586,12 @@ export default function Inbox() {
                           variant={conversationBadge(conv).variant}
                         />
                         {conv.ticketRef && (
-                          <span className="text-[10px] font-mono text-amber-500/90 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                          <Link
+                            to={`/platform/inbox/tickets/${conv.ticketRef}`}
+                            className="text-[10px] font-mono text-amber-500/90 bg-amber-500/10 px-1.5 py-0.5 rounded hover:bg-amber-500/20"
+                          >
                             {conv.ticketRef}
-                          </span>
+                          </Link>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -641,17 +695,22 @@ export default function Inbox() {
                 </div>
 
                 {conv.suggestedUserId && conv.status === 'waiting_queue' && (
-                  <div className="mt-2 flex items-center gap-2 text-xs text-yellow-500/90 bg-yellow-500/5 border border-yellow-500/15 rounded-lg px-3 py-2">
-                    <Clock size={14} className="shrink-0" />
+                  <div className={queueUrgencyPanelClass(convLive.urgency)}>
+                    <Clock size={14} className={`shrink-0 ${queueUrgencyTimerClass(convLive.urgency)}`} />
                     {conv.priorityForMe ? (
                       <span>
-                        Prioridade para você · <span className="font-mono">{formatQueueTimer(convLive.elapsedSec)}</span>
+                        Prioridade para você ·{' '}
+                        <span className={`font-mono ${queueUrgencyTimerClass(convLive.urgency)}`}>
+                          {formatQueueTimer(convLive.elapsedSec)}
+                        </span>
                       </span>
                     ) : (
                       <span>
                         Aguardando <strong className="font-medium">{conv.suggestedUserName}</strong>
                         {' · '}
-                        <span className="font-mono">{formatQueueTimer(convLive.elapsedSec)}</span>
+                        <span className={`font-mono ${queueUrgencyTimerClass(convLive.urgency)}`}>
+                          {formatQueueTimer(convLive.elapsedSec)}
+                        </span>
                         {conv.suggestedUserBusy && !conv.priorityForMe && (
                           <span className="text-orange-400"> · ocupado — pode puxar</span>
                         )}

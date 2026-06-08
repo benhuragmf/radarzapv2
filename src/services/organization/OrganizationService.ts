@@ -501,6 +501,7 @@ export class OrganizationService {
     requesterRole: CompanyRole,
     patch: {
       companyRole?: CompanyRole;
+      whatsappPhone?: string | null;
     },
   ): Promise<ICompanyMember> {
     const member = await CompanyMember.findOne({ _id: memberId, organizationId, isActive: true });
@@ -517,6 +518,11 @@ export class OrganizationService {
         throw new Error('Apenas o dono pode promover a administrador');
       }
       member.companyRole = patch.companyRole;
+    }
+
+    if (patch.whatsappPhone !== undefined) {
+      const raw = patch.whatsappPhone?.trim() ?? '';
+      member.whatsappPhone = raw ? raw.replace(/\D/g, '').slice(0, 20) || undefined : undefined;
     }
 
     await member.save();

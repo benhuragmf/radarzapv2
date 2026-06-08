@@ -69,16 +69,23 @@ export function normalizeQuickReplies(raw: unknown): InboxQuickReply[] {
     return DEFAULT_INBOX_QUICK_REPLIES.map(q => ({ ...q }));
   }
   const out: InboxQuickReply[] = [];
+  const seen = new Set<string>();
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
     const row = item as Record<string, unknown>;
     const code = String(row.code ?? '')
       .trim()
       .replace(/^\//, '')
-      .toLowerCase();
+      .toLowerCase()
+      .replace(/\s+/g, '');
     const label = String(row.label ?? '').trim();
     const template = String(row.template ?? '').trim();
     if (!code || !template) continue;
+    if (seen.has(code)) {
+      const idx = out.findIndex(q => q.code === code);
+      if (idx >= 0) out.splice(idx, 1);
+    }
+    seen.add(code);
     out.push({ code, label: label || code, template });
   }
   return out.length ? out : DEFAULT_INBOX_QUICK_REPLIES.map(q => ({ ...q }));

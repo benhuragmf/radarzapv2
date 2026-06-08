@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { ArrowLeft, Save, Zap, Plus, Trash2 } from 'lucide-react'
+import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 
 interface QuickReply {
   code: string
@@ -48,6 +49,7 @@ export default function InboxQuickReplies() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     },
+    onError: (e: Error) => alert(e.message || 'Erro ao salvar respostas rápidas'),
   })
 
   const updateRow = (index: number, patch: Partial<QuickReply>) => {
@@ -75,10 +77,11 @@ export default function InboxQuickReplies() {
       title="Respostas rápidas do Inbox"
       description="Atalhos digitados no chat (/bd, /bt, /ticket…). Use [user] ou [nome] para o primeiro nome do contato."
     >
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300">
           <ArrowLeft size={14} /> Voltar ao Inbox
         </Link>
+        <InboxAtendimentoNav me={me} className="flex-1 min-w-0" />
       </div>
 
       {isLoading ? (
