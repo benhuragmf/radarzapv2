@@ -16,6 +16,21 @@ interface QuickReply {
   template: string
 }
 
+/** Id estável por linha — não usar `code` na key (muda a cada tecla e derruba o foco). */
+interface QuickReplyRow extends QuickReply {
+  _key: string
+}
+
+function newRow(partial?: Partial<QuickReply>): QuickReplyRow {
+  return {
+    _key: crypto.randomUUID(),
+    code: 'nova',
+    label: 'Nova resposta',
+    template: 'Olá [user], ...',
+    ...partial,
+  }
+}
+
 const inputCls =
   'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 const textareaCls = `${inputCls} min-h-[72px] resize-y font-mono text-xs`
@@ -34,15 +49,18 @@ export default function InboxQuickReplies() {
     enabled: canManage,
   })
 
-  const [rows, setRows] = useState<QuickReply[]>([])
+  const [rows, setRows] = useState<QuickReplyRow[]>([])
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    if (data) setRows(data.map(r => ({ ...r })))
+    if (data) setRows(data.map(r => newRow(r)))
   }, [data])
 
   const save = useMutation({
-    mutationFn: (replies: QuickReply[]) => api.patch('/inbox/quick-replies', { replies }),
+    mutationFn: (replies: QuickReplyRow[]) =>
+      api.patch('/inbox/quick-replies', {
+        replies: replies.map(({ _key: _, ...r }) => r),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-quick-replies'] })
       qc.invalidateQueries({ queryKey: ['inbox-conversation'] })
@@ -57,7 +75,7 @@ export default function InboxQuickReplies() {
   }
 
   const addRow = () => {
-    setRows(prev => [...prev, { code: 'nova', label: 'Nova resposta', template: 'Olá [user], ...' }])
+    setRows(prev => [...prev, newRow()])
   }
 
   const removeRow = (index: number) => {
@@ -112,7 +130,7 @@ export default function InboxQuickReplies() {
           <div className="space-y-3">
             {rows.map((row, i) => (
               <div
-                key={`${row.code}-${i}`}
+                key={row._key}
                 className="grid gap-2 sm:grid-cols-[100px_140px_1fr_auto] items-start p-3 rounded-xl border border-gray-800 bg-gray-900/40"
               >
                 <div>
