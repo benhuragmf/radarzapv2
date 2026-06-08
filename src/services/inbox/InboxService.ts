@@ -33,6 +33,7 @@ import {
   isSuggestedUserBusy,
 } from '@/services/inbox/inbox-queue-priority';
 import { createServiceLogger } from '@/utils/logger';
+import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
 
 const logger = createServiceLogger('InboxService');
 
@@ -497,6 +498,12 @@ export class InboxService {
       await this.appendSystemMessage(conversation, hint);
       return;
     }
+
+    await ContactAutoSegmentService.getInstance().tagLeadFromInboxDepartment(
+      clientId,
+      dest,
+      department.name,
+    );
 
     conversation.departmentId = department._id as mongoose.Types.ObjectId;
     conversation.assignedUserId = undefined;

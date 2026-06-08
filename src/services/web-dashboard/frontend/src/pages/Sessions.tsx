@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { getSocket } from '../lib/socket'
@@ -62,11 +63,16 @@ function WaAvatar({ url, name }: { url?: string; name?: string }) {
 
 export default function Sessions() {
   const qc = useQueryClient()
+  const { pathname } = useLocation()
+  const isAdminScope = pathname.startsWith('/admin/sessions')
   const [liveQr, setLiveQr] = useState<Record<string, string>>({})
 
+  const sessionScope = isAdminScope ? 'all' : 'tenant'
+  const sessionQueryKey = useMemo(() => ['sessions', sessionScope] as const, [sessionScope])
+
   const { data: sessions = [], isLoading } = useQuery<Session[]>({
-    queryKey: ['sessions'],
-    queryFn: () => api.get('/sessions'),
+    queryKey: sessionQueryKey,
+    queryFn: () => api.get(isAdminScope ? '/sessions?scope=all' : '/sessions'),
     refetchInterval: (query) => {
       const list = query.state.data ?? []
       const needsFastPoll = list.some(s =>
@@ -107,7 +113,7 @@ export default function Sessions() {
     }
 
     const onSessions = (list: Session[]) => {
-      qc.setQueryData(['sessions'], list)
+      qc.setQueryData(sessionQueryKey, list)
     }
 
     socket.on('session:update', onSessionUpdate)
@@ -116,7 +122,15 @@ export default function Sessions() {
       socket.off('session:update', onSessionUpdate)
       socket.off('sessions', onSessions)
     }
-  }, [qc])
+  }, [qc, sessionQueryKey])
+
+  const uniqueSessions = useMemo(() => {
+    const map = new Map<string, Session>()
+    for (const s of sessions) {
+      if (!map.has(s.clientId)) map.set(s.clientId, s)
+    }
+    return [...map.values()]
+  }, [sessions])
 
   const applyConnectResult = (clientId: string, data: ConnectResponse) => {
     if (data.qrcode?.base64) {
@@ -152,25 +166,48 @@ export default function Sessions() {
 
   if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
 
-  const waitingQr = sessions.some(s => s.status === 'connecting' || s.status === 'qr-required')
+  const hasConnected = uniqueSessions.some(s => s.status === 'connected')
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {!isAdminScope && (
+        <div>
+          <h1 className="text-lg font-semibold text-white">Sessões e QR Code</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Conexão ativa da empresa. Histórico de eventos em{' '}
+            <Link to="/platform/wa-status" className="text-brand-400 hover:underline">
+              Status das conexões
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-4">
         <p className="text-sm text-gray-400">
-          Conecte o WhatsApp escaneando o QR code abaixo ou use <code className="text-gray-300">/connect-whatsapp</code> no Discord.
+          {hasConnected
+            ? 'WhatsApp conectado. Use Reiniciar ou Desconectar no card abaixo.'
+            : (
+              <>
+                Conecte o WhatsApp escaneando o QR code abaixo ou use{' '}
+                <code className="text-gray-300">/connect-whatsapp</code> no Discord.
+              </>
+            )}
         </p>
-        <Button
-          size="sm"
-          onClick={() => startConnect.mutate()}
-          disabled={startConnect.isPending}
-        >
-          <QrCode size={14} />
-          {startConnect.isPending ? 'Gerando QR…' : 'Conectar WhatsApp'}
-        </Button>
+        {!hasConnected && (
+          <Button
+            size="sm"
+            onClick={() => startConnect.mutate()}
+            disabled={startConnect.isPending}
+            className="shrink-0"
+          >
+            <QrCode size={14} />
+            {startConnect.isPending ? 'Gerando QR…' : 'Conectar WhatsApp'}
+          </Button>
+        )}
       </div>
 
-      {sessions.length === 0 && (
+      {uniqueSessions.length === 0 && (
         <Card className="text-center py-12 text-gray-500">
           <Smartphone size={32} className="mx-auto mb-3 opacity-30" />
           <p className="mb-1">Nenhum WhatsApp conectado.</p>
@@ -182,7 +219,7 @@ export default function Sessions() {
         </Card>
       )}
 
-      {sessions.map((s) => {
+      {uniqueSessions.map((s) => {
         const qr = liveQr[s.clientId] ?? s.qrCode
         const isConnected = s.status === 'connected'
         const isPending = s.status === 'connecting' || s.status === 'qr-required'

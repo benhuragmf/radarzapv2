@@ -25,6 +25,19 @@ Atendente assume no painel (/platform/inbox)
 Atendente responde / transfere / finaliza
 ```
 
+## Segmentos automáticos (Contatos)
+
+No primeiro contato inbound (WhatsApp), o contato é salvo em **Contatos** e recebe o segmento **Atendimento** (criado automaticamente se não existir).
+
+Se o cliente escolher um setor comercial na triagem (**Comercial**, **Vendas**, etc.), o contato também entra no segmento **Lead** — potencial cliente com interesse comercial.
+
+| Segmento | Quando |
+|----------|--------|
+| **Atendimento** | Primeira mensagem inbound (Inbox / WhatsApp) |
+| **Lead** | Triagem em setor Comercial/Vendas/Marketing |
+
+Os segmentos aparecem em `/contact` na barra lateral de grupos, como qualquer outro segmento.
+
 ## Modelos MongoDB
 
 | Coleção | Propósito |

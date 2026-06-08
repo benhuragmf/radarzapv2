@@ -28,7 +28,7 @@ import { logger, createServiceLogger } from '@/utils/logger';
 import { SessionCache } from '@/cache/SessionCache';
 import { QueueManager } from '@/cache/QueueManager';
 import { RateLimiter } from '@/cache/RateLimiter';
-import { WhatsAppSession, User, Destination, Organization } from '@/models';
+import { WhatsAppSession, User, Destination, Organization, SystemLog } from '@/models';
 import { ConsentPoll } from '@/models/ConsentPoll';
 import { CircuitBreaker } from '../common/CircuitBreaker';
 import { RedisManager } from '@/cache/RedisManager';
@@ -102,6 +102,8 @@ export class WhatsAppService {
   /** Mensagens enviadas (necessário para decifrar votos em enquetes de consentimento) */
   private outboundMessages = new Map<string, WAMessage>();
   private lastWaConnectionLogKey = new Map<string, string>();
+  /** Evita spam de SystemLog em QRCODE_UPDATED repetidos */
+  private lastLoggedSessionStatus = new Map<string, string>();
   private lastSessionSaveLogAt = new Map<string, number>();
   /** JIDs de contatos 1:1 sincronizados pela sessão WA (para status/stories) */
   private waStatusContactJids = new Map<string, Set<string>>();
@@ -501,6 +503,32 @@ export class WhatsAppService {
       );
     } catch {
       // pub/sub optional — dashboard still polls /sessions
+    }
+
+    const prevStatus = this.lastLoggedSessionStatus.get(clientId);
+    if (prevStatus !== data.status) {
+      this.lastLoggedSessionStatus.set(clientId, data.status);
+      const statusMessages: Record<string, string> = {
+        connected: `WhatsApp conectado${data.profileName ? `: ${data.profileName}` : ''}`,
+        disconnected: `WhatsApp desconectado${data.manualDisconnect ? ' (manual)' : ''}`,
+        'qr-required': 'Aguardando leitura do QR Code',
+        connecting: 'Iniciando conexão WhatsApp',
+      };
+      void SystemLog.createLog(
+        'info',
+        'WhatsAppService',
+        statusMessages[data.status] ?? `Status WhatsApp: ${data.status}`,
+        {
+          stage: 'connection',
+          status: data.status,
+          profileName: data.profileName,
+          wuid: data.wuid,
+          statusReason: data.statusReason,
+        },
+        mongoose.Types.ObjectId.isValid(clientId)
+          ? new mongoose.Types.ObjectId(clientId)
+          : undefined,
+      );
     }
   }
 

@@ -12,7 +12,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/campanhas` | `menu/PlatformCampaigns.tsx` | `GET /campaigns` |
 | `/platform/segmentos` | `menu/ContactSegments.tsx` | `GET /contact-groups` |
 | `/platform/gatilhos` | `menu/PlatformTriggers.tsx` | (link → `/platform/automacoes`) |
-| `/platform/wa-status` | `menu/WaStatus.tsx` | `GET /sessions` |
+| `/platform/wa-status` | `menu/WaStatus.tsx` | `GET /platform/account-stats`, `GET /logs?tenant=1&service=WhatsAppService` |
 | `/platform/wa-logs` | `menu/WaLogs.tsx` | `GET /logs?tenant=1&service=WhatsAppService` |
 | `/platform/automacoes` | `PlatformAutomations.tsx` | `GET/POST /platform/automations` |
 | `/platform/inbox` | `menu/Inbox.tsx` | `GET/POST /inbox/*` |

@@ -3966,61 +3966,50 @@ export class DashboardService {
       }>> {
     const wa = WhatsAppService.getInstance();
     const auth = req.auth!;
+    const scopeAll =
+      auth.isInternalStaff && (req.query as { scope?: string }).scope === 'all';
 
-    if (!auth.isInternalStaff) {
-      const clientId = auth.clientId;
-      const details = await wa.getSessionDetails(clientId);
-      const user = await User.findById(auth.userId).lean();
-      const displayName =
-        auth.organizationName ??
-        (await this.resolveDiscordDisplayName(user?.discordUserId)) ??
-        auth.username;
-
-      return [{
-        clientId,
-        discordUserId: user?.discordUserId ?? auth.discordUserId ?? '',
-        displayName,
-        status: details.status,
-        state: details.state,
-        lastActivity: details.lastActivity,
-        qrCode: details.qrCode,
-        qrCount: details.qrCount,
-        profileName: details.profileName,
-        phoneNumber: details.phoneNumber,
-        profilePictureUrl: details.profilePictureUrl,
-        wuid: details.wuid,
-        waAccountType: details.waAccountType,
-        hasPersistedSession: details.hasPersistedSession,
-      }];
+    if (!scopeAll) {
+      return [await this.buildTenantSessionEntry(auth, wa)];
     }
 
     const users = await User.find({ discordUserId: { $ne: 'system' } }).lean();
 
-    const sessions = await Promise.all(users.map(async (u) => {
-      const userId = (u._id as mongoose.Types.ObjectId).toString();
-      const clientId = await OrganizationService.getInstance().resolveClientId(userId);
-      const details = await wa.getSessionDetails(clientId);
-      const displayName = await this.resolveDiscordDisplayName(u.discordUserId);
+    const sessions = (
+      await Promise.all(
+        users.map(async (u) => {
+          const userId = (u._id as mongoose.Types.ObjectId).toString();
+          const clientId = await OrganizationService.getInstance().resolveClientId(userId);
+          if (!clientId) return null;
+          const details = await wa.getSessionDetails(clientId);
+          const displayName = await this.resolveDiscordDisplayName(u.discordUserId);
 
-      return {
-        clientId,
-        discordUserId: u.discordUserId,
-        displayName,
-        status: details.status,
-        state: details.state,
-        lastActivity: details.lastActivity,
-        qrCode: details.qrCode,
-        qrCount: details.qrCount,
-        profileName: details.profileName,
-        phoneNumber: details.phoneNumber,
-        profilePictureUrl: details.profilePictureUrl,
-        wuid: details.wuid,
-        waAccountType: details.waAccountType,
-        hasPersistedSession: details.hasPersistedSession,
-      };
-    }));
+          return {
+            clientId,
+            discordUserId: u.discordUserId,
+            displayName,
+            status: details.status,
+            state: details.state,
+            lastActivity: details.lastActivity,
+            qrCode: details.qrCode,
+            qrCount: details.qrCount,
+            profileName: details.profileName,
+            phoneNumber: details.phoneNumber,
+            profilePictureUrl: details.profilePictureUrl,
+            wuid: details.wuid,
+            waAccountType: details.waAccountType,
+            hasPersistedSession: details.hasPersistedSession,
+          };
+        }),
+      )
+    ).filter((s): s is NonNullable<typeof s> => s != null);
 
-    return sessions
+    const deduped = new Map<string, (typeof sessions)[number]>();
+    for (const s of sessions) {
+      if (!deduped.has(s.clientId)) deduped.set(s.clientId, s);
+    }
+
+    return [...deduped.values()]
       .filter((s) => {
         if (s.clientId === auth.clientId) return true;
         return s.status !== 'disconnected';
@@ -4034,6 +4023,51 @@ export class DashboardService {
       };
       return rank(a) - rank(b);
     });
+  }
+
+  private async buildTenantSessionEntry(
+    auth: DashboardRequest['auth'],
+    wa: WhatsAppService,
+  ): Promise<{
+    clientId: string;
+    discordUserId: string;
+    displayName: string;
+    status: string;
+    state: string;
+    lastActivity?: Date | string;
+    qrCode?: string;
+    qrCount?: number;
+    profileName?: string;
+    phoneNumber?: string;
+    profilePictureUrl?: string;
+    wuid?: string;
+    hasPersistedSession: boolean;
+    waAccountType?: 'web' | 'business';
+  }> {
+    const clientId = auth!.clientId;
+    const details = await wa.getSessionDetails(clientId);
+    const user = await User.findById(auth!.userId).lean();
+    const displayName =
+      auth!.organizationName ??
+      (await this.resolveDiscordDisplayName(user?.discordUserId)) ??
+      auth!.username;
+
+    return {
+      clientId,
+      discordUserId: user?.discordUserId ?? auth!.discordUserId ?? '',
+      displayName,
+      status: details.status,
+      state: details.state,
+      lastActivity: details.lastActivity,
+      qrCode: details.qrCode,
+      qrCount: details.qrCount,
+      profileName: details.profileName,
+      phoneNumber: details.phoneNumber,
+      profilePictureUrl: details.profilePictureUrl,
+      wuid: details.wuid,
+      waAccountType: details.waAccountType,
+      hasPersistedSession: details.hasPersistedSession,
+    };
   }
 
   private async buildPlatformStats(auth: DashboardRequest['auth']) {

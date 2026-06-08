@@ -24,7 +24,14 @@ import {
   type ConsentActionOrigin,
 } from '@/types/consent';
 import { createServiceLogger } from '@/utils/logger';
-import { identifierCandidatesFromJids } from '@/utils/whatsapp-phone';
+import {
+  identifierCandidatesFromJids,
+  isLikelyPhoneIdentifier,
+  isLidJid,
+  lidIdentifierFromJid,
+  resolvePhoneFromJids,
+} from '@/utils/whatsapp-phone';
+import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
 
 const logger = createServiceLogger('ConsentService');
 
@@ -196,11 +203,46 @@ export class ConsentService {
     altJid?: string,
   ): Promise<IDestination | null> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
-    for (const identifier of identifierCandidatesFromJids(fromJid, altJid)) {
+    const resolvedPhone = resolvePhoneFromJids(clientId, altJid, fromJid);
+    const identifiers = new Set<string>(identifierCandidatesFromJids(fromJid, altJid));
+    if (resolvedPhone) {
+      identifiers.add(resolvedPhone);
+      identifiers.add(resolvedPhone.replace(/^\+/, ''));
+    }
+    for (const jid of [fromJid, altJid]) {
+      if (jid && isLidJid(jid)) identifiers.add(lidIdentifierFromJid(jid));
+    }
+
+    for (const identifier of identifiers) {
       const dest = await Destination.findByIdentifier(identifier, clientOid);
-      if (dest) return dest;
+      if (dest) return this.upgradeContactIdentifierIfNeeded(dest, clientId, fromJid, altJid);
     }
     return null;
+  }
+
+  /** Corrige contatos criados com LID salvo como telefone falso. */
+  private async upgradeContactIdentifierIfNeeded(
+    dest: IDestination,
+    clientId: string,
+    fromJid: string,
+    altJid?: string,
+  ): Promise<IDestination> {
+    const phone = resolvePhoneFromJids(clientId, altJid, fromJid);
+    if (!phone || !isLikelyPhoneIdentifier(phone)) return dest;
+    if (dest.identifier === phone || dest.identifier === phone.replace(/^\+/, '')) return dest;
+    if (isLikelyPhoneIdentifier(dest.identifier)) return dest;
+
+    dest.identifier = phone;
+    if (!dest.name?.trim() || dest.name === dest.identifier || !isLikelyPhoneIdentifier(dest.name)) {
+      dest.name = phone;
+    }
+    await dest.save();
+    logger.info('Contato atualizado com telefone real (LID resolvido)', {
+      clientId,
+      destinationId: dest._id,
+      phone,
+    });
+    return dest;
   }
 
   /** Localiza contato pelo JID ou cria como PENDING (inbox / primeiro contato). */
@@ -212,16 +254,24 @@ export class ConsentService {
     const existing = await this.findContactDestination(clientId, fromJid, altJid);
     if (existing) return existing;
 
+    const phone = resolvePhoneFromJids(clientId, altJid, fromJid);
     const candidates = identifierCandidatesFromJids(fromJid, altJid);
-    const identifier = candidates.find(c => c.startsWith('+')) ?? candidates[0];
+    let identifier = phone ?? candidates.find(c => c.startsWith('+')) ?? candidates[0];
+
+    if (!identifier) {
+      const lidJid = [altJid, fromJid].find(j => j && isLidJid(j));
+      if (lidJid) identifier = lidIdentifierFromJid(lidJid);
+    }
     if (!identifier) return null;
+
+    const displayName = isLikelyPhoneIdentifier(identifier) ? identifier : 'Contato WhatsApp';
 
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const dest = await Destination.create({
       clientId: clientOid,
       type: 'contact',
       identifier,
-      name: identifier,
+      name: displayName,
       consentStatus: ConsentStatus.ACCEPTED,
       isActive: true,
       consent: {
@@ -235,6 +285,7 @@ export class ConsentService {
     await this.recordHistory(dest, ConsentStatus.PENDING, ConsentStatus.ACCEPTED, 'whatsapp-inbound-initiated', {
       replyText: 'primeiro contato iniciado pelo cliente',
     });
+    await ContactAutoSegmentService.getInstance().tagInboundFirstContact(clientId, dest);
     logger.info('Contato criado via inbound (sem prompt LGPD)', { clientId, phone: identifier });
     return dest;
   }

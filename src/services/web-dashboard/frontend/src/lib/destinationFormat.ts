@@ -9,13 +9,29 @@ function normalizeBrDigits(digits: string): string {
   return d
 }
 
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '')
+}
+
+/** Telefone BR plausível (não confundir com LID @lid). */
+export function isLikelyPhoneIdentifier(value: string): boolean {
+  if (!value || value.includes('@lid')) return false
+  const d = digitsOnly(value)
+  if (!d) return false
+  if (!d.startsWith('55') && d.length >= 12 && d.length <= 17) return false
+  if (d.startsWith('55')) return d.length >= 12 && d.length <= 13
+  return d.length >= 10 && d.length <= 15
+}
+
 /**
  * Formata telefone BR para exibição no painel.
  * Ex.: +5511976904921 → +55 (11) 97690-4921
  */
 export function formatPhone(id: string): string {
+  if (id.includes('@lid')) return id
   const digits = normalizeBrDigits(id)
   if (!digits.startsWith('55')) return id.trim() || id
+  if (!isLikelyPhoneIdentifier(id)) return id.trim() || id
 
   if (digits.length === 13) {
     return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`
@@ -23,11 +39,18 @@ export function formatPhone(id: string): string {
   if (digits.length === 12) {
     return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`
   }
-  if (digits.length > 13) {
-    const d = digits.slice(0, 13)
-    return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`
-  }
   return digits ? `+${digits}` : id
+}
+
+/** Rótulo seguro para contato/Inbox — evita exibir LID como telefone. */
+export function formatContactIdentifier(id: string, name?: string | null): string {
+  if (id.includes('@lid')) {
+    return name?.trim() || 'Contato (sem número na agenda)'
+  }
+  if (!isLikelyPhoneIdentifier(id)) {
+    return name?.trim() || 'Número indisponível'
+  }
+  return formatPhone(id)
 }
 
 /** Rótulo da sessão WhatsApp: número formatado ou nome do perfil. */

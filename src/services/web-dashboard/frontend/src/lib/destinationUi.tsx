@@ -17,7 +17,7 @@ import {
   effectiveConsentStatus,
   type ConsentStatus,
 } from './consentUi'
-import { formatPhone } from './destinationFormat'
+import { formatContactIdentifier } from './destinationFormat'
 import { ContactAvatar } from '../components/contacts/ContactAvatar'
 import { ContactExtraMeta } from './contactMetaUi'
 
@@ -209,7 +209,7 @@ export function DestinationRow({
               )}
             </div>
             <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">
-              {d.type === 'contact' ? formatPhone(d.identifier) : d.identifier}
+              {d.type === 'contact' ? formatContactIdentifier(d.identifier, d.name) : d.identifier}
             </p>
             {d.type === 'contact' && (
               <ContactExtraMeta
