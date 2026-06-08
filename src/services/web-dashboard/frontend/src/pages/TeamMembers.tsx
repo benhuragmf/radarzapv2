@@ -60,7 +60,7 @@ export default function TeamMembers() {
   if (!canManage) {
     return (
       <Card className="text-center py-12 text-gray-500">
-        <p>Apenas o dono da empresa pode gerenciar a equipe.</p>
+        <p>Apenas dono ou administrador pode gerenciar a equipe.</p>
       </Card>
     )
   }
@@ -69,11 +69,13 @@ export default function TeamMembers() {
     <div className="max-w-2xl space-y-5">
       <h1 className="text-lg font-semibold text-white">Cargos e acessos</h1>
       <p className="text-sm text-gray-500">
-        Convide funcionários da sua empresa. Eles entram com Google (e-mail convidado) ou Discord, conforme o
-        vínculo. Papéis da empresa são independentes dos cargos no servidor Discord.
+        Convide funcionários da sua empresa — use o papel <strong className="text-gray-400">Atendente</strong> para
+        quem responderá o <strong className="text-gray-400">Inbox WhatsApp</strong>. Depois vincule-os aos setores em{' '}
+        <a href="/platform/inbox/setores" className="text-brand-400 hover:underline">Setores do Inbox</a>.
+        Login via Google (e-mail convidado) ou Discord.
       </p>
 
-      {isCompanyOwner(me ?? null) && (
+      {canManage && (
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <CardTitle>

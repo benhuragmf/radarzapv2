@@ -2252,6 +2252,18 @@ export class WhatsAppService {
         } catch (err) {
           this.serviceLogger.warn('Consent inbound handler error', err);
         }
+
+        try {
+          const { InboxService } = await import('@/services/inbox/InboxService');
+          await InboxService.getInstance().handleInboundMessage(
+            clientId,
+            msg.key.remoteJid,
+            text,
+            msg.key.remoteJidAlt,
+          );
+        } catch (err) {
+          this.serviceLogger.warn('Inbox inbound handler error', err);
+        }
       }
     });
 

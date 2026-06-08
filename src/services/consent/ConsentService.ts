@@ -101,7 +101,10 @@ export class ConsentService {
     if (newStatus === ConsentStatus.ACCEPTED) {
       dest.consent.granted = true;
       dest.consent.grantedAt = new Date();
-      dest.consent.source = origin === 'whatsapp-inbound' ? 'opt-in' : 'manual';
+      dest.consent.source =
+        origin === 'whatsapp-inbound' || origin === 'whatsapp-inbound-initiated'
+          ? 'opt-in'
+          : 'manual';
       dest.consent.ipAddress = '0.0.0.0';
       dest.isActive = true;
       dest.pendingOutboundCount = 0;
@@ -200,6 +203,82 @@ export class ConsentService {
     return null;
   }
 
+  /** Localiza contato pelo JID ou cria como PENDING (inbox / primeiro contato). */
+  async findOrCreateContactFromInbound(
+    clientId: string,
+    fromJid: string,
+    altJid?: string,
+  ): Promise<IDestination | null> {
+    const existing = await this.findContactDestination(clientId, fromJid, altJid);
+    if (existing) return existing;
+
+    const candidates = identifierCandidatesFromJids(fromJid, altJid);
+    const identifier = candidates.find(c => c.startsWith('+')) ?? candidates[0];
+    if (!identifier) return null;
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const dest = await Destination.create({
+      clientId: clientOid,
+      type: 'contact',
+      identifier,
+      name: identifier,
+      consentStatus: ConsentStatus.ACCEPTED,
+      isActive: true,
+      consent: {
+        granted: true,
+        grantedAt: new Date(),
+        source: 'opt-in',
+        ipAddress: '0.0.0.0',
+      },
+    });
+
+    await this.recordHistory(dest, ConsentStatus.PENDING, ConsentStatus.ACCEPTED, 'whatsapp-inbound-initiated', {
+      replyText: 'primeiro contato iniciado pelo cliente',
+    });
+    logger.info('Contato criado via inbound (sem prompt LGPD)', { clientId, phone: identifier });
+    return dest;
+  }
+
+  /**
+   * Cliente iniciou conversa — atendimento direto, sem pedir 1/2 de consentimento.
+   * Campanhas/envios ativos continuam usando assertCanSend para contatos só outbound.
+   */
+  async acceptInboundInitiated(clientId: string, dest: IDestination): Promise<boolean> {
+    const prev = dest.consentStatus ?? ConsentStatus.PENDING;
+    if (prev === ConsentStatus.ACCEPTED) return true;
+    if (prev === ConsentStatus.MANUALLY_BLOCKED || prev === ConsentStatus.REFUSED_THREE) {
+      return false;
+    }
+    await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound-initiated', {
+      replyText: 'cliente iniciou contato',
+    });
+    logger.info('Canal aberto por inbound (atendimento)', {
+      clientId,
+      phone: dest.identifier,
+      previousStatus: prev,
+    });
+    return true;
+  }
+
+  /** Envia pedido de consentimento (somente envio ativo / outbound). */
+  async promptConsentIfPending(clientId: string, dest: IDestination): Promise<void> {
+    if (!this.needsConsentPrompt(dest)) return;
+
+    const lastPrompt = dest.lastConsentPromptAt ? new Date(dest.lastConsentPromptAt).getTime() : 0;
+    if (lastPrompt && Date.now() - lastPrompt < CONSENT_PROMPT_COOLDOWN_MS) return;
+
+    const wa = WhatsAppService.getInstance();
+    await wa.sendConsentRequest(clientId, dest.identifier);
+
+    dest.pendingOutboundCount = (dest.pendingOutboundCount ?? 0) + 1;
+    dest.lastConsentPromptAt = new Date();
+    await dest.save();
+
+    await this.recordHistory(dest, ConsentStatus.PENDING, ConsentStatus.PENDING, 'whatsapp-inbound', {
+      attemptNumber: dest.pendingOutboundCount,
+    });
+  }
+
   /** Opt-out em duas etapas quando o contato já aceitou */
   private async handleAcceptedInbound(
     clientId: string,
@@ -273,72 +352,25 @@ export class ConsentService {
     text: string,
     altJid?: string,
   ): Promise<void> {
-    const dest = await this.findContactDestination(clientId, fromJid, altJid);
-    if (!dest) {
-      logger.warn('Inbound consent: contato não encontrado pelo JID', { clientId, fromJid, altJid, text });
-      return;
-    }
+    const dest = await this.findOrCreateContactFromInbound(clientId, fromJid, altJid);
+    if (!dest) return;
 
     const prev = dest.consentStatus ?? ConsentStatus.PENDING;
     const wa = WhatsAppService.getInstance();
 
-    if (prev === ConsentStatus.ACCEPTED) {
-      await this.handleAcceptedInbound(clientId, dest, text, wa);
-      return;
-    }
-
+    // Cliente iniciou contato → atendimento (menu no InboxService), sem prompt 1/2 de opt-in.
     if (
+      prev === ConsentStatus.PENDING ||
       prev === ConsentStatus.REFUSED_FIRST ||
       prev === ConsentStatus.REFUSED_SECOND
     ) {
-      if (parseResubscribeReply(text)) {
-        const msgs = await this.getMessages(clientId);
-        await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound', {
-          replyText: text,
-        });
-        await wa.sendManualMessage(
-          clientId,
-          dest.identifier,
-          msgs.resubscribe,
-          undefined,
-          { skipConsentCheck: true, skipRateLimit: true },
-        );
-        logger.info('Contato voltou a receber (entrar/aceitar)', {
-          clientId,
-          phone: dest.identifier,
-        });
-      }
+      await this.acceptInboundInitiated(clientId, dest);
       return;
     }
 
-    if (!canReplyToConsentPrompt(prev)) {
-      return;
+    if (prev === ConsentStatus.ACCEPTED) {
+      await this.handleAcceptedInbound(clientId, dest, text, wa);
     }
-
-    const reply = parseConsentReply(text);
-    if (!reply) return;
-
-    const msgs = await this.getMessages(clientId);
-
-    if (reply === 'accept') {
-      await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound', {
-        replyText: text,
-      });
-      await wa.sendManualMessage(clientId, dest.identifier, msgs.accepted, undefined, {
-        skipConsentCheck: true,
-        skipRateLimit: true,
-      });
-      logger.info('Consent accepted via WhatsApp', { clientId, phone: dest.identifier });
-      return;
-    }
-
-    const next = nextRefusalStatus(prev);
-    await this.applyStatus(dest, next, 'whatsapp-inbound', { replyText: text });
-    await wa.sendManualMessage(clientId, dest.identifier, msgs.refused, undefined, {
-      skipConsentCheck: true,
-      skipRateLimit: true,
-    });
-    logger.info('Consent refused via WhatsApp', { clientId, phone: dest.identifier, next });
   }
 
   async requestRenewal(

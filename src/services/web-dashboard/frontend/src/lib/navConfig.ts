@@ -4,7 +4,7 @@ import {
   ListOrdered, ScrollText, Send, Crown, Settings, Shield, Server, History,
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
-  UserCog, Lock, Database, Building2, Circle,
+  UserCog, Lock, Database, Building2, Circle, MessageSquare,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -85,6 +85,10 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
     link('send-history', 'Histórico de envios', History, '/send/historico', 'send:test'),
     link('plat-templates', 'Modelos', FileText, '/platform/templates', 'send:templates:manage'),
   ]),
+
+  section('sec-atendimento', 'Atendimento'),
+  link('inbox', 'Inbox WhatsApp', MessageSquare, '/platform/inbox', 'inbox:view'),
+  link('inbox-sectors', 'Setores do Inbox', Building2, '/platform/inbox/setores', 'inbox:department:manage'),
 
   section('sec-contatos', 'Contatos'),
   group('grp-contatos', 'Contatos', Users, [
@@ -378,6 +382,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/wa-stories': 'send:test',
   '/platform/wa-status': 'whatsapp:session:view',
   '/platform/fila': 'queue:view',
+  '/platform/inbox': 'inbox:view',
+  '/platform/inbox/setores': 'inbox:department:manage',
   '/platform/contacts': 'consent:view',
   '/integrations/playground': 'send:test',
   '/sessions': 'whatsapp:session:view',
@@ -445,6 +451,8 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/wa-stories': 'Publicar status WhatsApp',
   '/platform/wa-status': 'Status das conexões',
   '/platform/fila': 'Fila de envio',
+  '/platform/inbox': 'Inbox WhatsApp',
+  '/platform/inbox/setores': 'Setores do Inbox',
   '/platform/contacts': 'Importar / Exportar',
   '/integrations/playground': 'Playground',
   '/sessions': 'Sessões e QR Code',

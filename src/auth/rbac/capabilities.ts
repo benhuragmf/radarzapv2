@@ -34,6 +34,11 @@ export const Cap = {
   SEND_SCHEDULE_MANAGE: 'send:schedule:manage',
   SEND_TEST: 'send:test',
 
+  INBOX_VIEW: 'inbox:view',
+  INBOX_REPLY: 'inbox:reply',
+  INBOX_TRANSFER: 'inbox:transfer',
+  INBOX_DEPARTMENT_MANAGE: 'inbox:department:manage',
+
   QUEUE_VIEW: 'queue:view',
   QUEUE_RETRY: 'queue:retry',
   QUEUE_GLOBAL: 'queue:global',
@@ -84,6 +89,10 @@ const COMPANY_OWNER_CAPS: Capability[] = [
   Cap.SEND_TEMPLATES_MANAGE,
   Cap.SEND_SCHEDULE_MANAGE,
   Cap.SEND_TEST,
+  Cap.INBOX_VIEW,
+  Cap.INBOX_REPLY,
+  Cap.INBOX_TRANSFER,
+  Cap.INBOX_DEPARTMENT_MANAGE,
   Cap.QUEUE_VIEW,
   Cap.QUEUE_RETRY,
   Cap.LOGS_VIEW,
@@ -94,6 +103,7 @@ const COMPANY_OWNER_CAPS: Capability[] = [
 const COMPANY_ADMIN_CAPS: Capability[] = [
   ...BASE_CAPS,
   Cap.BILLING_VIEW,
+  Cap.COMPANY_MEMBERS_MANAGE,
   Cap.WHATSAPP_SESSION_VIEW,
   Cap.SEND_DESTINATION_MANAGE,
   Cap.SEND_DESTINATION_VIEW,
@@ -102,6 +112,10 @@ const COMPANY_ADMIN_CAPS: Capability[] = [
   Cap.SEND_TEMPLATES_MANAGE,
   Cap.SEND_SCHEDULE_MANAGE,
   Cap.SEND_TEST,
+  Cap.INBOX_VIEW,
+  Cap.INBOX_REPLY,
+  Cap.INBOX_TRANSFER,
+  Cap.INBOX_DEPARTMENT_MANAGE,
   Cap.QUEUE_VIEW,
   Cap.LOGS_VIEW,
 ];
@@ -112,6 +126,9 @@ const COMPANY_ATTENDANT_CAPS: Capability[] = [
   Cap.CONSENT_VIEW,
   Cap.SEND_SCHEDULE_MANAGE,
   Cap.SEND_TEST,
+  Cap.INBOX_VIEW,
+  Cap.INBOX_REPLY,
+  Cap.INBOX_TRANSFER,
   Cap.QUEUE_VIEW,
   Cap.LOGS_VIEW,
 ];

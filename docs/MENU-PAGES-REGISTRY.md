@@ -15,6 +15,8 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/wa-status` | `menu/WaStatus.tsx` | `GET /sessions` |
 | `/platform/wa-logs` | `menu/WaLogs.tsx` | `GET /logs?tenant=1&service=WhatsAppService` |
 | `/platform/automacoes` | `PlatformAutomations.tsx` | `GET/POST /platform/automations` |
+| `/platform/inbox` | `menu/Inbox.tsx` | `GET/POST /inbox/*` |
+| `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
 
 ## Integrações API
 
@@ -54,6 +56,10 @@ Ver `pages/menu/EmBreveRedirect.tsx` → `SLUG_REDIRECTS`.
 
 ## Modelos backend
 
+- `src/models/InboxDepartment.ts`
+- `src/models/InboxConversation.ts`
+- `src/models/InboxMessage.ts`
+- `src/models/InboxTransfer.ts`
 - `src/models/ApiKey.ts`
 - `src/models/WebhookEndpoint.ts`
 - `src/constants/openapi-dashboard.ts`

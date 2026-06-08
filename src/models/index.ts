@@ -25,6 +25,10 @@ export { Organization, IOrganization } from './Organization';
 export { CompanyMember, ICompanyMember } from './CompanyMember';
 export { ContactGroup, IContactGroup } from './ContactGroup';
 export { AuditLog, IAuditLog, writeAuditLog } from './AuditLog';
+export { InboxDepartment, IInboxDepartment } from './InboxDepartment';
+export { InboxConversation, IInboxConversation } from './InboxConversation';
+export { InboxMessage, IInboxMessage } from './InboxMessage';
+export { InboxTransfer, IInboxTransfer } from './InboxTransfer';
 
 // Create aliases for internal use
 const User = UserModel;

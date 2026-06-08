@@ -79,6 +79,7 @@ import { generateApiKeyRaw, hashApiKey, apiKeyPrefix, generateWebhookSecret } fr
 import { OPENAPI_DASHBOARD } from '../../constants/openapi-dashboard';
 import { DiscordNavAlertsService } from '../discord/DiscordNavAlertsService';
 import { RuleGroupBlockService } from '../rules/RuleGroupBlockService';
+import { InboxService } from '../inbox/InboxService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
 import {
   validateAutomationPayload,
@@ -726,6 +727,167 @@ export class DashboardService {
         res.json(data);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Inbox — atendimento WhatsApp ───────────────────────────────────────
+    const inboxSvc = InboxService.getInstance();
+
+    r.get('/inbox/departments', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const departments = await inboxSvc.ensureDepartments(auth.clientId);
+        res.json(departments);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/members', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const members = await inboxSvc.listTeamMembersForAssignment(auth.clientId);
+        res.json(members);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/departments', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, description, memberUserIds } = req.body as {
+          name?: string;
+          description?: string;
+          memberUserIds?: string[];
+        };
+        const dept = await inboxSvc.createDepartment(auth.clientId, {
+          name: name ?? '',
+          description,
+          memberUserIds,
+        });
+        res.status(201).json(dept);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/inbox/departments/:id', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, description, memberUserIds, isActive, sortOrder } = req.body as {
+          name?: string;
+          description?: string;
+          memberUserIds?: string[];
+          isActive?: boolean;
+          sortOrder?: number;
+        };
+        const dept = await inboxSvc.updateDepartment(auth.clientId, req.params.id, {
+          name,
+          description,
+          memberUserIds,
+          isActive,
+          sortOrder,
+        });
+        res.json(dept);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/conversations', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { status, departmentId, mine } = req.query as {
+          status?: string;
+          departmentId?: string;
+          mine?: string;
+        };
+        const rows = await inboxSvc.listConversations(auth.clientId, auth.userId, {
+          status,
+          departmentId,
+          mine: mine === '1' || mine === 'true',
+        });
+        res.json(rows);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/conversations/:id', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const data = await inboxSvc.getConversationDetail(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+        );
+        res.json(data);
+      } catch (e) {
+        const msg = (e as Error).message;
+        res.status(msg.includes('não encontrada') ? 404 : 403).json({ error: msg });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/assign', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const conv = await inboxSvc.assignConversation(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+        );
+        res.json(conv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/reply', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { text } = req.body as { text?: string };
+        const result = await inboxSvc.replyToConversation(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+          text ?? '',
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/transfer', requireCapability(Cap.INBOX_TRANSFER), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { departmentId, reason } = req.body as { departmentId?: string; reason?: string };
+        if (!departmentId) return res.status(400).json({ error: 'departmentId is required' });
+        const conv = await inboxSvc.transferConversation(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+          departmentId,
+          reason,
+        );
+        res.json(conv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/resolve', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const conv = await inboxSvc.resolveConversation(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+        );
+        res.json(conv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 

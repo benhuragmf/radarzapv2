@@ -149,6 +149,7 @@ export { buildConsentMessages } from './consentMessages';
 
 export type ConsentActionOrigin =
   | 'whatsapp-inbound'
+  | 'whatsapp-inbound-initiated'
   | 'dashboard-send'
   | 'campaign'
   | 'owner-reset'

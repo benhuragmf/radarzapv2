@@ -41,6 +41,8 @@ import PlatformTriggers from './pages/menu/PlatformTriggers'
 import WaLogs from './pages/menu/WaLogs'
 import WaStatus from './pages/menu/WaStatus'
 import WaStatusPosts from './pages/menu/WaStatusPosts'
+import Inbox from './pages/menu/Inbox'
+import InboxSectors from './pages/menu/InboxSectors'
 import AdminMonitoring from './pages/menu/AdminMonitoring'
 import AdminErrors from './pages/menu/AdminErrors'
 import AdminServers from './pages/menu/AdminServers'
@@ -167,6 +169,8 @@ export default function App() {
           <Route path="platform/gatilhos" element={<Guard user={user} path="/platform/gatilhos"><PlatformTriggers /></Guard>} />
           <Route path="platform/wa-logs" element={<Guard user={user} path="/platform/wa-logs"><WaLogs /></Guard>} />
           <Route path="platform/wa-stories" element={<Guard user={user} path="/platform/wa-stories"><WaStatusPosts /></Guard>} />
+          <Route path="platform/inbox" element={<Guard user={user} path="/platform/inbox"><Inbox /></Guard>} />
+          <Route path="platform/inbox/setores" element={<Guard user={user} path="/platform/inbox/setores"><InboxSectors /></Guard>} />
           <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
           <Route path="platform/fila" element={<Guard user={user} path="/platform/fila"><Queue scope="tenant" /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />
