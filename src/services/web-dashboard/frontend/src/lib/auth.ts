@@ -6,7 +6,7 @@ export type UserRole =
   | 'SYSTEM_MODERATOR'
   | 'SYSTEM_ADMIN'
 
-export type CompanyRole = 'OWNER' | 'ADMIN' | 'ATTENDANT'
+export type CompanyRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'ATTENDANT' | 'INTEGRATION' | 'CUSTOM'
 
 export interface UserOrganization {
   organizationId: string
@@ -24,6 +24,17 @@ export interface GuildAccess {
   apiAccessEnabled: boolean
 }
 
+export interface AccountConnectionInfo {
+  linked: boolean
+  email?: string | null
+  username?: string | null
+}
+
+export interface AccountConnections {
+  google: AccountConnectionInfo
+  discord: AccountConnectionInfo
+}
+
 export interface AuthUser {
   userId: string
   discordId: string | null
@@ -31,6 +42,7 @@ export interface AuthUser {
   avatar: string | null
   email: string | null
   authProvider: 'google' | 'discord' | null
+  connections?: AccountConnections
   plan: string
   systemRole: string
   primaryRole: UserRole
@@ -62,6 +74,14 @@ export function loginWithDiscord() {
 
 export function loginWithGoogle() {
   window.location.href = '/auth/google'
+}
+
+export function linkGoogleAccount() {
+  window.location.href = '/auth/google/link'
+}
+
+export function linkDiscordAccount() {
+  window.location.href = '/auth/discord/link'
 }
 
 export async function logout() {
@@ -107,7 +127,7 @@ export function can(user: AuthUser | null, permission: string, guildId?: string)
     )
   }
 
-  if (permission.startsWith('company:') && user.companyRole !== 'OWNER') {
+  if (permission === 'billing:manage' && user.companyRole !== 'OWNER') {
     return false
   }
 

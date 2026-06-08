@@ -66,6 +66,16 @@ export async function loadAuthContext(
   }
 }
 
+function resolveGuildId(
+  req: DashboardRequest,
+  options?: { guildFromQuery?: boolean; guildFromBody?: boolean; guildFromParams?: string },
+): string | undefined {
+  if (options?.guildFromQuery) return req.query.guildId as string | undefined;
+  if (options?.guildFromBody) return (req.body as { guildId?: string })?.guildId;
+  if (options?.guildFromParams) return req.params[options.guildFromParams];
+  return undefined;
+}
+
 export function requireCapability(
   permission: Capability,
   options?: { guildFromQuery?: boolean; guildFromBody?: boolean; guildFromParams?: string },
@@ -76,10 +86,7 @@ export function requireCapability(
       return;
     }
 
-    let guildId: string | undefined;
-    if (options?.guildFromQuery) guildId = req.query.guildId as string | undefined;
-    if (options?.guildFromBody) guildId = (req.body as { guildId?: string })?.guildId;
-    if (options?.guildFromParams) guildId = req.params[options.guildFromParams];
+    const guildId = resolveGuildId(req, options);
 
     if (!can(req.auth, permission, { guildId })) {
       res.status(403).json({
@@ -91,6 +98,28 @@ export function requireCapability(
     }
 
     next();
+  };
+}
+
+export function requireAnyCapability(
+  ...permissions: Capability[]
+) {
+  return (req: DashboardRequest, res: Response, next: NextFunction): void => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (permissions.some(p => can(req.auth!, p))) {
+      next();
+      return;
+    }
+
+    res.status(403).json({
+      error: 'Forbidden',
+      code: 'INSUFFICIENT_PERMISSIONS',
+      required: permissions,
+    });
   };
 }
 

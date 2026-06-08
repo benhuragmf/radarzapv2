@@ -33,8 +33,9 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
 ## Empresa
 
-| Rota | Componente |
-|------|------------|
+| Rota | Componente | API principal |
+|------|------------|---------------|
+| `/settings/team` | `TeamMembers.tsx` — aba **Papéis do sistema** (`RolePresetEditor`) + aba **Equipe** | `GET /team/roles`, `PATCH/DELETE /team/roles/:role`, `GET/POST/PATCH/DELETE /team/members` — permissões por papel persistidas em `Organization.roleCapabilities`; Discord só se `linkedGuildIds` |
 | `/settings/permissions` | `menu/PermissionsPage.tsx` |
 | `/settings/security` | `menu/SecuritySettings.tsx` |
 | `/settings/backup` | `menu/BackupExport.tsx` |

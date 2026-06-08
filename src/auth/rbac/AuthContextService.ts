@@ -4,6 +4,8 @@ import { GuildMembership } from '@/models/GuildMembership';
 import { OrganizationService } from '@/services/organization/OrganizationService';
 import { AuthContext, GuildAccess, UserOrganizationSummary } from './types';
 import { SystemRole, GuildRole, UserRole, guildRoleToUserRole, CompanyRole } from './roles';
+import { Capability } from './capabilities';
+import { parseOrgRoleCapabilities } from './companyRolePresets';
 import { buildCapabilities, resolvePrimaryRole } from './can';
 import { resolveSystemRole } from './GuildMembershipSync';
 import { CompanyMember } from '@/models/CompanyMember';
@@ -73,12 +75,38 @@ export async function buildAuthContext(params: {
       apiAccessEnabled: m.apiAccessEnabled,
     }));
 
-  const hasDiscordAccess = guilds.length > 0;
   const plan = org?.plan ?? user.plan;
+  const orgRoleCapabilities = parseOrgRoleCapabilities(org?.roleCapabilities);
   const primaryRole = resolvePrimaryRole(systemRole, guilds);
   const capabilities = needsOrganizationChoice
     ? []
-    : buildCapabilities(systemRole, companyRole, guilds, plan, linkedGuildIds);
+    : buildCapabilities(
+        systemRole,
+        companyRole,
+        guilds,
+        plan,
+        linkedGuildIds,
+        {
+          extra: (member?.extraCapabilities ?? []) as Capability[],
+          denied: (member?.deniedCapabilities ?? []) as Capability[],
+        },
+        orgRoleCapabilities,
+      );
+
+  const orgHasDiscord = linkedGuildIds.length > 0;
+  const grantedDiscordCaps = capabilities.some(c => c.startsWith('discord:'));
+  const hasDiscordAccess = guilds.length > 0 || (orgHasDiscord && grantedDiscordCaps);
+
+  const connections = {
+    google: {
+      linked: Boolean(user.googleId),
+      email: user.email ?? null,
+    },
+    discord: {
+      linked: Boolean(user.discordUserId),
+      username: user.discordUserId ? username : null,
+    },
+  };
 
   return {
     userId,
@@ -102,6 +130,7 @@ export async function buildAuthContext(params: {
     hasDiscordAccess,
     isInternalStaff:
       systemRole === SystemRole.SYSTEM_ADMIN || systemRole === SystemRole.SYSTEM_MODERATOR,
+    connections,
   };
 }
 
@@ -132,5 +161,6 @@ export function authContextToJson(ctx: AuthContext) {
     })),
     isInternalStaff: ctx.isInternalStaff,
     menuType: ctx.isInternalStaff ? 'admin' : 'client',
+    connections: ctx.connections,
   };
 }

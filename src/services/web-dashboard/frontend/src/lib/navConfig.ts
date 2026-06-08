@@ -73,8 +73,8 @@ function group(
 export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-inicio', 'Início'),
   link('dash-visao', 'Visão geral', LayoutDashboard, '/dashboard', 'dashboard:view'),
-  link('plat-reports', 'Relatórios', ScrollText, '/platform/reports', 'logs:view'),
-  link('plat-audit', 'Auditoria', ShieldCheck, '/platform/audit', 'logs:view'),
+  link('plat-reports', 'Relatórios', ScrollText, '/platform/reports', 'platform:reports:view'),
+  link('plat-audit', 'Auditoria', ShieldCheck, '/platform/audit', 'platform:audit:view'),
 
   section('sec-msg', 'Mensagens'),
   group('grp-msg', 'Mensagens', Send, [
@@ -376,8 +376,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/dashboard': 'dashboard:view',
   '/platform': 'dashboard:view',
   '/platform/templates': 'send:templates:manage',
-  '/platform/reports': 'logs:view',
-  '/platform/audit': 'logs:view',
+  '/platform/reports': 'platform:reports:view',
+  '/platform/audit': 'platform:audit:view',
   '/platform/campanhas': 'send:test',
   '/platform/segmentos': 'send:destination:manage',
   '/platform/gatilhos': 'send:schedule:manage',

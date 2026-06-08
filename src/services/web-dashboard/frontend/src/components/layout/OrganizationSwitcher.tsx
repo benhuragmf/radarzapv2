@@ -6,7 +6,10 @@ import { Spinner } from '../ui/Spinner'
 const ROLE_LABEL: Record<string, string> = {
   OWNER: 'Dono',
   ADMIN: 'Admin',
+  MANAGER: 'Gerente',
   ATTENDANT: 'Atendente',
+  INTEGRATION: 'API',
+  CUSTOM: 'Custom',
 }
 
 interface Props {

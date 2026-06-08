@@ -1,10 +1,11 @@
 import {
+  Cap,
   Capability,
   applyPlanCapabilities,
-  capabilitiesForCompanyRole,
   capabilitiesForGuildRole,
   capabilitiesForRole,
 } from './capabilities';
+import { effectiveCapabilitiesForRole, OrgRoleCapabilities } from './companyRolePresets';
 import { AuthContext, AuthContextOptions, GuildAccess } from './types';
 import { CompanyRole, GuildRole, SystemRole, UserRole, guildRoleToUserRole } from './roles';
 
@@ -81,6 +82,8 @@ export function buildCapabilities(
   guilds: GuildAccess[],
   plan: string,
   linkedGuildIds: string[],
+  memberOverrides?: { extra?: Capability[]; denied?: Capability[] },
+  orgRoleCapabilities?: OrgRoleCapabilities,
 ): Capability[] {
   const capSet = new Set<Capability>();
 
@@ -91,7 +94,10 @@ export function buildCapabilities(
   }
 
   if (companyRole) {
-    for (const c of capabilitiesForCompanyRole(companyRole)) {
+    for (const c of effectiveCapabilitiesForRole(companyRole, orgRoleCapabilities)) {
+      capSet.add(c);
+    }
+    for (const c of memberOverrides?.extra ?? []) {
       capSet.add(c);
     }
   }
@@ -105,6 +111,10 @@ export function buildCapabilities(
       capSet.add('api:key:create' as Capability);
       capSet.add('api:logs:view' as Capability);
     }
+  }
+
+  for (const c of memberOverrides?.denied ?? []) {
+    capSet.delete(c);
   }
 
   if (capSet.size === 0) {
@@ -151,7 +161,7 @@ export function can(
     return false;
   }
 
-  if (permission.startsWith('company:') && ctx.companyRole !== CompanyRole.OWNER) {
+  if (permission === Cap.BILLING_MANAGE && ctx.companyRole !== CompanyRole.OWNER) {
     return false;
   }
 

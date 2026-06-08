@@ -1,11 +1,16 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { CompanyRole } from '@/auth/rbac/roles';
+import type { Capability } from '@/auth/rbac/capabilities';
 
 export interface ICompanyMember extends Document {
   organizationId: mongoose.Types.ObjectId;
   userId?: mongoose.Types.ObjectId;
   email?: string;
   companyRole: CompanyRole;
+  /** Permissões extras além do papel base */
+  extraCapabilities?: Capability[];
+  /** Permissões revogadas em relação ao papel base */
+  deniedCapabilities?: Capability[];
   invitedByUserId?: mongoose.Types.ObjectId;
   isActive: boolean;
   createdAt: Date;
@@ -38,6 +43,8 @@ const CompanyMemberSchema = new Schema<ICompanyMember>({
     required: true,
     index: true,
   },
+  extraCapabilities: { type: [String], default: [] },
+  deniedCapabilities: { type: [String], default: [] },
   invitedByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
   isActive: { type: Boolean, default: true, index: true },
 }, {

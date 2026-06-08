@@ -9,7 +9,11 @@ export enum SystemRole {
 export enum CompanyRole {
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
   ATTENDANT = 'ATTENDANT',
+  INTEGRATION = 'INTEGRATION',
+  /** Papel base mínimo — dono define todas as permissões manualmente */
+  CUSTOM = 'CUSTOM',
 }
 
 /** Papel do usuário dentro de um servidor Discord */

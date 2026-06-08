@@ -5,12 +5,16 @@ export const Cap = {
   DASHBOARD_VIEW: 'dashboard:view',
   DASHBOARD_GLOBAL: 'dashboard:global',
 
+  PLATFORM_REPORTS_VIEW: 'platform:reports:view',
+  PLATFORM_AUDIT_VIEW: 'platform:audit:view',
+
   ACCOUNT_SETTINGS: 'account:settings',
 
   BILLING_VIEW: 'billing:view',
   BILLING_MANAGE: 'billing:manage',
 
   COMPANY_MEMBERS_MANAGE: 'company:members:manage',
+  COMPANY_MEMBERS_REMOVE: 'company:members:remove',
 
   WHATSAPP_SESSION_VIEW: 'whatsapp:session:view',
   WHATSAPP_SESSION_MANAGE: 'whatsapp:session:manage',
@@ -79,8 +83,41 @@ const COMPANY_OWNER_CAPS: Capability[] = [
   Cap.BILLING_VIEW,
   Cap.BILLING_MANAGE,
   Cap.COMPANY_MEMBERS_MANAGE,
+  Cap.COMPANY_MEMBERS_REMOVE,
   Cap.WHATSAPP_SESSION_VIEW,
   Cap.WHATSAPP_SESSION_MANAGE,
+  Cap.SEND_DESTINATION_MANAGE,
+  Cap.SEND_DESTINATION_VIEW,
+  Cap.CONSENT_VIEW,
+  Cap.CONSENT_REQUEST_RENEWAL,
+  Cap.CONSENT_APPROVE_RENEWAL,
+  Cap.CONSENT_CLEAR_REFUSAL,
+  Cap.CONSENT_MANUAL_BLOCK,
+  Cap.SEND_RULES_MANAGE,
+  Cap.SEND_TEMPLATES_MANAGE,
+  Cap.SEND_SCHEDULE_MANAGE,
+  Cap.SEND_TEST,
+  Cap.INBOX_VIEW,
+  Cap.INBOX_REPLY,
+  Cap.INBOX_TRANSFER,
+  Cap.INBOX_DEPARTMENT_MANAGE,
+  Cap.INBOX_REPORTS_VIEW,
+  Cap.INBOX_SUPERVISE,
+  Cap.PLATFORM_REPORTS_VIEW,
+  Cap.PLATFORM_AUDIT_VIEW,
+  Cap.QUEUE_VIEW,
+  Cap.QUEUE_RETRY,
+  Cap.LOGS_VIEW,
+  Cap.API_KEY_CREATE,
+  Cap.API_LOGS_VIEW,
+];
+
+const COMPANY_ADMIN_CAPS: Capability[] = [
+  ...BASE_CAPS,
+  Cap.BILLING_VIEW,
+  Cap.COMPANY_MEMBERS_MANAGE,
+  Cap.COMPANY_MEMBERS_REMOVE,
+  Cap.WHATSAPP_SESSION_VIEW,
   Cap.SEND_DESTINATION_MANAGE,
   Cap.SEND_DESTINATION_VIEW,
   Cap.CONSENT_VIEW,
@@ -97,46 +134,48 @@ const COMPANY_OWNER_CAPS: Capability[] = [
   Cap.INBOX_DEPARTMENT_MANAGE,
   Cap.INBOX_REPORTS_VIEW,
   Cap.INBOX_SUPERVISE,
+  Cap.PLATFORM_REPORTS_VIEW,
+  Cap.PLATFORM_AUDIT_VIEW,
   Cap.QUEUE_VIEW,
-  Cap.QUEUE_RETRY,
   Cap.LOGS_VIEW,
-  Cap.API_KEY_CREATE,
-  Cap.API_LOGS_VIEW,
 ];
 
-const COMPANY_ADMIN_CAPS: Capability[] = [
+/** Gerente — supervisão, relatórios Inbox, operações; sem API nem gestão de sessão WA */
+const COMPANY_MANAGER_CAPS: Capability[] = [
   ...BASE_CAPS,
-  Cap.BILLING_VIEW,
-  Cap.COMPANY_MEMBERS_MANAGE,
-  Cap.WHATSAPP_SESSION_VIEW,
   Cap.SEND_DESTINATION_MANAGE,
   Cap.SEND_DESTINATION_VIEW,
   Cap.CONSENT_VIEW,
-  Cap.SEND_RULES_MANAGE,
-  Cap.SEND_TEMPLATES_MANAGE,
   Cap.SEND_SCHEDULE_MANAGE,
   Cap.SEND_TEST,
   Cap.INBOX_VIEW,
   Cap.INBOX_REPLY,
   Cap.INBOX_TRANSFER,
-  Cap.INBOX_DEPARTMENT_MANAGE,
   Cap.INBOX_REPORTS_VIEW,
   Cap.INBOX_SUPERVISE,
+  Cap.PLATFORM_REPORTS_VIEW,
   Cap.QUEUE_VIEW,
   Cap.LOGS_VIEW,
 ];
 
 const COMPANY_ATTENDANT_CAPS: Capability[] = [
   Cap.DASHBOARD_VIEW,
+  Cap.ACCOUNT_SETTINGS,
   Cap.SEND_DESTINATION_VIEW,
   Cap.CONSENT_VIEW,
-  Cap.SEND_SCHEDULE_MANAGE,
-  Cap.SEND_TEST,
   Cap.INBOX_VIEW,
   Cap.INBOX_REPLY,
   Cap.INBOX_TRANSFER,
   Cap.QUEUE_VIEW,
-  Cap.LOGS_VIEW,
+];
+
+/** Integração API — chaves e logs; sem Inbox nem campanhas */
+const COMPANY_INTEGRATION_CAPS: Capability[] = [
+  Cap.DASHBOARD_VIEW,
+  Cap.ACCOUNT_SETTINGS,
+  Cap.API_KEY_CREATE,
+  Cap.API_KEY_REVOKE,
+  Cap.API_LOGS_VIEW,
 ];
 
 /** Discord — somente automação de servidor (requer guild vinculada) */
@@ -179,8 +218,14 @@ export function capabilitiesForCompanyRole(role: CompanyRole): Capability[] {
       return COMPANY_OWNER_CAPS;
     case CompanyRole.ADMIN:
       return COMPANY_ADMIN_CAPS;
+    case CompanyRole.MANAGER:
+      return COMPANY_MANAGER_CAPS;
     case CompanyRole.ATTENDANT:
       return COMPANY_ATTENDANT_CAPS;
+    case CompanyRole.INTEGRATION:
+      return COMPANY_INTEGRATION_CAPS;
+    case CompanyRole.CUSTOM:
+      return BASE_CAPS;
     default:
       return BASE_CAPS;
   }

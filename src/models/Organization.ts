@@ -18,6 +18,8 @@ export interface IOrganization extends Document {
     lastReset: Date;
   };
   linkedGuildIds: string[];
+  /** Permissões por papel definidas pelo dono (sobrescreve presets globais) */
+  roleCapabilities?: Partial<Record<string, string[]>>;
   phone?: string;
   email?: string;
   website?: string;
@@ -62,6 +64,7 @@ const OrganizationSchema = new Schema<IOrganization>({
     lastReset: { type: Date, default: Date.now },
   },
   linkedGuildIds: { type: [String], default: [], index: true },
+  roleCapabilities: { type: Schema.Types.Mixed, default: {} },
   phone: { type: String, trim: true, maxlength: 32 },
   email: { type: String, trim: true, maxlength: 120 },
   website: { type: String, trim: true, maxlength: 200 },

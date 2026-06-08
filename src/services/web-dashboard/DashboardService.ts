@@ -34,9 +34,16 @@ import { StatusPost } from '../../models/StatusPost';
 import { parseAndValidateStatusImage } from '../../utils/safe-image-upload';
 import { ConsentService } from '../consent/ConsentService';
 import { OrganizationService } from '../organization/OrganizationService';
+import { OrganizationDeletionService } from '../organization/OrganizationDeletionService';
 import { Organization } from '../../models/Organization';
 import { CompanyMember } from '../../models/CompanyMember';
 import { CompanyRole } from '../../auth/rbac/roles';
+import {
+  assignableCapabilitiesForOrg,
+  INVITEABLE_ROLES,
+  permissionGroupsForOrg,
+} from '../../auth/rbac/companyRolePresets';
+import type { Capability } from '../../auth/rbac/capabilities';
 import { isBlockedStatus, ConsentStatus } from '../../types/consent';
 import { Rule } from '../../models/Rule';
 import { Template } from '../../models/Template';
@@ -93,6 +100,7 @@ import { WhatsAppService } from '../whatsapp/WhatsAppService';
 import {
   loadAuthContext,
   requireCapability,
+  requireAnyCapability,
   requireSelfOrStaff,
   assertOwnClient,
   authContextToJson,
@@ -349,10 +357,19 @@ export class DashboardService {
       frontendUrl: this.getFrontendBase(),
     });
 
-    // Step 1 — redirect to Discord
-    this.app.get('/auth/discord', (_req, res) => {
+    const beginDiscordOAuth = (req: Request, res: Response, linkMode: boolean) => {
       const state = crypto.randomBytes(24).toString('hex');
-      const sess = _req.session as any;
+      const sess = req.session as {
+        userId?: string;
+        oauthStateDiscord?: string;
+        oauthLinkTarget?: string;
+      };
+      if (linkMode) {
+        if (!sess.userId) {
+          return res.redirect(`${this.getFrontendBase()}/?error=login_required`);
+        }
+        sess.oauthLinkTarget = 'discord';
+      }
       sess.oauthStateDiscord = state;
       const url = new URL('https://discord.com/api/oauth2/authorize');
       url.searchParams.set('client_id', config.DISCORD.CLIENT_ID);
@@ -361,7 +378,40 @@ export class DashboardService {
       url.searchParams.set('scope', SCOPES);
       url.searchParams.set('state', state);
       res.redirect(url.toString());
-    });
+    };
+
+    const beginGoogleOAuth = (req: Request, res: Response, linkMode: boolean) => {
+      const clientId = config.GOOGLE.CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        return res.status(503).json({ error: 'Google OAuth não configurado (GOOGLE_CLIENT_ID)' });
+      }
+      const state = crypto.randomBytes(24).toString('hex');
+      const sess = req.session as {
+        userId?: string;
+        oauthStateGoogle?: string;
+        oauthLinkTarget?: string;
+      };
+      if (linkMode) {
+        if (!sess.userId) {
+          return res.redirect(`${this.getFrontendBase()}/?error=login_required`);
+        }
+        sess.oauthLinkTarget = 'google';
+      }
+      sess.oauthStateGoogle = state;
+      const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      url.searchParams.set('client_id', clientId);
+      url.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI);
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('scope', 'openid email profile');
+      url.searchParams.set('access_type', 'online');
+      url.searchParams.set('prompt', 'select_account');
+      url.searchParams.set('state', state);
+      res.redirect(url.toString());
+    };
+
+    // Step 1 — redirect to Discord
+    this.app.get('/auth/discord', (req, res) => beginDiscordOAuth(req, res, false));
+    this.app.get('/auth/discord/link', (req, res) => beginDiscordOAuth(req, res, true));
 
     // Step 2 — Discord redirects back with code
     this.app.get('/auth/discord/callback', async (req: Request, res: Response) => {
@@ -400,6 +450,28 @@ export class DashboardService {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
         const discordUser = await userRes.json() as any;
+
+        const linkTarget = sess.oauthLinkTarget as string | undefined;
+        delete sess.oauthLinkTarget;
+
+        if (linkTarget === 'discord' && sess.userId) {
+          try {
+            await orgSvc.linkDiscordToUser(sess.userId, discordUser);
+            sess.discordId = discordUser.id;
+            sess.username = discordUser.username;
+            sess.avatar = discordUser.avatar
+              ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
+              : sess.avatar ?? null;
+            syncGuildMemberships(sess.userId, discordUser.id).catch(err =>
+              logger.warn('Guild sync failed on Discord link', err),
+            );
+            await this.saveSession(req);
+            return res.redirect(`${frontendBase}/settings?linked=discord#conta`);
+          } catch (linkErr) {
+            const msg = encodeURIComponent((linkErr as Error).message);
+            return res.redirect(`${frontendBase}/settings?error=${msg}#conta`);
+          }
+        }
 
         let dbUser = await User.findOne({ discordUserId: discordUser.id });
         if (!dbUser) {
@@ -453,24 +525,8 @@ export class DashboardService {
     });
 
     // ── Google OAuth (dono da empresa / pagante) ───────────────────────────
-    this.app.get('/auth/google', (_req, res) => {
-      const clientId = config.GOOGLE.CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
-      if (!clientId) {
-        return res.status(503).json({ error: 'Google OAuth não configurado (GOOGLE_CLIENT_ID)' });
-      }
-      const state = crypto.randomBytes(24).toString('hex');
-      const sess = _req.session as any;
-      sess.oauthStateGoogle = state;
-      const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-      url.searchParams.set('client_id', clientId);
-      url.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI);
-      url.searchParams.set('response_type', 'code');
-      url.searchParams.set('scope', 'openid email profile');
-      url.searchParams.set('access_type', 'online');
-      url.searchParams.set('prompt', 'select_account');
-      url.searchParams.set('state', state);
-      res.redirect(url.toString());
-    });
+    this.app.get('/auth/google', (req, res) => beginGoogleOAuth(req, res, false));
+    this.app.get('/auth/google/link', (req, res) => beginGoogleOAuth(req, res, true));
 
     this.app.get('/auth/google/callback', async (req: Request, res: Response) => {
       const { code, state } = req.query as { code?: string; state?: string };
@@ -530,6 +586,27 @@ export class DashboardService {
         if (!profile.sub || !profile.email) {
           logger.warn('Google profile incomplete', { status: profileRes.status, profile });
           return res.redirect(`${frontendBase}/?error=google_profile`);
+        }
+
+        const linkTarget = sess.oauthLinkTarget as string | undefined;
+        delete sess.oauthLinkTarget;
+
+        if (linkTarget === 'google' && sess.userId) {
+          try {
+            const linked = await orgSvc.linkGoogleToUser(sess.userId, {
+              sub: profile.sub,
+              email: profile.email,
+              name: profile.name,
+              picture: profile.picture,
+            });
+            sess.email = linked.email ?? profile.email;
+            if (!sess.avatar && profile.picture) sess.avatar = profile.picture;
+            await this.saveSession(req);
+            return res.redirect(`${frontendBase}/settings?linked=google#conta`);
+          } catch (linkErr) {
+            const msg = encodeURIComponent((linkErr as Error).message);
+            return res.redirect(`${frontendBase}/settings?error=${msg}#conta`);
+          }
         }
 
         const { user } = await orgSvc.getOrCreateForGoogle({
@@ -621,6 +698,77 @@ export class DashboardService {
           sessionOrganizationId: organizationId,
         });
         res.json(authContextToJson(ctx));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.patch('/auth/account/email', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; email?: string | null };
+      if (!sess?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { email } = req.body as { email?: string };
+      if (!email?.trim()) return res.status(400).json({ error: 'E-mail obrigatório' });
+      try {
+        const result = await orgSvc.linkAccountEmail(sess.userId, email.trim());
+        sess.email = result.email;
+        await this.saveSession(req);
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.post('/auth/account/delete-organization', async (req: Request, res: Response) => {
+      const sess = req.session as {
+        userId?: string;
+        organizationId?: string;
+        discordId?: string;
+        username?: string;
+        avatar?: string | null;
+        authProvider?: 'google' | 'discord';
+        email?: string;
+      };
+      if (!sess?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { confirmation } = req.body as { confirmation?: string };
+      try {
+        const user = await User.findById(sess.userId);
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+        const ctx = await buildAuthContext({
+          user,
+          userId: sess.userId,
+          discordUserId: sess.discordId ?? user.discordUserId,
+          username: sess.username ?? user.displayName ?? user.email ?? 'Usuário',
+          avatar: sess.avatar ?? null,
+          authProvider: sess.authProvider,
+          email: sess.email ?? user.email,
+          sessionOrganizationId: sess.organizationId,
+        });
+
+        if (ctx.companyRole !== CompanyRole.OWNER || !ctx.organizationId) {
+          return res.status(403).json({ error: 'Apenas o dono da empresa ativa pode excluir todos os dados' });
+        }
+
+        const result = await OrganizationDeletionService.getInstance().deleteOrganization({
+          organizationId: ctx.organizationId,
+          requesterUserId: sess.userId,
+          confirmation: confirmation ?? '',
+          ip: req.ip,
+        });
+
+        await new Promise<void>(resolve => {
+          req.session.destroy(() => resolve());
+        }).catch(() => undefined);
+
+        res.json({
+          ok: true,
+          deletedUser: result.deletedUser,
+          organizationName: result.organizationName,
+        });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -2118,6 +2266,22 @@ export class DashboardService {
       }
     });
 
+    r.post('/destinations/:id/consent/block', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const dest = await Destination.findById(req.params.id);
+        if (!dest) return res.status(404).json({ error: 'Contato não encontrado' });
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+        if (!relatedIds.some(id => id.toString() === dest.clientId?.toString())) {
+          return res.status(403).json({ error: 'Contato fora da sua empresa' });
+        }
+        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId);
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     // ── Discord Channels ───────────────────────────────────────────────────
     r.get('/channels', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromQuery: true }), async (req, res) => {
       try {
@@ -2261,7 +2425,7 @@ export class DashboardService {
     });
 
     // ── Queue ──────────────────────────────────────────────────────────────
-    r.get('/queue', requireCapability(Cap.QUEUE_VIEW), async (_req, res) => {
+    r.get('/queue', requireAnyCapability(Cap.QUEUE_VIEW, Cap.PLATFORM_REPORTS_VIEW), async (_req, res) => {
       try {
         const stats = await this.queueManager.getQueueStats();
         const result = Object.entries(stats).map(([name, s]: [string, any]) => ({
@@ -2349,7 +2513,7 @@ export class DashboardService {
     });
 
     // ── Logs ───────────────────────────────────────────────────────────────
-    r.get('/logs', requireCapability(Cap.LOGS_VIEW), async (req, res) => {
+    r.get('/logs', requireAnyCapability(Cap.LOGS_VIEW, Cap.PLATFORM_REPORTS_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const {
@@ -2423,14 +2587,72 @@ export class DashboardService {
       }
     });
 
+    r.get('/team/roles', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { presets, hasDiscordIntegration } =
+          await OrganizationService.getInstance().getOrgRolePresets(auth.organizationId);
+        res.json({
+          presets,
+          permissionGroups: permissionGroupsForOrg(hasDiscordIntegration),
+          assignableCapabilities: assignableCapabilitiesForOrg(hasDiscordIntegration),
+          inviteableRoles: INVITEABLE_ROLES,
+          hasDiscordIntegration,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/team/roles/:role', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const role = req.params.role as CompanyRole;
+        const { capabilities } = req.body as { capabilities?: Capability[] };
+        if (!Array.isArray(capabilities)) {
+          return res.status(400).json({ error: 'capabilities obrigatório' });
+        }
+        const result = await OrganizationService.getInstance().updateOrgRolePreset(
+          auth.organizationId,
+          role,
+          capabilities,
+          auth.companyRole!,
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/team/roles/:role', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const role = req.params.role as CompanyRole;
+        await OrganizationService.getInstance().resetOrgRolePreset(
+          auth.organizationId,
+          role,
+          auth.companyRole!,
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     r.post('/team/members', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { email, role } = req.body as { email?: string; role?: CompanyRole };
+        const { email, role, capabilities } = req.body as {
+          email?: string;
+          role?: CompanyRole;
+          capabilities?: Capability[];
+        };
         if (!email?.trim()) return res.status(400).json({ error: 'E-mail obrigatório' });
-        const validRoles = [CompanyRole.ADMIN, CompanyRole.ATTENDANT];
-        if (!role || !validRoles.includes(role)) {
-          return res.status(400).json({ error: 'Papel inválido (ADMIN ou ATTENDANT)' });
+        if (!role || !INVITEABLE_ROLES.includes(role)) {
+          return res.status(400).json({ error: 'Papel inválido' });
+        }
+        if (role === CompanyRole.ADMIN && auth.companyRole !== CompanyRole.OWNER) {
+          return res.status(403).json({ error: 'Apenas o dono pode convidar administrador' });
         }
         const member = await OrganizationService.getInstance().inviteMember(
           auth.organizationId,
@@ -2444,16 +2666,35 @@ export class DashboardService {
       }
     });
 
+    r.patch('/team/members/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { role } = req.body as { role?: CompanyRole };
+        if (!auth.companyRole) {
+          return res.status(403).json({ error: 'Sem permissão' });
+        }
+        const member = await OrganizationService.getInstance().updateMember(
+          auth.organizationId,
+          req.params.id,
+          auth.companyRole,
+          { companyRole: role },
+        );
+        res.json(member);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     r.delete('/team/members/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        if (auth.companyRole !== CompanyRole.OWNER) {
-          return res.status(403).json({ error: 'Apenas o dono pode remover membros' });
-        }
         await OrganizationService.getInstance().removeMember(
           auth.organizationId,
           req.params.id,
-          auth.companyRole!,
+          {
+            companyRole: auth.companyRole!,
+            capabilities: auth.capabilities,
+          },
         );
         res.json({ ok: true });
       } catch (e) {
@@ -3538,7 +3779,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/integrations/audit-summary', requireCapability(Cap.LOGS_VIEW), async (req, res) => {
+    r.get('/integrations/audit-summary', requireCapability(Cap.PLATFORM_AUDIT_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);

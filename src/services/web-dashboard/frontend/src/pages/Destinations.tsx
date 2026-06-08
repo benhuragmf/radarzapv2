@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { getMe, can, isCompanyOwner, type AuthUser } from '../lib/auth'
+import { getMe, can, type AuthUser } from '../lib/auth'
 import { useGuild } from '../lib/guildContext'
 import { DiscordPage } from '../components/discord/DiscordPage'
 import { Card, CardTitle, CardValue } from '../components/ui/Card'
@@ -102,8 +102,8 @@ export default function Destinations() {
 
   const canManage = can(me ?? null, 'send:destination:manage')
   const canRequestRenewal = can(me ?? null, 'consent:request-renewal')
-  const canClearRefusal = isCompanyOwner(me ?? null)
-  const canApproveRenewal = isCompanyOwner(me ?? null)
+  const canClearRefusal = can(me ?? null, 'consent:clear-refusal')
+  const canApproveRenewal = can(me ?? null, 'consent:approve-renewal')
 
   const { data: destinations = [], isLoading } = useQuery<Destination[]>({
     queryKey: ['destinations'],
@@ -636,7 +636,7 @@ export default function Destinations() {
             Solicitações de novo aceite ({renewals.length})
           </p>
           <p className="text-xs text-gray-500 mb-3">
-            Apenas você (dono) pode liberar contatos que recusaram. Recusa definitiva (3x) não pode ser liberada.
+            Quem tem permissão de aprovar solicitações pode liberar contatos que recusaram. Recusa definitiva (3x) não pode ser liberada.
           </p>
           <div className="space-y-2">
             {renewals.map(r => (

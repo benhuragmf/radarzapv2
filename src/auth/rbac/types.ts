@@ -17,6 +17,17 @@ export interface UserOrganizationSummary {
   ownerName: string | null;
 }
 
+export interface AccountConnectionInfo {
+  linked: boolean;
+  email?: string | null;
+  username?: string | null;
+}
+
+export interface AccountConnections {
+  google: AccountConnectionInfo;
+  discord: AccountConnectionInfo;
+}
+
 export interface AuthContext {
   userId: string;
   /** Tenant id (Organization._id) */
@@ -39,6 +50,7 @@ export interface AuthContext {
   linkedGuildIds: string[];
   hasDiscordAccess: boolean;
   isInternalStaff: boolean;
+  connections: AccountConnections;
 }
 
 export interface AuthContextOptions {

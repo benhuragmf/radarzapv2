@@ -200,7 +200,7 @@ export default function App() {
           <Route path="settings/security" element={<Guard user={user} path="/settings/security"><SecuritySettings /></Guard>} />
           <Route path="settings/backup" element={<Guard user={user} path="/settings/backup"><BackupExport /></Guard>} />
           <Route path="settings/equipe" element={<Navigate to="/settings/team" replace />} />
-          <Route path="settings" element={<Guard user={user} path="/settings"><Settings user={user} /></Guard>} />
+          <Route path="settings" element={<Guard user={user} path="/settings"><Settings user={user} onUserUpdate={setUser} /></Guard>} />
           <Route path="em-breve/:slug" element={<Guard user={user} path="/em-breve"><EmBreveRedirect /></Guard>} />
 
           {/* Admin interno */}

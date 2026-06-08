@@ -1376,6 +1376,41 @@ export class WhatsAppService {
     return { success: true, message: 'Logged out successfully' };
   }
 
+  /**
+   * Remove sessão WA sem socket.logout() (evita crash Baileys em exclusão de conta).
+   * Apaga credenciais em disco, cache, timers e documento no MongoDB.
+   */
+  async purgeClientCompletely(clientId: string): Promise<void> {
+    try {
+      this.manuallyDisconnectedClients.add(clientId);
+
+      const timer = this.reconnectTimers.get(clientId);
+      if (timer) {
+        clearTimeout(timer);
+        this.reconnectTimers.delete(clientId);
+      }
+      this.reconnectAttempts.delete(clientId);
+
+      const socket = this.sessions.get(clientId);
+      if (socket) {
+        try {
+          socket.end(undefined);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      await this.abortClientConnection(clientId);
+      await this.clearCredentials(clientId);
+
+      const oid = new mongoose.Types.ObjectId(clientId);
+      await WhatsAppSession.deleteMany({ clientId: oid });
+      this.serviceLogger.info(`Client purged completely: ${clientId}`);
+    } catch (err) {
+      this.serviceLogger.warn(`purgeClientCompletely failed for ${clientId}`, err);
+    }
+  }
+
   /** Evolution API: disconnect temporário — fecha socket, mantém credenciais */
   async temporaryDisconnect(clientId: string): Promise<{ success: boolean; message: string }> {
     this.manuallyDisconnectedClients.add(clientId);

@@ -3,9 +3,25 @@ import { User, IUser } from '@/models/User';
 import { Organization, IOrganization } from '@/models/Organization';
 import { CompanyMember, ICompanyMember } from '@/models/CompanyMember';
 import { CompanyRole } from '@/auth/rbac/roles';
+import { Cap, type Capability } from '@/auth/rbac/capabilities';
+import {
+  assignableCapabilitiesForOrg,
+  buildPresetsForOrg,
+  INVITEABLE_ROLES,
+  parseOrgRoleCapabilities,
+  resolveMemberCapabilities,
+} from '@/auth/rbac/companyRolePresets';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('OrganizationService');
+
+const INVITED_MEMBER_ROLES: CompanyRole[] = [
+  CompanyRole.ADMIN,
+  CompanyRole.MANAGER,
+  CompanyRole.ATTENDANT,
+  CompanyRole.INTEGRATION,
+  CompanyRole.CUSTOM,
+];
 
 export interface GoogleProfile {
   sub: string;
@@ -38,7 +54,7 @@ export class OrganizationService {
 
     const members = await CompanyMember.find({ userId, isActive: true });
     const invited = members.find(
-      m => m.companyRole === CompanyRole.ADMIN || m.companyRole === CompanyRole.ATTENDANT,
+      m => INVITED_MEMBER_ROLES.includes(m.companyRole),
     );
     return invited ?? members[0] ?? null;
   }
@@ -158,7 +174,7 @@ export class OrganizationService {
     return CompanyMember.findOne({
       email: email.toLowerCase().trim(),
       isActive: true,
-      companyRole: { $in: [CompanyRole.ADMIN, CompanyRole.ATTENDANT] },
+      companyRole: { $in: INVITED_MEMBER_ROLES },
     });
   }
 
@@ -187,7 +203,7 @@ export class OrganizationService {
     const invitedElsewhere = await CompanyMember.findOne({
       userId,
       isActive: true,
-      companyRole: { $in: [CompanyRole.ADMIN, CompanyRole.ATTENDANT] },
+      companyRole: { $in: INVITED_MEMBER_ROLES },
     });
     if (!invitedElsewhere) return;
 
@@ -376,25 +392,237 @@ export class OrganizationService {
     return CompanyMember.findByOrg(organizationId);
   }
 
+  async assignableCapabilitiesForOrg(organizationId: string): Promise<Capability[]> {
+    const org = await Organization.findById(organizationId).select('linkedGuildIds').lean();
+    const hasDiscordIntegration = (org?.linkedGuildIds?.length ?? 0) > 0;
+    return assignableCapabilitiesForOrg(hasDiscordIntegration);
+  }
+
+  async getOrgRolePresets(organizationId: string) {
+    const org = await Organization.findById(organizationId).select('linkedGuildIds roleCapabilities').lean();
+    const hasDiscordIntegration = (org?.linkedGuildIds?.length ?? 0) > 0;
+    const orgRoleCapabilities = parseOrgRoleCapabilities(org?.roleCapabilities);
+    return {
+      presets: buildPresetsForOrg(orgRoleCapabilities),
+      hasDiscordIntegration,
+      orgRoleCapabilities,
+    };
+  }
+
+  async updateOrgRolePreset(
+    organizationId: string,
+    role: CompanyRole,
+    capabilities: Capability[],
+    requesterRole: CompanyRole,
+  ): Promise<{ role: CompanyRole; capabilities: Capability[] }> {
+    if (requesterRole !== CompanyRole.OWNER) {
+      throw new Error('Apenas o dono pode editar papéis do sistema');
+    }
+    if (role === CompanyRole.OWNER) {
+      throw new Error('O papel Dono não pode ser alterado');
+    }
+    if (!INVITEABLE_ROLES.includes(role)) {
+      throw new Error('Papel inválido');
+    }
+
+    const assignable = new Set(await this.assignableCapabilitiesForOrg(organizationId));
+    const selected = capabilities.filter(c => assignable.has(c));
+
+    const org = await Organization.findById(organizationId);
+    if (!org) throw new Error('Organização não encontrada');
+
+    const roleCapabilities = { ...(org.roleCapabilities ?? {}) };
+    roleCapabilities[role] = selected;
+    org.roleCapabilities = roleCapabilities;
+    org.markModified('roleCapabilities');
+    await org.save();
+
+    return { role, capabilities: selected };
+  }
+
+  async resetOrgRolePreset(
+    organizationId: string,
+    role: CompanyRole,
+    requesterRole: CompanyRole,
+  ): Promise<void> {
+    if (requesterRole !== CompanyRole.OWNER) {
+      throw new Error('Apenas o dono pode editar papéis do sistema');
+    }
+    if (role === CompanyRole.OWNER) {
+      throw new Error('O papel Dono não pode ser alterado');
+    }
+
+    const org = await Organization.findById(organizationId);
+    if (!org) throw new Error('Organização não encontrada');
+
+    const roleCapabilities = { ...(org.roleCapabilities ?? {}) };
+    delete roleCapabilities[role];
+    org.roleCapabilities = roleCapabilities;
+    org.markModified('roleCapabilities');
+    await org.save();
+  }
+
   async listMembersEnriched(organizationId: string) {
     const members = await this.listMembers(organizationId);
+    const org = await Organization.findById(organizationId).select('roleCapabilities').lean();
+    const orgRoleCapabilities = parseOrgRoleCapabilities(org?.roleCapabilities);
     const userIds = members.map(m => m.userId).filter(Boolean) as mongoose.Types.ObjectId[];
     const users = await User.find({ _id: { $in: userIds } }).select('email displayName').lean();
     const userMap = new Map(users.map(u => [String(u._id), u]));
 
     return members.map(m => {
       const u = m.userId ? userMap.get(String(m.userId)) : undefined;
+      const resolvedEmail = m.email?.trim() || u?.email?.trim() || null;
       const displayEmail =
-        m.email?.trim() ||
-        u?.email?.trim() ||
-        u?.displayName?.trim() ||
-        (m.companyRole === CompanyRole.OWNER ? 'Dono da conta' : undefined);
+        resolvedEmail ||
+        (m.companyRole === CompanyRole.OWNER && u?.displayName?.trim()
+          ? `${u.displayName} (Discord — vincule em Configurações)`
+          : u?.displayName?.trim()) ||
+        (m.companyRole === CompanyRole.OWNER ? 'Dono da conta (vincule em Configurações)' : undefined);
+      const effectiveCapabilities = resolveMemberCapabilities(
+        m.companyRole,
+        (m.extraCapabilities ?? []) as Capability[],
+        (m.deniedCapabilities ?? []) as Capability[],
+        orgRoleCapabilities,
+      );
       return {
         ...m.toObject(),
         displayEmail: displayEmail ?? '—',
+        resolvedEmail,
         linked: Boolean(m.userId),
+        effectiveCapabilities,
       };
     });
+  }
+
+  async updateMember(
+    organizationId: string,
+    memberId: string,
+    requesterRole: CompanyRole,
+    patch: {
+      companyRole?: CompanyRole;
+    },
+  ): Promise<ICompanyMember> {
+    const member = await CompanyMember.findOne({ _id: memberId, organizationId, isActive: true });
+    if (!member) throw new Error('Membro não encontrado');
+    if (member.companyRole === CompanyRole.OWNER) {
+      throw new Error('Não é possível alterar o dono da empresa');
+    }
+
+    if (patch.companyRole !== undefined) {
+      if (!INVITEABLE_ROLES.includes(patch.companyRole)) {
+        throw new Error('Papel inválido');
+      }
+      if (requesterRole !== CompanyRole.OWNER && patch.companyRole === CompanyRole.ADMIN) {
+        throw new Error('Apenas o dono pode promover a administrador');
+      }
+      member.companyRole = patch.companyRole;
+    }
+
+    await member.save();
+    return member;
+  }
+
+  /** Atualiza e-mail do usuário e sincroniza registros OWNER na equipe. */
+  async linkAccountEmail(userId: string, email: string): Promise<{ email: string }> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized.includes('@')) throw new Error('E-mail inválido');
+
+    const conflictUser = await User.findOne({ email: normalized, _id: { $ne: userId } });
+    if (conflictUser) throw new Error('Este e-mail já está em uso por outra conta');
+
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+
+    user.email = normalized;
+    await user.save();
+    await this.syncOwnerMemberEmailForUser(user);
+
+    logger.info('E-mail da conta vinculado', { userId, email: normalized });
+    return { email: normalized };
+  }
+
+  async syncOwnerMemberEmailForUser(user: IUser): Promise<void> {
+    const email = user.email?.trim().toLowerCase();
+    if (!email) return;
+
+    const ownerMembers = await CompanyMember.find({
+      userId: user._id,
+      companyRole: CompanyRole.OWNER,
+      isActive: true,
+    });
+
+    for (const ownerMember of ownerMembers) {
+      const conflict = await CompanyMember.findOne({
+        organizationId: ownerMember.organizationId,
+        email,
+        isActive: true,
+        companyRole: { $ne: CompanyRole.OWNER },
+      });
+      if (conflict) {
+        throw new Error('Este e-mail já pertence a outro membro da equipe');
+      }
+
+      await CompanyMember.updateMany(
+        {
+          organizationId: ownerMember.organizationId,
+          email,
+          companyRole: { $ne: CompanyRole.OWNER },
+        },
+        { $unset: { email: '' } },
+      );
+
+      ownerMember.email = email;
+      await ownerMember.save();
+    }
+  }
+
+  async linkGoogleToUser(userId: string, profile: GoogleProfile): Promise<IUser> {
+    const byGoogle = await User.findOne({ googleId: profile.sub });
+    if (byGoogle && byGoogle._id.toString() !== userId) {
+      throw new Error('Esta conta Google já está vinculada a outro usuário');
+    }
+
+    const email = profile.email?.toLowerCase().trim();
+    if (email) {
+      const byEmail = await User.findOne({ email, _id: { $ne: userId } });
+      if (byEmail) throw new Error('Este e-mail Google já está em uso por outra conta');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+
+    this.applyGoogleProfileToUser(user, profile);
+    await user.save();
+    await this.syncOwnerMemberEmailForUser(user);
+
+    logger.info('Google vinculado à conta', { userId, email });
+    return user;
+  }
+
+  async linkDiscordToUser(
+    userId: string,
+    discordUser: { id: string; username?: string; global_name?: string | null; avatar?: string | null },
+  ): Promise<IUser> {
+    const existing = await User.findOne({ discordUserId: discordUser.id });
+    if (existing && existing._id.toString() !== userId) {
+      throw new Error('Esta conta Discord já está vinculada a outro usuário');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+
+    user.discordUserId = discordUser.id;
+    if (!user.authProviders.includes('discord')) user.authProviders.push('discord');
+
+    const panelName =
+      (discordUser.global_name as string | null)?.trim() ||
+      (discordUser.username as string | undefined)?.trim();
+    if (panelName) user.displayName = panelName;
+
+    await user.save();
+    logger.info('Discord vinculado à conta', { userId, discordUserId: discordUser.id });
+    return user;
   }
 
   async inviteMember(
@@ -402,32 +630,78 @@ export class OrganizationService {
     email: string,
     role: CompanyRole,
     invitedByUserId: string,
+    options?: { extraCapabilities?: Capability[]; deniedCapabilities?: Capability[] },
   ): Promise<ICompanyMember> {
-    if (role === CompanyRole.OWNER) {
-      throw new Error('Não é possível convidar outro dono');
+    if (!INVITEABLE_ROLES.includes(role)) {
+      throw new Error('Papel inválido para convite');
     }
     const normalized = email.trim().toLowerCase();
-    const dup = await CompanyMember.findOne({
-      organizationId,
-      email: normalized,
-      isActive: true,
-    });
-    if (dup) throw new Error('Este e-mail já está na equipe');
+
+    const org = await Organization.findById(organizationId).select('ownerUserId').lean();
+    if (org) {
+      const ownerUser = await User.findById(org.ownerUserId).select('email').lean();
+      if (ownerUser?.email?.toLowerCase() === normalized) {
+        throw new Error(
+          'Este e-mail é o seu (dono). Vincule em Configurações → Conta — não envie convite.',
+        );
+      }
+      const existingUser = await User.findOne({ email: normalized }).select('_id').lean();
+      if (existingUser && existingUser._id.toString() === org.ownerUserId.toString()) {
+        throw new Error(
+          'Este e-mail é o seu (dono). Vincule em Configurações → Conta — não envie convite.',
+        );
+      }
+    }
+
+    const existing = await CompanyMember.findOne({ organizationId, email: normalized });
+    if (existing) {
+      if (existing.companyRole === CompanyRole.OWNER) {
+        throw new Error('Este e-mail pertence ao dono da empresa');
+      }
+      if (existing.isActive) {
+        throw new Error('Este e-mail já está na equipe');
+      }
+      existing.isActive = true;
+      existing.companyRole = role;
+      existing.extraCapabilities = options?.extraCapabilities ?? [];
+      existing.deniedCapabilities = options?.deniedCapabilities ?? [];
+      existing.invitedByUserId = new mongoose.Types.ObjectId(invitedByUserId);
+      const linked = await User.findOne({ email: normalized }).select('_id').lean();
+      if (linked) existing.userId = linked._id as mongoose.Types.ObjectId;
+      return existing.save();
+    }
 
     const user = await User.findOne({ email: normalized });
-    return CompanyMember.create({
-      organizationId: new mongoose.Types.ObjectId(organizationId),
-      userId: user?._id,
-      email: normalized,
-      companyRole: role,
-      invitedByUserId: new mongoose.Types.ObjectId(invitedByUserId),
-      isActive: true,
-    });
+    try {
+      return await CompanyMember.create({
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        userId: user?._id,
+        email: normalized,
+        companyRole: role,
+        extraCapabilities: options?.extraCapabilities ?? [],
+        deniedCapabilities: options?.deniedCapabilities ?? [],
+        invitedByUserId: new mongoose.Types.ObjectId(invitedByUserId),
+        isActive: true,
+      });
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('E11000') && msg.includes('email')) {
+        throw new Error('Este e-mail já está cadastrado nesta empresa');
+      }
+      throw err;
+    }
   }
 
-  async removeMember(organizationId: string, memberId: string, requesterRole: CompanyRole): Promise<void> {
-    if (requesterRole !== CompanyRole.OWNER) {
-      throw new Error('Apenas o dono da empresa pode remover membros');
+  async removeMember(
+    organizationId: string,
+    memberId: string,
+    requester: { companyRole: CompanyRole; capabilities: Capability[] },
+  ): Promise<void> {
+    const canRemove =
+      requester.companyRole === CompanyRole.OWNER ||
+      requester.capabilities.includes(Cap.COMPANY_MEMBERS_REMOVE);
+    if (!canRemove) {
+      throw new Error('Sem permissão para remover membros da equipe');
     }
     const member = await CompanyMember.findOne({ _id: memberId, organizationId });
     if (!member) throw new Error('Membro não encontrado');

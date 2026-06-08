@@ -8,9 +8,13 @@ import { WebhooksPanel } from '../components/integrations/WebhooksPanel'
 import { ApiDocsPanel } from '../components/integrations/ApiDocsPanel'
 import { RateLimitPanel } from '../components/integrations/RateLimitPanel'
 import { CompanyProfilePanel } from '../components/settings/CompanyProfilePanel'
+import AccountConnectionsPanel from '../components/settings/AccountConnectionsPanel'
+import DeleteOrganizationPanel from '../components/settings/DeleteOrganizationPanel'
+import { isCompanyOwner } from '../lib/auth'
 
 interface Props {
   user: AuthUser
+  onUserUpdate?: (user: AuthUser) => void
 }
 
 const API_SECTIONS = [
@@ -20,7 +24,7 @@ const API_SECTIONS = [
   { id: 'api-rate', title: 'Limites da API', Component: RateLimitPanel, permission: 'billing:view' as const },
 ] as const
 
-export default function Settings({ user }: Props) {
+export default function Settings({ user, onUserUpdate }: Props) {
   const { hash } = useLocation()
   const visibleSections = API_SECTIONS.filter(s => can(user, s.permission))
   const showApiBlock = visibleSections.length > 0
@@ -41,33 +45,28 @@ export default function Settings({ user }: Props) {
       </section>
 
       <section id="conta">
-        <h2 className="text-lg font-semibold mb-3">Configurações da Conta</h2>
-        <Card className="space-y-3">
-          <div>
-            <p className="text-xs text-gray-500">Discord</p>
-            <p className="text-sm font-medium">{user.username}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Papel</p>
-            <p className="text-sm">{user.primaryRole}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Plano</p>
-            <p className="text-sm capitalize">{user.plan}</p>
-          </div>
-          {user.guilds.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Servidores Discord</p>
-              <ul className="text-sm space-y-1">
-                {user.guilds.map(g => (
-                  <li key={g.id} className="text-gray-300">
-                    {g.name ?? g.id} · <span className="text-gray-500">{g.role}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <h2 className="text-lg font-semibold mb-3">Conta vinculada</h2>
+        <Card>
+          <AccountConnectionsPanel user={user} onUserUpdate={onUserUpdate} />
         </Card>
+        {user.guilds.length > 0 && (
+          <Card className="mt-4">
+            <p className="text-xs text-gray-500 mb-2">Servidores Discord vinculados à empresa</p>
+            <ul className="text-sm space-y-1">
+              {user.guilds.map(g => (
+                <li key={g.id} className="text-gray-300">
+                  {g.name ?? g.id} · <span className="text-gray-500">{g.role}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {isCompanyOwner(user) && user.organizationId && (
+          <Card className="mt-4 border-red-900/40">
+            <DeleteOrganizationPanel user={user} />
+          </Card>
+        )}
       </section>
 
       {showApiBlock && (
