@@ -20,6 +20,8 @@ import makeWASocket, {
   decryptPollVote,
   sha256,
   normalizeMessageContent,
+  downloadMediaMessage,
+  extensionForMediaMessage,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
@@ -53,6 +55,7 @@ import { StatusViewService } from '@/services/send/StatusViewService';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
+import pino from 'pino';
 import {
   WaConnectionState,
   WaInstanceState,
@@ -63,6 +66,8 @@ import {
   liveStateToStatus,
   wuidToPhone,
 } from './waSessionEvents';
+import { saveInboxMedia } from '@/utils/inbox-media-storage';
+import type { InboxMessageMediaType } from '@/types/inbox';
 
 /** Redis cache TTL for live WA state (QR, connected) — 7 days */
 const WA_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
@@ -221,6 +226,9 @@ export class WhatsAppService {
     return (
       m.conversation ??
       m.extendedTextMessage?.text ??
+      m.imageMessage?.caption ??
+      m.videoMessage?.caption ??
+      m.documentMessage?.caption ??
       m.buttonsResponseMessage?.selectedDisplayText ??
       m.buttonsResponseMessage?.selectedButtonId ??
       m.templateButtonReplyMessage?.selectedDisplayText ??
@@ -229,6 +237,55 @@ export class WhatsAppService {
       m.listResponseMessage?.title ??
       ''
     ).trim();
+  }
+
+  private extractInboundMediaType(msg: WAMessage): InboxMessageMediaType | null {
+    const m = normalizeMessageContent(msg.message);
+    if (!m) return null;
+    if (m.imageMessage) return 'image';
+    if (m.videoMessage) return 'video';
+    if (m.audioMessage) return 'audio';
+    if (m.stickerMessage) return 'sticker';
+    if (m.documentMessage) return 'document';
+    return null;
+  }
+
+  private extractInboundMediaMime(msg: WAMessage, mediaType: InboxMessageMediaType): string | undefined {
+    const m = normalizeMessageContent(msg.message);
+    if (!m) return undefined;
+    if (mediaType === 'image') return m.imageMessage?.mimetype ?? 'image/jpeg';
+    if (mediaType === 'video') return m.videoMessage?.mimetype ?? 'video/mp4';
+    if (mediaType === 'audio') return m.audioMessage?.mimetype ?? 'audio/ogg';
+    if (mediaType === 'sticker') return m.stickerMessage?.mimetype ?? 'image/webp';
+    if (mediaType === 'document') return m.documentMessage?.mimetype ?? 'application/octet-stream';
+    return undefined;
+  }
+
+  private async downloadInboundMedia(
+    clientId: string,
+    msg: WAMessage,
+    mediaType: InboxMessageMediaType,
+  ): Promise<{ mediaUrl: string; mediaMime?: string } | null> {
+    const socket = this.sessions.get(clientId);
+    if (!socket) return null;
+    try {
+      const buffer = (await downloadMediaMessage(
+        msg,
+        'buffer',
+        {},
+        {
+          logger: pino({ level: 'silent' }),
+          reuploadRequest: socket.updateMediaMessage.bind(socket),
+        },
+      )) as Buffer;
+      if (!buffer?.length) return null;
+      const ext = extensionForMediaMessage(msg.message ?? {}) || mediaType;
+      const mediaUrl = saveInboxMedia(clientId, buffer, ext);
+      return { mediaUrl, mediaMime: this.extractInboundMediaMime(msg, mediaType) };
+    } catch (err) {
+      this.serviceLogger.warn('Falha ao baixar mídia inbound', { clientId, mediaType, err });
+      return null;
+    }
   }
 
   private toPollEncKey(secret: Uint8Array | Buffer): Uint8Array {
@@ -2279,12 +2336,34 @@ export class WhatsAppService {
         }
 
         const text = this.extractInboundText(msg);
-        if (!text || !msg.key.remoteJid) continue;
+        const mediaType = this.extractInboundMediaType(msg);
+        if ((!text && !mediaType) || !msg.key.remoteJid) continue;
 
-        this.serviceLogger.info('WA inbound texto (consent)', {
+        let mediaPayload: {
+          mediaType: InboxMessageMediaType;
+          mediaUrl: string;
+          mediaMime?: string;
+          whatsappMessageId?: string;
+        } | undefined;
+
+        if (mediaType) {
+          const downloaded = await this.downloadInboundMedia(clientId, msg, mediaType);
+          if (downloaded) {
+            mediaPayload = {
+              mediaType,
+              mediaUrl: downloaded.mediaUrl,
+              mediaMime: downloaded.mediaMime,
+              whatsappMessageId: msg.key.id,
+            };
+          }
+        }
+
+        if (!text && !mediaPayload) continue;
+
+        this.serviceLogger.info('WA inbound (consent/inbox)', {
           text: text.slice(0, 40),
+          mediaType,
           remoteJid: msg.key.remoteJid,
-          remoteJidAlt: msg.key.remoteJidAlt,
           upsertType: m.type,
         });
 
@@ -2292,7 +2371,7 @@ export class WhatsAppService {
           await ConsentService.getInstance().handleInboundMessage(
             clientId,
             msg.key.remoteJid,
-            text,
+            text || '[mídia]',
             msg.key.remoteJidAlt,
           );
         } catch (err) {
@@ -2304,7 +2383,7 @@ export class WhatsAppService {
           await InboxService.getInstance().handleInboundMessage(
             clientId,
             msg.key.remoteJid,
-            text,
+            { text, media: mediaPayload },
             msg.key.remoteJidAlt,
           );
         } catch (err) {

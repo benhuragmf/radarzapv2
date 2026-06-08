@@ -4,6 +4,7 @@ import {
   DEFAULT_INBOX_WEEKLY_SCHEDULE,
   InboxWeeklySchedule,
 } from '@/types/inbox-settings';
+import { DEFAULT_INBOX_QUICK_REPLIES, InboxQuickReply } from '@/types/inbox-quick-replies';
 
 export interface IInboxSettings extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -26,6 +27,7 @@ export interface IInboxSettings extends Document {
   alertSoundEnabled: boolean;
   alertOnNewChat: boolean;
   alertOnNewMessage: boolean;
+  quickReplies: InboxQuickReply[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,6 +69,16 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     alertSoundEnabled: { type: Boolean, default: true },
     alertOnNewChat: { type: Boolean, default: true },
     alertOnNewMessage: { type: Boolean, default: false },
+    quickReplies: {
+      type: [
+        {
+          code: { type: String, required: true, maxlength: 24 },
+          label: { type: String, required: true, maxlength: 80 },
+          template: { type: String, required: true, maxlength: 2000 },
+        },
+      ],
+      default: () => DEFAULT_INBOX_QUICK_REPLIES.map(q => ({ ...q })),
+    },
   },
   { timestamps: true, collection: 'inboxSettings' },
 );

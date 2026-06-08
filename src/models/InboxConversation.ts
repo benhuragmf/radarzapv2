@@ -18,6 +18,8 @@ export interface IInboxConversation extends Document {
   queueEnteredAt?: Date;
   acceptedAt?: Date;
   resolvedAt?: Date;
+  /** Referência exibida ao converter em ticket */
+  ticketRef?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +50,7 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     queueEnteredAt: Date,
     acceptedAt: Date,
     resolvedAt: Date,
+    ticketRef: { type: String, maxlength: 32, index: true },
   },
   { timestamps: true, collection: 'inboxConversations' },
 );

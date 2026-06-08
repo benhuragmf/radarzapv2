@@ -199,6 +199,9 @@ dist
 # WhatsApp sessions
 sessions/
 
+# Inbox media (arquivos recebidos via WhatsApp)
+data/inbox-media/
+
 # Logs
 logs/
 

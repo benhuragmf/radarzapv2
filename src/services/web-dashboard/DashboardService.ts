@@ -1119,6 +1119,75 @@ export class DashboardService {
       }
     });
 
+    r.post('/inbox/conversations/:id/ticket', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await inboxSvc.convertToTicket(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/conversations/:id/history', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const data = await inboxSvc.getConversationMessages(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+        );
+        res.json(data);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/quick-replies', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const replies = await inboxSvc.getQuickReplies(auth.clientId);
+        res.json(replies);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/inbox/quick-replies', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { replies } = req.body as { replies?: unknown };
+        if (!Array.isArray(replies)) {
+          return res.status(400).json({ error: 'replies deve ser um array' });
+        }
+        const saved = await inboxSvc.updateQuickReplies(auth.clientId, replies as never);
+        res.json(saved);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/media/:clientId/:filename', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { clientId, filename } = req.params;
+        if (clientId !== auth.clientId) {
+          return res.status(403).json({ error: 'Acesso negado' });
+        }
+        const relative = `${clientId}/${filename}`;
+        const { resolveInboxMediaPath } = await import('@/utils/inbox-media-storage');
+        const filePath = resolveInboxMediaPath(relative);
+        if (!filePath) return res.status(404).json({ error: 'Arquivo não encontrado' });
+        res.sendFile(filePath);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/inbox/settings', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;

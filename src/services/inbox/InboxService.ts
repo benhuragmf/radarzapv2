@@ -22,8 +22,16 @@ import {
 } from '@/constants/inbox-triage';
 import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
 import { User } from '@/models/User';
-import { InboxConversationStatus } from '@/types/inbox';
+import { InboxConversationStatus, InboxMessageMediaType } from '@/types/inbox';
 import { INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
+import {
+  applyQuickReplyTemplate,
+  expandQuickReply,
+  normalizeQuickReplies,
+  InboxQuickReply,
+} from '@/types/inbox-quick-replies';
+import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
+import { Destination } from '@/models/Destination';
 import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
 import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
 import { emitPanelEvent, PanelEventType } from '@/services/inbox/PanelNotifications';
@@ -36,6 +44,16 @@ import { createServiceLogger } from '@/utils/logger';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
 
 const logger = createServiceLogger('InboxService');
+
+export interface InboxInboundPayload {
+  text?: string;
+  media?: {
+    mediaType: InboxMessageMediaType;
+    mediaUrl: string;
+    mediaMime?: string;
+    whatsappMessageId?: string;
+  };
+}
 
 const TERMINAL_STATUSES = new Set<InboxConversationStatus>([
   InboxConversationStatus.RESOLVED,
@@ -79,6 +97,7 @@ export class InboxService {
       alertSoundEnabled: boolean;
       alertOnNewChat: boolean;
       alertOnNewMessage: boolean;
+      quickReplies: InboxQuickReply[];
     }>,
   ): Promise<IInboxSettings> {
     const settings = await InboxSettings.getOrCreate(clientId);
@@ -115,6 +134,9 @@ export class InboxService {
     if (patch.alertOnNewMessage !== undefined) {
       settings.alertOnNewMessage = Boolean(patch.alertOnNewMessage);
     }
+    if (patch.quickReplies !== undefined) {
+      settings.quickReplies = normalizeQuickReplies(patch.quickReplies);
+    }
     if (patch.timezone !== undefined) {
       settings.timezone = patch.timezone.trim() || 'America/Sao_Paulo';
     }
@@ -132,6 +154,78 @@ export class InboxService {
     }
     await settings.save();
     return settings;
+  }
+
+  async getQuickReplies(clientId: string): Promise<InboxQuickReply[]> {
+    const settings = await loadInboxSettings(clientId);
+    return normalizeQuickReplies(settings.quickReplies);
+  }
+
+  async updateQuickReplies(clientId: string, replies: InboxQuickReply[]): Promise<InboxQuickReply[]> {
+    const settings = await InboxSettings.getOrCreate(clientId);
+    settings.quickReplies = normalizeQuickReplies(replies);
+    await settings.save();
+    return settings.quickReplies;
+  }
+
+  private async buildContactContext(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+    currentConvId: mongoose.Types.ObjectId,
+  ) {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const allConvs = await InboxConversation.find({ clientId: clientOid, destinationId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    const convIds = allConvs.map(c => c._id);
+    const messageCounts = convIds.length
+      ? await InboxMessage.aggregate([
+          { $match: { conversationId: { $in: convIds } } },
+          { $group: { _id: '$conversationId', count: { $sum: 1 } } },
+        ])
+      : [];
+    const countMap = new Map(
+      messageCounts.map((r: { _id: mongoose.Types.ObjectId; count: number }) => [
+        String(r._id),
+        r.count,
+      ]),
+    );
+
+    const deptIds = [
+      ...new Set(allConvs.map(c => c.departmentId?.toString()).filter(Boolean)),
+    ] as string[];
+    const depts = deptIds.length
+      ? await InboxDepartment.find({ _id: { $in: deptIds } }).select('name').lean()
+      : [];
+    const deptMap = new Map(depts.map(d => [String(d._id), d.name]));
+
+    const previousConversations = allConvs
+      .filter(c => String(c._id) !== String(currentConvId))
+      .map(c => ({
+        _id: String(c._id),
+        status: c.status,
+        ticketRef: c.ticketRef,
+        departmentName: c.departmentId ? deptMap.get(String(c.departmentId)) : undefined,
+        createdAt: c.createdAt,
+        resolvedAt: c.resolvedAt,
+        lastMessageAt: c.lastMessageAt,
+        messageCount: countMap.get(String(c._id)) ?? 0,
+      }));
+
+    const totalMessages = messageCounts.reduce(
+      (sum: number, r: { count: number }) => sum + r.count,
+      0,
+    );
+
+    return {
+      contactStats: {
+        totalConversations: allConvs.length,
+        totalMessages,
+      },
+      previousConversations,
+    };
   }
 
   private notifyConversation(clientId: string, conv: IInboxConversation): void {
@@ -366,9 +460,12 @@ export class InboxService {
   async handleInboundMessage(
     clientId: string,
     fromJid: string,
-    text: string,
+    payload: string | InboxInboundPayload,
     altJid?: string,
   ): Promise<void> {
+    const normalized: InboxInboundPayload =
+      typeof payload === 'string' ? { text: payload } : payload;
+
     const consentSvc = ConsentService.getInstance();
     const dest = await consentSvc.findOrCreateContactFromInbound(clientId, fromJid, altJid);
     if (!dest) return;
@@ -377,8 +474,9 @@ export class InboxService {
     if (!channelOpen) return;
     if (dest.optOutConfirmPendingAt) return;
 
-    const trimmed = text.trim();
-    if (!trimmed) return;
+    const trimmed = (normalized.text ?? '').trim();
+    const media = normalized.media;
+    if (!trimmed && !media) return;
 
     const settings = await loadInboxSettings(clientId);
     const openHours = isWithinBusinessHours(
@@ -397,7 +495,16 @@ export class InboxService {
       });
     }
 
-    await this.recordInbound(conversation, trimmed, clientId);
+    const displayBody =
+      trimmed ||
+      (media ? INBOX_MEDIA_LABEL[media.mediaType] ?? 'Mídia recebida' : '');
+
+    await this.recordInbound(conversation, displayBody, clientId, {
+      mediaType: media?.mediaType,
+      mediaUrl: media?.mediaUrl,
+      mediaMime: media?.mediaMime,
+      whatsappMessageId: media?.whatsappMessageId,
+    });
 
     if (!openHours) {
       const outsideMsg = await buildOutsideHoursMessage(clientId);
@@ -407,14 +514,16 @@ export class InboxService {
     }
 
     if (conversation.status === InboxConversationStatus.BOT_TRIAGE) {
-      const choice = await parseInboxMenuChoice(clientId, trimmed);
+      const choice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
       if (isNew && !choice) {
         const menu = await buildInboxTriageMenu(clientId);
         await this.sendToContact(clientId, dest.identifier, menu);
         await this.appendSystemMessage(conversation, menu);
         return;
       }
-      await this.handleTriageReply(clientId, conversation, trimmed, dest);
+      if (trimmed) {
+        await this.handleTriageReply(clientId, conversation, trimmed, dest);
+      }
     }
   }
 
@@ -422,12 +531,22 @@ export class InboxService {
     conversation: IInboxConversation,
     body: string,
     clientId?: string,
+    opts?: {
+      mediaType?: InboxMessageMediaType;
+      mediaUrl?: string;
+      mediaMime?: string;
+      whatsappMessageId?: string;
+    },
   ): Promise<void> {
     await InboxMessage.create({
       clientId: conversation.clientId,
       conversationId: conversation._id,
       direction: 'inbound',
       body,
+      mediaType: opts?.mediaType,
+      mediaUrl: opts?.mediaUrl,
+      mediaMime: opts?.mediaMime,
+      whatsappMessageId: opts?.whatsappMessageId,
     });
     conversation.lastInboundAt = new Date();
     conversation.lastMessageAt = new Date();
@@ -679,22 +798,72 @@ export class InboxService {
       conversationId: conv._id,
     })
       .sort({ createdAt: 1 })
-      .limit(200)
+      .limit(500)
       .lean();
     const transfers = await InboxTransfer.find({ conversationId: conv._id })
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
 
-    const conversation = await this.enrichConversationRow(
-      conv.toObject() as Record<string, unknown>,
-      userId,
-      clientId,
-      agentMap,
-      pullTimeoutSeconds,
-    );
+    const [conversation, contactContext, destination] = await Promise.all([
+      this.enrichConversationRow(
+        conv.toObject() as Record<string, unknown>,
+        userId,
+        clientId,
+        agentMap,
+        pullTimeoutSeconds,
+      ),
+      this.buildContactContext(clientId, conv.destinationId, conv._id as mongoose.Types.ObjectId),
+      Destination.findOne({ _id: conv.destinationId, clientId: conv.clientId })
+        .select('name email notes organization identifier contactGroupIds')
+        .lean(),
+    ]);
 
-    return { conversation, messages, transfers };
+    const quickReplies = normalizeQuickReplies(settings.quickReplies);
+
+    return {
+      conversation: {
+        ...conversation,
+        destinationId: String(conv.destinationId),
+        ticketRef: conv.ticketRef,
+      },
+      messages,
+      transfers,
+      contactStats: contactContext.contactStats,
+      previousConversations: contactContext.previousConversations,
+      contact: destination
+        ? {
+            _id: String(destination._id),
+            name: destination.name,
+            email: destination.email ?? '',
+            notes: destination.notes ?? '',
+            organization: destination.organization ?? '',
+            identifier: destination.identifier,
+            contactGroupIds: (destination.contactGroupIds ?? []).map(String),
+          }
+        : null,
+      quickReplies,
+    };
+  }
+
+  async getConversationMessages(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+  ) {
+    const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
+    const messages = await InboxMessage.find({ conversationId: conv._id })
+      .sort({ createdAt: 1 })
+      .limit(500)
+      .lean();
+    return {
+      conversationId: String(conv._id),
+      status: conv.status,
+      ticketRef: conv.ticketRef,
+      createdAt: conv.createdAt,
+      resolvedAt: conv.resolvedAt,
+      messages,
+    };
   }
 
   async assignConversation(clientId: string, userId: string, conversationId: string) {
@@ -773,13 +942,17 @@ export class InboxService {
     conversationId: string,
     text: string,
   ) {
-    const body = text.trim();
-    if (!body) throw new Error('Mensagem vazia');
+    const raw = text.trim();
+    if (!raw) throw new Error('Mensagem vazia');
 
     const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
     if (TERMINAL_STATUSES.has(conv.status)) {
       throw new Error('Conversa já finalizada');
     }
+
+    const settings = await loadInboxSettings(clientId);
+    const quickReplies = normalizeQuickReplies(settings.quickReplies);
+    const body = expandQuickReply(raw, quickReplies, conv.contactName);
 
     if (conv.status === InboxConversationStatus.WAITING_QUEUE) {
       if (conv.suggestedUserId && conv.suggestedUserId.toString() !== userId) {
@@ -880,6 +1053,35 @@ export class InboxService {
     await this.appendSystemMessage(conv, closing, new mongoose.Types.ObjectId(userId), clientId);
     this.notifyConversation(clientId, conv);
     return conv.toObject();
+  }
+
+  async convertToTicket(clientId: string, userId: string, conversationId: string) {
+    const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
+    if (TERMINAL_STATUSES.has(conv.status)) {
+      throw new Error('Conversa já finalizada');
+    }
+
+    const settings = await loadInboxSettings(clientId);
+    const quickReplies = normalizeQuickReplies(settings.quickReplies);
+    const ticketQr = quickReplies.find(q => q.code === 'ticket');
+    const text = ticketQr
+      ? applyQuickReplyTemplate(ticketQr.template, conv.contactName)
+      : 'Estarei abrindo um ticket com sua solicitação.';
+
+    if (!conv.ticketRef) {
+      conv.ticketRef = `TK-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+      await conv.save();
+    }
+
+    await this.replyToConversation(clientId, userId, conversationId, text);
+    await this.appendSystemMessage(
+      conv,
+      `Ticket *${conv.ticketRef}* registrado por ${await this.resolveAgentDisplayName(userId)}.`,
+      new mongoose.Types.ObjectId(userId),
+      clientId,
+    );
+    this.notifyConversation(clientId, conv);
+    return { ticketRef: conv.ticketRef, ok: true };
   }
 
   private async getConversationIfAllowed(
