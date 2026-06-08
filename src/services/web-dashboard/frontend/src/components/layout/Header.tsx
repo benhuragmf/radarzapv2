@@ -5,6 +5,7 @@ import { logout, type AuthUser } from '../../lib/auth'
 import { pageTitleFor } from '../../lib/navConfig'
 import { Wifi, WifiOff, LogOut } from 'lucide-react'
 import OrganizationSwitcher from './OrganizationSwitcher'
+import EventNotificationBell from './EventNotificationBell'
 
 interface Props {
   user: AuthUser
@@ -35,6 +36,8 @@ export default function Header({ user, onLogout, onUserUpdate }: Props) {
 
       <div className="flex items-center gap-4">
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
+
+        <EventNotificationBell />
 
         {/* Health indicator */}
         <div className="flex items-center gap-1.5 text-sm">

@@ -26,6 +26,8 @@ import { InboxConversationStatus } from '@/types/inbox';
 import { INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
 import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
 import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
+import { emitPanelEvent, PanelEventType } from '@/services/inbox/PanelNotifications';
+import crypto from 'crypto';
 import {
   getQueuePriorityState,
   isSuggestedUserBusy,
@@ -73,6 +75,9 @@ export class InboxService {
       schedule: InboxWeeklySchedule;
       roundRobinEnabled: boolean;
       roundRobinPullTimeoutSeconds: number;
+      alertSoundEnabled: boolean;
+      alertOnNewChat: boolean;
+      alertOnNewMessage: boolean;
     }>,
   ): Promise<IInboxSettings> {
     const settings = await InboxSettings.getOrCreate(clientId);
@@ -99,6 +104,15 @@ export class InboxService {
     if (patch.roundRobinPullTimeoutSeconds !== undefined) {
       const sec = Math.min(900, Math.max(30, Number(patch.roundRobinPullTimeoutSeconds) || 120));
       settings.roundRobinPullTimeoutSeconds = sec;
+    }
+    if (patch.alertSoundEnabled !== undefined) {
+      settings.alertSoundEnabled = Boolean(patch.alertSoundEnabled);
+    }
+    if (patch.alertOnNewChat !== undefined) {
+      settings.alertOnNewChat = Boolean(patch.alertOnNewChat);
+    }
+    if (patch.alertOnNewMessage !== undefined) {
+      settings.alertOnNewMessage = Boolean(patch.alertOnNewMessage);
     }
     if (patch.timezone !== undefined) {
       settings.timezone = patch.timezone.trim() || 'America/Sao_Paulo';
@@ -188,6 +202,30 @@ export class InboxService {
     emitInboxEvent(clientId, 'inbox:message', {
       clientId,
       conversationId,
+    });
+  }
+
+  private async pushPanelEvent(
+    clientId: string,
+    type: PanelEventType,
+    title: string,
+    body: string,
+    opts?: { conversationId?: string },
+  ): Promise<void> {
+    const settings = await loadInboxSettings(clientId);
+    if (!settings.alertSoundEnabled) return;
+    if (type === 'inbox:new_chat' && !settings.alertOnNewChat) return;
+    if (type === 'inbox:new_message' && !settings.alertOnNewMessage) return;
+    if (type === 'inbox:priority' && !settings.alertOnNewChat) return;
+
+    emitPanelEvent(clientId, {
+      id: crypto.randomUUID(),
+      type,
+      title,
+      body,
+      href: '/platform/inbox',
+      conversationId: opts?.conversationId,
+      createdAt: new Date().toISOString(),
     });
   }
 
@@ -353,6 +391,9 @@ export class InboxService {
     if (!conversation) {
       conversation = await this.createConversation(clientId, dest);
       this.notifyConversation(clientId, conversation);
+      await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Novo contato', dest.name || dest.identifier, {
+        conversationId: String(conversation._id),
+      });
     }
 
     await this.recordInbound(conversation, trimmed, clientId);
@@ -390,8 +431,18 @@ export class InboxService {
     conversation.lastInboundAt = new Date();
     conversation.lastMessageAt = new Date();
     await conversation.save();
-    this.notifyMessage(clientId ?? String(conversation.clientId), String(conversation._id));
-    this.notifyConversation(clientId ?? String(conversation.clientId), conversation);
+    const cid = clientId ?? String(conversation.clientId);
+    this.notifyMessage(cid, String(conversation._id));
+    this.notifyConversation(cid, conversation);
+
+    if (
+      conversation.status === InboxConversationStatus.IN_PROGRESS ||
+      conversation.status === InboxConversationStatus.WAITING_QUEUE
+    ) {
+      await this.pushPanelEvent(cid, 'inbox:new_message', 'Nova mensagem', conversation.contactName, {
+        conversationId: String(conversation._id),
+      });
+    }
   }
 
   private async findOpenConversation(
@@ -452,9 +503,13 @@ export class InboxService {
     conversation.suggestedUserId = undefined;
     conversation.suggestedAt = undefined;
     conversation.status = InboxConversationStatus.WAITING_QUEUE;
+    conversation.queueEnteredAt = new Date();
     conversation.lastMessageAt = new Date();
 
     const suggested = await this.tryRoundRobinSuggest(clientId, conversation, department);
+    await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Nova conversa na fila', department.name, {
+      conversationId: String(conversation._id),
+    });
     await conversation.save();
     this.notifyConversation(clientId, conversation);
 
@@ -499,6 +554,10 @@ export class InboxService {
       userId,
       clientId,
     );
+
+    await this.pushPanelEvent(clientId, 'inbox:priority', 'Prioridade de atendimento', agentName, {
+      conversationId: String(conversation._id),
+    });
 
     logger.info('Round-robin sugeriu atendente', {
       clientId,
@@ -655,6 +714,7 @@ export class InboxService {
     conv.suggestedUserId = undefined;
     conv.suggestedAt = undefined;
     conv.assignedUserId = new mongoose.Types.ObjectId(userId);
+    conv.acceptedAt = new Date();
     conv.status = InboxConversationStatus.IN_PROGRESS;
     conv.lastMessageAt = new Date();
     await conv.save();
@@ -785,6 +845,7 @@ export class InboxService {
     conv.suggestedUserId = undefined;
     conv.suggestedAt = undefined;
     conv.status = InboxConversationStatus.WAITING_QUEUE;
+    conv.queueEnteredAt = new Date();
     conv.lastMessageAt = new Date();
 
     await this.tryRoundRobinSuggest(clientId, conv, target);
@@ -882,6 +943,80 @@ export class InboxService {
     const cid = clientId ?? String(conversation.clientId);
     this.notifyMessage(cid, String(conversation._id));
     this.notifyConversation(cid, conversation);
+  }
+
+  async listSupervisorQueue(clientId: string, userId: string) {
+    await this.assertSupervisor(clientId, userId);
+    return this.listConversations(clientId, userId, {});
+  }
+
+  async reassignConversation(
+    clientId: string,
+    supervisorUserId: string,
+    conversationId: string,
+    targetUserId: string,
+    mode: 'suggest' | 'assign' = 'suggest',
+  ) {
+    await this.assertSupervisor(clientId, supervisorUserId);
+    const conv = await this.getConversationIfAllowed(clientId, supervisorUserId, conversationId);
+    if (TERMINAL_STATUSES.has(conv.status)) {
+      throw new Error('Conversa já finalizada');
+    }
+
+    await this.resolveMemberUserIds(clientId, [targetUserId]);
+
+    const targetOid = new mongoose.Types.ObjectId(targetUserId);
+    const agentName = await this.resolveAgentDisplayName(targetUserId);
+
+    if (mode === 'assign') {
+      conv.assignedUserId = targetOid;
+      conv.acceptedAt = new Date();
+      conv.suggestedUserId = undefined;
+      conv.suggestedAt = undefined;
+      conv.status = InboxConversationStatus.IN_PROGRESS;
+      conv.lastMessageAt = new Date();
+      await conv.save();
+      await this.announceAgentJoin(clientId, conv, targetUserId);
+      await this.appendSystemMessage(
+        conv,
+        `Supervisor reatribuiu o atendimento para *${agentName}*.`,
+        new mongoose.Types.ObjectId(supervisorUserId),
+        clientId,
+      );
+    } else {
+      conv.suggestedUserId = targetOid;
+      conv.suggestedAt = new Date();
+      conv.assignedUserId = undefined;
+      conv.status = InboxConversationStatus.WAITING_QUEUE;
+      conv.lastMessageAt = new Date();
+      await conv.save();
+      await this.appendSystemMessage(
+        conv,
+        `Supervisor indicou prioridade para *${agentName}*.`,
+        new mongoose.Types.ObjectId(supervisorUserId),
+        clientId,
+      );
+      await this.pushPanelEvent(clientId, 'inbox:priority', 'Prioridade (supervisor)', agentName, {
+        conversationId: String(conv._id),
+      });
+    }
+
+    this.notifyConversation(clientId, conv);
+    return conv.toObject();
+  }
+
+  private async assertSupervisor(clientId: string, userId: string): Promise<void> {
+    const member = await CompanyMember.findOne({
+      userId,
+      organizationId: new mongoose.Types.ObjectId(clientId),
+      isActive: true,
+    });
+    if (
+      !member ||
+      (member.companyRole !== CompanyRole.OWNER && member.companyRole !== CompanyRole.ADMIN)
+    ) {
+      throw new Error('Apenas dono ou administrador pode supervisionar');
+    }
   }
 
   private async sendToContact(

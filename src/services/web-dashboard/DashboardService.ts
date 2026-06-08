@@ -81,6 +81,8 @@ import { DiscordNavAlertsService } from '../discord/DiscordNavAlertsService';
 import { RuleGroupBlockService } from '../rules/RuleGroupBlockService';
 import { InboxService } from '../inbox/InboxService';
 import { setInboxSocketServer } from '../inbox/InboxRealtime';
+import { setPanelSocketServer } from '../inbox/PanelNotifications';
+import { InboxReportsService } from '../inbox/InboxReportsService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
 import {
   validateAutomationPayload,
@@ -984,6 +986,57 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const settings = await inboxSvc.updateSettings(auth.clientId, req.body ?? {});
         res.json(settings);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/reports', requireCapability(Cap.INBOX_REPORTS_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { from, to } = req.query as { from?: string; to?: string };
+        const toDate = to ? new Date(to) : new Date();
+        const fromDate = from
+          ? new Date(from)
+          : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const report = await InboxReportsService.getInstance().buildReport(
+          auth.clientId,
+          fromDate,
+          toDate,
+        );
+        res.json(report);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/supervisor/queue', requireCapability(Cap.INBOX_SUPERVISE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const rows = await inboxSvc.listSupervisorQueue(auth.clientId, auth.userId);
+        const active = rows.filter(r => {
+          const status = String((r as { status?: string }).status ?? '');
+          return ['waiting_queue', 'in_progress', 'bot_triage'].includes(status);
+        });
+        res.json(active);
+      } catch (e) {
+        res.status(403).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/reassign', requireCapability(Cap.INBOX_SUPERVISE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { userId, mode } = req.body as { userId?: string; mode?: 'suggest' | 'assign' };
+        if (!userId) return res.status(400).json({ error: 'userId obrigatório' });
+        const conv = await inboxSvc.reassignConversation(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+          userId,
+          mode === 'assign' ? 'assign' : 'suggest',
+        );
+        res.json(conv);
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -3625,6 +3678,7 @@ export class DashboardService {
 
   private setupSocket(): void {
     setInboxSocketServer(this.io);
+    setPanelSocketServer(this.io);
     const orgSvc = OrganizationService.getInstance();
 
     this.io.on('connection', async socket => {

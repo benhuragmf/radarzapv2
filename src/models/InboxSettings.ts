@@ -23,6 +23,9 @@ export interface IInboxSettings extends Document {
   roundRobinEnabled: boolean;
   /** Segundos até outro atendente poder puxar a conversa */
   roundRobinPullTimeoutSeconds: number;
+  alertSoundEnabled: boolean;
+  alertOnNewChat: boolean;
+  alertOnNewMessage: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +64,9 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     },
     roundRobinEnabled: { type: Boolean, default: false },
     roundRobinPullTimeoutSeconds: { type: Number, default: 120, min: 30, max: 900 },
+    alertSoundEnabled: { type: Boolean, default: true },
+    alertOnNewChat: { type: Boolean, default: true },
+    alertOnNewMessage: { type: Boolean, default: false },
   },
   { timestamps: true, collection: 'inboxSettings' },
 );

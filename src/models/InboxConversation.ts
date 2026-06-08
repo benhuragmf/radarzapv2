@@ -15,6 +15,8 @@ export interface IInboxConversation extends Document {
   channel: InboxChannel;
   lastMessageAt: Date;
   lastInboundAt?: Date;
+  queueEnteredAt?: Date;
+  acceptedAt?: Date;
   resolvedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -43,6 +45,8 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     },
     lastMessageAt: { type: Date, default: Date.now, index: true },
     lastInboundAt: Date,
+    queueEnteredAt: Date,
+    acceptedAt: Date,
     resolvedAt: Date,
   },
   { timestamps: true, collection: 'inboxConversations' },

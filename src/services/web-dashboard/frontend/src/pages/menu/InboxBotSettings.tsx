@@ -7,7 +7,7 @@ import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import { Bot, Clock, Users, ArrowLeft, Save } from 'lucide-react'
+import { Bot, Clock, Users, ArrowLeft, Save, Bell } from 'lucide-react'
 
 type Weekday =
   | 'monday'
@@ -40,6 +40,9 @@ interface InboxSettings {
   schedule: Record<Weekday, DaySchedule>
   roundRobinEnabled: boolean
   roundRobinPullTimeoutSeconds: number
+  alertSoundEnabled: boolean
+  alertOnNewChat: boolean
+  alertOnNewMessage: boolean
 }
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -295,6 +298,42 @@ export default function InboxBotSettings() {
               disabled={!form.roundRobinEnabled}
               onChange={e => patch('roundRobinPullTimeoutSeconds', Number(e.target.value) || 120)}
             />
+          </label>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2 text-brand-400">
+            <Bell size={18} />
+            <h2 className="font-semibold text-sm text-white">Alertas no painel</h2>
+          </div>
+          <p className="text-xs text-gray-500">
+            Balão de eventos no topo (à esquerda do status online) + som opcional.
+          </p>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.alertSoundEnabled}
+              onChange={e => patch('alertSoundEnabled', e.target.checked)}
+            />
+            Sons de alerta ativados
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.alertOnNewChat}
+              onChange={e => patch('alertOnNewChat', e.target.checked)}
+              disabled={!form.alertSoundEnabled}
+            />
+            Alertar em novo chat / prioridade na fila
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.alertOnNewMessage}
+              onChange={e => patch('alertOnNewMessage', e.target.checked)}
+              disabled={!form.alertSoundEnabled}
+            />
+            Alertar em cada nova mensagem do cliente (pode ser frequente)
           </label>
         </Card>
 

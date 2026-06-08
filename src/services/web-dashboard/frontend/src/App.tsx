@@ -44,6 +44,8 @@ import WaStatusPosts from './pages/menu/WaStatusPosts'
 import Inbox from './pages/menu/Inbox'
 import InboxSectors from './pages/menu/InboxSectors'
 import InboxBotSettings from './pages/menu/InboxBotSettings'
+import InboxReports from './pages/menu/InboxReports'
+import InboxSupervisor from './pages/menu/InboxSupervisor'
 import AdminMonitoring from './pages/menu/AdminMonitoring'
 import AdminErrors from './pages/menu/AdminErrors'
 import AdminServers from './pages/menu/AdminServers'
@@ -183,6 +185,8 @@ export default function App() {
           <Route path="platform/inbox" element={<Guard user={user} path="/platform/inbox"><Inbox /></Guard>} />
           <Route path="platform/inbox/setores" element={<Guard user={user} path="/platform/inbox/setores"><InboxSectors /></Guard>} />
           <Route path="platform/inbox/bot" element={<Guard user={user} path="/platform/inbox/bot"><InboxBotSettings /></Guard>} />
+          <Route path="platform/inbox/supervisor" element={<Guard user={user} path="/platform/inbox/supervisor"><InboxSupervisor /></Guard>} />
+          <Route path="platform/inbox/relatorios" element={<Guard user={user} path="/platform/inbox/relatorios"><InboxReports /></Guard>} />
           <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
           <Route path="platform/fila" element={<Guard user={user} path="/platform/fila"><Queue scope="tenant" /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />

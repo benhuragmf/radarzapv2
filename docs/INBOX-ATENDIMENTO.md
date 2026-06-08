@@ -76,6 +76,9 @@ Atendente responde / transfere / finaliza
 | POST | `/inbox/conversations/:id/resolve` | `inbox:reply` | Finalizar |
 | GET | `/inbox/settings` | `inbox:department:manage` | Config do bot |
 | PATCH | `/inbox/settings` | `inbox:department:manage` | Salvar bot / horários / round-robin |
+| GET | `/inbox/reports` | `inbox:reports:view` | Métricas de atendimento (`from`, `to`) |
+| GET | `/inbox/supervisor/queue` | `inbox:supervise` | Fila ao vivo (supervisor) |
+| POST | `/inbox/conversations/:id/reassign` | `inbox:supervise` | Reatribuir (`mode: suggest` \| `assign`) |
 
 ## Permissões
 
@@ -85,6 +88,8 @@ Atendente responde / transfere / finaliza
 | `inbox:reply` | ✓ | ✓ | ✓ |
 | `inbox:transfer` | ✓ | ✓ | ✓ |
 | `inbox:department:manage` | ✓ | ✓ | — |
+| `inbox:reports:view` | ✓ | ✓ | — |
+| `inbox:supervise` | ✓ | ✓ | — |
 
 ## Integração WhatsApp
 
@@ -109,6 +114,9 @@ Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`
 | `businessHoursEnabled` + `schedule` + `timezone` | Horário comercial (Intl timezone) |
 | `roundRobinEnabled` | Indica prioridade (não força aceite) |
 | `roundRobinPullTimeoutSeconds` | Segundos até outro atendente poder puxar (padrão 120) |
+| `alertSoundEnabled` | Som no painel para eventos importantes |
+| `alertOnNewChat` | Alerta quando entra conversa nova na fila |
+| `alertOnNewMessage` | Alerta quando chega mensagem em conversa ativa |
 
 API: `GET/PATCH /api/inbox/settings` (`inbox:department:manage`).
 
@@ -122,11 +130,44 @@ Setores continuam em `inboxDepartments` — o menu é montado dinamicamente a pa
 - **Puxar**: outro atendente pode assumir se o indicado tem conversa `in_progress` ou após `roundRobinPullTimeoutSeconds`
 - Painel Inbox usa `useInboxSocket` + polling de fallback (30s)
 
+## Relatórios de atendimento (Fase 4)
+
+Painel: `/platform/inbox/relatorios` (`inbox:reports:view`).
+
+Métricas por período (`from` / `to` ISO):
+
+- Tempo médio na fila (`queueEnteredAt` → `acceptedAt`)
+- Tempo de primeira resposta e resolução
+- Conversas por setor e por atendente
+
+Serviço: `InboxReportsService`.
+
+## Supervisor (Fase 4)
+
+Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
+
+- Fila ao vivo com status, setor, atendente e prioridade sugerida
+- Reatribuir conversa: `suggest` (nova prioridade) ou `assign` (assume direto)
+- Atualização via WebSocket + refresh manual
+
+## Notificações no painel
+
+- **Balão de eventos** no header (à esquerda do indicador *online*): `EventNotificationBell`
+- Eventos via Socket.IO `panel:event` (`PanelNotifications`)
+- Tipos: novo chat, nova mensagem, prioridade, WhatsApp desconectado/reconectado
+- Som configurável em `/platform/inbox/bot` (alertas do painel)
+- Hook: `usePanelSocket` + `EventNotificationContext`
+
+## Estabilidade WhatsApp
+
+- Reconexão automática com backoff exponencial (2s → 30s, até 8 tentativas)
+- Evento `whatsapp:disconnected` no painel ao cair sessão (incl. 401)
+- Monitoramento em `/platform/wa-status` e logs em `/platform/wa-logs`
+
 ## Fases futuras
 
 | Fase | Escopo |
 |------|--------|
-| 4 | Relatórios de atendimento, supervisor em tempo real |
 | 5 | `WhatsAppChannelProvider` — Cloud API Meta (planos Enterprise) |
 
 ## Painel
@@ -136,9 +177,11 @@ Setores continuam em `inboxDepartments` — o menu é montado dinamicamente a pa
 | `/platform/inbox` | `pages/menu/Inbox.tsx` |
 | `/platform/inbox/setores` | `pages/menu/InboxSectors.tsx` |
 | `/platform/inbox/bot` | `pages/menu/InboxBotSettings.tsx` |
+| `/platform/inbox/supervisor` | `pages/menu/InboxSupervisor.tsx` |
+| `/platform/inbox/relatorios` | `pages/menu/InboxReports.tsx` |
 | `/settings/team` | `TeamMembers.tsx` — convidar atendentes |
 
-Menu: **Plataforma → Atendimento → Inbox** / **Setores do Inbox**
+Menu: **Plataforma → Atendimento → Inbox** / **Setores** / **Supervisor** / **Relatórios**
 
 ## Apresentação do atendente
 

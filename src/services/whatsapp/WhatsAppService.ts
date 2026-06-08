@@ -95,6 +95,8 @@ export class WhatsAppService {
   private autoReconnectInterval: NodeJS.Timeout | null = null;
   /** Evita múltiplos createWhatsAppSession simultâneos (causa erro 440) */
   private reconnectingClients = new Set<string>();
+  private reconnectAttempts = new Map<string, number>();
+  private reconnectTimers = new Map<string, NodeJS.Timeout>();
   /** Desconexão manual (Discord/painel) — não auto-reconectar */
   private manuallyDisconnectedClients = new Set<string>();
   /** Mensagens enviadas (necessário para decifrar votos em enquetes de consentimento) */
@@ -2198,26 +2200,7 @@ export class WhatsAppService {
         } else if (this.reconnectingClients.has(clientId)) {
           /* reconexão já em andamento */
         } else {
-          this.serviceLogger.info(`Transient disconnect for client ${clientId}, attempting reconnect...`);
-          this.sessions.delete(clientId);
-          this.sessionStates.delete(clientId);
-          await this.sessionCache.setWhatsAppSession(clientId, {
-            status: 'connecting',
-            lastActivity: new Date(),
-          }, WA_CACHE_TTL_SEC);
-
-          this.reconnectingClients.add(clientId);
-          this.createWhatsAppSession(clientId)
-            .then(() => {
-              this.serviceLogger.info(`Reconnected successfully for client: ${clientId}`);
-            })
-            .catch((err) => {
-              this.serviceLogger.error(`Reconnect failed for client ${clientId}: ${err.message}`);
-              this.softDisconnect(clientId, 503).catch(() => {});
-            })
-            .finally(() => {
-              this.reconnectingClients.delete(clientId);
-            });
+          this.scheduleReconnect(clientId, statusCode);
         }
       }
     });
@@ -2288,6 +2271,57 @@ export class WhatsAppService {
     this.sessionIntervals.set(clientId, keepAliveInterval);
   }
 
+  private scheduleReconnect(clientId: string, statusCode?: number): void {
+    const attempt = (this.reconnectAttempts.get(clientId) ?? 0) + 1;
+    if (attempt > 8) {
+      this.serviceLogger.warn(`Reconnect abandoned for ${clientId} after ${attempt} attempts`);
+      void this.softDisconnect(clientId, statusCode ?? 503);
+      return;
+    }
+
+    this.reconnectAttempts.set(clientId, attempt);
+    const delay = Math.min(30_000, 2000 * 2 ** (attempt - 1));
+    this.serviceLogger.info(
+      `Scheduling WhatsApp reconnect #${attempt} for ${clientId} in ${delay}ms (code=${statusCode})`,
+    );
+
+    const prev = this.reconnectTimers.get(clientId);
+    if (prev) clearTimeout(prev);
+
+    this.sessions.delete(clientId);
+    this.sessionStates.delete(clientId);
+    void this.sessionCache.setWhatsAppSession(
+      clientId,
+      { status: 'connecting', lastActivity: new Date() },
+      WA_CACHE_TTL_SEC,
+    );
+
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(clientId);
+      if (this.reconnectingClients.has(clientId) || this.sessions.has(clientId)) return;
+
+      this.reconnectingClients.add(clientId);
+      this.createWhatsAppSession(clientId)
+        .then(() => {
+          this.reconnectAttempts.delete(clientId);
+          this.serviceLogger.info(`Reconnected successfully for client: ${clientId}`);
+        })
+        .catch(err => {
+          this.serviceLogger.error(`Reconnect failed for ${clientId}: ${(err as Error).message}`);
+          if (attempt >= 4) {
+            void this.softDisconnect(clientId, 503);
+          } else {
+            this.scheduleReconnect(clientId, statusCode);
+          }
+        })
+        .finally(() => {
+          this.reconnectingClients.delete(clientId);
+        });
+    }, delay);
+
+    this.reconnectTimers.set(clientId, timer);
+  }
+
   /**
    * Handle session disconnect
    */
@@ -2312,6 +2346,16 @@ export class WhatsAppService {
 
       this.serviceLogger.info(`Session disconnected and cleaned up for client: ${clientId}`);
 
+      void import('@/services/inbox/PanelNotifications').then(({ emitPanelEvent }) => {
+        emitPanelEvent(clientId, {
+          id: `${Date.now()}-wa-disc`,
+          type: 'whatsapp:disconnected',
+          title: 'WhatsApp desconectado',
+          body: 'Sessão encerrada (logout). Reconecte em Sessões WhatsApp.',
+          href: '/sessions',
+          createdAt: new Date().toISOString(),
+        });
+      });
     } catch (error) {
       this.serviceLogger.error(`Error handling session disconnect for client ${clientId}:`, error);
     }

@@ -9,6 +9,7 @@ import { getSelectedGuild } from '../../lib/guild'
 import { GuildContext } from '../../lib/guildContext'
 import { NavModeContext } from '../../lib/navModeContext'
 import { detectNavMode, type NavMode } from '../../lib/navConfig'
+import { EventNotificationProvider } from '../../context/EventNotificationContext'
 
 interface Props {
   user: AuthUser
@@ -23,9 +24,10 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
   const [navMode, setNavMode] = useState<NavMode>(() => detectNavMode(pathname, hash))
 
   return (
-    <NavModeContext.Provider value={navMode}>
-      <GuildContext.Provider value={{ guildId: guild?.id ?? null, guildName: guild?.name ?? null }}>
-        <div className="flex h-screen overflow-hidden">
+    <EventNotificationProvider user={user}>
+      <NavModeContext.Provider value={navMode}>
+        <GuildContext.Provider value={{ guildId: guild?.id ?? null, guildName: guild?.name ?? null }}>
+          <div className="flex h-screen overflow-hidden">
           <Sidebar
             user={user}
             mode={navMode}
@@ -40,8 +42,9 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
               <Outlet />
             </main>
           </div>
-        </div>
-      </GuildContext.Provider>
-    </NavModeContext.Provider>
+          </div>
+        </GuildContext.Provider>
+      </NavModeContext.Provider>
+    </EventNotificationProvider>
   )
 }

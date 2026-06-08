@@ -4,7 +4,7 @@ import {
   ListOrdered, ScrollText, Send, Crown, Settings, Shield, Server, History,
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
-  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot,
+  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -90,6 +90,8 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   link('inbox', 'Inbox WhatsApp', MessageSquare, '/platform/inbox', 'inbox:view'),
   link('inbox-sectors', 'Setores do Inbox', Building2, '/platform/inbox/setores', 'inbox:department:manage'),
   link('inbox-bot', 'Bot do Inbox', Bot, '/platform/inbox/bot', 'inbox:department:manage'),
+  link('inbox-supervisor', 'Supervisor', Eye, '/platform/inbox/supervisor', 'inbox:supervise'),
+  link('inbox-reports', 'Relatórios Inbox', BarChart3, '/platform/inbox/relatorios', 'inbox:reports:view'),
 
   section('sec-contatos', 'Contatos'),
   group('grp-contatos', 'Contatos', Users, [
@@ -386,6 +388,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/inbox': 'inbox:view',
   '/platform/inbox/setores': 'inbox:department:manage',
   '/platform/inbox/bot': 'inbox:department:manage',
+  '/platform/inbox/supervisor': 'inbox:supervise',
+  '/platform/inbox/relatorios': 'inbox:reports:view',
   '/platform/contacts': 'consent:view',
   '/integrations/playground': 'send:test',
   '/sessions': 'whatsapp:session:view',
@@ -456,6 +460,8 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/inbox': 'Inbox WhatsApp',
   '/platform/inbox/setores': 'Setores do Inbox',
   '/platform/inbox/bot': 'Bot do Inbox',
+  '/platform/inbox/supervisor': 'Supervisor',
+  '/platform/inbox/relatorios': 'Relatórios de atendimento',
   '/platform/contacts': 'Importar / Exportar',
   '/integrations/playground': 'Playground',
   '/sessions': 'Sessões e QR Code',
