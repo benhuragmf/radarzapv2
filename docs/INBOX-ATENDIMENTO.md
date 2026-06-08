@@ -50,9 +50,15 @@ Os segmentos aparecem em `/contact` na barra lateral de grupos, como qualquer ou
 ### InboxDepartment
 
 - `clientId` — tenant (Organization._id)
-- `name`, `description`, `menuKey` (`1`–`4` no bot fixo)
+- `name`, `description`, `menuKey` (`1`–`4` no bot fixo para setores **públicos**; internos usam `i2`, `i3`…)
+- `clientVisible` — `true` = aparece no menu WhatsApp; `false` = **setor interno** (só equipe)
+- `internalRank` — `0` = público; `2`–`5` = 2ª a 5ª instância (escalação na transferência)
 - `memberUserIds[]` — atendentes; vazio = todos com `inbox:view`
 - `isActive`, `sortOrder`
+
+**Transferência entre setores internos:** atendente só pode transferir para setor de **rank imediatamente superior** (`InboxService.canUserTransferToDepartment`). Lista de setores para transferência filtra `canTransferTo`.
+
+**UI setores** (`/platform/inbox/setores`): botões **Público / Interno** + dropdown **Instância interna** (desabilitado quando público).
 
 ### InboxConversation
 

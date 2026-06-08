@@ -38,7 +38,8 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
 | Rota | Componente | API principal |
 |------|------------|---------------|
-| `/settings/team` | `TeamMembers.tsx` — aba **Papéis do sistema** (`RolePresetEditor`) + aba **Equipe** | `GET /team/roles`, `PATCH/DELETE /team/roles/:role`, `GET/POST/PATCH/DELETE /team/members` — permissões por papel persistidas em `Organization.roleCapabilities`; Discord só se `linkedGuildIds` |
+| `/settings/team` | `TeamMembers.tsx` — aba **Papéis do sistema** (`RolesSystemPanel`) + aba **Equipe** | `GET /team/roles`, `PATCH/DELETE /team/roles/:role`, `POST/PATCH/DELETE /team/custom-roles[/:id]`, `GET/POST/PATCH/DELETE /team/members` (`roleKey`) — presets em `Organization.roleCapabilities`; papéis nomeados em `Organization.customRoles[]`; preset CUSTOM legado oculto na UI |
+| `/contact?consent=waiting` | `Destinations.tsx` (view `waiting`) | `GET /consent/renewals`, `POST /consent/renewals/:id/approve` — perm `consent:approve-renewal` |
 | `/settings/permissions` | `menu/PermissionsPage.tsx` |
 | `/settings/security` | `menu/SecuritySettings.tsx` |
 | `/settings/backup` | `menu/BackupExport.tsx` |
@@ -63,8 +64,12 @@ Ver `pages/menu/EmBreveRedirect.tsx` → `SLUG_REDIRECTS`.
 
 ## Modelos backend
 
+- `src/models/Organization.ts` — `roleCapabilities`, `customRoles[]`
+- `src/models/CompanyMember.ts` — `customRoleId`, `extraCapabilities`, `deniedCapabilities`
+- `src/models/Destination.ts` — `consentRenewalApprovals` (0–2)
+- `src/types/org-custom-role.ts` — helpers `custom:uuid`, `defaultOrgCustomRoles()`
 - `src/models/InboxSettings.ts`
-- `src/models/InboxDepartment.ts`
+- `src/models/InboxDepartment.ts` — `clientVisible`, `internalRank`
 - `src/models/InboxConversation.ts`
 - `src/models/InboxMessage.ts`
 - `src/models/InboxTransfer.ts`
