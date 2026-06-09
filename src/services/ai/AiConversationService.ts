@@ -1,16 +1,27 @@
 import mongoose from 'mongoose';
 import { AiConversationState, IAiConversationState } from '@/models/AiConversationState';
-import { AiConversationStatus } from '@/types/ai-assistant';
+import { AI_GENERIC_FALLBACK_REPLY, AiConversationStatus } from '@/types/ai-assistant';
 import { InboxMessage } from '@/models/InboxMessage';
 import { InboxDepartment } from '@/models/InboxDepartment';
 import type { IDestination } from '@/models/Destination';
 import type { IInboxConversation } from '@/models/InboxConversation';
 import { InboxConversationStatus } from '@/types/inbox';
+import type { ConversationAiStatus } from '@/types/inbox-conversation-ai';
+import { AI_FALLBACK_TTL_MS, isAiFallbackExpired } from '@/types/inbox-conversation-ai';
 import { AiSettingsService } from './AiSettingsService';
 import { AiPromptBuilderService } from './AiPromptBuilderService';
 import { AiProviderService } from './AiProviderService';
 import { AiEscalationService } from './AiEscalationService';
+import { AiUsageMeterService } from './AiUsageMeterService';
 import type { InboxService } from '@/services/inbox/InboxService';
+import { logger } from '@/utils/logger';
+
+export interface AiInboundResult {
+  /** IA processou a mensagem (não chamar bot padrão). */
+  handled: boolean;
+  /** IA falhou/limite/desativada — exibir menu de setores. */
+  useStandardTriage?: boolean;
+}
 
 export interface AiInboundContext {
   clientId: string;
@@ -49,22 +60,39 @@ export class AiConversationService {
     return state;
   }
 
-  async handleInbound(ctx: AiInboundContext, inbox: InboxService): Promise<boolean> {
+  async handleInbound(ctx: AiInboundContext, inbox: InboxService): Promise<AiInboundResult> {
+    const inactive: AiInboundResult = { handled: false };
+
     const active = await this.isEnabled(ctx.clientId);
-    if (!active) return false;
+    if (!active) return inactive;
 
     const settings = await AiSettingsService.getInstance().getSettingsDoc(ctx.clientId);
-    if (!settings.enabled || settings.mode === 'disabled') return false;
+    if (!settings.enabled || settings.mode === 'disabled') return inactive;
+
+    if (ctx.conversation.status !== InboxConversationStatus.BOT_TRIAGE) {
+      return inactive;
+    }
+
+    if (
+      isAiFallbackExpired(ctx.conversation.aiStatus, ctx.conversation.aiFallbackUntil)
+    ) {
+      await inbox.clearConversationAi(ctx.clientId, String(ctx.conversation._id));
+    } else if (ctx.conversation.aiStatus === 'ai_fallback_standard') {
+      return { handled: false, useStandardTriage: true };
+    }
 
     const state = await this.getOrCreateState(
       ctx.clientId,
       ctx.conversation._id as mongoose.Types.ObjectId,
     );
+    if (state.status === AiConversationStatus.AI_FALLBACK_STANDARD) {
+      return { handled: false, useStandardTriage: true };
+    }
     if (
       state.status === AiConversationStatus.AI_ESCALATED ||
       state.status === AiConversationStatus.HUMAN_ASSIGNED
     ) {
-      return false;
+      return { handled: false, useStandardTriage: true };
     }
 
     const prompt = await AiPromptBuilderService.getInstance().getOrCreatePrompt(ctx.clientId);
@@ -72,8 +100,18 @@ export class AiConversationService {
       ctx.hasMedia && (!ctx.text.trim() || ['audio', 'image', 'document', 'video'].includes(ctx.mediaType ?? ''));
 
     if (hasUninterpretableMedia && settings.transferRules.onUninterpretableMedia) {
-      await this.escalate(ctx, inbox, state, 'Mídia recebida — transferindo para atendente humano');
-      return true;
+      await this.releaseToStandardTriage(state, 'Mídia não interpretável pela IA', inbox);
+      return { handled: false, useStandardTriage: true };
+    }
+
+    const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
+      ctx.clientId,
+      String(ctx.conversation._id),
+      settings,
+    );
+    if (!usage.allowed) {
+      await this.releaseToStandardTriage(state, usage.reason ?? 'Limite de IA atingido', inbox);
+      return { handled: false, useStandardTriage: true };
     }
 
     if (ctx.isNew && !ctx.text.trim()) {
@@ -82,10 +120,22 @@ export class AiConversationService {
       await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, greeting);
       state.status = AiConversationStatus.AI_WAITING_CLIENT;
       await state.save();
-      return true;
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return { handled: true };
     }
 
-    if (!ctx.text.trim()) return true;
+    if (!ctx.text.trim()) {
+      if (ctx.hasMedia) {
+        await this.releaseToStandardTriage(state, 'Mídia sem texto', inbox);
+        return { handled: false, useStandardTriage: true };
+      }
+      return { handled: true };
+    }
 
     const normalized = AiEscalationService.getInstance().normalizeForRepeatCheck(ctx.text);
     if (state.lastClientMessage && normalized === state.lastClientMessage) {
@@ -111,17 +161,63 @@ export class AiConversationService {
         String(ctx.conversation._id),
       );
     } catch (e) {
-      await inbox.sendAiReply(
-        ctx.clientId,
-        ctx.conversation,
-        ctx.dest.identifier,
-        'No momento não consigo continuar o atendimento automático. Vou transferir você para um atendente.',
+      const reason = (e as Error).message;
+      logger.warn('IA falhou — liberando bot padrão (menu de setores)', {
+        clientId: ctx.clientId,
+        conversationId: ctx.conversation._id,
+        reason,
+      });
+
+      await AiConversationState.findOneAndUpdate(
+        {
+          conversationId: ctx.conversation._id,
+          status: {
+            $nin: [
+              AiConversationStatus.AI_FALLBACK_STANDARD,
+              AiConversationStatus.AI_ESCALATED,
+              AiConversationStatus.HUMAN_ASSIGNED,
+            ],
+          },
+        },
+        {
+          $set: {
+            status: AiConversationStatus.AI_FALLBACK_STANDARD,
+            shouldEscalate: false,
+            escalationReason: reason,
+          },
+        },
       );
-      await this.escalate(ctx, inbox, state, (e as Error).message);
-      return true;
+      await inbox.setConversationAiStatus(
+        ctx.clientId,
+        String(ctx.conversation._id),
+        'ai_fallback_standard',
+        new Date(Date.now() + AI_FALLBACK_TTL_MS),
+      );
+      return { handled: false, useStandardTriage: true };
     }
 
     const { structured } = completion;
+    const providerSvc = AiProviderService.getInstance();
+
+    if (providerSvc.isUnusableClientReply(structured)) {
+      logger.warn('IA retornou resposta inválida — bot padrão', {
+        clientId: ctx.clientId,
+        conversationId: ctx.conversation._id,
+        parseFailed: structured.parseFailed,
+      });
+      await this.releaseToStandardTriage(state, 'Resposta da IA inválida ou vazia', inbox);
+      return { handled: false, useStandardTriage: true };
+    }
+
+    const lastAssistant = [...history].reverse().find(m => m.role === 'assistant');
+    if (
+      lastAssistant?.content.trim() === AI_GENERIC_FALLBACK_REPLY &&
+      structured.reply.trim() === AI_GENERIC_FALLBACK_REPLY
+    ) {
+      await this.releaseToStandardTriage(state, 'IA repetindo resposta genérica', inbox);
+      return { handled: false, useStandardTriage: true };
+    }
+
     this.mergeCollected(state, structured);
     state.confidence = structured.confidence;
     state.aiTurnCount += 1;
@@ -146,12 +242,52 @@ export class AiConversationService {
 
     if (escalation.shouldEscalate) {
       await this.escalate(ctx, inbox, state, escalation.reason ?? 'Transferência para humano');
-      return true;
+      return { handled: true };
     }
 
     state.status = AiConversationStatus.AI_WAITING_CLIENT;
     await state.save();
-    return true;
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    return { handled: true };
+  }
+
+  private async releaseToStandardTriage(
+    state: IAiConversationState,
+    reason: string,
+    inbox?: InboxService,
+  ): Promise<void> {
+    state.status = AiConversationStatus.AI_FALLBACK_STANDARD;
+    state.shouldEscalate = false;
+    state.escalationReason = reason;
+    await state.save();
+    if (inbox) {
+      await inbox.setConversationAiStatus(
+        String(state.clientId),
+        String(state.conversationId),
+        'ai_fallback_standard',
+        new Date(Date.now() + AI_FALLBACK_TTL_MS),
+      );
+    }
+  }
+
+  private async syncConversationAi(
+    inbox: InboxService,
+    clientId: string,
+    conversationId: mongoose.Types.ObjectId,
+    aiStatus: ConversationAiStatus | null,
+    aiFallbackUntil?: Date,
+  ): Promise<void> {
+    await inbox.setConversationAiStatus(
+      clientId,
+      String(conversationId),
+      aiStatus,
+      aiFallbackUntil,
+    );
   }
 
   async manualRespond(
@@ -232,11 +368,26 @@ export class AiConversationService {
     inbox: InboxService,
     state: IAiConversationState,
     reason: string,
+    opts?: { clientMessage?: string },
   ): Promise<void> {
+    const freshConv = await inbox.getConversationRaw(
+      ctx.clientId,
+      String(ctx.conversation._id),
+    );
+    if (freshConv?.status === InboxConversationStatus.WAITING_QUEUE) {
+      return;
+    }
+
     state.shouldEscalate = true;
     state.escalationReason = reason;
     state.status = AiConversationStatus.AI_ESCALATED;
     await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_escalated',
+    );
 
     const menuKey = state.suggestedDepartmentMenuKey;
     const clientOid = new mongoose.Types.ObjectId(ctx.clientId);
@@ -264,10 +415,11 @@ export class AiConversationService {
       .filter(Boolean)
       .join('\n');
 
+    const defaultClientMsg = `Estou transferindo você para um atendente humano.${summaryBlock ? '' : ''} Aguarde um momento, por favor.`;
     await inbox.escalateFromAi(ctx.clientId, ctx.conversation, ctx.dest, department, {
       reason,
       internalNote: [collected, state.summary].filter(Boolean).join('\n'),
-      clientMessage: `Estou transferindo você para um atendente humano.${summaryBlock ? '' : ''} Aguarde um momento, por favor.`,
+      clientMessage: opts?.clientMessage ?? defaultClientMsg,
     });
   }
 
@@ -288,10 +440,18 @@ export class AiConversationService {
       .filter(m => m.content.trim());
   }
 
-  async markHumanAssigned(conversationId: string): Promise<void> {
+  async markHumanAssigned(conversationId: string, clientId?: string): Promise<void> {
     await AiConversationState.updateOne(
       { conversationId: new mongoose.Types.ObjectId(conversationId) },
       { status: AiConversationStatus.HUMAN_ASSIGNED },
     );
+    if (clientId) {
+      const { InboxService } = await import('@/services/inbox/InboxService');
+      await InboxService.getInstance().setConversationAiStatus(
+        clientId,
+        conversationId,
+        'human_assigned',
+      );
+    }
   }
 }

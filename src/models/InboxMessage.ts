@@ -43,5 +43,9 @@ const InboxMessageSchema = new Schema<IInboxMessage>(
 );
 
 InboxMessageSchema.index({ conversationId: 1, createdAt: 1 });
+InboxMessageSchema.index(
+  { clientId: 1, whatsappMessageId: 1 },
+  { unique: true, sparse: true },
+);
 
 export const InboxMessage = mongoose.model<IInboxMessage>('InboxMessage', InboxMessageSchema);

@@ -18,7 +18,7 @@ async function main() {
       enabled: true,
       mode: 'company',
       provider: 'gemini',
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.5-flash',
       apiKey: GEMINI_KEY,
     },
   });

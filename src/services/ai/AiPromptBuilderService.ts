@@ -79,6 +79,11 @@ Responda SEMPRE em JSON válido com este formato:
   "shouldEscalate": false,
   "escalationReason": "",
   "internalSummary": "resumo interno para o atendente"
-}`;
+}
+
+Regras importantes:
+- Envie ao cliente APENAS o texto do campo "reply" — nunca o JSON completo.
+- Mantenha shouldEscalate como false até coletar todos os dados obrigatórios.
+- Na primeira mensagem do cliente, cumprimente e peça o primeiro dado; não transfira ainda.`;
   }
 }

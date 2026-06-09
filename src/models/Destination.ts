@@ -3,6 +3,7 @@ import { createServiceLogger } from '@/utils/logger';
 import { ConsentStatus } from '@/types/consent';
 import { canSendToContact, canSendPendingAttempt } from '@/types/consent';
 import { CONTACT_PHONE_TYPES, type ContactPhoneType } from '@/types/contact-fields';
+import type { InboxMenuContext } from '@/types/inbox-menu-context';
 
 const logger = createServiceLogger('DestinationModel');
 
@@ -30,6 +31,9 @@ export interface IDestination extends Document {
   pendingOutboundDeliveries?: Record<string, unknown>[];
   /** Aguardando 2ª mensagem para confirmar opt-out (sair) */
   optOutConfirmPendingAt?: Date;
+  /** Último menu enviado ao contato (roteamento 1/2 inbox vs ticket). */
+  lastMenuContext?: InboxMenuContext;
+  lastMenuSentAt?: Date;
   isActive: boolean;
   lastMessageSent?: Date;
   /** YYYY-MM-DD — import CSV / campanhas aniversário */
@@ -175,6 +179,12 @@ const DestinationSchema = new Schema<IDestination>({
   pendingOutboundDeliveries: [Schema.Types.Mixed],
 
   optOutConfirmPendingAt: Date,
+
+  lastMenuContext: {
+    type: String,
+    enum: ['inbox_triage', 'ticket_followup', 'ticket_grace_expired', 'consent', 'none'],
+  },
+  lastMenuSentAt: Date,
   
   isActive: {
     type: Boolean,

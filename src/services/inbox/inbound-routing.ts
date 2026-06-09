@@ -1,0 +1,189 @@
+import {
+  type InboxMenuContext,
+  INBOX_MENU_CONTEXT_TTL_MS,
+  isMenuContextActive,
+} from '@/types/inbox-menu-context';
+import { InboxConversationStatus } from '@/types/inbox';
+import {
+  isNewServiceGreeting,
+  parseTicketFollowUpChoice,
+  parseTicketClientExit,
+  parseTicketFinalize,
+  parseTicketStatusRequest,
+  type TicketInboundMode,
+  type InboxTicketStatus,
+} from '@/types/inbox-ticket';
+
+export type TicketCaptureDecision = 'capture' | 'release_inbox' | 'defer_inbox';
+
+export interface TicketInboundRoutingInput {
+  trimmed: string;
+  ticketStatus: InboxTicketStatus;
+  ticketInboundMode?: TicketInboundMode;
+  clientReplyPaused: boolean;
+  clientReplyExpiresAt?: Date;
+  clientReplyGraceUntil?: Date;
+  teamHasMessagedClient: boolean;
+  lastMenuContext?: InboxMenuContext;
+  lastMenuSentAt?: Date;
+  conversationStatus?: InboxConversationStatus;
+  /** Menu de setores enviado recentemente ou conversa em bot_triage (histórico de mensagens). */
+  inboxTriageActive?: boolean;
+  inboxMenuChoice: string | null;
+  now?: Date;
+}
+
+function withinClosedReplyWindow(expiresAt: Date | undefined, now: Date): boolean {
+  if (!expiresAt) return false;
+  return now < new Date(expiresAt);
+}
+
+function graceActive(until: Date | undefined, now: Date): boolean {
+  if (!until) return false;
+  return now < new Date(until);
+}
+
+/** Cliente pediu explicitamente novo atendimento (texto ou menu ticket). */
+export function wantsNewInboundService(trimmed: string): boolean {
+  if (!trimmed) return false;
+  if (isNewServiceGreeting(trimmed)) return true;
+  const norm = trimmed.trim().toLowerCase();
+  if (norm === 'novo' || norm === 'novo atendimento') return true;
+  return parseTicketFollowUpChoice(trimmed) === 'new_service';
+}
+
+/**
+ * Decide se o ticket pode capturar a mensagem antes de retornar true no handler.
+ * Inbox tem prioridade quando há menu de triagem ativo ou intenção de novo atendimento.
+ */
+export function evaluateTicketInboundRouting(
+  input: TicketInboundRoutingInput,
+): TicketCaptureDecision {
+  const now = input.now ?? new Date();
+  const within12h =
+    input.ticketStatus === 'closed' &&
+    withinClosedReplyWindow(input.clientReplyExpiresAt, now);
+  const inOpenTicketContext =
+    input.ticketStatus !== 'closed' && input.teamHasMessagedClient;
+
+  if (input.ticketInboundMode === 'new_service') return 'release_inbox';
+
+  if (input.conversationStatus === InboxConversationStatus.BOT_TRIAGE) {
+    return 'release_inbox';
+  }
+
+  if (input.inboxTriageActive) {
+    return 'release_inbox';
+  }
+
+  if (wantsNewInboundService(input.trimmed)) return 'release_inbox';
+
+  if (input.inboxMenuChoice) {
+    if (
+      isMenuContextActive(
+        input.lastMenuContext,
+        input.lastMenuSentAt,
+        'inbox_triage',
+        INBOX_MENU_CONTEXT_TTL_MS,
+        now.getTime(),
+      )
+    ) {
+      return 'release_inbox';
+    }
+  }
+
+  if (input.ticketStatus === 'closed' && !within12h) return 'release_inbox';
+
+  if (
+    isMenuContextActive(
+      input.lastMenuContext,
+      input.lastMenuSentAt,
+      'inbox_triage',
+      INBOX_MENU_CONTEXT_TTL_MS,
+      now.getTime(),
+    )
+  ) {
+    return 'release_inbox';
+  }
+
+  if (
+    isMenuContextActive(
+      input.lastMenuContext,
+      input.lastMenuSentAt,
+      'ticket_grace_expired',
+      INBOX_MENU_CONTEXT_TTL_MS,
+      now.getTime(),
+    )
+  ) {
+    const choice = parseTicketGraceExpiredChoice(input.trimmed);
+    if (choice === 'new_service') return 'release_inbox';
+    if (choice === 'wait_ticket') return 'capture';
+  }
+
+  if (
+    isMenuContextActive(
+      input.lastMenuContext,
+      input.lastMenuSentAt,
+      'ticket_followup',
+      INBOX_MENU_CONTEXT_TTL_MS,
+      now.getTime(),
+    )
+  ) {
+    const follow = parseTicketFollowUpChoice(input.trimmed);
+    if (follow === 'new_service') return 'release_inbox';
+    if (follow === 'ticket') return 'capture';
+  }
+
+  if (parseTicketClientExit(input.trimmed) || parseTicketFinalize(input.trimmed)) {
+    return 'capture';
+  }
+
+  if (input.ticketInboundMode === 'ticket' || input.ticketInboundMode === 'awaiting_follow_up') {
+    if (parseTicketStatusRequest(input.trimmed)) return 'capture';
+    if (within12h || inOpenTicketContext) return 'capture';
+  }
+
+  if (inOpenTicketContext) {
+    if (input.inboxMenuChoice || wantsNewInboundService(input.trimmed)) {
+      return 'release_inbox';
+    }
+    return 'capture';
+  }
+
+  if (within12h) {
+    if (input.clientReplyPaused) {
+      return 'defer_inbox';
+    }
+    if (graceActive(input.clientReplyGraceUntil, now)) {
+      return 'capture';
+    }
+    return 'capture';
+  }
+
+  return 'release_inbox';
+}
+
+export type TicketGraceExpiredChoice = 'new_service' | 'wait_ticket';
+
+export function parseTicketGraceExpiredChoice(text: string): TicketGraceExpiredChoice | null {
+  const norm = text.trim().toLowerCase();
+  if (!norm) return null;
+  if (norm === '1' || norm === 'novo' || norm === 'novo atendimento') return 'new_service';
+  if (norm === '2' || norm === 'aguardar' || norm === 'retorno') return 'wait_ticket';
+  return null;
+}
+
+export function buildTicketGraceExpiredMenu(): string {
+  return (
+    'As informações complementares deste chamado já foram registradas.\n\n' +
+    '*1* — Iniciar novo atendimento\n' +
+    '*2* — Aguardar retorno deste chamado\n\n' +
+    'Responda com o número ou digite *NOVO*.'
+  );
+}
+
+export const TICKET_GRACE_EXPIRED_HINT =
+  'As informações complementares deste chamado já foram registradas. Para iniciar um novo atendimento, digite *NOVO*.';
+
+export const TICKET_WAITING_RETURN_ACK =
+  'Certo! Quando nossa equipe enviar uma nova atualização neste chamado, você poderá responder por aqui.';

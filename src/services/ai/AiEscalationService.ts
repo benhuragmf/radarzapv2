@@ -59,7 +59,7 @@ export class AiEscalationService {
     ) {
       return { shouldEscalate: true, reason: 'Cliente repetiu a mesma pergunta' };
     }
-    if (structured?.shouldEscalate) {
+    if (structured?.shouldEscalate && this.allowModelEscalation(state, text)) {
       return {
         shouldEscalate: true,
         reason: structured.escalationReason ?? 'IA indicou transferência',
@@ -68,11 +68,16 @@ export class AiEscalationService {
     if (
       rules.onLowConfidence &&
       structured &&
-      structured.confidence < rules.lowConfidenceThreshold
+      structured.confidence < rules.lowConfidenceThreshold &&
+      state.aiTurnCount >= 2
     ) {
       return { shouldEscalate: true, reason: 'Baixa confiança da IA' };
     }
-    if (rules.onMinDataCollected && this.hasMinData(state, prompt, structured)) {
+    if (
+      rules.onMinDataCollected &&
+      state.aiTurnCount >= 2 &&
+      this.hasMinData(state, prompt, structured)
+    ) {
       return { shouldEscalate: true, reason: 'Dados mínimos coletados' };
     }
     return { shouldEscalate: false };
@@ -86,10 +91,18 @@ export class AiEscalationService {
     const name = structured?.collectedName || state.collectedName;
     const email = structured?.collectedEmail || state.collectedEmail;
     const problem = structured?.collectedProblem || state.collectedProblem;
-    if (prompt.collectName && !name?.trim()) return false;
-    if (prompt.collectEmail && !email?.trim()) return false;
-    if (prompt.collectProblem && !problem?.trim()) return false;
-    return true;
+    const required: boolean[] = [];
+    if (prompt.collectName) required.push(Boolean(name?.trim()));
+    if (prompt.collectEmail) required.push(Boolean(email?.trim()));
+    if (prompt.collectProblem) required.push(Boolean(problem?.trim()));
+    if (!required.length) return false;
+    return required.every(Boolean);
+  }
+
+  /** Evita transferência na primeira resposta da IA (saudação / coleta inicial). */
+  private allowModelEscalation(state: IAiConversationState, clientText: string): boolean {
+    if (state.aiTurnCount >= 2) return true;
+    return HUMAN_KEYWORDS.test(clientText);
   }
 
   normalizeForRepeatCheck(text: string): string {

@@ -57,6 +57,9 @@ export interface IInboxTicket extends Document {
   openedByUserId: mongoose.Types.ObjectId;
   closedByUserId?: mongoose.Types.ObjectId;
   closedAt?: Date;
+  deletedAt?: Date;
+  deletedBy?: mongoose.Types.ObjectId;
+  deleteReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -127,6 +130,9 @@ const InboxTicketSchema = new Schema<IInboxTicket>(
     openedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     closedByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     closedAt: Date,
+    deletedAt: Date,
+    deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    deleteReason: { type: String, maxlength: 500 },
   },
   { timestamps: true, collection: 'inboxTickets' },
 );

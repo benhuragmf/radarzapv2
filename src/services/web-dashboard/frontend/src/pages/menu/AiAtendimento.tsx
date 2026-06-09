@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Settings2,
 } from 'lucide-react'
+import { AiModelPicker, type AiModelOption } from '../../components/ai/AiModelPicker'
 
 type TabId =
   | 'geral'
@@ -78,6 +79,9 @@ interface AiPayload {
   apiKeyMasked: string | null
   hasApiKey: boolean
   planLimits: { radarzapAllowed: boolean; dailyLimit: number; monthlyLimit: number }
+  modelCatalog: AiModelOption[]
+  modelCatalogs: { gemini: AiModelOption[]; openai: AiModelOption[] }
+  selectedModelPricing: AiModelOption | null
 }
 
 const inputCls =
@@ -153,7 +157,37 @@ export default function AiAtendimento() {
   }
 
   const patch = (partial: Partial<AiPayload['settings']>) =>
-    setForm(f => (f ? { ...f, settings: { ...f.settings, ...partial } } : f))
+    setForm(f => {
+      if (!f) return f
+      const next = { ...f.settings, ...partial }
+      let catalog = f.modelCatalog
+      if (partial.provider && partial.provider !== f.settings.provider) {
+        catalog = f.modelCatalogs[partial.provider]
+        const first = catalog.find(m => m.recommended) ?? catalog[0]
+        if (first) next.model = first.id
+      }
+      const pricing =
+        catalog.find(m => m.id === next.model) ??
+        (next.model === f.settings.model ? f.selectedModelPricing : null)
+      return {
+        ...f,
+        settings: next,
+        modelCatalog: catalog,
+        selectedModelPricing: pricing ?? f.selectedModelPricing,
+      }
+    })
+
+  const selectModel = (modelId: string) => {
+    setForm(f => {
+      if (!f) return f
+      const pricing = f.modelCatalog.find(m => m.id === modelId) ?? f.selectedModelPricing
+      return {
+        ...f,
+        settings: { ...f.settings, model: modelId },
+        selectedModelPricing: pricing ?? f.selectedModelPricing,
+      }
+    })
+  }
   const patchPrompt = (partial: Partial<AiPayload['prompt']>) =>
     setForm(f => (f ? { ...f, prompt: { ...f.prompt, ...partial } } : f))
 
@@ -253,12 +287,14 @@ export default function AiAtendimento() {
                 <option value="gemini">Google Gemini</option>
               </select>
             </div>
-            <div>
-              <label className="text-xs text-gray-500">Modelo</label>
-              <input
-                className={inputCls}
-                value={form.settings.model}
-                onChange={e => patch({ model: e.target.value })}
+            <div className="md:col-span-2">
+              <label className="text-xs text-gray-500 mb-2 block">Modelo e preço (por 1M tokens)</label>
+              <AiModelPicker
+                models={form.modelCatalog}
+                selectedId={form.settings.model}
+                onSelect={selectModel}
+                disabled={form.settings.mode !== 'company'}
+                dailyLimit={form.settings.dailyLimit}
               />
             </div>
             <div>

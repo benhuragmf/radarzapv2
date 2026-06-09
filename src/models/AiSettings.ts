@@ -7,6 +7,7 @@ import {
   DEFAULT_GEMINI_MODEL,
   DEFAULT_OPENAI_MODEL,
 } from '@/types/ai-assistant';
+import { defaultModelForProviderCatalog } from '@/constants/ai-model-catalog';
 
 export interface IAiSettings extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -63,5 +64,5 @@ const AiSettingsSchema = new Schema<IAiSettings>(
 export const AiSettings = mongoose.model<IAiSettings>('AiSettings', AiSettingsSchema);
 
 export function defaultModelForProvider(provider: AiProvider): string {
-  return provider === 'gemini' ? DEFAULT_GEMINI_MODEL : DEFAULT_OPENAI_MODEL;
+  return defaultModelForProviderCatalog(provider);
 }

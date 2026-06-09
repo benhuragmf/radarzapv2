@@ -117,6 +117,7 @@ export class ConsentService {
       dest.consent.ipAddress = '0.0.0.0';
       dest.isActive = true;
       dest.pendingOutboundCount = 0;
+      dest.lastConsentPromptAt = undefined;
     } else if (
       newStatus === ConsentStatus.REFUSED_THREE ||
       newStatus === ConsentStatus.MANUALLY_BLOCKED
@@ -201,8 +202,6 @@ export class ConsentService {
     if (dest.type !== 'contact') return false;
     if (this.isAwaitingConsentReply(dest)) return true;
     if ((dest.pendingOutboundDeliveries?.length ?? 0) > 0) return true;
-    const trimmed = text.trim();
-    if (trimmed && dest.lastConsentPromptAt && parseConsentReply(trimmed)) return true;
     return false;
   }
 

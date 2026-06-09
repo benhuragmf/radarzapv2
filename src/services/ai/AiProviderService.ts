@@ -1,6 +1,8 @@
 import { AiSettings, IAiSettings } from '@/models/AiSettings';
 import { Organization } from '@/models/Organization';
 import type { AiProvider, AiStructuredReply } from '@/types/ai-assistant';
+import { AI_GENERIC_FALLBACK_REPLY } from '@/types/ai-assistant';
+import { geminiFallbackModelIds } from '@/constants/ai-model-catalog';
 import { getAiPlanLimits } from '@/types/ai-assistant';
 import { AiCredentialVaultService } from './AiCredentialVaultService';
 import { AiUsageMeterService } from './AiUsageMeterService';
@@ -156,7 +158,42 @@ export class AiProviderService {
     };
   }
 
+  private geminiModelCandidates(primary: string): string[] {
+    return geminiFallbackModelIds(primary);
+  }
+
+  private isRetryableGeminiError(message: string): boolean {
+    return /high demand|quota exceeded|rate.?limit|429|resource.?exhausted|overloaded|try again|unavailable|please retry/i.test(
+      message,
+    );
+  }
+
   private async callGemini(
+    model: string,
+    apiKey: string,
+    messages: AiChatMessage[],
+    temperature: number,
+    maxTokens: number,
+  ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+    const models = this.geminiModelCandidates(model);
+    let lastError: Error | null = null;
+
+    for (let i = 0; i < models.length; i += 1) {
+      const candidate = models[i];
+      try {
+        return await this.callGeminiOnce(candidate, apiKey, messages, temperature, maxTokens);
+      } catch (e) {
+        const err = e as Error;
+        lastError = err;
+        const retryable = this.isRetryableGeminiError(err.message);
+        if (!retryable || i === models.length - 1) throw err;
+      }
+    }
+
+    throw lastError ?? new Error('Gemini indisponível');
+  }
+
+  private async callGeminiOnce(
     model: string,
     apiKey: string,
     messages: AiChatMessage[],
@@ -202,11 +239,42 @@ export class AiProviderService {
     };
   }
 
+  isUnusableClientReply(structured: AiStructuredReply): boolean {
+    if (structured.parseFailed) return true;
+    const reply = structured.reply?.trim() ?? '';
+    if (!reply) return true;
+    if (reply === AI_GENERIC_FALLBACK_REPLY) return true;
+    if (reply.startsWith('{') && reply.includes('"reply"')) return true;
+    return false;
+  }
+
   parseStructuredReply(raw: string): AiStructuredReply {
-    try {
-      const parsed = JSON.parse(raw) as Partial<AiStructuredReply>;
+    const trimmed = raw.trim();
+    const payload = this.extractJsonPayload(trimmed);
+    const looksLikeJson = trimmed.startsWith('{') || payload.startsWith('{');
+
+    if (!looksLikeJson && trimmed.length > 0) {
       return {
-        reply: String(parsed.reply ?? 'Desculpe, não consegui processar. Um atendente irá ajudá-lo em breve.'),
+        reply: trimmed,
+        confidence: 0.6,
+        shouldEscalate: false,
+        parseFailed: false,
+      };
+    }
+
+    try {
+      const parsed = JSON.parse(payload) as Partial<AiStructuredReply>;
+      const reply = this.normalizeClientReply(String(parsed.reply ?? ''));
+      if (!reply.trim()) {
+        return {
+          reply: AI_GENERIC_FALLBACK_REPLY,
+          confidence: 0.5,
+          shouldEscalate: false,
+          parseFailed: true,
+        };
+      }
+      return {
+        reply,
         collectedName: parsed.collectedName || undefined,
         collectedEmail: parsed.collectedEmail || undefined,
         collectedProblem: parsed.collectedProblem || undefined,
@@ -220,13 +288,52 @@ export class AiProviderService {
         shouldEscalate: Boolean(parsed.shouldEscalate),
         escalationReason: parsed.escalationReason,
         internalSummary: parsed.internalSummary,
+        parseFailed: false,
       };
     } catch {
+      const reply = this.extractReplyField(raw) ?? this.extractReplyField(payload);
+      if (reply?.trim()) {
+        return {
+          reply: reply.trim(),
+          confidence: 0.5,
+          shouldEscalate: false,
+          parseFailed: false,
+        };
+      }
       return {
-        reply: raw.trim() || 'Como posso ajudá-lo hoje?',
-        confidence: 0.4,
+        reply: AI_GENERIC_FALLBACK_REPLY,
+        confidence: 0.5,
         shouldEscalate: false,
+        parseFailed: true,
       };
     }
+  }
+
+  /** Remove cercas markdown e isola o objeto JSON da resposta do modelo. */
+  private extractJsonPayload(raw: string): string {
+    let text = raw.trim();
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) text = fenced[1].trim();
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start >= 0 && end > start) return text.slice(start, end + 1);
+    return text;
+  }
+
+  private extractReplyField(raw: string): string | undefined {
+    const match = raw.match(/"reply"\s*:\s*"((?:\\.|[^"\\])*)"/s);
+    if (!match) return undefined;
+    try {
+      return JSON.parse(`"${match[1]}"`) as string;
+    } catch {
+      return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    }
+  }
+
+  /** Nunca enviar JSON bruto ao cliente no WhatsApp. */
+  private normalizeClientReply(reply: string): string {
+    const trimmed = reply.trim();
+    if (!trimmed.startsWith('{') || !trimmed.includes('"reply"')) return trimmed;
+    return this.extractReplyField(trimmed) ?? AI_GENERIC_FALLBACK_REPLY;
   }
 }

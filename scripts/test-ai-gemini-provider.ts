@@ -17,7 +17,7 @@ const settings = {
   enabled: true,
   mode: 'company',
   provider: 'gemini',
-  llmModel: 'gemini-flash-latest',
+  llmModel: 'gemini-2.5-flash',
   temperature: 0.4,
   maxTokens: 64,
 } as IAiSettings;

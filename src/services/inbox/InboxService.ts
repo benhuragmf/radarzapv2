@@ -18,6 +18,7 @@ import {
   buildResolvedMessage,
   buildTransferMessage,
   loadActiveDepartments,
+  loadClientVisibleDepartments,
   loadInboxSettings,
   parseInboxMenuChoice,
 } from '@/constants/inbox-triage';
@@ -35,12 +36,15 @@ import {
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { AiConversationService } from '@/services/ai/AiConversationService';
+import { AiConversationState } from '@/models/AiConversationState';
+import { AiConversationStatus } from '@/types/ai-assistant';
 import {
   InboxTicketStatus,
   INBOX_TICKET_STATUS_LABEL,
   buildTicketFollowUpMenu,
   parseTicketClientExit,
   parseTicketFinalize,
+  isNewServiceGreeting,
   parseTicketFollowUpChoice,
   parseTicketStatusRequest,
   TICKET_CLIENT_EXIT_ACK,
@@ -76,9 +80,24 @@ import {
   INBOX_INTERNAL_RANK_MIN,
 } from '@/types/inbox-department';
 import { createServiceLogger } from '@/utils/logger';
+import type { InboxMenuContext } from '@/types/inbox-menu-context';
+import { type ConversationAiStatus, isAiFallbackExpired } from '@/types/inbox-conversation-ai';
+import {
+  evaluateTicketInboundRouting,
+  buildTicketGraceExpiredMenu,
+  parseTicketGraceExpiredChoice,
+  TICKET_WAITING_RETURN_ACK,
+  wantsNewInboundService,
+} from '@/services/inbox/inbound-routing';
+import { setContactMenuContext } from '@/services/inbox/menu-context';
+import {
+  isDuplicateInboundMessage,
+  markInboundMessageProcessed,
+} from '@/services/inbox/inbound-dedup';
 
 export interface InboxInboundPayload {
   text?: string;
+  whatsappMessageId?: string;
   media?: {
     mediaType: InboxMessageMediaType;
     mediaUrl: string;
@@ -91,6 +110,12 @@ const TERMINAL_STATUSES = new Set<InboxConversationStatus>([
   InboxConversationStatus.RESOLVED,
   InboxConversationStatus.CLOSED,
 ]);
+
+const TICKET_NOT_DELETED = {
+  $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+} as const;
+
+const logger = createServiceLogger('InboxService');
 
 /** Campos mínimos para timer de grace (lean ou documento). */
 type ClientReplyGraceTicket = Pick<IInboxTicket, 'ticketRef' | 'clientReplyGraceUntil'>;
@@ -113,8 +138,6 @@ type TicketEnrichmentRow = Pick<
   | 'createdAt'
 >;
 
-const logger = createServiceLogger('InboxService');
-
 export class InboxService {
   private static instance: InboxService;
 
@@ -125,6 +148,43 @@ export class InboxService {
   static getInstance(): InboxService {
     if (!InboxService.instance) InboxService.instance = new InboxService();
     return InboxService.instance;
+  }
+
+  async setConversationAiStatus(
+    clientId: string,
+    conversationId: string,
+    aiStatus: ConversationAiStatus | null,
+    aiFallbackUntil?: Date,
+  ): Promise<void> {
+    const update: Record<string, unknown> = { aiStatus };
+    if (aiFallbackUntil) update.aiFallbackUntil = aiFallbackUntil;
+    else if (aiStatus !== 'ai_fallback_standard') update.aiFallbackUntil = null;
+
+    await InboxConversation.updateOne(
+      {
+        _id: new mongoose.Types.ObjectId(conversationId),
+        clientId: new mongoose.Types.ObjectId(clientId),
+      },
+      { $set: update },
+    );
+  }
+
+  async clearConversationAi(clientId: string, conversationId: string): Promise<void> {
+    await InboxConversation.updateOne(
+      {
+        _id: new mongoose.Types.ObjectId(conversationId),
+        clientId: new mongoose.Types.ObjectId(clientId),
+      },
+      { $set: { aiStatus: null, aiFallbackUntil: null } },
+    );
+  }
+
+  private async syncHumanAssignedAiState(clientId: string, conversationId: string): Promise<void> {
+    await AiConversationState.updateOne(
+      { conversationId: new mongoose.Types.ObjectId(conversationId) },
+      { status: AiConversationStatus.HUMAN_ASSIGNED },
+    );
+    await this.setConversationAiStatus(clientId, conversationId, 'human_assigned');
   }
 
   /** Recupera timers de grace após restart e varre tickets expirados + SLA Inbox. */
@@ -778,14 +838,18 @@ export class InboxService {
 
     if (consentSvc.shouldDeferToConsentFlow(dest, trimmed)) return false;
 
-    const ticket = await this.findTicketForClientReply(clientId, dest._id as mongoose.Types.ObjectId);
+    const destinationId = dest._id as mongoose.Types.ObjectId;
+    if (await this.inboxTriageContextActive(clientId, destinationId)) {
+      return false;
+    }
+
+    const ticket = await this.findTicketForClientReply(clientId, destinationId);
     if (!ticket) return false;
 
     const displayBody =
       trimmed || (media ? INBOX_MEDIA_LABEL[media.mediaType] ?? 'Mídia recebida' : '');
     if (!displayBody) return false;
 
-    const within12h = this.isWithinClosedReplyWindow(ticket);
     const inReplyWindow = this.canClientReplyToTicket(ticket);
 
     if (
@@ -812,9 +876,20 @@ export class InboxService {
       return true;
     }
 
-    if (ticket.ticketInboundMode === 'new_service') return false;
+    const routing = await this.resolveTicketRouting(clientId, dest, ticket, trimmed);
+    if (routing === 'release_inbox') return false;
 
-    if (ticket.status === 'closed' && within12h && ticket.clientReplyPaused) {
+    if (routing === 'grace_menu') {
+      const handled = await this.handleGraceExpiredInbound(
+        clientId,
+        dest,
+        ticket,
+        trimmed,
+      );
+      return handled;
+    }
+
+    if (ticket.status === 'closed' && ticket.clientReplyPaused) {
       const pausedHandled = await this.handleClosedTicketPausedInbound(
         clientId,
         dest.identifier,
@@ -825,7 +900,7 @@ export class InboxService {
       if (pausedHandled !== 'continue') return pausedHandled;
     }
 
-    if (ticket.status === 'closed' && within12h && !ticket.clientReplyPaused) {
+    if (ticket.status === 'closed' && !ticket.clientReplyPaused && this.isWithinClosedReplyWindow(ticket)) {
       if (this.isPastFollowUpMenuHours(ticket) && ticket.ticketInboundMode !== 'ticket') {
         const menuHandled = await this.handleClosedTicketFollowUpMenu(
           clientId,
@@ -833,7 +908,7 @@ export class InboxService {
           ticket,
           trimmed,
         );
-        if (menuHandled) return true;
+        if (menuHandled !== false) return menuHandled;
       }
       if (ticket.ticketInboundMode === 'ticket' && parseTicketStatusRequest(trimmed)) {
         await this.sendToContact(
@@ -845,9 +920,38 @@ export class InboxService {
       }
     }
 
-    if (!inReplyWindow) return false;
+    if (!inReplyWindow) {
+      await this.releaseTicketToInbox(ticket);
+      return false;
+    }
+
+    const recheck = await this.resolveTicketRouting(clientId, dest, ticket, trimmed);
+    if (recheck !== 'capture') return false;
 
     await this.recordTicketClientReply(clientId, dest.identifier, ticket, displayBody, media);
+    return true;
+  }
+
+  /** Cliente escreve após expirar os 30 min de complemento. */
+  private async handleGraceExpiredInbound(
+    clientId: string,
+    dest: IDestination,
+    ticket: IInboxTicket,
+    trimmed: string,
+  ): Promise<boolean> {
+    const choice = parseTicketGraceExpiredChoice(trimmed);
+    if (choice === 'new_service' || wantsNewInboundService(trimmed)) {
+      await this.releaseTicketToInbox(ticket);
+      return false;
+    }
+    if (choice === 'wait_ticket') {
+      await this.sendToContact(clientId, dest.identifier, TICKET_WAITING_RETURN_ACK);
+      return true;
+    }
+
+    const menu = buildTicketGraceExpiredMenu();
+    await this.sendToContact(clientId, dest.identifier, menu);
+    await setContactMenuContext(dest._id as mongoose.Types.ObjectId, 'ticket_grace_expired');
     return true;
   }
 
@@ -871,6 +975,21 @@ export class InboxService {
     media?: InboxInboundPayload['media'],
   ): Promise<boolean | 'continue'> {
     if (!this.isPastFollowUpMenuHours(ticket)) return false;
+
+    if (
+      await this.shouldDeferToInboxTriage(
+        clientId,
+        ticket.destinationId as mongoose.Types.ObjectId,
+        ticket,
+        trimmed,
+      )
+    ) {
+      ticket.ticketInboundMode = 'new_service';
+      ticket.clientReplyPaused = false;
+      ticket.clientReplyGraceUntil = undefined;
+      await ticket.save();
+      return false;
+    }
 
     if (ticket.ticketInboundMode === 'ticket') {
       if (parseTicketStatusRequest(trimmed)) {
@@ -913,13 +1032,14 @@ export class InboxService {
       return 'continue';
     }
 
-    await this.sendToContact(
-      clientId,
-      contactIdentifier,
-      buildTicketFollowUpMenu(ticket.ticketRef),
-    );
+    const followMenu = buildTicketFollowUpMenu(ticket.ticketRef);
+    await this.sendToContact(clientId, contactIdentifier, followMenu);
     ticket.ticketInboundMode = 'awaiting_follow_up';
     await ticket.save();
+    await setContactMenuContext(
+      ticket.destinationId as mongoose.Types.ObjectId,
+      'ticket_followup',
+    );
     return true;
   }
 
@@ -930,6 +1050,21 @@ export class InboxService {
     ticket: IInboxTicket,
     trimmed: string,
   ): Promise<boolean> {
+    if (
+      await this.shouldDeferToInboxTriage(
+        clientId,
+        ticket.destinationId as mongoose.Types.ObjectId,
+        ticket,
+        trimmed,
+      )
+    ) {
+      ticket.ticketInboundMode = 'new_service';
+      ticket.clientReplyPaused = false;
+      ticket.clientReplyGraceUntil = undefined;
+      await ticket.save();
+      return false;
+    }
+
     const choice = parseTicketFollowUpChoice(trimmed);
     if (choice === 'new_service') {
       ticket.ticketInboundMode = 'new_service';
@@ -954,13 +1089,14 @@ export class InboxService {
       }
       return false;
     }
-    await this.sendToContact(
-      clientId,
-      contactIdentifier,
-      buildTicketFollowUpMenu(ticket.ticketRef),
-    );
+    const followMenu = buildTicketFollowUpMenu(ticket.ticketRef);
+    await this.sendToContact(clientId, contactIdentifier, followMenu);
     ticket.ticketInboundMode = 'awaiting_follow_up';
     await ticket.save();
+    await setContactMenuContext(
+      ticket.destinationId as mongoose.Types.ObjectId,
+      'ticket_followup',
+    );
     return true;
   }
 
@@ -981,6 +1117,15 @@ export class InboxService {
     displayBody: string,
     media?: InboxInboundPayload['media'],
   ): Promise<void> {
+    if (
+      await this.contactHasActiveInboxBotTriage(
+        clientId,
+        ticket.destinationId as mongoose.Types.ObjectId,
+      )
+    ) {
+      return;
+    }
+
     const wasInActiveGrace = Boolean(
       ticket.clientReplyGraceUntil && new Date() < new Date(ticket.clientReplyGraceUntil),
     );
@@ -1112,7 +1257,12 @@ export class InboxService {
     await ticket.save();
     this.cancelClientReplyGrace(clientId, ticket.ticketRef);
 
-    await this.sendToContact(clientId, ticket.contactIdentifier, TICKET_CLIENT_GRACE_EXPIRED_ACK);
+    const graceMenu = buildTicketGraceExpiredMenu();
+    await this.sendToContact(clientId, ticket.contactIdentifier, graceMenu);
+    await setContactMenuContext(
+      ticket.destinationId as mongoose.Types.ObjectId,
+      'ticket_grace_expired',
+    );
 
     const conv = await InboxConversation.findById(ticket.conversationId);
     if (conv) {
@@ -1120,7 +1270,7 @@ export class InboxService {
         clientId: conv.clientId,
         conversationId: conv._id,
         direction: 'outbound',
-        body: TICKET_CLIENT_GRACE_EXPIRED_ACK,
+        body: graceMenu,
       });
       await this.appendSystemMessage(
         conv,
@@ -1214,6 +1364,7 @@ export class InboxService {
     return InboxTicket.findOne({
       clientId: clientOid,
       destinationId,
+      ...TICKET_NOT_DELETED,
       $or: [
         {
           status: { $in: ['open', 'in_progress', 'client_replied'] },
@@ -1225,6 +1376,71 @@ export class InboxService {
         },
       ],
     }).sort({ updatedAt: -1 });
+  }
+
+  private async releaseTicketToInbox(ticket: IInboxTicket): Promise<void> {
+    ticket.ticketInboundMode = 'new_service';
+    ticket.clientReplyPaused = false;
+    ticket.clientReplyGraceUntil = undefined;
+    ticket.updatedAt = new Date();
+    await ticket.save();
+  }
+
+  private async getPrimaryOpenConversationStatus(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<InboxConversationStatus | undefined> {
+    const botTriage = await InboxConversation.exists({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      destinationId,
+      status: InboxConversationStatus.BOT_TRIAGE,
+    });
+    if (botTriage) return InboxConversationStatus.BOT_TRIAGE;
+    const conv = await this.findOpenConversation(clientId, destinationId);
+    return conv?.status;
+  }
+
+  private async resolveTicketRouting(
+    clientId: string,
+    dest: IDestination,
+    ticket: IInboxTicket,
+    trimmed: string,
+  ): Promise<'capture' | 'release_inbox' | 'grace_menu'> {
+    const inboxChoice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
+    const destinationId = dest._id as mongoose.Types.ObjectId;
+    const [conversationStatus, inboxTriageActive] = await Promise.all([
+      this.getPrimaryOpenConversationStatus(clientId, destinationId),
+      this.inboxTriageContextActive(clientId, destinationId),
+    ]);
+    const decision = evaluateTicketInboundRouting({
+      trimmed,
+      ticketStatus: ticket.status,
+      ticketInboundMode: ticket.ticketInboundMode,
+      clientReplyPaused: ticket.clientReplyPaused,
+      clientReplyExpiresAt: ticket.clientReplyExpiresAt,
+      clientReplyGraceUntil: ticket.clientReplyGraceUntil,
+      teamHasMessagedClient: ticket.teamHasMessagedClient,
+      lastMenuContext: dest.lastMenuContext,
+      lastMenuSentAt: dest.lastMenuSentAt,
+      conversationStatus,
+      inboxTriageActive,
+      inboxMenuChoice: inboxChoice,
+    });
+
+    if (decision === 'release_inbox') {
+      await this.releaseTicketToInbox(ticket);
+      return 'release_inbox';
+    }
+
+    if (
+      decision === 'defer_inbox' &&
+      ticket.clientReplyPaused &&
+      ticket.status === 'closed'
+    ) {
+      return 'grace_menu';
+    }
+
+    return decision === 'capture' ? 'capture' : 'release_inbox';
   }
 
   private notifyTicketUpdated(clientId: string, ticketRef: string): void {
@@ -1256,7 +1472,16 @@ export class InboxService {
     const dest = await consentSvc.findOrCreateContactFromInbound(clientId, fromJid, altJid);
     if (!dest) return;
 
-    if (consentSvc.shouldDeferToConsentFlow(dest, (normalized.text ?? '').trim())) return;
+    const triageActive = await this.inboxTriageContextActive(
+      clientId,
+      dest._id as mongoose.Types.ObjectId,
+    );
+    if (
+      !triageActive &&
+      consentSvc.shouldDeferToConsentFlow(dest, (normalized.text ?? '').trim())
+    ) {
+      return;
+    }
 
     const channelOpen = await consentSvc.acceptInboundInitiated(clientId, dest);
     if (!channelOpen) return;
@@ -1303,7 +1528,7 @@ export class InboxService {
       mediaType: media?.mediaType,
       mediaUrl: media?.mediaUrl,
       mediaMime: media?.mediaMime,
-      whatsappMessageId: media?.whatsappMessageId,
+      whatsappMessageId: normalized.whatsappMessageId ?? media?.whatsappMessageId,
     });
 
     if (!openHours) {
@@ -1313,31 +1538,95 @@ export class InboxService {
       return;
     }
 
-    if (conversation.status === InboxConversationStatus.BOT_TRIAGE) {
-      const aiHandled = await AiConversationService.getInstance().handleInbound(
-        {
-          clientId,
-          conversation,
-          dest,
-          text: trimmed,
-          isNew,
-          hasMedia: Boolean(media),
-          mediaType: media?.mediaType,
-        },
-        this,
-      );
-      if (aiHandled) return;
+    if (
+      trimmed &&
+      isNewServiceGreeting(trimmed) &&
+      conversation.status === InboxConversationStatus.WAITING_QUEUE &&
+      !conversation.assignedUserId
+    ) {
+      await this.resetConversationForBotTriage(conversation);
+    }
 
-      const choice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
-      if (isNew && !choice) {
-        const menu = await buildInboxTriageMenu(clientId);
-        await this.sendToContact(clientId, dest.identifier, menu);
-        await this.appendSystemMessage(conversation, menu);
-        return;
+    if (conversation.status === InboxConversationStatus.BOT_TRIAGE) {
+      await this.releaseTicketsForInboxTriage(clientId, dest._id as mongoose.Types.ObjectId);
+
+      if (isAiFallbackExpired(conversation.aiStatus, conversation.aiFallbackUntil)) {
+        await this.clearConversationAi(clientId, String(conversation._id));
+        conversation.aiStatus = null;
+        conversation.aiFallbackUntil = undefined;
       }
-      if (trimmed) {
+
+      let forceStandardMenu = false;
+      const aiActive = await AiConversationService.getInstance().isEnabled(clientId);
+      if (aiActive) {
+        const aiResult = await AiConversationService.getInstance().handleInbound(
+          {
+            clientId,
+            conversation,
+            dest,
+            text: trimmed,
+            isNew,
+            hasMedia: Boolean(media),
+            mediaType: media?.mediaType,
+          },
+          this,
+        );
+        if (aiResult.handled) return;
+        forceStandardMenu = Boolean(aiResult.useStandardTriage);
+      }
+
+      await this.handleStandardBotTriage(clientId, conversation, dest, trimmed, {
+        isNew,
+        hasMedia: Boolean(media),
+        forceMenu: forceStandardMenu,
+      });
+      return;
+    }
+
+    if (trimmed && (await this.contactRecentlyReceivedInboxTriageMenu(clientId, dest._id as mongoose.Types.ObjectId))) {
+      const inboxChoice = await parseInboxMenuChoice(clientId, trimmed);
+      if (inboxChoice) {
+        await this.releaseTicketsForInboxTriage(clientId, dest._id as mongoose.Types.ObjectId);
+        await this.resetConversationForBotTriage(conversation);
         await this.handleTriageReply(clientId, conversation, trimmed, dest);
       }
+    }
+  }
+
+  /**
+   * Bot fixo de triagem (setores/filas) — independente da IA.
+   * Com IA desativada, este é o único caminho em BOT_TRIAGE.
+   */
+  private async handleStandardBotTriage(
+    clientId: string,
+    conversation: IInboxConversation,
+    dest: IDestination,
+    trimmed: string,
+    opts: { isNew: boolean; hasMedia: boolean; forceMenu?: boolean },
+  ): Promise<void> {
+    const choice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
+    if (choice) {
+      await this.handleTriageReply(clientId, conversation, trimmed, dest);
+      return;
+    }
+
+    const lacksMenu = await this.conversationLacksTriageMenu(
+      clientId,
+      conversation._id as mongoose.Types.ObjectId,
+    );
+    const needsMenu =
+      opts.forceMenu || opts.isNew || lacksMenu || (opts.hasMedia && !trimmed);
+
+    if (needsMenu) {
+      const menu = await buildInboxTriageMenu(clientId);
+      await setContactMenuContext(dest._id as mongoose.Types.ObjectId, 'inbox_triage');
+      await this.sendToContact(clientId, dest.identifier, menu);
+      await this.appendSystemMessage(conversation, menu);
+      return;
+    }
+
+    if (trimmed) {
+      await this.handleTriageReply(clientId, conversation, trimmed, dest);
     }
   }
 
@@ -1352,7 +1641,15 @@ export class InboxService {
       whatsappMessageId?: string;
     },
   ): Promise<void> {
-    await InboxMessage.create({
+    const cid = clientId ?? String(conversation.clientId);
+    const waId = opts?.whatsappMessageId;
+    if (waId) {
+      const dup = await isDuplicateInboundMessage(cid, conversation.channel, waId);
+      if (dup) return;
+    }
+
+    try {
+      await InboxMessage.create({
       clientId: conversation.clientId,
       conversationId: conversation._id,
       direction: 'inbound',
@@ -1361,12 +1658,21 @@ export class InboxService {
       mediaUrl: opts?.mediaUrl,
       mediaMime: opts?.mediaMime,
       whatsappMessageId: opts?.whatsappMessageId,
-    });
+      });
+    } catch (e) {
+      if ((e as { code?: number }).code === 11000 && waId) {
+        markInboundMessageProcessed(cid, conversation.channel, waId);
+        return;
+      }
+      throw e;
+    }
+
+    if (waId) markInboundMessageProcessed(cid, conversation.channel, waId);
+
     conversation.lastInboundAt = new Date();
     conversation.inactivityWarnedAt = undefined;
     conversation.lastMessageAt = new Date();
     await conversation.save();
-    const cid = clientId ?? String(conversation.clientId);
     this.notifyMessage(cid, String(conversation._id));
     this.notifyConversation(cid, conversation);
     WebhookDispatcherService.getInstance().emit(cid, 'inbox.message.received', {
@@ -1411,6 +1717,138 @@ export class InboxService {
       channel: 'whatsapp_qr',
       lastMessageAt: new Date(),
     });
+  }
+
+  /** Contato com conversa Inbox em triagem (menu de setores) — ticket TK não deve interceptar. */
+  private async contactHasActiveInboxBotTriage(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<boolean> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const active = await InboxConversation.exists({
+      clientId: clientOid,
+      destinationId,
+      status: InboxConversationStatus.BOT_TRIAGE,
+    });
+    return Boolean(active);
+  }
+
+  /** Triagem inbox ativa ou menu de setores enviado recentemente — ticket não captura 1/2/3/4. */
+  private async inboxTriageContextActive(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<boolean> {
+    if (await this.contactHasActiveInboxBotTriage(clientId, destinationId)) return true;
+    return this.contactRecentlyReceivedInboxTriageMenu(clientId, destinationId);
+  }
+
+  private async resetConversationForBotTriage(conversation: IInboxConversation): Promise<void> {
+    conversation.status = InboxConversationStatus.BOT_TRIAGE;
+    conversation.departmentId = undefined;
+    conversation.assignedUserId = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
+    conversation.queueEnteredAt = undefined;
+    conversation.queueSlaNotifiedAt = undefined;
+    conversation.aiStatus = null;
+    conversation.aiFallbackUntil = undefined;
+    conversation.lastMessageAt = new Date();
+    await conversation.save();
+  }
+
+  private async releaseTicketsForInboxTriage(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<void> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const now = new Date();
+    await InboxTicket.updateMany(
+      {
+        clientId: clientOid,
+        destinationId,
+        $or: [
+          { status: { $in: ['open', 'in_progress', 'client_replied'] } },
+          { status: 'closed', clientReplyExpiresAt: { $gt: now } },
+        ],
+      },
+      {
+        $set: { ticketInboundMode: 'new_service', clientReplyPaused: false },
+        $unset: { clientReplyGraceUntil: '' },
+      },
+    );
+  }
+
+  /**
+   * Resposta numérica/nome de setor após menu do Inbox — não confundir com ticket (1=chamado, 2=novo).
+   */
+  private async shouldDeferToInboxTriage(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+    ticket: IInboxTicket,
+    trimmed: string,
+  ): Promise<boolean> {
+    if (ticket.ticketInboundMode === 'new_service') return true;
+    if (ticket.ticketInboundMode === 'ticket') return false;
+    if (!trimmed) return false;
+    if (await this.inboxTriageContextActive(clientId, destinationId)) return true;
+    const choice = await parseInboxMenuChoice(clientId, trimmed);
+    if (!choice) return false;
+    return this.contactRecentlyReceivedInboxTriageMenu(clientId, destinationId);
+  }
+
+  private async contactRecentlyReceivedInboxTriageMenu(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+    windowMs = 30 * 60 * 1000,
+  ): Promise<boolean> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const convs = await InboxConversation.find({ clientId: clientOid, destinationId })
+      .select('_id')
+      .lean();
+    if (!convs.length) return false;
+
+    const depts = await loadClientVisibleDepartments(clientId);
+    if (!depts.length) return false;
+
+    const since = new Date(Date.now() - windowMs);
+    const outbound = await InboxMessage.find({
+      conversationId: { $in: convs.map(c => c._id) },
+      direction: 'outbound',
+      createdAt: { $gte: since },
+    })
+      .select('body')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    return depts.some(d =>
+      outbound.some(m => m.body?.includes(`${d.menuKey} - ${d.name}`)),
+    );
+  }
+
+  /** Conversa em triagem que ainda não recebeu o menu de setores (ex.: veio só da IA). */
+  private async conversationLacksTriageMenu(
+    clientId: string,
+    conversationId: mongoose.Types.ObjectId,
+  ): Promise<boolean> {
+    const depts = await loadClientVisibleDepartments(clientId);
+    if (!depts.length) return true;
+
+    const outbound = await InboxMessage.find({
+      conversationId,
+      direction: 'outbound',
+    })
+      .select('body')
+      .sort({ createdAt: -1 })
+      .limit(25)
+      .lean();
+
+    if (!outbound.length) return true;
+
+    const sentMenu = depts.some(d =>
+      outbound.some(m => m.body?.includes(`${d.menuKey} - ${d.name}`)),
+    );
+    return !sentMenu;
   }
 
   private async handleTriageReply(
@@ -1777,7 +2215,7 @@ export class InboxService {
   ) {
     await this.syncLegacyTickets(clientId);
     const clientOid = new mongoose.Types.ObjectId(clientId);
-    const query: Record<string, unknown> = { clientId: clientOid };
+    const query: Record<string, unknown> = { clientId: clientOid, ...TICKET_NOT_DELETED };
 
     if (filters.status && ['open', 'in_progress', 'client_replied', 'closed'].includes(filters.status)) {
       query.status = filters.status;
@@ -1986,12 +2424,15 @@ export class InboxService {
     return { ticketRef: ticket.ticketRef, status: ticket.status };
   }
 
-  async deleteTicket(clientId: string, userId: string, ticketRef: string) {
+  async deleteTicket(clientId: string, userId: string, ticketRef: string, reason?: string) {
     const ticket = await this.getTicketForUser(clientId, userId, ticketRef);
     const ref = ticket.ticketRef;
     const convId = ticket.conversationId;
 
-    await InboxTicket.deleteOne({ _id: ticket._id });
+    ticket.deletedAt = new Date();
+    ticket.deletedBy = new mongoose.Types.ObjectId(userId);
+    ticket.deleteReason = reason?.trim() || 'Excluído pelo painel';
+    await ticket.save();
 
     const conv = await InboxConversation.findById(convId);
     if (conv?.ticketRef === ref) {
@@ -2257,6 +2698,7 @@ export class InboxService {
     const ticket = await InboxTicket.findOne({
       clientId: new mongoose.Types.ObjectId(clientId),
       ticketRef: normalized,
+      ...TICKET_NOT_DELETED,
     });
     if (!ticket) throw new Error('Ticket não encontrado');
     await this.getConversationIfAllowed(clientId, userId, String(ticket.conversationId));
@@ -2605,7 +3047,15 @@ export class InboxService {
     conv.status = InboxConversationStatus.IN_PROGRESS;
     conv.lastMessageAt = new Date();
     await conv.save();
-    void AiConversationService.getInstance().markHumanAssigned(String(conv._id));
+    try {
+      await this.syncHumanAssignedAiState(clientId, String(conv._id));
+    } catch (e) {
+      logger.warn('Falha ao sincronizar status IA (human_assigned)', {
+        clientId,
+        conversationId: String(conv._id),
+        error: (e as Error).message,
+      });
+    }
 
     if (wasPull) {
       const pullerName = await this.resolveAgentDisplayName(userId);
@@ -3042,7 +3492,11 @@ export class InboxService {
     conv.lastMessageAt = new Date();
     conv.suggestedUserId = undefined;
     conv.suggestedAt = undefined;
+    conv.aiStatus = null;
+    conv.aiFallbackUntil = undefined;
     await conv.save();
+    await this.clearConversationAi(clientId, conversationId);
+    await setContactMenuContext(conv.destinationId as mongoose.Types.ObjectId, 'none');
 
     const closing = await buildResolvedMessage(clientId);
     await this.sendToContact(clientId, conv.contactIdentifier, closing);

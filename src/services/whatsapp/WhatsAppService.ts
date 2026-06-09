@@ -68,6 +68,8 @@ import {
 } from './waSessionEvents';
 import { saveInboxMedia } from '@/utils/inbox-media-storage';
 import type { InboxMessageMediaType } from '@/types/inbox';
+import { enqueueInboundForContact } from '@/services/inbox/inbound-contact-queue';
+import { isDuplicateInboundMessage } from '@/services/inbox/inbound-dedup';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 
 /** Redis cache TTL for live WA state (QR, connected) — 7 days */
@@ -2343,7 +2345,12 @@ export class WhatsAppService {
 
     socket.ev.on('messages.upsert', async (m) => {
       if (m.type !== 'notify' && m.type !== 'append') return;
-      for (const msg of m.messages) {
+      const inboundMessages = [...m.messages].sort((a, b) => {
+        const ta = Number(a.messageTimestamp ?? 0);
+        const tb = Number(b.messageTimestamp ?? 0);
+        return ta - tb;
+      });
+      for (const msg of inboundMessages) {
         if (msg.key.fromMe) continue;
         if (msg.key.remoteJid?.endsWith('@g.us')) continue;
 
@@ -2355,76 +2362,87 @@ export class WhatsAppService {
         const mediaType = this.extractInboundMediaType(msg);
         if ((!text && !mediaType) || !msg.key.remoteJid) continue;
 
-        let mediaPayload: {
-          mediaType: InboxMessageMediaType;
-          mediaUrl: string;
-          mediaMime?: string;
-          whatsappMessageId?: string;
-        } | undefined;
+        const contactKey = `${clientId}:${msg.key.remoteJid}`;
+        const waMessageId = msg.key.id;
 
-        if (mediaType) {
-          const downloaded = await this.downloadInboundMedia(clientId, msg, mediaType);
-          if (downloaded) {
-            mediaPayload = {
-              mediaType,
-              mediaUrl: downloaded.mediaUrl,
-              mediaMime: downloaded.mediaMime,
-              whatsappMessageId: msg.key.id,
-            };
+        await enqueueInboundForContact(contactKey, async () => {
+          if (
+            waMessageId &&
+            (await isDuplicateInboundMessage(clientId, 'whatsapp_qr', waMessageId))
+          ) {
+            return;
           }
-        }
 
-        if (!text && !mediaPayload) continue;
+          let mediaPayload: {
+            mediaType: InboxMessageMediaType;
+            mediaUrl: string;
+            mediaMime?: string;
+            whatsappMessageId?: string;
+          } | undefined;
 
-        this.serviceLogger.info('WA inbound (consent/inbox)', {
-          text: text.slice(0, 40),
-          mediaType,
-          remoteJid: msg.key.remoteJid,
-          upsertType: m.type,
+          if (mediaType) {
+            const downloaded = await this.downloadInboundMedia(clientId, msg, mediaType);
+            if (downloaded) {
+              mediaPayload = {
+                mediaType,
+                mediaUrl: downloaded.mediaUrl,
+                mediaMime: downloaded.mediaMime,
+                whatsappMessageId: waMessageId,
+              };
+            }
+          }
+
+          if (!text && !mediaPayload) return;
+
+          this.serviceLogger.info('WA inbound recebido', {
+            text: text.slice(0, 40),
+            mediaType,
+            remoteJid: msg.key.remoteJid,
+            upsertType: m.type,
+          });
+
+          let ticketHandled = false;
+          try {
+            const { InboxService } = await import('@/services/inbox/InboxService');
+            ticketHandled = await InboxService.getInstance().handleTicketInboundMessage(
+              clientId,
+              msg.key.remoteJid!,
+              text || '',
+              msg.key.remoteJidAlt,
+              mediaPayload,
+            );
+          } catch (err) {
+            this.serviceLogger.warn('Ticket inbound handler error', err);
+          }
+
+          if (ticketHandled) return;
+
+          let consentHandled = false;
+          try {
+            consentHandled = await ConsentService.getInstance().handleInboundMessage(
+              clientId,
+              msg.key.remoteJid!,
+              text || '[mídia]',
+              msg.key.remoteJidAlt,
+            );
+          } catch (err) {
+            this.serviceLogger.warn('Consent inbound handler error', err);
+          }
+
+          if (consentHandled) return;
+
+          try {
+            const { InboxService } = await import('@/services/inbox/InboxService');
+            await InboxService.getInstance().handleInboundMessage(
+              clientId,
+              msg.key.remoteJid!,
+              { text, media: mediaPayload, whatsappMessageId: waMessageId },
+              msg.key.remoteJidAlt,
+            );
+          } catch (err) {
+            this.serviceLogger.warn('Inbox inbound handler error', err);
+          }
         });
-
-        // Ticket antes do consentimento — "sair"/"finalizar" no chamado ≠ opt-out LGPD
-        let ticketHandled = false;
-        try {
-          const { InboxService } = await import('@/services/inbox/InboxService');
-          ticketHandled = await InboxService.getInstance().handleTicketInboundMessage(
-            clientId,
-            msg.key.remoteJid,
-            text || '',
-            msg.key.remoteJidAlt,
-            mediaPayload,
-          );
-        } catch (err) {
-          this.serviceLogger.warn('Ticket inbound handler error', err);
-        }
-
-        if (ticketHandled) continue;
-
-        let consentHandled = false;
-        try {
-          consentHandled = await ConsentService.getInstance().handleInboundMessage(
-            clientId,
-            msg.key.remoteJid,
-            text || '[mídia]',
-            msg.key.remoteJidAlt,
-          );
-        } catch (err) {
-          this.serviceLogger.warn('Consent inbound handler error', err);
-        }
-
-        if (consentHandled) continue;
-
-        try {
-          const { InboxService } = await import('@/services/inbox/InboxService');
-          await InboxService.getInstance().handleInboundMessage(
-            clientId,
-            msg.key.remoteJid,
-            { text, media: mediaPayload },
-            msg.key.remoteJidAlt,
-          );
-        } catch (err) {
-          this.serviceLogger.warn('Inbox inbound handler error', err);
-        }
       }
     });
 

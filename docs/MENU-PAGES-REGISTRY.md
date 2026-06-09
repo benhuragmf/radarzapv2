@@ -17,10 +17,10 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/automacoes` | `PlatformAutomations.tsx` | `GET/POST /platform/automations` |
 | `/platform/inbox` | `menu/Inbox.tsx` | `GET/POST /inbox/*`, `?conv=` deep link |
 | `/platform/inbox/tickets` | `menu/InboxTickets.tsx` | `GET /inbox/tickets`, `GET /inbox/tickets/stats` |
-| `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref`, `POST …/client-update`, `…/close`, `…/comments` — fluxo assíncrono: `INBOX-ATENDIMENTO.md` § Tickets |
+| `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref`, `POST …/client-update`, `…/close`, `…/comments` — regras: `TICKET-ATENDIMENTO.md` |
 | `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
 | `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` (CSAT: `csatEnabled`, `csatPrompt`, `csatThankYou`) |
-| `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage` |
+| `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage` — fluxo WA: `INBOX-ATENDIMENTO.md` § IA opcional |
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
 | `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` |
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |

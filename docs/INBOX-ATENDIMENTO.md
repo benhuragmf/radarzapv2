@@ -5,7 +5,7 @@ Módulo proprietário de triagem, filas e atendimento humano via WhatsApp.
 > **Referências externas** (Izing, Whaticket, Chatwoot, etc.) servem apenas para inspirar fluxos de mercado.  
 > Nenhum código de terceiros é copiado. Contratos, modelos e UI são exclusivos do RadarZap.
 
-**Última revisão:** 2026-06-05 (tickets assíncronos + janela 12h)
+**Última revisão:** 2026-06-09 (roteamento ticket/inbox/IA, menu context, dedup, soft delete)
 
 ## Fluxo (MVP — Fase 1)
 
@@ -14,11 +14,13 @@ Cliente envia mensagem no WhatsApp (contato 1:1) — ele iniciou o contato
 ↓
 RadarZap localiza ou cria contato (aceite implícito para atendimento, sem pedir 1/2)
 ↓
-InboxService → IA de triagem (se ativa) ou menu de triagem (bot fixo)
+Ordem: ticket TK → consentimento LGPD → Inbox (triagem)
 ↓
-Conversa aberta? Se não → cria + menu
+InboxService → IA de triagem (somente se ativa) OU menu de triagem (bot fixo)
 ↓
-Cliente escolhe 1–4 (ou palavra-chave)
+Conversa em bot_triage? Se não existe aberta → cria + menu
+↓
+Cliente escolhe 1–4 (ou palavra-chave do setor)
 ↓
 Conversa entra na fila do setor (InboxDepartment)
 ↓
@@ -26,6 +28,63 @@ Atendente assume no painel (/platform/inbox)
 ↓
 Atendente responde / transfere / finaliza
 ```
+
+## Ordem de processamento inbound (WhatsApp)
+
+Implementação: `WhatsAppService` → `messages.upsert`.
+
+```txt
+1. handleTicketInboundMessage   — chamado TK-… (antes do consent: "sair" ≠ opt-out LGPD)
+2. ConsentService.handleInboundMessage — campanha LGPD pendente (1 aceito / 2 recuso)
+3. handleInboundMessage         — triagem bot / IA, filas, atendimento ao vivo
+```
+
+**Regra de ouro:** com IA **desativada**, o passo 3 **nunca** chama `AiConversationService.handleInbound`. O sistema segue só com bot fixo, filas, setores e humano — a IA não é dependência obrigatória.
+
+Diagrama simplificado do passo 3 em `bot_triage`:
+
+```txt
+handleInboundMessage
+  ├─ releaseTicketsForInboxTriage (ticketInboundMode = new_service)
+  ├─ IA ativa? → AiConversationService.handleInbound
+  │     ├─ handled → para
+  │     └─ useStandardTriage → bot fixo
+  └─ handleStandardBotTriage (menu / escolha / hint inválido)
+```
+
+Arquivos principais:
+
+| Arquivo | Responsabilidade |
+|---------|------------------|
+| `src/services/whatsapp/WhatsAppService.ts` | Entrada WA, ordem dos handlers |
+| `src/services/inbox/InboxService.ts` | Triagem, ticket, fila, transferência |
+| `src/services/ai/AiConversationService.ts` | Camada IA opcional em `bot_triage` |
+| `src/constants/inbox-triage.ts` | Menu, `parseInboxMenuChoice`, setores |
+| `src/types/inbox-ticket.ts` | Parsers ticket (`1`/`2` follow-up, `sair`, etc.) |
+| `src/services/inbox/inbound-routing.ts` | `evaluateTicketInboundRouting` — ticket vs inbox |
+| `src/services/inbox/inbound-contact-queue.ts` | Fila serial por contato (evita corrida 1/2/3) |
+| `src/services/inbox/inbound-dedup.ts` | Dedup `whatsappMessageId` |
+
+### Proteções anti-travamento
+
+| Mecanismo | Onde |
+|-----------|------|
+| **Fila por contato** | `enqueueInboundForContact` — mensagens do mesmo JID processadas em ordem |
+| **Dedup WA** | Índice único `inboxMessages(clientId, whatsappMessageId)` + cache em memória |
+| **Menu context** | `Destination.lastMenuContext` + `lastMenuSentAt` (TTL 30 min) |
+| **Roteamento ticket** | `evaluateTicketInboundRouting` antes de capturar mensagem |
+| **IA separada** | `InboxConversation.aiStatus` + `aiFallbackUntil` (TTL 24h) — **não** em `conversation.status` |
+| **Soft delete ticket** | `deletedAt`, `deletedBy`, `deleteReason` — sem `DELETE` físico |
+
+### `lastMenuContext` (contato)
+
+| Valor | Números |
+|-------|---------|
+| `inbox_triage` | `1`–`4` → setores Inbox |
+| `ticket_followup` | `1` → chamado; `2` → novo atendimento |
+| `ticket_grace_expired` | `1` → novo; `2` → aguardar retorno |
+| `consent` | fluxo LGPD |
+| `none` | intenção da mensagem / saudação |
 
 ## Segmentos automáticos (Contatos)
 
@@ -40,23 +99,63 @@ Se o cliente escolher um setor comercial na triagem (**Comercial**, **Vendas**, 
 
 Os segmentos aparecem em `/contact` na barra lateral de grupos, como qualquer outro segmento.
 
-## IA de triagem (v2.6)
+## IA de triagem (v2.6) — camada opcional
 
 Configuração: **Atendimento → IA Atendimento** (`/platform/inbox/ia`).
 
-| Modo | Comportamento |
-|------|----------------|
-| **Desativada** | Bot fixo + fila humana (fluxo original) |
-| **IA RadarZap** | Chave interna do servidor; limites por plano |
-| **IA própria** | OpenAI ou Gemini com API Key criptografada da empresa |
+| Modo | `enabled` / `mode` | Comportamento |
+|------|---------------------|---------------|
+| **Desativada** | `enabled: false` ou `mode: disabled` | **Somente** bot fixo + fila humana. Nenhuma regra de IA executada. |
+| **IA RadarZap** | `mode: radarzap` | Chave interna do servidor; limites por plano |
+| **IA própria** | `mode: company` | OpenAI ou Gemini com API Key criptografada (vault) |
 
-Na fase `bot_triage`, se a IA estiver ativa ela cumprimenta, coleta dados configurados (nome, e-mail, problema, etc.), classifica setor, gera resumo interno e transfere para a fila quando as regras de escalação disparam.
+**Ativação:** `AiSettingsService.isAiActive()` → `settings.enabled && mode !== 'disabled'`.
 
-Estados (`AiConversationState`): `ai_collecting`, `ai_waiting_client`, `ai_completed`, `ai_escalated`, `human_assigned`.
+Na fase `bot_triage`, **somente se a IA estiver ativa**, ela cumprimenta, coleta dados configurados (nome, e-mail, problema, etc.), classifica setor, gera resumo interno e transfere para a fila quando as regras de escalação disparam.
 
-API: `GET/PATCH /api/platform/ai/settings`, `POST /api/inbox/conversations/:id/ai/respond`, `POST /api/inbox/conversations/:id/ai/escalate`.
+### Fallback para bot fixo (IA ativa mas indisponível)
+
+| Situação | Resultado |
+|----------|-----------|
+| API falha (timeout, chave inválida, modelo indisponível) | `useStandardTriage: true` → menu de setores |
+| Limite diário/mensal do plano | idem |
+| Mídia não interpretável (regra `onUninterpretableMedia`) | idem |
+| Resposta JSON inválida / vazia da LLM | idem |
+| Estado `ai_fallback_standard` | idem (não re-tenta IA na mesma conversa) |
+| Escalação para humano (`ai_escalated`) | Inbox assume; fila/setor conforme regra |
+
+**Status da IA na conversa** (`InboxConversation.aiStatus` — separado de `status`):
+
+| `aiStatus` | Significado |
+|------------|-------------|
+| `ai_collecting` | Coletando dados iniciais |
+| `ai_waiting_client` | Aguardando próxima mensagem do cliente |
+| `ai_completed` | Triagem IA concluída |
+| `ai_escalated` | Transferido para humano |
+| `ai_fallback_standard` | Bot fixo (TTL `aiFallbackUntil`, padrão 24h) |
+| `human_assigned` | Atendente assumiu no painel |
+| `null` | Sem camada IA ativa |
+
+Espelho detalhado em `AiConversationState` (coleção auxiliar). `conversation.status` permanece: `bot_triage` \| `waiting_queue` \| `in_progress` \| `resolved` \| `closed`.
+
+Serviços: `AiProviderService`, `AiPromptBuilderService`, `AiEscalationService`, `AiUsageMeterService`.
+
+API painel: `GET/PATCH /api/platform/ai/settings`, `DELETE /api/platform/ai/key`, `POST /api/platform/ai/test`, `GET /api/platform/ai/usage`, catálogo de modelos em `src/constants/ai-model-catalog.ts`.
+
+### Bot fixo (`handleStandardBotTriage`)
+
+Função dedicada em `InboxService` — **independente da IA**. Usada quando:
+
+- IA desativada no tenant;
+- IA retornou `useStandardTriage`;
+- conversa nunca recebeu menu (`conversationLacksTriageMenu`);
+- primeira mensagem (`isNew`) ou mídia sem texto.
+
+Fluxo: `parseInboxMenuChoice` → `handleTriageReply` (fila) **ou** envia `buildInboxTriageMenu` **ou** `buildInvalidMenuHint`.
 
 ## Tickets de acompanhamento (atendimento assíncrono)
+
+> **Documento canônico:** [TICKET-ATENDIMENTO.md](./TICKET-ATENDIMENTO.md) — conceito, janelas 12h/2h/30min, `sair`, roteamento e regra “ticket não sequestra inbox”.
 
 Muitos problemas **não são resolvidos ao vivo** no WhatsApp. O fluxo típico:
 
@@ -138,6 +237,36 @@ Constantes de texto ao cliente: `src/types/inbox-ticket.ts`.
 - **1** → volta ao fluxo do ticket (`inserir`, `status`, `finalizar` / `sair`)
 - **2** → Inbox (novo atendimento pelo bot); o ticket antigo não captura
 
+### Colisão menu inbox × menu ticket (`1` e `2`)
+
+Os números **1** e **2** existem nos **dois** contextos:
+
+| Número | Menu inbox (triagem) | Menu ticket (após 2 h, cliente pausado) |
+|--------|----------------------|----------------------------------------|
+| `1` | Comercial (ou 1º setor público) | Inserir info / status / finalizar chamado |
+| `2` | Financeiro (ou 2º setor) | Iniciar **novo atendimento** |
+| `3` | Suporte | — (só inbox) |
+| `4` | Geral | — (só inbox) |
+
+Sem tratamento explícito, um ticket fechado na janela de **12 h** podia capturar `1`/`2` antes do Inbox — gravando em `clientReplies[]` e enviando o grace *"Ok! Se tiver mais alguma informação…"* em vez de direcionar para a fila.
+
+**Regras de prioridade (implementadas):**
+
+```txt
+inboxTriageContextActive = conversa em bot_triage
+                        OU menu de setores enviado nos últimos 30 min
+```
+
+| Condição | Ticket | Inbox |
+|----------|--------|-------|
+| `inboxTriageContextActive` | **Não intercepta** (`return false`) | Processa escolha |
+| `ticketInboundMode === 'new_service'` | **Não intercepta** | Processa |
+| `ticketInboundMode === 'ticket'` | Fluxo do chamado | Só se `shouldDeferToInboxTriage` |
+| Escolha 1–4 + menu inbox recente, conv em `waiting_queue` | Liberado | `resetConversationForBotTriage` + `handleTriageReply` |
+| `oi` + conv em `waiting_queue` sem atendente | Liberado | Reinicia `bot_triage` + menu |
+
+Funções: `inboxTriageContextActive`, `shouldDeferToInboxTriage`, `contactRecentlyReceivedInboxTriageMenu`, `releaseTicketsForInboxTriage`, `resetConversationForBotTriage`.
+
 **`sair` / `finalizar`:** pausa respostas neste ticket. Mensagem:
 
 > *Entendido! Você não precisa responder mais neste chamado…*
@@ -153,10 +282,45 @@ Enquanto `status` é `open`, `in_progress` ou `client_replied` e `teamHasMessage
 | Fluxo | Diferença |
 |-------|-----------|
 | **LGPD / campanha** | Pedido `1` aceito / `2` recuso antes de disparo em massa — `ConsentService`, não ticket |
-| **Menu do bot** | Setores 1–4 na **primeira** triagem — quando não há captura ativa de ticket |
+| **Menu do bot** | Setores 1–4 na triagem — prioridade sobre ticket quando `inboxTriageContextActive` |
 | **`sair` no ticket** | Pausa **só aquele chamado** — diferente de cancelar inscrição LGPD (`ConsentService` opt-out) |
 
-Ordem no `WhatsAppService` ao receber mensagem: **consentimento** (se campanha aguardando aceite) → **ticket** → **Inbox** (menu/bot).
+Ordem no `WhatsAppService` ao receber mensagem: **ticket** → **consentimento** (campanha LGPD) → **Inbox** (menu/bot/IA).
+
+### Scripts de diagnóstico (dev)
+
+| Script | Uso |
+|--------|-----|
+| `scripts/inspect-ticket.ts TK-XXXXXX` | Status do ticket, conversas abertas, modo inbound |
+| `scripts/fix-stuck-inbox-contact.ts [phone] --ai-off` | Limpa opt-out pendente, libera tickets (`new_service`), reseta conversa para `bot_triage`, desativa IA |
+| `scripts/fix-stuck-inbox-contact.ts [phone] --ai-on` | Reativa Gemini (`GEMINI_API_KEY` no `.env`) |
+| `scripts/test-ai-gemini-provider.ts` | Smoke test do provedor Gemini |
+
+Variável opcional: `TEST_CLIENT_ID` (padrão tenant de dev).
+
+### Teste E2E recomendado
+
+**IA desativada** (`--ai-off`):
+
+1. `oi` → menu com setores (`1 - Comercial`, …)
+2. `1` → confirmação de fila Comercial (sem grace do ticket)
+3. Mídia sem legenda → menu de setores (não silêncio)
+
+**IA ativada** (`--ai-on` + chave válida):
+
+1. `oi` → saudação IA (sem JSON cru, sem loop)
+2. Falha de API ou limite → menu de setores automaticamente
+3. Escalação → fila humana conforme regras do painel IA
+
+### Testes automatizados (`jest`)
+
+Arquivo: `src/services/inbox/__tests__/inbound-routing.test.ts`
+
+```bash
+npm test -- --testPathPattern=inbound-routing
+```
+
+Cenários: IA off (`oi`, `1`), menu inbox vs ticket, 12h, grace 30 min, `novo atendimento`, `bot_triage`.
 
 ### Modelo `inboxTickets`
 
@@ -174,6 +338,7 @@ Ordem no `WhatsAppService` ao receber mensagem: **consentimento** (se campanha a
 | `clientReplyGraceUntil` | Janela 30 min para complementos |
 | `clientReplyPaused` | Pausado (30 min expirou, `sair`, ou aguardando menu) |
 | `ticketInboundMode` | `awaiting_follow_up` \| `ticket` \| `new_service` |
+| `deletedAt` / `deletedBy` / `deleteReason` | Soft delete (exclusão lógica) |
 
 ### API REST — tickets (`/api/inbox/tickets/*`)
 
@@ -269,7 +434,7 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 
 ## Integração WhatsApp
 
-- **Entrada:** `WhatsAppService` → `messages.upsert` → `ConsentService` (se campanha LGPD pendente) → `InboxService.handleTicketInboundMessage` → `InboxService.handleInboundMessage`
+- **Entrada:** `WhatsAppService` → `messages.upsert` → `InboxService.handleTicketInboundMessage` → `ConsentService` (se campanha LGPD pendente) → `InboxService.handleInboundMessage`
 - **Saída:** `InboxService` → `WhatsAppService.sendManualMessage` (`skipConsentCheck` para respostas de atendimento)
 - **Grupos:** ignorados (só contatos 1:1)
 - **Consentimento inbound:** quem escreve primeiro não recebe prompt 1/2 — vai direto ao menu. Campanhas/envios ativos continuam com `assertCanSend` (LGPD outbound)
@@ -358,9 +523,10 @@ Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
 | `/platform/inbox/relatorios` | `pages/menu/InboxReports.tsx` |
 | `/platform/inbox/tickets` | `pages/menu/InboxTickets.tsx` — lista de chamados |
 | `/platform/inbox/tickets/:ref` | `pages/menu/InboxTicketDetail.tsx` — detalhe `TK-…` |
+| `/platform/inbox/ia` | `pages/menu/AiAtendimento.tsx` — IA Atendimento (9 abas) |
 | `/settings/team` | `TeamMembers.tsx` — convidar atendentes |
 
-Menu: **Plataforma → Atendimento → Inbox** / **Tickets** / **Setores** / **Supervisor** / **Relatórios**
+Menu: **Plataforma → Atendimento → Inbox** / **Tickets** / **Setores** / **IA Atendimento** / **Supervisor** / **Relatórios**
 
 ## Apresentação do atendente
 

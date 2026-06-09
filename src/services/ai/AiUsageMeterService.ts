@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { AiUsage } from '@/models/AiUsage';
 import { Organization } from '@/models/Organization';
 import { AiSettings, IAiSettings } from '@/models/AiSettings';
+import { estimateTokenCostUsd } from '@/constants/ai-model-catalog';
 import { getAiPlanLimits } from '@/types/ai-assistant';
 
 export interface AiUsageLimitsSnapshot {
@@ -137,9 +138,7 @@ export class AiUsageMeterService {
   }
 
   private estimateCost(model: string, input: number, output: number): number {
-    const inRate = model.includes('gpt-4o') ? 0.0000025 : 0.00000015;
-    const outRate = model.includes('gpt-4o') ? 0.00001 : 0.0000006;
-    return input * inRate + output * outRate;
+    return estimateTokenCostUsd(model, input, output);
   }
 
   async listUsage(

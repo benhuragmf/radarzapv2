@@ -112,3 +112,14 @@ export function parseTicketFinalize(text: string): boolean {
   const norm = normalizeTicketText(text);
   return norm === 'finalizar' || norm === 'finaliza' || norm === 'encerrar';
 }
+
+/** Cumprimento genérico — indica novo atendimento, não complemento de ticket */
+export function isNewServiceGreeting(text: string): boolean {
+  const norm = normalizeTicketText(text);
+  if (!norm) return false;
+  const greetings = [
+    'oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hello', 'hi', 'opa', 'eai', 'e ai',
+    'novo atendimento', 'quero atendimento', 'preciso de ajuda', 'atendimento',
+  ];
+  return greetings.some(g => norm === g || norm.startsWith(`${g} `));
+}

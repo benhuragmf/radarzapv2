@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { InboxChannel, InboxConversationStatus } from '@/types/inbox';
+import type { ConversationAiStatus } from '@/types/inbox-conversation-ai';
 
 export interface IInboxConversation extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -12,6 +13,10 @@ export interface IInboxConversation extends Document {
   suggestedUserId?: mongoose.Types.ObjectId;
   suggestedAt?: Date;
   status: InboxConversationStatus;
+  /** Camada IA — nunca misturar com status da conversa. */
+  aiStatus?: ConversationAiStatus | null;
+  /** Expira ai_fallback_standard (TTL 24h). */
+  aiFallbackUntil?: Date;
   channel: InboxChannel;
   lastMessageAt: Date;
   lastInboundAt?: Date;
@@ -51,6 +56,19 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
       default: InboxConversationStatus.BOT_TRIAGE,
       index: true,
     },
+    aiStatus: {
+      type: String,
+      enum: [
+        'ai_collecting',
+        'ai_waiting_client',
+        'ai_completed',
+        'ai_escalated',
+        'ai_fallback_standard',
+        'human_assigned',
+      ],
+      default: null,
+    },
+    aiFallbackUntil: Date,
     channel: {
       type: String,
       enum: ['whatsapp_qr', 'whatsapp_cloud'],

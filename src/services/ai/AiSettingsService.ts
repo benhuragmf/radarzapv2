@@ -3,10 +3,27 @@ import { AiSettings, IAiSettings, defaultModelForProvider } from '@/models/AiSet
 import { AiPrompt, IAiPrompt } from '@/models/AiPrompt';
 import { Organization } from '@/models/Organization';
 import type { AiMode, AiProvider } from '@/types/ai-assistant';
+import {
+  estimateTypicalTurnCostUsd,
+  getModelCatalogEntry,
+  listModelsForProvider,
+} from '@/constants/ai-model-catalog';
 import { getAiPlanLimits } from '@/types/ai-assistant';
 import { AiCredentialVaultService } from './AiCredentialVaultService';
 import { AiKnowledgeBaseService } from './AiKnowledgeBaseService';
 import { AiUsageMeterService } from './AiUsageMeterService';
+
+export interface AiModelCatalogPayload {
+  id: string;
+  label: string;
+  description: string;
+  inputUsdPer1M: number;
+  outputUsdPer1M: number;
+  tier: string;
+  recommended?: boolean;
+  deprecated?: boolean;
+  typicalTurnCostUsd: number;
+}
 
 export interface AiSettingsPayload {
   settings: Record<string, unknown>;
@@ -16,6 +33,9 @@ export interface AiSettingsPayload {
   apiKeyMasked: string | null;
   hasApiKey: boolean;
   planLimits: ReturnType<typeof getAiPlanLimits>;
+  modelCatalog: AiModelCatalogPayload[];
+  modelCatalogs: { gemini: AiModelCatalogPayload[]; openai: AiModelCatalogPayload[] };
+  selectedModelPricing: AiModelCatalogPayload | null;
 }
 
 export class AiSettingsService {
@@ -50,6 +70,62 @@ export class AiSettingsService {
     const promptDoc =
       prompt ??
       (await AiPrompt.create({ clientId: new mongoose.Types.ObjectId(clientId) }));
+
+    const toPayload = (m: ReturnType<typeof listModelsForProvider>[number]): AiModelCatalogPayload => ({
+      id: m.id,
+      label: m.label,
+      description: m.description,
+      inputUsdPer1M: m.inputUsdPer1M,
+      outputUsdPer1M: m.outputUsdPer1M,
+      tier: m.tier,
+      recommended: m.recommended,
+      deprecated: m.deprecated,
+      typicalTurnCostUsd: estimateTypicalTurnCostUsd(m.id),
+    });
+
+    const modelCatalogs = {
+      gemini: listModelsForProvider('gemini').map(toPayload),
+      openai: listModelsForProvider('openai').map(toPayload),
+    };
+
+    let catalog = listModelsForProvider(settings.provider).map(toPayload);
+    if (!catalog.some(m => m.id === settings.llmModel)) {
+      catalog = [
+        ...catalog,
+        {
+          id: settings.llmModel,
+          label: settings.llmModel,
+          description: 'Modelo salvo anteriormente — escolha um da lista para atualizar.',
+          inputUsdPer1M: 0.3,
+          outputUsdPer1M: 2.5,
+          tier: 'balanced',
+          typicalTurnCostUsd: estimateTypicalTurnCostUsd(settings.llmModel),
+        },
+      ];
+    }
+
+    const selected = getModelCatalogEntry(settings.llmModel);
+    const selectedModelPricing = selected
+      ? {
+          id: selected.id,
+          label: selected.label,
+          description: selected.description,
+          inputUsdPer1M: selected.inputUsdPer1M,
+          outputUsdPer1M: selected.outputUsdPer1M,
+          tier: selected.tier,
+          recommended: selected.recommended,
+          deprecated: selected.deprecated,
+          typicalTurnCostUsd: estimateTypicalTurnCostUsd(selected.id),
+        }
+      : {
+          id: settings.llmModel,
+          label: settings.llmModel,
+          description: 'Modelo personalizado (preço estimado)',
+          inputUsdPer1M: 0.3,
+          outputUsdPer1M: 2.5,
+          tier: 'balanced',
+          typicalTurnCostUsd: estimateTypicalTurnCostUsd(settings.llmModel),
+        };
 
     return {
       settings: {
@@ -86,6 +162,9 @@ export class AiSettingsService {
       apiKeyMasked: this.vault.maskApiKey(plainKey),
       hasApiKey: this.vault.hasKey(withKey?.encryptedApiKey),
       planLimits: getAiPlanLimits(org?.plan ?? 'free'),
+      modelCatalog: catalog,
+      modelCatalogs,
+      selectedModelPricing: selectedModelPricing,
     };
   }
 
@@ -114,8 +193,11 @@ export class AiSettingsService {
       settings.enabled = s.enabled;
     }
     if (s.provider === 'openai' || s.provider === 'gemini') {
+      const prevProvider = settings.provider;
       settings.provider = s.provider as AiProvider;
-      if (!s.model) settings.llmModel = defaultModelForProvider(settings.provider);
+      if (!s.model || prevProvider !== settings.provider) {
+        settings.llmModel = defaultModelForProvider(settings.provider);
+      }
     }
     if (typeof s.model === 'string' && s.model.trim()) settings.llmModel = s.model.trim();
     if (typeof s.temperature === 'number') settings.temperature = s.temperature;

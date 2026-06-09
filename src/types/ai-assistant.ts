@@ -10,6 +10,8 @@ export enum AiConversationStatus {
   AI_WAITING_CLIENT = 'ai_waiting_client',
   AI_COMPLETED = 'ai_completed',
   AI_ESCALATED = 'ai_escalated',
+  /** IA indisponível — conversa segue no bot padrão (menu de setores). */
+  AI_FALLBACK_STANDARD = 'ai_fallback_standard',
   HUMAN_ASSIGNED = 'human_assigned',
 }
 
@@ -65,10 +67,15 @@ export function getAiPlanLimits(plan: string): AiPlanLimits {
 }
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
-export const DEFAULT_GEMINI_MODEL = 'gemini-flash-latest';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+
+/** Resposta de fallback quando o JSON da IA não pôde ser interpretado — não enviar ao cliente. */
+export const AI_GENERIC_FALLBACK_REPLY = 'Olá! Como posso ajudá-lo hoje?';
 
 export interface AiStructuredReply {
   reply: string;
+  /** true quando a resposta não veio em JSON válido — usar bot padrão. */
+  parseFailed?: boolean;
   collectedName?: string;
   collectedEmail?: string;
   collectedProblem?: string;
