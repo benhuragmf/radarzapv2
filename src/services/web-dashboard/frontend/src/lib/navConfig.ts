@@ -4,7 +4,7 @@ import {
   ListOrdered, ScrollText, Send, Crown, Settings, Shield, Server, History,
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
-  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3, Ticket, Clock,
+  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3, Ticket, Clock, Sparkles,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -91,6 +91,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   link('inbox-tickets', 'Tickets', Ticket, '/platform/inbox/tickets', 'inbox:view'),
   link('inbox-sectors', 'Setores do Inbox', Building2, '/platform/inbox/setores', 'inbox:department:manage'),
   link('inbox-bot', 'Bot do Inbox', Bot, '/platform/inbox/bot', 'inbox:department:manage'),
+  link('inbox-ai', 'IA Atendimento', Sparkles, '/platform/inbox/ia', 'inbox:ai:manage'),
   link('inbox-quick-replies', 'Respostas rápidas', Zap, '/platform/inbox/respostas', 'inbox:department:manage'),
   link('inbox-supervisor', 'Supervisor', Eye, '/platform/inbox/supervisor', 'inbox:supervise'),
   link('inbox-reports', 'Relatórios Inbox', BarChart3, '/platform/inbox/relatorios', 'inbox:reports:view'),
@@ -394,6 +395,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/inbox/tickets': 'inbox:view',
   '/platform/inbox/setores': 'inbox:department:manage',
   '/platform/inbox/bot': 'inbox:department:manage',
+  '/platform/inbox/ia': 'inbox:ai:manage',
   '/platform/inbox/respostas': 'inbox:department:manage',
   '/platform/inbox/supervisor': 'inbox:supervise',
   '/platform/inbox/relatorios': 'inbox:reports:view',
@@ -468,6 +470,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/inbox/tickets': 'Tickets de atendimento',
   '/platform/inbox/setores': 'Setores do Inbox',
   '/platform/inbox/bot': 'Bot do Inbox',
+  '/platform/inbox/ia': 'IA Atendimento',
   '/platform/inbox/respostas': 'Respostas rápidas',
   '/platform/inbox/supervisor': 'Supervisor',
   '/platform/inbox/relatorios': 'Relatórios de atendimento',

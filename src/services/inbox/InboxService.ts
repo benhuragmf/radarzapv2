@@ -34,6 +34,7 @@ import {
 } from '@/types/inbox-quick-replies';
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
+import { AiConversationService } from '@/services/ai/AiConversationService';
 import {
   InboxTicketStatus,
   INBOX_TICKET_STATUS_LABEL,
@@ -1302,6 +1303,20 @@ export class InboxService {
     }
 
     if (conversation.status === InboxConversationStatus.BOT_TRIAGE) {
+      const aiHandled = await AiConversationService.getInstance().handleInbound(
+        {
+          clientId,
+          conversation,
+          dest,
+          text: trimmed,
+          isNew,
+          hasMedia: Boolean(media),
+          mediaType: media?.mediaType,
+        },
+        this,
+      );
+      if (aiHandled) return;
+
       const choice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
       if (isNew && !choice) {
         const menu = await buildInboxTriageMenu(clientId);
@@ -2579,6 +2594,7 @@ export class InboxService {
     conv.status = InboxConversationStatus.IN_PROGRESS;
     conv.lastMessageAt = new Date();
     await conv.save();
+    void AiConversationService.getInstance().markHumanAssigned(String(conv._id));
 
     if (wasPull) {
       const pullerName = await this.resolveAgentDisplayName(userId);
@@ -3224,6 +3240,94 @@ export class InboxService {
       skipConsentCheck: true,
       skipRateLimit: true,
       consentOrigin: 'inbox-reply',
+    });
+  }
+
+  async getConversationRaw(
+    clientId: string,
+    conversationId: string,
+  ): Promise<IInboxConversation | null> {
+    return InboxConversation.findOne({
+      _id: conversationId,
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+  }
+
+  async sendAiReply(
+    clientId: string,
+    conversation: IInboxConversation,
+    contactIdentifier: string,
+    text: string,
+  ): Promise<void> {
+    await this.sendToContact(clientId, contactIdentifier, text);
+    await InboxMessage.create({
+      clientId: conversation.clientId,
+      conversationId: conversation._id,
+      direction: 'outbound',
+      body: text,
+    });
+    conversation.lastMessageAt = new Date();
+    conversation.lastOutboundAt = new Date();
+    await conversation.save();
+    this.notifyMessage(clientId, String(conversation._id));
+    this.notifyConversation(clientId, conversation);
+  }
+
+  async escalateFromAi(
+    clientId: string,
+    conversation: IInboxConversation,
+    dest: IDestination,
+    department: IInboxDepartment | null,
+    opts: { reason: string; internalNote?: string; clientMessage?: string },
+  ): Promise<void> {
+    if (!department) {
+      const fallback = await buildInboxTriageMenu(clientId);
+      await this.sendToContact(clientId, dest.identifier, fallback);
+      await this.appendSystemMessage(conversation, opts.internalNote ?? opts.reason, undefined, clientId);
+      return;
+    }
+
+    await ContactAutoSegmentService.getInstance().tagLeadFromInboxDepartment(
+      clientId,
+      dest,
+      department.name,
+    );
+
+    conversation.departmentId = department._id as mongoose.Types.ObjectId;
+    conversation.assignedUserId = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
+    conversation.status = InboxConversationStatus.WAITING_QUEUE;
+    conversation.queueEnteredAt = new Date();
+    conversation.queueSlaNotifiedAt = undefined;
+    conversation.lastMessageAt = new Date();
+
+    const suggested = await this.tryRoundRobinSuggest(clientId, conversation, department);
+    await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Triagem IA — fila', department.name, {
+      conversationId: String(conversation._id),
+    });
+    await conversation.save();
+    this.notifyConversation(clientId, conversation);
+
+    if (opts.internalNote) {
+      await this.appendSystemMessage(
+        conversation,
+        `[IA] ${opts.internalNote}`,
+        undefined,
+        clientId,
+      );
+    }
+
+    const clientMsg =
+      opts.clientMessage ?? (await buildQueueConfirmation(clientId, department.name));
+    await this.sendToContact(clientId, dest.identifier, clientMsg);
+    await this.appendSystemMessage(conversation, clientMsg, undefined, clientId);
+    logger.info('IA escalonou conversa para fila', {
+      clientId,
+      conversationId: conversation._id,
+      department: department.name,
+      reason: opts.reason,
+      suggestedUserId: suggested?.toString(),
     });
   }
 }

@@ -14,7 +14,7 @@ Cliente envia mensagem no WhatsApp (contato 1:1) — ele iniciou o contato
 ↓
 RadarZap localiza ou cria contato (aceite implícito para atendimento, sem pedir 1/2)
 ↓
-InboxService → menu de triagem (bot fixo)
+InboxService → IA de triagem (se ativa) ou menu de triagem (bot fixo)
 ↓
 Conversa aberta? Se não → cria + menu
 ↓
@@ -39,6 +39,22 @@ Se o cliente escolher um setor comercial na triagem (**Comercial**, **Vendas**, 
 | **Lead** | Triagem em setor Comercial/Vendas/Marketing |
 
 Os segmentos aparecem em `/contact` na barra lateral de grupos, como qualquer outro segmento.
+
+## IA de triagem (v2.6)
+
+Configuração: **Atendimento → IA Atendimento** (`/platform/inbox/ia`).
+
+| Modo | Comportamento |
+|------|----------------|
+| **Desativada** | Bot fixo + fila humana (fluxo original) |
+| **IA RadarZap** | Chave interna do servidor; limites por plano |
+| **IA própria** | OpenAI ou Gemini com API Key criptografada da empresa |
+
+Na fase `bot_triage`, se a IA estiver ativa ela cumprimenta, coleta dados configurados (nome, e-mail, problema, etc.), classifica setor, gera resumo interno e transfere para a fila quando as regras de escalação disparam.
+
+Estados (`AiConversationState`): `ai_collecting`, `ai_waiting_client`, `ai_completed`, `ai_escalated`, `human_assigned`.
+
+API: `GET/PATCH /api/platform/ai/settings`, `POST /api/inbox/conversations/:id/ai/respond`, `POST /api/inbox/conversations/:id/ai/escalate`.
 
 ## Tickets de acompanhamento (atendimento assíncrono)
 

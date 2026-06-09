@@ -257,6 +257,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
 
       Cap.INBOX_DEPARTMENT_MANAGE,
 
+      Cap.INBOX_AI_MANAGE,
+
       Cap.INBOX_SUPERVISE,
 
       Cap.INBOX_REPORTS_VIEW,

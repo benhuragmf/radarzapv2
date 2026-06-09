@@ -119,6 +119,10 @@ import { redactEmail, redactOAuthError, escapeMongoRegex } from '../../utils/red
 import { encryptField } from '../../utils/field-encryption';
 import { requireDashboardOrigin } from '../../middleware/same-origin';
 import { productionSafeError } from '../../middleware/production-safe-error';
+import { AiSettingsService } from '../ai/AiSettingsService';
+import { AiProviderService } from '../ai/AiProviderService';
+import { AiUsageMeterService } from '../ai/AiUsageMeterService';
+import { AiConversationService } from '../ai/AiConversationService';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -1497,6 +1501,137 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const settings = await inboxSvc.updateSettings(auth.clientId, req.body ?? {});
         res.json(settings);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    const aiSettingsSvc = AiSettingsService.getInstance();
+    const aiProviderSvc = AiProviderService.getInstance();
+    const aiUsageSvc = AiUsageMeterService.getInstance();
+    const aiConvSvc = AiConversationService.getInstance();
+
+    r.get('/platform/ai/settings', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await aiSettingsSvc.getFullPayload(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/ai/settings', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body ?? {};
+        if ((body.settings as { apiKey?: string } | undefined)?.apiKey?.trim()) {
+          await writeAuditLog({
+            action: 'ai.api_key.updated',
+            actorUserId: auth.userId,
+            details: { clientId: auth.clientId },
+            ip: req.ip,
+          });
+        }
+        res.json(await aiSettingsSvc.upsertSettings(auth.clientId, body));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/platform/ai/settings', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body ?? {};
+        if ((body.settings as { apiKey?: string } | undefined)?.apiKey?.trim()) {
+          await writeAuditLog({
+            action: 'ai.api_key.updated',
+            actorUserId: auth.userId,
+            details: { clientId: auth.clientId },
+            ip: req.ip,
+          });
+        }
+        res.json(await aiSettingsSvc.upsertSettings(auth.clientId, body));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/platform/ai/key', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await writeAuditLog({
+          action: 'ai.api_key.removed',
+          actorUserId: auth.userId,
+          details: { clientId: auth.clientId },
+          ip: req.ip,
+        });
+        res.json(await aiSettingsSvc.removeApiKey(auth.clientId));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/ai/test', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { apiKey } = req.body as { apiKey?: string };
+        const settings = await aiSettingsSvc.getSettingsDoc(auth.clientId);
+        const result = await aiProviderSvc.testConnection(auth.clientId, settings, apiKey);
+        await writeAuditLog({
+          action: result.ok ? 'ai.api_key.test_ok' : 'ai.api_key.test_fail',
+          actorUserId: auth.userId,
+          details: { clientId: auth.clientId, provider: settings.provider, model: settings.llmModel },
+          ip: req.ip,
+        });
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/ai/usage', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { from, to, limit } = req.query as { from?: string; to?: string; limit?: string };
+        const toDate = to ? new Date(to) : new Date();
+        const fromDate = from
+          ? new Date(from)
+          : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const usage = await aiUsageSvc.listUsage(auth.clientId, {
+          from: fromDate,
+          to: toDate,
+          limit: limit ? Number(limit) : 100,
+        });
+        const snapshot = await aiUsageSvc.getUsageSnapshot(auth.clientId);
+        res.json({ ...usage, snapshot });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/ai/respond', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { message } = req.body as { message?: string };
+        if (!message?.trim()) return res.status(400).json({ error: 'message obrigatório' });
+        const result = await aiConvSvc.manualRespond(
+          auth.clientId,
+          req.params.id,
+          message.trim(),
+          inboxSvc,
+        );
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/ai/escalate', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { reason } = req.body as { reason?: string };
+        await aiConvSvc.manualEscalate(auth.clientId, req.params.id, inboxSvc, reason);
+        res.json({ ok: true });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }

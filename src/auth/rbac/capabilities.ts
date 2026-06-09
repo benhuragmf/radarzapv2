@@ -44,6 +44,7 @@ export const Cap = {
   INBOX_DEPARTMENT_MANAGE: 'inbox:department:manage',
   INBOX_REPORTS_VIEW: 'inbox:reports:view',
   INBOX_SUPERVISE: 'inbox:supervise',
+  INBOX_AI_MANAGE: 'inbox:ai:manage',
 
   QUEUE_VIEW: 'queue:view',
   QUEUE_RETRY: 'queue:retry',
@@ -103,6 +104,7 @@ const COMPANY_OWNER_CAPS: Capability[] = [
   Cap.INBOX_DEPARTMENT_MANAGE,
   Cap.INBOX_REPORTS_VIEW,
   Cap.INBOX_SUPERVISE,
+  Cap.INBOX_AI_MANAGE,
   Cap.PLATFORM_REPORTS_VIEW,
   Cap.PLATFORM_AUDIT_VIEW,
   Cap.QUEUE_VIEW,
@@ -134,6 +136,7 @@ const COMPANY_ADMIN_CAPS: Capability[] = [
   Cap.INBOX_DEPARTMENT_MANAGE,
   Cap.INBOX_REPORTS_VIEW,
   Cap.INBOX_SUPERVISE,
+  Cap.INBOX_AI_MANAGE,
   Cap.PLATFORM_REPORTS_VIEW,
   Cap.PLATFORM_AUDIT_VIEW,
   Cap.QUEUE_VIEW,

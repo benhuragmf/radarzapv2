@@ -44,6 +44,7 @@ import WaStatusPosts from './pages/menu/WaStatusPosts'
 import Inbox from './pages/menu/Inbox'
 import InboxSectors from './pages/menu/InboxSectors'
 import InboxBotSettings from './pages/menu/InboxBotSettings'
+import AiAtendimento from './pages/menu/AiAtendimento'
 import InboxReports from './pages/menu/InboxReports'
 import InboxQuickReplies from './pages/menu/InboxQuickReplies'
 import InboxTickets from './pages/menu/InboxTickets'
@@ -188,6 +189,7 @@ export default function App() {
           <Route path="platform/inbox" element={<Guard user={user} path="/platform/inbox"><Inbox /></Guard>} />
           <Route path="platform/inbox/setores" element={<Guard user={user} path="/platform/inbox/setores"><InboxSectors /></Guard>} />
           <Route path="platform/inbox/bot" element={<Guard user={user} path="/platform/inbox/bot"><InboxBotSettings /></Guard>} />
+          <Route path="platform/inbox/ia" element={<Guard user={user} path="/platform/inbox/ia"><AiAtendimento /></Guard>} />
           <Route path="platform/inbox/supervisor" element={<Guard user={user} path="/platform/inbox/supervisor"><InboxSupervisor /></Guard>} />
           <Route path="platform/inbox/relatorios" element={<Guard user={user} path="/platform/inbox/relatorios"><InboxReports /></Guard>} />
           <Route path="platform/inbox/respostas" element={<Guard user={user} path="/platform/inbox/respostas"><InboxQuickReplies /></Guard>} />

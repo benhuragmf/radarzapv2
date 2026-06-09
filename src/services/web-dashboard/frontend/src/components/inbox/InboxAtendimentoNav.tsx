@@ -7,6 +7,7 @@ import {
   Zap,
   Eye,
   BarChart3,
+  Sparkles,
 } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
 
@@ -15,6 +16,7 @@ const LINKS = [
   { to: '/platform/inbox/tickets', label: 'Tickets', icon: Ticket, cap: 'inbox:view' },
   { to: '/platform/inbox/setores', label: 'Setores', icon: Building2, cap: 'inbox:department:manage' },
   { to: '/platform/inbox/bot', label: 'Bot', icon: Bot, cap: 'inbox:department:manage' },
+  { to: '/platform/inbox/ia', label: 'IA', icon: Sparkles, cap: 'inbox:ai:manage' },
   { to: '/platform/inbox/respostas', label: 'Respostas', icon: Zap, cap: 'inbox:department:manage' },
   { to: '/platform/inbox/supervisor', label: 'Supervisor', icon: Eye, cap: 'inbox:supervise' },
   { to: '/platform/inbox/relatorios', label: 'Relatórios', icon: BarChart3, cap: 'inbox:reports:view' },
