@@ -34,7 +34,7 @@ Próximos gaps: deploy prod completo, Cloud API Meta, backup tenant, testes E2E.
 | # | Lacuna | Evidência no código |
 |---|--------|---------------------|
 | 1 | ~~**Webhooks sem disparo real**~~ | ✅ **2.2.0** — `WebhookDispatcherService`, fila `notifications`, HMAC, eventos Inbox |
-| 2 | **Deploy / CI** | ✅ parcial **2.3.0** — `npm run build` backend + job CI; falta Docker/PM2 prod |
+| 2 | **Deploy / CI** | CI build OK; runbook **§2 `PRODUCTION.md`** — falta job deploy automático |
 | 3 | ~~**Convite de equipe**~~ | ✅ **2.2.2** — e-mail Resend/SMTP + reenvio; dev loga no console |
 | 4 | ~~**Billing / pagamentos**~~ | ✅ **2.4.0** — Stripe checkout, webhooks, `/plans`, `/admin/payments` |
 | 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
@@ -54,11 +54,13 @@ Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 
 ---
 
-### 2. Deploy produção + CI/CD — 🟡 em progresso
+### 2. Deploy produção + CI/CD — 🟡 spec em PRODUCTION §2
 
-**Feito:** GitHub Actions — testes, **`npm run build` backend** (job `backend-build`), `vite build` frontend.
+**Feito:** GitHub Actions — testes, build backend, `vite build` frontend.
 
-**Pendente:** lint estrito, `tsc -b` frontend, imagem Docker app, deploy staging.
+**Runbook:** staging, PM2/nginx, go-live teste→prod, smoke tests — **`PRODUCTION.md` §2**.
+
+**Pendente:** lint no CI, `tsc -b` frontend, Docker monolito, deploy automático staging.
 
 ---
 
@@ -173,7 +175,7 @@ UX                                   →  5 Mobile
 ## Como usar este documento
 
 1. Escolher item do Top 10 → implementar → atualizar changelog em `SISTEMA-REGISTRO.md`
-2. Se envolver deploy, secrets ou infra → atualizar `PRODUCTION.md`
+2. Se envolver deploy, secrets ou infra → **`PRODUCTION.md` §2** (e §§ feature-specific)
 3. Commit + push ao concluir cada entrega
 
 *Espelho para agentes: `.cursor/rules/production-roadmap-mindset.mdc`*

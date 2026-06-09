@@ -3,11 +3,253 @@
 > Tudo que muda entre **desenvolvimento local** e **ambiente de produção**.  
 > Atualizar ao implementar itens do `ROADMAP-COMPLETUDE.md`.
 
-**Última revisão:** 2026-06-05 (Cloud API §7 expandido)
+**Última revisão:** 2026-06-05 (§2 Deploy + §7 Cloud API)
+
+---
+
+## §2 Deploy: teste/staging → produção
+
+> Guia oficial para sair do **dev local** ou **ambiente de teste** e ir para **produção**.  
+> CI hoje: `.github/workflows/ci.yml` (test + build backend + vite). **Deploy automático ainda não existe** — seguir este runbook.
+
+### Três ambientes
+
+| | **Local (dev)** | **Staging / teste** | **Produção** |
+|---|-----------------|---------------------|--------------|
+| Objetivo | desenvolvimento | validar release antes do go-live | clientes reais |
+| Backend | `npm run dev` (ts-node-dev) | `npm run build` + `node dist/index.js` | idem staging |
+| Frontend | Vite `:5174` | build estático servido pelo Express | idem |
+| Domínio | `localhost` | `https://staging.seudominio.com` | `https://app.seudominio.com` |
+| MongoDB | Docker local | cluster **separado** (Atlas staging) | cluster **prod** dedicado |
+| Redis | Docker `:6380` | instância staging | instância prod (BullMQ) |
+| Stripe | test + `ALLOW_DEV_BILLING=true` | **test** keys, billing dev **off** | **Live** keys |
+| OAuth | apps dev Google/Discord | redirects staging HTTPS | redirects prod HTTPS |
+| Sessões WA | `./sessions/` local | volume staging (pode reusar QR de teste) | volume prod **persistente** |
+| Logs | `LOG_FORMAT=pretty` | `json` recomendado | `json` + rotação/centralizado |
+
+**Regra:** staging deve espelhar produção (mesmo build, mesmas env exceto secrets/domínio). Não testar só em `localhost` antes do go-live.
+
+### Topologia oficial (decisão v2)
+
+| Modo | Quando usar | Como subir |
+|------|-------------|------------|
+| **Monolito** ✅ recomendado | Operação atual v2 — Discord + WA + filas + painel | `npm run build` → `node dist/index.js` **sem** `SERVICE_NAME` |
+| Microserviços | Legado `docker-compose.yml` (api-gateway, discord-bot…) | Só se já operar assim; **não** misturar com monolito no mesmo host |
+| Painel isolado | Raro — só API REST sem bot | `SERVICE_NAME=web-dashboard` (não inclui Baileys/Discord) |
+
+O fluxo diário documentado em `RADARZAP-V2-MIGRACAO.md` é **monolito + infra Docker** (`npm run docker:infra` para Mongo/Redis).
+
+```
+                    ┌─────────────────────────────────┐
+  HTTPS :443        │  nginx / Caddy / Cloudflare     │
+                    │  /     → static (React build)   │
+                    │  /api  → Node :3001             │
+                    │  WS    → Socket.IO (upgrade)    │
+                    └──────────────┬──────────────────┘
+                                   │
+                    ┌──────────────▼──────────────────┐
+                    │  node dist/index.js (monolito)  │
+                    │  Discord + WA + BullMQ + painel │
+                    └──────────────┬──────────────────┘
+              ┌────────────────────┼────────────────────┐
+              │                    │                    │
+         MongoDB              Redis              ./sessions/
+         (Atlas/VPC)      (filas/cache)         ./media/
+```
+
+### Build de release (igual staging e prod)
+
+```bash
+# Na raiz do repo — mesmo commit/tag nos dois ambientes
+npm ci
+npm run build
+npm run build --prefix src/services/web-dashboard/frontend
+# Frontend compilado: src/services/web-dashboard/public/ (servido pelo DashboardService)
+```
+
+Validar localmente antes de deploy:
+
+```bash
+NODE_ENV=production node dist/index.js
+# Health: GET http://localhost:3001/api/services/health
+```
+
+CI já executa `npm run build` e `vite build` em cada push para `main`.
+
+### Opção A — VPS (PM2 + nginx)
+
+**1. Servidor**
+
+- Ubuntu 22.04+, 4 GB+ RAM (Baileys), disco para `sessions/` e `media/`
+- Node 20 LTS, nginx, certbot ou Cloudflare SSL
+
+**2. Diretórios persistentes**
+
+```text
+/opt/radarzap/
+  app/          ← código deployado (git pull ou artefato CI)
+  data/sessions/
+  data/media/
+  logs/
+```
+
+Montar ou symlink: `sessions` → `data/sessions`, `media` → `data/media`.
+
+**3. PM2 (monolito)**
+
+```javascript
+// ecosystem.config.cjs
+module.exports = {
+  apps: [{
+    name: 'radarzap',
+    cwd: '/opt/radarzap/app',
+    script: 'dist/index.js',
+    instances: 1,
+    exec_mode: 'fork',
+    max_memory_restart: '2G',
+    env: {
+      NODE_ENV: 'production',
+      // demais vars vêm de .env ou secrets do host
+    },
+  }],
+};
+```
+
+```bash
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup
+```
+
+**Não** definir `SERVICE_NAME` no monolito — senão só um subsistema sobe.
+
+**4. nginx (exemplo mínimo)**
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name app.seudominio.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+O Express serve React em `/` e API em `/api` — um único upstream `:3001` basta.
+
+**5. Webhooks com body raw**
+
+Rotas que **não** podem passar por `express.json()` global antes do handler:
+
+- `POST /api/billing/webhook/stripe`
+- (futuro) `POST /api/integrations/whatsapp/cloud/webhook`
+
+Garantir que nginx **não** altera o body; no Node já estão registradas antes do parser JSON.
+
+### Opção B — Docker (monolito)
+
+O `docker/web-dashboard.Dockerfile` existente define `SERVICE_NAME=web-dashboard` — **só painel**, não use para stack completa.
+
+Para monolito em container:
+
+1. Build multi-stage: copiar `dist/` + `node_modules` + frontend em `public/`
+2. `CMD ["node", "dist/index.js"]` **sem** `SERVICE_NAME`
+3. Volumes: `sessions`, `media`, `.env` via secrets
+4. `docker-compose` prod: app + Mongo + Redis **internos** (portas 27017/6379 **não** expostas publicamente)
+
+Infra local de dev: `npm run docker:infra` — **não** subir `auto-setup` em prod (cria segundo bot).
+
+### Subir staging (primeira vez)
+
+1. Provisionar MongoDB + Redis staging (clusters separados de prod)
+2. Copiar `.env.example` → secrets staging; preencher com keys **de teste**
+3. `FRONTEND_URL` / `CORS_ORIGIN` = URL staging HTTPS
+4. OAuth: adicionar redirect staging nos apps Google/Discord
+5. Deploy build (PM2 ou container); conferir health
+6. Conectar 1 sessão WA de teste; validar Inbox, envio, campanha, convite e-mail
+7. Stripe **test mode**: checkout em `/plans`; webhook apontando para staging
+8. Checklist smoke (abaixo)
+
+### Migrar staging → produção (go-live)
+
+| Passo | Ação |
+|-------|------|
+| 1 | **Tag/git:** deploy em prod o **mesmo commit** validado em staging |
+| 2 | **Secrets:** gerar **novos** `JWT_SECRET`, `SESSION_SECRET`, `SESSION_ENCRYPTION_KEY` prod — ou manter encryption key se **copiar** volume `sessions/` intacto |
+| 3 | **Mongo:** export staging **não** vai direto para prod se houver dados de teste — preferir dump limpo ou migração seletiva (`scripts/migrate-v1-db-to-v2.ps1` só se aplicável) |
+| 4 | **Redis:** instância vazia prod (filas BullMQ não migrar) |
+| 5 | **Env prod:** `NODE_ENV=production`, `ALLOW_DEV_BILLING=false`, Stripe **Live**, `RESEND_API_KEY` / SMTP prod |
+| 6 | **OAuth:** redirects prod nos consoles Google/Discord |
+| 7 | **DNS:** `app.seudominio.com` → servidor prod; SSL ativo |
+| 8 | **Webhooks externos:** registrar URLs **prod** — Stripe (`/api/billing/webhook/stripe`), webhooks clientes, (futuro) Meta Cloud |
+| 9 | **Sessões WA:** copiar volume `sessions/` staging→prod **somente** se mesmo servidor e mesma `SESSION_ENCRYPTION_KEY`; senão **reescanear QR** em prod |
+| 10 | **Smoke prod:** login, Inbox, envio, API key, billing live (valor mínimo), Discord bot online |
+| 11 | **Monitorar** 24h: logs, reconexão WA, filas BullMQ |
+
+### O que muda entre teste e produção (env)
+
+| Variável | Staging | Produção |
+|----------|---------|----------|
+| `NODE_ENV` | `production` | `production` |
+| `FRONTEND_URL` | `https://staging…` | `https://app…` |
+| `MONGODB_URL` / `REDIS_URL` | cluster staging | cluster prod |
+| `JWT_SECRET` / `SESSION_SECRET` | únicos staging | **únicos prod** (nunca reusar dev) |
+| `SESSION_ENCRYPTION_KEY` | estável se copiar sessions | **não rotacionar** após WA conectado |
+| `ALLOW_DEV_BILLING` | `false` | `false` |
+| `STRIPE_*` | test keys | **live** keys + webhook live |
+| `RESEND_API_KEY` / `SMTP_*` | pode ser teste | domínio verificado prod |
+| `LOG_FORMAT` | `json` | `json` |
+| `RADARZAP_SYSTEM_ADMIN_*` | IDs equipe | IDs equipe prod |
+
+Ver também tabelas por feature: §4 e-mail, §6 billing, §7 Cloud API.
+
+### Checklist smoke (staging e prod)
+
+- [ ] `GET /api/services/health` → `{ healthy: true }`
+- [ ] Login Google (dono) e Discord (admin sistema)
+- [ ] Painel carrega sem erro; WebSocket conecta (notificações Inbox)
+- [ ] Sessão WA conectada ou QR gera
+- [ ] Enviar mensagem teste (Inbox ou Enviar agora)
+- [ ] Convite equipe (e-mail chega)
+- [ ] Checkout plano (Stripe test em staging / live em prod)
+- [ ] Webhook outbound dispara (URL HTTPS de teste)
+
+### CI/CD — hoje e próximo passo
+
+| Item | Status |
+|------|--------|
+| `npm test` (subset estável) | ✅ CI job `test` |
+| `npm run build` backend | ✅ CI job `backend-build` |
+| `vite build` frontend | ✅ CI job `frontend-build` |
+| `npm run lint` | 🟡 pendente no CI |
+| `tsc -b` frontend estrito | 🟡 pendente (vite build não valida todos TS) |
+| Deploy automático staging | 🟡 pendente — adicionar job (Railway / Fly / SSH+PM2) após builds |
+| Imagem Docker monolito oficial | 🟡 pendente — hoje só Dockerfiles legados microserviço |
+
+**Fluxo alvo:** push `main` → CI verde → deploy staging → smoke manual → promote tag → deploy prod.
+
+### Rollback
+
+1. `pm2 restart` com checkout do **commit/tag anterior** (ou redeploy imagem anterior)
+2. **Não** rollback Mongo se migration irreversível — restore snapshot pré-deploy
+3. Manter volume `sessions/` — rollback de código é compatível se mesma versão de schema
+4. Stripe: webhook prod continua na URL prod; pedidos pendentes reconciliam via dashboard Stripe
+
+Detalhes gerais: seção **Rollback** no final deste documento.
 
 ---
 
 ## Ambientes hoje
+
+> Detalhes de deploy, staging e go-live: **§2 acima**.
 
 | | **Local (dev)** | **Produção (alvo)** |
 |---|-----------------|---------------------|
@@ -18,13 +260,15 @@
 | Redis | Docker `:6380` → container `:6379` | Redis gerenciado ou container com persistência |
 | Sessões WA | Pasta `./sessions/` local | Volume persistente + `SESSION_ENCRYPTION_KEY` forte |
 | OAuth | `FRONTEND_URL=http://localhost:5174` | HTTPS domínio real; redirects Google/Discord atualizados |
-| Cookies | Same-site localhost | `Secure`, `SameSite`, domínio produção |
+| Cookies | Same-site localhost | Secure + domínio staging/prod |
 
-**Importante:** o `docker-compose.yml` raiz descreve **microserviços** (api-gateway, discord-bot, whatsapp-service…). O fluxo diário v2 usa **`npm run dev`** monolítico + infra Docker. Antes de produção, **unificar** qual topologia será oficial (monolito vs microserviços) e documentar aqui.
+**Topologia:** monolito recomendado — ver **§2 Deploy**.
 
 ---
 
 ## Checklist mínimo para subir produção
+
+> Runbook completo: **§2 Deploy** (PM2, nginx, staging→prod, smoke tests).
 
 ### Infra
 
@@ -53,21 +297,20 @@
 
 **Nunca** commitar `.env` ou `sessions/`.
 
-### Build
+### Build e processo
+
+Ver comandos e PM2 em **§2 Deploy**. Resumo:
 
 ```bash
 npm run build
 npm run build --prefix src/services/web-dashboard/frontend
+NODE_ENV=production node dist/index.js
 ```
 
-Servir `frontend/dist` atrás do mesmo host ou CDN.
-
-### Processo
-
-- [ ] PM2, systemd ou container com `restart: unless-stopped`
-- [ ] Health check: `GET /api/services/health`
-- [ ] Logs centralizados (arquivo rotacionado ou serviço externo)
-- [ ] **Não** rodar `auto-setup` do docker-compose em produção junto com dev (cria segundo bot)
+- [ ] PM2/systemd/container com `restart: unless-stopped`
+- [ ] Health: `GET /api/services/health`
+- [ ] Logs centralizados
+- [ ] **Não** rodar `auto-setup` do docker-compose em prod
 
 ---
 
@@ -87,15 +330,15 @@ Doc: `docs/WEBHOOKS.md`
 
 ---
 
-### 2. Deploy + CI/CD — 🟡 parcial
+### 2. Deploy + CI/CD — 🟡 spec em §2
 
 | Local | Produção |
 |-------|----------|
-| CI: `.github/workflows/ci.yml` roda em push/PR | Adicionar deploy job (Railway/Fly/VM) quando `npm run build` backend passar |
-| `npm run dev` + Vite | PM2/systemd ou container |
-| Docker só infra (`npm run docker:infra`) | Compose prod sem expor Mongo/Redis |
+| CI: test + build backend + vite | Deploy job staging/prod **pendente** |
+| `npm run dev` + Vite | Monolito `node dist/index.js` + PM2/nginx — **§2** |
+| Docker só infra | Compose prod sem expor Mongo/Redis |
 
-**Pendente CI:** `npm run lint`, `npm run build` backend (corrigir TS InboxService).
+**Pendente CI:** lint, `tsc -b` frontend, imagem Docker monolito, deploy automático.
 
 ---
 
@@ -342,6 +585,7 @@ Catálogo de templates: criar no Meta Business Manager; IDs referenciados nas ca
 
 - Dev local: `RADARZAP-V2-MIGRACAO.md`
 - Roadmap features: `ROADMAP-COMPLETUDE.md`
-- Cloud API Meta (produção): **§7 deste documento**
+- **Deploy teste → produção: §2 deste documento**
+- Cloud API Meta: **§7 deste documento**
 - Billing Stripe: `BILLING.md`
 - Mapa rotas: `MENU-PAGES-REGISTRY.md`
