@@ -2383,20 +2383,7 @@ export class WhatsAppService {
           upsertType: m.type,
         });
 
-        let consentHandled = false;
-        try {
-          consentHandled = await ConsentService.getInstance().handleInboundMessage(
-            clientId,
-            msg.key.remoteJid,
-            text || '[mídia]',
-            msg.key.remoteJidAlt,
-          );
-        } catch (err) {
-          this.serviceLogger.warn('Consent inbound handler error', err);
-        }
-
-        if (consentHandled) continue;
-
+        // Ticket antes do consentimento — "sair"/"finalizar" no chamado ≠ opt-out LGPD
         let ticketHandled = false;
         try {
           const { InboxService } = await import('@/services/inbox/InboxService');
@@ -2412,6 +2399,20 @@ export class WhatsAppService {
         }
 
         if (ticketHandled) continue;
+
+        let consentHandled = false;
+        try {
+          consentHandled = await ConsentService.getInstance().handleInboundMessage(
+            clientId,
+            msg.key.remoteJid,
+            text || '[mídia]',
+            msg.key.remoteJidAlt,
+          );
+        } catch (err) {
+          this.serviceLogger.warn('Consent inbound handler error', err);
+        }
+
+        if (consentHandled) continue;
 
         try {
           const { InboxService } = await import('@/services/inbox/InboxService');

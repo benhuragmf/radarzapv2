@@ -750,6 +750,17 @@ export class InboxService {
     await conv.save();
   }
 
+  /** Contato com ticket fechado/aberto na janela de resposta — LGPD não deve capturar "sair". */
+  async hasActiveClientTicketContext(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<boolean> {
+    const ticket = await this.findTicketForClientReply(clientId, destinationId);
+    if (!ticket) return false;
+    if (ticket.status !== 'closed') return true;
+    return this.isWithinClosedReplyWindow(ticket);
+  }
+
   /** Processa resposta do cliente no contexto de ticket (antes do consent, evita "sair" = opt-out). */
   async handleTicketInboundMessage(
     clientId: string,

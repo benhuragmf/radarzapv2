@@ -512,10 +512,25 @@ export class ConsentService {
         );
         return true;
       }
+
+      await wa.sendManualMessage(
+        clientId,
+        dest.identifier,
+        msgs.optOutPendingHint,
+        undefined,
+        { skipConsentCheck: true, skipRateLimit: true },
+      );
       return true;
     }
 
     if (parseOptOutRequest(text)) {
+      const { InboxService } = await import('@/services/inbox/InboxService');
+      const inTicketContext = await InboxService.getInstance().hasActiveClientTicketContext(
+        clientId,
+        dest._id as mongoose.Types.ObjectId,
+      );
+      if (inTicketContext) return false;
+
       dest.optOutConfirmPendingAt = new Date();
       await dest.save();
       await wa.sendManualMessage(
