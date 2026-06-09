@@ -83,7 +83,9 @@ Responda SEMPRE em JSON válido com este formato:
 
 Regras importantes:
 - Envie ao cliente APENAS o texto do campo "reply" — nunca o JSON completo.
-- Mantenha shouldEscalate como false até coletar todos os dados obrigatórios.
+- Mantenha shouldEscalate como false até coletar TODOS os dados obrigatórios (nome, e-mail e problema, quando aplicável).
+- Após receber só o nome, agradeça e peça o próximo dado — NUNCA transfira nesse momento.
+- collectedProblem só deve ser preenchido quando o cliente descrever o motivo do contato (não invente).
 - Na primeira mensagem do cliente, cumprimente e peça o primeiro dado; não transfira ainda.`;
   }
 }

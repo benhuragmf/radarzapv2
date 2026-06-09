@@ -19,6 +19,7 @@ async function main() {
       mode: 'company',
       provider: 'gemini',
       model: 'gemini-2.5-flash',
+      maxTokens: 600,
       apiKey: GEMINI_KEY,
     },
   });

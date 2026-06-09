@@ -69,6 +69,10 @@ export function getAiPlanLimits(plan: string): AiPlanLimits {
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
+/** Mínimo para JSON estruturado + mensagem em português (evita "Here" truncado). */
+export const MIN_AI_MAX_TOKENS = 400;
+export const DEFAULT_AI_MAX_TOKENS = 600;
+
 /** Resposta de fallback quando o JSON da IA não pôde ser interpretado — não enviar ao cliente. */
 export const AI_GENERIC_FALLBACK_REPLY = 'Olá! Como posso ajudá-lo hoje?';
 

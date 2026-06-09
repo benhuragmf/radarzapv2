@@ -10,6 +10,7 @@ import { InboxTicket } from '@/models/InboxTicket';
 import { InboxConversation } from '@/models/InboxConversation';
 import { InboxConversationStatus } from '@/types/inbox';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
+import { AiConversationState } from '@/models/AiConversationState';
 
 const CLIENT_ID = process.env.TEST_CLIENT_ID?.trim() || '6a18bdc5ee126fd553a2c56b';
 const args = process.argv.slice(2);
@@ -60,22 +61,23 @@ async function main() {
   }).select('_id status');
 
   for (const conv of openConvs) {
-    if (conv.status !== InboxConversationStatus.BOT_TRIAGE) {
-      await InboxConversation.updateOne(
-        { _id: conv._id },
-        {
-          $set: { status: InboxConversationStatus.BOT_TRIAGE },
-          $unset: {
-            departmentId: '',
-            assignedUserId: '',
-            suggestedUserId: '',
-            suggestedAt: '',
-            queueEnteredAt: '',
-            queueSlaNotifiedAt: '',
-          },
+    await InboxConversation.updateOne(
+      { _id: conv._id },
+      {
+        $set: { status: InboxConversationStatus.BOT_TRIAGE },
+        $unset: {
+          departmentId: '',
+          assignedUserId: '',
+          suggestedUserId: '',
+          suggestedAt: '',
+          queueEnteredAt: '',
+          queueSlaNotifiedAt: '',
+          aiStatus: '',
+          aiFallbackUntil: '',
         },
-      );
-    }
+      },
+    );
+    await AiConversationState.deleteOne({ conversationId: conv._id });
   }
   console.log('Conversas abertas resetadas para BOT_TRIAGE:', openConvs.length);
 
@@ -93,6 +95,7 @@ async function main() {
         mode: 'company',
         provider: 'gemini',
         model: 'gemini-2.5-flash',
+        maxTokens: 600,
         apiKey: geminiKey,
       },
     });

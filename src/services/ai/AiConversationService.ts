@@ -218,7 +218,7 @@ export class AiConversationService {
       return { handled: false, useStandardTriage: true };
     }
 
-    this.mergeCollected(state, structured);
+    this.mergeCollected(state, structured, ctx.text);
     state.confidence = structured.confidence;
     state.aiTurnCount += 1;
     if (structured.internalSummary) state.summary = structured.internalSummary;
@@ -241,6 +241,15 @@ export class AiConversationService {
     );
 
     if (escalation.shouldEscalate) {
+      logger.info('IA escalonando conversa', {
+        clientId: ctx.clientId,
+        conversationId: ctx.conversation._id,
+        reason: escalation.reason,
+        aiTurnCount: state.aiTurnCount,
+        collectedName: state.collectedName,
+        collectedEmail: state.collectedEmail,
+        collectedProblem: state.collectedProblem,
+      });
       await this.escalate(ctx, inbox, state, escalation.reason ?? 'Transferência para humano');
       return { handled: true };
     }
@@ -312,7 +321,7 @@ export class AiConversationService {
       ],
       conversationId,
     );
-    this.mergeCollected(state, completion.structured);
+    this.mergeCollected(state, completion.structured, text);
     await inbox.sendAiReply(clientId, conv, conv.contactIdentifier, completion.structured.reply);
     state.status = AiConversationStatus.AI_WAITING_CLIENT;
     await state.save();
@@ -343,24 +352,71 @@ export class AiConversationService {
     );
   }
 
-  private mergeCollected(state: IAiConversationState, structured: {
-    collectedName?: string;
-    collectedEmail?: string;
-    collectedProblem?: string;
-    collectedCpfCnpj?: string;
-    collectedAddress?: string;
-    collectedOrderNumber?: string;
-    urgency?: 'low' | 'medium' | 'high';
-    internalSummary?: string;
-  }): void {
-    if (structured.collectedName?.trim()) state.collectedName = structured.collectedName.trim();
-    if (structured.collectedEmail?.trim()) state.collectedEmail = structured.collectedEmail.trim();
-    if (structured.collectedProblem?.trim()) state.collectedProblem = structured.collectedProblem.trim();
-    if (structured.collectedCpfCnpj?.trim()) state.collectedCpfCnpj = structured.collectedCpfCnpj.trim();
-    if (structured.collectedAddress?.trim()) state.collectedAddress = structured.collectedAddress.trim();
-    if (structured.collectedOrderNumber?.trim()) state.collectedOrderNumber = structured.collectedOrderNumber.trim();
+  private mergeCollected(
+    state: IAiConversationState,
+    structured: {
+      collectedName?: string;
+      collectedEmail?: string;
+      collectedProblem?: string;
+      collectedCpfCnpj?: string;
+      collectedAddress?: string;
+      collectedOrderNumber?: string;
+      urgency?: 'low' | 'medium' | 'high';
+      internalSummary?: string;
+    },
+    clientText: string,
+  ): void {
+    const text = clientText.trim();
+    const emailInText = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
+
+    if (structured.collectedName?.trim() && this.textLooksLikeName(text)) {
+      state.collectedName = structured.collectedName.trim();
+    } else if (this.textLooksLikeName(text)) {
+      state.collectedName = text;
+    }
+
+    if (emailInText) {
+      state.collectedEmail = emailInText.toLowerCase();
+    } else if (structured.collectedEmail?.trim() && text.includes('@')) {
+      state.collectedEmail = structured.collectedEmail.trim();
+    }
+
+    if (this.textLooksLikeProblemDescription(text)) {
+      state.collectedProblem = text;
+    } else if (
+      structured.collectedProblem?.trim() &&
+      this.textLooksLikeProblemDescription(structured.collectedProblem)
+    ) {
+      state.collectedProblem = structured.collectedProblem.trim();
+    }
+
+    if (structured.collectedCpfCnpj?.trim() && /\d{3,}/.test(text)) {
+      state.collectedCpfCnpj = structured.collectedCpfCnpj.trim();
+    }
+    if (structured.collectedAddress?.trim() && text.length >= 12) {
+      state.collectedAddress = structured.collectedAddress.trim();
+    }
+    if (structured.collectedOrderNumber?.trim() && /\d{4,}/.test(text)) {
+      state.collectedOrderNumber = structured.collectedOrderNumber.trim();
+    }
     if (structured.urgency) state.urgency = structured.urgency;
     if (structured.internalSummary) state.summary = structured.internalSummary;
+  }
+
+  private textLooksLikeName(text: string): boolean {
+    const t = text.trim();
+    if (!t || t.includes('@') || /\d/.test(t)) return false;
+    if (/^(oi|ola|olá|bom dia|boa tarde|boa noite)$/i.test(t)) return false;
+    const words = t.split(/\s+/).filter(Boolean);
+    return words.length <= 3 && t.length <= 40;
+  }
+
+  private textLooksLikeProblemDescription(text: string): boolean {
+    const t = text.trim();
+    if (!t || t.includes('@')) return false;
+    if (this.textLooksLikeName(t)) return false;
+    if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|preciso de ajuda)$/i.test(t)) return false;
+    return t.length >= 10 || t.split(/\s+/).length >= 3;
   }
 
   private async escalate(

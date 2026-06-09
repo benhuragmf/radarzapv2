@@ -313,10 +313,13 @@ export default function AiAtendimento() {
               <label className="text-xs text-gray-500">Max tokens</label>
               <input
                 type="number"
+                min={400}
+                max={4096}
                 className={inputCls}
                 value={form.settings.maxTokens}
-                onChange={e => patch({ maxTokens: Number(e.target.value) })}
+                onChange={e => patch({ maxTokens: Math.max(400, Number(e.target.value)) })}
               />
+              <p className="text-xs text-gray-500 mt-1">Mínimo 400 — valores baixos truncam a resposta (ex.: &quot;Here&quot;).</p>
             </div>
           </div>
           {form.settings.mode === 'company' && (

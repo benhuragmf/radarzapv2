@@ -8,7 +8,11 @@ import {
   getModelCatalogEntry,
   listModelsForProvider,
 } from '@/constants/ai-model-catalog';
-import { getAiPlanLimits } from '@/types/ai-assistant';
+import {
+  DEFAULT_AI_MAX_TOKENS,
+  getAiPlanLimits,
+  MIN_AI_MAX_TOKENS,
+} from '@/types/ai-assistant';
 import { AiCredentialVaultService } from './AiCredentialVaultService';
 import { AiKnowledgeBaseService } from './AiKnowledgeBaseService';
 import { AiUsageMeterService } from './AiUsageMeterService';
@@ -52,6 +56,10 @@ export class AiSettingsService {
     const clientOid = new mongoose.Types.ObjectId(clientId);
     let doc = await AiSettings.findOne({ clientId: clientOid });
     if (!doc) doc = await AiSettings.create({ clientId: clientOid });
+    if (doc.maxTokens < MIN_AI_MAX_TOKENS) {
+      doc.maxTokens = DEFAULT_AI_MAX_TOKENS;
+      await doc.save();
+    }
     return doc;
   }
 
@@ -201,7 +209,12 @@ export class AiSettingsService {
     }
     if (typeof s.model === 'string' && s.model.trim()) settings.llmModel = s.model.trim();
     if (typeof s.temperature === 'number') settings.temperature = s.temperature;
-    if (typeof s.maxTokens === 'number') settings.maxTokens = s.maxTokens;
+    if (typeof s.maxTokens === 'number') {
+      settings.maxTokens = Math.min(
+        4096,
+        Math.max(MIN_AI_MAX_TOKENS, s.maxTokens),
+      );
+    }
     if (typeof s.dailyLimit === 'number') settings.dailyLimit = s.dailyLimit;
     if (typeof s.monthlyLimit === 'number') settings.monthlyLimit = s.monthlyLimit;
     if (typeof s.perConversationLimit === 'number') settings.perConversationLimit = s.perConversationLimit;

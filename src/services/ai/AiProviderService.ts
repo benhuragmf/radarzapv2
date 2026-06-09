@@ -1,7 +1,10 @@
 import { AiSettings, IAiSettings } from '@/models/AiSettings';
 import { Organization } from '@/models/Organization';
 import type { AiProvider, AiStructuredReply } from '@/types/ai-assistant';
-import { AI_GENERIC_FALLBACK_REPLY } from '@/types/ai-assistant';
+import {
+  AI_GENERIC_FALLBACK_REPLY,
+  MIN_AI_MAX_TOKENS,
+} from '@/types/ai-assistant';
 import { geminiFallbackModelIds } from '@/constants/ai-model-catalog';
 import { getAiPlanLimits } from '@/types/ai-assistant';
 import { AiCredentialVaultService } from './AiCredentialVaultService';
@@ -81,13 +84,14 @@ export class AiProviderService {
     if (!usage.allowed) throw new Error(usage.reason ?? 'Limite de IA atingido');
 
     const apiKey = await this.resolveApiKey(clientId, settings);
+    const maxTokens = Math.max(settings.maxTokens, MIN_AI_MAX_TOKENS);
     const raw = await this.callProvider(
       settings.provider,
       settings.llmModel,
       apiKey,
       messages,
       settings.temperature,
-      settings.maxTokens,
+      maxTokens,
     );
 
     const structured = this.parseStructuredReply(raw.text);
@@ -240,11 +244,13 @@ export class AiProviderService {
   }
 
   isUnusableClientReply(structured: AiStructuredReply): boolean {
-    if (structured.parseFailed) return true;
     const reply = structured.reply?.trim() ?? '';
     if (!reply) return true;
     if (reply === AI_GENERIC_FALLBACK_REPLY) return true;
     if (reply.startsWith('{') && reply.includes('"reply"')) return true;
+    if (reply.length < 15) return true;
+    if (/^here(\s+is)?(\s+the)?/i.test(reply)) return true;
+    if (/json\s+requested/i.test(reply)) return true;
     return false;
   }
 

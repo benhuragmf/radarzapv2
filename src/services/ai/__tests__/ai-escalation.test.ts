@@ -39,4 +39,68 @@ describe('AiEscalationService', () => {
     } as IAiConversationState;
     expect(svc.hasMinData(state, basePrompt)).toBe(true);
   });
+
+  it('não escala só com nome e shouldEscalate do modelo', () => {
+    const state = {
+      ...baseState,
+      aiTurnCount: 2,
+      collectedName: 'Benhur',
+    } as IAiConversationState;
+    const r = svc.check({
+      clientText: 'Benhur',
+      hasUninterpretableMedia: false,
+      structured: {
+        reply: 'Obrigado, Benhur.',
+        collectedName: 'Benhur',
+        confidence: 0.9,
+        shouldEscalate: true,
+        escalationReason: 'IA indicou transferência',
+        parseFailed: false,
+      },
+      state,
+      prompt: basePrompt,
+      rules: DEFAULT_AI_TRANSFER_RULES,
+    });
+    expect(r.shouldEscalate).toBe(false);
+  });
+
+  it('rejeita problema igual ao nome', () => {
+    const state = {
+      ...baseState,
+      collectedName: 'Benhur',
+      collectedEmail: 'b@test.com',
+      collectedProblem: 'Benhur',
+    } as IAiConversationState;
+    expect(svc.hasMinData(state, basePrompt)).toBe(false);
+  });
+
+  it('não escala com dados mínimos alucinados no JSON (só nome no WhatsApp)', () => {
+    const state = {
+      ...baseState,
+      aiTurnCount: 2,
+      collectedName: 'Benhur',
+    } as IAiConversationState;
+    const r = svc.check({
+      clientText: 'Benhur',
+      hasUninterpretableMedia: false,
+      structured: {
+        reply: 'Obrigado, Benhur. Informe seu e-mail.',
+        collectedName: 'Benhur',
+        collectedEmail: 'benhur@fake.com',
+        collectedProblem: 'Cliente precisa de ajuda geral',
+        confidence: 0.95,
+        shouldEscalate: true,
+        parseFailed: false,
+      },
+      state,
+      prompt: basePrompt,
+      rules: { ...DEFAULT_AI_TRANSFER_RULES, onMinDataCollected: true },
+    });
+    expect(r.shouldEscalate).toBe(false);
+  });
+
+  it('isCollectionOnlyTurn detecta nome curto', () => {
+    expect(svc.isCollectionOnlyTurn('Benhur')).toBe(true);
+    expect(svc.isCollectionOnlyTurn('quero cancelar meu pedido 12345')).toBe(false);
+  });
 });
