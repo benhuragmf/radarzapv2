@@ -6,6 +6,7 @@ import {
   InboxWeeklySchedule,
 } from '@/types/inbox-settings';
 import { DEFAULT_INBOX_QUICK_REPLIES, InboxQuickReply } from '@/types/inbox-quick-replies';
+import { DEFAULT_CSAT_PROMPT, DEFAULT_CSAT_THANK_YOU } from '@/services/inbox/csat.util';
 
 export interface IInboxSettings extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -32,6 +33,9 @@ export interface IInboxSettings extends Document {
   inactivityCloseMinutes: number;
   inactivityWarningMinutes: number;
   queueSlaAlertMinutes: number;
+  csatEnabled: boolean;
+  csatPrompt: string;
+  csatThankYou: string;
   quickReplies: InboxQuickReply[];
   createdAt: Date;
   updatedAt: Date;
@@ -96,6 +100,9 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       min: 0,
       max: 1440,
     },
+    csatEnabled: { type: Boolean, default: false },
+    csatPrompt: { type: String, default: DEFAULT_CSAT_PROMPT, maxlength: 500 },
+    csatThankYou: { type: String, default: DEFAULT_CSAT_THANK_YOU, maxlength: 300 },
     quickReplies: {
       type: [
         {

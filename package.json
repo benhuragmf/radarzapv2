@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -10,6 +10,8 @@
     "dev": "node -r ./scripts/register-dev-logging.cjs ./node_modules/ts-node-dev/lib/bin.js --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
     "dev:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
     "stripe:webhook": "powershell -ExecutionPolicy Bypass -File scripts/stripe-webhook-dev.ps1",
+    "stripe:prices": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/create-stripe-radarzap-prices.ts",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up -d --build",
     "dashboard": "ts-node -r tsconfig-paths/register start-dashboard.ts",
     "dashboard:frontend": "npm run dev --prefix src/services/web-dashboard/frontend",
     "register-commands": "ts-node -r tsconfig-paths/register register-guild-commands.ts",

@@ -92,6 +92,8 @@ import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { InboxReportsService } from '../inbox/InboxReportsService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
 import { BillingService, BillingHttpError } from '../billing/BillingService';
+import { BillingOrder } from '../../models/BillingOrder';
+import { TenantBackupService } from '../tenant-backup/TenantBackupService';
 import {
   validateAutomationPayload,
 } from '../../constants/platform-automation-triggers';
@@ -250,6 +252,36 @@ export class DashboardService {
           const err = e as BillingHttpError;
           res.status(err.status ?? 400).json({ error: err.message ?? String(e) });
         }
+      },
+    );
+
+    this.app.get('/api/integrations/whatsapp/cloud/webhook', (req, res) => {
+      const mode = req.query['hub.mode'];
+      const token = req.query['hub.verify_token'];
+      const challenge = req.query['hub.challenge'];
+      const expected = process.env.WHATSAPP_CLOUD_VERIFY_TOKEN?.trim();
+      if (
+        mode === 'subscribe' &&
+        token &&
+        expected &&
+        token === expected &&
+        challenge
+      ) {
+        res.status(200).send(String(challenge));
+        return;
+      }
+      res.status(503).json({
+        error: 'WhatsApp Cloud API ainda não implementado — canal padrão: Baileys',
+      });
+    });
+
+    this.app.post(
+      '/api/integrations/whatsapp/cloud/webhook',
+      express.raw({ type: 'application/json' }),
+      (_req, res) => {
+        res.status(503).json({
+          error: 'WhatsApp Cloud API — ingestão pendente (última fase do roadmap)',
+        });
       },
     );
 
@@ -2139,6 +2171,41 @@ export class DashboardService {
         res.setHeader('X-Export-Profile', usedProfile);
         res.setHeader('X-Export-Count', String(count));
         res.send(csv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/tenant-backup/export', requireCapability(Cap.ACCOUNT_SETTINGS), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const payload = await TenantBackupService.getInstance().exportOrganization(
+          auth.clientId,
+        );
+        const filename = `radarzap-backup-${auth.clientId}-${Date.now()}.json`;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.json(payload);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/tenant-backup/import', requireCapability(Cap.BILLING_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const replace = Boolean(req.body?.replace);
+        const payload = req.body?.backup ?? req.body;
+        if (!payload?.data) {
+          res.status(400).json({ error: 'JSON de backup inválido' });
+          return;
+        }
+        const result = await TenantBackupService.getInstance().importOrganization(
+          auth.clientId,
+          payload,
+          { replace },
+        );
+        res.json({ ok: true, ...result });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -4286,6 +4353,72 @@ export class DashboardService {
       }
     });
 
+    r.get('/admin/organizations', requireCapability(Cap.SYSTEM_MODERATION), async (_req, res) => {
+      try {
+        const orgs = await Organization.find({})
+          .select('name plan planExpiresAt createdAt limits')
+          .sort({ createdAt: -1 })
+          .limit(200)
+          .lean();
+        res.json(orgs);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch(
+      '/admin/organizations/:id/plan',
+      requireCapability(Cap.SYSTEM_PLANS_MANAGE),
+      async (req, res) => {
+        try {
+          const { plan } = req.body as { plan?: string };
+          const allowed = ['free', 'starter', 'pro', 'enterprise'];
+          if (!plan || !allowed.includes(plan)) {
+            res.status(400).json({ error: 'plan inválido' });
+            return;
+          }
+          const org = await Organization.findById(req.params.id);
+          if (!org) {
+            res.status(404).json({ error: 'Organização não encontrada' });
+            return;
+          }
+          org.plan = plan as typeof org.plan;
+          if (plan === 'free') {
+            org.planExpiresAt = undefined;
+            org.stripeSubscriptionId = undefined;
+          }
+          const limits = User.getPlanLimits(plan as 'free' | 'starter' | 'pro' | 'enterprise');
+          org.limits.messagesPerDay = limits.messagesPerDay;
+          org.limits.groupsMax = limits.groupsMax;
+          org.limits.templatesMax = limits.templatesMax;
+          await org.save();
+          res.json({ ok: true, plan: org.plan });
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.get('/admin/integrations-overview', requireCapability(Cap.LOGS_GLOBAL), async (_req, res) => {
+      try {
+        const [apiKeys, webhooks, orgs, ordersPaid] = await Promise.all([
+          ApiKey.countDocuments({ active: true }),
+          WebhookEndpoint.countDocuments({ active: true }),
+          Organization.countDocuments({}),
+          BillingOrder.countDocuments({ status: 'paid' }),
+        ]);
+        res.json({
+          apiKeysActive: apiKeys,
+          webhooksActive: webhooks,
+          organizations: orgs,
+          billingOrdersPaid: ordersPaid,
+          stripeMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test',
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/admin/errors', requireCapability(Cap.LOGS_GLOBAL), async (_req, res) => {
       try {
         const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -4585,11 +4718,11 @@ export class DashboardService {
     const now = new Date();
     const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const [users, activeSessions, queueStats, hourlyLogs] = await Promise.all([
+    const [users, activeSessions, queueStats, hourlyLogs, organizations, apiKeysActive] =
+      await Promise.all([
       User.find({}, 'usage.messagesUsed').lean(),
       WhatsAppSession.countDocuments({ status: 'active' }),
       this.queueManager.getQueueStats().catch(() => ({})),
-      // Count SystemLog entries per hour for the last 24h
       SystemLog.aggregate([
         { $match: { message: 'Message sent successfully', timestamp: { $gte: since24h } } },
         { $group: {
@@ -4598,6 +4731,8 @@ export class DashboardService {
         }},
         { $sort: { '_id': 1 } }
       ]).catch(() => []),
+      Organization.countDocuments({}),
+      ApiKey.countDocuments({ active: true }),
     ]);
 
     const totalMessages = users.reduce((sum, u) => sum + ((u as any).usage?.messagesUsed ?? 0), 0);
@@ -4611,7 +4746,15 @@ export class DashboardService {
       return { hour: `${String(hour).padStart(2, '0')}h`, count: found?.count ?? 0 };
     });
 
-    return { totalMessages, activeSessions, pendingJobs: pending, failedJobs: failed, messagesPerHour };
+    return {
+      totalMessages,
+      activeSessions,
+      pendingJobs: pending,
+      failedJobs: failed,
+      organizations,
+      apiKeysActive,
+      messagesPerHour,
+    };
   }
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────

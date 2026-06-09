@@ -10,6 +10,7 @@ export const WEBHOOK_EVENTS = [
   'inbox.message.received',
   'inbox.conversation.resolved',
   'inbox.conversation.closed',
+  'inbox.csat.rated',
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

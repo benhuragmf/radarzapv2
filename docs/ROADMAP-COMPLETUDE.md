@@ -1,181 +1,63 @@
 # RadarZap v2 — completude do sistema e roadmap
 
-> Análise consolidada do estado atual (v2.1.0), lacunas e prioridades de evolução.  
+> Análise consolidada do estado atual (v2.5.0), lacunas e prioridades de evolução.  
 > Produção: `PRODUCTION.md` · Registro técnico: `SISTEMA-REGISTRO.md`
 
-**Última revisão:** 2026-06-05
+**Última revisão:** 2026-06-09
 
 ---
 
 ## Resumo executivo
 
-O RadarZap v2 **já é operável** para uso diário: Inbox, consentimento, campanhas, equipe, **webhooks outbound (2.2.0)**, Discord → WA e painel completo.  
-Próximos gaps: deploy prod completo, Cloud API Meta, backup tenant, testes E2E.
+O RadarZap v2 **é operável** para uso diário e **billing teste validado**.  
+v2.5.0 fecha backup tenant, CSAT, admin ops, deploy Docker e PWA básico.  
+**Último item:** WhatsApp Cloud API (Meta) — spec em `PRODUCTION.md` §7.
 
 ---
 
-## O que já está sólido (v2.1)
+## Lacunas principais
 
-| Área | Status | Referência |
-|------|--------|------------|
-| **Inbox WhatsApp** | Triagem, filas, setores público/interno, round-robin, supervisor, tickets, respostas rápidas, bot, relatórios, WebSocket | `INBOX-ATENDIMENTO.md` |
-| **Contatos + LGPD** | CRUD, segmentos, consentimento 1x/2x, Aguardando aprovação | `CONSENTIMENTO-LGPD.md` |
-| **Equipe / RBAC** | Papéis sistema + custom ilimitados, permissões por aba | `EQUIPE-RBAC.md` |
-| **Envios** | Enviar agora, agendado, campanhas, fila, modelos | `/send`, `/platform/campanhas` |
-| **WhatsApp (Baileys)** | Sessões, QR, status, logs, reconexão | `/sessions`, `/platform/wa-status` |
-| **Discord → WA** | Canais, regras, templates, fila | aba Discord |
-| **Integrações API** | Chaves, OpenAPI, playground, rate limit (UI) | `/settings#api-*` |
-| **Painel** | Menus preenchidos, scroll navegador, notificações tempo real | `MENU-PAGES-REGISTRY.md` |
-
----
-
-## Lacunas principais (o que falta para “completar”)
-
-| # | Lacuna | Evidência no código |
-|---|--------|---------------------|
-| 1 | ~~**Webhooks sem disparo real**~~ | ✅ **2.2.0** — `WebhookDispatcherService`, fila `notifications`, HMAC, eventos Inbox |
-| 2 | **Deploy / CI** | CI build OK; runbook **§2 `PRODUCTION.md`** — falta job deploy automático |
-| 3 | ~~**Convite de equipe**~~ | ✅ **2.2.2** — e-mail Resend/SMTP + reenvio; dev loga no console |
-| 4 | ~~**Billing / pagamentos**~~ | ✅ **2.4.0** — Stripe checkout, webhooks, `/plans`, `/admin/payments` |
-| 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
-| 6 | **Backup tenant** | Só export CSV; sem restore completo da org |
-| 7 | ~~**Inbox fase operacional**~~ | ✅ parcial **2.2.1** — `/enc`, `closed` automático, alertas fila; falta CSAT |
-| 8 | **WhatsApp Cloud API** | Só Baileys; Enterprise Meta — spec em `PRODUCTION.md` §7 |
-| 9 | ~~**Mobile**~~ | ✅ parcial **2.3.0** — menu hamburger + Inbox lista↔chat; falta PWA/touch global |
-| 10 | **Testes** | Bons unitários em utils; pouco em Inbox, consentimento, integrações |
+| # | Lacuna | Status |
+|---|--------|--------|
+| 1 | Webhooks outbound | ✅ 2.2.0 |
+| 2 | Deploy / CI | ✅ parcial — Docker monolito `docker-compose.prod.yml`; CI build OK; deploy job automático pendente |
+| 3 | Convite equipe | ✅ 2.2.2 |
+| 4 | Billing Stripe | ✅ 2.4.0 (+ prices script `npm run stripe:prices`) |
+| 5 | Admin operacional | ✅ 2.5.0 — moderação orgs, API global stats, alertas Slack WA |
+| 6 | Backup tenant | ✅ 2.5.0 — export/import JSON `/settings/backup` |
+| 7 | Inbox SLA + CSAT | ✅ 2.5.0 — CSAT 1–5 pós-encerramento |
+| 8 | **WhatsApp Cloud API** | 🟡 stub webhook + doc §7 — **implementação por último** |
+| 9 | Mobile | ✅ parcial 2.5.0 — PWA manifest; falta touch global |
+| 10 | Testes | 🟡 CSAT + billing unit; falta E2E Playwright |
 
 ---
 
-## Top 10 atualizações recomendadas (prioridade 1 → 10)
+## Ordem de implementação (Cloud API por último)
 
-### 1. Motor de webhooks outbound — ✅ concluído (2.2.0)
-
-Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
-
----
-
-### 2. Deploy produção + CI/CD — 🟡 spec em PRODUCTION §2
-
-**Feito:** GitHub Actions — testes, build backend, `vite build` frontend.
-
-**Runbook:** staging, PM2/nginx, go-live teste→prod, smoke tests — **`PRODUCTION.md` §2**.
-
-**Pendente:** lint no CI, `tsc -b` frontend, Docker monolito, deploy automático staging.
+1. ✅ Billing + teste Stripe  
+2. ✅ Backup tenant JSON  
+3. ✅ CSAT Inbox  
+4. ✅ Admin ops (orgs, integrações, Slack alert)  
+5. ✅ Deploy Docker monolito (`docker/Dockerfile.monolith`)  
+6. ✅ PWA manifest  
+7. 🟡 **Cloud API Meta** — próximo e último bloco grande  
 
 ---
 
-### 5. Painel mobile — ✅ parcial (2.3.0)
+## Páginas atualizadas (v2.5)
 
-**Feito:** menu hamburger (drawer), Inbox lista ↔ chat no celular, botão voltar.
-
-**Pendente:** PWA, touch targets globais, tickets/supervisor mobile.
-
-**Esforço restante:** baixo–médio
-
----
-
-### 3. Inbox — inatividade, encerramento e SLA — ✅ concluído (2.2.1)
-
-**O quê:** automatizar `/enc`, timeout configurável, conversas `closed` por inatividade, alertas de fila parada.
-
-**Implementação:** `InboxSettings` (SLA), scan a cada 60s, webhook `inbox.conversation.closed`, UI em Bot do Inbox.
-
-**Pendente:** CSAT pós-atendimento.
-
-**Esforço restante:** baixo (CSAT) · **Versão alvo:** 2.3.x
+| Rota | Situação |
+|------|----------|
+| `/settings/backup` | CSV + JSON export/import |
+| `/admin/moderation` | Lista orgs + override plano |
+| `/admin/api` | Stats integrações globais |
+| `/admin/payments` | Pedidos Stripe |
+| `/platform/inbox/bot` | Toggle CSAT |
 
 ---
 
-### 4. Convite de equipe por e-mail — ✅ concluído (2.2.2)
+## Como usar
 
-**O quê:** e-mail “convidado para {empresa}” + link Google OAuth; reenvio na UI.
-
-**Implementação:** `EmailService` (Resend / SMTP / console dev), `POST /team/members/:id/resend-invite`.
-
-**Produção:** `RESEND_API_KEY` ou `SMTP_*` + `MAIL_FROM` — ver `PRODUCTION.md` §4.
-
----
-
-### 6. Billing / assinatura (Stripe) — ✅ concluído (2.4.0)
-
-**O quê:** checkout Stripe, webhook HMAC, fatura auditável, bloqueio por expiração → `Organization.plan`.
-
-**Implementação:** `BillingService`, `config/plans.json`, UI `/plans` + `/admin/payments`. Ver `docs/BILLING.md`.
-
-**Produção:** `STRIPE_SECRET_KEY`, price IDs, webhook — ver `PRODUCTION.md` §6.
-
----
-
-### 7. Camada WhatsApp Cloud API (Meta)
-
-**O quê:** `WhatsAppChannelProvider` — Baileys hoje / Cloud API amanhã; mesmo contrato REST interno.
-
-**Por quê:** Enterprise e estabilidade oficial.
-
-**Produção:** Meta Business, WABA, webhooks HTTPS, tokens — **`PRODUCTION.md` §7** (checklist completo).
-
-**Esforço:** alto · Fase 5 em `INBOX-ATENDIMENTO.md`
-
----
-
-### 8. Backup e restore completo do tenant
-
-**O quê:** export/import JSON (contatos, setores, papéis, automações, Inbox); UI em `/settings/backup`.
-
-**Por quê:** disaster recovery e migração.
-
-**Esforço:** médio
-
----
-
-### 9. Testes integração + E2E críticos
-
-**O quê:** supertest consentimento 1x/2x/3x, transferência `internalRank`, convite; Playwright Inbox.
-
-**Por quê:** módulos 2.1 com pouca cobertura.
-
-**Esforço:** médio
-
----
-
-### 10. Admin operacional e observabilidade
-
-**O quê:** métricas reais, moderação com UI, alertas Slack/e-mail quando sessão cai.
-
-**Por quê:** `MetricsCollector` e admin com TODOs.
-
-**Esforço:** médio
-
----
-
-## Mapa esforço × impacto
-
-```
-Alto impacto + relativamente rápido  →  1 Webhooks, 4 E-mail equipe
-Alto impacto + mais tempo            →  2 Deploy, 3 Inbox SLA, 6 Billing, 7 Cloud API
-Qualidade / escala                   →  8 Backup, 9 Testes, 10 Admin ops
-UX                                   →  5 Mobile
-```
-
----
-
-## Páginas / módulos ainda “finos” (não bloqueiam MVP)
-
-| Rota | Situação atual |
-|------|----------------|
-| `/settings/permissions` | Lista estática de papéis; redireciona para `/settings/team` |
-| `/settings/security` | Reusa painel de chaves API |
-| `/settings/backup` | Só CSV de contatos |
-| `/admin/payments` | Pedidos Stripe + sweep expirados |
-| `/admin/moderation` | Stub com links |
-| `/admin/api` | Stub com links |
-
----
-
-## Como usar este documento
-
-1. Escolher item do Top 10 → implementar → atualizar changelog em `SISTEMA-REGISTRO.md`
-2. Se envolver deploy, secrets ou infra → **`PRODUCTION.md` §2** (e §§ feature-specific)
-3. Commit + push ao concluir cada entrega
-
-*Espelho para agentes: `.cursor/rules/production-roadmap-mindset.mdc`*
+1. Feature nova → changelog `SISTEMA-REGISTRO.md` + semver `package.json`
+2. Deploy/infra → `PRODUCTION.md` §2
+3. Cloud API → `PRODUCTION.md` §7 (quando for implementar)

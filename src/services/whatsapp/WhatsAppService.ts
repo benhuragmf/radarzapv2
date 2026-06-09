@@ -2525,6 +2525,10 @@ export class WhatsAppService {
           createdAt: new Date().toISOString(),
         });
       });
+
+      void import('@/services/alerts/AlertNotificationService').then(({ AlertNotificationService }) => {
+        void AlertNotificationService.getInstance().whatsAppDisconnected(clientId, '401 logout');
+      });
     } catch (error) {
       this.serviceLogger.error(`Error handling session disconnect for client ${clientId}:`, error);
     }

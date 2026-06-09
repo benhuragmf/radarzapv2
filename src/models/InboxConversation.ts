@@ -22,6 +22,11 @@ export interface IInboxConversation extends Document {
   queueEnteredAt?: Date;
   /** Alerta de fila parada já emitido para esta entrada na fila. */
   queueSlaNotifiedAt?: Date;
+  /** Aguardando nota CSAT 1–5 após encerramento. */
+  csatPending?: boolean;
+  csatScore?: number;
+  csatRatedAt?: Date;
+  csatAssignedUserId?: mongoose.Types.ObjectId;
   acceptedAt?: Date;
   resolvedAt?: Date;
   /** Referência exibida ao converter em ticket */
@@ -57,6 +62,10 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     inactivityWarnedAt: Date,
     queueEnteredAt: Date,
     queueSlaNotifiedAt: Date,
+    csatPending: { type: Boolean, default: false, index: true },
+    csatScore: { type: Number, min: 1, max: 5 },
+    csatRatedAt: Date,
+    csatAssignedUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     acceptedAt: Date,
     resolvedAt: Date,
     ticketRef: { type: String, maxlength: 32, index: true },

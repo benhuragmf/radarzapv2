@@ -47,6 +47,9 @@ interface InboxSettings {
   inactivityCloseMinutes: number
   inactivityWarningMinutes: number
   queueSlaAlertMinutes: number
+  csatEnabled: boolean
+  csatPrompt: string
+  csatThankYou: string
 }
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -363,6 +366,40 @@ export default function InboxBotSettings() {
               className={inputCls}
               value={form.queueSlaAlertMinutes}
               onChange={e => patch('queueSlaAlertMinutes', Number(e.target.value) || 0)}
+            />
+          </label>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <h2 className="font-semibold text-sm text-white">CSAT — satisfação pós-atendimento</h2>
+          <p className="text-xs text-gray-500">
+            Após encerrar a conversa (<code className="text-gray-400">/enc</code> ou inatividade), o
+            cliente recebe pedido de nota de 1 a 5.
+          </p>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.csatEnabled}
+              onChange={e => patch('csatEnabled', e.target.checked)}
+            />
+            Ativar pesquisa CSAT
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-400">Mensagem da pesquisa</span>
+            <textarea
+              className={textareaCls}
+              value={form.csatPrompt}
+              disabled={!form.csatEnabled}
+              onChange={e => patch('csatPrompt', e.target.value)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-400">Agradecimento após nota</span>
+            <input
+              className={inputCls}
+              value={form.csatThankYou}
+              disabled={!form.csatEnabled}
+              onChange={e => patch('csatThankYou', e.target.value)}
             />
           </label>
         </Card>
