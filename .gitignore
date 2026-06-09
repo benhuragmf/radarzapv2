@@ -203,8 +203,13 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-# WhatsApp sessions
+# WhatsApp sessions / credenciais locais
 sessions/
+**/creds.json
+*.pem
+*.key
+.env.staging
+.env.*.local
 
 # Inbox media (arquivos recebidos via WhatsApp)
 data/inbox-media/

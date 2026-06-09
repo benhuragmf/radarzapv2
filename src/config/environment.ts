@@ -388,6 +388,14 @@ export function validateConfig(): void {
     if (!config.SECURITY.COOKIE_SECURE) {
       errors.push('COOKIE_SECURE must be true in production');
     }
+
+    if (process.env.ALLOW_DEV_BILLING === 'true') {
+      errors.push('ALLOW_DEV_BILLING must not be true in production');
+    }
+
+    if (process.env.ALLOW_DEV_API_KEY_BYPASS === 'true') {
+      errors.push('ALLOW_DEV_API_KEY_BYPASS must not be true in production');
+    }
   }
   
   // Validate numeric ranges

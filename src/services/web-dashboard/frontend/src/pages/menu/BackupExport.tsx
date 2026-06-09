@@ -116,6 +116,7 @@ export default function BackupExport() {
         </div>
         <p className="text-xs text-gray-600">
           Restaurar exige permissão de dono/admin billing. Chaves de API não são reimportadas.
+          Backups criptografados (produção) são aceitos automaticamente no mesmo formato JSON.
         </p>
       </Card>
 

@@ -81,7 +81,7 @@ import { validateOptionalCampaignSendAt } from '../../utils/schedule-time';
 import { BirthdayAutomationRule, type IBirthdayAutomationRule } from '../../models/BirthdayAutomationRule';
 import { ApiKey } from '../../models/ApiKey';
 import { WebhookEndpoint, WEBHOOK_EVENTS, type WebhookEvent } from '../../models/WebhookEndpoint';
-import { AuditLog } from '../../models/AuditLog';
+import { AuditLog, writeAuditLog } from '../../models/AuditLog';
 import { generateApiKeyRaw, hashApiKey, apiKeyPrefix, generateWebhookSecret } from '../../utils/api-key';
 import { OPENAPI_DASHBOARD } from '../../constants/openapi-dashboard';
 import { DiscordNavAlertsService } from '../discord/DiscordNavAlertsService';
@@ -112,6 +112,13 @@ import {
   Cap,
   DashboardRequest,
 } from '../../auth/rbac';
+import helmet from 'helmet';
+import { securityMiddleware } from '../../middleware/security';
+import { rateLimiters } from '../../middleware/rateLimiter';
+import { redactEmail, redactOAuthError, escapeMongoRegex } from '../../utils/redact-sensitive';
+import { encryptField } from '../../utils/field-encryption';
+import { requireDashboardOrigin } from '../../middleware/same-origin';
+import { productionSafeError } from '../../middleware/production-safe-error';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -237,6 +244,14 @@ export class DashboardService {
   private setupExpress(): void {
     this.app.set('trust proxy', 1);
 
+    this.app.use(securityMiddleware.securityHeaders);
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: false,
+        crossOriginEmbedderPolicy: false,
+      }),
+    );
+
     this.app.post(
       '/api/billing/webhook/stripe',
       express.raw({ type: 'application/json' }),
@@ -357,10 +372,13 @@ export class DashboardService {
     const publicDir = path.join(__dirname, 'public');
     this.app.use(express.static(publicDir));
 
-    // Auth routes (public)
+    // Auth routes (public) — rate limit contra brute force
+    this.app.use('/auth', rateLimiters.auth);
     this.setupAuthRoutes();
 
-    // Protected API routes — carrega AuthContext + capabilities
+    // Protected API routes — rate limit + origin (prod) + AuthContext
+    this.app.use('/api', rateLimiters.general);
+    this.app.use('/api', requireDashboardOrigin);
     this.app.use('/api', (req, res, next) => {
       loadAuthContext(req as DashboardRequest, res, next).catch(next);
     });
@@ -492,7 +510,7 @@ export class DashboardService {
 
         const tokenData = await tokenRes.json() as any;
         if (!tokenData.access_token) {
-          logger.error('Discord token exchange failed', tokenData);
+          logger.error('Discord token exchange failed', redactOAuthError(tokenData));
           const frontendBase = this.getFrontendBase();
           return res.redirect(`${frontendBase}/?error=token_failed`);
         }
@@ -636,7 +654,11 @@ export class DashboardService {
           picture?: string;
         };
         if (!profile.sub || !profile.email) {
-          logger.warn('Google profile incomplete', { status: profileRes.status, profile });
+          logger.warn('Google profile incomplete', {
+            status: profileRes.status,
+            hasSub: Boolean(profile.sub),
+            email: redactEmail(profile.email),
+          });
           return res.redirect(`${frontendBase}/?error=google_profile`);
         }
 
@@ -900,8 +922,15 @@ export class DashboardService {
       }
     });
 
-    /** Evolution: GET /instance/connect/:instanceName — connect + QR síncrono */
+    /** @deprecated GET removido em produção (CSRF) — use POST */
     r.get('/sessions/:id/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
+      if (config.NODE_ENV === 'production') {
+        res.setHeader('Allow', 'POST');
+        return res.status(405).json({
+          error: 'Use POST /api/sessions/:id/connect',
+          code: 'METHOD_NOT_ALLOWED',
+        });
+      }
       try {
         const wa = WhatsAppService.getInstance();
         const result = await wa.connectInstance(req.params.id);
@@ -1563,9 +1592,13 @@ export class DashboardService {
 
     r.put('/rules/:id', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
+        const auth = (req as DashboardRequest).auth!;
         const { name, priority, templateName, keywords, destinationIdentifiers, channelIds, isActive } = req.body;
 
-        const rule = await Rule.findById(req.params.id);
+        const rule = await Rule.findOne({
+          _id: req.params.id,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+        });
         if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
         if (name !== undefined) rule.name = name;
@@ -1580,7 +1613,10 @@ export class DashboardService {
         if (destinationIdentifiers !== undefined) {
           const ids: mongoose.Types.ObjectId[] = [];
           for (const identifier of destinationIdentifiers) {
-            const dest = await Destination.findOne({ identifier });
+            const dest = await Destination.findOne({
+              identifier,
+              clientId: new mongoose.Types.ObjectId(auth.clientId),
+            });
             if (dest) ids.push(dest._id as mongoose.Types.ObjectId);
           }
           rule.action.destinationIds = ids;
@@ -1595,7 +1631,11 @@ export class DashboardService {
 
     r.post('/rules/:id/toggle', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
-        const rule = await Rule.findById(req.params.id);
+        const auth = (req as DashboardRequest).auth!;
+        const rule = await Rule.findOne({
+          _id: req.params.id,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+        });
         if (!rule) return res.status(404).json({ error: 'Rule not found' });
         await rule.toggle();
         res.json({ ok: true, isActive: rule.isActive });
@@ -1606,7 +1646,12 @@ export class DashboardService {
 
     r.delete('/rules/:id', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
-        await Rule.findByIdAndDelete(req.params.id);
+        const auth = (req as DashboardRequest).auth!;
+        const result = await Rule.deleteOne({
+          _id: req.params.id,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+        });
+        if (result.deletedCount === 0) return res.status(404).json({ error: 'Rule not found' });
         res.json({ ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -2179,13 +2224,19 @@ export class DashboardService {
     r.get('/tenant-backup/export', requireCapability(Cap.ACCOUNT_SETTINGS), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const payload = await TenantBackupService.getInstance().exportOrganization(
-          auth.clientId,
+        const body = TenantBackupService.getInstance().wrapExportPayload(
+          await TenantBackupService.getInstance().exportOrganization(auth.clientId),
         );
         const filename = `radarzap-backup-${auth.clientId}-${Date.now()}.json`;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.json(payload);
+        await writeAuditLog({
+          action: 'tenant.backup.export',
+          actorUserId: auth.userId,
+          details: { organizationId: auth.clientId, encrypted: TenantBackupService.isEncryptedExport(body) },
+          ip: req.ip,
+        });
+        res.json(body);
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -2195,7 +2246,8 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const replace = Boolean(req.body?.replace);
-        const payload = req.body?.backup ?? req.body;
+        const raw = req.body?.backup ?? req.body;
+        const payload = TenantBackupService.parseImportPayload(raw);
         if (!payload?.data) {
           res.status(400).json({ error: 'JSON de backup inválido' });
           return;
@@ -2205,6 +2257,12 @@ export class DashboardService {
           payload,
           { replace },
         );
+        await writeAuditLog({
+          action: 'tenant.backup.import',
+          actorUserId: auth.userId,
+          details: { organizationId: auth.clientId, replace, imported: result.imported },
+          ip: req.ip,
+        });
         res.json({ ok: true, ...result });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
@@ -2744,7 +2802,12 @@ export class DashboardService {
 
     r.delete('/channels/:id', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
-        await DiscordChannel.findByIdAndDelete(req.params.id);
+        const auth = (req as DashboardRequest).auth!;
+        const result = await DiscordChannel.deleteOne({
+          _id: req.params.id,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+        });
+        if (result.deletedCount === 0) return res.status(404).json({ error: 'Channel not found' });
         res.json({ ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -2753,7 +2816,11 @@ export class DashboardService {
 
     r.patch('/channels/:id/toggle', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
-        const ch = await DiscordChannel.findById(req.params.id);
+        const auth = (req as DashboardRequest).auth!;
+        const ch = await DiscordChannel.findOne({
+          _id: req.params.id,
+          clientId: new mongoose.Types.ObjectId(auth.clientId),
+        });
         if (!ch) return res.status(404).json({ error: 'Channel not found' });
         await ch.toggleActive();
         res.json({ ok: true, isActive: ch.isActive });
@@ -2763,7 +2830,11 @@ export class DashboardService {
     });
 
     // ── WhatsApp Groups (from active session via queue job) ────────────────
-    r.get('/sessions/:id/groups', async (req, res) => {
+    r.get(
+      '/sessions/:id/groups',
+      requireCapability(Cap.WHATSAPP_SESSION_VIEW),
+      requireSelfOrStaff('id'),
+      async (req, res) => {
       try {
         const clientId = req.params.id;
         const resultKey = `groups-result:${clientId}:${Date.now()}`;
@@ -2918,15 +2989,15 @@ export class DashboardService {
           });
         }
         if (q?.trim()) {
-          const term = q.trim();
+          const term = escapeMongoRegex(q.trim());
           and.push({
             $or: [
               { message: { $regex: term, $options: 'i' } },
-              { traceId: term },
-              { 'metadata.messageId': term },
+              { traceId: q.trim() },
+              { 'metadata.messageId': q.trim() },
               { 'metadata.destination': { $regex: term, $options: 'i' } },
               { 'metadata.primaryLink': { $regex: term, $options: 'i' } },
-              { 'metadata.pipeline': term },
+              { 'metadata.pipeline': q.trim() },
             ],
           });
         }
@@ -4234,12 +4305,12 @@ export class DashboardService {
         const events = (body.events ?? ['campaign.sent', 'campaign.failed']).filter(
           (e): e is WebhookEvent => (WEBHOOK_EVENTS as readonly string[]).includes(e),
         );
-        const secret = generateWebhookSecret();
+        const secretPlain = generateWebhookSecret();
         const doc = await WebhookEndpoint.create({
           organizationId: new mongoose.Types.ObjectId(auth.organizationId),
           url,
           events: events.length ? events : ['campaign.sent'],
-          secret,
+          secret: encryptField(secretPlain),
           description: body.description?.trim(),
           active: true,
         });
@@ -4247,7 +4318,7 @@ export class DashboardService {
           _id: doc._id,
           url: doc.url,
           events: doc.events,
-          secret,
+          secret: secretPlain,
           createdAt: doc.createdAt,
         });
       } catch (e) {
@@ -4272,7 +4343,15 @@ export class DashboardService {
           );
         }
         await doc.save();
-        res.json(doc);
+        res.json({
+          _id: doc._id,
+          url: doc.url,
+          events: doc.events,
+          active: doc.active,
+          description: doc.description,
+          lastDeliveryAt: doc.lastDeliveryAt,
+          lastDeliveryStatus: doc.lastDeliveryStatus,
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -4512,7 +4591,11 @@ export class DashboardService {
             'Arquivo muito grande. O limite é 16 MB por requisição (imagem de status ou importação CSV/VCF).',
         });
       }
-      next(err);
+      const normalized =
+        err instanceof Error
+          ? err
+          : Object.assign(new Error(err?.message ?? 'Error'), err);
+      productionSafeError(normalized, _req, res, next);
     });
   }
 
@@ -4536,14 +4619,15 @@ export class DashboardService {
             sess.organizationId ?? (await orgSvc.resolveClientId(sess.userId)) ?? undefined;
           if (clientId) {
             await socket.join(`inbox:${clientId}`);
+            await socket.join(`tenant:${clientId}`);
             socket.data.inboxClientId = clientId;
+            socket.data.tenantClientId = clientId;
           }
         } catch (err) {
           logger.debug('Socket inbox room skip', { err: (err as Error).message });
         }
       }
 
-      this.buildStats().then(stats => socket.emit('stats', stats)).catch(() => {});
       socket.on('disconnect', () => logger.debug(`Dashboard client disconnected: ${socket.id}`));
     });
   }
@@ -4775,28 +4859,31 @@ export class DashboardService {
         try {
           const payload = JSON.parse(message) as Record<string, unknown>;
 
-          if (payload.event === 'QRCODE_UPDATED') {
+          const tenantId = payload.clientId ? String(payload.clientId) : '';
+          const tenantRoom = tenantId ? `tenant:${tenantId}` : '';
+
+          if (payload.event === 'QRCODE_UPDATED' && tenantRoom) {
             const data = payload.data as { qrcode?: { base64?: string } };
-            this.io.emit('session:update', {
+            this.io.to(tenantRoom).emit('session:update', {
               event: 'QRCODE_UPDATED',
               clientId: payload.clientId,
               qrCode: data?.qrcode?.base64,
               status: 'qr-required',
             });
-          } else if (payload.event === 'CONNECTION_UPDATE') {
+          } else if (payload.event === 'CONNECTION_UPDATE' && tenantRoom) {
             const data = payload.data as { state?: string };
             const statusMap: Record<string, string> = {
               open: 'connected',
               connecting: 'connecting',
               close: 'disconnected',
             };
-            this.io.emit('session:update', {
+            this.io.to(tenantRoom).emit('session:update', {
               event: 'CONNECTION_UPDATE',
               clientId: payload.clientId,
               status: statusMap[data?.state ?? ''] ?? 'disconnected',
             });
-          } else if (payload.clientId && payload.status) {
-            this.io.emit('session:update', {
+          } else if (tenantRoom && payload.clientId && payload.status) {
+            this.io.to(tenantRoom).emit('session:update', {
               ...payload,
               status: payload.status,
             });
@@ -4815,13 +4902,8 @@ export class DashboardService {
       }).catch(next);
     });
 
-    // Broadcast stats every 10 s
-    this.statsInterval = setInterval(async () => {
-      try {
-        const stats = await this.buildStats();
-        this.io.emit('stats', stats);
-      } catch { /* ignore */ }
-    }, 10_000);
+    // Stats globais removidos do broadcast — evitava vazamento cross-tenant via Socket.IO.
+    // O painel usa polling REST (/api/...) para métricas por tenant ou admin.
   }
 
   async stop(): Promise<void> {

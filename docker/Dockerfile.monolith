@@ -28,7 +28,12 @@ COPY --from=backend-builder /app/dist ./dist
 COPY --from=backend-builder /app/config ./config
 COPY --from=frontend-builder /frontend/../public ./dist/services/web-dashboard/public
 
-RUN mkdir -p sessions media logs
+RUN mkdir -p sessions media logs \
+  && addgroup -g 1001 -S radarzap \
+  && adduser -S radarzap -u 1001 -G radarzap \
+  && chown -R radarzap:radarzap /app
+
+USER radarzap
 
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \

@@ -11,9 +11,17 @@ import { BirthdayAutomationRule } from '@/models/BirthdayAutomationRule';
 import { WebhookEndpoint } from '@/models/WebhookEndpoint';
 import { ApiKey } from '@/models/ApiKey';
 import { createServiceLogger } from '@/utils/logger';
+import { encryptField, decryptField } from '@/utils/field-encryption';
 
 const logger = createServiceLogger('TenantBackup');
 export const TENANT_BACKUP_VERSION = '2.5.0';
+export const BACKUP_ENCRYPTED_FORMAT = 'radarzap-backup-encrypted';
+
+export type EncryptedBackupExport = {
+  format: typeof BACKUP_ENCRYPTED_FORMAT;
+  version: string;
+  ciphertext: string;
+};
 
 export type TenantBackupPayload = {
   version: string;
@@ -45,6 +53,31 @@ export class TenantBackupService {
   static getInstance(): TenantBackupService {
     if (!TenantBackupService.instance) TenantBackupService.instance = new TenantBackupService();
     return TenantBackupService.instance;
+  }
+
+  static isEncryptedExport(body: unknown): body is EncryptedBackupExport {
+    return (
+      typeof body === 'object' &&
+      body !== null &&
+      (body as EncryptedBackupExport).format === BACKUP_ENCRYPTED_FORMAT
+    );
+  }
+
+  static parseImportPayload(raw: unknown): TenantBackupPayload {
+    if (TenantBackupService.isEncryptedExport(raw)) {
+      const json = decryptField(raw.ciphertext);
+      return JSON.parse(json) as TenantBackupPayload;
+    }
+    return raw as TenantBackupPayload;
+  }
+
+  wrapExportPayload(payload: TenantBackupPayload): TenantBackupPayload | EncryptedBackupExport {
+    if (process.env.BACKUP_ENCRYPT_EXPORT !== 'true') return payload;
+    return {
+      format: BACKUP_ENCRYPTED_FORMAT,
+      version: TENANT_BACKUP_VERSION,
+      ciphertext: encryptField(JSON.stringify(payload)),
+    };
   }
 
   async exportOrganization(organizationId: string): Promise<TenantBackupPayload> {
@@ -124,6 +157,8 @@ export class TenantBackupService {
     }
 
     const oid = new mongoose.Types.ObjectId(organizationId);
+    const org = await Organization.findById(oid).select('linkedGuildIds').lean();
+    const linkedGuilds = new Set(org?.linkedGuildIds ?? []);
     const counts: Record<string, number> = {};
 
     if (opts.replace) {
@@ -206,6 +241,10 @@ export class TenantBackupService {
       const channelId = String(row.channelId ?? '');
       const guildId = String(row.guildId ?? '');
       if (!channelId || !guildId) continue;
+      if (linkedGuilds.size > 0 && !linkedGuilds.has(guildId)) {
+        logger.warn('Ignorando canal Discord de guild não vinculada', { guildId, organizationId });
+        continue;
+      }
       const { _id, createdAt, updatedAt, ...rest } = row;
       await DiscordChannel.findOneAndUpdate(
         { guildId, channelId },

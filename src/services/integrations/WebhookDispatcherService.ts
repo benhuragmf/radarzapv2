@@ -4,6 +4,7 @@ import { QueueManager } from '@/cache/QueueManager';
 import { config } from '@/config/environment';
 import { WebhookEndpoint, type WebhookEvent } from '@/models/WebhookEndpoint';
 import { buildWebhookSignatureHeader } from '@/utils/webhook-signature';
+import { decryptField } from '@/utils/field-encryption';
 import { createServiceLogger } from '@/utils/logger';
 
 export const WEBHOOK_QUEUE = 'notifications';
@@ -101,7 +102,7 @@ export class WebhookDispatcherService {
           organizationId,
           event,
           url: ep.url,
-          secret: ep.secret,
+          secret: decryptField(ep.secret),
           payload,
         } satisfies WebhookDeliveryJob,
         {

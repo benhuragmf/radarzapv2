@@ -759,6 +759,9 @@ radarzapv2/
 | [docs/CONTATOS-CSV-IMPORTACAO.md](docs/CONTATOS-CSV-IMPORTACAO.md) | Import/export contatos |
 | [docs/ROADMAP-COMPLETUDE.md](docs/ROADMAP-COMPLETUDE.md) | Lacunas e prioridades |
 | [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md) | Changelog técnico por versão |
+| [SECURITY.md](SECURITY.md) | Política de segurança e reporte de vulnerabilidades |
+| [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | Auditoria de segurança (jun/2026) |
+| [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) | Checklist pré-deploy |
 
 ---
 

@@ -11,8 +11,11 @@ const logger = createServiceLogger('SecurityMiddleware');
  */
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
+    // Sem Origin: permitir só fora de produção (Postman, curl local)
     if (!origin) {
+      if (config.NODE_ENV === 'production') {
+        return callback(new Error('Origin header required'));
+      }
       return callback(null, true);
     }
 

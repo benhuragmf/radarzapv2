@@ -25,6 +25,7 @@ import {
 } from '@/types/consent';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { createServiceLogger } from '@/utils/logger';
+import { redactPhone } from '@/utils/redact-sensitive';
 import {
   identifierCandidatesFromJids,
   isLikelyPhoneIdentifier,
@@ -88,7 +89,7 @@ export class ConsentService {
     await ConsentHistory.create({
       clientId: dest.clientId,
       destinationId: dest._id,
-      phone: dest.identifier,
+      phone: redactPhone(dest.identifier),
       companyName: companyName || undefined,
       previousStatus,
       newStatus,
@@ -190,7 +191,7 @@ export class ConsentService {
       if (lastPrompt && Date.now() - lastPrompt < CONSENT_PROMPT_COOLDOWN_MS) {
         logger.info('Consent prompt skipped (duplicate within cooldown)', {
           clientId,
-          phone: dest.identifier,
+          phone: redactPhone(dest.identifier),
         });
         return;
       }
@@ -301,7 +302,10 @@ export class ConsentService {
       replyText: 'primeiro contato iniciado pelo cliente',
     });
     await ContactAutoSegmentService.getInstance().tagInboundFirstContact(clientId, dest);
-    logger.info('Contato criado via inbound (sem prompt LGPD)', { clientId, phone: identifier });
+    logger.info('Contato criado via inbound (sem prompt LGPD)', {
+      clientId,
+      phone: redactPhone(identifier),
+    });
     return dest;
   }
 
@@ -320,7 +324,7 @@ export class ConsentService {
     });
     logger.info('Canal aberto por inbound (atendimento)', {
       clientId,
-      phone: dest.identifier,
+      phone: redactPhone(dest.identifier),
       previousStatus: prev,
     });
     return true;
@@ -368,7 +372,7 @@ export class ConsentService {
         );
         logger.info('Opt-out abortado — usuário manteve inscrição', {
           clientId,
-          phone: dest.identifier,
+          phone: redactPhone(dest.identifier),
         });
         return;
       }
@@ -474,7 +478,7 @@ export class ConsentService {
     const req = await ConsentRenewalRequest.create({
       clientId: dest.clientId,
       destinationId: dest._id,
-      phone: dest.identifier,
+      phone: redactPhone(dest.identifier),
       contactName: dest.name,
       previousStatus: st,
       requestedByUserId: requestedBy.userId,

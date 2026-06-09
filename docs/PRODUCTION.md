@@ -3,7 +3,7 @@
 > Tudo que muda entre **desenvolvimento local** e **ambiente de produção**.  
 > Atualizar ao implementar itens do `ROADMAP-COMPLETUDE.md`.
 
-**Última revisão:** 2026-06-05 (§2 Deploy + §7 Cloud API)
+**Última revisão:** 2026-06-05 (§2 Deploy + §7 Cloud API + §8 Segurança)
 
 ---
 
@@ -309,7 +309,10 @@ Detalhes gerais: seção **Rollback** no final deste documento.
 | `MONGODB_URL` | `localhost:27017` | URL interna/VPC, sem expor porta pública |
 | `REDIS_URL` | `localhost:6380` | URL interna |
 | `JWT_SECRET` / `SESSION_SECRET` | dev | **Rotacionar** — strings longas únicas |
-| `SESSION_ENCRYPTION_KEY` | dev | **Obrigatório** — perda = sessões WA inválidas |
+| `SESSION_ENCRYPTION_KEY` | dev | **Obrigatório** — perda = sessões WA inválidas; ver **§8** |
+| `BACKUP_ENCRYPT_EXPORT` | ausente / `false` | `true` — backup JSON criptografado |
+| `ALLOW_DEV_BILLING` | `true` (dev) | **ausente ou `false`** — `validateConfig` bloqueia em prod |
+| `ALLOW_DEV_API_KEY_BYPASS` | ausente | **nunca** em prod/staging |
 | `FRONTEND_URL` | `http://localhost:5174` | `https://app.seudominio.com` |
 | `CORS_ORIGIN` | localhost | mesmo domínio HTTPS do painel |
 | `DISCORD_*` / `GOOGLE_*` | dev apps | apps produção; redirects HTTPS |
@@ -536,12 +539,16 @@ Catálogo de templates: criar no Meta Business Manager; IDs referenciados nas ca
 
 ---
 
-### 8. Backup tenant
+### 8. Backup tenant — ✅ hardening v2.5.2
 
 | Local | Produção |
 |-------|----------|
-| Export manual | S3/R2 para arquivos de backup; retenção 30 dias |
-| Restore local | Restore só por admin ou dono; audit log |
+| Export JSON em plain | `BACKUP_ENCRYPT_EXPORT=true` → arquivo `{ format: "radarzap-backup-encrypted", ciphertext }` |
+| Import sem validação guild | Canais Discord de guild **não vinculada** à org são ignorados |
+| Sem trilha | `tenant.backup.export` / `tenant.backup.import` em `auditLogs` |
+| Export manual | S3/R2 para arquivos; retenção 30 dias |
+
+Detalhes de criptografia e restore: **§8 Segurança**.
 
 ---
 
@@ -586,13 +593,141 @@ Catálogo de templates: criar no Meta Business Manager; IDs referenciados nas ca
 
 ---
 
-## Segurança produção
+## §8 Segurança em produção
 
-- Rotacionar todos os secrets do `.env.example` (nunca reutilizar v1)
-- Rate limit ativo na API pública (`X-API-Key`)
-- Webhooks clientes: só HTTPS
-- RBAC: revisar `RADARZAP_SYSTEM_ADMIN_DISCORD_IDS`
-- Backups Mongo antes de deploy com migration de schema
+> Hardening aplicado no código (v2.5.2+). Itens abaixo são **obrigatórios só em staging/prod** — dev local permanece permissivo.
+
+### Secrets e flags
+
+| Item | Dev local | Staging / produção |
+|------|-----------|---------------------|
+| `SESSION_ENCRYPTION_KEY` | string dev | **≥ 32 caracteres únicos** — sessões WA, webhook secrets no Mongo, backup criptografado |
+| `BACKUP_ENCRYPT_EXPORT` | `false` / ausente | `true` |
+| `ALLOW_DEV_BILLING` | pode ser `true` | **bloqueado** se `NODE_ENV=production` |
+| `ALLOW_DEV_API_KEY_BYPASS` | só dev isolado | **nunca** definir |
+| `JWT_SECRET` / `SESSION_SECRET` | dev | rotacionar; nunca reusar v1 |
+
+Rotacionar todos os valores do `.env.example` antes do go-live.
+
+### Rede e bind
+
+- **Node** escuta em `127.0.0.1:3001` (ou socket Unix) — **não** expor `3001` na internet.
+- **nginx / Caddy / Cloudflare** na frente: HTTPS `:443`, proxy `/api` e upgrade WebSocket Socket.IO.
+- **MongoDB** e **Redis**: rede interna/VPC; portas `27017` / `6379` **sem** bind público.
+- **CORS** em produção: rejeita requisições sem header `Origin` em rotas sensíveis; `CORS_ORIGIN` = `FRONTEND_URL`.
+- Mutações do painel (`POST`/`PATCH`/`DELETE` em `/api`): `requireDashboardOrigin` bloqueia cross-origin (exceto webhooks Stripe/Meta).
+
+Exemplo nginx (trecho):
+
+```nginx
+server {
+  listen 443 ssl http2;
+  server_name app.seudominio.com;
+
+  location / {
+    root /var/www/radarzap/public;
+    try_files $uri /index.html;
+  }
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location /socket.io/ {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+}
+```
+
+PM2 sem Docker: `API_HOST=127.0.0.1` (ou variável equivalente no `.env` de deploy).
+
+### Redis com senha
+
+```yaml
+# docker-compose.prod.yml (trecho — Redis interno)
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    # ports: NÃO publicar 6379
+
+  app:
+    build:
+      dockerfile: docker/Dockerfile.monolith
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      NODE_ENV: production
+      BACKUP_ENCRYPT_EXPORT: "true"
+    volumes:
+      - wa_sessions:/app/sessions
+      - wa_media:/app/media
+    networks:
+      - internal
+    # ports: NÃO publicar 3001 — só proxy reverso na rede host
+```
+
+### Docker monolito (non-root)
+
+`docker/Dockerfile.monolith` roda como usuário `radarzap` (UID 1001). Volumes `sessions/` e `media/` devem ser graváveis por esse UID no host ou via `user:` no compose.
+
+### Criptografia de dados
+
+| Dado | Comportamento |
+|------|----------------|
+| Webhook secret (Mongo) | AES-256-CBC com `SESSION_ENCRYPTION_KEY`; plain retornado **uma vez** no `POST /integrations/webhooks` |
+| Export backup tenant | Com `BACKUP_ENCRYPT_EXPORT=true`, JSON com `ciphertext`; import descriptografa automaticamente |
+| Sessões Baileys | Já criptografadas com a mesma chave |
+
+**Não rotacionar** `SESSION_ENCRYPTION_KEY` após WA conectado sem plano de migração.
+
+### API e painel (já no código)
+
+- Helmet + headers de segurança + rate limit em `/auth` e `/api`
+- Erros 5xx genéricos em produção (`productionSafeError`)
+- Socket.IO: eventos de tenant só na room `tenant:{clientId}`
+- IDOR: rotas `rules`, `channels`, `sessions/:id/groups` filtradas por `clientId`
+- `GET /sessions/:id/connect` desabilitado em produção — usar `POST` (painel já compatível)
+- Logs: redação de e-mail/telefone; secrets de webhook não aparecem em listagens
+
+### Webhooks e integrações
+
+- URLs de webhook cliente: **somente HTTPS**
+- Assinatura HMAC com secret descriptografado no dispatcher
+- CI: `npm audit --omit=dev --audit-level=high` bloqueia vulnerabilidades em dependências de runtime
+
+### RBAC e auditoria
+
+- Revisar `RADARZAP_SYSTEM_ADMIN_DISCORD_IDS` antes do go-live
+- Export/import de backup gera entrada em `auditLogs`
+- Backups Mongo **antes** de deploy com migration de schema
+
+### Scan de secrets (recomendado no CI)
+
+Adicionar job opcional com [gitleaks](https://github.com/gitleaks/gitleaks) ou GitHub secret scanning no repositório — não substitui revisão manual de `.env` e `sessions/`.
+
+### Checklist rápido §8
+
+- [ ] `SESSION_ENCRYPTION_KEY` forte e em secrets manager
+- [ ] `BACKUP_ENCRYPT_EXPORT=true`
+- [ ] Redis com `requirepass`; `REDIS_URL` com senha
+- [ ] Mongo/Redis/Node sem porta pública
+- [ ] HTTPS + `COOKIE_SECURE=true`
+- [ ] `ALLOW_DEV_*` ausentes em prod
+- [ ] Smoke: criar webhook, exportar backup, importar em org de teste
+
+Documentação complementar: `SECURITY.md`, `SECURITY_AUDIT.md`, `SECURITY_CHECKLIST.md`.
 
 ---
 
@@ -609,6 +744,7 @@ Catálogo de templates: criar no Meta Business Manager; IDs referenciados nas ca
 - Dev local: `RADARZAP-V2-MIGRACAO.md`
 - Roadmap features: `ROADMAP-COMPLETUDE.md`
 - **Deploy teste → produção: §2 deste documento**
+- **Segurança: §8 deste documento**
 - Cloud API Meta: **§7 deste documento**
 - Billing Stripe: `BILLING.md`
 - Mapa rotas: `MENU-PAGES-REGISTRY.md`

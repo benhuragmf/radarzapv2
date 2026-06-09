@@ -329,8 +329,11 @@ export const authenticateAPIKey = async (req: AuthenticatedRequest, res: Respons
     const keyDoc = await ApiKey.findOne({ keyHash, active: true });
 
     if (!keyDoc) {
-      if (config.NODE_ENV !== 'production') {
-        logger.warn('Using development-only API key placeholder auth');
+      const devBypass =
+        config.NODE_ENV !== 'production' &&
+        process.env.ALLOW_DEV_API_KEY_BYPASS === 'true';
+      if (devBypass) {
+        logger.warn('ALLOW_DEV_API_KEY_BYPASS ativo — não usar em staging compartilhado');
         req.user = {
           id: 'api-user',
           clientId: 'api-client',
