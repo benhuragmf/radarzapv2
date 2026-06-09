@@ -23,6 +23,7 @@ Painel: **Configurações → Webhooks** (`/settings#api-webhooks`)
 | `inbox.message.received` | Mensagem inbound do cliente |
 | `inbox.conversation.resolved` | Atendente finalizou conversa |
 | `inbox.conversation.closed` | Conversa encerrada por inatividade (`/enc` ou timeout automático) |
+| `inbox.csat.rated` | Cliente respondeu pesquisa CSAT (1–5) após encerramento |
 
 ## Payload
 

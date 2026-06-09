@@ -102,6 +102,35 @@ export const OPENAPI_DASHBOARD = {
     '/billing/admin/orders': {
       get: { summary: 'Lista pedidos Stripe (admin)', tags: ['Admin'] },
     },
+    '/tenant-backup/export': {
+      get: {
+        summary: 'Exportar backup JSON da organização (sem secrets de API/webhook)',
+        tags: ['Conta'],
+      },
+    },
+    '/tenant-backup/import': {
+      post: {
+        summary: 'Importar backup JSON ({ backup, replace? })',
+        tags: ['Conta'],
+      },
+    },
+    '/inbox/settings': {
+      get: { summary: 'Configurações do Inbox (incl. CSAT)', tags: ['Inbox'] },
+      patch: { summary: 'Atualizar configurações (csatEnabled, csatPrompt, csatThankYou)', tags: ['Inbox'] },
+    },
+    '/admin/organizations': {
+      get: { summary: 'Listar organizações (admin)', tags: ['Admin'] },
+    },
+    '/admin/organizations/{id}/plan': {
+      patch: { summary: 'Alterar plano de uma organização (admin)', tags: ['Admin'] },
+    },
+    '/admin/integrations-overview': {
+      get: { summary: 'Métricas globais de integrações e billing', tags: ['Admin'] },
+    },
+    '/integrations/whatsapp/cloud/webhook': {
+      get: { summary: 'Verificação webhook Meta (hub.verify_token)', tags: ['WhatsApp'] },
+      post: { summary: 'Inbound mensagens/status Cloud API (Meta)', tags: ['WhatsApp'] },
+    },
   },
 } as const;
 

@@ -1,6 +1,6 @@
 # RadarZap v2 — completude do sistema e roadmap
 
-> Análise consolidada do estado atual (v2.5.0), lacunas e prioridades de evolução.  
+> Análise consolidada do estado atual (v2.5.1), lacunas e prioridades de evolução.  
 > Produção: `PRODUCTION.md` · Registro técnico: `SISTEMA-REGISTRO.md`
 
 **Última revisão:** 2026-06-09
@@ -20,15 +20,15 @@ v2.5.0 fecha backup tenant, CSAT, admin ops, deploy Docker e PWA básico.
 | # | Lacuna | Status |
 |---|--------|--------|
 | 1 | Webhooks outbound | ✅ 2.2.0 |
-| 2 | Deploy / CI | ✅ parcial — Docker monolito `docker-compose.prod.yml`; CI build OK; deploy job automático pendente |
+| 2 | Deploy / CI | ✅ 2.5.1 — Docker monolito + `deploy.yml` (GHCR + SSH); secrets no GitHub Environment |
 | 3 | Convite equipe | ✅ 2.2.2 |
 | 4 | Billing Stripe | ✅ 2.4.0 (+ prices script `npm run stripe:prices`) |
 | 5 | Admin operacional | ✅ 2.5.0 — moderação orgs, API global stats, alertas Slack WA |
 | 6 | Backup tenant | ✅ 2.5.0 — export/import JSON `/settings/backup` |
 | 7 | Inbox SLA + CSAT | ✅ 2.5.0 — CSAT 1–5 pós-encerramento |
 | 8 | **WhatsApp Cloud API** | 🟡 stub webhook + doc §7 — **implementação por último** |
-| 9 | Mobile | ✅ parcial 2.5.0 — PWA manifest; falta touch global |
-| 10 | Testes | 🟡 CSAT + billing unit; falta E2E Playwright |
+| 9 | Mobile | ✅ 2.5.1 — PWA manifest + safe-area + alvos de toque 44px |
+| 10 | Testes | ✅ 2.5.1 — unitários + E2E Playwright (login/PWA smoke no CI) |
 
 ---
 

@@ -19,7 +19,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/inbox/tickets` | `menu/InboxTickets.tsx` | `GET /inbox/tickets`, `GET /inbox/tickets/stats` |
 | `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref` |
 | `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
-| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` |
+| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` (CSAT: `csatEnabled`, `csatPrompt`, `csatThankYou`) |
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
 | `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` |
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |
@@ -42,7 +42,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/contact?consent=waiting` | `Destinations.tsx` (view `waiting`) | `GET /consent/renewals`, `POST /consent/renewals/:id/approve` — perm `consent:approve-renewal` |
 | `/settings/permissions` | `menu/PermissionsPage.tsx` |
 | `/settings/security` | `menu/SecuritySettings.tsx` |
-| `/settings/backup` | `menu/BackupExport.tsx` |
+| `/settings/backup` | `menu/BackupExport.tsx` | `GET /tenant-backup/export`, `POST /tenant-backup/import` |
 
 ## Admin
 
@@ -55,7 +55,9 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/admin/clients` | `admin/AdminClients.tsx` | `GET /users` |
 | `/admin/servers` | `menu/AdminServers.tsx` | `GET /admin/servers-summary` |
 | `/admin/audit` | `menu/AdminAuditPage.tsx` | `GET /admin/audit-logs` |
-| `/admin/moderation` | `menu/AdminModeration.tsx` | — |
+| `/admin/moderation` | `menu/AdminModeration.tsx` | `GET /admin/organizations`, `PATCH /admin/organizations/:id/plan` |
+| `/admin/api` | `menu/AdminApiPage.tsx` | `GET /admin/integrations-overview` |
+| `/admin/payments` | `menu/AdminPaymentsPage.tsx` | `GET /billing/admin/orders` |
 | `/admin/settings` | `menu/AdminSettingsPage.tsx` | `GET /services/health` |
 
 ## Redirects legados `/em-breve/:slug`

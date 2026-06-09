@@ -57,3 +57,33 @@ jobs:
       - name: Vite build (sem tsc estrito)
         working-directory: src/services/web-dashboard/frontend
         run: npx vite build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: frontend-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend
+        working-directory: src/services/web-dashboard/frontend
+        run: npm ci
+
+      - name: Build frontend (preview)
+        working-directory: src/services/web-dashboard/frontend
+        run: npx vite build
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: E2E smoke (login + PWA)
+        run: npm run test:e2e -- --project=chromium
+        env:
+          CI: true

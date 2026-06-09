@@ -74,7 +74,30 @@ NODE_ENV=production node dist/index.js
 # Health: GET http://localhost:3001/api/services/health
 ```
 
-CI já executa `npm run build` e `vite build` em cada push para `main`.
+CI já executa `npm run build`, `vite build` e **E2E Playwright** (login + PWA) em cada push para `main`.
+
+### Deploy automático (GitHub Actions)
+
+Workflow: `.github/workflows/deploy.yml`
+
+| Gatilho | Comportamento |
+|---------|---------------|
+| `workflow_dispatch` | Build imagem → GHCR → SSH no servidor |
+| Tag `v*` | Idem (release) |
+
+**Secrets no GitHub Environment** (`staging` / `production`):
+
+| Secret | Uso |
+|--------|-----|
+| `DEPLOY_HOST` | IP ou hostname do VPS |
+| `DEPLOY_USER` | Usuário SSH |
+| `DEPLOY_SSH_KEY` | Chave privada (PEM) |
+| `DEPLOY_PATH` | Diretório no servidor (ex.: `/opt/radarzap`) |
+| `MONGO_PASSWORD` | Senha root Mongo do `docker-compose.deploy.yml` |
+
+No servidor: clonar repo, copiar `.env`, instalar Docker. O script `scripts/deploy-remote.sh` faz `docker pull` + `docker compose -f docker-compose.deploy.yml up -d`.
+
+Imagem publicada em `ghcr.io/<owner>/radarzap:<sha>`.
 
 ### Opção A — VPS (PM2 + nginx)
 

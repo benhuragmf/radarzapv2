@@ -38,7 +38,7 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
           <button
             type="button"
             onClick={onMenuClick}
-            className="lg:hidden shrink-0 p-1.5 -ml-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+            className="lg:hidden shrink-0 touch-target flex items-center justify-center p-2 -ml-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 active:bg-gray-700"
             aria-label="Abrir menu"
           >
             <Menu size={20} />

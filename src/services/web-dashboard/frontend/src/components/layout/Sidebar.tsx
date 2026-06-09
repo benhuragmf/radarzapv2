@@ -82,7 +82,7 @@ function NavLinkItem({
     <Link
       to={to}
       title={alert?.summary}
-      className={`flex items-center gap-3 ${pad} py-2 rounded-lg text-sm transition-colors ${alertRing} ${
+      className={`flex items-center gap-3 ${pad} py-2 touch-target-nav rounded-lg text-sm transition-colors active:scale-[0.98] ${alertRing} ${
         active
           ? 'bg-brand-600 text-white font-medium'
           : alert

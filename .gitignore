@@ -87,6 +87,11 @@ public
 tmp/
 temp/
 
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
 # Logs
 logs
 *.log
