@@ -76,6 +76,8 @@ dist
 # Gatsby files
 .cache/
 public
+!src/services/web-dashboard/frontend/public/
+!src/services/web-dashboard/frontend/public/**
 
 # Storybook build outputs
 .out
