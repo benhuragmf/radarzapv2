@@ -123,6 +123,8 @@ import { AiSettingsService } from '../ai/AiSettingsService';
 import { AiProviderService } from '../ai/AiProviderService';
 import { AiUsageMeterService } from '../ai/AiUsageMeterService';
 import { AiConversationService } from '../ai/AiConversationService';
+import { AiSkillService } from '../ai/AiSkillService';
+import { AiMemoryService } from '../ai/AiMemoryService';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -1606,6 +1608,54 @@ export class DashboardService {
         res.json({ ...usage, snapshot });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/ai/skills/:id/approve', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const skill = await AiSkillService.getInstance().approve(
+          auth.clientId,
+          req.params.id,
+          auth.userId,
+        );
+        res.json(AiSkillService.getInstance().toPayload(skill));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/ai/skills/:id/reject', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const skill = await AiSkillService.getInstance().reject(auth.clientId, req.params.id);
+        res.json(AiSkillService.getInstance().toPayload(skill));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/ai/memory/:id/approve', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const row = await AiMemoryService.getInstance().approve(
+          auth.clientId,
+          req.params.id,
+          auth.userId,
+        );
+        res.json(AiMemoryService.getInstance().toPayload(row));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/platform/ai/memory/:id/reject', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const row = await AiMemoryService.getInstance().reject(auth.clientId, req.params.id);
+        res.json(AiMemoryService.getInstance().toPayload(row));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 

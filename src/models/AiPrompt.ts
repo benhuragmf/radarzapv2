@@ -3,7 +3,26 @@ import { DEFAULT_AI_SYSTEM_PROMPT } from '@/types/ai-assistant';
 
 export interface IAiPrompt extends Document {
   clientId: mongoose.Types.ObjectId;
+  /** SOUL — persona, tom e limites do assistente. */
   systemPrompt: string;
+  /** IDENTITY — nome, emoji e vibe do assistente virtual. */
+  identityBlock: string;
+  /** AGENTS — regras operacionais e fluxo de atendimento. */
+  agentsGuide: string;
+  /** TOOLS — notas sobre processos/ferramentas (não confundir com skills aprendidas). */
+  toolsNotes: string;
+  /** Regras extras (legado — mesclado com agentsGuide no prompt). */
+  customRules: string;
+  /** Usar dados do cadastro (contato, tickets) no prompt — economiza tokens. */
+  useSystemContext: boolean;
+  /** Não pedir dados que já existem no cadastro. */
+  skipKnownFields: boolean;
+  /** Tentar resolver com base de conhecimento + skills antes de chamar LLM. */
+  autoResolveEnabled: boolean;
+  /** Aprendizado automático de skills (ficam pendentes até aprovação). */
+  learnSkillsEnabled: boolean;
+  /** Aprendizado de memória curada (MEMORY — pendente até aprovação). */
+  learnMemoryEnabled: boolean;
   collectName: boolean;
   collectEmail: boolean;
   collectProblem: boolean;
@@ -20,6 +39,15 @@ const AiPromptSchema = new Schema<IAiPrompt>(
   {
     clientId: { type: Schema.Types.ObjectId, required: true, unique: true, index: true },
     systemPrompt: { type: String, default: DEFAULT_AI_SYSTEM_PROMPT, maxlength: 8000 },
+    identityBlock: { type: String, default: '', maxlength: 2000 },
+    agentsGuide: { type: String, default: '', maxlength: 6000 },
+    toolsNotes: { type: String, default: '', maxlength: 4000 },
+    customRules: { type: String, default: '', maxlength: 6000 },
+    useSystemContext: { type: Boolean, default: true },
+    skipKnownFields: { type: Boolean, default: true },
+    autoResolveEnabled: { type: Boolean, default: true },
+    learnSkillsEnabled: { type: Boolean, default: true },
+    learnMemoryEnabled: { type: Boolean, default: true },
     collectName: { type: Boolean, default: true },
     collectEmail: { type: Boolean, default: true },
     collectProblem: { type: Boolean, default: true },

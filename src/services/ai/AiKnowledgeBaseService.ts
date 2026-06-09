@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 import { AiKnowledgeBase, IAiKnowledgeBase } from '@/models/AiKnowledgeBase';
+import {
+  AI_AUTO_RESOLVE_MIN_SCORE,
+  scoreAiTextMatch,
+} from '@/utils/ai-text-match';
 
 export class AiKnowledgeBaseService {
   private static instance: AiKnowledgeBaseService;
@@ -46,16 +50,51 @@ export class AiKnowledgeBaseService {
     });
   }
 
-  async buildContextBlock(clientId: string): Promise<string> {
+  async buildContextBlock(clientId: string, query?: string): Promise<string> {
+    const rows = query?.trim()
+      ? (await this.searchRelevant(clientId, query, 5)).map(r => r.row)
+      : await AiKnowledgeBase.find({
+          clientId: new mongoose.Types.ObjectId(clientId),
+          active: true,
+        })
+          .sort({ updatedAt: -1 })
+          .limit(8)
+          .select('title content')
+          .lean();
+
+    if (!rows.length) return '';
+    return rows.map(r => `### ${r.title}\n${r.content}`).join('\n\n');
+  }
+
+  async searchRelevant(
+    clientId: string,
+    query: string,
+    limit = 5,
+  ): Promise<Array<{ row: IAiKnowledgeBase; score: number }>> {
     const rows = await AiKnowledgeBase.find({
       clientId: new mongoose.Types.ObjectId(clientId),
       active: true,
     })
-      .sort({ updatedAt: -1 })
-      .limit(20)
-      .select('title content')
+      .select('title content active')
       .lean();
-    if (!rows.length) return '';
-    return rows.map(r => `### ${r.title}\n${r.content}`).join('\n\n');
+
+    return rows
+      .map(row => ({
+        row: row as unknown as IAiKnowledgeBase,
+        score: scoreAiTextMatch(query, row.title, row.content),
+      }))
+      .filter(r => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+  }
+
+  async findBestMatch(
+    clientId: string,
+    query: string,
+  ): Promise<{ row: IAiKnowledgeBase; score: number } | null> {
+    const hits = await this.searchRelevant(clientId, query, 1);
+    const best = hits[0];
+    if (!best || best.score < AI_AUTO_RESOLVE_MIN_SCORE) return null;
+    return best;
   }
 }

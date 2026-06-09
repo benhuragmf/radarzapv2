@@ -15,6 +15,8 @@ import {
 } from '@/types/ai-assistant';
 import { AiCredentialVaultService } from './AiCredentialVaultService';
 import { AiKnowledgeBaseService } from './AiKnowledgeBaseService';
+import { AiSkillService } from './AiSkillService';
+import { AiMemoryService } from './AiMemoryService';
 import { AiUsageMeterService } from './AiUsageMeterService';
 
 export interface AiModelCatalogPayload {
@@ -33,6 +35,8 @@ export interface AiSettingsPayload {
   settings: Record<string, unknown>;
   prompt: Record<string, unknown>;
   knowledgeBase: unknown[];
+  skills: unknown[];
+  memories: unknown[];
   usage: unknown;
   apiKeyMasked: string | null;
   hasApiKey: boolean;
@@ -64,10 +68,12 @@ export class AiSettingsService {
   }
 
   async getFullPayload(clientId: string): Promise<AiSettingsPayload> {
-    const [settings, prompt, knowledgeBase, usage, org] = await Promise.all([
+    const [settings, prompt, knowledgeBase, skills, memories, usage, org] = await Promise.all([
       this.getSettingsDoc(clientId),
       AiPrompt.findOne({ clientId: new mongoose.Types.ObjectId(clientId) }),
       AiKnowledgeBaseService.getInstance().list(clientId),
+      AiSkillService.getInstance().list(clientId),
+      AiMemoryService.getInstance().list(clientId),
       AiUsageMeterService.getInstance().getUsageSnapshot(clientId),
       Organization.findById(clientId).select('plan').lean(),
     ]);
@@ -150,6 +156,15 @@ export class AiSettingsService {
       },
       prompt: {
         systemPrompt: promptDoc.systemPrompt,
+        identityBlock: promptDoc.identityBlock ?? '',
+        agentsGuide: promptDoc.agentsGuide ?? '',
+        toolsNotes: promptDoc.toolsNotes ?? '',
+        customRules: promptDoc.customRules ?? '',
+        useSystemContext: promptDoc.useSystemContext !== false,
+        skipKnownFields: promptDoc.skipKnownFields !== false,
+        autoResolveEnabled: promptDoc.autoResolveEnabled !== false,
+        learnSkillsEnabled: promptDoc.learnSkillsEnabled !== false,
+        learnMemoryEnabled: promptDoc.learnMemoryEnabled !== false,
         collectName: promptDoc.collectName,
         collectEmail: promptDoc.collectEmail,
         collectProblem: promptDoc.collectProblem,
@@ -166,6 +181,8 @@ export class AiSettingsService {
         active: k.active,
         updatedAt: k.updatedAt,
       })),
+      skills: skills.map(s => AiSkillService.getInstance().toPayload(s)),
+      memories: memories.map(m => AiMemoryService.getInstance().toPayload(m)),
       usage,
       apiKeyMasked: this.vault.maskApiKey(plainKey),
       hasApiKey: this.vault.hasKey(withKey?.encryptedApiKey),
@@ -188,6 +205,22 @@ export class AiSettingsService {
       title: string;
       content: string;
       active?: boolean;
+      _delete?: boolean;
+    }> | undefined;
+    const skills = body.skills as Array<{
+      id?: string;
+      title: string;
+      triggers: string;
+      solution: string;
+      status?: 'pending' | 'approved' | 'rejected';
+      _delete?: boolean;
+    }> | undefined;
+    const memories = body.memories as Array<{
+      id?: string;
+      title: string;
+      content: string;
+      tags?: string;
+      status?: 'pending' | 'approved' | 'rejected';
       _delete?: boolean;
     }> | undefined;
 
@@ -232,6 +265,15 @@ export class AiSettingsService {
         {
           $set: {
             ...(typeof p.systemPrompt === 'string' ? { systemPrompt: p.systemPrompt } : {}),
+            ...(typeof p.identityBlock === 'string' ? { identityBlock: p.identityBlock } : {}),
+            ...(typeof p.agentsGuide === 'string' ? { agentsGuide: p.agentsGuide } : {}),
+            ...(typeof p.toolsNotes === 'string' ? { toolsNotes: p.toolsNotes } : {}),
+            ...(typeof p.customRules === 'string' ? { customRules: p.customRules } : {}),
+            ...(typeof p.useSystemContext === 'boolean' ? { useSystemContext: p.useSystemContext } : {}),
+            ...(typeof p.skipKnownFields === 'boolean' ? { skipKnownFields: p.skipKnownFields } : {}),
+            ...(typeof p.autoResolveEnabled === 'boolean' ? { autoResolveEnabled: p.autoResolveEnabled } : {}),
+            ...(typeof p.learnSkillsEnabled === 'boolean' ? { learnSkillsEnabled: p.learnSkillsEnabled } : {}),
+            ...(typeof p.learnMemoryEnabled === 'boolean' ? { learnMemoryEnabled: p.learnMemoryEnabled } : {}),
             ...(typeof p.collectName === 'boolean' ? { collectName: p.collectName } : {}),
             ...(typeof p.collectEmail === 'boolean' ? { collectEmail: p.collectEmail } : {}),
             ...(typeof p.collectProblem === 'boolean' ? { collectProblem: p.collectProblem } : {}),
@@ -256,6 +298,14 @@ export class AiSettingsService {
           await kbSvc.upsert(clientId, item);
         }
       }
+    }
+
+    if (Array.isArray(skills)) {
+      await AiSkillService.getInstance().syncPayload(clientId, skills);
+    }
+
+    if (Array.isArray(memories)) {
+      await AiMemoryService.getInstance().syncPayload(clientId, memories);
     }
 
     return this.getFullPayload(clientId);

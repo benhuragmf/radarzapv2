@@ -18,15 +18,21 @@ import {
   BarChart3,
   MessageSquare,
   Settings2,
+  Brain,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 import { AiModelPicker, type AiModelOption } from '../../components/ai/AiModelPicker'
 
 type TabId =
   | 'geral'
   | 'provedor'
-  | 'prompt'
+  | 'workspace'
+  | 'regras'
   | 'coleta'
   | 'kb'
+  | 'skills'
+  | 'memory'
   | 'limites'
   | 'transferencia'
   | 'logs'
@@ -35,9 +41,12 @@ type TabId =
 const TABS: { id: TabId; label: string }[] = [
   { id: 'geral', label: 'Geral' },
   { id: 'provedor', label: 'Provedor' },
-  { id: 'prompt', label: 'Prompt da IA' },
+  { id: 'workspace', label: 'Cérebro (Core Files)' },
+  { id: 'regras', label: 'Regras e economia' },
   { id: 'coleta', label: 'Dados a coletar' },
   { id: 'kb', label: 'Base de conhecimento' },
+  { id: 'skills', label: 'Skills' },
+  { id: 'memory', label: 'Memória' },
   { id: 'limites', label: 'Limites de uso' },
   { id: 'transferencia', label: 'Regras de transferência' },
   { id: 'logs', label: 'Logs e custos' },
@@ -59,6 +68,15 @@ interface AiPayload {
   }
   prompt: {
     systemPrompt: string
+    identityBlock: string
+    agentsGuide: string
+    toolsNotes: string
+    customRules: string
+    useSystemContext: boolean
+    skipKnownFields: boolean
+    autoResolveEnabled: boolean
+    learnSkillsEnabled: boolean
+    learnMemoryEnabled: boolean
     collectName: boolean
     collectEmail: boolean
     collectProblem: boolean
@@ -69,6 +87,27 @@ interface AiPayload {
     collectAttachments: boolean
   }
   knowledgeBase: Array<{ id: string; title: string; content: string; active: boolean }>
+  skills: Array<{
+    id: string
+    title: string
+    triggers: string
+    solution: string
+    status: 'pending' | 'approved' | 'rejected'
+    source: 'learned' | 'manual'
+    sourceProblem?: string
+    usageCount: number
+    updatedAt: string
+  }>
+  memories: Array<{
+    id: string
+    title: string
+    content: string
+    tags: string
+    status: 'pending' | 'approved' | 'rejected'
+    source: 'learned' | 'manual'
+    usageCount: number
+    updatedAt: string
+  }>
   usage: {
     dailyUsed: number
     monthlyUsed: number
@@ -114,7 +153,20 @@ export default function AiAtendimento() {
   })
 
   useEffect(() => {
-    if (data) setForm(data)
+    if (data) {
+      setForm({
+        ...data,
+        skills: data.skills ?? [],
+        memories: data.memories ?? [],
+        prompt: {
+          identityBlock: '',
+          agentsGuide: '',
+          toolsNotes: '',
+          learnMemoryEnabled: true,
+          ...data.prompt,
+        },
+      })
+    }
   }, [data])
 
   const save = useMutation({
@@ -138,6 +190,26 @@ export default function AiAtendimento() {
     mutationFn: (apiKey?: string) =>
       api.post<{ ok: boolean; message: string }>('/platform/ai/test', apiKey ? { apiKey } : {}),
     onSuccess: r => setTestResult(r.ok ? `OK: ${r.message}` : `Falha: ${r.message}`),
+  })
+
+  const approveSkill = useMutation({
+    mutationFn: (id: string) => api.post(`/platform/ai/skills/${id}/approve`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
+  })
+
+  const rejectSkill = useMutation({
+    mutationFn: (id: string) => api.post(`/platform/ai/skills/${id}/reject`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
+  })
+
+  const approveMemory = useMutation({
+    mutationFn: (id: string) => api.post(`/platform/ai/memory/${id}/approve`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
+  })
+
+  const rejectMemory = useMutation({
+    mutationFn: (id: string) => api.post(`/platform/ai/memory/${id}/reject`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
   })
 
   if (!canManage) {
@@ -197,6 +269,8 @@ export default function AiAtendimento() {
       settings: { ...form.settings },
       prompt: { ...form.prompt },
       knowledgeBase: form.knowledgeBase,
+      skills: form.skills,
+      memories: form.memories,
     }
     if (apiKeyInput.trim()) {
       ;(body.settings as Record<string, unknown>).apiKey = apiKeyInput.trim()
@@ -354,17 +428,104 @@ export default function AiAtendimento() {
         </Card>
       )}
 
-      {tab === 'prompt' && (
-        <Card className="p-6 space-y-3">
+      {tab === 'workspace' && (
+        <Card className="p-6 space-y-5">
           <h2 className="text-lg font-medium flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" /> Prompt do sistema
+            <Brain className="w-5 h-5" /> Core Files — cérebro da empresa
           </h2>
-          <p className="text-xs text-gray-500">Use {'{companyName}'} para o nome da empresa.</p>
-          <textarea
-            className={textareaCls}
-            value={form.prompt.systemPrompt}
-            onChange={e => patchPrompt({ systemPrompt: e.target.value })}
-          />
+          <p className="text-xs text-gray-500">
+            Mesmo conceito do OpenClaw: arquivos modulares injetados no <em>system prompt</em> (compatível
+            Gemini e OpenAI). USER vem do cadastro do contato; MEMORY e SKILLS têm abas próprias.
+          </p>
+          <div className="flex flex-wrap gap-2 text-xs text-gray-500 border border-gray-800 rounded-lg p-2">
+            {['IDENTITY', 'SOUL', 'AGENTS', 'TOOLS', 'USER', 'MEMORY', 'SKILLS', 'KNOWLEDGE'].map(f => (
+              <span key={f} className="px-2 py-0.5 bg-gray-800 rounded">
+                {f}
+              </span>
+            ))}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-brand-400">IDENTITY — nome e vibe do assistente</label>
+            <textarea
+              className={textareaCls}
+              placeholder="Ex.: Sou a Lia 🤖, assistente da Radar. Tom profissional e acolhedor."
+              value={form.prompt.identityBlock ?? ''}
+              onChange={e => patchPrompt({ identityBlock: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-brand-400">
+              SOUL — persona e limites {'{companyName}'}
+            </label>
+            <textarea
+              className={`${textareaCls} min-h-[160px]`}
+              value={form.prompt.systemPrompt}
+              onChange={e => patchPrompt({ systemPrompt: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-brand-400">AGENTS — regras operacionais e fluxo</label>
+            <textarea
+              className={textareaCls}
+              placeholder="Ex.: Sempre confirmar placa antes de falar em rastreador. Não prometer prazo de visita técnica."
+              value={form.prompt.agentsGuide ?? ''}
+              onChange={e => patchPrompt({ agentsGuide: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-brand-400">TOOLS — notas de processos e ferramentas</label>
+            <textarea
+              className={textareaCls}
+              placeholder="Ex.: Portal do cliente: app.radar.com.br. Suporte N2 só após reset do equipamento."
+              value={form.prompt.toolsNotes ?? ''}
+              onChange={e => patchPrompt({ toolsNotes: e.target.value })}
+            />
+          </div>
+        </Card>
+      )}
+
+      {tab === 'regras' && (
+        <Card className="p-6 space-y-4">
+          <h2 className="text-lg font-medium flex items-center gap-2">
+            <Shield className="w-5 h-5" /> Regras do dono e economia de créditos
+          </h2>
+          <p className="text-xs text-gray-500">
+            Regras extras entram no prompt. As opções abaixo reduzem chamadas à API e evitam perguntas
+            repetidas.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {(
+              [
+                ['useSystemContext', 'Usar dados do cadastro (nome, e-mail, tickets)'],
+                ['skipKnownFields', 'Não pedir dados que já existem no contato'],
+                ['autoResolveEnabled', 'Resolver com base de conhecimento antes da IA (sem gastar crédito)'],
+                ['learnSkillsEnabled', 'Aprender skills ao escalar (dono aprova depois)'],
+                ['learnMemoryEnabled', 'Aprender memória curada ao escalar (dono aprova depois)'],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={form.prompt[key]}
+                  onChange={e => patchPrompt({ [key]: e.target.checked })}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500">
+            Regras longas ficam em <strong>Cérebro → AGENTS</strong>. O campo abaixo é legado (mesclado no
+            prompt).
+          </p>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Regras extras (legado)</label>
+            <textarea
+              className={textareaCls}
+              value={form.prompt.customRules}
+              onChange={e => patchPrompt({ customRules: e.target.value })}
+            />
+          </div>
         </Card>
       )}
 
@@ -390,6 +551,242 @@ export default function AiAtendimento() {
               />
               {label}
             </label>
+          ))}
+        </Card>
+      )}
+
+      {tab === 'skills' && (
+        <Card className="p-6 space-y-4">
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <h2 className="text-lg font-medium flex items-center gap-2">
+              <Brain className="w-5 h-5" /> Skills da empresa
+            </h2>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                setForm(f =>
+                  f
+                    ? {
+                        ...f,
+                        skills: [
+                          ...f.skills,
+                          {
+                            id: '',
+                            title: 'Nova skill',
+                            triggers: '',
+                            solution: '',
+                            status: 'approved',
+                            source: 'manual',
+                            usageCount: 0,
+                            updatedAt: new Date().toISOString(),
+                          },
+                        ],
+                      }
+                    : f,
+                )
+              }
+            >
+              Adicionar manual
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Skills aprovadas entram no atendimento automático. Itens <em>pendentes</em> vêm do aprendizado
+            após escalações — o dono aprova ou rejeita.
+          </p>
+          {(form.skills ?? []).length === 0 && (
+            <p className="text-sm text-gray-500">Nenhuma skill ainda. A IA pode propor após atendimentos.</p>
+          )}
+          {(form.skills ?? []).map((skill, idx) => (
+            <div
+              key={skill.id || idx}
+              className={`border rounded-lg p-4 space-y-2 ${
+                skill.status === 'pending'
+                  ? 'border-amber-700/50 bg-amber-950/20'
+                  : skill.status === 'rejected'
+                    ? 'border-gray-800 opacity-60'
+                    : 'border-gray-800'
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2 justify-between">
+                <span className="text-xs uppercase tracking-wide text-gray-500">
+                  {skill.status === 'pending' && 'Pendente aprovação'}
+                  {skill.status === 'approved' && 'Aprovada'}
+                  {skill.status === 'rejected' && 'Rejeitada'}
+                  {skill.source === 'learned' && ' · aprendida'}
+                  {skill.usageCount > 0 && ` · ${skill.usageCount} usos`}
+                </span>
+                {skill.status === 'pending' && skill.id && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => approveSkill.mutate(skill.id)}
+                      disabled={approveSkill.isPending}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" /> Aprovar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => rejectSkill.mutate(skill.id)}
+                      disabled={rejectSkill.isPending}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" /> Rejeitar
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <input
+                className={inputCls}
+                value={skill.title}
+                onChange={e => {
+                  const skills = [...(form.skills ?? [])]
+                  skills[idx] = { ...skills[idx], title: e.target.value }
+                  setForm(f => (f ? { ...f, skills } : f))
+                }}
+                placeholder="Título"
+              />
+              <input
+                className={inputCls}
+                value={skill.triggers}
+                onChange={e => {
+                  const skills = [...(form.skills ?? [])]
+                  skills[idx] = { ...skills[idx], triggers: e.target.value }
+                  setForm(f => (f ? { ...f, skills } : f))
+                }}
+                placeholder="Gatilhos / palavras-chave"
+              />
+              <textarea
+                className={textareaCls}
+                value={skill.solution}
+                onChange={e => {
+                  const skills = [...(form.skills ?? [])]
+                  skills[idx] = { ...skills[idx], solution: e.target.value }
+                  setForm(f => (f ? { ...f, skills } : f))
+                }}
+                placeholder="Solução passo a passo para o cliente"
+              />
+              {skill.sourceProblem && (
+                <p className="text-xs text-gray-500">Problema origem: {skill.sourceProblem}</p>
+              )}
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {tab === 'memory' && (
+        <Card className="p-6 space-y-4">
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <h2 className="text-lg font-medium flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" /> Memória curada (MEMORY)
+            </h2>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                setForm(f =>
+                  f
+                    ? {
+                        ...f,
+                        memories: [
+                          ...(f.memories ?? []),
+                          {
+                            id: '',
+                            title: 'Novo fato',
+                            content: '',
+                            tags: '',
+                            status: 'approved',
+                            source: 'manual',
+                            usageCount: 0,
+                            updatedAt: new Date().toISOString(),
+                          },
+                        ],
+                      }
+                    : f,
+                )
+              }
+            >
+              Adicionar manual
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Fatos duráveis da empresa — equivalente ao MEMORY.md do OpenClaw. Aprendidas ficam pendentes até
+            o dono aprovar.
+          </p>
+          {(form.memories ?? []).length === 0 && (
+            <p className="text-sm text-gray-500">Nenhuma memória ainda.</p>
+          )}
+          {(form.memories ?? []).map((mem, idx) => (
+            <div
+              key={mem.id || idx}
+              className={`border rounded-lg p-4 space-y-2 ${
+                mem.status === 'pending'
+                  ? 'border-amber-700/50 bg-amber-950/20'
+                  : mem.status === 'rejected'
+                    ? 'border-gray-800 opacity-60'
+                    : 'border-gray-800'
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2 justify-between">
+                <span className="text-xs uppercase tracking-wide text-gray-500">
+                  {mem.status === 'pending' && 'Pendente aprovação'}
+                  {mem.status === 'approved' && 'Aprovada'}
+                  {mem.status === 'rejected' && 'Rejeitada'}
+                  {mem.source === 'learned' && ' · aprendida'}
+                </span>
+                {mem.status === 'pending' && mem.id && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => approveMemory.mutate(mem.id)}
+                      disabled={approveMemory.isPending}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" /> Aprovar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => rejectMemory.mutate(mem.id)}
+                      disabled={rejectMemory.isPending}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" /> Rejeitar
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <input
+                className={inputCls}
+                value={mem.title}
+                onChange={e => {
+                  const memories = [...(form.memories ?? [])]
+                  memories[idx] = { ...memories[idx], title: e.target.value }
+                  setForm(f => (f ? { ...f, memories } : f))
+                }}
+                placeholder="Título"
+              />
+              <input
+                className={inputCls}
+                value={mem.tags}
+                onChange={e => {
+                  const memories = [...(form.memories ?? [])]
+                  memories[idx] = { ...memories[idx], tags: e.target.value }
+                  setForm(f => (f ? { ...f, memories } : f))
+                }}
+                placeholder="Tags / palavras-chave"
+              />
+              <textarea
+                className={textareaCls}
+                value={mem.content}
+                onChange={e => {
+                  const memories = [...(form.memories ?? [])]
+                  memories[idx] = { ...memories[idx], content: e.target.value }
+                  setForm(f => (f ? { ...f, memories } : f))
+                }}
+                placeholder="Fato ou decisão que a IA deve lembrar"
+              />
+            </div>
           ))}
         </Card>
       )}
@@ -420,6 +817,10 @@ export default function AiAtendimento() {
               Adicionar
             </Button>
           </div>
+          <p className="text-xs text-gray-500">
+            Itens ativos são buscados por relevância na mensagem do cliente — só os mais pertinentes vão
+            no prompt (economia de tokens).
+          </p>
           {form.knowledgeBase.map((item, idx) => (
             <div key={item.id || idx} className="border border-gray-800 rounded-lg p-4 space-y-2">
               <input

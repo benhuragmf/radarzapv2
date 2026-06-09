@@ -13,6 +13,10 @@ import { AiPromptBuilderService } from './AiPromptBuilderService';
 import { AiProviderService } from './AiProviderService';
 import { AiEscalationService } from './AiEscalationService';
 import { AiUsageMeterService } from './AiUsageMeterService';
+import { AiContextService } from './AiContextService';
+import { AiAutoResolveService } from './AiAutoResolveService';
+import { AiSkillService } from './AiSkillService';
+import { AiMemoryService } from './AiMemoryService';
 import type { InboxService } from '@/services/inbox/InboxService';
 import { logger } from '@/utils/logger';
 
@@ -96,6 +100,11 @@ export class AiConversationService {
     }
 
     const prompt = await AiPromptBuilderService.getInstance().getOrCreatePrompt(ctx.clientId);
+    const contactCtx = prompt.useSystemContext
+      ? await AiContextService.getInstance().buildContactContext(ctx.clientId, ctx.dest)
+      : undefined;
+    AiContextService.getInstance().seedStateFromContact(state, contactCtx ?? { tags: [], knownFields: { name: false, email: false }, recentTickets: [] }, prompt);
+
     const hasUninterpretableMedia =
       ctx.hasMedia && (!ctx.text.trim() || ['audio', 'image', 'document', 'video'].includes(ctx.mediaType ?? ''));
 
@@ -115,8 +124,10 @@ export class AiConversationService {
     }
 
     if (ctx.isNew && !ctx.text.trim()) {
-      const greeting =
-        'Olá! Sou o assistente virtual. Para agilizar seu atendimento, preciso de algumas informações. Qual é o seu nome?';
+      const knownName = contactCtx?.knownFields.name ? contactCtx.name : undefined;
+      const greeting = knownName
+        ? `Olá, ${knownName}! Sou o assistente virtual da empresa. Como posso ajudar você hoje?`
+        : 'Olá! Sou o assistente virtual. Para agilizar seu atendimento, preciso de algumas informações. Qual é o seu nome?';
       await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, greeting);
       state.status = AiConversationStatus.AI_WAITING_CLIENT;
       await state.save();
@@ -145,8 +156,40 @@ export class AiConversationService {
       state.lastClientMessage = normalized;
     }
 
+    if (prompt.autoResolveEnabled && this.textLooksLikeProblemDescription(ctx.text)) {
+      const auto = await AiAutoResolveService.getInstance().tryResolve(ctx.clientId, ctx.text);
+      if (auto.hit && auto.reply) {
+        this.mergeCollected(state, {}, ctx.text);
+        state.collectedProblem = ctx.text.trim();
+        state.aiTurnCount += 1;
+        state.confidence = 0.85;
+        state.summary = `Resolvido via ${auto.source}: ${auto.sourceTitle ?? ''}`.trim();
+
+        const autoReply = `${auto.reply}\n\nIsso resolveu sua dúvida? Se precisar de mais ajuda, descreva ou digite *atendente*.`;
+        await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, autoReply);
+
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        logger.info('IA resolveu sem LLM (economia de créditos)', {
+          clientId: ctx.clientId,
+          source: auto.source,
+          score: auto.score,
+        });
+        return { handled: true };
+      }
+    }
+
     const history = await this.loadRecentHistory(ctx.conversation._id as mongoose.Types.ObjectId);
-    const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(ctx.clientId);
+    const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(
+      ctx.clientId,
+      { contactContext: contactCtx, clientText: ctx.text },
+    );
 
     let completion;
     try {
@@ -250,7 +293,13 @@ export class AiConversationService {
         collectedEmail: state.collectedEmail,
         collectedProblem: state.collectedProblem,
       });
-      await this.escalate(ctx, inbox, state, escalation.reason ?? 'Transferência para humano');
+      await this.escalate(
+        ctx,
+        inbox,
+        state,
+        escalation.reason ?? 'Transferência para humano',
+        { lastAiReply: structured.reply },
+      );
       return { handled: true };
     }
 
@@ -424,7 +473,7 @@ export class AiConversationService {
     inbox: InboxService,
     state: IAiConversationState,
     reason: string,
-    opts?: { clientMessage?: string },
+    opts?: { clientMessage?: string; lastAiReply?: string },
   ): Promise<void> {
     const freshConv = await inbox.getConversationRaw(
       ctx.clientId,
@@ -477,6 +526,33 @@ export class AiConversationService {
       internalNote: [collected, state.summary].filter(Boolean).join('\n'),
       clientMessage: opts?.clientMessage ?? defaultClientMsg,
     });
+
+    const promptCfg = await AiPromptBuilderService.getInstance().getOrCreatePrompt(ctx.clientId);
+    const convId = ctx.conversation._id as mongoose.Types.ObjectId;
+    if (promptCfg.learnSkillsEnabled) {
+      try {
+        await AiSkillService.getInstance().proposeFromConversation(
+          ctx.clientId,
+          convId,
+          state,
+          opts?.lastAiReply,
+        );
+      } catch (e) {
+        logger.warn('Falha ao propor skill aprendida', { error: (e as Error).message });
+      }
+    }
+    if (promptCfg.learnMemoryEnabled) {
+      try {
+        await AiMemoryService.getInstance().proposeFromConversation(
+          ctx.clientId,
+          convId,
+          state,
+          opts?.lastAiReply,
+        );
+      } catch (e) {
+        logger.warn('Falha ao propor memória aprendida', { error: (e as Error).message });
+      }
+    }
   }
 
   private async loadRecentHistory(
@@ -484,7 +560,7 @@ export class AiConversationService {
   ): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
     const rows = await InboxMessage.find({ conversationId })
       .sort({ createdAt: -1 })
-      .limit(12)
+      .limit(6)
       .lean();
     return rows
       .reverse()
