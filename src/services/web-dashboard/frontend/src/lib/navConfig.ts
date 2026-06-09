@@ -183,6 +183,7 @@ export const ADMIN_RADARZAP_NAV: NavEntry[] = [
   section('sec-admin-sys', 'Sistema'),
   group('grp-sys', 'Sistema', Settings, [
     link('admin-settings', 'Configurações gerais', Settings, '/admin/settings', 'system:settings:manage'),
+    link('admin-ai-blueprint', 'Blueprint IA', Sparkles, '/admin/ai-blueprint', 'system:settings:manage'),
     link('admin-perms', 'Permissões', Lock, '/admin/permissions', 'system:settings:manage'),
     link('admin-security', 'Segurança', Shield, '/admin/security', 'system:settings:manage'),
     link('admin-backup', 'Backup', Database, '/admin/backup', 'system:settings:manage'),
@@ -448,6 +449,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/errors': 'logs:global',
   '/admin/api': 'api:global',
   '/admin/settings': 'system:settings:manage',
+  '/admin/ai-blueprint': 'system:settings:manage',
   '/admin/permissions': 'system:settings:manage',
   '/admin/security': 'system:settings:manage',
   '/admin/backup': 'system:settings:manage',
@@ -522,6 +524,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/admin/errors': 'Erros do sistema',
   '/admin/api': 'API global',
   '/admin/settings': 'Configurações gerais',
+  '/admin/ai-blueprint': 'Blueprint IA',
   '/admin/permissions': 'Permissões',
   '/admin/security': 'Segurança',
   '/admin/backup': 'Backup',

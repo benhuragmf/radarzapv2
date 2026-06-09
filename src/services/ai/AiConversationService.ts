@@ -124,10 +124,10 @@ export class AiConversationService {
     }
 
     if (ctx.isNew && !ctx.text.trim()) {
-      const knownName = contactCtx?.knownFields.name ? contactCtx.name : undefined;
-      const greeting = knownName
-        ? `Olá, ${knownName}! Sou o assistente virtual da empresa. Como posso ajudar você hoje?`
-        : 'Olá! Sou o assistente virtual. Para agilizar seu atendimento, preciso de algumas informações. Qual é o seu nome?';
+      const greeting = await AiPromptBuilderService.getInstance().buildGreeting(
+        ctx.clientId,
+        contactCtx,
+      );
       await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, greeting);
       state.status = AiConversationStatus.AI_WAITING_CLIENT;
       await state.save();

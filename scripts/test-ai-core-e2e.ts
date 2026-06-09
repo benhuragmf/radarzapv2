@@ -29,9 +29,6 @@ async function main() {
     { clientId: new mongoose.Types.ObjectId(CLIENT_ID) },
     {
       $set: {
-        identityBlock: 'Sou a Lia 🤖, assistente virtual de teste.',
-        agentsGuide: 'Sempre tentar resolver com KB antes de escalar. Não inventar preços.',
-        toolsNotes: 'Portal: app de rastreamento. Reset: desligar 30s e religar.',
         autoResolveEnabled: true,
         learnSkillsEnabled: true,
         learnMemoryEnabled: true,
@@ -39,7 +36,9 @@ async function main() {
     },
     { upsert: true },
   );
-  console.log('2) Core Files (IDENTITY/AGENTS/TOOLS) — OK (upsert teste)');
+  const { PlatformAiBlueprintService } = await import('@/services/ai/PlatformAiBlueprintService');
+  const blueprint = await PlatformAiBlueprintService.getInstance().getGlobal();
+  console.log('2) Blueprint RadarZap v' + blueprint.version, '— agente:', blueprint.agentName);
 
   const kbSvc = AiKnowledgeBaseService.getInstance();
   const existing = await kbSvc.list(CLIENT_ID);
@@ -111,7 +110,10 @@ async function main() {
   console.log('\n7) Painel API payload:');
   console.log('   skills pendentes:', pendingSkills);
   console.log('   memórias pendentes:', pendingMem);
-  console.log('   identityBlock no prompt:', !!(payload.prompt as { identityBlock?: string }).identityBlock);
+  console.log(
+    '   blueprint no payload:',
+    (payload as { blueprintInfo?: { version: number } }).blueprintInfo?.version,
+  );
 
   console.log('\n=== E2E concluído ===');
   if (!process.exitCode) console.log('RESULTADO: OK — fluxo funcional no tenant de teste.');

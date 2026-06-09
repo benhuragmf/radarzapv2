@@ -27,7 +27,6 @@ import { AiModelPicker, type AiModelOption } from '../../components/ai/AiModelPi
 type TabId =
   | 'geral'
   | 'provedor'
-  | 'workspace'
   | 'regras'
   | 'coleta'
   | 'kb'
@@ -41,8 +40,7 @@ type TabId =
 const TABS: { id: TabId; label: string }[] = [
   { id: 'geral', label: 'Geral' },
   { id: 'provedor', label: 'Provedor' },
-  { id: 'workspace', label: 'Cérebro (Core Files)' },
-  { id: 'regras', label: 'Regras e economia' },
+  { id: 'regras', label: 'Economia e regras' },
   { id: 'coleta', label: 'Dados a coletar' },
   { id: 'kb', label: 'Base de conhecimento' },
   { id: 'skills', label: 'Skills' },
@@ -67,10 +65,6 @@ interface AiPayload {
     transferRules: Record<string, boolean | number>
   }
   prompt: {
-    systemPrompt: string
-    identityBlock: string
-    agentsGuide: string
-    toolsNotes: string
     customRules: string
     useSystemContext: boolean
     skipKnownFields: boolean
@@ -121,6 +115,12 @@ interface AiPayload {
   modelCatalog: AiModelOption[]
   modelCatalogs: { gemini: AiModelOption[]; openai: AiModelOption[] }
   selectedModelPricing: AiModelOption | null
+  blueprintInfo: {
+    managedBy: 'radarzap'
+    version: number
+    agentName: string
+    updatedAt: string
+  }
 }
 
 const inputCls =
@@ -159,9 +159,6 @@ export default function AiAtendimento() {
         skills: data.skills ?? [],
         memories: data.memories ?? [],
         prompt: {
-          identityBlock: '',
-          agentsGuide: '',
-          toolsNotes: '',
           learnMemoryEnabled: true,
           ...data.prompt,
         },
@@ -289,6 +286,17 @@ export default function AiAtendimento() {
           <Sparkles className="w-5 h-5" /> Triagem inteligente WhatsApp
         </span>
       </div>
+
+      {form.blueprintInfo && (
+        <Card className="p-4 mb-4 border-brand-800/40 bg-brand-950/20">
+          <p className="text-sm text-gray-300">
+            O <strong>agente de atendimento</strong> (IDENTITY, SOUL, AGENTS, TOOLS) é gerenciado pela{' '}
+            <strong>RadarZap</strong> — blueprint v{form.blueprintInfo.version}, agente{' '}
+            <em>{form.blueprintInfo.agentName}</em>. Você configura a <strong>base de conhecimento</strong>,
+            aprova <strong>skills/memórias</strong> aprendidas e regras leves da sua empresa.
+          </p>
+        </Card>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-800 pb-2">
         {TABS.map(t => (
@@ -428,70 +436,14 @@ export default function AiAtendimento() {
         </Card>
       )}
 
-      {tab === 'workspace' && (
-        <Card className="p-6 space-y-5">
-          <h2 className="text-lg font-medium flex items-center gap-2">
-            <Brain className="w-5 h-5" /> Core Files — cérebro da empresa
-          </h2>
-          <p className="text-xs text-gray-500">
-            Mesmo conceito do OpenClaw: arquivos modulares injetados no <em>system prompt</em> (compatível
-            Gemini e OpenAI). USER vem do cadastro do contato; MEMORY e SKILLS têm abas próprias.
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs text-gray-500 border border-gray-800 rounded-lg p-2">
-            {['IDENTITY', 'SOUL', 'AGENTS', 'TOOLS', 'USER', 'MEMORY', 'SKILLS', 'KNOWLEDGE'].map(f => (
-              <span key={f} className="px-2 py-0.5 bg-gray-800 rounded">
-                {f}
-              </span>
-            ))}
-          </div>
-          <div>
-            <label className="text-sm font-medium text-brand-400">IDENTITY — nome e vibe do assistente</label>
-            <textarea
-              className={textareaCls}
-              placeholder="Ex.: Sou a Lia 🤖, assistente da Radar. Tom profissional e acolhedor."
-              value={form.prompt.identityBlock ?? ''}
-              onChange={e => patchPrompt({ identityBlock: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-brand-400">
-              SOUL — persona e limites {'{companyName}'}
-            </label>
-            <textarea
-              className={`${textareaCls} min-h-[160px]`}
-              value={form.prompt.systemPrompt}
-              onChange={e => patchPrompt({ systemPrompt: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-brand-400">AGENTS — regras operacionais e fluxo</label>
-            <textarea
-              className={textareaCls}
-              placeholder="Ex.: Sempre confirmar placa antes de falar em rastreador. Não prometer prazo de visita técnica."
-              value={form.prompt.agentsGuide ?? ''}
-              onChange={e => patchPrompt({ agentsGuide: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-brand-400">TOOLS — notas de processos e ferramentas</label>
-            <textarea
-              className={textareaCls}
-              placeholder="Ex.: Portal do cliente: app.radar.com.br. Suporte N2 só após reset do equipamento."
-              value={form.prompt.toolsNotes ?? ''}
-              onChange={e => patchPrompt({ toolsNotes: e.target.value })}
-            />
-          </div>
-        </Card>
-      )}
-
       {tab === 'regras' && (
         <Card className="p-6 space-y-4">
           <h2 className="text-lg font-medium flex items-center gap-2">
-            <Shield className="w-5 h-5" /> Regras do dono e economia de créditos
+            <Shield className="w-5 h-5" /> Economia de créditos e regras da empresa
           </h2>
           <p className="text-xs text-gray-500">
-            Regras extras entram no prompt. As opções abaixo reduzem chamadas à API e evitam perguntas
-            repetidas.
+            O comportamento do agente vem do blueprint RadarZap. Aqui você só ajusta economia de tokens e
+            regras específicas do seu negócio.
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             {(
@@ -514,14 +466,13 @@ export default function AiAtendimento() {
               </label>
             ))}
           </div>
-          <p className="text-xs text-gray-500">
-            Regras longas ficam em <strong>Cérebro → AGENTS</strong>. O campo abaixo é legado (mesclado no
-            prompt).
-          </p>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Regras extras (legado)</label>
+            <label className="text-xs text-gray-500 block mb-1">
+              Regras adicionais da sua empresa (opcional)
+            </label>
             <textarea
               className={textareaCls}
+              placeholder="Ex.: Não oferecer desconto. Horário 8h–18h. Produto principal: rastreador veicular."
               value={form.prompt.customRules}
               onChange={e => patchPrompt({ customRules: e.target.value })}
             />

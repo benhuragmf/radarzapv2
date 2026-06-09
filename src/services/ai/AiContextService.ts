@@ -80,21 +80,26 @@ export class AiContextService {
   }
 
   formatContextBlock(ctx: AiContactContext): string {
-    const lines: string[] = [];
-    if (ctx.name) lines.push(`Nome cadastrado: ${ctx.name}`);
-    if (ctx.email) lines.push(`E-mail cadastrado: ${ctx.email}`);
-    if (ctx.phone) lines.push(`Telefone: ${ctx.phone}`);
-    if (ctx.organization) lines.push(`Empresa do contato: ${ctx.organization}`);
-    if (ctx.tags.length) lines.push(`Tags: ${ctx.tags.join(', ')}`);
-    if (ctx.notes) lines.push(`Observações internas: ${ctx.notes.slice(0, 400)}`);
+    const open = ctx.recentTickets.find(t => t.status === 'open' || t.status === 'in_progress');
+    const lines: string[] = [
+      `Nome: ${ctx.name ?? '(não informado)'}`,
+      `Telefone: ${ctx.phone ?? '(não informado)'}`,
+      `E-mail: ${ctx.email ?? '(não informado)'}`,
+      `Empresa: ${ctx.organization ?? '(não informado)'}`,
+      `Ticket aberto: ${open ? `${open.ref} [${open.status}]` : 'nenhum'}`,
+    ];
+    if (ctx.tags.length) lines.push(`Status/Tags: ${ctx.tags.join(', ')}`);
+    if (ctx.notes) lines.push(`Histórico resumido: ${ctx.notes.slice(0, 400)}`);
     if (ctx.recentTickets.length) {
       lines.push(
-        'Chamados recentes: ' +
-          ctx.recentTickets
-            .map(t => `${t.ref}${t.subject ? ` (${t.subject})` : ''} [${t.status}]`)
-            .join('; '),
+        `Chamados recentes: ${ctx.recentTickets
+          .map(t => `${t.ref}${t.subject ? ` (${t.subject})` : ''} [${t.status}]`)
+          .join('; ')}`,
       );
     }
+    lines.push(
+      'Regras: use USER para personalizar; não pergunte nome/e-mail se já existirem; não exponha dados sensíveis.',
+    );
     return lines.join('\n');
   }
 

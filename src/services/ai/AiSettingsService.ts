@@ -18,6 +18,7 @@ import { AiKnowledgeBaseService } from './AiKnowledgeBaseService';
 import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
 import { AiUsageMeterService } from './AiUsageMeterService';
+import { PlatformAiBlueprintService } from './PlatformAiBlueprintService';
 
 export interface AiModelCatalogPayload {
   id: string;
@@ -44,6 +45,12 @@ export interface AiSettingsPayload {
   modelCatalog: AiModelCatalogPayload[];
   modelCatalogs: { gemini: AiModelCatalogPayload[]; openai: AiModelCatalogPayload[] };
   selectedModelPricing: AiModelCatalogPayload | null;
+  blueprintInfo: {
+    managedBy: 'radarzap';
+    version: number;
+    agentName: string;
+    updatedAt: Date;
+  };
 }
 
 export class AiSettingsService {
@@ -68,15 +75,17 @@ export class AiSettingsService {
   }
 
   async getFullPayload(clientId: string): Promise<AiSettingsPayload> {
-    const [settings, prompt, knowledgeBase, skills, memories, usage, org] = await Promise.all([
-      this.getSettingsDoc(clientId),
-      AiPrompt.findOne({ clientId: new mongoose.Types.ObjectId(clientId) }),
-      AiKnowledgeBaseService.getInstance().list(clientId),
-      AiSkillService.getInstance().list(clientId),
-      AiMemoryService.getInstance().list(clientId),
-      AiUsageMeterService.getInstance().getUsageSnapshot(clientId),
-      Organization.findById(clientId).select('plan').lean(),
-    ]);
+    const [settings, prompt, knowledgeBase, skills, memories, usage, org, blueprint] =
+      await Promise.all([
+        this.getSettingsDoc(clientId),
+        AiPrompt.findOne({ clientId: new mongoose.Types.ObjectId(clientId) }),
+        AiKnowledgeBaseService.getInstance().list(clientId),
+        AiSkillService.getInstance().list(clientId),
+        AiMemoryService.getInstance().list(clientId),
+        AiUsageMeterService.getInstance().getUsageSnapshot(clientId),
+        Organization.findById(clientId).select('plan').lean(),
+        PlatformAiBlueprintService.getInstance().getGlobal(),
+      ]);
 
     const withKey = await AiSettings.findOne({ clientId: settings.clientId }).select('+encryptedApiKey');
     const plainKey = this.vault.decryptApiKey(withKey?.encryptedApiKey);
@@ -155,10 +164,6 @@ export class AiSettingsService {
         transferRules: settings.transferRules,
       },
       prompt: {
-        systemPrompt: promptDoc.systemPrompt,
-        identityBlock: promptDoc.identityBlock ?? '',
-        agentsGuide: promptDoc.agentsGuide ?? '',
-        toolsNotes: promptDoc.toolsNotes ?? '',
         customRules: promptDoc.customRules ?? '',
         useSystemContext: promptDoc.useSystemContext !== false,
         skipKnownFields: promptDoc.skipKnownFields !== false,
@@ -190,6 +195,12 @@ export class AiSettingsService {
       modelCatalog: catalog,
       modelCatalogs,
       selectedModelPricing: selectedModelPricing,
+      blueprintInfo: {
+        managedBy: 'radarzap',
+        version: blueprint.version,
+        agentName: blueprint.agentName,
+        updatedAt: blueprint.updatedAt,
+      },
     };
   }
 
@@ -264,10 +275,6 @@ export class AiSettingsService {
         { clientId: new mongoose.Types.ObjectId(clientId) },
         {
           $set: {
-            ...(typeof p.systemPrompt === 'string' ? { systemPrompt: p.systemPrompt } : {}),
-            ...(typeof p.identityBlock === 'string' ? { identityBlock: p.identityBlock } : {}),
-            ...(typeof p.agentsGuide === 'string' ? { agentsGuide: p.agentsGuide } : {}),
-            ...(typeof p.toolsNotes === 'string' ? { toolsNotes: p.toolsNotes } : {}),
             ...(typeof p.customRules === 'string' ? { customRules: p.customRules } : {}),
             ...(typeof p.useSystemContext === 'boolean' ? { useSystemContext: p.useSystemContext } : {}),
             ...(typeof p.skipKnownFields === 'boolean' ? { skipKnownFields: p.skipKnownFields } : {}),

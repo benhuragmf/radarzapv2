@@ -125,6 +125,7 @@ import { AiUsageMeterService } from '../ai/AiUsageMeterService';
 import { AiConversationService } from '../ai/AiConversationService';
 import { AiSkillService } from '../ai/AiSkillService';
 import { AiMemoryService } from '../ai/AiMemoryService';
+import { PlatformAiBlueprintService } from '../ai/PlatformAiBlueprintService';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -4601,6 +4602,38 @@ export class DashboardService {
         res.json({ periodDays: 7, messagesSent: sentLogs, errors: errorLogs, campaigns, activeContacts: contacts });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/ai-blueprint', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (_req, res) => {
+      try {
+        const doc = await PlatformAiBlueprintService.getInstance().getGlobal();
+        res.json(PlatformAiBlueprintService.getInstance().toPayload(doc));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/admin/ai-blueprint', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const doc = await PlatformAiBlueprintService.getInstance().updateGlobal(
+          req.body as Record<string, unknown>,
+          auth.userId,
+        );
+        res.json(PlatformAiBlueprintService.getInstance().toPayload(doc));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/admin/ai-blueprint/reset', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const doc = await PlatformAiBlueprintService.getInstance().resetToDefaults(auth.userId);
+        res.json(PlatformAiBlueprintService.getInstance().toPayload(doc));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 
