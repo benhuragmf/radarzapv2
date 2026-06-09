@@ -30,6 +30,26 @@ describe('AiEscalationService', () => {
     expect(r.shouldEscalate).toBe(true);
   });
 
+  it('escalona quando cliente pede suporte', () => {
+    const r = svc.check({
+      clientText: 'falar com suporte',
+      hasUninterpretableMedia: false,
+      state: baseState,
+      prompt: basePrompt,
+      rules: DEFAULT_AI_TRANSFER_RULES,
+    });
+    expect(r.shouldEscalate).toBe(true);
+  });
+
+  it('detecta aguardando após promessa de transferência', () => {
+    expect(
+      svc.isWaitingForPromisedHandoff(
+        'aguardando',
+        'Entendido. Vou te transferir para o nosso setor de Suporte Técnico.',
+      ),
+    ).toBe(true);
+  });
+
   it('detecta dados mínimos coletados', () => {
     const state = {
       ...baseState,

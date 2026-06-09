@@ -28,8 +28,18 @@ export class AiAutoResolveService {
     const query = problemText.trim();
     if (query.length < 10) return { hit: false };
 
+    const financeHint =
+      /\b(cobran[cç]a|boleto|pagamento|mensalidade|financeiro|inadimpl|devendo|cortou|bloqueou|corte)\b/i.test(
+        query,
+      );
+    const techOnlyHint =
+      /\b(n[aã]o conecta|aplicativo|app|erro|instala[cç][aã]o|configurar)\b/i.test(query) &&
+      !financeHint;
+
     const skillSvc = AiSkillService.getInstance();
-    const skillMatch = await skillSvc.findBestMatch(clientId, query);
+    const skillMatch = techOnlyHint || !financeHint
+      ? await skillSvc.findBestMatch(clientId, query)
+      : null;
     if (skillMatch) {
       await skillSvc.recordUsage(String(skillMatch.skill._id));
       return {

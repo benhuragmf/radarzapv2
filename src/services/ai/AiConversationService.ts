@@ -186,6 +186,31 @@ export class AiConversationService {
     }
 
     const history = await this.loadRecentHistory(ctx.conversation._id as mongoose.Types.ObjectId);
+    const escSvc = AiEscalationService.getInstance();
+    const lastAssistantBefore = [...history].reverse().find(m => m.role === 'assistant');
+
+    if (
+      settings.transferRules.onHumanRequest &&
+      escSvc.isWaitingForPromisedHandoff(ctx.text, lastAssistantBefore?.content)
+    ) {
+      logger.info('IA completando transferência pendente (cliente aguardando)', {
+        clientId: ctx.clientId,
+        conversationId: ctx.conversation._id,
+      });
+      await this.escalate(ctx, inbox, state, 'Cliente aguardando transferência prometida pela IA');
+      return { handled: true };
+    }
+
+    if (settings.transferRules.onHumanRequest && escSvc.clientRequestsHuman(ctx.text)) {
+      logger.info('IA escalonando por pedido explícito de suporte/humano', {
+        clientId: ctx.clientId,
+        conversationId: ctx.conversation._id,
+        text: ctx.text.slice(0, 80),
+      });
+      await this.escalate(ctx, inbox, state, 'Cliente solicitou atendente humano');
+      return { handled: true };
+    }
+
     const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(
       ctx.clientId,
       { contactContext: contactCtx, clientText: ctx.text },
@@ -267,7 +292,7 @@ export class AiConversationService {
     if (structured.internalSummary) state.summary = structured.internalSummary;
     if (structured.departmentMenuKey) state.suggestedDepartmentMenuKey = structured.departmentMenuKey;
 
-    const escalation = AiEscalationService.getInstance().check({
+    let escalation = escSvc.check({
       clientText: ctx.text,
       hasUninterpretableMedia,
       structured,
@@ -275,6 +300,25 @@ export class AiConversationService {
       prompt,
       rules: settings.transferRules,
     });
+
+    if (!escalation.shouldEscalate) {
+      if (escSvc.isWaitingForPromisedHandoff(ctx.text, lastAssistantBefore?.content)) {
+        escalation = {
+          shouldEscalate: true,
+          reason: 'Cliente aguardando transferência prometida pela IA',
+        };
+      } else if (
+        structured.shouldEscalate ||
+        escSvc.aiReplyPromisesTransfer(structured.reply)
+      ) {
+        if (escSvc.clientRequestsHuman(ctx.text) || state.aiTurnCount >= 2) {
+          escalation = {
+            shouldEscalate: true,
+            reason: structured.escalationReason ?? 'IA confirmou transferência para humano',
+          };
+        }
+      }
+    }
 
     await inbox.sendAiReply(
       ctx.clientId,
