@@ -65,7 +65,7 @@ export function getAiPlanLimits(plan: string): AiPlanLimits {
 }
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-flash-latest';
 
 export interface AiStructuredReply {
   reply: string;
