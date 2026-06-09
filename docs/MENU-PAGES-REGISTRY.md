@@ -29,7 +29,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | Rota / hash | Componente | API |
 |-------------|------------|-----|
 | `/settings#api-chaves` | `integrations/ApiKeysPanel.tsx` | `GET/POST/DELETE /integrations/api-keys` |
-| `/settings#api-webhooks` | `integrations/WebhooksPanel.tsx` | `GET/POST/PATCH/DELETE /integrations/webhooks` |
+| `/settings#api-webhooks` | `integrations/WebhooksPanel.tsx` | `GET/POST/PATCH/DELETE /integrations/webhooks` — entrega via `WebhookDispatcherService` (fila `notifications`, HMAC) |
 | `/settings#api-docs` | `integrations/ApiDocsPanel.tsx` | `GET /integrations/openapi` |
 | `/settings#api-rate` | `integrations/RateLimitPanel.tsx` | `GET /integrations/rate-limit` |
 | `/send#playground` | `integrations/ApiPlayground.tsx` | `POST /integrations/playground` |

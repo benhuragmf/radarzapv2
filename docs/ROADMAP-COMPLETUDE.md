@@ -9,8 +9,8 @@
 
 ## Resumo executivo
 
-O RadarZap v2 **já é operável** para uso diário: Inbox WhatsApp, consentimento LGPD, campanhas, equipe com RBAC, integrações API (parcial), Discord → WA e painel completo.  
-Ainda **não está fechado** para produção comercial em escala: faltam webhooks outbound, deploy/CI documentado, billing, e-mail de convite, polish mobile e Cloud API Meta.
+O RadarZap v2 **já é operável** para uso diário: Inbox, consentimento, campanhas, equipe, **webhooks outbound (2.2.0)**, Discord → WA e painel completo.  
+Próximos gaps: deploy prod completo, billing, e-mail convite, mobile, Cloud API Meta.
 
 ---
 
@@ -33,10 +33,10 @@ Ainda **não está fechado** para produção comercial em escala: faltam webhook
 
 | # | Lacuna | Evidência no código |
 |---|--------|---------------------|
-| 1 | **Webhooks sem disparo real** | `WebhookEndpoint` + CRUD; sem `WebhookDispatcher` / `fetch` nos eventos |
-| 2 | **Deploy / CI** | Sem GitHub Actions; dev = `npm run dev` + Vite; Docker = microserviços legados |
+| 1 | ~~**Webhooks sem disparo real**~~ | ✅ **2.2.0** — `WebhookDispatcherService`, fila `notifications`, HMAC, eventos Inbox |
+| 2 | **Deploy / CI** | ✅ parcial — `.github/workflows/ci.yml` (testes + vite build); falta stack prod Docker/PM2 |
 | 3 | **Convite de equipe** | Membro por e-mail; sem SMTP/Resend |
-| 4 | **Billing / pagamentos** | Planos na UI; `/admin/payments` é stub |
+| 4 | **Billing / pagamentos** | Planos na UI; `/admin/payments` é stub | usar o stripe.com igual o sistema de pagamento da "C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\radargamer\radargamev4"
 | 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
 | 6 | **Backup tenant** | Só export CSV; sem restore completo da org |
 | 7 | **Inbox fase operacional** | `/enc`, `closed` automático, CSAT, SLA alertas incompletos |
@@ -48,23 +48,17 @@ Ainda **não está fechado** para produção comercial em escala: faltam webhook
 
 ## Top 10 atualizações recomendadas (prioridade 1 → 10)
 
-### 1. Motor de webhooks outbound
+### 1. Motor de webhooks outbound — ✅ concluído (2.2.0)
 
-**O quê:** `WebhookDispatcher` com HMAC, retry, log de entrega; eventos `campaign.*`, `session.*`, `consent.updated` + **`inbox.*`**.
-
-**Por quê:** integração API prometida fica incompleta sem entrega HTTP.
-
-**Esforço:** médio · **Versão alvo:** 2.2.0
+Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 
 ---
 
-### 2. Deploy produção + CI/CD
+### 2. Deploy produção + CI/CD — 🟡 em progresso
 
-**O quê:** stack documentada (app + painel + Mongo + Redis), GitHub Actions (build, test, deploy), secrets, HTTPS.
+**Feito:** GitHub Actions (`ci.yml`) — testes backend (exc. suites flaky) + `vite build` frontend.
 
-**Por quê:** bloqueia ir a produção com confiança.
-
-**Esforço:** médio–alto · Ver `PRODUCTION.md`
+**Pendente:** `npm run build` backend (erros TS pré-existentes Inbox), lint estrito, imagem Docker app, deploy staging.
 
 ---
 

@@ -68,6 +68,7 @@ import {
 } from './waSessionEvents';
 import { saveInboxMedia } from '@/utils/inbox-media-storage';
 import type { InboxMessageMediaType } from '@/types/inbox';
+import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 
 /** Redis cache TTL for live WA state (QR, connected) — 7 days */
 const WA_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
@@ -586,6 +587,16 @@ export class WhatsAppService {
           ? new mongoose.Types.ObjectId(clientId)
           : undefined,
       );
+    }
+
+    if (data.status === 'connected' || data.status === 'disconnected') {
+      WebhookDispatcherService.getInstance().emit(clientId, `session.${data.status}`, {
+        status: data.status,
+        profile_name: data.profileName ?? null,
+        wuid: data.wuid ?? null,
+        manual_disconnect: data.manualDisconnect === true,
+        status_reason: data.statusReason ?? null,
+      });
     }
   }
 

@@ -23,6 +23,7 @@ import {
   parseResubscribeReply,
   type ConsentActionOrigin,
 } from '@/types/consent';
+import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { createServiceLogger } from '@/utils/logger';
 import {
   identifierCandidatesFromJids,
@@ -137,6 +138,17 @@ export class ConsentService {
 
     await dest.save();
     await this.recordHistory(dest, prev, newStatus, origin, extra);
+
+    if (prev !== newStatus) {
+      WebhookDispatcherService.getInstance().emit(String(dest.clientId), 'consent.updated', {
+        destination_id: String(dest._id),
+        identifier: dest.identifier,
+        name: dest.name ?? null,
+        previous_status: prev ?? null,
+        status: newStatus,
+        origin,
+      });
+    }
   }
 
   /** Valida se envio é permitido; retorna mensagem de erro ou null */

@@ -21,6 +21,8 @@ import {
   WHATSAPP_LIMITS,
 } from '@/config/limits';
 import { validateOptionalCampaignSendAt } from '@/utils/schedule-time';
+import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
+import type { WebhookEvent } from '@/models/WebhookEndpoint';
 
 const logger = createServiceLogger('CampaignDispatchService');
 
@@ -281,6 +283,7 @@ export class CampaignDispatchService {
 
     if (sentIndex >= msg.destinations.length) {
       await msg.markAsSent();
+      this.emitCampaignWebhook(msg, 'campaign.sent');
       return;
     }
 
@@ -371,12 +374,15 @@ export class CampaignDispatchService {
     if (sentIndex >= msg.destinations.length) {
       if (successCount === msg.destinations.length) {
         await msg.markAsSent();
+        this.emitCampaignWebhook(msg, 'campaign.sent');
       } else if (successCount > 0) {
         await msg.markAsFailed(
           `Enviado para ${successCount}/${msg.destinations.length}. ${errors.slice(-3).join('; ')}`,
         );
+        this.emitCampaignWebhook(msg, 'campaign.failed');
       } else {
         await msg.markAsFailed(errors.join('; ') || 'Falha ao enviar para todos os destinos');
+        this.emitCampaignWebhook(msg, 'campaign.failed');
       }
       return;
     }
@@ -399,6 +405,19 @@ export class CampaignDispatchService {
     });
     if (!msg) return false;
     await msg.markAsFailed('Cancelado pelo usuário');
+    this.emitCampaignWebhook(msg, 'campaign.failed');
     return true;
+  }
+
+  private emitCampaignWebhook(msg: IMessageQueue, event: WebhookEvent): void {
+    const vars = readVars(msg);
+    WebhookDispatcherService.getInstance().emit(msg.clientId.toString(), event, {
+      campaign_id: String(msg._id),
+      template: msg.content.template,
+      destinations_count: msg.destinations.length,
+      sent_count: Number(vars.sentCount) || 0,
+      status: msg.status,
+      last_error: msg.lastError ?? null,
+    });
   }
 }

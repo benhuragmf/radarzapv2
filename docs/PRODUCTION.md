@@ -74,27 +74,27 @@ Servir `frontend/dist` atrás do mesmo host ou CDN.
 
 Cada item do `ROADMAP-COMPLETUDE.md` exige config ou infra adicional:
 
-### 1. Webhooks outbound
+### 1. Webhooks outbound — ✅ implementado (v2.2.0)
 
 | Local | Produção |
 |-------|----------|
-| URLs `https://webhook.site/...` para teste | URLs HTTPS dos clientes; timeout 10–30s |
-| Sem fila de retry persistente | BullMQ ou collection `webhookDeliveries` com retry exponencial |
-| Eventos só no código | Documentar em OpenAPI + `WEBHOOK_EVENTS` |
+| Fila BullMQ `notifications` no mesmo processo `npm run dev` | Worker dedicado ou mesmo container app; Redis gerenciado |
+| URLs de teste (`webhook.site`) | URLs HTTPS dos clientes |
+| Env defaults em `.env` | `WEBHOOK_TIMEOUT_MS`, `WEBHOOK_MAX_RETRIES`, `WEBHOOK_RETRY_DELAY_MS` |
 
-**Novas env (sugeridas):** `WEBHOOK_MAX_RETRIES=5`, `WEBHOOK_TIMEOUT_MS=15000`
+Doc: `docs/WEBHOOKS.md`
 
 ---
 
-### 2. Deploy + CI/CD
+### 2. Deploy + CI/CD — 🟡 parcial
 
 | Local | Produção |
 |-------|----------|
-| Push manual | GitHub Actions: lint, test, build, deploy |
-| Sem staging | Ambiente staging com Mongo/Redis separados |
-| Docker só infra | Imagem única ou compose produção sem portas Mongo/Redis públicas |
+| CI: `.github/workflows/ci.yml` roda em push/PR | Adicionar deploy job (Railway/Fly/VM) quando `npm run build` backend passar |
+| `npm run dev` + Vite | PM2/systemd ou container |
+| Docker só infra (`npm run docker:infra`) | Compose prod sem expor Mongo/Redis |
 
-**Artefatos a criar:** `.github/workflows/ci.yml`, `docker-compose.prod.yml` (opcional), runbook deploy.
+**Pendente CI:** `npm run lint`, `npm run build` backend (corrigir TS InboxService).
 
 ---
 

@@ -113,6 +113,13 @@ export interface AppConfig {
     TIMEOUT: number;
     RETRIES: number;
   };
+
+  /** Webhooks outbound para integrações externas */
+  WEBHOOK: {
+    TIMEOUT_MS: number;
+    MAX_RETRIES: number;
+    RETRY_DELAY_MS: number;
+  };
 }
 
 /**
@@ -278,7 +285,13 @@ export const config: AppConfig = {
     CHECK_INTERVAL: parseNumber(process.env.HEALTH_CHECK_INTERVAL, 30000), // 30 seconds
     TIMEOUT: parseNumber(process.env.HEALTH_CHECK_TIMEOUT, 10000), // 10 seconds
     RETRIES: parseNumber(process.env.HEALTH_CHECK_RETRIES, 3)
-  }
+  },
+
+  WEBHOOK: {
+    TIMEOUT_MS: parseNumber(process.env.WEBHOOK_TIMEOUT_MS, 15000),
+    MAX_RETRIES: parseNumber(process.env.WEBHOOK_MAX_RETRIES, 5),
+    RETRY_DELAY_MS: parseNumber(process.env.WEBHOOK_RETRY_DELAY_MS, 2000),
+  },
 };
 
 /**

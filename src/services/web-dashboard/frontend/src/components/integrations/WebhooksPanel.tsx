@@ -12,6 +12,9 @@ const EVENTS = [
   'consent.updated',
   'session.connected',
   'session.disconnected',
+  'inbox.conversation.created',
+  'inbox.message.received',
+  'inbox.conversation.resolved',
 ] as const
 
 interface WebhookRow {
@@ -99,6 +102,23 @@ export function WebhooksPanel() {
                   <span className="truncate">{h.url}</span>
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{h.events.join(', ')}</p>
+                {h.lastDeliveryAt && (
+                  <p className="text-[10px] text-gray-600 mt-1">
+                    Última entrega: {new Date(h.lastDeliveryAt).toLocaleString('pt-BR')}
+                    {h.lastDeliveryStatus != null && (
+                      <span
+                        className={
+                          h.lastDeliveryStatus >= 200 && h.lastDeliveryStatus < 300
+                            ? ' text-brand-400'
+                            : ' text-red-400/80'
+                        }
+                      >
+                        {' '}
+                        · HTTP {h.lastDeliveryStatus}
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
               <button
                 type="button"

@@ -18,6 +18,7 @@ import { QueueManager } from '@/cache/QueueManager';
 import { DiscordBotService } from '@/services/discord-bot/DiscordBotService';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { QueueProcessorService } from '@/services/queue/QueueProcessorService';
+import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { APIGateway } from '@/services/api-gateway/APIGateway';
 import { DashboardService } from '@/services/web-dashboard/DashboardService';
 import { GracefulShutdown } from '@/utils/GracefulShutdown';
@@ -94,6 +95,9 @@ class Application {
 
     await QueueManager.getInstance().initialize();
     logger.info('Filas Bull OK');
+
+    await WebhookDispatcherService.getInstance().initialize();
+    logger.info('Webhooks outbound OK');
   }
 
   /**

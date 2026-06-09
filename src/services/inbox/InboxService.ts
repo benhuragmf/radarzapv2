@@ -32,6 +32,7 @@ import {
   InboxQuickReply,
 } from '@/types/inbox-quick-replies';
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
+import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { InboxTicketStatus, INBOX_TICKET_STATUS_LABEL, parseTicketClientExit, TICKET_CLIENT_EXIT_ACK, TICKET_CLIENT_REPLY_FOOTER, TICKET_CLIENT_REPLY_GRACE_MS, TICKET_CLIENT_REPLY_GRACE_PROMPT, TICKET_CLOSE_REPLY_HINT, TICKET_POST_CLOSE_REPLY_HOURS, ticketIsActive } from '@/types/inbox-ticket';
 import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
 import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
@@ -964,6 +965,12 @@ export class InboxService {
     if (!conversation) {
       conversation = await this.createConversation(clientId, dest);
       this.notifyConversation(clientId, conversation);
+      WebhookDispatcherService.getInstance().emit(clientId, 'inbox.conversation.created', {
+        conversation_id: String(conversation._id),
+        contact_identifier: conversation.contactIdentifier,
+        contact_name: conversation.contactName,
+        status: conversation.status,
+      });
       await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Novo contato', dest.name || dest.identifier, {
         conversationId: String(conversation._id),
       });
@@ -1028,6 +1035,13 @@ export class InboxService {
     const cid = clientId ?? String(conversation.clientId);
     this.notifyMessage(cid, String(conversation._id));
     this.notifyConversation(cid, conversation);
+    WebhookDispatcherService.getInstance().emit(cid, 'inbox.message.received', {
+      conversation_id: String(conversation._id),
+      contact_identifier: conversation.contactIdentifier,
+      body_preview: body.slice(0, 500),
+      has_media: Boolean(opts?.mediaType),
+      media_type: opts?.mediaType ?? null,
+    });
 
     if (
       conversation.status === InboxConversationStatus.IN_PROGRESS ||
@@ -2414,6 +2428,12 @@ export class InboxService {
     await this.sendToContact(clientId, conv.contactIdentifier, closing);
     await this.appendSystemMessage(conv, closing, new mongoose.Types.ObjectId(userId), clientId);
     this.notifyConversation(clientId, conv);
+    WebhookDispatcherService.getInstance().emit(clientId, 'inbox.conversation.resolved', {
+      conversation_id: String(conv._id),
+      contact_identifier: conv.contactIdentifier,
+      resolved_by_user_id: userId,
+      resolved_at: conv.resolvedAt?.toISOString() ?? new Date().toISOString(),
+    });
     return conv.toObject();
   }
 

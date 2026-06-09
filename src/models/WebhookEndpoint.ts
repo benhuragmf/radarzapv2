@@ -6,6 +6,9 @@ export const WEBHOOK_EVENTS = [
   'consent.updated',
   'session.connected',
   'session.disconnected',
+  'inbox.conversation.created',
+  'inbox.message.received',
+  'inbox.conversation.resolved',
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

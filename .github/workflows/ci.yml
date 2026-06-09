@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test (estável + webhooks)
+        run: npm test -- --testPathIgnorePatterns=WhatsAppService.test.ts|contact-vcf-import.test.ts
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: src/services/web-dashboard/frontend/package-lock.json
+
+      - name: Install frontend
+        working-directory: src/services/web-dashboard/frontend
+        run: npm ci
+
+      - name: Vite build (sem tsc estrito)
+        working-directory: src/services/web-dashboard/frontend
+        run: npx vite build
