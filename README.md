@@ -571,6 +571,8 @@ Módulo de atendimento WhatsApp integrado ao Baileys.
 | Tickets | `GET/POST /api/inbox/tickets` |
 | Relatórios | `GET /api/inbox/reports` |
 
+**Tickets assíncronos (v2.5.2):** após fechamento ou envio da equipe, o cliente pode responder por **12h**; complementos na mesma rodada têm **30 min**; após **2h** sem interação, menu com `sair` / `finalizar` ou novo atendimento.
+
 **CSAT (v2.5):** após encerrar conversa, cliente recebe pesquisa 1–5; resposta grava `csatScore` e dispara webhook `inbox.csat.rated`.
 
 Doc completa: [docs/INBOX-ATENDIMENTO.md](docs/INBOX-ATENDIMENTO.md)

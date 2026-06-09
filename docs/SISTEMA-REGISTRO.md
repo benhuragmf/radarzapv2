@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.5.1` (`package.json`) · **Última revisão doc:** 2026-06-09
+**Versão atual:** `2.5.2` (`package.json`) · **Última revisão doc:** 2026-06-05
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, `PRODUCTION.md`, `BILLING.md`
 
@@ -22,6 +22,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `E
 | **2.4.0** | Billing Stripe: checkout, webhooks HMAC, pedidos, expiração, UI `/plans` e `/admin/payments` |
 | **2.5.0** | Backup tenant JSON, CSAT Inbox, admin ops, Docker monolito, PWA manifest, Cloud API stub |
 | **2.5.1** | Deploy CI (GHCR+SSH), E2E Playwright, OpenAPI rotas v2.5, touch mobile, docs |
+| **2.5.2** | Segurança (IDOR, criptografia, `PRODUCTION.md` §8); consentimento: fila `pendingOutboundDeliveries` antes do conteúdo; tickets assíncronos: janela 12h, grace 30min, menu 2h (`sair`/`finalizar`) — ver `INBOX-ATENDIMENTO.md` |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 
@@ -48,7 +49,8 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 |--------|-----------|
 | Equipe/RBAC | `customRoles[]`, `roleKey`, preset CUSTOM oculto na UI |
 | Inbox | `clientVisible`, `internalRank`, escalação na transferência |
-| Consentimento | `consentRenewalApprovals` 0–2, `/contact?consent=waiting` |
+| Consentimento | `consentRenewalApprovals` 0–2, `/contact?consent=waiting`, fila `pendingOutboundDeliveries` até aceite `1` |
+| Tickets Inbox | Janela cliente 12h pós-envio equipe; grace 30min; menu follow-up após 2h |
 | Painel | scroll do navegador; `Layout.tsx` `min-h-screen` |
 
 ---

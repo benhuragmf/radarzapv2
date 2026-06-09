@@ -8,6 +8,7 @@ Fluxo de opt-in/opt-out para envios **outbound** (campanhas, disparos). Atendime
 |-------|-----|
 | `consentStatus` | `ConsentStatus` — aceite, pendente, recusas progressivas, bloqueio |
 | `pendingOutboundCount` | Contador de mensagens permitidas antes de novo prompt |
+| `pendingOutboundDeliveries` | Fila de payloads outbound aguardando aceite `1` (campanha/disparo não envia conteúdo antes do consentimento) |
 | `consentRenewalApprovals` | **0–2** — quantas vezes o dono/admin aprovou nova tentativa após recusa |
 
 ## Regra das 3 recusas
@@ -17,6 +18,16 @@ Fluxo de opt-in/opt-out para envios **outbound** (campanhas, disparos). Atendime
 3. Terceira recusa → `REFUSED_THREE` — **definitivo**; nem `clearRefusal` libera
 
 Serviço: `src/services/consent/ConsentService.ts` — `approveRenewal`, `clearRefusal`, `applyStatus`
+
+## Fila antes do conteúdo (campanhas / disparos)
+
+Quando o contato ainda não aceitou (`consentStatus` pendente), o `WhatsAppService` **não envia** o corpo da campanha. Em vez disso:
+
+1. `ConsentService.queueOutboundUntilConsent` grava o payload em `pendingOutboundDeliveries` no `Destination`
+2. O cliente recebe apenas o prompt LGPD (resposta `1` = aceite, `2` = recusa)
+3. Após aceite, `flushPendingOutboundDeliveries` envia a fila na ordem
+
+**Ordem no inbound:** consentimento → ticket fechado (se aplicável) → Inbox ao vivo. Resposta `1` em ticket fechado **não** é aceite LGPD — ver `INBOX-ATENDIMENTO.md` (tickets assíncronos).
 
 ## API
 
