@@ -40,7 +40,7 @@ Próximos gaps: deploy prod completo, Cloud API Meta, backup tenant, testes E2E.
 | 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
 | 6 | **Backup tenant** | Só export CSV; sem restore completo da org |
 | 7 | ~~**Inbox fase operacional**~~ | ✅ parcial **2.2.1** — `/enc`, `closed` automático, alertas fila; falta CSAT |
-| 8 | **WhatsApp Cloud API** | Só Baileys; Enterprise Meta não implementado |
+| 8 | **WhatsApp Cloud API** | Só Baileys; Enterprise Meta — spec em `PRODUCTION.md` §7 |
 | 9 | ~~**Mobile**~~ | ✅ parcial **2.3.0** — menu hamburger + Inbox lista↔chat; falta PWA/touch global |
 | 10 | **Testes** | Bons unitários em utils; pouco em Inbox, consentimento, integrações |
 
@@ -109,6 +109,8 @@ Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 **O quê:** `WhatsAppChannelProvider` — Baileys hoje / Cloud API amanhã; mesmo contrato REST interno.
 
 **Por quê:** Enterprise e estabilidade oficial.
+
+**Produção:** Meta Business, WABA, webhooks HTTPS, tokens — **`PRODUCTION.md` §7** (checklist completo).
 
 **Esforço:** alto · Fase 5 em `INBOX-ATENDIMENTO.md`
 

@@ -187,7 +187,7 @@ Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
 
 | Fase | Escopo |
 |------|--------|
-| 5 | `WhatsAppChannelProvider` — Cloud API Meta (planos Enterprise) |
+| 5 | `WhatsAppChannelProvider` — Cloud API Meta (Enterprise). Spec produção: `PRODUCTION.md` §7 |
 
 ## Painel
 

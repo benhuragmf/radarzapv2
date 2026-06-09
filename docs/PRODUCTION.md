@@ -3,7 +3,7 @@
 > Tudo que muda entre **desenvolvimento local** e **ambiente de produção**.  
 > Atualizar ao implementar itens do `ROADMAP-COMPLETUDE.md`.
 
-**Última revisão:** 2026-06-05
+**Última revisão:** 2026-06-05 (Cloud API §7 expandido)
 
 ---
 
@@ -49,6 +49,7 @@
 | `LOG_LEVEL` | `info` / `pretty` | `info` / `json` |
 | `WHATSAPP_HEADLESS` | `true` | `true` |
 | `RATE_LIMIT_*` | relaxado | ajustar por plano/tráfego |
+| `META_*` / `WHATSAPP_CLOUD_*` | vazio (só Baileys) | Enterprise — ver **§7** |
 
 **Nunca** commitar `.env` ou `sessions/`.
 
@@ -146,14 +147,126 @@ Ver `docs/BILLING.md`.
 
 ---
 
-### 7. WhatsApp Cloud API
+### 7. WhatsApp Cloud API (Meta) — 🟡 pendente implementação
 
-| Local | Produção |
-|-------|----------|
-| Baileys + QR | Meta Business, WABA ID, token permanente, webhook verify token |
-| Sessão em `./sessions` | Credenciais Cloud em secrets; webhook público HTTPS |
+> **Status hoje:** apenas **Baileys** (QR + `./sessions`). Cloud API é alvo para plano **Enterprise** — mesma API REST interna (`/api`, Inbox, campanhas), canal escolhido por organização.
 
-**Novas env:** `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN`, `WHATSAPP_CLOUD_API_VERSION`
+| | **Local (dev)** | **Produção (Cloud API)** |
+|---|-----------------|---------------------------|
+| Conexão | Baileys + QR em `/sessions` | **Sem QR** — WABA + `phone_number_id` + token permanente |
+| Credenciais | Arquivos em `./sessions/` | Secrets por org no Mongo (criptografados) |
+| Webhook inbound | Baileys socket | **HTTPS público** — Meta envia mensagens/status |
+| Envio fora janela 24h | Baileys livre | **Templates** aprovados pela Meta |
+| Status / stories | Baileys | API separada ou indisponível no Cloud |
+| Infra | RAM + volume `sessions/` | Só HTTP — sem Chromium/Baileys por sessão Cloud |
+
+#### Pré-requisitos Meta (antes de produção)
+
+1. [Meta Business Suite](https://business.facebook.com/) — conta verificada
+2. App em [developers.facebook.com](https://developers.facebook.com/) com produto **WhatsApp** ativo
+3. **WhatsApp Business Account (WABA)** vinculada ao app
+4. Número de telefone registrado na WABA (ou número de teste Meta em dev)
+5. **System User** + token permanente **ou** Embedded Signup (OAuth Meta por tenant Enterprise)
+6. App em modo **Live** (não só Development) para clientes reais
+
+#### Variáveis de ambiente (plataforma)
+
+| Variável | Local | Produção |
+|----------|-------|----------|
+| `META_APP_ID` | app dev Meta | app **Live** |
+| `META_APP_SECRET` | dev | secret produção — **nunca** no frontend |
+| `WHATSAPP_CLOUD_VERIFY_TOKEN` | string qualquer dev | string longa única — usada no handshake GET do webhook |
+| `WHATSAPP_CLOUD_API_VERSION` | `v21.0` (ou atual Meta) | fixar versão testada antes de deploy |
+| `WHATSAPP_DEFAULT_CHANNEL` | `baileys` | `baileys` até org Enterprise migrar |
+
+**Por organização (Mongo, não `.env`):** `wabaId`, `phoneNumberId`, `accessToken` (criptografado com `SESSION_ENCRYPTION_KEY`), `channel: 'baileys' | 'cloud'`.
+
+#### Webhook Meta (obrigatório em produção)
+
+| Método | URL alvo | Função |
+|--------|----------|--------|
+| `GET` | `https://<host>/api/integrations/whatsapp/cloud/webhook` | Verificação (`hub.mode`, `hub.verify_token`, `hub.challenge`) |
+| `POST` | mesma URL | Mensagens inbound, status de entrega, erros |
+
+**Configurar no Meta Developer → WhatsApp → Configuration:**
+
+- **Callback URL:** `https://app.seudominio.com/api/integrations/whatsapp/cloud/webhook`
+- **Verify token:** mesmo valor de `WHATSAPP_CLOUD_VERIFY_TOKEN`
+- **Campos assinados:** `messages`, `message_template_status_update` (mínimo); incluir `message_echoes` se multi-device
+
+**Infra (igual Stripe billing):**
+
+- Rota webhook com **body raw** para validar `X-Hub-Signature-256` (HMAC SHA256 com `META_APP_SECRET`)
+- Reverse proxy **não** deve reescrever nem consumir o body antes do Node
+- Só **HTTPS** — Meta rejeita HTTP em produção
+
+#### Arquitetura alvo no RadarZap
+
+```
+Organization.channel = baileys | cloud
+        ↓
+WhatsAppChannelProvider (interface)
+   ├── BaileysProvider   ← hoje (WhatsAppService)
+   └── CloudApiProvider  ← Enterprise (fetch graph.facebook.com)
+        ↓
+Inbox / campanhas / /api/integrations/*  (mesmo contrato)
+```
+
+Implementação prevista: fase 5 em `INBOX-ATENDIMENTO.md`. Até lá, **todas** as orgs usam Baileys.
+
+#### Onboarding tenant Enterprise (fluxo produção)
+
+1. Org com plano `enterprise` (manual ou contrato)
+2. Admin abre **Sessões WhatsApp** → escolhe **Cloud API (Meta)**
+3. Embedded Signup Meta **ou** cola `phone_number_id` + token permanente
+4. RadarZap registra webhook na WABA e testa envio template `hello_world`
+5. Inbox passa a receber via POST webhook (não via Baileys)
+6. Baileys da mesma org **desativado** — um número = um canal
+
+#### Envio e templates (regras Meta)
+
+| Cenário | Baileys (hoje) | Cloud API (produção) |
+|---------|----------------|----------------------|
+| Resposta Inbox &lt; 24h | texto livre | texto livre |
+| Campanha / reengajamento | texto livre | **template** aprovado + variáveis |
+| Mídia | Baileys download/upload | `media_id` via Graph API |
+| Opt-out LGPD | consentimento RadarZap | + políticas template Meta |
+
+Catálogo de templates: criar no Meta Business Manager; IDs referenciados nas campanhas RadarZap.
+
+#### Checklist go-live Cloud API
+
+- [ ] Business verification Meta concluída
+- [ ] App WhatsApp em modo Live
+- [ ] Webhook GET verificado (Meta mostra ✓)
+- [ ] POST de teste recebido e persistido no Inbox
+- [ ] Token permanente ou refresh documentado; rotação planejada
+- [ ] `SESSION_ENCRYPTION_KEY` definida antes de gravar tokens por org
+- [ ] Rate limit Meta (tier messaging) monitorado em `/admin/monitoring`
+- [ ] Plano Enterprise + `canSendMessage()` ativo para a org
+- [ ] Runbook: token revogado → alerta + reconexão Embedded Signup
+
+#### Migração Baileys → Cloud (mesmo número)
+
+1. Backup Mongo + export contatos (`/settings/backup`)
+2. Desconectar sessão Baileys (libera número na Meta se necessário)
+3. Registrar número na WABA Cloud
+4. Criar sessão `channel=cloud` no painel
+5. Validar Inbox + campanha teste com template
+6. Manter volume `./sessions/` até confirmar — depois arquivar pasta da org
+
+#### Dev local com Cloud API (opcional)
+
+- Usar **número de teste** Meta + app Development
+- [ngrok](https://ngrok.com/) ou Cloudflare Tunnel → expor `localhost:3001` para webhook GET/POST
+- `WHATSAPP_DEFAULT_CHANNEL=cloud` só em org de teste — demais orgs continuam Baileys
+- **Não** commitar tokens Meta; usar `.env` local
+
+#### Referências internas
+
+- Roadmap feature: `ROADMAP-COMPLETUDE.md` §7
+- Inbox / canal: `INBOX-ATENDIMENTO.md` fase 5
+- Baileys hoje: seção **WhatsApp Baileys em produção** abaixo
 
 ---
 
@@ -197,6 +310,8 @@ Ver `docs/BILLING.md`.
 
 ## WhatsApp Baileys em produção
 
+> Canal **padrão hoje** (Starter / Pro). Enterprise pode migrar para Cloud API — ver §7 acima.
+
 - Servidor com RAM suficiente (sessões Baileys + Chromium se headless pesado)
 - Volume **persistente** para `sessions/` — recriar QR perde conexões
 - `SESSION_ENCRYPTION_KEY` **nunca** trocar sem migração planejada
@@ -227,4 +342,6 @@ Ver `docs/BILLING.md`.
 
 - Dev local: `RADARZAP-V2-MIGRACAO.md`
 - Roadmap features: `ROADMAP-COMPLETUDE.md`
+- Cloud API Meta (produção): **§7 deste documento**
+- Billing Stripe: `BILLING.md`
 - Mapa rotas: `MENU-PAGES-REGISTRY.md`
