@@ -24,6 +24,8 @@ interface Props {
   onModeChange: (mode: NavMode) => void
   guild: Guild | null
   onGuildChange: (guild: Guild | null) => void
+  mobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
 function NavAlertDot({ alert, active }: { alert: NavAlertItem; active: boolean }) {
@@ -264,7 +266,15 @@ function ModeSwitcher({
   )
 }
 
-export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange }: Props) {
+export default function Sidebar({
+  user,
+  mode,
+  onModeChange,
+  guild,
+  onGuildChange,
+  mobileOpen = false,
+  onMobileClose,
+}: Props) {
   const { pathname, hash } = useLocation()
   const guildReady = Boolean(guild?.id)
   const navGuildReady = mode !== 'discord' || guildReady
@@ -283,7 +293,11 @@ export default function Sidebar({ user, mode, onModeChange, guild, onGuildChange
   }, [pathname, hash, onModeChange])
 
   return (
-    <aside className="w-full lg:w-60 lg:sticky lg:top-0 lg:h-screen bg-gray-900 border-b lg:border-b-0 lg:border-r border-gray-800 flex flex-col shrink-0 lg:overflow-y-auto lg:overscroll-contain">
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 w-[min(100vw,280px)] bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 overflow-y-auto overscroll-contain transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-60 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 ${
+        mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}
+    >
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-800">
         <Zap className="text-brand-500" size={22} />
         <div className="min-w-0">

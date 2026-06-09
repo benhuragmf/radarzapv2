@@ -71,6 +71,27 @@ const TERMINAL_STATUSES = new Set<InboxConversationStatus>([
   InboxConversationStatus.CLOSED,
 ]);
 
+/** Campos mínimos para timer de grace (lean ou documento). */
+type ClientReplyGraceTicket = Pick<IInboxTicket, 'ticketRef' | 'clientReplyGraceUntil'>;
+
+/** Linha de ticket para listagem/enriquecimento (sem Document do Mongoose). */
+type TicketEnrichmentRow = Pick<
+  IInboxTicket,
+  | '_id'
+  | 'ticketRef'
+  | 'status'
+  | 'conversationId'
+  | 'contactName'
+  | 'contactIdentifier'
+  | 'departmentId'
+  | 'assignedUserId'
+  | 'openedByUserId'
+  | 'closedByUserId'
+  | 'updatedAt'
+  | 'closedAt'
+  | 'createdAt'
+>;
+
 const logger = createServiceLogger('InboxService');
 
 export class InboxService {
@@ -805,7 +826,7 @@ export class InboxService {
     return `${clientId}:${ticketRef}`;
   }
 
-  private scheduleClientReplyGrace(clientId: string, ticket: IInboxTicket): void {
+  private scheduleClientReplyGrace(clientId: string, ticket: ClientReplyGraceTicket): void {
     if (!ticket.clientReplyGraceUntil) return;
     const key = this.graceTimerKey(clientId, ticket.ticketRef);
     const existing = this.graceTimers.get(key);
@@ -837,7 +858,10 @@ export class InboxService {
       .lean();
 
     for (const row of pending) {
-      this.scheduleClientReplyGrace(String(row.clientId), row as IInboxTicket);
+      this.scheduleClientReplyGrace(String(row.clientId), {
+        ticketRef: row.ticketRef,
+        clientReplyGraceUntil: row.clientReplyGraceUntil,
+      });
     }
   }
 
@@ -1412,10 +1436,7 @@ export class InboxService {
     return { ticket, created: false };
   }
 
-  private async enrichTicketRows(
-    tickets: IInboxTicket[],
-    clientId: string,
-  ) {
+  private async enrichTicketRows(tickets: TicketEnrichmentRow[], _clientId: string) {
     const deptIds = [...new Set(tickets.map(t => t.departmentId?.toString()).filter(Boolean))];
     const userIds = [
       ...new Set(
@@ -1441,11 +1462,21 @@ export class InboxService {
         .lean(),
     ]);
 
-    const deptMap = new Map(depts.map(d => [String(d._id), d.name]));
-    const userMap = new Map(
-      users.map(u => [String(u._id), u.displayName?.trim() || u.email?.split('@')[0] || 'Usuário']),
+    const deptMap = new Map<string, string>(
+      depts.map(d => [String(d._id), d.name ?? ''] as [string, string]),
     );
-    const convMap = new Map(convs.map(c => [String(c._id), c]));
+    const userMap = new Map<string, string>(
+      users.map(
+        u =>
+          [String(u._id), u.displayName?.trim() || u.email?.split('@')[0] || 'Usuário'] as [
+            string,
+            string,
+          ],
+      ),
+    );
+    const convMap = new Map<string, (typeof convs)[number]>(
+      convs.map(c => [String(c._id), c] as [string, (typeof convs)[number]]),
+    );
 
     return tickets.map(t => {
       const conv = convMap.get(String(t.conversationId));
@@ -1510,7 +1541,7 @@ export class InboxService {
     }
 
     const rows = await InboxTicket.find(query).sort({ updatedAt: -1 }).limit(100).lean();
-    return this.enrichTicketRows(rows as IInboxTicket[], clientId);
+    return this.enrichTicketRows(rows, clientId);
   }
 
   async getTicketStats(clientId: string, userId: string) {

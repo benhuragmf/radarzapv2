@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
@@ -22,11 +22,24 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
   const initial = getSelectedGuild()
   const [guild, setGuild] = useState<Guild | null>(initial)
   const [navMode, setNavMode] = useState<NavMode>(() => detectNavMode(pathname, hash))
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [pathname, hash])
 
   return (
     <EventNotificationProvider user={user}>
       <NavModeContext.Provider value={navMode}>
         <GuildContext.Provider value={{ guildId: guild?.id ?? null, guildName: guild?.name ?? null }}>
+          {sidebarOpen && (
+            <button
+              type="button"
+              aria-label="Fechar menu"
+              className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
           <div className="flex flex-col lg:flex-row min-h-screen w-full bg-gray-950">
             <Sidebar
               user={user}
@@ -34,10 +47,17 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
               onModeChange={setNavMode}
               guild={guild}
               onGuildChange={setGuild}
+              mobileOpen={sidebarOpen}
+              onMobileClose={() => setSidebarOpen(false)}
             />
             <div className="flex flex-col flex-1 min-w-0">
               <div className="sticky top-0 z-30 shrink-0 bg-gray-950/95 backdrop-blur-sm">
-                <Header user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} />
+                <Header
+                  user={user}
+                  onLogout={onLogout}
+                  onUserUpdate={onUserUpdate}
+                  onMenuClick={() => setSidebarOpen(true)}
+                />
                 <ContextBar user={user} />
               </div>
               <main className="flex-1 p-4 sm:p-6 lg:p-8">

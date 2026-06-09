@@ -34,14 +34,14 @@ Próximos gaps: deploy prod completo, billing, e-mail convite, mobile, Cloud API
 | # | Lacuna | Evidência no código |
 |---|--------|---------------------|
 | 1 | ~~**Webhooks sem disparo real**~~ | ✅ **2.2.0** — `WebhookDispatcherService`, fila `notifications`, HMAC, eventos Inbox |
-| 2 | **Deploy / CI** | ✅ parcial — `.github/workflows/ci.yml` (testes + vite build); falta stack prod Docker/PM2 |
+| 2 | **Deploy / CI** | ✅ parcial **2.3.0** — `npm run build` backend + job CI; falta Docker/PM2 prod |
 | 3 | ~~**Convite de equipe**~~ | ✅ **2.2.2** — e-mail Resend/SMTP + reenvio; dev loga no console |
 | 4 | **Billing / pagamentos** | Planos na UI; `/admin/payments` é stub | usar o stripe.com igual o sistema de pagamento da "C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\radargamer\radargamev4"
 | 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
 | 6 | **Backup tenant** | Só export CSV; sem restore completo da org |
 | 7 | ~~**Inbox fase operacional**~~ | ✅ parcial **2.2.1** — `/enc`, `closed` automático, alertas fila; falta CSAT |
 | 8 | **WhatsApp Cloud API** | Só Baileys; Enterprise Meta não implementado |
-| 9 | **Mobile** | Sidebar empilha; sem hamburger; Inbox desktop-first |
+| 9 | ~~**Mobile**~~ | ✅ parcial **2.3.0** — menu hamburger + Inbox lista↔chat; falta PWA/touch global |
 | 10 | **Testes** | Bons unitários em utils; pouco em Inbox, consentimento, integrações |
 
 ---
@@ -56,9 +56,19 @@ Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 
 ### 2. Deploy produção + CI/CD — 🟡 em progresso
 
-**Feito:** GitHub Actions (`ci.yml`) — testes backend (exc. suites flaky) + `vite build` frontend.
+**Feito:** GitHub Actions — testes, **`npm run build` backend** (job `backend-build`), `vite build` frontend.
 
-**Pendente:** `npm run build` backend (erros TS pré-existentes Inbox), lint estrito, imagem Docker app, deploy staging.
+**Pendente:** lint estrito, `tsc -b` frontend, imagem Docker app, deploy staging.
+
+---
+
+### 5. Painel mobile — ✅ parcial (2.3.0)
+
+**Feito:** menu hamburger (drawer), Inbox lista ↔ chat no celular, botão voltar.
+
+**Pendente:** PWA, touch targets globais, tickets/supervisor mobile.
+
+**Esforço restante:** baixo–médio
 
 ---
 
@@ -81,16 +91,6 @@ Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 **Implementação:** `EmailService` (Resend / SMTP / console dev), `POST /team/members/:id/resend-invite`.
 
 **Produção:** `RESEND_API_KEY` ou `SMTP_*` + `MAIL_FROM` — ver `PRODUCTION.md` §4.
-
----
-
-### 5. Painel mobile
-
-**O quê:** menu hamburger, Inbox em abas (lista ↔ chat), touch-friendly.
-
-**Por quê:** atendentes usam celular.
-
-**Esforço:** médio
 
 ---
 

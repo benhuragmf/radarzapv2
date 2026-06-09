@@ -23,6 +23,7 @@ import {
   History,
   UserPen,
   Zap,
+  ArrowLeft,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
 import { formatQueueTimer, liveQueueState, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
@@ -339,7 +340,7 @@ export default function Inbox() {
     'bg-gray-900/80 border border-gray-700/80 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-brand-500/50'
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)] max-w-[1400px] -mx-1">
+    <div className="flex flex-col min-h-[70vh] lg:h-[calc(100vh-5.5rem)] max-w-[1400px] -mx-1">
       {/* Cabeçalho */}
       <div className="shrink-0 mb-4">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -418,7 +419,11 @@ export default function Inbox() {
       {/* Painel principal */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-0 rounded-xl border border-gray-800 bg-gray-900/30 overflow-hidden shadow-xl shadow-black/20">
         {/* Lista de conversas */}
-        <aside className="w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-800/80 bg-gray-950/40">
+        <aside
+          className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-800/80 bg-gray-950/40 ${
+            selectedId ? 'max-lg:hidden' : 'max-lg:flex-1'
+          }`}
+        >
           <div className="p-3 space-y-2.5 border-b border-gray-800/80 shrink-0">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -469,7 +474,7 @@ export default function Inbox() {
             )}
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto lg:max-h-none max-h-[280px]">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {loadingList ? (
               <div className="flex justify-center py-12">
                 <Spinner size={24} />
@@ -560,10 +565,14 @@ export default function Inbox() {
         </aside>
 
         {/* Área do chat + histórico */}
-        <div className="flex-1 min-w-0 flex flex-col xl:flex-row min-h-[360px] lg:min-h-0">
-        <section className="flex-1 min-w-0 flex flex-col bg-gray-950/20 min-h-[360px]">
+        <div
+          className={`flex-1 min-w-0 flex flex-col xl:flex-row min-h-[360px] lg:min-h-0 ${
+            selectedId ? '' : 'max-lg:hidden'
+          }`}
+        >
+        <section className="flex-1 min-w-0 flex flex-col bg-gray-950/20 min-h-[360px] max-lg:min-h-[70vh]">
           {!selectedId ? (
-            <div className="flex flex-col items-center justify-center flex-1 text-gray-500 p-8">
+            <div className="hidden lg:flex flex-col items-center justify-center flex-1 text-gray-500 p-8">
               <div className="w-16 h-16 rounded-2xl bg-gray-800/50 flex items-center justify-center mb-4">
                 <MessageSquare size={32} className="opacity-40" />
               </div>
@@ -582,6 +591,14 @@ export default function Inbox() {
               <header className="shrink-0 px-4 py-3 border-b border-gray-800/80 bg-gray-900/50 backdrop-blur-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(null)}
+                      className="lg:hidden shrink-0 p-1.5 -ml-1 mt-0.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+                      aria-label="Voltar para lista"
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
                     <ContactAvatar name={conv.contactName} size="lg" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">

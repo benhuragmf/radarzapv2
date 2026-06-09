@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { logout, type AuthUser } from '../../lib/auth'
 import { pageTitleFor } from '../../lib/navConfig'
-import { Wifi, WifiOff, LogOut } from 'lucide-react'
+import { Wifi, WifiOff, LogOut, Menu } from 'lucide-react'
 import OrganizationSwitcher from './OrganizationSwitcher'
 import EventNotificationBell from './EventNotificationBell'
 
@@ -11,9 +11,10 @@ interface Props {
   user: AuthUser
   onLogout: () => void
   onUserUpdate: (user: AuthUser) => void
+  onMenuClick?: () => void
 }
 
-export default function Header({ user, onLogout, onUserUpdate }: Props) {
+export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Props) {
   const { pathname, hash, search } = useLocation()
   const title = pageTitleFor(pathname, hash, search)
 
@@ -31,8 +32,20 @@ export default function Header({ user, onLogout, onUserUpdate }: Props) {
   }
 
   return (
-    <header className="h-14 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 sm:px-6">
-      <h1 className="font-semibold text-base">{title}</h1>
+    <header className="h-14 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 sm:px-6 gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        {onMenuClick && (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="lg:hidden shrink-0 p-1.5 -ml-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+            aria-label="Abrir menu"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+        <h1 className="font-semibold text-base truncate">{title}</h1>
+      </div>
 
       <div className="flex items-center gap-4">
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
