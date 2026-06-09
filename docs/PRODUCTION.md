@@ -107,14 +107,16 @@ Doc: `docs/WEBHOOKS.md`
 
 ---
 
-### 4. E-mail convite equipe
+### 4. E-mail convite equipe — ✅ implementado (2.2.2)
 
 | Local | Produção |
 |-------|----------|
-| Opcional / log no console | SMTP ou Resend/SendGrid |
+| Dev sem env → log no console | `RESEND_API_KEY` **ou** SMTP |
+| `POST /team/members` | Envia HTML + link `/auth/google` |
+| Reenvio na UI | `POST /team/members/:id/resend-invite` |
 
-**Novas env:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM=noreply@seudominio.com`  
-ou `RESEND_API_KEY`
+**Env:** `RESEND_API_KEY`, `MAIL_FROM=noreply@seudominio.com`  
+**Ou SMTP:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE=false`
 
 ---
 

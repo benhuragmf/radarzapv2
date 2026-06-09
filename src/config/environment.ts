@@ -120,6 +120,17 @@ export interface AppConfig {
     MAX_RETRIES: number;
     RETRY_DELAY_MS: number;
   };
+
+  /** E-mail transacional (convites de equipe, etc.) */
+  MAIL: {
+    FROM: string;
+    RESEND_API_KEY: string;
+    SMTP_HOST: string;
+    SMTP_PORT: number;
+    SMTP_SECURE: boolean;
+    SMTP_USER: string;
+    SMTP_PASS: string;
+  };
 }
 
 /**
@@ -291,6 +302,16 @@ export const config: AppConfig = {
     TIMEOUT_MS: parseNumber(process.env.WEBHOOK_TIMEOUT_MS, 15000),
     MAX_RETRIES: parseNumber(process.env.WEBHOOK_MAX_RETRIES, 5),
     RETRY_DELAY_MS: parseNumber(process.env.WEBHOOK_RETRY_DELAY_MS, 2000),
+  },
+
+  MAIL: {
+    FROM: getOptional('MAIL_FROM', 'RadarZap <noreply@radarzap.local>'),
+    RESEND_API_KEY: getOptional('RESEND_API_KEY', ''),
+    SMTP_HOST: getOptional('SMTP_HOST', ''),
+    SMTP_PORT: parseNumber(process.env.SMTP_PORT, 587),
+    SMTP_SECURE: parseBoolean(process.env.SMTP_SECURE, false),
+    SMTP_USER: getOptional('SMTP_USER', ''),
+    SMTP_PASS: getOptional('SMTP_PASS', ''),
   },
 };
 

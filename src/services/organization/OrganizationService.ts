@@ -21,8 +21,20 @@ import {
 } from '@/types/org-custom-role';
 import crypto from 'crypto';
 import { createServiceLogger } from '@/utils/logger';
+import { config } from '@/config/environment';
+import { EmailService } from '@/services/email/EmailService';
+import {
+  buildTeamInviteEmail,
+  resolveInviteRoleLabel,
+} from '@/services/email/team-invite-email';
 
 const logger = createServiceLogger('OrganizationService');
+
+export interface InviteEmailDeliveryResult {
+  sent: boolean;
+  transport: 'resend' | 'smtp' | 'console' | 'none';
+  error?: string;
+}
 
 const INVITED_MEMBER_ROLES: CompanyRole[] = [
   CompanyRole.ADMIN,
@@ -805,7 +817,7 @@ export class OrganizationService {
     roleKey: string,
     invitedByUserId: string,
     options?: { extraCapabilities?: Capability[]; deniedCapabilities?: Capability[] },
-  ): Promise<ICompanyMember> {
+  ): Promise<{ member: ICompanyMember; inviteEmail: InviteEmailDeliveryResult }> {
     const { companyRole: role, customRoleId } = this.parseMemberRoleSelection(roleKey);
     if (customRoleId) {
       await this.assertCustomRoleExists(organizationId, customRoleId);
@@ -844,12 +856,18 @@ export class OrganizationService {
       existing.invitedByUserId = new mongoose.Types.ObjectId(invitedByUserId);
       const linked = await User.findOne({ email: normalized }).select('_id').lean();
       if (linked) existing.userId = linked._id as mongoose.Types.ObjectId;
-      return existing.save();
+      const saved = await existing.save();
+      const inviteEmail = await this.deliverMemberInviteEmail(
+        organizationId,
+        saved,
+        invitedByUserId,
+      );
+      return { member: saved, inviteEmail };
     }
 
     const user = await User.findOne({ email: normalized });
     try {
-      return await CompanyMember.create({
+      const created = await CompanyMember.create({
         organizationId: new mongoose.Types.ObjectId(organizationId),
         userId: user?._id,
         email: normalized,
@@ -860,6 +878,12 @@ export class OrganizationService {
         invitedByUserId: new mongoose.Types.ObjectId(invitedByUserId),
         isActive: true,
       });
+      const inviteEmail = await this.deliverMemberInviteEmail(
+        organizationId,
+        created,
+        invitedByUserId,
+      );
+      return { member: created, inviteEmail };
     } catch (err) {
       const msg = (err as Error).message ?? '';
       if (msg.includes('E11000') && msg.includes('email')) {
@@ -867,6 +891,91 @@ export class OrganizationService {
       }
       throw err;
     }
+  }
+
+  async resendMemberInvite(
+    organizationId: string,
+    memberId: string,
+    requesterUserId: string,
+  ): Promise<{ member: ICompanyMember; inviteEmail: InviteEmailDeliveryResult }> {
+    const member = await CompanyMember.findOne({
+      _id: memberId,
+      organizationId,
+      isActive: true,
+    });
+    if (!member) throw new Error('Membro não encontrado');
+    if (member.companyRole === CompanyRole.OWNER) {
+      throw new Error('Não é possível reenviar convite ao dono');
+    }
+    if (member.userId) {
+      throw new Error('Este membro já aceitou o convite');
+    }
+    if (!member.email?.trim()) {
+      throw new Error('Membro sem e-mail para convite');
+    }
+    const inviteEmail = await this.deliverMemberInviteEmail(
+      organizationId,
+      member,
+      requesterUserId,
+    );
+    return { member, inviteEmail };
+  }
+
+  private async deliverMemberInviteEmail(
+    organizationId: string,
+    member: ICompanyMember,
+    invitedByUserId: string,
+  ): Promise<InviteEmailDeliveryResult> {
+    const email = member.email?.trim().toLowerCase();
+    if (!email) {
+      return { sent: false, transport: 'none', error: 'Membro sem e-mail' };
+    }
+
+    const org = await Organization.findById(organizationId).select('name customRoles').lean();
+    if (!org) {
+      return { sent: false, transport: 'none', error: 'Organização não encontrada' };
+    }
+
+    const inviter = await User.findById(invitedByUserId).select('displayName email').lean();
+    const inviterName =
+      inviter?.displayName?.trim() ||
+      inviter?.email?.split('@')[0] ||
+      'Um administrador';
+
+    const customRoleName = member.customRoleId
+      ? (org.customRoles as OrgCustomRole[] | undefined)?.find(r => r.id === member.customRoleId)
+          ?.name
+      : undefined;
+
+    const loginUrl = `${config.DASHBOARD.FRONTEND_URL}/auth/google`;
+    const { subject, text, html } = buildTeamInviteEmail({
+      organizationName: org.name?.trim() || 'sua empresa',
+      inviteeEmail: email,
+      roleLabel: resolveInviteRoleLabel(member.companyRole, customRoleName),
+      inviterName,
+      loginUrl,
+    });
+
+    const result = await EmailService.getInstance().send({
+      to: email,
+      subject,
+      text,
+      html,
+    });
+
+    if (result.ok) {
+      member.inviteEmailSentAt = new Date();
+      member.inviteEmailLastError = undefined;
+    } else {
+      member.inviteEmailLastError = result.error?.slice(0, 240);
+    }
+    await member.save();
+
+    return {
+      sent: result.ok,
+      transport: result.transport,
+      error: result.error,
+    };
   }
 
   async removeMember(

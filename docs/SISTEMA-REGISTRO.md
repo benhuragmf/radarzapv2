@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.2.1` (`package.json`) · **Última revisão doc:** 2026-06-05
+**Versão atual:** `2.2.2` (`package.json`) · **Última revisão doc:** 2026-06-05
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, `PRODUCTION.md`
 
@@ -17,6 +17,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `E
 | **2.1.0** | Setores internos (`internalRank`); papéis custom ilimitados; consentimento 1x/2x; scroll navegador no painel |
 | **2.2.0** | Webhooks outbound (HMAC, fila, retry, eventos Inbox); CI GitHub Actions |
 | **2.2.1** | Inbox SLA: encerramento por inatividade (`/enc` + auto), aviso `/aus`, alerta fila parada, webhook `inbox.conversation.closed` |
+| **2.2.2** | Convite de equipe por e-mail (Resend/SMTP), reenvio, `EmailService` |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 
@@ -57,6 +58,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `InboxDepartment` | `clientVisible`, `internalRank` | 2.1.0 |
 | `InboxSettings` | `inactivityAutoCloseEnabled`, `inactivityCloseMinutes`, `inactivityWarningMinutes`, `queueSlaAlertMinutes` | 2.2.1 |
 | `InboxConversation` | `lastOutboundAt`, `inactivityWarnedAt`, `queueSlaNotifiedAt` | 2.2.1 |
+| `CompanyMember` | `inviteEmailSentAt`, `inviteEmailLastError` | 2.2.2 |
 
 ---
 

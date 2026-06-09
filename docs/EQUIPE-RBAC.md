@@ -44,7 +44,8 @@ Requer `company:members:manage` (dono ou quem tiver a cap).
 | POST | `/team/custom-roles` | `{ name, description?, capabilities }` |
 | PATCH | `/team/custom-roles/:id` | `{ name?, description?, capabilities? }` |
 | DELETE | `/team/custom-roles/:id` | falha se membros ainda usam |
-| POST | `/team/members` | `{ email, roleKey }` |
+| POST | `/team/members` | `{ email, roleKey }` — envia e-mail de convite |
+| POST | `/team/members/:id/resend-invite` | reenvia e-mail (membro pendente) |
 | PATCH | `/team/members/:id` | `{ roleKey?, whatsappPhone? }` |
 
 ## Resolução de permissões

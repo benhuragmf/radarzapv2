@@ -6,7 +6,7 @@ import { can, getMe, isCompanyOwner, type AuthUser, type CompanyRole } from '../
 import { Card, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { Users, UserPlus, Trash2, Pencil, MessageSquare, Ticket, Building2, Zap } from 'lucide-react'
+import { Users, UserPlus, Trash2, Pencil, MessageSquare, Ticket, Building2, Zap, Mail } from 'lucide-react'
 import {
   RolesSystemPanel,
   TeamMemberRoleModal,
@@ -25,7 +25,15 @@ interface Member {
   linked?: boolean
   whatsappPhone?: string
   effectiveCapabilities?: string[]
+  inviteEmailSentAt?: string
+  inviteEmailLastError?: string
   createdAt: string
+}
+
+interface InviteEmailResult {
+  sent: boolean
+  transport: 'resend' | 'smtp' | 'console' | 'none'
+  error?: string
 }
 
 interface TeamRolesResponse {
@@ -84,11 +92,41 @@ export default function TeamMembers() {
   const hasDiscordIntegration = rolesData?.hasDiscordIntegration === true
   const invitePreset = presets.find(p => p.role === role)
 
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null)
+
   const invite = useMutation({
-    mutationFn: () => api.post('/team/members', { email, roleKey: role }),
-    onSuccess: () => {
+    mutationFn: () =>
+      api.post<Member & { inviteEmail: InviteEmailResult }>('/team/members', { email, roleKey: role }),
+    onSuccess: data => {
       qc.invalidateQueries({ queryKey: ['team-members'] })
       setEmail('')
+      if (data.inviteEmail?.sent) {
+        const via =
+          data.inviteEmail.transport === 'console'
+            ? ' (modo dev — veja o log do servidor)'
+            : ''
+        setInviteNotice(`Convite enviado para ${data.email ?? email}${via}`)
+      } else {
+        setInviteNotice(
+          data.inviteEmail?.error ??
+            'Membro adicionado, mas o e-mail não foi enviado. Configure RESEND_API_KEY ou SMTP.',
+        )
+      }
+      setTimeout(() => setInviteNotice(null), 6000)
+    },
+    onError: (err: Error) => alert(err.message),
+  })
+
+  const resendInvite = useMutation({
+    mutationFn: (memberId: string) =>
+      api.post<Member & { inviteEmail: InviteEmailResult }>(`/team/members/${memberId}/resend-invite`),
+    onSuccess: data => {
+      qc.invalidateQueries({ queryKey: ['team-members'] })
+      if (data.inviteEmail?.sent) {
+        alert(`Convite reenviado${data.inviteEmail.transport === 'console' ? ' (log do servidor)' : ''}.`)
+      } else {
+        alert(data.inviteEmail?.error ?? 'Não foi possível reenviar o e-mail.')
+      }
     },
     onError: (err: Error) => alert(err.message),
   })
@@ -298,6 +336,9 @@ export default function TeamMembers() {
             >
               {invite.isPending ? <Spinner size={12} /> : <UserPlus size={12} />} Enviar convite
             </Button>
+            {inviteNotice && (
+              <p className="mt-2 text-xs text-brand-400">{inviteNotice}</p>
+            )}
           </Card>
 
           <Card>
@@ -337,10 +378,27 @@ export default function TeamMembers() {
                           {m.companyRole !== 'OWNER' && m.linked === false && (
                             <span className="text-amber-500/90"> · aguardando login</span>
                           )}
+                          {m.companyRole !== 'OWNER' && m.linked === false && m.inviteEmailSentAt && (
+                            <span className="text-gray-600"> · convite enviado</span>
+                          )}
+                          {m.inviteEmailLastError && m.linked === false && (
+                            <span className="text-red-400/90"> · e-mail falhou</span>
+                          )}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      {canManage && m.companyRole !== 'OWNER' && m.linked === false && (
+                        <button
+                          type="button"
+                          disabled={resendInvite.isPending}
+                          onClick={() => resendInvite.mutate(m._id)}
+                          className="text-gray-600 hover:text-brand-400 p-1.5"
+                          title="Reenviar convite por e-mail"
+                        >
+                          <Mail size={15} />
+                        </button>
+                      )}
                       {canManage && m.companyRole !== 'OWNER' && (
                         <button
                           type="button"

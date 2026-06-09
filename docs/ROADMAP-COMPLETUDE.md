@@ -35,7 +35,7 @@ Próximos gaps: deploy prod completo, billing, e-mail convite, mobile, Cloud API
 |---|--------|---------------------|
 | 1 | ~~**Webhooks sem disparo real**~~ | ✅ **2.2.0** — `WebhookDispatcherService`, fila `notifications`, HMAC, eventos Inbox |
 | 2 | **Deploy / CI** | ✅ parcial — `.github/workflows/ci.yml` (testes + vite build); falta stack prod Docker/PM2 |
-| 3 | **Convite de equipe** | Membro por e-mail; sem SMTP/Resend |
+| 3 | ~~**Convite de equipe**~~ | ✅ **2.2.2** — e-mail Resend/SMTP + reenvio; dev loga no console |
 | 4 | **Billing / pagamentos** | Planos na UI; `/admin/payments` é stub | usar o stripe.com igual o sistema de pagamento da "C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\radargamer\radargamev4"
 | 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
 | 6 | **Backup tenant** | Só export CSV; sem restore completo da org |
@@ -74,13 +74,13 @@ Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 
 ---
 
-### 4. Convite de equipe por e-mail
+### 4. Convite de equipe por e-mail — ✅ concluído (2.2.2)
 
-**O quê:** e-mail “convidado para {empresa}” + link; status “aguardando login” já existe na UI.
+**O quê:** e-mail “convidado para {empresa}” + link Google OAuth; reenvio na UI.
 
-**Por quê:** onboarding manual hoje.
+**Implementação:** `EmailService` (Resend / SMTP / console dev), `POST /team/members/:id/resend-invite`.
 
-**Esforço:** baixo–médio · Requer SMTP/Resend em produção
+**Produção:** `RESEND_API_KEY` ou `SMTP_*` + `MAIL_FROM` — ver `PRODUCTION.md` §4.
 
 ---
 

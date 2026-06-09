@@ -16,6 +16,8 @@ export interface ICompanyMember extends Document {
   /** Permissões revogadas em relação ao papel base */
   deniedCapabilities?: Capability[];
   invitedByUserId?: mongoose.Types.ObjectId;
+  inviteEmailSentAt?: Date;
+  inviteEmailLastError?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -52,6 +54,8 @@ const CompanyMemberSchema = new Schema<ICompanyMember>({
   extraCapabilities: { type: [String], default: [] },
   deniedCapabilities: { type: [String], default: [] },
   invitedByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
+  inviteEmailSentAt: { type: Date },
+  inviteEmailLastError: { type: String, maxlength: 240 },
   isActive: { type: Boolean, default: true, index: true },
 }, {
   timestamps: true,

@@ -2989,13 +2989,27 @@ export class DashboardService {
         if (selectedRole === CompanyRole.ADMIN && auth.companyRole !== CompanyRole.OWNER) {
           return res.status(403).json({ error: 'Apenas o dono pode convidar administrador' });
         }
-        const member = await OrganizationService.getInstance().inviteMember(
+        const { member, inviteEmail } = await OrganizationService.getInstance().inviteMember(
           auth.organizationId,
           email.trim(),
           selectedRole,
           auth.userId,
         );
-        res.json(member);
+        res.json({ ...member.toObject(), inviteEmail });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/team/members/:id/resend-invite', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { member, inviteEmail } = await OrganizationService.getInstance().resendMemberInvite(
+          auth.organizationId,
+          req.params.id,
+          auth.userId,
+        );
+        res.json({ ...member.toObject(), inviteEmail });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
