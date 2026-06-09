@@ -39,7 +39,7 @@ Próximos gaps: deploy prod completo, billing, e-mail convite, mobile, Cloud API
 | 4 | **Billing / pagamentos** | Planos na UI; `/admin/payments` é stub | usar o stripe.com igual o sistema de pagamento da "C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\radargamer\radargamev4"
 | 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
 | 6 | **Backup tenant** | Só export CSV; sem restore completo da org |
-| 7 | **Inbox fase operacional** | `/enc`, `closed` automático, CSAT, SLA alertas incompletos |
+| 7 | ~~**Inbox fase operacional**~~ | ✅ parcial **2.2.1** — `/enc`, `closed` automático, alertas fila; falta CSAT |
 | 8 | **WhatsApp Cloud API** | Só Baileys; Enterprise Meta não implementado |
 | 9 | **Mobile** | Sidebar empilha; sem hamburger; Inbox desktop-first |
 | 10 | **Testes** | Bons unitários em utils; pouco em Inbox, consentimento, integrações |
@@ -62,13 +62,15 @@ Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 
 ---
 
-### 3. Inbox — inatividade, encerramento e SLA
+### 3. Inbox — inatividade, encerramento e SLA — ✅ concluído (2.2.1)
 
-**O quê:** automatizar `/enc`, timeout no bot, conversas `closed` por inatividade, alertas de fila parada.
+**O quê:** automatizar `/enc`, timeout configurável, conversas `closed` por inatividade, alertas de fila parada.
 
-**Por quê:** operação de call center real exige isso.
+**Implementação:** `InboxSettings` (SLA), scan a cada 60s, webhook `inbox.conversation.closed`, UI em Bot do Inbox.
 
-**Esforço:** médio · **Versão alvo:** 2.2.x
+**Pendente:** CSAT pós-atendimento.
+
+**Esforço restante:** baixo (CSAT) · **Versão alvo:** 2.3.x
 
 ---
 

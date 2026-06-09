@@ -15,6 +15,7 @@ const EVENTS = [
   'inbox.conversation.created',
   'inbox.message.received',
   'inbox.conversation.resolved',
+  'inbox.conversation.closed',
 ] as const
 
 interface WebhookRow {

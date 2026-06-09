@@ -48,6 +48,12 @@ export function applyQuickReplyTemplate(template: string, contactName: string): 
   return template.replace(/\[user\]/gi, firstName).replace(/\[nome\]/gi, firstName);
 }
 
+/** Código da resposta rápida quando o texto começa com `/codigo`. */
+export function parseQuickReplyCode(text: string): string | null {
+  const match = text.trim().match(/^\/(\w+)/);
+  return match ? match[1].toLowerCase() : null;
+}
+
 export function expandQuickReply(
   text: string,
   quickReplies: InboxQuickReply[],

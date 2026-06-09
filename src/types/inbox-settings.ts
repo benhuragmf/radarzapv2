@@ -49,3 +49,14 @@ export const DEFAULT_INBOX_BOT_TEXTS = {
   resolvedMessage: 'Atendimento finalizado. Se precisar de algo, envie uma nova mensagem.',
   transferMessage: 'Sua conversa foi transferida para *{department}*. Aguarde um atendente.',
 } as const;
+
+/** Defaults para SLA de inatividade e fila do Inbox. */
+export const DEFAULT_INBOX_SLA = {
+  inactivityAutoCloseEnabled: true,
+  /** Minutos sem resposta do cliente após mensagem do atendente (0 = desligado). */
+  inactivityCloseMinutes: 15,
+  /** Aviso automático com template `/aus` antes do encerramento (0 = desligado). */
+  inactivityWarningMinutes: 10,
+  /** Alerta de supervisor quando conversa na fila excede este tempo (0 = desligado). */
+  queueSlaAlertMinutes: 30,
+} as const;

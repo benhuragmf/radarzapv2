@@ -22,6 +22,7 @@ Painel: **Configurações → Webhooks** (`/settings#api-webhooks`)
 | `inbox.conversation.created` | Nova conversa Inbox |
 | `inbox.message.received` | Mensagem inbound do cliente |
 | `inbox.conversation.resolved` | Atendente finalizou conversa |
+| `inbox.conversation.closed` | Conversa encerrada por inatividade (`/enc` ou timeout automático) |
 
 ## Payload
 

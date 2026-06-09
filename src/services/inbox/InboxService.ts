@@ -24,11 +24,12 @@ import {
 import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
 import { User } from '@/models/User';
 import { InboxConversationStatus, InboxMessageMediaType } from '@/types/inbox';
-import { INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
+import { DEFAULT_INBOX_SLA, INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
 import {
   applyQuickReplyTemplate,
   expandQuickReply,
   normalizeQuickReplies,
+  parseQuickReplyCode,
   InboxQuickReply,
 } from '@/types/inbox-quick-replies';
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
@@ -42,15 +43,18 @@ import {
   getQueuePriorityState,
   isSuggestedUserBusy,
 } from '@/services/inbox/inbox-queue-priority';
-import { createServiceLogger } from '@/utils/logger';
+import {
+  shouldAlertQueueStall,
+  shouldAutoCloseForInactivity,
+  shouldSendInactivityWarning,
+} from '@/services/inbox/inbox-inactivity';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
 import {
   departmentInternalRank,
   formatInternalRankLabel,
   INBOX_INTERNAL_RANK_MIN,
 } from '@/types/inbox-department';
-
-const logger = createServiceLogger('InboxService');
+import { createServiceLogger } from '@/utils/logger';
 
 export interface InboxInboundPayload {
   text?: string;
@@ -67,24 +71,35 @@ const TERMINAL_STATUSES = new Set<InboxConversationStatus>([
   InboxConversationStatus.CLOSED,
 ]);
 
+const logger = createServiceLogger('InboxService');
+
 export class InboxService {
   private static instance: InboxService;
 
   private graceTimers = new Map<string, NodeJS.Timeout>();
   private graceMonitorStarted = false;
+  private slaMonitorStarted = false;
 
   static getInstance(): InboxService {
     if (!InboxService.instance) InboxService.instance = new InboxService();
     return InboxService.instance;
   }
 
-  /** Recupera timers de grace após restart e varre tickets expirados. */
+  /** Recupera timers de grace após restart e varre tickets expirados + SLA Inbox. */
   startClientReplyGraceMonitor(): void {
     if (this.graceMonitorStarted) return;
     this.graceMonitorStarted = true;
     setInterval(() => void this.processExpiredClientReplyGrace(), 60_000);
     void this.bootstrapClientReplyGraceTimers();
     void this.processExpiredClientReplyGrace();
+    this.startInactivitySlaMonitor();
+  }
+
+  private startInactivitySlaMonitor(): void {
+    if (this.slaMonitorStarted) return;
+    this.slaMonitorStarted = true;
+    setInterval(() => void this.processInactivityAndQueueSla(), 60_000);
+    void this.processInactivityAndQueueSla();
   }
 
   async ensureDepartments(clientId: string) {
@@ -157,6 +172,10 @@ export class InboxService {
       alertSoundEnabled: boolean;
       alertOnNewChat: boolean;
       alertOnNewMessage: boolean;
+      inactivityAutoCloseEnabled: boolean;
+      inactivityCloseMinutes: number;
+      inactivityWarningMinutes: number;
+      queueSlaAlertMinutes: number;
       quickReplies: InboxQuickReply[];
     }>,
   ): Promise<IInboxSettings> {
@@ -193,6 +212,27 @@ export class InboxService {
     }
     if (patch.alertOnNewMessage !== undefined) {
       settings.alertOnNewMessage = Boolean(patch.alertOnNewMessage);
+    }
+    if (patch.inactivityAutoCloseEnabled !== undefined) {
+      settings.inactivityAutoCloseEnabled = Boolean(patch.inactivityAutoCloseEnabled);
+    }
+    if (patch.inactivityCloseMinutes !== undefined) {
+      settings.inactivityCloseMinutes = Math.min(
+        1440,
+        Math.max(0, Number(patch.inactivityCloseMinutes) || 0),
+      );
+    }
+    if (patch.inactivityWarningMinutes !== undefined) {
+      settings.inactivityWarningMinutes = Math.min(
+        1440,
+        Math.max(0, Number(patch.inactivityWarningMinutes) || 0),
+      );
+    }
+    if (patch.queueSlaAlertMinutes !== undefined) {
+      settings.queueSlaAlertMinutes = Math.min(
+        1440,
+        Math.max(0, Number(patch.queueSlaAlertMinutes) || 0),
+      );
     }
     if (patch.quickReplies !== undefined) {
       settings.quickReplies = normalizeQuickReplies(patch.quickReplies);
@@ -372,6 +412,7 @@ export class InboxService {
     if (type === 'inbox:new_chat' && !settings.alertOnNewChat) return;
     if (type === 'inbox:new_message' && !settings.alertOnNewMessage) return;
     if (type === 'inbox:priority' && !settings.alertOnNewChat) return;
+    if (type === 'inbox:queue_sla' && !settings.alertOnNewChat) return;
 
     emitPanelEvent(clientId, {
       id: crypto.randomUUID(),
@@ -654,6 +695,9 @@ export class InboxService {
       `${agentName} entrou no atendimento.`,
       new mongoose.Types.ObjectId(userId),
     );
+    conv.lastOutboundAt = new Date();
+    conv.inactivityWarnedAt = undefined;
+    await conv.save();
   }
 
   /** Processa resposta do cliente no contexto de ticket (antes do consent, evita "sair" = opt-out). */
@@ -1030,6 +1074,7 @@ export class InboxService {
       whatsappMessageId: opts?.whatsappMessageId,
     });
     conversation.lastInboundAt = new Date();
+    conversation.inactivityWarnedAt = undefined;
     conversation.lastMessageAt = new Date();
     await conversation.save();
     const cid = clientId ?? String(conversation.clientId);
@@ -1119,6 +1164,7 @@ export class InboxService {
     conversation.suggestedAt = undefined;
     conversation.status = InboxConversationStatus.WAITING_QUEUE;
     conversation.queueEnteredAt = new Date();
+    conversation.queueSlaNotifiedAt = undefined;
     conversation.lastMessageAt = new Date();
 
     const suggested = await this.tryRoundRobinSuggest(clientId, conversation, department);
@@ -2316,6 +2362,7 @@ export class InboxService {
 
     const settings = await loadInboxSettings(clientId);
     const quickReplies = normalizeQuickReplies(settings.quickReplies);
+    const quickCode = parseQuickReplyCode(raw);
     const body = expandQuickReply(raw, quickReplies, conv.contactName);
 
     if (conv.status === InboxConversationStatus.WAITING_QUEUE) {
@@ -2352,9 +2399,20 @@ export class InboxService {
       whatsappMessageId: result.messageId,
     });
     conv.lastMessageAt = new Date();
+    conv.lastOutboundAt = new Date();
+    conv.inactivityWarnedAt = undefined;
     await conv.save();
     this.notifyMessage(clientId, String(conv._id));
     this.notifyConversation(clientId, conv);
+
+    if (quickCode === 'enc') {
+      await this.closeConversationForInactivity(clientId, conv, {
+        byUserId: userId,
+        reason: 'agent_enc',
+        skipMessage: true,
+      });
+    }
+
     return { ok: true, messageId: result.messageId };
   }
 
@@ -2392,6 +2450,7 @@ export class InboxService {
     conv.suggestedAt = undefined;
     conv.status = InboxConversationStatus.WAITING_QUEUE;
     conv.queueEnteredAt = new Date();
+    conv.queueSlaNotifiedAt = undefined;
     conv.lastMessageAt = new Date();
 
     await this.tryRoundRobinSuggest(clientId, conv, target);
@@ -2413,6 +2472,201 @@ export class InboxService {
     }
 
     return conv.toObject();
+  }
+
+  private quickReplyBody(
+    code: string,
+    quickReplies: InboxQuickReply[],
+    contactName: string,
+  ): string | null {
+    const qr = quickReplies.find(q => q.code.toLowerCase() === code.toLowerCase());
+    if (!qr) return null;
+    return applyQuickReplyTemplate(qr.template, contactName);
+  }
+
+  /** Encerra conversa por inatividade (automático ou `/enc` do atendente). */
+  async closeConversationForInactivity(
+    clientId: string,
+    conv: IInboxConversation,
+    opts: {
+      byUserId?: string;
+      reason: 'auto' | 'agent_enc';
+      skipMessage?: boolean;
+    },
+  ): Promise<void> {
+    if (TERMINAL_STATUSES.has(conv.status)) return;
+
+    const settings = await loadInboxSettings(clientId);
+    const quickReplies = normalizeQuickReplies(settings.quickReplies);
+
+    if (!opts.skipMessage) {
+      const closing =
+        this.quickReplyBody('enc', quickReplies, conv.contactName) ??
+        'Como não houve interação, encerraremos este atendimento.';
+      await this.sendToContact(clientId, conv.contactIdentifier, closing);
+      await this.appendSystemMessage(
+        conv,
+        closing,
+        opts.byUserId ? new mongoose.Types.ObjectId(opts.byUserId) : undefined,
+        clientId,
+      );
+    }
+
+    conv.status = InboxConversationStatus.CLOSED;
+    conv.resolvedAt = new Date();
+    conv.lastMessageAt = new Date();
+    conv.assignedUserId = undefined;
+    conv.suggestedUserId = undefined;
+    conv.suggestedAt = undefined;
+    conv.inactivityWarnedAt = undefined;
+    await conv.save();
+
+    this.notifyConversation(clientId, conv);
+    WebhookDispatcherService.getInstance().emit(clientId, 'inbox.conversation.closed', {
+      conversation_id: String(conv._id),
+      contact_identifier: conv.contactIdentifier,
+      reason: opts.reason,
+      closed_by_user_id: opts.byUserId ?? null,
+      closed_at: conv.resolvedAt?.toISOString() ?? new Date().toISOString(),
+    });
+  }
+
+  private async processInactivityAndQueueSla(): Promise<void> {
+    try {
+      const rows = await InboxSettings.find({})
+        .select(
+          'clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes queueSlaAlertMinutes quickReplies',
+        )
+        .lean();
+
+      const nowMs = Date.now();
+      for (const row of rows) {
+        const clientId = String(row.clientId);
+        const closeMinutes = row.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes;
+        const warningMinutes =
+          row.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes;
+        const queueMinutes = row.queueSlaAlertMinutes ?? DEFAULT_INBOX_SLA.queueSlaAlertMinutes;
+        const enabled = row.inactivityAutoCloseEnabled !== false;
+
+        if (enabled && closeMinutes > 0) {
+          await this.processClientInactivity(
+            clientId,
+            { ...row, inactivityCloseMinutes: closeMinutes, inactivityWarningMinutes: warningMinutes },
+            nowMs,
+            enabled,
+          );
+        }
+        if (queueMinutes > 0) {
+          await this.processClientQueueSla(clientId, queueMinutes, nowMs);
+        }
+      }
+    } catch (err) {
+      logger.error('Falha no scan de SLA do Inbox', { err });
+    }
+  }
+
+  private async processClientInactivity(
+    clientId: string,
+    settings: {
+      inactivityCloseMinutes?: number;
+      inactivityWarningMinutes?: number;
+      quickReplies?: InboxQuickReply[];
+    },
+    nowMs: number,
+    enabled: boolean,
+  ): Promise<void> {
+    const closeMinutes = settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes;
+    const warningMinutes =
+      settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes;
+    if (closeMinutes <= 0) return;
+
+    const quickReplies = normalizeQuickReplies(settings.quickReplies);
+    const convs = await InboxConversation.find({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      status: InboxConversationStatus.IN_PROGRESS,
+      assignedUserId: { $exists: true, $ne: null },
+      lastOutboundAt: { $exists: true },
+    })
+      .limit(80)
+      .exec();
+
+    for (const conv of convs) {
+      if (TERMINAL_STATUSES.has(conv.status)) continue;
+
+      const ts = {
+        lastInboundAt: conv.lastInboundAt,
+        lastOutboundAt: conv.lastOutboundAt,
+        inactivityWarnedAt: conv.inactivityWarnedAt,
+      };
+
+      if (
+        shouldSendInactivityWarning(ts, warningMinutes, closeMinutes, nowMs) &&
+        enabled
+      ) {
+        const warnBody =
+          this.quickReplyBody('aus', quickReplies, conv.contactName) ?? 'Você está aí?';
+        try {
+          await this.sendToContact(clientId, conv.contactIdentifier, warnBody);
+          await this.appendSystemMessage(conv, warnBody, undefined, clientId);
+          conv.inactivityWarnedAt = new Date();
+          conv.lastMessageAt = new Date();
+          await conv.save();
+          this.notifyMessage(clientId, String(conv._id));
+        } catch (err) {
+          logger.warn('Falha ao enviar aviso de inatividade', {
+            clientId,
+            conversationId: String(conv._id),
+            err,
+          });
+        }
+      }
+
+      if (shouldAutoCloseForInactivity(ts, closeMinutes, enabled, nowMs)) {
+        try {
+          await this.closeConversationForInactivity(clientId, conv, { reason: 'auto' });
+        } catch (err) {
+          logger.warn('Falha ao encerrar conversa por inatividade', {
+            clientId,
+            conversationId: String(conv._id),
+            err,
+          });
+        }
+      }
+    }
+  }
+
+  private async processClientQueueSla(
+    clientId: string,
+    alertMinutes: number,
+    nowMs: number,
+  ): Promise<void> {
+    if (alertMinutes <= 0) return;
+
+    const convs = await InboxConversation.find({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      status: InboxConversationStatus.WAITING_QUEUE,
+      queueEnteredAt: { $exists: true },
+    })
+      .limit(50)
+      .exec();
+
+    for (const conv of convs) {
+      if (
+        !shouldAlertQueueStall(conv.queueEnteredAt, alertMinutes, conv.queueSlaNotifiedAt, nowMs)
+      ) {
+        continue;
+      }
+      conv.queueSlaNotifiedAt = new Date();
+      await conv.save();
+      const waitMin = Math.floor((nowMs - (conv.queueEnteredAt?.getTime() ?? nowMs)) / 60_000);
+      await this.pushPanelEvent(
+        clientId,
+        'inbox:queue_sla',
+        'Fila parada',
+        `${conv.contactName} aguarda há ${waitMin} min`,
+        { conversationId: String(conv._id) },
+      );
+    }
   }
 
   async resolveConversation(clientId: string, userId: string, conversationId: string) {

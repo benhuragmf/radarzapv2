@@ -43,6 +43,10 @@ interface InboxSettings {
   alertSoundEnabled: boolean
   alertOnNewChat: boolean
   alertOnNewMessage: boolean
+  inactivityAutoCloseEnabled: boolean
+  inactivityCloseMinutes: number
+  inactivityWarningMinutes: number
+  queueSlaAlertMinutes: number
 }
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -297,6 +301,68 @@ export default function InboxBotSettings() {
               value={form.roundRobinPullTimeoutSeconds}
               disabled={!form.roundRobinEnabled}
               onChange={e => patch('roundRobinPullTimeoutSeconds', Number(e.target.value) || 120)}
+            />
+          </label>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2 text-brand-400">
+            <Clock size={18} />
+            <h2 className="font-semibold text-sm text-white">SLA — inatividade e fila</h2>
+          </div>
+          <p className="text-xs text-gray-500">
+            Encerramento automático quando o cliente não responde após mensagem do atendente.
+            O atendente também pode usar <code className="text-gray-400">/enc</code> para encerrar na hora.
+            Templates em Respostas rápidas (<code className="text-gray-400">/aus</code>,{' '}
+            <code className="text-gray-400">/enc</code>).
+          </p>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.inactivityAutoCloseEnabled}
+              onChange={e => patch('inactivityAutoCloseEnabled', e.target.checked)}
+            />
+            Encerrar automaticamente por inatividade do cliente
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-400">
+              Aviso automático antes do encerramento (minutos, 0 = desligado)
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              className={inputCls}
+              value={form.inactivityWarningMinutes}
+              disabled={!form.inactivityAutoCloseEnabled}
+              onChange={e => patch('inactivityWarningMinutes', Number(e.target.value) || 0)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-400">
+              Encerrar após inatividade (minutos, 0 = desligado)
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              className={inputCls}
+              value={form.inactivityCloseMinutes}
+              disabled={!form.inactivityAutoCloseEnabled}
+              onChange={e => patch('inactivityCloseMinutes', Number(e.target.value) || 0)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-400">
+              Alerta de fila parada — supervisor (minutos na fila, 0 = desligado)
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              className={inputCls}
+              value={form.queueSlaAlertMinutes}
+              onChange={e => patch('queueSlaAlertMinutes', Number(e.target.value) || 0)}
             />
           </label>
         </Card>

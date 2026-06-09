@@ -15,7 +15,13 @@ export interface IInboxConversation extends Document {
   channel: InboxChannel;
   lastMessageAt: Date;
   lastInboundAt?: Date;
+  /** Última mensagem enviada pelo atendente — base do SLA de inatividade. */
+  lastOutboundAt?: Date;
+  /** Aviso automático `/aus` já enviado neste ciclo de espera. */
+  inactivityWarnedAt?: Date;
   queueEnteredAt?: Date;
+  /** Alerta de fila parada já emitido para esta entrada na fila. */
+  queueSlaNotifiedAt?: Date;
   acceptedAt?: Date;
   resolvedAt?: Date;
   /** Referência exibida ao converter em ticket */
@@ -47,7 +53,10 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     },
     lastMessageAt: { type: Date, default: Date.now, index: true },
     lastInboundAt: Date,
+    lastOutboundAt: Date,
+    inactivityWarnedAt: Date,
     queueEnteredAt: Date,
+    queueSlaNotifiedAt: Date,
     acceptedAt: Date,
     resolvedAt: Date,
     ticketRef: { type: String, maxlength: 32, index: true },
@@ -57,6 +66,7 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
 
 InboxConversationSchema.index({ clientId: 1, status: 1, lastMessageAt: -1 });
 InboxConversationSchema.index({ clientId: 1, departmentId: 1, status: 1 });
+InboxConversationSchema.index({ clientId: 1, status: 1, lastOutboundAt: 1 });
 
 export const InboxConversation = mongoose.model<IInboxConversation>(
   'InboxConversation',

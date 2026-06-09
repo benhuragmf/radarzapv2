@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import {
   DEFAULT_INBOX_BOT_TEXTS,
+  DEFAULT_INBOX_SLA,
   DEFAULT_INBOX_WEEKLY_SCHEDULE,
   InboxWeeklySchedule,
 } from '@/types/inbox-settings';
@@ -27,6 +28,10 @@ export interface IInboxSettings extends Document {
   alertSoundEnabled: boolean;
   alertOnNewChat: boolean;
   alertOnNewMessage: boolean;
+  inactivityAutoCloseEnabled: boolean;
+  inactivityCloseMinutes: number;
+  inactivityWarningMinutes: number;
+  queueSlaAlertMinutes: number;
   quickReplies: InboxQuickReply[];
   createdAt: Date;
   updatedAt: Date;
@@ -69,6 +74,28 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     alertSoundEnabled: { type: Boolean, default: true },
     alertOnNewChat: { type: Boolean, default: true },
     alertOnNewMessage: { type: Boolean, default: false },
+    inactivityAutoCloseEnabled: {
+      type: Boolean,
+      default: DEFAULT_INBOX_SLA.inactivityAutoCloseEnabled,
+    },
+    inactivityCloseMinutes: {
+      type: Number,
+      default: DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+      min: 0,
+      max: 1440,
+    },
+    inactivityWarningMinutes: {
+      type: Number,
+      default: DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+      min: 0,
+      max: 1440,
+    },
+    queueSlaAlertMinutes: {
+      type: Number,
+      default: DEFAULT_INBOX_SLA.queueSlaAlertMinutes,
+      min: 0,
+      max: 1440,
+    },
     quickReplies: {
       type: [
         {
