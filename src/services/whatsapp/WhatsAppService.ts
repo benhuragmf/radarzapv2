@@ -1266,6 +1266,11 @@ export class WhatsAppService {
     return list;
   }
 
+  /** Reenvia job enfileirado após aceite LGPD (sem nova checagem de consentimento). */
+  async replayOutboundJob(data: Record<string, unknown>): Promise<unknown> {
+    return this.handleSendMessage({ ...data, skipConsentCheck: true });
+  }
+
   /** Envio manual / campanha (sem prefixo de teste) */
   async sendManualMessage(
     clientId: string,
@@ -2378,6 +2383,20 @@ export class WhatsAppService {
           upsertType: m.type,
         });
 
+        let consentHandled = false;
+        try {
+          consentHandled = await ConsentService.getInstance().handleInboundMessage(
+            clientId,
+            msg.key.remoteJid,
+            text || '[mídia]',
+            msg.key.remoteJidAlt,
+          );
+        } catch (err) {
+          this.serviceLogger.warn('Consent inbound handler error', err);
+        }
+
+        if (consentHandled) continue;
+
         let ticketHandled = false;
         try {
           const { InboxService } = await import('@/services/inbox/InboxService');
@@ -2393,17 +2412,6 @@ export class WhatsAppService {
         }
 
         if (ticketHandled) continue;
-
-        try {
-          await ConsentService.getInstance().handleInboundMessage(
-            clientId,
-            msg.key.remoteJid,
-            text || '[mídia]',
-            msg.key.remoteJidAlt,
-          );
-        } catch (err) {
-          this.serviceLogger.warn('Consent inbound handler error', err);
-        }
 
         try {
           const { InboxService } = await import('@/services/inbox/InboxService');
@@ -2746,6 +2754,25 @@ export class WhatsAppService {
         if (!destinationDoc.hasValidConsent()) {
           throw new Error('Destino sem consentimento válido para envio');
         }
+
+        if (destinationDoc.type === 'contact') {
+          const origin =
+            (data.consentOrigin as 'dashboard-send' | 'campaign') ?? 'dashboard-send';
+          const queued = await ConsentService.getInstance().queueOutboundUntilConsent(
+            clientId,
+            destinationDoc,
+            { ...data, destination },
+            origin,
+          );
+          if (queued) {
+            return {
+              success: true,
+              queuedForConsent: true,
+              destination,
+              messageId: data.messageId,
+            };
+          }
+        }
       } else if (!destinationDoc.isActive && destinationDoc.type === 'group') {
         throw new Error('Destino inativo');
       }
@@ -2855,19 +2882,15 @@ export class WhatsAppService {
       // Update destination last message sent
       await destinationDoc.updateLastMessageSent();
 
-      if (!data.skipConsentCheck && destinationDoc.type === 'contact') {
+      if (destinationDoc.type === 'contact') {
         try {
-          await ConsentService.getInstance().afterOutboundSend(
+          const { InboxService } = await import('@/services/inbox/InboxService');
+          await InboxService.getInstance().refreshClosedTicketReplyWindow(
             clientId,
-            destinationDoc,
-            (data.consentOrigin as 'dashboard-send' | 'campaign') ?? 'dashboard-send',
+            destinationDoc._id as mongoose.Types.ObjectId,
           );
-        } catch (consentErr) {
-          this.serviceLogger.error('Falha ao enviar mensagem de consentimento (mensagem principal já enviada)', {
-            clientId,
-            destination,
-            error: (consentErr as Error).message,
-          });
+        } catch {
+          /* ticket opcional */
         }
       }
 

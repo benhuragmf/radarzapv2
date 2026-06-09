@@ -34,7 +34,26 @@ import {
 } from '@/types/inbox-quick-replies';
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
-import { InboxTicketStatus, INBOX_TICKET_STATUS_LABEL, parseTicketClientExit, TICKET_CLIENT_EXIT_ACK, TICKET_CLIENT_REPLY_FOOTER, TICKET_CLIENT_REPLY_GRACE_MS, TICKET_CLIENT_REPLY_GRACE_PROMPT, TICKET_CLOSE_REPLY_HINT, TICKET_POST_CLOSE_REPLY_HOURS, ticketIsActive } from '@/types/inbox-ticket';
+import {
+  InboxTicketStatus,
+  INBOX_TICKET_STATUS_LABEL,
+  buildTicketFollowUpMenu,
+  parseTicketClientExit,
+  parseTicketFinalize,
+  parseTicketFollowUpChoice,
+  parseTicketStatusRequest,
+  TICKET_CLIENT_EXIT_ACK,
+  TICKET_CLIENT_GRACE_EXPIRED_ACK,
+  TICKET_CLIENT_REPLY_FOOTER,
+  TICKET_CLIENT_REPLY_GRACE_MS,
+  TICKET_CLIENT_REPLY_GRACE_PROMPT,
+  TICKET_CLOSE_REPLY_HINT,
+  TICKET_FOLLOW_UP_MENU_AFTER_MS,
+  TICKET_FOLLOW_UP_TICKET_READY,
+  TICKET_POST_CLOSE_REPLY_HOURS,
+  normalizeTicketMenuKeyword,
+  ticketIsActive,
+} from '@/types/inbox-ticket';
 import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
 import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
 import { emitPanelEvent, PanelEventType } from '@/services/inbox/PanelNotifications';
@@ -743,19 +762,27 @@ export class InboxService {
     const dest = await consentSvc.findOrCreateContactFromInbound(clientId, fromJid, altJid);
     if (!dest) return false;
 
+    const trimmed = text.trim();
+
+    if (consentSvc.shouldDeferToConsentFlow(dest, trimmed)) return false;
+
     const ticket = await this.findTicketForClientReply(clientId, dest._id as mongoose.Types.ObjectId);
     if (!ticket) return false;
 
-    const trimmed = text.trim();
     const displayBody =
       trimmed || (media ? INBOX_MEDIA_LABEL[media.mediaType] ?? 'Mídia recebida' : '');
     if (!displayBody) return false;
 
+    const within12h = this.isWithinClosedReplyWindow(ticket);
     const inReplyWindow = this.canClientReplyToTicket(ticket);
 
-    if (parseTicketClientExit(trimmed) && (inReplyWindow || ticket.teamHasMessagedClient || ticket.clientReplyExpiresAt)) {
+    if (
+      (parseTicketClientExit(trimmed) || parseTicketFinalize(trimmed)) &&
+      (inReplyWindow || ticket.teamHasMessagedClient || ticket.clientReplyExpiresAt)
+    ) {
       ticket.clientReplyPaused = true;
       ticket.clientReplyGraceUntil = undefined;
+      ticket.ticketInboundMode = undefined;
       ticket.updatedAt = new Date();
       await ticket.save();
       this.cancelClientReplyGrace(clientId, ticket.ticketRef);
@@ -764,7 +791,7 @@ export class InboxService {
       if (conv) {
         await this.appendSystemMessage(
           conv,
-          `Cliente enviou *sair* no ticket *${ticket.ticketRef}* (pausa respostas neste chamado).`,
+          `Cliente encerrou respostas no ticket *${ticket.ticketRef}*.`,
           undefined,
           clientId,
         );
@@ -773,8 +800,175 @@ export class InboxService {
       return true;
     }
 
+    if (ticket.ticketInboundMode === 'new_service') return false;
+
+    if (ticket.status === 'closed' && within12h && ticket.clientReplyPaused) {
+      const pausedHandled = await this.handleClosedTicketPausedInbound(
+        clientId,
+        dest.identifier,
+        ticket,
+        trimmed,
+        media,
+      );
+      if (pausedHandled !== 'continue') return pausedHandled;
+    }
+
+    if (ticket.status === 'closed' && within12h && !ticket.clientReplyPaused) {
+      if (this.isPastFollowUpMenuHours(ticket) && ticket.ticketInboundMode !== 'ticket') {
+        const menuHandled = await this.handleClosedTicketFollowUpMenu(
+          clientId,
+          dest.identifier,
+          ticket,
+          trimmed,
+        );
+        if (menuHandled) return true;
+      }
+      if (ticket.ticketInboundMode === 'ticket' && parseTicketStatusRequest(trimmed)) {
+        await this.sendToContact(
+          clientId,
+          dest.identifier,
+          this.buildTicketQuickStatusReply(ticket),
+        );
+        return true;
+      }
+    }
+
     if (!inReplyWindow) return false;
 
+    await this.recordTicketClientReply(clientId, dest.identifier, ticket, displayBody, media);
+    return true;
+  }
+
+  private isWithinClosedReplyWindow(ticket: IInboxTicket): boolean {
+    if (ticket.status !== 'closed' || !ticket.clientReplyExpiresAt) return false;
+    return new Date() < new Date(ticket.clientReplyExpiresAt);
+  }
+
+  private isPastFollowUpMenuHours(ticket: IInboxTicket): boolean {
+    const start = ticket.clientReplyWindowStartedAt ?? ticket.closedAt ?? ticket.updatedAt;
+    if (!start) return false;
+    return Date.now() - new Date(start).getTime() >= TICKET_FOLLOW_UP_MENU_AFTER_MS;
+  }
+
+  /** Cliente pausado (30 min ou sair) dentro das 12h — menu após 2h */
+  private async handleClosedTicketPausedInbound(
+    clientId: string,
+    contactIdentifier: string,
+    ticket: IInboxTicket,
+    trimmed: string,
+    media?: InboxInboundPayload['media'],
+  ): Promise<boolean | 'continue'> {
+    if (!this.isPastFollowUpMenuHours(ticket)) return false;
+
+    if (ticket.ticketInboundMode === 'ticket') {
+      if (parseTicketStatusRequest(trimmed)) {
+        await this.sendToContact(
+          clientId,
+          contactIdentifier,
+          this.buildTicketQuickStatusReply(ticket),
+        );
+        return true;
+      }
+      const displayBody =
+        trimmed || (media ? INBOX_MEDIA_LABEL[media.mediaType] ?? 'Mídia recebida' : '');
+      if (!displayBody) return true;
+      await this.recordTicketClientReply(clientId, contactIdentifier, ticket, displayBody, media);
+      return true;
+    }
+
+    const choice = parseTicketFollowUpChoice(trimmed);
+    if (choice === 'new_service') {
+      ticket.ticketInboundMode = 'new_service';
+      await ticket.save();
+      return false;
+    }
+    if (choice === 'ticket') {
+      ticket.ticketInboundMode = 'ticket';
+      ticket.clientReplyPaused = false;
+      await ticket.save();
+      if (trimmed === '1' || normalizeTicketMenuKeyword(trimmed) === 'inserir') {
+        await this.sendToContact(clientId, contactIdentifier, TICKET_FOLLOW_UP_TICKET_READY);
+        return true;
+      }
+      if (parseTicketStatusRequest(trimmed)) {
+        await this.sendToContact(
+          clientId,
+          contactIdentifier,
+          this.buildTicketQuickStatusReply(ticket),
+        );
+        return true;
+      }
+      return 'continue';
+    }
+
+    await this.sendToContact(
+      clientId,
+      contactIdentifier,
+      buildTicketFollowUpMenu(ticket.ticketRef),
+    );
+    ticket.ticketInboundMode = 'awaiting_follow_up';
+    await ticket.save();
+    return true;
+  }
+
+  /** Primeiro contato após 2h da janela — menu antes de capturar */
+  private async handleClosedTicketFollowUpMenu(
+    clientId: string,
+    contactIdentifier: string,
+    ticket: IInboxTicket,
+    trimmed: string,
+  ): Promise<boolean> {
+    const choice = parseTicketFollowUpChoice(trimmed);
+    if (choice === 'new_service') {
+      ticket.ticketInboundMode = 'new_service';
+      await ticket.save();
+      return false;
+    }
+    if (choice === 'ticket') {
+      ticket.ticketInboundMode = 'ticket';
+      ticket.clientReplyPaused = false;
+      await ticket.save();
+      if (trimmed === '1' || normalizeTicketMenuKeyword(trimmed) === 'inserir') {
+        await this.sendToContact(clientId, contactIdentifier, TICKET_FOLLOW_UP_TICKET_READY);
+        return true;
+      }
+      if (parseTicketStatusRequest(trimmed)) {
+        await this.sendToContact(
+          clientId,
+          contactIdentifier,
+          this.buildTicketQuickStatusReply(ticket),
+        );
+        return true;
+      }
+      return false;
+    }
+    await this.sendToContact(
+      clientId,
+      contactIdentifier,
+      buildTicketFollowUpMenu(ticket.ticketRef),
+    );
+    ticket.ticketInboundMode = 'awaiting_follow_up';
+    await ticket.save();
+    return true;
+  }
+
+  private buildTicketQuickStatusReply(ticket: IInboxTicket): string {
+    const statusLabel = INBOX_TICKET_STATUS_LABEL[ticket.status] ?? ticket.status;
+    return (
+      `*${ticket.ticketRef}*\n` +
+      `Status: *${statusLabel}*\n` +
+      (ticket.subject ? `Assunto: ${ticket.subject}\n` : '') +
+      `\nPara enviar mais informações, digite sua mensagem. Para encerrar: *sair* ou *finalizar*.`
+    );
+  }
+
+  private async recordTicketClientReply(
+    clientId: string,
+    contactIdentifier: string,
+    ticket: IInboxTicket,
+    displayBody: string,
+    media?: InboxInboundPayload['media'],
+  ): Promise<void> {
     const wasInActiveGrace = Boolean(
       ticket.clientReplyGraceUntil && new Date() < new Date(ticket.clientReplyGraceUntil),
     );
@@ -797,7 +991,7 @@ export class InboxService {
     const conv = await InboxConversation.findById(ticket.conversationId);
 
     if (!wasInActiveGrace) {
-      await this.sendToContact(clientId, dest.identifier, TICKET_CLIENT_REPLY_GRACE_PROMPT);
+      await this.sendToContact(clientId, contactIdentifier, TICKET_CLIENT_REPLY_GRACE_PROMPT);
       if (conv) {
         await InboxMessage.create({
           clientId: conv.clientId,
@@ -828,7 +1022,6 @@ export class InboxService {
     this.scheduleClientReplyGrace(clientId, ticket);
     await this.notifyClientRepliedToAssignee(clientId, ticket, displayBody);
     this.notifyTicketUpdated(clientId, ticket.ticketRef);
-    return true;
   }
 
   private graceTimerKey(clientId: string, ticketRef: string): string {
@@ -903,10 +1096,11 @@ export class InboxService {
 
     ticket.clientReplyPaused = true;
     ticket.clientReplyGraceUntil = undefined;
+    ticket.ticketInboundMode = undefined;
     await ticket.save();
     this.cancelClientReplyGrace(clientId, ticket.ticketRef);
 
-    await this.sendToContact(clientId, ticket.contactIdentifier, TICKET_CLIENT_EXIT_ACK);
+    await this.sendToContact(clientId, ticket.contactIdentifier, TICKET_CLIENT_GRACE_EXPIRED_ACK);
 
     const conv = await InboxConversation.findById(ticket.conversationId);
     if (conv) {
@@ -914,11 +1108,11 @@ export class InboxService {
         clientId: conv.clientId,
         conversationId: conv._id,
         direction: 'outbound',
-        body: TICKET_CLIENT_EXIT_ACK,
+        body: TICKET_CLIENT_GRACE_EXPIRED_ACK,
       });
       await this.appendSystemMessage(
         conv,
-        `Prazo de 30 min expirou no ticket *${ticket.ticketRef}* — cliente notificado.`,
+        `Prazo de 30 min expirou no ticket *${ticket.ticketRef}* — complementos encerrados.`,
         undefined,
         clientId,
       );
@@ -971,6 +1165,34 @@ export class InboxService {
     return Boolean(ticket.teamHasMessagedClient);
   }
 
+  /**
+   * Ticket fechado: cada envio da equipe ao contato renova 12h para o cliente responder no TK.
+   */
+  async refreshClosedTicketReplyWindow(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<void> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const ticket = await InboxTicket.findOne({
+      clientId: clientOid,
+      destinationId,
+      status: 'closed',
+    })
+      .sort({ updatedAt: -1 });
+
+    if (!ticket) return;
+
+    const now = new Date();
+    ticket.clientReplyExpiresAt = new Date(
+      now.getTime() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000,
+    );
+    ticket.clientReplyWindowStartedAt = now;
+    ticket.clientReplyPaused = false;
+    ticket.ticketInboundMode = undefined;
+    ticket.updatedAt = now;
+    await ticket.save();
+  }
+
   private async findTicketForClientReply(
     clientId: string,
     destinationId: mongoose.Types.ObjectId,
@@ -1021,6 +1243,8 @@ export class InboxService {
     const consentSvc = ConsentService.getInstance();
     const dest = await consentSvc.findOrCreateContactFromInbound(clientId, fromJid, altJid);
     if (!dest) return;
+
+    if (consentSvc.shouldDeferToConsentFlow(dest, (normalized.text ?? '').trim())) return;
 
     const channelOpen = await consentSvc.acceptInboundInitiated(clientId, dest);
     if (!channelOpen) return;
@@ -1684,8 +1908,13 @@ export class InboxService {
     ticket.status = 'closed';
     ticket.closedByUserId = new mongoose.Types.ObjectId(userId);
     ticket.closedAt = new Date();
-    ticket.clientReplyExpiresAt = new Date(Date.now() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000);
+    const now = new Date();
+    ticket.clientReplyExpiresAt = new Date(
+      now.getTime() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000,
+    );
+    ticket.clientReplyWindowStartedAt = now;
     ticket.clientReplyPaused = false;
+    ticket.ticketInboundMode = undefined;
     await ticket.save();
 
     const ctx = await this.loadTicketMessageContext(ticket, clientId);

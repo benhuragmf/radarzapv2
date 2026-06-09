@@ -5,6 +5,8 @@ Módulo proprietário de triagem, filas e atendimento humano via WhatsApp.
 > **Referências externas** (Izing, Whaticket, Chatwoot, etc.) servem apenas para inspirar fluxos de mercado.  
 > Nenhum código de terceiros é copiado. Contratos, modelos e UI são exclusivos do RadarZap.
 
+**Última revisão:** 2026-06-05 (tickets assíncronos + janela 12h)
+
 ## Fluxo (MVP — Fase 1)
 
 ```txt
@@ -38,12 +40,151 @@ Se o cliente escolher um setor comercial na triagem (**Comercial**, **Vendas**, 
 
 Os segmentos aparecem em `/contact` na barra lateral de grupos, como qualquer outro segmento.
 
+## Tickets de acompanhamento (atendimento assíncrono)
+
+Muitos problemas **não são resolvidos ao vivo** no WhatsApp. O fluxo típico:
+
+1. Cliente entra pelo **bot** (menu de setores).
+2. Um funcionário atende ou registra o caso; o problema pode exigir **horas ou dias**.
+3. A equipe abre um **ticket** (`TK-XXXXXX`) vinculado à conversa do contato.
+4. No painel, comentários **internos** e **@menções** acionam outro funcionário para resolver.
+5. Quando houver solução, a equipe **envia atualização ao cliente** no WhatsApp.
+6. Abre-se uma **janela de tempo** para o cliente mandar dados, respostas e dúvidas **naquele chamado**.
+7. O cliente **conclui** enviando **`sair`** (não é opt-out LGPD — é encerrar respostas naquele ticket).
+
+```txt
+Cliente → bot / Inbox
+    ↓
+Funcionário A abre ticket TK-… (conversa continua no painel)
+    ↓
+Comentários internos + @Funcionário B
+    ↓
+Funcionário B resolve (fora do chat ao vivo)
+    ↓
+"Enviar atualização ao cliente" ou fechar ticket com mensagem
+    ↓
+Cliente responde no WhatsApp (texto, mídia, números — ex.: "1", dados)
+    ↓
+Respostas vão para clientReplies[] do ticket no painel
+    ↓
+Cliente envia "sair" → pausa respostas até nova mensagem da equipe
+```
+
+### Conversa × Ticket
+
+| | **InboxConversation** | **InboxTicket** (`inboxTickets`) |
+|---|------------------------|----------------------------------|
+| O quê | Fila, bot, chat ao vivo | Chamado formal com referência `TK-…` |
+| Onde no painel | `/platform/inbox` | `/platform/inbox/tickets/:ref` |
+| Cliente vê | Mensagens normais do atendimento | Mensagens enviadas pela equipe + janela de resposta |
+| Equipe vê | Histórico da conversa | Acompanhamento, notas, menções, respostas do cliente |
+
+O ticket é criado/atualizado por `InboxService.ensureTicketRecord` quando a conversa recebe referência `ticketRef`.
+
+### Ações da equipe (painel)
+
+| Ação | Quando usar |
+|------|-------------|
+| **Comentário** (+ `@menção`) | Alinhar internamente; notifica o colega mencionado |
+| **Nota interna** | Só equipe; nunca vai ao WhatsApp |
+| **Enviar atualização ao cliente** | Ticket **aberto** — manda resumo/snapshot no WhatsApp (`POST …/client-update`) |
+| **Fechar ticket** | Finaliza o chamado; cliente recebe mensagem de encerramento com prazo para dúvidas |
+| **Reabrir** | Volta a permitir atualização ao cliente em ticket fechado |
+
+Constantes de texto ao cliente: `src/types/inbox-ticket.ts`.
+
+### Janelas de tempo (cliente no WhatsApp)
+
+| Regra | Duração | Constante / código |
+|-------|---------|-------------------|
+| Responder no ticket **após fechamento** ou **após qualquer envio da equipe** | **12 horas** | `TICKET_POST_CLOSE_REPLY_HOURS = 12` |
+| Menu **chamado vs novo atendimento** (cliente pausado) | após **2 h** do início das 12 h | `TICKET_FOLLOW_UP_MENU_AFTER_HOURS = 2` |
+| Complementar informação **na mesma rodada** de resposta | **30 minutos** | `TICKET_CLIENT_REPLY_GRACE_MS` |
+| Encerrar respostas neste chamado | **`sair`** ou **`finalizar`** | `parseTicketClientExit` / `parseTicketFinalize` |
+
+**12 horas:** a cada envio da equipe (Inbox, Enviar agora, fechamento), `clientReplyExpiresAt` e `clientReplyWindowStartedAt` são **renovados**. Enquanto não expirou, o ticket fechado pode receber respostas do cliente (conforme regras abaixo).
+
+**Primeiras 2 horas** (desde o início da janela): o cliente pode responder direto; na **primeira** resposta o sistema envia:
+
+> *Ok! Se tiver mais alguma informação, me envie em no máximo 30 minutos que insiro no chamado.*
+
+**30 minutos:** complementos na mesma rodada entram no ticket. **Ao expirar os 30 min**, o sistema envia:
+
+> *O prazo de 30 minutos para enviar complementos encerrou. Suas informações já foram registradas no chamado.*
+
+`clientReplyPaused = true` — **novas mensagens não entram mais no ticket** até menu das 2 h ou novo envio da equipe.
+
+**Após 2 horas** do início das 12 h (com cliente pausado): ao escrever de novo, recebe o menu:
+
+> *1* — Inserir informação, consultar *status* ou *finalizar* este chamado  
+> *2* — Iniciar um *novo atendimento*
+
+- **1** → volta ao fluxo do ticket (`inserir`, `status`, `finalizar` / `sair`)
+- **2** → Inbox (novo atendimento pelo bot); o ticket antigo não captura
+
+**`sair` / `finalizar`:** pausa respostas neste ticket. Mensagem:
+
+> *Entendido! Você não precisa responder mais neste chamado…*
+
+Um **novo envio da equipe** reabre as 12 h, zera pausa e o modo de menu (`ticketInboundMode`).
+
+### Ticket aberto (não fechado)
+
+Enquanto `status` é `open`, `in_progress` ou `client_replied` e `teamHasMessagedClient === true`, o cliente pode responder no WhatsApp sem limite de 12 h (até enviar `sair` ou a equipe fechar). O fechamento passa a usar a regra de **12 h** a partir da mensagem de encerramento.
+
+### O que **não** é ticket
+
+| Fluxo | Diferença |
+|-------|-----------|
+| **LGPD / campanha** | Pedido `1` aceito / `2` recuso antes de disparo em massa — `ConsentService`, não ticket |
+| **Menu do bot** | Setores 1–4 na **primeira** triagem — quando não há captura ativa de ticket |
+| **`sair` no ticket** | Pausa **só aquele chamado** — diferente de cancelar inscrição LGPD (`ConsentService` opt-out) |
+
+Ordem no `WhatsAppService` ao receber mensagem: **consentimento** (se campanha aguardando aceite) → **ticket** → **Inbox** (menu/bot).
+
+### Modelo `inboxTickets`
+
+| Campo | Uso |
+|-------|-----|
+| `ticketRef` | Ex.: `TK-5NP8CT` |
+| `conversationId` / `destinationId` | Vínculo com conversa e contato |
+| `status` | `open` \| `in_progress` \| `client_replied` \| `closed` |
+| `comments` | Acompanhamento interno (+ menções) |
+| `internalNotesList` | Notas só equipe |
+| `clientReplies` | Respostas do cliente capturadas pelo WhatsApp |
+| `teamHasMessagedClient` | Equipe já enviou ao menos uma vez ao cliente |
+| `clientReplyExpiresAt` | Prazo 12 h (fechado ou renovado a cada envio) |
+| `clientReplyWindowStartedAt` | Início da contagem das 12 h |
+| `clientReplyGraceUntil` | Janela 30 min para complementos |
+| `clientReplyPaused` | Pausado (30 min expirou, `sair`, ou aguardando menu) |
+| `ticketInboundMode` | `awaiting_follow_up` \| `ticket` \| `new_service` |
+
+### API REST — tickets (`/api/inbox/tickets/*`)
+
+| Método | Rota | Cap | Descrição |
+|--------|------|-----|-----------|
+| GET | `/inbox/tickets` | `inbox:view` | Lista tickets |
+| GET | `/inbox/tickets/stats` | `inbox:view` | Contadores |
+| GET | `/inbox/tickets/:ref` | `inbox:view` | Detalhe + comentários + respostas do cliente |
+| PATCH | `/inbox/tickets/:ref` | `inbox:reply` | Atualizar assunto / responsável |
+| POST | `/inbox/tickets/:ref/comments` | `inbox:reply` | Comentário (+ `mentionedUserIds`) |
+| POST | `/inbox/tickets/:ref/internal-notes` | `inbox:reply` | Nota interna |
+| POST | `/inbox/tickets/:ref/client-update` | `inbox:reply` | Enviar resumo ao WhatsApp (ticket aberto) |
+| POST | `/inbox/tickets/:ref/notify-client` | `inbox:reply` | Notificar cliente |
+| POST | `/inbox/tickets/:ref/close` | `inbox:reply` | Fechar + mensagem ao cliente |
+| POST | `/inbox/tickets/:ref/reopen` | `inbox:reply` | Reabrir |
+| POST | `/inbox/tickets/:ref/forward` | `inbox:reply` | Encaminhar resumo (outro número / colega) |
+| DELETE | `/inbox/tickets/:ref` | `inbox:reply` | Excluir ticket |
+
+Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketInboundMessage`, `sendClientUpdate`, `closeTicket`, `refreshClosedTicketReplyWindow`).
+
 ## Modelos MongoDB
 
 | Coleção | Propósito |
 |---------|-----------|
 | `inboxDepartments` | Filas/setores (Comercial, Financeiro, …); `clientVisible: false` = interno (só equipe) |
-| `inboxConversations` | Ticket/conversa por contato + canal WA |
+| `inboxConversations` | Conversa por contato + canal WA (fila, bot, chat) |
+| `inboxTickets` | Chamados formais `TK-…` (acompanhamento assíncrono) |
 | `inboxMessages` | Histórico inbound/outbound/system |
 | `inboxTransfers` | Auditoria de transferências |
 
@@ -112,11 +253,12 @@ Os segmentos aparecem em `/contact` na barra lateral de grupos, como qualquer ou
 
 ## Integração WhatsApp
 
-- **Entrada:** `WhatsAppService` → `messages.upsert` → `ConsentService` → `InboxService`
+- **Entrada:** `WhatsAppService` → `messages.upsert` → `ConsentService` (se campanha LGPD pendente) → `InboxService.handleTicketInboundMessage` → `InboxService.handleInboundMessage`
 - **Saída:** `InboxService` → `WhatsAppService.sendManualMessage` (`skipConsentCheck` para respostas de atendimento)
 - **Grupos:** ignorados (só contatos 1:1)
 - **Consentimento inbound:** quem escreve primeiro não recebe prompt 1/2 — vai direto ao menu. Campanhas/envios ativos continuam com `assertCanSend` (LGPD outbound)
-- **Menu 1–4:** exclusivo do atendimento (não é mais o fluxo de opt-in)
+- **Menu 1–4:** exclusivo do atendimento (não é fluxo de opt-in LGPD)
+- **Ticket fechado:** respostas do cliente vão ao `TK-…` se dentro de **12 h** após o último envio da equipe — ver seção [Tickets de acompanhamento](#tickets-de-acompanhamento-atendimento-assíncrono)
 
 ## Bot configurável (Fase 2)
 
@@ -198,9 +340,11 @@ Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
 | `/platform/inbox/bot` | `pages/menu/InboxBotSettings.tsx` |
 | `/platform/inbox/supervisor` | `pages/menu/InboxSupervisor.tsx` |
 | `/platform/inbox/relatorios` | `pages/menu/InboxReports.tsx` |
+| `/platform/inbox/tickets` | `pages/menu/InboxTickets.tsx` — lista de chamados |
+| `/platform/inbox/tickets/:ref` | `pages/menu/InboxTicketDetail.tsx` — detalhe `TK-…` |
 | `/settings/team` | `TeamMembers.tsx` — convidar atendentes |
 
-Menu: **Plataforma → Atendimento → Inbox** / **Setores** / **Supervisor** / **Relatórios**
+Menu: **Plataforma → Atendimento → Inbox** / **Tickets** / **Setores** / **Supervisor** / **Relatórios**
 
 ## Apresentação do atendente
 

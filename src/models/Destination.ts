@@ -26,6 +26,8 @@ export interface IDestination extends Document {
   /** Quantas vezes o dono/admin aprovou novo aceite (máx. 2 — na 3ª recusa é definitivo) */
   consentRenewalApprovals: number;
   lastConsentPromptAt?: Date;
+  /** Mensagens enfileiradas até o contato aceitar (1) o consentimento LGPD */
+  pendingOutboundDeliveries?: Record<string, unknown>[];
   /** Aguardando 2ª mensagem para confirmar opt-out (sair) */
   optOutConfirmPendingAt?: Date;
   isActive: boolean;
@@ -169,6 +171,8 @@ const DestinationSchema = new Schema<IDestination>({
   },
 
   lastConsentPromptAt: Date,
+
+  pendingOutboundDeliveries: [Schema.Types.Mixed],
 
   optOutConfirmPendingAt: Date,
   

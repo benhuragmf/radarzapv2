@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { InboxTicketStatus } from '@/types/inbox-ticket';
+import { InboxTicketStatus, type TicketInboundMode } from '@/types/inbox-ticket';
 
 export interface IInboxTicketComment {
   _id?: mongoose.Types.ObjectId;
@@ -44,9 +44,12 @@ export interface IInboxTicket extends Document {
   teamHasMessagedClient: boolean;
   /** Cliente enviou "sair" — pausa respostas até nova interação da equipe */
   clientReplyPaused: boolean;
-  /** Após finalizar: prazo para o cliente responder (24h) */
+  /** Após fechamento ou envio da equipe: prazo para o cliente responder (12h) */
   clientReplyExpiresAt?: Date;
-  /** Cliente respondeu e a equipe ainda não leu/respondeu */
+  /** Início da janela de 12h (fechamento ou último envio da equipe) */
+  clientReplyWindowStartedAt?: Date;
+  /** Fluxo WhatsApp após pausa: menu 2h, ticket ativo ou novo atendimento */
+  ticketInboundMode?: TicketInboundMode;
   /** Prazo para o cliente enviar complementos após responder (30 min) */
   clientReplyGraceUntil?: Date;
   unreadClientReply: boolean;
@@ -113,6 +116,11 @@ const InboxTicketSchema = new Schema<IInboxTicket>(
     teamHasMessagedClient: { type: Boolean, default: false },
     clientReplyPaused: { type: Boolean, default: false },
     clientReplyExpiresAt: Date,
+    clientReplyWindowStartedAt: Date,
+    ticketInboundMode: {
+      type: String,
+      enum: ['awaiting_follow_up', 'ticket', 'new_service'],
+    },
     clientReplyGraceUntil: Date,
     unreadClientReply: { type: Boolean, default: false },
     lastClientReplyAt: Date,

@@ -753,7 +753,7 @@ radarzapv2/
 | [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, staging→prod, Cloud API §7 |
 | [docs/BILLING.md](docs/BILLING.md) | Stripe, webhooks, planos |
 | [docs/WEBHOOKS.md](docs/WEBHOOKS.md) | Webhooks outbound e eventos |
-| [docs/INBOX-ATENDIMENTO.md](docs/INBOX-ATENDIMENTO.md) | Inbox, setores, bot, CSAT |
+| [docs/INBOX-ATENDIMENTO.md](docs/INBOX-ATENDIMENTO.md) | Inbox, tickets assíncronos (12h / `sair`), setores, bot, CSAT |
 | [docs/EQUIPE-RBAC.md](docs/EQUIPE-RBAC.md) | Papéis e capabilities |
 | [docs/CONSENTIMENTO-LGPD.md](docs/CONSENTIMENTO-LGPD.md) | Fluxo de consentimento |
 | [docs/CONTATOS-CSV-IMPORTACAO.md](docs/CONTATOS-CSV-IMPORTACAO.md) | Import/export contatos |

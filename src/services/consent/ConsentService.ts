@@ -137,6 +137,15 @@ export class ConsentService {
 
     dest.optOutConfirmPendingAt = undefined;
 
+    if (
+      newStatus === ConsentStatus.REFUSED_FIRST ||
+      newStatus === ConsentStatus.REFUSED_SECOND ||
+      newStatus === ConsentStatus.REFUSED_THREE
+    ) {
+      dest.lastConsentPromptAt = undefined;
+      dest.pendingOutboundDeliveries = undefined;
+    }
+
     await dest.save();
     await this.recordHistory(dest, prev, newStatus, origin, extra);
 
@@ -177,40 +186,144 @@ export class ConsentService {
     return st === ConsentStatus.PENDING;
   }
 
-  /** Após envio bem-sucedido da mensagem do cliente */
-  async afterOutboundSend(
+  /** Contato com pedido de aceite enviado e aguardando resposta 1/2 */
+  isAwaitingConsentReply(dest: IDestination): boolean {
+    if (dest.type !== 'contact') return false;
+    const st = dest.consentStatus ?? ConsentStatus.PENDING;
+    return canReplyToConsentPrompt(st) && !!dest.lastConsentPromptAt;
+  }
+
+  /**
+   * Ticket/Inbox não devem capturar a mensagem — ex.: campanha aguardando aceite LGPD
+   * mas campanha outbound aguardando aceite 1/2.
+   */
+  shouldDeferToConsentFlow(dest: IDestination, text: string): boolean {
+    if (dest.type !== 'contact') return false;
+    if (this.isAwaitingConsentReply(dest)) return true;
+    if ((dest.pendingOutboundDeliveries?.length ?? 0) > 0) return true;
+    const trimmed = text.trim();
+    if (trimmed && dest.lastConsentPromptAt && parseConsentReply(trimmed)) return true;
+    return false;
+  }
+
+  /**
+   * Envio ativo para contato PENDING: enfileira o conteúdo e manda só o pedido de consentimento.
+   * Retorna true se o envio foi interceptado (não deve mandar o conteúdo agora).
+   */
+  async queueOutboundUntilConsent(
     clientId: string,
     dest: IDestination,
+    sendPayload: Record<string, unknown>,
     origin: ConsentActionOrigin,
-  ): Promise<void> {
-    if (dest.type !== 'contact') return;
+  ): Promise<boolean> {
+    if (dest.type !== 'contact') return false;
     const st = dest.consentStatus ?? ConsentStatus.PENDING;
+    if (st !== ConsentStatus.PENDING) return false;
 
-    if (st === ConsentStatus.PENDING) {
-      const lastPrompt = dest.lastConsentPromptAt ? new Date(dest.lastConsentPromptAt).getTime() : 0;
-      if (lastPrompt && Date.now() - lastPrompt < CONSENT_PROMPT_COOLDOWN_MS) {
-        logger.info('Consent prompt skipped (duplicate within cooldown)', {
-          clientId,
-          phone: redactPhone(dest.identifier),
-        });
-        return;
-      }
+    const queue = [...(dest.pendingOutboundDeliveries ?? []), sendPayload];
+    dest.pendingOutboundDeliveries = queue;
 
-      if (!dest.isActive) {
-        dest.isActive = true;
-      }
+    if (!dest.isActive) dest.isActive = true;
 
+    const lastPrompt = dest.lastConsentPromptAt ? new Date(dest.lastConsentPromptAt).getTime() : 0;
+    const shouldPrompt =
+      !lastPrompt || Date.now() - lastPrompt >= CONSENT_PROMPT_COOLDOWN_MS;
+
+    if (shouldPrompt) {
       const wa = WhatsAppService.getInstance();
       await wa.sendConsentRequest(clientId, dest.identifier);
-
       dest.pendingOutboundCount = (dest.pendingOutboundCount ?? 0) + 1;
       dest.lastConsentPromptAt = new Date();
-      await dest.save();
-
       await this.recordHistory(dest, st, st, origin, {
         attemptNumber: dest.pendingOutboundCount,
       });
     }
+
+    await dest.save();
+    logger.info('Outbound enfileirado até consentimento', {
+      clientId,
+      phone: redactPhone(dest.identifier),
+      queued: queue.length,
+      promptSent: shouldPrompt,
+    });
+    return true;
+  }
+
+  private async flushPendingDeliveries(
+    clientId: string,
+    dest: IDestination,
+  ): Promise<void> {
+    const fresh = await Destination.findById(dest._id);
+    const queue = fresh?.pendingOutboundDeliveries ?? [];
+    if (!queue.length) return;
+
+    if (fresh) {
+      fresh.pendingOutboundDeliveries = [];
+      fresh.lastConsentPromptAt = undefined;
+      await fresh.save();
+    }
+
+    const wa = WhatsAppService.getInstance();
+    for (const item of queue) {
+      try {
+        await wa.replayOutboundJob({ ...item, clientId });
+      } catch (err) {
+        logger.error('Falha ao entregar mensagem após aceite LGPD', {
+          clientId,
+          phone: redactPhone(dest.identifier),
+          error: (err as Error).message,
+        });
+      }
+    }
+  }
+
+  private async handlePendingConsentReply(
+    clientId: string,
+    dest: IDestination,
+    text: string,
+    wa: WhatsAppService,
+  ): Promise<void> {
+    const msgs = await this.getMessages(clientId);
+    const reply = parseConsentReply(text);
+
+    if (reply === 'accept') {
+      await this.applyStatus(dest, ConsentStatus.ACCEPTED, 'whatsapp-inbound', {
+        replyText: text,
+      });
+      await wa.sendManualMessage(clientId, dest.identifier, msgs.accepted, undefined, {
+        skipConsentCheck: true,
+        skipRateLimit: true,
+      });
+      await this.flushPendingDeliveries(clientId, dest);
+      logger.info('Consentimento aceito via WhatsApp', {
+        clientId,
+        phone: redactPhone(dest.identifier),
+      });
+      return;
+    }
+
+    if (reply === 'refuse') {
+      const next = nextRefusalStatus(ConsentStatus.PENDING);
+      await this.applyStatus(dest, next, 'whatsapp-inbound', { replyText: text });
+      await wa.sendManualMessage(clientId, dest.identifier, msgs.refused, undefined, {
+        skipConsentCheck: true,
+        skipRateLimit: true,
+      });
+      logger.info('Consentimento recusado via WhatsApp', {
+        clientId,
+        phone: redactPhone(dest.identifier),
+        status: next,
+      });
+      return;
+    }
+
+    await wa.sendManualMessage(
+      clientId,
+      dest.identifier,
+      'Por favor, responda *1* (aceito) ou *2* (recuso) para autorizar o recebimento de mensagens.',
+      undefined,
+      { skipConsentCheck: true, skipRateLimit: true },
+    );
   }
 
   private async findContactDestination(
@@ -355,7 +468,7 @@ export class ConsentService {
     dest: IDestination,
     text: string,
     wa: WhatsAppService,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const msgs = await this.getMessages(clientId);
     const pending = !!dest.optOutConfirmPendingAt;
 
@@ -374,7 +487,7 @@ export class ConsentService {
           clientId,
           phone: redactPhone(dest.identifier),
         });
-        return;
+        return true;
       }
 
       if (parseOptOutConfirm(text)) {
@@ -386,7 +499,7 @@ export class ConsentService {
           skipRateLimit: true,
         });
         logger.info('Opt-out confirmado via WhatsApp', { clientId, phone: dest.identifier });
-        return;
+        return true;
       }
 
       if (parseResubscribeReply(text)) {
@@ -397,8 +510,9 @@ export class ConsentService {
           undefined,
           { skipConsentCheck: true, skipRateLimit: true },
         );
+        return true;
       }
-      return;
+      return true;
     }
 
     if (parseOptOutRequest(text)) {
@@ -412,35 +526,50 @@ export class ConsentService {
         { skipConsentCheck: true, skipRateLimit: true },
       );
       logger.info('Opt-out: aguardando confirmação', { clientId, phone: dest.identifier });
+      return true;
     }
+
+    return false;
   }
 
-  /** Processa mensagem recebida no WhatsApp */
+  /**
+   * Processa mensagem recebida no WhatsApp.
+   * @returns true se o consentimento consumiu a mensagem (ticket/inbox não devem processar).
+   */
   async handleInboundMessage(
     clientId: string,
     fromJid: string,
     text: string,
     altJid?: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const dest = await this.findOrCreateContactFromInbound(clientId, fromJid, altJid);
-    if (!dest) return;
+    if (!dest) return false;
 
     const prev = dest.consentStatus ?? ConsentStatus.PENDING;
     const wa = WhatsAppService.getInstance();
 
-    // Cliente iniciou contato → atendimento (menu no InboxService), sem prompt 1/2 de opt-in.
+    if (canReplyToConsentPrompt(prev) && dest.lastConsentPromptAt) {
+      await this.handlePendingConsentReply(clientId, dest, text, wa);
+      return true;
+    }
+
+    // Cliente iniciou contato (sem pedido outbound pendente) → atendimento direto no Inbox.
     if (
       prev === ConsentStatus.PENDING ||
       prev === ConsentStatus.REFUSED_FIRST ||
       prev === ConsentStatus.REFUSED_SECOND
     ) {
-      await this.acceptInboundInitiated(clientId, dest);
-      return;
+      if (!dest.lastConsentPromptAt) {
+        await this.acceptInboundInitiated(clientId, dest);
+      }
+      return false;
     }
 
     if (prev === ConsentStatus.ACCEPTED) {
-      await this.handleAcceptedInbound(clientId, dest, text, wa);
+      return this.handleAcceptedInbound(clientId, dest, text, wa);
     }
+
+    return false;
   }
 
   async requestRenewal(
