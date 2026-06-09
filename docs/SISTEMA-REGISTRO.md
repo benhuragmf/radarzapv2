@@ -4,7 +4,7 @@
 
 **Versão atual:** `2.1.0` (`package.json`) · **Última revisão doc:** 2026-06-05
 
-Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`
+Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, `PRODUCTION.md`
 
 ---
 
@@ -65,4 +65,5 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 4. Atualizar **este arquivo** e `.cursor/rules/radarzap-v2-system-registry.mdc`
 5. Versionar `package.json` quando fizer sentido
 6. **Commit e push** ao concluir a tarefa (não deixar alterações locais sem enviar)
-7. Nunca commitar `sessions/`, `.env`, credenciais
+7. **Roadmap/produção:** atualizar `ROADMAP-COMPLETUDE.md` e `PRODUCTION.md` quando feature impactar lacunas ou deploy
+8. Nunca commitar `sessions/`, `.env`, credenciais
