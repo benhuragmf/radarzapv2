@@ -53,7 +53,7 @@ Referência: [Stripe API keys](https://docs.stripe.com/keys). Checkout **hospeda
 
 **Chave `radarzap`:** token `rk_test_…` em `STRIPE_SECRET_KEY`. Edite permissões (Checkout Sessions Write, Customers Write, Subscriptions Read, Prices Read) — [Restricted keys](https://docs.stripe.com/keys/restricted-api-keys).
 
-**Webhook:** API keys ≠ webhook secret. Dev: `stripe listen --forward-to localhost:3001/api/billing/webhook/stripe` → copie `whsec_`. Prod: [Webhooks](https://dashboard.stripe.com/webhooks) no endpoint `/api/billing/webhook/stripe`.
+**Webhook:** API keys ≠ webhook secret. Dev: `npm run stripe:webhook` (Stripe CLI + atualiza `whsec_` no `.env`) ou `stripe listen --forward-to localhost:3001/api/billing/webhook/stripe`. Prod: [Webhooks](https://dashboard.stripe.com/webhooks).
 
 **Live:** `rk_live_`/`sk_live_`, prices live, webhook live, `ALLOW_DEV_BILLING=false` — [go-live checklist](https://docs.stripe.com/get-started/checklist/go-live).
 
