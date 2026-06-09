@@ -91,6 +91,7 @@ import { setInboxSocketServer } from '../inbox/InboxRealtime';
 import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { InboxReportsService } from '../inbox/InboxReportsService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
+import { BillingService, BillingHttpError } from '../billing/BillingService';
 import {
   validateAutomationPayload,
 } from '../../constants/platform-automation-triggers';
@@ -233,6 +234,25 @@ export class DashboardService {
 
   private setupExpress(): void {
     this.app.set('trust proxy', 1);
+
+    this.app.post(
+      '/api/billing/webhook/stripe',
+      express.raw({ type: 'application/json' }),
+      async (req, res) => {
+        try {
+          const sig = req.headers['stripe-signature'];
+          const result = await BillingService.getInstance().handleStripeWebhook(
+            req.body as Buffer,
+            String(sig ?? ''),
+          );
+          res.json(result);
+        } catch (e) {
+          const err = e as BillingHttpError;
+          res.status(err.status ?? 400).json({ error: err.message ?? String(e) });
+        }
+      },
+    );
+
     /** VCF/CSV com milhares de contatos; padrão Express é 100kb */
     this.app.use(express.json({ limit: '16mb' }));
 
@@ -3056,25 +3076,120 @@ export class DashboardService {
     });
 
     // ── Billing (conta própria — USER) ───────────────────────────────────
+    const billingSvc = BillingService.getInstance();
+
+    r.get('/billing/pricing', requireCapability(Cap.BILLING_VIEW), async (_req, res) => {
+      try {
+        res.json(billingSvc.getPricing());
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/billing/subscription', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const sub = await billingSvc.getSubscription(auth.organizationId);
+        res.json(sub);
+      } catch (e) {
+        const err = e as BillingHttpError;
+        res.status(err.status ?? 500).json({ error: err.message });
+      }
+    });
+
     r.get('/billing/me', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const org = await Organization.findById(auth.organizationId).lean();
-        if (!org) return res.status(404).json({ error: 'Organization not found' });
+        const sub = await billingSvc.getSubscription(auth.organizationId);
         res.json({
           _id: auth.organizationId,
-          organizationName: org.name,
-          plan: org.plan,
-          limits: org.limits,
-          usage: org.usage,
+          organizationName: sub.organizationName,
+          plan: sub.plan,
+          planId: sub.planId,
+          status: sub.status,
+          isActive: sub.isActive,
+          expiresAt: sub.expiresAt,
+          expiresAtLabel: sub.expiresAtLabel,
+          timeRemaining: sub.timeRemaining,
+          limits: sub.limits,
+          usage: sub.usage,
           companyRole: auth.companyRole,
           primaryRole: auth.primaryRole,
-          phone: org.phone,
-          email: org.email,
-          website: org.website,
-          taxId: org.taxId,
-          address: org.address,
+          features: sub.features,
+          orders: sub.orders,
         });
+      } catch (e) {
+        const err = e as BillingHttpError;
+        res.status(err.status ?? 500).json({ error: err.message });
+      }
+    });
+
+    r.post('/billing/checkout', requireCapability(Cap.BILLING_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { planId } = req.body as { planId?: string };
+        const result = await billingSvc.createCheckout(auth.userId, auth.organizationId, planId);
+        res.json(result);
+      } catch (e) {
+        const err = e as BillingHttpError;
+        res.status(err.status ?? 400).json({ error: err.message });
+      }
+    });
+
+    r.post('/billing/confirm', requireCapability(Cap.BILLING_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { sessionId, organizationId } = req.body as {
+          sessionId?: string;
+          organizationId?: string;
+        };
+        if (!sessionId?.trim()) return res.status(400).json({ error: 'sessionId obrigatório' });
+        const orgId = organizationId?.trim() || auth.organizationId;
+        if (orgId !== auth.organizationId) {
+          return res.status(403).json({ error: 'Organização inválida' });
+        }
+        const result = await billingSvc.confirmCheckout(auth.userId, orgId, sessionId.trim());
+        res.json(result);
+      } catch (e) {
+        const err = e as BillingHttpError;
+        res.status(err.status ?? 400).json({ error: err.message });
+      }
+    });
+
+    r.post('/billing/dev/activate', requireCapability(Cap.BILLING_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { planId } = req.body as { planId?: string };
+        if (!planId) return res.status(400).json({ error: 'planId obrigatório' });
+        const result = await billingSvc.devActivateOrganization(
+          auth.organizationId,
+          auth.userId,
+          planId,
+        );
+        res.json(result);
+      } catch (e) {
+        const err = e as BillingHttpError;
+        res.status(err.status ?? 400).json({ error: err.message });
+      }
+    });
+
+    r.post(
+      '/billing/subscriptions/sweep',
+      requireCapability(Cap.SYSTEM_PAYMENTS_VIEW),
+      async (_req, res) => {
+        try {
+          const result = await billingSvc.runSubscriptionSweep();
+          res.json(result);
+        } catch (e) {
+          res.status(500).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.get('/billing/admin/orders', requireCapability(Cap.SYSTEM_PAYMENTS_VIEW), async (_req, res) => {
+      try {
+        const orders = await billingSvc.listOrdersAdmin();
+        res.json(orders);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

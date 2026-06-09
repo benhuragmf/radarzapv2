@@ -1,0 +1,67 @@
+{
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "description": "Ideal para testar o RadarZap",
+      "isDefault": true,
+      "purchasable": false,
+      "features": [
+        "10 mensagens por dia",
+        "2 destinos WhatsApp",
+        "2 modelos de mensagem",
+        "Inbox básico"
+      ],
+      "recommendedFor": ["Testes", "Validação do produto"]
+    },
+    {
+      "id": "starter",
+      "name": "Starter",
+      "description": "Pequenas equipes e operações iniciais",
+      "isDefault": false,
+      "purchasable": true,
+      "priceMonthlyCents": 9900,
+      "currency": "BRL",
+      "stripePriceId": "",
+      "features": [
+        "100 mensagens por dia",
+        "5 destinos WhatsApp",
+        "5 modelos",
+        "Inbox completo + equipe"
+      ],
+      "recommendedFor": ["PMEs", "Primeiro time de atendimento"]
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "description": "Operação diária com campanhas e integrações",
+      "isDefault": false,
+      "purchasable": true,
+      "priceMonthlyCents": 29900,
+      "currency": "BRL",
+      "stripePriceId": "",
+      "features": [
+        "500 mensagens por dia",
+        "15 destinos",
+        "10 modelos",
+        "Webhooks + API + campanhas"
+      ],
+      "recommendedFor": ["Times comerciais", "Automação Discord → WA"]
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "description": "Limites customizados e suporte dedicado",
+      "isDefault": false,
+      "purchasable": false,
+      "comingSoon": true,
+      "features": [
+        "Mensagens ilimitadas",
+        "Destinos ilimitados",
+        "WhatsApp Cloud API (Meta)",
+        "SLA e onboarding dedicado"
+      ],
+      "recommendedFor": ["Grandes operações", "Parceiros"]
+    }
+  ]
+}

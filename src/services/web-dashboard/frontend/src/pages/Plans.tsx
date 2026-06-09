@@ -1,10 +1,12 @@
+import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
-import { Users, RefreshCw, Crown } from 'lucide-react'
+import { Users, RefreshCw, Crown, CreditCard } from 'lucide-react'
 import type { AuthUser } from '../lib/auth'
 import { can } from '../lib/auth'
 
@@ -17,15 +19,47 @@ interface UserData {
   createdAt?: string
 }
 
-const PLANS = [
-  { id: 'free', label: 'Free', color: 'gray' as const, limits: { msg: '10/dia', dest: '2 destinos', tpl: '2 templates' } },
-  { id: 'starter', label: 'Starter', color: 'blue' as const, limits: { msg: '100/dia', dest: '5 destinos', tpl: '5 templates' } },
-  { id: 'pro', label: 'Pro', color: 'yellow' as const, limits: { msg: '500/dia', dest: '15 destinos', tpl: '10 templates' } },
-  { id: 'enterprise', label: 'Enterprise', color: 'green' as const, limits: { msg: 'Ilimitado', dest: 'Ilimitado', tpl: 'Ilimitado' } },
-]
+interface PlanCatalogEntry {
+  id: string
+  name: string
+  description: string
+  purchasable?: boolean
+  comingSoon?: boolean
+  priceMonthlyCents?: number
+  currency?: string
+  features?: string[]
+}
+
+interface BillingPricing {
+  plans: PlanCatalogEntry[]
+  stripeEnabled: boolean
+  stripeConfigured: boolean
+  stripeTestMode: boolean
+  devBillingEnabled: boolean
+  setup: { ready: boolean; hasSecretKey: boolean }
+}
+
+interface BillingSubscription {
+  plan: string
+  planId: string
+  status: 'free' | 'active' | 'expiring_soon' | 'expired'
+  isActive: boolean
+  expiresAtLabel?: string | null
+  timeRemaining?: string
+  limits: UserData['limits']
+  usage: UserData['usage']
+  orders?: { id: string; status: string; planName: string; amountCents: number; createdAt: string }[]
+}
 
 const planVariant: Record<string, 'gray' | 'blue' | 'yellow' | 'green'> = {
-  free: 'gray', starter: 'blue', pro: 'yellow', enterprise: 'green',
+  free: 'gray',
+  starter: 'blue',
+  pro: 'yellow',
+  enterprise: 'green',
+}
+
+function formatBrl(cents: number) {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function usageBar(used: number, limit: number) {
@@ -45,6 +79,13 @@ function usageBar(used: number, limit: number) {
   )
 }
 
+function planRank(id: string) {
+  if (id === 'enterprise') return 3
+  if (id === 'pro') return 2
+  if (id === 'starter') return 1
+  return 0
+}
+
 interface Props {
   user: AuthUser
   admin?: boolean
@@ -52,7 +93,23 @@ interface Props {
 
 export default function Plans({ user, admin }: Props) {
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [checkoutMsg, setCheckoutMsg] = useState<string | null>(null)
+  const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null)
   const isAdmin = admin && can(user, 'system:plans:manage')
+
+  const { data: pricing } = useQuery<BillingPricing>({
+    queryKey: ['billing-pricing'],
+    queryFn: () => api.get('/billing/pricing'),
+    enabled: !isAdmin,
+  })
+
+  const { data: subscription, isLoading: subLoading } = useQuery<BillingSubscription>({
+    queryKey: ['billing-subscription'],
+    queryFn: () => api.get('/billing/subscription'),
+    enabled: !isAdmin,
+    refetchInterval: 30_000,
+  })
 
   const { data: users = [], isLoading } = useQuery<UserData[]>({
     queryKey: isAdmin ? ['users'] : ['billing-me'],
@@ -60,7 +117,72 @@ export default function Plans({ user, admin }: Props) {
       isAdmin
         ? api.get('/users')
         : api.get('/billing/me').then(me => [me as UserData]),
+    enabled: isAdmin,
     refetchInterval: 30_000,
+  })
+
+  const confirmCheckout = useCallback(async () => {
+    const sessionId = searchParams.get('session_id')
+    const checkout = searchParams.get('checkout')
+    if (checkout !== 'success' || !sessionId) return
+
+    setCheckoutMsg('Confirmando pagamento…')
+    try {
+      await api.post('/billing/confirm', { sessionId })
+      setCheckoutMsg('Plano ativado com sucesso!')
+      qc.invalidateQueries({ queryKey: ['billing-subscription'] })
+      qc.invalidateQueries({ queryKey: ['billing-me'] })
+    } catch (e) {
+      const err = e as Error
+      try {
+        await qc.fetchQuery({
+          queryKey: ['billing-subscription'],
+          queryFn: () => api.get('/billing/subscription'),
+        })
+        setCheckoutMsg('Plano já estava ativo (webhook processou antes).')
+      } catch {
+        setCheckoutMsg(err.message || 'Falha ao confirmar pagamento')
+      }
+    } finally {
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams, qc])
+
+  useEffect(() => {
+    void confirmCheckout()
+  }, [confirmCheckout])
+
+  const startCheckout = async (planId: string) => {
+    setCheckoutBusy(planId)
+    setCheckoutMsg(null)
+    try {
+      const res = await api.post<{ mode: string; url?: string; message?: string; alreadySubscribed?: boolean }>(
+        '/billing/checkout',
+        { planId },
+      )
+      if (res.alreadySubscribed) {
+        setCheckoutMsg(res.message ?? 'Plano já ativo')
+        return
+      }
+      if (res.mode === 'stripe' && res.url) {
+        window.location.href = res.url
+        return
+      }
+      setCheckoutMsg(res.message ?? 'Stripe não configurado — use modo dev ou configure .env')
+    } catch (e) {
+      setCheckoutMsg((e as Error).message)
+    } finally {
+      setCheckoutBusy(null)
+    }
+  }
+
+  const devActivate = useMutation({
+    mutationFn: (planId: string) => api.post('/billing/dev/activate', { planId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['billing-subscription'] })
+      setCheckoutMsg('Plano ativado (modo dev)')
+    },
+    onError: (e: Error) => setCheckoutMsg(e.message),
   })
 
   const changePlan = useMutation({
@@ -72,30 +194,122 @@ export default function Plans({ user, admin }: Props) {
 
   const resetUsage = useMutation({
     mutationFn: (id: string) => api.post(`/users/${id}/reset-usage`, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: isAdmin ? ['users'] : ['billing-me'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   })
 
-  if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
+  if (isAdmin && isLoading) {
+    return (
+      <div className="flex justify-center pt-20">
+        <Spinner size={32} />
+      </div>
+    )
+  }
+
+  if (!isAdmin && subLoading) {
+    return (
+      <div className="flex justify-center pt-20">
+        <Spinner size={32} />
+      </div>
+    )
+  }
+
+  const currentPlanId = subscription?.planId ?? user.plan ?? 'free'
+  const catalog = pricing?.plans ?? []
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {PLANS.map(p => (
-          <Card key={p.id}>
-            <div className="flex items-center gap-2 mb-2">
-              {p.id === 'enterprise' && <Crown size={14} className="text-brand-400" />}
-              <span className="font-semibold text-sm">{p.label}</span>
-              {user.plan === p.id && !isAdmin && (
-                <Badge label="Atual" variant="green" />
+      {checkoutMsg && (
+        <div className="text-sm px-4 py-3 rounded-lg bg-brand-500/10 border border-brand-500/30 text-brand-300">
+          {checkoutMsg}
+        </div>
+      )}
+
+      {!isAdmin && subscription && (
+        <Card className="p-4 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-medium text-white">Assinatura da empresa</h2>
+            <Badge
+              label={subscription.status === 'free' ? 'Free' : subscription.status}
+              variant={subscription.status === 'expired' ? 'red' : 'green'}
+            />
+            {pricing?.stripeTestMode && (
+              <span className="text-[10px] text-amber-500 uppercase">Stripe teste</span>
+            )}
+          </div>
+          <p className="text-sm text-gray-400">
+            Plano atual: <span className="text-white capitalize font-medium">{subscription.plan}</span>
+            {subscription.timeRemaining && subscription.planId !== 'free' && (
+              <span className="text-gray-500"> · {subscription.timeRemaining}</span>
+            )}
+          </p>
+          {usageBar(subscription.usage.messagesUsed, subscription.limits.messagesPerDay)}
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {catalog.map(p => {
+          const isCurrent = currentPlanId === p.id
+          const canBuy =
+            p.purchasable &&
+            !p.comingSoon &&
+            planRank(p.id) > planRank(currentPlanId)
+          const showDev =
+            !isAdmin &&
+            pricing?.devBillingEnabled &&
+            p.purchasable &&
+            planRank(p.id) > planRank(currentPlanId)
+
+          return (
+            <Card key={p.id} className={isCurrent ? 'ring-1 ring-brand-500/40' : ''}>
+              <div className="flex items-center gap-2 mb-2">
+                {p.id === 'enterprise' && <Crown size={14} className="text-brand-400" />}
+                <span className="font-semibold text-sm">{p.name}</span>
+                {isCurrent && !isAdmin && <Badge label="Atual" variant="green" />}
+              </div>
+              <p className="text-xs text-gray-500 mb-2">{p.description}</p>
+              {p.priceMonthlyCents != null && p.priceMonthlyCents > 0 && (
+                <p className="text-lg font-semibold text-white mb-2">
+                  {formatBrl(p.priceMonthlyCents)}
+                  <span className="text-xs text-gray-500 font-normal">/mês</span>
+                </p>
               )}
-            </div>
-            <div className="text-xs text-gray-500 space-y-0.5">
-              <p>{p.limits.msg}</p>
-              <p>{p.limits.dest}</p>
-              <p>{p.limits.tpl}</p>
-            </div>
-          </Card>
-        ))}
+              <ul className="text-xs text-gray-500 space-y-0.5 mb-3">
+                {(p.features ?? []).slice(0, 4).map(f => (
+                  <li key={f}>· {f}</li>
+                ))}
+              </ul>
+              {!isAdmin && canBuy && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={checkoutBusy === p.id}
+                  onClick={() => startCheckout(p.id)}
+                >
+                  {checkoutBusy === p.id ? (
+                    <Spinner size={12} />
+                  ) : (
+                    <CreditCard size={12} />
+                  )}{' '}
+                  Assinar
+                </Button>
+              )}
+              {!isAdmin && showDev && !pricing?.stripeEnabled && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full mt-2"
+                  disabled={devActivate.isPending}
+                  onClick={() => devActivate.mutate(p.id)}
+                >
+                  Ativar (dev)
+                </Button>
+              )}
+              {p.comingSoon && (
+                <p className="text-xs text-gray-600 mt-2">Em breve — contate suporte</p>
+              )}
+            </Card>
+          )
+        })}
       </div>
 
       {isAdmin ? (
@@ -121,9 +335,18 @@ export default function Plans({ user, admin }: Props) {
                       disabled={changePlan.isPending}
                       className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300"
                     >
-                      {PLANS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                      {['free', 'starter', 'pro', 'enterprise'].map(id => (
+                        <option key={id} value={id}>
+                          {id}
+                        </option>
+                      ))}
                     </select>
-                    <Button size="sm" variant="ghost" onClick={() => resetUsage.mutate(u._id)} disabled={resetUsage.isPending}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => resetUsage.mutate(u._id)}
+                      disabled={resetUsage.isPending}
+                    >
                       <RefreshCw size={11} /> Resetar uso
                     </Button>
                   </div>
@@ -132,18 +355,7 @@ export default function Plans({ user, admin }: Props) {
             ))}
           </div>
         </div>
-      ) : (
-        users[0] && (
-          <Card>
-            <h2 className="text-sm font-medium mb-2">Seu plano</h2>
-            <Badge label={users[0].plan} variant={planVariant[users[0].plan] ?? 'gray'} />
-            {usageBar(users[0].usage.messagesUsed, users[0].limits.messagesPerDay)}
-            <p className="text-xs text-gray-500 mt-3">
-              Upgrade via checkout em breve. Contate o suporte para planos Enterprise.
-            </p>
-          </Card>
-        )
-      )}
+      ) : null}
     </div>
   )
 }

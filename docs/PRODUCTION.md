@@ -134,10 +134,15 @@ Sem mudança de infra — só frontend.
 
 | Local | Produção |
 |-------|----------|
-| Planos alterados manualmente no admin | Stripe/Asaas webhook → atualiza `Organization.plan` |
-| Sem bloqueio | Middleware bloqueia envio se plano vencido |
+| `ALLOW_DEV_BILLING=true` | `false` — só checkout Stripe real |
+| Planos alterados manualmente no admin | Webhook Stripe → `Organization.plan` + `BillingOrder` |
+| Sem bloqueio por vencimento | `canSendMessage()` bloqueia se `planExpiresAt` passou |
 
-**Novas env:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (ou equivalente Asaas)
+**Env:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_STARTER`, `STRIPE_PRICE_ID_PRO`, `SUBSCRIPTION_SWEEP_MS`
+
+**Webhook:** `POST https://<host>/api/billing/webhook/stripe` — eventos `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`
+
+Ver `docs/BILLING.md`.
 
 ---
 

@@ -10,7 +10,7 @@
 ## Resumo executivo
 
 O RadarZap v2 **já é operável** para uso diário: Inbox, consentimento, campanhas, equipe, **webhooks outbound (2.2.0)**, Discord → WA e painel completo.  
-Próximos gaps: deploy prod completo, billing, e-mail convite, mobile, Cloud API Meta.
+Próximos gaps: deploy prod completo, Cloud API Meta, backup tenant, testes E2E.
 
 ---
 
@@ -36,7 +36,7 @@ Próximos gaps: deploy prod completo, billing, e-mail convite, mobile, Cloud API
 | 1 | ~~**Webhooks sem disparo real**~~ | ✅ **2.2.0** — `WebhookDispatcherService`, fila `notifications`, HMAC, eventos Inbox |
 | 2 | **Deploy / CI** | ✅ parcial **2.3.0** — `npm run build` backend + job CI; falta Docker/PM2 prod |
 | 3 | ~~**Convite de equipe**~~ | ✅ **2.2.2** — e-mail Resend/SMTP + reenvio; dev loga no console |
-| 4 | **Billing / pagamentos** | Planos na UI; `/admin/payments` é stub | usar o stripe.com igual o sistema de pagamento da "C:\Users\benhu\OneDrive\Área de Trabalho\Projetos\radargamer\radargamev4"
+| 4 | ~~**Billing / pagamentos**~~ | ✅ **2.4.0** — Stripe checkout, webhooks, `/plans`, `/admin/payments` |
 | 5 | **Admin operacional** | Moderação, API global, backup admin = páginas informativas |
 | 6 | **Backup tenant** | Só export CSV; sem restore completo da org |
 | 7 | ~~**Inbox fase operacional**~~ | ✅ parcial **2.2.1** — `/enc`, `closed` automático, alertas fila; falta CSAT |
@@ -94,13 +94,13 @@ Ver `docs/WEBHOOKS.md` e `WebhookDispatcherService.ts`.
 
 ---
 
-### 6. Billing / assinatura (Stripe ou Asaas)
+### 6. Billing / assinatura (Stripe) — ✅ concluído (2.4.0)
 
-**O quê:** checkout, fatura, bloqueio por plano, webhook de pagamento → `Organization.plan`.
+**O quê:** checkout Stripe, webhook HMAC, fatura auditável, bloqueio por expiração → `Organization.plan`.
 
-**Por quê:** monetização ainda placeholder.
+**Implementação:** `BillingService`, `config/plans.json`, UI `/plans` + `/admin/payments`. Ver `docs/BILLING.md`.
 
-**Esforço:** alto
+**Produção:** `STRIPE_SECRET_KEY`, price IDs, webhook — ver `PRODUCTION.md` §6.
 
 ---
 
@@ -162,7 +162,7 @@ UX                                   →  5 Mobile
 | `/settings/permissions` | Lista estática de papéis; redireciona para `/settings/team` |
 | `/settings/security` | Reusa painel de chaves API |
 | `/settings/backup` | Só CSV de contatos |
-| `/admin/payments` | Stub com links |
+| `/admin/payments` | Pedidos Stripe + sweep expirados |
 | `/admin/moderation` | Stub com links |
 | `/admin/api` | Stub com links |
 

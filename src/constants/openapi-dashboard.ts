@@ -87,6 +87,21 @@ export const OPENAPI_DASHBOARD = {
     '/billing/me': {
       get: { summary: 'Plano, limites e uso (rate limit)', tags: ['Conta'] },
     },
+    '/billing/pricing': {
+      get: { summary: 'Catálogo de planos e status Stripe', tags: ['Conta'] },
+    },
+    '/billing/subscription': {
+      get: { summary: 'Assinatura da organização (status, expiração, pedidos)', tags: ['Conta'] },
+    },
+    '/billing/checkout': {
+      post: { summary: 'Inicia checkout Stripe (redirect URL)', tags: ['Conta'] },
+    },
+    '/billing/confirm': {
+      post: { summary: 'Confirma sessão após redirect Stripe', tags: ['Conta'] },
+    },
+    '/billing/admin/orders': {
+      get: { summary: 'Lista pedidos Stripe (admin)', tags: ['Admin'] },
+    },
   },
 } as const;
 

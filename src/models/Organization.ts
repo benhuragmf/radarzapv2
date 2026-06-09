@@ -17,6 +17,9 @@ export interface IOrganization extends Document {
     messagesUsed: number;
     lastReset: Date;
   };
+  planActivatedAt?: Date;
+  planExpiresAt?: Date;
+  stripeSubscriptionId?: string;
   linkedGuildIds: string[];
   /** Permissões por papel definidas pelo dono (sobrescreve presets globais) */
   roleCapabilities?: Partial<Record<string, string[]>>;
@@ -70,6 +73,9 @@ const OrganizationSchema = new Schema<IOrganization>({
     messagesUsed: { type: Number, default: 0, min: 0 },
     lastReset: { type: Date, default: Date.now },
   },
+  planActivatedAt: Date,
+  planExpiresAt: { type: Date, index: true },
+  stripeSubscriptionId: { type: String, index: true, sparse: true },
   linkedGuildIds: { type: [String], default: [], index: true },
   roleCapabilities: { type: Schema.Types.Mixed, default: {} },
   customRoles: {
@@ -95,6 +101,13 @@ const OrganizationSchema = new Schema<IOrganization>({
 
 OrganizationSchema.methods.canSendMessage = function(this: IOrganization): boolean {
   const now = new Date();
+  if (
+    this.plan !== 'free' &&
+    this.planExpiresAt &&
+    this.planExpiresAt.getTime() <= now.getTime()
+  ) {
+    return false;
+  }
   const lastReset = new Date(this.usage.lastReset);
   const daysSinceReset = Math.floor((now.getTime() - lastReset.getTime()) / (1000 * 60 * 60 * 24));
   if (daysSinceReset >= 1) {
