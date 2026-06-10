@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.6.6` (`package.json`) · **Última revisão doc:** 2026-06-10
+**Versão atual:** `2.6.7` (`package.json`) · **Última revisão doc:** 2026-06-10
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, `PRODUCTION.md`, `BILLING.md`
 
@@ -30,6 +30,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.6.4** | IA Atendimento: complemento em ticket existente via `appendTicketClientReplyFromAi`, `targetTicketRef` em `AiConversationState`, JSON `shouldAppendToTicket` — ver `TICKET-ATENDIMENTO.md` § Complemento via IA |
 | **2.6.5** | Fix IA+ticket: confirmação quando API cai mas dado foi salvo; ticket fechado → `client_replied`; inferência TK da última msg da IA |
 | **2.6.6** | Fix IA+ticket: "não foi resolvido" não encerra conversa/CSAT; confirmação imediata ao complementar ticket |
+| **2.6.7** | IA: menu numerado para escolher ticket entre múltiplos chamados (`pendingTicketChoices`) |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 
@@ -73,6 +74,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `InboxConversation` | `lastOutboundAt`, `inactivityWarnedAt`, `queueSlaNotifiedAt` | 2.2.1 |
 | `InboxTicket` | `lastTeamMessageAt` | 2.6.3 |
 | `AiConversationState` | `targetTicketRef` | 2.6.4 |
+| `AiConversationState` | `pendingTicketChoices[]` | 2.6.7 |
 
 ---
 

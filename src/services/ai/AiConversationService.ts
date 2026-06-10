@@ -22,9 +22,13 @@ import { AiMemoryService } from './AiMemoryService';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
 import type { InboxService } from '@/services/inbox/InboxService';
 import {
+  buildAiTicketChoiceMenu,
+  clientWantsTicketInteraction,
   isTicketRefOnlyMessage,
   isTicketUpdateContext,
   looksLikeTicketSupplement,
+  parseAiTicketMenuChoice,
+  parseTicketRefFromText,
 } from '@/utils/ticket-ref';
 import { logger } from '@/utils/logger';
 
@@ -190,6 +194,17 @@ export class AiConversationService {
     }
     if (emailGate === 'resume_problem' && state.collectedProblem?.trim()) {
       ctx = { ...ctx, text: state.collectedProblem.trim() };
+    }
+
+    if (
+      await this.tryHandleAiTicketMenuFlow(
+        ctx,
+        inbox,
+        state,
+        contactCtxForCollection.recentTickets,
+      )
+    ) {
+      return { handled: true };
     }
 
     const autoResolveSvc = AiAutoResolveService.getInstance();
@@ -761,6 +776,153 @@ export class AiConversationService {
       `${prefix}sua informação foi registrada no ticket *${ticketRef}*. ` +
       'Nossa equipe será avisada. Se quiser incluir mais algo, pode enviar aqui ou digite *atendente*.'
     );
+  }
+
+  private buildTicketSelectedPrompt(ticketRef: string): string {
+    return `Chamado *${ticketRef}* selecionado. O que você gostaria de adicionar?`;
+  }
+
+  private async tryHandleAiTicketMenuFlow(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    recentTickets: Array<{ ref: string; subject?: string; status: string }>,
+  ): Promise<boolean> {
+    const tickets = recentTickets.map(t => ({
+      ref: t.ref,
+      subject: t.subject,
+      status: t.status,
+    }));
+
+    if (state.pendingTicketChoices?.length) {
+      if (/^novo\b/i.test(ctx.text.trim())) {
+        state.pendingTicketChoices = undefined;
+        state.targetTicketRef = undefined;
+        await state.save();
+        return false;
+      }
+      const picked = parseAiTicketMenuChoice(ctx.text, state.pendingTicketChoices);
+      if (picked) {
+        state.targetTicketRef = picked;
+        state.pendingTicketChoices = undefined;
+        await state.save();
+        if (
+          looksLikeTicketSupplement(ctx.text) &&
+          !isTicketRefOnlyMessage(ctx.text) &&
+          (await this.tryTicketUpdateFromClient(ctx, state, {}, inbox))
+        ) {
+          const first = state.collectedName?.trim().split(/\s+/)[0];
+          await inbox.sendAiReply(
+            ctx.clientId,
+            ctx.conversation,
+            ctx.dest.identifier,
+            this.buildTicketSavedRecoveryReply(first, picked),
+          );
+        } else {
+          await inbox.sendAiReply(
+            ctx.clientId,
+            ctx.conversation,
+            ctx.dest.identifier,
+            this.buildTicketSelectedPrompt(picked),
+          );
+        }
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return true;
+      }
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        `Por favor, responda com o número (1–${state.pendingTicketChoices.length}) ou o código *TK-…*.\nDigite *novo* para outro assunto.`,
+      );
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      return true;
+    }
+
+    const refFromText = parseTicketRefFromText(ctx.text);
+    if (refFromText && isTicketRefOnlyMessage(ctx.text)) {
+      state.targetTicketRef = refFromText;
+      await state.save();
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        this.buildTicketSelectedPrompt(refFromText),
+      );
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return true;
+    }
+
+    if (
+      !state.targetTicketRef &&
+      clientWantsTicketInteraction(ctx.text) &&
+      !looksLikeTicketSupplement(ctx.text)
+    ) {
+      if (tickets.length === 0) {
+        await inbox.sendAiReply(
+          ctx.clientId,
+          ctx.conversation,
+          ctx.dest.identifier,
+          'Não encontrei chamados anteriores na sua conta. Descreva sua solicitação ou digite *atendente*.',
+        );
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        return true;
+      }
+      if (tickets.length === 1) {
+        state.targetTicketRef = tickets[0].ref;
+        await state.save();
+        await inbox.sendAiReply(
+          ctx.clientId,
+          ctx.conversation,
+          ctx.dest.identifier,
+          `Encontrei o chamado *${tickets[0].ref}*. O que você gostaria de adicionar?`,
+        );
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return true;
+      }
+      state.pendingTicketChoices = tickets.map(t => t.ref);
+      await state.save();
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        buildAiTicketChoiceMenu(tickets),
+      );
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return true;
+    }
+
+    return false;
   }
 
   private async tryTicketUpdateFromClient(

@@ -1,8 +1,11 @@
 import {
+  buildAiTicketChoiceMenu,
+  clientWantsTicketInteraction,
   isTicketRefOnlyMessage,
   isTicketUpdateContext,
   looksLikeTicketSupplement,
   normalizeTicketRef,
+  parseAiTicketMenuChoice,
   parseTicketRefFromText,
 } from '@/utils/ticket-ref';
 import { AiTicketUpdateService } from '../AiTicketUpdateService';
@@ -34,6 +37,29 @@ describe('ticket-ref utils', () => {
         'Quais informações você gostaria de adicionar ao ticket TK-5NP8CT?',
       ),
     ).toBe(true);
+  });
+
+  it('detecta intenção de interagir com ticket', () => {
+    expect(clientWantsTicketInteraction('preciso inserir dados no ticket')).toBe(true);
+    expect(clientWantsTicketInteraction('qual os ticket que estão no sistema')).toBe(true);
+    expect(clientWantsTicketInteraction('TK-5NP8CT')).toBe(false);
+  });
+
+  it('monta menu numerado de tickets', () => {
+    const menu = buildAiTicketChoiceMenu([
+      { ref: 'TK-5NP8CT', status: 'closed' },
+      { ref: 'TK-73GWPP', status: 'open', subject: 'Suporte' },
+    ]);
+    expect(menu).toContain('1 — *TK-5NP8CT*');
+    expect(menu).toContain('2 — *TK-73GWPP*');
+    expect(menu).toContain('Suporte');
+  });
+
+  it('resolve escolha numerada do menu', () => {
+    const choices = ['TK-5NP8CT', 'TK-73GWPP', 'TK-88CHYX'];
+    expect(parseAiTicketMenuChoice('2', choices)).toBe('TK-73GWPP');
+    expect(parseAiTicketMenuChoice('TK-88CHYX', choices)).toBe('TK-88CHYX');
+    expect(parseAiTicketMenuChoice('9', choices)).toBeNull();
   });
 
   it('detecta complemento útil (telefone)', () => {

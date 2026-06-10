@@ -37,7 +37,7 @@ export class AiContextService {
       deletedAt: { $exists: false },
     })
       .sort({ updatedAt: -1 })
-      .limit(3)
+      .limit(5)
       .select('ticketRef subject status')
       .lean();
 

@@ -253,6 +253,8 @@ Quando o cliente está na **IA de atendimento** (`BOT_TRIAGE`) e quer **interagi
 
 **Diferença do fluxo direto:** não dispara menu grace de 30 min nem altera `ticketInboundMode` — o cliente continua na conversa com a IA.
 
+**Menu múltiplos tickets (2.6.7):** se houver 2+ chamados, a IA exibe menu numerado (`pendingTicketChoices` em `AiConversationState`); cliente responde `1`–`N`, `TK-…` ou *novo* para outro assunto. Um único chamado é selecionado automaticamente.
+
 ---
 
 ## Janela de complemento (30 min)
@@ -455,7 +457,7 @@ Itens planejados para evolução do módulo Ticket. **Não alterar código neste
 |---|------|--------|
 | 1 | **SLA interno equipe** | ⏳ Roadmap |
 | 2 | **Menu pós-30 min ampliado** | ✅ 2.6.3 — 3 opções (complemento / novo / aguardar) |
-| 3 | **Múltiplos tickets ativos** | ⏳ Roadmap |
+| 3 | **Múltiplos tickets ativos** | 🟡 2.6.7 — menu numerado na IA (`pendingTicketChoices`); roadmap: menu WhatsApp fora da IA |
 | 4 | **Campos de auditoria** | 🟡 `lastTeamMessageAt` (2.6.3); demais campos ⏳ |
 | 5 | **Painel funcionário** | ⏳ Roadmap |
 | 6 | **Status enriquecidos** | ⏳ Roadmap |
