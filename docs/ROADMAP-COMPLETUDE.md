@@ -1,9 +1,9 @@
 # RadarZap v2 — completude do sistema e roadmap
 
-> Análise consolidada do estado atual (v2.5.1), lacunas e prioridades de evolução.  
-> Produção: `PRODUCTION.md` · Registro técnico: `SISTEMA-REGISTRO.md`
+> Análise consolidada do estado atual (v2.7.1), lacunas e prioridades de evolução.  
+> **Preparação prod (agora):** `PREPARACAO-PRODUCAO.md` · **Go-live (depois):** `PRODUCTION.md` · Registro: `SISTEMA-REGISTRO.md`
 
-**Última revisão:** 2026-06-09
+**Última revisão:** 2026-06-10
 
 ---
 
@@ -59,5 +59,6 @@ v2.5.0 fecha backup tenant, CSAT, admin ops, deploy Docker e PWA básico.
 ## Como usar
 
 1. Feature nova → changelog `SISTEMA-REGISTRO.md` + semver `package.json`
-2. Deploy/infra → `PRODUCTION.md` §2
-3. Cloud API → `PRODUCTION.md` §7 (quando for implementar)
+2. **Infra, env, segurança, validação local** → **`PREPARACAO-PRODUCAO.md`** (durante dev)
+3. **Go-live dedicado** → **`PRODUCTION.md`** (só após gate §0 + preparação completa)
+4. Cloud API → `PREPARACAO-PRODUCAO.md` § Cloud API

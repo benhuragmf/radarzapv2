@@ -4,7 +4,7 @@
 
 **Versão atual:** `2.7.1` (`package.json`) · **Última revisão doc:** 2026-06-10
 
-Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, `PRODUCTION.md`, `BILLING.md`
+Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
 ---
 
@@ -91,5 +91,6 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 4. Atualizar **este arquivo** e `.cursor/rules/radarzap-v2-system-registry.mdc`
 5. Versionar `package.json` quando fizer sentido
 6. **Commit e push** ao concluir a tarefa (não deixar alterações locais sem enviar)
-7. **Roadmap/produção:** atualizar `ROADMAP-COMPLETUDE.md` e `PRODUCTION.md` quando feature impactar lacunas ou deploy
-8. Nunca commitar `sessions/`, `.env`, credenciais
+7. **Deploy dedicado:** preparar com `PREPARACAO-PRODUCAO.md`; executar `PRODUCTION.md` só quando sistema **100% pronto**
+8. **Roadmap/produção:** atualizar `ROADMAP-COMPLETUDE.md` e `PREPARACAO-PRODUCAO.md` quando feature impactar infra ou segurança
+9. Nunca commitar `sessions/`, `.env`, credenciais
