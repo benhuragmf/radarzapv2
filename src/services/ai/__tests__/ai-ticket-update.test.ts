@@ -1,5 +1,6 @@
 import {
   isTicketRefOnlyMessage,
+  isTicketUpdateContext,
   looksLikeTicketSupplement,
   normalizeTicketRef,
   parseTicketRefFromText,
@@ -17,6 +18,22 @@ describe('ticket-ref utils', () => {
   it('detecta mensagem só com referência do ticket', () => {
     expect(isTicketRefOnlyMessage('TK-88CHYX')).toBe(true);
     expect(isTicketRefOnlyMessage('TK-88CHYX quero esse')).toBe(false);
+  });
+
+  it('detecta contexto de complemento de ticket', () => {
+    expect(
+      isTicketUpdateContext(
+        { targetTicketRef: 'TK-5NP8CT' },
+        'Avisar que o problema ainda nao foi resolvido',
+      ),
+    ).toBe(true);
+    expect(
+      isTicketUpdateContext(
+        {},
+        'Avisar que o problema ainda nao foi resolvido',
+        'Quais informações você gostaria de adicionar ao ticket TK-5NP8CT?',
+      ),
+    ).toBe(true);
   });
 
   it('detecta complemento útil (telefone)', () => {

@@ -21,6 +21,11 @@ import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
 import type { InboxService } from '@/services/inbox/InboxService';
+import {
+  isTicketRefOnlyMessage,
+  isTicketUpdateContext,
+  looksLikeTicketSupplement,
+} from '@/utils/ticket-ref';
 import { logger } from '@/utils/logger';
 
 export interface AiInboundResult {
@@ -226,16 +231,54 @@ export class AiConversationService {
     const history = await this.loadRecentHistory(ctx.conversation._id as mongoose.Types.ObjectId);
     const escSvc = AiEscalationService.getInstance();
     const lastAssistantBefore = [...history].reverse().find(m => m.role === 'assistant');
+    const ticketUpdateCtx = isTicketUpdateContext(
+      state,
+      ctx.text,
+      lastAssistantBefore?.content,
+    );
+
+    if (
+      ticketUpdateCtx &&
+      looksLikeTicketSupplement(ctx.text) &&
+      !isTicketRefOnlyMessage(ctx.text)
+    ) {
+      const saved = await this.tryTicketUpdateFromClient(
+        ctx,
+        state,
+        {},
+        inbox,
+        lastAssistantBefore?.content,
+      );
+      if (saved && state.targetTicketRef) {
+        const first = state.collectedName?.trim().split(/\s+/)[0];
+        await inbox.sendAiReply(
+          ctx.clientId,
+          ctx.conversation,
+          ctx.dest.identifier,
+          this.buildTicketSavedRecoveryReply(first, state.targetTicketRef),
+        );
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return { handled: true };
+      }
+    }
 
     if (
       state.status === AiConversationStatus.AI_COMPLETED &&
+      !ticketUpdateCtx &&
       escSvc.clientClosingConversation(ctx.text)
     ) {
       await this.completeAiConversation(ctx, inbox, state, 'farewell');
       return { handled: true };
     }
 
-    if (escSvc.clientClosingConversation(ctx.text)) {
+    if (!ticketUpdateCtx && escSvc.clientClosingConversation(ctx.text)) {
       await this.completeAiConversation(ctx, inbox, state, 'farewell');
       return { handled: true };
     }

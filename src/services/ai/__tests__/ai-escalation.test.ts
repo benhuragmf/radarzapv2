@@ -162,6 +162,14 @@ describe('AiEscalationService', () => {
     }
   });
 
+  it('nao trata "nao foi resolvido" como despedida', () => {
+    expect(svc.clientClosingConversation('Avisar que o problema ainda nao foi resolvido')).toBe(
+      false,
+    );
+    expect(svc.clientClosingConversation('obrigado, problema resolvido')).toBe(true);
+    expect(svc.clientClosingConversation('foi resolvido sim')).toBe(true);
+  });
+
   it('detecta recusa de "algo mais?"', () => {
     expect(
       svc.clientDeclinesMoreHelp(

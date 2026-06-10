@@ -24,6 +24,26 @@ export function isTicketRefOnlyMessage(text: string): boolean {
   return stripped.length < 3;
 }
 
+/** Cliente está complementando ticket (não encerrar conversa nem disparar CSAT). */
+export function isTicketUpdateContext(
+  state: Pick<{ targetTicketRef?: string }, 'targetTicketRef'>,
+  clientText: string,
+  lastAssistantText?: string,
+): boolean {
+  if (state.targetTicketRef) return true;
+  if (parseTicketRefFromText(clientText)) return true;
+  const assistantRef = lastAssistantText ? parseTicketRefFromText(lastAssistantText) : null;
+  if (assistantRef && looksLikeTicketSupplement(clientText)) return true;
+  if (
+    lastAssistantText &&
+    /\b(qual|quais).{0,50}(informa|dado|adicionar)/i.test(lastAssistantText) &&
+    looksLikeTicketSupplement(clientText)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** Cliente informou dado complementar (telefone, texto útil) — não só escolha de ticket. */
 export function looksLikeTicketSupplement(text: string): boolean {
   const norm = text.trim();

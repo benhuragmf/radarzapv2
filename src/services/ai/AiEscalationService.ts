@@ -10,7 +10,9 @@ const HUMAN_REQUEST_PHRASES =
 const WAITING_HANDOFF =
   /^(aguardando|esperando|to esperando|estou esperando|cad[eê]|e a[ií]|demora)\b/i;
 const CLOSING_PHRASES =
-  /\b(obrigad[oa]?|valeu|brigad[oa]?|agradeç|thanks|tchau|ate mais|até logo|flw|falou|foi isso|so isso|só isso|deu certo|resolv(eu|ido)|tenha um (?:otimo|ótimo) dia)\b/i;
+  /\b(obrigad[oa]?|valeu|brigad[oa]?|agradeç|thanks|tchau|ate mais|até logo|flw|falou|foi isso|so isso|só isso|deu certo|tenha um (?:otimo|ótimo) dia)\b/i;
+const POSITIVE_RESOLUTION_PHRASES =
+  /\b(ja resolveu|foi resolvido|problema resolvido|tudo resolvido|resolveu sim)\b/i;
 const SELF_RESOLVE_PHRASES =
   /\b(vou (?:tentar|verificar|resolver|testar|checar)|ja vou|já vou)\b/i;
 const MORE_HELP_OFFERED =
@@ -148,9 +150,21 @@ export class AiEscalationService {
   clientClosingConversation(text: string): boolean {
     const norm = this.normalizeClosing(text);
     if (!norm) return false;
+    if (this.isNegatedResolution(norm)) return false;
     if (CLOSING_PHRASES.test(norm)) return true;
+    if (POSITIVE_RESOLUTION_PHRASES.test(norm)) return true;
     if (SELF_RESOLVE_PHRASES.test(norm)) return true;
     return false;
+  }
+
+  /** "não foi resolvido" / "ainda não resolveu" não é despedida. */
+  private isNegatedResolution(norm: string): boolean {
+    if (!/\bresolv/i.test(norm)) return false;
+    return (
+      /\b(nao|nunca|ainda\s+nao)\b.{0,40}\bresolv/i.test(norm) ||
+      /\bresolv(eu|ido|er)\b.{0,20}\b(nao|nunca)\b/i.test(norm) ||
+      /\bnao\s+foi\s+resolvido\b/i.test(norm)
+    );
   }
 
   /** IA ofereceu "algo mais?" e cliente recusou. */
