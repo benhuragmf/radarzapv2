@@ -88,6 +88,7 @@ import {
   evaluateTicketInboundRouting,
   buildTicketGraceExpiredMenu,
   parseTicketGraceExpiredChoice,
+  TICKET_GRACE_REOPEN_ACK,
   TICKET_WAITING_RETURN_ACK,
   wantsNewInboundService,
 } from '@/services/inbox/inbound-routing';
@@ -986,6 +987,16 @@ export class InboxService {
       await this.releaseTicketToInbox(ticket);
       return false;
     }
+    if (choice === 'add_info') {
+      ticket.clientReplyPaused = false;
+      ticket.clientReplyGraceUntil = new Date(Date.now() + TICKET_CLIENT_REPLY_GRACE_MS);
+      ticket.ticketInboundMode = 'ticket';
+      ticket.updatedAt = new Date();
+      await ticket.save();
+      this.scheduleClientReplyGrace(clientId, ticket);
+      await this.sendToContact(clientId, dest.identifier, TICKET_GRACE_REOPEN_ACK);
+      return true;
+    }
     if (choice === 'wait_ticket') {
       await this.sendToContact(clientId, dest.identifier, TICKET_WAITING_RETURN_ACK);
       return true;
@@ -1014,6 +1025,7 @@ export class InboxService {
     ticket.clientReplyWindowStartedAt = now;
     ticket.clientReplyPaused = false;
     ticket.ticketInboundMode = ticketInboundMode;
+    ticket.lastTeamMessageAt = now;
   }
 
   private isPastFollowUpMenuHours(ticket: IInboxTicket): boolean {
@@ -2486,6 +2498,7 @@ export class InboxService {
         clientCanReply: this.canClientReplyToTicket(ticket),
         unreadClientReply: Boolean(ticket.unreadClientReply),
         lastClientReplyAt: ticket.lastClientReplyAt,
+        lastTeamMessageAt: ticket.lastTeamMessageAt,
       },
       teamMembers: await this.listTeamMembersForAssignment(clientId),
     };
@@ -2998,6 +3011,9 @@ export class InboxService {
     if (!conv) throw new Error('Conversa vinculada não encontrada');
 
     const result = await this.sendToContact(clientId, ticket.contactIdentifier, body);
+    ticket.lastTeamMessageAt = new Date();
+    ticket.teamHasMessagedClient = true;
+    await ticket.save();
     await InboxMessage.create({
       clientId: conv.clientId,
       conversationId: conv._id,

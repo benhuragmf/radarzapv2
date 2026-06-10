@@ -195,8 +195,20 @@ describe('inbound-routing', () => {
     ).toBe('release_inbox');
   });
 
-  it('menu grace expirado: 1 novo atendimento', () => {
-    expect(parseTicketGraceExpiredChoice('1')).toBe('new_service');
+  it('menu grace expirado: 1 reabre complemento, 2 novo atendimento, 3 aguardar', () => {
+    expect(parseTicketGraceExpiredChoice('1')).toBe('add_info');
+    expect(parseTicketGraceExpiredChoice('2')).toBe('new_service');
+    expect(parseTicketGraceExpiredChoice('3')).toBe('wait_ticket');
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({
+          trimmed: '2',
+          clientReplyPaused: true,
+          lastMenuContext: 'ticket_grace_expired',
+          lastMenuSentAt: recentMenuAt,
+        }),
+      ),
+    ).toBe('release_inbox');
     expect(
       evaluateTicketInboundRouting(
         baseInput({
@@ -206,7 +218,7 @@ describe('inbound-routing', () => {
           lastMenuSentAt: recentMenuAt,
         }),
       ),
-    ).toBe('release_inbox');
+    ).toBe('capture');
   });
 
   it('menu inbox expirado não força release só pelo número', () => {

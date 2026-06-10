@@ -214,13 +214,14 @@ Quando a **equipe** envia resposta, atualização ou fechamento pelo Ticket, o c
 
 Constante: `TICKET_POST_CLOSE_REPLY_HOURS = 12`.
 
-### Lacuna MVP — envio da equipe
+### Janelas — implementação (v2.6.2+)
 
-| Caminho | Comportamento atual | Comportamento desejado |
-|---------|---------------------|------------------------|
-| `closeTicket()` | ✓ Define `clientReplyExpiresAt` (+12 h) | ✓ Correto |
-| `sendClientUpdate()` | ✗ Zera `clientReplyExpiresAt` | Deve **abrir/renovar** janela de retorno (+12 h) |
-| `convertToTicket()` (abertura) | ✗ Não define `clientReplyExpiresAt` | Deve abrir janela ao notificar cliente |
+| Caminho | Comportamento |
+|---------|---------------|
+| `closeTicket()` | Define `clientReplyExpiresAt` (+12 h) e `lastTeamMessageAt` |
+| `sendClientUpdate()` | Renova janela de retorno (+12 h) via `renewTeamClientReplyWindow` |
+| `convertToTicket()` | Abre janela ao notificar cliente |
+| Ack curto | Mantém janela existente; não sobrescreve se já válida |
 
 ---
 
@@ -260,14 +261,15 @@ Durante os 30 min, tudo entra no Ticket. Depois, `clientReplyPaused = true` até
 
 Constante: `TICKET_CLIENT_REPLY_GRACE_MS` (30 min).
 
-**Se o cliente escrever depois dos 30 min (ainda dentro das 12 h):** o sistema **não** deixa sem resposta — exibe menu:
+**Se o cliente escrever depois dos 30 min (ainda dentro das 12 h):** o sistema exibe menu com **3 opções**:
 
 ```txt
-1 — Iniciar novo atendimento
-2 — Aguardar retorno deste chamado
+1 — Enviar nova informação para este chamado  (reabre janela de complemento 30 min)
+2 — Iniciar novo atendimento
+3 — Aguardar retorno da equipe
 ```
 
-(`ticket_grace_expired` em `lastMenuContext` — ver [INBOX-ATENDIMENTO.md](./INBOX-ATENDIMENTO.md) § Proteções.)
+(`ticket_grace_expired` em `lastMenuContext` — `parseTicketGraceExpiredChoice`, `buildTicketGraceExpiredMenu`.)
 
 ---
 
@@ -408,7 +410,7 @@ Gatilhos de liberação (exemplos):
 |-------------------|---------------------|
 | `inbox_triage` | Inbox (setores 1–4) |
 | `ticket_followup` | Ticket (1 = chamado, 2 = novo) |
-| `ticket_grace_expired` | Pós–30 min (1 = novo, 2 = aguardar) |
+| `ticket_grace_expired` | Pós–30 min (1 = complemento, 2 = novo, 3 = aguardar) |
 | `consent` | LGPD |
 | `none` | Intenção da mensagem / saudação |
 
@@ -433,15 +435,15 @@ TTL do contexto: **30 minutos** (`INBOX_MENU_CONTEXT_TTL_MS`).
 
 Itens planejados para evolução do módulo Ticket. **Não alterar código neste documento.**
 
-| # | Item | Descrição |
-|---|------|-----------|
-| 1 | **SLA interno equipe** | Prazos de primeira resposta e resolução por setor/prioridade; alertas no painel |
-| 2 | **Menu pós-30 min ampliado** | Após janela de complemento: menu com **3 opções**, incluindo *enviar nova informação* além de novo atendimento / aguardar retorno |
-| 3 | **Múltiplos tickets ativos** | Cliente com mais de um `TK-…` aberto → menu de escolha do chamado antes de capturar mensagem |
-| 4 | **Campos de auditoria** | `createdBy`, `assignedTo`, `lastTeamMessageAt`, `priority`, histórico de transições de status |
-| 5 | **Painel funcionário** | Lista de ações rápidas por ticket (atribuir, pausar, escalar, enviar template, ver SLA) |
-| 6 | **Status enriquecidos** | Migrar para `waiting_team`, `waiting_client`, `paused`, `resolved`, `expired` (ver tabela § Status × Modo) |
-| 7 | **Correção janelas MVP** | `sendClientUpdate` e ack alinhados ao comportamento desejado (§ Lacunas MVP) |
+| # | Item | Status |
+|---|------|--------|
+| 1 | **SLA interno equipe** | ⏳ Roadmap |
+| 2 | **Menu pós-30 min ampliado** | ✅ 2.6.3 — 3 opções (complemento / novo / aguardar) |
+| 3 | **Múltiplos tickets ativos** | ⏳ Roadmap |
+| 4 | **Campos de auditoria** | 🟡 `lastTeamMessageAt` (2.6.3); demais campos ⏳ |
+| 5 | **Painel funcionário** | ⏳ Roadmap |
+| 6 | **Status enriquecidos** | ⏳ Roadmap |
+| 7 | **Correção janelas MVP** | ✅ 2.6.2 |
 
 ---
 
@@ -462,7 +464,8 @@ Modelo Mongoose: `src/models/InboxTicket.ts`.
 | `clientReplyGraceUntil` | Fim da janela de complemento (30 min) |
 | `clientReplyPaused` | Cliente pausou ou grace expirou |
 | `teamHasMessagedClient` | Equipe já notificou o cliente no WhatsApp |
-| `openedByUserId` | Quem abriu (MVP); roadmap: `createdBy` |
+| `lastTeamMessageAt` | Última mensagem da equipe ao cliente (2.6.3) |
+| `openedByUserId` | Quem abriu (MVP); roadmap: `createdBy` explícito |
 | `assignedUserId` | Responsável (MVP); roadmap: `assignedTo` explícito |
 
 Painel: `/platform/inbox/tickets`, `/platform/inbox/tickets/:ref`  

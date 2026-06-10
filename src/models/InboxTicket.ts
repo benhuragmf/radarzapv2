@@ -54,6 +54,8 @@ export interface IInboxTicket extends Document {
   clientReplyGraceUntil?: Date;
   unreadClientReply: boolean;
   lastClientReplyAt?: Date;
+  /** Última mensagem da equipe visível ao cliente no WhatsApp */
+  lastTeamMessageAt?: Date;
   openedByUserId: mongoose.Types.ObjectId;
   closedByUserId?: mongoose.Types.ObjectId;
   closedAt?: Date;
@@ -127,6 +129,7 @@ const InboxTicketSchema = new Schema<IInboxTicket>(
     clientReplyGraceUntil: Date,
     unreadClientReply: { type: Boolean, default: false },
     lastClientReplyAt: Date,
+    lastTeamMessageAt: Date,
     openedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     closedByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     closedAt: Date,

@@ -192,7 +192,7 @@ export function evaluateTicketInboundRouting(
   ) {
     const choice = parseTicketGraceExpiredChoice(input.trimmed);
     if (choice === 'new_service') return 'release_inbox';
-    if (choice === 'wait_ticket') return 'capture';
+    if (choice === 'add_info' || choice === 'wait_ticket') return 'capture';
   }
 
   if (
@@ -235,24 +235,41 @@ export function evaluateTicketInboundRouting(
   return 'release_inbox';
 }
 
-export type TicketGraceExpiredChoice = 'new_service' | 'wait_ticket';
+export type TicketGraceExpiredChoice = 'add_info' | 'new_service' | 'wait_ticket';
 
 export function parseTicketGraceExpiredChoice(text: string): TicketGraceExpiredChoice | null {
-  const norm = text.trim().toLowerCase();
+  const norm = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
   if (!norm) return null;
-  if (norm === '1' || norm === 'novo' || norm === 'novo atendimento') return 'new_service';
-  if (norm === '2' || norm === 'aguardar' || norm === 'retorno') return 'wait_ticket';
+  if (
+    norm === '1' ||
+    norm === 'info' ||
+    norm === 'informacao' ||
+    norm === 'complemento' ||
+    norm === 'enviar'
+  ) {
+    return 'add_info';
+  }
+  if (norm === '2' || norm === 'novo' || norm === 'novo atendimento') return 'new_service';
+  if (norm === '3' || norm === 'aguardar' || norm === 'retorno') return 'wait_ticket';
   return null;
 }
 
 export function buildTicketGraceExpiredMenu(): string {
   return (
     'As informações complementares deste chamado já foram registradas.\n\n' +
-    '*1* — Iniciar novo atendimento\n' +
-    '*2* — Aguardar retorno deste chamado\n\n' +
-    'Responda com o número ou digite *NOVO*.'
+    '*1* — Enviar nova informação para este chamado\n' +
+    '*2* — Iniciar novo atendimento\n' +
+    '*3* — Aguardar retorno da equipe\n\n' +
+    'Responda com o número ou digite *NOVO* para novo atendimento.'
   );
 }
+
+export const TICKET_GRACE_REOPEN_ACK =
+  'Certo! Você tem até 30 minutos para enviar complementos (texto, foto ou documento) neste chamado.';
 
 export const TICKET_GRACE_EXPIRED_HINT =
   'As informações complementares deste chamado já foram registradas. Para iniciar um novo atendimento, digite *NOVO*.';
