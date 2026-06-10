@@ -9,6 +9,12 @@ const HUMAN_REQUEST_PHRASES =
   /\b(falar com (?:algu[eé]m|suporte|atendente|uma pessoa)|quero (?:suporte|atendente|humano)|preciso de (?:suporte|atendente)|me transfere|transferir|encaminh(ar|e))\b/i;
 const WAITING_HANDOFF =
   /^(aguardando|esperando|to esperando|estou esperando|cad[eê]|e a[ií]|demora)\b/i;
+const CLOSING_PHRASES =
+  /\b(obrigad[oa]?|valeu|brigad[oa]?|agradeç|thanks|tchau|ate mais|até logo|flw|falou|foi isso|so isso|só isso|deu certo|resolv(eu|ido)|tenha um (?:otimo|ótimo) dia)\b/i;
+const SELF_RESOLVE_PHRASES =
+  /\b(vou (?:tentar|verificar|resolver|testar|checar)|ja vou|já vou)\b/i;
+const MORE_HELP_OFFERED =
+  /algo mais|mais alguma coisa|posso (?:te )?ajudar|precisa de mais|mais ajuda|algo mais hoje/i;
 const ANGRY_KEYWORDS = /\b(raiva|irritad|p[eé]ssimo|horr[ií]vel|absurdo|vergonha|processo judicial|advogado)\b/i;
 const CANCEL_KEYWORDS = /\b(cancelar|cancelamento|estorno|reembolso|desistir)\b/i;
 const LEGAL_KEYWORDS = /\b(jur[ií]dico|processo|advogado|procon|justi[cç]a|lei\b|lgpd\b)\b/i;
@@ -39,6 +45,10 @@ export class AiEscalationService {
   check(input: EscalationCheckInput): EscalationDecision {
     const { clientText, rules, structured, state, prompt, hasUninterpretableMedia } = input;
     const text = clientText.trim();
+
+    if (this.clientClosingConversation(text)) {
+      return { shouldEscalate: false };
+    }
 
     if (rules.onUninterpretableMedia && hasUninterpretableMedia) {
       return { shouldEscalate: true, reason: 'Mídia não interpretável pela IA' };
@@ -103,7 +113,7 @@ export class AiEscalationService {
     const checks: boolean[] = [];
 
     if (prompt.collectName) {
-      checks.push(Boolean(name && name.length >= 2));
+      checks.push(Boolean(name && name.length >= 2 && state.nameConfirmed));
     }
     if (prompt.collectEmail) {
       checks.push(Boolean(email && email.includes('@') && email.length >= 5));
@@ -132,6 +142,33 @@ export class AiEscalationService {
     if (HUMAN_KEYWORDS.test(t)) return true;
     if (HUMAN_REQUEST_PHRASES.test(t)) return true;
     return false;
+  }
+
+  /** Cliente encerrou ou agradeceu — não escalar para humano. */
+  clientClosingConversation(text: string): boolean {
+    const norm = this.normalizeClosing(text);
+    if (!norm) return false;
+    if (CLOSING_PHRASES.test(norm)) return true;
+    if (SELF_RESOLVE_PHRASES.test(norm)) return true;
+    return false;
+  }
+
+  /** IA ofereceu "algo mais?" e cliente recusou. */
+  clientDeclinesMoreHelp(text: string, lastAssistantReply?: string): boolean {
+    if (!lastAssistantReply) return false;
+    if (!MORE_HELP_OFFERED.test(lastAssistantReply)) return false;
+    const norm = this.normalizeClosing(text);
+    return /^(nao|nao obrigado|nao precisa|nada)$/.test(norm);
+  }
+
+  private normalizeClosing(text: string): string {
+    return text
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[!?.]+$/g, '')
+      .trim();
   }
 
   /** Cliente aguardando após a IA prometer transferência. */

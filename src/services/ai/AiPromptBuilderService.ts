@@ -93,6 +93,9 @@ export class AiPromptBuilderService {
 
     const skipKnown = contactCtx ? ctxSvc.fieldsAlreadyKnown(contactCtx, prompt) : [];
     const mustCollect = collectFields.filter(f => !skipKnown.includes(f));
+    if (prompt.collectName && !mustCollect.includes('nome')) {
+      mustCollect.unshift('confirmação do nome');
+    }
 
     const identity = applyAiPromptVars(blueprint.identity, varCtx);
     const soul = applyAiPromptVars(blueprint.soul, varCtx);
@@ -154,8 +157,16 @@ export class AiPromptBuilderService {
 
 ${workspaceBootstrap}
 
+Política de cadastro:
+1. Confirme o nome com o cliente no início (mesmo se USER já tiver nome) — evita atender pessoa errada no mesmo WhatsApp.
+2. Complete e-mail e dados básicos faltantes antes de encerrar ou transferir.
+3. Uma pergunta por vez; não repita o que o cliente já informou nesta conversa.
+4. Ao confirmar dado curto (nome de plano, produto), repita **uma vez** exatamente como o cliente disse — nunca duplique (ex.: "Rastreador", não "RastreadorRastreador").
+5. Dúvidas de plano, VIP, comercial ou benefícios → use LLM ou encaminhe ao setor Comercial; não use resposta técnica de rastreador/app.
+
 Dados a coletar antes de transferir: ${mustCollect.join(', ') || 'problema/dúvida'}.
-${skipKnown.length ? `Já temos no cadastro: ${skipKnown.join(', ')} — pule essas perguntas.\n` : ''}
+${skipKnown.length ? `Já temos no cadastro (não pergunte de novo): ${skipKnown.join(', ')}.\n` : ''}
+${contactCtx?.knownFields.name && contactCtx.name ? `Nome no cadastro (confirmar): ${contactCtx.name}.\n` : ''}
 Setores (departmentMenuKey):
 ${deptList || '(nenhum setor cadastrado)'}
 

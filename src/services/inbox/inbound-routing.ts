@@ -6,6 +6,8 @@ import {
 import { InboxConversationStatus } from '@/types/inbox';
 import {
   isNewServiceGreeting,
+  isTicketClientAcknowledgment,
+  wantsRejectTicket,
   parseTicketFollowUpChoice,
   parseTicketClientExit,
   parseTicketFinalize,
@@ -29,8 +31,25 @@ export interface TicketInboundRoutingInput {
   conversationStatus?: InboxConversationStatus;
   /** Menu de setores enviado recentemente ou conversa em bot_triage (histórico de mensagens). */
   inboxTriageActive?: boolean;
+  /** IA coletando / aguardando / escalada — ticket não captura ack solto. */
+  aiTriageActive?: boolean;
   inboxMenuChoice: string | null;
   now?: Date;
+}
+
+function isExplicitTicketMode(mode: TicketInboundMode | undefined): boolean {
+  return mode === 'ticket' || mode === 'awaiting_follow_up';
+}
+
+/** Inbox ou IA ao vivo — ticket só captura em modo explícito ou grace de complemento. */
+export function isInboxServiceCompeting(input: TicketInboundRoutingInput): boolean {
+  return Boolean(
+    input.inboxTriageActive ||
+      input.aiTriageActive ||
+      input.conversationStatus === InboxConversationStatus.BOT_TRIAGE ||
+      input.conversationStatus === InboxConversationStatus.WAITING_QUEUE ||
+      input.conversationStatus === InboxConversationStatus.IN_PROGRESS,
+  );
 }
 
 function withinClosedReplyWindow(expiresAt: Date | undefined, now: Date): boolean {
@@ -46,6 +65,7 @@ function graceActive(until: Date | undefined, now: Date): boolean {
 /** Cliente pediu explicitamente novo atendimento (texto ou menu ticket). */
 export function wantsNewInboundService(trimmed: string): boolean {
   if (!trimmed) return false;
+  if (wantsRejectTicket(trimmed)) return true;
   if (isNewServiceGreeting(trimmed)) return true;
   const norm = trimmed.trim().toLowerCase();
   if (norm === 'novo' || norm === 'novo atendimento') return true;
@@ -60,19 +80,74 @@ export function evaluateTicketInboundRouting(
   input: TicketInboundRoutingInput,
 ): TicketCaptureDecision {
   const now = input.now ?? new Date();
-  const within12h =
-    input.ticketStatus === 'closed' &&
-    withinClosedReplyWindow(input.clientReplyExpiresAt, now);
+  const within12h = withinClosedReplyWindow(input.clientReplyExpiresAt, now);
   const inOpenTicketContext =
     input.ticketStatus !== 'closed' && input.teamHasMessagedClient;
 
   if (input.ticketInboundMode === 'new_service') return 'release_inbox';
 
+  if (wantsRejectTicket(input.trimmed)) return 'release_inbox';
+
+  if (
+    isInboxServiceCompeting(input) &&
+    !isExplicitTicketMode(input.ticketInboundMode) &&
+    !graceActive(input.clientReplyGraceUntil, now)
+  ) {
+    return 'release_inbox';
+  }
+
+  if (inOpenTicketContext) {
+    if (wantsNewInboundService(input.trimmed)) return 'release_inbox';
+    if (
+      input.inboxMenuChoice &&
+      (input.inboxTriageActive ||
+        isMenuContextActive(
+          input.lastMenuContext,
+          input.lastMenuSentAt,
+          'inbox_triage',
+          INBOX_MENU_CONTEXT_TTL_MS,
+          now.getTime(),
+        ))
+    ) {
+      return 'release_inbox';
+    }
+    if (
+      input.clientReplyPaused &&
+      within12h &&
+      !wantsNewInboundService(input.trimmed)
+    ) {
+      const follow = parseTicketFollowUpChoice(input.trimmed);
+      if (follow === 'ticket' || parseTicketStatusRequest(input.trimmed)) {
+        return 'capture';
+      }
+      return 'defer_inbox';
+    }
+    if (parseTicketClientExit(input.trimmed) || parseTicketFinalize(input.trimmed)) {
+      return 'capture';
+    }
+    if (graceActive(input.clientReplyGraceUntil, now)) return 'capture';
+    if (isTicketClientAcknowledgment(input.trimmed)) return 'capture';
+    return 'capture';
+  }
+
+  if (within12h && graceActive(input.clientReplyGraceUntil, now)) {
+    return 'capture';
+  }
+
+  if (
+    within12h &&
+    isTicketClientAcknowledgment(input.trimmed) &&
+    !input.clientReplyPaused &&
+    !isInboxServiceCompeting(input)
+  ) {
+    return 'capture';
+  }
+
   if (input.conversationStatus === InboxConversationStatus.BOT_TRIAGE) {
     return 'release_inbox';
   }
 
-  if (input.inboxTriageActive) {
+  if (input.inboxTriageActive || input.aiTriageActive) {
     return 'release_inbox';
   }
 
@@ -143,15 +218,12 @@ export function evaluateTicketInboundRouting(
     if (within12h || inOpenTicketContext) return 'capture';
   }
 
-  if (inOpenTicketContext) {
-    if (input.inboxMenuChoice || wantsNewInboundService(input.trimmed)) {
-      return 'release_inbox';
-    }
-    return 'capture';
-  }
-
   if (within12h) {
     if (input.clientReplyPaused) {
+      const follow = parseTicketFollowUpChoice(input.trimmed);
+      if (follow === 'ticket' || parseTicketStatusRequest(input.trimmed)) {
+        return 'capture';
+      }
       return 'defer_inbox';
     }
     if (graceActive(input.clientReplyGraceUntil, now)) {

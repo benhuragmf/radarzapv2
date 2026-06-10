@@ -1,3 +1,4 @@
+import { AiAutoResolveService } from '../AiAutoResolveService';
 import { scoreAiTextMatch, AI_AUTO_RESOLVE_MIN_SCORE } from '@/utils/ai-text-match';
 
 /**
@@ -34,5 +35,21 @@ describe('AiAutoResolveService logic', () => {
 
   it('não resolve saudação genérica', () => {
     expect(bestKbMatch('oi')).toBeNull();
+  });
+
+  it('shouldAttemptAutoResolve bloqueia plano/VIP e confirmações curtas', () => {
+    const svc = AiAutoResolveService.getInstance();
+    expect(
+      svc.shouldAttemptAutoResolve('Preciso saber se meu plano dá acesso vip na sala de jogos'),
+    ).toBe(false);
+    expect(svc.shouldAttemptAutoResolve('Rastreador')).toBe(false);
+    expect(svc.shouldAttemptAutoResolve('é sim rastreador o nome', 'plano vip sala de jogos')).toBe(
+      false,
+    );
+    expect(svc.shouldAttemptAutoResolve('sim')).toBe(false);
+    expect(svc.shouldAttemptAutoResolve('s')).toBe(false);
+    expect(
+      svc.shouldAttemptAutoResolve('meu rastreador não conecta no aplicativo'),
+    ).toBe(true);
   });
 });

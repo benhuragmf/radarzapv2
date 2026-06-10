@@ -113,6 +113,16 @@ Configuração: **Atendimento → IA Atendimento** (`/platform/inbox/ia`).
 
 Na fase `bot_triage`, **somente se a IA estiver ativa**, ela cumprimenta, coleta dados configurados (nome, e-mail, problema, etc.), classifica setor, gera resumo interno e transfere para a fila quando as regras de escalação disparam.
 
+### Coleta de cadastro (nome + e-mail)
+
+| Campo | Regra |
+|-------|--------|
+| **Nome** | Mesmo constando no cadastro (`Destination.name`), a IA **confirma identidade** — *"Você é João?"* — antes de escalar (`nameConfirmed` em `AiConversationState`) |
+| **E-mail** | Pode ser pré-preenchido do cadastro se `skipKnownFields`; caso contrário pede ao cliente |
+| **Persistência** | Nome/e-mail confirmados atualizam `Destination` via `AiContextService.persistCollectedFields` |
+
+Helpers: `parseNameConfirmation`, `buildNameConfirmationPrompt`, `needsEmailCollection` — `src/services/ai/AiContextService.ts`. Escalação exige `nameConfirmed` quando `collectName` está ativo (`AiEscalationService`).
+
 ### Fallback para bot fixo (IA ativa mas indisponível)
 
 | Situação | Resultado |
@@ -155,7 +165,9 @@ Fluxo: `parseInboxMenuChoice` → `handleTriageReply` (fila) **ou** envia `build
 
 ## Tickets de acompanhamento (atendimento assíncrono)
 
-> **Documento canônico:** [TICKET-ATENDIMENTO.md](./TICKET-ATENDIMENTO.md) — conceito, janelas 12h/2h/30min, `sair`, roteamento e regra “ticket não sequestra inbox”.
+> **Documento canônico:** [TICKET-ATENDIMENTO.md](./TICKET-ATENDIMENTO.md) — conceito, `sair`, roteamento e regra “ticket não sequestra inbox”.
+
+> **Nomenclatura e prioridade (2.6.2):** ver [TICKET-ATENDIMENTO.md § Nomenclatura das janelas](./TICKET-ATENDIMENTO.md#nomenclatura-das-janelas-aliases) — **12 h retorno**, **2 h captura**, **30 min complemento**; `status` (painel) ≠ `ticketInboundMode` (roteamento WhatsApp). Ver também [§ Prioridade WhatsApp](./TICKET-ATENDIMENTO.md#prioridade-whatsapp-inbox--ticket) — triagem/IA ganham sobre ticket antigo salvo modo explícito (`ticket` / `awaiting_follow_up`) ou grace 30 min; ack curto mantém janela e não captura durante IA.
 
 Muitos problemas **não são resolvidos ao vivo** no WhatsApp. O fluxo típico:
 

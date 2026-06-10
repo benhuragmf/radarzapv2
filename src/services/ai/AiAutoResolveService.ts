@@ -20,13 +20,40 @@ export class AiAutoResolveService {
     return this.instance;
   }
 
+  /** Evita skill técnica de rastreador em dúvidas de plano/VIP/comercial. */
+  shouldAttemptAutoResolve(problemText: string, threadContext?: string): boolean {
+    const query = problemText.trim();
+    if (query.length < 12) return false;
+
+    const combined = `${threadContext ?? ''} ${query}`.toLowerCase();
+    if (
+      /\b(plano|vip|sala de jogos|contrat|acesso vip|comercial|benef[ií]cio|assinatura|pacote|nome do plano)\b/i.test(
+        combined,
+      )
+    ) {
+      return false;
+    }
+
+    if (/^(sim|nao|não|s|ss|ok|isso|confirmo|correto)$/i.test(query)) return false;
+
+    const techKeywords =
+      /\b(n[aã]o conecta|aplicativo|app|erro|instala[cç][aã]o|configurar|offline|equipamento|sinal|gps|cobran[cç]a|boleto|pagamento)\b/i;
+    if (query.length < 28 && !techKeywords.test(query)) return false;
+
+    return true;
+  }
+
   /**
    * Tenta resolver sem chamar LLM — economiza créditos.
    * Prioridade: skill aprovada > item da base de conhecimento.
    */
-  async tryResolve(clientId: string, problemText: string): Promise<AiAutoResolveResult> {
+  async tryResolve(
+    clientId: string,
+    problemText: string,
+    opts?: { threadContext?: string },
+  ): Promise<AiAutoResolveResult> {
     const query = problemText.trim();
-    if (query.length < 10) return { hit: false };
+    if (!this.shouldAttemptAutoResolve(query, opts?.threadContext)) return { hit: false };
 
     const financeHint =
       /\b(cobran[cç]a|boleto|pagamento|mensalidade|financeiro|inadimpl|devendo|cortou|bloqueou|corte)\b/i.test(

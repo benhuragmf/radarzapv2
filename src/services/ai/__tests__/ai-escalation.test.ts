@@ -54,10 +54,22 @@ describe('AiEscalationService', () => {
     const state = {
       ...baseState,
       collectedName: 'Maria',
+      nameConfirmed: true,
       collectedEmail: 'maria@test.com',
       collectedProblem: 'Pedido atrasado',
     } as IAiConversationState;
     expect(svc.hasMinData(state, basePrompt)).toBe(true);
+  });
+
+  it('não considera nome válido sem confirmação explícita', () => {
+    const state = {
+      ...baseState,
+      collectedName: 'Maria',
+      nameConfirmed: false,
+      collectedEmail: 'maria@test.com',
+      collectedProblem: 'Pedido atrasado',
+    } as IAiConversationState;
+    expect(svc.hasMinData(state, basePrompt)).toBe(false);
   });
 
   it('não escala só com nome e shouldEscalate do modelo', () => {
@@ -122,5 +134,49 @@ describe('AiEscalationService', () => {
   it('isCollectionOnlyTurn detecta nome curto', () => {
     expect(svc.isCollectionOnlyTurn('Benhur')).toBe(true);
     expect(svc.isCollectionOnlyTurn('quero cancelar meu pedido 12345')).toBe(false);
+  });
+
+  it('não escala em despedida ou agradecimento', () => {
+    const state = {
+      ...baseState,
+      aiTurnCount: 4,
+      collectedName: 'Benhur',
+      nameConfirmed: true,
+      collectedProblem: 'Erro timeout no cadastro Gmail',
+    } as IAiConversationState;
+    for (const text of [
+      'obrigado vou tentar verificar com minha internet',
+      'valeu',
+      'tchau',
+    ]) {
+      expect(svc.clientClosingConversation(text)).toBe(true);
+      expect(
+        svc.check({
+          clientText: text,
+          hasUninterpretableMedia: false,
+          state,
+          prompt: basePrompt,
+          rules: { ...DEFAULT_AI_TRANSFER_RULES, onMinDataCollected: true },
+        }).shouldEscalate,
+      ).toBe(false);
+    }
+  });
+
+  it('detecta recusa de "algo mais?"', () => {
+    expect(
+      svc.clientDeclinesMoreHelp(
+        'nao',
+        'Posso te ajudar com algo mais?',
+      ),
+    ).toBe(true);
+    expect(
+      svc.clientDeclinesMoreHelp(
+        'nao',
+        'O erro de timeout pode ser temporário. Posso te ajudar com algo mais?',
+      ),
+    ).toBe(true);
+    expect(
+      svc.clientDeclinesMoreHelp('nao', 'Isso resolveu sua dúvida?'),
+    ).toBe(false);
   });
 });

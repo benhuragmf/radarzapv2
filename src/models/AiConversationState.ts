@@ -6,6 +6,10 @@ export interface IAiConversationState extends Document {
   conversationId: mongoose.Types.ObjectId;
   status: AiConversationStatus;
   collectedName?: string;
+  /** Nome confirmado pelo cliente nesta conversa (≠ só cadastro). */
+  nameConfirmed?: boolean;
+  /** Nome no cadastro no início da conversa — para confirmação de identidade. */
+  registryNameSnapshot?: string;
   collectedEmail?: string;
   collectedProblem?: string;
   collectedCpfCnpj?: string;
@@ -34,6 +38,8 @@ const AiConversationStateSchema = new Schema<IAiConversationState>(
       default: AiConversationStatus.AI_COLLECTING,
     },
     collectedName: { type: String, maxlength: 200 },
+    nameConfirmed: { type: Boolean, default: false },
+    registryNameSnapshot: { type: String, maxlength: 200 },
     collectedEmail: { type: String, maxlength: 320 },
     collectedProblem: { type: String, maxlength: 4000 },
     collectedCpfCnpj: { type: String, maxlength: 20 },

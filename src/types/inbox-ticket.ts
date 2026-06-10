@@ -13,6 +13,16 @@ export function ticketIsActive(status: string): boolean {
   return status === 'open' || status === 'in_progress' || status === 'client_replied';
 }
 
+/** Confirmação curta do cliente durante janela de complemento do ticket. */
+export function isTicketClientAcknowledgment(text: string): boolean {
+  const norm = normalizeTicketText(text);
+  if (!norm || norm.length > 120) return false;
+  if (parseTicketClientExit(norm) || parseTicketFinalize(norm)) return false;
+  return /\b(ok|obrigad|valeu|positivo|certo|entendido|aguardo|perfeito|combinado|blz|beleza)\b/.test(
+    norm,
+  );
+}
+
 /** Cliente pediu para parar de responder neste ticket (≠ opt-out LGPD) */
 export const TICKET_CLIENT_EXIT_KEYWORD = 'sair';
 
@@ -113,6 +123,22 @@ export function parseTicketFinalize(text: string): boolean {
   return norm === 'finalizar' || norm === 'finaliza' || norm === 'encerrar';
 }
 
+/** Cliente recusou ticket/chamado e quer atendimento normal. */
+export function wantsRejectTicket(text: string): boolean {
+  const norm = normalizeTicketText(text);
+  if (!norm) return false;
+  const rejectPhrases = [
+    'nao quero ticket',
+    'nao quero chamado',
+    'sem ticket',
+    'sem chamado',
+    'nao quero tk',
+    'cancelar ticket',
+    'cancelar chamado',
+  ];
+  return rejectPhrases.some(p => norm === p || norm.includes(p));
+}
+
 /** Cumprimento genérico — indica novo atendimento, não complemento de ticket */
 export function isNewServiceGreeting(text: string): boolean {
   const norm = normalizeTicketText(text);
@@ -120,6 +146,7 @@ export function isNewServiceGreeting(text: string): boolean {
   const greetings = [
     'oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hello', 'hi', 'opa', 'eai', 'e ai',
     'novo atendimento', 'quero atendimento', 'preciso de ajuda', 'atendimento',
+    'pode me ajudar', 'voce pode me ajudar', 'me ajuda', 'ajuda',
   ];
-  return greetings.some(g => norm === g || norm.startsWith(`${g} `));
+  return greetings.some(g => norm === g || norm.startsWith(`${g} `) || norm.includes(g));
 }

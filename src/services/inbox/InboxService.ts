@@ -45,6 +45,7 @@ import {
   parseTicketClientExit,
   parseTicketFinalize,
   isNewServiceGreeting,
+  isTicketClientAcknowledgment,
   parseTicketFollowUpChoice,
   parseTicketStatusRequest,
   TICKET_CLIENT_EXIT_ACK,
@@ -58,6 +59,7 @@ import {
   TICKET_POST_CLOSE_REPLY_HOURS,
   normalizeTicketMenuKeyword,
   ticketIsActive,
+  type TicketInboundMode,
 } from '@/types/inbox-ticket';
 import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
 import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
@@ -817,8 +819,13 @@ export class InboxService {
   ): Promise<boolean> {
     const ticket = await this.findTicketForClientReply(clientId, destinationId);
     if (!ticket) return false;
-    if (ticket.status !== 'closed') return true;
-    return this.isWithinClosedReplyWindow(ticket);
+    if (ticket.status !== 'closed') {
+      return Boolean(
+        ticket.teamHasMessagedClient ||
+          (ticket.clientReplyExpiresAt && this.isWithinPostAckReplyWindow(ticket)),
+      );
+    }
+    return this.isWithinPostAckReplyWindow(ticket);
   }
 
   /** Processa resposta do cliente no contexto de ticket (antes do consent, evita "sair" = opt-out). */
@@ -839,12 +846,42 @@ export class InboxService {
     if (consentSvc.shouldDeferToConsentFlow(dest, trimmed)) return false;
 
     const destinationId = dest._id as mongoose.Types.ObjectId;
-    if (await this.inboxTriageContextActive(clientId, destinationId)) {
-      return false;
+
+    if (trimmed && parseCsatScore(trimmed)) {
+      const csatPending = await InboxConversation.exists({
+        clientId: new mongoose.Types.ObjectId(clientId),
+        destinationId,
+        csatPending: true,
+        status: InboxConversationStatus.CLOSED,
+      });
+      if (csatPending) return false;
     }
 
     const ticket = await this.findTicketForClientReply(clientId, destinationId);
-    if (!ticket) return false;
+    if (!ticket) {
+      if (await this.inboxTriageContextActive(clientId, destinationId)) return false;
+      return false;
+    }
+
+    const inGrace =
+      Boolean(ticket.clientReplyGraceUntil) &&
+      new Date() < new Date(ticket.clientReplyGraceUntil!) &&
+      !ticket.clientReplyPaused;
+
+    const inboxCompeting = await this.inboxServiceCompetingWithTicket(
+      clientId,
+      destinationId,
+      ticket.ticketInboundMode,
+    );
+    if (inboxCompeting && !inGrace) {
+      return false;
+    }
+
+    if (wantsNewInboundService(trimmed)) {
+      await this.releaseTicketsForInboxTriage(clientId, destinationId);
+      await this.releaseTicketToInbox(ticket);
+      return false;
+    }
 
     const displayBody =
       trimmed || (media ? INBOX_MEDIA_LABEL[media.mediaType] ?? 'Mídia recebida' : '');
@@ -852,10 +889,11 @@ export class InboxService {
 
     const inReplyWindow = this.canClientReplyToTicket(ticket);
 
-    if (
-      (parseTicketClientExit(trimmed) || parseTicketFinalize(trimmed)) &&
-      (inReplyWindow || ticket.teamHasMessagedClient || ticket.clientReplyExpiresAt)
-    ) {
+    if (parseTicketClientExit(trimmed) || parseTicketFinalize(trimmed)) {
+      if (ticket.clientReplyPaused) return true;
+      if (!(inReplyWindow || ticket.teamHasMessagedClient || ticket.clientReplyExpiresAt)) {
+        return false;
+      }
       ticket.clientReplyPaused = true;
       ticket.clientReplyGraceUntil = undefined;
       ticket.ticketInboundMode = undefined;
@@ -876,6 +914,17 @@ export class InboxService {
       return true;
     }
 
+    if (ticket.clientReplyPaused && this.isWithinPostAckReplyWindow(ticket)) {
+      const pausedHandled = await this.handleTicketPausedInbound(
+        clientId,
+        dest.identifier,
+        ticket,
+        trimmed,
+        media,
+      );
+      if (pausedHandled !== 'continue') return pausedHandled;
+    }
+
     const routing = await this.resolveTicketRouting(clientId, dest, ticket, trimmed);
     if (routing === 'release_inbox') return false;
 
@@ -889,35 +938,28 @@ export class InboxService {
       return handled;
     }
 
-    if (ticket.status === 'closed' && ticket.clientReplyPaused) {
-      const pausedHandled = await this.handleClosedTicketPausedInbound(
+    if (
+      !ticket.clientReplyPaused &&
+      this.isWithinPostAckReplyWindow(ticket) &&
+      this.isPastFollowUpMenuHours(ticket) &&
+      ticket.ticketInboundMode !== 'ticket'
+    ) {
+      const menuHandled = await this.handleTicketFollowUpMenu(
         clientId,
         dest.identifier,
         ticket,
         trimmed,
-        media,
       );
-      if (pausedHandled !== 'continue') return pausedHandled;
+      if (menuHandled !== false) return menuHandled;
     }
 
-    if (ticket.status === 'closed' && !ticket.clientReplyPaused && this.isWithinClosedReplyWindow(ticket)) {
-      if (this.isPastFollowUpMenuHours(ticket) && ticket.ticketInboundMode !== 'ticket') {
-        const menuHandled = await this.handleClosedTicketFollowUpMenu(
-          clientId,
-          dest.identifier,
-          ticket,
-          trimmed,
-        );
-        if (menuHandled !== false) return menuHandled;
-      }
-      if (ticket.ticketInboundMode === 'ticket' && parseTicketStatusRequest(trimmed)) {
-        await this.sendToContact(
-          clientId,
-          dest.identifier,
-          this.buildTicketQuickStatusReply(ticket),
-        );
-        return true;
-      }
+    if (ticket.ticketInboundMode === 'ticket' && parseTicketStatusRequest(trimmed)) {
+      await this.sendToContact(
+        clientId,
+        dest.identifier,
+        this.buildTicketQuickStatusReply(ticket),
+      );
+      return true;
     }
 
     if (!inReplyWindow) {
@@ -955,9 +997,23 @@ export class InboxService {
     return true;
   }
 
-  private isWithinClosedReplyWindow(ticket: IInboxTicket): boolean {
-    if (ticket.status !== 'closed' || !ticket.clientReplyExpiresAt) return false;
+  private isWithinPostAckReplyWindow(ticket: IInboxTicket): boolean {
+    if (!ticket.clientReplyExpiresAt) return false;
     return new Date() < new Date(ticket.clientReplyExpiresAt);
+  }
+
+  /** Equipe enviou ao cliente — abre/renova janela de 12 h e reinicia contagem de 2 h / 30 min. */
+  private renewTeamClientReplyWindow(
+    ticket: IInboxTicket,
+    ticketInboundMode: TicketInboundMode | undefined = 'ticket',
+  ): void {
+    const now = new Date();
+    ticket.clientReplyExpiresAt = new Date(
+      now.getTime() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000,
+    );
+    ticket.clientReplyWindowStartedAt = now;
+    ticket.clientReplyPaused = false;
+    ticket.ticketInboundMode = ticketInboundMode;
   }
 
   private isPastFollowUpMenuHours(ticket: IInboxTicket): boolean {
@@ -966,8 +1022,8 @@ export class InboxService {
     return Date.now() - new Date(start).getTime() >= TICKET_FOLLOW_UP_MENU_AFTER_MS;
   }
 
-  /** Cliente pausado (30 min ou sair) dentro das 12h — menu após 2h */
-  private async handleClosedTicketPausedInbound(
+  /** Cliente pausado (confirmação, 30 min ou sair) dentro das 12h — menu após 2h */
+  private async handleTicketPausedInbound(
     clientId: string,
     contactIdentifier: string,
     ticket: IInboxTicket,
@@ -1044,7 +1100,7 @@ export class InboxService {
   }
 
   /** Primeiro contato após 2h da janela — menu antes de capturar */
-  private async handleClosedTicketFollowUpMenu(
+  private async handleTicketFollowUpMenu(
     clientId: string,
     contactIdentifier: string,
     ticket: IInboxTicket,
@@ -1110,6 +1166,21 @@ export class InboxService {
     );
   }
 
+  private startTicketPostAckWindow(ticket: IInboxTicket, clientId: string): void {
+    ticket.clientReplyGraceUntil = undefined;
+    ticket.clientReplyPaused = true;
+    ticket.ticketInboundMode = undefined;
+    this.cancelClientReplyGrace(clientId, ticket.ticketRef);
+
+    if (this.isWithinPostAckReplyWindow(ticket)) return;
+
+    const now = new Date();
+    ticket.clientReplyExpiresAt = new Date(
+      now.getTime() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000,
+    );
+    ticket.clientReplyWindowStartedAt = now;
+  }
+
   private async recordTicketClientReply(
     clientId: string,
     contactIdentifier: string,
@@ -1117,18 +1188,10 @@ export class InboxService {
     displayBody: string,
     media?: InboxInboundPayload['media'],
   ): Promise<void> {
-    if (
-      await this.contactHasActiveInboxBotTriage(
-        clientId,
-        ticket.destinationId as mongoose.Types.ObjectId,
-      )
-    ) {
-      return;
-    }
-
     const wasInActiveGrace = Boolean(
       ticket.clientReplyGraceUntil && new Date() < new Date(ticket.clientReplyGraceUntil),
     );
+    const isAck = isTicketClientAcknowledgment(displayBody);
 
     ticket.clientReplies.push({
       body: displayBody,
@@ -1138,7 +1201,15 @@ export class InboxService {
     });
     ticket.lastClientReplyAt = new Date();
     ticket.unreadClientReply = true;
-    ticket.clientReplyGraceUntil = new Date(Date.now() + TICKET_CLIENT_REPLY_GRACE_MS);
+
+    if (isAck) {
+      this.startTicketPostAckWindow(ticket, clientId);
+    } else {
+      ticket.clientReplyGraceUntil = new Date(Date.now() + TICKET_CLIENT_REPLY_GRACE_MS);
+      ticket.clientReplyPaused = false;
+      ticket.ticketInboundMode = 'ticket';
+    }
+
     if (ticket.status !== 'closed') {
       ticket.status = 'client_replied';
     }
@@ -1147,7 +1218,7 @@ export class InboxService {
 
     const conv = await InboxConversation.findById(ticket.conversationId);
 
-    if (!wasInActiveGrace) {
+    if (!isAck && !wasInActiveGrace) {
       await this.sendToContact(clientId, contactIdentifier, TICKET_CLIENT_REPLY_GRACE_PROMPT);
       if (conv) {
         await InboxMessage.create({
@@ -1176,7 +1247,9 @@ export class InboxService {
       );
     }
 
-    this.scheduleClientReplyGrace(clientId, ticket);
+    if (!isAck) {
+      this.scheduleClientReplyGrace(clientId, ticket);
+    }
     await this.notifyClientRepliedToAssignee(clientId, ticket, displayBody);
     this.notifyTicketUpdated(clientId, ticket.ticketRef);
   }
@@ -1408,9 +1481,10 @@ export class InboxService {
   ): Promise<'capture' | 'release_inbox' | 'grace_menu'> {
     const inboxChoice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
     const destinationId = dest._id as mongoose.Types.ObjectId;
-    const [conversationStatus, inboxTriageActive] = await Promise.all([
+    const [conversationStatus, inboxTriageActive, aiTriageActive] = await Promise.all([
       this.getPrimaryOpenConversationStatus(clientId, destinationId),
       this.inboxTriageContextActive(clientId, destinationId),
+      this.contactHasActiveAiTriage(clientId, destinationId),
     ]);
     const decision = evaluateTicketInboundRouting({
       trimmed,
@@ -1424,20 +1498,26 @@ export class InboxService {
       lastMenuSentAt: dest.lastMenuSentAt,
       conversationStatus,
       inboxTriageActive,
+      aiTriageActive,
       inboxMenuChoice: inboxChoice,
     });
+
+    if (decision === 'defer_inbox') {
+      if (
+        ticket.clientReplyPaused &&
+        this.isWithinPostAckReplyWindow(ticket)
+      ) {
+        return 'release_inbox';
+      }
+      if (ticket.clientReplyPaused && ticket.status === 'closed') {
+        return 'grace_menu';
+      }
+      return 'release_inbox';
+    }
 
     if (decision === 'release_inbox') {
       await this.releaseTicketToInbox(ticket);
       return 'release_inbox';
-    }
-
-    if (
-      decision === 'defer_inbox' &&
-      ticket.clientReplyPaused &&
-      ticket.status === 'closed'
-    ) {
-      return 'grace_menu';
     }
 
     return decision === 'capture' ? 'capture' : 'release_inbox';
@@ -1572,7 +1652,8 @@ export class InboxService {
           this,
         );
         if (aiResult.handled) return;
-        forceStandardMenu = Boolean(aiResult.useStandardTriage);
+        if (!aiResult.useStandardTriage) return;
+        forceStandardMenu = true;
       }
 
       await this.handleStandardBotTriage(clientId, conversation, dest, trimmed, {
@@ -1740,6 +1821,51 @@ export class InboxService {
   ): Promise<boolean> {
     if (await this.contactHasActiveInboxBotTriage(clientId, destinationId)) return true;
     return this.contactRecentlyReceivedInboxTriageMenu(clientId, destinationId);
+  }
+
+  /** IA coletando, aguardando ou escalada — ack solto não vai para ticket antigo. */
+  private async contactHasActiveAiTriage(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<boolean> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const active = await InboxConversation.exists({
+      clientId: clientOid,
+      destinationId,
+      status: { $nin: [...TERMINAL_STATUSES] },
+      aiStatus: { $in: ['ai_collecting', 'ai_waiting_client', 'ai_escalated'] },
+    });
+    return Boolean(active);
+  }
+
+  /** Inbox/IA ao vivo compete com ticket — salvo modo explícito do chamado ou grace 30 min. */
+  private async inboxServiceCompetingWithTicket(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+    ticketInboundMode?: TicketInboundMode,
+  ): Promise<boolean> {
+    if (ticketInboundMode === 'ticket' || ticketInboundMode === 'awaiting_follow_up') {
+      return false;
+    }
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const conv = await InboxConversation.findOne({
+      clientId: clientOid,
+      destinationId,
+      status: { $nin: [...TERMINAL_STATUSES] },
+    })
+      .select('status aiStatus')
+      .sort({ lastMessageAt: -1 })
+      .lean();
+    if (!conv) return false;
+    if (
+      conv.status === InboxConversationStatus.BOT_TRIAGE ||
+      conv.status === InboxConversationStatus.WAITING_QUEUE ||
+      conv.status === InboxConversationStatus.IN_PROGRESS
+    ) {
+      return true;
+    }
+    if (await this.inboxTriageContextActive(clientId, destinationId)) return true;
+    return this.contactHasActiveAiTriage(clientId, destinationId);
   }
 
   private async resetConversationForBotTriage(conversation: IInboxConversation): Promise<void> {
@@ -2457,8 +2583,8 @@ export class InboxService {
     }
 
     ticket.teamHasMessagedClient = true;
-    ticket.clientReplyPaused = false;
     ticket.unreadClientReply = false;
+    this.renewTeamClientReplyWindow(ticket, 'ticket');
     this.clearClientReplyGraceState(ticket, clientId);
     await ticket.save();
 
@@ -3236,6 +3362,18 @@ export class InboxService {
     return applyQuickReplyTemplate(qr.template, contactName);
   }
 
+  /** Encerra conversa resolvida pela IA (sem mensagem de inatividade). */
+  async closeAiResolvedConversation(
+    clientId: string,
+    conv: IInboxConversation,
+  ): Promise<void> {
+    await this.closeConversationForInactivity(clientId, conv, {
+      reason: 'auto',
+      skipMessage: true,
+    });
+    await this.clearConversationAi(clientId, String(conv._id));
+  }
+
   /** Encerra conversa por inatividade (automático ou `/enc` do atendente). */
   async closeConversationForInactivity(
     clientId: string,
@@ -3314,6 +3452,16 @@ export class InboxService {
   ): Promise<boolean> {
     const score = parseCsatScore(text);
     if (!score) return false;
+
+    const destinationId = dest._id as mongoose.Types.ObjectId;
+    const openConversation = await InboxConversation.exists({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      destinationId,
+      status: { $nin: [...TERMINAL_STATUSES] },
+    });
+    if (openConversation) return false;
+
+    if (await this.inboxTriageContextActive(clientId, destinationId)) return false;
 
     const conv = await InboxConversation.findOne({
       clientId: new mongoose.Types.ObjectId(clientId),
@@ -3521,7 +3669,7 @@ export class InboxService {
       const clientMsg = this.buildTicketOpenedClientMessage(ticket, ctx, agentName);
 
       ticket.teamHasMessagedClient = true;
-      ticket.clientReplyPaused = false;
+      this.renewTeamClientReplyWindow(ticket, 'ticket');
       await ticket.save();
 
       await this.sendTicketMessageToClient(clientId, userId, ticket, clientMsg);

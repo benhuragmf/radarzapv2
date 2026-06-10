@@ -13,7 +13,8 @@ import { AiPromptBuilderService } from './AiPromptBuilderService';
 import { AiProviderService } from './AiProviderService';
 import { AiEscalationService } from './AiEscalationService';
 import { AiUsageMeterService } from './AiUsageMeterService';
-import { AiContextService } from './AiContextService';
+import { AiContextService, type AiContactContext } from './AiContextService';
+import type { IAiPrompt } from '@/models/AiPrompt';
 import { AiAutoResolveService } from './AiAutoResolveService';
 import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
@@ -148,6 +149,11 @@ export class AiConversationService {
       return { handled: true };
     }
 
+    const expandedText = this.expandShortClientReply(ctx.text);
+    if (expandedText !== ctx.text.trim()) {
+      ctx = { ...ctx, text: expandedText };
+    }
+
     const normalized = AiEscalationService.getInstance().normalizeForRepeatCheck(ctx.text);
     if (state.lastClientMessage && normalized === state.lastClientMessage) {
       state.repeatedQuestionCount += 1;
@@ -156,8 +162,38 @@ export class AiConversationService {
       state.lastClientMessage = normalized;
     }
 
-    if (prompt.autoResolveEnabled && this.textLooksLikeProblemDescription(ctx.text)) {
-      const auto = await AiAutoResolveService.getInstance().tryResolve(ctx.clientId, ctx.text);
+    const ctxSvc = AiContextService.getInstance();
+    const contactCtxForCollection =
+      contactCtx ?? { tags: [], knownFields: { name: false, email: false }, recentTickets: [] };
+
+    if (await this.ensureNameConfirmed(ctx, inbox, state, prompt, contactCtxForCollection, ctxSvc)) {
+      return { handled: true };
+    }
+
+    const emailGate = await this.ensureEmailCollected(
+      ctx,
+      inbox,
+      state,
+      prompt,
+      contactCtxForCollection,
+      ctxSvc,
+    );
+    if (emailGate === true) {
+      return { handled: true };
+    }
+    if (emailGate === 'resume_problem' && state.collectedProblem?.trim()) {
+      ctx = { ...ctx, text: state.collectedProblem.trim() };
+    }
+
+    const autoResolveSvc = AiAutoResolveService.getInstance();
+    const threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
+    if (
+      prompt.autoResolveEnabled &&
+      state.nameConfirmed &&
+      this.textLooksLikeProblemDescription(ctx.text) &&
+      autoResolveSvc.shouldAttemptAutoResolve(ctx.text, threadContext)
+    ) {
+      const auto = await autoResolveSvc.tryResolve(ctx.clientId, ctx.text, { threadContext });
       if (auto.hit && auto.reply) {
         this.mergeCollected(state, {}, ctx.text);
         state.collectedProblem = ctx.text.trim();
@@ -190,6 +226,24 @@ export class AiConversationService {
     const lastAssistantBefore = [...history].reverse().find(m => m.role === 'assistant');
 
     if (
+      state.status === AiConversationStatus.AI_COMPLETED &&
+      escSvc.clientClosingConversation(ctx.text)
+    ) {
+      await this.completeAiConversation(ctx, inbox, state, 'farewell');
+      return { handled: true };
+    }
+
+    if (escSvc.clientClosingConversation(ctx.text)) {
+      await this.completeAiConversation(ctx, inbox, state, 'farewell');
+      return { handled: true };
+    }
+
+    if (escSvc.clientDeclinesMoreHelp(ctx.text, lastAssistantBefore?.content)) {
+      await this.completeAiConversation(ctx, inbox, state, 'declined_more');
+      return { handled: true };
+    }
+
+    if (
       settings.transferRules.onHumanRequest &&
       escSvc.isWaitingForPromisedHandoff(ctx.text, lastAssistantBefore?.content)
     ) {
@@ -211,70 +265,70 @@ export class AiConversationService {
       return { handled: true };
     }
 
+    if (this.textLooksLikeProblemDescription(ctx.text)) {
+      state.collectedProblem = ctx.text.trim();
+      await state.save();
+    }
+
     const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(
       ctx.clientId,
       { contactContext: contactCtx, clientText: ctx.text },
     );
 
-    let completion;
-    try {
-      completion = await AiProviderService.getInstance().complete(
-        ctx.clientId,
-        settings,
-        [
-          { role: 'system', content: systemPrompt },
-          ...history,
-          { role: 'user', content: ctx.text },
-        ],
-        String(ctx.conversation._id),
-      );
-    } catch (e) {
-      const reason = (e as Error).message;
-      logger.warn('IA falhou — liberando bot padrão (menu de setores)', {
-        clientId: ctx.clientId,
-        conversationId: ctx.conversation._id,
-        reason,
-      });
+    const llmMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt },
+      ...history,
+      { role: 'user', content: ctx.text },
+    ];
 
-      await AiConversationState.findOneAndUpdate(
-        {
+    let completion: Awaited<ReturnType<AiProviderService['complete']>> | undefined;
+    let llmError: string | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        completion = await AiProviderService.getInstance().complete(
+          ctx.clientId,
+          settings,
+          llmMessages,
+          String(ctx.conversation._id),
+        );
+        llmError = undefined;
+        break;
+      } catch (e) {
+        llmError = (e as Error).message;
+        logger.warn('IA falhou na chamada ao provedor', {
+          clientId: ctx.clientId,
           conversationId: ctx.conversation._id,
-          status: {
-            $nin: [
-              AiConversationStatus.AI_FALLBACK_STANDARD,
-              AiConversationStatus.AI_ESCALATED,
-              AiConversationStatus.HUMAN_ASSIGNED,
-            ],
-          },
-        },
-        {
-          $set: {
-            status: AiConversationStatus.AI_FALLBACK_STANDARD,
-            shouldEscalate: false,
-            escalationReason: reason,
-          },
-        },
-      );
-      await inbox.setConversationAiStatus(
-        ctx.clientId,
-        String(ctx.conversation._id),
-        'ai_fallback_standard',
-        new Date(Date.now() + AI_FALLBACK_TTL_MS),
-      );
-      return { handled: false, useStandardTriage: true };
+          reason: llmError,
+          attempt: attempt + 1,
+        });
+        if (attempt === 0 && this.isTransientAiError(llmError)) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          continue;
+        }
+        break;
+      }
+    }
+
+    if (!completion) {
+      return this.recoverFromAiFailure(ctx, inbox, state, prompt, llmError ?? 'IA indisponível');
     }
 
     const { structured } = completion;
     const providerSvc = AiProviderService.getInstance();
 
     if (providerSvc.isUnusableClientReply(structured)) {
-      logger.warn('IA retornou resposta inválida — bot padrão', {
+      logger.warn('IA retornou resposta inválida — tentando recuperação', {
         clientId: ctx.clientId,
         conversationId: ctx.conversation._id,
         parseFailed: structured.parseFailed,
       });
-      await this.releaseToStandardTriage(state, 'Resposta da IA inválida ou vazia', inbox);
-      return { handled: false, useStandardTriage: true };
+      return this.recoverFromAiFailure(
+        ctx,
+        inbox,
+        state,
+        prompt,
+        structured.parseFailed ? 'JSON inválido' : 'Resposta vazia',
+      );
     }
 
     const lastAssistant = [...history].reverse().find(m => m.role === 'assistant');
@@ -282,11 +336,14 @@ export class AiConversationService {
       lastAssistant?.content.trim() === AI_GENERIC_FALLBACK_REPLY &&
       structured.reply.trim() === AI_GENERIC_FALLBACK_REPLY
     ) {
-      await this.releaseToStandardTriage(state, 'IA repetindo resposta genérica', inbox);
-      return { handled: false, useStandardTriage: true };
+      return this.recoverFromAiFailure(ctx, inbox, state, prompt, 'Resposta genérica repetida');
     }
 
     this.mergeCollected(state, structured, ctx.text);
+    await ctxSvc.persistCollectedFields(ctx.dest, {
+      name: state.nameConfirmed ? state.collectedName : undefined,
+      email: state.collectedEmail,
+    });
     state.confidence = structured.confidence;
     state.aiTurnCount += 1;
     if (structured.internalSummary) state.summary = structured.internalSummary;
@@ -327,6 +384,14 @@ export class AiConversationService {
       structured.reply,
     );
 
+    if (
+      escalation.shouldEscalate &&
+      (escSvc.clientClosingConversation(ctx.text) ||
+        escSvc.clientDeclinesMoreHelp(ctx.text, lastAssistantBefore?.content))
+    ) {
+      escalation = { shouldEscalate: false };
+    }
+
     if (escalation.shouldEscalate) {
       logger.info('IA escalonando conversa', {
         clientId: ctx.clientId,
@@ -356,6 +421,122 @@ export class AiConversationService {
       'ai_waiting_client',
     );
     return { handled: true };
+  }
+
+  private isTransientAiError(message: string): boolean {
+    return /high demand|quota exceeded|rate.?limit|429|resource.?exhausted|overloaded|try again|unavailable|please retry|timeout|timed out|fetch failed|econnreset|503|502/i.test(
+      message,
+    );
+  }
+
+  private expandShortClientReply(text: string): string {
+    const norm = text
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '');
+    if (/^(s|ss)$/.test(norm)) return 'sim';
+    return text.trim();
+  }
+
+  private async tryAutoResolveAndReply(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+  ): Promise<boolean> {
+    const autoResolveSvc = AiAutoResolveService.getInstance();
+    const threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
+    if (
+      !this.textLooksLikeProblemDescription(ctx.text) ||
+      !autoResolveSvc.shouldAttemptAutoResolve(ctx.text, threadContext)
+    ) {
+      return false;
+    }
+    const auto = await autoResolveSvc.tryResolve(ctx.clientId, ctx.text, { threadContext });
+    if (!auto.hit || !auto.reply) return false;
+
+    state.collectedProblem = ctx.text.trim();
+    state.aiTurnCount += 1;
+    state.confidence = 0.85;
+    state.summary = `Resolvido via ${auto.source}: ${auto.sourceTitle ?? ''}`.trim();
+
+    const autoReply = `${auto.reply}\n\nIsso resolveu sua dúvida? Se precisar de mais ajuda, descreva ou digite *atendente*.`;
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, autoReply);
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    return true;
+  }
+
+  /** Falha do Gemini/OpenAI — mantém IA ativa (não joga no menu de setores). */
+  private async recoverFromAiFailure(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    prompt: IAiPrompt,
+    reason: string,
+  ): Promise<AiInboundResult> {
+    logger.warn('IA em recuperação — sem menu de setores', {
+      clientId: ctx.clientId,
+      conversationId: ctx.conversation._id,
+      reason,
+    });
+
+    if (prompt.autoResolveEnabled && (await this.tryAutoResolveAndReply(ctx, inbox, state))) {
+      return { handled: true };
+    }
+
+    const first = state.collectedName?.trim().split(/\s+/)[0];
+    const reply = first
+      ? `${first}, tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para falar com nossa equipe.`
+      : 'Tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para nossa equipe.';
+
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reply);
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    state.shouldEscalate = false;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    return { handled: true };
+  }
+
+  private async completeAiConversation(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    kind: 'farewell' | 'declined_more',
+  ): Promise<void> {
+    const firstName = state.collectedName?.trim().split(/\s+/)[0];
+    const reply =
+      kind === 'farewell'
+        ? firstName
+          ? `De nada, ${firstName}! Qualquer dúvida, é só chamar. Tenha um ótimo dia!`
+          : 'De nada! Qualquer dúvida, é só chamar. Tenha um ótimo dia!'
+        : 'Entendido! Se precisar de mais alguma coisa, é só me chamar.';
+
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reply);
+    state.status = AiConversationStatus.AI_COMPLETED;
+    state.shouldEscalate = false;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_completed',
+    );
+
+    if (kind === 'farewell') {
+      await inbox.closeAiResolvedConversation(ctx.clientId, ctx.conversation);
+    }
   }
 
   private async releaseToStandardTriage(
@@ -464,8 +645,10 @@ export class AiConversationService {
 
     if (structured.collectedName?.trim() && this.textLooksLikeName(text)) {
       state.collectedName = structured.collectedName.trim();
+      state.nameConfirmed = true;
     } else if (this.textLooksLikeName(text)) {
       state.collectedName = text;
+      state.nameConfirmed = true;
     }
 
     if (emailInText) {
@@ -496,6 +679,93 @@ export class AiConversationService {
     if (structured.internalSummary) state.summary = structured.internalSummary;
   }
 
+  private async ensureNameConfirmed(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    prompt: IAiPrompt,
+    contactCtx: AiContactContext,
+    ctxSvc: AiContextService,
+  ): Promise<boolean> {
+    if (!prompt.collectName || state.nameConfirmed) return false;
+
+    const registry = state.registryNameSnapshot ?? contactCtx.name;
+    const parsed = ctxSvc.parseNameConfirmation(ctx.text, registry);
+
+    if (parsed.denied) {
+      state.registryNameSnapshot = undefined;
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        'Sem problemas! Qual é o seu *nome completo*?',
+      );
+      await state.save();
+      return true;
+    }
+
+    if (parsed.confirmed && parsed.name) {
+      state.collectedName = parsed.name;
+      state.nameConfirmed = true;
+      await ctxSvc.persistCollectedFields(ctx.dest, { name: parsed.name });
+      const first = parsed.name.split(/\s+/)[0];
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        `Obrigado, ${first}! Como posso ajudar você hoje?`,
+      );
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      return true;
+    }
+
+    await inbox.sendAiReply(
+      ctx.clientId,
+      ctx.conversation,
+      ctx.dest.identifier,
+      ctxSvc.buildNameConfirmationPrompt(registry),
+    );
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    return true;
+  }
+
+  private async ensureEmailCollected(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    prompt: IAiPrompt,
+    contactCtx: AiContactContext,
+    ctxSvc: AiContextService,
+  ): Promise<boolean | 'resume_problem'> {
+    if (!state.nameConfirmed) return false;
+    if (!ctxSvc.needsEmailCollection(state, contactCtx, prompt)) return false;
+
+    const email = ctxSvc.emailInText(ctx.text);
+    if (email) {
+      state.collectedEmail = email;
+      await ctxSvc.persistCollectedFields(ctx.dest, { email });
+      await state.save();
+      if (state.collectedProblem?.trim()) return 'resume_problem';
+      return false;
+    }
+
+    if (this.textLooksLikeProblemDescription(ctx.text)) {
+      state.collectedProblem = ctx.text.trim();
+    }
+
+    await inbox.sendAiReply(
+      ctx.clientId,
+      ctx.conversation,
+      ctx.dest.identifier,
+      ctxSvc.buildEmailCollectionPrompt(state.collectedName),
+    );
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    return true;
+  }
+
   private textLooksLikeName(text: string): boolean {
     const t = text.trim();
     if (!t || t.includes('@') || /\d/.test(t)) return false;
@@ -508,8 +778,13 @@ export class AiConversationService {
     const t = text.trim();
     if (!t || t.includes('@')) return false;
     if (this.textLooksLikeName(t)) return false;
-    if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|preciso de ajuda)$/i.test(t)) return false;
-    return t.length >= 10 || t.split(/\s+/).length >= 3;
+    if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|preciso de ajuda|sim|nao|não|s|ss|ok)$/i.test(t)) {
+      return false;
+    }
+    if (/\b(plano|vip|sala de jogos|contrat|acesso|comercial|benef[ií]cio)\b/i.test(t)) return true;
+    if (/\b(problema|erro|ajuda|n[aã]o conecta|n[aã]o funciona|instala)/i.test(t)) return true;
+    const words = t.split(/\s+/).filter(Boolean);
+    return words.length >= 3 && t.length >= 12;
   }
 
   private async escalate(

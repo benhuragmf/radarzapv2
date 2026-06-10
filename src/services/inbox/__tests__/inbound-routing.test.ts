@@ -2,6 +2,7 @@ import { InboxConversationStatus } from '@/types/inbox';
 import { INBOX_MENU_CONTEXT_TTL_MS } from '@/types/inbox-menu-context';
 import {
   evaluateTicketInboundRouting,
+  isInboxServiceCompeting,
   parseTicketGraceExpiredChoice,
   wantsNewInboundService,
 } from '@/services/inbox/inbound-routing';
@@ -153,7 +154,7 @@ describe('inbound-routing', () => {
     ).toBe('release_inbox');
   });
 
-  it('cliente pausado após grace defer para menu', () => {
+  it('cliente pausado na janela de 12h libera inbox sem capturar no ticket', () => {
     expect(
       evaluateTicketInboundRouting(
         baseInput({
@@ -162,6 +163,36 @@ describe('inbound-routing', () => {
         }),
       ),
     ).toBe('defer_inbox');
+  });
+
+  it('ticket aberto pausado após positivo libera inbox para texto solto', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({
+          trimmed: 'quero saber do frete',
+          ticketStatus: 'client_replied',
+          clientReplyPaused: true,
+          clientReplyExpiresAt: new Date(now.getTime() + 6 * 60 * 60 * 1000),
+        }),
+      ),
+    ).toBe('defer_inbox');
+  });
+
+  it('não quero ticket libera inbox', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({ trimmed: 'não quero ticket' }),
+      ),
+    ).toBe('release_inbox');
+    expect(wantsNewInboundService('não quero ticket')).toBe(true);
+  });
+
+  it('você pode me ajudar libera inbox', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({ trimmed: 'você pode me ajudar?' }),
+      ),
+    ).toBe('release_inbox');
   });
 
   it('menu grace expirado: 1 novo atendimento', () => {
@@ -193,6 +224,25 @@ describe('inbound-routing', () => {
     ).toBe('capture');
   });
 
+  it('ticket aberto captura positivo/obrigado mesmo com bot_triage', () => {
+    for (const msg of [
+      'Positivo',
+      'Ok muito obrigado estarei no aguardo',
+    ]) {
+      expect(
+        evaluateTicketInboundRouting(
+          baseInput({
+            trimmed: msg,
+            ticketStatus: 'in_progress',
+            conversationStatus: InboxConversationStatus.BOT_TRIAGE,
+            inboxTriageActive: true,
+            clientReplyGraceUntil: new Date(now.getTime() + 20 * 60 * 1000),
+          }),
+        ),
+      ).toBe('capture');
+    }
+  });
+
   it('ticket aberto com escolha de setor libera inbox', () => {
     expect(
       evaluateTicketInboundRouting(
@@ -201,8 +251,82 @@ describe('inbound-routing', () => {
           ticketStatus: 'open',
           inboxMenuChoice: '3',
           teamHasMessagedClient: true,
+          inboxTriageActive: true,
         }),
       ),
     ).toBe('release_inbox');
+  });
+
+  it('ok durante IA/bot_triage não captura ticket antigo sem grace', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({
+          trimmed: 'ok',
+          ticketStatus: 'client_replied',
+          teamHasMessagedClient: true,
+          conversationStatus: InboxConversationStatus.BOT_TRIAGE,
+          aiTriageActive: true,
+        }),
+      ),
+    ).toBe('release_inbox');
+  });
+
+  it('ok na fila humana não captura ticket antigo', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({
+          trimmed: 'ok',
+          ticketStatus: 'closed',
+          clientReplyPaused: true,
+          conversationStatus: InboxConversationStatus.WAITING_QUEUE,
+          aiTriageActive: true,
+        }),
+      ),
+    ).toBe('release_inbox');
+  });
+
+  it('ok após atualização da equipe captura com ticketInboundMode ticket', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({
+          trimmed: 'ok',
+          ticketStatus: 'in_progress',
+          ticketInboundMode: 'ticket',
+          clientReplyExpiresAt: new Date(now.getTime() + 10 * 60 * 60 * 1000),
+          conversationStatus: InboxConversationStatus.BOT_TRIAGE,
+          aiTriageActive: true,
+        }),
+      ),
+    ).toBe('capture');
+  });
+
+  it('isInboxServiceCompeting detecta IA/bot ativos', () => {
+    expect(
+      isInboxServiceCompeting(
+        baseInput({
+          aiTriageActive: true,
+          conversationStatus: InboxConversationStatus.BOT_TRIAGE,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isInboxServiceCompeting(
+        baseInput({
+          ticketInboundMode: 'ticket',
+          aiTriageActive: true,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('ticket pausado: ok não captura pelo ack solto', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({
+          trimmed: 'ok',
+          clientReplyPaused: true,
+        }),
+      ),
+    ).toBe('defer_inbox');
   });
 });

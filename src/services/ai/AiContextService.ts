@@ -63,19 +63,17 @@ export class AiContextService {
     };
   }
 
-  /** Preenche estado da conversa com dados já existentes no cadastro. */
+  /** Referência do cadastro no estado — nome exige confirmação explícita do cliente. */
   seedStateFromContact(
     state: IAiConversationState,
     ctx: AiContactContext,
     prompt: IAiPrompt,
   ): void {
-    if (!prompt.skipKnownFields) return;
-
-    if (prompt.collectName && ctx.knownFields.name && ctx.name && !state.collectedName) {
-      state.collectedName = ctx.name;
+    if (prompt.collectName && ctx.knownFields.name && ctx.name && !state.registryNameSnapshot) {
+      state.registryNameSnapshot = ctx.name;
     }
-    if (prompt.collectEmail && ctx.knownFields.email && ctx.email && !state.collectedEmail) {
-      state.collectedEmail = ctx.email;
+    if (!prompt.skipKnownFields && prompt.collectEmail && ctx.knownFields.email && ctx.email) {
+      if (!state.collectedEmail) state.collectedEmail = ctx.email;
     }
   }
 
@@ -98,17 +96,124 @@ export class AiContextService {
       );
     }
     lines.push(
-      'Regras: use USER para personalizar; não pergunte nome/e-mail se já existirem; não exponha dados sensíveis.',
+      'Regras: use USER para personalizar; confirme o nome com o cliente mesmo se constar no cadastro; peça e-mail se faltar; não exponha dados sensíveis.',
     );
     return lines.join('\n');
   }
 
-  /** Lista campos que NÃO precisa pedir ao cliente. */
+  /** Lista campos que NÃO precisa pedir ao cliente (nome nunca entra — exige confirmação). */
   fieldsAlreadyKnown(ctx: AiContactContext, prompt: IAiPrompt): string[] {
     if (!prompt.skipKnownFields) return [];
     const skip: string[] = [];
-    if (prompt.collectName && ctx.knownFields.name) skip.push('nome');
     if (prompt.collectEmail && ctx.knownFields.email) skip.push('e-mail');
     return skip;
+  }
+
+  buildNameConfirmationPrompt(registryName?: string): string {
+    if (registryName?.trim()) {
+      const first = registryName.trim().split(/\s+/)[0];
+      return `Para confirmar que estou falando com a pessoa certa, você é *${first}*? Responda *sim* ou informe seu nome.`;
+    }
+    return 'Para começar, qual é o seu *nome completo*?';
+  }
+
+  buildEmailCollectionPrompt(name?: string): string {
+    const first = name?.trim().split(/\s+/)[0];
+    return first
+      ? `Obrigado, ${first}! Para registrar seu atendimento, qual é o seu *e-mail*?`
+      : 'Para registrar seu atendimento, qual é o seu *e-mail*?';
+  }
+
+  parseNameConfirmation(
+    text: string,
+    registryName?: string,
+  ): { confirmed: boolean; name?: string; denied?: boolean } {
+    const norm = this.normalizeFieldText(text);
+    if (!norm) return { confirmed: false };
+
+    if (/^(nao|nao sou|outra pessoa|pessoa errada|errado)$/.test(norm)) {
+      return { confirmed: false, denied: true };
+    }
+
+    if (registryName && this.nameMatchesRegistry(norm, registryName)) {
+      return { confirmed: true, name: registryName.trim() };
+    }
+
+    if (
+      registryName?.trim() &&
+      /^(sim|sou eu|isso|confirmo|eu mesmo|essa mesma|correto|isso mesmo|sou)$/.test(norm)
+    ) {
+      return { confirmed: true, name: registryName.trim() };
+    }
+
+    const nameFromPhrase = text
+      .trim()
+      .match(/^(?:meu nome é|me chamo|sou o|sou a)\s+(.+?)(?:\s+atualize|\s+por favor)?$/i);
+    if (nameFromPhrase?.[1] && this.textLooksLikePersonName(nameFromPhrase[1])) {
+      return { confirmed: true, name: nameFromPhrase[1].trim() };
+    }
+
+    if (this.textLooksLikePersonName(text)) {
+      return { confirmed: true, name: text.trim() };
+    }
+
+    return { confirmed: false };
+  }
+
+  emailInText(text: string): string | undefined {
+    return text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase();
+  }
+
+  needsEmailCollection(
+    state: IAiConversationState,
+    ctx: AiContactContext,
+    prompt: IAiPrompt,
+  ): boolean {
+    if (!prompt.collectEmail) return false;
+    if (state.collectedEmail?.includes('@')) return false;
+    if (prompt.skipKnownFields && ctx.knownFields.email) return false;
+    return true;
+  }
+
+  async persistCollectedFields(
+    dest: IDestination,
+    fields: { name?: string; email?: string },
+  ): Promise<void> {
+    let changed = false;
+    if (fields.name?.trim() && fields.name.trim() !== dest.name) {
+      dest.name = fields.name.trim();
+      changed = true;
+    }
+    if (fields.email?.trim() && fields.email.includes('@') && fields.email !== dest.email) {
+      dest.email = fields.email.trim().toLowerCase();
+      changed = true;
+    }
+    if (changed) await dest.save();
+  }
+
+  private nameMatchesRegistry(norm: string, registryName: string): boolean {
+    const regNorm = this.normalizeFieldText(registryName);
+    if (!regNorm) return false;
+    if (norm === regNorm) return true;
+    const first = regNorm.split(/\s+/)[0];
+    return norm === first || norm.includes(first);
+  }
+
+  private textLooksLikePersonName(text: string): boolean {
+    const t = text.trim();
+    if (!t || t.includes('@') || /\d/.test(t)) return false;
+    if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|sim|nao|não)$/i.test(t)) return false;
+    const words = t.split(/\s+/).filter(Boolean);
+    return words.length <= 4 && t.length <= 60;
+  }
+
+  private normalizeFieldText(text: string): string {
+    return text
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[!?.]+$/g, '')
+      .trim();
   }
 }
