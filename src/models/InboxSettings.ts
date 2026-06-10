@@ -33,6 +33,7 @@ export interface IInboxSettings extends Document {
   inactivityCloseMinutes: number;
   inactivityWarningMinutes: number;
   queueSlaAlertMinutes: number;
+  ticketTeamResponseHours: number;
   csatEnabled: boolean;
   csatPrompt: string;
   csatThankYou: string;
@@ -99,6 +100,12 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       default: DEFAULT_INBOX_SLA.queueSlaAlertMinutes,
       min: 0,
       max: 1440,
+    },
+    ticketTeamResponseHours: {
+      type: Number,
+      default: DEFAULT_INBOX_SLA.ticketTeamResponseHours,
+      min: 0,
+      max: 168,
     },
     csatEnabled: { type: Boolean, default: false },
     csatPrompt: { type: String, default: DEFAULT_CSAT_PROMPT, maxlength: 500 },

@@ -20,7 +20,14 @@ import { AiAutoResolveService } from './AiAutoResolveService';
 import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
+import { AiTicketAssistService } from './AiTicketAssistService';
 import type { InboxService } from '@/services/inbox/InboxService';
+import { listClientFacingTickets } from '@/services/inbox/client-ticket-list';
+import {
+  classifyTicketClientIntent,
+  ticketIntentBlocksAppend,
+  ticketIntentNeedsAssist,
+} from '@/utils/ticket-client-intent';
 import {
   buildAiTicketChoiceMenu,
   clientWantsTicketInteraction,
@@ -29,7 +36,9 @@ import {
   looksLikeTicketSupplement,
   parseAiTicketMenuChoice,
   parseTicketRefFromText,
+  isTicketClientDecline,
 } from '@/utils/ticket-ref';
+import { parseTicketStatusRequest } from '@/types/inbox-ticket';
 import { logger } from '@/utils/logger';
 
 export interface AiInboundResult {
@@ -201,9 +210,12 @@ export class AiConversationService {
         ctx,
         inbox,
         state,
-        contactCtxForCollection.recentTickets,
       )
     ) {
+      return { handled: true };
+    }
+
+    if (await this.tryHandleTicketClientIntent(ctx, inbox, state)) {
       return { handled: true };
     }
 
@@ -252,8 +264,16 @@ export class AiConversationService {
       lastAssistantBefore?.content,
     );
 
+    const ticketIntent =
+      state.targetTicketRef || isTicketUpdateContext(state, ctx.text, lastAssistantBefore?.content)
+        ? classifyTicketClientIntent(ctx.text)
+        : undefined;
+
     if (
       ticketUpdateCtx &&
+      !ticketIntentBlocksAppend(ticketIntent ?? 'other') &&
+      !parseTicketStatusRequest(ctx.text) &&
+      !isTicketClientDecline(ctx.text) &&
       looksLikeTicketSupplement(ctx.text) &&
       !isTicketRefOnlyMessage(ctx.text)
     ) {
@@ -298,6 +318,35 @@ export class AiConversationService {
       return { handled: true };
     }
 
+    if (
+      ticketUpdateCtx &&
+      (escSvc.clientClosingConversation(ctx.text) || isTicketClientDecline(ctx.text))
+    ) {
+      if (await this.tryHandleTicketClientIntent(ctx, inbox, state)) {
+        return { handled: true };
+      }
+      state.targetTicketRef = undefined;
+      state.pendingTicketChoices = undefined;
+      const first = state.collectedName?.trim().split(/\s+/)[0];
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        first
+          ? `Entendido, ${first}! Se precisar de algo, é só chamar.`
+          : 'Entendido! Se precisar de algo, é só chamar.',
+      );
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return { handled: true };
+    }
+
     if (escSvc.clientDeclinesMoreHelp(ctx.text, lastAssistantBefore?.content)) {
       await this.completeAiConversation(ctx, inbox, state, 'declined_more');
       return { handled: true };
@@ -330,17 +379,30 @@ export class AiConversationService {
       await state.save();
     }
 
-    const ticketSavedEarly = await this.tryTicketUpdateFromClient(
-      ctx,
-      state,
-      {},
-      inbox,
-      lastAssistantBefore?.content,
-    );
+    const ticketSavedEarly =
+      !ticketIntentBlocksAppend(ticketIntent ?? 'other') &&
+      !parseTicketStatusRequest(ctx.text) &&
+      !isTicketClientDecline(ctx.text) &&
+      (await this.tryTicketUpdateFromClient(
+        ctx,
+        state,
+        {},
+        inbox,
+        lastAssistantBefore?.content,
+      ));
+
+    const ticketBrief = state.targetTicketRef
+      ? await inbox.getTicketBriefForAssist(ctx.clientId, state.targetTicketRef)
+      : undefined;
 
     const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(
       ctx.clientId,
-      { contactContext: contactCtx, clientText: ctx.text },
+      {
+        contactContext: contactCtx,
+        clientText: ctx.text,
+        ticketContext: ticketBrief ?? undefined,
+        ticketClientIntent: ticketIntent,
+      },
     );
 
     const llmMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -423,7 +485,18 @@ export class AiConversationService {
     }
 
     this.mergeCollected(state, structured, ctx.text);
-    await this.tryTicketUpdateFromClient(ctx, state, structured, inbox, lastAssistantBefore?.content);
+    if (!parseTicketStatusRequest(ctx.text) && !isTicketClientDecline(ctx.text)) {
+      const appendIntent = ticketIntent ?? classifyTicketClientIntent(ctx.text);
+      if (!ticketIntentBlocksAppend(appendIntent)) {
+        await this.tryTicketUpdateFromClient(
+          ctx,
+          state,
+          structured.shouldAppendToTicket ? structured : {},
+          inbox,
+          lastAssistantBefore?.content,
+        );
+      }
+    }
     await ctxSvc.persistCollectedFields(ctx.dest, {
       name: state.nameConfirmed ? state.collectedName : undefined,
       email: state.collectedEmail,
@@ -782,17 +855,66 @@ export class AiConversationService {
     return `Chamado *${ticketRef}* selecionado. O que você gostaria de adicionar?`;
   }
 
+  private async tryHandleTicketClientIntent(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+  ): Promise<boolean> {
+    const ref = await this.resolveActiveTicketRef(ctx, state);
+    if (!ref) return false;
+
+    const intent = classifyTicketClientIntent(ctx.text);
+    if (intent === 'select_ref' || !ticketIntentNeedsAssist(intent)) return false;
+
+    state.targetTicketRef = ref;
+    const result = await AiTicketAssistService.getInstance().handle({
+      clientId: ctx.clientId,
+      text: ctx.text,
+      ticketRef: ref,
+      inbox,
+      contactName: state.collectedName,
+    });
+
+    if (!result.handled || !result.reply) return false;
+
+    if (intent === 'decline') {
+      state.targetTicketRef = undefined;
+      state.pendingTicketChoices = undefined;
+    }
+
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, result.reply);
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    return true;
+  }
+
+  private async resolveActiveTicketRef(
+    ctx: AiInboundContext,
+    state: IAiConversationState,
+  ): Promise<string | undefined> {
+    if (state.targetTicketRef) return state.targetTicketRef;
+    const fromText = parseTicketRefFromText(ctx.text);
+    if (fromText && isTicketRefOnlyMessage(ctx.text)) return fromText;
+    const history = await this.loadRecentHistory(ctx.conversation._id as mongoose.Types.ObjectId);
+    const lastAssistant = [...history].reverse().find(m => m.role === 'assistant');
+    return lastAssistant ? (parseTicketRefFromText(lastAssistant.content) ?? undefined) : undefined;
+  }
+
   private async tryHandleAiTicketMenuFlow(
     ctx: AiInboundContext,
     inbox: InboxService,
     state: IAiConversationState,
-    recentTickets: Array<{ ref: string; subject?: string; status: string }>,
   ): Promise<boolean> {
-    const tickets = recentTickets.map(t => ({
-      ref: t.ref,
-      subject: t.subject,
-      status: t.status,
-    }));
+    const tickets = await listClientFacingTickets(
+      ctx.clientId,
+      ctx.dest._id as mongoose.Types.ObjectId,
+    );
 
     if (state.pendingTicketChoices?.length) {
       if (/^novo\b/i.test(ctx.text.trim())) {

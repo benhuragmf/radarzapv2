@@ -140,6 +140,13 @@ export default function InboxTicketDetailPage() {
     onError: (e: Error) => alert(e.message),
   })
 
+  const statusMutation = useMutation({
+    mutationFn: (status: 'open' | 'in_progress' | 'client_replied') =>
+      api.patch(`/inbox/tickets/${encodeURIComponent(ref)}`, { status }),
+    onSuccess: invalidate,
+    onError: (e: Error) => alert(e.message),
+  })
+
   return (
     <PlatformPage
       title={data?.ticket.ticketRef ? `Ticket ${data.ticket.ticketRef}` : 'Ticket'}
@@ -187,6 +194,8 @@ export default function InboxTicketDetailPage() {
           forwarding={forwardMutation.isPending}
           onAssign={userId => assignMutation.mutateAsync(userId)}
           assigning={assignMutation.isPending}
+          onSetStatus={status => statusMutation.mutateAsync(status)}
+          settingStatus={statusMutation.isPending}
           onAddComment={(body, mentionedUserIds) =>
             commentMutation.mutateAsync({ body, mentionedUserIds })
           }

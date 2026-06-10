@@ -1,6 +1,7 @@
 import {
   buildAiTicketChoiceMenu,
   clientWantsTicketInteraction,
+  isTicketClientDecline,
   isTicketRefOnlyMessage,
   isTicketUpdateContext,
   looksLikeTicketSupplement,
@@ -45,14 +46,26 @@ describe('ticket-ref utils', () => {
     expect(clientWantsTicketInteraction('TK-5NP8CT')).toBe(false);
   });
 
-  it('monta menu numerado de tickets', () => {
+  it('monta menu numerado de tickets com status Fechado', () => {
     const menu = buildAiTicketChoiceMenu([
       { ref: 'TK-5NP8CT', status: 'closed' },
       { ref: 'TK-73GWPP', status: 'open', subject: 'Suporte' },
     ]);
     expect(menu).toContain('1 — *TK-5NP8CT*');
+    expect(menu).toContain('[Fechado]');
     expect(menu).toContain('2 — *TK-73GWPP*');
+    expect(menu).toContain('[Aberto]');
     expect(menu).toContain('Suporte');
+  });
+
+  it('detecta intenção sobre ticket fechado', () => {
+    expect(clientWantsTicketInteraction('meu ticket fechado')).toBe(true);
+    expect(clientWantsTicketInteraction('chamado encerrado')).toBe(true);
+  });
+
+  it('consulta de status não é complemento', () => {
+    expect(looksLikeTicketSupplement('Gostaria de saber o status dele?')).toBe(false);
+    expect(looksLikeTicketSupplement('não obrigado')).toBe(false);
   });
 
   it('resolve escolha numerada do menu', () => {
@@ -92,6 +105,18 @@ describe('AiTicketUpdateService', () => {
       ticketAppendBody: 'Telefone: 8185-5858',
     } as AiStructuredReply;
     expect(svc.resolveAppendBody(structured, '8185-5858', state)).toBe('Telefone: 8185-5858');
+  });
+
+  it('não grava quando cliente recusa', () => {
+    const state = { targetTicketRef: 'TK-88CHYX' } as IAiConversationState;
+    const structured = { shouldAppendToTicket: true, ticketAppendBody: 'x' } as AiStructuredReply;
+    expect(svc.resolveAppendBody(structured, 'não obrigado', state)).toBeNull();
+  });
+
+  it('não grava quando cliente pergunta status', () => {
+    const state = { targetTicketRef: 'TK-88CHYX' } as IAiConversationState;
+    const structured = {} as AiStructuredReply;
+    expect(svc.resolveAppendBody(structured, 'Gostaria de saber o status dele?', state)).toBeNull();
   });
 
   it('não grava quando só escolhe ticket', () => {

@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.6.7` (`package.json`) · **Última revisão doc:** 2026-06-10
+**Versão atual:** `2.7.1` (`package.json`) · **Última revisão doc:** 2026-06-10
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, `PRODUCTION.md`, `BILLING.md`
 
@@ -31,6 +31,8 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.6.5** | Fix IA+ticket: confirmação quando API cai mas dado foi salvo; ticket fechado → `client_replied`; inferência TK da última msg da IA |
 | **2.6.6** | Fix IA+ticket: "não foi resolvido" não encerra conversa/CSAT; confirmação imediata ao complementar ticket |
 | **2.6.7** | IA: menu numerado para escolher ticket entre múltiplos chamados (`pendingTicketChoices`) |
+| **2.7.0** | Ticket: SLA equipe (24h), status enriquecidos, menu bot WhatsApp (`TicketClientMenuService`), ações rápidas painel — ver `TICKET-ATENDIMENTO.md` |
+| **2.7.1** | Ticket+IA: classificação de intenção (`ticket-client-intent`), `AiTicketAssistService` (status/recusa/KB antes de gravar), mesmo assist no bot fixo — ver `TICKET-ATENDIMENTO.md` § Assistente inteligente |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 
@@ -71,8 +73,11 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `CompanyMember` | `customRoleId` | 2.1.0 |
 | `InboxDepartment` | `clientVisible`, `internalRank` | 2.1.0 |
 | `InboxSettings` | `inactivityAutoCloseEnabled`, `inactivityCloseMinutes`, `inactivityWarningMinutes`, `queueSlaAlertMinutes` | 2.2.1 |
+| `InboxSettings` | `ticketTeamResponseHours` | 2.7.0 |
 | `InboxConversation` | `lastOutboundAt`, `inactivityWarnedAt`, `queueSlaNotifiedAt` | 2.2.1 |
 | `InboxTicket` | `lastTeamMessageAt` | 2.6.3 |
+| `InboxTicket` | `teamSlaDueAt`, `teamSlaBreachedAt`, `lastStatusChangeAt` | 2.7.0 |
+| `Destination` | `pendingTicketMenuChoices[]`, `pendingTicketTargetRef` | 2.7.0 |
 | `AiConversationState` | `targetTicketRef` | 2.6.4 |
 | `AiConversationState` | `pendingTicketChoices[]` | 2.6.7 |
 

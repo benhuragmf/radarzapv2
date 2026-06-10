@@ -28,6 +28,8 @@ interface Props {
   forwarding?: boolean
   onAssign?: (userId: string) => Promise<unknown>
   assigning?: boolean
+  onSetStatus?: (status: 'open' | 'in_progress' | 'client_replied') => Promise<unknown>
+  settingStatus?: boolean
   mentionSelection: string[]
   onMentionToggle: (userId: string) => void
 }
@@ -47,6 +49,8 @@ export function InboxTicketActionsBar({
   forwarding,
   onAssign,
   assigning,
+  onSetStatus,
+  settingStatus,
   mentionSelection,
   onMentionToggle,
 }: Props) {
@@ -106,6 +110,29 @@ export function InboxTicketActionsBar({
             <RotateCcw size={14} />
             {reopeningTicket ? 'Reabrindo…' : 'Reabrir ticket'}
           </Button>
+        )}
+
+        {open && onSetStatus && (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={settingStatus || ticket.status === 'in_progress'}
+              onClick={() => onSetStatus('in_progress')}
+              title="Marcar em andamento"
+            >
+              Em andamento
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={settingStatus || ticket.status === 'client_replied'}
+              onClick={() => onSetStatus('client_replied')}
+              title="Marcar aguardando equipe"
+            >
+              Aguard. equipe
+            </Button>
+          </>
         )}
 
         <div className="relative">

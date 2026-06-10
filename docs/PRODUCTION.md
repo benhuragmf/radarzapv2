@@ -3,7 +3,7 @@
 > Tudo que muda entre **desenvolvimento local** e **ambiente de produção**.  
 > Atualizar ao implementar itens do `ROADMAP-COMPLETUDE.md`.
 
-**Última revisão:** 2026-06-05 (§2 Deploy + §7 Cloud API + §8 Segurança)
+**Última revisão:** 2026-06-10 (§3.1 Tickets 2.7.x + §2 Deploy + §7 Cloud API + §8 Segurança)
 
 ---
 
@@ -374,6 +374,20 @@ Doc: `docs/WEBHOOKS.md`
 |-------|----------|
 | Cron manual / dev | Job scheduler (BullMQ repeatable ou cron container) |
 | Timezone dev | `inboxSettings.timezone` = `America/Sao_Paulo` por tenant |
+
+---
+
+### 3.1 Tickets — SLA equipe e assistente IA (2.7.x)
+
+| Local | Produção |
+|-------|----------|
+| Menu bot *ticket* / *chamado* / `TK-…` | `TicketClientMenuService` — sem env extra |
+| IA classifica intenção antes de gravar | `AiTicketAssistService` + `ticket-client-intent` — requer IA ativa; KB/skills opcionais |
+| SLA resposta equipe | `InboxSettings.ticketTeamResponseHours` (default 24h); campos `teamSlaDueAt` / `teamSlaBreachedAt` |
+| Status enriquecidos painel | `ticket-display-status.ts` — `displayStatus` derivado |
+| Testes mínimos | `npm test -- --testPathPattern="ticket-client-intent|AiTicketAssist|ticket-display|inbound-routing"` |
+
+Doc: `docs/TICKET-ATENDIMENTO.md` (§ Assistente inteligente, § SLA equipe).
 
 ---
 

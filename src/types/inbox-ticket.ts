@@ -115,7 +115,27 @@ export function parseTicketFollowUpChoice(text: string): TicketFollowUpChoice | 
 
 export function parseTicketStatusRequest(text: string): boolean {
   const norm = normalizeTicketText(text);
-  return norm === 'status' || norm === 'andamento' || norm === 'situacao' || norm === 'situação';
+  if (!norm) return false;
+  if (norm === 'status' || norm === 'andamento' || norm === 'situacao') return true;
+
+  const asksAboutStatus =
+    /\b(qual|quais|como|saber|ver|consultar|informar|me diga|me fale|gostaria|queria|preciso saber|quero saber)\b/.test(
+      norm,
+    ) ||
+    /\b(est[aá]|esta|estao|estão|ta|t[aá])\b/.test(norm) ||
+    /\b(dele|dela|disso)\b/.test(norm);
+
+  if (/\b(status|andamento|situacao|situação)\b/.test(norm) && asksAboutStatus) {
+    return true;
+  }
+
+  if (/\b(como (est[aá]|ta)|qual (o )?andamento)\b/.test(norm)) return true;
+  if (/\bsaber (o )?(status|andamento|situacao)\b/.test(norm)) return true;
+  if (/\b(status|andamento) (do|da|dele|dela|desse|deste) (ticket|chamado|tk)\b/.test(norm)) {
+    return true;
+  }
+
+  return false;
 }
 
 export function parseTicketFinalize(text: string): boolean {

@@ -1198,7 +1198,7 @@ export class DashboardService {
           auth.clientId,
           auth.userId,
           req.params.ref,
-          { assignedUserId, status: status as 'open' | 'in_progress' | 'closed' | undefined },
+          { assignedUserId, status: status as 'open' | 'in_progress' | 'client_replied' | undefined },
         );
         res.json(ticket);
       } catch (e) {

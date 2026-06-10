@@ -3,6 +3,7 @@ export type InboxMenuContext =
   | 'inbox_triage'
   | 'ticket_followup'
   | 'ticket_grace_expired'
+  | 'ticket_pick'
   | 'consent'
   | 'none';
 

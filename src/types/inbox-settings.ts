@@ -59,4 +59,6 @@ export const DEFAULT_INBOX_SLA = {
   inactivityWarningMinutes: 10,
   /** Alerta de supervisor quando conversa na fila excede este tempo (0 = desligado). */
   queueSlaAlertMinutes: 30,
+  /** Horas para equipe responder após mensagem do cliente no ticket (0 = desligado). */
+  ticketTeamResponseHours: 24,
 } as const;

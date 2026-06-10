@@ -50,10 +50,13 @@ export class AiAutoResolveService {
   async tryResolve(
     clientId: string,
     problemText: string,
-    opts?: { threadContext?: string },
+    opts?: { threadContext?: string; ticketAssist?: boolean },
   ): Promise<AiAutoResolveResult> {
     const query = problemText.trim();
-    if (!this.shouldAttemptAutoResolve(query, opts?.threadContext)) return { hit: false };
+    if (!opts?.ticketAssist && !this.shouldAttemptAutoResolve(query, opts?.threadContext)) {
+      return { hit: false };
+    }
+    if (opts?.ticketAssist && query.length < 6) return { hit: false };
 
     const financeHint =
       /\b(cobran[cç]a|boleto|pagamento|mensalidade|financeiro|inadimpl|devendo|cortou|bloqueou|corte)\b/i.test(

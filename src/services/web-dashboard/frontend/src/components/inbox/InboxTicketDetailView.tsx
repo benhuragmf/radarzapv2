@@ -63,6 +63,8 @@ interface Props {
   forwarding?: boolean
   onAssign?: (userId: string) => Promise<unknown>
   assigning?: boolean
+  onSetStatus?: (status: 'open' | 'in_progress' | 'client_replied') => Promise<unknown>
+  settingStatus?: boolean
   onAddComment?: (body: string, mentionedUserIds: string[]) => Promise<unknown>
   addingComment?: boolean
   onAddInternalNote?: (body: string) => Promise<unknown>
@@ -89,6 +91,8 @@ export function InboxTicketDetailView({
   forwarding,
   onAssign,
   assigning,
+  onSetStatus,
+  settingStatus,
   onAddComment,
   addingComment,
   onAddInternalNote,
@@ -133,7 +137,11 @@ export function InboxTicketDetailView({
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-lg font-bold font-mono text-amber-400 tracking-wide">{ref}</h2>
-                  <TicketStatusBadge status={ticket.status} />
+                  <TicketStatusBadge
+                    status={ticket.status}
+                    displayStatus={ticket.displayStatus}
+                    teamSlaOverdue={ticket.teamSlaOverdue}
+                  />
                   {ticket.unreadClientReply && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
                       Nova resposta
@@ -163,6 +171,15 @@ export function InboxTicketDetailView({
             </div>
           </div>
 
+          {(ticket.teamSlaOverdue || ticket.teamSlaBreachedAt) && (
+            <div className="mt-3 px-3 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-300 text-xs flex items-center gap-2">
+              <Clock size={14} className="shrink-0" />
+              {ticket.teamSlaBreachedAt
+                ? 'SLA interno estourado — cliente aguardando resposta da equipe.'
+                : `SLA interno vence em ${formatInboxMsgTime(ticket.teamSlaDueAt!, true)} — priorize este chamado.`}
+            </div>
+          )}
+
           <div className="mt-4">
             <InboxTicketActionsBar
               ticket={ticket}
@@ -179,6 +196,8 @@ export function InboxTicketDetailView({
               forwarding={forwarding}
               onAssign={onAssign}
               assigning={assigning}
+              onSetStatus={onSetStatus}
+              settingStatus={settingStatus}
               mentionSelection={mentionSelection}
               onMentionToggle={toggleMention}
             />
@@ -198,6 +217,15 @@ export function InboxTicketDetailView({
                 icon: Clock,
               },
               { label: 'Aberto por', value: ticket.openedByUserName ?? '—', icon: Users },
+              {
+                label: 'SLA equipe',
+                value: ticket.teamSlaBreachedAt
+                  ? 'Estourado'
+                  : ticket.teamSlaDueAt
+                    ? formatInboxMsgTime(ticket.teamSlaDueAt, true)
+                    : '—',
+                icon: Clock,
+              },
             ].map(item => (
               <div
                 key={item.label}

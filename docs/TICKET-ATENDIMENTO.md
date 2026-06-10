@@ -255,6 +255,24 @@ Quando o cliente está na **IA de atendimento** (`BOT_TRIAGE`) e quer **interagi
 
 **Menu múltiplos tickets (2.6.7):** se houver 2+ chamados, a IA exibe menu numerado (`pendingTicketChoices` em `AiConversationState`); cliente responde `1`–`N`, `TK-…` ou *novo* para outro assunto. Um único chamado é selecionado automaticamente.
 
+**Menu bot fixo (2.7.0):** fora da IA, em triagem padrão (`TicketClientMenuService`), o cliente pode digitar *ticket*, *chamado* ou código `TK-…`. Estado em `Destination.pendingTicketMenuChoices` / `pendingTicketTargetRef`; contexto `ticket_pick`. Desde **2.7.1** usa o mesmo `AiTicketAssistService` para status/recusa/perguntas.
+
+**SLA equipe (2.7.0):** após resposta do cliente (`clientReplies`), inicia prazo configurável (`InboxSettings.ticketTeamResponseHours`, default 24h). Campos `teamSlaDueAt` / `teamSlaBreachedAt`; limpa quando equipe responde. Monitor em scan SLA do Inbox notifica painel (`inbox:priority`).
+
+**Status enriquecidos (2.7.0):** painel exibe `displayStatus` derivado (`waiting_team`, `waiting_client`, `paused`, `expired`) via `ticket-display-status.ts`.
+
+**Assistente inteligente (2.7.0):** antes de gravar no ticket, a IA classifica a intenção do cliente (`classifyTicketClientIntent` em `src/utils/ticket-client-intent.ts`):
+
+| Intenção | Exemplo | Comportamento |
+|----------|---------|---------------|
+| `status_inquiry` | *Gostaria de saber o status dele?* | Responde andamento — **não grava** |
+| `decline` | *não obrigado* | Despedida — **não grava** |
+| `question` | *Como acompanho?* | Tenta KB/skills (`AiTicketAssistService`) — **não grava** |
+| `problem_report` | *O problema voltou* | Tenta resolver; se não, pode gravar como complemento |
+| `append_data` | telefone, endereço | Grava em `clientReplies[]` |
+
+Orquestração: `AiTicketAssistService` + guards em `AiTicketUpdateService` (`ticketIntentBlocksAppend`). O prompt inclui contexto do ticket ativo (`getTicketBriefForAssist`).
+
 ---
 
 ## Janela de complemento (30 min)
@@ -455,12 +473,12 @@ Itens planejados para evolução do módulo Ticket. **Não alterar código neste
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | **SLA interno equipe** | ⏳ Roadmap |
+| 1 | **SLA interno equipe** | ✅ 2.7.0 — `ticketTeamResponseHours` (default 24h), `teamSlaDueAt` / `teamSlaBreachedAt`, alerta painel |
 | 2 | **Menu pós-30 min ampliado** | ✅ 2.6.3 — 3 opções (complemento / novo / aguardar) |
-| 3 | **Múltiplos tickets ativos** | 🟡 2.6.7 — menu numerado na IA (`pendingTicketChoices`); roadmap: menu WhatsApp fora da IA |
-| 4 | **Campos de auditoria** | 🟡 `lastTeamMessageAt` (2.6.3); demais campos ⏳ |
-| 5 | **Painel funcionário** | ⏳ Roadmap |
-| 6 | **Status enriquecidos** | ⏳ Roadmap |
+| 3 | **Múltiplos tickets ativos** | ✅ 2.7.0 — menu numerado na IA (2.6.7) + bot fixo (`TicketClientMenuService`, contexto `ticket_pick`) |
+| 4 | **Campos de auditoria** | ✅ 2.7.0 — `lastTeamMessageAt`, `lastStatusChangeAt`, campos SLA equipe |
+| 5 | **Painel funcionário** | ✅ 2.7.0 — ações rápidas status, badge enriquecido, stats SLA |
+| 6 | **Status enriquecidos** | ✅ 2.7.0 — `displayStatus` (`waiting_team`, `waiting_client`, `paused`, `expired`) |
 | 7 | **Correção janelas MVP** | ✅ 2.6.2 |
 
 ---
@@ -483,6 +501,9 @@ Modelo Mongoose: `src/models/InboxTicket.ts`.
 | `clientReplyPaused` | Cliente pausou ou grace expirou |
 | `teamHasMessagedClient` | Equipe já notificou o cliente no WhatsApp |
 | `lastTeamMessageAt` | Última mensagem da equipe ao cliente (2.6.3) |
+| `teamSlaDueAt` | Prazo interno equipe responder após msg cliente (2.7.0) |
+| `teamSlaBreachedAt` | Momento em que SLA interno estourou (2.7.0) |
+| `lastStatusChangeAt` | Última alteração manual de status (2.7.0) |
 | `openedByUserId` | Quem abriu (MVP); roadmap: `createdBy` explícito |
 | `assignedUserId` | Responsável (MVP); roadmap: `assignedTo` explícito |
 

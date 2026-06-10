@@ -94,7 +94,7 @@ export default function InboxTickets() {
 
 
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 max-w-3xl">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-4 max-w-5xl">
 
         {[
 
@@ -105,6 +105,10 @@ export default function InboxTickets() {
           { label: 'Em andamento', value: stats?.inProgress ?? '—', color: 'text-blue-400' },
 
           { label: 'Cliente respondeu', value: stats?.clientReplied ?? '—', color: 'text-emerald-400' },
+
+          { label: 'Aguard. equipe', value: stats?.waitingTeam ?? '—', color: 'text-orange-400' },
+
+          { label: 'SLA estourado', value: stats?.slaBreached ?? '—', color: 'text-red-400' },
 
           { label: 'Fechados', value: stats?.closed ?? '—', color: 'text-gray-400' },
 
@@ -292,7 +296,12 @@ export default function InboxTickets() {
 
                     <td className="px-4 py-3">
 
-                      <TicketStatusBadge status={t.ticketStatus} size="sm" />
+                      <TicketStatusBadge
+                        status={t.ticketStatus}
+                        displayStatus={t.displayStatus}
+                        teamSlaOverdue={t.teamSlaOverdue}
+                        size="sm"
+                      />
 
                       {ticketIsOpen(t.ticketStatus) && (
 

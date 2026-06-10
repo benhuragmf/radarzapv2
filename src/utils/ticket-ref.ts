@@ -1,3 +1,9 @@
+import {
+  INBOX_TICKET_STATUS_LABEL,
+  parseTicketStatusRequest,
+  type InboxTicketStatus,
+} from '@/types/inbox-ticket';
+
 const TICKET_REF_RE = /\b(TK-[A-Z0-9]{4,8})\b/i;
 
 const TICKET_INTENT_ONLY_RE =
@@ -45,10 +51,33 @@ export function isTicketUpdateContext(
   return false;
 }
 
+/** Cliente recusou enviar mais info no ticket (≠ complemento). */
+export function isTicketClientDecline(text: string): boolean {
+  const norm = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[!?.]+$/g, '')
+    .trim();
+  if (!norm) return false;
+  if (
+    /^(nao|nao obrigado|nao valeu|nada|nada mais|nao preciso|nao quero|dispenso|somente isso|so isso|nao tenho mais|nao e necessario|nao e preciso)$/.test(
+      norm,
+    )
+  ) {
+    return true;
+  }
+  if (/^nao[,.!\s]+(obrigad|valeu|preciso|quero)/.test(norm)) return true;
+  return /^nao,?\s*obrigad/.test(norm);
+}
+
 /** Cliente informou dado complementar (telefone, texto útil) — não só escolha de ticket. */
 export function looksLikeTicketSupplement(text: string): boolean {
   const norm = text.trim();
   if (!norm || norm.length < 3) return false;
+  if (parseTicketStatusRequest(norm)) return false;
+  if (isTicketClientDecline(norm)) return false;
   if (isTicketRefOnlyMessage(norm)) return false;
   if (SHORT_ACK_RE.test(norm)) return false;
   if (TICKET_INTENT_ONLY_RE.test(norm)) return false;
@@ -70,15 +99,19 @@ export function clientWantsTicketInteraction(text: string): boolean {
       norm,
     ) ||
     /\b(qual|quais|listar|meus?).{0,40}\b(ticket|chamado)/i.test(norm) ||
-    /\b(numero|n[uú]mero).{0,20}\b(ticket|chamado)/i.test(norm)
+    /\b(numero|n[uú]mero).{0,20}\b(ticket|chamado)/i.test(norm) ||
+    /\b(ticket|chamado).{0,20}\b(fechad|encerrad|finalizad)/i.test(norm) ||
+    /\b(fechad|encerrad|finalizad).{0,20}\b(ticket|chamado)/i.test(norm)
   );
 }
 
 export function buildAiTicketChoiceMenu(tickets: AiTicketMenuItem[]): string {
   const lines = tickets.map((t, i) => {
     const sub = t.subject ? ` — ${t.subject}` : '';
-    const closed = t.status === 'closed' ? ' (encerrado)' : '';
-    return `${i + 1} — *${t.ref}*${sub}${closed}`;
+    const statusKey = t.status as InboxTicketStatus;
+    const statusLabel = INBOX_TICKET_STATUS_LABEL[statusKey] ?? t.status;
+    const statusSuffix = statusLabel ? ` [${statusLabel}]` : '';
+    return `${i + 1} — *${t.ref}*${sub}${statusSuffix}`;
   });
   return (
     'Encontrei estes chamados na sua conta:\n\n' +

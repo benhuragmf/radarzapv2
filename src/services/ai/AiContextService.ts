@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import type { IDestination } from '@/models/Destination';
 import type { IAiConversationState } from '@/models/AiConversationState';
 import type { IAiPrompt } from '@/models/AiPrompt';
-import { InboxTicket } from '@/models/InboxTicket';
+import { listClientFacingTickets } from '@/services/inbox/client-ticket-list';
 
 export interface AiContactContext {
   name?: string;
@@ -30,16 +30,7 @@ export class AiContextService {
     clientId: string,
     dest: IDestination,
   ): Promise<AiContactContext> {
-    const clientOid = new mongoose.Types.ObjectId(clientId);
-    const tickets = await InboxTicket.find({
-      clientId: clientOid,
-      destinationId: dest._id,
-      deletedAt: { $exists: false },
-    })
-      .sort({ updatedAt: -1 })
-      .limit(5)
-      .select('ticketRef subject status')
-      .lean();
+    const tickets = await listClientFacingTickets(clientId, dest._id as mongoose.Types.ObjectId);
 
     const name = dest.name?.trim() || undefined;
     const email = dest.email?.trim() || undefined;
@@ -52,7 +43,7 @@ export class AiContextService {
       tags: dest.tags ?? [],
       notes: dest.notes?.trim() || undefined,
       recentTickets: tickets.map(t => ({
-        ref: t.ticketRef,
+        ref: t.ref,
         subject: t.subject,
         status: t.status,
       })),

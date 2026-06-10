@@ -34,6 +34,10 @@ export interface IDestination extends Document {
   /** Último menu enviado ao contato (roteamento 1/2 inbox vs ticket). */
   lastMenuContext?: InboxMenuContext;
   lastMenuSentAt?: Date;
+  /** Menu bot: refs TK aguardando escolha numerada (sem IA). */
+  pendingTicketMenuChoices?: string[];
+  /** Ticket selecionado no fluxo bot aguardando complemento. */
+  pendingTicketTargetRef?: string;
   isActive: boolean;
   lastMessageSent?: Date;
   /** YYYY-MM-DD — import CSV / campanhas aniversário */
@@ -182,9 +186,11 @@ const DestinationSchema = new Schema<IDestination>({
 
   lastMenuContext: {
     type: String,
-    enum: ['inbox_triage', 'ticket_followup', 'ticket_grace_expired', 'consent', 'none'],
+    enum: ['inbox_triage', 'ticket_followup', 'ticket_grace_expired', 'ticket_pick', 'consent', 'none'],
   },
   lastMenuSentAt: Date,
+  pendingTicketMenuChoices: [{ type: String, maxlength: 32 }],
+  pendingTicketTargetRef: { type: String, maxlength: 32 },
   
   isActive: {
     type: Boolean,

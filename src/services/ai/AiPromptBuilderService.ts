@@ -10,10 +10,14 @@ import { AiMemoryService } from './AiMemoryService';
 import { PlatformAiBlueprintService } from './PlatformAiBlueprintService';
 import type { AiContactContext } from './AiContextService';
 import { AiContextService } from './AiContextService';
+import type { TicketBriefForAssist } from '@/types/ticket-assist';
+import type { TicketClientIntent } from '@/utils/ticket-client-intent';
 
 export interface BuildSystemPromptOptions {
   contactContext?: AiContactContext;
   clientText?: string;
+  ticketContext?: TicketBriefForAssist;
+  ticketClientIntent?: TicketClientIntent;
 }
 
 export class AiPromptBuilderService {
@@ -141,6 +145,19 @@ export class AiPromptBuilderService {
     const finalRules = applyAiPromptVars(blueprint.finalRules, varCtx);
     const deptList = departments.map(d => `- ${d.menuKey}: ${d.name}`).join('\n');
 
+    const ticketBlock = opts.ticketContext
+      ? [
+          `## TICKET ATIVO (${opts.ticketContext.ticketRef})`,
+          opts.ticketContext.contextBlock,
+          opts.ticketClientIntent
+            ? `Intenção detectada do cliente: ${opts.ticketClientIntent}`
+            : '',
+          'Responda perguntas sobre o chamado; grave no ticket só dados novos do cliente.',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : '';
+
     const workspaceBootstrap = buildBootstrapPrompt([
       { key: 'identity', title: 'IDENTITY', content: identity },
       { key: 'soul', title: 'SOUL', content: soul, maxChars: 5000 },
@@ -156,6 +173,7 @@ export class AiPromptBuilderService {
     return `Blueprint RadarZap v${blueprint.version} — empresa ${companyName} (system prompt Gemini/OpenAI).
 
 ${workspaceBootstrap}
+${ticketBlock ? `\n${ticketBlock}\n` : ''}
 
 Política de cadastro:
 1. Confirme o nome com o cliente no início (mesmo se USER já tiver nome) — evita atender pessoa errada no mesmo WhatsApp.
@@ -174,7 +192,10 @@ Prioridade:
 1. KNOWLEDGE + SKILLS + MEMORY para resolver sem escalar.
 2. Só peça dados faltantes.
 3. shouldEscalate=true só quando necessário; shouldCreateTicket=true só para casos assíncronos.
-4. Cliente quer complementar ticket existente: preencha targetTicketRef (TK-XXXXXX) e, ao receber o dado, shouldAppendToTicket=true + ticketAppendBody com o texto a gravar no ticket.
+4. Cliente quer complementar ticket existente: preencha targetTicketRef (TK-XXXXXX) e, ao receber dado factual novo (telefone, endereço, descrição), shouldAppendToTicket=true + ticketAppendBody.
+5. Pergunta sobre status/andamento do ticket: responda com clareza; shouldAppendToTicket=false — nunca grave perguntas como complemento.
+6. Cliente recusou ("não obrigado", "nada mais"): despedida curta; shouldAppendToTicket=false.
+7. Tente resolver dúvidas com KNOWLEDGE/SKILLS/MEMORY antes de só registrar no ticket.
 
 JSON obrigatório:
 {

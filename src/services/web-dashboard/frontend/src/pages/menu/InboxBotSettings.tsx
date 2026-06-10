@@ -47,6 +47,7 @@ interface InboxSettings {
   inactivityCloseMinutes: number
   inactivityWarningMinutes: number
   queueSlaAlertMinutes: number
+  ticketTeamResponseHours: number
   csatEnabled: boolean
   csatPrompt: string
   csatThankYou: string
@@ -366,6 +367,19 @@ export default function InboxBotSettings() {
               className={inputCls}
               value={form.queueSlaAlertMinutes}
               onChange={e => patch('queueSlaAlertMinutes', Number(e.target.value) || 0)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-400">
+              SLA ticket — prazo equipe responder após mensagem do cliente (horas, 0 = desligado)
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={168}
+              className={inputCls}
+              value={form.ticketTeamResponseHours}
+              onChange={e => patch('ticketTeamResponseHours', Number(e.target.value) || 0)}
             />
           </label>
         </Card>

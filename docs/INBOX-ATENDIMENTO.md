@@ -350,16 +350,21 @@ Cenários: IA off (`oi`, `1`), menu inbox vs ticket, 12h, grace 30 min, `novo at
 | `clientReplyGraceUntil` | Janela 30 min para complementos |
 | `clientReplyPaused` | Pausado (30 min expirou, `sair`, ou aguardando menu) |
 | `ticketInboundMode` | `awaiting_follow_up` \| `ticket` \| `new_service` |
+| `lastTeamMessageAt` | Última msg equipe ao cliente (2.6.3) |
+| `teamSlaDueAt` / `teamSlaBreachedAt` | SLA interno equipe após resposta cliente (2.7.0) |
+| `lastStatusChangeAt` | Última alteração manual de `status` (2.7.0) |
 | `deletedAt` / `deletedBy` / `deleteReason` | Soft delete (exclusão lógica) |
+
+Respostas enriquecidas (2.7.0): `displayStatus`, `displayStatusLabel`, `teamSlaOverdue` — derivados em `ticket-display-status.ts`.
 
 ### API REST — tickets (`/api/inbox/tickets/*`)
 
 | Método | Rota | Cap | Descrição |
 |--------|------|-----|-----------|
-| GET | `/inbox/tickets` | `inbox:view` | Lista tickets |
-| GET | `/inbox/tickets/stats` | `inbox:view` | Contadores |
+| GET | `/inbox/tickets` | `inbox:view` | Lista tickets (+ `displayStatus`, SLA) |
+| GET | `/inbox/tickets/stats` | `inbox:view` | Contadores (+ `slaBreached`, `waitingTeam`) |
 | GET | `/inbox/tickets/:ref` | `inbox:view` | Detalhe + comentários + respostas do cliente |
-| PATCH | `/inbox/tickets/:ref` | `inbox:reply` | Atualizar assunto / responsável |
+| PATCH | `/inbox/tickets/:ref` | `inbox:reply` | Atualizar responsável / `status` (`open`, `in_progress`, `client_replied`) |
 | POST | `/inbox/tickets/:ref/comments` | `inbox:reply` | Comentário (+ `mentionedUserIds`) |
 | POST | `/inbox/tickets/:ref/internal-notes` | `inbox:reply` | Nota interna |
 | POST | `/inbox/tickets/:ref/client-update` | `inbox:reply` | Enviar resumo ao WhatsApp (ticket aberto) |
@@ -370,6 +375,10 @@ Cenários: IA off (`oi`, `1`), menu inbox vs ticket, 12h, grace 30 min, `novo at
 | DELETE | `/inbox/tickets/:ref` | `inbox:reply` | Excluir ticket |
 
 Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketInboundMessage`, `sendClientUpdate`, `closeTicket`, `refreshClosedTicketReplyWindow`).
+
+**SLA equipe (2.7.0):** `InboxSettings.ticketTeamResponseHours` (default 24, 0 = desligado) — configurável em `/platform/inbox/bot`. Após resposta do cliente no ticket, inicia prazo; limpa quando equipe responde. Monitor no scan SLA → evento `inbox:priority` no painel.
+
+**Menu bot tickets (2.7.0):** `TicketClientMenuService` na triagem bot — cliente digita *ticket* / *chamado* / `TK-…` fora da IA (`Destination.pendingTicketMenuChoices`, contexto `ticket_pick`).
 
 ## Modelos MongoDB
 

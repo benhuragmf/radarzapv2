@@ -7,6 +7,12 @@ import {
   normalizeTicketRef,
   parseTicketRefFromText,
 } from '@/utils/ticket-ref';
+import { parseTicketStatusRequest } from '@/types/inbox-ticket';
+import { isTicketClientDecline } from '@/utils/ticket-ref';
+import {
+  classifyTicketClientIntent,
+  ticketIntentBlocksAppend,
+} from '@/utils/ticket-client-intent';
 import { logger } from '@/utils/logger';
 
 export class AiTicketUpdateService {
@@ -40,6 +46,14 @@ export class AiTicketUpdateService {
     state: IAiConversationState,
   ): string | null {
     if (!state.targetTicketRef) return null;
+    const intent = classifyTicketClientIntent(clientText.trim());
+    if (
+      ticketIntentBlocksAppend(intent) ||
+      parseTicketStatusRequest(clientText.trim()) ||
+      isTicketClientDecline(clientText.trim())
+    ) {
+      return null;
+    }
 
     const trimmed = clientText.trim();
     if (structured.shouldAppendToTicket) {
@@ -63,6 +77,14 @@ export class AiTicketUpdateService {
     inbox: InboxService,
     lastAssistantText?: string,
   ): Promise<boolean> {
+    const intent = classifyTicketClientIntent(clientText.trim());
+    if (
+      ticketIntentBlocksAppend(intent) ||
+      parseTicketStatusRequest(clientText.trim()) ||
+      isTicketClientDecline(clientText.trim())
+    ) {
+      return false;
+    }
     this.applyTargetTicketRef(state, structured, clientText, lastAssistantText);
     const body = this.resolveAppendBody(structured, clientText, state);
     if (!body || !state.targetTicketRef) return false;

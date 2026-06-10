@@ -22,6 +22,9 @@ describe('inbox ticket follow-up', () => {
 
   it('parseTicketStatusRequest e finalizar', () => {
     expect(parseTicketStatusRequest('status')).toBe(true);
+    expect(parseTicketStatusRequest('Gostaria de saber o status dele?')).toBe(true);
+    expect(parseTicketStatusRequest('qual o andamento do chamado')).toBe(true);
+    expect(parseTicketStatusRequest('Avisar que o problema retornou')).toBe(false);
     expect(parseTicketFinalize('finalizar')).toBe(true);
   });
 });

@@ -83,6 +83,13 @@ import {
 } from '@/types/inbox-department';
 import { createServiceLogger } from '@/utils/logger';
 import type { InboxMenuContext } from '@/types/inbox-menu-context';
+import { TicketClientMenuService } from '@/services/inbox/TicketClientMenuService';
+import { serializeTicketDisplayFields } from '@/services/inbox/ticket-display-status';
+import type { TicketBriefForAssist } from '@/types/ticket-assist';
+import {
+  applyTeamSlaOnClientReply,
+  clearTeamSlaOnTeamReply,
+} from '@/services/inbox/ticket-team-sla';
 import { type ConversationAiStatus, isAiFallbackExpired } from '@/types/inbox-conversation-ai';
 import {
   evaluateTicketInboundRouting,
@@ -139,6 +146,14 @@ type TicketEnrichmentRow = Pick<
   | 'updatedAt'
   | 'closedAt'
   | 'createdAt'
+  | 'unreadClientReply'
+  | 'clientReplyPaused'
+  | 'clientReplyExpiresAt'
+  | 'clientReplyGraceUntil'
+  | 'teamHasMessagedClient'
+  | 'lastTeamMessageAt'
+  | 'teamSlaDueAt'
+  | 'teamSlaBreachedAt'
 >;
 
 export class InboxService {
@@ -281,6 +296,7 @@ export class InboxService {
       inactivityCloseMinutes: number;
       inactivityWarningMinutes: number;
       queueSlaAlertMinutes: number;
+      ticketTeamResponseHours: number;
       csatEnabled: boolean;
       csatPrompt: string;
       csatThankYou: string;
@@ -340,6 +356,12 @@ export class InboxService {
       settings.queueSlaAlertMinutes = Math.min(
         1440,
         Math.max(0, Number(patch.queueSlaAlertMinutes) || 0),
+      );
+    }
+    if (patch.ticketTeamResponseHours !== undefined) {
+      settings.ticketTeamResponseHours = Math.min(
+        168,
+        Math.max(0, Number(patch.ticketTeamResponseHours) || 0),
       );
     }
     if (patch.csatEnabled !== undefined) {
@@ -1169,13 +1191,97 @@ export class InboxService {
   }
 
   private buildTicketQuickStatusReply(ticket: IInboxTicket): string {
-    const statusLabel = INBOX_TICKET_STATUS_LABEL[ticket.status] ?? ticket.status;
+    const display = serializeTicketDisplayFields(ticket);
+    const statusLabel =
+      display.displayStatusLabel ?? INBOX_TICKET_STATUS_LABEL[ticket.status] ?? ticket.status;
+    const hint = this.ticketStatusHint(display.displayStatus ?? ticket.status);
     return (
       `*${ticket.ticketRef}*\n` +
       `Status: *${statusLabel}*\n` +
+      (hint ? `${hint}\n` : '') +
       (ticket.subject ? `Assunto: ${ticket.subject}\n` : '') +
       `\nPara enviar mais informações, digite sua mensagem. Para encerrar: *sair* ou *finalizar*.`
     );
+  }
+
+  private ticketStatusHint(displayStatus: string): string {
+    switch (displayStatus) {
+      case 'waiting_team':
+      case 'client_replied':
+        return 'Nossa equipe foi avisada e retornará assim que possível.';
+      case 'waiting_client':
+        return 'Aguardamos seu retorno ou complemento neste chamado.';
+      case 'in_progress':
+        return 'Nossa equipe está analisando este chamado.';
+      case 'open':
+        return 'Chamado registrado; em breve a equipe iniciará a análise.';
+      case 'closed':
+        return 'Chamado encerrado — você ainda pode enviar complementos dentro da janela de retorno.';
+      case 'paused':
+        return 'Complementos pausados; aguarde nova atualização da equipe.';
+      case 'expired':
+        return 'A janela de retorno deste chamado encerrou.';
+      default:
+        return '';
+    }
+  }
+
+  /** Contexto do ticket para IA / auto-resolve. */
+  async getTicketBriefForAssist(
+    clientId: string,
+    ticketRef: string,
+  ): Promise<TicketBriefForAssist | null> {
+    const normalized = ticketRef.trim().toUpperCase();
+    const ticket = await InboxTicket.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ticketRef: normalized,
+      ...TICKET_NOT_DELETED,
+    });
+    if (!ticket) return null;
+
+    const display = serializeTicketDisplayFields(ticket);
+    const recentClientReplies = (ticket.clientReplies ?? [])
+      .slice(-3)
+      .map(r => r.body.trim())
+      .filter(Boolean);
+    const recentTeamComments = ticket.comments
+      .slice(-2)
+      .map(c => c.body.trim())
+      .filter(Boolean);
+
+    const lines = [
+      `Ticket: ${ticket.ticketRef}`,
+      `Status: ${display.displayStatusLabel ?? ticket.status}`,
+      ticket.subject ? `Assunto: ${ticket.subject}` : null,
+      recentClientReplies.length
+        ? `Últimas mensagens do cliente no ticket: ${recentClientReplies.join(' | ')}`
+        : null,
+      recentTeamComments.length
+        ? `Último acompanhamento interno (resumo): ${recentTeamComments.join(' | ')}`
+        : null,
+    ].filter(Boolean) as string[];
+
+    return {
+      ticketRef: ticket.ticketRef,
+      status: ticket.status,
+      displayStatusLabel: display.displayStatusLabel ?? ticket.status,
+      subject: ticket.subject,
+      recentClientReplies,
+      recentTeamComments,
+      contextBlock: lines.join('\n'),
+    };
+  }
+
+  /** Resposta curta de status para cliente (IA / bot / ticket handler). */
+  async getTicketStatusReplyForClient(clientId: string, ticketRef: string): Promise<string | null> {
+    const normalized = ticketRef.trim().toUpperCase();
+    const ticket = await InboxTicket.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ticketRef: normalized,
+      ...TICKET_NOT_DELETED,
+    });
+    if (!ticket) return null;
+    return this.buildTicketQuickStatusReply(ticket);
   }
 
   private startTicketPostAckWindow(ticket: IInboxTicket, clientId: string): void {
@@ -1225,6 +1331,10 @@ export class InboxService {
     if (ticket.status !== 'closed') {
       ticket.status = 'client_replied';
     }
+    if (!isAck) {
+      await this.applyTicketClientReplySla(clientId, ticket);
+    }
+    ticket.lastStatusChangeAt = new Date();
     ticket.updatedAt = new Date();
     await ticket.save();
 
@@ -1581,7 +1691,18 @@ export class InboxService {
     });
     ticket.lastClientReplyAt = new Date();
     ticket.unreadClientReply = true;
+    if (ticket.status === 'closed') {
+      const now = new Date();
+      ticket.clientReplyExpiresAt = new Date(
+        now.getTime() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000,
+      );
+      ticket.clientReplyWindowStartedAt = now;
+      ticket.clientReplyPaused = false;
+      ticket.ticketInboundMode = 'ticket';
+    }
     ticket.status = 'client_replied';
+    await this.applyTicketClientReplySla(clientId, ticket);
+    ticket.lastStatusChangeAt = new Date();
     ticket.updatedAt = new Date();
     await ticket.save();
 
@@ -1602,6 +1723,13 @@ export class InboxService {
       contactIdentifier,
     });
     return true;
+  }
+
+  private async applyTicketClientReplySla(clientId: string, ticket: IInboxTicket): Promise<void> {
+    const settings = await loadInboxSettings(clientId);
+    const hours =
+      settings.ticketTeamResponseHours ?? DEFAULT_INBOX_SLA.ticketTeamResponseHours;
+    applyTeamSlaOnClientReply(ticket, hours);
   }
 
   private buildTeamCommentClientMessage(ticketRef: string, authorName: string, body: string): string {
@@ -1755,6 +1883,17 @@ export class InboxService {
     trimmed: string,
     opts: { isNew: boolean; hasMedia: boolean; forceMenu?: boolean },
   ): Promise<void> {
+    if (trimmed) {
+      const ticketMenuHandled = await TicketClientMenuService.getInstance().handleInbound(
+        clientId,
+        conversation,
+        dest,
+        trimmed,
+        this,
+      );
+      if (ticketMenuHandled) return;
+    }
+
     const choice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
     if (choice) {
       await this.handleTriageReply(clientId, conversation, trimmed, dest);
@@ -2379,10 +2518,12 @@ export class InboxService {
 
     return tickets.map(t => {
       const conv = convMap.get(String(t.conversationId));
+      const display = serializeTicketDisplayFields(t);
       return {
         _id: String(t._id),
         ticketRef: t.ticketRef,
         ticketStatus: t.status,
+        ...display,
         conversationId: String(t.conversationId),
         conversationStatus: conv?.status,
         contactName: t.contactName,
@@ -2392,6 +2533,7 @@ export class InboxService {
         openedByUserName: userMap.get(String(t.openedByUserId)),
         closedByUserName: t.closedByUserId ? userMap.get(String(t.closedByUserId)) : undefined,
         lastMessageAt: conv?.lastMessageAt ?? t.updatedAt,
+        unreadClientReply: Boolean(t.unreadClientReply),
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
         closedAt: t.closedAt,
@@ -2451,19 +2593,30 @@ export class InboxService {
     const visibility = await this.departmentVisibility(clientId, userId);
     if (visibility.restricted) {
       if (visibility.departmentIds.length === 0) {
-        return { total: 0, open: 0, inProgress: 0, clientReplied: 0, closed: 0 };
+        return { total: 0, open: 0, inProgress: 0, clientReplied: 0, closed: 0, slaBreached: 0, waitingTeam: 0 };
       }
       base.departmentId = { $in: visibility.departmentIds };
     }
 
-    const [total, open, inProgress, clientReplied, closed] = await Promise.all([
+    const [total, open, inProgress, clientReplied, closed, slaBreached, waitingTeam] =
+      await Promise.all([
       InboxTicket.countDocuments(base),
       InboxTicket.countDocuments({ ...base, status: 'open' }),
       InboxTicket.countDocuments({ ...base, status: 'in_progress' }),
       InboxTicket.countDocuments({ ...base, status: 'client_replied' }),
       InboxTicket.countDocuments({ ...base, status: 'closed' }),
+      InboxTicket.countDocuments({
+        ...base,
+        teamSlaBreachedAt: { $exists: true, $ne: null },
+        status: { $ne: 'closed' },
+      }),
+      InboxTicket.countDocuments({
+        ...base,
+        unreadClientReply: true,
+        status: { $ne: 'closed' },
+      }),
     ]);
-    return { total, open, inProgress, clientReplied, closed };
+    return { total, open, inProgress, clientReplied, closed, slaBreached, waitingTeam };
   }
 
   async getTicketByRef(clientId: string, userId: string, ticketRef: string) {
@@ -2557,6 +2710,7 @@ export class InboxService {
         unreadClientReply: Boolean(ticket.unreadClientReply),
         lastClientReplyAt: ticket.lastClientReplyAt,
         lastTeamMessageAt: ticket.lastTeamMessageAt,
+        ...serializeTicketDisplayFields(ticket),
       },
       teamMembers: await this.listTeamMembersForAssignment(clientId),
     };
@@ -2575,7 +2729,7 @@ export class InboxService {
     );
     ticket.clientReplyWindowStartedAt = now;
     ticket.clientReplyPaused = false;
-    ticket.ticketInboundMode = undefined;
+    ticket.ticketInboundMode = 'ticket';
     await ticket.save();
 
     const ctx = await this.loadTicketMessageContext(ticket, clientId);
@@ -2769,9 +2923,17 @@ export class InboxService {
     }
     if (patch.status && patch.status !== 'closed') {
       ticket.status = patch.status;
+      ticket.lastStatusChangeAt = new Date();
+      if (patch.status === 'in_progress') {
+        ticket.unreadClientReply = false;
+      }
     }
+    ticket.updatedAt = new Date();
     await ticket.save();
-    return ticket.toObject();
+    return {
+      ...ticket.toObject(),
+      ...serializeTicketDisplayFields(ticket),
+    };
   }
 
   async addTicketComment(
@@ -3047,7 +3209,9 @@ export class InboxService {
     const who = ctx.assignedName ? `\nAtendimento: *${ctx.assignedName}*.` : '';
     return (
       `Olá *${ticket.contactName}*!\n\n` +
-      `Ticket *${ticket.ticketRef}* *finalizado* pela nossa equipe.${who}\n\n` +
+      `Ticket *${ticket.ticketRef}*\n` +
+      `Status: *${INBOX_TICKET_STATUS_LABEL.closed}*\n\n` +
+      `Nossa equipe encerrou este chamado.${who}\n\n` +
       TICKET_CLOSE_REPLY_HINT
     );
   }
@@ -3071,6 +3235,12 @@ export class InboxService {
     const result = await this.sendToContact(clientId, ticket.contactIdentifier, body);
     ticket.lastTeamMessageAt = new Date();
     ticket.teamHasMessagedClient = true;
+    ticket.unreadClientReply = false;
+    clearTeamSlaOnTeamReply(ticket);
+    if (ticket.status === 'client_replied') {
+      ticket.status = 'in_progress';
+      ticket.lastStatusChangeAt = new Date();
+    }
     await ticket.save();
     await InboxMessage.create({
       clientId: conv.clientId,
@@ -3573,7 +3743,7 @@ export class InboxService {
     try {
       const rows = await InboxSettings.find({})
         .select(
-          'clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes queueSlaAlertMinutes quickReplies',
+          'clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes queueSlaAlertMinutes ticketTeamResponseHours quickReplies',
         )
         .lean();
 
@@ -3597,9 +3767,45 @@ export class InboxService {
         if (queueMinutes > 0) {
           await this.processClientQueueSla(clientId, queueMinutes, nowMs);
         }
+        await this.processTicketTeamSla(clientId, row.ticketTeamResponseHours, nowMs);
       }
     } catch (err) {
       logger.error('Falha no scan de SLA do Inbox', { err });
+    }
+  }
+
+  private async processTicketTeamSla(
+    clientId: string,
+    hours: number | undefined,
+    nowMs: number,
+  ): Promise<void> {
+    const slaHours = hours ?? DEFAULT_INBOX_SLA.ticketTeamResponseHours;
+    if (slaHours <= 0) return;
+
+    const overdue = await InboxTicket.find({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ...TICKET_NOT_DELETED,
+      status: { $in: ['open', 'in_progress', 'client_replied'] },
+      teamSlaDueAt: { $lte: new Date(nowMs) },
+      teamSlaBreachedAt: { $exists: false },
+      unreadClientReply: true,
+    })
+      .limit(30)
+      .exec();
+
+    for (const ticket of overdue) {
+      ticket.teamSlaBreachedAt = new Date(nowMs);
+      ticket.updatedAt = new Date();
+      await ticket.save();
+      this.notifyTicketUpdated(clientId, ticket.ticketRef);
+      emitPanelEvent(clientId, {
+        id: crypto.randomUUID(),
+        type: 'inbox:priority',
+        title: 'SLA ticket estourado',
+        body: `${ticket.ticketRef} — cliente aguardando equipe`,
+        href: `/platform/inbox/tickets/${ticket.ticketRef}`,
+        createdAt: new Date(nowMs).toISOString(),
+      });
     }
   }
 
