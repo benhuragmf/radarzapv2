@@ -294,6 +294,11 @@ export class AiProviderService {
         shouldEscalate: Boolean(parsed.shouldEscalate),
         escalationReason: parsed.escalationReason,
         internalSummary: parsed.internalSummary,
+        shouldCreateTicket: parsed.shouldCreateTicket === true,
+        ticketReason: parsed.ticketReason || undefined,
+        targetTicketRef: parsed.targetTicketRef || undefined,
+        shouldAppendToTicket: parsed.shouldAppendToTicket === true,
+        ticketAppendBody: parsed.ticketAppendBody || undefined,
         parseFailed: false,
       };
     } catch {

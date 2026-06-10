@@ -93,4 +93,11 @@ export interface AiStructuredReply {
   shouldEscalate: boolean;
   escalationReason?: string;
   internalSummary?: string;
+  shouldCreateTicket?: boolean;
+  ticketReason?: string;
+  /** Ticket existente que o cliente quer complementar (ex.: TK-88CHYX). */
+  targetTicketRef?: string;
+  /** Gravar ticketAppendBody (ou texto do cliente) em clientReplies do ticket. */
+  shouldAppendToTicket?: boolean;
+  ticketAppendBody?: string;
 }

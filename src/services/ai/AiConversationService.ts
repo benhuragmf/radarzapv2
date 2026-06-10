@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { AiConversationState, IAiConversationState } from '@/models/AiConversationState';
 import { AI_GENERIC_FALLBACK_REPLY, AiConversationStatus } from '@/types/ai-assistant';
+import type { AiStructuredReply } from '@/types/ai-assistant';
 import { InboxMessage } from '@/models/InboxMessage';
 import { InboxDepartment } from '@/models/InboxDepartment';
 import type { IDestination } from '@/models/Destination';
@@ -18,6 +19,7 @@ import type { IAiPrompt } from '@/models/AiPrompt';
 import { AiAutoResolveService } from './AiAutoResolveService';
 import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
+import { AiTicketUpdateService } from './AiTicketUpdateService';
 import type { InboxService } from '@/services/inbox/InboxService';
 import { logger } from '@/utils/logger';
 
@@ -270,6 +272,8 @@ export class AiConversationService {
       await state.save();
     }
 
+    await this.tryTicketUpdateFromClient(ctx, state, {}, inbox);
+
     const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(
       ctx.clientId,
       { contactContext: contactCtx, clientText: ctx.text },
@@ -340,6 +344,7 @@ export class AiConversationService {
     }
 
     this.mergeCollected(state, structured, ctx.text);
+    await this.tryTicketUpdateFromClient(ctx, state, structured, inbox);
     await ctxSvc.persistCollectedFields(ctx.dest, {
       name: state.nameConfirmed ? state.collectedName : undefined,
       email: state.collectedEmail,
@@ -490,6 +495,8 @@ export class AiConversationService {
     if (prompt.autoResolveEnabled && (await this.tryAutoResolveAndReply(ctx, inbox, state))) {
       return { handled: true };
     }
+
+    await this.tryTicketUpdateFromClient(ctx, state, {}, inbox);
 
     const first = state.collectedName?.trim().split(/\s+/)[0];
     const reply = first
@@ -677,6 +684,23 @@ export class AiConversationService {
     }
     if (structured.urgency) state.urgency = structured.urgency;
     if (structured.internalSummary) state.summary = structured.internalSummary;
+  }
+
+  private async tryTicketUpdateFromClient(
+    ctx: AiInboundContext,
+    state: IAiConversationState,
+    structured: AiStructuredReply,
+    inbox: InboxService,
+  ): Promise<void> {
+    await AiTicketUpdateService.getInstance().tryPersist(
+      ctx.clientId,
+      ctx.dest.identifier,
+      state,
+      structured,
+      ctx.text,
+      inbox,
+    );
+    await state.save();
   }
 
   private async ensureNameConfirmed(

@@ -1546,6 +1546,66 @@ export class InboxService {
     });
   }
 
+  /**
+   * Grava complemento do cliente no ticket via fluxo IA (sem menu grace de 30min).
+   * Retorna false se o ticket não existir para este cliente.
+   */
+  async appendTicketClientReplyFromAi(
+    clientId: string,
+    ticketRef: string,
+    body: string,
+    contactIdentifier: string,
+  ): Promise<boolean> {
+    const normalizedRef = ticketRef.trim().toUpperCase();
+    const trimmedBody = body.trim();
+    if (!normalizedRef || !trimmedBody) return false;
+
+    const ticket = await InboxTicket.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ticketRef: normalizedRef,
+      ...TICKET_NOT_DELETED,
+    });
+    if (!ticket) return false;
+
+    const duplicate = ticket.clientReplies.some(
+      r => r.body.trim() === trimmedBody && Date.now() - new Date(r.createdAt).getTime() < 60_000,
+    );
+    if (duplicate) {
+      logger.info('IA ignorou complemento duplicado no ticket', { clientId, ticketRef: normalizedRef });
+      return true;
+    }
+
+    ticket.clientReplies.push({
+      body: trimmedBody,
+      createdAt: new Date(),
+    });
+    ticket.lastClientReplyAt = new Date();
+    ticket.unreadClientReply = true;
+    if (ticket.status !== 'closed') {
+      ticket.status = 'client_replied';
+    }
+    ticket.updatedAt = new Date();
+    await ticket.save();
+
+    const conv = await InboxConversation.findById(ticket.conversationId);
+    if (conv) {
+      await this.appendSystemMessage(
+        conv,
+        `Informação adicionada ao ticket *${ticket.ticketRef}* (via assistente IA).`,
+        undefined,
+        clientId,
+      );
+    }
+
+    this.notifyTicketUpdated(clientId, ticket.ticketRef);
+    logger.info('Complemento gravado no ticket via IA', {
+      clientId,
+      ticketRef: normalizedRef,
+      contactIdentifier,
+    });
+    return true;
+  }
+
   private buildTeamCommentClientMessage(ticketRef: string, authorName: string, body: string): string {
     return `*${authorName}* · Ticket *${ticketRef}*\n\n${body}`;
   }

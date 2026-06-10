@@ -21,6 +21,8 @@ export interface IAiConversationState extends Document {
   shouldEscalate: boolean;
   escalationReason?: string;
   suggestedDepartmentMenuKey?: string;
+  /** Ticket que o cliente escolheu complementar nesta conversa IA. */
+  targetTicketRef?: string;
   aiTurnCount: number;
   lastClientMessage?: string;
   repeatedQuestionCount: number;
@@ -51,6 +53,7 @@ const AiConversationStateSchema = new Schema<IAiConversationState>(
     shouldEscalate: { type: Boolean, default: false },
     escalationReason: { type: String, maxlength: 500 },
     suggestedDepartmentMenuKey: { type: String, maxlength: 20 },
+    targetTicketRef: { type: String, maxlength: 32 },
     aiTurnCount: { type: Number, default: 0, min: 0 },
     lastClientMessage: { type: String, maxlength: 2000 },
     repeatedQuestionCount: { type: Number, default: 0, min: 0 },

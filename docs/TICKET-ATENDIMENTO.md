@@ -239,6 +239,22 @@ Constante: `TICKET_FOLLOW_UP_MENU_AFTER_HOURS = 2` · `TICKET_FOLLOW_UP_MENU_AFT
 
 ---
 
+## Complemento via IA (Inbox triagem)
+
+Quando o cliente está na **IA de atendimento** (`BOT_TRIAGE`) e quer **interagir em ticket existente** (ex.: informar telefone, foto ou dado extra):
+
+1. Cliente confirma ou informa referência `TK-XXXXXX` → gravado em `AiConversationState.targetTicketRef`.
+2. Cliente envia o dado (telefone, texto útil) → `InboxService.appendTicketClientReplyFromAi` persiste em `clientReplies[]`.
+3. Painel: status `client_replied`, `unreadClientReply`, mensagem de sistema *"Informação adicionada ao ticket … (via assistente IA)"*.
+
+**Serviços:** `AiTicketUpdateService`, `src/utils/ticket-ref.ts` · **JSON IA:** `targetTicketRef`, `shouldAppendToTicket`, `ticketAppendBody`.
+
+**Resiliência:** gravação ocorre **antes** da chamada LLM e na recuperação de erro (rate limit), se o ticket já estiver selecionado — não depende só da resposta do modelo.
+
+**Diferença do fluxo direto:** não dispara menu grace de 30 min nem altera `ticketInboundMode` — o cliente continua na conversa com a IA.
+
+---
+
 ## Janela de complemento (30 min)
 
 Na **primeira resposta com conteúdo** do cliente dentro da rodada, o sistema abre **30 minutos** para complementos no **mesmo** chamado:

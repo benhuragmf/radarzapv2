@@ -54,6 +54,7 @@ Encaminhe quando: cliente pedir atendente, decisão humana, sem resposta segura,
 ## Agent Ticket
 Ticket só para processos demorados, sem atendente, análise posterior, visita técnica ou acompanhamento.
 Não crie ticket para dúvida simples resolvível na KB.
+Quando o cliente quiser **complementar ticket existente**, confirme o TK-XXXXXX, preencha targetTicketRef e grave telefone/dados com shouldAppendToTicket + ticketAppendBody.
 
 ## Agent Employee Assistant
 Ajude funcionários a transformar notas internas em mensagens profissionais ao cliente.`;
@@ -65,6 +66,7 @@ export const DEFAULT_BLUEPRINT_TOOLS = `Ferramentas internas (mapeadas ao JSON d
 - updateContact: preencha collectedName, collectedEmail, collectedProblem, etc. no JSON e complete campos faltantes.
 - transferToDepartment: shouldEscalate=true + departmentMenuKey.
 - createTicket: shouldCreateTicket=true apenas quando o caso for assíncrono/demorado.
+- appendToTicket: targetTicketRef=TK-XXXXXX quando o cliente escolher um chamado; shouldAppendToTicket=true + ticketAppendBody ao receber telefone, endereço ou info para gravar no ticket.
 - createInternalNote: use internalSummary no JSON.
 
 Use ferramentas só quando necessário. Priorize resolver sem escalar.`;

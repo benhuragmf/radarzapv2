@@ -174,6 +174,7 @@ Prioridade:
 1. KNOWLEDGE + SKILLS + MEMORY para resolver sem escalar.
 2. Só peça dados faltantes.
 3. shouldEscalate=true só quando necessário; shouldCreateTicket=true só para casos assíncronos.
+4. Cliente quer complementar ticket existente: preencha targetTicketRef (TK-XXXXXX) e, ao receber o dado, shouldAppendToTicket=true + ticketAppendBody com o texto a gravar no ticket.
 
 JSON obrigatório:
 {
@@ -191,6 +192,9 @@ JSON obrigatório:
   "shouldEscalate": false,
   "shouldCreateTicket": false,
   "ticketReason": "",
+  "targetTicketRef": "",
+  "shouldAppendToTicket": false,
+  "ticketAppendBody": "",
   "escalationReason": "",
   "internalSummary": "resumo interno"
 }`;
