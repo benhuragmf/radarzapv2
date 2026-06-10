@@ -16,10 +16,10 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/wa-logs` | `menu/WaLogs.tsx` | `GET /logs?tenant=1&service=WhatsAppService` |
 | `/platform/automacoes` | `PlatformAutomations.tsx` | `GET/POST /platform/automations` |
 | `/platform/inbox` | `menu/Inbox.tsx` | `GET/POST /inbox/*`, `?conv=` deep link |
-| `/platform/inbox/tickets` | `menu/InboxTickets.tsx` | `GET /inbox/tickets`, `GET /inbox/tickets/stats` |
-| `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref`, `POST …/client-update`, `…/close`, `…/comments` — regras: `TICKET-ATENDIMENTO.md` |
+| `/platform/inbox/tickets` | `menu/InboxTickets.tsx` | `GET /inbox/tickets`, `GET /inbox/tickets/stats` — badges `displayStatus`, contagem SLA equipe (2.7.x) |
+| `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref`, `POST …/client-update`, `…/close`, `…/comments`, `PATCH …/status` — regras: `TICKET-ATENDIMENTO.md` |
 | `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
-| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` (CSAT: `csatEnabled`, `csatPrompt`, `csatThankYou`) |
+| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` — CSAT + `ticketTeamResponseHours` (SLA equipe ticket, 2.7.x) |
 | `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage` — fluxo WA: `INBOX-ATENDIMENTO.md` § IA opcional |
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
 | `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` |
