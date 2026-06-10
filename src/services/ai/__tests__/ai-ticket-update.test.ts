@@ -57,6 +57,17 @@ describe('AiTicketUpdateService', () => {
     expect(svc.resolveAppendBody(structured, 'TK-88CHYX', state)).toBeNull();
   });
 
+  it('infere ticket da última mensagem da IA quando cliente só envia complemento', () => {
+    const state = {} as IAiConversationState;
+    svc.applyTargetTicketRef(
+      state,
+      {},
+      'Avisar que o problema retornou',
+      'Entendi, você deseja adicionar informações ao ticket TK-5NP8CT.',
+    );
+    expect(state.targetTicketRef).toBe('TK-5NP8CT');
+  });
+
   it('persiste via InboxService quando ticket existe', async () => {
     const state = { targetTicketRef: 'TK-88CHYX' } as IAiConversationState;
     const inbox = {

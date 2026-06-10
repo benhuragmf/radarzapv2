@@ -1581,9 +1581,7 @@ export class InboxService {
     });
     ticket.lastClientReplyAt = new Date();
     ticket.unreadClientReply = true;
-    if (ticket.status !== 'closed') {
-      ticket.status = 'client_replied';
-    }
+    ticket.status = 'client_replied';
     ticket.updatedAt = new Date();
     await ticket.save();
 

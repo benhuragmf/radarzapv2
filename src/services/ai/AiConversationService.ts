@@ -272,7 +272,13 @@ export class AiConversationService {
       await state.save();
     }
 
-    await this.tryTicketUpdateFromClient(ctx, state, {}, inbox);
+    const ticketSavedEarly = await this.tryTicketUpdateFromClient(
+      ctx,
+      state,
+      {},
+      inbox,
+      lastAssistantBefore?.content,
+    );
 
     const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(
       ctx.clientId,
@@ -314,7 +320,14 @@ export class AiConversationService {
     }
 
     if (!completion) {
-      return this.recoverFromAiFailure(ctx, inbox, state, prompt, llmError ?? 'IA indisponível');
+      return this.recoverFromAiFailure(
+        ctx,
+        inbox,
+        state,
+        prompt,
+        llmError ?? 'IA indisponível',
+        ticketSavedEarly,
+      );
     }
 
     const { structured } = completion;
@@ -332,6 +345,7 @@ export class AiConversationService {
         state,
         prompt,
         structured.parseFailed ? 'JSON inválido' : 'Resposta vazia',
+        ticketSavedEarly,
       );
     }
 
@@ -340,11 +354,18 @@ export class AiConversationService {
       lastAssistant?.content.trim() === AI_GENERIC_FALLBACK_REPLY &&
       structured.reply.trim() === AI_GENERIC_FALLBACK_REPLY
     ) {
-      return this.recoverFromAiFailure(ctx, inbox, state, prompt, 'Resposta genérica repetida');
+      return this.recoverFromAiFailure(
+        ctx,
+        inbox,
+        state,
+        prompt,
+        'Resposta genérica repetida',
+        ticketSavedEarly,
+      );
     }
 
     this.mergeCollected(state, structured, ctx.text);
-    await this.tryTicketUpdateFromClient(ctx, state, structured, inbox);
+    await this.tryTicketUpdateFromClient(ctx, state, structured, inbox, lastAssistantBefore?.content);
     await ctxSvc.persistCollectedFields(ctx.dest, {
       name: state.nameConfirmed ? state.collectedName : undefined,
       email: state.collectedEmail,
@@ -485,23 +506,28 @@ export class AiConversationService {
     state: IAiConversationState,
     prompt: IAiPrompt,
     reason: string,
+    ticketSavedEarly = false,
   ): Promise<AiInboundResult> {
     logger.warn('IA em recuperação — sem menu de setores', {
       clientId: ctx.clientId,
       conversationId: ctx.conversation._id,
       reason,
+      ticketSavedEarly,
     });
 
     if (prompt.autoResolveEnabled && (await this.tryAutoResolveAndReply(ctx, inbox, state))) {
       return { handled: true };
     }
 
-    await this.tryTicketUpdateFromClient(ctx, state, {}, inbox);
+    const ticketSaved =
+      ticketSavedEarly || (await this.tryTicketUpdateFromClient(ctx, state, {}, inbox));
 
     const first = state.collectedName?.trim().split(/\s+/)[0];
-    const reply = first
-      ? `${first}, tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para falar com nossa equipe.`
-      : 'Tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para nossa equipe.';
+    const reply = ticketSaved && state.targetTicketRef
+      ? this.buildTicketSavedRecoveryReply(first, state.targetTicketRef)
+      : first
+        ? `${first}, tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para falar com nossa equipe.`
+        : 'Tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para nossa equipe.';
 
     await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reply);
     state.status = AiConversationStatus.AI_WAITING_CLIENT;
@@ -686,21 +712,32 @@ export class AiConversationService {
     if (structured.internalSummary) state.summary = structured.internalSummary;
   }
 
+  private buildTicketSavedRecoveryReply(firstName: string | undefined, ticketRef: string): string {
+    const prefix = firstName ? `${firstName}, ` : '';
+    return (
+      `${prefix}sua informação foi registrada no ticket *${ticketRef}*. ` +
+      'Nossa equipe será avisada. Se quiser incluir mais algo, pode enviar aqui ou digite *atendente*.'
+    );
+  }
+
   private async tryTicketUpdateFromClient(
     ctx: AiInboundContext,
     state: IAiConversationState,
     structured: AiStructuredReply,
     inbox: InboxService,
-  ): Promise<void> {
-    await AiTicketUpdateService.getInstance().tryPersist(
+    lastAssistantText?: string,
+  ): Promise<boolean> {
+    const saved = await AiTicketUpdateService.getInstance().tryPersist(
       ctx.clientId,
       ctx.dest.identifier,
       state,
       structured,
       ctx.text,
       inbox,
+      lastAssistantText,
     );
     await state.save();
+    return saved;
   }
 
   private async ensureNameConfirmed(

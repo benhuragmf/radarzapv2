@@ -21,11 +21,16 @@ export class AiTicketUpdateService {
     state: IAiConversationState,
     structured: Pick<AiStructuredReply, 'targetTicketRef'>,
     clientText: string,
+    lastAssistantText?: string,
   ): void {
     const fromText = parseTicketRefFromText(clientText);
     if (fromText) state.targetTicketRef = fromText;
     if (structured.targetTicketRef?.trim()) {
       state.targetTicketRef = normalizeTicketRef(structured.targetTicketRef);
+    }
+    if (!state.targetTicketRef && lastAssistantText) {
+      const fromAssistant = parseTicketRefFromText(lastAssistantText);
+      if (fromAssistant) state.targetTicketRef = fromAssistant;
     }
   }
 
@@ -56,8 +61,9 @@ export class AiTicketUpdateService {
     structured: AiStructuredReply,
     clientText: string,
     inbox: InboxService,
+    lastAssistantText?: string,
   ): Promise<boolean> {
-    this.applyTargetTicketRef(state, structured, clientText);
+    this.applyTargetTicketRef(state, structured, clientText, lastAssistantText);
     const body = this.resolveAppendBody(structured, clientText, state);
     if (!body || !state.targetTicketRef) return false;
 
