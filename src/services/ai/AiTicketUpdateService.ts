@@ -6,9 +6,11 @@ import {
   looksLikeTicketSupplement,
   normalizeTicketRef,
   parseTicketRefFromText,
+  isTicketClientDecline,
+  isTicketClientClosingMessage,
+  isTicketHumanRequest,
 } from '@/utils/ticket-ref';
 import { parseTicketStatusRequest } from '@/types/inbox-ticket';
-import { isTicketClientDecline } from '@/utils/ticket-ref';
 import {
   classifyTicketClientIntent,
   ticketIntentBlocksAppend,
@@ -49,6 +51,8 @@ export class AiTicketUpdateService {
     const intent = classifyTicketClientIntent(clientText.trim());
     if (
       ticketIntentBlocksAppend(intent) ||
+      isTicketHumanRequest(clientText.trim()) ||
+      isTicketClientClosingMessage(clientText.trim()) ||
       parseTicketStatusRequest(clientText.trim()) ||
       isTicketClientDecline(clientText.trim())
     ) {
@@ -80,6 +84,8 @@ export class AiTicketUpdateService {
     const intent = classifyTicketClientIntent(clientText.trim());
     if (
       ticketIntentBlocksAppend(intent) ||
+      isTicketHumanRequest(clientText.trim()) ||
+      isTicketClientClosingMessage(clientText.trim()) ||
       parseTicketStatusRequest(clientText.trim()) ||
       isTicketClientDecline(clientText.trim())
     ) {

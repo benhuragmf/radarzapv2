@@ -1,6 +1,8 @@
 import { parseTicketStatusRequest } from '@/types/inbox-ticket';
 import {
   isTicketClientDecline,
+  isTicketClientClosingMessage,
+  isTicketHumanRequest,
   isTicketRefOnlyMessage,
   looksLikeTicketSupplement,
 } from '@/utils/ticket-ref';
@@ -9,6 +11,8 @@ import {
 export type TicketClientIntent =
   | 'status_inquiry'
   | 'decline'
+  | 'exit_close'
+  | 'human_request'
   | 'question'
   | 'problem_report'
   | 'append_data'
@@ -31,6 +35,8 @@ export function classifyTicketClientIntent(text: string): TicketClientIntent {
   if (!norm) return 'other';
 
   if (isTicketClientDecline(text)) return 'decline';
+  if (isTicketClientClosingMessage(text)) return 'exit_close';
+  if (isTicketHumanRequest(text)) return 'human_request';
   if (isTicketRefOnlyMessage(text)) return 'select_ref';
 
   if (
@@ -77,6 +83,7 @@ export function ticketIntentNeedsAssist(intent: TicketClientIntent): boolean {
   return (
     intent === 'status_inquiry' ||
     intent === 'decline' ||
+    intent === 'exit_close' ||
     ticketIntentShouldTryResolve(intent)
   );
 }
@@ -86,6 +93,8 @@ export function ticketIntentBlocksAppend(intent: TicketClientIntent): boolean {
   return (
     intent === 'status_inquiry' ||
     intent === 'decline' ||
+    intent === 'exit_close' ||
+    intent === 'human_request' ||
     intent === 'question' ||
     intent === 'select_ref'
   );

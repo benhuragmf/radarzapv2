@@ -45,6 +45,11 @@ export class TicketClientMenuService {
       const ref = dest.pendingTicketTargetRef;
       const intent = classifyTicketClientIntent(trimmed);
 
+      if (intent === 'human_request') {
+        await this.clearTicketMenuState(dest._id as mongoose.Types.ObjectId);
+        return false;
+      }
+
       if (ticketIntentNeedsAssist(intent)) {
         const assist = await AiTicketAssistService.getInstance().handle({
           clientId,
@@ -53,7 +58,7 @@ export class TicketClientMenuService {
           inbox,
         });
         if (assist.handled && assist.reply) {
-          if (intent === 'decline') {
+          if (intent === 'decline' || intent === 'exit_close') {
             await this.clearTicketMenuState(dest._id as mongoose.Types.ObjectId);
           }
           await inbox.sendAiReply(clientId, conversation, dest.identifier, assist.reply);

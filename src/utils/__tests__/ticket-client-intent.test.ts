@@ -31,15 +31,27 @@ describe('classifyTicketClientIntent', () => {
     expect(classifyTicketClientIntent('Avisar que voltou a falhar')).toBe('problem_report');
   });
 
+  it('classifica pedido de atendente humano', () => {
+    expect(classifyTicketClientIntent('falar com atendente')).toBe('human_request');
+    expect(classifyTicketClientIntent('atendente')).toBe('human_request');
+  });
+
+  it('classifica encerramento do ticket', () => {
+    expect(classifyTicketClientIntent('ok tudo certo pode finalizar')).toBe('exit_close');
+    expect(classifyTicketClientIntent('sair')).toBe('exit_close');
+  });
+
   it('classifica pergunta genérica', () => {
     expect(classifyTicketClientIntent('Como faço para acompanhar?')).toBe('question');
   });
 });
 
 describe('ticketIntent helpers', () => {
-  it('bloqueia append para status, recusa e perguntas', () => {
+  it('bloqueia append para status, recusa, humano e encerramento', () => {
     expect(ticketIntentBlocksAppend('status_inquiry')).toBe(true);
     expect(ticketIntentBlocksAppend('decline')).toBe(true);
+    expect(ticketIntentBlocksAppend('human_request')).toBe(true);
+    expect(ticketIntentBlocksAppend('exit_close')).toBe(true);
     expect(ticketIntentBlocksAppend('question')).toBe(true);
     expect(ticketIntentBlocksAppend('select_ref')).toBe(true);
     expect(ticketIntentBlocksAppend('append_data')).toBe(false);

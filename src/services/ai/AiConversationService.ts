@@ -31,6 +31,7 @@ import {
 import {
   buildAiTicketChoiceMenu,
   clientWantsTicketInteraction,
+  isTicketClientClosingMessage,
   isTicketRefOnlyMessage,
   isTicketUpdateContext,
   looksLikeTicketSupplement,
@@ -269,6 +270,14 @@ export class AiConversationService {
         ? classifyTicketClientIntent(ctx.text)
         : undefined;
 
+    if (settings.transferRules.onHumanRequest && escSvc.clientRequestsHuman(ctx.text)) {
+      state.targetTicketRef = undefined;
+      state.pendingTicketChoices = undefined;
+      await state.save();
+      await this.escalate(ctx, inbox, state, 'Cliente solicitou atendente humano');
+      return { handled: true };
+    }
+
     if (
       ticketUpdateCtx &&
       !ticketIntentBlocksAppend(ticketIntent ?? 'other') &&
@@ -320,7 +329,9 @@ export class AiConversationService {
 
     if (
       ticketUpdateCtx &&
-      (escSvc.clientClosingConversation(ctx.text) || isTicketClientDecline(ctx.text))
+      (escSvc.clientClosingConversation(ctx.text) ||
+        isTicketClientDecline(ctx.text) ||
+        isTicketClientClosingMessage(ctx.text))
     ) {
       if (await this.tryHandleTicketClientIntent(ctx, inbox, state)) {
         return { handled: true };
@@ -877,7 +888,7 @@ export class AiConversationService {
 
     if (!result.handled || !result.reply) return false;
 
-    if (intent === 'decline') {
+    if (intent === 'decline' || intent === 'exit_close') {
       state.targetTicketRef = undefined;
       state.pendingTicketChoices = undefined;
     }

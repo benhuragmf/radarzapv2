@@ -66,6 +66,8 @@ describe('ticket-ref utils', () => {
   it('consulta de status não é complemento', () => {
     expect(looksLikeTicketSupplement('Gostaria de saber o status dele?')).toBe(false);
     expect(looksLikeTicketSupplement('não obrigado')).toBe(false);
+    expect(looksLikeTicketSupplement('falar com atendente')).toBe(false);
+    expect(looksLikeTicketSupplement('ok tudo certo pode finalizar')).toBe(false);
   });
 
   it('resolve escolha numerada do menu', () => {
@@ -113,10 +115,17 @@ describe('AiTicketUpdateService', () => {
     expect(svc.resolveAppendBody(structured, 'não obrigado', state)).toBeNull();
   });
 
-  it('não grava quando cliente pergunta status', () => {
+  it('não grava quando cliente pede atendente', () => {
     const state = { targetTicketRef: 'TK-88CHYX' } as IAiConversationState;
     const structured = {} as AiStructuredReply;
-    expect(svc.resolveAppendBody(structured, 'Gostaria de saber o status dele?', state)).toBeNull();
+    expect(svc.resolveAppendBody(structured, 'falar com atendente', state)).toBeNull();
+    expect(svc.resolveAppendBody(structured, 'atendente', state)).toBeNull();
+  });
+
+  it('não grava quando cliente encerra', () => {
+    const state = { targetTicketRef: 'TK-88CHYX' } as IAiConversationState;
+    const structured = {} as AiStructuredReply;
+    expect(svc.resolveAppendBody(structured, 'ok tudo certo pode finalizar', state)).toBeNull();
   });
 
   it('não grava quando só escolhe ticket', () => {

@@ -33,7 +33,7 @@ export class AiTicketAssistService {
   }): Promise<TicketAssistResult> {
     const intent = classifyTicketClientIntent(params.text);
 
-    if (intent === 'decline') {
+    if (intent === 'decline' || intent === 'exit_close') {
       const first = params.contactName?.trim().split(/\s+/)[0];
       return {
         handled: true,

@@ -9,6 +9,11 @@ const TICKET_REF_RE = /\b(TK-[A-Z0-9]{4,8})\b/i;
 const TICKET_INTENT_ONLY_RE =
   /^(sim[, ]*)?(vou )?(interagir|falar|atualizar|complementar|enviar).{0,40}ticket/i;
 
+const TICKET_HUMAN_KEYWORDS =
+  /\b(atendente|humano|pessoa|operador|suporte|representante|especialista)\b/i;
+const TICKET_HUMAN_PHRASES =
+  /\b(falar com (?:algu[eé]m|suporte|atendente|uma pessoa)|quero (?:suporte|atendente|humano)|preciso de (?:suporte|atendente)|me transfere|transferir|encaminh)/i;
+
 const SHORT_ACK_RE =
   /^(sim|nao|não|s|ss|ok|positivo|isso|certo|obrigad|valeu|blz|beleza|tudo|so isso|só isso|isso e tudo|isso é tudo|era so|era só)[.!?\s]*$/i;
 
@@ -72,12 +77,43 @@ export function isTicketClientDecline(text: string): boolean {
   return /^nao,?\s*obrigad/.test(norm);
 }
 
+/** Cliente pediu atendente humano — nunca gravar como complemento do ticket. */
+export function isTicketHumanRequest(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (TICKET_HUMAN_KEYWORDS.test(t)) return true;
+  if (TICKET_HUMAN_PHRASES.test(t)) return true;
+  return false;
+}
+
+/** Cliente encerrou interação no ticket (sair, finalizar, tudo certo). */
+export function isTicketClientClosingMessage(text: string): boolean {
+  const norm = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[!?.]+$/g, '')
+    .trim();
+  if (!norm) return false;
+  if (norm === 'sair' || norm === 'finalizar' || norm === 'finaliza' || norm === 'encerrar') {
+    return true;
+  }
+  if (isTicketClientDecline(text)) return true;
+  if (/\b(ok[, ]+)?tudo certo\b/.test(norm)) return true;
+  if (/\bpode finalizar\b/.test(norm)) return true;
+  if (/\b(pode encerrar|so isso|somente isso|era so|era só)\b/.test(norm)) return true;
+  return false;
+}
+
 /** Cliente informou dado complementar (telefone, texto útil) — não só escolha de ticket. */
 export function looksLikeTicketSupplement(text: string): boolean {
   const norm = text.trim();
   if (!norm || norm.length < 3) return false;
   if (parseTicketStatusRequest(norm)) return false;
   if (isTicketClientDecline(norm)) return false;
+  if (isTicketHumanRequest(norm)) return false;
+  if (isTicketClientClosingMessage(norm)) return false;
   if (isTicketRefOnlyMessage(norm)) return false;
   if (SHORT_ACK_RE.test(norm)) return false;
   if (TICKET_INTENT_ONLY_RE.test(norm)) return false;
