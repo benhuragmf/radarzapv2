@@ -3,7 +3,10 @@ import { FolderOpen, Pencil, Plus, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { inputCls } from '../../lib/destinationUi'
-import { formatPhone } from '../../lib/destinationFormat'
+import { formatPhone, isValidContactPhoneInput } from '../../lib/destinationFormat'
+import { detectCountryFromE164, hasContactPhoneNationalDigits } from '../../lib/phoneCountries'
+import ContactPhoneInput from './ContactPhoneInput'
+import CountryFlag from './CountryFlag'
 import type { ContactGroupItem } from './ContactGroupsSidebar'
 
 export interface ContactFormData {
@@ -65,9 +68,10 @@ export default function ContactEditorModal({
   }
 
   const title = mode === 'create' ? 'Novo contato' : 'Editar contato'
+  const phoneValid = mode === 'edit' || isValidContactPhoneInput(form.identifier)
   const canSave =
     form.name.trim() &&
-    (mode === 'edit' || form.identifier.trim()) &&
+    (mode === 'edit' || (form.identifier.trim() && phoneValid)) &&
     !saving
 
   return (
@@ -111,17 +115,23 @@ export default function ContactEditorModal({
             {mode === 'create' ? (
               <div className="sm:col-span-2">
                 <label className="text-xs text-gray-500 mb-1 block">Número WhatsApp *</label>
-                <input
+                <ContactPhoneInput
                   value={form.identifier}
-                  onChange={e => set('identifier', e.target.value)}
-                  placeholder="+5511999999999"
-                  className={inputCls}
+                  onChange={v => set('identifier', v)}
                 />
+                {hasContactPhoneNationalDigits(form.identifier) && !phoneValid && (
+                  <p className="text-xs text-red-400 mt-1">
+                    Número incompleto ou inválido. Brasil: DDD + celular (ex: 11999999999).
+                  </p>
+                )}
               </div>
             ) : (
               <div className="sm:col-span-2">
                 <label className="text-xs text-gray-500 mb-1 block">Número</label>
-                <p className="text-sm text-gray-400 font-mono px-3 py-2 bg-gray-800/50 rounded-lg border border-gray-800">
+                <p className="text-sm text-gray-400 font-mono px-3 py-2 bg-gray-800/50 rounded-lg border border-gray-800 flex items-center gap-2">
+                  {contactPhone && (
+                    <CountryFlag iso={detectCountryFromE164(contactPhone).iso} size={18} />
+                  )}
                   {contactPhone ? formatPhone(contactPhone) : form.identifier}
                 </p>
               </div>

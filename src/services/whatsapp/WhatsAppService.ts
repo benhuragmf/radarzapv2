@@ -223,6 +223,40 @@ export class WhatsAppService {
     });
   }
 
+  private isIgnorableInboundWaJid(jid: string | undefined | null): boolean {
+    if (!jid) return true;
+    if (jid === 'status@broadcast' || jid.endsWith('@broadcast')) return true;
+    if (jid.endsWith('@g.us') || jid.endsWith('@newsletter')) return true;
+    return false;
+  }
+
+  /** Ignora receipts de status, reações vazias e payloads só de protocolo. */
+  private isIgnorableInboundWaPayload(msg: WAMessage): boolean {
+    const m = normalizeMessageContent(msg.message);
+    if (!m) return true;
+    if (m.pollUpdateMessage) return true;
+    if (m.senderKeyDistributionMessage) return true;
+    if (m.encReactionMessage) return true;
+    if (m.reactionMessage) {
+      const hasText = Boolean(this.extractInboundText(msg));
+      const hasMedia = Boolean(this.extractInboundMediaType(msg));
+      if (!hasText && !hasMedia) return true;
+    }
+    const protoOnly =
+      m.protocolMessage &&
+      !m.conversation &&
+      !m.extendedTextMessage?.text &&
+      !m.imageMessage &&
+      !m.videoMessage &&
+      !m.audioMessage &&
+      !m.documentMessage &&
+      !m.stickerMessage &&
+      !m.buttonsResponseMessage &&
+      !m.listResponseMessage;
+    if (protoOnly) return true;
+    return false;
+  }
+
   private extractInboundText(msg: WAMessage): string {
     const m = normalizeMessageContent(msg.message);
     if (!m) return '';
@@ -2344,7 +2378,8 @@ export class WhatsAppService {
     });
 
     socket.ev.on('messages.upsert', async (m) => {
-      if (m.type !== 'notify' && m.type !== 'append') return;
+      // Só mensagens novas — 'append' é histórico na reconexão (status, chats antigos, etc.)
+      if (m.type !== 'notify') return;
       const inboundMessages = [...m.messages].sort((a, b) => {
         const ta = Number(a.messageTimestamp ?? 0);
         const tb = Number(b.messageTimestamp ?? 0);
@@ -2352,11 +2387,8 @@ export class WhatsAppService {
       });
       for (const msg of inboundMessages) {
         if (msg.key.fromMe) continue;
-        if (msg.key.remoteJid?.endsWith('@g.us')) continue;
-
-        if (msg.message?.pollUpdateMessage) {
-          continue;
-        }
+        if (this.isIgnorableInboundWaJid(msg.key.remoteJid)) continue;
+        if (this.isIgnorableInboundWaPayload(msg)) continue;
 
         const text = this.extractInboundText(msg);
         const mediaType = this.extractInboundMediaType(msg);

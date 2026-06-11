@@ -57,6 +57,7 @@ import {
   WHATSAPP_LIMITS,
 } from '../../config/limits';
 import { processContactImport } from '../destinations/contactCsvImportService';
+import { normalizeContactPhoneE164 } from '../../utils/contact-csv-import';
 import { exportContactsCsv } from '../destinations/contactCsvExportService';
 import {
   PlatformTemplate,
@@ -2310,8 +2311,14 @@ export class DashboardService {
         if (destQuota.ok === false) return res.status(429).json({ error: destQuota.error });
 
         let normalizedId = String(identifier).trim();
-        if (type === 'contact' && !normalizedId.startsWith('+')) {
-          normalizedId = `+${normalizedId.replace(/\D/g, '')}`;
+        if (type === 'contact') {
+          const e164 = normalizeContactPhoneE164(normalizedId);
+          if (!e164) {
+            return res.status(400).json({
+              error: 'Informe o número com DDI internacional (ex: +5511999999999 ou +351912345678).',
+            });
+          }
+          normalizedId = e164;
         }
         const dest = await Destination.createDestination(
           clientOid, type, normalizedId, name, 'manual', '127.0.0.1'

@@ -65,7 +65,7 @@ export default function Destinations() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkGroupsMode, setBulkGroupsMode] = useState<'add' | 'remove' | null>(null)
   const emptyContactForm = (groupIds: string[] = []): ContactFormData => ({
-    identifier: '',
+    identifier: '+55',
     name: '',
     email: '',
     organization: '',

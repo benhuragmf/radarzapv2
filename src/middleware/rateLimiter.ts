@@ -1,10 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
-import { config } from '@/config/environment';
+import { config, isDevelopment } from '@/config/environment';
 import { createServiceLogger } from '@/utils/logger';
 import { AuthenticatedRequest } from './auth';
 
 const logger = createServiceLogger('RateLimiter');
+
+const dashboardApiMax = isDevelopment()
+  ? 20_000
+  : Math.max(config.RATE_LIMIT.MAX_REQUESTS, 500);
 
 /**
  * Rate limiting configuration by endpoint type
@@ -12,8 +16,8 @@ const logger = createServiceLogger('RateLimiter');
 const rateLimitConfigs = {
   // General API endpoints
   general: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per window
+    windowMs: config.RATE_LIMIT.WINDOW_MS,
+    max: dashboardApiMax,
     message: {
       error: 'Too many requests',
       code: 'RATE_LIMIT_EXCEEDED',
@@ -105,14 +109,11 @@ const createRateLimiter = (configKey: keyof typeof rateLimitConfigs) => {
       });
     },
     
-    // Skip successful requests for some endpoints
-    skip: (req: Request, res: Response) => {
-      // Skip counting successful requests for read operations
-      if (req.method === 'GET' && res.statusCode < 400) {
-        return configKey === 'general';
-      }
-      return false;
-    }
+    // Painel faz polling frequente — leituras não entram na cota
+    skip: (req: Request) => {
+      if (configKey !== 'general') return false;
+      return req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+    },
   });
 };
 

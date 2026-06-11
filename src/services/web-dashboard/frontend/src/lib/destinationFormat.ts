@@ -13,6 +13,24 @@ function digitsOnly(value: string): string {
   return value.replace(/\D/g, '')
 }
 
+/** Valida número E.164 no cadastro manual (+DDI…). Padrão BR é +55; outros países permitidos. */
+export function isValidContactPhoneInput(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('+')) return false
+  const digits = digitsOnly(trimmed)
+  if (digits.length < 10 || digits.length > 15) return false
+  if (!/^[1-9]\d{9,14}$/.test(digits)) return false
+  if (digits.startsWith('55')) {
+    const local = digits.slice(2)
+    if (local.length < 10 || local.length > 11) return false
+    if (local.length === 11 && local[2] !== '9') return false
+  }
+  return true
+}
+
+/** @deprecated use isValidContactPhoneInput */
+export const isValidBrContactPhoneInput = isValidContactPhoneInput
+
 /** Telefone BR plausível (não confundir com LID @lid). */
 export function isLikelyPhoneIdentifier(value: string): boolean {
   if (!value || value.includes('@lid')) return false
