@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { AiConversationState, IAiConversationState } from '@/models/AiConversationState';
 import { AI_GENERIC_FALLBACK_REPLY, AiConversationStatus } from '@/types/ai-assistant';
-import type { AiStructuredReply } from '@/types/ai-assistant';
+import { emptyAiStructuredReply, type AiStructuredReply } from '@/types/ai-assistant';
 import { InboxMessage } from '@/models/InboxMessage';
 import { InboxDepartment } from '@/models/InboxDepartment';
 import type { IDestination } from '@/models/Destination';
@@ -289,7 +289,7 @@ export class AiConversationService {
       const saved = await this.tryTicketUpdateFromClient(
         ctx,
         state,
-        {},
+        emptyAiStructuredReply(),
         inbox,
         lastAssistantBefore?.content,
       );
@@ -397,7 +397,7 @@ export class AiConversationService {
       (await this.tryTicketUpdateFromClient(
         ctx,
         state,
-        {},
+        emptyAiStructuredReply(),
         inbox,
         lastAssistantBefore?.content,
       ));
@@ -496,13 +496,22 @@ export class AiConversationService {
     }
 
     this.mergeCollected(state, structured, ctx.text);
+    if (structured.shouldCreateTicket) {
+      await inbox.createTicketFromAi(ctx.clientId, ctx.conversation, {
+        subject:
+          structured.ticketReason?.trim() ||
+          structured.internalSummary?.trim() ||
+          state.collectedProblem?.trim(),
+        initialClientBody: ctx.text?.trim() || state.collectedProblem?.trim(),
+      });
+    }
     if (!parseTicketStatusRequest(ctx.text) && !isTicketClientDecline(ctx.text)) {
       const appendIntent = ticketIntent ?? classifyTicketClientIntent(ctx.text);
       if (!ticketIntentBlocksAppend(appendIntent)) {
         await this.tryTicketUpdateFromClient(
           ctx,
           state,
-          structured.shouldAppendToTicket ? structured : {},
+          structured.shouldAppendToTicket ? structured : emptyAiStructuredReply(),
           inbox,
           lastAssistantBefore?.content,
         );
@@ -662,7 +671,7 @@ export class AiConversationService {
     }
 
     const ticketSaved =
-      ticketSavedEarly || (await this.tryTicketUpdateFromClient(ctx, state, {}, inbox));
+      ticketSavedEarly || (await this.tryTicketUpdateFromClient(ctx, state, emptyAiStructuredReply(), inbox));
 
     const first = state.collectedName?.trim().split(/\s+/)[0];
     const reply = ticketSaved && state.targetTicketRef
@@ -942,7 +951,7 @@ export class AiConversationService {
         if (
           looksLikeTicketSupplement(ctx.text) &&
           !isTicketRefOnlyMessage(ctx.text) &&
-          (await this.tryTicketUpdateFromClient(ctx, state, {}, inbox))
+          (await this.tryTicketUpdateFromClient(ctx, state, emptyAiStructuredReply(), inbox))
         ) {
           const first = state.collectedName?.trim().split(/\s+/)[0];
           await inbox.sendAiReply(

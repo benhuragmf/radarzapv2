@@ -123,7 +123,7 @@ const TERMINAL_STATUSES = new Set<InboxConversationStatus>([
 
 const TICKET_NOT_DELETED = {
   $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
-} as const;
+};
 
 const logger = createServiceLogger('InboxService');
 
@@ -2414,18 +2414,7 @@ export class InboxService {
       const exists = await InboxTicket.findOne({ clientId: clientOid, ticketRef: ref });
       if (exists) continue;
 
-      const opener =
-        conv.assignedUserId ??
-        (
-          await CompanyMember.findOne({
-            organizationId: clientOid,
-            isActive: true,
-            userId: { $exists: true, $ne: null },
-          })
-            .select('userId')
-            .lean()
-        )?.userId;
-
+      const opener = await this.resolveTicketOpenerUserId(clientId, conv);
       if (!opener) continue;
 
       await InboxTicket.create({
@@ -2441,6 +2430,81 @@ export class InboxService {
         openedByUserId: opener,
       });
     }
+  }
+
+  private async resolveTicketOpenerUserId(
+    clientId: string,
+    conv?: Pick<IInboxConversation, 'assignedUserId'>,
+  ): Promise<string | null> {
+    if (conv?.assignedUserId) return String(conv.assignedUserId);
+
+    const member = await CompanyMember.findOne({
+      organizationId: new mongoose.Types.ObjectId(clientId),
+      isActive: true,
+      userId: { $exists: true, $ne: null },
+    })
+      .select('userId')
+      .lean();
+
+    return member?.userId ? String(member.userId) : null;
+  }
+
+  /** Cria ticket assíncrono quando a IA sinaliza shouldCreateTicket. */
+  async createTicketFromAi(
+    clientId: string,
+    conv: IInboxConversation,
+    opts: {
+      subject?: string;
+      initialClientBody?: string;
+    },
+  ): Promise<{ ticketRef: string; created: boolean } | null> {
+    if (conv.ticketRef?.trim()) return null;
+
+    const openerUserId = await this.resolveTicketOpenerUserId(clientId, conv);
+    if (!openerUserId) {
+      logger.warn('createTicketFromAi: sem usuário para abrir ticket', { clientId });
+      return null;
+    }
+
+    const { ticket, created } = await this.ensureTicketRecord(conv, openerUserId);
+    if (!created) {
+      return { ticketRef: ticket.ticketRef, created: false };
+    }
+
+    const subject = opts.subject?.trim().slice(0, 200);
+    if (subject) ticket.subject = subject;
+
+    const initialBody = opts.initialClientBody?.trim();
+    if (initialBody) {
+      ticket.clientReplies.push({
+        body: initialBody,
+        createdAt: new Date(),
+      });
+      ticket.lastClientReplyAt = new Date();
+      ticket.unreadClientReply = true;
+      if (ticket.status !== 'closed') {
+        ticket.status = 'client_replied';
+      }
+    }
+
+    ticket.teamHasMessagedClient = true;
+    this.renewTeamClientReplyWindow(ticket, 'ticket');
+    await ticket.save();
+
+    const ctx = await this.loadTicketMessageContext(ticket, clientId);
+    const clientMsg = this.buildAiTicketOpenedClientMessage(ticket, ctx);
+    await this.sendTicketMessageToClient(clientId, openerUserId, ticket, clientMsg);
+
+    await this.appendSystemMessage(
+      conv,
+      `Ticket *${ticket.ticketRef}* criado pela IA — cliente notificado no WhatsApp.`,
+      new mongoose.Types.ObjectId(openerUserId),
+      clientId,
+    );
+
+    this.notifyConversation(clientId, conv);
+    this.notifyTicketUpdated(clientId, ticket.ticketRef);
+    return { ticketRef: ticket.ticketRef, created: true };
   }
 
   private async ensureTicketRecord(
@@ -3179,6 +3243,24 @@ export class InboxService {
       ctx.assignedName ? `Responsável: ${ctx.assignedName}` : null,
       `Aberto em: ${this.formatTicketDate(ticket.createdAt)}`,
       ticket.subject?.trim() ? `Assunto: ${ticket.subject.trim()}` : null,
+      '',
+      TICKET_CLIENT_REPLY_FOOTER,
+    ].filter((l): l is string => l !== null && l !== undefined);
+    return lines.join('\n');
+  }
+
+  private buildAiTicketOpenedClientMessage(
+    ticket: IInboxTicket,
+    ctx: Awaited<ReturnType<InboxService['loadTicketMessageContext']>>,
+  ): string {
+    const lines = [
+      `*Chamado registrado — ${ticket.ticketRef}*`,
+      '',
+      `Olá *${ticket.contactName}*!`,
+      '',
+      `Registramos sua solicitação para acompanhamento assíncrono. Guarde a referência *${ticket.ticketRef}*.`,
+      ticket.subject?.trim() ? `Assunto: ${ticket.subject.trim()}` : null,
+      ctx.deptName ? `Setor: ${ctx.deptName}` : null,
       '',
       TICKET_CLIENT_REPLY_FOOTER,
     ].filter((l): l is string => l !== null && l !== undefined);

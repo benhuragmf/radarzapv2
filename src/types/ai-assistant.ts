@@ -101,3 +101,12 @@ export interface AiStructuredReply {
   shouldAppendToTicket?: boolean;
   ticketAppendBody?: string;
 }
+
+/** Resposta estruturada vazia — append/status sem campos da IA. */
+export function emptyAiStructuredReply(): AiStructuredReply {
+  return {
+    reply: '',
+    confidence: 0,
+    shouldEscalate: false,
+  };
+}

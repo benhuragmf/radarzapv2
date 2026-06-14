@@ -709,8 +709,13 @@ export class ConsentService {
   async manualBlock(
     destinationId: string,
     adminUserId: string,
+    clientId?: string,
   ): Promise<void> {
-    const dest = await Destination.findById(destinationId);
+    const query: Record<string, unknown> = { _id: destinationId };
+    if (clientId) {
+      query.clientId = new mongoose.Types.ObjectId(clientId);
+    }
+    const dest = await Destination.findOne(query);
     if (!dest) throw new Error('Contato não encontrado');
     const prev = dest.consentStatus ?? ConsentStatus.PENDING;
     await this.applyStatus(dest, ConsentStatus.MANUALLY_BLOCKED, 'system-block', {

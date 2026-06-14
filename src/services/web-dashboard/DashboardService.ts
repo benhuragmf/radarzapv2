@@ -2879,7 +2879,13 @@ export class DashboardService {
     r.post('/admin/destinations/:id/block', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId);
+        const dest = await Destination.findById(req.params.id);
+        if (!dest) return res.status(404).json({ error: 'Contato não encontrado' });
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+        if (!relatedIds.some(id => id.toString() === dest.clientId?.toString())) {
+          return res.status(403).json({ error: 'Contato fora da sua empresa' });
+        }
+        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId, auth.clientId);
         res.json({ ok: true });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
@@ -2895,7 +2901,7 @@ export class DashboardService {
         if (!relatedIds.some(id => id.toString() === dest.clientId?.toString())) {
           return res.status(403).json({ error: 'Contato fora da sua empresa' });
         }
-        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId);
+        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId, auth.clientId);
         res.json({ ok: true });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
@@ -3130,7 +3136,32 @@ export class DashboardService {
 
     r.get('/queue/failed', requireCapability(Cap.QUEUE_VIEW), async (_req, res) => {
       try {
-        res.json([]);
+        const queueNames = this.queueManager.getQueueNames();
+        const items: Array<{
+          id: string;
+          queue: string;
+          name: string;
+          failedReason?: string;
+          timestamp?: number;
+          data?: unknown;
+        }> = [];
+
+        for (const queueName of queueNames) {
+          const jobs = await this.queueManager.getFailedJobs(queueName, 0, 49);
+          for (const job of jobs) {
+            items.push({
+              id: String(job.id),
+              queue: queueName,
+              name: job.name,
+              failedReason: job.failedReason,
+              timestamp: job.timestamp,
+              data: job.data,
+            });
+          }
+        }
+
+        items.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+        res.json(items);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -3138,7 +3169,12 @@ export class DashboardService {
 
     r.post('/queue/:id/retry', requireCapability(Cap.QUEUE_RETRY), async (req, res) => {
       try {
-        // TODO: implement retry via QueueManager
+        const queue = String((req.body as { queue?: string })?.queue ?? '').trim();
+        if (!queue) {
+          res.status(400).json({ error: 'Campo queue é obrigatório' });
+          return;
+        }
+        await this.queueManager.retryJob(queue, req.params.id);
         res.json({ ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });

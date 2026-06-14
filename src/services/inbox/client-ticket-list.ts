@@ -5,7 +5,7 @@ import type { AiTicketMenuItem } from '@/utils/ticket-ref';
 /** Soft delete — inclui `deletedAt: null` e campo ausente. */
 export const TICKET_NOT_DELETED_FILTER = {
   $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
-} as const;
+};
 
 /**
  * Chamados visíveis ao cliente no WhatsApp (menu IA / bot fixo).
