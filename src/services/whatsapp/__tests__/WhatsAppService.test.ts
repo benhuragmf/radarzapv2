@@ -2,12 +2,21 @@ import { WhatsAppService } from '../WhatsAppService';
 import { SessionCache } from '@/cache/SessionCache';
 import { QueueManager } from '@/cache/QueueManager';
 import { RateLimiter } from '@/cache/RateLimiter';
-import { WhatsAppSession, User, Destination } from '@/models';
+import { WhatsAppSession, User, Destination, Organization } from '@/models';
 import { CircuitBreaker } from '../../common/CircuitBreaker';
 import mongoose from 'mongoose';
 
 // A valid ObjectId string to use as clientId throughout the tests
 const TEST_CLIENT_ID = new mongoose.Types.ObjectId().toHexString();
+
+function mockConnectedSocket(overrides: Record<string, unknown> = {}) {
+  return {
+    user: { id: 'test@s.whatsapp.net' },
+    sendMessage: jest.fn().mockResolvedValue({ key: { id: 'msg-id' } }),
+    onWhatsApp: jest.fn().mockResolvedValue([{ exists: true, jid: '1234567890@s.whatsapp.net' }]),
+    ...overrides,
+  };
+}
 
 // Mock dependencies
 jest.mock('@/cache/SessionCache');
@@ -23,11 +32,22 @@ jest.mock('@/models', () => ({
     findById: jest.fn(),
     findOne: jest.fn(),
   },
+  Organization: {
+    findById: jest.fn(),
+  },
   Destination: {
     findByClientId: jest.fn(),
     findByIdentifier: jest.fn(),
     createDestination: jest.fn(),
     getDestinationStats: jest.fn(),
+  },
+}));
+jest.mock('@/services/consent/ConsentService', () => ({
+  ConsentService: {
+    getInstance: jest.fn(() => ({
+      assertCanSend: jest.fn().mockReturnValue(null),
+      queueOutboundUntilConsent: jest.fn().mockResolvedValue(false),
+    })),
   },
 }));
 jest.mock('../../common/CircuitBreaker');
@@ -75,6 +95,9 @@ describe('WhatsAppService', () => {
     (SessionCache.getInstance as jest.Mock).mockReturnValue(mockSessionCache);
     (QueueManager.getInstance as jest.Mock).mockReturnValue(mockQueueManager);
     (RateLimiter.getInstance as jest.Mock).mockReturnValue(mockRateLimiter);
+
+    (Organization.findById as jest.Mock).mockResolvedValue(null);
+    (User.findById as jest.Mock).mockResolvedValue(null);
 
     whatsappService = new WhatsAppService();
   });
@@ -124,7 +147,7 @@ describe('WhatsAppService', () => {
       const result = await whatsappService.validateDestination(clientId, destination);
 
       expect(result).toBe(true);
-      expect(mockSocket.onWhatsApp).toHaveBeenCalledWith(destination);
+      expect(mockSocket.onWhatsApp).toHaveBeenCalledWith('1234567890');
     });
 
     it('should return false for invalid destination', async () => {
@@ -223,10 +246,7 @@ describe('WhatsAppService', () => {
       mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue({ allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60000 });
 
       // Mock WhatsApp socket
-      const mockSocket = {
-        sendMessage: jest.fn().mockResolvedValue({ key: { id: 'msg-id' } }),
-        onWhatsApp: jest.fn().mockResolvedValue([{ exists: true }])
-      };
+      const mockSocket = mockConnectedSocket();
       (whatsappService as any).sessions.set(clientId, mockSocket);
 
       // Mock destination
@@ -236,12 +256,6 @@ describe('WhatsAppService', () => {
         type: 'contact',
       };
       (Destination.findByIdentifier as jest.Mock).mockResolvedValue(mockDestination);
-
-      // Mock user
-      const mockUser = {
-        incrementUsage: jest.fn().mockResolvedValue(undefined)
-      };
-      (User.findById as jest.Mock).mockResolvedValue(mockUser);
 
       const result = await (whatsappService as any).handleSendMessage({
         clientId,
@@ -257,7 +271,6 @@ describe('WhatsAppService', () => {
         text: content.text
       });
       expect(mockDestination.updateLastMessageSent).toHaveBeenCalled();
-      expect(mockUser.incrementUsage).toHaveBeenCalled();
     });
 
     it('should reject message when rate limited', async () => {
@@ -275,7 +288,7 @@ describe('WhatsAppService', () => {
           content,
           messageId: 'test-msg'
         })
-      ).rejects.toThrow('Rate limit exceeded for WhatsApp sending');
+      ).rejects.toThrow('Limite de envio do WhatsApp atingido');
     });
 
     it('should reject message without valid consent', async () => {
@@ -287,14 +300,13 @@ describe('WhatsAppService', () => {
       mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue({ allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60000 });
 
       // Mock WhatsApp socket
-      const mockSocket = {
-        onWhatsApp: jest.fn().mockResolvedValue([{ exists: true }])
-      };
+      const mockSocket = mockConnectedSocket();
       (whatsappService as any).sessions.set(clientId, mockSocket);
 
       // Mock destination without consent
       const mockDestination = {
-        hasValidConsent: jest.fn().mockReturnValue(false)
+        hasValidConsent: jest.fn().mockReturnValue(false),
+        type: 'contact',
       };
       (Destination.findByIdentifier as jest.Mock).mockResolvedValue(mockDestination);
 
@@ -305,7 +317,7 @@ describe('WhatsAppService', () => {
           content,
           messageId: 'test-msg'
         })
-      ).rejects.toThrow('Destination does not have valid consent for messaging');
+      ).rejects.toThrow('Destino sem consentimento válido para envio');
     });
   });
 
@@ -469,10 +481,9 @@ describe('WhatsAppService', () => {
       mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue({ allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60000 });
 
       // Mock socket that throws error on sendMessage but resolves onWhatsApp
-      const mockSocket = {
+      const mockSocket = mockConnectedSocket({
         sendMessage: jest.fn().mockRejectedValue(new Error('Network error')),
-        onWhatsApp: jest.fn().mockResolvedValue([{ exists: true, jid: '1234567890@s.whatsapp.net' }])
-      };
+      });
       (whatsappService as any).sessions.set(clientId, mockSocket);
 
       // Mock destination

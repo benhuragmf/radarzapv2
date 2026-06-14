@@ -178,7 +178,68 @@ interface PhonePickResult {
   tipoTelefone: ContactPhoneType;
 }
 
-function pickPhones(props: VcfProperty[]): PhonePickResult | null {
+function inferDominantBrazilDdd(blocks: string[][]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const block of blocks) {
+    for (const line of block) {
+      const p = parsePropertyLine(line);
+      if (p?.name !== 'TEL') continue;
+      const e164 = normalizeContactPhoneE164(p.value.trim());
+      if (!e164?.startsWith('+55') || e164.length < 6) continue;
+      const ddd = e164.slice(3, 5);
+      counts.set(ddd, (counts.get(ddd) ?? 0) + 1);
+    }
+  }
+  let best: string | undefined;
+  let max = 0;
+  for (const [ddd, n] of counts) {
+    if (n > max) {
+      max = n;
+      best = ddd;
+    }
+  }
+  return best;
+}
+
+function normalizeVcfPhone(raw: string, fallbackDdd?: string): string | null {
+  const direct = normalizeContactPhoneE164(raw);
+  if (direct) return direct;
+
+  let digits = raw.replace(/[\s\-().+]/g, '').replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = digits.replace(/^0+/, '');
+
+  if (fallbackDdd && digits.length === 9 && digits.startsWith('9')) {
+    const withDdd = normalizeContactPhoneE164(`55${fallbackDdd}${digits}`);
+    if (withDdd) return withDdd;
+  }
+
+  if (digits.length === 11) {
+    const withCountry = normalizeContactPhoneE164(`55${digits}`);
+    if (withCountry) return withCountry;
+  }
+
+  if (digits.length > 11) {
+    const match = digits.match(/([1-9][1-9]9\d{8})$/);
+    if (match?.[1]) {
+      const withCountry = normalizeContactPhoneE164(`55${match[1]}`);
+      if (withCountry) return withCountry;
+    }
+    if (fallbackDdd) {
+      const idx = digits.indexOf(fallbackDdd);
+      if (idx >= 0 && idx <= 3) {
+        const rest = digits.slice(idx);
+        if (rest.length === 11) {
+          const withCountry = normalizeContactPhoneE164(`55${rest}`);
+          if (withCountry) return withCountry;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function pickPhones(props: VcfProperty[], fallbackDdd?: string): PhonePickResult | null {
   const tels = props.filter((p) => p.name === 'TEL');
   if (!tels.length) return null;
 
@@ -197,11 +258,11 @@ function pickPhones(props: VcfProperty[]): PhonePickResult | null {
   const primary = entries[0];
   if (!primary?.value) return null;
 
-  const primaryE164 = normalizeContactPhoneE164(primary.value);
+  const primaryE164 = normalizeVcfPhone(primary.value, fallbackDdd);
   let secondaryRaw: string | undefined;
   for (let i = 1; i < entries.length; i++) {
     const cand = entries[i]!;
-    const candE164 = normalizeContactPhoneE164(cand.value);
+    const candE164 = normalizeVcfPhone(cand.value, fallbackDdd);
     if (candE164 && candE164 !== primaryE164) {
       secondaryRaw = cand.value;
       break;
@@ -256,7 +317,11 @@ function pickNotes(props: VcfProperty[]): string | undefined {
   return notes.join('\n').slice(0, 2000);
 }
 
-function parseVcardBlock(lines: string[], lineNumber: number): CanonicalContactRow | CsvRowError {
+function parseVcardBlock(
+  lines: string[],
+  lineNumber: number,
+  fallbackDdd?: string,
+): CanonicalContactRow | CsvRowError {
   const props: VcfProperty[] = [];
   for (const line of lines) {
     const p = parsePropertyLine(line);
@@ -264,8 +329,8 @@ function parseVcardBlock(lines: string[], lineNumber: number): CanonicalContactR
   }
 
   const nome = buildName(props);
-  const phones = pickPhones(props);
-  const telefone = phones ? normalizeContactPhoneE164(phones.primaryRaw) : null;
+  const phones = pickPhones(props, fallbackDdd);
+  const telefone = phones ? normalizeVcfPhone(phones.primaryRaw, fallbackDdd) : null;
 
   if (!nome) {
     return { linha: lineNumber, motivo: 'Nome ausente (FN/N)' };
@@ -288,7 +353,7 @@ function parseVcardBlock(lines: string[], lineNumber: number): CanonicalContactR
   if (phones) {
     row.tipoTelefone = phones.tipoTelefone;
     if (phones.secondaryRaw) {
-      const sec = normalizeContactPhoneE164(phones.secondaryRaw);
+      const sec = normalizeVcfPhone(phones.secondaryRaw, fallbackDdd);
       if (sec && sec !== telefone) row.telefoneSecundario = sec;
     }
   }
@@ -317,13 +382,14 @@ export function parseContactVcf(vcfText: string): ParseContactVcfResult {
     if (vcardVersion) break;
   }
 
+  const fallbackDdd = inferDominantBrazilDdd(blocks);
   const rows: CanonicalContactRow[] = [];
   const erros: CsvRowError[] = [];
   let lineNumber = 0;
 
   for (const block of blocks) {
     lineNumber++;
-    const mapped = parseVcardBlock(block, lineNumber);
+    const mapped = parseVcardBlock(block, lineNumber, fallbackDdd);
     if ('motivo' in mapped) {
       erros.push(mapped);
     } else {

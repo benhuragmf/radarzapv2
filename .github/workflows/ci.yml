@@ -21,7 +21,7 @@ jobs:
         run: npm ci
 
       - name: Test (estável + webhooks)
-        run: npm test -- --testPathIgnorePatterns=WhatsAppService.test.ts|contact-vcf-import.test.ts
+        run: npm test
 
       - name: npm audit runtime (high+)
         run: npm audit --omit=dev --audit-level=high

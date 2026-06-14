@@ -286,6 +286,7 @@ export default function Inbox() {
   const assign = useMutation({
     mutationFn: (id: string) => api.post(`/inbox/conversations/${id}/assign`, {}),
     onSuccess: invalidate,
+    onError: (err: Error) => alert(err.message),
   })
 
   const sendReply = useMutation({
@@ -295,22 +296,26 @@ export default function Inbox() {
       setReply('')
       invalidate()
     },
+    onError: (err: Error) => alert(err.message),
   })
 
   const transfer = useMutation({
     mutationFn: ({ id, departmentId }: { id: string; departmentId: string }) =>
       api.post(`/inbox/conversations/${id}/transfer`, { departmentId }),
     onSuccess: invalidate,
+    onError: (err: Error) => alert(err.message),
   })
 
   const resolve = useMutation({
     mutationFn: (id: string) => api.post(`/inbox/conversations/${id}/resolve`, {}),
     onSuccess: invalidate,
+    onError: (err: Error) => alert(err.message),
   })
 
   const convertTicket = useMutation({
     mutationFn: (id: string) => api.post<{ ticketRef: string }>(`/inbox/conversations/${id}/ticket`, {}),
     onSuccess: invalidate,
+    onError: (err: Error) => alert(err.message),
   })
 
   const conv = detail?.conversation
