@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { Users, UserPlus, Trash2, Pencil, MessageSquare, Ticket, Building2, Zap, Mail } from 'lucide-react'
 import {
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
   RolesSystemPanel,
   TeamMemberRoleModal,
   type PermissionGroup,
@@ -114,7 +115,7 @@ export default function TeamMembers() {
       }
       setTimeout(() => setInviteNotice(null), 6000)
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const resendInvite = useMutation({
@@ -123,12 +124,12 @@ export default function TeamMembers() {
     onSuccess: data => {
       qc.invalidateQueries({ queryKey: ['team-members'] })
       if (data.inviteEmail?.sent) {
-        alert(`Convite reenviado${data.inviteEmail.transport === 'console' ? ' (log do servidor)' : ''}.`)
+        notifySuccess(`Convite reenviado${data.inviteEmail.transport === 'console' ? ' (log do servidor)' : ''}.`)
       } else {
-        alert(data.inviteEmail?.error ?? 'Não foi possível reenviar o e-mail.')
+        notifyError(data.inviteEmail?.error ?? 'Não foi possível reenviar o e-mail.')
       }
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const updateMemberRole = async (id: string, roleKey: string, whatsappPhone?: string) => {
@@ -172,7 +173,7 @@ export default function TeamMembers() {
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/team/members/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['team-members'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   if (!canManage) {

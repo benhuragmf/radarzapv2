@@ -23,6 +23,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { AiModelPicker, type AiModelOption } from '../../components/ai/AiModelPicker'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 type TabId =
   | 'geral'
@@ -173,7 +174,7 @@ export default function AiAtendimento() {
       qc.setQueryData(['ai-settings'], res)
       setApiKeyInput('')
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const removeKey = useMutation({
@@ -182,7 +183,7 @@ export default function AiAtendimento() {
       setForm(res)
       qc.setQueryData(['ai-settings'], res)
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const testConn = useMutation({
@@ -194,25 +195,25 @@ export default function AiAtendimento() {
   const approveSkill = useMutation({
     mutationFn: (id: string) => api.post(`/platform/ai/skills/${id}/approve`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const rejectSkill = useMutation({
     mutationFn: (id: string) => api.post(`/platform/ai/skills/${id}/reject`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const approveMemory = useMutation({
     mutationFn: (id: string) => api.post(`/platform/ai/memory/${id}/approve`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const rejectMemory = useMutation({
     mutationFn: (id: string) => api.post(`/platform/ai/memory/${id}/reject`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-settings'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   if (!canManage) {

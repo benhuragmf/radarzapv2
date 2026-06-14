@@ -654,6 +654,14 @@ export class WhatsAppService {
     return WhatsAppService.instance;
   }
 
+  /** Snapshot leve para métricas operacionais (MetricsCollector). */
+  getMonitoringSnapshot(): { activeSessions: number; trackedClients: number } {
+    return {
+      activeSessions: this.sessions.size,
+      trackedClients: this.sessions.size,
+    };
+  }
+
   /** Busca foto de perfil WA via Baileys (alta resolução, depois preview). */
   private async fetchProfilePicture(socket: WASocket, jid?: string | null): Promise<string | undefined> {
     if (!jid) return undefined;

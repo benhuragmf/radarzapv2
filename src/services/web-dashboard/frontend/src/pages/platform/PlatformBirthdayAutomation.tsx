@@ -12,6 +12,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Badge } from '../../components/ui/Badge'
 import { Cake, Plus, Play, Trash2, Pencil } from 'lucide-react'
 import { WhatsAppTextEditor } from '../../components/whatsapp/WhatsAppTextEditor'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 type TriggerType = 'on_contact_birthday' | 'day_of_month' | 'interval_months'
 
@@ -104,21 +105,21 @@ export default function PlatformBirthdayAutomation() {
       setEditing(null)
       setForm(DEFAULT_FORM)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const deleteRule = useMutation({
     mutationFn: (id: string) => api.delete(`/platform/birthday-automation/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['birthday-automation'] }),
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const runNow = useMutation({
     mutationFn: () => api.post('/platform/birthday-automation/run-now', {}),
     onSuccess: (data: { enqueued?: number }) => {
-      alert(`Processado: ${data.enqueued ?? 0} envio(s) enfileirado(s) para hoje.`)
+      notifySuccess(`Processado: ${data.enqueued ?? 0} envio(s) enfileirado(s) para hoje.`)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const openEdit = (r: BirthdayRule) => {

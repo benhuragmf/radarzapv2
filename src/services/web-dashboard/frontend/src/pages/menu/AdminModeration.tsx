@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { api } from '../../lib/api'
 import { Shield, UserX, Ban } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface AdminOrg {
   _id: string
@@ -28,7 +29,7 @@ export default function AdminModeration() {
     mutationFn: ({ id, plan }: { id: string; plan: string }) =>
       api.patch(`/admin/organizations/${id}/plan`, { plan }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-organizations'] }),
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   return (

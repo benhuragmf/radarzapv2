@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { Building2, Plus, Pencil, Users, UserPlus, Bot } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 const INTERNAL_RANK_TIERS = [
   { rank: 2, title: '2ª instância', hint: 'Atendentes da 1ª linha podem transferir para cá.' },
@@ -124,7 +125,7 @@ export default function InboxSectors() {
       qc.invalidateQueries({ queryKey: ['inbox-departments'] })
       resetForm()
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const saveUpdate = useMutation({
@@ -140,14 +141,14 @@ export default function InboxSectors() {
       qc.invalidateQueries({ queryKey: ['inbox-departments'] })
       resetForm()
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const toggleActive = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       api.patch(`/inbox/departments/${id}`, { isActive }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inbox-departments'] }),
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   if (!canManage) {

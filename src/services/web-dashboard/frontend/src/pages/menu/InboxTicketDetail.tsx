@@ -14,6 +14,7 @@ import type { InboxMessageView } from '../../components/inbox/InboxMessageBubble
 import type { ContactStats, PreviousConversation } from '../../components/inbox/InboxContactSidebar'
 import type { InboxTicketDetail, InboxTicketTeamMember } from '../../lib/inboxTicket'
 import { ArrowLeft, Ticket } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface DetailResponse {
   conversation: {
@@ -81,22 +82,22 @@ export default function InboxTicketDetailPage() {
   const closeMutation = useMutation({
     mutationFn: () => api.post(`/inbox/tickets/${encodeURIComponent(ref)}/close`),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const reopenMutation = useMutation({
     mutationFn: () => api.post(`/inbox/tickets/${encodeURIComponent(ref)}/reopen`),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const clientUpdateMutation = useMutation({
     mutationFn: () => api.post(`/inbox/tickets/${encodeURIComponent(ref)}/client-update`),
     onSuccess: () => {
       invalidate()
-      alert('Atualização enviada ao cliente no WhatsApp.')
+      notifySuccess('Atualização enviada ao cliente no WhatsApp.')
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const deleteMutation = useMutation({
@@ -106,7 +107,7 @@ export default function InboxTicketDetailPage() {
       qc.invalidateQueries({ queryKey: ['inbox-ticket-stats'] })
       navigate('/platform/inbox/tickets')
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const forwardMutation = useMutation({
@@ -114,37 +115,37 @@ export default function InboxTicketDetailPage() {
       api.post(`/inbox/tickets/${encodeURIComponent(ref)}/forward`, payload),
     onSuccess: () => {
       invalidate()
-      alert('Ticket encaminhado via WhatsApp.')
+      notifySuccess('Ticket encaminhado via WhatsApp.')
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const commentMutation = useMutation({
     mutationFn: ({ body, mentionedUserIds }: { body: string; mentionedUserIds: string[] }) =>
       api.post(`/inbox/tickets/${encodeURIComponent(ref)}/comments`, { body, mentionedUserIds }),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const noteMutation = useMutation({
     mutationFn: (body: string) =>
       api.post(`/inbox/tickets/${encodeURIComponent(ref)}/internal-notes`, { body }),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const assignMutation = useMutation({
     mutationFn: (assignedUserId: string) =>
       api.patch(`/inbox/tickets/${encodeURIComponent(ref)}`, { assignedUserId }),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const statusMutation = useMutation({
     mutationFn: (status: 'open' | 'in_progress' | 'client_replied') =>
       api.patch(`/inbox/tickets/${encodeURIComponent(ref)}`, { status }),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   return (

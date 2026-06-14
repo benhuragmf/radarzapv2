@@ -5,6 +5,7 @@ import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Key, Plus, Trash2, Copy, Check } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface ApiKeyRow {
   _id: string
@@ -33,7 +34,7 @@ export function ApiKeysPanel() {
       setName('')
       qc.invalidateQueries({ queryKey: ['api-keys'] })
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const remove = useMutation({

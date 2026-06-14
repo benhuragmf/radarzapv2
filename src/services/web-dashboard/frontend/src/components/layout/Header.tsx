@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { logout, type AuthUser } from '../../lib/auth'
 import { pageTitleFor } from '../../lib/navConfig'
-import { Wifi, WifiOff, LogOut, Menu } from 'lucide-react'
+import { Wifi, WifiOff, LogOut, Menu, Sun, Moon } from 'lucide-react'
 import OrganizationSwitcher from './OrganizationSwitcher'
 import EventNotificationBell from './EventNotificationBell'
+import { useTheme } from '../../context/ThemeContext'
 
 interface Props {
   user: AuthUser
@@ -16,6 +17,7 @@ interface Props {
 
 export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Props) {
   const { pathname, hash, search } = useLocation()
+  const { theme, toggleTheme } = useTheme()
   const title = pageTitleFor(pathname, hash, search)
 
   const { data } = useQuery({
@@ -51,6 +53,16 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
 
         <EventNotificationBell />
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="text-gray-500 hover:text-brand-400 transition-colors p-1.5 rounded-lg hover:bg-gray-800"
+          title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+          aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
 
         {/* Health indicator */}
         <div className="flex items-center gap-1.5 text-sm">

@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom'
 import { Hash, Plus, Trash2, ToggleLeft, ToggleRight, ChevronRight, BookOpen } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
 import { CardTitle, CardValue } from '../components/ui/Card'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
 
 interface Channel {
   _id: string
@@ -73,7 +74,7 @@ export default function Channels() {
       setSelectedChannel(null)
       setStep('guild')
     },
-    onError: (err: any) => alert(`Erro: ${err.message}`),
+    onError: mutationError,
   })
 
   const remove = useMutation({

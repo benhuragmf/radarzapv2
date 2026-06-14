@@ -37,6 +37,7 @@ import {
 } from '../../components/inbox/InboxContactSidebar'
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface Department {
   _id: string
@@ -286,7 +287,7 @@ export default function Inbox() {
   const assign = useMutation({
     mutationFn: (id: string) => api.post(`/inbox/conversations/${id}/assign`, {}),
     onSuccess: invalidate,
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const sendReply = useMutation({
@@ -296,26 +297,26 @@ export default function Inbox() {
       setReply('')
       invalidate()
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const transfer = useMutation({
     mutationFn: ({ id, departmentId }: { id: string; departmentId: string }) =>
       api.post(`/inbox/conversations/${id}/transfer`, { departmentId }),
     onSuccess: invalidate,
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const resolve = useMutation({
     mutationFn: (id: string) => api.post(`/inbox/conversations/${id}/resolve`, {}),
     onSuccess: invalidate,
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const convertTicket = useMutation({
     mutationFn: (id: string) => api.post<{ ticketRef: string }>(`/inbox/conversations/${id}/ticket`, {}),
     onSuccess: invalidate,
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const conv = detail?.conversation

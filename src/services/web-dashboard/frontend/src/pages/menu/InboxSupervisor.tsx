@@ -10,6 +10,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
 import { formatQueueTimer, liveQueueState, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { Eye, RefreshCw } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface Conversation {
   _id: string
@@ -70,7 +71,7 @@ export default function InboxSupervisor() {
       setReassignFor(null)
       setTargetUser('')
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const linkedTeam = team.filter(t => t.linked && t.userId)

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Building2, Save } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface OrgProfile {
   name: string
@@ -56,9 +57,9 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
       qc.invalidateQueries({ queryKey: ['organization-profile'] })
       qc.invalidateQueries({ queryKey: ['billing-me'] })
       qc.invalidateQueries({ queryKey: ['platform-account-stats'] })
-      alert('Dados da empresa salvos.')
+      notifySuccess('Dados da empresa salvos.')
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   if (isLoading) {

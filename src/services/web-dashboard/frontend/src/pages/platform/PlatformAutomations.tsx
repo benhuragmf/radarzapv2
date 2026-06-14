@@ -31,6 +31,7 @@ import {
 } from '../../lib/automation-triggers'
 import { usePlatformMessagePreview } from '../../lib/usePlatformMessagePreview'
 import {
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
   currentTimeHHmm,
   minDatetimeLocalFromNow,
   triggerMatchesCalendarToday,
@@ -309,21 +310,21 @@ export default function PlatformAutomations() {
       setEditing(null)
       setForm(DEFAULT_FORM)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const deleteRule = useMutation({
     mutationFn: (id: string) => api.delete(`/platform/automations/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['platform-automations'] }),
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const runNow = useMutation({
     mutationFn: () => api.post<{ enqueued?: number }>('/platform/automations/run-now', {}),
     onSuccess: data => {
-      alert(`Processado: ${data.enqueued ?? 0} envio(s) enfileirado(s) para hoje.`)
+      notifySuccess(`Processado: ${data.enqueued ?? 0} envio(s) enfileirado(s) para hoje.`)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const openEdit = (r: AutomationRule) => {

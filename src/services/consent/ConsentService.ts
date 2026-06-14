@@ -24,6 +24,7 @@ import {
   type ConsentActionOrigin,
 } from '@/types/consent';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
+import { writeAuditLog } from '@/models/AuditLog';
 import { createServiceLogger } from '@/utils/logger';
 import { redactPhone } from '@/utils/redact-sensitive';
 import {
@@ -720,6 +721,15 @@ export class ConsentService {
     const prev = dest.consentStatus ?? ConsentStatus.PENDING;
     await this.applyStatus(dest, ConsentStatus.MANUALLY_BLOCKED, 'system-block', {
       requestedByUserId: adminUserId,
+    });
+    await writeAuditLog({
+      action: 'consent.manual_block',
+      actorUserId: adminUserId,
+      details: {
+        destinationId,
+        clientId: clientId ?? String(dest.clientId ?? ''),
+        previousStatus: prev,
+      },
     });
     logger.warn('Contact manually blocked', { destinationId, prev, adminUserId });
   }

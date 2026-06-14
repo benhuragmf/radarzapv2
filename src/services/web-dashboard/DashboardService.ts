@@ -120,6 +120,8 @@ import { redactEmail, redactOAuthError, escapeMongoRegex } from '../../utils/red
 import { encryptField } from '../../utils/field-encryption';
 import { requireDashboardOrigin } from '../../middleware/same-origin';
 import { productionSafeError } from '../../middleware/production-safe-error';
+import { sanitizeInput } from '../../middleware/validation';
+import { registerDashboardQueueRoutes } from './routes/dashboardQueueRoutes';
 import { AiSettingsService } from '../ai/AiSettingsService';
 import { AiProviderService } from '../ai/AiProviderService';
 import { AiUsageMeterService } from '../ai/AiUsageMeterService';
@@ -255,7 +257,18 @@ export class DashboardService {
     this.app.use(securityMiddleware.securityHeaders);
     this.app.use(
       helmet({
-        contentSecurityPolicy: false,
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+            imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+            connectSrc: ["'self'", 'ws:', 'wss:', 'https://api.discord.com'],
+            frameSrc: ["'none'"],
+            objectSrc: ["'none'"],
+          },
+        },
         crossOriginEmbedderPolicy: false,
       }),
     );
@@ -310,6 +323,7 @@ export class DashboardService {
 
     /** VCF/CSV com milhares de contatos; padrão Express é 100kb */
     this.app.use(express.json({ limit: '16mb' }));
+    this.app.use('/api', sanitizeInput);
 
     // Session middleware — custom Redis store using ioredis (survives restarts)
     const redisManager = this.redisManager;
@@ -3064,122 +3078,7 @@ export class DashboardService {
     });
 
     // ── Queue ──────────────────────────────────────────────────────────────
-    r.get('/queue', requireAnyCapability(Cap.QUEUE_VIEW, Cap.PLATFORM_REPORTS_VIEW), async (_req, res) => {
-      try {
-        const stats = await this.queueManager.getQueueStats();
-        const result = Object.entries(stats).map(([name, s]: [string, any]) => ({
-          name,
-          waiting:   s.waiting   ?? 0,
-          active:    s.active    ?? 0,
-          completed: s.completed ?? 0,
-          failed:    s.failed    ?? 0,
-          delayed:   s.delayed   ?? 0,
-        }));
-        res.json(result);
-      } catch (e) {
-        res.status(500).json({ error: (e as Error).message });
-      }
-    });
-
-    r.get('/queue/tenant-campaigns', requireCapability(Cap.QUEUE_VIEW), async (req, res) => {
-      try {
-        const auth = (req as DashboardRequest).auth!;
-        const clientOid = new mongoose.Types.ObjectId(auth.clientId);
-        const status = (req.query.status as string) || undefined;
-        const source = (req.query.source as string) || undefined;
-
-        const query: Record<string, unknown> = {
-          clientId: clientOid,
-          'content.template': { $in: ['manual-send', 'platform-send'] },
-        };
-        if (status) query.status = status;
-        if (source === 'automation') {
-          query['content.variables.source'] = 'automation';
-        } else if (source === 'manual') {
-          query['content.variables.source'] = { $ne: 'automation' };
-        }
-
-        const items = await MessageQueue.find(query)
-          .sort({ scheduledFor: 1 })
-          .limit(50)
-          .lean();
-
-        const stats = await MessageQueue.aggregate([
-          { $match: { clientId: clientOid, 'content.template': { $in: ['manual-send', 'platform-send'] } } },
-          { $group: { _id: '$status', count: { $sum: 1 } } },
-        ]);
-        const byStatus = Object.fromEntries(stats.map((s: { _id: string; count: number }) => [s._id, s.count]));
-
-        res.json({
-          stats: {
-            pending: byStatus.pending ?? 0,
-            processing: byStatus.processing ?? 0,
-            sent: byStatus.sent ?? 0,
-            failed: byStatus.failed ?? 0,
-          },
-          items: items.map(m => ({
-            _id: m._id,
-            title: (m.content?.variables as { title?: string })?.title ?? 'Envio',
-            status: m.status,
-            scheduledFor: m.scheduledFor,
-            destinations: m.destinations?.length ?? 0,
-            sentCount: (m.content?.variables as { sentCount?: number })?.sentCount ?? 0,
-            lastError: m.lastError,
-            source: (m.content?.variables as { source?: string })?.source ?? 'manual',
-            automationRuleId: (m.content?.variables as { automationRuleId?: string })?.automationRuleId,
-          })),
-        });
-      } catch (e) {
-        res.status(500).json({ error: (e as Error).message });
-      }
-    });
-
-    r.get('/queue/failed', requireCapability(Cap.QUEUE_VIEW), async (_req, res) => {
-      try {
-        const queueNames = this.queueManager.getQueueNames();
-        const items: Array<{
-          id: string;
-          queue: string;
-          name: string;
-          failedReason?: string;
-          timestamp?: number;
-          data?: unknown;
-        }> = [];
-
-        for (const queueName of queueNames) {
-          const jobs = await this.queueManager.getFailedJobs(queueName, 0, 49);
-          for (const job of jobs) {
-            items.push({
-              id: String(job.id),
-              queue: queueName,
-              name: job.name,
-              failedReason: job.failedReason,
-              timestamp: job.timestamp,
-              data: job.data,
-            });
-          }
-        }
-
-        items.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
-        res.json(items);
-      } catch (e) {
-        res.status(500).json({ error: (e as Error).message });
-      }
-    });
-
-    r.post('/queue/:id/retry', requireCapability(Cap.QUEUE_RETRY), async (req, res) => {
-      try {
-        const queue = String((req.body as { queue?: string })?.queue ?? '').trim();
-        if (!queue) {
-          res.status(400).json({ error: 'Campo queue é obrigatório' });
-          return;
-        }
-        await this.queueManager.retryJob(queue, req.params.id);
-        res.json({ ok: true });
-      } catch (e) {
-        res.status(500).json({ error: (e as Error).message });
-      }
-    });
+    registerDashboardQueueRoutes(r, this.queueManager);
 
     // ── Logs ───────────────────────────────────────────────────────────────
     r.get('/logs', requireAnyCapability(Cap.LOGS_VIEW, Cap.PLATFORM_REPORTS_VIEW), async (req, res) => {

@@ -1,5 +1,8 @@
 import { createServiceLogger } from '../../utils/logger';
 import { config } from '../../config/environment';
+import { WhatsAppService } from '../whatsapp/WhatsAppService';
+import { QueueManager } from '../../cache/QueueManager';
+import { Template } from '../../models/Template';
 
 const logger = createServiceLogger('MetricsCollector');
 
@@ -233,19 +236,31 @@ export class MetricsCollector {
    */
   private async getWhatsAppMetrics(): Promise<SystemMetrics['application']['whatsapp']> {
     try {
-      // TODO: Get actual WhatsApp service metrics
+      const wa = WhatsAppService.getInstance().getMonitoringSnapshot();
+      const stats = await QueueManager.getInstance().getQueueStats();
+      let messagesQueued = 0;
+      let messagesFailed = 0;
+      if (stats && typeof stats === 'object') {
+        for (const entry of Object.values(stats)) {
+          const row = entry as { waiting?: number; failed?: number };
+          messagesQueued += row.waiting ?? 0;
+          messagesFailed += row.failed ?? 0;
+        }
+      }
+      const denom = messagesQueued + messagesFailed;
       return {
-        activeSessions: 0,
-        messagesQueued: 0,
-        messagesSent: 0,
-        failureRate: 0
+        activeSessions: wa.activeSessions,
+        messagesQueued,
+        messagesSent: this.businessMetrics.hourlyMessages,
+        failureRate: denom > 0 ? messagesFailed / denom : 0,
       };
     } catch (error) {
+      logger.debug('WhatsApp metrics fallback', { error: (error as Error).message });
       return {
         activeSessions: 0,
         messagesQueued: 0,
         messagesSent: 0,
-        failureRate: 0
+        failureRate: 0,
       };
     }
   }
@@ -255,17 +270,17 @@ export class MetricsCollector {
    */
   private async getTemplateMetrics(): Promise<SystemMetrics['application']['templates']> {
     try {
-      // TODO: Get actual template metrics from database
+      const totalTemplates = await Template.countDocuments().catch(() => 0);
       return {
-        totalTemplates: 5, // Default templates
+        totalTemplates,
         renderCount: Array.from(this.businessMetrics.templateUsage.values()).reduce((a, b) => a + b, 0),
-        errorCount: this.errorCounts['template_error'] || 0
+        errorCount: this.errorCounts['template_error'] || 0,
       };
     } catch (error) {
       return {
         totalTemplates: 0,
         renderCount: 0,
-        errorCount: 0
+        errorCount: 0,
       };
     }
   }

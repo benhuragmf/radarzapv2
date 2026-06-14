@@ -5,6 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { CreditCard, RefreshCw } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface AdminOrder {
   _id: string
@@ -40,10 +41,10 @@ export default function AdminPaymentsPage() {
   const sweep = useMutation({
     mutationFn: () => api.post('/billing/subscriptions/sweep', {}),
     onSuccess: (res: { organizationsExpired?: number }) => {
-      alert(`Sweep: ${res.organizationsExpired ?? 0} organização(ões) expirada(s)`)
+      notifySuccess(`Sweep: ${res.organizationsExpired ?? 0} organização(ões) expirada(s)`)
       qc.invalidateQueries({ queryKey: ['billing-admin-orders'] })
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   return (

@@ -9,6 +9,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { Users, RefreshCw, Crown, CreditCard } from 'lucide-react'
 import type { AuthUser } from '../lib/auth'
 import { can } from '../lib/auth'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
 
 interface UserData {
   _id: string
@@ -189,7 +190,7 @@ export default function Plans({ user, admin }: Props) {
     mutationFn: ({ id, plan }: { id: string; plan: string }) =>
       api.put(`/users/${id}/plan`, { plan }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
-    onError: (e: Error) => alert(`Erro: ${e.message}`),
+    onError: (e: Error) => notifyError(`Erro: ${e.message}`),
   })
 
   const resetUsage = useMutation({

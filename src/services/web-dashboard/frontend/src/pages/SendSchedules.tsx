@@ -12,6 +12,7 @@ import { NextScheduleCard } from '../components/send/NextScheduleCard'
 import { CampaignListPanel } from '../components/send/CampaignListPanel'
 import { ScheduleHistorySection } from '../components/send/ScheduleHistorySection'
 import { filterCampaigns, nextScheduled, scheduleStats } from '../lib/schedule-display'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
 
 export default function SendSchedules() {
   const qc = useQueryClient()
@@ -31,7 +32,7 @@ export default function SendSchedules() {
   const cancelCampaign = useMutation({
     mutationFn: (id: string) => api.delete(`/campaigns/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['campaigns-manual'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   if (isLoading) {

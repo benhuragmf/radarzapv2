@@ -10,6 +10,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { DestinationRow, type Destination } from '../lib/destinationUi'
 import { avatarLabel, formatWaSessionLabel } from '../lib/destinationFormat'
 import { Plus, RefreshCw, Search, Smartphone, Users, AlertCircle } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
 
 const inputCls =
   'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
@@ -59,7 +60,7 @@ export default function WhatsAppGroups() {
     mutationFn: (g: WAGroup) =>
       api.post('/destinations', { type: 'group', identifier: g.id, name: g.name }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['destinations'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const remove = useMutation({

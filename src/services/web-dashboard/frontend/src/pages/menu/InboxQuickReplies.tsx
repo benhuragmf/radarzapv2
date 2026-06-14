@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { ArrowLeft, Save, Zap, Plus, Trash2 } from 'lucide-react'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface QuickReply {
   code: string
@@ -67,7 +68,7 @@ export default function InboxQuickReplies() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     },
-    onError: (e: Error) => alert(e.message || 'Erro ao salvar respostas rápidas'),
+    onError: mutationError,
   })
 
   const updateRow = (index: number, patch: Partial<QuickReply>) => {

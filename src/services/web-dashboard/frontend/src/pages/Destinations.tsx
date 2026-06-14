@@ -33,6 +33,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import {
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
   DestinationRow,
   inputCls,
   type Destination,
@@ -135,7 +136,7 @@ export default function Destinations() {
       }
     },
     onError: (err: Error) => {
-      if (!err.message.includes('não conectado')) alert(err.message)
+      if (!err.message.includes('não conectado')) notifyError(err.message)
     },
   })
 
@@ -186,7 +187,7 @@ export default function Destinations() {
         setSelectedGroupId(null)
       }
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const updateContact = useMutation({
@@ -205,13 +206,13 @@ export default function Destinations() {
         setSelectedGroupId(null)
       }
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/destinations/${id}`),
     onSuccess: invalidateContacts,
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const bulkAction = useMutation({
@@ -237,18 +238,18 @@ export default function Destinations() {
             .slice(0, 5)
             .map(s => s.name)
             .join(', ')
-          alert(
+          notifyError(
             `${deleted} contato(s) removido(s). ${skipped} ignorado(s) (recusa — apenas o dono pode apagar): ${names}${skipped > 5 ? '…' : ''}`,
           )
         } else if (deleted > 0) {
-          alert(`${deleted} contato(s) removido(s).`)
+          notifySuccess(`${deleted} contato(s) removido(s).`)
         }
       } else if (variables.groupIds?.length) {
         const verb = variables.action === 'addToGroups' ? 'adicionado(s) a' : 'removido(s) de'
-        alert(`${result.affected ?? variables.destinationIds.length} contato(s) ${verb} ${variables.groupIds.length} grupo(s).`)
+        notifySuccess(`${result.affected ?? variables.destinationIds.length} contato(s) ${verb} ${variables.groupIds.length} grupo(s).`)
       }
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const requestRenewal = useMutation({
@@ -257,16 +258,16 @@ export default function Destinations() {
         reason: 'Solicitação via painel',
       }),
     onSuccess: () => {
-      alert('Solicitação enviada ao dono da empresa para aprovação.')
+      notifySuccess('Solicitação enviada ao dono da empresa para aprovação.')
       qc.invalidateQueries({ queryKey: ['consent-renewals'] })
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const clearRefusal = useMutation({
     mutationFn: (id: string) => api.post(`/destinations/${id}/consent/clear-refusal`, {}),
     onSuccess: invalidateContacts,
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const approveRenewal = useMutation({
@@ -275,7 +276,7 @@ export default function Destinations() {
       qc.invalidateQueries({ queryKey: ['consent-renewals'] })
       invalidateContacts()
     },
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const { data: renewals = [] } = useQuery<
@@ -596,7 +597,7 @@ export default function Destinations() {
                 onClick={() => {
                   syncProfilePhotos.mutate(60, {
                     onSuccess: (r) => {
-                      alert(
+                      notifyError(
                         `Fotos WhatsApp: ${r.updated} salva(s), ${r.skipped} sem foto ou ignorada(s), ${r.failed} erro(s).`,
                       )
                     },
@@ -661,7 +662,7 @@ export default function Destinations() {
                   disabled={approveRenewal.isPending || r.previousStatus === 'REFUSED_THREE'}
                   onClick={() => {
                     if (r.previousStatus === 'REFUSED_THREE') {
-                      alert('Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte RadarZap.')
+                      notifyInfo('Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte RadarZap.')
                       return
                     }
                     if (window.confirm(`Aprovar novo aceite para ${r.contactName}?`)) {
@@ -711,7 +712,7 @@ export default function Destinations() {
                     disabled={approveRenewal.isPending || r.previousStatus === 'REFUSED_THREE'}
                     onClick={() => {
                       if (r.previousStatus === 'REFUSED_THREE') {
-                        alert(
+                        notifyError(
                           'Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte RadarZap.',
                         )
                         return

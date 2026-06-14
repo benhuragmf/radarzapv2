@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { Smartphone, RefreshCw, Power, QrCode, User } from 'lucide-react'
 import { formatPhone } from '../lib/destinationFormat'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
 
 interface Session {
   clientId: string
@@ -146,7 +147,7 @@ export default function Sessions() {
       if (id) applyConnectResult(id, data)
       else qc.invalidateQueries({ queryKey: ['sessions'] })
     },
-    onError: (err: Error) => alert(err.message ?? 'Falha ao iniciar conexão WhatsApp'),
+    onError: mutationError,
   })
 
   const connect = useMutation({

@@ -5,6 +5,7 @@ import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Webhook, Plus, Trash2 } from 'lucide-react'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 const EVENTS = [
   'campaign.sent',
@@ -49,7 +50,7 @@ export function WebhooksPanel() {
       setUrl('')
       qc.invalidateQueries({ queryKey: ['webhooks'] })
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const remove = useMutation({

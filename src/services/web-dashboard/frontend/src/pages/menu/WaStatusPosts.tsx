@@ -28,6 +28,7 @@ import { WhatsAppTextEditor } from '../../components/whatsapp/WhatsAppTextEditor
 import { StatusImageUpload } from '../../components/whatsapp/StatusImageUpload'
 import { StatusPostDetailModal } from '../../components/whatsapp/StatusPostDetailModal'
 import { statusFontPreviewClass, type WaStatusFont } from '../../lib/whatsapp-status-fonts'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 type StatusType = 'text' | 'image'
 type StatusAudience = 'whatsapp' | 'all_contacts' | 'consented'
@@ -194,7 +195,7 @@ export default function WaStatusPosts() {
   const cancelPost = useMutation({
     mutationFn: (id: string) => api.delete(`/status-posts/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['status-posts'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const onPickImage = (dataUrl: string | null, preview: string | null) => {

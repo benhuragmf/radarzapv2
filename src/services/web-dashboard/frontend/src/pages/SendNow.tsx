@@ -47,6 +47,7 @@ import {
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
 import { WhatsAppTextEditor } from '../components/whatsapp/WhatsAppTextEditor'
 import {
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
   clampDatetimeLocal,
   minDatetimeLocalFromNow,
   validateFutureSchedule,
@@ -422,7 +423,7 @@ export default function SendNow() {
     mutationFn: (g: WAGroup) =>
       api.post('/destinations', { type: 'group', identifier: g.id, name: g.name }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['destinations'] }),
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
   })
 
   const submit = useMutation({

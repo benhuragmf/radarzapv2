@@ -10,6 +10,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import {
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
   FileText,
   BookOpen,
   Pencil,
@@ -161,7 +162,7 @@ export default function PlatformTemplates() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/platform/templates/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['platform-templates'] }),
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const openEdit = (t: PlatformTemplate) => {

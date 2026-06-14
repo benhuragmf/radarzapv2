@@ -20,6 +20,7 @@ const EXPORT_PROFILES: { id: ExportProfile; label: string }[] = [
 ]
 
 import { getMe, can, type AuthUser } from '../../lib/auth'
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 
 interface CanonicalPreviewRow {
 
@@ -155,7 +156,7 @@ export default function PlatformContacts() {
 
     },
 
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
 
   })
 
@@ -176,7 +177,7 @@ export default function PlatformContacts() {
 
     },
 
-    onError: (err: Error) => alert(err.message),
+    onError: mutationError,
 
   })
 
@@ -277,7 +278,7 @@ export default function PlatformContacts() {
                     `contatos-${id}.csv`,
                   )
                 } catch (err) {
-                  alert((err as Error).message)
+                  notifyError((err as Error).message)
                 } finally {
                   setExporting(null)
                 }

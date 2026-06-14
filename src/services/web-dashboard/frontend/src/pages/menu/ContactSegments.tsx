@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { api, downloadFile } from '../../lib/api'
 import {
+import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
   ListOrdered,
   Plus,
   Pencil,
@@ -73,7 +74,7 @@ export default function ContactSegments() {
       setNewName('')
       setSelectedId((g as GroupRow)._id)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const updateGroup = useMutation({
@@ -83,7 +84,7 @@ export default function ContactSegments() {
       invalidate()
       setEditingId(null)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const deleteGroup = useMutation({
@@ -92,7 +93,7 @@ export default function ContactSegments() {
       invalidate()
       setSelectedId(null)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const copyFromGroup = useMutation({
@@ -104,9 +105,9 @@ export default function ContactSegments() {
     onSuccess: res => {
       invalidate()
       setImportFromId('')
-      alert(`${res.affected} contato(s) copiado(s). Total no segmento: ${res.memberCount}.`)
+      notifySuccess(`${res.affected} contato(s) copiado(s). Total no segmento: ${res.memberCount}.`)
     },
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const removeMember = useMutation({
@@ -116,7 +117,7 @@ export default function ContactSegments() {
         action: 'remove',
       }),
     onSuccess: () => invalidate(),
-    onError: (e: Error) => alert(e.message),
+    onError: mutationError,
   })
 
   const filteredMembers = members.filter(m => {
@@ -298,7 +299,7 @@ export default function ContactSegments() {
                       size="sm"
                       variant="secondary"
                       onClick={() =>
-                        downloadFile(`/contact-groups/${selected._id}/export-csv`).catch(e => alert(e.message))
+                        downloadFile(`/contact-groups/${selected._id}/export-csv`).catch(mutationError)
                       }
                     >
                       <Download size={14} /> Exportar CSV
