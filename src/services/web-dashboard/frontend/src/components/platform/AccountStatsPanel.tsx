@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import { Card } from '../ui/Card'
-import { Spinner } from '../ui/Spinner'
-import { Badge } from '../ui/Badge'
 import { MessageSquare, Users, Workflow, Smartphone, BarChart3 } from 'lucide-react'
+import { MetricCard, LoadingState } from '@/design-system'
+import type { StatusVariant } from '@/design-system/tokens'
 
 interface AccountStats {
   organizationName: string
@@ -40,11 +39,18 @@ function formatUptime(lastActivity?: string): string {
   return `${Math.floor(hours / 24)}d atrás`
 }
 
-function statusVariant(status: string): 'green' | 'yellow' | 'red' | 'gray' {
-  if (status === 'connected') return 'green'
-  if (status === 'connecting' || status === 'qr') return 'yellow'
-  if (status === 'disconnected') return 'red'
-  return 'gray'
+function waStatusLabel(status: string): string {
+  if (status === 'connected') return 'Conectado'
+  if (status === 'qr') return 'Aguardando QR'
+  if (status === 'connecting') return 'Conectando'
+  return 'Desconectado'
+}
+
+function waStatusTone(status: string): StatusVariant {
+  if (status === 'connected') return 'success'
+  if (status === 'connecting' || status === 'qr') return 'warning'
+  if (status === 'disconnected') return 'danger'
+  return 'neutral'
 }
 
 export function AccountStatsPanel() {
@@ -55,89 +61,57 @@ export function AccountStatsPanel() {
   })
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Spinner size={24} />
-      </div>
-    )
+    return <LoadingState rows={2} className="mb-6" />
   }
 
   if (!data) return null
 
-  const waLabel =
-    data.whatsapp.status === 'connected'
-      ? 'Conectado'
-      : data.whatsapp.status === 'qr'
-        ? 'Aguardando QR'
-        : data.whatsapp.status === 'connecting'
-          ? 'Conectando'
-          : 'Desconectado'
+  const waLabel = waStatusLabel(data.whatsapp.status)
+  const msgLimit =
+    data.limits.messagesPerDay === -1 ? '∞' : data.limits.messagesPerDay.toLocaleString('pt-BR')
 
   return (
-    <div className="space-y-4 mb-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="flex gap-3 items-start">
-          <Smartphone size={18} className="text-brand-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">WhatsApp</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge label={waLabel} variant={statusVariant(data.whatsapp.status)} />
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {data.whatsapp.phoneNumber || data.whatsapp.profileName || 'Sem número'}
-            </p>
-            <p className="text-[11px] text-gray-600 mt-0.5">
-              Última atividade: {formatUptime(data.whatsapp.lastActivity)}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="flex gap-3 items-start">
-          <MessageSquare size={18} className="text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Mensagens hoje</p>
-            <p className="text-xl font-semibold text-white mt-1">
-              {data.usage.messagesUsed}
-              <span className="text-sm text-gray-500 font-normal">
-                {' '}
-                / {data.limits.messagesPerDay === -1 ? '∞' : data.limits.messagesPerDay}
-              </span>
-            </p>
-            <p className="text-[11px] text-gray-600">Plano {data.plan}</p>
-          </div>
-        </Card>
-
-        <Card className="flex gap-3 items-start">
-          <BarChart3 size={18} className="text-blue-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Campanhas</p>
-            <p className="text-sm text-gray-200 mt-1">
-              <span className="text-yellow-400 font-medium">{data.campaigns.pending}</span> na fila ·{' '}
-              <span className="text-green-400 font-medium">{data.campaigns.sent}</span> enviadas
-            </p>
-            {data.campaigns.failed > 0 && (
-              <p className="text-xs text-red-400 mt-0.5">{data.campaigns.failed} com falha</p>
-            )}
-            <p className="text-[11px] text-gray-600 mt-0.5">
-              {data.campaigns.automationTotal} via automação
-            </p>
-          </div>
-        </Card>
-
-        <Card className="flex gap-3 items-start">
-          <Users size={18} className="text-purple-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Base</p>
-            <p className="text-sm text-gray-200 mt-1">
-              {data.contacts.total} contatos · {data.contacts.segments} segmentos
-            </p>
-            <p className="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1">
-              <Workflow size={10} />
-              {data.automations.activeRules} regra(s) ativa(s)
-            </p>
-          </div>
-        </Card>
-      </div>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <MetricCard
+        title="WhatsApp"
+        value={data.whatsapp.phoneNumber || data.whatsapp.profileName || 'Sem número'}
+        icon={Smartphone}
+        status={{ status: waStatusTone(data.whatsapp.status), text: waLabel }}
+        description={`Última atividade: ${formatUptime(data.whatsapp.lastActivity)}`}
+      />
+      <MetricCard
+        title="Mensagens hoje"
+        value={
+          <>
+            {data.usage.messagesUsed}
+            <span className="text-base font-normal text-[var(--rz-text-muted)]"> / {msgLimit}</span>
+          </>
+        }
+        icon={MessageSquare}
+        description={`Plano ${data.plan}`}
+      />
+      <MetricCard
+        title="Campanhas"
+        value={
+          <>
+            <span className="text-[var(--rz-warning-text)]">{data.campaigns.pending}</span>
+            <span className="text-base font-normal text-[var(--rz-text-muted)]"> na fila</span>
+          </>
+        }
+        icon={BarChart3}
+        description={`${data.campaigns.sent} enviadas · ${data.campaigns.automationTotal} via automação`}
+        trend={
+          data.campaigns.failed > 0
+            ? { label: `${data.campaigns.failed} com falha`, positive: false }
+            : undefined
+        }
+      />
+      <MetricCard
+        title="Base"
+        value={`${data.contacts.total} contatos`}
+        icon={Users}
+        description={`${data.contacts.segments} segmentos · ${data.automations.activeRules} regra(s) ativa(s)`}
+      />
     </div>
   )
 }

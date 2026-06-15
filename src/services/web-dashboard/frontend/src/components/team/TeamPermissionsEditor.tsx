@@ -3,6 +3,7 @@ import { ChevronDown, RotateCcw, Save, Search, Shield, X } from 'lucide-react'
 import type { CompanyRole } from '../../lib/auth'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
+import { inputCls, selectCls } from '@/design-system'
 
 export interface PermissionGroup {
   id: string
@@ -196,7 +197,7 @@ function RolePermissionsAccordion({
 
   if (!filteredGroups.length) {
     return (
-      <p className="text-sm text-gray-500 py-10 text-center">
+      <p className="text-sm text-[var(--rz-text-secondary)] py-10 text-center">
         Nenhuma permissão encontrada para &quot;{searchQuery.trim()}&quot;.
       </p>
     )
@@ -339,18 +340,18 @@ export function TeamMemberRoleModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl shadow-xl">
-        <div className="p-5 border-b border-gray-800">
-          <h3 className="text-base font-semibold text-white">Alterar papel</h3>
-          <p className="text-sm text-gray-400 mt-1">{member.displayEmail}</p>
+      <div className="w-full max-w-md border border-[var(--rz-border)] bg-[var(--rz-surface)] rounded-2xl shadow-xl">
+        <div className="p-5 border-b border-[var(--rz-border)]">
+          <h3 className="text-base font-semibold text-[var(--rz-text-primary)]">Alterar papel</h3>
+          <p className="text-sm text-[var(--rz-text-secondary)] mt-1">{member.displayEmail}</p>
         </div>
         <div className="p-5 space-y-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Papel</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Papel</label>
             <select
               value={role}
               onChange={e => setRole(e.currentTarget.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
+              className={selectCls}
             >
               {presets
                 .filter(p => p.inviteable)
@@ -364,13 +365,13 @@ export function TeamMemberRoleModal({
             {preset && <p className="text-xs text-gray-500 mt-1.5">{preset.description}</p>}
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">WhatsApp (encaminhamentos de ticket)</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">WhatsApp (encaminhamentos de ticket)</label>
             <input
               type="tel"
               value={whatsappPhone}
               onChange={e => setWhatsappPhone(e.currentTarget.value)}
               placeholder="5511999999999"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
+              className={inputCls}
             />
             <p className="text-[11px] text-gray-600 mt-1">
               Usado para receber encaminhamentos e menções de tickets via WhatsApp.
@@ -382,7 +383,7 @@ export function TeamMemberRoleModal({
             </div>
           )}
         </div>
-        <div className="p-5 border-t border-gray-800 flex gap-2 justify-end">
+        <div className="p-5 border-t border-[var(--rz-border)] flex gap-2 justify-end">
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
@@ -491,10 +492,10 @@ export function RolesSystemPanel({
   if (!preset) return null
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden">
+    <div className="rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/50 overflow-hidden">
       {/* Seletor de papéis */}
-      <div className="p-4 border-b border-gray-800 bg-gray-950/40">
-        <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-2">Papel</p>
+      <div className="p-4 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40">
+        <p className="text-[11px] uppercase tracking-wider text-[var(--rz-text-muted)] mb-2">Papel</p>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
           {presets.map(p => {
             const selected = p.role === selectedRole
@@ -506,10 +507,10 @@ export function RolesSystemPanel({
                 className={`relative px-3 py-2.5 rounded-lg border text-left transition-all ${
                   selected
                     ? 'border-brand-500/50 bg-brand-500/10 ring-1 ring-brand-500/30'
-                    : 'border-gray-800 bg-gray-900/60 hover:border-gray-700 hover:bg-gray-800/50'
+                    : 'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/60 hover:border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]'
                 }`}
               >
-                <span className={`block text-xs font-medium truncate ${selected ? 'text-white' : 'text-gray-400'}`} title={p.label}>
+                <span className={`block text-xs font-medium truncate ${selected ? 'text-[var(--rz-text-primary)]' : 'text-[var(--rz-text-secondary)]'}`} title={p.label}>
                   {p.label}
                 </span>
                 <span className="block text-[10px] text-gray-600 mt-0.5">
@@ -537,11 +538,11 @@ export function RolesSystemPanel({
       </div>
 
       {/* Cabeçalho do papel + ações */}
-      <div className="px-4 py-4 border-b border-gray-800/80 space-y-3">
+      <div className="px-4 py-4 border-b border-[var(--rz-border)]/80 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-semibold text-white">{preset.label}</h3>
+              <h3 className="text-base font-semibold text-[var(--rz-text-primary)]">{preset.label}</h3>
               {(preset.customized || preset.isCustom) && (
                 <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                   {preset.isCustom ? 'personalizado' : 'ajustado'}
@@ -600,15 +601,15 @@ export function RolesSystemPanel({
 
       {/* Busca + expandir */}
       {preset.inviteable && (
-        <div className="px-4 py-3 border-b border-gray-800/60 flex flex-col sm:flex-row gap-2 bg-gray-950/30">
+        <div className="px-4 py-3 border-b border-[var(--rz-border)]/60 flex flex-col sm:flex-row gap-2 bg-[var(--rz-surface-muted)]/30">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
             <input
               type="search"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buscar permissão ou seção…"
-              className="w-full pl-9 pr-8 py-2 text-sm bg-gray-900 border border-gray-800 rounded-lg text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-brand-500/50"
+              className={`${inputCls} pl-9 pr-8`}
             />
             {searchQuery && (
               <button
@@ -675,7 +676,7 @@ export function RolesSystemPanel({
       )}
 
       {preset.inviteable && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-gray-800 bg-gray-950/40">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40">
           {!canEdit ? (
             <p className="text-xs text-gray-500">Somente o dono pode editar papéis.</p>
           ) : (

@@ -23,7 +23,7 @@ export default function EventNotificationBell() {
           setOpen(v => !v)
           if (!open && unreadCount > 0) markAllRead()
         }}
-        className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-gray-700 hover:bg-gray-800 text-gray-300 transition-colors"
+        className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-secondary)] transition-colors"
         title="Eventos"
       >
         <Bell size={15} />
@@ -42,9 +42,9 @@ export default function EventNotificationBell() {
             aria-label="Fechar"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-full mt-1 z-50 w-80 max-h-96 overflow-y-auto bg-gray-900 border border-gray-700 rounded-xl shadow-xl">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <div className="absolute right-0 top-full mt-1 z-50 w-80 max-h-96 overflow-y-auto bg-[var(--rz-surface)] border border-[var(--rz-border)] rounded-xl shadow-xl">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--rz-border)]">
+              <span className="text-xs font-semibold text-[var(--rz-text-muted)] uppercase tracking-wider">
                 Eventos
               </span>
               {events.length > 0 && (

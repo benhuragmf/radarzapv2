@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FolderOpen, MoreHorizontal, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
+import { inputCls, LoadingState } from '@/design-system'
 
 export interface ContactGroupItem {
   _id: string
@@ -94,14 +95,14 @@ export default function ContactGroupsSidebar({
   const itemCls = (active: boolean) =>
     `w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
       active
-        ? 'bg-brand-600/20 border border-brand-600/40 text-white'
-        : 'text-gray-400 hover:text-white hover:bg-gray-800/80 border border-transparent'
+        ? 'bg-brand-600/20 border border-brand-600/40 text-[var(--rz-text-primary)]'
+        : 'text-[var(--rz-text-secondary)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface-muted)] border border-transparent'
     }`
 
   return (
     <aside className="w-full lg:w-56 shrink-0 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--rz-text-muted)]">
           Grupos de contato
         </p>
         {canManage && (
@@ -120,18 +121,18 @@ export default function ContactGroupsSidebar({
       </div>
 
       {showCreate && canManage && (
-        <div className="rounded-lg border border-brand-700/50 bg-gray-900/60 p-3 space-y-2">
+        <div className="rounded-lg border border-brand-700/50 bg-[var(--rz-surface-muted)] p-3 space-y-2">
           <input
             value={createName}
             onChange={e => setCreateName(e.target.value)}
             placeholder="Nome do grupo"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-brand-500"
+            className={inputCls}
           />
           <input
             value={createDesc}
             onChange={e => setCreateDesc(e.target.value)}
             placeholder="Descrição (opcional)"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-brand-500"
+            className={inputCls}
           />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleCreate} disabled={!createName.trim() || saving}>
@@ -156,9 +157,7 @@ export default function ContactGroupsSidebar({
         </button>
 
         {loading ? (
-          <div className="flex justify-center py-6">
-            <Spinner size={20} />
-          </div>
+          <LoadingState rows={3} className="py-2" />
         ) : (
           groups.map(g => {
             const active = selectedGroupId === g._id
@@ -168,18 +167,18 @@ export default function ContactGroupsSidebar({
               return (
                 <div
                   key={g._id}
-                  className="rounded-lg border border-yellow-700/40 bg-gray-900/60 p-3 space-y-2"
+                  className="rounded-lg border border-yellow-700/40 bg-[var(--rz-surface-muted)] p-3 space-y-2"
                 >
                   <input
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-brand-500"
+                    className={inputCls}
                   />
                   <input
                     value={editDesc}
                     onChange={e => setEditDesc(e.target.value)}
                     placeholder="Descrição (opcional)"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-brand-500"
+                    className={inputCls}
                   />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => handleUpdate(g._id)} disabled={saving}>
@@ -219,7 +218,7 @@ export default function ContactGroupsSidebar({
                     {menuId === g._id && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setMenuId(null)} />
-                        <div className="absolute right-0 top-full mt-1 z-20 min-w-[120px] rounded-lg border border-gray-700 bg-gray-900 shadow-lg py-1">
+                        <div className="absolute right-0 top-full mt-1 z-20 min-w-[120px] rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-lg py-1">
                           <button
                             type="button"
                             onClick={() => startEdit(g)}

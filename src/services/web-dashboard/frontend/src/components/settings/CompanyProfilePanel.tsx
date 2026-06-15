@@ -6,6 +6,7 @@ import { Spinner } from '../ui/Spinner'
 import { Building2, Save } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { inputCls, LoadingState } from '@/design-system'
 
 interface OrgProfile {
   name: string
@@ -16,9 +17,6 @@ interface OrgProfile {
   address: string
   plan: string
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 export function CompanyProfilePanel({ user }: { user: AuthUser }) {
   const qc = useQueryClient()
@@ -63,23 +61,19 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
   })
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center py-6">
-        <Spinner size={20} />
-      </div>
-    )
+    return <LoadingState rows={4} className="py-4" />
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-gray-400">
+      <div className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
         <Building2 size={16} className="text-brand-400" />
-        Plano atual: <span className="text-gray-200 capitalize">{data?.plan ?? user.plan}</span>
+        Plano atual: <span className="text-[var(--rz-text-primary)] capitalize">{data?.plan ?? user.plan}</span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="text-xs text-gray-500 block mb-1">Nome da empresa *</label>
+          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Nome da empresa *</label>
           <input
             value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -89,7 +83,7 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Telefone / WhatsApp comercial</label>
+          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Telefone / WhatsApp comercial</label>
           <input
             value={form.phone}
             onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
@@ -99,7 +93,7 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">E-mail</label>
+          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">E-mail</label>
           <input
             type="email"
             value={form.email}
@@ -110,7 +104,7 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">CNPJ / CPF</label>
+          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">CNPJ / CPF</label>
           <input
             value={form.taxId}
             onChange={e => setForm(f => ({ ...f, taxId: e.target.value }))}
@@ -120,7 +114,7 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Site</label>
+          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Site</label>
           <input
             value={form.website}
             onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
@@ -130,7 +124,7 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs text-gray-500 block mb-1">Endereço</label>
+          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Endereço</label>
           <input
             value={form.address}
             onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
@@ -142,7 +136,7 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
       </div>
 
       {!canEdit && (
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-[var(--rz-text-muted)]">
           Apenas proprietários ou administradores podem editar os dados da empresa.
         </p>
       )}

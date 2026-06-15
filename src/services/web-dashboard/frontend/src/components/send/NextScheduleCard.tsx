@@ -23,9 +23,9 @@ export function NextScheduleCard({ campaign, ruleLabel, editRuleId }: Props) {
           <p className="text-xs text-brand-400/90 font-medium uppercase tracking-wide">
             Próximo envio · {countdown}
           </p>
-          <p className="text-sm font-semibold text-white mt-1 truncate">{campaign.title}</p>
-          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{campaign.message}</p>
-          <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-600">
+          <p className="text-sm font-semibold text-[var(--rz-text-primary)] mt-1 truncate">{campaign.title}</p>
+          <p className="text-xs text-[var(--rz-text-muted)] mt-1 line-clamp-2">{campaign.message}</p>
+          <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-[var(--rz-text-muted)]">
             <span>{when}</span>
             <span>·</span>
             <span>{campaign.destinations.length} destino(s)</span>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { FolderOpen, Pencil, Plus, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
-import { inputCls } from '../../lib/destinationUi'
+import { inputCls, textareaCls } from '@/design-system'
 import { formatPhone, isValidContactPhoneInput } from '../../lib/destinationFormat'
 import { detectCountryFromE164, hasContactPhoneNationalDigits } from '../../lib/phoneCountries'
 import ContactPhoneInput from './ContactPhoneInput'
@@ -77,11 +77,11 @@ export default function ContactEditorModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
       <div
-        className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 shadow-xl max-h-[90vh] flex flex-col"
+        className="w-full max-w-lg rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-xl max-h-[90vh] flex flex-col"
         role="dialog"
         aria-labelledby="contact-editor-title"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--rz-border)] shrink-0">
           <div className="flex items-center gap-2">
             {mode === 'create' ? (
               <Plus size={16} className="text-brand-400" />
@@ -89,7 +89,7 @@ export default function ContactEditorModal({
               <Pencil size={16} className="text-yellow-400" />
             )}
             <div>
-              <p id="contact-editor-title" className="text-sm font-medium text-white">
+              <p id="contact-editor-title" className="text-sm font-medium text-[var(--rz-text-primary)]">
                 {title}
               </p>
               {mode === 'edit' && contactPhone && (
@@ -170,7 +170,7 @@ export default function ContactEditorModal({
                 onChange={e => set('notes', e.target.value)}
                 rows={2}
                 placeholder="opcional"
-                className={`${inputCls} resize-none`}
+                className={`${textareaCls} resize-none`}
               />
             </div>
           </div>
@@ -212,7 +212,7 @@ export default function ContactEditorModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-800 shrink-0">
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-[var(--rz-border)] shrink-0">
           <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>

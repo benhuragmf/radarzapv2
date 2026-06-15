@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, Eye, Type, Users } from 'lucide-react'
 import { api } from '../../lib/api'
-import { Spinner } from '../ui/Spinner'
 import { Badge } from '../ui/Badge'
 import { WhatsAppFormattedMessage } from './WhatsAppFormattedMessage'
+import { LoadingState, ErrorState } from '@/design-system'
 
 interface StatusViewEvent {
   jid: string
@@ -73,13 +73,13 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
       <div
-        className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 shadow-xl max-h-[90vh] flex flex-col"
+        className="w-full max-w-lg rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-xl max-h-[90vh] flex flex-col"
         role="dialog"
         aria-labelledby="status-detail-title"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--rz-border)] shrink-0">
           <div>
-            <p id="status-detail-title" className="text-sm font-medium text-white">
+            <p id="status-detail-title" className="text-sm font-medium text-[var(--rz-text-primary)]">
               {post?.title ?? 'Detalhe do status'}
             </p>
             {post?.processedAt && (
@@ -97,13 +97,9 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
-          {isLoading && (
-            <div className="flex justify-center py-12">
-              <Spinner size={28} />
-            </div>
-          )}
+          {isLoading && <LoadingState rows={4} className="py-6" />}
           {error && (
-            <p className="text-sm text-red-400">{(error as Error).message}</p>
+            <ErrorState message={(error as Error).message} title="Erro ao carregar status" />
           )}
           {post && (
             <>
@@ -150,7 +146,7 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
               )}
 
               {post.type === 'image' && displayText && (
-                <div className="rounded-lg border border-gray-800 bg-gray-950/50 p-3">
+                <div className="rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)] p-3">
                   <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                     <Type size={12} /> Legenda
                   </p>

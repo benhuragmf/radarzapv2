@@ -4,6 +4,8 @@ import type { AuthUser } from '../../lib/auth'
 import { logout } from '../../lib/auth'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
+import { cn } from '@/lib/utils'
+import { inputCls } from '@/design-system'
 
 const CONFIRM_PHRASE = 'APAGAR TUDO'
 
@@ -79,8 +81,8 @@ export default function DeleteOrganizationPanel({ user }: Props) {
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-red-300">Zona de perigo</h3>
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-              Excluir permanentemente <strong className="text-gray-400">{orgName}</strong> e todos os dados.
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1 leading-relaxed">
+              Excluir permanentemente <strong className="text-[var(--rz-text-secondary)]">{orgName}</strong> e todos os dados.
               Ação irreversível — apenas o dono.
             </p>
           </div>
@@ -139,7 +141,10 @@ export default function DeleteOrganizationPanel({ user }: Props) {
           placeholder={CONFIRM_PHRASE}
           autoComplete="off"
           spellCheck={false}
-          className="w-full bg-gray-950 border border-red-900/40 rounded-lg px-3 py-2 text-sm text-gray-200 font-mono focus:outline-none focus:border-red-600/60"
+          className={cn(
+            inputCls,
+            'font-mono border-red-900/40 bg-[var(--rz-background)] focus:border-red-600/60',
+          )}
         />
       </div>
 

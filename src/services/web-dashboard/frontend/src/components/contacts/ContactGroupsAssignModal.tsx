@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { FolderOpen, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
+import { EmptyState } from '@/design-system'
 import type { ContactGroupItem } from './ContactGroupsSidebar'
 
 interface Props {
@@ -54,13 +55,13 @@ export default function ContactGroupsAssignModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
       <div
-        className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 shadow-xl"
+        className="w-full max-w-md rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-xl"
         role="dialog"
         aria-labelledby="assign-groups-title"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--rz-border)]">
           <div>
-            <p id="assign-groups-title" className="text-sm font-medium text-white">
+            <p id="assign-groups-title" className="text-sm font-medium text-[var(--rz-text-primary)]">
               {title ?? 'Grupos do contato'}
             </p>
             <p className="text-xs text-gray-500 truncate max-w-[280px]">
@@ -74,9 +75,10 @@ export default function ContactGroupsAssignModal({
 
         <div className="p-4 max-h-72 overflow-y-auto space-y-1">
           {groups.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-6">
-              Crie um grupo na barra lateral para organizar contatos.
-            </p>
+            <EmptyState
+              title="Nenhum grupo"
+              description="Crie um grupo na barra lateral para organizar contatos."
+            />
           ) : (
             groups.map(g => {
               const checked = picked.has(g._id)
@@ -107,7 +109,7 @@ export default function ContactGroupsAssignModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-800">
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-[var(--rz-border)]">
           <Button variant="ghost" size="sm" onClick={onClose}>
             Cancelar
           </Button>
