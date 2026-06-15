@@ -47,7 +47,7 @@ const KIND_META: Record<
   { label: string; icon: typeof FileText; accent: string; badge: 'blue' | 'green' | 'yellow' | 'red' | 'gray' }
 > = {
   auto: { label: 'Automático', icon: Sparkles, accent: 'border-brand-500/50 bg-brand-950/20', badge: 'blue' },
-  text: { label: 'Texto', icon: MessageSquare, accent: 'border-gray-600/50 bg-gray-900/40', badge: 'gray' },
+  text: { label: 'Texto', icon: MessageSquare, accent: 'border-[var(--rz-border)]/50 bg-[var(--rz-surface)]/40', badge: 'gray' },
   embed: { label: 'Embed', icon: FileText, accent: 'border-indigo-600/40 bg-indigo-950/20', badge: 'blue' },
   embed_list: { label: 'Lista', icon: List, accent: 'border-emerald-600/40 bg-emerald-950/20', badge: 'green' },
   live: { label: 'Live', icon: Radio, accent: 'border-red-600/40 bg-red-950/25', badge: 'red' },
@@ -211,9 +211,9 @@ export default function Templates() {
       </div>
 
       {/* Fluxo Discord → WhatsApp */}
-      <Card className="border-gray-800 bg-gradient-to-br from-gray-900/80 to-gray-950/80 overflow-hidden">
-        <p className="text-xs text-gray-500 mb-4">
-          <strong className="text-gray-400">Variáveis comuns:</strong>{' '}
+      <Card className="border-[var(--rz-border)] bg-gradient-to-br from-[var(--rz-surface)]/80 to-[var(--rz-surface-muted)]/80 overflow-hidden">
+        <p className="text-xs text-[var(--rz-text-muted)] mb-4">
+          <strong className="text-[var(--rz-text-muted)]">Variáveis comuns:</strong>{' '}
           <code className="text-brand-400">{'{titulo}'}</code>,{' '}
           <code className="text-brand-400">{'{corpo}'}</code>,{' '}
           <code className="text-brand-400">{'{lista_conteudo}'}</code>,{' '}
@@ -227,7 +227,7 @@ export default function Templates() {
             <p className="text-[10px] uppercase tracking-wider text-indigo-400 mb-2 font-medium">Discord</p>
             <DiscordPostMock title={previewTemplate?.name ?? 'dw-padrao'} />
           </div>
-          <div className="hidden md:flex flex-col items-center text-gray-600">
+          <div className="hidden md:flex flex-col items-center text-[var(--rz-text-muted)]">
             <ArrowRight size={28} className="text-brand-500" />
             <span className="text-[10px] mt-1">captura</span>
           </div>
@@ -251,7 +251,7 @@ export default function Templates() {
             <button
               type="button"
               onClick={() => setEditing(null)}
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+              className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)] hover:text-[var(--rz-text-secondary)]"
             >
               <X size={18} />
             </button>
@@ -262,13 +262,13 @@ export default function Templates() {
                 value={draftContent}
                 onChange={e => setDraftContent(e.target.value)}
                 rows={16}
-                className="w-full text-xs font-mono bg-gray-950 border border-gray-800 rounded-lg p-3 text-gray-300 focus:border-brand-500 outline-none leading-relaxed"
+                className="w-full text-xs font-mono bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg p-3 text-[var(--rz-text-secondary)] focus:border-brand-500 outline-none leading-relaxed"
               />
               <input
                 value={draftDesc}
                 onChange={e => setDraftDesc(e.target.value)}
                 placeholder="Descrição (opcional)"
-                className="mt-2 w-full text-xs bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-gray-400"
+                className="mt-2 w-full text-xs bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-3 py-2 text-[var(--rz-text-muted)]"
               />
               {saveError && <p className="text-xs text-red-400 mt-2">{saveError}</p>}
               <div className="flex gap-2 mt-3">
@@ -288,7 +288,7 @@ export default function Templates() {
               </div>
             </div>
             <div>
-              <p className="text-xs text-gray-500 mb-2">Pré-visualização no WhatsApp</p>
+              <p className="text-xs text-[var(--rz-text-muted)] mb-2">Pré-visualização no WhatsApp</p>
               <div className="rounded-xl bg-[#0b141a] p-4 border border-[#1f2c34] min-h-[280px]">
                 <WhatsAppPreviewBubble text={previewContent(draftContent)} timeLabel="14:10 ✓✓" />
               </div>
@@ -298,14 +298,14 @@ export default function Templates() {
       )}
 
       {dwTemplates.length === 0 && (
-        <Card className="text-center py-12 text-gray-500">
+        <Card className="text-center py-12 text-[var(--rz-text-muted)]">
           <FileText size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-400">Nenhum formato cadastrado</p>
+          <p className="font-medium text-[var(--rz-text-muted)]">Nenhum formato cadastrado</p>
           <p className="text-sm mt-1">Reinicie o backend ou execute npm run seed:templates</p>
         </Card>
       )}
 
-      <p className="text-sm text-gray-500">{dwTemplates.length} formato(s) Discord → WhatsApp</p>
+      <p className="text-sm text-[var(--rz-text-muted)]">{dwTemplates.length} formato(s) Discord → WhatsApp</p>
 
       {/* Grid de cards — layout original enriquecido */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -324,16 +324,16 @@ export default function Templates() {
               onMouseEnter={() => !editing && setPreviewId(t._id)}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Icon size={16} className="text-gray-400 shrink-0" />
+                <Icon size={16} className="text-[var(--rz-text-muted)] shrink-0" />
                 <span className="font-medium text-sm truncate">{t.name}</span>
                 {t.isDefault && <Badge label="padrão" variant="blue" />}
                 {t.clientId && <Badge label="editado" variant="green" />}
                 <Badge label={meta.label} variant={meta.badge} />
-                <span className="ml-auto text-xs text-gray-600 shrink-0">{usageCount(t)} usos</span>
+                <span className="ml-auto text-xs text-[var(--rz-text-muted)] shrink-0">{usageCount(t)} usos</span>
                 <button
                   type="button"
                   onClick={() => openEdit(t)}
-                  className="p-1.5 rounded-lg text-gray-500 hover:text-brand-400 hover:bg-gray-800 shrink-0"
+                  className="p-1.5 rounded-lg text-[var(--rz-text-muted)] hover:text-brand-400 hover:bg-[var(--rz-surface-muted)] shrink-0"
                   title="Editar"
                 >
                   <Pencil size={14} />
@@ -341,14 +341,14 @@ export default function Templates() {
               </div>
 
               {t.description && (
-                <p className="text-xs text-gray-500 mb-2 leading-relaxed">{t.description}</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mb-2 leading-relaxed">{t.description}</p>
               )}
 
-              <pre className="text-xs text-gray-400 bg-gray-950 rounded-lg p-3 whitespace-pre-wrap break-words font-mono leading-relaxed border border-gray-800 max-h-48 overflow-y-auto">
+              <pre className="text-xs text-[var(--rz-text-muted)] bg-[var(--rz-surface-muted)] rounded-lg p-3 whitespace-pre-wrap break-words font-mono leading-relaxed border border-[var(--rz-border)] max-h-48 overflow-y-auto">
                 {t.content}
               </pre>
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+              <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--rz-text-muted)]">
                 {t.variables?.length > 0 && (
                   <span className="flex flex-wrap items-center gap-1">
                     Variáveis:
@@ -356,7 +356,7 @@ export default function Templates() {
                       <code key={v} className="text-brand-400 mx-0.5">{`{${v}}`}</code>
                     ))}
                     {t.variables.length > 8 && (
-                      <span className="text-gray-600">+{t.variables.length - 8}</span>
+                      <span className="text-[var(--rz-text-muted)]">+{t.variables.length - 8}</span>
                     )}
                   </span>
                 )}
@@ -368,16 +368,16 @@ export default function Templates() {
 
       {/* Variáveis — referência compacta */}
       <details className="group">
-        <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-300 list-none flex items-center gap-2">
+        <summary className="text-sm text-[var(--rz-text-muted)] cursor-pointer hover:text-[var(--rz-text-secondary)] list-none flex items-center gap-2">
           <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
           Dicionário de variáveis ({Object.keys(varDocs).length})
         </summary>
-        <Card className="mt-3 border-gray-800">
+        <Card className="mt-3 border-[var(--rz-border)]">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
             {Object.entries(varDocs).map(([k, v]) => (
-              <div key={k} className="text-gray-500">
+              <div key={k} className="text-[var(--rz-text-muted)]">
                 <code className="text-brand-400">{`{${k}}`}</code>
-                <span className="text-gray-600"> — </span>
+                <span className="text-[var(--rz-text-muted)]"> — </span>
                 {v}
               </div>
             ))}
@@ -386,8 +386,8 @@ export default function Templates() {
       </details>
 
       {legacyTemplates.length > 0 && (
-        <details className="text-sm text-gray-600">
-          <summary className="cursor-pointer hover:text-gray-400 list-none">
+        <details className="text-sm text-[var(--rz-text-muted)]">
+          <summary className="cursor-pointer hover:text-[var(--rz-text-muted)] list-none">
             Templates legados ({legacyTemplates.length}) — radarzap-*, game-*
           </summary>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3 opacity-75">
@@ -396,9 +396,9 @@ export default function Templates() {
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-medium text-sm">{t.name}</span>
                   {t.isDefault && <Badge label="legado" variant="gray" />}
-                  <span className="ml-auto text-xs text-gray-600">{usageCount(t)} usos</span>
+                  <span className="ml-auto text-xs text-[var(--rz-text-muted)]">{usageCount(t)} usos</span>
                 </div>
-                <pre className="text-xs text-gray-500 bg-gray-950 rounded-lg p-3 font-mono border border-gray-800 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                <pre className="text-xs text-[var(--rz-text-muted)] bg-[var(--rz-surface-muted)] rounded-lg p-3 font-mono border border-[var(--rz-border)] max-h-32 overflow-y-auto whitespace-pre-wrap">
                   {t.content}
                 </pre>
               </Card>

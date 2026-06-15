@@ -93,9 +93,9 @@ export default function Queue({ scope = 'all' }: Props) {
         title="Fila de envio"
         description="Envios agendados e em andamento da sua conta — campanhas manuais e automações."
       >
-        <Card className="border-brand-800/30 bg-brand-950/10 text-xs text-gray-400 mb-4">
+        <Card className="border-brand-800/30 bg-brand-950/10 text-xs text-[var(--rz-text-muted)] mb-4">
           <p>
-            <strong className="text-gray-300">O que é isso?</strong> Cada linha é um envio para um ou mais
+            <strong className="text-[var(--rz-text-secondary)]">O que é isso?</strong> Cada linha é um envio para um ou mais
             contatos/grupos. Quando chega o horário, o sistema dispara pelo WhatsApp (~15 s de verificação).
           </p>
           <p className="mt-2">
@@ -119,7 +119,7 @@ export default function Queue({ scope = 'all' }: Props) {
           />
         </div>
 
-        <h3 className="text-sm font-medium text-gray-300 mb-3">
+        <h3 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">
           Próximos e recentes ({upcoming.length})
         </h3>
         {upcoming.length === 0 ? (
@@ -148,11 +148,11 @@ export default function Queue({ scope = 'all' }: Props) {
                     <Badge label={STATUS_PT[item.status] ?? item.status} variant={STATUS_BADGE[item.status] ?? 'gray'} />
                     {item.source === 'automation' && <Badge label="Automação" variant="blue" />}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-[var(--rz-text-muted)] mt-1">
                     {item.destinations} destino(s)
                     {item.sentCount > 0 && ` · ${item.sentCount} enviado(s)`}
                   </p>
-                  <p className="text-[11px] text-gray-600 mt-0.5">
+                  <p className="text-[11px] text-[var(--rz-text-muted)] mt-0.5">
                     {item.status === 'pending'
                       ? `Agendado: ${new Date(item.scheduledFor).toLocaleString('pt-BR')}`
                       : `Atualizado: ${new Date(item.scheduledFor).toLocaleString('pt-BR')}`}
@@ -166,7 +166,7 @@ export default function Queue({ scope = 'all' }: Props) {
           </div>
         )}
 
-        <p className="text-xs text-gray-600 mt-6">
+        <p className="text-xs text-[var(--rz-text-muted)] mt-6">
           Histórico completo de automações:{' '}
           <Link to="/send/autoagendamentos" className="text-brand-400 hover:underline">
             Agend. automação
@@ -194,7 +194,7 @@ export default function Queue({ scope = 'all' }: Props) {
 
   const content = (
     <div className="space-y-6">
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-[var(--rz-text-muted)]">
         {isDiscord
           ? 'Filas internas da automação Discord → WhatsApp.'
           : 'Filas técnicas do servidor (BullMQ). Clientes usam a aba Fila de envio na Plataforma.'}
@@ -204,7 +204,7 @@ export default function Queue({ scope = 'all' }: Props) {
         {filtered.map(q => (
           <Card key={q.name}>
             <div className="flex items-center gap-2 mb-3">
-              <ListOrdered size={14} className="text-gray-500" />
+              <ListOrdered size={14} className="text-[var(--rz-text-muted)]" />
               <span className="text-sm font-medium">{QUEUE_LABELS[q.name] ?? q.name}</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -213,9 +213,9 @@ export default function Queue({ scope = 'all' }: Props) {
                 { label: 'Ativo', value: q.active, color: 'text-blue-400' },
                 { label: 'Falhas', value: q.failed, color: 'text-red-400' },
               ].map(({ label, value, color }) => (
-                <div key={label} className="bg-gray-950 rounded-lg p-2">
+                <div key={label} className="bg-[var(--rz-surface-muted)] rounded-lg p-2">
                   <p className={`text-lg font-bold ${color}`}>{value}</p>
-                  <p className="text-xs text-gray-500">{label}</p>
+                  <p className="text-xs text-[var(--rz-text-muted)]">{label}</p>
                 </div>
               ))}
             </div>

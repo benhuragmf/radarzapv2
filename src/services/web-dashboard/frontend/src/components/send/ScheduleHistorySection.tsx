@@ -24,27 +24,27 @@ function ExpandedDetails({ c, ruleName }: { c: Campaign; ruleName?: (id?: string
       <p className="text-[var(--rz-text-secondary)] whitespace-pre-wrap">{c.message}</p>
       {c.platformTemplateName && (
         <p>
-          Modelo: <span className="text-gray-300">{c.platformTemplateName}</span>
+          Modelo: <span className="text-[var(--rz-text-secondary)]">{c.platformTemplateName}</span>
         </p>
       )}
       {c.automationRuleId && ruleName && (
         <p>
-          Regra: <span className="text-gray-300">{ruleName(c.automationRuleId)}</span>
+          Regra: <span className="text-[var(--rz-text-secondary)]">{ruleName(c.automationRuleId)}</span>
         </p>
       )}
       {c.delayBetweenMs != null && c.delayBetweenMs > 0 && (
         <p>Intervalo entre destinos: {(c.delayBetweenMs / 1000).toFixed(0)}s</p>
       )}
       <div>
-        <p className="text-gray-600 mb-1">Destinos ({c.destinations.length}):</p>
+        <p className="text-[var(--rz-text-muted)] mb-1">Destinos ({c.destinations.length}):</p>
         <div className="flex flex-wrap gap-1">
           {c.destinations.slice(0, 20).map((d, i) => (
-            <span key={i} className="bg-gray-800 px-1.5 py-0.5 rounded text-[10px] text-gray-400">
+            <span key={i} className="bg-[var(--rz-surface-muted)] px-1.5 py-0.5 rounded text-[10px] text-[var(--rz-text-muted)]">
               {d.name}
             </span>
           ))}
           {c.destinations.length > 20 && (
-            <span className="text-[10px] text-gray-600">+{c.destinations.length - 20}</span>
+            <span className="text-[10px] text-[var(--rz-text-muted)]">+{c.destinations.length - 20}</span>
           )}
         </div>
       </div>
@@ -93,8 +93,8 @@ export function ScheduleHistorySection({
                       <p className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{c.title}</p>
                       <Badge label={STATUS_PT[c.status]} variant={STATUS_VARIANT[c.status]} />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">{c.message}</p>
-                    <p className="text-[11px] text-gray-600 mt-1">
+                    <p className="text-xs text-[var(--rz-text-muted)] mt-1 line-clamp-1">{c.message}</p>
+                    <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
                       {c.destinations.length} destino(s)
                       {(c.sentCount ?? 0) > 0 && ` · ${c.sentCount} enviado(s)`}
                       {' · '}
@@ -110,9 +110,9 @@ export function ScheduleHistorySection({
                     )}
                   </div>
                   {open ? (
-                    <ChevronUp size={16} className="text-gray-500 shrink-0" />
+                    <ChevronUp size={16} className="text-[var(--rz-text-muted)] shrink-0" />
                   ) : (
-                    <ChevronDown size={16} className="text-gray-500 shrink-0" />
+                    <ChevronDown size={16} className="text-[var(--rz-text-muted)] shrink-0" />
                   )}
                 </div>
               </button>
@@ -122,7 +122,7 @@ export function ScheduleHistorySection({
         })}
       </div>
       {campaigns.length > limit && (
-        <p className="text-xs text-gray-600 mt-2">
+        <p className="text-xs text-[var(--rz-text-muted)] mt-2">
           Exibindo os {limit} mais recentes de {campaigns.length}.
         </p>
       )}

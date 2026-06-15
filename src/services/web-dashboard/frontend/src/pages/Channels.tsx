@@ -118,10 +118,10 @@ export default function Channels() {
       {showForm && (
         <Card className="border-brand-700">
           {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
+          <div className="flex items-center gap-2 text-xs text-[var(--rz-text-muted)] mb-4">
             <button
               onClick={() => { setStep('guild'); setSelectedChannel(null) }}
-              className={step === 'guild' ? 'text-brand-400 font-medium' : 'hover:text-white'}
+              className={step === 'guild' ? 'text-brand-400 font-medium' : 'hover:text-[var(--rz-text-primary)]'}
             >
               Discord
             </button>
@@ -130,7 +130,7 @@ export default function Channels() {
                 <ChevronRight size={12} />
                 <button
                   onClick={() => setStep('channel')}
-                  className={step === 'channel' ? 'text-brand-400 font-medium' : 'hover:text-white'}
+                  className={step === 'channel' ? 'text-brand-400 font-medium' : 'hover:text-[var(--rz-text-primary)]'}
                 >
                   {selectedGuild.name}
                 </button>
@@ -147,22 +147,22 @@ export default function Channels() {
           {/* Step 1 — choose guild */}
           {step === 'guild' && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-300 mb-3">Selecione o servidor</p>
+              <p className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Selecione o servidor</p>
               {loadingGuilds && <LoadingState rows={2} className="py-2" />}
               {guilds.map(g => (
                 <button
                   key={g.id}
                   onClick={() => { setSelectedGuild(g); setStep('channel') }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 bg-[var(--rz-surface-muted)] hover:bg-[var(--rz-surface-muted)]/80 rounded-lg transition-colors text-left"
                 >
                   {g.icon
                     ? <img src={g.icon} alt={g.name} className="w-8 h-8 rounded-full" />
-                    : <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
+                    : <div className="w-8 h-8 rounded-full bg-[var(--rz-surface-muted)] flex items-center justify-center text-xs font-bold text-[var(--rz-text-muted)]">
                         {g.name[0]}
                       </div>
                   }
                   <span className="text-sm font-medium">{g.name}</span>
-                  <ChevronRight size={14} className="ml-auto text-gray-600" />
+                  <ChevronRight size={14} className="ml-auto text-[var(--rz-text-muted)]" />
                 </button>
               ))}
             </div>
@@ -171,7 +171,7 @@ export default function Channels() {
           {/* Step 2 — choose channel */}
           {step === 'channel' && selectedGuild && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-300 mb-3">
+              <p className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">
                 Selecione o canal em <span className="text-brand-400">{selectedGuild.name}</span>
               </p>
               {loadingChannels && <LoadingState rows={2} className="py-2" />}
@@ -187,10 +187,10 @@ export default function Channels() {
                       disabled={added}
                       className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left text-sm ${
                         added
-                          ? 'opacity-40 cursor-not-allowed bg-gray-800'
+                          ? 'opacity-40 cursor-not-allowed bg-[var(--rz-surface-muted)]'
                           : selectedChannel?.id === ch.id
                             ? 'bg-brand-600 text-white'
-                            : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                            : 'bg-[var(--rz-surface-muted)] hover:bg-[var(--rz-surface-muted)]/80 text-[var(--rz-text-secondary)]'
                       }`}
                     >
                       <Hash size={13} className="shrink-0" />
@@ -202,7 +202,7 @@ export default function Channels() {
               </div>
 
               {selectedChannel && (
-                <div className="flex gap-2 pt-3 border-t border-gray-800">
+                <div className="flex gap-2 pt-3 border-t border-[var(--rz-border)]">
                   <Button onClick={() => add.mutate()} disabled={add.isPending}>
                     {add.isPending ? <Spinner size={12} /> : <Plus size={12} />}
                     Adicionar #{selectedChannel.name}
@@ -220,9 +220,9 @@ export default function Channels() {
       {isLoading && <LoadingState rows={4} className="pt-6" />}
 
       {!isLoading && channels.length === 0 && !showForm && (
-        <Card className="text-center py-12 text-gray-500">
+        <Card className="text-center py-12 text-[var(--rz-text-muted)]">
           <Hash size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-400">Nenhum canal monitorado</p>
+          <p className="font-medium text-[var(--rz-text-muted)]">Nenhum canal monitorado</p>
           <p className="text-sm mt-1 mb-4">Adicione canais de texto para iniciar a automação.</p>
           <Button size="sm" onClick={() => setShowForm(true)}>
             <Plus size={12} /> Adicionar canal
@@ -234,7 +234,7 @@ export default function Channels() {
         {channels.map(ch => (
           <Card key={ch._id}>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 bg-[var(--rz-surface-muted)] rounded-lg flex items-center justify-center shrink-0">
                 <Hash size={18} className="text-brand-500" />
               </div>
               <div className="flex-1 min-w-0">
@@ -244,13 +244,13 @@ export default function Channels() {
                   </span>
                   <Badge label={ch.isActive ? 'Ativo' : 'Inativo'} variant={ch.isActive ? 'green' : 'gray'} />
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[var(--rz-text-muted)]">
                   {ch.guildName || ch.guildId}
                   {' · '}
-                  <span className="font-mono text-gray-600">{ch.channelId}</span>
+                  <span className="font-mono text-[var(--rz-text-muted)]">{ch.channelId}</span>
                 </p>
                 {ch.filters?.keywords?.length > 0 && (
-                  <p className="text-xs text-gray-600 mt-0.5">
+                  <p className="text-xs text-[var(--rz-text-muted)] mt-0.5">
                     Keywords: {ch.filters.keywords.join(', ')}
                   </p>
                 )}
@@ -259,7 +259,7 @@ export default function Channels() {
                 <button
                   onClick={() => toggle.mutate(ch._id)}
                   disabled={toggle.isPending}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] transition-colors"
                   title={ch.isActive ? 'Desativar' : 'Ativar'}
                 >
                   {ch.isActive
@@ -269,7 +269,7 @@ export default function Channels() {
                 <button
                   onClick={() => { if (window.confirm('Remover este canal?')) remove.mutate(ch._id) }}
                   disabled={remove.isPending}
-                  className="text-gray-600 hover:text-red-400 transition-colors"
+                  className="text-[var(--rz-text-muted)] hover:text-red-400 transition-colors"
                 >
                   <Trash2 size={15} />
                 </button>

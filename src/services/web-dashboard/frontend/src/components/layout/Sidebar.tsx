@@ -87,8 +87,8 @@ function NavLinkItem({
           ? 'rz-nav-item-active'
           : alert
             ? alert.severity === 'error'
-              ? 'rz-nav-item text-red-300 hover:text-white'
-              : 'rz-nav-item text-amber-200/90 hover:text-white'
+              ? 'rz-nav-item text-red-300 hover:text-[var(--rz-text-primary)]'
+              : 'rz-nav-item text-amber-200/90 hover:text-[var(--rz-text-primary)]'
             : 'rz-nav-item'
       }`}
     >

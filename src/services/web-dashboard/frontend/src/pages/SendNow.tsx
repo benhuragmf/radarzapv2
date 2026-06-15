@@ -103,7 +103,7 @@ interface BillingMe {
   usage: { messagesUsed: number }
 }
 
-const labelCls = 'text-xs text-gray-500 mb-1 block'
+const labelCls = 'text-xs text-[var(--rz-text-muted)] mb-1 block'
 
 function defaultScheduleLocal(): string {
   const d = new Date()
@@ -475,7 +475,7 @@ export default function SendNow() {
           <AlertCircle size={18} className="text-amber-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm text-amber-200">WhatsApp desconectado</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
               Reconecte para enviar agora. Agendamentos futuros podem ser criados e serão
               enviados quando o WhatsApp estiver online (se a opção estiver ativa).
             </p>
@@ -487,7 +487,7 @@ export default function SendNow() {
       )}
 
       {connected && (
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-[var(--rz-text-muted)]">
           <Smartphone size={14} className="text-brand-500" />
           Sessão ativa:{' '}
           <Badge
@@ -501,18 +501,18 @@ export default function SendNow() {
       )}
 
       {billing && (
-        <Card className="border-gray-800 bg-gray-900/50 py-3">
+        <Card className="border-[var(--rz-border)] bg-[var(--rz-surface)]/50 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="text-gray-400">
+            <div className="text-[var(--rz-text-muted)]">
               Plano <span className="text-white capitalize font-medium">{billing.plan}</span>
               {' · '}
               Destinos cadastrados:{' '}
               <span className="text-white">{destinations.length}</span>
               {!isUnlimited(billing.limits.groupsMax) && (
-                <span className="text-gray-500"> / {billing.limits.groupsMax}</span>
+                <span className="text-[var(--rz-text-muted)]"> / {billing.limits.groupsMax}</span>
               )}
             </div>
-            <div className="text-gray-400">
+            <div className="text-[var(--rz-text-muted)]">
               Mensagens hoje:{' '}
               <span className={remainingToday === 0 ? 'text-amber-400' : 'text-brand-400'}>
                 {billing.usage.messagesUsed}
@@ -521,7 +521,7 @@ export default function SendNow() {
                 )}
               </span>
               {isUnlimited(billing.limits.messagesPerDay) && (
-                <span className="text-gray-500"> (ilimitado)</span>
+                <span className="text-[var(--rz-text-muted)]"> (ilimitado)</span>
               )}
             </div>
           </div>
@@ -536,7 +536,7 @@ export default function SendNow() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3 space-y-4">
             <Card>
-              <h2 className="text-sm font-medium text-gray-300 mb-3">1. Destinatários</h2>
+              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">1. Destinatários</h2>
               <div className="flex flex-wrap gap-2 mb-3">
                 {(
                   [
@@ -555,7 +555,7 @@ export default function SendNow() {
                     className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
                       destinationScope === scope
                         ? 'border-brand-500 bg-brand-950/40 text-brand-200'
-                        : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                        : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                     }`}
                   >
                     {label}
@@ -564,7 +564,7 @@ export default function SendNow() {
               </div>
               <div className="flex flex-wrap gap-2 mb-3">
                 <div className="relative flex-1 min-w-[140px]">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
                   <input
                     value={search}
                     onChange={e => setSearch(e.target.value)}
@@ -576,7 +576,7 @@ export default function SendNow() {
                   <select
                     value={contactGroupFilter}
                     onChange={e => setContactGroupFilter(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 max-w-[180px]"
+                    className="bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-3 py-2 text-sm text-[var(--rz-text-primary)] max-w-[180px]"
                     title="Filtrar por grupo de contatos"
                   >
                     <option value="all">Grupo contato: todos</option>
@@ -605,7 +605,7 @@ export default function SendNow() {
                 </Button>
               </div>
 
-              <p className="text-xs text-gray-500 mb-2">
+              <p className="text-xs text-[var(--rz-text-muted)] mb-2">
                 {selectedIds.size} selecionado(s)
                 {selectedIds.size > safeBatch && !acceptWhatsAppRisk && (
                   <span className="text-brand-400/90"> · fila segura ({batchCount} lotes)</span>
@@ -624,9 +624,9 @@ export default function SendNow() {
                 </p>
               )}
 
-              <div className="max-h-52 overflow-y-auto space-y-1 border border-gray-800 rounded-lg p-2">
+              <div className="max-h-52 overflow-y-auto space-y-1 border border-[var(--rz-border)] rounded-lg p-2">
                 {filteredDest.length === 0 ? (
-                  <p className="text-xs text-gray-600 text-center py-4">
+                  <p className="text-xs text-[var(--rz-text-muted)] text-center py-4">
                     Nenhum destino.{' '}
                     <Link to="/contact" className="text-brand-400 hover:underline">
                       Cadastrar destinos
@@ -661,7 +661,7 @@ export default function SendNow() {
                             ? groupNotInGroup
                               ? 'bg-red-950/20 border border-red-800/40 cursor-pointer'
                               : 'bg-brand-600/15 border border-brand-600/30 cursor-pointer'
-                            : 'hover:bg-gray-800 cursor-pointer'
+                            : 'hover:bg-[var(--rz-surface-muted)] cursor-pointer'
                       }`}
                       style={
                         consentSt
@@ -674,7 +674,7 @@ export default function SendNow() {
                         checked={selectedIds.has(d._id)}
                         disabled={blocked || blockedForGroup}
                         onChange={() => toggleDest(d._id)}
-                        className="rounded border-gray-600"
+                        className="rounded border-[var(--rz-border)]"
                       />
                       {consentSt && <ConsentDot status={consentSt} />}
                       {d.type === 'group' ? (
@@ -684,9 +684,9 @@ export default function SendNow() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{d.name}</p>
-                        <p className="text-[11px] text-gray-500 font-mono truncate">{d.identifier}</p>
+                        <p className="text-[11px] text-[var(--rz-text-muted)] font-mono truncate">{d.identifier}</p>
                         {groupValidating && (
-                          <p className="text-[10px] text-gray-500 mt-0.5">Verificando grupo…</p>
+                          <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">Verificando grupo…</p>
                         )}
                         {groupNotInGroup && (
                           <p className="text-[10px] text-red-400 mt-0.5">{GROUP_INLINE_ERROR}</p>
@@ -712,9 +712,9 @@ export default function SendNow() {
               </button>
 
               {showGroups && (
-                <div className="mt-3 border border-gray-800 rounded-lg p-3 space-y-2">
+                <div className="mt-3 border border-[var(--rz-border)] rounded-lg p-3 space-y-2">
                   {!connected ? (
-                    <p className="text-xs text-gray-500">Conecte o WhatsApp para listar grupos.</p>
+                    <p className="text-xs text-[var(--rz-text-muted)]">Conecte o WhatsApp para listar grupos.</p>
                   ) : loadingGroups ? (
                     <div className="flex justify-center py-4">
                       <Spinner size={20} />
@@ -722,11 +722,11 @@ export default function SendNow() {
                   ) : (
                     <>
                       <div className="flex justify-between items-center">
-                        <span className="text-xs text-gray-500">{waGroups.length} grupos na sessão</span>
+                        <span className="text-xs text-[var(--rz-text-muted)]">{waGroups.length} grupos na sessão</span>
                         <button
                           type="button"
                           onClick={() => refetchGroups()}
-                          className="text-gray-500 hover:text-white"
+                          className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"
                         >
                           <RefreshCw size={14} />
                         </button>
@@ -737,11 +737,11 @@ export default function SendNow() {
                           return (
                             <div
                               key={g.id}
-                              className="flex items-center justify-between gap-2 text-xs py-1.5 px-2 rounded bg-gray-800/50"
+                              className="flex items-center justify-between gap-2 text-xs py-1.5 px-2 rounded bg-[var(--rz-surface-muted)]/50"
                             >
                               <span className="truncate">{g.name}</span>
                               {exists ? (
-                                <span className="text-gray-600 shrink-0">Já cadastrado</span>
+                                <span className="text-[var(--rz-text-muted)] shrink-0">Já cadastrado</span>
                               ) : (
                                 <button
                                   type="button"
@@ -763,7 +763,7 @@ export default function SendNow() {
             </Card>
 
             <Card>
-              <h2 className="text-sm font-medium text-gray-300 mb-3">2. Mensagem</h2>
+              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">2. Mensagem</h2>
               <div className="space-y-3">
                 <div>
                   <label className={labelCls}>Título interno (opcional)</label>
@@ -782,7 +782,7 @@ export default function SendNow() {
                     className={`flex-1 py-2 rounded-lg text-xs border ${
                       messageMode === 'plain'
                         ? 'border-brand-500 bg-brand-600/20 text-white'
-                        : 'border-gray-700 text-gray-400'
+                        : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
                     }`}
                   >
                     Texto livre
@@ -793,14 +793,14 @@ export default function SendNow() {
                     className={`flex-1 py-2 rounded-lg text-xs border ${
                       messageMode === 'platform_template'
                         ? 'border-brand-500 bg-brand-600/20 text-white'
-                        : 'border-gray-700 text-gray-400'
+                        : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
                     }`}
                   >
                     <FileText size={12} className="inline mr-1" />
                     Modelo Plataforma (pw-*)
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-600">
+                <p className="text-[10px] text-[var(--rz-text-muted)]">
                   Modelos Discord (dw-*) ficam na aba Discord → Formatos. Aqui só catálogo
                   plataforma para envio manual e agendado.
                 </p>
@@ -834,7 +834,7 @@ export default function SendNow() {
                         placeholder="Complemento inserido no modelo..."
                       />
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-[var(--rz-text-muted)]">
                       <Eye size={12} />
                       Pré-visualização
                       {firstSelectedDestId ? (
@@ -880,7 +880,7 @@ export default function SendNow() {
             </Card>
 
             <Card>
-              <h2 className="text-sm font-medium text-gray-300 mb-3">3. Quando e como enviar</h2>
+              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">3. Quando e como enviar</h2>
               <div className="space-y-4">
                 <div className="flex gap-3">
                   <button
@@ -889,7 +889,7 @@ export default function SendNow() {
                     className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors ${
                       !scheduleMode
                         ? 'border-brand-500 bg-brand-600/20 text-white'
-                        : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                        : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                     }`}
                   >
                     <Send size={14} className="inline mr-1.5" />
@@ -901,7 +901,7 @@ export default function SendNow() {
                     className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors ${
                       scheduleMode
                         ? 'border-brand-500 bg-brand-600/20 text-white'
-                        : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                        : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                     }`}
                   >
                     <Calendar size={14} className="inline mr-1.5" />
@@ -921,7 +921,7 @@ export default function SendNow() {
                       }
                       className={inputCls}
                     />
-                    <p className="text-[11px] text-gray-600 mt-1">
+                    <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
                       Data e hora devem ser no futuro.
                     </p>
                   </div>
@@ -954,7 +954,7 @@ export default function SendNow() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-gray-600 mt-1">
+                    <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
                       {acceptWhatsAppRisk
                         ? 'Modo sem proteção — intervalos menores aumentam risco de banimento.'
                         : `Modo protegido: lotes de ${safeBatch} msg/min com pausa de 1 min${isBusiness ? ' (WhatsApp Business — limite dobrado)' : ''}.`}
@@ -962,7 +962,7 @@ export default function SendNow() {
                   </div>
                 </div>
 
-                <Card className={`border ${acceptWhatsAppRisk ? 'border-red-800/60 bg-red-950/20' : 'border-gray-800 bg-gray-900/40'}`}>
+                <Card className={`border ${acceptWhatsAppRisk ? 'border-red-800/60 bg-red-950/20' : 'border-[var(--rz-border)] bg-[var(--rz-surface)]/40'}`}>
                   <div className="flex items-start gap-3">
                     <ShieldAlert
                       size={18}
@@ -970,10 +970,10 @@ export default function SendNow() {
                     />
                     <div className="space-y-3 flex-1">
                       <div>
-                        <p className="text-sm font-medium text-gray-200">
+                        <p className="text-sm font-medium text-[var(--rz-text-primary)]">
                           Proteção anti-banimento do WhatsApp
                         </p>
-                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                        <p className="text-xs text-[var(--rz-text-muted)] mt-1 leading-relaxed">
                           {acceptWhatsAppRisk
                             ? 'Proteção DESATIVADA. Envios mais rápidos podem fazer o WhatsApp banir ou suspender sua conta permanentemente.'
                             : 'Ativa por padrão. Envios grandes vão para fila automática (~20 msg/min) até entregar todos os destinos.'}
@@ -984,9 +984,9 @@ export default function SendNow() {
                           type="checkbox"
                           checked={acceptWhatsAppRisk}
                           onChange={e => handleRiskToggle(e.target.checked)}
-                          className="mt-0.5 rounded border-gray-600"
+                          className="mt-0.5 rounded border-[var(--rz-border)]"
                         />
-                        <span className={acceptWhatsAppRisk ? 'text-red-300' : 'text-gray-400'}>
+                        <span className={acceptWhatsAppRisk ? 'text-red-300' : 'text-[var(--rz-text-muted)]'}>
                           Desativar proteção e aceitar risco de banimento da conta WhatsApp
                         </span>
                       </label>
@@ -1017,16 +1017,16 @@ export default function SendNow() {
                   </p>
                 )}
 
-                <label className="flex items-start gap-2 text-sm text-gray-400 cursor-pointer">
+                <label className="flex items-start gap-2 text-sm text-[var(--rz-text-muted)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={requireConnected}
                     onChange={e => setRequireConnected(e.target.checked)}
-                    className="mt-0.5 rounded border-gray-600"
+                    className="mt-0.5 rounded border-[var(--rz-border)]"
                   />
                   <span>
                     Só enviar se o WhatsApp estiver conectado no horário programado
-                    <span className="block text-xs text-gray-600 mt-0.5">
+                    <span className="block text-xs text-[var(--rz-text-muted)] mt-0.5">
                       Recomendado para agendamentos — evita falha se o servidor reiniciar.
                     </span>
                   </span>
@@ -1037,25 +1037,25 @@ export default function SendNow() {
 
           <div className="lg:col-span-2 space-y-4">
             <Card className="sticky top-4">
-              <h2 className="text-sm font-medium text-gray-300 mb-3">Resumo</h2>
-              <ul className="text-xs text-gray-500 space-y-2 mb-4">
+              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Resumo</h2>
+              <ul className="text-xs text-[var(--rz-text-muted)] space-y-2 mb-4">
                 <li>
-                  <strong className="text-gray-400">Destinos:</strong>{' '}
+                  <strong className="text-[var(--rz-text-muted)]">Destinos:</strong>{' '}
                   {selectedIds.size || '—'}
                 </li>
                 <li>
-                  <strong className="text-gray-400">Modo:</strong>{' '}
+                  <strong className="text-[var(--rz-text-muted)]">Modo:</strong>{' '}
                   {scheduleMode ? `Agendado (${sendAtLocal})` : 'Imediato'}
                 </li>
                 <li>
-                  <strong className="text-gray-400">Intervalo:</strong>{' '}
+                  <strong className="text-[var(--rz-text-muted)]">Intervalo:</strong>{' '}
                   {Math.max(minDelay, delayBetweenMs) / 1000}s
                   {selectedIds.size > 1 && (
-                    <span className="text-gray-600"> · {formatDuration(durationEst)} total</span>
+                    <span className="text-[var(--rz-text-muted)]"> · {formatDuration(durationEst)} total</span>
                   )}
                 </li>
                 <li>
-                  <strong className="text-gray-400">Proteção:</strong>{' '}
+                  <strong className="text-[var(--rz-text-muted)]">Proteção:</strong>{' '}
                   {acceptWhatsAppRisk && riskAcknowledged ? (
                     <span className="text-red-400">desativada (risco aceito)</span>
                   ) : (
@@ -1064,7 +1064,7 @@ export default function SendNow() {
                 </li>
                 {billing && !isUnlimited(billing.limits.messagesPerDay) && (
                   <li>
-                    <strong className="text-gray-400">Plano hoje:</strong>{' '}
+                    <strong className="text-[var(--rz-text-muted)]">Plano hoje:</strong>{' '}
                     {billing.usage.messagesUsed}/{billing.limits.messagesPerDay} usadas
                   </li>
                 )}
@@ -1115,8 +1115,8 @@ export default function SendNow() {
               </Card>
             )}
 
-            <Card className="text-xs text-gray-600 space-y-1">
-              <p className="flex items-center gap-1.5 text-gray-500">
+            <Card className="text-xs text-[var(--rz-text-muted)] space-y-1">
+              <p className="flex items-center gap-1.5 text-[var(--rz-text-muted)]">
                 <Clock size={12} /> Dicas
               </p>
               <p>• Contatos em Destinos → Contatos; grupos só por importação em Grupos.</p>

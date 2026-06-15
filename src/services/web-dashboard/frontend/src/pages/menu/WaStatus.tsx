@@ -13,7 +13,7 @@ export default function WaStatus() {
       <AccountStatsPanel />
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h3 className="text-sm font-medium text-gray-300">Histórico de conexão</h3>
+        <h3 className="text-sm font-medium text-[var(--rz-text-secondary)]">Histórico de conexão</h3>
         <Link
           to="/sessions"
           className="inline-flex items-center gap-2 text-xs text-brand-400 hover:text-brand-300 transition-colors"

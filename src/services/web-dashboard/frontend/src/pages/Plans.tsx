@@ -70,11 +70,11 @@ function usageBar(used: number, limit: number) {
   const color = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-brand-500'
   return (
     <div className="mt-2">
-      <div className="flex justify-between text-xs text-gray-500 mb-1">
+      <div className="flex justify-between text-xs text-[var(--rz-text-muted)] mb-1">
         <span>{used} / {limit} mensagens hoje</span>
         <span>{pct}%</span>
       </div>
-      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[var(--rz-surface-muted)] rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -247,10 +247,10 @@ export default function Plans({ user, admin }: Props) {
               <span className="text-[10px] text-amber-500 uppercase">Stripe teste</span>
             )}
           </div>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-[var(--rz-text-muted)]">
             Plano atual: <span className="text-white capitalize font-medium">{subscription.plan}</span>
             {subscription.timeRemaining && subscription.planId !== 'free' && (
-              <span className="text-gray-500"> · {subscription.timeRemaining}</span>
+              <span className="text-[var(--rz-text-muted)]"> · {subscription.timeRemaining}</span>
             )}
           </p>
           {usageBar(subscription.usage.messagesUsed, subscription.limits.messagesPerDay)}
@@ -277,14 +277,14 @@ export default function Plans({ user, admin }: Props) {
                 <span className="font-semibold text-sm">{p.name}</span>
                 {isCurrent && !isAdmin && <Badge label="Atual" variant="green" />}
               </div>
-              <p className="text-xs text-gray-500 mb-2">{p.description}</p>
+              <p className="text-xs text-[var(--rz-text-muted)] mb-2">{p.description}</p>
               {p.priceMonthlyCents != null && p.priceMonthlyCents > 0 && (
                 <p className="text-lg font-semibold text-[var(--rz-text-primary)] mb-2">
                   {formatBrl(p.priceMonthlyCents)}
-                  <span className="text-xs text-gray-500 font-normal">/mês</span>
+                  <span className="text-xs text-[var(--rz-text-muted)] font-normal">/mês</span>
                 </p>
               )}
-              <ul className="text-xs text-gray-500 space-y-0.5 mb-3">
+              <ul className="text-xs text-[var(--rz-text-muted)] space-y-0.5 mb-3">
                 {(p.features ?? []).slice(0, 4).map(f => (
                   <li key={f}>· {f}</li>
                 ))}
@@ -316,7 +316,7 @@ export default function Plans({ user, admin }: Props) {
                 </Button>
               )}
               {p.comingSoon && (
-                <p className="text-xs text-gray-600 mt-2">Em breve — contate suporte</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mt-2">Em breve — contate suporte</p>
               )}
             </Card>
           )
@@ -325,7 +325,7 @@ export default function Plans({ user, admin }: Props) {
 
       {isAdmin ? (
         <div>
-          <h2 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-medium text-[var(--rz-text-muted)] mb-3 flex items-center gap-2">
             <Users size={14} /> Usuários ({users.length})
           </h2>
           <div className="space-y-3">
@@ -344,7 +344,7 @@ export default function Plans({ user, admin }: Props) {
                       value={u.plan}
                       onChange={e => changePlan.mutate({ id: u._id, plan: e.currentTarget.value })}
                       disabled={changePlan.isPending}
-                      className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300"
+                      className="bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-2 py-1 text-xs text-[var(--rz-text-secondary)]"
                     >
                       {['free', 'starter', 'pro', 'enterprise'].map(id => (
                         <option key={id} value={id}>

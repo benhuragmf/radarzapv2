@@ -43,8 +43,8 @@ export default function AdminModeration() {
         <Card className="flex gap-3">
           <UserX size={20} className="text-amber-400 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-gray-200">Bloqueio manual</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm font-medium text-[var(--rz-text-primary)]">Bloqueio manual</p>
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
               <Link to="/contact?consent=blocked" className="text-brand-400 hover:underline">
                 Contatos → Bloqueados
               </Link>
@@ -54,8 +54,8 @@ export default function AdminModeration() {
         <Card className="flex gap-3">
           <Ban size={20} className="text-red-400 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-gray-200">Consentimento recusado</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm font-medium text-[var(--rz-text-primary)]">Consentimento recusado</p>
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
               <Link to="/contact?consent=refused" className="text-brand-400 hover:underline">
                 Contatos → Recusados
               </Link>
@@ -67,9 +67,9 @@ export default function AdminModeration() {
       {isLoading ? (
         <LoadingState rows={5} className="pt-4" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-800">
+        <div className="overflow-x-auto rounded-xl border border-[var(--rz-border)]">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-900/80 text-gray-500 text-xs uppercase">
+            <thead className="bg-[var(--rz-surface)]/80 text-[var(--rz-text-muted)] text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Empresa</th>
                 <th className="px-3 py-2">Plano</th>
@@ -79,10 +79,10 @@ export default function AdminModeration() {
             </thead>
             <tbody>
               {orgs.map(o => (
-                <tr key={o._id} className="border-t border-gray-800/80">
-                  <td className="px-3 py-2 text-gray-200">{o.name ?? o._id}</td>
+                <tr key={o._id} className="border-t border-[var(--rz-border)]/80">
+                  <td className="px-3 py-2 text-[var(--rz-text-primary)]">{o.name ?? o._id}</td>
                   <td className="px-3 py-2 capitalize">{o.plan ?? 'free'}</td>
-                  <td className="px-3 py-2 text-gray-500 text-xs">
+                  <td className="px-3 py-2 text-[var(--rz-text-muted)] text-xs">
                     {o.planExpiresAt
                       ? new Date(o.planExpiresAt).toLocaleDateString('pt-BR')
                       : '—'}
@@ -108,7 +108,7 @@ export default function AdminModeration() {
         </div>
       )}
 
-      <p className="text-xs text-gray-600">
+      <p className="text-xs text-[var(--rz-text-muted)]">
         <Link to="/admin/payments" className="text-brand-400 hover:underline">
           Pagamentos Stripe
         </Link>

@@ -996,7 +996,7 @@ export default function PlatformAutomations() {
                 <button
                   type="button"
                   onClick={() => openEdit(r)}
-                  className="p-2 text-[var(--rz-text-muted)] hover:text-white"
+                  className="p-2 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"
                   title="Editar"
                 >
                   <Pencil size={16} />

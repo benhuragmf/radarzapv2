@@ -49,12 +49,12 @@ export default function PlatformCampaigns() {
         <div className="space-y-6">
           {pending.length > 0 && (
             <section>
-              <h2 className="text-sm font-medium text-gray-300 mb-2">Ativas ({pending.length})</h2>
+              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-2">Ativas ({pending.length})</h2>
               <div className="space-y-2">{pending.map(c => <CampaignRow key={c._id} c={c} />)}</div>
             </section>
           )}
           <section>
-            <h2 className="text-sm font-medium text-gray-300 mb-2">
+            <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-2">
               Histórico ({done.length})
             </h2>
             <div className="space-y-2">

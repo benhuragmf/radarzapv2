@@ -96,13 +96,13 @@ export default function PlatformOverview() {
                 <Icon size={18} className="text-brand-500" />
                 {label}
               </div>
-              <p className="text-xs text-gray-500 mt-2">{hint}</p>
+              <p className="text-xs text-[var(--rz-text-muted)] mt-2">{hint}</p>
             </Card>
           </Link>
         ))}
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-[var(--rz-text-muted)]">
         Equipe e convites:{' '}
         <Link to="/settings/team" className="text-brand-400 hover:underline">
           Configurações → Equipe

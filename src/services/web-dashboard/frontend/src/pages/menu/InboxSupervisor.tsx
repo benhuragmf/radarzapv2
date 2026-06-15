@@ -105,7 +105,7 @@ export default function InboxSupervisor() {
                 <Card key={c._id} className="p-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="font-medium text-sm text-white">{c.contactName}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-[var(--rz-text-muted)] mt-0.5">
                       {[c.departmentName, c.assignedUserName && `· ${c.assignedUserName}`]
                         .filter(Boolean)
                         .join(' ')}
@@ -137,11 +137,11 @@ export default function InboxSupervisor() {
                     </Button>
                   </div>
                   {reassignFor === c._id && (
-                    <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t border-gray-800">
+                    <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--rz-border)]">
                       <select
                         value={targetUser}
                         onChange={e => setTargetUser(e.currentTarget.value)}
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                        className="bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--rz-text-primary)]"
                       >
                         <option value="">Atendente…</option>
                         {linkedTeam.map(t => (
@@ -151,7 +151,7 @@ export default function InboxSupervisor() {
                       <select
                         value={mode}
                         onChange={e => setMode(e.currentTarget.value as 'suggest' | 'assign')}
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                        className="bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--rz-text-primary)]"
                       >
                         <option value="suggest">Indicar prioridade</option>
                         <option value="assign">Forçar atribuição</option>

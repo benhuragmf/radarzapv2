@@ -51,7 +51,7 @@ const sectorTypeBtnCls = (active: boolean) =>
   `flex items-center gap-2 text-xs px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
     active
       ? 'border-brand-500 bg-brand-950/40 text-brand-200'
-      : 'border-gray-700 text-gray-400 hover:border-gray-600'
+      : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
   }`
 
 export default function InboxSectors() {
@@ -151,7 +151,7 @@ export default function InboxSectors() {
   if (!canManage) {
     return (
       <PlatformPage title="Setores do Inbox">
-        <Card className="text-center py-12 text-gray-500">
+        <Card className="text-center py-12 text-[var(--rz-text-muted)]">
           Apenas dono ou administrador pode gerenciar setores.
         </Card>
       </PlatformPage>
@@ -180,7 +180,7 @@ export default function InboxSectors() {
             className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border cursor-pointer ${
               formMembers.includes(m.userId!)
                 ? 'border-brand-500 bg-brand-950/40 text-brand-200'
-                : 'border-gray-700 text-gray-400'
+                : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
             }`}
           >
             <input
@@ -191,7 +191,7 @@ export default function InboxSectors() {
             />
             <Users size={12} />
             {m.displayName}
-            <span className="text-gray-600">({m.companyRole === 'ADMIN' ? 'Admin' : 'Atendente'})</span>
+            <span className="text-[var(--rz-text-muted)]">({m.companyRole === 'ADMIN' ? 'Admin' : 'Atendente'})</span>
           </label>
         ))}
       </div>
@@ -230,22 +230,22 @@ export default function InboxSectors() {
             {creating ? 'Novo setor' : 'Editar setor'}
           </p>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Nome *</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Nome *</label>
             <input value={formName} onChange={e => setFormName(e.currentTarget.value)} className={inputCls} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Descrição</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Descrição</label>
             <input value={formDesc} onChange={e => setFormDesc(e.currentTarget.value)} className={inputCls} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-2 block">Atendentes deste setor</label>
-            <p className="text-xs text-gray-600 mb-2">
+            <label className="text-xs text-[var(--rz-text-muted)] mb-2 block">Atendentes deste setor</label>
+            <p className="text-xs text-[var(--rz-text-muted)] mb-2">
               Vazio = todos os atendentes veem a fila. Selecione para restringir (recomendado em setores internos).
             </p>
             <MemberPicker />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-2 block">Tipo de setor</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-2 block">Tipo de setor</label>
             <div className="flex flex-wrap gap-2 mb-1">
               <button
                 type="button"
@@ -265,14 +265,14 @@ export default function InboxSectors() {
                 Interno — só equipe transfere
               </button>
             </div>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-[var(--rz-text-muted)]">
               {formClientVisible
                 ? 'O cliente escolhe este setor na triagem pelo WhatsApp.'
                 : 'Invisível ao cliente. Escolha a instância de escalação abaixo.'}
             </p>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Instância interna</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Instância interna</label>
             <select
               value={formClientVisible ? '' : formInternalRank}
               disabled={formClientVisible}
@@ -286,7 +286,7 @@ export default function InboxSectors() {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-600 mt-1">
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
               {formClientVisible
                 ? 'Disponível ao escolher setor interno.'
                 : INTERNAL_RANK_TIERS.find(t => t.rank === formInternalRank)?.hint}
@@ -325,13 +325,13 @@ export default function InboxSectors() {
                     )}
                     {!d.isActive && <Badge label="Inativo" variant="gray" />}
                   </div>
-                  {d.description && <p className="text-xs text-gray-500">{d.description}</p>}
-                  <p className="text-xs text-gray-600 mt-1">
+                  {d.description && <p className="text-xs text-[var(--rz-text-muted)]">{d.description}</p>}
+                  <p className="text-xs text-[var(--rz-text-muted)] mt-1">
                     {d.clientVisible === false
                       ? `${d.internalRankLabel ?? internalRankLabel(d.internalRank ?? 2)} — transferência só pela equipe (nível anterior).`
                       : 'Aparece no menu WhatsApp do cliente.'}
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-[var(--rz-text-muted)] mt-1">
                     Atendentes:{' '}
                     {d.memberUserIds?.length
                       ? d.memberUserIds

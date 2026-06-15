@@ -43,11 +43,11 @@ export function ApiPlayground() {
         <Zap size={16} />
         Playground API
       </div>
-      <p className="text-xs text-gray-500">
-        Testa o mesmo contrato de <code className="text-gray-400">POST /api/integrations/playground</code>.
+      <p className="text-xs text-[var(--rz-text-muted)]">
+        Testa o mesmo contrato de <code className="text-[var(--rz-text-muted)]">POST /api/integrations/playground</code>.
       </p>
       <div>
-        <label className="text-xs text-gray-500 block mb-1">Destino (E.164 ou ID cadastrado)</label>
+        <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Destino (E.164 ou ID cadastrado)</label>
         <select
           value={destination}
           onChange={e => setDestination(e.target.value)}
@@ -62,7 +62,7 @@ export function ApiPlayground() {
         </select>
       </div>
       <div>
-        <label className="text-xs text-gray-500 block mb-1">Mensagem</label>
+        <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Mensagem</label>
         <WhatsAppTextEditor
           value={message}
           onChange={setMessage}
@@ -78,7 +78,7 @@ export function ApiPlayground() {
       >
         {send.isPending ? <Spinner size={14} /> : 'Enviar teste'}
       </Button>
-      {result && <p className="text-xs text-gray-400">{result}</p>}
+      {result && <p className="text-xs text-[var(--rz-text-muted)]">{result}</p>}
     </Card>
   )
 }

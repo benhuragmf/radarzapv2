@@ -51,13 +51,13 @@ function WaAvatar({ url, name }: { url?: string; name?: string }) {
       <img
         src={url}
         alt={name ?? 'WhatsApp'}
-        className="w-12 h-12 rounded-full object-cover border border-gray-700 shrink-0"
+        className="w-12 h-12 rounded-full object-cover border border-[var(--rz-border)] shrink-0"
       />
     )
   }
   return (
-    <div className="w-12 h-12 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center shrink-0">
-      <User size={20} className="text-gray-500" />
+    <div className="w-12 h-12 rounded-full bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] flex items-center justify-center shrink-0">
+      <User size={20} className="text-[var(--rz-text-muted)]" />
     </div>
   )
 }
@@ -193,13 +193,13 @@ export default function Sessions() {
       )}
 
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[var(--rz-text-muted)]">
           {hasConnected
             ? 'WhatsApp conectado. Use Reiniciar ou Desconectar no card abaixo.'
             : (
               <>
                 Conecte o WhatsApp escaneando o QR code abaixo ou use{' '}
-                <code className="text-gray-300">/connect-whatsapp</code> no Discord.
+                <code className="text-[var(--rz-text-secondary)]">/connect-whatsapp</code> no Discord.
               </>
             )}
         </p>
@@ -242,8 +242,8 @@ export default function Sessions() {
                 {isConnected ? (
                   <WaAvatar url={s.profilePictureUrl} name={s.profileName} />
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-gray-800/80 border border-dashed border-gray-600 flex items-center justify-center shrink-0">
-                    <QrCode size={18} className="text-gray-500" />
+                  <div className="w-12 h-12 rounded-full bg-[var(--rz-surface-muted)]/80 border border-dashed border-[var(--rz-border)] flex items-center justify-center shrink-0">
+                    <QrCode size={18} className="text-[var(--rz-text-muted)]" />
                   </div>
                 )}
 
@@ -259,14 +259,14 @@ export default function Sessions() {
                           {formatPhone(s.phoneNumber)}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-[var(--rz-text-muted)]">
                         Conectado · {s.lastActivity ? new Date(s.lastActivity).toLocaleString('pt-BR') : '—'}
                       </p>
                     </>
                   ) : (
                     <>
                       <p className="text-sm font-medium">Conectar WhatsApp</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-[var(--rz-text-muted)]">
                         {isPending ? 'Escaneie o QR code abaixo com seu celular' : 'Aguardando início da conexão…'}
                       </p>
                     </>
@@ -312,10 +312,10 @@ export default function Sessions() {
             </div>
 
             {qr && isPending && (
-              <div className="mt-4 flex flex-col items-center gap-2 p-4 bg-gray-900/50 rounded-lg border border-yellow-500/20">
+              <div className="mt-4 flex flex-col items-center gap-2 p-4 bg-[var(--rz-surface)]/50 rounded-lg border border-yellow-500/20">
                 <p className="text-sm text-yellow-400 font-medium">Escaneie com WhatsApp → Aparelhos conectados</p>
-                <img src={qr} alt="QR Code WhatsApp" className="w-72 h-72 sm:w-80 sm:h-80 rounded-lg border border-gray-700 bg-white p-3" />
-                <p className="text-xs text-gray-500">
+                <img src={qr} alt="QR Code WhatsApp" className="w-72 h-72 sm:w-80 sm:h-80 rounded-lg border border-[var(--rz-border)] bg-white p-3" />
+                <p className="text-xs text-[var(--rz-text-muted)]">
                   {s.qrCount ? `QR #${s.qrCount} · ` : ''}
                   O QR expira em ~2 minutos. Clique Novo QR se expirar.
                 </p>

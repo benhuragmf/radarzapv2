@@ -160,7 +160,7 @@ export default function ContactSegments() {
       {creating && (
         <Card className="mb-4 flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-gray-500 block mb-1">Nome do segmento</label>
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Nome do segmento</label>
             <input
               value={newName}
               onChange={e => setNewName(e.target.value)}
@@ -201,20 +201,20 @@ export default function ContactSegments() {
         />
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(240px,1fr)_2fr]">
-          <div className="overflow-x-auto rounded-lg border border-gray-800">
+          <div className="overflow-x-auto rounded-lg border border-[var(--rz-border)]">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-900/80 text-xs text-gray-500 uppercase">
+              <thead className="bg-[var(--rz-surface)]/80 text-xs text-[var(--rz-text-muted)] uppercase">
                 <tr>
                   <th className="px-3 py-2">Segmento</th>
                   <th className="px-3 py-2 text-right">Qtd</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
+              <tbody className="divide-y divide-[var(--rz-border)]">
                 {groups.map(g => (
                   <tr
                     key={g._id}
-                    className={`cursor-pointer hover:bg-gray-900/50 ${
+                    className={`cursor-pointer hover:bg-[var(--rz-surface-muted)]/50 ${
                       selectedId === g._id ? 'bg-brand-950/30' : ''
                     }`}
                     onClick={() => setSelectedId(g._id)}
@@ -228,10 +228,10 @@ export default function ContactSegments() {
                           onClick={e => e.stopPropagation()}
                         />
                       ) : (
-                        <span className="text-gray-200">{g.name}</span>
+                        <span className="text-[var(--rz-text-primary)]">{g.name}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right text-gray-500">{g.memberCount}</td>
+                    <td className="px-3 py-2 text-right text-[var(--rz-text-muted)]">{g.memberCount}</td>
                     <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
                       {editingId === g._id ? (
                         <div className="flex gap-1 justify-end">
@@ -250,7 +250,7 @@ export default function ContactSegments() {
                         <div className="flex gap-1 justify-end">
                           <button
                             type="button"
-                            className="p-1 text-gray-500 hover:text-gray-300"
+                            className="p-1 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]"
                             title="Renomear"
                             onClick={() => {
                               setEditingId(g._id)
@@ -261,7 +261,7 @@ export default function ContactSegments() {
                           </button>
                           <button
                             type="button"
-                            className="p-1 text-gray-500 hover:text-red-400"
+                            className="p-1 text-[var(--rz-text-muted)] hover:text-red-400"
                             title="Excluir"
                             onClick={() => {
                               if (window.confirm(`Excluir segmento "${g.name}"? Os contatos não são apagados.`)) {
@@ -282,7 +282,7 @@ export default function ContactSegments() {
 
           <div className="min-w-0">
             {!selected ? (
-              <Card className="text-center py-16 text-gray-500 text-sm">
+              <Card className="text-center py-16 text-[var(--rz-text-muted)] text-sm">
                 Selecione um segmento à esquerda para ver membros, copiar de outro grupo ou exportar.
               </Card>
             ) : (
@@ -290,7 +290,7 @@ export default function ContactSegments() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-medium text-white">
                     {selected.name}{' '}
-                    <span className="text-gray-500 font-normal">({selected.memberCount} contatos)</span>
+                    <span className="text-[var(--rz-text-muted)] font-normal">({selected.memberCount} contatos)</span>
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -308,7 +308,7 @@ export default function ContactSegments() {
                 {otherGroups.length > 0 && (
                   <Card className="flex flex-wrap gap-2 items-end text-sm">
                     <div className="flex-1 min-w-[180px]">
-                      <label className="text-xs text-gray-500 block mb-1">
+                      <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
                         Copiar contatos de outro segmento
                       </label>
                       <select
@@ -346,15 +346,15 @@ export default function ContactSegments() {
                 {loadingMembers ? (
                   <LoadingState rows={3} className="py-4" />
                 ) : filteredMembers.length === 0 ? (
-                  <Card className="text-center py-8 text-gray-500 text-sm">
+                  <Card className="text-center py-8 text-[var(--rz-text-muted)] text-sm">
                     {members.length === 0
                       ? 'Segmento vazio. Copie de outro segmento ou importe contatos.'
                       : 'Nenhum resultado na busca.'}
                   </Card>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg border border-gray-800 max-h-[420px] overflow-y-auto">
+                  <div className="overflow-x-auto rounded-lg border border-[var(--rz-border)] max-h-[420px] overflow-y-auto">
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-gray-900/80 text-xs text-gray-500 uppercase sticky top-0">
+                      <thead className="bg-[var(--rz-surface)]/80 text-xs text-[var(--rz-text-muted)] uppercase sticky top-0">
                         <tr>
                           <th className="px-3 py-2">Nome</th>
                           <th className="px-3 py-2">Telefone</th>
@@ -362,12 +362,12 @@ export default function ContactSegments() {
                           <th className="px-3 py-2" />
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-800">
+                      <tbody className="divide-y divide-[var(--rz-border)]">
                         {filteredMembers.map(m => (
-                          <tr key={m._id} className="hover:bg-gray-900/40">
-                            <td className="px-3 py-2 text-gray-200">{m.name || '—'}</td>
-                            <td className="px-3 py-2 text-gray-400 font-mono text-xs">{m.identifier}</td>
-                            <td className="px-3 py-2 text-gray-500 text-xs">{m.consentStatus ?? '—'}</td>
+                          <tr key={m._id} className="hover:bg-[var(--rz-surface-muted)]/40">
+                            <td className="px-3 py-2 text-[var(--rz-text-primary)]">{m.name || '—'}</td>
+                            <td className="px-3 py-2 text-[var(--rz-text-muted)] font-mono text-xs">{m.identifier}</td>
+                            <td className="px-3 py-2 text-[var(--rz-text-muted)] text-xs">{m.consentStatus ?? '—'}</td>
                             <td className="px-3 py-2 text-right">
                               <button
                                 type="button"

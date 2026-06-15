@@ -219,7 +219,7 @@ export default function AiAtendimento() {
   if (!canManage) {
     return (
       <PlatformPage title="IA Atendimento">
-        <p className="text-gray-400">Sem permissão para configurar IA.</p>
+        <p className="text-[var(--rz-text-muted)]">Sem permissão para configurar IA.</p>
       </PlatformPage>
     )
   }
@@ -286,10 +286,10 @@ export default function AiAtendimento() {
     <PlatformPage title="IA Atendimento">
       <div className="max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300">
+        <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
           <ArrowLeft className="w-4 h-4" /> Inbox
         </Link>
-        <span className="text-gray-600">|</span>
+        <span className="text-[var(--rz-text-muted)]">|</span>
         <span className="inline-flex items-center gap-2 text-brand-400">
           <Sparkles className="w-5 h-5" /> Triagem inteligente WhatsApp
         </span>
@@ -297,7 +297,7 @@ export default function AiAtendimento() {
 
       {form.blueprintInfo && (
         <Card className="p-4 mb-4 border-brand-800/40 bg-brand-950/20">
-          <p className="text-sm text-gray-300">
+          <p className="text-sm text-[var(--rz-text-secondary)]">
             O <strong>agente de atendimento</strong> (IDENTITY, SOUL, AGENTS, TOOLS) é gerenciado pela{' '}
             <strong>RadarZap</strong> — blueprint v{form.blueprintInfo.version}, agente{' '}
             <em>{form.blueprintInfo.agentName}</em>. Você configura a <strong>base de conhecimento</strong>,
@@ -306,14 +306,14 @@ export default function AiAtendimento() {
         </Card>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-800 pb-2">
+      <div className="flex flex-wrap gap-2 mb-6 border-b border-[var(--rz-border)] pb-2">
         {TABS.map(t => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={`px-3 py-1.5 rounded-lg text-sm ${
-              tab === t.id ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'
+              tab === t.id ? 'bg-brand-600 text-white' : 'text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)]'
             }`}
           >
             {t.label}
@@ -354,7 +354,7 @@ export default function AiAtendimento() {
             />
             IA própria da empresa (sua API Key)
           </label>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             Uso hoje: {form.usage.dailyUsed}/{form.usage.dailyLimit} diário ·{' '}
             {form.usage.monthlyUsed}/{form.usage.monthlyLimit} mensal
           </p>
@@ -366,7 +366,7 @@ export default function AiAtendimento() {
           <h2 className="text-lg font-medium">Provedor e modelo</h2>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-500">Provedor</label>
+              <label className="text-xs text-[var(--rz-text-muted)]">Provedor</label>
               <select
                 className={inputCls}
                 value={form.settings.provider}
@@ -378,7 +378,7 @@ export default function AiAtendimento() {
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className="text-xs text-gray-500 mb-2 block">Modelo e preço (por 1M tokens)</label>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-2 block">Modelo e preço (por 1M tokens)</label>
               <AiModelPicker
                 models={form.modelCatalog}
                 selectedId={form.settings.model}
@@ -388,7 +388,7 @@ export default function AiAtendimento() {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Temperature ({form.settings.temperature})</label>
+              <label className="text-xs text-[var(--rz-text-muted)]">Temperature ({form.settings.temperature})</label>
               <input
                 type="range"
                 min={0}
@@ -400,7 +400,7 @@ export default function AiAtendimento() {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Max tokens</label>
+              <label className="text-xs text-[var(--rz-text-muted)]">Max tokens</label>
               <input
                 type="number"
                 min={400}
@@ -409,12 +409,12 @@ export default function AiAtendimento() {
                 value={form.settings.maxTokens}
                 onChange={e => patch({ maxTokens: Math.max(400, Number(e.target.value)) })}
               />
-              <p className="text-xs text-gray-500 mt-1">Mínimo 400 — valores baixos truncam a resposta (ex.: &quot;Here&quot;).</p>
+              <p className="text-xs text-[var(--rz-text-muted)] mt-1">Mínimo 400 — valores baixos truncam a resposta (ex.: &quot;Here&quot;).</p>
             </div>
           </div>
           {form.settings.mode === 'company' && (
-            <div className="border-t border-gray-800 pt-4 space-y-3">
-              <p className="text-sm text-gray-400">
+            <div className="border-t border-[var(--rz-border)] pt-4 space-y-3">
+              <p className="text-sm text-[var(--rz-text-muted)]">
                 Chave salva: {form.hasApiKey ? form.apiKeyMasked : 'nenhuma'}
               </p>
               <input
@@ -438,7 +438,7 @@ export default function AiAtendimento() {
                   <Trash2 className="w-4 h-4 mr-1" /> Remover chave
                 </Button>
               </div>
-              {testResult && <p className="text-sm text-gray-300">{testResult}</p>}
+              {testResult && <p className="text-sm text-[var(--rz-text-secondary)]">{testResult}</p>}
             </div>
           )}
         </Card>
@@ -449,7 +449,7 @@ export default function AiAtendimento() {
           <h2 className="text-lg font-medium flex items-center gap-2">
             <Shield className="w-5 h-5" /> Economia de créditos e regras da empresa
           </h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             O comportamento do agente vem do blueprint RadarZap. Aqui você só ajusta economia de tokens e
             regras específicas do seu negócio.
           </p>
@@ -475,7 +475,7 @@ export default function AiAtendimento() {
             ))}
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
               Regras adicionais da sua empresa (opcional)
             </label>
             <textarea
@@ -549,12 +549,12 @@ export default function AiAtendimento() {
               Adicionar manual
             </Button>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             Skills aprovadas entram no atendimento automático. Itens <em>pendentes</em> vêm do aprendizado
             após escalações — o dono aprova ou rejeita.
           </p>
           {(form.skills ?? []).length === 0 && (
-            <p className="text-sm text-gray-500">Nenhuma skill ainda. A IA pode propor após atendimentos.</p>
+            <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma skill ainda. A IA pode propor após atendimentos.</p>
           )}
           {(form.skills ?? []).map((skill, idx) => (
             <div
@@ -563,12 +563,12 @@ export default function AiAtendimento() {
                 skill.status === 'pending'
                   ? 'border-amber-700/50 bg-amber-950/20'
                   : skill.status === 'rejected'
-                    ? 'border-gray-800 opacity-60'
-                    : 'border-gray-800'
+                    ? 'border-[var(--rz-border)] opacity-60'
+                    : 'border-[var(--rz-border)]'
               }`}
             >
               <div className="flex flex-wrap items-center gap-2 justify-between">
-                <span className="text-xs uppercase tracking-wide text-gray-500">
+                <span className="text-xs uppercase tracking-wide text-[var(--rz-text-muted)]">
                   {skill.status === 'pending' && 'Pendente aprovação'}
                   {skill.status === 'approved' && 'Aprovada'}
                   {skill.status === 'rejected' && 'Rejeitada'}
@@ -627,7 +627,7 @@ export default function AiAtendimento() {
                 placeholder="Solução passo a passo para o cliente"
               />
               {skill.sourceProblem && (
-                <p className="text-xs text-gray-500">Problema origem: {skill.sourceProblem}</p>
+                <p className="text-xs text-[var(--rz-text-muted)]">Problema origem: {skill.sourceProblem}</p>
               )}
             </div>
           ))}
@@ -669,12 +669,12 @@ export default function AiAtendimento() {
               Adicionar manual
             </Button>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             Fatos duráveis da empresa — equivalente ao MEMORY.md do OpenClaw. Aprendidas ficam pendentes até
             o dono aprovar.
           </p>
           {(form.memories ?? []).length === 0 && (
-            <p className="text-sm text-gray-500">Nenhuma memória ainda.</p>
+            <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma memória ainda.</p>
           )}
           {(form.memories ?? []).map((mem, idx) => (
             <div
@@ -683,12 +683,12 @@ export default function AiAtendimento() {
                 mem.status === 'pending'
                   ? 'border-amber-700/50 bg-amber-950/20'
                   : mem.status === 'rejected'
-                    ? 'border-gray-800 opacity-60'
-                    : 'border-gray-800'
+                    ? 'border-[var(--rz-border)] opacity-60'
+                    : 'border-[var(--rz-border)]'
               }`}
             >
               <div className="flex flex-wrap items-center gap-2 justify-between">
-                <span className="text-xs uppercase tracking-wide text-gray-500">
+                <span className="text-xs uppercase tracking-wide text-[var(--rz-text-muted)]">
                   {mem.status === 'pending' && 'Pendente aprovação'}
                   {mem.status === 'approved' && 'Aprovada'}
                   {mem.status === 'rejected' && 'Rejeitada'}
@@ -776,12 +776,12 @@ export default function AiAtendimento() {
               Adicionar
             </Button>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             Itens ativos são buscados por relevância na mensagem do cliente — só os mais pertinentes vão
             no prompt (economia de tokens).
           </p>
           {form.knowledgeBase.map((item, idx) => (
-            <div key={item.id || idx} className="border border-gray-800 rounded-lg p-4 space-y-2">
+            <div key={item.id || idx} className="border border-[var(--rz-border)] rounded-lg p-4 space-y-2">
               <input
                 className={inputCls}
                 value={item.title}
@@ -822,7 +822,7 @@ export default function AiAtendimento() {
       {tab === 'limites' && (
         <Card className="p-6 grid md:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-gray-500">Limite diário</label>
+            <label className="text-xs text-[var(--rz-text-muted)]">Limite diário</label>
             <input
               type="number"
               className={inputCls}
@@ -831,7 +831,7 @@ export default function AiAtendimento() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500">Limite mensal</label>
+            <label className="text-xs text-[var(--rz-text-muted)]">Limite mensal</label>
             <input
               type="number"
               className={inputCls}
@@ -840,7 +840,7 @@ export default function AiAtendimento() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500">Por conversa</label>
+            <label className="text-xs text-[var(--rz-text-muted)]">Por conversa</label>
             <input
               type="number"
               className={inputCls}
@@ -848,7 +848,7 @@ export default function AiAtendimento() {
               onChange={e => patch({ perConversationLimit: Number(e.target.value) })}
             />
           </div>
-          <p className="md:col-span-3 text-xs text-gray-500">
+          <p className="md:col-span-3 text-xs text-[var(--rz-text-muted)]">
             Plano: máx. RadarZap {form.planLimits.dailyLimit}/dia · {form.planLimits.monthlyLimit}/mês
           </p>
         </Card>
@@ -886,7 +886,7 @@ export default function AiAtendimento() {
             </label>
           ))}
           <div>
-            <label className="text-xs text-gray-500">Limiar confiança</label>
+            <label className="text-xs text-[var(--rz-text-muted)]">Limiar confiança</label>
             <input
               type="number"
               step={0.05}
@@ -914,19 +914,19 @@ export default function AiAtendimento() {
           </h2>
           {usageDetail && (
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="bg-gray-800/50 rounded-lg p-4">
+              <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
                 <div className="text-2xl font-semibold">{usageDetail.totals.calls}</div>
-                <div className="text-xs text-gray-500">chamadas (30d)</div>
+                <div className="text-xs text-[var(--rz-text-muted)]">chamadas (30d)</div>
               </div>
-              <div className="bg-gray-800/50 rounded-lg p-4">
+              <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
                 <div className="text-2xl font-semibold">{usageDetail.totals.tokens}</div>
-                <div className="text-xs text-gray-500">tokens</div>
+                <div className="text-xs text-[var(--rz-text-muted)]">tokens</div>
               </div>
-              <div className="bg-gray-800/50 rounded-lg p-4">
+              <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
                 <div className="text-2xl font-semibold">
                   US$ {usageDetail.totals.cost.toFixed(4)}
                 </div>
-                <div className="text-xs text-gray-500">custo est.</div>
+                <div className="text-xs text-[var(--rz-text-muted)]">custo est.</div>
               </div>
             </div>
           )}

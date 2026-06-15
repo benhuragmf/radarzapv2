@@ -463,8 +463,8 @@ export default function Destinations() {
       )}
 
       {isDiscord && (
-        <Card className="border-gray-800 bg-gray-900/40 p-3">
-          <p className="text-xs text-gray-500 mb-2">Atalhos da automação</p>
+        <Card className="border-[var(--rz-border)] bg-[var(--rz-surface)]/40 p-3">
+          <p className="text-xs text-[var(--rz-text-muted)] mb-2">Atalhos da automação</p>
           <div className="flex flex-wrap gap-2">
             <Link to="/discord/channels" className="text-xs text-brand-400 hover:underline flex items-center gap-1">
               <Hash size={12} /> Canais
@@ -489,7 +489,7 @@ export default function Destinations() {
       )}
 
       {!isDiscord && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[var(--rz-text-muted)]">
           Gerencie contatos, organize em grupos (VIP, Clientes…) e use no envio manual e na API.
           Grupos WhatsApp são importados pela sessão —{' '}
           <Link to="/grupos" className="text-brand-400 hover:underline">
@@ -560,8 +560,8 @@ export default function Destinations() {
 
         <div className="flex-1 min-w-0 space-y-4 w-full">
           {selectedGroup && (
-            <p className="text-xs text-gray-500">
-              Exibindo contatos do grupo <strong className="text-gray-300">{selectedGroup.name}</strong>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              Exibindo contatos do grupo <strong className="text-[var(--rz-text-secondary)]">{selectedGroup.name}</strong>
               {' · '}
               <button
                 type="button"
@@ -639,13 +639,13 @@ export default function Destinations() {
       </FilterBar>
       <div className="flex flex-col gap-3 -mt-1">
         {!isDiscord && waConnected && allContacts.length > 0 && (
-          <p className="text-[11px] text-gray-600">
+          <p className="text-[11px] text-[var(--rz-text-muted)]">
             Fotos de perfil são sincronizadas automaticamente pelo servidor em lotes
             pequenos — não precisa manter esta página aberta.
           </p>
         )}
         {!isDiscord && !waConnected && allContacts.length > 0 && (
-          <p className="text-[11px] text-gray-600">
+          <p className="text-[11px] text-[var(--rz-text-muted)]">
             Conecte o WhatsApp em{' '}
             <Link to="/sessions" className="text-brand-400 hover:underline">
               Sessões
@@ -660,19 +660,19 @@ export default function Destinations() {
           <p className="text-sm font-medium text-amber-400 mb-2">
             Solicitações de novo aceite ({renewals.length})
           </p>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-[var(--rz-text-muted)] mb-3">
             Quem tem permissão de aprovar solicitações pode liberar contatos que recusaram. Recusa definitiva (3x) não pode ser liberada.
           </p>
           <div className="space-y-2">
             {renewals.map(r => (
               <div
                 key={r._id}
-                className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 px-3 rounded-lg bg-gray-900/60 border border-gray-800"
+                className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 px-3 rounded-lg bg-[var(--rz-surface)]/60 border border-[var(--rz-border)]"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{r.contactName}</p>
-                  <p className="text-xs text-gray-500 font-mono">{r.phone}</p>
-                  <p className="text-[11px] text-gray-600">
+                  <p className="text-xs text-[var(--rz-text-muted)] font-mono">{r.phone}</p>
+                  <p className="text-[11px] text-[var(--rz-text-muted)]">
                     Status: {r.previousStatus} · por {r.requestedByUsername} ·{' '}
                     {new Date(r.createdAt).toLocaleString('pt-BR')}
                   </p>
@@ -703,26 +703,26 @@ export default function Destinations() {
           <p className="text-sm font-medium text-amber-400 mb-2">
             Solicitações de novo aceite ({renewals.length})
           </p>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-[var(--rz-text-muted)] mb-3">
             Quem tem permissão de aprovar solicitações pode liberar contatos que recusaram. Recusa
             definitiva (3x) não pode ser liberada. Cada contato pode receber até 2 liberações — na
             3ª recusa não há novo aceite.
           </p>
           {!canApproveRenewal ? (
-            <p className="text-sm text-gray-500">Você não tem permissão para aprovar solicitações.</p>
+            <p className="text-sm text-[var(--rz-text-muted)]">Você não tem permissão para aprovar solicitações.</p>
           ) : renewals.length === 0 ? (
-            <p className="text-sm text-gray-500">Nenhuma solicitação pendente no momento.</p>
+            <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma solicitação pendente no momento.</p>
           ) : (
             <div className="space-y-2">
               {renewals.map(r => (
                 <div
                   key={r._id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 px-3 rounded-lg bg-gray-900/60 border border-gray-800"
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 px-3 rounded-lg bg-[var(--rz-surface)]/60 border border-[var(--rz-border)]"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{r.contactName}</p>
-                    <p className="text-xs text-gray-500 font-mono">{r.phone}</p>
-                    <p className="text-[11px] text-gray-600">
+                    <p className="text-xs text-[var(--rz-text-muted)] font-mono">{r.phone}</p>
+                    <p className="text-[11px] text-[var(--rz-text-muted)]">
                       Status: {r.previousStatus} · por {r.requestedByUsername} ·{' '}
                       {new Date(r.createdAt).toLocaleString('pt-BR')}
                     </p>
@@ -792,7 +792,7 @@ export default function Destinations() {
       ) : (
         <div className="space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-[var(--rz-text-muted)]">
               {contacts.length} contato(s)
               {selectedGroup && ` em "${selectedGroup.name}"`}
               {selectedIds.size > 0 && (
@@ -801,7 +801,7 @@ export default function Destinations() {
             </p>
             {canManage && contacts.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                <label className="inline-flex items-center gap-2 text-xs text-[var(--rz-text-muted)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={allVisibleSelected}
@@ -809,7 +809,7 @@ export default function Destinations() {
                       if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected
                     }}
                     onChange={toggleSelectAllVisible}
-                    className="rounded border-gray-600"
+                    className="rounded border-[var(--rz-border)]"
                   />
                   Marcar visíveis
                 </label>
@@ -916,7 +916,7 @@ export default function Destinations() {
       )}
 
       {historyDestId && (
-        <Card className="border-gray-700">
+        <Card className="border-[var(--rz-border)]">
           <div className="flex justify-between items-center mb-3">
             <p className="text-sm font-medium">Histórico de consentimento</p>
             <Button size="sm" variant="ghost" onClick={() => setHistoryDestId(null)}>
@@ -924,22 +924,22 @@ export default function Destinations() {
             </Button>
           </div>
           {consentHistory.length === 0 ? (
-            <p className="text-xs text-gray-500">Nenhum registro ainda.</p>
+            <p className="text-xs text-[var(--rz-text-muted)]">Nenhum registro ainda.</p>
           ) : (
             <ul className="space-y-2 max-h-64 overflow-y-auto">
               {consentHistory.map(h => (
-                <li key={h._id} className="text-xs border-b border-gray-800 pb-2">
-                  <span className="text-gray-400">{new Date(h.createdAt).toLocaleString('pt-BR')}</span>
+                <li key={h._id} className="text-xs border-b border-[var(--rz-border)] pb-2">
+                  <span className="text-[var(--rz-text-muted)]">{new Date(h.createdAt).toLocaleString('pt-BR')}</span>
                   {' · '}
                   {h.previousStatus} → {h.newStatus}
                   {' · '}
-                  <span className="text-gray-500">{h.origin}</span>
-                  {h.replyText && <span className="block text-gray-500 mt-0.5">Resposta: {h.replyText}</span>}
+                  <span className="text-[var(--rz-text-muted)]">{h.origin}</span>
+                  {h.replyText && <span className="block text-[var(--rz-text-muted)] mt-0.5">Resposta: {h.replyText}</span>}
                   {h.attemptNumber != null && (
-                    <span className="block text-gray-600">Tentativa {h.attemptNumber}</span>
+                    <span className="block text-[var(--rz-text-muted)]">Tentativa {h.attemptNumber}</span>
                   )}
                   {h.requestedByUsername && (
-                    <span className="block text-gray-600">Por: {h.requestedByUsername}</span>
+                    <span className="block text-[var(--rz-text-muted)]">Por: {h.requestedByUsername}</span>
                   )}
                 </li>
               ))}
@@ -948,7 +948,7 @@ export default function Destinations() {
         </Card>
       )}
 
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-800">
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--rz-border)]">
         <Link to="/send">
           <Button size="sm" variant="secondary">
             <Send size={12} /> Enviar agora

@@ -101,7 +101,7 @@ function RuleFormPanel({
   const [form, setForm] = useState<RuleForm>(initial)
   const set = (k: keyof RuleForm, v: string) => setForm(f => ({ ...f, [k]: v }))
 
-  const labelCls = 'text-xs text-gray-500 mb-1 block'
+  const labelCls = 'text-xs text-[var(--rz-text-muted)] mb-1 block'
 
   const toggleChannel = (channelId: string) => {
     setForm(f => ({
@@ -166,10 +166,10 @@ function RuleFormPanel({
         <div className="md:col-span-2">
           <label className={labelCls}>
             Canais monitorados
-            <span className="text-gray-600 ml-1">(vazio = todos os canais configurados)</span>
+            <span className="text-[var(--rz-text-muted)] ml-1">(vazio = todos os canais configurados)</span>
           </label>
           {channels.length === 0 ? (
-            <p className="text-xs text-gray-600">Nenhum canal configurado. Adicione em <a href="/channels" className="text-brand-400 hover:underline">Canais Discord</a>.</p>
+            <p className="text-xs text-[var(--rz-text-muted)]">Nenhum canal configurado. Adicione em <a href="/channels" className="text-brand-400 hover:underline">Canais Discord</a>.</p>
           ) : (
             <div className="flex flex-wrap gap-1.5 mt-1">
               {channels.map(ch => (
@@ -180,12 +180,12 @@ function RuleFormPanel({
                   className={`text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1 ${
                     form.channelIds.includes(ch.channelId)
                       ? 'bg-brand-600 border-brand-500 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+                      : 'bg-[var(--rz-surface-muted)] border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                   }`}
                 >
-                  <span className="text-gray-400">#</span>
+                  <span className="text-[var(--rz-text-muted)]">#</span>
                   {ch.channelName || ch.channelId}
-                  {ch.guildName && <span className="text-gray-500 text-[10px]"> · {ch.guildName}</span>}
+                  {ch.guildName && <span className="text-[var(--rz-text-muted)] text-[10px]"> · {ch.guildName}</span>}
                 </button>
               ))}
             </div>
@@ -204,7 +204,7 @@ function RuleFormPanel({
         <div className="md:col-span-2">
           <label className={labelCls}>
             Destinos WhatsApp
-            <span className="text-gray-600 ml-1">(vazio = todos os destinos ativos)</span>
+            <span className="text-[var(--rz-text-muted)] ml-1">(vazio = todos os destinos ativos)</span>
           </label>
           <DestinationMultiSelect
             destinations={destinations}
@@ -355,7 +355,7 @@ export default function Rules() {
         </p>
       )}
       {guildName && (
-        <p className="text-xs text-gray-500">Exibindo regras do contexto · {guildName}</p>
+        <p className="text-xs text-[var(--rz-text-muted)]">Exibindo regras do contexto · {guildName}</p>
       )}
 
       {/* Create form */}
@@ -424,10 +424,10 @@ export default function Rules() {
                     <span>Não executa: {r.executionBlock.reason}</span>
                   </p>
                 )}
-                <div className="text-xs text-gray-500 space-y-0.5">
-                  <p>Template: <span className="text-gray-300">{r.action.templateName}</span></p>
+                <div className="text-xs text-[var(--rz-text-muted)] space-y-0.5">
+                  <p>Template: <span className="text-[var(--rz-text-secondary)]">{r.action.templateName}</span></p>
                   {r.conditions.channelIds?.length ? (
-                    <p>Canais: <span className="text-gray-300">
+                    <p>Canais: <span className="text-[var(--rz-text-secondary)]">
                       {r.conditions.channelIds.map(id => {
                         const ch = channels.find(c => c.channelId === id)
                         return ch ? `#${ch.channelName || id}` : `#${id}`
@@ -435,11 +435,11 @@ export default function Rules() {
                     </span></p>
                   ) : null}
                   {r.conditions.requireKeywords?.length ? (
-                    <p>Keywords: <span className="text-gray-300">{r.conditions.requireKeywords.join(', ')}</span></p>
+                    <p>Keywords: <span className="text-[var(--rz-text-secondary)]">{r.conditions.requireKeywords.join(', ')}</span></p>
                   ) : null}
                   <p>
                     Destinos:{' '}
-                    <span className="text-gray-300">
+                    <span className="text-[var(--rz-text-secondary)]">
                       {r.action.destinationIds?.length
                         ? (() => {
                             const ids = new Set(r.action.destinationIds)
@@ -456,7 +456,7 @@ export default function Rules() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => { setEditingId(r._id); setCreating(false) }}
-                  className="text-gray-600 hover:text-yellow-400 transition-colors"
+                  className="text-[var(--rz-text-muted)] hover:text-yellow-400 transition-colors"
                   title="Editar"
                 >
                   <Pencil size={15} />
@@ -464,7 +464,7 @@ export default function Rules() {
                 <button
                   onClick={() => toggle.mutate(r._id)}
                   disabled={toggle.isPending}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] transition-colors"
                   title={r.isActive ? 'Desativar' : 'Ativar'}
                 >
                   {r.isActive
@@ -474,7 +474,7 @@ export default function Rules() {
                 <button
                   onClick={() => { if (window.confirm('Deletar esta regra?')) remove.mutate(r._id) }}
                   disabled={remove.isPending}
-                  className="text-gray-600 hover:text-red-400 transition-colors"
+                  className="text-[var(--rz-text-muted)] hover:text-red-400 transition-colors"
                 >
                   <Trash2 size={16} />
                 </button>

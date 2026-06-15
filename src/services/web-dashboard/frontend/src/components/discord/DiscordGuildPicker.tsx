@@ -66,38 +66,38 @@ export default function DiscordGuildPicker({ user, selected, onChange }: Props) 
 
   return (
     <div className="px-3 pb-2" ref={ref}>
-      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1.5 px-0.5">
+      <p className="text-[10px] text-[var(--rz-text-muted)] uppercase tracking-wider font-semibold mb-1.5 px-0.5">
         Servidor
       </p>
       <div className="relative">
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
-          className="w-full flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg px-3 py-2 text-sm transition-colors"
+          className="w-full flex items-center gap-2 bg-[var(--rz-surface-muted)] hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)] rounded-lg px-3 py-2 text-sm transition-colors"
         >
           {selected ? (
             <>
               {selected.icon ? (
                 <img src={selected.icon} alt="" className="w-5 h-5 rounded-full shrink-0" />
               ) : (
-                <Server size={14} className="text-gray-400 shrink-0" />
+                <Server size={14} className="text-[var(--rz-text-muted)] shrink-0" />
               )}
               <span className="font-medium truncate flex-1 text-left">{selected.name}</span>
             </>
           ) : (
             <>
-              <Server size={14} className="text-gray-400 shrink-0" />
-              <span className="text-gray-400 flex-1 text-left">Selecionar servidor</span>
+              <Server size={14} className="text-[var(--rz-text-muted)] shrink-0" />
+              <span className="text-[var(--rz-text-muted)] flex-1 text-left">Selecionar servidor</span>
             </>
           )}
           <ChevronDown
             size={13}
-            className={`text-gray-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`text-[var(--rz-text-muted)] shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
           />
         </button>
 
         {open && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-xl shadow-xl z-50 overflow-hidden">
             <div className="max-h-56 overflow-y-auto">
               {isLoading && (
                 <div className="flex justify-center py-4">
@@ -105,7 +105,7 @@ export default function DiscordGuildPicker({ user, selected, onChange }: Props) 
                 </div>
               )}
               {!isLoading && guilds.length === 0 && (
-                <p className="text-xs text-gray-500 px-3 py-4 text-center">
+                <p className="text-xs text-[var(--rz-text-muted)] px-3 py-4 text-center">
                   Nenhum servidor com o bot. Convide o RadarZap ao Discord.
                 </p>
               )}
@@ -114,36 +114,36 @@ export default function DiscordGuildPicker({ user, selected, onChange }: Props) 
                   key={g.id}
                   type="button"
                   onClick={() => select(g)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-gray-700 transition-colors text-left ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[var(--rz-surface-muted)]/80 transition-colors text-left ${
                     selected?.id === g.id ? 'bg-brand-600/20 border-l-2 border-brand-500' : ''
                   }`}
                 >
                   {g.icon ? (
                     <img src={g.icon} alt={g.name} className="w-7 h-7 rounded-full shrink-0" />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-[var(--rz-surface-muted)] flex items-center justify-center text-xs font-bold text-[var(--rz-text-muted)] shrink-0">
                       {g.name[0]}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{g.name}</p>
-                    <p className="text-[10px] text-gray-500 font-mono truncate">{g.id}</p>
+                    <p className="text-[10px] text-[var(--rz-text-muted)] font-mono truncate">{g.id}</p>
                   </div>
                 </button>
               ))}
             </div>
             {selected && (
-              <div className="p-2 border-t border-gray-700">
+              <div className="p-2 border-t border-[var(--rz-border)]">
                 <button
                   type="button"
                   onClick={clear}
-                  className="w-full text-xs text-gray-500 hover:text-gray-300 py-1.5"
+                  className="w-full text-xs text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] py-1.5"
                 >
                   Limpar seleção
                 </button>
               </div>
             )}
-            <div className="p-2 border-t border-gray-700">
+            <div className="p-2 border-t border-[var(--rz-border)]">
               <a
                 href={`https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID || ''}&permissions=8&scope=bot`}
                 target="_blank"

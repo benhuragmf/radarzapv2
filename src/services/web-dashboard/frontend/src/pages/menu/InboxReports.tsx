@@ -100,7 +100,7 @@ export default function InboxReports() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-gray-500 border-b border-gray-800">
+                  <tr className="text-left text-xs text-[var(--rz-text-muted)] border-b border-[var(--rz-border)]">
                     <th className="pb-2 pr-4">Setor</th>
                     <th className="pb-2 pr-4">Conversas</th>
                     <th className="pb-2 pr-4">Fila média</th>
@@ -109,11 +109,11 @@ export default function InboxReports() {
                 </thead>
                 <tbody>
                   {(data?.byDepartment ?? []).map(row => (
-                    <tr key={row.departmentId} className="border-b border-gray-800/60">
-                      <td className="py-2 pr-4 text-gray-200">{row.departmentName}</td>
-                      <td className="py-2 pr-4 text-gray-400">{row.conversations}</td>
-                      <td className="py-2 pr-4 text-gray-400">{fmtSec(row.avgQueueTimeSec)}</td>
-                      <td className="py-2 text-gray-400">{fmtSec(row.avgResolutionTimeSec)}</td>
+                    <tr key={row.departmentId} className="border-b border-[var(--rz-border)]/60">
+                      <td className="py-2 pr-4 text-[var(--rz-text-primary)]">{row.departmentName}</td>
+                      <td className="py-2 pr-4 text-[var(--rz-text-muted)]">{row.conversations}</td>
+                      <td className="py-2 pr-4 text-[var(--rz-text-muted)]">{fmtSec(row.avgQueueTimeSec)}</td>
+                      <td className="py-2 text-[var(--rz-text-muted)]">{fmtSec(row.avgResolutionTimeSec)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -126,7 +126,7 @@ export default function InboxReports() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-gray-500 border-b border-gray-800">
+                  <tr className="text-left text-xs text-[var(--rz-text-muted)] border-b border-[var(--rz-border)]">
                     <th className="pb-2 pr-4">Atendente</th>
                     <th className="pb-2 pr-4">Conversas</th>
                     <th className="pb-2 pr-4">1ª resposta</th>
@@ -135,13 +135,13 @@ export default function InboxReports() {
                 </thead>
                 <tbody>
                   {(data?.byAgent ?? []).map(row => (
-                    <tr key={row.userId} className="border-b border-gray-800/60">
-                      <td className="py-2 pr-4 text-gray-200">{row.agentName}</td>
-                      <td className="py-2 pr-4 text-gray-400">{row.conversations}</td>
-                      <td className="py-2 pr-4 text-gray-400">
+                    <tr key={row.userId} className="border-b border-[var(--rz-border)]/60">
+                      <td className="py-2 pr-4 text-[var(--rz-text-primary)]">{row.agentName}</td>
+                      <td className="py-2 pr-4 text-[var(--rz-text-muted)]">{row.conversations}</td>
+                      <td className="py-2 pr-4 text-[var(--rz-text-muted)]">
                         {fmtSec(row.avgFirstResponseTimeSec)}
                       </td>
-                      <td className="py-2 text-gray-400">{fmtSec(row.avgResolutionTimeSec)}</td>
+                      <td className="py-2 text-[var(--rz-text-muted)]">{fmtSec(row.avgResolutionTimeSec)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -150,7 +150,7 @@ export default function InboxReports() {
           </Card>
         </div>
       ) : (
-        <p className="text-sm text-gray-500">Sem dados no período.</p>
+        <p className="text-sm text-[var(--rz-text-muted)]">Sem dados no período.</p>
       )}
     </PlatformPage>
   )

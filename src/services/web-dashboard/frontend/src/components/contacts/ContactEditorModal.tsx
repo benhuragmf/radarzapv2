@@ -93,18 +93,18 @@ export default function ContactEditorModal({
                 {title}
               </p>
               {mode === 'edit' && contactPhone && (
-                <p className="text-xs text-gray-500 font-mono">{formatPhone(contactPhone)}</p>
+                <p className="text-xs text-[var(--rz-text-muted)] font-mono">{formatPhone(contactPhone)}</p>
               )}
             </div>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-500 hover:text-white p-1">
+          <button type="button" onClick={onClose} className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] p-1">
             <X size={18} />
           </button>
         </div>
 
         <div className="p-4 space-y-4 overflow-y-auto flex-1">
           {mode === 'create' && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[var(--rz-text-muted)]">
               Novos contatos entram como{' '}
               <strong className="text-yellow-500">Aguardando aceite</strong>. O pedido LGPD é enviado na
               primeira mensagem.
@@ -114,7 +114,7 @@ export default function ContactEditorModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {mode === 'create' ? (
               <div className="sm:col-span-2">
-                <label className="text-xs text-gray-500 mb-1 block">Número WhatsApp *</label>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Número WhatsApp *</label>
                 <ContactPhoneInput
                   value={form.identifier}
                   onChange={v => set('identifier', v)}
@@ -127,8 +127,8 @@ export default function ContactEditorModal({
               </div>
             ) : (
               <div className="sm:col-span-2">
-                <label className="text-xs text-gray-500 mb-1 block">Número</label>
-                <p className="text-sm text-gray-400 font-mono px-3 py-2 bg-gray-800/50 rounded-lg border border-gray-800 flex items-center gap-2">
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Número</label>
+                <p className="text-sm text-[var(--rz-text-muted)] font-mono px-3 py-2 bg-[var(--rz-surface-muted)]/50 rounded-lg border border-[var(--rz-border)] flex items-center gap-2">
                   {contactPhone && (
                     <CountryFlag iso={detectCountryFromE164(contactPhone).iso} size={18} />
                   )}
@@ -137,7 +137,7 @@ export default function ContactEditorModal({
               </div>
             )}
             <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500 mb-1 block">Nome exibido *</label>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Nome exibido *</label>
               <input
                 value={form.name}
                 onChange={e => set('name', e.target.value)}
@@ -146,7 +146,7 @@ export default function ContactEditorModal({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">E-mail</label>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">E-mail</label>
               <input
                 value={form.email}
                 onChange={e => set('email', e.target.value)}
@@ -155,7 +155,7 @@ export default function ContactEditorModal({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Empresa</label>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Empresa</label>
               <input
                 value={form.organization}
                 onChange={e => set('organization', e.target.value)}
@@ -164,7 +164,7 @@ export default function ContactEditorModal({
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500 mb-1 block">Observações</label>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Observações</label>
               <textarea
                 value={form.notes}
                 onChange={e => set('notes', e.target.value)}
@@ -176,34 +176,34 @@ export default function ContactEditorModal({
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Grupos de contato</label>
-            <p className="text-[11px] text-gray-600 mb-2">
-              Sem grupo selecionado = contato fica só em <strong className="text-gray-500">Todos os contatos</strong>.
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Grupos de contato</label>
+            <p className="text-[11px] text-[var(--rz-text-muted)] mb-2">
+              Sem grupo selecionado = contato fica só em <strong className="text-[var(--rz-text-muted)]">Todos os contatos</strong>.
             </p>
             {groups.length === 0 ? (
-              <p className="text-xs text-gray-500 py-3 text-center border border-dashed border-gray-800 rounded-lg">
+              <p className="text-xs text-[var(--rz-text-muted)] py-3 text-center border border-dashed border-[var(--rz-border)] rounded-lg">
                 Crie um grupo na barra lateral para organizar contatos.
               </p>
             ) : (
-              <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-800 rounded-lg p-1.5">
+              <div className="max-h-40 overflow-y-auto space-y-1 border border-[var(--rz-border)] rounded-lg p-1.5">
                 {groups.map(g => {
                   const checked = form.contactGroupIds.includes(g._id)
                   return (
                     <label
                       key={g._id}
                       className={`flex items-center gap-3 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
-                        checked ? 'bg-brand-600/10 border border-brand-600/30' : 'hover:bg-gray-800/80'
+                        checked ? 'bg-brand-600/10 border border-brand-600/30' : 'hover:bg-[var(--rz-surface-muted)]/80'
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleGroup(g._id)}
-                        className="rounded border-gray-600"
+                        className="rounded border-[var(--rz-border)]"
                       />
                       <FolderOpen size={14} className="text-brand-400 shrink-0" />
-                      <span className="text-sm text-gray-200 flex-1 truncate">{g.name}</span>
-                      <span className="text-[10px] text-gray-600">{g.memberCount}</span>
+                      <span className="text-sm text-[var(--rz-text-primary)] flex-1 truncate">{g.name}</span>
+                      <span className="text-[10px] text-[var(--rz-text-muted)]">{g.memberCount}</span>
                     </label>
                   )
                 })}

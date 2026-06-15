@@ -82,7 +82,7 @@ export default function InboxQuickReplies() {
   if (!canManage) {
     return (
       <PlatformPage title="Respostas rápidas">
-        <p className="text-gray-500 text-sm">Sem permissão para editar respostas automáticas.</p>
+        <p className="text-[var(--rz-text-muted)] text-sm">Sem permissão para editar respostas automáticas.</p>
       </PlatformPage>
     )
   }
@@ -93,7 +93,7 @@ export default function InboxQuickReplies() {
       description="Atalhos digitados no chat (/bd, /bt, /ticket…). Use [user] ou [nome] para o primeiro nome do contato."
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300">
+        <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
           <ArrowLeft size={14} /> Voltar ao Inbox
         </Link>
         <InboxAtendimentoNav me={me} className="flex-1 min-w-0" />
@@ -104,7 +104,7 @@ export default function InboxQuickReplies() {
       ) : (
         <Card className="p-4 space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 text-sm text-gray-400">
+            <div className="flex items-center gap-2 text-sm text-[var(--rz-text-muted)]">
               <Zap size={16} className="text-brand-400" />
               {rows.length} atalho(s) · ex.: <code className="text-brand-400">/bd</code>
             </div>
@@ -126,12 +126,12 @@ export default function InboxQuickReplies() {
             {rows.map((row, i) => (
               <div
                 key={row._key}
-                className="grid gap-2 sm:grid-cols-[100px_140px_1fr_auto] items-start p-3 rounded-xl border border-gray-800 bg-gray-900/40"
+                className="grid gap-2 sm:grid-cols-[100px_140px_1fr_auto] items-start p-3 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/40"
               >
                 <div>
-                  <label className="text-[10px] text-gray-600 uppercase">Código</label>
+                  <label className="text-[10px] text-[var(--rz-text-muted)] uppercase">Código</label>
                   <div className="flex items-center gap-1 mt-1">
-                    <span className="text-gray-600 text-sm">/</span>
+                    <span className="text-[var(--rz-text-muted)] text-sm">/</span>
                     <input
                       value={row.code}
                       onChange={e =>
@@ -144,7 +144,7 @@ export default function InboxQuickReplies() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-600 uppercase">Rótulo</label>
+                  <label className="text-[10px] text-[var(--rz-text-muted)] uppercase">Rótulo</label>
                   <input
                     value={row.label}
                     onChange={e => updateRow(i, { label: e.currentTarget.value })}
@@ -152,7 +152,7 @@ export default function InboxQuickReplies() {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-600 uppercase">Mensagem</label>
+                  <label className="text-[10px] text-[var(--rz-text-muted)] uppercase">Mensagem</label>
                   <textarea
                     value={row.template}
                     onChange={e => updateRow(i, { template: e.currentTarget.value })}
@@ -172,9 +172,9 @@ export default function InboxQuickReplies() {
             ))}
           </div>
 
-          <p className="text-xs text-gray-600 border-t border-gray-800 pt-3">
-            Placeholders: <strong className="text-gray-500">[user]</strong> ou{' '}
-            <strong className="text-gray-500">[nome]</strong> — primeiro nome do contato. A segunda
+          <p className="text-xs text-[var(--rz-text-muted)] border-t border-[var(--rz-border)] pt-3">
+            Placeholders: <strong className="text-[var(--rz-text-muted)]">[user]</strong> ou{' '}
+            <strong className="text-[var(--rz-text-muted)]">[nome]</strong> — primeiro nome do contato. A segunda
             mensagem de ausência por inatividade usa o código <code>/enc</code>.
           </p>
         </Card>

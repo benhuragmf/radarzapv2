@@ -59,7 +59,7 @@ export function TicketStatusBadge({
               ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
               : variant === 'green'
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-gray-800 text-gray-500 border-gray-700/60'
+                : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] border-[var(--rz-border)]/60'
     return (
       <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${color}`}>
         {label}
@@ -85,7 +85,7 @@ export function ConversationStatusBadge({
   const label = CONVERSATION_STATUS_LABEL[status] ?? status
   if (size === 'sm') {
     return (
-      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/80 text-gray-500 border border-gray-700/50">
+      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--rz-surface-muted)]/80 text-[var(--rz-text-muted)] border border-[var(--rz-border)]/50">
         {label}
       </span>
     )

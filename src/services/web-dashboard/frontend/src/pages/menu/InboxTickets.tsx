@@ -111,11 +111,11 @@ export default function InboxTickets() {
 
       <Card className="p-0 overflow-hidden">
 
-        <div className="p-3 border-b border-gray-800 flex flex-col sm:flex-row gap-2 sm:items-center">
+        <div className="p-3 border-b border-[var(--rz-border)] flex flex-col sm:flex-row gap-2 sm:items-center">
 
           <div className="relative flex-1">
 
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
 
             <input
 
@@ -198,7 +198,7 @@ export default function InboxTickets() {
 
               <thead>
 
-                <tr className="text-left text-[10px] uppercase tracking-wider text-gray-600 border-b border-gray-800">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)] border-b border-[var(--rz-border)]">
 
                   <th className="px-4 py-2.5 font-medium">Ticket</th>
 
@@ -224,7 +224,7 @@ export default function InboxTickets() {
 
                     key={t._id}
 
-                    className="border-b border-gray-800/60 hover:bg-gray-800/30 transition-colors"
+                    className="border-b border-[var(--rz-border)]/60 hover:bg-[var(--rz-surface-muted)]/30 transition-colors"
 
                   >
 
@@ -246,9 +246,9 @@ export default function InboxTickets() {
 
                     <td className="px-4 py-3">
 
-                      <p className="text-gray-200 truncate max-w-[160px]">{t.contactName}</p>
+                      <p className="text-[var(--rz-text-primary)] truncate max-w-[160px]">{t.contactName}</p>
 
-                      <p className="text-[11px] text-gray-600 truncate max-w-[160px]">
+                      <p className="text-[11px] text-[var(--rz-text-muted)] truncate max-w-[160px]">
 
                         {formatContactIdentifier(t.contactIdentifier, t.contactName)}
 
@@ -273,19 +273,19 @@ export default function InboxTickets() {
 
                     </td>
 
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell truncate max-w-[120px]">
+                    <td className="px-4 py-3 text-[var(--rz-text-muted)] hidden md:table-cell truncate max-w-[120px]">
 
                       {t.departmentName ?? '—'}
 
                     </td>
 
-                    <td className="px-4 py-3 text-gray-500 hidden lg:table-cell truncate max-w-[120px]">
+                    <td className="px-4 py-3 text-[var(--rz-text-muted)] hidden lg:table-cell truncate max-w-[120px]">
 
                       {t.assignedUserName ?? '—'}
 
                     </td>
 
-                    <td className="px-4 py-3 text-gray-600 text-xs tabular-nums whitespace-nowrap">
+                    <td className="px-4 py-3 text-[var(--rz-text-muted)] text-xs tabular-nums whitespace-nowrap">
 
                       {formatInboxMsgTime(t.lastMessageAt, true)}
 

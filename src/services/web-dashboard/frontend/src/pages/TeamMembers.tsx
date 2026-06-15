@@ -231,11 +231,11 @@ export default function TeamMembers() {
             Atendimento WhatsApp
           </span>
         </CardTitle>
-        <p className="text-xs text-gray-500 mt-2 max-w-xl">
-          Membros com papel <span className="text-gray-400">Atendente</span>,{' '}
-          <span className="text-gray-400">Atendente 2ª instância</span> ou{' '}
-          <span className="text-gray-400">Gerente</span> podem usar o Inbox. Crie papéis
-          personalizados em <span className="text-gray-400">Papéis do sistema</span> (+ Novo papel).
+        <p className="text-xs text-[var(--rz-text-muted)] mt-2 max-w-xl">
+          Membros com papel <span className="text-[var(--rz-text-muted)]">Atendente</span>,{' '}
+          <span className="text-[var(--rz-text-muted)]">Atendente 2ª instância</span> ou{' '}
+          <span className="text-[var(--rz-text-muted)]">Gerente</span> podem usar o Inbox. Crie papéis
+          personalizados em <span className="text-[var(--rz-text-muted)]">Papéis do sistema</span> (+ Novo papel).
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {can(me ?? null, 'inbox:view') && (
@@ -287,7 +287,7 @@ export default function TeamMembers() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">E-mail</label>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">E-mail</label>
                 <input
                   type="email"
                   value={email}
@@ -297,7 +297,7 @@ export default function TeamMembers() {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Papel</label>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Papel</label>
                 <select
                   value={role}
                   onChange={e => setRole(e.currentTarget.value)}
@@ -315,7 +315,7 @@ export default function TeamMembers() {
               </div>
             </div>
             {invitePreset && (
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-[var(--rz-text-muted)] mt-2">
                 {invitePreset.description}
                 {isOwner && (
                   <>
@@ -357,7 +357,7 @@ export default function TeamMembers() {
             {isLoading ? (
               <LoadingState rows={4} className="py-4" />
             ) : members.length === 0 ? (
-              <p className="text-sm text-gray-500">Nenhum membro cadastrado.</p>
+              <p className="text-sm text-[var(--rz-text-muted)]">Nenhum membro cadastrado.</p>
             ) : (
               <ul className="space-y-2">
                 {members.map(m => {
@@ -365,24 +365,24 @@ export default function TeamMembers() {
                   return (
                   <li
                     key={m._id}
-                    className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl bg-gray-800/40 border border-gray-800/80 hover:border-gray-700/80 transition-colors"
+                    className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl bg-[var(--rz-surface-muted)]/40 border border-[var(--rz-border)]/80 hover:border-[var(--rz-border)]/80 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-9 h-9 rounded-full bg-gray-700/80 flex items-center justify-center text-sm font-medium text-gray-300 shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-[var(--rz-surface-muted)]/80 flex items-center justify-center text-sm font-medium text-[var(--rz-text-secondary)] shrink-0">
                         {initial}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate text-gray-100">{m.displayEmail ?? m.email ?? '—'}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm font-medium truncate text-[var(--rz-text-primary)]">{m.displayEmail ?? m.email ?? '—'}</p>
+                        <p className="text-xs text-[var(--rz-text-muted)]">
                           {m.customRoleName ?? ROLE_LABEL[m.companyRole]}
                           {m.whatsappPhone && (
-                            <span className="text-gray-600"> · WA cadastrado</span>
+                            <span className="text-[var(--rz-text-muted)]"> · WA cadastrado</span>
                           )}
                           {m.companyRole !== 'OWNER' && m.linked === false && (
                             <span className="text-amber-500/90"> · aguardando login</span>
                           )}
                           {m.companyRole !== 'OWNER' && m.linked === false && m.inviteEmailSentAt && (
-                            <span className="text-gray-600"> · convite enviado</span>
+                            <span className="text-[var(--rz-text-muted)]"> · convite enviado</span>
                           )}
                           {m.inviteEmailLastError && m.linked === false && (
                             <span className="text-red-400/90"> · e-mail falhou</span>
@@ -396,7 +396,7 @@ export default function TeamMembers() {
                           type="button"
                           disabled={resendInvite.isPending}
                           onClick={() => resendInvite.mutate(m._id)}
-                          className="text-gray-600 hover:text-brand-400 p-1.5"
+                          className="text-[var(--rz-text-muted)] hover:text-brand-400 p-1.5"
                           title="Reenviar convite por e-mail"
                         >
                           <Mail size={15} />
@@ -406,7 +406,7 @@ export default function TeamMembers() {
                         <button
                           type="button"
                           onClick={() => setEditingMember(m)}
-                          className="text-gray-600 hover:text-brand-400 p-1.5"
+                          className="text-[var(--rz-text-muted)] hover:text-brand-400 p-1.5"
                           title="Alterar papel"
                         >
                           <Pencil size={15} />
@@ -419,7 +419,7 @@ export default function TeamMembers() {
                           onClick={() => {
                             if (window.confirm('Remover este membro da equipe?')) remove.mutate(m._id)
                           }}
-                          className="text-gray-600 hover:text-red-400 p-1.5"
+                          className="text-[var(--rz-text-muted)] hover:text-red-400 p-1.5"
                         >
                           <Trash2 size={16} />
                         </button>
