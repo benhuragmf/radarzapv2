@@ -254,7 +254,7 @@ export function WhatsAppTextEditor({
         />
 
         {showPreview && value.trim() && (
-          <div className="border-t border-[var(--rz-border)] p-3 bg-[#0b141a]/60 overflow-hidden rounded-b-lg">
+          <div className="border-t border-[var(--rz-border)] p-3 bg-[var(--rz-wa-chat-bg)]/60 overflow-hidden rounded-b-lg">
             <p className="text-[10px] text-[var(--rz-text-muted)] mb-2">Prévia WhatsApp</p>
             <WhatsAppPreviewBubble text={value} statusFont={showFontPicker ? font : undefined} />
           </div>

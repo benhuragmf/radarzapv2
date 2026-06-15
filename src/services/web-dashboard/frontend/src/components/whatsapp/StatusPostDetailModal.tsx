@@ -133,7 +133,7 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
                 >
                   <p
                     className={`text-base leading-relaxed ${
-                      post.backgroundColor === '#1F2C34' ? 'text-white' : 'text-gray-900'
+                      post.backgroundColor === '#1F2C34' ? 'text-white' : 'text-[var(--rz-on-light-surface)]'
                     }`}
                   >
                     {displayText ? (

@@ -680,7 +680,7 @@ export default function Inbox() {
                         size="sm"
                         onClick={() => assign.mutate(conv._id)}
                         disabled={assign.isPending}
-                        className="bg-yellow-600 hover:bg-yellow-500 text-gray-950"
+                        className="bg-yellow-600 hover:bg-yellow-500 text-[var(--rz-on-accent)]"
                       >
                         <UserCheck size={14} /> Aceitar
                       </Button>

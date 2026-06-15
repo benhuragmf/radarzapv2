@@ -10,7 +10,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
-import { LoadingState } from '@/design-system'
+import { LoadingState, waPreviewPanelCls } from '@/design-system'
 import {
   FileText,
   BookOpen,
@@ -276,7 +276,7 @@ export default function PlatformTemplates() {
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2 font-medium">WhatsApp</p>
-            <div className="rounded-xl bg-[#0b141a] p-4 min-h-[120px] border border-[#1f2c34]">
+            <div className={`${waPreviewPanelCls} min-h-[120px]`}>
               <WhatsAppPreviewBubble text={previewText} timeLabel="14:30 ✓✓" />
             </div>
           </div>
@@ -343,7 +343,7 @@ export default function PlatformTemplates() {
             </aside>
             <div>
               <p className="text-xs text-[var(--rz-text-muted)] mb-2">Pré-visualização no WhatsApp</p>
-              <div className="rounded-xl bg-[#0b141a] p-4 border border-[#1f2c34] min-h-[280px]">
+              <div className={`${waPreviewPanelCls} min-h-[280px]`}>
                 <WhatsAppPreviewBubble text={previewContent(draftContent)} timeLabel="14:30 ✓✓" />
               </div>
             </div>

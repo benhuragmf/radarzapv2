@@ -248,7 +248,7 @@ export default function WaStatusPosts() {
   }
 
   const previewTextStyle =
-    backgroundColor === '#1F2C34' ? 'text-white' : 'text-gray-900'
+    backgroundColor === '#1F2C34' ? 'text-white' : 'text-[var(--rz-on-light-surface)]'
 
   return (
     <RadarPageShell maxWidth="wide">

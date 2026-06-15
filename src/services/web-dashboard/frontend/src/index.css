@@ -69,6 +69,15 @@
   --rz-shadow-drawer: 0 20px 25px -5px rgb(0 0 0 / 0.4);
   --rz-shadow-focus: 0 0 0 3px rgb(99 102 241 / 0.35);
   --rz-on-primary: #ffffff;
+  --rz-on-accent: #030712;
+  --rz-on-light-surface: #111827;
+  /* Preview WhatsApp (cores reais do app — independentes do tema do painel) */
+  --rz-wa-chat-bg: #0b141a;
+  --rz-wa-chat-border: #1f2c34;
+  --rz-wa-bubble-out: #005c4b;
+  --rz-wa-bubble-out-border: #0a7a62;
+  --rz-wa-bubble-text: #e9edef;
+  --rz-wa-bubble-time: #99beb3;
 }
 
 /* Tema claro */
@@ -174,6 +183,23 @@ html[data-theme='light'] [class*='bg-[var(--rz-primary)]'].text-white {
 }
 html[data-theme='light'] .rz-auth-page {
   background: linear-gradient(160deg, #07111f 0%, #f3f7fb 50%, #e8eef5 100%);
+}
+
+/* Preview WhatsApp — fundo escuro fixo (não segue tema claro do painel) */
+.rz-wa-preview-panel {
+  background-color: var(--rz-wa-chat-bg);
+  border: 1px solid var(--rz-wa-chat-border);
+  border-radius: var(--rz-radius-xl);
+}
+.rz-wa-preview-bubble {
+  background-color: var(--rz-wa-bubble-out);
+  color: var(--rz-wa-bubble-text);
+  border: 1px solid rgb(10 122 98 / 0.4);
+  border-radius: 1rem;
+  border-top-left-radius: 0.125rem;
+}
+.rz-wa-preview-bubble-time {
+  color: var(--rz-wa-bubble-time);
 }
 
 @media (max-width: 1023px) {
