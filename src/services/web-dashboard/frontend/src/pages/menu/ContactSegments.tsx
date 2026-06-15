@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Spinner'
 import { api, downloadFile } from '../../lib/api'
-import {
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { inputCls, LoadingState, EmptyState } from '@/design-system'
+import {
   ListOrdered,
   Plus,
   Pencil,
@@ -34,9 +34,6 @@ interface MemberRow {
   birthday?: string
   consentStatus?: string
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 export default function ContactSegments() {
   const qc = useQueryClient()
@@ -186,21 +183,22 @@ export default function ContactSegments() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size={28} />
-        </div>
+        <LoadingState rows={4} className="pt-4" />
       ) : groups.length === 0 ? (
-        <Card className="text-center py-12 text-gray-500">
-          <ListOrdered size={32} className="mx-auto mb-2 opacity-40" />
-          <p>Nenhum segmento criado.</p>
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="text-brand-400 text-sm hover:underline mt-2"
-          >
-            Criar primeiro segmento
-          </button>
-        </Card>
+        <EmptyState
+          icon={ListOrdered}
+          title="Nenhum segmento criado"
+          description="Organize contatos em grupos para campanhas e automações."
+          action={
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="text-sm text-[var(--rz-primary)] hover:underline mt-2"
+            >
+              Criar primeiro segmento
+            </button>
+          }
+        />
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(240px,1fr)_2fr]">
           <div className="overflow-x-auto rounded-lg border border-gray-800">
@@ -346,9 +344,7 @@ export default function ContactSegments() {
                 />
 
                 {loadingMembers ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner size={24} />
-                  </div>
+                  <LoadingState rows={3} className="py-4" />
                 ) : filteredMembers.length === 0 ? (
                   <Card className="text-center py-8 text-gray-500 text-sm">
                     {members.length === 0

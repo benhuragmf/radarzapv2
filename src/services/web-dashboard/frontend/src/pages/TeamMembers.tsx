@@ -7,8 +7,10 @@ import { Card, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { Users, UserPlus, Trash2, Pencil, MessageSquare, Ticket, Building2, Zap, Mail } from 'lucide-react'
-import {
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
+import { RadarPageShell, PageHeader, PermissionState, LoadingState } from '@/design-system'
+import { inputCls } from '@/design-system/formClasses'
+import {
   RolesSystemPanel,
   TeamMemberRoleModal,
   type PermissionGroup,
@@ -52,9 +54,6 @@ const ROLE_LABEL: Record<CompanyRole, string> = {
   INTEGRATION: 'Integração API',
   CUSTOM: 'Personalizado',
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 type Tab = 'equipe' | 'papeis'
 
@@ -178,28 +177,30 @@ export default function TeamMembers() {
 
   if (!canManage) {
     return (
-      <Card className="text-center py-12 text-gray-500">
-        <p>Apenas dono ou administrador pode gerenciar a equipe.</p>
-      </Card>
+      <RadarPageShell>
+        <PermissionState
+          title="Sem permissão"
+          description="Apenas dono ou administrador pode gerenciar a equipe."
+        />
+      </RadarPageShell>
     )
   }
 
   return (
-    <div className="w-full max-w-6xl space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-white">Equipe e permissões</h1>
-        <p className="text-sm text-gray-500 mt-1 max-w-xl">
-          Gerencie quem acessa sua empresa. Convide em <span className="text-gray-400">Equipe</span> e
-          defina o que cada papel pode fazer em <span className="text-gray-400">Papéis do sistema</span>.
-        </p>
-      </div>
+    <RadarPageShell>
+      <PageHeader
+        title="Equipe e permissões"
+        subtitle="Gerencie quem acessa sua empresa. Convide em Equipe e defina o que cada papel pode fazer em Papéis do sistema."
+      />
 
-      <div className="inline-flex p-1 rounded-xl bg-gray-900/80 border border-gray-800">
+      <div className="inline-flex p-1 rounded-xl bg-[var(--rz-surface-muted)] border border-[var(--rz-border)]">
         <button
           type="button"
           onClick={() => setTab('equipe')}
           className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'equipe' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
+            tab === 'equipe'
+              ? 'bg-[var(--rz-surface)] text-[var(--rz-text-primary)] shadow-sm'
+              : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]'
           }`}
         >
           Equipe
@@ -208,18 +209,21 @@ export default function TeamMembers() {
           type="button"
           onClick={() => setTab('papeis')}
           className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'papeis' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
+            tab === 'papeis'
+              ? 'bg-[var(--rz-surface)] text-[var(--rz-text-primary)] shadow-sm'
+              : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]'
           }`}
         >
           Papéis do sistema
         </button>
       </div>
 
-      <p className="text-xs text-gray-600 -mt-2">
+      <p className="text-xs text-[var(--rz-text-muted)]">
         Papéis fixos (Dono, Admin, Atendente…) + quantos personalizados quiser em{' '}
-        <span className="text-gray-500">+ Novo papel</span>.
+        <span className="text-[var(--rz-text-secondary)]">+ Novo papel</span>.
       </p>
 
+      <div className="space-y-5">
       <Card className="border-brand-500/20 bg-brand-500/[0.03]">
         <CardTitle>
           <span className="flex items-center gap-2 text-sm">
@@ -351,9 +355,7 @@ export default function TeamMembers() {
               </CardTitle>
             </div>
             {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Spinner size={24} />
-              </div>
+              <LoadingState rows={4} className="py-4" />
             ) : members.length === 0 ? (
               <p className="text-sm text-gray-500">Nenhum membro cadastrado.</p>
             ) : (
@@ -455,6 +457,7 @@ export default function TeamMembers() {
           onSave={(newRole, whatsappPhone) => updateMemberRole(editingMember._id, newRole, whatsappPhone)}
         />
       )}
-    </div>
+      </div>
+    </RadarPageShell>
   )
 }

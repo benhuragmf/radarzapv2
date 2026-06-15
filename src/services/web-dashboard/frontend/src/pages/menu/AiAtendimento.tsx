@@ -24,6 +24,9 @@ import {
 } from 'lucide-react'
 import { AiModelPicker, type AiModelOption } from '../../components/ai/AiModelPicker'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { inputCls, textareaCls, LoadingState } from '@/design-system'
+
+const textareaClsAi = `${textareaCls} min-h-[120px]`
 
 type TabId =
   | 'geral'
@@ -124,10 +127,6 @@ interface AiPayload {
   }
 }
 
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
-const textareaCls = `${inputCls} min-h-[120px] resize-y`
-
 export default function AiAtendimento() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<TabId>('geral')
@@ -227,7 +226,7 @@ export default function AiAtendimento() {
   if (isLoading || !form) {
     return (
       <PlatformPage title="IA Atendimento">
-        <Spinner />
+        <LoadingState rows={4} className="pt-4" />
       </PlatformPage>
     )
   }
@@ -478,7 +477,7 @@ export default function AiAtendimento() {
               Regras adicionais da sua empresa (opcional)
             </label>
             <textarea
-              className={textareaCls}
+              className={textareaClsAi}
               placeholder="Ex.: Não oferecer desconto. Horário 8h–18h. Produto principal: rastreador veicular."
               value={form.prompt.customRules}
               onChange={e => patchPrompt({ customRules: e.target.value })}
@@ -616,7 +615,7 @@ export default function AiAtendimento() {
                 placeholder="Gatilhos / palavras-chave"
               />
               <textarea
-                className={textareaCls}
+                className={textareaClsAi}
                 value={skill.solution}
                 onChange={e => {
                   const skills = [...(form.skills ?? [])]
@@ -735,7 +734,7 @@ export default function AiAtendimento() {
                 placeholder="Tags / palavras-chave"
               />
               <textarea
-                className={textareaCls}
+                className={textareaClsAi}
                 value={mem.content}
                 onChange={e => {
                   const memories = [...(form.memories ?? [])]
@@ -792,7 +791,7 @@ export default function AiAtendimento() {
                 placeholder="Título"
               />
               <textarea
-                className={textareaCls}
+                className={textareaClsAi}
                 value={item.content}
                 onChange={e => {
                   const kb = [...form.knowledgeBase]

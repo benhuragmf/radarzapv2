@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { Card, CardTitle } from '../components/ui/Card'
-import { Spinner } from '../components/ui/Spinner'
+import { CardTitle } from '../components/ui/Card'
 import { History } from 'lucide-react'
 import { CampaignRow, type Campaign } from '../lib/campaigns'
+import { RadarPageShell, PageHeader, EmptyState, LoadingState } from '@/design-system'
 
 export default function SendHistory() {
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
@@ -17,28 +17,30 @@ export default function SendHistory() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner size={32} />
-      </div>
+      <RadarPageShell>
+        <LoadingState rows={4} className="pt-8" />
+      </RadarPageShell>
     )
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <h1 className="text-lg font-semibold text-white">Histórico de envios</h1>
-      <p className="text-sm text-gray-500">
-        Envios já processados — enviados, em andamento ou com falha.
-      </p>
+    <RadarPageShell>
+      <PageHeader
+        title="Histórico de envios"
+        subtitle="Envios já processados — enviados, em andamento ou com falha."
+      />
 
       {history.length === 0 ? (
-        <Card className="text-center py-12 text-gray-500">
-          <History size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-400">Nenhum envio no histórico</p>
-          <p className="text-sm mt-1">Após enviar ou agendar, os registros aparecem aqui.</p>
-          <Link to="/send" className="text-brand-400 text-sm hover:underline mt-3 inline-block">
-            Ir para Enviar agora
-          </Link>
-        </Card>
+        <EmptyState
+          icon={History}
+          title="Nenhum envio no histórico"
+          description="Após enviar ou agendar, os registros aparecem aqui."
+          action={
+            <Link to="/send" className="text-sm text-[var(--rz-primary)] hover:underline">
+              Ir para Enviar agora
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-2">
           <CardTitle>Histórico ({history.length})</CardTitle>
@@ -47,6 +49,6 @@ export default function SendHistory() {
           ))}
         </div>
       )}
-    </div>
+    </RadarPageShell>
   )
 }

@@ -9,8 +9,8 @@ import { Spinner } from '../components/ui/Spinner'
 import { Link } from 'react-router-dom'
 import { Hash, Plus, Trash2, ToggleLeft, ToggleRight, ChevronRight, BookOpen } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
-import { CardTitle, CardValue } from '../components/ui/Card'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
+import { MetricCard, LoadingState } from '@/design-system'
 
 interface Channel {
   _id: string
@@ -102,14 +102,8 @@ export default function Channels() {
       }
     >
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Card>
-          <CardTitle>Monitorados</CardTitle>
-          <CardValue>{channels.length}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Ativos</CardTitle>
-          <CardValue>{activeCount}</CardValue>
-        </Card>
+        <MetricCard title="Monitorados" value={channels.length} icon={Hash} />
+        <MetricCard title="Ativos" value={activeCount} icon={ToggleRight} />
         <Card className="col-span-2 sm:col-span-1 flex items-center">
           <Link
             to="/discord/rules"
@@ -154,7 +148,7 @@ export default function Channels() {
           {step === 'guild' && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-300 mb-3">Selecione o servidor</p>
-              {loadingGuilds && <div className="flex justify-center py-4"><Spinner size={24} /></div>}
+              {loadingGuilds && <LoadingState rows={2} className="py-2" />}
               {guilds.map(g => (
                 <button
                   key={g.id}
@@ -180,7 +174,7 @@ export default function Channels() {
               <p className="text-sm font-medium text-gray-300 mb-3">
                 Selecione o canal em <span className="text-brand-400">{selectedGuild.name}</span>
               </p>
-              {loadingChannels && <div className="flex justify-center py-4"><Spinner size={24} /></div>}
+              {loadingChannels && <LoadingState rows={2} className="py-2" />}
               <div className="max-h-64 overflow-y-auto space-y-1">
                 {guildChannels.map(ch => {
                   const added = alreadyAdded(ch.id)
@@ -223,7 +217,7 @@ export default function Channels() {
         </Card>
       )}
 
-      {isLoading && <div className="flex justify-center pt-10"><Spinner size={28} /></div>}
+      {isLoading && <LoadingState rows={4} className="pt-6" />}
 
       {!isLoading && channels.length === 0 && !showForm && (
         <Card className="text-center py-12 text-gray-500">

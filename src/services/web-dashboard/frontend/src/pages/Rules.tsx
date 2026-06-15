@@ -11,6 +11,7 @@ import { BookOpen, ToggleLeft, ToggleRight, Trash2, Plus, Pencil, X, Check, Hash
 import { DiscordPage } from '../components/discord/DiscordPage'
 import DestinationMultiSelect from '../components/discord/DestinationMultiSelect'
 import { discordNavAlertsQueryKey } from '../lib/useDiscordNavAlerts'
+import { LoadingState, MetricCard, EmptyState, inputCls } from '@/design-system'
 
 interface Rule {
   _id: string
@@ -100,7 +101,6 @@ function RuleFormPanel({
   const [form, setForm] = useState<RuleForm>(initial)
   const set = (k: keyof RuleForm, v: string) => setForm(f => ({ ...f, [k]: v }))
 
-  const inputCls = 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
   const labelCls = 'text-xs text-gray-500 mb-1 block'
 
   const toggleChannel = (channelId: string) => {
@@ -302,7 +302,13 @@ export default function Rules() {
     },
   })
 
-  if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
+  if (isLoading) {
+    return (
+      <DiscordPage description="Quando uma mensagem chega em um canal monitorado, as regras definem template, destinos e prioridade do envio ao WhatsApp.">
+        <LoadingState rows={5} className="pt-8" />
+      </DiscordPage>
+    )
+  }
 
   const activeRules = rules.filter(r => r.isActive).length
   const blockedRules = rules.filter(r => r.isActive && r.executionBlock?.reason)
@@ -338,18 +344,9 @@ export default function Rules() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Card className="p-3">
-          <p className="text-xs text-gray-500">Regras</p>
-          <p className="text-xl font-bold">{rules.length}</p>
-        </Card>
-        <Card className="p-3">
-          <p className="text-xs text-gray-500">Ativas</p>
-          <p className="text-xl font-bold text-brand-400">{activeRules}</p>
-        </Card>
-        <Card className="p-3">
-          <p className="text-xs text-gray-500">Canais cadastrados</p>
-          <p className="text-xl font-bold">{channels.length}</p>
-        </Card>
+        <MetricCard title="Regras" value={rules.length} icon={BookOpen} />
+        <MetricCard title="Ativas" value={activeRules} icon={ToggleRight} />
+        <MetricCard title="Canais cadastrados" value={channels.length} icon={Hash} />
       </div>
 
       {!guildId && (
@@ -379,13 +376,16 @@ export default function Rules() {
 
       {/* Empty state */}
       {rules.length === 0 && !creating && (
-        <Card className="text-center py-12 text-gray-500">
-          <BookOpen size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="mb-3">Nenhuma regra configurada.</p>
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus size={12} /> Criar primeira regra
-          </Button>
-        </Card>
+        <EmptyState
+          icon={BookOpen}
+          title="Nenhuma regra configurada"
+          description="Crie regras para definir template, destinos e prioridade dos envios ao WhatsApp."
+          action={
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <Plus size={12} /> Criar primeira regra
+            </Button>
+          }
+        />
       )}
 
       {/* Rule cards */}

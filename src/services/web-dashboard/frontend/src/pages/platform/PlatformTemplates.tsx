@@ -9,8 +9,9 @@ import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import {
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { LoadingState } from '@/design-system'
+import {
   FileText,
   BookOpen,
   Pencil,
@@ -182,9 +183,9 @@ export default function PlatformTemplates() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center pt-20">
-        <Spinner size={32} />
-      </div>
+      <PlatformPage title="Modelos de mensagem" description="Carregando modelos…">
+        <LoadingState rows={4} className="pt-4" />
+      </PlatformPage>
     )
   }
 
@@ -287,7 +288,7 @@ export default function PlatformTemplates() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-brand-300">Editando formato</p>
-              <p className="text-lg font-semibold text-white">{displayLabel(editing)}</p>
+              <p className="text-lg font-semibold text-[var(--rz-text-primary)]">{displayLabel(editing)}</p>
               <p className="text-xs text-gray-500 font-mono">{editing.name}</p>
             </div>
             <button

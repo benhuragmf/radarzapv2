@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
-import { Spinner } from '../../components/ui/Spinner'
 import { api } from '../../lib/api'
 import { Ban } from 'lucide-react'
+import { RadarPageShell, PageHeader, LoadingState, EmptyState } from '@/design-system'
 
 interface ErrorLog {
   _id: string
@@ -24,33 +24,32 @@ export default function AdminErrors() {
   const logs = data?.logs ?? []
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-        <Ban size={20} className="text-red-400" />
-        Erros do sistema
-      </h1>
-      <p className="text-sm text-gray-500">Últimas 24 horas — nível error.</p>
+    <RadarPageShell maxWidth="wide">
+      <PageHeader
+        title="Erros do sistema"
+        subtitle="Últimas 24 horas — nível error."
+      />
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><Spinner size={32} /></div>
+        <LoadingState rows={5} className="pt-4" />
       ) : logs.length === 0 ? (
-        <Card className="text-center py-12 text-gray-500 text-sm">Nenhum erro recente.</Card>
+        <EmptyState icon={Ban} title="Nenhum erro recente" description="Nenhum erro registrado nas últimas 24 horas." />
       ) : (
         <div className="space-y-2">
           {logs.map(log => (
             <Card key={log._id} className="text-xs">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <Badge label={log.level} variant="red" />
-                <span className="text-gray-500">{log.service}</span>
-                <span className="text-gray-600 ml-auto">
+                <span className="text-[var(--rz-text-muted)]">{log.service}</span>
+                <span className="text-[var(--rz-text-muted)] ml-auto">
                   {new Date(log.timestamp).toLocaleString('pt-BR')}
                 </span>
               </div>
-              <p className="text-gray-300">{log.message}</p>
+              <p className="text-[var(--rz-text-secondary)]">{log.message}</p>
             </Card>
           ))}
         </div>
       )}
-    </div>
+    </RadarPageShell>
   )
 }

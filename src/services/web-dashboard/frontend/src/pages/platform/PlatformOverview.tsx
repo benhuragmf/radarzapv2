@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { PlatformPage } from '../../components/platform/PlatformPage'
-import { Card, CardTitle, CardValue } from '../../components/ui/Card'
-import { Spinner } from '../../components/ui/Spinner'
+import { Card } from '../../components/ui/Card'
 import { api } from '../../lib/api'
 import {
   LayoutDashboard, FileText, Activity, Phone, MessageSquare,
   Smartphone, Clock, Hash,
 } from 'lucide-react'
+import { MetricCard, LoadingState } from '@/design-system'
 
 interface PlatformStats {
   contactsCount: number
@@ -41,16 +41,15 @@ export default function PlatformOverview() {
 
   const cards = stats
     ? [
-        { label: 'Contatos ativos', value: stats.contactsCount, icon: Phone, color: 'text-brand-400' },
-        { label: 'Mensagens hoje', value: stats.messagesToday, icon: MessageSquare, color: 'text-emerald-400' },
+        { label: 'Contatos ativos', value: stats.contactsCount, icon: Phone },
+        { label: 'Mensagens hoje', value: stats.messagesToday, icon: MessageSquare },
         {
           label: 'WhatsApp',
           value: WA_LABEL[stats.waStatus] ?? stats.waStatus,
           icon: Smartphone,
-          color: stats.waStatus === 'connected' ? 'text-blue-400' : 'text-amber-400',
           isText: true,
         },
-        { label: 'Fila pendente', value: stats.queuePending, icon: Clock, color: 'text-yellow-400' },
+        { label: 'Fila pendente', value: stats.queuePending, icon: Clock },
       ]
     : []
 
@@ -60,27 +59,18 @@ export default function PlatformOverview() {
       description="Hub da área Plataforma: modelos, contatos e relatórios do seu tenant — separado da automação Discord → WhatsApp."
       phase="MVP"
     >
-      {isLoading && (
-        <div className="flex justify-center py-8">
-          <Spinner size={28} />
-        </div>
-      )}
+      {isLoading && <LoadingState rows={4} className="py-4" />}
 
       {!isLoading && stats && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {cards.map(({ label, value, icon: Icon, color, isText }) => (
-              <Card key={label}>
-                <div className="flex items-center justify-between mb-3">
-                  <CardTitle>{label}</CardTitle>
-                  <Icon size={18} className={color} />
-                </div>
-                {isText ? (
-                  <p className="text-lg font-semibold text-white">{value}</p>
-                ) : (
-                  <CardValue>{typeof value === 'number' ? value.toLocaleString('pt-BR') : value}</CardValue>
-                )}
-              </Card>
+            {cards.map(({ label, value, icon: Icon, isText }) => (
+              <MetricCard
+                key={label}
+                title={label}
+                value={isText ? value : typeof value === 'number' ? value.toLocaleString('pt-BR') : value}
+                icon={Icon}
+              />
             ))}
           </div>
 

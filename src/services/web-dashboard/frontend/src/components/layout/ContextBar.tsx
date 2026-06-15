@@ -39,14 +39,14 @@ export default function ContextBar({ user }: Props) {
     ? 'text-brand-400 border-brand-600/40 bg-brand-600/10'
     : sessions.some(s => s.status === 'connecting' || s.status === 'qr-required')
       ? 'text-yellow-400 border-yellow-600/40 bg-yellow-600/10'
-      : 'text-gray-400 border-gray-700 bg-gray-800'
+      : 'text-[var(--rz-text-secondary)] border-[var(--rz-border)] bg-[var(--rz-surface-muted)]'
 
   if (!showWhatsApp) return null
 
   return (
-    <div className="bg-gray-900/80 border-b border-gray-800 px-6 py-2.5 flex flex-wrap items-center gap-4">
+    <div className="bg-[var(--rz-surface)]/90 border-b border-[var(--rz-border)] px-4 sm:px-6 py-2.5 flex flex-wrap items-center gap-4">
       <div className="flex items-center gap-3">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold shrink-0">
+        <span className="text-[10px] text-[var(--rz-text-muted)] uppercase tracking-wider font-semibold shrink-0">
           WhatsApp
         </span>
         <Link
@@ -55,7 +55,7 @@ export default function ContextBar({ user }: Props) {
         >
           <Smartphone size={14} className="shrink-0" />
           <span className="truncate max-w-[200px]">{waLabel}</span>
-          <span className={`w-2 h-2 rounded-full shrink-0 ${connected ? 'bg-brand-500' : 'bg-gray-600'}`} />
+          <span className={`w-2 h-2 rounded-full shrink-0 ${connected ? 'bg-brand-500' : 'bg-[var(--rz-text-muted)]'}`} />
         </Link>
       </div>
     </div>

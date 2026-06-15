@@ -6,10 +6,10 @@ import { getSocket } from '../lib/socket'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Spinner } from '../components/ui/Spinner'
 import { Smartphone, RefreshCw, Power, QrCode, User } from 'lucide-react'
 import { formatPhone } from '../lib/destinationFormat'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
+import { RadarPageShell, PageHeader, EmptyState, LoadingState } from '@/design-system'
 
 interface Session {
   clientId: string
@@ -165,23 +165,31 @@ export default function Sessions() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })
 
-  if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
+  if (isLoading) {
+    return (
+      <RadarPageShell>
+        <LoadingState rows={4} className="pt-12" />
+      </RadarPageShell>
+    )
+  }
 
   const hasConnected = uniqueSessions.some(s => s.status === 'connected')
 
-  return (
+  const content = (
     <div className="space-y-4">
       {!isAdminScope && (
-        <div>
-          <h1 className="text-lg font-semibold text-white">Sessões e QR Code</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Conexão ativa da empresa. Histórico de eventos em{' '}
-            <Link to="/platform/wa-status" className="text-brand-400 hover:underline">
-              Status das conexões
-            </Link>
-            .
-          </p>
-        </div>
+        <PageHeader
+          title="Sessões e QR Code"
+          subtitle={
+            <>
+              Conexão ativa da empresa. Histórico de eventos em{' '}
+              <Link to="/platform/wa-status" className="text-[var(--rz-primary)] hover:underline">
+                Status das conexões
+              </Link>
+              .
+            </>
+          }
+        />
       )}
 
       <div className="flex items-center justify-between gap-4">
@@ -209,15 +217,17 @@ export default function Sessions() {
       </div>
 
       {uniqueSessions.length === 0 && (
-        <Card className="text-center py-12 text-gray-500">
-          <Smartphone size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="mb-1">Nenhum WhatsApp conectado.</p>
-          <p className="text-xs mb-4">Clique abaixo para iniciar a conexão via QR code.</p>
-          <Button onClick={() => startConnect.mutate()} disabled={startConnect.isPending}>
-            <QrCode size={14} />
-            Conectar WhatsApp
-          </Button>
-        </Card>
+        <EmptyState
+          icon={Smartphone}
+          title="Nenhum WhatsApp conectado"
+          description="Clique abaixo para iniciar a conexão via QR code."
+          action={
+            <Button onClick={() => startConnect.mutate()} disabled={startConnect.isPending}>
+              <QrCode size={14} />
+              Conectar WhatsApp
+            </Button>
+          }
+        />
       )}
 
       {uniqueSessions.map((s) => {
@@ -316,4 +326,6 @@ export default function Sessions() {
       })}
     </div>
   )
+
+  return isAdminScope ? content : <RadarPageShell>{content}</RadarPageShell>
 }

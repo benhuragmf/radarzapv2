@@ -6,6 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
+import { LoadingState } from '@/design-system'
 import {
   MessageSquare,
   UserCheck,
@@ -482,9 +483,7 @@ export default function Inbox() {
 
           <div className="flex-1 min-h-0 overflow-y-auto">
             {loadingList ? (
-              <div className="flex justify-center py-12">
-                <Spinner size={24} />
-              </div>
+              <LoadingState rows={3} className="py-8" />
             ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                 <MessageSquare size={32} className="text-gray-700 mb-2" />
@@ -589,7 +588,7 @@ export default function Inbox() {
             </div>
           ) : loadingDetail ? (
             <div className="flex justify-center items-center flex-1">
-              <Spinner size={28} />
+              <LoadingState rows={3} className="py-8" />
             </div>
           ) : conv ? (
             <>

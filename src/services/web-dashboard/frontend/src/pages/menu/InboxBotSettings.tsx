@@ -6,8 +6,8 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Spinner'
 import { Bot, Clock, Users, ArrowLeft, Save, Bell } from 'lucide-react'
+import { inputCls, textareaCls, LoadingState } from '@/design-system'
 
 type Weekday =
   | 'monday'
@@ -73,10 +73,6 @@ const WEEKDAYS: Weekday[] = [
   'sunday',
 ]
 
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
-const textareaCls = `${inputCls} min-h-[72px] resize-y`
-
 export default function InboxBotSettings() {
   const qc = useQueryClient()
   const { data: me } = useQuery<AuthUser | null>({
@@ -117,9 +113,9 @@ export default function InboxBotSettings() {
 
   if (isLoading || !form) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner size={28} />
-      </div>
+      <PlatformPage title="Bot do Inbox" description="Carregando configurações…">
+        <LoadingState rows={4} className="pt-4" />
+      </PlatformPage>
     )
   }
 

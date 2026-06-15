@@ -43,8 +43,7 @@ export interface Destination {
   profilePictureUpdatedAt?: string
 }
 
-export const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
+export { inputCls, selectCls, textareaCls } from '@/design-system/formClasses'
 
 function IconBtn({
   title,

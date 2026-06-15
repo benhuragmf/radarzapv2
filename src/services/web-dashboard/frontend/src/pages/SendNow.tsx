@@ -46,8 +46,9 @@ import {
 } from 'lucide-react'
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
 import { WhatsAppTextEditor } from '../components/whatsapp/WhatsAppTextEditor'
-import {
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
+import { RadarPageShell, PageHeader, inputCls } from '@/design-system'
+import {
   clampDatetimeLocal,
   minDatetimeLocalFromNow,
   validateFutureSchedule,
@@ -93,9 +94,6 @@ interface PlatformTemplateOption {
   label?: string
   platformKind?: string
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 const MIN_DELAY_MS = WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS
 
@@ -469,7 +467,9 @@ export default function SendNow() {
   })
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <RadarPageShell maxWidth="wide">
+      <PageHeader title="Enviar agora" subtitle="Campanha manual para contatos ou grupos com preview WhatsApp." />
+      <div className="max-w-4xl space-y-4">
       {!connected && (
         <Card className="flex items-start gap-3 border-amber-800/50 bg-amber-950/20">
           <AlertCircle size={18} className="text-amber-400 shrink-0 mt-0.5" />
@@ -1127,6 +1127,7 @@ export default function SendNow() {
             </Card>
           </div>
         </div>
-    </div>
+      </div>
+    </RadarPageShell>
   )
 }

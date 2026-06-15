@@ -5,9 +5,8 @@ import { api } from '../lib/api'
 import { getMe, can, type AuthUser } from '../lib/auth'
 import { useGuild } from '../lib/guildContext'
 import { DiscordPage } from '../components/discord/DiscordPage'
-import { Card, CardTitle, CardValue } from '../components/ui/Card'
+import { Card, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Spinner } from '../components/ui/Spinner'
 import { isUnlimited } from '../lib/limits'
 import ContactGroupsSidebar, { type ContactGroupItem } from '../components/contacts/ContactGroupsSidebar'
 import ContactEditorModal, { type ContactFormData } from '../components/contacts/ContactEditorModal'
@@ -32,12 +31,20 @@ import {
   FolderMinus,
   CheckSquare,
 } from 'lucide-react'
-import {
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
+import {
   DestinationRow,
   inputCls,
   type Destination,
 } from '../lib/destinationUi'
+import {
+  RadarPageShell,
+  PageHeader,
+  MetricCard,
+  FilterBar,
+  LoadingState,
+  EmptyState,
+} from '@/design-system'
 
 export default function Destinations() {
   const qc = useQueryClient()
@@ -444,6 +451,17 @@ export default function Destinations() {
 
   const body = (
     <>
+      {!isDiscord && (
+        <PageHeader
+          title={isWaitingView ? 'Aguardando aprovação' : 'Contatos'}
+          subtitle={
+            isWaitingView
+              ? 'Solicitações de renovação de consentimento LGPD pendentes de aprovação.'
+              : 'Gerencie contatos, grupos de segmentação e consentimento LGPD.'
+          }
+        />
+      )}
+
       {isDiscord && (
         <Card className="border-gray-800 bg-gray-900/40 p-3">
           <p className="text-xs text-gray-500 mb-2">Atalhos da automação</p>
@@ -492,23 +510,20 @@ export default function Destinations() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl">
-        <Card>
-          <CardTitle>Contatos</CardTitle>
-          <CardValue>{allContacts.length}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Grupos de contato</CardTitle>
-          <CardValue>{contactGroups.length}</CardValue>
-        </Card>
-        <Card className="col-span-2 sm:col-span-1">
-          <CardTitle>Total cadastrado</CardTitle>
-          <CardValue>
-            {destinations.length}
-            {destLimit !== undefined && !isUnlimited(destLimit) && (
-              <span className="text-sm text-gray-500 font-normal"> / {destLimit}</span>
-            )}
-          </CardValue>
-        </Card>
+        <MetricCard title="Contatos" value={allContacts.length} icon={Phone} />
+        <MetricCard title="Grupos de contato" value={contactGroups.length} icon={Users} />
+        <MetricCard
+          title="Total cadastrado"
+          value={
+            <>
+              {destinations.length}
+              {destLimit !== undefined && !isUnlimited(destLimit) && (
+                <span className="text-sm text-[var(--rz-text-muted)] font-normal"> / {destLimit}</span>
+              )}
+            </>
+          }
+          icon={Hash}
+        />
       </div>
 
       {!isDiscord && consentFilter && (
@@ -558,9 +573,62 @@ export default function Destinations() {
             </p>
           )}
 
-      <div className="flex flex-col gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+      <FilterBar
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={openCreateEditor} disabled={atDestLimit || !canManage}>
+              <Plus size={12} /> Novo contato
+            </Button>
+            {!isDiscord && canManage && (
+              <>
+                <Link
+                  to={
+                    selectedGroupId
+                      ? `/platform/contacts?segment=${selectedGroupId}`
+                      : '/platform/contacts'
+                  }
+                >
+                  <Button size="sm" variant="secondary">
+                    <Upload size={12} /> Importar CSV/VCF
+                  </Button>
+                </Link>
+                <Link to="/platform/segmentos">
+                  <Button size="sm" variant="ghost">
+                    <ListOrdered size={12} /> Segmentos
+                  </Button>
+                </Link>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={syncProfilePhotos.isPending}
+                  onClick={() => {
+                    syncProfilePhotos.mutate(60, {
+                      onSuccess: (r) => {
+                        notifyError(
+                          `Fotos WhatsApp: ${r.updated} salva(s), ${r.skipped} sem foto ou ignorada(s), ${r.failed} erro(s).`,
+                        )
+                      },
+                    })
+                  }}
+                  title={
+                    waConnected
+                      ? 'Força um lote extra agora (o servidor já sincroniza em background)'
+                      : 'Requer WhatsApp conectado em Sessões'
+                  }
+                >
+                  <RefreshCw
+                    size={12}
+                    className={syncProfilePhotos.isPending ? 'animate-spin' : ''}
+                  />{' '}
+                  {syncProfilePhotos.isPending ? 'Buscando fotos…' : 'Forçar fotos agora'}
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      >
+        <div className="relative flex-1 min-w-[12rem] max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -568,56 +636,8 @@ export default function Destinations() {
             className={`${inputCls} pl-9`}
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={openCreateEditor} disabled={atDestLimit || !canManage}>
-            <Plus size={12} /> Novo contato
-          </Button>
-          {!isDiscord && canManage && (
-            <>
-              <Link
-                to={
-                  selectedGroupId
-                    ? `/platform/contacts?segment=${selectedGroupId}`
-                    : '/platform/contacts'
-                }
-              >
-                <Button size="sm" variant="secondary">
-                  <Upload size={12} /> Importar CSV/VCF
-                </Button>
-              </Link>
-              <Link to="/platform/segmentos">
-                <Button size="sm" variant="ghost">
-                  <ListOrdered size={12} /> Segmentos
-                </Button>
-              </Link>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={syncProfilePhotos.isPending}
-                onClick={() => {
-                  syncProfilePhotos.mutate(60, {
-                    onSuccess: (r) => {
-                      notifyError(
-                        `Fotos WhatsApp: ${r.updated} salva(s), ${r.skipped} sem foto ou ignorada(s), ${r.failed} erro(s).`,
-                      )
-                    },
-                  })
-                }}
-                title={
-                  waConnected
-                    ? 'Força um lote extra agora (o servidor já sincroniza em background)'
-                    : 'Requer WhatsApp conectado em Sessões'
-                }
-              >
-                <RefreshCw
-                  size={12}
-                  className={syncProfilePhotos.isPending ? 'animate-spin' : ''}
-                />{' '}
-                {syncProfilePhotos.isPending ? 'Buscando fotos…' : 'Forçar fotos agora'}
-              </Button>
-            </>
-          )}
-        </div>
+      </FilterBar>
+      <div className="flex flex-col gap-3 -mt-1">
         {!isDiscord && waConnected && allContacts.length > 0 && (
           <p className="text-[11px] text-gray-600">
             Fotos de perfil são sincronizadas automaticamente pelo servidor em lotes
@@ -738,32 +758,37 @@ export default function Destinations() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-16">
-          <Spinner size={32} />
-        </div>
+        <LoadingState rows={6} className="py-8" />
       ) : isWaitingView ? null : allContacts.length === 0 ? (
-        <Card className="text-center py-12 text-gray-500">
-          <Phone size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-400">Nenhum contato cadastrado</p>
-          <p className="text-sm mt-1">Adicione um número com DDI, ex: +5511999999999</p>
-        </Card>
+        <EmptyState
+          icon={Phone}
+          title="Nenhum contato cadastrado"
+          description="Adicione um número com DDI, ex: +5511999999999"
+          action={
+            canManage ? (
+              <Button size="sm" onClick={openCreateEditor} disabled={atDestLimit}>
+                <Plus size={12} /> Novo contato
+              </Button>
+            ) : undefined
+          }
+        />
       ) : contacts.length === 0 ? (
-        <Card className="text-center py-12 text-gray-500">
-          <FolderOpen size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-400">
-            {selectedGroup ? 'Nenhum contato neste grupo' : 'Nenhum resultado'}
-          </p>
-          <p className="text-sm mt-1">
-            {selectedGroup
+        <EmptyState
+          icon={FolderOpen}
+          title={selectedGroup ? 'Nenhum contato neste grupo' : 'Nenhum resultado'}
+          description={
+            selectedGroup
               ? 'Edite um contato e marque este grupo, ou cadastre um novo já no grupo.'
-              : 'Ajuste a busca ou o filtro de consentimento.'}
-          </p>
-          {selectedGroup && (
-            <Button size="sm" variant="secondary" className="mt-4" onClick={() => setSelectedGroupId(null)}>
-              Ver todos os contatos
-            </Button>
-          )}
-        </Card>
+              : 'Ajuste a busca ou o filtro de consentimento.'
+          }
+          action={
+            selectedGroup ? (
+              <Button size="sm" variant="secondary" onClick={() => setSelectedGroupId(null)}>
+                Ver todos os contatos
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
         <div className="space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -978,5 +1003,5 @@ export default function Destinations() {
     )
   }
 
-  return <div className="space-y-5 max-w-6xl">{body}</div>
+  return <RadarPageShell>{body}</RadarPageShell>
 }

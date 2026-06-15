@@ -29,6 +29,7 @@ import { StatusImageUpload } from '../../components/whatsapp/StatusImageUpload'
 import { StatusPostDetailModal } from '../../components/whatsapp/StatusPostDetailModal'
 import { statusFontPreviewClass, type WaStatusFont } from '../../lib/whatsapp-status-fonts'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { RadarPageShell, PageHeader, inputCls, LoadingState } from '@/design-system'
 
 type StatusType = 'text' | 'image'
 type StatusAudience = 'whatsapp' | 'all_contacts' | 'consented'
@@ -51,9 +52,6 @@ interface StatusPost {
   viewCount?: number
   createdAt: string
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 const STATUS_COLORS = [
   { id: 'cream', value: '#FFFCF5', label: 'Creme' },
@@ -253,17 +251,11 @@ export default function WaStatusPosts() {
     backgroundColor === '#1F2C34' ? 'text-white' : 'text-gray-900'
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Circle size={20} className="text-brand-400" />
-          Publicar status WhatsApp
-        </h1>
-        <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-          Poste texto ou foto no seu status (stories), como no app do WhatsApp. Agendamentos
-          são processados pelo servidor a cada ~15 s — não precisa manter esta página aberta.
-        </p>
-      </div>
+    <RadarPageShell maxWidth="wide">
+      <PageHeader
+        title="Publicar status WhatsApp"
+        subtitle="Poste texto ou foto no seu status (stories), como no app do WhatsApp. Agendamentos são processados pelo servidor a cada ~15 s — não precisa manter esta página aberta."
+      />
 
       {!waConnected && (
         <Card className="border-amber-900/40 bg-amber-950/20 flex gap-3 items-start">
@@ -476,9 +468,7 @@ export default function WaStatusPosts() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Spinner size={28} />
-        </div>
+        <LoadingState rows={4} className="pt-4" />
       ) : (
         <>
           <section className="space-y-3">
@@ -581,6 +571,6 @@ export default function WaStatusPosts() {
       {detailPostId && (
         <StatusPostDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} />
       )}
-    </div>
+    </RadarPageShell>
   )
 }

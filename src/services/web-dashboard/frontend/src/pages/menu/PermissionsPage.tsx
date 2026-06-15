@@ -1,10 +1,10 @@
-import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { can, getMe } from '../../lib/auth'
 import { Card } from '../../components/ui/Card'
-import { Spinner } from '../../components/ui/Spinner'
-import { Lock, UserCog, ShieldCheck } from 'lucide-react'
+import { UserCog, ShieldCheck } from 'lucide-react'
+import { RadarPageShell, PageHeader, LoadingState, ErrorState } from '@/design-system'
 
 const ROLE_HINTS: Record<string, string> = {
   OWNER: 'Acesso total à empresa, plano e equipe',
@@ -43,47 +43,43 @@ export default function PermissionsPage() {
   const presets = data?.presets ?? []
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-        <Lock size={20} className="text-brand-400" />
-        Permissões da empresa
-      </h1>
-      <p className="text-sm text-gray-500">
-        Papéis controlam o que cada membro vê no painel. Edite capacidades em{' '}
-        <Link to="/settings/team" className="text-brand-400 hover:underline">
-          Configurações → Equipe
-        </Link>
-        .
-      </p>
+    <RadarPageShell>
+      <PageHeader
+        title="Permissões da empresa"
+        subtitle={
+          <>
+            Papéis controlam o que cada membro vê no painel. Edite capacidades em{' '}
+            <Link to="/settings/team" className="text-[var(--rz-primary)] hover:underline">
+              Configurações → Equipe
+            </Link>
+            .
+          </>
+        }
+      />
 
       {canManage ? (
         isLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner />
-          </div>
+          <LoadingState rows={4} className="pt-4" />
         ) : isError ? (
-          <Card className="text-sm text-gray-500">
-            Não foi possível carregar papéis. Abra{' '}
-            <Link to="/settings/team" className="text-brand-400 hover:underline">
-              Equipe
-            </Link>{' '}
-            para gerenciar permissões.
-          </Card>
+          <ErrorState
+            title="Não foi possível carregar papéis"
+            message="Abra Equipe para gerenciar permissões."
+          />
         ) : (
           <div className="space-y-2">
             {presets.map(r => (
               <Card key={r.role}>
-                <p className="text-sm font-medium text-white flex items-center gap-2">
-                  <UserCog size={14} className="text-gray-500" />
+                <p className="text-sm font-medium text-[var(--rz-text-primary)] flex items-center gap-2">
+                  <UserCog size={14} className="text-[var(--rz-text-muted)]" />
                   {r.name ?? r.role}
                   {r.isCustom && (
-                    <span className="text-[10px] uppercase tracking-wide text-brand-400">custom</span>
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--rz-primary)]">custom</span>
                   )}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[var(--rz-text-muted)] mt-1">
                   {ROLE_HINTS[r.role] ?? 'Papel customizado com capacidades próprias'}
                 </p>
-                <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                <p className="text-xs text-[var(--rz-text-secondary)] mt-2 flex items-center gap-1">
                   <ShieldCheck size={12} />
                   {(r.capabilities ?? []).length} capacidade(s) ativa(s)
                 </p>
@@ -92,24 +88,24 @@ export default function PermissionsPage() {
           </div>
         )
       ) : (
-        <Card className="text-sm text-gray-500">
+        <Card className="text-sm text-[var(--rz-text-secondary)]">
           Você não tem permissão para editar papéis. Peça a um administrador da empresa em{' '}
-          <Link to="/settings/team" className="text-brand-400 hover:underline">
+          <Link to="/settings/team" className="text-[var(--rz-primary)] hover:underline">
             Equipe
           </Link>
           .
         </Card>
       )}
 
-      <Card className="text-xs text-gray-500 space-y-2">
+      <Card className="text-xs text-[var(--rz-text-muted)] space-y-2">
         <p>
-          <strong className="text-gray-400">Seu papel atual:</strong>{' '}
+          <strong className="text-[var(--rz-text-secondary)]">Seu papel atual:</strong>{' '}
           {me?.companyRole ?? '—'}
         </p>
         <p>
           Capacidades efetivas: {(me?.capabilities ?? []).length}. Rotas bloqueadas retornam 403 na API.
         </p>
       </Card>
-    </div>
+    </RadarPageShell>
   )
 }

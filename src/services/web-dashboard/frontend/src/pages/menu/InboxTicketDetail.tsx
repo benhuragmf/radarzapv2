@@ -7,7 +7,6 @@ import { usePanelSocket } from '../../hooks/usePanelSocket'
 import type { PanelEvent } from '../../context/EventNotificationContext'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Spinner'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxTicketDetailView } from '../../components/inbox/InboxTicketDetailView'
 import type { InboxMessageView } from '../../components/inbox/InboxMessageBubble'
@@ -15,6 +14,7 @@ import type { ContactStats, PreviousConversation } from '../../components/inbox/
 import type { InboxTicketDetail, InboxTicketTeamMember } from '../../lib/inboxTicket'
 import { ArrowLeft, Ticket } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { LoadingState, EmptyState } from '@/design-system'
 
 interface DetailResponse {
   conversation: {
@@ -163,17 +163,18 @@ export default function InboxTicketDetailPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20">
-          <Spinner size={32} />
-        </div>
+        <LoadingState rows={4} className="pt-8" />
       ) : error ? (
-        <div className="text-center py-20 rounded-xl border border-gray-800 bg-gray-900/40">
-          <Ticket size={40} className="mx-auto text-gray-700 mb-3" />
-          <p className="text-gray-400">Ticket não encontrado.</p>
-          <Link to="/platform/inbox/tickets" className="text-brand-400 text-sm mt-2 inline-block hover:underline">
-            Ver todos os tickets
-          </Link>
-        </div>
+        <EmptyState
+          icon={Ticket}
+          title="Ticket não encontrado"
+          description="O ticket pode ter sido removido ou você não tem acesso."
+          action={
+            <Link to="/platform/inbox/tickets" className="text-sm text-[var(--rz-primary)] hover:underline">
+              Ver todos os tickets
+            </Link>
+          }
+        />
       ) : data ? (
         <InboxTicketDetailView
           conversation={data.conversation}

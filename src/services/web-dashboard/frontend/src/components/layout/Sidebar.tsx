@@ -84,12 +84,12 @@ function NavLinkItem({
       title={alert?.summary}
       className={`flex items-center gap-3 ${pad} py-2 touch-target-nav rounded-lg text-sm transition-colors active:scale-[0.98] ${alertRing} ${
         active
-          ? 'bg-brand-600 text-white font-medium'
+          ? 'rz-nav-item-active'
           : alert
             ? alert.severity === 'error'
-              ? 'text-red-300 hover:text-white hover:bg-gray-800'
-              : 'text-amber-200/90 hover:text-white hover:bg-gray-800'
-            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              ? 'rz-nav-item text-red-300 hover:text-white'
+              : 'rz-nav-item text-amber-200/90 hover:text-white'
+            : 'rz-nav-item'
       }`}
     >
       <Icon size={16} className="shrink-0" />
@@ -98,7 +98,7 @@ function NavLinkItem({
       {entry.badge && (
         <span
           className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded font-medium ${
-            active ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-500'
+            active ? 'bg-white/20 text-white' : 'bg-white/10 rz-sidebar-muted'
           }`}
         >
           {entry.badge}
@@ -137,8 +137,8 @@ function NavGroupItem({
         onClick={() => setOpen(v => !v)}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
           isActive
-            ? 'text-brand-400 font-medium'
-            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            ? 'text-[var(--rz-sidebar-icon-active)] font-medium'
+            : 'rz-nav-item'
         }`}
       >
         <Icon size={16} className="shrink-0" />
@@ -168,11 +168,11 @@ function NavGroupItem({
 function NavSection({ entry }: { entry: Extract<NavEntry, { kind: 'section' }> }) {
   return (
     <div className="px-3 pt-5 pb-1 first:pt-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+      <p className="text-[10px] font-semibold uppercase tracking-wider rz-sidebar-muted">
         {entry.label}
       </p>
       {entry.hint && (
-        <p className="text-[10px] text-gray-600 mt-0.5 leading-snug">{entry.hint}</p>
+        <p className="text-[10px] text-white/40 mt-0.5 leading-snug">{entry.hint}</p>
       )}
     </div>
   )
@@ -236,7 +236,7 @@ function ModeSwitcher({
 
   return (
     <div
-      className="flex rounded-xl bg-gray-950/80 border border-gray-800 p-1 gap-0.5"
+      className="flex rounded-xl bg-[var(--rz-sidebar-bg-alt)] border border-white/10 p-1 gap-0.5"
       role="tablist"
       aria-label="Área do painel"
     >
@@ -253,8 +253,8 @@ function ModeSwitcher({
             onClick={() => onModeChange(id)}
             className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg min-w-0 transition-all ${
               active
-                ? 'bg-brand-600 text-white shadow-sm shadow-brand-900/40'
-                : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/60'
+                ? 'bg-[var(--rz-sidebar-item-active)] text-[var(--rz-sidebar-icon-active)] shadow-sm'
+                : 'rz-sidebar-muted hover:text-[var(--rz-sidebar-text)] hover:bg-[var(--rz-sidebar-item-hover)]'
             }`}
           >
             <Icon size={15} className="shrink-0" strokeWidth={active ? 2.25 : 2} />
@@ -294,15 +294,15 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-[min(100vw,280px)] bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 overflow-y-auto overscroll-contain transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-60 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 ${
+      className={`rz-sidebar fixed inset-y-0 left-0 z-50 w-[min(100vw,280px)] border-r flex flex-col shrink-0 overflow-y-auto overscroll-contain transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-60 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 ${
         mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}
     >
-      <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-800">
-        <Zap className="text-brand-500" size={22} />
+      <div className="flex items-center gap-2 px-5 py-5 border-b rz-sidebar-border">
+        <Zap className="text-[var(--rz-sidebar-icon-active)]" size={22} />
         <div className="min-w-0">
-          <span className="font-bold text-lg tracking-tight block">RadarZap</span>
-          <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+          <span className="font-bold text-lg tracking-tight block text-[var(--rz-sidebar-text)]">RadarZap</span>
+          <span className="text-[10px] rz-sidebar-muted uppercase tracking-wider">
             {mode === 'admin' ? 'Admin RadarZap' : mode === 'discord' ? 'Discord' : 'Plataforma'}
           </span>
         </div>
@@ -332,7 +332,7 @@ export default function Sidebar({
         <NavTree entries={nav} guildReady={navGuildReady} navAlerts={navAlerts} />
       </nav>
 
-      <div className="px-5 py-4 border-t border-gray-800 text-xs text-gray-600">
+      <div className="px-5 py-4 border-t rz-sidebar-border text-xs rz-sidebar-muted">
         v2.0 · {user.plan}
       </div>
     </aside>

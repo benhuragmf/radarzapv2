@@ -40,7 +40,7 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
               onClick={() => setSidebarOpen(false)}
             />
           )}
-          <div className="flex flex-col lg:flex-row min-h-screen w-full bg-gray-950">
+          <div className="flex flex-col lg:flex-row min-h-screen w-full bg-[var(--rz-background)]">
             <Sidebar
               user={user}
               mode={navMode}
@@ -51,7 +51,7 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
               onMobileClose={() => setSidebarOpen(false)}
             />
             <div className="flex flex-col flex-1 min-w-0">
-              <div className="sticky top-0 z-30 shrink-0 bg-gray-950/95 backdrop-blur-sm">
+              <div className="sticky top-0 z-30 shrink-0 bg-[var(--rz-surface)]/95 backdrop-blur-sm border-b border-[var(--rz-border)]">
                 <Header
                   user={user}
                   onLogout={onLogout}

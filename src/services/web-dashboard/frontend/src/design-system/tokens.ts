@@ -1,0 +1,111 @@
+/** Tokens visuais centralizados do RadarZap — valores JS para uso em lógica e estilos inline. */
+export const colors = {
+  background: '#F3F7FB',
+  surface: '#FFFFFF',
+  surfaceMuted: '#E8EEF5',
+  border: '#DDE7F2',
+  textPrimary: '#0F172A',
+  textSecondary: '#64748B',
+  textMuted: '#94A3B8',
+  primary: '#6366F1',
+  primaryHover: '#4F46E5',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  info: '#3B82F6',
+  neutral: '#64748B',
+  sidebarBackground: '#07111F',
+  sidebarBackgroundAlt: '#0B1220',
+  sidebarItem: 'transparent',
+  sidebarItemHover: 'rgba(255,255,255,0.06)',
+  sidebarItemActive: 'rgba(6, 182, 212, 0.16)',
+  sidebarText: '#EAF2FF',
+  sidebarTextMuted: '#8EA3B8',
+  sidebarIcon: '#8EA3B8',
+  sidebarIconActive: '#06B6D4',
+  successBg: '#DCFCE7',
+  successText: '#15803D',
+  warningBg: '#FEF3C7',
+  warningText: '#B45309',
+  dangerBg: '#FEE2E2',
+  dangerText: '#B91C1C',
+  infoBg: '#DBEAFE',
+  infoText: '#1D4ED8',
+  premiumBg: '#EDE9FE',
+  premiumText: '#6D28D9',
+} as const
+
+export const colorsDark = {
+  background: '#030712',
+  surface: '#111827',
+  surfaceMuted: '#1F2937',
+  border: '#374151',
+  textPrimary: '#F3F4F6',
+  textSecondary: '#9CA3AF',
+  textMuted: '#6B7280',
+  primary: '#6366F1',
+  primaryHover: '#818CF8',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  info: '#3B82F6',
+  neutral: '#9CA3AF',
+  sidebarBackground: '#07111F',
+  sidebarBackgroundAlt: '#0B1220',
+  sidebarItem: 'transparent',
+  sidebarItemHover: 'rgba(255,255,255,0.06)',
+  sidebarItemActive: 'rgba(6, 182, 212, 0.16)',
+  sidebarText: '#EAF2FF',
+  sidebarTextMuted: '#8EA3B8',
+  sidebarIcon: '#8EA3B8',
+  sidebarIconActive: '#06B6D4',
+  successBg: 'rgba(34, 197, 94, 0.15)',
+  successText: '#4ADE80',
+  warningBg: 'rgba(245, 158, 11, 0.15)',
+  warningText: '#FBBF24',
+  dangerBg: 'rgba(239, 68, 68, 0.15)',
+  dangerText: '#F87171',
+  infoBg: 'rgba(59, 130, 246, 0.15)',
+  infoText: '#60A5FA',
+  premiumBg: 'rgba(139, 92, 246, 0.15)',
+  premiumText: '#A78BFA',
+} as const
+
+export const spacing = {
+  xs: '0.25rem',
+  sm: '0.5rem',
+  md: '1rem',
+  lg: '1.5rem',
+  xl: '2rem',
+  '2xl': '3rem',
+} as const
+
+export const radius = {
+  sm: '0.375rem',
+  md: '0.5rem',
+  lg: '0.75rem',
+  xl: '1rem',
+  '2xl': '1.25rem',
+  full: '9999px',
+} as const
+
+export const shadows = {
+  card: '0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06)',
+  dropdown: '0 10px 15px -3px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.08)',
+  drawer: '0 20px 25px -5px rgb(15 23 42 / 0.1), 0 8px 10px -6px rgb(15 23 42 / 0.1)',
+  focus: '0 0 0 3px rgb(99 102 241 / 0.35)',
+} as const
+
+export type StatusVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'premium'
+
+export const statusTokens: Record<
+  StatusVariant,
+  { bg: string; text: string; bgVar: string; textVar: string }
+> = {
+  success: { bg: colors.successBg, text: colors.successText, bgVar: '--rz-success-bg', textVar: '--rz-success-text' },
+  warning: { bg: colors.warningBg, text: colors.warningText, bgVar: '--rz-warning-bg', textVar: '--rz-warning-text' },
+  danger: { bg: colors.dangerBg, text: colors.dangerText, bgVar: '--rz-danger-bg', textVar: '--rz-danger-text' },
+  info: { bg: colors.infoBg, text: colors.infoText, bgVar: '--rz-info-bg', textVar: '--rz-info-text' },
+  neutral: { bg: colors.surfaceMuted, text: colors.textSecondary, bgVar: '--rz-surface-muted', textVar: '--rz-text-secondary' },
+  premium: { bg: colors.premiumBg, text: colors.premiumText, bgVar: '--rz-premium-bg', textVar: '--rz-premium-text' },
+}

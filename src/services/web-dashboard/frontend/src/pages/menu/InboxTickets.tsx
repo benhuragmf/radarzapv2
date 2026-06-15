@@ -14,8 +14,6 @@ import { Card } from '../../components/ui/Card'
 
 import { Button } from '../../components/ui/Button'
 
-import { Spinner } from '../../components/ui/Spinner'
-
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 
 import { TicketStatusBadge } from '../../components/inbox/TicketStatusBadge'
@@ -27,6 +25,7 @@ import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { ticketIsOpen, type InboxTicketListRow, type InboxTicketStats } from '../../lib/inboxTicket'
 
 import { Search, Ticket, Filter } from 'lucide-react'
+import { inputCls, selectCls, LoadingState, EmptyState, MetricCard } from '@/design-system'
 
 
 
@@ -95,35 +94,17 @@ export default function InboxTickets() {
 
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-4 max-w-5xl">
-
         {[
-
-          { label: 'Total', value: stats?.total ?? '—', color: 'text-amber-400' },
-
-          { label: 'Abertos', value: stats?.open ?? '—', color: 'text-amber-400' },
-
-          { label: 'Em andamento', value: stats?.inProgress ?? '—', color: 'text-blue-400' },
-
-          { label: 'Cliente respondeu', value: stats?.clientReplied ?? '—', color: 'text-emerald-400' },
-
-          { label: 'Aguard. equipe', value: stats?.waitingTeam ?? '—', color: 'text-orange-400' },
-
-          { label: 'SLA estourado', value: stats?.slaBreached ?? '—', color: 'text-red-400' },
-
-          { label: 'Fechados', value: stats?.closed ?? '—', color: 'text-gray-400' },
-
+          { label: 'Total', value: stats?.total ?? '—' },
+          { label: 'Abertos', value: stats?.open ?? '—', status: stats?.open ? { status: 'warning' as const, text: 'Abertos' } : undefined },
+          { label: 'Em andamento', value: stats?.inProgress ?? '—' },
+          { label: 'Cliente respondeu', value: stats?.clientReplied ?? '—' },
+          { label: 'Aguard. equipe', value: stats?.waitingTeam ?? '—' },
+          { label: 'SLA estourado', value: stats?.slaBreached ?? '—', status: (stats?.slaBreached ?? 0) > 0 ? { status: 'danger' as const, text: 'SLA' } : undefined },
+          { label: 'Fechados', value: stats?.closed ?? '—' },
         ].map(s => (
-
-          <Card key={s.label} className="px-3 py-2.5 text-center">
-
-            <p className="text-[10px] uppercase text-gray-600">{s.label}</p>
-
-            <p className={`text-xl font-semibold tabular-nums ${s.color}`}>{s.value}</p>
-
-          </Card>
-
+          <MetricCard key={s.label} title={s.label} value={s.value} status={s.status} className="text-center [&_p:first-child]:text-[10px] [&_p:first-child]:uppercase" />
         ))}
-
       </div>
 
 
@@ -146,7 +127,7 @@ export default function InboxTickets() {
 
               placeholder="Buscar ticket, contato ou telefone…"
 
-              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-900/80 border border-gray-800 rounded-lg text-gray-200"
+              className={`${inputCls} pl-9`}
 
             />
 
@@ -160,7 +141,7 @@ export default function InboxTickets() {
 
               onChange={e => setStatusFilter(e.currentTarget.value)}
 
-              className="bg-gray-900 border border-gray-800 rounded-lg px-2 py-2 text-xs text-gray-200"
+              className={`${selectCls} text-xs py-2`}
 
             >
 
@@ -197,37 +178,18 @@ export default function InboxTickets() {
 
 
         {isLoading ? (
-
-          <div className="flex justify-center py-16">
-
-            <Spinner size={28} />
-
-          </div>
-
+          <LoadingState rows={4} className="py-8" />
         ) : tickets.length === 0 ? (
-
-          <div className="text-center py-16 px-4">
-
-            <Ticket size={36} className="mx-auto text-gray-700 mb-3" />
-
-            <p className="text-gray-500">Nenhum ticket encontrado.</p>
-
-            <p className="text-xs text-gray-600 mt-1">
-
-              Converta uma conversa no{' '}
-
-              <Link to="/platform/inbox" className="text-brand-400 hover:underline">
-
-                Inbox
-
-              </Link>{' '}
-
-              usando o ícone de ticket.
-
-            </p>
-
-          </div>
-
+          <EmptyState
+            icon={Ticket}
+            title="Nenhum ticket encontrado"
+            description="Converta uma conversa no Inbox usando o ícone de ticket."
+            action={
+              <Link to="/platform/inbox" className="text-sm text-[var(--rz-primary)] hover:underline">
+                Ir para o Inbox
+              </Link>
+            }
+          />
         ) : (
 
           <div className="overflow-x-auto">

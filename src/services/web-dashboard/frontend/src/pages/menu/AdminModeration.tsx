@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Spinner'
 import { api } from '../../lib/api'
 import { Shield, UserX, Ban } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { RadarPageShell, PageHeader, LoadingState, selectCls } from '@/design-system'
 
 interface AdminOrg {
   _id: string
@@ -33,14 +33,11 @@ export default function AdminModeration() {
   })
 
   return (
-    <div className="space-y-5 max-w-4xl">
-      <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-        <Shield size={20} className="text-brand-400" />
-        Moderação
-      </h1>
-      <p className="text-sm text-gray-500">
-        Empresas cadastradas, planos e atalhos para consentimento.
-      </p>
+    <RadarPageShell maxWidth="wide">
+      <PageHeader
+        title="Moderação"
+        subtitle="Empresas cadastradas, planos e atalhos para consentimento."
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card className="flex gap-3">
@@ -68,9 +65,7 @@ export default function AdminModeration() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size={28} />
-        </div>
+        <LoadingState rows={5} className="pt-4" />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-800">
           <table className="w-full text-sm text-left">
@@ -94,7 +89,7 @@ export default function AdminModeration() {
                   </td>
                   <td className="px-3 py-2">
                     <select
-                      className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
+                      className={`${selectCls} text-xs py-1`}
                       value={o.plan ?? 'free'}
                       disabled={setPlan.isPending}
                       onChange={e => setPlan.mutate({ id: o._id, plan: e.target.value })}
@@ -122,6 +117,6 @@ export default function AdminModeration() {
           Monitoramento
         </Link>
       </p>
-    </div>
+    </RadarPageShell>
   )
 }

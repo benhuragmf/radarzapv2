@@ -5,7 +5,6 @@ import { api } from '../lib/api'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Spinner } from '../components/ui/Spinner'
 import {
   FileText,
   BookOpen,
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
+import { LoadingState, MetricCard } from '@/design-system'
 
 interface Template {
   _id: string
@@ -184,9 +184,9 @@ export default function Templates() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center pt-20">
-        <Spinner size={32} />
-      </div>
+      <DiscordPage description="Define como cada mensagem capturada no Discord aparece no WhatsApp.">
+        <LoadingState rows={5} className="pt-8" />
+      </DiscordPage>
     )
   }
 
@@ -204,22 +204,10 @@ export default function Templates() {
     >
       {/* Métricas — mesmo padrão de Regras / Canais */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="p-3">
-          <p className="text-xs text-gray-500">Formatos</p>
-          <p className="text-xl font-bold">{dwTemplates.length}</p>
-        </Card>
-        <Card className="p-3">
-          <p className="text-xs text-gray-500">Personalizados</p>
-          <p className="text-xl font-bold text-brand-400">{editedCount}</p>
-        </Card>
-        <Card className="p-3">
-          <p className="text-xs text-gray-500">Usos totais</p>
-          <p className="text-xl font-bold">{totalUsage}</p>
-        </Card>
-        <Card className="p-3">
-          <p className="text-xs text-gray-500">Variáveis</p>
-          <p className="text-xl font-bold">{Object.keys(varDocs).length}</p>
-        </Card>
+        <MetricCard title="Formatos" value={dwTemplates.length} icon={FileText} />
+        <MetricCard title="Personalizados" value={editedCount} icon={Pencil} />
+        <MetricCard title="Usos totais" value={totalUsage} icon={BarChart3} />
+        <MetricCard title="Variáveis" value={Object.keys(varDocs).length} icon={Tag} />
       </div>
 
       {/* Fluxo Discord → WhatsApp */}
@@ -258,7 +246,7 @@ export default function Templates() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-brand-300">Editando formato</p>
-              <p className="text-lg font-semibold text-white">{editing.name}</p>
+              <p className="text-lg font-semibold text-[var(--rz-text-primary)]">{editing.name}</p>
             </div>
             <button
               type="button"

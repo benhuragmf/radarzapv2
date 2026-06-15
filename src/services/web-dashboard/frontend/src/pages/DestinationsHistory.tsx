@@ -2,10 +2,9 @@ import { Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { DiscordPage } from '../components/discord/DiscordPage'
-import { Card } from '../components/ui/Card'
-import { Spinner } from '../components/ui/Spinner'
 import { CampaignRow, type Campaign } from '../lib/campaigns'
 import { History } from 'lucide-react'
+import { RadarPageShell, PageHeader, EmptyState, LoadingState } from '@/design-system'
 
 export default function DestinationsHistory() {
   const isDiscord = useLocation().pathname.startsWith('/discord')
@@ -20,23 +19,22 @@ export default function DestinationsHistory() {
 
   const body = (
     <div className="space-y-3">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-[var(--rz-text-secondary)]">
         Envios já processados (automação Discord e campanhas manuais).
       </p>
       {isLoading ? (
-        <div className="flex justify-center py-16">
-          <Spinner size={32} />
-        </div>
+        <LoadingState rows={4} className="pt-6" />
       ) : history.length === 0 ? (
-        <Card className="text-center py-12 text-gray-500">
-          <History size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-400">Nenhum registro no histórico</p>
-        </Card>
+        <EmptyState
+          icon={History}
+          title="Nenhum registro no histórico"
+          description="Após enviar ou agendar campanhas, os registros aparecem aqui."
+        />
       ) : (
         history.map(c => <CampaignRow key={c._id} c={c} />)
       )}
       {isDiscord && (
-        <Link to="/discord/logs" className="text-xs text-brand-400 hover:underline">
+        <Link to="/discord/logs" className="text-xs text-[var(--rz-primary)] hover:underline">
           Ver logs detalhados do Discord →
         </Link>
       )}
@@ -51,5 +49,10 @@ export default function DestinationsHistory() {
     )
   }
 
-  return <div className="max-w-3xl">{body}</div>
+  return (
+    <RadarPageShell>
+      <PageHeader title="Histórico de envios" />
+      {body}
+    </RadarPageShell>
+  )
 }

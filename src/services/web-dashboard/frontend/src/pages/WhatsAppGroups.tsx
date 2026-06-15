@@ -3,17 +3,14 @@ import { Link, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { DiscordPage } from '../components/discord/DiscordPage'
-import { Card, CardTitle, CardValue } from '../components/ui/Card'
+import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Spinner } from '../components/ui/Spinner'
 import { DestinationRow, type Destination } from '../lib/destinationUi'
 import { avatarLabel, formatWaSessionLabel } from '../lib/destinationFormat'
 import { Plus, RefreshCw, Search, Smartphone, Users, AlertCircle } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
+import { inputCls, EmptyState, LoadingState, RadarPageShell, PageHeader, MetricCard } from '@/design-system'
 
 interface WAGroup {
   id: string
@@ -109,14 +106,8 @@ export default function WhatsAppGroups() {
       )}
 
       <div className="grid grid-cols-2 gap-3 max-w-md">
-        <Card>
-          <CardTitle>Grupos cadastrados</CardTitle>
-          <CardValue>{groups.length}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Na sessão WA</CardTitle>
-          <CardValue>{waGroups.length}</CardValue>
-        </Card>
+        <MetricCard title="Grupos cadastrados" value={groups.length} icon={Users} />
+        <MetricCard title="Na sessão WA" value={waGroups.length} icon={Smartphone} />
       </div>
 
       {connectedSession && (
@@ -143,16 +134,13 @@ export default function WhatsAppGroups() {
             })}
           </p>
 
-          {loadingGroups && (
-            <div className="flex justify-center py-8">
-              <Spinner size={24} />
-            </div>
-          )}
+          {loadingGroups && <LoadingState rows={3} className="py-4" />}
 
           {!loadingGroups && waGroups.length === 0 && (
-            <Card className="text-center py-8 text-gray-500 text-sm">
-              Nenhum grupo encontrado nesta sessão.
-            </Card>
+            <EmptyState
+              title="Nenhum grupo encontrado"
+              description="Nenhum grupo encontrado nesta sessão WhatsApp."
+            />
           )}
 
           {!loadingGroups && waGroups.length > 0 && (
@@ -207,9 +195,10 @@ export default function WhatsAppGroups() {
           />
         </div>
         {groups.length === 0 ? (
-          <Card className="text-center py-10 text-gray-500 text-sm">
-            Nenhum grupo. Importe da lista acima quando o WhatsApp estiver conectado.
-          </Card>
+          <EmptyState
+            title="Nenhum grupo cadastrado"
+            description="Importe da lista acima quando o WhatsApp estiver conectado."
+          />
         ) : (
           <div className="space-y-2">
             {groups.map(d => (
@@ -238,5 +227,13 @@ export default function WhatsAppGroups() {
     )
   }
 
-  return <div className="space-y-5 max-w-4xl">{body}</div>
+  return (
+    <RadarPageShell maxWidth="wide">
+      <PageHeader
+        title="Grupos WhatsApp"
+        subtitle="Importe grupos da sessão conectada para usar em campanhas e automações."
+      />
+      {body}
+    </RadarPageShell>
+  )
 }

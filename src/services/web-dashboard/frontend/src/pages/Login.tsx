@@ -15,28 +15,28 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export default function Login({ error }: { error?: string }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950">
+    <div className="rz-auth-page px-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center">
-            <Zap size={24} className="text-white" />
+          <div className="w-12 h-12 bg-[var(--rz-primary)] rounded-xl flex items-center justify-center shadow-lg">
+            <Zap size={24} className="text-white rz-on-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">RadarZap</h1>
-            <p className="text-xs text-gray-500">Painel Administrativo</p>
+            <h1 className="text-2xl font-bold text-[var(--rz-text-primary)]">RadarZap</h1>
+            <p className="text-xs text-[var(--rz-text-muted)]">Painel Administrativo</p>
           </div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center">
-          <h2 className="text-lg font-semibold text-white mb-2">Entrar no painel</h2>
-          <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-            <strong className="text-gray-300">Dono da empresa:</strong> use Google (Gmail).
+        <div className="rz-card rounded-2xl p-8 text-center">
+          <h2 className="text-lg font-semibold text-[var(--rz-text-primary)] mb-2">Entrar no painel</h2>
+          <p className="text-sm text-[var(--rz-text-secondary)] mb-6 leading-relaxed">
+            <strong className="text-[var(--rz-text-primary)]">Dono da empresa:</strong> use Google (Gmail).
             <br />
-            <strong className="text-gray-300">Equipe / Discord:</strong> login Discord abre a plataforma e o menu Discord.
+            <strong className="text-[var(--rz-text-primary)]">Equipe / Discord:</strong> login Discord abre a plataforma e o menu Discord.
           </p>
 
           {error && (
-            <div className="mb-4 px-4 py-2 bg-red-900/40 border border-red-800 rounded-lg text-sm text-red-400">
+            <div className="mb-4 px-4 py-2 bg-[var(--rz-danger-bg)] border border-[var(--rz-danger-text)]/30 rounded-lg text-sm text-[var(--rz-danger-text)]">
               {ERROR_MESSAGES[error] ?? 'Erro desconhecido. Tente novamente.'}
             </div>
           )}
@@ -81,7 +81,7 @@ export default function Login({ error }: { error?: string }) {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-6">
+        <p className="text-center text-xs text-[var(--rz-text-muted)] mt-6">
           O dono pode adicionar o bot no Discord para liberar automação de servidor.
         </p>
       </div>

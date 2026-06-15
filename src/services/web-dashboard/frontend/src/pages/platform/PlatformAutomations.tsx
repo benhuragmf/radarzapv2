@@ -30,8 +30,9 @@ import {
   type TriggerType,
 } from '../../lib/automation-triggers'
 import { usePlatformMessagePreview } from '../../lib/usePlatformMessagePreview'
-import {
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { inputCls, LoadingState } from '@/design-system'
+import {
   currentTimeHHmm,
   minDatetimeLocalFromNow,
   triggerMatchesCalendarToday,
@@ -109,9 +110,6 @@ const SCOPE_LABELS: Record<DestinationScope, string> = {
   whatsapp_groups: 'Grupos WhatsApp',
   both: 'Contatos + grupos',
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 function defaultScheduledAtLocal(): string {
   const d = new Date()
@@ -962,9 +960,7 @@ export default function PlatformAutomations() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size={28} />
-        </div>
+        <LoadingState rows={3} className="pt-4" />
       ) : rules.length === 0 ? (
         <Card className="text-center py-10 text-gray-500">
           <Workflow size={32} className="mx-auto mb-2 opacity-40" />

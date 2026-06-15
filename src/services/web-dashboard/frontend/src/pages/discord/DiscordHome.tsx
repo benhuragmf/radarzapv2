@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { DiscordPage } from '../../components/discord/DiscordPage'
-import { Card, CardTitle, CardValue } from '../../components/ui/Card'
-import { Spinner } from '../../components/ui/Spinner'
+import { Card } from '../../components/ui/Card'
 import { api } from '../../lib/api'
 import { useGuild } from '../../lib/guildContext'
 import { Hash, BookOpen, ListOrdered, ScrollText, Settings } from 'lucide-react'
+import { LoadingState, MetricCard } from '@/design-system'
 
 interface Channel {
   _id: string
@@ -51,31 +51,32 @@ export default function DiscordHome() {
       description="Resumo da automação Discord → WhatsApp do servidor selecionado."
       requireGuild={false}
     >
-      <h1 className="text-lg font-semibold text-white -mt-2 mb-2">Início Discord</h1>
       {!guildId ? (
         <Card className="text-sm text-amber-200/90">
           Selecione um servidor Discord na barra lateral para ver o resumo da integração.
         </Card>
       ) : (
         <>
-          <p className="text-sm text-gray-500 mb-4">
-            Servidor: <span className="text-gray-300">{guildName ?? guildId}</span>
+          <p className="text-sm text-[var(--rz-text-secondary)] mb-4">
+            Servidor: <span className="text-[var(--rz-text-primary)]">{guildName ?? guildId}</span>
           </p>
 
           {loading ? (
-            <div className="flex justify-center py-10"><Spinner size={28} /></div>
+            <LoadingState rows={2} className="py-4" />
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card>
-                <CardTitle>Canais monitorados</CardTitle>
-                <CardValue>{activeChannels}</CardValue>
-                <p className="text-xs text-gray-500 mt-1">{channels.length} cadastrado(s)</p>
-              </Card>
-              <Card>
-                <CardTitle>Regras ativas</CardTitle>
-                <CardValue>{activeRules}</CardValue>
-                <p className="text-xs text-gray-500 mt-1">{rules.length} regra(s) total</p>
-              </Card>
+              <MetricCard
+                title="Canais monitorados"
+                value={activeChannels}
+                description={`${channels.length} cadastrado(s)`}
+                icon={Hash}
+              />
+              <MetricCard
+                title="Regras ativas"
+                value={activeRules}
+                description={`${rules.length} regra(s) total`}
+                icon={BookOpen}
+              />
             </div>
           )}
 
@@ -84,9 +85,9 @@ export default function DiscordHome() {
               <Link
                 key={to}
                 to={to}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-800 bg-gray-900/50 hover:border-brand-500/40 hover:bg-gray-800/80 transition-colors text-sm text-gray-300"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] hover:border-[var(--rz-primary)]/40 transition-colors text-sm text-[var(--rz-text-secondary)] hover:text-[var(--rz-text-primary)]"
               >
-                <Icon size={16} className="text-brand-400 shrink-0" />
+                <Icon size={16} className="text-[var(--rz-primary)] shrink-0" />
                 {label}
               </Link>
             ))}

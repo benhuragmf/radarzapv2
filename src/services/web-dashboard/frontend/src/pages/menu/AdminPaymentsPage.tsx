@@ -5,7 +5,8 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { CreditCard, RefreshCw } from 'lucide-react'
-import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { mutationError, notifySuccess } from '../../lib/notify'
+import { RadarPageShell, PageHeader, LoadingState, EmptyState } from '@/design-system'
 
 interface AdminOrder {
   _id: string
@@ -48,27 +49,22 @@ export default function AdminPaymentsPage() {
   })
 
   return (
-    <div className="space-y-5 max-w-4xl">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-            <CreditCard size={20} className="text-brand-400" />
-            Pagamentos
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Pedidos Stripe e assinaturas das organizações RadarZap.
-          </p>
-        </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={sweep.isPending}
-          onClick={() => sweep.mutate()}
-        >
-          {sweep.isPending ? <Spinner size={12} /> : <RefreshCw size={12} />}
-          Varrer expirados
-        </Button>
-      </div>
+    <RadarPageShell maxWidth="wide">
+      <PageHeader
+        title="Pagamentos"
+        subtitle="Pedidos Stripe e assinaturas das organizações RadarZap."
+        actions={
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={sweep.isPending}
+            onClick={() => sweep.mutate()}
+          >
+            {sweep.isPending ? <Spinner size={12} /> : <RefreshCw size={12} />}
+            Varrer expirados
+          </Button>
+        }
+      />
 
       <Card className="text-xs text-gray-500 space-y-1">
         <p>
@@ -82,11 +78,9 @@ export default function AdminPaymentsPage() {
       </Card>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size={28} />
-        </div>
+        <LoadingState rows={5} className="pt-4" />
       ) : orders.length === 0 ? (
-        <Card className="text-sm text-gray-500">Nenhum pedido registrado ainda.</Card>
+        <EmptyState title="Nenhum pedido" description="Nenhum pedido registrado ainda." />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-800">
           <table className="w-full text-sm text-left">
@@ -131,6 +125,6 @@ export default function AdminPaymentsPage() {
           </table>
         </div>
       )}
-    </div>
+    </RadarPageShell>
   )
 }

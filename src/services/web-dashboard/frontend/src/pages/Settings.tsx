@@ -11,6 +11,7 @@ import { CompanyProfilePanel } from '../components/settings/CompanyProfilePanel'
 import AccountConnectionsPanel from '../components/settings/AccountConnectionsPanel'
 import DeleteOrganizationPanel from '../components/settings/DeleteOrganizationPanel'
 import { isCompanyOwner } from '../lib/auth'
+import { RadarPageShell, PageHeader } from '@/design-system'
 
 interface Props {
   user: AuthUser
@@ -36,7 +37,9 @@ export default function Settings({ user, onUserUpdate }: Props) {
   }, [hash])
 
   return (
-    <div className="space-y-6 w-full max-w-4xl">
+    <RadarPageShell maxWidth="wide">
+      <PageHeader title="Configurações" subtitle="Empresa, conta, integrações API e limites." />
+      <div className="space-y-6 w-full max-w-4xl">
       <section id="empresa">
         <h2 className="text-lg font-semibold mb-3">Dados da empresa</h2>
         <Card>
@@ -88,6 +91,7 @@ export default function Settings({ user, onUserUpdate }: Props) {
           </div>
         </section>
       )}
-    </div>
+      </div>
+    </RadarPageShell>
   )
 }

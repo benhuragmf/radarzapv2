@@ -34,22 +34,22 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
   }
 
   return (
-    <header className="h-14 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 sm:px-6 gap-3">
+    <header className="h-14 bg-[var(--rz-surface)] border-b border-[var(--rz-border)] flex items-center justify-between px-4 sm:px-6 gap-3">
       <div className="flex items-center gap-2 min-w-0">
         {onMenuClick && (
           <button
             type="button"
             onClick={onMenuClick}
-            className="lg:hidden shrink-0 touch-target flex items-center justify-center p-2 -ml-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 active:bg-gray-700"
+            className="lg:hidden shrink-0 touch-target flex items-center justify-center p-2 -ml-1 text-[var(--rz-text-secondary)] hover:text-[var(--rz-text-primary)] rounded-lg hover:bg-[var(--rz-surface-muted)]"
             aria-label="Abrir menu"
           >
             <Menu size={20} />
           </button>
         )}
-        <h1 className="font-semibold text-base truncate">{title}</h1>
+        <h1 className="font-semibold text-base truncate text-[var(--rz-text-primary)]">{title}</h1>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
 
         <EventNotificationBell />
@@ -57,26 +57,25 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         <button
           type="button"
           onClick={toggleTheme}
-          className="text-gray-500 hover:text-brand-400 transition-colors p-1.5 rounded-lg hover:bg-gray-800"
+          className="text-[var(--rz-text-muted)] hover:text-[var(--rz-primary)] transition-colors p-1.5 rounded-lg hover:bg-[var(--rz-surface-muted)]"
           title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
           aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
         >
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
-        {/* Health indicator */}
         <div className="flex items-center gap-1.5 text-sm">
           {healthy === null ? (
-            <span className="text-gray-500 text-xs">verificando...</span>
+            <span className="text-[var(--rz-text-muted)] text-xs">verificando...</span>
           ) : healthy ? (
             <>
               <Wifi size={13} className="text-brand-500" />
-              <span className="text-brand-400 text-xs">online</span>
+              <span className="text-brand-500 text-xs">online</span>
             </>
           ) : (
             <>
-              <WifiOff size={13} className="text-red-400" />
-              <span className="text-red-400 text-xs">offline</span>
+              <WifiOff size={13} className="text-[var(--rz-danger-text)]" />
+              <span className="text-[var(--rz-danger-text)] text-xs">offline</span>
             </>
           )}
         </div>
@@ -85,19 +84,18 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         <div className="flex items-center gap-2">
           {user.avatar ? (
             <img src={user.avatar} alt={user.username}
-              className="w-7 h-7 rounded-full border border-gray-700" />
+              className="w-7 h-7 rounded-full border border-[var(--rz-border)]" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-brand-600 flex items-center justify-center text-xs font-bold text-white">
+            <div className="w-7 h-7 rounded-full bg-[var(--rz-primary)] flex items-center justify-center text-xs font-bold text-white rz-on-primary">
               {user.username[0].toUpperCase()}
             </div>
           )}
-          <span className="text-sm text-gray-300 hidden sm:block">{user.username}</span>
+          <span className="text-sm text-[var(--rz-text-secondary)] hidden sm:block">{user.username}</span>
         </div>
 
-        {/* Logout */}
         <button
           onClick={handleLogout}
-          className="text-gray-500 hover:text-red-400 transition-colors"
+          className="text-[var(--rz-text-muted)] hover:text-[var(--rz-danger-text)] transition-colors p-1.5 rounded-lg hover:bg-[var(--rz-surface-muted)]"
           title="Sair"
         >
           <LogOut size={16} />

@@ -4,9 +4,9 @@ import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
-import { Spinner } from '../../components/ui/Spinner'
 import { api } from '../../lib/api'
 import { Zap, Plus, Pencil } from 'lucide-react'
+import { LoadingState, EmptyState } from '@/design-system'
 import {
   TRIGGER_GROUPS,
   TRIGGER_HINTS,
@@ -52,16 +52,18 @@ export default function PlatformTriggers() {
 
       <h3 className="text-sm font-medium text-gray-300 mb-3">Suas regras ({rules.length})</h3>
       {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Spinner size={24} />
-        </div>
+        <LoadingState rows={3} className="pt-4" />
       ) : rules.length === 0 ? (
-        <Card className="text-center py-10 text-gray-500 text-sm">
-          Nenhuma regra ainda.{' '}
-          <Link to="/platform/automacoes" className="text-brand-400 hover:underline">
-            Criar primeira automação
-          </Link>
-        </Card>
+        <EmptyState
+          icon={Zap}
+          title="Nenhuma regra ainda"
+          description="Crie automações com gatilhos de calendário, aniversário ou recorrentes."
+          action={
+            <Link to="/platform/automacoes" className="text-sm text-[var(--rz-primary)] hover:underline">
+              Criar primeira automação
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-2 mb-8">
           {rules.map(r => (

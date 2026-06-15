@@ -6,11 +6,11 @@ import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
-import { Spinner } from '../../components/ui/Spinner'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
 import { formatQueueTimer, liveQueueState, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { Eye, RefreshCw } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { LoadingState, EmptyState } from '@/design-system'
 
 interface Conversation {
   _id: string
@@ -91,11 +91,11 @@ export default function InboxSupervisor() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><Spinner size={28} /></div>
+        <LoadingState rows={4} className="pt-4" />
       ) : (
         <div className="space-y-2">
           {queue.length === 0 ? (
-            <Card className="p-8 text-center text-gray-500 text-sm">Fila vazia no momento.</Card>
+            <EmptyState title="Fila vazia" description="Nenhuma conversa aguardando atendimento no momento." />
           ) : (
             queue.map(c => {
               const live = c.suggestedAt

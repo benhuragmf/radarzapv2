@@ -10,6 +10,7 @@ import { Users, RefreshCw, Crown, CreditCard } from 'lucide-react'
 import type { AuthUser } from '../lib/auth'
 import { can } from '../lib/auth'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
+import { RadarPageShell, PageHeader, LoadingState } from '@/design-system'
 
 interface UserData {
   _id: string
@@ -200,17 +201,17 @@ export default function Plans({ user, admin }: Props) {
 
   if (isAdmin && isLoading) {
     return (
-      <div className="flex justify-center pt-20">
-        <Spinner size={32} />
-      </div>
+      <RadarPageShell>
+        <LoadingState rows={4} className="pt-12" />
+      </RadarPageShell>
     )
   }
 
   if (!isAdmin && subLoading) {
     return (
-      <div className="flex justify-center pt-20">
-        <Spinner size={32} />
-      </div>
+      <RadarPageShell>
+        <LoadingState rows={4} className="pt-12" />
+      </RadarPageShell>
     )
   }
 
@@ -218,7 +219,16 @@ export default function Plans({ user, admin }: Props) {
   const catalog = pricing?.plans ?? []
 
   return (
-    <div className="space-y-6">
+    <RadarPageShell>
+      <PageHeader
+        title={isAdmin ? 'Planos e assinaturas' : 'Planos'}
+        subtitle={
+          isAdmin
+            ? 'Gerencie planos, preços e assinaturas dos clientes.'
+            : 'Escolha ou altere o plano da sua empresa.'
+        }
+      />
+      <div className="space-y-6">
       {checkoutMsg && (
         <div className="text-sm px-4 py-3 rounded-lg bg-brand-500/10 border border-brand-500/30 text-brand-300">
           {checkoutMsg}
@@ -269,7 +279,7 @@ export default function Plans({ user, admin }: Props) {
               </div>
               <p className="text-xs text-gray-500 mb-2">{p.description}</p>
               {p.priceMonthlyCents != null && p.priceMonthlyCents > 0 && (
-                <p className="text-lg font-semibold text-white mb-2">
+                <p className="text-lg font-semibold text-[var(--rz-text-primary)] mb-2">
                   {formatBrl(p.priceMonthlyCents)}
                   <span className="text-xs text-gray-500 font-normal">/mês</span>
                 </p>
@@ -357,6 +367,7 @@ export default function Plans({ user, admin }: Props) {
           </div>
         </div>
       ) : null}
-    </div>
+      </div>
+    </RadarPageShell>
   )
 }

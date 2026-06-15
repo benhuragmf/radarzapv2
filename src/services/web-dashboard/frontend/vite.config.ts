@@ -1,3 +1,4 @@
+import path from 'path'
 import { createLogger, defineConfig, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -54,6 +55,11 @@ function createApiProxy(): ProxyOptions {
 export default defineConfig({
   customLogger: viteLogger,
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   build: {
     outDir: '../public',
     emptyOutDir: true,

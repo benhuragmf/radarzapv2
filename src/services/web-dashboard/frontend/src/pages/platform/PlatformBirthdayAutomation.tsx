@@ -13,6 +13,8 @@ import { Badge } from '../../components/ui/Badge'
 import { Cake, Plus, Play, Trash2, Pencil } from 'lucide-react'
 import { WhatsAppTextEditor } from '../../components/whatsapp/WhatsAppTextEditor'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { PlatformPage } from '../../components/platform/PlatformPage'
+import { inputCls, LoadingState } from '@/design-system'
 
 type TriggerType = 'on_contact_birthday' | 'day_of_month' | 'interval_months'
 
@@ -34,9 +36,6 @@ const TRIGGER_LABELS: Record<TriggerType, string> = {
   day_of_month: 'Contatos que nasceram no dia N do mês (qualquer mês)',
   interval_months: 'No aniversário, se passaram ≥ N meses desde o último envio',
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 const DEFAULT_FORM = {
   templateName: 'pw-aniversario',
@@ -138,14 +137,15 @@ export default function PlatformBirthdayAutomation() {
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <p className="text-sm text-gray-500">
-        Envio automático de parabéns usando modelos <strong className="text-gray-400">pw-*</strong>.
-        Contatos precisam ter <code className="text-brand-400">birthday</code> no CSV (
-        <Link to="/platform/contacts" className="text-brand-400 hover:underline">
-          Contatos
+    <PlatformPage
+      title="Automação de aniversário"
+      description="Envio automático de parabéns usando modelos pw-*. Contatos precisam ter birthday no CSV."
+    >
+      <p className="text-sm text-[var(--rz-text-secondary)] -mt-2 mb-4">
+        Os envios aparecem em Agendamentos; recorrentes são planejados a cada 5 min no dia do gatilho.{' '}
+        <Link to="/platform/contacts" className="text-[var(--rz-primary)] hover:underline">
+          Importar contatos
         </Link>
-        ). Os envios aparecem em Agendamentos; recorrentes são planejados a cada 5 min no dia do gatilho.
       </p>
 
       <Card className="border-brand-800/40 bg-brand-950/15 text-xs text-gray-400 space-y-2">
@@ -325,9 +325,7 @@ export default function PlatformBirthdayAutomation() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size={28} />
-        </div>
+        <LoadingState rows={4} className="pt-4" />
       ) : rules.length === 0 ? (
         <Card className="text-center py-10 text-gray-500">
           <Cake size={32} className="mx-auto mb-2 opacity-40" />
@@ -372,6 +370,6 @@ export default function PlatformBirthdayAutomation() {
           ))}
         </div>
       )}
-    </div>
+    </PlatformPage>
   )
 }

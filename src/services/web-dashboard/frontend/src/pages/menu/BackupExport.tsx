@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { downloadFile, api } from '../../lib/api'
-import { Database, Download, Upload } from 'lucide-react'
+import { Download, Upload } from 'lucide-react'
+import { RadarPageShell, PageHeader } from '@/design-system'
 
 export default function BackupExport() {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -63,24 +64,20 @@ export default function BackupExport() {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
-      <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-        <Database size={20} className="text-brand-400" />
-        Backup
-      </h1>
-      <p className="text-sm text-gray-500">
-        Exporte contatos (CSV) ou backup completo da empresa (JSON): setores, regras, templates,
-        Inbox e integrações (sem segredos de API).
-      </p>
+    <RadarPageShell>
+      <PageHeader
+        title="Backup"
+        subtitle="Exporte contatos (CSV) ou backup completo da empresa (JSON): setores, regras, templates, Inbox e integrações (sem segredos de API)."
+      />
 
       {msg && (
-        <div className="text-sm px-3 py-2 rounded-lg bg-brand-500/10 border border-brand-500/30 text-brand-300">
+        <div className="text-sm px-3 py-2 rounded-lg bg-[var(--rz-primary)]/10 border border-[var(--rz-primary)]/30 text-[var(--rz-primary)]">
           {msg}
         </div>
       )}
 
       <Card className="space-y-3">
-        <p className="text-sm text-gray-300">Contatos (CSV)</p>
+        <p className="text-sm text-[var(--rz-text-primary)]">Contatos (CSV)</p>
         <Button size="sm" onClick={exportCsv} disabled={loading === 'csv'}>
           <Download size={14} />
           {loading === 'csv' ? 'Exportando…' : 'Baixar CSV'}
@@ -88,7 +85,7 @@ export default function BackupExport() {
       </Card>
 
       <Card className="space-y-3">
-        <p className="text-sm text-gray-300">Empresa completa (JSON)</p>
+        <p className="text-sm text-[var(--rz-text-primary)]">Empresa completa (JSON)</p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={exportJson} disabled={loading === 'json'}>
             <Download size={14} />
@@ -114,13 +111,13 @@ export default function BackupExport() {
             }}
           />
         </div>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-[var(--rz-text-muted)]">
           Restaurar exige permissão de dono/admin billing. Chaves de API não são reimportadas.
           Backups criptografados (produção) são aceitos automaticamente no mesmo formato JSON.
         </p>
       </Card>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
-    </div>
+      {error && <p className="text-xs text-[var(--rz-danger-text)]">{error}</p>}
+    </RadarPageShell>
   )
 }

@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
-import { Spinner } from '../components/ui/Spinner'
+import { Button } from '../components/ui/Button'
 import { PlatformPage } from '../components/platform/PlatformPage'
 import { ListOrdered, Clock, CheckCircle, AlertTriangle, Send } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
+import { MetricCard, EmptyState, LoadingState, RadarPageShell } from '@/design-system'
 
 interface QueueStats {
   name: string
@@ -78,9 +79,7 @@ export default function Queue({ scope = 'all' }: Props) {
     if (tenantLoading) {
       return (
         <PlatformPage title="Fila de envio" description="Acompanhe o que vai sair pelo WhatsApp da sua empresa.">
-          <div className="flex justify-center py-16">
-            <Spinner size={32} />
-          </div>
+          <LoadingState rows={4} className="pt-8" />
         </PlatformPage>
       )
     }
@@ -109,35 +108,36 @@ export default function Queue({ scope = 'all' }: Props) {
         </Card>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          {[
-            { label: 'Na fila', value: s.pending, icon: Clock, color: 'text-yellow-400' },
-            { label: 'Enviando', value: s.processing, icon: Send, color: 'text-blue-400' },
-            { label: 'Concluídos', value: s.sent, icon: CheckCircle, color: 'text-green-400' },
-            { label: 'Falhas', value: s.failed, icon: AlertTriangle, color: 'text-red-400' },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <Card key={label} className="text-center py-4">
-              <Icon size={18} className={`mx-auto mb-2 ${color}`} />
-              <p className={`text-2xl font-bold ${color}`}>{value}</p>
-              <p className="text-xs text-gray-500 mt-1">{label}</p>
-            </Card>
-          ))}
+          <MetricCard title="Na fila" value={s.pending} icon={Clock} />
+          <MetricCard title="Enviando" value={s.processing} icon={Send} />
+          <MetricCard title="Concluídos" value={s.sent} icon={CheckCircle} status={{ status: 'success', text: 'OK' }} />
+          <MetricCard
+            title="Falhas"
+            value={s.failed}
+            icon={AlertTriangle}
+            status={s.failed > 0 ? { status: 'danger', text: 'Atenção' } : undefined}
+          />
         </div>
 
         <h3 className="text-sm font-medium text-gray-300 mb-3">
           Próximos e recentes ({upcoming.length})
         </h3>
         {upcoming.length === 0 ? (
-          <Card className="text-center py-10 text-gray-500 text-sm">
-            Nada na fila agora. Crie um envio em{' '}
-            <Link to="/send" className="text-brand-400 hover:underline">
-              Enviar agora
-            </Link>{' '}
-            ou uma{' '}
-            <Link to="/platform/automacoes" className="text-brand-400 hover:underline">
-              automação
-            </Link>
-            .
-          </Card>
+          <EmptyState
+            title="Nada na fila agora"
+            description="Crie um envio manual ou configure uma automação."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link to="/send" className="text-sm text-[var(--rz-primary)] hover:underline">
+                  Enviar agora
+                </Link>
+                <span className="text-[var(--rz-text-muted)]">·</span>
+                <Link to="/platform/automacoes" className="text-sm text-[var(--rz-primary)] hover:underline">
+                  Automações
+                </Link>
+              </div>
+            }
+          />
         ) : (
           <div className="space-y-2">
             {upcoming.map(item => (
@@ -180,7 +180,17 @@ export default function Queue({ scope = 'all' }: Props) {
     ? queues.filter(q => ['message-processing', 'discord-notifications'].includes(q.name))
     : queues
 
-  if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
+  if (isLoading) {
+    const loading = <LoadingState rows={4} className="pt-8" />
+    if (isDiscord) {
+      return (
+        <DiscordPage description="Acompanhe o processamento das mensagens vindas do Discord.">
+          {loading}
+        </DiscordPage>
+      )
+    }
+    return <RadarPageShell>{loading}</RadarPageShell>
+  }
 
   const content = (
     <div className="space-y-6">
@@ -214,7 +224,7 @@ export default function Queue({ scope = 'all' }: Props) {
       </div>
 
       {filtered.length === 0 && (
-        <Card className="text-center py-10 text-gray-500 text-sm">Nenhuma fila ativa.</Card>
+        <EmptyState title="Nenhuma fila ativa" description="As filas aparecem quando há processamento em andamento." />
       )}
     </div>
   )

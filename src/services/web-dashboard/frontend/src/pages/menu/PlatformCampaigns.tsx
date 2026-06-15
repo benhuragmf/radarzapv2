@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Spinner'
 import { api } from '../../lib/api'
 import { CampaignRow, type Campaign } from '../../lib/campaigns'
 import { Megaphone, Plus } from 'lucide-react'
+import { LoadingState, EmptyState } from '@/design-system'
 
 export default function PlatformCampaigns() {
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
@@ -33,15 +33,18 @@ export default function PlatformCampaigns() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner size={28} /></div>
+        <LoadingState rows={4} className="pt-4" />
       ) : campaigns.length === 0 ? (
-        <Card className="text-center py-12 text-gray-500">
-          <Megaphone size={32} className="mx-auto mb-2 opacity-40" />
-          <p>Nenhuma campanha ainda.</p>
-          <Link to="/send" className="text-brand-400 text-sm hover:underline mt-2 inline-block">
-            Enviar agora
-          </Link>
-        </Card>
+        <EmptyState
+          icon={Megaphone}
+          title="Nenhuma campanha ainda"
+          description="Crie envios em lote a partir de Enviar agora."
+          action={
+            <Link to="/send" className="text-sm text-[var(--rz-primary)] hover:underline">
+              Enviar agora
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-6">
           {pending.length > 0 && (

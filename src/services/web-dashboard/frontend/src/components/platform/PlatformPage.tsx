@@ -1,39 +1,44 @@
-import { Card } from '../ui/Card'
-import { Construction } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Construction } from 'lucide-react'
+import { RadarPageShell, PageHeader, SectionCard } from '@/design-system'
 
 interface Props {
   title: string
-  description: string
+  description?: string
   phase?: string
+  actions?: ReactNode
   children?: ReactNode
 }
 
 /** Páginas da área Plataforma (campanhas, modelos, relatórios tenant) */
-export function PlatformPage({ title, description, phase = 'MVP', children }: Props) {
+export function PlatformPage({ title, description, phase = 'MVP', actions, children }: Props) {
   if (children) {
     return (
-      <div className="space-y-5 w-full max-w-6xl">
-        <p className="text-sm text-gray-400 leading-relaxed">{description}</p>
-        {children}
-      </div>
+      <RadarPageShell>
+        <PageHeader title={title} subtitle={description} actions={actions} />
+        <div className="space-y-5">{children}</div>
+      </RadarPageShell>
     )
   }
 
   return (
-    <div className="space-y-5 w-full max-w-6xl">
-      <Card className="flex items-start gap-4 border-gray-700/80 bg-gray-900/50">
-        <Construction size={28} className="text-brand-500 shrink-0 mt-0.5" />
-        <div>
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          <p className="text-sm text-gray-400 mt-2 leading-relaxed">{description}</p>
-          <p className="text-xs text-gray-500 mt-3">
-            Fase planejada: <span className="text-brand-400">{phase}</span>
-            {' · '}
-            Ver <code className="text-gray-400">docs/MENUS-SISTEMA.md</code>
-          </p>
+    <RadarPageShell>
+      <SectionCard>
+        <div className="flex items-start gap-4 -m-1">
+          <Construction size={28} className="text-brand-500 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="text-lg font-semibold text-[var(--rz-text-primary)]">{title}</h2>
+            {description ? (
+              <p className="text-sm text-[var(--rz-text-secondary)] mt-2 leading-relaxed">{description}</p>
+            ) : null}
+            <p className="text-xs text-[var(--rz-text-muted)] mt-3">
+              Fase planejada: <span className="text-brand-500">{phase}</span>
+              {' · '}
+              Ver <code className="text-[var(--rz-text-secondary)]">docs/MENUS-SISTEMA.md</code>
+            </p>
+          </div>
         </div>
-      </Card>
-    </div>
+      </SectionCard>
+    </RadarPageShell>
   )
 }

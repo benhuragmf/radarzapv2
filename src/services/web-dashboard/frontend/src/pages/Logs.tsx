@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
-import { Spinner } from '../components/ui/Spinner'
 import { ScrollText, ChevronDown, ChevronRight } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
 import { DISCORD_LOG_SERVICES, PIPELINE_STAGES } from '../lib/discordRoutes'
+import { RadarPageShell, PageHeader, FilterBar, EmptyState, LoadingState } from '@/design-system'
+import { inputCls, selectCls } from '@/design-system/formClasses'
 
 interface Log {
   _id: string
@@ -131,11 +131,13 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
           </div>
         </>
       )}
-      <div className="flex flex-wrap gap-3">
+      <FilterBar
+        actions={<span className="text-xs text-[var(--rz-text-muted)] self-center">{logs.length} registros</span>}
+      >
         <select
           value={level}
           onChange={e => setLevel(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-brand-500"
+          className={selectCls}
         >
           <option value="">Todos os níveis</option>
           <option value="info">Info</option>
@@ -147,24 +149,20 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
           value={service}
           onChange={e => setService(e.target.value)}
           placeholder="Serviço..."
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-brand-500 w-48"
+          className={`${inputCls} w-48`}
         />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder={isDiscord ? 'Buscar (tenantSender, skulks, trace…)…' : 'Buscar mensagem…'}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-brand-500 flex-1 min-w-[12rem]"
+          className={`${inputCls} flex-1 min-w-[12rem]`}
         />
-        <span className="ml-auto text-xs text-gray-500 self-center">{logs.length} registros</span>
-      </div>
+      </FilterBar>
 
-      {isLoading && <div className="flex justify-center pt-10"><Spinner size={28} /></div>}
+      {isLoading && <LoadingState rows={5} className="pt-6" />}
 
       {!isLoading && logs.length === 0 && (
-        <Card className="text-center py-12 text-gray-500">
-          <ScrollText size={32} className="mx-auto mb-3 opacity-30" />
-          <p>Nenhum log encontrado.</p>
-        </Card>
+        <EmptyState icon={ScrollText} title="Nenhum log encontrado" />
       )}
 
       <div className="space-y-1.5">
@@ -238,5 +236,12 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
     )
   }
 
-  return body
+  const title = isTenant ? 'Logs da empresa' : isHistoryView ? 'Histórico de envios' : 'Logs do sistema'
+
+  return (
+    <RadarPageShell>
+      <PageHeader title={title} />
+      {body}
+    </RadarPageShell>
+  )
 }

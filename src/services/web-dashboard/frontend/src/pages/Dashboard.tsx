@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { api } from '../lib/api'
 import { getSocket } from '../lib/socket'
-import { Card, CardTitle, CardValue } from '../components/ui/Card'
-import { Spinner } from '../components/ui/Spinner'
+import { RadarPageShell, PageHeader, DashboardShell, MetricCard, LoadingState } from '@/design-system'
+import { Card, CardTitle } from '../components/ui/Card'
 import {
   MessageSquare, Smartphone, AlertTriangle, Clock, Phone, Send, FileText, ScrollText,
 } from 'lucide-react'
@@ -62,84 +62,78 @@ export default function Dashboard() {
 
   const stats = liveStats ?? data
 
-  if (isLoading) return <div className="flex justify-center pt-20"><Spinner size={32} /></div>
+  if (isLoading) {
+    return (
+      <RadarPageShell>
+        <LoadingState rows={4} className="pt-12" />
+      </RadarPageShell>
+    )
+  }
 
-  const cards = [
-    { label: 'Mensagens hoje', value: stats?.totalMessages ?? platform?.messagesToday ?? 0, icon: MessageSquare, color: 'text-brand-400' },
-    { label: 'Sessões ativas', value: stats?.activeSessions ?? 0, icon: Smartphone, color: 'text-blue-400' },
-    { label: 'Fila pendente', value: stats?.pendingJobs ?? platform?.queuePending ?? 0, icon: Clock, color: 'text-yellow-400' },
-    { label: 'Falhas recentes', value: stats?.failedJobs ?? 0, icon: AlertTriangle, color: 'text-red-400' },
-  ]
+  const subtitle = platform
+    ? `Resumo da sua conta — envios, WhatsApp, fila e atalhos. · ${platform.contactsCount} contato(s) · WA ${WA_LABEL[platform.waStatus] ?? platform.waStatus}`
+    : 'Resumo da sua conta — envios, WhatsApp, fila e atalhos rápidos.'
+
+  const metrics = (
+    <>
+      <MetricCard title="Mensagens hoje" value={(stats?.totalMessages ?? platform?.messagesToday ?? 0).toLocaleString('pt-BR')} icon={MessageSquare} />
+      <MetricCard title="Sessões ativas" value={stats?.activeSessions ?? 0} icon={Smartphone} />
+      <MetricCard title="Fila pendente" value={stats?.pendingJobs ?? platform?.queuePending ?? 0} icon={Clock} />
+      <MetricCard title="Falhas recentes" value={stats?.failedJobs ?? 0} icon={AlertTriangle} status={stats?.failedJobs ? { status: 'danger', text: 'Atenção' } : undefined} />
+    </>
+  )
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-white">Visão geral</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Resumo da sua conta — envios, WhatsApp, fila e atalhos rápidos.
-          {platform && (
-            <span className="ml-2 text-gray-600">
-              · {platform.contactsCount} contato(s) · WA{' '}
-              {WA_LABEL[platform.waStatus] ?? platform.waStatus}
-            </span>
-          )}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map(({ label, value, icon: Icon, color }) => (
-          <Card key={label}>
-            <div className="flex items-center justify-between mb-3">
-              <CardTitle>{label}</CardTitle>
-              <Icon size={18} className={color} />
-            </div>
-            <CardValue>{value.toLocaleString('pt-BR')}</CardValue>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        {QUICK_LINKS.map(({ to, label, icon: Icon }) => (
-          <Link
-            key={to}
-            to={to}
-            className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-800 bg-gray-900/40 hover:border-brand-500/40 text-sm text-gray-300 transition-colors"
-          >
-            <Icon size={16} className="text-brand-400 shrink-0" />
-            {label}
-          </Link>
-        ))}
-      </div>
-
-      <Card>
-        <CardTitle>Mensagens por hora</CardTitle>
-        <div className="mt-4 h-48">
-          {stats?.messagesPerHour?.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.messagesPerHour}>
-                <defs>
-                  <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="hour" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8 }}
-                  labelStyle={{ color: '#9ca3af' }}
-                  itemStyle={{ color: '#22c55e' }}
-                />
-                <Area type="monotone" dataKey="count" stroke="#22c55e" strokeWidth={2} fill="url(#grad)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-600 text-sm">
-              Sem dados de mensagens ainda
-            </div>
-          )}
+    <RadarPageShell>
+      <PageHeader title="Visão geral" subtitle={subtitle} />
+      <DashboardShell metrics={metrics}>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {QUICK_LINKS.map(({ to, label, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex items-center gap-2 px-4 py-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] hover:border-[var(--rz-primary)]/40 text-sm text-[var(--rz-text-secondary)] hover:text-[var(--rz-text-primary)] transition-colors shadow-[var(--rz-shadow-card)]"
+            >
+              <Icon size={16} className="text-[var(--rz-primary)] shrink-0" />
+              {label}
+            </Link>
+          ))}
         </div>
-      </Card>
-    </div>
+
+        <Card>
+          <CardTitle>Mensagens por hora</CardTitle>
+          <div className="mt-4 h-48">
+            {stats?.messagesPerHour?.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats.messagesPerHour}>
+                  <defs>
+                    <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="hour" tick={{ fill: 'var(--rz-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--rz-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'var(--rz-surface)',
+                      border: '1px solid var(--rz-border)',
+                      borderRadius: 8,
+                    }}
+                    labelStyle={{ color: 'var(--rz-text-secondary)' }}
+                    itemStyle={{ color: 'var(--rz-primary)' }}
+                  />
+                  <Area type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={2} fill="url(#grad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-[var(--rz-text-muted)] text-sm">
+                Sem dados de mensagens ainda
+              </div>
+            )}
+          </div>
+        </Card>
+      </DashboardShell>
+    </RadarPageShell>
   )
 }

@@ -5,8 +5,8 @@ import { api } from '../../lib/api'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Spinner'
 import { BarChart3 } from 'lucide-react'
+import { LoadingState, MetricCard, selectCls } from '@/design-system'
 
 function fmtSec(sec: number | null): string {
   if (sec == null) return '—'
@@ -70,7 +70,7 @@ export default function InboxReports() {
         <select
           value={days}
           onChange={e => setDays(Number(e.currentTarget.value))}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+          className={`${selectCls} text-xs py-1.5`}
         >
           <option value={7}>Últimos 7 dias</option>
           <option value={30}>Últimos 30 dias</option>
@@ -79,7 +79,7 @@ export default function InboxReports() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><Spinner size={28} /></div>
+        <LoadingState rows={4} className="pt-4" />
       ) : s ? (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -89,10 +89,7 @@ export default function InboxReports() {
               { label: 'Tempo médio na fila', value: fmtSec(s.avgQueueTimeSec) },
               { label: '1ª resposta média', value: fmtSec(s.avgFirstResponseTimeSec) },
             ].map(item => (
-              <Card key={item.label} className="p-4">
-                <p className="text-xs text-gray-500">{item.label}</p>
-                <p className="text-xl font-semibold text-white mt-1">{item.value}</p>
-              </Card>
+              <MetricCard key={item.label} title={item.label} value={item.value} />
             ))}
           </div>
 
