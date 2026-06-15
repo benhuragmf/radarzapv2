@@ -27,6 +27,8 @@ export interface IInboxConversation extends Document {
   queueEnteredAt?: Date;
   /** Alerta de fila parada já emitido para esta entrada na fila. */
   queueSlaNotifiedAt?: Date;
+  /** Alerta de prioridade round-robin expirada (outros podem puxar). */
+  priorityPullNotifiedAt?: Date;
   /** Aguardando nota CSAT 1–5 após encerramento. */
   csatPending?: boolean;
   csatScore?: number;
@@ -80,6 +82,7 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     inactivityWarnedAt: Date,
     queueEnteredAt: Date,
     queueSlaNotifiedAt: Date,
+    priorityPullNotifiedAt: Date,
     csatPending: { type: Boolean, default: false, index: true },
     csatScore: { type: Number, min: 1, max: 5 },
     csatRatedAt: Date,

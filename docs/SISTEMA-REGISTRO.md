@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.8.5` (`package.json`) · **Última revisão doc:** 2026-06-15
+**Versão atual:** `2.8.6` (`package.json`) · **Última revisão doc:** 2026-06-15
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -40,6 +40,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.8.3** | Tokens preview WhatsApp (`--rz-wa-*`), contraste (`--rz-on-accent`), classes `rz-wa-preview-*` e `waPreviewPanelCls` |
 | **2.8.4** | Tokens preview Discord (`--rz-discord-*`), OAuth login (`.rz-oauth-btn-*`), `discordPreviewPanelCls`, zero hex hardcoded no frontend |
 | **2.8.5** | Consentimento LGPD com tokens; paleta WA centralizada; `searchFieldIconCls`, labels preview, `logLineMetaCls`, QR frame; doc `DESIGN-SYSTEM.md` |
+| **2.8.6** | Inbox: presença online (socket), round-robin só atendentes online, alerta `priority_expired`, composer com rascunho + assign otimista, limpeza prioridade offline |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 

@@ -15,7 +15,8 @@ interface Props {
   value: string
   onChange: (v: string) => void
   onSend: () => void
-  disabled?: boolean
+  /** Bloqueia envio (botão/Enter) — textarea permanece editável para rascunho. */
+  sendDisabled?: boolean
   sending?: boolean
   quickReplies?: QuickReplyItem[]
 }
@@ -24,7 +25,7 @@ export function InboxComposer({
   value,
   onChange,
   onSend,
-  disabled,
+  sendDisabled,
   sending,
   quickReplies = [],
 }: Props) {
@@ -84,21 +85,24 @@ export function InboxComposer({
       <div className="flex gap-2 items-end">
         <div className="flex-1 relative">
           <div className="absolute left-2 bottom-2 z-10 flex items-center gap-0.5">
-            <WhatsAppEmojiPicker disabled={disabled} onPick={insertEmoji} />
+            <WhatsAppEmojiPicker disabled={sendDisabled} onPick={insertEmoji} />
           </div>
           <textarea
             ref={textareaRef}
             value={value}
             onChange={e => onChange(e.currentTarget.value)}
-            placeholder="Digite sua resposta… (/bd, /bt…) · Enter envia"
+            placeholder={
+              sendDisabled
+                ? 'Aceite a conversa para enviar · você pode rascunhar aqui'
+                : 'Digite sua resposta… (/bd, /bt…) · Enter envia'
+            }
             rows={2}
-            disabled={disabled}
             className={cn(
               textareaCls,
-              'pl-10 min-h-[44px] max-h-32 resize-none rounded-xl disabled:opacity-50',
+              'pl-10 min-h-[44px] max-h-32 resize-none rounded-xl',
             )}
             onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey && value.trim()) {
+              if (e.key === 'Enter' && !e.shiftKey && value.trim() && !sendDisabled) {
                 e.preventDefault()
                 onSend()
               }
@@ -109,7 +113,7 @@ export function InboxComposer({
           size="sm"
           className="h-10 w-10 p-0 shrink-0 rounded-xl"
           onClick={onSend}
-          disabled={!value.trim() || disabled || sending}
+          disabled={!value.trim() || sendDisabled || sending}
           aria-label="Enviar"
         >
           <Send size={16} />
@@ -122,7 +126,7 @@ export function InboxComposer({
             <button
               key={q.code}
               type="button"
-              disabled={disabled}
+              disabled={sendDisabled}
               onClick={() => applySlash(q.code)}
               className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] hover:text-brand-400 border border-[var(--rz-border)] disabled:opacity-40"
               title={q.label ? `${q.label} — ${q.template}` : q.template}

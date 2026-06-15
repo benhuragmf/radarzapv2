@@ -69,12 +69,20 @@ export function EventNotificationProvider({
       if (!settings?.alertSoundEnabled) return
       if (ev.type === 'inbox:new_message' && !settings.alertOnNewMessage) return
       if (
-        (ev.type === 'inbox:new_chat' || ev.type === 'inbox:priority') &&
+        (ev.type === 'inbox:new_chat' ||
+          ev.type === 'inbox:priority' ||
+          ev.type === 'inbox:priority_expired') &&
         !settings.alertOnNewChat
       ) {
         return
       }
-      if (ev.type === 'whatsapp:disconnected' || ev.type === 'inbox:priority') {
+      if (
+        ev.type === 'whatsapp:disconnected' ||
+        ev.type === 'inbox:priority' ||
+        ev.type === 'inbox:priority_expired'
+      ) {
+        playAlertSound('urgent')
+      } else if (ev.type === 'inbox:queue_sla') {
         playAlertSound('urgent')
       } else if (ev.type === 'inbox:new_message') {
         playAlertSound('message')

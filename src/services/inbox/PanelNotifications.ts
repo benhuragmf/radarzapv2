@@ -4,6 +4,7 @@ export type PanelEventType =
   | 'inbox:new_chat'
   | 'inbox:new_message'
   | 'inbox:priority'
+  | 'inbox:priority_expired'
   | 'inbox:queue_sla'
   | 'whatsapp:disconnected'
   | 'whatsapp:connected';

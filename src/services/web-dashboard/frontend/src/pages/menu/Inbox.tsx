@@ -65,6 +65,7 @@ interface Conversation {
   assignedUserName?: string
   suggestedUserId?: string
   suggestedUserName?: string
+  suggestedUserOnline?: boolean
   suggestedAt?: string
   priorityForMe?: boolean
   canAccept?: boolean
@@ -139,6 +140,37 @@ function conversationBadge(c: Conversation): { label: string; variant: 'yellow' 
     label: STATUS_LABEL[c.status] ?? c.status,
     variant: STATUS_VARIANT[c.status] ?? 'gray',
   }
+}
+
+function canReplyToConversation(conv: Conversation, me: AuthUser | null | undefined): boolean {
+  return (
+    Boolean(me?.userId) &&
+    conv.status === 'in_progress' &&
+    conv.assignedUserId === me?.userId
+  )
+}
+
+function inboxReplyBlockedReason(
+  conv: Conversation,
+  me: AuthUser | null | undefined,
+  convLiveCanPull: boolean,
+): string | null {
+  if (canReplyToConversation(conv, me)) return null
+  if (conv.status === 'in_progress') {
+    if (!me?.userId) return 'Sessão indisponível — recarregue a página.'
+    if (conv.assignedUserId && conv.assignedUserId !== me.userId) {
+      return `Em atendimento por ${conv.assignedUserName ?? 'outro agente'}.`
+    }
+    return 'Assuma a conversa para enviar mensagens.'
+  }
+  if (conv.status === 'waiting_queue') {
+    if (conv.priorityForMe) return 'Clique em Aceitar acima para liberar o envio.'
+    if (convLiveCanPull) return 'Você pode puxar esta conversa — clique em Puxar acima.'
+    if (!conv.suggestedUserId) return 'Fila aberta — clique em Assumir para atender.'
+    return 'Aguardando o atendente indicado aceitar a conversa.'
+  }
+  if (conv.status === 'bot_triage') return 'Conversa em triagem automática — aguarde encaminhamento.'
+  return 'Assuma a conversa para enviar mensagens.'
 }
 
 function ContactAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
@@ -256,12 +288,14 @@ export default function Inbox() {
     c => c.status === 'waiting_queue' && c.suggestedAt,
   )
 
-  const { data: detail, isLoading: loadingDetail } = useQuery({
+  const { data: detail, isLoading: loadingDetail, isError: detailError, refetch: refetchDetail } = useQuery({
     queryKey: ['inbox-conversation', selectedId],
     queryFn: () =>
       api.get<ConversationDetail>(`/inbox/conversations/${selectedId}`),
     enabled: Boolean(selectedId),
     refetchInterval: hasPriorityQueue ? 10_000 : 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 
   const { data: contactGroups = [] } = useQuery({
@@ -288,8 +322,46 @@ export default function Inbox() {
 
   const assign = useMutation({
     mutationFn: (id: string) => api.post(`/inbox/conversations/${id}/assign`, {}),
+    onMutate: async (id) => {
+      if (!me?.userId) return {}
+      await qc.cancelQueries({ queryKey: ['inbox-conversation', id] })
+      const prevDetail = qc.getQueryData<ConversationDetail>(['inbox-conversation', id])
+      const prevLists = qc.getQueriesData<Conversation[]>({ queryKey: ['inbox-conversations'] })
+      const optimisticPatch: Partial<Conversation> = {
+        status: 'in_progress',
+        assignedUserId: me.userId,
+        assignedUserName: me.username,
+        priorityForMe: false,
+        suggestedUserId: undefined,
+        suggestedUserName: undefined,
+      }
+      if (prevDetail) {
+        qc.setQueryData<ConversationDetail>(['inbox-conversation', id], {
+          ...prevDetail,
+          conversation: { ...prevDetail.conversation, ...optimisticPatch },
+        })
+      }
+      for (const [key, list] of prevLists) {
+        if (!list) continue
+        qc.setQueryData(
+          key,
+          list.map(c => (c._id === id ? { ...c, ...optimisticPatch } : c)),
+        )
+      }
+      return { prevDetail, prevLists }
+    },
+    onError: (err, id, ctx) => {
+      if (ctx?.prevDetail) {
+        qc.setQueryData(['inbox-conversation', id], ctx.prevDetail)
+      }
+      if (ctx?.prevLists) {
+        for (const [key, list] of ctx.prevLists) {
+          qc.setQueryData(key, list)
+        }
+      }
+      mutationError(err)
+    },
     onSuccess: invalidate,
-    onError: mutationError,
   })
 
   const sendReply = useMutation({
@@ -332,7 +404,14 @@ export default function Inbox() {
     Boolean(conv?.suggestedUserId) &&
     !conv?.priorityForMe &&
     conv?.status === 'waiting_queue' &&
-    (Boolean(conv?.suggestedUserBusy) || convLive.urgency >= 1)
+    (Boolean(conv?.suggestedUserBusy) ||
+      convLive.urgency >= 1 ||
+      conv?.suggestedUserOnline === false)
+
+  const canReply = conv ? canReplyToConversation(conv, me) : false
+  const replyBlockedReason = conv
+    ? inboxReplyBlockedReason(conv, me, convLiveCanPull)
+    : null
 
   const needsLiveTimer =
     hasPriorityQueue ||
@@ -503,7 +582,9 @@ export default function Inbox() {
                   Boolean(c.suggestedUserId) &&
                   !c.priorityForMe &&
                   c.status === 'waiting_queue' &&
-                  (Boolean(c.suggestedUserBusy) || live.urgency >= 1)
+                  (Boolean(c.suggestedUserBusy) ||
+                    live.urgency >= 1 ||
+                    c.suggestedUserOnline === false)
                 const borderCls = priorityBorderClass(
                   live.urgency,
                   Boolean(c.priorityForMe),
@@ -515,7 +596,7 @@ export default function Inbox() {
                   c.suggestedUserName && c.status === 'waiting_queue'
                     ? c.priorityForMe
                       ? `Prioridade · ${c.departmentName ?? ''}`
-                      : `${c.suggestedUserName}${c.suggestedUserBusy ? ' · ocupado' : ''}`
+                      : `${c.suggestedUserName}${c.suggestedUserOnline === false ? ' · offline' : ''}${c.suggestedUserBusy ? ' · ocupado' : ''}`
                     : [c.departmentName, c.assignedUserName].filter(Boolean).join(' · ')
 
                 const selected = selectedId === c._id
@@ -735,14 +816,23 @@ export default function Inbox() {
                     ) : (
                       <span>
                         Aguardando <strong className="font-medium">{conv.suggestedUserName}</strong>
+                        {conv.suggestedUserOnline === false && (
+                          <span className="text-orange-400"> (offline no painel)</span>
+                        )}
                         {' · '}
                         <span className={`font-mono ${queueUrgencyTimerClass(convLive.urgency)}`}>
                           {formatQueueTimer(convLive.elapsedSec)}
                         </span>
+                        {conv.suggestedUserOnline === false && !conv.priorityForMe && (
+                          <span className="text-orange-400"> · offline — pode puxar</span>
+                        )}
                         {conv.suggestedUserBusy && !conv.priorityForMe && (
                           <span className="text-orange-400"> · ocupado — pode puxar</span>
                         )}
-                        {convLiveCanPull && !conv.priorityForMe && !conv.suggestedUserBusy && (
+                        {convLiveCanPull &&
+                          !conv.priorityForMe &&
+                          !conv.suggestedUserBusy &&
+                          conv.suggestedUserOnline !== false && (
                           <span className="text-orange-400"> · pode puxar</span>
                         )}
                       </span>
@@ -760,55 +850,63 @@ export default function Inbox() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {!isTerminal && conv.status === 'in_progress' && conv.assignedUserId === me?.userId && (
+              {!isTerminal && (
                 <footer className="shrink-0 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/60 backdrop-blur-sm p-3 space-y-2">
+                  {detailError && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--rz-warning-text)]/30 bg-[var(--rz-warning-bg)] px-3 py-2 text-xs text-[var(--rz-warning-text)]">
+                      <span>Conexão com a API instável — recarregue ou tente sincronizar antes de enviar.</span>
+                      <button
+                        type="button"
+                        onClick={() => void refetchDetail()}
+                        className="underline font-medium hover:opacity-80"
+                      >
+                        Tentar novamente
+                      </button>
+                    </div>
+                  )}
+                  {replyBlockedReason && (
+                    <p className="text-xs text-[var(--rz-text-muted)]">{replyBlockedReason}</p>
+                  )}
                   <InboxComposer
                     value={reply}
                     onChange={setReply}
                     quickReplies={quickReplies}
                     sending={sendReply.isPending}
+                    sendDisabled={!canReply}
                     onSend={() => sendReply.mutate({ id: conv._id, text: reply })}
                   />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={transferDept}
-                      onChange={e => setTransferDept(e.currentTarget.value)}
-                      className={inboxSelectCls}
-                    >
-                      <option value="">Transferir para…</option>
-                      {departments
-                        .filter(d => d._id !== conv.departmentId && d.canTransferTo !== false)
-                        .map(d => (
-                        <option key={d._id} value={d._id}>
-                          {d.name}
-                          {d.clientVisible === false
-                            ? ` (${d.internalRankLabel ?? 'interno'})`
-                            : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!transferDept || transfer.isPending}
-                      onClick={() => {
-                        transfer.mutate({ id: conv._id, departmentId: transferDept })
-                        setTransferDept('')
-                      }}
-                    >
-                      <ArrowRightLeft size={14} /> Transferir
-                    </Button>
-                  </div>
-                </footer>
-              )}
-
-              {!isTerminal && conv.status === 'waiting_queue' && (
-                <footer className="shrink-0 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 px-4 py-3 text-xs text-[var(--rz-text-muted)]">
-                  {conv.priorityForMe
-                    ? 'Aceite a prioridade para começar a responder.'
-                    : convLiveCanPull
-                      ? 'Você pode puxar este atendimento — o indicado está ocupado ou o tempo de prioridade passou.'
-                      : 'Aguardando o atendente indicado aceitar a conversa.'}
+                  {canReply && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={transferDept}
+                        onChange={e => setTransferDept(e.currentTarget.value)}
+                        className={inboxSelectCls}
+                      >
+                        <option value="">Transferir para…</option>
+                        {departments
+                          .filter(d => d._id !== conv.departmentId && d.canTransferTo !== false)
+                          .map(d => (
+                          <option key={d._id} value={d._id}>
+                            {d.name}
+                            {d.clientVisible === false
+                              ? ` (${d.internalRankLabel ?? 'interno'})`
+                              : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={!transferDept || transfer.isPending}
+                        onClick={() => {
+                          transfer.mutate({ id: conv._id, departmentId: transferDept })
+                          setTransferDept('')
+                        }}
+                      >
+                        <ArrowRightLeft size={14} /> Transferir
+                      </Button>
+                    </div>
+                  )}
                 </footer>
               )}
 

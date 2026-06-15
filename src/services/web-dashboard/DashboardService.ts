@@ -90,6 +90,10 @@ import { RuleGroupBlockService } from '../rules/RuleGroupBlockService';
 import { InboxService } from '../inbox/InboxService';
 import { setInboxSocketServer } from '../inbox/InboxRealtime';
 import { setPanelSocketServer } from '../inbox/PanelNotifications';
+import {
+  agentPresenceConnect,
+  agentPresenceDisconnect,
+} from '../inbox/inbox-agent-presence';
 import { InboxReportsService } from '../inbox/InboxReportsService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
 import { BillingService, BillingHttpError } from '../billing/BillingService';
@@ -4782,13 +4786,22 @@ export class DashboardService {
             await socket.join(`tenant:${clientId}`);
             socket.data.inboxClientId = clientId;
             socket.data.tenantClientId = clientId;
+            socket.data.panelUserId = sess.userId;
+            agentPresenceConnect(clientId, sess.userId);
           }
         } catch (err) {
           logger.debug('Socket inbox room skip', { err: (err as Error).message });
         }
       }
 
-      socket.on('disconnect', () => logger.debug(`Dashboard client disconnected: ${socket.id}`));
+      socket.on('disconnect', () => {
+        const clientId = socket.data.inboxClientId as string | undefined;
+        const userId = socket.data.panelUserId as string | undefined;
+        if (clientId && userId) {
+          agentPresenceDisconnect(clientId, userId);
+        }
+        logger.debug(`Dashboard client disconnected: ${socket.id}`);
+      });
     });
   }
 

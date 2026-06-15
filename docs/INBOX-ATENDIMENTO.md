@@ -488,9 +488,12 @@ Setores continuam em `inboxDepartments` — o menu é montado dinamicamente a pa
 ## Tempo real e round-robin (Fase 3)
 
 - **WebSocket** (Socket.IO): sala `inbox:{clientId}` — eventos `inbox:conversation`, `inbox:message`
-- **Round-robin (prioridade)**: ao entrar na fila, define `suggestedUserId` + `suggestedAt` — status permanece `waiting_queue` até aceite
-- **UI**: borda amarela → escurece com cronômetro; atendente indicado clica **Aceitar prioridade**
-- **Puxar**: outro atendente pode assumir se o indicado tem conversa `in_progress` ou após `roundRobinPullTimeoutSeconds`
+- **Presença online**: atendente online = painel aberto (socket); round-robin **só indica quem está online**
+- **Round-robin (prioridade)**: define `suggestedUserId` + `suggestedAt` — status `waiting_queue` até aceite
+- **Ninguém online**: fila aberta (sem indicado); evento `inbox:priority_expired`; botão **Assumir**
+- **Prioridade expirada / offline**: scan ~60s emite `inbox:priority_expired` ou remove indicado offline
+- **UI**: borda amarela + cronômetro; **Aceitar prioridade**; composer com rascunho antes do aceite
+- **Puxar**: outro atendente assume se indicado ocupado/offline ou após `roundRobinPullTimeoutSeconds`
 - Painel Inbox usa `useInboxSocket` + polling de fallback (30s)
 
 ## Relatórios de atendimento (Fase 4)
@@ -517,7 +520,7 @@ Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
 
 - **Balão de eventos** no header (à esquerda do indicador *online*): `EventNotificationBell`
 - Eventos via Socket.IO `panel:event` (`PanelNotifications`)
-- Tipos: novo chat, nova mensagem, prioridade, WhatsApp desconectado/reconectado
+- Tipos: novo chat, nova mensagem, prioridade, prioridade expirada, fila parada, WhatsApp desconectado/reconectado
 - Som configurável em `/platform/inbox/bot` (alertas do painel)
 - Hook: `usePanelSocket` + `EventNotificationContext`
 
