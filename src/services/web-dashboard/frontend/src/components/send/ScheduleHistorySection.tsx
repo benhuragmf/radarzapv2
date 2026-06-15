@@ -20,8 +20,8 @@ const STATUS_VARIANT: Record<Campaign['status'], 'yellow' | 'blue' | 'green' | '
 
 function ExpandedDetails({ c, ruleName }: { c: Campaign; ruleName?: (id?: string) => string }) {
   return (
-    <div className="mt-3 pt-3 border-t border-gray-800 space-y-2 text-xs text-gray-500">
-      <p className="text-gray-400 whitespace-pre-wrap">{c.message}</p>
+    <div className="mt-3 pt-3 border-t border-[var(--rz-border)] space-y-2 text-xs text-[var(--rz-text-muted)]">
+      <p className="text-[var(--rz-text-secondary)] whitespace-pre-wrap">{c.message}</p>
       {c.platformTemplateName && (
         <p>
           Modelo: <span className="text-gray-300">{c.platformTemplateName}</span>
@@ -74,7 +74,7 @@ export function ScheduleHistorySection({
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-gray-300 mb-3">
+      <h3 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">
         Histórico recente ({campaigns.length})
       </h3>
       <div className="space-y-2">
@@ -90,7 +90,7 @@ export function ScheduleHistorySection({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-gray-200 truncate">{c.title}</p>
+                      <p className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{c.title}</p>
                       <Badge label={STATUS_PT[c.status]} variant={STATUS_VARIANT[c.status]} />
                     </div>
                     <p className="text-xs text-gray-500 mt-1 line-clamp-1">{c.message}</p>

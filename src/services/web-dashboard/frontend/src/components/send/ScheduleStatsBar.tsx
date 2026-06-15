@@ -1,5 +1,5 @@
-import { Card } from '../ui/Card'
 import { Clock, Send, CheckCircle, AlertTriangle } from 'lucide-react'
+import { MetricCard } from '@/design-system'
 
 interface Props {
   queue: number
@@ -10,24 +10,22 @@ interface Props {
 
 export function ScheduleStatsBar({ queue, processing, sent, failed }: Props) {
   const items = [
-    { label: 'Na fila', value: queue, icon: Clock, color: 'text-yellow-400' },
-    { label: 'Enviando', value: processing, icon: Send, color: 'text-blue-400' },
-    { label: 'Concluídos', value: sent, icon: CheckCircle, color: 'text-green-400' },
-    { label: 'Falhas', value: failed, icon: AlertTriangle, color: 'text-red-400' },
+    { label: 'Na fila', value: queue, icon: Clock, color: 'text-[var(--rz-warning-text)]' },
+    { label: 'Enviando', value: processing, icon: Send, color: 'text-[var(--rz-info-text)]' },
+    { label: 'Concluídos', value: sent, icon: CheckCircle, color: 'text-[var(--rz-success-text)]' },
+    { label: 'Falhas', value: failed, icon: AlertTriangle, color: 'text-[var(--rz-danger-text)]' },
   ]
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {items.map(({ label, value, icon: Icon, color }) => (
-        <Card key={label} className="py-3 px-4">
-          <div className="flex items-center gap-2">
-            <Icon size={16} className={color} />
-            <div>
-              <p className={`text-xl font-bold ${color}`}>{value}</p>
-              <p className="text-[11px] text-gray-500">{label}</p>
-            </div>
-          </div>
-        </Card>
+        <MetricCard
+          key={label}
+          title={label}
+          icon={Icon}
+          value={<span className={color}>{value}</span>}
+          className="py-3"
+        />
       ))}
     </div>
   )

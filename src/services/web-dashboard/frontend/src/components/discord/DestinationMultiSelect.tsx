@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { formatPhone } from '../../lib/destinationFormat'
+import { inputCls, selectCls } from '@/design-system'
 
 export interface DestinationOption {
   _id: string
@@ -79,7 +80,7 @@ export default function DestinationMultiSelect({
   const contactCount = activeDestinations.filter(d => d.type === 'contact').length
 
   return (
-    <div className="rounded-lg border border-gray-700 bg-gray-900/40 overflow-hidden">
+    <div className="rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)]/40 overflow-hidden">
       {selectedDestinations.length > 0 ? (
         <div className="px-3 py-2.5 border-b border-gray-800 bg-gray-800/30">
           <div className="flex items-center justify-between gap-2 mb-2">
@@ -134,13 +135,13 @@ export default function DestinationMultiSelect({
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar nome ou número..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500"
+              className={`${inputCls} pl-9`}
             />
           </div>
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
+            className={selectCls}
           >
             <option value="all">Todos ({activeDestinations.length})</option>
             <option value="group">Grupos ({groupCount})</option>

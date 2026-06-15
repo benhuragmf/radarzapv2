@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { Send } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { WhatsAppEmojiPicker } from '../whatsapp/WhatsAppEmojiPicker'
+import { textareaCls } from '@/design-system'
+import { cn } from '@/lib/utils'
 
 export interface QuickReplyItem {
   code: string
@@ -60,8 +62,8 @@ export function InboxComposer({
   return (
     <div className="space-y-2">
       {slashMatches.length > 0 && (
-        <div className="rounded-lg border border-gray-700/80 bg-gray-900/90 overflow-hidden shadow-lg">
-          <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-gray-600 border-b border-gray-800">
+        <div className="rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] overflow-hidden shadow-lg">
+          <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)] border-b border-[var(--rz-border)]">
             Respostas rápidas
           </p>
           {slashMatches.map(q => (
@@ -69,7 +71,7 @@ export function InboxComposer({
               key={q.code}
               type="button"
               onClick={() => applySlash(q.code)}
-              className="w-full text-left px-3 py-2 hover:bg-gray-800/80 border-b border-gray-800/50 last:border-0"
+              className="w-full text-left px-3 py-2 hover:bg-[var(--rz-surface-muted)] border-b border-[var(--rz-border)]/50 last:border-0"
             >
               <span className="text-brand-400 font-mono text-xs">/{q.code}</span>
               <span className="text-gray-500 text-xs ml-2">{q.label}</span>
@@ -91,7 +93,10 @@ export function InboxComposer({
             placeholder="Digite sua resposta… (/bd, /bt…) · Enter envia"
             rows={2}
             disabled={disabled}
-            className="w-full bg-gray-900 border border-gray-700/80 rounded-xl pl-10 pr-3 py-2.5 text-sm text-gray-200 resize-none focus:outline-none focus:border-brand-500/50 min-h-[44px] max-h-32 disabled:opacity-50"
+            className={cn(
+              textareaCls,
+              'pl-10 min-h-[44px] max-h-32 resize-none rounded-xl disabled:opacity-50',
+            )}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey && value.trim()) {
                 e.preventDefault()
@@ -119,7 +124,7 @@ export function InboxComposer({
               type="button"
               disabled={disabled}
               onClick={() => applySlash(q.code)}
-              className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-gray-800/80 text-gray-500 hover:text-brand-400 border border-gray-700/60 disabled:opacity-40"
+              className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] hover:text-brand-400 border border-[var(--rz-border)] disabled:opacity-40"
               title={q.label ? `${q.label} — ${q.template}` : q.template}
             >
               /{q.code}

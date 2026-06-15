@@ -51,14 +51,14 @@ export default function EventNotificationBell() {
                 <button
                   type="button"
                   onClick={clearAll}
-                  className="text-[10px] text-gray-500 hover:text-gray-300"
+                  className="text-[10px] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"
                 >
                   Limpar
                 </button>
               )}
             </div>
             {events.length === 0 ? (
-              <p className="text-xs text-gray-500 p-4 text-center">Nenhum evento recente.</p>
+              <p className="text-xs text-[var(--rz-text-muted)] p-4 text-center">Nenhum evento recente.</p>
             ) : (
               events.map(ev => (
                 <Link
@@ -68,13 +68,13 @@ export default function EventNotificationBell() {
                     markRead(ev.id)
                     setOpen(false)
                   }}
-                  className={`block px-3 py-2.5 border-b border-gray-800/80 hover:bg-gray-800/60 ${
+                  className={`block px-3 py-2.5 border-b border-[var(--rz-border)]/80 hover:bg-[var(--rz-surface-muted)] ${
                     !ev.read ? 'bg-amber-950/20' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span className="text-xs font-medium text-gray-200">{ev.title}</span>
-                    <span className="text-[10px] text-gray-500 shrink-0">
+                    <span className="text-xs font-medium text-[var(--rz-text-primary)]">{ev.title}</span>
+                    <span className="text-[10px] text-[var(--rz-text-muted)] shrink-0">
                       {TYPE_LABEL[ev.type] ?? ev.type}
                     </span>
                   </div>

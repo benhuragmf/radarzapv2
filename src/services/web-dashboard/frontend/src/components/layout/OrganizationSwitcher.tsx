@@ -48,12 +48,12 @@ export default function OrganizationSwitcher({ user, onOrganizationChange }: Pro
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 hover:border-gray-600 hover:bg-gray-800/80 transition-colors max-w-[220px]"
+        className="flex items-center gap-2 border border-[var(--rz-border)] rounded-lg px-3 py-1.5 text-sm text-[var(--rz-text-secondary)] hover:bg-[var(--rz-surface-muted)] transition-colors max-w-[220px]"
         title="Trocar empresa"
       >
         <Building2 size={14} className="text-brand-400 shrink-0" />
         <span className="truncate">{current.organizationName}</span>
-        <ChevronDown size={14} className="text-gray-500 shrink-0" />
+        <ChevronDown size={14} className="text-[var(--rz-text-muted)] shrink-0" />
       </button>
 
       {open && (
@@ -64,8 +64,8 @@ export default function OrganizationSwitcher({ user, onOrganizationChange }: Pro
             aria-label="Fechar"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-1 overflow-hidden">
-            <p className="px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+          <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-[var(--rz-surface)] border border-[var(--rz-border)] rounded-xl shadow-xl py-1 overflow-hidden">
+            <p className="px-3 py-2 text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)] font-semibold">
               Suas empresas
             </p>
             {user.organizations.map(org => {
@@ -76,15 +76,15 @@ export default function OrganizationSwitcher({ user, onOrganizationChange }: Pro
                   type="button"
                   disabled={loadingId !== null}
                   onClick={() => handleSelect(org.organizationId)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-800 transition-colors ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--rz-surface-muted)] transition-colors ${
                     active ? 'bg-brand-600/10' : ''
                   }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate ${active ? 'text-brand-300' : 'text-gray-200'}`}>
+                    <p className={`text-sm truncate ${active ? 'text-brand-300' : 'text-[var(--rz-text-primary)]'}`}>
                       {org.organizationName}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-xs text-[var(--rz-text-muted)] truncate">
                       {ROLE_LABEL[org.companyRole] ?? org.companyRole}
                       {org.companyRole !== 'OWNER' && org.ownerEmail && (
                         <> · {org.ownerEmail}</>
