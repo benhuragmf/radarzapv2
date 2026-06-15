@@ -40,7 +40,8 @@ export default function AdminPaymentsPage() {
   })
 
   const sweep = useMutation({
-    mutationFn: () => api.post('/billing/subscriptions/sweep', {}),
+    mutationFn: () =>
+      api.post<{ organizationsExpired?: number }>('/billing/subscriptions/sweep', {}),
     onSuccess: (res: { organizationsExpired?: number }) => {
       notifySuccess(`Sweep: ${res.organizationsExpired ?? 0} organização(ões) expirada(s)`)
       qc.invalidateQueries({ queryKey: ['billing-admin-orders'] })

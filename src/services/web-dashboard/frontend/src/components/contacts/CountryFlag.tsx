@@ -1,6 +1,6 @@
-import Flags from 'country-flag-icons/react/3x2'
+import * as Flags from 'country-flag-icons/react/3x2'
 
-type FlagIso = keyof typeof Flags
+type FlagIso = keyof typeof Flags & string
 
 /** Bandeira SVG local (sem CDN) — funciona offline e no Windows. */
 export default function CountryFlag({

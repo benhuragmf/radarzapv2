@@ -67,6 +67,7 @@ import PermissionsPage from './pages/menu/PermissionsPage'
 import SecuritySettings from './pages/menu/SecuritySettings'
 import BackupExport from './pages/menu/BackupExport'
 import { ApiPlayground } from './components/integrations/ApiPlayground'
+import { RadarPageShell, PageHeader } from './design-system'
 import Login from './pages/Login'
 import ChooseCompany from './pages/ChooseCompany'
 import { getMe, type AuthUser } from './lib/auth'
@@ -86,11 +87,13 @@ function LegacySendRedirect() {
 
 function ApiPlaygroundPage() {
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-lg font-semibold text-white">Playground</h1>
-      <p className="text-sm text-gray-500">Teste envios e respostas da API sem sair do painel.</p>
+    <RadarPageShell maxWidth="wide" className="space-y-6">
+      <PageHeader
+        title="Playground"
+        subtitle="Teste envios e respostas da API sem sair do painel."
+      />
       <ApiPlayground />
-    </div>
+    </RadarPageShell>
   )
 }
 
@@ -119,7 +122,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--rz-background)]">
         <Spinner size={32} />
       </div>
     )

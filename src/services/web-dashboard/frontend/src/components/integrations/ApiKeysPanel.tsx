@@ -6,6 +6,7 @@ import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Key, Plus, Trash2, Copy, Check } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { inputCls, LoadingState, EmptyState } from '@/design-system'
 
 interface ApiKeyRow {
   _id: string
@@ -49,13 +50,10 @@ export function ApiKeysPanel() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const inputCls =
-    'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200'
-
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
-        Use o header <code className="text-gray-400">X-API-Key</code> em chamadas server-to-server.
+      <p className="text-xs text-[var(--rz-text-muted)]">
+        Use o header <code className="text-[var(--rz-text-secondary)]">X-API-Key</code> em chamadas server-to-server.
         A chave completa só é exibida uma vez ao criar.
       </p>
 
@@ -84,9 +82,9 @@ export function ApiKeysPanel() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-6"><Spinner size={24} /></div>
+        <LoadingState rows={3} className="py-2" />
       ) : keys.length === 0 ? (
-        <Card className="text-center py-8 text-gray-500 text-sm">Nenhuma chave cadastrada.</Card>
+        <EmptyState title="Nenhuma chave cadastrada" description="Gere uma chave para integrações server-to-server." />
       ) : (
         <div className="space-y-2">
           {keys.map(k => (

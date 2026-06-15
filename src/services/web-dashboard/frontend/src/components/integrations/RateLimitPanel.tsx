@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Card, CardTitle, CardValue } from '../ui/Card'
-import { Spinner } from '../ui/Spinner'
 import { Gauge } from 'lucide-react'
+import { LoadingState } from '@/design-system'
 
 interface RateLimitInfo {
   plan: string
@@ -18,7 +18,7 @@ export function RateLimitPanel() {
   })
 
   if (isLoading) {
-    return <div className="flex justify-center py-8"><Spinner size={24} /></div>
+    return <LoadingState rows={2} className="py-4" />
   }
 
   if (!data) return null

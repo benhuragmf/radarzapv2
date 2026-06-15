@@ -159,15 +159,16 @@ export default function AiAtendimento() {
         skills: data.skills ?? [],
         memories: data.memories ?? [],
         prompt: {
-          learnMemoryEnabled: true,
           ...data.prompt,
+          learnMemoryEnabled: data.prompt?.learnMemoryEnabled ?? true,
         },
       })
     }
   }, [data])
 
   const save = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => api.patch('/platform/ai/settings', payload),
+    mutationFn: (payload: Record<string, unknown>) =>
+      api.patch<AiPayload>('/platform/ai/settings', payload),
     onSuccess: (res: AiPayload) => {
       setForm(res)
       qc.setQueryData(['ai-settings'], res)
@@ -177,7 +178,7 @@ export default function AiAtendimento() {
   })
 
   const removeKey = useMutation({
-    mutationFn: () => api.delete('/platform/ai/key'),
+    mutationFn: () => api.delete<AiPayload>('/platform/ai/key'),
     onSuccess: (res: AiPayload) => {
       setForm(res)
       qc.setQueryData(['ai-settings'], res)
@@ -282,7 +283,8 @@ export default function AiAtendimento() {
   }
 
   return (
-    <PlatformPage title="IA Atendimento" className="max-w-6xl">
+    <PlatformPage title="IA Atendimento">
+      <div className="max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300">
           <ArrowLeft className="w-4 h-4" /> Inbox
@@ -934,7 +936,7 @@ export default function AiAtendimento() {
       {tab === 'testar' && (
         <Card className="p-6 space-y-4">
           <h2 className="text-lg font-medium">Testar conexão com o provedor</h2>
-          <Button type="button" onClick={() => testConn.mutate()} disabled={testConn.isPending}>
+          <Button type="button" onClick={() => testConn.mutate(undefined)} disabled={testConn.isPending}>
             Ping no provedor
           </Button>
           {testResult && <p className="text-sm">{testResult}</p>}
@@ -949,6 +951,7 @@ export default function AiAtendimento() {
           </Button>
         </div>
       )}
+      </div>
     </PlatformPage>
   )
 }

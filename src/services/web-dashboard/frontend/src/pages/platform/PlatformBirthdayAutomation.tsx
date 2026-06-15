@@ -114,7 +114,8 @@ export default function PlatformBirthdayAutomation() {
   })
 
   const runNow = useMutation({
-    mutationFn: () => api.post('/platform/birthday-automation/run-now', {}),
+    mutationFn: () =>
+      api.post<{ enqueued?: number }>('/platform/birthday-automation/run-now', {}),
     onSuccess: (data: { enqueued?: number }) => {
       notifySuccess(`Processado: ${data.enqueued ?? 0} envio(s) enfileirado(s) para hoje.`)
     },

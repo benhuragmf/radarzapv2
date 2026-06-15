@@ -6,6 +6,7 @@ import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Zap } from 'lucide-react'
 import { WhatsAppTextEditor } from '../whatsapp/WhatsAppTextEditor'
+import { inputCls, selectCls } from '@/design-system'
 
 interface DestOption {
   _id: string
@@ -36,9 +37,6 @@ export function ApiPlayground() {
     onError: (e: Error) => setResult(`Erro: ${e.message}`),
   })
 
-  const inputCls =
-    'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200'
-
   return (
     <Card className="space-y-4 border-brand-800/30">
       <div className="flex items-center gap-2 text-brand-300 font-medium text-sm">
@@ -53,7 +51,7 @@ export function ApiPlayground() {
         <select
           value={destination}
           onChange={e => setDestination(e.target.value)}
-          className={inputCls}
+          className={selectCls}
         >
           <option value="">Selecione…</option>
           {contacts.map(d => (

@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.7.2` (`package.json`) · **Última revisão doc:** 2026-06-10
+**Versão atual:** `2.8.0` (`package.json`) · **Última revisão doc:** 2026-06-15
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -34,6 +34,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.7.0** | Ticket: SLA equipe (24h), status enriquecidos, menu bot WhatsApp (`TicketClientMenuService`), ações rápidas painel — ver `TICKET-ATENDIMENTO.md` |
 | **2.7.1** | Ticket+IA: classificação de intenção (`ticket-client-intent`), `AiTicketAssistService` (status/recusa/KB antes de gravar), mesmo assist no bot fixo — ver `TICKET-ATENDIMENTO.md` § Assistente inteligente |
 | **2.7.2** | Fix IA+ticket: `human_request` (atendente) escala sem gravar; `exit_close` (sair, pode finalizar) não vira complemento |
+| **2.8.0** | Design system painel: tokens `--rz-*`, `src/design-system/` (shell, estados, forms, Sonner), migração visual das páginas tenant/admin/discord |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 
@@ -46,7 +47,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | Backend | `src/index.ts`, serviços em `src/services/*` |
 | API painel + integrações | `src/services/web-dashboard/DashboardService.ts` — base `/api` |
 | Auth/RBAC | `src/auth/rbac/*` |
-| Frontend painel | `src/services/web-dashboard/frontend/src/` |
+| Frontend painel | `src/services/web-dashboard/frontend/src/` — design system em `design-system/` |
 | Modelos Mongo | `src/models/*` |
 | Tipos compartilhados | `src/types/*` |
 
@@ -63,6 +64,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | Consentimento | `consentRenewalApprovals` 0–2, `/contact?consent=waiting`, fila `pendingOutboundDeliveries` até aceite `1` |
 | Tickets Inbox | Janela cliente 12h pós-envio equipe; grace 30min; menu follow-up após 2h |
 | Painel | scroll do navegador; `Layout.tsx` `min-h-screen` |
+| Design system (2.8) | Tokens CSS `--rz-*`; `RadarPageShell`, `PageHeader`, `LoadingState`/`EmptyState`/`ErrorState`; `inputCls`/`selectCls`; Sonner + `ToastContext` legado |
 
 ---
 

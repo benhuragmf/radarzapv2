@@ -62,8 +62,9 @@ export default function AdminAiBlueprint() {
   }, [data])
 
   const save = useMutation({
-    mutationFn: (payload: BlueprintPayload) => api.patch('/admin/ai-blueprint', payload),
-    onSuccess: res => {
+    mutationFn: (payload: BlueprintPayload) =>
+      api.patch<BlueprintPayload>('/admin/ai-blueprint', payload),
+    onSuccess: (res: BlueprintPayload) => {
       setForm(res)
       qc.setQueryData(['admin-ai-blueprint'], res)
     },

@@ -6,14 +6,12 @@ import type { AuthUser } from '../../lib/auth'
 import { getMe, linkDiscordAccount, linkGoogleAccount } from '../../lib/auth'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
+import { inputCls } from '@/design-system'
 
 interface Props {
   user: AuthUser
   onUserUpdate?: (user: AuthUser) => void
 }
-
-const inputCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500'
 
 const LINKED_LABEL: Record<string, string> = {
   google: 'Google vinculado com sucesso.',
@@ -93,7 +91,7 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-400 leading-relaxed">
+      <p className="text-sm text-[var(--rz-text-secondary)] leading-relaxed">
         Vincule Google e Discord à mesma conta RadarZap. Assim você entra por qualquer um e sua equipe vê seu
         e-mail corretamente.
       </p>
@@ -111,13 +109,13 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
       )}
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-800 bg-gray-950/50">
+        <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[var(--rz-surface)] flex items-center justify-center shrink-0">
               <GoogleMark />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-white">Google / Gmail</p>
+              <p className="text-sm font-medium text-[var(--rz-text-primary)]">Google / Gmail</p>
               {google.linked && google.email ? (
                 <p className="text-xs text-brand-400 flex items-center gap-1 truncate">
                   <CheckCircle2 size={12} /> Vinculado · {google.email}
@@ -127,7 +125,7 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
                   E-mail cadastrado · {user.email} — vincule Google para entrar com Gmail
                 </p>
               ) : (
-                <p className="text-xs text-gray-500">Não vinculado</p>
+                <p className="text-xs text-[var(--rz-text-muted)]">Não vinculado</p>
               )}
             </div>
           </div>
@@ -138,19 +136,19 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-800 bg-gray-950/50">
+        <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[var(--rz-surface)] flex items-center justify-center shrink-0">
               <DiscordMark />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-white">Discord</p>
+              <p className="text-sm font-medium text-[var(--rz-text-primary)]">Discord</p>
               {discord.linked && discord.username ? (
                 <p className="text-xs text-brand-400 flex items-center gap-1 truncate">
                   <CheckCircle2 size={12} /> Vinculado · {discord.username}
                 </p>
               ) : (
-                <p className="text-xs text-gray-500">Não vinculado</p>
+                <p className="text-xs text-[var(--rz-text-muted)]">Não vinculado</p>
               )}
             </div>
           </div>
@@ -163,8 +161,8 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
       </div>
 
       {!google.linked && (
-        <div className="pt-2 border-t border-gray-800">
-          <p className="text-xs text-gray-500 mb-2">
+        <div className="pt-2 border-t border-[var(--rz-border)]">
+          <p className="text-xs text-[var(--rz-text-muted)] mb-2">
             Ou informe seu e-mail manualmente (recomendado vincular pelo Google acima):
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -187,12 +185,12 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
 
       <div className="grid grid-cols-2 gap-4 pt-2 text-sm">
         <div>
-          <p className="text-xs text-gray-500">Papel no painel</p>
-          <p className="text-gray-300">{user.primaryRole}</p>
+          <p className="text-xs text-[var(--rz-text-muted)]">Papel no painel</p>
+          <p className="text-[var(--rz-text-secondary)]">{user.primaryRole}</p>
         </div>
         <div>
-          <p className="text-xs text-gray-500">Plano</p>
-          <p className="text-gray-300 capitalize">{user.plan}</p>
+          <p className="text-xs text-[var(--rz-text-muted)]">Plano</p>
+          <p className="text-[var(--rz-text-secondary)] capitalize">{user.plan}</p>
         </div>
       </div>
     </div>

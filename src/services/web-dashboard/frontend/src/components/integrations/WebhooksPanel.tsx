@@ -6,6 +6,7 @@ import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Webhook, Plus, Trash2 } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { inputCls, LoadingState, EmptyState } from '@/design-system'
 
 const EVENTS = [
   'campaign.sent',
@@ -58,9 +59,6 @@ export function WebhooksPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
   })
 
-  const inputCls =
-    'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200'
-
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
@@ -91,9 +89,9 @@ export function WebhooksPanel() {
       <p className="text-[11px] text-gray-600">Eventos disponíveis: {EVENTS.join(', ')}</p>
 
       {isLoading ? (
-        <div className="flex justify-center py-6"><Spinner size={24} /></div>
+        <LoadingState rows={3} className="py-2" />
       ) : hooks.length === 0 ? (
-        <Card className="text-center py-8 text-gray-500 text-sm">Nenhum webhook.</Card>
+        <EmptyState title="Nenhum webhook" description="Adicione uma URL HTTPS para receber eventos da plataforma." />
       ) : (
         <div className="space-y-2">
           {hooks.map(h => (

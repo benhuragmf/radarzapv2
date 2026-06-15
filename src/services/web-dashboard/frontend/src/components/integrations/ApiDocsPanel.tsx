@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Card } from '../ui/Card'
-import { Spinner } from '../ui/Spinner'
+import { LoadingState, ErrorState } from '@/design-system'
 
 export function ApiDocsPanel() {
   const { data, isLoading, isError, error } = useQuery({
@@ -11,14 +11,15 @@ export function ApiDocsPanel() {
   })
 
   if (isLoading) {
-    return <div className="flex justify-center py-8"><Spinner size={24} /></div>
+    return <LoadingState rows={5} className="py-4" />
   }
 
   if (isError) {
     return (
-      <p className="text-sm text-amber-200/90">
-        Não foi possível carregar: {(error as Error).message}
-      </p>
+      <ErrorState
+        message={(error as Error).message}
+        title="Não foi possível carregar a documentação"
+      />
     )
   }
 

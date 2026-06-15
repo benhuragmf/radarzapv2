@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useGuild } from '../../lib/guildContext'
 import { Hash, AlertCircle } from 'lucide-react'
@@ -46,7 +47,7 @@ export function DiscordPage({ description, children, requireGuild = true, action
 }
 
 export function DiscordEmpty({ icon: Icon, title, hint, actionTo, actionLabel }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>
+  icon: LucideIcon
   title: string
   hint: string
   actionTo?: string

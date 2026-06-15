@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { Construction } from 'lucide-react'
-import { Card } from '../components/ui/Card'
+import { RadarPageShell, SectionCard } from '../design-system'
 import { Button } from '../components/ui/Button'
 
 const TITLES: Record<string, string> = {
@@ -26,15 +26,15 @@ export default function ComingSoon() {
   const title = (slug && TITLES[slug]) || 'Em breve'
 
   return (
-    <div className="max-w-lg mx-auto py-12">
-      <Card className="text-center space-y-4 p-8">
-        <Construction className="mx-auto text-amber-500" size={40} />
-        <h1 className="text-xl font-semibold text-white">{title}</h1>
-        <p className="text-sm text-gray-400">
+    <RadarPageShell maxWidth="wide" className="py-8">
+      <SectionCard className="max-w-lg mx-auto text-center">
+        <Construction className="mx-auto text-amber-500 mb-4" size={40} aria-hidden />
+        <h1 className="text-xl font-semibold text-[var(--rz-text-primary)]">{title}</h1>
+        <p className="mt-2 text-sm text-[var(--rz-text-secondary)]">
           Esta área está no roadmap da plataforma. Use os atalhos do menu que já estão ativos
           (contatos, envios, WhatsApp, equipe).
         </p>
-        <div className="flex flex-wrap justify-center gap-2 pt-2">
+        <div className="flex flex-wrap justify-center gap-2 pt-4">
           <Link to="/dashboard">
             <Button size="sm" variant="secondary">
               Início
@@ -46,7 +46,7 @@ export default function ComingSoon() {
             </Button>
           </Link>
         </div>
-      </Card>
-    </div>
+      </SectionCard>
+    </RadarPageShell>
   )
 }

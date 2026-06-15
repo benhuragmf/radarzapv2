@@ -211,12 +211,12 @@ export default function WaStatusPosts() {
 
     let sendAt: string | null = null
     if (scheduleMode) {
-      const v = validateFutureSchedule(sendAtLocal)
-      if (!v.ok) {
-        setResult({ ok: false, message: v.error })
+      const scheduleErr = validateFutureSchedule(sendAtLocal)
+      if (scheduleErr) {
+        setResult({ ok: false, message: scheduleErr })
         return
       }
-      sendAt = v.date.toISOString()
+      sendAt = new Date(sendAtLocal).toISOString()
     } else if (!waConnected) {
       setResult({
         ok: false,

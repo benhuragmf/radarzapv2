@@ -131,7 +131,7 @@ export default function Destinations() {
   const waConnected = sessions.some(s => s.status === 'connected')
 
   const syncProfilePhotos = useMutation({
-    mutationFn: (limit = 50) =>
+    mutationFn: (limit: number) =>
       api.post<{ updated: number; skipped: number; failed: number }>(
         '/destinations/sync-profile-pictures',
         { limit },

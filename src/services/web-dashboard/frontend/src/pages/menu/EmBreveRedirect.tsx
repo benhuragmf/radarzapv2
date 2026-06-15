@@ -1,4 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { RadarPageShell, EmptyState } from '../../design-system'
+import { Button } from '../../components/ui/Button'
 
 /** Redireciona URLs legadas /em-breve/:slug para rotas definitivas */
 const SLUG_REDIRECTS: Record<string, string> = {
@@ -20,12 +22,19 @@ export default function EmBreveRedirect() {
   const target = slug ? SLUG_REDIRECTS[slug] : undefined
   if (target) return <Navigate to={target} replace />
   return (
-    <div className="max-w-lg mx-auto py-12 text-center text-gray-500 text-sm">
-      <p>Página não mapeada.</p>
-      <Link to="/dashboard" className="text-brand-400 hover:underline mt-2 inline-block">
-        Voltar ao dashboard
-      </Link>
-    </div>
+    <RadarPageShell maxWidth="wide">
+      <EmptyState
+        title="Página não mapeada"
+        description="O atalho legado não possui rota definitiva. Volte ao início do painel."
+        action={
+          <Link to="/dashboard">
+            <Button size="sm" variant="secondary">
+              Voltar ao dashboard
+            </Button>
+          </Link>
+        }
+      />
+    </RadarPageShell>
   )
 }
 

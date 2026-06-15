@@ -255,6 +255,9 @@ export default function PlatformAutomations() {
   const toggleId = (list: string[], id: string): string[] =>
     list.includes(id) ? list.filter(x => x !== id) : [...list, id]
 
+  const toggleNumber = (list: number[], id: number): number[] =>
+    list.includes(id) ? list.filter(x => x !== id) : [...list, id]
+
   const saveRule = useMutation({
     mutationFn: () => {
       const scheduleErr = validateAutomationScheduleTimes(form)
@@ -587,7 +590,7 @@ export default function PlatformAutomations() {
                       title={w.full}
                       onClick={() =>
                         setForm(f => {
-                          const next = toggleId(f.weekdays, w.v)
+                          const next = toggleNumber(f.weekdays, w.v)
                           return {
                             ...f,
                             weekdays: next.length ? next : [w.v],
