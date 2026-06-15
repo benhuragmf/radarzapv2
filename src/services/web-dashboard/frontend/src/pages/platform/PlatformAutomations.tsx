@@ -379,26 +379,26 @@ export default function PlatformAutomations() {
       title="Mensagens automáticas"
       description="Regras recorrentes ou envio único. Escolha contatos, grupos de contato, grupos WhatsApp ou ambos."
     >
-      <Card className="border-brand-800/40 bg-brand-950/15 text-xs text-gray-400 space-y-2">
+      <Card className="border-brand-800/40 bg-brand-950/15 text-xs text-[var(--rz-text-muted)] space-y-2">
         <p className="font-medium text-brand-300">Como funciona</p>
         <ul className="list-disc pl-4 space-y-1">
           <li>
-            <strong className="text-gray-300">Gatilho</strong> — aniversário, calendário, semanal ou{' '}
-            <strong className="text-gray-300">envio único</strong> com data/hora exata.
+            <strong className="text-[var(--rz-text-secondary)]">Gatilho</strong> — aniversário, calendário, semanal ou{' '}
+            <strong className="text-[var(--rz-text-secondary)]">envio único</strong> com data/hora exata.
           </li>
           <li>
-            <strong className="text-gray-300">Destinos</strong> — todos os contatos, grupos de contato (
+            <strong className="text-[var(--rz-text-secondary)]">Destinos</strong> — todos os contatos, grupos de contato (
             <Link to="/contact" className="text-brand-400 hover:underline">
               Contatos
             </Link>
             ), grupos WhatsApp ou combinação.
           </li>
           <li>
-            <strong className="text-gray-300">Mensagem</strong> — modelo pw-* ou texto manual com variáveis
+            <strong className="text-[var(--rz-text-secondary)]">Mensagem</strong> — modelo pw-* ou texto manual com variáveis
             como {'{nome}'}, {'{mensagem}'}.
           </li>
         </ul>
-        <p className="text-gray-500">
+        <p className="text-[var(--rz-text-muted)]">
           Envios entram em{' '}
           <Link to="/send/autoagendamentos" className="text-brand-400 hover:underline">
             Agend. automação
@@ -442,12 +442,12 @@ export default function PlatformAutomations() {
 
       {showForm && (
         <Card className="space-y-4">
-          <h2 className="text-sm font-medium text-gray-300">
+          <h2 className="text-sm font-medium text-[var(--rz-text-secondary)]">
             {editing ? 'Editar automação' : 'Nova automação'}
           </h2>
 
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Nome da regra</label>
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Nome da regra</label>
             <input
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -457,7 +457,7 @@ export default function PlatformAutomations() {
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Quando enviar (gatilho)</label>
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Quando enviar (gatilho)</label>
             <select
               value={form.triggerType}
               onChange={e =>
@@ -478,14 +478,14 @@ export default function PlatformAutomations() {
                 </optgroup>
               ))}
             </select>
-            <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">
+            <p className="text-[11px] text-[var(--rz-text-muted)] mt-1.5 leading-relaxed">
               {TRIGGER_HINTS[form.triggerType]}
             </p>
           </div>
 
           {form.triggerType === 'once_at' ? (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Data e hora do envio</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Data e hora do envio</label>
               <input
                 type="datetime-local"
                 value={form.scheduledAt}
@@ -499,13 +499,13 @@ export default function PlatformAutomations() {
                 }}
                 className={inputCls}
               />
-              <p className="text-[11px] text-gray-600 mt-1">
+              <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
                 Envio único — não repete após executar.
               </p>
             </div>
           ) : (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Horário diário (HH:mm)</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Horário diário (HH:mm)</label>
               <input
                 type="time"
                 value={form.sendTime}
@@ -521,7 +521,7 @@ export default function PlatformAutomations() {
                 className={inputCls}
               />
               {minSendTime && (
-                <p className="text-[11px] text-gray-600 mt-1">
+                <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
                   O gatilho bate hoje — horário deve ser futuro.
                 </p>
               )}
@@ -531,7 +531,7 @@ export default function PlatformAutomations() {
           {(form.triggerType === 'day_of_month' ||
             form.triggerType === 'calendar_day_of_month') && (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Dia do mês (1–31)</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Dia do mês (1–31)</label>
               <input
                 type="number"
                 min={1}
@@ -544,7 +544,7 @@ export default function PlatformAutomations() {
           )}
           {form.triggerType === 'interval_months' && (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Intervalo (meses)</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Intervalo (meses)</label>
               <input
                 type="number"
                 min={1}
@@ -559,7 +559,7 @@ export default function PlatformAutomations() {
           )}
           {form.triggerType === 'nth_business_day_of_month' && (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
                 Qual dia útil do mês? (1º a 23º, só seg–sex)
               </label>
               <input
@@ -572,14 +572,14 @@ export default function PlatformAutomations() {
                 }
                 className={inputCls}
               />
-              <p className="text-[11px] text-gray-600 mt-1">
-                Ex.: <strong className="text-gray-400">5</strong> = 5ª segunda a sexta do mês, não o dia 5 do calendário.
+              <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
+                Ex.: <strong className="text-[var(--rz-text-muted)]">5</strong> = 5ª segunda a sexta do mês, não o dia 5 do calendário.
               </p>
             </div>
           )}
           {form.triggerType === 'weekly' && (
             <div>
-              <label className="text-xs text-gray-500 block mb-2">Dias da semana</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-2">Dias da semana</label>
               <div className="flex flex-wrap gap-2">
                 {WEEKDAYS.map(w => {
                   const on = form.weekdays.includes(w.v)
@@ -601,7 +601,7 @@ export default function PlatformAutomations() {
                       className={`min-w-[2.75rem] px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
                         on
                           ? 'border-brand-500 bg-brand-600 text-white'
-                          : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                          : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                       }`}
                     >
                       {w.label}
@@ -609,14 +609,14 @@ export default function PlatformAutomations() {
                   )
                 })}
               </div>
-              <p className="text-[11px] text-gray-600 mt-2">
+              <p className="text-[11px] text-[var(--rz-text-muted)] mt-2">
                 Marque um ou mais dias. Pelo menos um dia deve ficar ativo.
               </p>
             </div>
           )}
 
           <div>
-            <label className="text-xs text-gray-500 block mb-2 flex items-center gap-1">
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-2 flex items-center gap-1">
               <Users size={12} /> Quem recebe
             </label>
             <div className="grid gap-2 sm:grid-cols-3 mb-4">
@@ -628,22 +628,22 @@ export default function PlatformAutomations() {
                   className={`text-left rounded-lg border p-3 transition-colors ${
                     form.destinationScope === id
                       ? 'border-brand-500 bg-brand-950/30'
-                      : 'border-gray-800 hover:border-gray-700'
+                      : 'border-[var(--rz-border)] hover:border-[var(--rz-border)]'
                   }`}
                 >
-                  <div className="flex items-center gap-2 text-sm font-medium text-gray-200">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[var(--rz-text-primary)]">
                     <Icon size={14} className="text-brand-400 shrink-0" />
                     {label}
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-1 leading-snug">{hint}</p>
+                  <p className="text-[11px] text-[var(--rz-text-muted)] mt-1 leading-snug">{hint}</p>
                 </button>
               ))}
             </div>
 
             {showContactPicker && (
-              <div className="mb-3 rounded-lg border border-gray-800 p-3 space-y-3">
+              <div className="mb-3 rounded-lg border border-[var(--rz-border)] p-3 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-gray-300">Contatos</p>
+                  <p className="text-xs font-medium text-[var(--rz-text-secondary)]">Contatos</p>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -655,7 +655,7 @@ export default function PlatformAutomations() {
                     {contactGroups.length > 0 && (
                       <button
                         type="button"
-                        className="text-[11px] text-gray-500 hover:text-gray-300"
+                        className="text-[11px] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]"
                         onClick={() =>
                           setForm(f => ({
                             ...f,
@@ -668,7 +668,7 @@ export default function PlatformAutomations() {
                     )}
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-600">
+                <p className="text-[11px] text-[var(--rz-text-muted)]">
                   {form.contactGroupIds.length === 0
                     ? 'Todos os contatos elegíveis (consentimento aceito).'
                     : `${form.contactGroupIds.length} segmento(s) selecionado(s).`}
@@ -681,9 +681,9 @@ export default function PlatformAutomations() {
                       placeholder="Buscar segmento..."
                       className={inputCls}
                     />
-                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg bg-gray-950/40 p-1">
+                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg bg-[var(--rz-surface-muted)]/40 p-1">
                       {filteredContactGroups.length === 0 ? (
-                        <p className="text-xs text-gray-600 py-2 px-2">Nenhum segmento encontrado.</p>
+                        <p className="text-xs text-[var(--rz-text-muted)] py-2 px-2">Nenhum segmento encontrado.</p>
                       ) : (
                         filteredContactGroups.map(g => {
                           const on = form.contactGroupIds.includes(g._id)
@@ -700,11 +700,11 @@ export default function PlatformAutomations() {
                               className={`w-full flex items-center justify-between gap-2 text-sm rounded-md px-2 py-1.5 transition-colors ${
                                 on
                                   ? 'bg-brand-600/20 text-brand-100'
-                                  : 'text-gray-400 hover:bg-gray-800/60'
+                                  : 'text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)]/60'
                               }`}
                             >
                               <span className="truncate">{g.name}</span>
-                              <span className="text-xs text-gray-600 shrink-0">{g.memberCount}</span>
+                              <span className="text-xs text-[var(--rz-text-muted)] shrink-0">{g.memberCount}</span>
                             </button>
                           )
                         })
@@ -713,7 +713,7 @@ export default function PlatformAutomations() {
                   </>
                 )}
                 {contactGroups.length === 0 && (
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-[var(--rz-text-muted)]">
                     <Link to="/contact" className="text-brand-400 hover:underline">
                       Criar segmentos em Contatos
                     </Link>
@@ -723,9 +723,9 @@ export default function PlatformAutomations() {
             )}
 
             {showWaPicker && (
-              <div className="rounded-lg border border-gray-800 p-3 space-y-3">
+              <div className="rounded-lg border border-[var(--rz-border)] p-3 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-gray-300">Grupos WhatsApp</p>
+                  <p className="text-xs font-medium text-[var(--rz-text-secondary)]">Grupos WhatsApp</p>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -737,7 +737,7 @@ export default function PlatformAutomations() {
                     {waGroups.length > 0 && (
                       <button
                         type="button"
-                        className="text-[11px] text-gray-500 hover:text-gray-300"
+                        className="text-[11px] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]"
                         onClick={() =>
                           setForm(f => ({
                             ...f,
@@ -750,7 +750,7 @@ export default function PlatformAutomations() {
                     )}
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-600">
+                <p className="text-[11px] text-[var(--rz-text-muted)]">
                   {form.whatsappDestinationIds.length === 0
                     ? 'Todos os grupos WhatsApp cadastrados.'
                     : `${form.whatsappDestinationIds.length} grupo(s) selecionado(s).`}
@@ -763,9 +763,9 @@ export default function PlatformAutomations() {
                       placeholder="Buscar grupo..."
                       className={inputCls}
                     />
-                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg bg-gray-950/40 p-1">
+                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg bg-[var(--rz-surface-muted)]/40 p-1">
                       {filteredWaGroups.length === 0 ? (
-                        <p className="text-xs text-gray-600 py-2 px-2">Nenhum grupo encontrado.</p>
+                        <p className="text-xs text-[var(--rz-text-muted)] py-2 px-2">Nenhum grupo encontrado.</p>
                       ) : (
                         filteredWaGroups.map(g => {
                           const on = form.whatsappDestinationIds.includes(g._id)
@@ -785,11 +785,11 @@ export default function PlatformAutomations() {
                               className={`w-full flex items-center justify-between gap-2 text-sm rounded-md px-2 py-1.5 text-left transition-colors ${
                                 on
                                   ? 'bg-brand-600/20 text-brand-100'
-                                  : 'text-gray-400 hover:bg-gray-800/60'
+                                  : 'text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)]/60'
                               }`}
                             >
                               <span className="truncate">{g.name}</span>
-                              <span className="text-[10px] text-gray-600 shrink-0 font-mono">
+                              <span className="text-[10px] text-[var(--rz-text-muted)] shrink-0 font-mono">
                                 {g.identifier.slice(-8)}
                               </span>
                             </button>
@@ -799,7 +799,7 @@ export default function PlatformAutomations() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-[var(--rz-text-muted)]">
                     <Link to="/grupos" className="text-brand-400 hover:underline">
                       Cadastrar grupos WhatsApp
                     </Link>
@@ -810,7 +810,7 @@ export default function PlatformAutomations() {
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 block mb-2 flex items-center gap-1">
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-2 flex items-center gap-1">
               <MessageSquare size={12} /> Mensagem
             </label>
             <div className="flex gap-2 mb-3">
@@ -820,7 +820,7 @@ export default function PlatformAutomations() {
                 className={`px-3 py-1.5 rounded-lg text-xs border ${
                   form.messageMode === 'platform_template'
                     ? 'border-brand-500 bg-brand-950/40 text-brand-200'
-                    : 'border-gray-700 text-gray-400'
+                    : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
                 }`}
               >
                 Modelo pw-*
@@ -831,7 +831,7 @@ export default function PlatformAutomations() {
                 className={`px-3 py-1.5 rounded-lg text-xs border ${
                   form.messageMode === 'plain'
                     ? 'border-brand-500 bg-brand-950/40 text-brand-200'
-                    : 'border-gray-700 text-gray-400'
+                    : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
                 }`}
               >
                 Texto manual
@@ -841,7 +841,7 @@ export default function PlatformAutomations() {
             {form.messageMode === 'platform_template' ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Modelo</label>
+                  <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Modelo</label>
                   <select
                     value={form.templateName}
                     onChange={e => setForm(f => ({ ...f, templateName: e.target.value }))}
@@ -857,7 +857,7 @@ export default function PlatformAutomations() {
                 <div>
                   <WhatsAppTextEditor
                     label={
-                      <label className="text-xs text-gray-500 block mb-1">
+                      <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
                         Texto extra → {'{mensagem}'}
                       </label>
                     }
@@ -872,7 +872,7 @@ export default function PlatformAutomations() {
               <div>
                 <WhatsAppTextEditor
                   label={
-                    <label className="text-xs text-gray-500 block mb-1">
+                    <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
                       Texto completo — clique nas variáveis abaixo ou digite {'{nome}'},{' '}
                       {'{empresa}'}, etc.
                     </label>
@@ -889,7 +889,7 @@ export default function PlatformAutomations() {
 
             {variableChips.length > 0 && (
               <div className="mt-3">
-                <p className="text-[11px] text-gray-600 mb-1.5">Variáveis disponíveis</p>
+                <p className="text-[11px] text-[var(--rz-text-muted)] mb-1.5">Variáveis disponíveis</p>
                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                   {variableChips.map(key => (
                     <button
@@ -897,7 +897,7 @@ export default function PlatformAutomations() {
                       type="button"
                       title={variableDocs[key]}
                       onClick={() => insertVariable(key)}
-                      className="px-2 py-0.5 rounded-md text-[10px] font-mono border border-gray-700 text-brand-300 hover:border-brand-600 hover:bg-brand-950/40"
+                      className="px-2 py-0.5 rounded-md text-[10px] font-mono border border-[var(--rz-border)] text-brand-300 hover:border-brand-600 hover:bg-brand-950/40"
                     >
                       {'{'}{key}{'}'}
                     </button>
@@ -907,13 +907,13 @@ export default function PlatformAutomations() {
             )}
 
             <div className="mt-3 max-w-md">
-              <div className="flex items-center gap-2 text-[11px] text-gray-600 mb-1">
+              <div className="flex items-center gap-2 text-[11px] text-[var(--rz-text-muted)] mb-1">
                 <Eye size={12} />
                 Prévia
                 {previewSource === 'destination' && previewDestinationName ? (
                   <span className="text-brand-400/90">({previewDestinationName})</span>
                 ) : (
-                  <span className="text-gray-500">(amostra com dados da sua conta)</span>
+                  <span className="text-[var(--rz-text-muted)]">(amostra com dados da sua conta)</span>
                 )}
               </div>
               {previewLoading ? (
@@ -927,7 +927,7 @@ export default function PlatformAutomations() {
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 block mb-1">
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
               Tags dos contatos (legado, opcional)
             </label>
             <input
@@ -940,12 +940,12 @@ export default function PlatformAutomations() {
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-400">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-muted)]">
             <input
               type="checkbox"
               checked={form.active}
               onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
-              className="rounded border-gray-600"
+              className="rounded border-[var(--rz-border)]"
             />
             Automação ativa
           </label>
@@ -965,7 +965,7 @@ export default function PlatformAutomations() {
       {isLoading ? (
         <LoadingState rows={3} className="pt-4" />
       ) : rules.length === 0 ? (
-        <Card className="text-center py-10 text-gray-500">
+        <Card className="text-center py-10 text-[var(--rz-text-muted)]">
           <Workflow size={32} className="mx-auto mb-2 opacity-40" />
           <p>Nenhuma automação configurada</p>
         </Card>
@@ -975,7 +975,7 @@ export default function PlatformAutomations() {
             <Card key={r._id} className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium text-gray-200">
+                  <p className="text-sm font-medium text-[var(--rz-text-primary)]">
                     {r.name?.trim() || r.templateName}
                   </p>
                   <Badge label={r.active ? 'ativa' : 'pausada'} variant={r.active ? 'green' : 'gray'} />
@@ -983,8 +983,8 @@ export default function PlatformAutomations() {
                     <Badge label={SCOPE_LABELS[r.destinationScope]} variant="blue" />
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{describeTrigger(r)}</p>
-                <p className="text-xs text-gray-600 mt-0.5">
+                <p className="text-xs text-[var(--rz-text-muted)] mt-1">{describeTrigger(r)}</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mt-0.5">
                   {r.messageMode === 'plain' ? 'Texto manual' : `Modelo ${r.templateName}`}
                   {r.triggerType === 'once_at' && r.scheduledAt
                     ? ` · ${new Date(r.scheduledAt).toLocaleString('pt-BR')}`
@@ -996,7 +996,7 @@ export default function PlatformAutomations() {
                 <button
                   type="button"
                   onClick={() => openEdit(r)}
-                  className="p-2 text-gray-500 hover:text-white"
+                  className="p-2 text-[var(--rz-text-muted)] hover:text-white"
                   title="Editar"
                 >
                   <Pencil size={16} />
@@ -1006,7 +1006,7 @@ export default function PlatformAutomations() {
                   onClick={() => {
                     if (window.confirm('Remover esta automação?')) deleteRule.mutate(r._id)
                   }}
-                  className="p-2 text-gray-500 hover:text-red-400"
+                  className="p-2 text-[var(--rz-text-muted)] hover:text-red-400"
                   title="Excluir"
                 >
                   <Trash2 size={16} />

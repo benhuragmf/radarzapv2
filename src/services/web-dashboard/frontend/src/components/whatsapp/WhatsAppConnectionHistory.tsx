@@ -61,20 +61,20 @@ export function WhatsAppConnectionHistory() {
   return (
     <Card className="overflow-hidden p-0">
       {events.length === 0 ? (
-        <div className="py-10 text-center text-sm text-gray-500">
+        <div className="py-10 text-center text-sm text-[var(--rz-text-muted)]">
           <History size={28} className="mx-auto mb-2 opacity-30" />
           Nenhum evento de conexão registrado ainda.
         </div>
       ) : (
-        <ul className="divide-y divide-gray-800/80 max-h-[420px] overflow-y-auto">
+        <ul className="divide-y divide-[var(--rz-border)]/80 max-h-[420px] overflow-y-auto">
           {events.map(log => {
             const { label, variant } = eventLabel(log.message)
             return (
-              <li key={log._id} className="px-4 py-3 flex items-start gap-3 hover:bg-gray-800/30">
+              <li key={log._id} className="px-4 py-3 flex items-start gap-3 hover:bg-[var(--rz-surface-muted)]/30">
                 <Badge label={label} variant={variant} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-300 leading-snug">{log.message}</p>
-                  <p className="text-[11px] text-gray-600 mt-1">
+                  <p className="text-sm text-[var(--rz-text-secondary)] leading-snug">{log.message}</p>
+                  <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
                     {new Date(log.timestamp).toLocaleString('pt-BR')}
                   </p>
                 </div>

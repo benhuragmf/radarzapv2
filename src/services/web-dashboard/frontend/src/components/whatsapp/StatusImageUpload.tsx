@@ -43,7 +43,7 @@ export function StatusImageUpload({ preview, onChange, onError }: Props) {
 
   if (preview) {
     return (
-      <div className="relative rounded-xl overflow-hidden border border-gray-700 bg-gray-900">
+      <div className="relative rounded-xl overflow-hidden border border-[var(--rz-border)] bg-[var(--rz-surface)]">
         <img src={preview} alt="Prévia" className="w-full max-h-48 object-contain bg-black/40" />
         <div className="absolute top-2 right-2 flex gap-1">
           <Button
@@ -93,7 +93,7 @@ export function StatusImageUpload({ preview, onChange, onError }: Props) {
       className={`rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
         dragOver
           ? 'border-brand-400 bg-brand-950/30'
-          : 'border-gray-600 hover:border-brand-500/70 hover:bg-gray-800/50'
+          : 'border-[var(--rz-border)] hover:border-brand-500/70 hover:bg-[var(--rz-surface-muted)]/50'
       }`}
     >
       <input
@@ -104,7 +104,7 @@ export function StatusImageUpload({ preview, onChange, onError }: Props) {
         onChange={e => void handleFile(e.target.files?.[0] ?? null)}
       />
       <div className="flex flex-col items-center gap-3 pointer-events-none">
-        <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-[var(--rz-surface-muted)] flex items-center justify-center">
           {loading ? (
             <Upload size={22} className="text-brand-400 animate-pulse" />
           ) : (
@@ -112,8 +112,8 @@ export function StatusImageUpload({ preview, onChange, onError }: Props) {
           )}
         </div>
         <div>
-          <p className="text-sm font-medium text-gray-200">Clique ou arraste a imagem aqui</p>
-          <p className="text-xs text-gray-500 mt-1">JPEG, PNG ou WebP · máx. {maxMb} MB</p>
+          <p className="text-sm font-medium text-[var(--rz-text-primary)]">Clique ou arraste a imagem aqui</p>
+          <p className="text-xs text-[var(--rz-text-muted)] mt-1">JPEG, PNG ou WebP · máx. {maxMb} MB</p>
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs text-brand-400 font-medium">
           <Upload size={14} /> Selecionar imagem

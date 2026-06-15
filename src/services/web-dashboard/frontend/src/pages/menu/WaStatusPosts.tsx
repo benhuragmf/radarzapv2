@@ -273,7 +273,7 @@ export default function WaStatusPosts() {
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Título interno</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Título interno</label>
             <input
               className={inputCls}
               placeholder="Ex.: Promoção sexta"
@@ -304,7 +304,7 @@ export default function WaStatusPosts() {
             <>
               <WhatsAppTextEditor
                 label={
-                  <label className="text-xs text-gray-500 block">
+                  <label className="text-xs text-[var(--rz-text-muted)] block">
                     Texto ({text.length}/700)
                   </label>
                 }
@@ -320,7 +320,7 @@ export default function WaStatusPosts() {
                 onFontChange={setFont}
               />
               <div>
-                <label className="text-xs text-gray-500 mb-2 block">Cor de fundo</label>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-2 block">Cor de fundo</label>
                 <div className="flex flex-wrap gap-2">
                   {STATUS_COLORS.map(c => (
                     <button
@@ -329,7 +329,7 @@ export default function WaStatusPosts() {
                       title={c.label}
                       onClick={() => setBackgroundColor(c.value)}
                       className={`w-8 h-8 rounded-full border-2 ${
-                        backgroundColor === c.value ? 'border-brand-400' : 'border-gray-700'
+                        backgroundColor === c.value ? 'border-brand-400' : 'border-[var(--rz-border)]'
                       }`}
                       style={{ backgroundColor: c.value }}
                     />
@@ -340,7 +340,7 @@ export default function WaStatusPosts() {
           ) : (
             <>
               <div>
-                <label className="text-xs text-gray-500 mb-2 block">Imagem do status</label>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-2 block">Imagem do status</label>
                 <StatusImageUpload
                   preview={imagePreview}
                   onChange={onPickImage}
@@ -349,7 +349,7 @@ export default function WaStatusPosts() {
               </div>
               <WhatsAppTextEditor
                 label={
-                  <label className="text-xs text-gray-500 block">
+                  <label className="text-xs text-[var(--rz-text-muted)] block">
                     Legenda opcional ({caption.length}/700)
                   </label>
                 }
@@ -364,7 +364,7 @@ export default function WaStatusPosts() {
           )}
 
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Quem pode ver</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Quem pode ver</label>
             <select
               className={inputCls}
               value={audience}
@@ -379,7 +379,7 @@ export default function WaStatusPosts() {
                 Audiência estimada: <strong>{audiencePreview.count}</strong> contato(s) do RadarZap
               </p>
             )}
-            <p className="text-[11px] text-gray-600 mt-1">
+            <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
               {audience === 'whatsapp'
                 ? 'Publica direto na sessão WhatsApp conectada — igual ao app, não precisa de contatos no RadarZap.'
                 : audience === 'all_contacts'
@@ -388,19 +388,19 @@ export default function WaStatusPosts() {
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-muted)] cursor-pointer">
             <input
               type="checkbox"
               checked={scheduleMode}
               onChange={e => setScheduleMode(e.target.checked)}
-              className="rounded border-gray-600"
+              className="rounded border-[var(--rz-border)]"
             />
             <Calendar size={14} /> Agendar publicação
           </label>
 
           {scheduleMode && (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Data e hora</label>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Data e hora</label>
               <input
                 type="datetime-local"
                 className={inputCls}
@@ -439,8 +439,8 @@ export default function WaStatusPosts() {
         </Card>
 
         <Card>
-          <p className="text-xs text-gray-500 mb-3">Pré-visualização</p>
-          <div className="mx-auto w-[220px] aspect-[9/16] rounded-2xl overflow-hidden border border-gray-700 bg-gray-900 relative">
+          <p className="text-xs text-[var(--rz-text-muted)] mb-3">Pré-visualização</p>
+          <div className="mx-auto w-[220px] aspect-[9/16] rounded-2xl overflow-hidden border border-[var(--rz-border)] bg-[var(--rz-surface)] relative">
             {statusType === 'image' && imagePreview ? (
               <>
                 <img src={imagePreview} alt="" className="w-full h-full object-cover" />
@@ -472,11 +472,11 @@ export default function WaStatusPosts() {
       ) : (
         <>
           <section className="space-y-3">
-            <h2 className="text-sm font-medium text-gray-300 flex items-center gap-2">
+            <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] flex items-center gap-2">
               <Clock size={16} /> Na fila ({queue.length})
             </h2>
             {queue.length === 0 ? (
-              <p className="text-sm text-gray-600">Nenhum status agendado.</p>
+              <p className="text-sm text-[var(--rz-text-muted)]">Nenhum status agendado.</p>
             ) : (
               <div className="space-y-2">
                 {queue.map(p => (
@@ -487,7 +487,7 @@ export default function WaStatusPosts() {
                         <Badge label={STATUS_LABEL[p.status]} variant={STATUS_BADGE[p.status]} />
                         <Badge label={p.type === 'image' ? 'Foto' : 'Texto'} variant="blue" />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-[var(--rz-text-muted)] mt-1">
                         {formatWhen(p.scheduledFor)}
                         {p.text && ` · ${p.text.slice(0, 60)}${p.text.length > 60 ? '…' : ''}`}
                       </p>
@@ -514,9 +514,9 @@ export default function WaStatusPosts() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-medium text-gray-300">Histórico</h2>
+            <h2 className="text-sm font-medium text-[var(--rz-text-secondary)]">Histórico</h2>
             {history.length === 0 ? (
-              <p className="text-sm text-gray-600">Nenhuma publicação ainda.</p>
+              <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma publicação ainda.</p>
             ) : (
               <div className="space-y-2">
                 {history.slice(0, 20).map(p => (
@@ -529,14 +529,14 @@ export default function WaStatusPosts() {
                       if (e.key === 'Enter' || e.key === ' ') setDetailPostId(p._id)
                     }}
                   >
-                    <Card className="py-3 cursor-pointer hover:border-gray-600 transition-colors group">
+                    <Card className="py-3 cursor-pointer hover:border-[var(--rz-border)] transition-colors group">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2 min-w-0">
                         <span className="text-sm text-white">{p.title}</span>
                         <Badge label={STATUS_LABEL[p.status]} variant={STATUS_BADGE[p.status]} />
                         <Badge label={p.type === 'image' ? 'Foto' : 'Texto'} variant="blue" />
                         {p.statusJidCount != null && p.status === 'sent' && (
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-[var(--rz-text-muted)]">
                             {p.statusJidCount} na audiência
                           </span>
                         )}
@@ -548,17 +548,17 @@ export default function WaStatusPosts() {
                       </div>
                       <ChevronRight
                         size={16}
-                        className="text-gray-600 group-hover:text-brand-400 shrink-0"
+                        className="text-[var(--rz-text-muted)] group-hover:text-brand-400 shrink-0"
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-[var(--rz-text-muted)] mt-1">
                       {p.processedAt ? formatWhen(p.processedAt) : formatWhen(p.scheduledFor)}
                       {p.text && ` · ${p.text.slice(0, 60)}${p.text.length > 60 ? '…' : ''}`}
                       {p.lastError && (
                         <span className="text-red-400 block mt-1">{p.lastError}</span>
                       )}
                     </p>
-                    <p className="text-[10px] text-gray-600 mt-1">Clique para ver conteúdo e visualizações</p>
+                    <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">Clique para ver conteúdo e visualizações</p>
                     </Card>
                   </div>
                 ))}

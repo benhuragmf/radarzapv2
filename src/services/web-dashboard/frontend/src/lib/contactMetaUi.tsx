@@ -57,13 +57,13 @@ export function ContactExtraMeta({
 
   if (compact) {
     return (
-      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--rz-text-muted)]">
         {typeLabel && (
           <span
             className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] ${
               c.phoneType === 'whatsapp'
                 ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
-                : 'bg-gray-800/80 text-gray-400 border border-gray-700'
+                : 'bg-[var(--rz-surface-muted)]/80 text-[var(--rz-text-muted)] border border-[var(--rz-border)]'
             }`}
           >
             {c.phoneType === 'whatsapp' && <MessageCircle size={10} />}
@@ -76,18 +76,18 @@ export function ContactExtraMeta({
           </span>
         )}
         {c.email && (
-          <span className="truncate max-w-[160px] text-gray-600" title={c.email}>
+          <span className="truncate max-w-[160px] text-[var(--rz-text-muted)]" title={c.email}>
             {c.email}
           </span>
         )}
         {c.birthday && (
-          <span className="text-gray-600">Aniv. {formatBirthdayDisplay(c.birthday)}</span>
+          <span className="text-[var(--rz-text-muted)]">Aniv. {formatBirthdayDisplay(c.birthday)}</span>
         )}
         {c.secondaryPhone && (
-          <span className="font-mono text-gray-600">{formatPhone(c.secondaryPhone)}</span>
+          <span className="font-mono text-[var(--rz-text-muted)]">{formatPhone(c.secondaryPhone)}</span>
         )}
         {notesShort && (
-          <span className="text-gray-600 italic truncate max-w-[200px]" title={c.notes}>
+          <span className="text-[var(--rz-text-muted)] italic truncate max-w-[200px]" title={c.notes}>
             {notesShort}
           </span>
         )}
@@ -96,26 +96,26 @@ export function ContactExtraMeta({
   }
 
   return (
-    <div className="mt-1.5 space-y-1 text-[11px] text-gray-500">
+    <div className="mt-1.5 space-y-1 text-[11px] text-[var(--rz-text-muted)]">
       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
         {c.organization && (
           <span>
-            <span className="text-gray-600">Empresa:</span> {c.organization}
+            <span className="text-[var(--rz-text-muted)]">Empresa:</span> {c.organization}
           </span>
         )}
         {c.email && (
           <span className="truncate max-w-[220px]">
-            <span className="text-gray-600">E-mail:</span> {c.email}
+            <span className="text-[var(--rz-text-muted)]">E-mail:</span> {c.email}
           </span>
         )}
         {c.birthday && (
           <span>
-            <span className="text-gray-600">Aniv.:</span> {formatBirthdayDisplay(c.birthday)}
+            <span className="text-[var(--rz-text-muted)]">Aniv.:</span> {formatBirthdayDisplay(c.birthday)}
           </span>
         )}
         {c.tags && c.tags.length > 0 && (
           <span>
-            <span className="text-gray-600">Tags:</span> {c.tags.join(', ')}
+            <span className="text-[var(--rz-text-muted)]">Tags:</span> {c.tags.join(', ')}
           </span>
         )}
       </div>
@@ -126,7 +126,7 @@ export function ContactExtraMeta({
               className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-sans ${
                 c.phoneType === 'whatsapp'
                   ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
-                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                  : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] border border-[var(--rz-border)]'
               }`}
             >
               {c.phoneType === 'whatsapp' && <MessageCircle size={10} />}
@@ -135,14 +135,14 @@ export function ContactExtraMeta({
           )}
           {c.secondaryPhone && (
             <span>
-              <span className="text-gray-600 font-sans">2º tel.:</span>{' '}
+              <span className="text-[var(--rz-text-muted)] font-sans">2º tel.:</span>{' '}
               {formatPhone(c.secondaryPhone)}
             </span>
           )}
         </div>
       )}
       {notesShort && (
-        <p className="text-gray-600 italic truncate max-w-full" title={c.notes}>
+        <p className="text-[var(--rz-text-muted)] italic truncate max-w-full" title={c.notes}>
           {notesShort}
         </p>
       )}

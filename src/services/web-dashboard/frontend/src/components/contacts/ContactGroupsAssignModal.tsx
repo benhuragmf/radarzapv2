@@ -64,11 +64,11 @@ export default function ContactGroupsAssignModal({
             <p id="assign-groups-title" className="text-sm font-medium text-[var(--rz-text-primary)]">
               {title ?? 'Grupos do contato'}
             </p>
-            <p className="text-xs text-gray-500 truncate max-w-[280px]">
+            <p className="text-xs text-[var(--rz-text-muted)] truncate max-w-[280px]">
               {subtitle ?? contactName}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-500 hover:text-white p-1">
+          <button type="button" onClick={onClose} className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] p-1">
             <X size={18} />
           </button>
         </div>
@@ -86,23 +86,23 @@ export default function ContactGroupsAssignModal({
                 <label
                   key={g._id}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                    checked ? 'bg-brand-600/10 border border-brand-600/30' : 'hover:bg-gray-800/80'
+                    checked ? 'bg-brand-600/10 border border-brand-600/30' : 'hover:bg-[var(--rz-surface-muted)]/80'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggle(g._id)}
-                    className="rounded border-gray-600"
+                    className="rounded border-[var(--rz-border)]"
                   />
                   <FolderOpen size={14} className="text-brand-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-200 truncate">{g.name}</p>
+                    <p className="text-sm text-[var(--rz-text-primary)] truncate">{g.name}</p>
                     {g.description && (
-                      <p className="text-[11px] text-gray-500 truncate">{g.description}</p>
+                      <p className="text-[11px] text-[var(--rz-text-muted)] truncate">{g.description}</p>
                     )}
                   </div>
-                  <span className="text-[10px] text-gray-600">{g.memberCount}</span>
+                  <span className="text-[10px] text-[var(--rz-text-muted)]">{g.memberCount}</span>
                 </label>
               )
             })

@@ -149,19 +149,19 @@ export default function PlatformBirthdayAutomation() {
         </Link>
       </p>
 
-      <Card className="border-brand-800/40 bg-brand-950/15 text-xs text-gray-400 space-y-2">
+      <Card className="border-brand-800/40 bg-brand-950/15 text-xs text-[var(--rz-text-muted)] space-y-2">
         <p className="font-medium text-brand-300">Exemplos</p>
         <ul className="list-disc pl-4 space-y-1">
           <li>
-            <strong className="text-gray-300">No dia do aniversário</strong> — Maria com
+            <strong className="text-[var(--rz-text-secondary)]">No dia do aniversário</strong> — Maria com
             birthday 1992-03-20 recebe em todo 20/03 às 09:00 (dedup: 1 envio por ano).
           </li>
           <li>
-            <strong className="text-gray-300">Dia 10 do mês</strong> — todos os contatos
+            <strong className="text-[var(--rz-text-secondary)]">Dia 10 do mês</strong> — todos os contatos
             nascidos no dia 10 (qualquer mês), útil para campanha em lote no dia 10.
           </li>
           <li>
-            <strong className="text-gray-300">A cada 6 meses</strong> — no aniversário, só
+            <strong className="text-[var(--rz-text-secondary)]">A cada 6 meses</strong> — no aniversário, só
             reenvia se o último parabéns automático foi há ≥6 meses.
           </li>
         </ul>
@@ -191,12 +191,12 @@ export default function PlatformBirthdayAutomation() {
 
       {showForm && (
         <Card className="space-y-3">
-          <h2 className="text-sm font-medium text-gray-300">
+          <h2 className="text-sm font-medium text-[var(--rz-text-secondary)]">
             {editing ? 'Editar regra' : 'Nova regra de aniversário'}
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Modelo pw-*</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Modelo pw-*</label>
               <select
                 value={form.templateName}
                 onChange={e => setForm(f => ({ ...f, templateName: e.target.value }))}
@@ -210,7 +210,7 @@ export default function PlatformBirthdayAutomation() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Horário (HH:mm)</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Horário (HH:mm)</label>
               <input
                 type="time"
                 value={form.sendTime}
@@ -224,13 +224,13 @@ export default function PlatformBirthdayAutomation() {
                 }}
                 className={inputCls}
               />
-              <p className="text-[11px] text-gray-600 mt-1">
+              <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
                 Horário deve ser futuro se o envio for hoje.
               </p>
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Tipo de disparo</label>
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Tipo de disparo</label>
             <select
               value={form.triggerType}
               onChange={e =>
@@ -250,7 +250,7 @@ export default function PlatformBirthdayAutomation() {
           </div>
           {form.triggerType === 'day_of_month' && (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Dia do mês (1–31)</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Dia do mês (1–31)</label>
               <input
                 type="number"
                 min={1}
@@ -265,7 +265,7 @@ export default function PlatformBirthdayAutomation() {
           )}
           {form.triggerType === 'interval_months' && (
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Intervalo (meses)</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Intervalo (meses)</label>
               <input
                 type="number"
                 min={1}
@@ -279,7 +279,7 @@ export default function PlatformBirthdayAutomation() {
             </div>
           )}
           <div>
-            <label className="text-xs text-gray-500 block mb-1">
+            <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
               Tags (opcional, separadas por ;)
             </label>
             <input
@@ -294,7 +294,7 @@ export default function PlatformBirthdayAutomation() {
           <div>
             <WhatsAppTextEditor
               label={
-                <label className="text-xs text-gray-500 block mb-1">
+                <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
                   Texto extra → variável {'{mensagem}'}
                 </label>
               }
@@ -304,12 +304,12 @@ export default function PlatformBirthdayAutomation() {
               showHint={false}
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-400">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-muted)]">
             <input
               type="checkbox"
               checked={form.active}
               onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
-              className="rounded border-gray-600"
+              className="rounded border-[var(--rz-border)]"
             />
             Regra ativa
           </label>
@@ -328,7 +328,7 @@ export default function PlatformBirthdayAutomation() {
       {isLoading ? (
         <LoadingState rows={4} className="pt-4" />
       ) : rules.length === 0 ? (
-        <Card className="text-center py-10 text-gray-500">
+        <Card className="text-center py-10 text-[var(--rz-text-muted)]">
           <Cake size={32} className="mx-auto mb-2 opacity-40" />
           <p>Nenhuma regra configurada</p>
         </Card>
@@ -338,11 +338,11 @@ export default function PlatformBirthdayAutomation() {
             <Card key={r._id} className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-200">{r.templateName}</p>
+                  <p className="text-sm font-medium text-[var(--rz-text-primary)]">{r.templateName}</p>
                   <Badge label={r.active ? 'ativa' : 'pausada'} variant={r.active ? 'green' : 'gray'} />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{TRIGGER_LABELS[r.triggerType]}</p>
-                <p className="text-xs text-gray-600 mt-0.5">
+                <p className="text-xs text-[var(--rz-text-muted)] mt-1">{TRIGGER_LABELS[r.triggerType]}</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mt-0.5">
                   Horário {r.sendTime}
                   {r.lastRunDate && ` · última execução ${r.lastRunDate}`}
                 </p>
@@ -351,7 +351,7 @@ export default function PlatformBirthdayAutomation() {
                 <button
                   type="button"
                   onClick={() => openEdit(r)}
-                  className="p-2 text-gray-500 hover:text-white"
+                  className="p-2 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"
                   title="Editar"
                 >
                   <Pencil size={16} />
@@ -361,7 +361,7 @@ export default function PlatformBirthdayAutomation() {
                   onClick={() => {
                     if (window.confirm('Remover esta regra?')) deleteRule.mutate(r._id)
                   }}
-                  className="p-2 text-gray-500 hover:text-red-400"
+                  className="p-2 text-[var(--rz-text-muted)] hover:text-red-400"
                   title="Excluir"
                 >
                   <Trash2 size={16} />

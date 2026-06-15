@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Bot, Clock, Users, ArrowLeft, Save, Bell } from 'lucide-react'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
+import { cn } from '@/lib/utils'
 
 type Weekday =
   | 'monday'
@@ -106,7 +107,7 @@ export default function InboxBotSettings() {
   if (!canManage) {
     return (
       <PlatformPage title="Bot do Inbox" description="Sem permissão.">
-        <p className="text-sm text-gray-500">Apenas dono ou administrador pode configurar o bot.</p>
+        <p className="text-sm text-[var(--rz-text-muted)]">Apenas dono ou administrador pode configurar o bot.</p>
       </PlatformPage>
     )
   }
@@ -157,17 +158,17 @@ export default function InboxBotSettings() {
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 text-brand-400">
             <Bot size={18} />
-            <h2 className="font-semibold text-sm text-white">Mensagens do menu</h2>
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Mensagens do menu</h2>
           </div>
-          <p className="text-xs text-gray-500">
-            Variáveis: <code className="text-gray-400">{'{company}'}</code>,{' '}
-            <code className="text-gray-400">{'{department}'}</code>,{' '}
-            <code className="text-gray-400">{'{waiting}'}</code>,{' '}
-            <code className="text-gray-400">{'{options}'}</code>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Variáveis: <code className="text-[var(--rz-text-muted)]">{'{company}'}</code>,{' '}
+            <code className="text-[var(--rz-text-muted)]">{'{department}'}</code>,{' '}
+            <code className="text-[var(--rz-text-muted)]">{'{waiting}'}</code>,{' '}
+            <code className="text-[var(--rz-text-muted)]">{'{options}'}</code>
           </p>
 
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Boas-vindas (com nome da empresa)</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Boas-vindas (com nome da empresa)</span>
             <textarea
               className={textareaCls}
               value={form.welcomeWithCompany}
@@ -175,35 +176,35 @@ export default function InboxBotSettings() {
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Boas-vindas (sem empresa)</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Boas-vindas (sem empresa)</span>
             <textarea className={textareaCls} value={form.welcomeGeneric} onChange={e => patch('welcomeGeneric', e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Texto antes das opções do menu</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Texto antes das opções do menu</span>
             <input className={inputCls} value={form.menuIntro} onChange={e => patch('menuIntro', e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Rodapé do menu</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Rodapé do menu</span>
             <input className={inputCls} value={form.menuFooter} onChange={e => patch('menuFooter', e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Confirmação na fila</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Confirmação na fila</span>
             <textarea className={textareaCls} value={form.queueMessage} onChange={e => patch('queueMessage', e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Mensagem de espera (substitui {'{waiting}'})</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de espera (substitui {'{waiting}'})</span>
             <textarea className={textareaCls} value={form.waitingMessage} onChange={e => patch('waitingMessage', e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Opção inválida no menu</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Opção inválida no menu</span>
             <input className={inputCls} value={form.invalidMenuHint} onChange={e => patch('invalidMenuHint', e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Mensagem ao finalizar</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem ao finalizar</span>
             <textarea className={textareaCls} value={form.resolvedMessage} onChange={e => patch('resolvedMessage', e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Mensagem ao transferir</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem ao transferir</span>
             <textarea className={textareaCls} value={form.transferMessage} onChange={e => patch('transferMessage', e.target.value)} />
           </label>
         </Card>
@@ -211,9 +212,9 @@ export default function InboxBotSettings() {
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 text-brand-400">
             <Clock size={18} />
-            <h2 className="font-semibold text-sm text-white">Horário comercial</h2>
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Horário comercial</h2>
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
               type="checkbox"
               checked={form.businessHoursEnabled}
@@ -222,7 +223,7 @@ export default function InboxBotSettings() {
             Ativar horário comercial (fora do horário envia mensagem automática)
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Fuso horário</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Fuso horário</span>
             <input
               className={inputCls}
               value={form.timezone}
@@ -231,7 +232,7 @@ export default function InboxBotSettings() {
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Mensagem fora do horário</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem fora do horário</span>
             <textarea
               className={textareaCls}
               value={form.outsideHoursMessage}
@@ -242,9 +243,9 @@ export default function InboxBotSettings() {
             {WEEKDAYS.map(day => (
               <div
                 key={day}
-                className="flex flex-wrap items-center gap-3 py-2 border-b border-gray-800/80 last:border-0"
+                className="flex flex-wrap items-center gap-3 py-2 border-b border-[var(--rz-border)]/80 last:border-0"
               >
-                <label className="flex items-center gap-2 w-28 text-sm text-gray-300">
+                <label className="flex items-center gap-2 w-28 text-sm text-[var(--rz-text-secondary)]">
                   <input
                     type="checkbox"
                     checked={form.schedule[day]?.enabled ?? false}
@@ -254,15 +255,15 @@ export default function InboxBotSettings() {
                 </label>
                 <input
                   type="time"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200"
+                  className={cn(inputCls, 'text-xs py-1 px-2 w-auto')}
                   value={form.schedule[day]?.start ?? '09:00'}
                   disabled={!form.schedule[day]?.enabled}
                   onChange={e => patchDay(day, 'start', e.target.value)}
                 />
-                <span className="text-xs text-gray-500">até</span>
+                <span className="text-xs text-[var(--rz-text-muted)]">até</span>
                 <input
                   type="time"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200"
+                  className={cn(inputCls, 'text-xs py-1 px-2 w-auto')}
                   value={form.schedule[day]?.end ?? '18:00'}
                   disabled={!form.schedule[day]?.enabled}
                   onChange={e => patchDay(day, 'end', e.target.value)}
@@ -275,9 +276,9 @@ export default function InboxBotSettings() {
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 text-brand-400">
             <Users size={18} />
-            <h2 className="font-semibold text-sm text-white">Distribuição automática</h2>
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Distribuição automática</h2>
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
               type="checkbox"
               checked={form.roundRobinEnabled}
@@ -285,12 +286,12 @@ export default function InboxBotSettings() {
             />
             Round-robin — indicar prioridade ao entrar na fila (aceite voluntário)
           </label>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             O sistema marca o próximo atendente com borda amarela e cronômetro. Ele aceita quando puder.
             Outro pode puxar se o indicado estiver ocupado ou após o tempo abaixo.
           </p>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-[var(--rz-text-muted)]">
               Tempo de prioridade antes de liberar para outro puxar (segundos)
             </span>
             <input
@@ -308,15 +309,15 @@ export default function InboxBotSettings() {
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 text-brand-400">
             <Clock size={18} />
-            <h2 className="font-semibold text-sm text-white">SLA — inatividade e fila</h2>
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">SLA — inatividade e fila</h2>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             Encerramento automático quando o cliente não responde após mensagem do atendente.
-            O atendente também pode usar <code className="text-gray-400">/enc</code> para encerrar na hora.
-            Templates em Respostas rápidas (<code className="text-gray-400">/aus</code>,{' '}
-            <code className="text-gray-400">/enc</code>).
+            O atendente também pode usar <code className="text-[var(--rz-text-muted)]">/enc</code> para encerrar na hora.
+            Templates em Respostas rápidas (<code className="text-[var(--rz-text-muted)]">/aus</code>,{' '}
+            <code className="text-[var(--rz-text-muted)]">/enc</code>).
           </p>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
               type="checkbox"
               checked={form.inactivityAutoCloseEnabled}
@@ -325,7 +326,7 @@ export default function InboxBotSettings() {
             Encerrar automaticamente por inatividade do cliente
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-[var(--rz-text-muted)]">
               Aviso automático antes do encerramento (minutos, 0 = desligado)
             </span>
             <input
@@ -339,7 +340,7 @@ export default function InboxBotSettings() {
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-[var(--rz-text-muted)]">
               Encerrar após inatividade (minutos, 0 = desligado)
             </span>
             <input
@@ -353,7 +354,7 @@ export default function InboxBotSettings() {
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-[var(--rz-text-muted)]">
               Alerta de fila parada — supervisor (minutos na fila, 0 = desligado)
             </span>
             <input
@@ -366,7 +367,7 @@ export default function InboxBotSettings() {
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-[var(--rz-text-muted)]">
               SLA ticket — prazo equipe responder após mensagem do cliente (horas, 0 = desligado)
             </span>
             <input
@@ -381,12 +382,12 @@ export default function InboxBotSettings() {
         </Card>
 
         <Card className="p-5 space-y-4">
-          <h2 className="font-semibold text-sm text-white">CSAT — satisfação pós-atendimento</h2>
-          <p className="text-xs text-gray-500">
-            Após encerrar a conversa (<code className="text-gray-400">/enc</code> ou inatividade), o
+          <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">CSAT — satisfação pós-atendimento</h2>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Após encerrar a conversa (<code className="text-[var(--rz-text-muted)]">/enc</code> ou inatividade), o
             cliente recebe pedido de nota de 1 a 5.
           </p>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
               type="checkbox"
               checked={form.csatEnabled}
@@ -395,7 +396,7 @@ export default function InboxBotSettings() {
             Ativar pesquisa CSAT
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Mensagem da pesquisa</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem da pesquisa</span>
             <textarea
               className={textareaCls}
               value={form.csatPrompt}
@@ -404,7 +405,7 @@ export default function InboxBotSettings() {
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-400">Agradecimento após nota</span>
+            <span className="text-xs text-[var(--rz-text-muted)]">Agradecimento após nota</span>
             <input
               className={inputCls}
               value={form.csatThankYou}
@@ -417,12 +418,12 @@ export default function InboxBotSettings() {
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 text-brand-400">
             <Bell size={18} />
-            <h2 className="font-semibold text-sm text-white">Alertas no painel</h2>
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Alertas no painel</h2>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             Balão de eventos no topo (à esquerda do status online) + som opcional.
           </p>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
               type="checkbox"
               checked={form.alertSoundEnabled}
@@ -430,7 +431,7 @@ export default function InboxBotSettings() {
             />
             Sons de alerta ativados
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
               type="checkbox"
               checked={form.alertOnNewChat}
@@ -439,7 +440,7 @@ export default function InboxBotSettings() {
             />
             Alertar em novo chat / prioridade na fila
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
               type="checkbox"
               checked={form.alertOnNewMessage}

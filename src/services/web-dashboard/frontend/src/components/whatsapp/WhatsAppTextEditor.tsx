@@ -18,9 +18,11 @@ import {
 import { WA_STATUS_FONTS, type WaStatusFont } from '../../lib/whatsapp-status-fonts'
 import { WhatsAppPreviewBubble } from '../platform/WhatsAppPreviewBubble'
 import { WhatsAppEmojiPicker } from './WhatsAppEmojiPicker'
+import { textareaCls, selectCls } from '@/design-system'
+import { cn } from '@/lib/utils'
 
-const inputBase =
-  'w-full bg-gray-800 border-0 px-3 py-2 text-sm text-gray-200 focus:outline-none resize-y min-h-[80px]'
+const toolbarBtn =
+  'p-1.5 rounded-md text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface-muted)] disabled:opacity-40 transition-colors'
 
 interface Props {
   value: string
@@ -138,19 +140,17 @@ export function WhatsAppTextEditor({
     }
   }
 
-  const toolbarBtn =
-    'p-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-40 transition-colors'
-
   return (
     <div className={className}>
       {label != null && <div className="mb-1">{label}</div>}
 
       <div
-        className={`rounded-lg border border-gray-700 bg-gray-800/50 focus-within:border-brand-500 transition-colors ${
-          disabled ? 'opacity-60' : ''
-        }`}
+        className={cn(
+          'rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/50 focus-within:border-[var(--rz-primary)] transition-colors',
+          disabled && 'opacity-60',
+        )}
       >
-        <div className="flex flex-wrap items-center gap-0.5 px-1.5 py-1 bg-gray-900/90 border-b border-gray-800 relative z-10">
+        <div className="flex flex-wrap items-center gap-0.5 px-1.5 py-1 bg-[var(--rz-surface)] border-b border-[var(--rz-border)] relative z-10">
           <button
             type="button"
             title="Negrito (*texto*) — Ctrl+B"
@@ -211,14 +211,14 @@ export function WhatsAppTextEditor({
           )}
 
           {showFontPicker && onFontChange && (
-            <div className="flex items-center gap-1 ml-0.5 pl-1 border-l border-gray-800">
-              <Type size={13} className="text-gray-600 shrink-0" />
+            <div className="flex items-center gap-1 ml-0.5 pl-1 border-l border-[var(--rz-border)]">
+              <Type size={13} className="text-[var(--rz-text-muted)] shrink-0" />
               <select
                 value={font}
                 disabled={disabled}
                 title="Fonte do status WhatsApp"
                 onChange={e => onFontChange(Number(e.target.value) as WaStatusFont)}
-                className="h-7 max-w-[108px] text-[11px] bg-gray-800 border border-gray-700 rounded-md text-gray-300 px-1.5 focus:outline-none focus:border-brand-500"
+                className={cn(selectCls, 'h-7 max-w-[108px] text-[11px] px-1.5')}
               >
                 {WA_STATUS_FONTS.map(f => (
                   <option key={f.value} value={f.value}>
@@ -230,7 +230,7 @@ export function WhatsAppTextEditor({
           )}
 
           {showHint && (
-            <span className="hidden lg:inline text-[10px] text-gray-600 ml-auto pr-1 truncate max-w-[200px]">
+            <span className="hidden lg:inline text-[10px] text-[var(--rz-text-muted)] ml-auto pr-1 truncate max-w-[200px]">
               {showFontPicker ? 'Fonte só no status · ' : ''}
               {WA_TEXT_FORMAT_HINT}
             </span>
@@ -250,19 +250,19 @@ export function WhatsAppTextEditor({
           }}
           onKeyDown={onKeyDown}
           style={minHeight ? { minHeight } : undefined}
-          className={`${inputBase} ${monospace ? 'font-mono text-xs' : ''}`}
+          className={cn(textareaCls, 'border-0 min-h-[80px] resize-y', monospace && 'font-mono text-xs')}
         />
 
         {showPreview && value.trim() && (
-          <div className="border-t border-gray-800 p-3 bg-[#0b141a]/60 overflow-hidden rounded-b-lg">
-            <p className="text-[10px] text-gray-600 mb-2">Prévia WhatsApp</p>
+          <div className="border-t border-[var(--rz-border)] p-3 bg-[#0b141a]/60 overflow-hidden rounded-b-lg">
+            <p className="text-[10px] text-[var(--rz-text-muted)] mb-2">Prévia WhatsApp</p>
             <WhatsAppPreviewBubble text={value} statusFont={showFontPicker ? font : undefined} />
           </div>
         )}
       </div>
 
       {maxLength != null && (
-        <p className="text-[11px] mt-1 text-right text-gray-600">
+        <p className="text-[11px] mt-1 text-right text-[var(--rz-text-muted)]">
           {value.length} / {maxLength}
         </p>
       )}

@@ -41,13 +41,13 @@ export function RateLimitPanel() {
             <CardTitle>API (janela)</CardTitle>
             <Gauge size={16} className="text-brand-400" />
           </div>
-          <p className="text-sm text-gray-300">
+          <p className="text-sm text-[var(--rz-text-secondary)]">
             {data.api.maxRequestsPerWindow} req / {Math.round(data.api.windowMs / 1000)}s
           </p>
-          <p className="text-xs text-gray-500 mt-1">Header: {data.api.header}</p>
+          <p className="text-xs text-[var(--rz-text-muted)] mt-1">Header: {data.api.header}</p>
         </Card>
       </div>
-      <p className="text-xs text-gray-500 capitalize">Plano atual: {data.plan}</p>
+      <p className="text-xs text-[var(--rz-text-muted)] capitalize">Plano atual: {data.plan}</p>
     </div>
   )
 }

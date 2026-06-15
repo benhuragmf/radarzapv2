@@ -74,8 +74,8 @@ export function InboxComposer({
               className="w-full text-left px-3 py-2 hover:bg-[var(--rz-surface-muted)] border-b border-[var(--rz-border)]/50 last:border-0"
             >
               <span className="text-brand-400 font-mono text-xs">/{q.code}</span>
-              <span className="text-gray-500 text-xs ml-2">{q.label}</span>
-              <p className="text-[11px] text-gray-600 truncate mt-0.5">{q.template}</p>
+              <span className="text-[var(--rz-text-muted)] text-xs ml-2">{q.label}</span>
+              <p className="text-[11px] text-[var(--rz-text-muted)] truncate mt-0.5">{q.template}</p>
             </button>
           ))}
         </div>

@@ -88,7 +88,7 @@ export default function WhatsAppGroups() {
 
   const body = (
     <>
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-[var(--rz-text-muted)]">
         Grupos só podem ser adicionados importando da sua sessão WhatsApp conectada — não há cadastro
         manual por ID.
       </p>
@@ -115,17 +115,17 @@ export default function WhatsAppGroups() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Smartphone size={18} className="text-brand-500" />
-              <h2 className="text-sm font-semibold text-white">Importar do WhatsApp</h2>
+              <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Importar do WhatsApp</h2>
             </div>
             <button
               type="button"
               onClick={() => refetchGroups()}
-              className="text-gray-500 hover:text-white flex items-center gap-1 text-xs"
+              className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] flex items-center gap-1 text-xs"
             >
               <RefreshCw size={13} /> Atualizar lista
             </button>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--rz-text-muted)]">
             Sessão:{' '}
             {formatWaSessionLabel({
               phoneNumber: connectedSession.phoneNumber,
@@ -150,7 +150,7 @@ export default function WhatsAppGroups() {
                 return (
                   <div
                     key={g.id}
-                    className="flex items-center gap-4 py-3 px-4 rounded-lg bg-gray-800/30 border border-gray-800"
+                    className="flex items-center gap-4 py-3 px-4 rounded-lg bg-[var(--rz-surface-muted)]/30 border border-[var(--rz-border)]"
                   >
                     <img src={avatarLabel(g.name)} alt="" className="w-10 h-10 rounded-full shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -158,7 +158,7 @@ export default function WhatsAppGroups() {
                         <p className="text-sm font-medium truncate">{g.name}</p>
                         {g.isAdmin && <Badge label="admin" variant="yellow" />}
                       </div>
-                      <p className="text-xs text-gray-500">{g.participantsCount} participantes</p>
+                      <p className="text-xs text-[var(--rz-text-muted)]">{g.participantsCount} participantes</p>
                     </div>
                     {added ? (
                       <Badge label="cadastrado" variant="green" />
@@ -183,10 +183,10 @@ export default function WhatsAppGroups() {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Users size={18} className="text-brand-500" />
-          <h2 className="text-sm font-semibold text-white">Grupos já cadastrados</h2>
+          <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Grupos já cadastrados</h2>
         </div>
         <div className="relative max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}

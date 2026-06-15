@@ -82,15 +82,15 @@ export default function DestinationMultiSelect({
   return (
     <div className="rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)]/40 overflow-hidden">
       {selectedDestinations.length > 0 ? (
-        <div className="px-3 py-2.5 border-b border-gray-800 bg-gray-800/30">
+        <div className="px-3 py-2.5 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/50">
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-[var(--rz-text-muted)]">
               {selectedDestinations.length} selecionado(s)
             </span>
             <button
               type="button"
               onClick={() => onChange([])}
-              className="text-[11px] text-gray-500 hover:text-white transition-colors"
+              className="text-[11px] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] transition-colors"
             >
               Limpar seleção
             </button>
@@ -99,7 +99,7 @@ export default function DestinationMultiSelect({
             {selectedDestinations.map(d => (
               <span
                 key={d._id}
-                className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs bg-brand-600/15 border border-brand-600/35 text-gray-200"
+                className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs bg-brand-600/15 border border-brand-600/35 text-[var(--rz-text-primary)]"
               >
                 {d.type === 'group' ? (
                   <Hash size={11} className="text-brand-400 shrink-0" />
@@ -110,7 +110,7 @@ export default function DestinationMultiSelect({
                 <button
                   type="button"
                   onClick={() => toggle(d.identifier)}
-                  className="p-0.5 rounded hover:bg-gray-700/80 text-gray-500 hover:text-white"
+                  className="p-0.5 rounded hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"
                   aria-label={`Remover ${d.name}`}
                 >
                   <X size={12} />
@@ -120,9 +120,9 @@ export default function DestinationMultiSelect({
           </div>
         </div>
       ) : (
-        <div className="px-3 py-2 border-b border-gray-800 bg-gray-800/20">
-          <p className="text-xs text-gray-500">
-            Nenhum destino selecionado — envia para <span className="text-gray-400">todos os ativos</span>
+        <div className="px-3 py-2 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30">
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Nenhum destino selecionado — envia para <span className="text-[var(--rz-text-secondary)]">todos os ativos</span>
           </p>
         </div>
       )}
@@ -130,7 +130,7 @@ export default function DestinationMultiSelect({
       <div className="p-3 space-y-2">
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-[160px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -158,9 +158,9 @@ export default function DestinationMultiSelect({
           </Button>
         </div>
 
-        <div className="max-h-48 overflow-y-auto space-y-0.5 border border-gray-800 rounded-lg p-1.5">
+        <div className="max-h-48 overflow-y-auto space-y-0.5 border border-[var(--rz-border)] rounded-lg p-1.5">
           {filtered.length === 0 ? (
-            <p className="text-xs text-gray-600 text-center py-6 px-2">
+            <p className="text-xs text-[var(--rz-text-muted)] text-center py-6 px-2">
               {activeDestinations.length === 0 ? (
                 <>
                   {emptyHint}{' '}
@@ -181,14 +181,14 @@ export default function DestinationMultiSelect({
                   className={`flex items-center gap-3 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
                     checked
                       ? 'bg-brand-600/10 border border-brand-600/25'
-                      : 'hover:bg-gray-800/80 border border-transparent'
+                      : 'hover:bg-[var(--rz-surface-muted)]/80 border border-transparent'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggle(d.identifier)}
-                    className="rounded border-gray-600 shrink-0"
+                    className="rounded border-[var(--rz-border)] shrink-0"
                   />
                   {d.type === 'group' ? (
                     <Hash size={14} className="text-brand-500 shrink-0" />
@@ -196,8 +196,8 @@ export default function DestinationMultiSelect({
                     <Users size={14} className="text-blue-400 shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-200 truncate">{d.name}</p>
-                    <p className="text-[11px] text-gray-500 font-mono truncate">
+                    <p className="text-sm text-[var(--rz-text-primary)] truncate">{d.name}</p>
+                    <p className="text-[11px] text-[var(--rz-text-muted)] font-mono truncate">
                       {d.type === 'contact' ? formatPhone(d.identifier) : d.identifier}
                     </p>
                   </div>

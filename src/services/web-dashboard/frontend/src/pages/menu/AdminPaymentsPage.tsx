@@ -67,10 +67,10 @@ export default function AdminPaymentsPage() {
         }
       />
 
-      <Card className="text-xs text-gray-500 space-y-1">
+      <Card className="text-xs text-[var(--rz-text-muted)] space-y-1">
         <p>
-          Configure <code className="text-gray-400">STRIPE_SECRET_KEY</code>, price IDs e webhook em{' '}
-          <code className="text-gray-400">.env</code>. Ver{' '}
+          Configure <code className="text-[var(--rz-text-secondary)]">STRIPE_SECRET_KEY</code>, price IDs e webhook em{' '}
+          <code className="text-[var(--rz-text-secondary)]">.env</code>. Ver{' '}
           <Link to="/admin/plans" className="text-brand-400 hover:underline">
             Planos
           </Link>{' '}
@@ -83,9 +83,9 @@ export default function AdminPaymentsPage() {
       ) : orders.length === 0 ? (
         <EmptyState title="Nenhum pedido" description="Nenhum pedido registrado ainda." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-800">
+        <div className="overflow-x-auto rounded-xl border border-[var(--rz-border)]">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-900/80 text-gray-500 text-xs uppercase">
+            <thead className="bg-[var(--rz-surface-muted)]/80 text-[var(--rz-text-muted)] text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Data</th>
                 <th className="px-3 py-2">Empresa</th>
@@ -96,11 +96,11 @@ export default function AdminPaymentsPage() {
             </thead>
             <tbody>
               {orders.map(o => (
-                <tr key={o._id} className="border-t border-gray-800/80 hover:bg-gray-900/40">
-                  <td className="px-3 py-2 text-gray-400 whitespace-nowrap">
+                <tr key={o._id} className="border-t border-[var(--rz-border)]/80 hover:bg-[var(--rz-surface-muted)]/40">
+                  <td className="px-3 py-2 text-[var(--rz-text-muted)] whitespace-nowrap">
                     {new Date(o.createdAt).toLocaleString('pt-BR')}
                   </td>
-                  <td className="px-3 py-2 text-gray-200">
+                  <td className="px-3 py-2 text-[var(--rz-text-primary)]">
                     {typeof o.organizationId === 'object'
                       ? o.organizationId?.name ?? '—'
                       : '—'}
@@ -114,7 +114,7 @@ export default function AdminPaymentsPage() {
                           ? 'text-brand-400'
                           : o.status === 'pending'
                             ? 'text-amber-500'
-                            : 'text-gray-500'
+                            : 'text-[var(--rz-text-muted)]'
                       }
                     >
                       {STATUS_LABEL[o.status] ?? o.status}

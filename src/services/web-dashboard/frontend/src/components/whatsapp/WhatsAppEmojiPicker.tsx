@@ -101,7 +101,7 @@ export function WhatsAppEmojiPicker({ disabled, onPick }: Props) {
       : (WA_EMOJI_CATEGORIES.find(c => c.id === tab)?.emojis ?? [])
 
   const toolbarBtn =
-    'p-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-40 transition-colors'
+    'p-1.5 rounded-md text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface-muted)] disabled:opacity-40 transition-colors'
 
   const panelWidth = Math.min(PANEL_WIDTH, typeof window !== 'undefined' ? window.innerWidth - 16 : PANEL_WIDTH)
 
@@ -118,9 +118,9 @@ export function WhatsAppEmojiPicker({ disabled, onPick }: Props) {
               width: panelWidth,
               zIndex: 9999,
             }}
-            className="rounded-xl border border-gray-700 bg-gray-900 shadow-2xl shadow-black/50 flex flex-col overflow-hidden"
+            className="rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-2xl shadow-black/50 flex flex-col overflow-hidden"
           >
-            <div className="flex gap-0.5 px-1.5 py-1.5 border-b border-gray-800 overflow-x-auto shrink-0">
+            <div className="flex gap-0.5 px-1.5 py-1.5 border-b border-[var(--rz-border)] overflow-x-auto shrink-0">
               {tabs.map(t => (
                 <button
                   key={t.id}
@@ -128,7 +128,7 @@ export function WhatsAppEmojiPicker({ disabled, onPick }: Props) {
                   title={t.id === 'recent' ? 'Recentes' : undefined}
                   onClick={() => setTab(t.id)}
                   className={`shrink-0 w-9 h-9 rounded-lg text-lg leading-none transition-colors ${
-                    tab === t.id ? 'bg-brand-600/30 ring-1 ring-brand-500/50' : 'hover:bg-gray-800'
+                    tab === t.id ? 'bg-brand-600/30 ring-1 ring-brand-500/50' : 'hover:bg-[var(--rz-surface-muted)]'
                   }`}
                 >
                   {t.label}
@@ -141,7 +141,7 @@ export function WhatsAppEmojiPicker({ disabled, onPick }: Props) {
               style={{ scrollbarWidth: 'thin' }}
             >
               {gridEmojis.length === 0 ? (
-                <p className="col-span-9 text-center text-xs text-gray-500 py-10">
+                <p className="col-span-9 text-center text-xs text-[var(--rz-text-muted)] py-10">
                   {tab === 'recent' ? 'Emojis recentes aparecem aqui' : 'Nenhum emoji'}
                 </p>
               ) : (
@@ -150,7 +150,7 @@ export function WhatsAppEmojiPicker({ disabled, onPick }: Props) {
                     key={`${tab}-${emoji}-${i}`}
                     type="button"
                     onClick={() => pick(emoji)}
-                    className="h-9 w-full rounded-lg hover:bg-gray-800 text-xl leading-none transition-colors flex items-center justify-center"
+                    className="h-9 w-full rounded-lg hover:bg-[var(--rz-surface-muted)] text-xl leading-none transition-colors flex items-center justify-center"
                   >
                     {emoji}
                   </button>
@@ -170,7 +170,7 @@ export function WhatsAppEmojiPicker({ disabled, onPick }: Props) {
         title="Inserir emoji"
         disabled={disabled}
         onClick={() => setOpen(v => !v)}
-        className={`${toolbarBtn} ${open ? 'text-brand-400 bg-gray-800' : ''}`}
+        className={`${toolbarBtn} ${open ? 'text-brand-400 bg-[var(--rz-surface-muted)]' : ''}`}
       >
         <Smile size={16} />
       </button>

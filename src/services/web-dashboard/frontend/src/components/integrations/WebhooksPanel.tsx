@@ -61,15 +61,15 @@ export function WebhooksPanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
-        POST JSON para sua URL com header <code className="text-gray-400">X-RadarZap-Signature</code>{' '}
+      <p className="text-xs text-[var(--rz-text-muted)]">
+        POST JSON para sua URL com header <code className="text-[var(--rz-text-muted)]">X-RadarZap-Signature</code>{' '}
         (HMAC com o secret abaixo).
       </p>
 
       {newSecret && (
         <Card className="border-amber-800/40 bg-amber-950/20 space-y-1">
           <p className="text-sm text-amber-200">Secret do webhook (guarde com segurança)</p>
-          <code className="text-xs break-all text-gray-300">{newSecret}</code>
+          <code className="text-xs break-all text-[var(--rz-text-secondary)]">{newSecret}</code>
         </Card>
       )}
 
@@ -86,7 +86,7 @@ export function WebhooksPanel() {
         </Button>
       </div>
 
-      <p className="text-[11px] text-gray-600">Eventos disponíveis: {EVENTS.join(', ')}</p>
+      <p className="text-[11px] text-[var(--rz-text-muted)]">Eventos disponíveis: {EVENTS.join(', ')}</p>
 
       {isLoading ? (
         <LoadingState rows={3} className="py-2" />
@@ -97,13 +97,13 @@ export function WebhooksPanel() {
           {hooks.map(h => (
             <Card key={h._id} className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm text-gray-200 flex items-center gap-2 truncate">
+                <p className="text-sm text-[var(--rz-text-primary)] flex items-center gap-2 truncate">
                   <Webhook size={14} className="text-brand-500 shrink-0" />
                   <span className="truncate">{h.url}</span>
                 </p>
-                <p className="text-xs text-gray-500 mt-1">{h.events.join(', ')}</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mt-1">{h.events.join(', ')}</p>
                 {h.lastDeliveryAt && (
-                  <p className="text-[10px] text-gray-600 mt-1">
+                  <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
                     Última entrega: {new Date(h.lastDeliveryAt).toLocaleString('pt-BR')}
                     {h.lastDeliveryStatus != null && (
                       <span
@@ -123,7 +123,7 @@ export function WebhooksPanel() {
               <button
                 type="button"
                 onClick={() => window.confirm('Remover webhook?') && remove.mutate(h._id)}
-                className="p-2 text-gray-500 hover:text-red-400 shrink-0"
+                className="p-2 text-[var(--rz-text-muted)] hover:text-red-400 shrink-0"
               >
                 <Trash2 size={16} />
               </button>

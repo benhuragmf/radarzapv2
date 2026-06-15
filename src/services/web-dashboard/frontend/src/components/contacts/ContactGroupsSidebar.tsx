@@ -112,7 +112,7 @@ export default function ContactGroupsSidebar({
               setShowCreate(v => !v)
               setEditingId(null)
             }}
-            className="p-1 rounded text-gray-500 hover:text-brand-400 hover:bg-gray-800"
+            className="p-1 rounded text-[var(--rz-text-muted)] hover:text-brand-400 hover:bg-[var(--rz-surface-muted)]"
             title="Novo grupo"
           >
             <Plus size={16} />
@@ -151,9 +151,9 @@ export default function ContactGroupsSidebar({
           onClick={() => onSelectGroup(null)}
           className={itemCls(selectedGroupId === null)}
         >
-          <Users size={15} className="shrink-0 text-gray-500" />
+          <Users size={15} className="shrink-0 text-[var(--rz-text-muted)]" />
           <span className="flex-1 truncate">Todos os contatos</span>
-          <span className="text-[11px] text-gray-600 tabular-nums">{totalContacts}</span>
+          <span className="text-[11px] text-[var(--rz-text-muted)] tabular-nums">{totalContacts}</span>
         </button>
 
         {loading ? (
@@ -199,9 +199,9 @@ export default function ContactGroupsSidebar({
                   onClick={() => onSelectGroup(g._id)}
                   className={itemCls(active)}
                 >
-                  <FolderOpen size={15} className={`shrink-0 ${active ? 'text-brand-400' : 'text-gray-500'}`} />
+                  <FolderOpen size={15} className={`shrink-0 ${active ? 'text-brand-400' : 'text-[var(--rz-text-muted)]'}`} />
                   <span className="flex-1 truncate">{g.name}</span>
-                  <span className="text-[11px] text-gray-600 tabular-nums">{g.memberCount}</span>
+                  <span className="text-[11px] text-[var(--rz-text-muted)] tabular-nums">{g.memberCount}</span>
                 </button>
                 {canManage && (
                   <div className="absolute right-1 top-1/2 -translate-y-1/2">
@@ -211,7 +211,7 @@ export default function ContactGroupsSidebar({
                         e.stopPropagation()
                         setMenuId(menuId === g._id ? null : g._id)
                       }}
-                      className="p-1 rounded opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white hover:bg-gray-800"
+                      className="p-1 rounded opacity-0 group-hover:opacity-100 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface-muted)]"
                     >
                       <MoreHorizontal size={14} />
                     </button>
@@ -222,14 +222,14 @@ export default function ContactGroupsSidebar({
                           <button
                             type="button"
                             onClick={() => startEdit(g)}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800"
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--rz-text-secondary)] hover:bg-[var(--rz-surface-muted)]"
                           >
                             <Pencil size={12} /> Editar
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(g)}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-gray-800"
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-[var(--rz-surface-muted)]"
                           >
                             <Trash2 size={12} /> Excluir
                           </button>
@@ -245,7 +245,7 @@ export default function ContactGroupsSidebar({
       </nav>
 
       {!loading && groups.length === 0 && canManage && !showCreate && (
-        <p className="text-[11px] text-gray-600 leading-snug px-1">
+        <p className="text-[11px] text-[var(--rz-text-muted)] leading-snug px-1">
           Organize contatos em listas (VIP, Clientes, etc.) para filtrar e segmentar envios.
         </p>
       )}

@@ -78,8 +78,8 @@ export default function EventNotificationBell() {
                       {TYPE_LABEL[ev.type] ?? ev.type}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400 line-clamp-2">{ev.body}</p>
-                  <p className="text-[10px] text-gray-600 mt-0.5">
+                  <p className="text-xs text-[var(--rz-text-muted)] line-clamp-2">{ev.body}</p>
+                  <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">
                     {new Date(ev.createdAt).toLocaleString('pt-BR')}
                   </p>
                 </Link>

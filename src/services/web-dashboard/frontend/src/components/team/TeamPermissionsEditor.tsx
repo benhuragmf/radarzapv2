@@ -73,7 +73,7 @@ function Toggle({ on, disabled, onClick }: { on: boolean; disabled?: boolean; on
       onClick={onClick}
       className={`relative shrink-0 h-5 w-9 rounded-full transition-colors ${
         disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-      } ${on ? 'bg-brand-500' : 'bg-gray-700'}`}
+      } ${on ? 'bg-brand-500' : 'bg-[var(--rz-surface-muted)]'}`}
     >
       <span
         className={`pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
@@ -204,14 +204,14 @@ function RolePermissionsAccordion({
   }
 
   return (
-    <div className="divide-y divide-gray-800/80">
+    <div className="divide-y divide-[var(--rz-border)]/80">
       {filteredGroups.map(group => {
         const { active, total, allOn } = groupStats(group, selectedSet)
         const isOpen = expanded.has(group.id)
         const pct = total > 0 ? Math.round((active / total) * 100) : 0
 
         return (
-          <div key={group.id} className="bg-gray-950/20">
+          <div key={group.id} className="bg-[var(--rz-surface-muted)]/20">
             <div className="flex items-center gap-3 px-4 py-3">
               <button
                 type="button"
@@ -220,24 +220,24 @@ function RolePermissionsAccordion({
               >
                 <ChevronDown
                   size={16}
-                  className={`shrink-0 text-gray-500 transition-transform ${isOpen ? '' : '-rotate-90'}`}
+                  className={`shrink-0 text-[var(--rz-text-muted)] transition-transform ${isOpen ? '' : '-rotate-90'}`}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-200">{group.label}</span>
+                    <span className="text-sm font-medium text-[var(--rz-text-primary)]">{group.label}</span>
                     <span
                       className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
                         allOn
                           ? 'bg-brand-500/15 text-brand-400'
                           : active > 0
                             ? 'bg-amber-500/10 text-amber-500/90'
-                            : 'bg-gray-800 text-gray-500'
+                            : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]'
                       }`}
                     >
                       {active}/{total}
                     </span>
                   </div>
-                  <div className="mt-1.5 h-1 rounded-full bg-gray-800 overflow-hidden max-w-[200px]">
+                  <div className="mt-1.5 h-1 rounded-full bg-[var(--rz-surface-muted)] overflow-hidden max-w-[200px]">
                     <div
                       className={`h-full rounded-full transition-all ${
                         allOn ? 'bg-brand-500' : active > 0 ? 'bg-amber-500/70' : 'bg-transparent'
@@ -258,7 +258,7 @@ function RolePermissionsAccordion({
 
             {isOpen && (
               <div className="px-4 pb-3 pt-0 ml-7 space-y-0.5">
-                <p className="text-[11px] text-gray-600 mb-2">{group.description}</p>
+                <p className="text-[11px] text-[var(--rz-text-muted)] mb-2">{group.description}</p>
                 {group.capabilities.map(cap => {
                   const on = selectedSet.has(cap)
                   return (
@@ -274,10 +274,10 @@ function RolePermissionsAccordion({
                         }
                       }}
                       className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                        on ? 'bg-brand-500/[0.07] border border-brand-500/20' : 'hover:bg-gray-800/50 border border-transparent'
+                        on ? 'bg-brand-500/[0.07] border border-brand-500/20' : 'hover:bg-[var(--rz-surface-muted)] border border-transparent'
                       } ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                     >
-                      <span className={`text-sm ${on ? 'text-gray-100' : 'text-gray-400'}`}>
+                      <span className={`text-sm ${on ? 'text-[var(--rz-text-primary)]' : 'text-[var(--rz-text-secondary)]'}`}>
                         {permLabel(cap)}
                       </span>
                       <span onClick={e => e.stopPropagation()}>
@@ -362,7 +362,7 @@ export function TeamMemberRoleModal({
                   </option>
                 ))}
             </select>
-            {preset && <p className="text-xs text-gray-500 mt-1.5">{preset.description}</p>}
+            {preset && <p className="text-xs text-[var(--rz-text-muted)] mt-1.5">{preset.description}</p>}
           </div>
           <div>
             <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">WhatsApp (encaminhamentos de ticket)</label>
@@ -373,7 +373,7 @@ export function TeamMemberRoleModal({
               placeholder="5511999999999"
               className={inputCls}
             />
-            <p className="text-[11px] text-gray-600 mt-1">
+            <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
               Usado para receber encaminhamentos e menções de tickets via WhatsApp.
             </p>
           </div>
@@ -513,14 +513,14 @@ export function RolesSystemPanel({
                 <span className={`block text-xs font-medium truncate ${selected ? 'text-[var(--rz-text-primary)]' : 'text-[var(--rz-text-secondary)]'}`} title={p.label}>
                   {p.label}
                 </span>
-                <span className="block text-[10px] text-gray-600 mt-0.5">
+                <span className="block text-[10px] text-[var(--rz-text-muted)] mt-0.5">
                   {formatPermCount(p.capabilities.length)}
                 </span>
                 {(p.customized || p.isCustom) && (
                   <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
                 )}
                 {!p.inviteable && (
-                  <Shield size={10} className="absolute top-1.5 right-1.5 text-gray-600" />
+                  <Shield size={10} className="absolute top-1.5 right-1.5 text-[var(--rz-text-muted)]" />
                 )}
               </button>
             )
@@ -529,7 +529,7 @@ export function RolesSystemPanel({
             <button
               type="button"
               onClick={() => void onCreateCustomRole()}
-              className="px-3 py-2.5 rounded-lg border border-dashed border-gray-700 text-gray-500 hover:border-brand-500/50 hover:text-brand-400 text-xs font-medium"
+              className="px-3 py-2.5 rounded-lg border border-dashed border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-brand-500/50 hover:text-brand-400 text-xs font-medium"
             >
               + Novo papel
             </button>
@@ -549,7 +549,7 @@ export function RolesSystemPanel({
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500 mt-1">{preset.description}</p>
+            <p className="text-sm text-[var(--rz-text-muted)] mt-1">{preset.description}</p>
           </div>
 
           {preset.inviteable && canEdit && (
@@ -564,7 +564,7 @@ export function RolesSystemPanel({
               <button
                 type="button"
                 onClick={() => setDraftCaps(['dashboard:view'])}
-                className="text-xs px-3 py-1.5 rounded-lg text-gray-400 border border-gray-700 hover:bg-gray-800 transition-colors"
+                className="text-xs px-3 py-1.5 rounded-lg text-[var(--rz-text-muted)] border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)] transition-colors"
               >
                 Bloquear tudo
               </button>
@@ -573,7 +573,7 @@ export function RolesSystemPanel({
                   type="button"
                   onClick={handleReset}
                   disabled={saving}
-                  className="text-xs px-3 py-1.5 rounded-lg text-gray-400 border border-gray-700 hover:bg-gray-800 transition-colors inline-flex items-center gap-1"
+                  className="text-xs px-3 py-1.5 rounded-lg text-[var(--rz-text-muted)] border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)] transition-colors inline-flex items-center gap-1"
                 >
                   <RotateCcw size={12} />
                   {preset.isCustom ? 'Excluir' : 'Padrão'}
@@ -585,15 +585,15 @@ export function RolesSystemPanel({
 
         {preset.inviteable && (
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-2 rounded-full bg-gray-800 overflow-hidden">
+            <div className="flex-1 h-2 rounded-full bg-[var(--rz-surface-muted)] overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <span className="text-sm tabular-nums text-gray-400 shrink-0">
+            <span className="text-sm tabular-nums text-[var(--rz-text-muted)] shrink-0">
               <span className="text-brand-400 font-semibold">{totalActive}</span>
-              <span className="text-gray-600"> / {totalAvailable}</span>
+              <span className="text-[var(--rz-text-muted)]"> / {totalAvailable}</span>
             </span>
           </div>
         )}
@@ -615,7 +615,7 @@ export function RolesSystemPanel({
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]"
                 aria-label="Limpar busca"
               >
                 <X size={14} />
@@ -626,14 +626,14 @@ export function RolesSystemPanel({
             <button
               type="button"
               onClick={() => setExpandAllToken(t => t + 1)}
-              className="text-xs px-3 py-2 rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800/60 whitespace-nowrap"
+              className="text-xs px-3 py-2 rounded-lg text-[var(--rz-text-muted)] border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]/60 whitespace-nowrap"
             >
               Expandir tudo
             </button>
             <button
               type="button"
               onClick={() => setCollapseAllToken(t => t + 1)}
-              className="text-xs px-3 py-2 rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800/60 whitespace-nowrap"
+              className="text-xs px-3 py-2 rounded-lg text-[var(--rz-text-muted)] border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]/60 whitespace-nowrap"
             >
               Recolher tudo
             </button>
@@ -646,7 +646,7 @@ export function RolesSystemPanel({
       {!preset.inviteable ? (
         <div className="p-8 text-center">
           <Shield size={32} className="mx-auto text-brand-500/40 mb-3" />
-          <p className="text-sm text-gray-400">Acesso total à empresa — este papel não pode ser editado.</p>
+          <p className="text-sm text-[var(--rz-text-muted)]">Acesso total à empresa — este papel não pode ser editado.</p>
         </div>
       ) : (
         <>
@@ -661,7 +661,7 @@ export function RolesSystemPanel({
             collapseAllToken={collapseAllToken}
           />
           {hasDiscordIntegration && canEdit && (
-            <p className="px-4 py-2 text-[11px] text-gray-600 border-t border-gray-800/80">
+            <p className="px-4 py-2 text-[11px] text-[var(--rz-text-muted)] border-t border-[var(--rz-border)]/80">
               Discord: o membro precisa vincular a conta em Configurações → Conta.
             </p>
           )}
@@ -678,10 +678,10 @@ export function RolesSystemPanel({
       {preset.inviteable && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40">
           {!canEdit ? (
-            <p className="text-xs text-gray-500">Somente o dono pode editar papéis.</p>
+            <p className="text-xs text-[var(--rz-text-muted)]">Somente o dono pode editar papéis.</p>
           ) : (
             <>
-              <p className={`text-xs ${dirty ? 'text-amber-500/90' : 'text-gray-600'}`}>
+              <p className={`text-xs ${dirty ? 'text-amber-500/90' : 'text-[var(--rz-text-muted)]'}`}>
                 {dirty ? '● Alterações não salvas' : 'Nenhuma alteração pendente'}
               </p>
               <Button type="button" onClick={handleSave} disabled={saving || !dirty} className="min-w-[120px]">

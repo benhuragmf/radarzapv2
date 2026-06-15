@@ -35,7 +35,7 @@ export function ContactAvatar({
         src={storedSrc}
         alt=""
         onError={() => setFailed(true)}
-        className="rounded-full shrink-0 ring-2 ring-gray-800 object-cover bg-gray-800"
+        className="rounded-full shrink-0 ring-2 ring-[var(--rz-border)] object-cover bg-[var(--rz-surface-muted)]"
         style={{ width: size, height: size }}
       />
     )
@@ -46,7 +46,7 @@ export function ContactAvatar({
       <img
         src={avatarLabel(name, size)}
         alt=""
-        className="rounded-full shrink-0 ring-2 ring-gray-800 object-cover"
+        className="rounded-full shrink-0 ring-2 ring-[var(--rz-border)] object-cover"
         style={{ width: size, height: size }}
       />
     )
@@ -54,10 +54,10 @@ export function ContactAvatar({
 
   return (
     <div
-      className="rounded-full shrink-0 ring-2 ring-gray-800 bg-gray-800 flex items-center justify-center"
+      className="rounded-full shrink-0 ring-2 ring-[var(--rz-border)] bg-[var(--rz-surface-muted)] flex items-center justify-center"
       style={{ width: size, height: size }}
     >
-      <User size={Math.round(size * 0.45)} className="text-gray-500" />
+      <User size={Math.round(size * 0.45)} className="text-[var(--rz-text-muted)]" />
     </div>
   )
 }

@@ -50,7 +50,7 @@ export default function PlatformTriggers() {
         </Link>
       </div>
 
-      <h3 className="text-sm font-medium text-gray-300 mb-3">Suas regras ({rules.length})</h3>
+      <h3 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Suas regras ({rules.length})</h3>
       {isLoading ? (
         <LoadingState rows={3} className="pt-4" />
       ) : rules.length === 0 ? (
@@ -77,17 +77,17 @@ export default function PlatformTriggers() {
                 if (e.key === 'Enter') navigate('/platform/automacoes', { state: { editId: r._id } })
               }}
             >
-            <Card className="flex flex-wrap items-center justify-between gap-3 hover:border-gray-600">
+            <Card className="flex flex-wrap items-center justify-between gap-3 hover:border-[var(--rz-border)]">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium text-gray-200 truncate">
+                  <p className="text-sm font-medium text-[var(--rz-text-primary)] truncate">
                     {r.name || r.templateName}
                   </p>
                   <Badge label={r.active ? 'Ativa' : 'Pausada'} variant={r.active ? 'green' : 'gray'} />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{describeTrigger(r)}</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mt-1">{describeTrigger(r)}</p>
                 {r.lastRunDate && (
-                  <p className="text-[11px] text-gray-600 mt-0.5">
+                  <p className="text-[11px] text-[var(--rz-text-muted)] mt-0.5">
                     Último enfileiramento: {r.lastRunDate.replace(/^rec:|^once:/, '')}
                   </p>
                 )}
@@ -108,18 +108,18 @@ export default function PlatformTriggers() {
         </div>
       )}
 
-      <h3 className="text-sm font-medium text-gray-300 mb-3">Tipos de gatilho disponíveis</h3>
+      <h3 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Tipos de gatilho disponíveis</h3>
       <div className="space-y-4">
         {TRIGGER_GROUPS.map(group => (
           <div key={group.label}>
-            <p className="text-xs text-gray-500 mb-2">{group.label}</p>
+            <p className="text-xs text-[var(--rz-text-muted)] mb-2">{group.label}</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {group.types.map(type => (
                 <Card key={type} className="flex gap-3">
                   <Zap size={16} className="text-brand-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-gray-200">{TRIGGER_LABELS[type]}</p>
-                    <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                    <p className="text-sm font-medium text-[var(--rz-text-primary)]">{TRIGGER_LABELS[type]}</p>
+                    <p className="text-[11px] text-[var(--rz-text-muted)] mt-1 leading-relaxed">
                       {TRIGGER_HINTS[type]}
                     </p>
                   </div>

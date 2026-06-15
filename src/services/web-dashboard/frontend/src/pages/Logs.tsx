@@ -82,19 +82,19 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
   const body = (
     <div className="space-y-4">
       {isTenant && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[var(--rz-text-muted)]">
           Apenas logs da sua empresa (filtro por tenant).
         </p>
       )}
       {isHistoryView && !isDiscord && !isTenant && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[var(--rz-text-muted)]">
           Histórico de envios manuais e agendados.
         </p>
       )}
       {isDiscord && (
         <>
-          <p className="text-sm text-gray-400">
-            Pipeline: <span className="text-gray-300">CAPTURE → RENDER → QUEUE → SEND → SEND OK</span>.
+          <p className="text-sm text-[var(--rz-text-muted)]">
+            Pipeline: <span className="text-[var(--rz-text-secondary)]">CAPTURE → RENDER → QUEUE → SEND → SEND OK</span>.
             Filtre por etapa ou busque <code className="text-brand-400">send</code>.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -106,7 +106,7 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
                 className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
                   service === s
                     ? 'border-brand-500 bg-brand-600/20 text-brand-300'
-                    : 'border-gray-700 text-gray-500 hover:border-gray-600'
+                    : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                 }`}
               >
                 {s}
@@ -122,7 +122,7 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
                 className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
                   stage === s
                     ? 'border-emerald-500 bg-emerald-600/20 text-emerald-300'
-                    : 'border-gray-700 text-gray-500 hover:border-gray-600'
+                    : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                 }`}
               >
                 {s === 'send_ok' ? 'send ✓' : s}
@@ -171,15 +171,15 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
           return (
           <div
             key={log._id}
-            className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden"
+            className="bg-[var(--rz-surface)] border border-[var(--rz-border)] rounded-lg overflow-hidden"
           >
             <button
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-800/50 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[var(--rz-surface-muted)]/50 transition-colors"
               onClick={() => setExpanded(expanded === log._id ? null : log._id)}
             >
               {expanded === log._id
-                ? <ChevronDown size={14} className="text-gray-500 shrink-0" />
-                : <ChevronRight size={14} className="text-gray-500 shrink-0" />
+                ? <ChevronDown size={14} className="text-[var(--rz-text-muted)] shrink-0" />
+                : <ChevronRight size={14} className="text-[var(--rz-text-muted)] shrink-0" />
               }
               <Badge label={log.level} variant={levelVariant[log.level]} />
               {st && (
@@ -188,14 +188,14 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
                   variant={stageVariant[st] ?? 'gray'}
                 />
               )}
-              <span className="text-xs text-gray-500 shrink-0">
+              <span className="text-xs text-[var(--rz-text-muted)] shrink-0">
                 {new Date(log.timestamp).toLocaleTimeString('pt-BR')}
               </span>
               <span className="text-xs text-blue-400 shrink-0">{log.service}</span>
-              <span className="text-sm text-gray-300 truncate flex-1 min-w-0">
+              <span className="text-sm text-[var(--rz-text-secondary)] truncate flex-1 min-w-0">
                 {log.message}
                 {typeof log.metadata?.preview === 'string' && (
-                  <span className="text-gray-500"> — {log.metadata.preview as string}</span>
+                  <span className="text-[var(--rz-text-muted)]"> — {log.metadata.preview as string}</span>
                 )}
                 {typeof log.metadata?.tenantSender === 'string' && (
                   <span className="text-violet-400/90"> [{log.metadata.tenantSender as string}]</span>
@@ -208,15 +208,15 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
                 )}
               </span>
               {typeof log.metadata?.template === 'string' && (
-                <span className="text-[10px] text-gray-600 shrink-0">{log.metadata.template as string}</span>
+                <span className="text-[10px] text-[var(--rz-text-muted)] shrink-0">{log.metadata.template as string}</span>
               )}
             </button>
 
             {expanded === log._id && (
-              <div className="px-4 pb-3 border-t border-gray-800">
-                <p className="text-xs text-gray-500 mt-2 mb-1">traceId: <code className="text-gray-400">{log.traceId}</code></p>
+              <div className="px-4 pb-3 border-t border-[var(--rz-border)]">
+                <p className="text-xs text-[var(--rz-text-muted)] mt-2 mb-1">traceId: <code className="text-[var(--rz-text-secondary)]">{log.traceId}</code></p>
                 {Object.keys(log.metadata ?? {}).length > 0 && (
-                  <pre className="text-xs text-gray-400 bg-gray-950 rounded p-2 overflow-x-auto max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-[var(--rz-text-secondary)] bg-[var(--rz-surface-muted)] rounded p-2 overflow-x-auto max-h-64 overflow-y-auto">
                     {JSON.stringify(log.metadata, null, 2)}
                   </pre>
                 )}

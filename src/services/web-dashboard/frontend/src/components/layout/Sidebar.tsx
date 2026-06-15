@@ -62,7 +62,7 @@ function NavLinkItem({
   if (blocked) {
     return (
       <div
-        className={`flex items-center gap-3 ${pad} py-2 rounded-lg text-sm text-gray-600 cursor-not-allowed`}
+        className={`flex items-center gap-3 ${pad} py-2 rounded-lg text-sm text-[var(--rz-text-muted)] cursor-not-allowed`}
         title="Selecione um servidor Discord acima"
       >
         <Icon size={16} className="shrink-0 opacity-40" />

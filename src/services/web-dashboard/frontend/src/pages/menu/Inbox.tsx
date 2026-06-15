@@ -6,7 +6,8 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import { LoadingState } from '@/design-system'
+import { LoadingState, selectCls, inputCls } from '@/design-system'
+import { cn } from '@/lib/utils'
 import {
   MessageSquare,
   UserCheck,
@@ -150,7 +151,7 @@ function ContactAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
         : 'w-10 h-10 text-sm'
   return (
     <div
-      className={`${cls} rounded-full bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600/50 flex items-center justify-center font-semibold text-gray-200 shrink-0`}
+      className={`${cls} rounded-full bg-gradient-to-br from-[var(--rz-surface-muted)] to-[var(--rz-surface)] border border-[var(--rz-border)]/50 flex items-center justify-center font-semibold text-[var(--rz-text-primary)] shrink-0`}
     >
       {initial}
     </div>
@@ -343,8 +344,8 @@ export default function Inbox() {
     return () => clearInterval(id)
   }, [needsLiveTimer])
 
-  const selectCls =
-    'bg-gray-900/80 border border-gray-700/80 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-brand-500/50'
+  const inboxSelectCls = cn(selectCls, 'text-xs py-1.5')
+  const inboxSearchCls = cn(inputCls, 'pl-9 text-sm')
 
   return (
     <div className="flex flex-col min-h-[70vh] lg:h-[calc(100vh-5.5rem)] max-w-[1400px] -mx-1">
@@ -352,11 +353,11 @@ export default function Inbox() {
       <div className="shrink-0 mb-4">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-white flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
               <InboxIcon size={22} className="text-brand-400" />
               Inbox
             </h1>
-            <p className="text-sm text-gray-500 mt-1 max-w-xl">
+            <p className="text-sm text-[var(--rz-text-muted)] mt-1 max-w-xl">
               Atenda conversas do WhatsApp. Prioridades do round-robin aparecem destacadas — aceite ou puxe quando puder.
             </p>
           </div>
@@ -414,9 +415,9 @@ export default function Inbox() {
           ].map(s => (
             <div
               key={s.label}
-              className="rounded-xl border border-gray-800/80 bg-gray-900/40 px-3 py-2.5"
+              className="rounded-xl border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 px-3 py-2.5"
             >
-              <p className="text-[10px] uppercase tracking-wider text-gray-600">{s.label}</p>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)]">{s.label}</p>
               <p className={`text-lg font-semibold tabular-nums mt-0.5 ${s.color}`}>{s.value}</p>
             </div>
           ))}
@@ -424,22 +425,22 @@ export default function Inbox() {
       </div>
 
       {/* Painel principal */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-0 rounded-xl border border-gray-800 bg-gray-900/30 overflow-hidden shadow-xl shadow-black/20">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-0 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/30 overflow-hidden shadow-xl shadow-black/20">
         {/* Lista de conversas */}
         <aside
-          className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-800/80 bg-gray-950/40 ${
+          className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 ${
             selectedId ? 'max-lg:hidden' : 'max-lg:flex-1'
           }`}
         >
-          <div className="p-3 space-y-2.5 border-b border-gray-800/80 shrink-0">
+          <div className="p-3 space-y-2.5 border-b border-[var(--rz-border)]/80 shrink-0">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
               <input
                 type="search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar contato, ticket ou setor…"
-                className="w-full pl-9 pr-3 py-2 text-sm bg-gray-900/80 border border-gray-800 rounded-lg text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-brand-500/40"
+                className={inboxSearchCls}
               />
             </div>
 
@@ -452,7 +453,7 @@ export default function Inbox() {
                   className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
                     activeQuickFilter === f.id
                       ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
-                      : 'text-gray-500 hover:text-gray-300 border border-transparent hover:bg-gray-800/60'
+                      : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]/60'
                   }`}
                 >
                   {f.label}
@@ -463,7 +464,7 @@ export default function Inbox() {
             <select
               value={filterDept}
               onChange={e => setFilterDept(e.currentTarget.value)}
-              className={`${selectCls} w-full`}
+              className={`${inboxSelectCls} w-full`}
             >
               <option value="">Todos os setores</option>
               {departments.filter(d => d.canViewQueue !== false).map(d => (
@@ -474,10 +475,10 @@ export default function Inbox() {
             </select>
           </div>
 
-          <div className="px-3 py-2 text-[11px] text-gray-600 border-b border-gray-800/60 shrink-0">
+          <div className="px-3 py-2 text-[11px] text-[var(--rz-text-muted)] border-b border-[var(--rz-border)]/60 shrink-0">
             {filteredConversations.length} conversa(s)
             {search && filteredConversations.length !== conversations.length && (
-              <span className="text-gray-500"> · filtrado de {conversations.length}</span>
+              <span className="text-[var(--rz-text-muted)]"> · filtrado de {conversations.length}</span>
             )}
           </div>
 
@@ -486,9 +487,9 @@ export default function Inbox() {
               <LoadingState rows={3} className="py-8" />
             ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                <MessageSquare size={32} className="text-gray-700 mb-2" />
-                <p className="text-sm text-gray-500">Nenhuma conversa aqui.</p>
-                <p className="text-xs text-gray-600 mt-1">Ajuste os filtros ou aguarde novos contatos.</p>
+                <MessageSquare size={32} className="text-[var(--rz-text-muted)]/50 mb-2" />
+                <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma conversa aqui.</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mt-1">Ajuste os filtros ou aguarde novos contatos.</p>
               </div>
             ) : (
               filteredConversations.map(c => {
@@ -524,14 +525,14 @@ export default function Inbox() {
                     key={c._id}
                     type="button"
                     onClick={() => setSelectedId(c._id)}
-                    className={`w-full text-left px-3 py-3 flex gap-3 border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors ${borderCls} ${
+                    className={`w-full text-left px-3 py-3 flex gap-3 border-b border-[var(--rz-border)]/50 hover:bg-[var(--rz-surface-muted)]/40 transition-colors ${borderCls} ${
                       selected ? 'bg-brand-500/[0.08] border-l-2 border-l-brand-500' : 'border-l-2 border-l-transparent'
                     }`}
                   >
                     <ContactAvatar name={c.contactName} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-medium text-gray-100 truncate">{c.contactName}</span>
+                        <span className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{c.contactName}</span>
                         <div className="flex items-center gap-1 shrink-0">
                           {c.ticketRef && (
                             <Link
@@ -545,18 +546,18 @@ export default function Inbox() {
                           <Badge label={badge.label} variant={badge.variant} />
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                      <p className="text-xs text-[var(--rz-text-muted)] truncate mt-0.5">
                         {formatContactIdentifier(c.contactIdentifier, c.contactName)}
                       </p>
                       <div className="flex items-center justify-between gap-2 mt-1">
-                        <p className="text-[11px] text-gray-600 truncate">{subtitle || '—'}</p>
+                        <p className="text-[11px] text-[var(--rz-text-muted)] truncate">{subtitle || '—'}</p>
                         {c.suggestedUserId && c.status === 'waiting_queue' ? (
                           <span className={`flex items-center gap-0.5 text-[10px] shrink-0 font-mono tabular-nums ${timerCls}`}>
                             <Clock size={10} />
                             {formatQueueTimer(live.elapsedSec)}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-gray-600 shrink-0 tabular-nums">
+                          <span className="text-[10px] text-[var(--rz-text-muted)] shrink-0 tabular-nums">
                             {formatInboxMsgTime(c.lastMessageAt, false)}
                           </span>
                         )}
@@ -575,14 +576,14 @@ export default function Inbox() {
             selectedId ? '' : 'max-lg:hidden'
           }`}
         >
-        <section className="flex-1 min-w-0 flex flex-col bg-gray-950/20 min-h-[360px] max-lg:min-h-[70vh]">
+        <section className="flex-1 min-w-0 flex flex-col bg-[var(--rz-surface)]/20 min-h-[360px] max-lg:min-h-[70vh]">
           {!selectedId ? (
-            <div className="hidden lg:flex flex-col items-center justify-center flex-1 text-gray-500 p-8">
-              <div className="w-16 h-16 rounded-2xl bg-gray-800/50 flex items-center justify-center mb-4">
+            <div className="hidden lg:flex flex-col items-center justify-center flex-1 text-[var(--rz-text-muted)] p-8">
+              <div className="w-16 h-16 rounded-2xl bg-[var(--rz-surface-muted)]/50 flex items-center justify-center mb-4">
                 <MessageSquare size={32} className="opacity-40" />
               </div>
-              <p className="text-base font-medium text-gray-400">Selecione uma conversa</p>
-              <p className="text-sm text-gray-600 mt-1 text-center max-w-xs">
+              <p className="text-base font-medium text-[var(--rz-text-secondary)]">Selecione uma conversa</p>
+              <p className="text-sm text-[var(--rz-text-muted)] mt-1 text-center max-w-xs">
                 Escolha um contato na lista para ver o histórico e responder.
               </p>
             </div>
@@ -593,13 +594,13 @@ export default function Inbox() {
           ) : conv ? (
             <>
               {/* Header do chat */}
-              <header className="shrink-0 px-4 py-3 border-b border-gray-800/80 bg-gray-900/50 backdrop-blur-sm">
+              <header className="shrink-0 px-4 py-3 border-b border-[var(--rz-border)]/80 bg-[var(--rz-surface)]/50 backdrop-blur-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
                     <button
                       type="button"
                       onClick={() => setSelectedId(null)}
-                      className="lg:hidden shrink-0 p-1.5 -ml-1 mt-0.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+                      className="lg:hidden shrink-0 p-1.5 -ml-1 mt-0.5 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] rounded-lg hover:bg-[var(--rz-surface-muted)]"
                       aria-label="Voltar para lista"
                     >
                       <ArrowLeft size={18} />
@@ -607,7 +608,7 @@ export default function Inbox() {
                     <ContactAvatar name={conv.contactName} size="lg" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-gray-100 truncate">{conv.contactName}</p>
+                        <p className="font-semibold text-[var(--rz-text-primary)] truncate">{conv.contactName}</p>
                         <Badge
                           label={conversationBadge(conv).label}
                           variant={conversationBadge(conv).variant}
@@ -622,17 +623,17 @@ export default function Inbox() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-[var(--rz-text-muted)] truncate">
                           {formatContactIdentifier(conv.contactIdentifier, conv.contactName)}
                         </p>
                         {detail?.contactStats && (
-                          <span className="text-[10px] text-gray-600 shrink-0">
+                          <span className="text-[10px] text-[var(--rz-text-muted)] shrink-0">
                             · {detail.contactStats.totalConversations} atend.
                           </span>
                         )}
                       </div>
                       {(conv.departmentName || conv.assignedUserName) && (
-                        <p className="text-[11px] text-gray-600 mt-0.5">
+                        <p className="text-[11px] text-[var(--rz-text-muted)] mt-0.5">
                           {[conv.departmentName, conv.assignedUserName && `Atendente: ${conv.assignedUserName}`]
                             .filter(Boolean)
                             .join(' · ')}
@@ -646,7 +647,7 @@ export default function Inbox() {
                         title="Converter em ticket"
                         disabled={isTerminal || convertTicket.isPending}
                         onClick={() => convertTicket.mutate(conv._id)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-amber-400 hover:bg-gray-800/80 border border-gray-800/60 disabled:opacity-40"
+                        className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-amber-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 disabled:opacity-40"
                       >
                         <Ticket size={16} />
                       </button>
@@ -657,7 +658,7 @@ export default function Inbox() {
                           setShowHistoryPanel(true)
                           historyPanelRef.current?.scrollIntoView({ behavior: 'smooth' })
                         }}
-                        className="p-2 rounded-lg text-gray-500 hover:text-brand-400 hover:bg-gray-800/80 border border-gray-800/60"
+                        className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-brand-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60"
                       >
                         <History size={16} />
                       </button>
@@ -666,7 +667,7 @@ export default function Inbox() {
                         title="Editar perfil do cliente"
                         disabled={!detail?.contact}
                         onClick={() => setShowContactEditor(true)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-green-400 hover:bg-gray-800/80 border border-gray-800/60 disabled:opacity-40"
+                        className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-green-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 disabled:opacity-40"
                       >
                         <UserPen size={16} />
                       </button>
@@ -750,9 +751,9 @@ export default function Inbox() {
                 )}
               </header>
 
-              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900/40 via-transparent to-transparent">
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[var(--rz-surface-muted)]/40 via-transparent to-transparent">
                 {messages.length === 0 ? (
-                  <p className="text-center text-sm text-gray-600 py-8">Nenhuma mensagem ainda.</p>
+                  <p className="text-center text-sm text-[var(--rz-text-muted)] py-8">Nenhuma mensagem ainda.</p>
                 ) : (
                   messages.map(m => <InboxMessageBubble key={m._id} message={m} />)
                 )}
@@ -760,7 +761,7 @@ export default function Inbox() {
               </div>
 
               {!isTerminal && conv.status === 'in_progress' && conv.assignedUserId === me?.userId && (
-                <footer className="shrink-0 border-t border-gray-800/80 bg-gray-900/60 backdrop-blur-sm p-3 space-y-2">
+                <footer className="shrink-0 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/60 backdrop-blur-sm p-3 space-y-2">
                   <InboxComposer
                     value={reply}
                     onChange={setReply}
@@ -772,7 +773,7 @@ export default function Inbox() {
                     <select
                       value={transferDept}
                       onChange={e => setTransferDept(e.currentTarget.value)}
-                      className={selectCls}
+                      className={inboxSelectCls}
                     >
                       <option value="">Transferir para…</option>
                       {departments
@@ -802,7 +803,7 @@ export default function Inbox() {
               )}
 
               {!isTerminal && conv.status === 'waiting_queue' && (
-                <footer className="shrink-0 border-t border-gray-800/80 bg-gray-900/40 px-4 py-3 text-xs text-gray-500">
+                <footer className="shrink-0 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 px-4 py-3 text-xs text-[var(--rz-text-muted)]">
                   {conv.priorityForMe
                     ? 'Aceite a prioridade para começar a responder.'
                     : convLiveCanPull
@@ -812,7 +813,7 @@ export default function Inbox() {
               )}
 
               {isTerminal && (
-                <footer className="shrink-0 border-t border-gray-800/80 bg-gray-900/40 px-4 py-3 text-xs text-gray-500 text-center">
+                <footer className="shrink-0 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 px-4 py-3 text-xs text-[var(--rz-text-muted)] text-center">
                   Conversa finalizada.
                 </footer>
               )}

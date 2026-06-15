@@ -83,13 +83,13 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
               {post?.title ?? 'Detalhe do status'}
             </p>
             {post?.processedAt && (
-              <p className="text-xs text-gray-500">Publicado em {formatWhen(post.processedAt)}</p>
+              <p className="text-xs text-[var(--rz-text-muted)]">Publicado em {formatWhen(post.processedAt)}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800"
+            className="p-1.5 rounded-lg text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface-muted)]"
             aria-label="Fechar"
           >
             <X size={18} />
@@ -110,14 +110,14 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
                 />
                 <Badge label={AUDIENCE_LABEL[post.audience] ?? post.audience} variant="yellow" />
                 {post.statusJidCount != null && (
-                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                  <span className="text-xs text-[var(--rz-text-muted)] flex items-center gap-1">
                     <Users size={12} /> {post.statusJidCount} na audiência
                   </span>
                 )}
               </div>
 
               {post.type === 'image' && post.hasImage && (
-                <div className="rounded-xl overflow-hidden border border-gray-700 bg-black/30">
+                <div className="rounded-xl overflow-hidden border border-[var(--rz-border)] bg-black/30">
                   <img
                     src={`/api/status-posts/${post._id}/media`}
                     alt=""
@@ -147,10 +147,10 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
 
               {post.type === 'image' && displayText && (
                 <div className="rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)] p-3">
-                  <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                  <p className="text-xs text-[var(--rz-text-muted)] mb-1 flex items-center gap-1">
                     <Type size={12} /> Legenda
                   </p>
-                  <p className="text-sm text-gray-200">
+                  <p className="text-sm text-[var(--rz-text-primary)]">
                     <WhatsAppFormattedMessage text={displayText} />
                   </p>
                 </div>
@@ -162,7 +162,7 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-gray-400 flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-[var(--rz-text-secondary)] flex items-center gap-1.5">
                     <Eye size={14} /> Quem visualizou ({post.viewCount ?? 0})
                   </p>
                   <button
@@ -174,7 +174,7 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
                   </button>
                 </div>
                 {(post.viewEvents?.length ?? 0) === 0 ? (
-                  <p className="text-xs text-gray-600 leading-relaxed">
+                  <p className="text-xs text-[var(--rz-text-muted)] leading-relaxed">
                     Nenhuma visualização registrada ainda. O WhatsApp envia confirmações ao longo
                     do dia — mantenha a sessão conectada para capturar quem abriu.
                   </p>
@@ -188,12 +188,12 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
                       .map(v => (
                         <li
                           key={v.jid}
-                          className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg bg-gray-800/60"
+                          className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg bg-[var(--rz-surface-muted)]/80"
                         >
-                          <span className="text-gray-200">
+                          <span className="text-[var(--rz-text-primary)]">
                             {v.name || v.phone || v.jid.replace(/@.*/, '')}
                           </span>
-                          <span className="text-gray-500 shrink-0 ml-2">
+                          <span className="text-[var(--rz-text-muted)] shrink-0 ml-2">
                             {formatWhen(v.viewedAt)}
                           </span>
                         </li>

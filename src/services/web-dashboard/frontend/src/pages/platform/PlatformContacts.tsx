@@ -232,11 +232,11 @@ export default function PlatformContacts() {
 
     >
 
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-[var(--rz-text-muted)]">
 
         Especificação:{' '}
 
-        <code className="text-gray-500">docs/CONTATOS-CSV-IMPORTACAO.md</code>
+        <code className="text-[var(--rz-text-muted)]">docs/CONTATOS-CSV-IMPORTACAO.md</code>
 
         {' · '}
 
@@ -258,9 +258,9 @@ export default function PlatformContacts() {
 
 
 
-      <Card className="space-y-3 border-gray-700/80">
-        <p className="text-sm text-gray-300 font-medium">Exportar contatos</p>
-        <p className="text-xs text-gray-500">
+      <Card className="space-y-3 border-[var(--rz-border)]/80">
+        <p className="text-sm text-[var(--rz-text-secondary)] font-medium">Exportar contatos</p>
+        <p className="text-xs text-[var(--rz-text-muted)]">
           UTF-8 com BOM para Excel. Apenas contatos ativos do tipo telefone.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -311,19 +311,19 @@ export default function PlatformContacts() {
 
       {canManage && (
 
-        <Card className="space-y-4 border-gray-700/80">
+        <Card className="space-y-4 border-[var(--rz-border)]/80">
 
-          <div className="space-y-3 pb-3 border-b border-gray-800">
-            <p className="text-sm text-gray-300 font-medium flex items-center gap-2">
+          <div className="space-y-3 pb-3 border-b border-[var(--rz-border)]">
+            <p className="text-sm text-[var(--rz-text-secondary)] font-medium flex items-center gap-2">
               <ListOrdered size={16} className="text-brand-400" />
               Segmentos na importação
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[var(--rz-text-muted)]">
               Opcional: coloque todos os contatos do arquivo em um ou mais segmentos. A coluna{' '}
-              <code className="text-gray-400">grupos</code> do CSV também pode virar segmento automaticamente.
+              <code className="text-[var(--rz-text-muted)]">grupos</code> do CSV também pode virar segmento automaticamente.
             </p>
             {contactGroups.length === 0 ? (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-[var(--rz-text-muted)]">
                 Nenhum segmento ainda.{' '}
                 <Link to="/platform/segmentos" className="text-brand-400 hover:underline">
                   Criar segmento
@@ -345,7 +345,7 @@ export default function PlatformContacts() {
                       className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                         on
                           ? 'border-brand-500 bg-brand-600/20 text-brand-300'
-                          : 'border-gray-700 text-gray-500 hover:border-gray-600'
+                          : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
                       }`}
                     >
                       {g.name} ({g.memberCount})
@@ -357,13 +357,13 @@ export default function PlatformContacts() {
             {selectedGroupIds.length > 0 && (
               <button
                 type="button"
-                className="text-xs text-gray-500 hover:text-gray-300"
+                className="text-xs text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]"
                 onClick={() => setSelectedGroupIds([])}
               >
                 Limpar seleção de segmentos
               </button>
             )}
-            <label className="flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
+            <label className="flex items-start gap-2 text-xs text-[var(--rz-text-muted)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={mapGruposToSegments}
@@ -371,7 +371,7 @@ export default function PlatformContacts() {
                 className="mt-0.5"
               />
               <span>
-                Usar coluna <strong className="text-gray-300">Grupos</strong> do arquivo para criar ou
+                Usar coluna <strong className="text-[var(--rz-text-secondary)]">Grupos</strong> do arquivo para criar ou
                 vincular segmentos (ex.: Google Group Membership, coluna grupos no CSV RadarZap)
               </span>
             </label>
@@ -413,7 +413,7 @@ export default function PlatformContacts() {
 
             {fileName && (
 
-              <span className="text-sm text-gray-400 flex items-center gap-2">
+              <span className="text-sm text-[var(--rz-text-muted)] flex items-center gap-2">
 
                 <FileSpreadsheet size={14} />
 
@@ -439,7 +439,7 @@ export default function PlatformContacts() {
 
           {previewMutation.isPending && (
 
-            <p className="text-sm text-gray-500">Analisando arquivo…</p>
+            <p className="text-sm text-[var(--rz-text-muted)]">Analisando arquivo…</p>
 
           )}
 
@@ -449,7 +449,7 @@ export default function PlatformContacts() {
 
             <div className="space-y-3">
 
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-[var(--rz-text-secondary)]">
 
                 Formato:{' '}
 
@@ -485,11 +485,11 @@ export default function PlatformContacts() {
 
               {preview.preview.length > 0 && (
 
-                <div className="overflow-x-auto rounded-lg border border-gray-700/80">
+                <div className="overflow-x-auto rounded-lg border border-[var(--rz-border)]/80">
 
                   <table className="w-full text-xs text-left">
 
-                    <thead className="bg-gray-800/80 text-gray-400">
+                    <thead className="bg-[var(--rz-surface-muted)]/80 text-[var(--rz-text-muted)]">
 
                       <tr>
 
@@ -515,11 +515,11 @@ export default function PlatformContacts() {
 
                     </thead>
 
-                    <tbody className="divide-y divide-gray-800">
+                    <tbody className="divide-y divide-[var(--rz-border)]">
 
                       {preview.preview.map((row, i) => (
 
-                        <tr key={i} className="text-gray-300">
+                        <tr key={i} className="text-[var(--rz-text-secondary)]">
 
                           <td className="px-3 py-2">{row.nome}</td>
 
@@ -553,7 +553,7 @@ export default function PlatformContacts() {
 
                   </table>
 
-                  <p className="text-xs text-gray-500 px-3 py-2">Pré-visualização (até 5 linhas)</p>
+                  <p className="text-xs text-[var(--rz-text-muted)] px-3 py-2">Pré-visualização (até 5 linhas)</p>
 
                 </div>
 

@@ -62,7 +62,7 @@ export function CampaignRow({
             <Badge label="Automação" variant="blue" />
           )}
         </div>
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{c.message}</p>
+        <p className="text-xs text-[var(--rz-text-muted)] mt-1 line-clamp-2">{c.message}</p>
         {c.destinations.some(d => d.consentStatus) && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {c.destinations
@@ -71,7 +71,7 @@ export function CampaignRow({
               .map((d, i) => (
                 <span
                   key={`${d.name}-${i}`}
-                  className="inline-flex items-center gap-1 text-[10px] text-gray-400 bg-gray-800/80 px-1.5 py-0.5 rounded"
+                  className="inline-flex items-center gap-1 text-[10px] text-[var(--rz-text-muted)] bg-[var(--rz-surface-muted)]/80 px-1.5 py-0.5 rounded"
                   title={d.name}
                 >
                   <ConsentDot status={d.consentStatus!} />
@@ -79,11 +79,11 @@ export function CampaignRow({
                 </span>
               ))}
             {c.destinations.filter(d => d.consentStatus).length > 12 && (
-              <span className="text-[10px] text-gray-600">+{c.destinations.filter(d => d.consentStatus).length - 12}</span>
+              <span className="text-[10px] text-[var(--rz-text-muted)]">+{c.destinations.filter(d => d.consentStatus).length - 12}</span>
             )}
           </div>
         )}
-        <p className="text-[11px] text-gray-600 mt-1">
+        <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
           {c.destinations.length} destino(s)
           {(c.sentCount ?? 0) > 0 && c.status !== 'sent' && (
             <> · {c.sentCount}/{c.destinations.length} enviados</>

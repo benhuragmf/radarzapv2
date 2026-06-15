@@ -67,7 +67,7 @@ export function ConsentDot({ status }: { status: ConsentStatus }) {
   return (
     <span
       title={meta.label}
-      className="inline-block w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-gray-900"
+      className="inline-block w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-[var(--rz-surface)]"
       style={{ backgroundColor: meta.color }}
     />
   )

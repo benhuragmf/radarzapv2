@@ -66,8 +66,8 @@ function IconBtn({
       onClick={onClick}
       className={`p-1.5 rounded-md transition-colors disabled:opacity-40 ${
         danger
-          ? 'text-gray-500 hover:text-red-400 hover:bg-red-950/30'
-          : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800'
+          ? 'text-[var(--rz-text-muted)] hover:text-red-400 hover:bg-red-950/30'
+          : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface-muted)]'
       }`}
     >
       {children}
@@ -154,8 +154,8 @@ export function DestinationRow({
 
   return (
     <div
-      className={`rounded-xl border bg-gray-900/50 hover:border-gray-700/90 transition-colors overflow-hidden ${
-        selected ? 'border-brand-600/40 ring-1 ring-brand-600/20' : 'border-gray-800'
+      className={`rounded-xl border bg-[var(--rz-surface)]/50 hover:border-[var(--rz-border)] transition-colors overflow-hidden ${
+        selected ? 'border-brand-600/40 ring-1 ring-brand-600/20' : 'border-[var(--rz-border)]'
       }`}
       style={
         consentSt
@@ -180,7 +180,7 @@ export function DestinationRow({
                 checked={selected ?? false}
                 disabled={selectDisabled}
                 onChange={onToggleSelect}
-                className="rounded border-gray-600"
+                className="rounded border-[var(--rz-border)]"
                 aria-label={`Selecionar ${d.name}`}
               />
             </label>
@@ -194,7 +194,7 @@ export function DestinationRow({
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold text-white truncate">{d.name}</p>
+              <p className="text-sm font-semibold text-[var(--rz-text-primary)] truncate">{d.name}</p>
               {consentSt && <ConsentBadge status={consentSt} />}
               {consentSt === 'PENDING' && (d.pendingOutboundCount ?? 0) > 0 && (
                 <span className="text-[10px] text-amber-400/90 bg-amber-950/40 px-1.5 py-0.5 rounded">
@@ -207,7 +207,7 @@ export function DestinationRow({
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">
+            <p className="text-xs text-[var(--rz-text-muted)] font-mono mt-0.5 truncate">
               {d.type === 'contact' ? formatContactIdentifier(d.identifier, d.name) : d.identifier}
             </p>
             {d.type === 'contact' && (
@@ -225,7 +225,7 @@ export function DestinationRow({
               />
             )}
             {d.lastMessageSent && (
-              <p className="text-[11px] text-gray-600 mt-1">
+              <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
                 Último envio: {new Date(d.lastMessageSent).toLocaleString('pt-BR')}
               </p>
             )}
@@ -260,7 +260,7 @@ export function DestinationRow({
       </div>
 
       {(showRenewal || showClearRefusal) && (
-        <div className="px-4 pb-3 flex flex-wrap gap-2 border-t border-gray-800/60 pt-2">
+        <div className="px-4 pb-3 flex flex-wrap gap-2 border-t border-[var(--rz-border)]/60 pt-2">
           {showRenewal && (
             <Button
               size="sm"
@@ -285,7 +285,7 @@ export function DestinationRow({
       )}
 
       {hasFooter && (
-        <div className="px-4 py-2.5 flex flex-wrap items-center gap-1.5 border-t border-gray-800/80 bg-gray-950/40">
+        <div className="px-4 py-2.5 flex flex-wrap items-center gap-1.5 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40">
           {segmentLabels?.map(label => (
             <span
               key={label}
@@ -298,7 +298,7 @@ export function DestinationRow({
           {d.tags?.map(tag => (
             <span
               key={tag}
-              className="text-[10px] px-2 py-0.5 rounded-full border border-gray-700 bg-gray-800/80 text-gray-500"
+              className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/80 text-[var(--rz-text-muted)]"
             >
               {tag}
             </span>

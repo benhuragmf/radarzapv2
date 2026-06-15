@@ -60,7 +60,7 @@ export function ApiKeysPanel() {
       {newKey && (
         <Card className="border-brand-700/50 bg-brand-950/20 space-y-2">
           <p className="text-sm text-brand-200 font-medium">Chave criada — copie agora</p>
-          <code className="block text-xs break-all text-gray-300 bg-gray-900 p-2 rounded">{newKey}</code>
+          <code className="block text-xs break-all text-[var(--rz-text-secondary)] bg-[var(--rz-surface-muted)] p-2 rounded">{newKey}</code>
           <Button size="sm" variant="secondary" onClick={copyKey}>
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? 'Copiado' : 'Copiar'}
@@ -90,16 +90,16 @@ export function ApiKeysPanel() {
           {keys.map(k => (
             <Card key={k._id} className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-gray-200 flex items-center gap-2">
+                <p className="text-sm font-medium text-[var(--rz-text-primary)] flex items-center gap-2">
                   <Key size={14} className="text-brand-500" />
                   {k.name}
                 </p>
-                <p className="text-xs text-gray-500 font-mono mt-0.5">{k.keyPrefix}…</p>
+                <p className="text-xs text-[var(--rz-text-muted)] font-mono mt-0.5">{k.keyPrefix}…</p>
               </div>
               <button
                 type="button"
                 onClick={() => window.confirm('Revogar esta chave?') && remove.mutate(k._id)}
-                className="p-2 text-gray-500 hover:text-red-400"
+                className="p-2 text-[var(--rz-text-muted)] hover:text-red-400"
                 title="Revogar"
               >
                 <Trash2 size={16} />

@@ -143,11 +143,11 @@ export function InboxTicketActionsBar({
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-1 z-20 min-w-[200px] rounded-lg border border-gray-700 bg-gray-900 shadow-xl py-1 text-sm">
+              <div className="absolute right-0 top-full mt-1 z-20 min-w-[200px] rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-xl py-1 text-sm">
                 {open && onForward && (
                   <button
                     type="button"
-                    className="w-full text-left px-3 py-2 hover:bg-gray-800 flex items-center gap-2 text-gray-300"
+                    className="w-full text-left px-3 py-2 hover:bg-[var(--rz-surface-muted)] flex items-center gap-2 text-[var(--rz-text-secondary)]"
                     onClick={() => {
                       setMenuOpen(false)
                       setForwardOpen(true)
@@ -177,7 +177,7 @@ export function InboxTicketActionsBar({
 
         {open && onAssign && linkedMembers.length > 0 && (
           <div className="flex items-center gap-1.5 ml-auto">
-            <UserPlus size={14} className="text-gray-500 shrink-0" />
+            <UserPlus size={14} className="text-[var(--rz-text-muted)] shrink-0" />
             <select
               value={ticket.assignedUserId ?? ''}
               disabled={assigning}
@@ -200,7 +200,7 @@ export function InboxTicketActionsBar({
 
       {open && linkedMembers.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 mt-2">
-          <span className="text-[10px] uppercase text-gray-600 flex items-center gap-1">
+          <span className="text-[10px] uppercase text-[var(--rz-text-muted)] flex items-center gap-1">
             <AtSign size={10} /> Mencionar colega (notificação interna)
           </span>
           {linkedMembers.slice(0, 8).map(m => {
@@ -214,7 +214,7 @@ export function InboxTicketActionsBar({
                 className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
                   active
                     ? 'bg-brand-500/15 text-brand-400 border-brand-500/40'
-                    : 'bg-gray-900 text-gray-500 border-gray-800 hover:border-gray-700'
+                    : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] border-[var(--rz-border)] hover:border-[var(--rz-border)]'
                 }`}
               >
                 @{m.displayName.split(' ')[0]}

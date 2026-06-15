@@ -34,7 +34,7 @@ export default function PlatformAudit() {
             <MetricCard title="Campanhas" value={data.campaigns} />
             <MetricCard title="Contatos ativos" value={data.activeContacts} />
           </div>
-          <Card className="flex items-start gap-3 text-sm text-gray-400">
+          <Card className="flex items-start gap-3 text-sm text-[var(--rz-text-muted)]">
             <ShieldCheck size={18} className="text-brand-500 shrink-0 mt-0.5" />
             <p>
               Detalhes completos em{' '}

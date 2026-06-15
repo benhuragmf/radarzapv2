@@ -52,7 +52,7 @@ const CATEGORY_META: Record<
   informative: { label: 'Informativo', icon: Info, accent: 'border-indigo-600/40 bg-indigo-950/20', badge: 'blue' },
   promo: { label: 'Promoção', icon: Tag, accent: 'border-amber-600/40 bg-amber-950/20', badge: 'yellow' },
   reminder: { label: 'Lembrete', icon: Bell, accent: 'border-cyan-600/40 bg-cyan-950/20', badge: 'green' },
-  custom: { label: 'Personalizado', icon: Sparkles, accent: 'border-gray-600/50 bg-gray-900/40', badge: 'gray' },
+  custom: { label: 'Personalizado', icon: Sparkles, accent: 'border-[var(--rz-border)]/50 bg-[var(--rz-surface)]/40', badge: 'gray' },
 }
 
 const SAMPLE_VARS: Record<string, string> = {
@@ -84,10 +84,10 @@ function previewContent(content: string): string {
 
 function ContactMock({ name }: { name: string }) {
   return (
-    <div className="rounded-lg bg-gray-900/80 border border-gray-800 p-3 text-xs">
-      <p className="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Destinatário</p>
+    <div className="rounded-lg bg-[var(--rz-surface)]/80 border border-[var(--rz-border)] p-3 text-xs">
+      <p className="text-[var(--rz-text-muted)] text-[10px] uppercase tracking-wider mb-2">Destinatário</p>
       <p className="text-white font-medium">{name}</p>
-      <p className="text-gray-500 mt-1">Campanha / aniversário / lembrete</p>
+      <p className="text-[var(--rz-text-muted)] mt-1">Campanha / aniversário / lembrete</p>
     </div>
   )
 }
@@ -214,7 +214,7 @@ export default function PlatformTemplates() {
         <Card className="border-brand-600/30 space-y-3">
           <p className="text-sm font-medium text-brand-300">Novo modelo (fora do catálogo pw-*)</p>
           <input
-            className="w-full text-sm bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-gray-300"
+            className="w-full text-sm bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-3 py-2 text-[var(--rz-text-secondary)]"
             placeholder="Nome (ex.: campanha-black-friday)"
             value={customForm.name}
             onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
@@ -238,26 +238,26 @@ export default function PlatformTemplates() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="p-3">
-          <p className="text-xs text-gray-500">Formatos pw-*</p>
+          <p className="text-xs text-[var(--rz-text-muted)]">Formatos pw-*</p>
           <p className="text-xl font-bold">{pwTemplates.length}</p>
         </Card>
         <Card className="p-3">
-          <p className="text-xs text-gray-500">Personalizados</p>
+          <p className="text-xs text-[var(--rz-text-muted)]">Personalizados</p>
           <p className="text-xl font-bold text-brand-400">{editedCount}</p>
         </Card>
         <Card className="p-3">
-          <p className="text-xs text-gray-500">Extras</p>
+          <p className="text-xs text-[var(--rz-text-muted)]">Extras</p>
           <p className="text-xl font-bold">{customTemplates.length}</p>
         </Card>
         <Card className="p-3">
-          <p className="text-xs text-gray-500">Variáveis</p>
+          <p className="text-xs text-[var(--rz-text-muted)]">Variáveis</p>
           <p className="text-xl font-bold">{Object.keys(varDocs).length}</p>
         </Card>
       </div>
 
-      <Card className="border-gray-800 bg-gradient-to-br from-gray-900/80 to-gray-950/80 overflow-hidden">
-        <p className="text-xs text-gray-500 mb-4">
-          <strong className="text-gray-400">Variáveis comuns:</strong>{' '}
+      <Card className="border-[var(--rz-border)] bg-gradient-to-br from-[var(--rz-surface)]/80 to-[var(--rz-surface-muted)]/80 overflow-hidden">
+        <p className="text-xs text-[var(--rz-text-muted)] mb-4">
+          <strong className="text-[var(--rz-text-muted)]">Variáveis comuns:</strong>{' '}
           <code className="text-brand-400">{'{nome}'}</code>,{' '}
           <code className="text-brand-400">{'{empresa}'}</code>,{' '}
           <code className="text-brand-400">{'{mensagem}'}</code>,{' '}
@@ -267,10 +267,10 @@ export default function PlatformTemplates() {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2 font-medium">Plataforma</p>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)] mb-2 font-medium">Plataforma</p>
             <ContactMock name={SAMPLE_VARS.nome} />
           </div>
-          <div className="hidden md:flex flex-col items-center text-gray-600">
+          <div className="hidden md:flex flex-col items-center text-[var(--rz-text-muted)]">
             <ArrowRight size={28} className="text-brand-500" />
             <span className="text-[10px] mt-1">envio</span>
           </div>
@@ -289,12 +289,12 @@ export default function PlatformTemplates() {
             <div>
               <p className="text-sm font-medium text-brand-300">Editando formato</p>
               <p className="text-lg font-semibold text-[var(--rz-text-primary)]">{displayLabel(editing)}</p>
-              <p className="text-xs text-gray-500 font-mono">{editing.name}</p>
+              <p className="text-xs text-[var(--rz-text-muted)] font-mono">{editing.name}</p>
             </div>
             <button
               type="button"
               onClick={() => setEditing(null)}
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+              className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)] hover:text-[var(--rz-text-secondary)]"
             >
               <X size={18} />
             </button>
@@ -313,7 +313,7 @@ export default function PlatformTemplates() {
                 value={draftDesc}
                 onChange={(e) => setDraftDesc(e.target.value)}
                 placeholder="Descrição (opcional)"
-                className="mt-2 w-full text-xs bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-gray-400"
+                className="mt-2 w-full text-xs bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-3 py-2 text-[var(--rz-text-muted)]"
               />
               {saveError && <p className="text-xs text-red-400 mt-2">{saveError}</p>}
               <div className="flex gap-2 mt-3">
@@ -332,17 +332,17 @@ export default function PlatformTemplates() {
                 )}
               </div>
             </div>
-            <aside className="hidden lg:block text-xs border border-gray-800 rounded-lg p-3 bg-gray-950/80 max-h-[320px] overflow-y-auto">
-              <p className="text-gray-500 font-medium mb-2 sticky top-0 bg-gray-950/95 py-1">Variáveis</p>
+            <aside className="hidden lg:block text-xs border border-[var(--rz-border)] rounded-lg p-3 bg-[var(--rz-surface-muted)]/80 max-h-[320px] overflow-y-auto">
+              <p className="text-[var(--rz-text-muted)] font-medium mb-2 sticky top-0 bg-[var(--rz-surface-muted)]/95 py-1">Variáveis</p>
               {Object.entries(varDocs).map(([k, v]) => (
-                <div key={k} className="mb-2 text-gray-500">
+                <div key={k} className="mb-2 text-[var(--rz-text-muted)]">
                   <code className="text-brand-400">{`{${k}}`}</code>
-                  <p className="text-[10px] text-gray-600 mt-0.5">{v}</p>
+                  <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">{v}</p>
                 </div>
               ))}
             </aside>
             <div>
-              <p className="text-xs text-gray-500 mb-2">Pré-visualização no WhatsApp</p>
+              <p className="text-xs text-[var(--rz-text-muted)] mb-2">Pré-visualização no WhatsApp</p>
               <div className="rounded-xl bg-[#0b141a] p-4 border border-[#1f2c34] min-h-[280px]">
                 <WhatsAppPreviewBubble text={previewContent(draftContent)} timeLabel="14:30 ✓✓" />
               </div>
@@ -352,14 +352,14 @@ export default function PlatformTemplates() {
       )}
 
       {pwTemplates.length === 0 && (
-        <Card className="text-center py-12 text-gray-500">
+        <Card className="text-center py-12 text-[var(--rz-text-muted)]">
           <FileText size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-400">Nenhum formato pw-*</p>
+          <p className="font-medium text-[var(--rz-text-muted)]">Nenhum formato pw-*</p>
           <p className="text-sm mt-1">Reinicie o backend ou execute npm run seed:platform-templates</p>
         </Card>
       )}
 
-      <p className="text-sm text-gray-500">{pwTemplates.length} formato(s) Plataforma → WhatsApp</p>
+      <p className="text-sm text-[var(--rz-text-muted)]">{pwTemplates.length} formato(s) Plataforma → WhatsApp</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {pwTemplates.map((t) => {
@@ -376,16 +376,16 @@ export default function PlatformTemplates() {
               onMouseEnter={() => !editing && setPreviewId(t._id)}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Icon size={16} className="text-gray-400 shrink-0" />
+                <Icon size={16} className="text-[var(--rz-text-muted)] shrink-0" />
                 <span className="font-medium text-sm truncate">{displayLabel(t)}</span>
-                <span className="text-[10px] text-gray-600 font-mono">{t.name}</span>
+                <span className="text-[10px] text-[var(--rz-text-muted)] font-mono">{t.name}</span>
                 {t.isDefault && <Badge label="catálogo" variant="blue" />}
                 {t.clientId && <Badge label="editado" variant="green" />}
                 <Badge label={meta.label} variant={meta.badge} />
                 <button
                   type="button"
                   onClick={() => openEdit(t)}
-                  className="p-1.5 rounded-lg text-gray-500 hover:text-brand-400 hover:bg-gray-800 shrink-0 ml-auto"
+                  className="p-1.5 rounded-lg text-[var(--rz-text-muted)] hover:text-brand-400 hover:bg-[var(--rz-surface-muted)] shrink-0 ml-auto"
                   title="Editar"
                 >
                   <Pencil size={14} />
@@ -393,19 +393,19 @@ export default function PlatformTemplates() {
               </div>
 
               {t.description && (
-                <p className="text-xs text-gray-500 mb-2 leading-relaxed">{t.description}</p>
+                <p className="text-xs text-[var(--rz-text-muted)] mb-2 leading-relaxed">{t.description}</p>
               )}
 
-              <pre className="text-xs text-gray-400 bg-gray-950 rounded-lg p-3 whitespace-pre-wrap break-words font-mono leading-relaxed border border-gray-800 max-h-48 overflow-y-auto">
+              <pre className="text-xs text-[var(--rz-text-muted)] bg-[var(--rz-surface-muted)] rounded-lg p-3 whitespace-pre-wrap break-words font-mono leading-relaxed border border-[var(--rz-border)] max-h-48 overflow-y-auto">
                 {t.content}
               </pre>
 
-              <div className="mt-3 flex flex-wrap gap-1 text-xs text-gray-500">
+              <div className="mt-3 flex flex-wrap gap-1 text-xs text-[var(--rz-text-muted)]">
                 {t.variables?.slice(0, 8).map((v) => (
                   <code key={v} className="text-brand-400">{`{${v}}`}</code>
                 ))}
                 {(t.variables?.length ?? 0) > 8 && (
-                  <span className="text-gray-600">+{t.variables.length - 8}</span>
+                  <span className="text-[var(--rz-text-muted)]">+{t.variables.length - 8}</span>
                 )}
               </div>
             </Card>
@@ -414,16 +414,16 @@ export default function PlatformTemplates() {
       </div>
 
       <details className="group">
-        <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-300 list-none flex items-center gap-2">
+        <summary className="text-sm text-[var(--rz-text-muted)] cursor-pointer hover:text-[var(--rz-text-secondary)] list-none flex items-center gap-2">
           <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
           Dicionário de variáveis ({Object.keys(varDocs).length})
         </summary>
-        <Card className="mt-3 border-gray-800">
+        <Card className="mt-3 border-[var(--rz-border)]">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
             {Object.entries(varDocs).map(([k, v]) => (
-              <div key={k} className="text-gray-500">
+              <div key={k} className="text-[var(--rz-text-muted)]">
                 <code className="text-brand-400">{`{${k}}`}</code>
-                <span className="text-gray-600"> — </span>
+                <span className="text-[var(--rz-text-muted)]"> — </span>
                 {v}
               </div>
             ))}
@@ -433,7 +433,7 @@ export default function PlatformTemplates() {
 
       {customTemplates.length > 0 && (
         <section className="mt-6">
-          <p className="text-sm text-gray-500 mb-3">Modelos personalizados ({customTemplates.length})</p>
+          <p className="text-sm text-[var(--rz-text-muted)] mb-3">Modelos personalizados ({customTemplates.length})</p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {customTemplates.map((t) => (
               <Card key={t._id}>
@@ -443,7 +443,7 @@ export default function PlatformTemplates() {
                   <button
                     type="button"
                     onClick={() => openEdit(t)}
-                    className="p-1.5 rounded-lg text-gray-500 hover:text-brand-400 ml-auto"
+                    className="p-1.5 rounded-lg text-[var(--rz-text-muted)] hover:text-brand-400 ml-auto"
                   >
                     <Pencil size={14} />
                   </button>
@@ -452,12 +452,12 @@ export default function PlatformTemplates() {
                     onClick={() => {
                       if (confirm(`Remover "${t.name}"?`)) deleteMutation.mutate(t._id)
                     }}
-                    className="p-1.5 rounded-lg text-gray-500 hover:text-red-400"
+                    className="p-1.5 rounded-lg text-[var(--rz-text-muted)] hover:text-red-400"
                   >
                     <Trash2 size={14} />
                   </button>
                 </div>
-                <pre className="text-xs text-gray-500 bg-gray-950 rounded-lg p-3 font-mono border border-gray-800 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                <pre className="text-xs text-[var(--rz-text-muted)] bg-[var(--rz-surface-muted)] rounded-lg p-3 font-mono border border-[var(--rz-border)] max-h-32 overflow-y-auto whitespace-pre-wrap">
                   {t.content}
                 </pre>
               </Card>

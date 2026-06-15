@@ -35,7 +35,7 @@ export function InboxAtendimentoNav({ me, className = '' }: Props) {
 
   return (
     <nav
-      className={`flex flex-wrap gap-1.5 p-1 rounded-xl bg-gray-900/60 border border-gray-800/80 ${className}`}
+      className={`flex flex-wrap gap-1.5 p-1 rounded-xl bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 ${className}`}
       aria-label="Atendimento WhatsApp"
     >
       {visible.map(({ to, label, icon: Icon }) => {
@@ -47,7 +47,7 @@ export function InboxAtendimentoNav({ me, className = '' }: Props) {
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               active
                 ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
-                : 'text-gray-500 hover:text-gray-300 border border-transparent hover:bg-gray-800/50'
+                : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]'
             }`}
           >
             <Icon size={14} />

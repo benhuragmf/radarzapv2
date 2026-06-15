@@ -102,15 +102,15 @@ export default function DeleteOrganizationPanel({ user }: Props) {
 
       {expanded && (
         <>
-      <p className="text-xs text-gray-400 leading-relaxed -mt-1">
-        Remove permanentemente a empresa <strong className="text-gray-300">{orgName}</strong> e{' '}
+      <p className="text-xs text-[var(--rz-text-muted)] leading-relaxed -mt-1">
+        Remove permanentemente a empresa <strong className="text-[var(--rz-text-secondary)]">{orgName}</strong> e{' '}
         <strong className="text-red-300/90">todos os dados</strong> associados. Não há backup automático
         nem recuperação após confirmar.
       </p>
 
       <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
         <p className="text-xs font-medium text-red-200/90 mb-2">Será apagado sem exceção:</p>
-        <ul className="text-xs text-gray-400 space-y-1.5 list-disc list-inside leading-relaxed">
+        <ul className="text-xs text-[var(--rz-text-muted)] space-y-1.5 list-disc list-inside leading-relaxed">
           {DELETED_ITEMS.map(item => (
             <li key={item}>{item}</li>
           ))}
@@ -122,16 +122,16 @@ export default function DeleteOrganizationPanel({ user }: Props) {
           type="checkbox"
           checked={understood}
           onChange={e => setUnderstood(e.target.checked)}
-          className="mt-0.5 rounded border-gray-600 bg-gray-800 text-red-500 focus:ring-red-600/40"
+          className="mt-0.5 rounded border-[var(--rz-border)] bg-[var(--rz-surface-muted)] text-red-500 focus:ring-red-600/40"
         />
-        <span className="text-xs text-gray-400 group-hover:text-gray-300 leading-relaxed">
+        <span className="text-xs text-[var(--rz-text-muted)] group-hover:text-[var(--rz-text-secondary)] leading-relaxed">
           Entendo que esta ação é <strong className="text-red-300">irreversível</strong> e que todos os dados
           da empresa serão perdidos para sempre, incluindo mensagens, contatos e integrações.
         </span>
       </label>
 
       <div>
-        <label className="text-xs text-gray-500 mb-1.5 block">
+        <label className="text-xs text-[var(--rz-text-muted)] mb-1.5 block">
           Digite <code className="text-red-300 font-mono">{CONFIRM_PHRASE}</code> para confirmar
         </label>
         <input

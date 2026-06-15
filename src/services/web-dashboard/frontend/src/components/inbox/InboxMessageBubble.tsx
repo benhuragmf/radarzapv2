@@ -53,8 +53,8 @@ export function InboxMessageBubble({ message: m }: Props) {
             isOut
               ? 'bg-brand-600/90 text-white rounded-br-md'
               : isSystem
-                ? 'bg-gray-800/40 text-gray-500 text-xs text-center border border-gray-800/60 rounded-xl py-2'
-                : 'bg-gray-800/90 text-gray-100 rounded-bl-md border border-gray-700/50'
+                ? 'bg-[var(--rz-surface-muted)]/40 text-[var(--rz-text-muted)] text-xs text-center border border-[var(--rz-border)]/60 rounded-xl py-2'
+                : 'bg-[var(--rz-surface-muted)]/90 text-[var(--rz-text-primary)] rounded-bl-md border border-[var(--rz-border)]/50'
           }`}
         >
           {m.mediaType === 'image' || m.mediaType === 'sticker' ? (
@@ -97,7 +97,7 @@ export function InboxMessageBubble({ message: m }: Props) {
         </div>
         {!isSystem && (
           <p
-            className={`text-[10px] text-gray-600 mt-1 px-1 tabular-nums ${
+            className={`text-[10px] text-[var(--rz-text-muted)] mt-1 px-1 tabular-nums ${
               isOut ? 'text-right' : 'text-left'
             }`}
             title={new Date(m.createdAt).toLocaleString('pt-BR')}
