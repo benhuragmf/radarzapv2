@@ -9,3 +9,6 @@ export const textareaCls =
 
 /** Painel de pré-visualização WhatsApp (fundo escuro fixo do app WA). */
 export const waPreviewPanelCls = 'rz-wa-preview-panel p-4'
+
+/** Painel de pré-visualização Discord (fundo escuro fixo do client Discord). */
+export const discordPreviewPanelCls = 'rz-discord-preview-panel p-3 text-xs'

@@ -78,6 +78,19 @@
   --rz-wa-bubble-out-border: #0a7a62;
   --rz-wa-bubble-text: #e9edef;
   --rz-wa-bubble-time: #99beb3;
+  /* Preview Discord (cores reais do client — independentes do tema do painel) */
+  --rz-discord-panel-bg: #2b2d31;
+  --rz-discord-panel-border: #1e1f22;
+  --rz-discord-embed-bg: #1e1f22;
+  --rz-discord-text-primary: #f2f3f5;
+  --rz-discord-text-secondary: #b5bac1;
+  --rz-discord-text-muted: #949ba4;
+  /* OAuth (marcas externas) */
+  --rz-oauth-discord: #5865f2;
+  --rz-oauth-discord-hover: #4752c4;
+  --rz-oauth-google-bg: #ffffff;
+  --rz-oauth-google-hover: #f3f4f6;
+  --rz-oauth-google-text: #111827;
 }
 
 /* Tema claro */
@@ -200,6 +213,45 @@ html[data-theme='light'] .rz-auth-page {
 }
 .rz-wa-preview-bubble-time {
   color: var(--rz-wa-bubble-time);
+}
+
+/* Preview Discord */
+.rz-discord-preview-panel {
+  background-color: var(--rz-discord-panel-bg);
+  border: 1px solid var(--rz-discord-panel-border);
+  border-radius: var(--rz-radius-lg);
+}
+.rz-discord-preview-embed {
+  background-color: rgb(30 31 34 / 0.8);
+  border-left: 4px solid var(--rz-primary);
+  border-radius: var(--rz-radius-md);
+}
+
+/* Botões OAuth na tela de login */
+.rz-oauth-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--rz-radius-xl);
+  transition: background-color 0.15s, color 0.15s;
+}
+.rz-oauth-btn-google {
+  background-color: var(--rz-oauth-google-bg);
+  color: var(--rz-oauth-google-text);
+}
+.rz-oauth-btn-google:hover {
+  background-color: var(--rz-oauth-google-hover);
+}
+.rz-oauth-btn-discord {
+  background-color: var(--rz-oauth-discord);
+  color: var(--rz-on-primary);
+}
+.rz-oauth-btn-discord:hover {
+  background-color: var(--rz-oauth-discord-hover);
 }
 
 @media (max-width: 1023px) {

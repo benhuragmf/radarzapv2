@@ -31,7 +31,7 @@ function GoogleMark() {
 
 function DiscordMark() {
   return (
-    <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#5865F2]" fill="currentColor" aria-hidden>
+    <svg viewBox="0 0 24 24" className="w-5 h-5 text-[var(--rz-oauth-discord)]" fill="currentColor" aria-hidden>
       <path d="M20.3 4.4A17.2 17.2 0 0 0 15.5 3a12.1 12.1 0 0 0-.6 1.2 15.9 15.9 0 0 0-4.8 0A11.6 11.6 0 0 0 9.5 3 17.1 17.1 0 0 0 4.7 4.4 17.9 17.9 0 0 0 .7 15.1a17.3 17.3 0 0 0 5.3 2.7 12.8 12.8 0 0 0 1.1-1.8 11.2 11.2 0 0 1-1.7-.8l.4-.3a12.4 12.4 0 0 0 10.6 0l.4.3a11 11 0 0 1-1.7.8c.3.7.7 1.3 1.1 1.8a17.2 17.2 0 0 0 5.3-2.7A17.8 17.8 0 0 0 20.3 4.4ZM8.7 13.1c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2Zm6.6 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2Z" />
     </svg>
   )

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
-import { LoadingState, MetricCard, waPreviewPanelCls } from '@/design-system'
+import { LoadingState, MetricCard, waPreviewPanelCls, discordPreviewPanelCls } from '@/design-system'
 
 interface Template {
   _id: string
@@ -98,17 +98,17 @@ function previewContent(content: string): string {
 
 function DiscordPostMock({ title }: { title: string }) {
   return (
-    <div className="rounded-lg bg-[#2b2d31] border border-[#1e1f22] p-3 text-xs">
+    <div className={discordPreviewPanelCls}>
       <div className="flex items-center gap-2 mb-2">
         <div className="w-8 h-8 rounded-full bg-indigo-600/80 shrink-0" />
         <div>
-          <p className="text-[#f2f3f5] font-medium">Bot</p>
-          <p className="text-[#949ba4] text-[10px]">Hoje às 14:10</p>
+          <p className="text-[var(--rz-discord-text-primary)] font-medium">Bot</p>
+          <p className="text-[var(--rz-discord-text-muted)] text-[10px]">Hoje às 14:10</p>
         </div>
       </div>
-      <div className="rounded-md border-l-4 border-brand-500 bg-[#1e1f22]/80 pl-3 py-2">
-        <p className="text-[#f2f3f5] font-semibold">{title}</p>
-        <p className="text-[#b5bac1] mt-1">Embed / fields / botões do Discord</p>
+      <div className="rz-discord-preview-embed pl-3 py-2">
+        <p className="text-[var(--rz-discord-text-primary)] font-semibold">{title}</p>
+        <p className="text-[var(--rz-discord-text-secondary)] mt-1">Embed / fields / botões do Discord</p>
       </div>
     </div>
   )

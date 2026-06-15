@@ -33,6 +33,13 @@ export const colors = {
   infoText: '#1D4ED8',
   premiumBg: '#EDE9FE',
   premiumText: '#6D28D9',
+  onAccent: '#030712',
+  onLightSurface: '#111827',
+  waChatBg: '#0B141A',
+  waChatBorder: '#1F2C34',
+  waBubbleOut: '#005C4B',
+  waBubbleText: '#E9EDEF',
+  oauthDiscord: '#5865F2',
 } as const
 
 export const colorsDark = {
