@@ -3,7 +3,7 @@ import { ChevronDown, RotateCcw, Save, Search, Shield, X } from 'lucide-react'
 import type { CompanyRole } from '../../lib/auth'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
-import { inputCls, selectCls } from '@/design-system'
+import { inputCls, selectCls, searchFieldIconCls } from '@/design-system'
 
 export interface PermissionGroup {
   id: string
@@ -603,7 +603,7 @@ export function RolesSystemPanel({
       {preset.inviteable && (
         <div className="px-4 py-3 border-b border-[var(--rz-border)]/60 flex flex-col sm:flex-row gap-2 bg-[var(--rz-surface-muted)]/30">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+            <Search size={14} className={searchFieldIconCls} />
             <input
               type="search"
               value={searchQuery}

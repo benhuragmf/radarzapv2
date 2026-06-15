@@ -314,7 +314,7 @@ export default function Sessions() {
             {qr && isPending && (
               <div className="mt-4 flex flex-col items-center gap-2 p-4 bg-[var(--rz-surface)]/50 rounded-lg border border-yellow-500/20">
                 <p className="text-sm text-yellow-400 font-medium">Escaneie com WhatsApp → Aparelhos conectados</p>
-                <img src={qr} alt="QR Code WhatsApp" className="w-72 h-72 sm:w-80 sm:h-80 rounded-lg border border-[var(--rz-border)] bg-white p-3" />
+                <img src={qr} alt="QR Code WhatsApp" className="w-72 h-72 sm:w-80 sm:h-80 rz-qr-frame" />
                 <p className="text-xs text-[var(--rz-text-muted)]">
                   {s.qrCount ? `QR #${s.qrCount} · ` : ''}
                   O QR expira em ~2 minutos. Clique Novo QR se expirar.

@@ -161,7 +161,7 @@ export function DestinationRow({
         consentSt
           ? {
               borderLeftWidth: 4,
-              borderLeftColor: CONSENT_STATUS_META[consentSt].color,
+              borderLeftColor: CONSENT_STATUS_META[consentSt].borderColor,
             }
           : undefined
       }

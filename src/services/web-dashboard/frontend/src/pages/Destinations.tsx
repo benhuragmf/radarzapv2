@@ -44,6 +44,7 @@ import {
   FilterBar,
   LoadingState,
   EmptyState,
+  searchFieldIconCls,
 } from '@/design-system'
 
 export default function Destinations() {
@@ -628,7 +629,7 @@ export default function Destinations() {
         }
       >
         <div className="relative flex-1 min-w-[12rem] max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+          <Search size={16} className={searchFieldIconCls} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}

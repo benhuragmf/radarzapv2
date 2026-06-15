@@ -10,7 +10,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
-import { LoadingState, waPreviewPanelCls } from '@/design-system'
+import { LoadingState, waPreviewPanelCls, previewChannelLabelWaCls } from '@/design-system'
 import {
   FileText,
   BookOpen,
@@ -275,7 +275,7 @@ export default function PlatformTemplates() {
             <span className="text-[10px] mt-1">envio</span>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2 font-medium">WhatsApp</p>
+            <p className={previewChannelLabelWaCls}>WhatsApp</p>
             <div className={`${waPreviewPanelCls} min-h-[120px]`}>
               <WhatsAppPreviewBubble text={previewText} timeLabel="14:30 ✓✓" />
             </div>

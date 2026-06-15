@@ -47,7 +47,7 @@ import {
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
 import { WhatsAppTextEditor } from '../components/whatsapp/WhatsAppTextEditor'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
-import { RadarPageShell, PageHeader, inputCls } from '@/design-system'
+import { RadarPageShell, PageHeader, inputCls, searchFieldIconCls } from '@/design-system'
 import {
   clampDatetimeLocal,
   minDatetimeLocalFromNow,
@@ -564,7 +564,7 @@ export default function SendNow() {
               </div>
               <div className="flex flex-wrap gap-2 mb-3">
                 <div className="relative flex-1 min-w-[140px]">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+                  <Search size={14} className={searchFieldIconCls} />
                   <input
                     value={search}
                     onChange={e => setSearch(e.target.value)}
@@ -665,7 +665,7 @@ export default function SendNow() {
                       }`}
                       style={
                         consentSt
-                          ? { borderLeft: `3px solid ${CONSENT_STATUS_META[consentSt].color}` }
+                          ? { borderLeft: `3px solid ${CONSENT_STATUS_META[consentSt].borderColor}` }
                           : undefined
                       }
                     >

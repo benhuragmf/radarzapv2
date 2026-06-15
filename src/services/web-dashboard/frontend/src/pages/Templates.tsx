@@ -26,8 +26,9 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
+import { DiscordPostMock } from '../components/discord/DiscordPostMock'
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
-import { LoadingState, MetricCard, waPreviewPanelCls, discordPreviewPanelCls } from '@/design-system'
+import { LoadingState, MetricCard, waPreviewPanelCls, previewChannelLabelDiscordCls, previewChannelLabelWaCls } from '@/design-system'
 
 interface Template {
   _id: string
@@ -54,9 +55,9 @@ const KIND_META: Record<
   video: { label: 'Vídeo', icon: Radio, accent: 'border-purple-600/40 bg-purple-950/20', badge: 'blue' },
   promo: { label: 'Promoção', icon: Tag, accent: 'border-amber-600/40 bg-amber-950/20', badge: 'yellow' },
   alert: { label: 'Alerta', icon: Bell, accent: 'border-orange-600/40 bg-orange-950/20', badge: 'yellow' },
-  log: { label: 'Log', icon: ScrollText, accent: 'border-slate-600/40 bg-slate-950/30', badge: 'gray' },
+  log: { label: 'Log', icon: ScrollText, accent: 'border-[var(--rz-border)]/60 bg-[var(--rz-background)]/40', badge: 'gray' },
   media: { label: 'Mídia', icon: Image, accent: 'border-cyan-600/40 bg-cyan-950/20', badge: 'blue' },
-  file: { label: 'Arquivo', icon: Paperclip, accent: 'border-stone-600/40 bg-stone-950/20', badge: 'gray' },
+  file: { label: 'Arquivo', icon: Paperclip, accent: 'border-[var(--rz-border)]/50 bg-[var(--rz-surface-muted)]/30', badge: 'gray' },
   poll: { label: 'Enquete', icon: BarChart3, accent: 'border-violet-600/40 bg-violet-950/20', badge: 'blue' },
   mixed: { label: 'Misto', icon: Layers, accent: 'border-teal-600/40 bg-teal-950/20', badge: 'green' },
 }
@@ -94,24 +95,6 @@ function previewContent(content: string): string {
     out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v)
   }
   return out.replace(/\{[^}]+\}/g, '').trim()
-}
-
-function DiscordPostMock({ title }: { title: string }) {
-  return (
-    <div className={discordPreviewPanelCls}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-full bg-indigo-600/80 shrink-0" />
-        <div>
-          <p className="text-[var(--rz-discord-text-primary)] font-medium">Bot</p>
-          <p className="text-[var(--rz-discord-text-muted)] text-[10px]">Hoje às 14:10</p>
-        </div>
-      </div>
-      <div className="rz-discord-preview-embed pl-3 py-2">
-        <p className="text-[var(--rz-discord-text-primary)] font-semibold">{title}</p>
-        <p className="text-[var(--rz-discord-text-secondary)] mt-1">Embed / fields / botões do Discord</p>
-      </div>
-    </div>
-  )
 }
 
 export default function Templates() {
@@ -224,7 +207,7 @@ export default function Templates() {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-indigo-400 mb-2 font-medium">Discord</p>
+            <p className={previewChannelLabelDiscordCls}>Discord</p>
             <DiscordPostMock title={previewTemplate?.name ?? 'dw-padrao'} />
           </div>
           <div className="hidden md:flex flex-col items-center text-[var(--rz-text-muted)]">
@@ -232,7 +215,7 @@ export default function Templates() {
             <span className="text-[10px] mt-1">captura</span>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2 font-medium">WhatsApp</p>
+            <p className={previewChannelLabelWaCls}>WhatsApp</p>
             <div className={`${waPreviewPanelCls} min-h-[120px]`}>
               <WhatsAppPreviewBubble text={previewText} timeLabel="14:10 ✓✓" />
             </div>

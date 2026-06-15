@@ -1,3 +1,5 @@
+import { cn } from '@/lib/utils'
+
 export type ConsentStatus =
   | 'PENDING'
   | 'ACCEPTED'
@@ -8,43 +10,49 @@ export type ConsentStatus =
 
 export const CONSENT_STATUS_META: Record<
   ConsentStatus,
-  { label: string; color: string; bg: string; border: string }
+  { label: string; dotClass: string; badgeClass: string; borderColor: string }
 > = {
   PENDING: {
     label: 'Aguardando aceite',
-    color: '#ca8a04',
-    bg: 'rgba(234, 179, 8, 0.15)',
-    border: 'rgba(234, 179, 8, 0.35)',
+    dotClass: 'bg-[var(--rz-warning)]',
+    badgeClass:
+      'bg-[var(--rz-warning-bg)] text-[var(--rz-warning-text)] border-[var(--rz-warning-text)]/35',
+    borderColor: 'var(--rz-warning-text)',
   },
   ACCEPTED: {
     label: 'Aceito',
-    color: '#22c55e',
-    bg: 'rgba(34, 197, 94, 0.12)',
-    border: 'rgba(34, 197, 94, 0.35)',
+    dotClass: 'bg-[var(--rz-success)]',
+    badgeClass:
+      'bg-[var(--rz-success-bg)] text-[var(--rz-success-text)] border-[var(--rz-success-text)]/35',
+    borderColor: 'var(--rz-success-text)',
   },
   REFUSED_FIRST: {
     label: 'Recusou (1x)',
-    color: '#f87171',
-    bg: 'rgba(248, 113, 113, 0.12)',
-    border: 'rgba(248, 113, 113, 0.35)',
+    dotClass: 'bg-[var(--rz-danger-text)]',
+    badgeClass:
+      'bg-[var(--rz-danger-bg)] text-[var(--rz-danger-text)] border-[var(--rz-danger-text)]/35',
+    borderColor: 'var(--rz-danger-text)',
   },
   REFUSED_SECOND: {
     label: 'Recusou (2x)',
-    color: '#dc2626',
-    bg: 'rgba(220, 38, 38, 0.15)',
-    border: 'rgba(220, 38, 38, 0.4)',
+    dotClass: 'bg-[var(--rz-danger)]',
+    badgeClass:
+      'bg-[var(--rz-danger-bg)] text-[var(--rz-danger-text)] border-[var(--rz-danger)]/40',
+    borderColor: 'var(--rz-danger)',
   },
   REFUSED_THREE: {
     label: 'Recusou (3x)',
-    color: '#fafafa',
-    bg: 'rgba(0, 0, 0, 0.55)',
-    border: 'rgba(255, 255, 255, 0.15)',
+    dotClass: 'bg-[var(--rz-text-muted)]',
+    badgeClass:
+      'bg-[var(--rz-surface-muted)] text-[var(--rz-text-primary)] border-[var(--rz-border)]',
+    borderColor: 'var(--rz-text-muted)',
   },
   MANUALLY_BLOCKED: {
     label: 'Bloqueado',
-    color: '#fafafa',
-    bg: 'rgba(0, 0, 0, 0.7)',
-    border: 'rgba(239, 68, 68, 0.5)',
+    dotClass: 'bg-[var(--rz-danger)]',
+    badgeClass:
+      'bg-[var(--rz-danger-bg)] text-[var(--rz-danger-text)] border-[var(--rz-danger)]/50',
+    borderColor: 'var(--rz-danger)',
   },
 }
 
@@ -67,8 +75,10 @@ export function ConsentDot({ status }: { status: ConsentStatus }) {
   return (
     <span
       title={meta.label}
-      className="inline-block w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-[var(--rz-surface)]"
-      style={{ backgroundColor: meta.color }}
+      className={cn(
+        'inline-block w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-[var(--rz-surface)]',
+        meta.dotClass,
+      )}
     />
   )
 }
@@ -77,8 +87,10 @@ export function ConsentBadge({ status }: { status: ConsentStatus }) {
   const meta = CONSENT_STATUS_META[status]
   return (
     <span
-      className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
-      style={{ color: meta.color, backgroundColor: meta.bg, border: `1px solid ${meta.border}` }}
+      className={cn(
+        'text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap border',
+        meta.badgeClass,
+      )}
     >
       {meta.label}
     </span>

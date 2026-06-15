@@ -29,6 +29,7 @@ import { StatusImageUpload } from '../../components/whatsapp/StatusImageUpload'
 import { StatusPostDetailModal } from '../../components/whatsapp/StatusPostDetailModal'
 import { statusFontPreviewClass, type WaStatusFont } from '../../lib/whatsapp-status-fonts'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { WA_STATUS_COLORS, waStatusPreviewTextClass } from '../../lib/wa-status-colors'
 import { RadarPageShell, PageHeader, inputCls, LoadingState } from '@/design-system'
 
 type StatusType = 'text' | 'image'
@@ -53,16 +54,7 @@ interface StatusPost {
   createdAt: string
 }
 
-const STATUS_COLORS = [
-  { id: 'cream', value: '#FFFCF5', label: 'Creme' },
-  { id: 'yellow', value: '#FFEECF', label: 'Amarelo' },
-  { id: 'peach', value: '#FFD8A8', label: 'Pêssego' },
-  { id: 'pink', value: '#FECDCA', label: 'Rosa' },
-  { id: 'lavender', value: '#FCD6FF', label: 'Lilás' },
-  { id: 'blue', value: '#D1E9FF', label: 'Azul' },
-  { id: 'mint', value: '#CFF5E7', label: 'Menta' },
-  { id: 'dark', value: '#1F2C34', label: 'Escuro' },
-]
+const STATUS_COLORS = WA_STATUS_COLORS
 
 const STATUS_LABEL: Record<StatusPost['status'], string> = {
   pending: 'Agendado',
@@ -105,7 +97,7 @@ export default function WaStatusPosts() {
   const [caption, setCaption] = useState('')
   const [imageData, setImageData] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [backgroundColor, setBackgroundColor] = useState(STATUS_COLORS[0].value)
+  const [backgroundColor, setBackgroundColor] = useState<string>(STATUS_COLORS[0].value)
   const [font, setFont] = useState<WaStatusFont>(0)
   const [audience, setAudience] = useState<StatusAudience>('whatsapp')
   const [scheduleMode, setScheduleMode] = useState(false)
@@ -248,7 +240,7 @@ export default function WaStatusPosts() {
   }
 
   const previewTextStyle =
-    backgroundColor === '#1F2C34' ? 'text-white' : 'text-[var(--rz-on-light-surface)]'
+    waStatusPreviewTextClass(backgroundColor)
 
   return (
     <RadarPageShell maxWidth="wide">

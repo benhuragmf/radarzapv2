@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react'
 import type { Campaign } from '../../lib/campaigns'
 import { CampaignRow } from '../../lib/campaigns'
-import { inputCls, EmptyState } from '@/design-system'
+import { inputCls, EmptyState, searchFieldIconCls } from '@/design-system'
 
 interface Props {
   campaigns: Campaign[]
@@ -23,7 +23,7 @@ export function CampaignListPanel({
   return (
     <div className="space-y-4">
       <div className="relative max-w-xs">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+        <Search size={14} className={searchFieldIconCls} />
         <input
           value={search}
           onChange={e => onSearchChange(e.target.value)}

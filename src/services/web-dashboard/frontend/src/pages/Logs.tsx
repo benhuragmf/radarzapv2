@@ -6,7 +6,7 @@ import { Badge } from '../components/ui/Badge'
 import { ScrollText, ChevronDown, ChevronRight } from 'lucide-react'
 import { DiscordPage } from '../components/discord/DiscordPage'
 import { DISCORD_LOG_SERVICES, PIPELINE_STAGES } from '../lib/discordRoutes'
-import { RadarPageShell, PageHeader, FilterBar, EmptyState, LoadingState } from '@/design-system'
+import { RadarPageShell, PageHeader, FilterBar, EmptyState, LoadingState, logLineMetaCls } from '@/design-system'
 import { inputCls, selectCls } from '@/design-system/formClasses'
 
 interface Log {
@@ -191,20 +191,20 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
               <span className="text-xs text-[var(--rz-text-muted)] shrink-0">
                 {new Date(log.timestamp).toLocaleTimeString('pt-BR')}
               </span>
-              <span className="text-xs text-blue-400 shrink-0">{log.service}</span>
+              <span className={`text-xs shrink-0 ${logLineMetaCls.service}`}>{log.service}</span>
               <span className="text-sm text-[var(--rz-text-secondary)] truncate flex-1 min-w-0">
                 {log.message}
                 {typeof log.metadata?.preview === 'string' && (
                   <span className="text-[var(--rz-text-muted)]"> — {log.metadata.preview as string}</span>
                 )}
                 {typeof log.metadata?.tenantSender === 'string' && (
-                  <span className="text-violet-400/90"> [{log.metadata.tenantSender as string}]</span>
+                  <span className={logLineMetaCls.tenant}> [{log.metadata.tenantSender as string}]</span>
                 )}
                 {typeof log.metadata?.discordPosterTag === 'string' && (
-                  <span className="text-amber-600/80"> {log.metadata.discordPosterTag as string}</span>
+                  <span className={logLineMetaCls.poster}> {log.metadata.discordPosterTag as string}</span>
                 )}
                 {typeof log.metadata?.streamer === 'string' && (
-                  <span className="text-emerald-600/80"> live:{log.metadata.streamer as string}</span>
+                  <span className={logLineMetaCls.live}> live:{log.metadata.streamer as string}</span>
                 )}
               </span>
               {typeof log.metadata?.template === 'string' && (

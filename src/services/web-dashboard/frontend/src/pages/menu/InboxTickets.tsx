@@ -25,7 +25,7 @@ import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { ticketIsOpen, type InboxTicketListRow, type InboxTicketStats } from '../../lib/inboxTicket'
 
 import { Search, Ticket, Filter } from 'lucide-react'
-import { inputCls, selectCls, LoadingState, EmptyState, MetricCard } from '@/design-system'
+import { inputCls, selectCls, LoadingState, EmptyState, MetricCard, searchFieldIconCls } from '@/design-system'
 
 
 
@@ -115,7 +115,7 @@ export default function InboxTickets() {
 
           <div className="relative flex-1">
 
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+            <Search size={14} className={searchFieldIconCls} />
 
             <input
 

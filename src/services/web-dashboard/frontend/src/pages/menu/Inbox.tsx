@@ -6,7 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import { LoadingState, selectCls, inputCls } from '@/design-system'
+import { LoadingState, selectCls, inputCls, searchFieldIconCls } from '@/design-system'
 import { cn } from '@/lib/utils'
 import {
   MessageSquare,
@@ -434,7 +434,7 @@ export default function Inbox() {
         >
           <div className="p-3 space-y-2.5 border-b border-[var(--rz-border)]/80 shrink-0">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+              <Search size={14} className={searchFieldIconCls} />
               <input
                 type="search"
                 value={search}

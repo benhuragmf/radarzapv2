@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { Badge } from '../ui/Badge'
 import { WhatsAppFormattedMessage } from './WhatsAppFormattedMessage'
 import { LoadingState, ErrorState } from '@/design-system'
+import { WA_STATUS_DEFAULT_BG, waStatusPreviewTextClass } from '../../lib/wa-status-colors'
 
 interface StatusViewEvent {
   jid: string
@@ -129,13 +130,9 @@ export function StatusPostDetailModal({ postId, onClose }: Props) {
               {post.type === 'text' && (
                 <div
                   className="rounded-xl p-6 text-center min-h-[120px] flex items-center justify-center"
-                  style={{ backgroundColor: post.backgroundColor ?? '#FFFCF5' }}
+                  style={{ backgroundColor: post.backgroundColor ?? WA_STATUS_DEFAULT_BG }}
                 >
-                  <p
-                    className={`text-base leading-relaxed ${
-                      post.backgroundColor === '#1F2C34' ? 'text-white' : 'text-[var(--rz-on-light-surface)]'
-                    }`}
-                  >
+                  <p className={`text-base leading-relaxed ${waStatusPreviewTextClass(post.backgroundColor)}`}>
                     {displayText ? (
                       <WhatsAppFormattedMessage text={displayText} />
                     ) : (

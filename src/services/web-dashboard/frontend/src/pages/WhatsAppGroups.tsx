@@ -10,7 +10,7 @@ import { DestinationRow, type Destination } from '../lib/destinationUi'
 import { avatarLabel, formatWaSessionLabel } from '../lib/destinationFormat'
 import { Plus, RefreshCw, Search, Smartphone, Users, AlertCircle } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
-import { inputCls, EmptyState, LoadingState, RadarPageShell, PageHeader, MetricCard } from '@/design-system'
+import { inputCls, EmptyState, LoadingState, RadarPageShell, PageHeader, MetricCard, searchFieldIconCls } from '@/design-system'
 
 interface WAGroup {
   id: string
@@ -186,7 +186,7 @@ export default function WhatsAppGroups() {
           <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Grupos já cadastrados</h2>
         </div>
         <div className="relative max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+          <Search size={16} className={searchFieldIconCls} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}

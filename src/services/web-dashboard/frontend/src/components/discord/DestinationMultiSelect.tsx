@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { formatPhone } from '../../lib/destinationFormat'
-import { inputCls, selectCls } from '@/design-system'
+import { inputCls, selectCls, searchFieldIconCls } from '@/design-system'
 
 export interface DestinationOption {
   _id: string
@@ -130,7 +130,7 @@ export default function DestinationMultiSelect({
       <div className="p-3 space-y-2">
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-[160px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rz-text-muted)]" />
+            <Search size={14} className={searchFieldIconCls} />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}

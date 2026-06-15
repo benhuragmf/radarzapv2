@@ -40,6 +40,8 @@ export const colors = {
   waBubbleOut: '#005C4B',
   waBubbleText: '#E9EDEF',
   oauthDiscord: '#5865F2',
+  discordPanelBg: '#2B2D31',
+  discordTextPrimary: '#F2F3F5',
 } as const
 
 export const colorsDark = {
@@ -76,6 +78,15 @@ export const colorsDark = {
   infoText: '#60A5FA',
   premiumBg: 'rgba(139, 92, 246, 0.15)',
   premiumText: '#A78BFA',
+  onAccent: '#030712',
+  onLightSurface: '#111827',
+  waChatBg: '#0B141A',
+  waChatBorder: '#1F2C34',
+  waBubbleOut: '#005C4B',
+  waBubbleText: '#E9EDEF',
+  oauthDiscord: '#5865F2',
+  discordPanelBg: '#2B2D31',
+  discordTextPrimary: '#F2F3F5',
 } as const
 
 export const spacing = {
