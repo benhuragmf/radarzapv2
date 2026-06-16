@@ -207,8 +207,9 @@ Quando a **equipe** envia resposta, atualização ou fechamento pelo Ticket, o c
 
 | Evento | Efeito desejado |
 |--------|-----------------|
-| Envio da equipe ao cliente | Define/renova `clientReplyExpiresAt` (+12 h) e `clientReplyWindowStartedAt` |
-| Fechamento com mensagem ao cliente | Inicia janela de retorno de 12 h |
+| Envio da equipe ao cliente **via Ticket** | Define/renova `clientReplyExpiresAt` (+12 h) e `clientReplyWindowStartedAt` em `sendTicketMessageToClient` |
+| Fechamento com mensagem ao cliente | Inicia janela de retorno de 12 h (mesmo caminho) |
+| Resposta / finalizar / CSAT no **Inbox ao vivo** | **Não** renova ticket fechado antigo (2.8.9) |
 | **Após 12 h** sem nova mensagem da equipe | Cliente **não** responde mais naquele TK → **novo atendimento no Inbox** |
 | Nova atualização da equipe | Renova 12 h; captura automática (2 h) e janela de complemento (30 min) recomeçam |
 
@@ -218,8 +219,8 @@ Constante: `TICKET_POST_CLOSE_REPLY_HOURS = 12`.
 
 | Caminho | Comportamento |
 |---------|---------------|
-| `closeTicket()` | Define `clientReplyExpiresAt` (+12 h) e `lastTeamMessageAt` |
-| `sendClientUpdate()` | Renova janela de retorno (+12 h) via `renewTeamClientReplyWindow` |
+| `closeTicket()` | Fecha e notifica via `sendTicketMessageToClient` (renova +12 h) |
+| `sendClientUpdate()` | Renova janela via `sendTicketMessageToClient` |
 | `convertToTicket()` | Abre janela ao notificar cliente |
 | Ack curto | Mantém janela existente; não sobrescreve se já válida |
 

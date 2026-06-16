@@ -240,7 +240,7 @@ Constantes de texto ao cliente: `src/types/inbox-ticket.ts`.
 | Complementar informação **na mesma rodada** de resposta | **30 minutos** | `TICKET_CLIENT_REPLY_GRACE_MS` |
 | Encerrar respostas neste chamado | **`sair`** ou **`finalizar`** | `parseTicketClientExit` / `parseTicketFinalize` |
 
-**12 horas:** a cada envio da equipe (Inbox, Enviar agora, fechamento), `clientReplyExpiresAt` e `clientReplyWindowStartedAt` são **renovados**. Enquanto não expirou, o ticket fechado pode receber respostas do cliente (conforme regras abaixo).
+**12 horas:** a cada envio da equipe **pelo Ticket** (`sendTicketMessageToClient` — abrir, atualizar, fechar chamado), `clientReplyExpiresAt` e `clientReplyWindowStartedAt` são **renovados**. Mensagens do **Inbox ao vivo** (resposta, finalizar, CSAT) **não** renovam ticket fechado antigo (desde 2.8.9).
 
 **Primeiras 2 horas** (desde o início da janela): o cliente pode responder direto; na **primeira** resposta o sistema envia:
 
@@ -385,7 +385,7 @@ Respostas enriquecidas (2.7.0): `displayStatus`, `displayStatusLabel`, `teamSlaO
 | POST | `/inbox/tickets/:ref/forward` | `inbox:reply` | Encaminhar resumo (outro número / colega) |
 | DELETE | `/inbox/tickets/:ref` | `inbox:reply` | Excluir ticket |
 
-Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketInboundMessage`, `sendClientUpdate`, `closeTicket`, `refreshClosedTicketReplyWindow`).
+Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketInboundMessage`, `sendClientUpdate`, `closeTicket`, `sendTicketMessageToClient`).
 
 **SLA equipe (2.7.0):** `InboxSettings.ticketTeamResponseHours` (default 24, 0 = desligado) — configurável em `/platform/inbox/bot`. Após resposta do cliente no ticket, inicia prazo; limpa quando equipe responde. Monitor no scan SLA → evento `inbox:priority` no painel.
 

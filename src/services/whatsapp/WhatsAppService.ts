@@ -2941,17 +2941,7 @@ export class WhatsAppService {
       // Update destination last message sent
       await destinationDoc.updateLastMessageSent();
 
-      if (destinationDoc.type === 'contact') {
-        try {
-          const { InboxService } = await import('@/services/inbox/InboxService');
-          await InboxService.getInstance().refreshClosedTicketReplyWindow(
-            clientId,
-            destinationDoc._id as mongoose.Types.ObjectId,
-          );
-        } catch {
-          /* ticket opcional */
-        }
-      }
+      // Janela de 12 h do ticket só renova em sendTicketMessageToClient — não em todo envio inbox.
 
       // Update user usage
       const orgDoc = await Organization.findById(clientId);

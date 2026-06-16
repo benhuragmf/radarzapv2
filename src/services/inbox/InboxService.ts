@@ -1517,34 +1517,6 @@ export class InboxService {
     return Boolean(ticket.teamHasMessagedClient);
   }
 
-  /**
-   * Ticket fechado: cada envio da equipe ao contato renova 12h para o cliente responder no TK.
-   */
-  async refreshClosedTicketReplyWindow(
-    clientId: string,
-    destinationId: mongoose.Types.ObjectId,
-  ): Promise<void> {
-    const clientOid = new mongoose.Types.ObjectId(clientId);
-    const ticket = await InboxTicket.findOne({
-      clientId: clientOid,
-      destinationId,
-      status: 'closed',
-    })
-      .sort({ updatedAt: -1 });
-
-    if (!ticket) return;
-
-    const now = new Date();
-    ticket.clientReplyExpiresAt = new Date(
-      now.getTime() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000,
-    );
-    ticket.clientReplyWindowStartedAt = now;
-    ticket.clientReplyPaused = false;
-    ticket.ticketInboundMode = undefined;
-    ticket.updatedAt = now;
-    await ticket.save();
-  }
-
   private async findTicketForClientReply(
     clientId: string,
     destinationId: mongoose.Types.ObjectId,
@@ -2509,7 +2481,6 @@ export class InboxService {
     }
 
     ticket.teamHasMessagedClient = true;
-    this.renewTeamClientReplyWindow(ticket, 'ticket');
     await ticket.save();
 
     const ctx = await this.loadTicketMessageContext(ticket, clientId);
@@ -2808,11 +2779,6 @@ export class InboxService {
     ticket.status = 'closed';
     ticket.closedByUserId = new mongoose.Types.ObjectId(userId);
     ticket.closedAt = new Date();
-    const now = new Date();
-    ticket.clientReplyExpiresAt = new Date(
-      now.getTime() + TICKET_POST_CLOSE_REPLY_HOURS * 60 * 60 * 1000,
-    );
-    ticket.clientReplyWindowStartedAt = now;
     ticket.clientReplyPaused = false;
     ticket.ticketInboundMode = 'ticket';
     await ticket.save();
@@ -2894,7 +2860,6 @@ export class InboxService {
 
     ticket.teamHasMessagedClient = true;
     ticket.unreadClientReply = false;
-    this.renewTeamClientReplyWindow(ticket, 'ticket');
     this.clearClientReplyGraceState(ticket, clientId);
     await ticket.save();
 
@@ -3335,7 +3300,7 @@ export class InboxService {
     const conv = await InboxConversation.findById(ticket.conversationId);
     if (!conv) throw new Error('Conversa vinculada não encontrada');
 
-    const result = await this.sendToContact(clientId, ticket.contactIdentifier, body);
+    this.renewTeamClientReplyWindow(ticket, 'ticket');
     ticket.lastTeamMessageAt = new Date();
     ticket.teamHasMessagedClient = true;
     ticket.unreadClientReply = false;
@@ -3344,6 +3309,8 @@ export class InboxService {
       ticket.status = 'in_progress';
       ticket.lastStatusChangeAt = new Date();
     }
+
+    const result = await this.sendToContact(clientId, ticket.contactIdentifier, body);
     await ticket.save();
     await InboxMessage.create({
       clientId: conv.clientId,
@@ -4170,7 +4137,6 @@ export class InboxService {
       const clientMsg = this.buildTicketOpenedClientMessage(ticket, ctx, agentName);
 
       ticket.teamHasMessagedClient = true;
-      this.renewTeamClientReplyWindow(ticket, 'ticket');
       await ticket.save();
 
       await this.sendTicketMessageToClient(clientId, userId, ticket, clientMsg);
