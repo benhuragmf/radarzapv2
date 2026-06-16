@@ -4,9 +4,12 @@ import type { IAiPrompt } from '@/models/AiPrompt';
 import type { AiStructuredReply } from '@/types/ai-assistant';
 
 const HUMAN_KEYWORDS =
-  /\b(atendente|humano|pessoa|operador|suporte|representante|especialista)\b/i;
+  /\b(atendente|humano|pessoa|operador|suporte|representante|especialista|comercial|vendas|financeiro)\b/i;
 const HUMAN_REQUEST_PHRASES =
-  /\b(falar com (?:algu[eé]m|suporte|atendente|uma pessoa)|quero (?:suporte|atendente|humano)|preciso de (?:suporte|atendente)|me transfere|transferir|encaminh(ar|e))\b/i;
+  /\b(falar com (?:algu[eé]m|suporte|atendente|uma pessoa|o comercial|a comercial|comercial|vendas|financeiro)|preciso falar com|quero (?:suporte|atendente|humano)|preciso de (?:suporte|atendente)|me transfere|transferir|encaminh(ar|e))\b/i;
+/** Resposta da IA que promete transferência/encaminhamento para humano ou setor. */
+export const AI_TRANSFER_PROMISE =
+  /\b(vou te transferir|vou encaminhar|encaminhar|transferir para|para o setor|setor de|setor comercial|setor de suporte)\b/i;
 const WAITING_HANDOFF =
   /^(aguardando|esperando|to esperando|estou esperando|cad[eê]|e a[ií]|demora)\b/i;
 const CLOSING_PHRASES =
@@ -192,15 +195,11 @@ export class AiEscalationService {
   ): boolean {
     const t = clientText.trim();
     if (!WAITING_HANDOFF.test(t) || !lastAssistantReply) return false;
-    return /\b(vou te transferir|encaminhar|transferir para|setor de)\b/i.test(
-      lastAssistantReply,
-    );
+    return AI_TRANSFER_PROMISE.test(lastAssistantReply);
   }
 
   aiReplyPromisesTransfer(reply: string): boolean {
-    return /\b(vou te transferir|encaminhar|transferir para o|setor de suporte)\b/i.test(
-      reply.trim(),
-    );
+    return AI_TRANSFER_PROMISE.test(reply.trim());
   }
 
   private allowModelEscalation(

@@ -3878,6 +3878,7 @@ export class InboxService {
         }
         await this.processRoundRobinPriorityExpiry(clientId, nowMs);
         await this.processOfflineSuggestedPriority(clientId);
+        await AiConversationService.getInstance().recoverStuckPromisedHandoffs(clientId, this);
         await this.processTicketTeamSla(clientId, row.ticketTeamResponseHours, nowMs);
       }
     } catch (err) {
@@ -4399,10 +4400,12 @@ export class InboxService {
       );
     }
 
-    const clientMsg =
-      opts.clientMessage ?? (await buildQueueConfirmation(clientId, department.name));
-    await this.sendToContact(clientId, dest.identifier, clientMsg);
-    await this.appendSystemMessage(conversation, clientMsg, undefined, clientId);
+    if (opts.clientMessage !== '') {
+      const clientMsg =
+        opts.clientMessage ?? (await buildQueueConfirmation(clientId, department.name));
+      await this.sendToContact(clientId, dest.identifier, clientMsg);
+      await this.appendSystemMessage(conversation, clientMsg, undefined, clientId);
+    }
     logger.info('IA escalonou conversa para fila', {
       clientId,
       conversationId: conversation._id,

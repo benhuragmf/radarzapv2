@@ -123,6 +123,17 @@ Na fase `bot_triage`, **somente se a IA estiver ativa**, ela cumprimenta, coleta
 
 Helpers: `parseNameConfirmation`, `buildNameConfirmationPrompt`, `needsEmailCollection` — `src/services/ai/AiContextService.ts`. Escalação exige `nameConfirmed` quando `collectName` está ativo (`AiEscalationService`).
 
+### Escalação para fila (2.8.7)
+
+| Gatilho | Comportamento |
+|---------|---------------|
+| Resposta da IA promete transferência (`AI_TRANSFER_PROMISE` em `AiEscalationService`) | Escalonamento **imediato** para `waiting_queue` — não depende de `aiTurnCount` nem de frase exata do cliente |
+| Cliente pede setor/humano (`comercial`, `preciso falar com…`, `suporte`, etc.) | `clientRequestsHuman` → escala via regras `onHumanRequest` |
+| Cliente aguarda após promessa (`aguardando`, `cadê`, …) | `isWaitingForPromisedHandoff` na mensagem seguinte |
+| Scan SLA Inbox (~60s) | `recoverStuckPromisedHandoffs` — conversas em `bot_triage` há >45s após última msg da IA com promessa de encaminhamento |
+
+Setor: `departmentMenuKey` do JSON da LLM → nome no texto (*setor Comercial*) → fallback primeiro setor público. Se a IA já enviou a promessa ao cliente, **não** duplica mensagem de confirmação de fila (`clientMessage` vazio em `escalateFromAi`).
+
 ### Fallback para bot fixo (IA ativa mas indisponível)
 
 | Situação | Resultado |

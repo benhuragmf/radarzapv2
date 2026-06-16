@@ -4,8 +4,10 @@ import { AI_GENERIC_FALLBACK_REPLY, AiConversationStatus } from '@/types/ai-assi
 import { emptyAiStructuredReply, type AiStructuredReply } from '@/types/ai-assistant';
 import { InboxMessage } from '@/models/InboxMessage';
 import { InboxDepartment } from '@/models/InboxDepartment';
+import type { IInboxDepartment } from '@/models/InboxDepartment';
 import type { IDestination } from '@/models/Destination';
 import type { IInboxConversation } from '@/models/InboxConversation';
+import { InboxConversation } from '@/models/InboxConversation';
 import { InboxConversationStatus } from '@/types/inbox';
 import type { ConversationAiStatus } from '@/types/inbox-conversation-ai';
 import { AI_FALLBACK_TTL_MS, isAiFallbackExpired } from '@/types/inbox-conversation-ai';
@@ -541,14 +543,16 @@ export class AiConversationService {
           shouldEscalate: true,
           reason: 'Cliente aguardando transferência prometida pela IA',
         };
-      } else if (
-        structured.shouldEscalate ||
-        escSvc.aiReplyPromisesTransfer(structured.reply)
-      ) {
+      } else if (escSvc.aiReplyPromisesTransfer(structured.reply)) {
+        escalation = {
+          shouldEscalate: true,
+          reason: structured.escalationReason ?? 'IA confirmou encaminhamento para humano',
+        };
+      } else if (structured.shouldEscalate) {
         if (escSvc.clientRequestsHuman(ctx.text) || state.aiTurnCount >= 2) {
           escalation = {
             shouldEscalate: true,
-            reason: structured.escalationReason ?? 'IA confirmou transferência para humano',
+            reason: structured.escalationReason ?? 'IA indicou transferência',
           };
         }
       }
@@ -1226,6 +1230,13 @@ export class AiConversationService {
     let department = menuKey
       ? await InboxDepartment.findOne({ clientId: clientOid, menuKey, isActive: true })
       : null;
+    if (!department && opts?.lastAiReply) {
+      department = await this.findDepartmentFromAiText(
+        clientOid,
+        opts.lastAiReply,
+        ctx.text,
+      );
+    }
     if (!department) {
       department = await InboxDepartment.findOne({
         clientId: clientOid,
@@ -1248,10 +1259,13 @@ export class AiConversationService {
       .join('\n');
 
     const defaultClientMsg = `Estou transferindo você para um atendente humano.${summaryBlock ? '' : ''} Aguarde um momento, por favor.`;
+    const promisedInReply =
+      Boolean(opts?.lastAiReply) &&
+      AiEscalationService.getInstance().aiReplyPromisesTransfer(opts!.lastAiReply!);
     await inbox.escalateFromAi(ctx.clientId, ctx.conversation, ctx.dest, department, {
       reason,
       internalNote: [collected, state.summary].filter(Boolean).join('\n'),
-      clientMessage: opts?.clientMessage ?? defaultClientMsg,
+      clientMessage: promisedInReply ? '' : (opts?.clientMessage ?? defaultClientMsg),
     });
 
     const promptCfg = await AiPromptBuilderService.getInstance().getOrCreatePrompt(ctx.clientId);
@@ -1312,5 +1326,103 @@ export class AiConversationService {
         'human_assigned',
       );
     }
+  }
+
+  /**
+   * Conversas em triagem IA cuja última resposta prometeu encaminhamento mas não saíram da fila.
+   * Recupera após restart ou falha silenciosa no escalonamento.
+   */
+  async recoverStuckPromisedHandoffs(clientId: string, inbox: InboxService): Promise<void> {
+    if (!(await this.isEnabled(clientId))) return;
+
+    const escSvc = AiEscalationService.getInstance();
+    const stuckBefore = new Date(Date.now() - 45_000);
+    const convs = await InboxConversation.find({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      status: InboxConversationStatus.BOT_TRIAGE,
+      lastOutboundAt: { $lte: stuckBefore },
+    })
+      .sort({ lastOutboundAt: 1 })
+      .limit(15)
+      .exec();
+
+    for (const conv of convs) {
+      const lastOut = await InboxMessage.findOne({
+        conversationId: conv._id,
+        direction: 'outbound',
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+      if (!lastOut?.body || !escSvc.aiReplyPromisesTransfer(lastOut.body)) continue;
+
+      const lastIn = await InboxMessage.findOne({
+        conversationId: conv._id,
+        direction: 'inbound',
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+      if (lastIn && lastOut.createdAt && lastIn.createdAt > lastOut.createdAt) continue;
+
+      logger.info('Recuperando triagem IA travada após promessa de encaminhamento', {
+        clientId,
+        conversationId: conv._id,
+      });
+      try {
+        const state = await this.getOrCreateState(
+          clientId,
+          conv._id as mongoose.Types.ObjectId,
+        );
+        await this.escalate(
+          {
+            clientId,
+            conversation: conv,
+            dest: { identifier: conv.contactIdentifier } as IDestination,
+            text: '',
+            isNew: false,
+            hasMedia: false,
+          },
+          inbox,
+          state,
+          'Recuperação: IA prometeu encaminhamento sem completar fila',
+          { lastAiReply: lastOut.body },
+        );
+      } catch (e) {
+        logger.warn('Falha ao recuperar triagem IA travada', {
+          clientId,
+          conversationId: conv._id,
+          error: (e as Error).message,
+        });
+      }
+    }
+  }
+
+  private async findDepartmentFromAiText(
+    clientOid: mongoose.Types.ObjectId,
+    aiReply: string,
+    clientText?: string,
+  ): Promise<IInboxDepartment | null> {
+    const corpus = `${aiReply}\n${clientText ?? ''}`;
+    const setorMatch = aiReply.match(/setor\s+([A-Za-zÀ-ú0-9\s]{2,40})/i);
+    if (setorMatch) {
+      const namePart = setorMatch[1].replace(/[.!?,].*$/, '').trim();
+      const escaped = namePart.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const byName = await InboxDepartment.findOne({
+        clientId: clientOid,
+        isActive: true,
+        name: new RegExp(`^${escaped}$`, 'i'),
+      });
+      if (byName) return byName;
+    }
+    for (const kw of ['comercial', 'vendas', 'suporte', 'financeiro']) {
+      if (new RegExp(`\\b${kw}\\b`, 'i').test(corpus)) {
+        const byKw = await InboxDepartment.findOne({
+          clientId: clientOid,
+          isActive: true,
+          name: new RegExp(kw, 'i'),
+        }).sort({ sortOrder: 1 });
+        if (byKw) return byKw;
+      }
+    }
+    return null;
   }
 }

@@ -50,6 +50,23 @@ describe('AiEscalationService', () => {
     ).toBe(true);
   });
 
+  it('detecta promessa de encaminhamento para setor comercial', () => {
+    const reply =
+      'Entendido, Benhur. Vou encaminhar você para o setor Comercial. Por favor, aguarde um momento.';
+    expect(svc.aiReplyPromisesTransfer(reply)).toBe(true);
+  });
+
+  it('detecta pedido de falar com comercial', () => {
+    expect(svc.clientRequestsHuman('Olaa preciso falar com o comercial')).toBe(true);
+    expect(svc.check({
+      clientText: 'Olaa preciso falar com o comercial',
+      hasUninterpretableMedia: false,
+      state: baseState,
+      prompt: basePrompt,
+      rules: DEFAULT_AI_TRANSFER_RULES,
+    }).shouldEscalate).toBe(true);
+  });
+
   it('detecta dados mínimos coletados', () => {
     const state = {
       ...baseState,
