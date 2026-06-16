@@ -78,6 +78,10 @@ import {
   shouldSendInactivityWarning,
 } from '@/services/inbox/inbox-inactivity';
 import { parseCsatScore, isCsatIntent, DEFAULT_CSAT_PROMPT } from '@/services/inbox/csat.util';
+import {
+  closedTicketReplyWindowMongoFilter,
+  isClosedTicketReplyWindowActive,
+} from '@/services/inbox/ticket-reply-window.util';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
 import {
   departmentInternalRank,
@@ -1026,6 +1030,9 @@ export class InboxService {
   }
 
   private isWithinPostAckReplyWindow(ticket: IInboxTicket): boolean {
+    if (ticket.status === 'closed') {
+      return isClosedTicketReplyWindowActive(ticket);
+    }
     if (!ticket.clientReplyExpiresAt) return false;
     return new Date() < new Date(ticket.clientReplyExpiresAt);
   }
@@ -1511,8 +1518,7 @@ export class InboxService {
   private canClientReplyToTicket(ticket: IInboxTicket): boolean {
     if (ticket.clientReplyPaused) return false;
     if (ticket.status === 'closed') {
-      if (!ticket.clientReplyExpiresAt) return false;
-      return new Date() < new Date(ticket.clientReplyExpiresAt);
+      return isClosedTicketReplyWindowActive(ticket);
     }
     return Boolean(ticket.teamHasMessagedClient);
   }
@@ -1532,10 +1538,7 @@ export class InboxService {
           status: { $in: ['open', 'in_progress', 'client_replied'] },
           teamHasMessagedClient: true,
         },
-        {
-          status: 'closed',
-          clientReplyExpiresAt: { $gt: now },
-        },
+        closedTicketReplyWindowMongoFilter(now),
       ],
     }).sort({ updatedAt: -1 });
   }
@@ -1581,6 +1584,8 @@ export class InboxService {
       ticketInboundMode: ticket.ticketInboundMode,
       clientReplyPaused: ticket.clientReplyPaused,
       clientReplyExpiresAt: ticket.clientReplyExpiresAt,
+      lastTeamMessageAt: ticket.lastTeamMessageAt,
+      closedAt: ticket.closedAt,
       clientReplyGraceUntil: ticket.clientReplyGraceUntil,
       teamHasMessagedClient: ticket.teamHasMessagedClient,
       lastMenuContext: dest.lastMenuContext,
@@ -2071,7 +2076,7 @@ export class InboxService {
         destinationId,
         $or: [
           { status: { $in: ['open', 'in_progress', 'client_replied'] } },
-          { status: 'closed', clientReplyExpiresAt: { $gt: now } },
+          closedTicketReplyWindowMongoFilter(now),
         ],
       },
       {

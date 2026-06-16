@@ -15,6 +15,7 @@ import {
   type TicketInboundMode,
   type InboxTicketStatus,
 } from '@/types/inbox-ticket';
+import { isClosedTicketReplyWindowActive } from '@/services/inbox/ticket-reply-window.util';
 
 export type TicketCaptureDecision = 'capture' | 'release_inbox' | 'defer_inbox';
 
@@ -24,6 +25,8 @@ export interface TicketInboundRoutingInput {
   ticketInboundMode?: TicketInboundMode;
   clientReplyPaused: boolean;
   clientReplyExpiresAt?: Date;
+  lastTeamMessageAt?: Date;
+  closedAt?: Date;
   clientReplyGraceUntil?: Date;
   teamHasMessagedClient: boolean;
   lastMenuContext?: InboxMenuContext;
@@ -52,9 +55,16 @@ export function isInboxServiceCompeting(input: TicketInboundRoutingInput): boole
   );
 }
 
-function withinClosedReplyWindow(expiresAt: Date | undefined, now: Date): boolean {
-  if (!expiresAt) return false;
-  return now < new Date(expiresAt);
+function withinClosedReplyWindow(input: TicketInboundRoutingInput, now: Date): boolean {
+  return isClosedTicketReplyWindowActive(
+    {
+      status: 'closed',
+      clientReplyExpiresAt: input.clientReplyExpiresAt,
+      lastTeamMessageAt: input.lastTeamMessageAt,
+      closedAt: input.closedAt,
+    },
+    now,
+  );
 }
 
 function graceActive(until: Date | undefined, now: Date): boolean {
@@ -80,7 +90,7 @@ export function evaluateTicketInboundRouting(
   input: TicketInboundRoutingInput,
 ): TicketCaptureDecision {
   const now = input.now ?? new Date();
-  const within12h = withinClosedReplyWindow(input.clientReplyExpiresAt, now);
+  const within12h = withinClosedReplyWindow(input, now);
   const inOpenTicketContext =
     input.ticketStatus !== 'closed' && input.teamHasMessagedClient;
 

@@ -210,8 +210,9 @@ Quando a **equipe** envia resposta, atualização ou fechamento pelo Ticket, o c
 | Envio da equipe ao cliente **via Ticket** | Define/renova `clientReplyExpiresAt` (+12 h) e `clientReplyWindowStartedAt` em `sendTicketMessageToClient` |
 | Fechamento com mensagem ao cliente | Inicia janela de retorno de 12 h (mesmo caminho) |
 | Resposta / finalizar / CSAT no **Inbox ao vivo** | **Não** renova ticket fechado antigo (2.8.9) |
-| **Após 12 h** sem nova mensagem da equipe | Cliente **não** responde mais naquele TK → **novo atendimento no Inbox** |
-| Nova atualização da equipe | Renova 12 h; captura automática (2 h) e janela de complemento (30 min) recomeçam |
+| **Após 12 h** sem nova mensagem da equipe **via Ticket** | Cliente **não** responde mais naquele TK → **novo atendimento no Inbox** |
+| Nova atualização da equipe **via Ticket** | Renova 12 h; captura automática (2 h) e janela de complemento (30 min) recomeçam |
+| Validação (2.8.10) | Elegível só se `lastTeamMessageAt` (ou `closedAt`) dentro das 12 h — ignora `clientReplyExpiresAt` inflado por inbox pré-2.8.9 |
 
 Constante: `TICKET_POST_CLOSE_REPLY_HOURS = 12`.
 

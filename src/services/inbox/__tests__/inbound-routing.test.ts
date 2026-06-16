@@ -17,6 +17,7 @@ function baseInput(overrides: Partial<Parameters<typeof evaluateTicketInboundRou
     ticketInboundMode: undefined,
     clientReplyPaused: false,
     clientReplyExpiresAt: new Date(now.getTime() + 6 * 60 * 60 * 1000),
+    lastTeamMessageAt: new Date(now.getTime() - 60 * 60 * 1000),
     clientReplyGraceUntil: undefined,
     teamHasMessagedClient: true,
     lastMenuContext: undefined,
@@ -340,5 +341,17 @@ describe('inbound-routing', () => {
         }),
       ),
     ).toBe('defer_inbox');
+  });
+
+  it('ticket fechado antigo com expires inflado libera inbox', () => {
+    expect(
+      evaluateTicketInboundRouting(
+        baseInput({
+          trimmed: 'avaliar',
+          clientReplyExpiresAt: new Date(now.getTime() + 6 * 60 * 60 * 1000),
+          lastTeamMessageAt: new Date('2026-06-01T10:00:00.000Z'),
+        }),
+      ),
+    ).toBe('release_inbox');
   });
 });
