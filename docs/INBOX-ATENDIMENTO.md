@@ -491,10 +491,22 @@ Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`
 | `alertSoundEnabled` | Som no painel para eventos importantes |
 | `alertOnNewChat` | Alerta quando entra conversa nova na fila |
 | `alertOnNewMessage` | Alerta quando chega mensagem em conversa ativa |
+| `csatEnabled` / `csatPrompt` / `csatThankYou` | Pesquisa 1–5 pós-atendimento — ver § CSAT abaixo |
 
 API: `GET/PATCH /api/inbox/settings` (`inbox:department:manage`).
 
 Setores continuam em `inboxDepartments` — o menu é montado dinamicamente a partir deles.
+
+### CSAT pós-atendimento (2.8.8)
+
+| Gatilho | Comportamento |
+|---------|---------------|
+| **Finalizar** no painel (`resolveConversation`) | Envia pesquisa CSAT se `csatEnabled` (antes só no encerramento automático `/enc`) |
+| Cliente responde `1`–`5` | Grava nota, agradece, webhook `inbox.csat.rated` |
+| Cliente escreve *avaliar* / *nota* / etc. | Reenvia pesquisa ou inicia CSAT na conversa recente (24 h) — **não** abre ticket |
+| CSAT pendente + texto qualquer | Lembrete *"responda só com 1 a 5"* — bloqueia captura pelo ticket |
+
+Ordem inbound: `handleTicketInboundMessage` chama `tryHandleCsatReply` **antes** de rotear ao ticket. Helpers: `parseCsatScore`, `isCsatIntent` — `src/services/inbox/csat.util.ts`.
 
 ## Tempo real e round-robin (Fase 3)
 

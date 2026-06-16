@@ -5,6 +5,21 @@ export function parseCsatScore(text: string): number | null {
   return Number.parseInt(t, 10);
 }
 
+/** Cliente pediu para avaliar o atendimento (não é nota numérica). */
+export function isCsatIntent(text: string): boolean {
+  const norm = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[!?.]+$/g, '');
+  if (!norm) return false;
+  if (/^(avaliar|avaliacao|avalia|nota|csat|pesquisa|satisfacao|feedback)$/.test(norm)) {
+    return true;
+  }
+  return /\b(quero\s+)?avaliar(\s+o\s+atendimento)?\b/.test(norm);
+}
+
 /** CSAT só quando não há atendimento ativo nem menu de setores em curso. */
 export function shouldDeferCsatForActiveService(opts: {
   hasOpenConversation: boolean;

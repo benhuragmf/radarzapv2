@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.8.7` (`package.json`) · **Última revisão doc:** 2026-06-15
+**Versão atual:** `2.8.8` (`package.json`) · **Última revisão doc:** 2026-06-15
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -42,6 +42,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.8.5** | Consentimento LGPD com tokens; paleta WA centralizada; `searchFieldIconCls`, labels preview, `logLineMetaCls`, QR frame; doc `DESIGN-SYSTEM.md` |
 | **2.8.6** | Inbox: presença online (socket), round-robin só atendentes online, alerta `priority_expired`, composer com rascunho + assign otimista, limpeza prioridade offline |
 | **2.8.7** | Fix IA triagem: escalonamento imediato quando resposta promete encaminhamento; detecção "falar com comercial"; resolução setor pelo texto; scan recupera triagens travadas — ver `INBOX-ATENDIMENTO.md` § Escalação IA |
+| **2.8.8** | Fix CSAT: pesquisa ao **Finalizar** (`resolveConversation`); `"avaliar"` não abre ticket; CSAT tem prioridade sobre ticket; status `resolved` + `closed` — ver `INBOX-ATENDIMENTO.md` § CSAT |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 

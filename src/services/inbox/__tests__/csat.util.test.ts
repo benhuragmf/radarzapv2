@@ -1,4 +1,4 @@
-import { parseCsatScore, shouldDeferCsatForActiveService } from '../csat.util';
+import { parseCsatScore, shouldDeferCsatForActiveService, isCsatIntent } from '../csat.util';
 
 describe('csat.util', () => {
   it('aceita 1-5', () => {
@@ -21,5 +21,12 @@ describe('csat.util', () => {
     expect(
       shouldDeferCsatForActiveService({ hasOpenConversation: false, inboxTriageActive: false }),
     ).toBe(false);
+  });
+
+  it('detecta pedido de avaliação', () => {
+    expect(isCsatIntent('avaliar')).toBe(true);
+    expect(isCsatIntent('Avaliar')).toBe(true);
+    expect(isCsatIntent('quero avaliar o atendimento')).toBe(true);
+    expect(isCsatIntent('preciso falar com o comercial')).toBe(false);
   });
 });

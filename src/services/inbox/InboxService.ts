@@ -77,7 +77,7 @@ import {
   shouldAutoCloseForInactivity,
   shouldSendInactivityWarning,
 } from '@/services/inbox/inbox-inactivity';
-import { parseCsatScore } from '@/services/inbox/csat.util';
+import { parseCsatScore, isCsatIntent, DEFAULT_CSAT_PROMPT } from '@/services/inbox/csat.util';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
 import {
   departmentInternalRank,
@@ -868,17 +868,12 @@ export class InboxService {
 
     if (consentSvc.shouldDeferToConsentFlow(dest, trimmed)) return false;
 
-    const destinationId = dest._id as mongoose.Types.ObjectId;
-
-    if (trimmed && parseCsatScore(trimmed)) {
-      const csatPending = await InboxConversation.exists({
-        clientId: new mongoose.Types.ObjectId(clientId),
-        destinationId,
-        csatPending: true,
-        status: InboxConversationStatus.CLOSED,
-      });
-      if (csatPending) return false;
+    if (trimmed && !media) {
+      const csatHandled = await this.tryHandleCsatReply(clientId, dest, trimmed);
+      if (csatHandled) return true;
     }
+
+    const destinationId = dest._id as mongoose.Types.ObjectId;
 
     const ticket = await this.findTicketForClientReply(clientId, destinationId);
     if (!ticket) {
@@ -3803,12 +3798,11 @@ export class InboxService {
     dest: IDestination,
     text: string,
   ): Promise<boolean> {
-    const score = parseCsatScore(text);
-    if (!score) return false;
-
     const destinationId = dest._id as mongoose.Types.ObjectId;
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+
     const openConversation = await InboxConversation.exists({
-      clientId: new mongoose.Types.ObjectId(clientId),
+      clientId: clientOid,
       destinationId,
       status: { $nin: [...TERMINAL_STATUSES] },
     });
@@ -3816,36 +3810,72 @@ export class InboxService {
 
     if (await this.inboxTriageContextActive(clientId, destinationId)) return false;
 
-    const conv = await InboxConversation.findOne({
-      clientId: new mongoose.Types.ObjectId(clientId),
-      destinationId: dest._id,
+    const csatTerminalStatuses = [
+      InboxConversationStatus.CLOSED,
+      InboxConversationStatus.RESOLVED,
+    ];
+
+    const pendingConv = await InboxConversation.findOne({
+      clientId: clientOid,
+      destinationId,
       csatPending: true,
-      status: InboxConversationStatus.CLOSED,
+      status: { $in: csatTerminalStatuses },
     })
       .sort({ resolvedAt: -1 })
       .exec();
 
-    if (!conv) return false;
-
     const settings = await loadInboxSettings(clientId);
-    conv.csatPending = false;
-    conv.csatScore = score;
-    conv.csatRatedAt = new Date();
-    await conv.save();
+    const score = parseCsatScore(text);
 
-    const thanks = settings.csatThankYou?.trim() || 'Obrigado pela sua avaliação!';
-    await this.sendToContact(clientId, dest.identifier, thanks);
-    await this.appendSystemMessage(conv, thanks, undefined, clientId);
+    if (pendingConv) {
+      if (score) {
+        pendingConv.csatPending = false;
+        pendingConv.csatScore = score;
+        pendingConv.csatRatedAt = new Date();
+        await pendingConv.save();
 
-    WebhookDispatcherService.getInstance().emit(clientId, 'inbox.csat.rated', {
-      conversation_id: String(conv._id),
-      contact_identifier: conv.contactIdentifier,
-      score,
-      assigned_user_id: conv.csatAssignedUserId ? String(conv.csatAssignedUserId) : null,
-      rated_at: conv.csatRatedAt.toISOString(),
-    });
+        const thanks = settings.csatThankYou?.trim() || 'Obrigado pela sua avaliação!';
+        await this.sendToContact(clientId, dest.identifier, thanks);
+        await this.appendSystemMessage(pendingConv, thanks, undefined, clientId);
 
-    return true;
+        WebhookDispatcherService.getInstance().emit(clientId, 'inbox.csat.rated', {
+          conversation_id: String(pendingConv._id),
+          contact_identifier: pendingConv.contactIdentifier,
+          score,
+          assigned_user_id: pendingConv.csatAssignedUserId
+            ? String(pendingConv.csatAssignedUserId)
+            : null,
+          rated_at: pendingConv.csatRatedAt!.toISOString(),
+        });
+        return true;
+      }
+
+      const prompt = settings.csatPrompt?.trim() || DEFAULT_CSAT_PROMPT;
+      const outbound = isCsatIntent(text)
+        ? prompt
+        : 'Para avaliar o atendimento, responda só com um número de *1* a *5*.';
+      await this.sendToContact(clientId, dest.identifier, outbound);
+      await this.appendSystemMessage(pendingConv, outbound, undefined, clientId);
+      return true;
+    }
+
+    if (isCsatIntent(text) && settings.csatEnabled) {
+      const recent = await InboxConversation.findOne({
+        clientId: clientOid,
+        destinationId,
+        status: { $in: csatTerminalStatuses },
+        csatScore: { $exists: false },
+        resolvedAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      })
+        .sort({ resolvedAt: -1 })
+        .exec();
+      if (recent) {
+        await this.maybeSendCsatSurvey(clientId, recent, settings, recent.assignedUserId?.toString());
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private async processInactivityAndQueueSla(): Promise<void> {
@@ -4124,6 +4154,9 @@ export class InboxService {
       resolved_by_user_id: userId,
       resolved_at: conv.resolvedAt?.toISOString() ?? new Date().toISOString(),
     });
+
+    const settings = await loadInboxSettings(clientId);
+    await this.maybeSendCsatSurvey(clientId, conv, settings, userId);
     return conv.toObject();
   }
 
