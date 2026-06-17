@@ -4,6 +4,8 @@ import { WebChatService } from './WebChatService';
 function visitorTokenFromReq(req: Request): string | undefined {
   const header = req.headers['x-webchat-visitor'];
   if (typeof header === 'string' && header.trim()) return header.trim();
+  const queryToken = req.query.v;
+  if (typeof queryToken === 'string' && queryToken.trim()) return queryToken.trim();
   const auth = req.headers.authorization;
   if (auth?.startsWith('Bearer ')) return auth.slice(7).trim();
   return undefined;
@@ -18,7 +20,7 @@ export function createWebChatPublicRouter(): Router {
       const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
       if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
       svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
-      res.json(svc.toPublicConfig(widget));
+      res.json(await svc.getPublicConfig(widget));
     } catch (e) {
       res.status(403).json({ error: (e as Error).message });
     }
@@ -62,6 +64,52 @@ export function createWebChatPublicRouter(): Router {
       const msg = (e as Error).message;
       const status =
         msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  r.post('/messages/attachment', async (req, res) => {
+    try {
+      const token = visitorTokenFromReq(req);
+      if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
+      const { dataBase64, mimeType, fileName, caption } = req.body as {
+        dataBase64?: string;
+        mimeType?: string;
+        fileName?: string;
+        caption?: string;
+      };
+      const message = await svc.sendVisitorAttachment(
+        token,
+        { dataBase64: dataBase64 ?? '', mimeType, fileName, caption },
+        req.headers.origin,
+        req.headers.referer,
+      );
+      res.json({ message });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  r.get('/media/:filename', async (req, res) => {
+    try {
+      const token = visitorTokenFromReq(req);
+      if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
+      const { filePath, mime } = await svc.resolveVisitorMediaFile(
+        token,
+        req.params.filename,
+        req.headers.origin,
+        req.headers.referer,
+      );
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      res.sendFile(filePath);
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 404;
       res.status(status).json({ error: msg });
     }
   });

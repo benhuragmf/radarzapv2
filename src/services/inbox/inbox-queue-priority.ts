@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { InboxConversation } from '@/models/InboxConversation';
+import { WebChatConversation } from '@/models/WebChatConversation';
 import { InboxConversationStatus } from '@/types/inbox';
 
 export interface QueuePriorityState {
@@ -44,6 +45,33 @@ export async function isSuggestedUserBusy(
   }
   const count = await InboxConversation.countDocuments(filter);
   return count > 0;
+}
+
+/** Atendente com conversa ativa no Inbox ou no chat do site. */
+export async function isAgentBusyWithClients(
+  clientId: string,
+  userId: string,
+  exclude?: { inboxConversationId?: string; webChatConversationId?: string },
+): Promise<boolean> {
+  const inboxBusy = await isSuggestedUserBusy(
+    clientId,
+    userId,
+    exclude?.inboxConversationId,
+  );
+  if (inboxBusy) return true;
+
+  const clientOid = new mongoose.Types.ObjectId(clientId);
+  const wcFilter: Record<string, unknown> = {
+    clientId: clientOid,
+    assignedUserId: userId,
+    queueStatus: 'with_agent',
+    status: 'open',
+  };
+  if (exclude?.webChatConversationId) {
+    wcFilter._id = { $ne: new mongoose.Types.ObjectId(exclude.webChatConversationId) };
+  }
+  const wcCount = await WebChatConversation.countDocuments(wcFilter);
+  return wcCount > 0;
 }
 
 export function formatElapsedTimer(elapsedSec: number): string {

@@ -26,6 +26,7 @@ import {
   UserPen,
   Zap,
   ArrowLeft,
+  Globe,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
 import { formatQueueTimer, liveQueueState, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
@@ -40,6 +41,9 @@ import {
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
+import { isWebChatInboxId, webChatMediaSrc } from '../../lib/webchatInbox'
+import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
+import { useWebChatSocket } from '../../hooks/useWebChatSocket'
 
 interface Department {
   _id: string
@@ -54,6 +58,7 @@ interface Department {
 
 interface Conversation {
   _id: string
+  channel?: 'whatsapp_qr' | 'whatsapp_cloud' | 'webchat_site'
   contactName: string
   contactIdentifier: string
   destinationId?: string
@@ -75,6 +80,10 @@ interface Conversation {
   queueElapsedSec?: number
   queueUrgency?: number
   lastMessageAt: string
+  lastMessagePreview?: string
+  unreadCount?: number
+  widgetName?: string
+  pageUrl?: string
 }
 
 interface InboxContactInfo {
@@ -115,6 +124,13 @@ const STATUS_VARIANT: Record<string, 'yellow' | 'blue' | 'green' | 'gray' | 'red
 }
 
 type QuickFilter = 'all' | 'queue' | 'mine' | 'active' | 'triage' | 'tickets'
+type ChannelFilter = 'whatsapp' | 'webchat' | 'all'
+
+const CHANNEL_FILTERS: { id: ChannelFilter; label: string }[] = [
+  { id: 'all', label: 'Todos' },
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'webchat', label: 'Site' },
+]
 
 const QUICK_FILTERS: {
   id: QuickFilter
@@ -143,11 +159,12 @@ function conversationBadge(c: Conversation): { label: string; variant: 'yellow' 
 }
 
 function canReplyToConversation(conv: Conversation, me: AuthUser | null | undefined): boolean {
-  return (
-    Boolean(me?.userId) &&
-    conv.status === 'in_progress' &&
-    conv.assignedUserId === me?.userId
-  )
+  if (!me?.userId || conv.status === 'closed' || conv.status === 'resolved') return false
+  if (conv.channel === 'webchat_site') {
+    if (conv.status === 'waiting_queue' || conv.status === 'bot_triage') return false
+    return conv.status === 'in_progress' && conv.assignedUserId === me.userId
+  }
+  return conv.status === 'in_progress' && conv.assignedUserId === me?.userId
 }
 
 function inboxReplyBlockedReason(
@@ -155,6 +172,21 @@ function inboxReplyBlockedReason(
   me: AuthUser | null | undefined,
   convLiveCanPull: boolean,
 ): string | null {
+  if (conv.channel === 'webchat_site') {
+    if (canReplyToConversation(conv, me)) return null
+    if (conv.status === 'closed' || conv.status === 'resolved') return 'Conversa encerrada.'
+    if (conv.status === 'waiting_queue') {
+      if (conv.priorityForMe) return 'Clique em Aceitar acima para liberar o envio.'
+      if (convLiveCanPull) return 'Você pode puxar esta conversa — clique em Puxar acima.'
+      if (!conv.suggestedUserId) return 'Fila aberta — clique em Assumir para atender.'
+      return 'Aguardando o atendente indicado aceitar a conversa.'
+    }
+    if (conv.status === 'bot_triage') return 'Conversa em triagem automática — aguarde encaminhamento.'
+    if (conv.status === 'in_progress' && conv.assignedUserId && conv.assignedUserId !== me?.userId) {
+      return `Em atendimento por ${conv.assignedUserName ?? 'outro agente'}.`
+    }
+    return 'Assuma a conversa para enviar mensagens.'
+  }
   if (canReplyToConversation(conv, me)) return null
   if (conv.status === 'in_progress') {
     if (!me?.userId) return 'Sessão indisponível — recarregue a página.'
@@ -200,7 +232,10 @@ export default function Inbox() {
   })
   const canManageSectors = can(me ?? null, 'inbox:department:manage')
   const canSupervise = can(me ?? null, 'inbox:supervise')
+  const canWebChat = can(me ?? null, 'webchat:view')
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   useInboxSocket(Boolean(me))
+  useWebChatSocket(canWebChat, { syncInbox: true })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDept, setFilterDept] = useState('')
@@ -253,12 +288,28 @@ export default function Inbox() {
   if (filterDept) listParams.set('departmentId', filterDept)
   if (mineOnly) listParams.set('mine', '1')
   if (hasTicketOnly) listParams.set('hasTicket', '1')
+  if (canWebChat) listParams.set('channel', channelFilter)
 
   const { data: conversations = [], isLoading: loadingList } = useQuery({
-    queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly, hasTicketOnly],
+    queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly, hasTicketOnly, channelFilter],
     queryFn: () => api.get<Conversation[]>(`/inbox/conversations?${listParams}`),
     refetchInterval: 30_000,
   })
+
+  const { data: webchatBridge } = useQuery({
+    queryKey: ['webchat-stats'],
+    queryFn: () =>
+      api.get<{
+        waitingQueueCount: number
+        myWaitingQueueCount?: number
+        unreadCount: number
+      }>('/webchat/stats'),
+    enabled: canWebChat,
+    refetchInterval: 30_000,
+  })
+
+  const webchatQueueCount =
+    webchatBridge?.myWaitingQueueCount ?? webchatBridge?.waitingQueueCount ?? 0
 
   const stats = useMemo(() => {
     const all = conversations
@@ -279,7 +330,9 @@ export default function Inbox() {
         c.contactName.toLowerCase().includes(q) ||
         phone.includes(q) ||
         (c.departmentName?.toLowerCase().includes(q) ?? false) ||
-        (c.ticketRef?.toLowerCase().includes(q) ?? false)
+        (c.ticketRef?.toLowerCase().includes(q) ?? false) ||
+        (c.lastMessagePreview?.toLowerCase().includes(q) ?? false) ||
+        (c.widgetName?.toLowerCase().includes(q) ?? false)
       )
     })
   }, [conversations, search])
@@ -374,6 +427,18 @@ export default function Inbox() {
     onError: mutationError,
   })
 
+  const sendWebChatAttachment = useMutation({
+    mutationFn: async ({ id, file, caption }: { id: string; file: File; caption?: string }) => {
+      const payload = await readWebChatAttachmentFile(file, caption)
+      return api.post(`/inbox/conversations/${id}/reply/attachment`, payload)
+    },
+    onSuccess: () => {
+      setReply('')
+      invalidate()
+    },
+    onError: mutationError,
+  })
+
   const transfer = useMutation({
     mutationFn: ({ id, departmentId }: { id: string; departmentId: string }) =>
       api.post(`/inbox/conversations/${id}/transfer`, { departmentId }),
@@ -394,7 +459,18 @@ export default function Inbox() {
   })
 
   const conv = detail?.conversation
+  const isWebChatConv =
+    conv?.channel === 'webchat_site' || Boolean(conv?._id && isWebChatInboxId(conv._id))
   const isTerminal = conv?.status === 'resolved' || conv?.status === 'closed'
+
+  const displayMessages = useMemo(() => {
+    if (!isWebChatConv) return messages
+    return messages.map(m =>
+      m.mediaUrl && (m.mediaType === 'image' || m.mediaType === 'document')
+        ? { ...m, mediaSrc: webChatMediaSrc(m.mediaUrl) }
+        : m,
+    )
+  }, [messages, isWebChatConv])
 
   const convLive = conv?.suggestedAt
     ? liveQueueState(conv.suggestedAt, conv.pullTimeoutSeconds ?? 120, tick)
@@ -484,20 +560,58 @@ export default function Inbox() {
 
         <InboxAtendimentoNav me={me} className="mt-3" />
 
+        {canWebChat && webchatQueueCount > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+            <div className="flex items-center gap-2 text-amber-200">
+              <Globe size={16} className="shrink-0" />
+              <span>
+                {webchatQueueCount} chat(s) do site aguardando atendente
+                {(webchatBridge?.unreadCount ?? 0) > 0 && (
+                  <span className="text-amber-300/80">
+                    {' '}
+                    · {webchatBridge!.unreadCount} não lida(s)
+                  </span>
+                )}
+              </span>
+            </div>
+            <Link to="/platform/webchat?filter=queue">
+              <Button size="sm" variant="secondary">
+                Abrir chat do site
+              </Button>
+            </Link>
+          </div>
+        )}
+
         {/* Métricas rápidas */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+        <div className={`grid gap-2 mt-4 ${canWebChat ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
           {[
             { label: 'Na fila', value: stats.queue, color: 'text-blue-400' },
             { label: 'Em atendimento', value: stats.active, color: 'text-green-400' },
             { label: 'Triagem', value: stats.triage, color: 'text-yellow-400' },
             { label: 'Suas prioridades', value: stats.priority, color: 'text-amber-400' },
+            ...(canWebChat
+              ? [
+                  {
+                    label: 'Chat do site',
+                    value: webchatQueueCount,
+                    color: 'text-violet-400',
+                    href: '/platform/webchat?filter=queue',
+                  },
+                ]
+              : []),
           ].map(s => (
             <div
               key={s.label}
               className="rounded-xl border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 px-3 py-2.5"
             >
               <p className="text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)]">{s.label}</p>
-              <p className={`text-lg font-semibold tabular-nums mt-0.5 ${s.color}`}>{s.value}</p>
+              {'href' in s && s.href ? (
+                <Link to={s.href} className={`text-lg font-semibold tabular-nums mt-0.5 block hover:underline ${s.color}`}>
+                  {s.value}
+                </Link>
+              ) : (
+                <p className={`text-lg font-semibold tabular-nums mt-0.5 ${s.color}`}>{s.value}</p>
+              )}
             </div>
           ))}
         </div>
@@ -539,6 +653,25 @@ export default function Inbox() {
                 </button>
               ))}
             </div>
+
+            {canWebChat && (
+              <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin">
+                {CHANNEL_FILTERS.map(f => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setChannelFilter(f.id)}
+                    className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                      channelFilter === f.id
+                        ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
+                        : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]/60'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <select
               value={filterDept}
@@ -593,7 +726,9 @@ export default function Inbox() {
                 )
                 const timerCls = queueUrgencyTimerClass(live.urgency)
                 const subtitle =
-                  c.suggestedUserName && c.status === 'waiting_queue'
+                  c.channel === 'webchat_site'
+                    ? [c.widgetName, c.departmentName, c.lastMessagePreview].filter(Boolean).join(' · ')
+                    : c.suggestedUserName && c.status === 'waiting_queue'
                     ? c.priorityForMe
                       ? `Prioridade · ${c.departmentName ?? ''}`
                       : `${c.suggestedUserName}${c.suggestedUserOnline === false ? ' · offline' : ''}${c.suggestedUserBusy ? ' · ocupado' : ''}`
@@ -615,6 +750,16 @@ export default function Inbox() {
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{c.contactName}</span>
                         <div className="flex items-center gap-1 shrink-0">
+                          {c.channel === 'webchat_site' && (
+                            <span className="text-[9px] font-medium text-violet-300 bg-violet-500/15 px-1.5 py-0.5 rounded">
+                              Site
+                            </span>
+                          )}
+                          {(c.unreadCount ?? 0) > 0 && (
+                            <span className="min-w-[18px] rounded-full bg-brand-500 px-1.5 text-[10px] font-bold text-white text-center">
+                              {c.unreadCount}
+                            </span>
+                          )}
                           {c.ticketRef && (
                             <Link
                               to={`/platform/inbox/tickets/${c.ticketRef}`}
@@ -628,7 +773,9 @@ export default function Inbox() {
                         </div>
                       </div>
                       <p className="text-xs text-[var(--rz-text-muted)] truncate mt-0.5">
-                        {formatContactIdentifier(c.contactIdentifier, c.contactName)}
+                        {c.channel === 'webchat_site'
+                          ? c.contactIdentifier
+                          : formatContactIdentifier(c.contactIdentifier, c.contactName)}
                       </p>
                       <div className="flex items-center justify-between gap-2 mt-1">
                         <p className="text-[11px] text-[var(--rz-text-muted)] truncate">{subtitle || '—'}</p>
@@ -694,6 +841,11 @@ export default function Inbox() {
                           label={conversationBadge(conv).label}
                           variant={conversationBadge(conv).variant}
                         />
+                        {isWebChatConv && (
+                          <span className="text-[10px] font-medium text-violet-300 bg-violet-500/15 px-1.5 py-0.5 rounded">
+                            Chat do site
+                          </span>
+                        )}
                         {conv.ticketRef && (
                           <Link
                             to={`/platform/inbox/tickets/${conv.ticketRef}`}
@@ -705,8 +857,20 @@ export default function Inbox() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <p className="text-xs text-[var(--rz-text-muted)] truncate">
-                          {formatContactIdentifier(conv.contactIdentifier, conv.contactName)}
+                          {isWebChatConv
+                            ? conv.contactIdentifier
+                            : formatContactIdentifier(conv.contactIdentifier, conv.contactName)}
                         </p>
+                        {isWebChatConv && conv.pageUrl && (
+                          <a
+                            href={conv.pageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-brand-400 hover:underline"
+                          >
+                            Página de origem
+                          </a>
+                        )}
                         {detail?.contactStats && (
                           <span className="text-[10px] text-[var(--rz-text-muted)] shrink-0">
                             · {detail.contactStats.totalConversations} atend.
@@ -723,6 +887,8 @@ export default function Inbox() {
                     </div>
 
                     <div className="flex flex-col gap-1 shrink-0 ml-1">
+                      {!isWebChatConv && (
+                        <>
                       <button
                         type="button"
                         title="Converter em ticket"
@@ -752,6 +918,8 @@ export default function Inbox() {
                       >
                         <UserPen size={16} />
                       </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -803,7 +971,7 @@ export default function Inbox() {
                   </div>
                 </div>
 
-                {conv.suggestedUserId && conv.status === 'waiting_queue' && (
+                {!isWebChatConv && conv.suggestedUserId && conv.status === 'waiting_queue' && (
                   <div className={queueUrgencyPanelClass(convLive.urgency)}>
                     <Clock size={14} className={`shrink-0 ${queueUrgencyTimerClass(convLive.urgency)}`} />
                     {conv.priorityForMe ? (
@@ -845,7 +1013,7 @@ export default function Inbox() {
                 {messages.length === 0 ? (
                   <p className="text-center text-sm text-[var(--rz-text-muted)] py-8">Nenhuma mensagem ainda.</p>
                 ) : (
-                  messages.map(m => <InboxMessageBubble key={m._id} message={m} />)
+                  displayMessages.map(m => <InboxMessageBubble key={m._id} message={m} />)
                 )}
                 <div ref={messagesEndRef} />
               </div>
@@ -874,8 +1042,15 @@ export default function Inbox() {
                     sending={sendReply.isPending}
                     sendDisabled={!canReply}
                     onSend={() => sendReply.mutate({ id: conv._id, text: reply })}
+                    onImageAttach={
+                      isWebChatConv && canReply
+                        ? file => sendWebChatAttachment.mutate({ id: conv._id, file, caption: reply })
+                        : undefined
+                    }
+                    imageAttachDisabled={!canReply}
+                    imageAttaching={sendWebChatAttachment.isPending}
                   />
-                  {canReply && (
+                  {canReply && !isWebChatConv && (
                     <div className="flex flex-wrap items-center gap-2">
                       <select
                         value={transferDept}
@@ -919,7 +1094,7 @@ export default function Inbox() {
           ) : null}
         </section>
 
-        {conv && showHistoryPanel && (
+        {conv && !isWebChatConv && showHistoryPanel && (
           <div ref={historyPanelRef} className="min-h-0 flex flex-col">
             <InboxContactSidebar
               contactStats={detail?.contactStats}

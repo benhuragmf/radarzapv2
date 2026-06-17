@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.9.5` (`package.json`) · **Última revisão doc:** 2026-06-17
+**Versão atual:** `2.10.4` (`package.json`) · **Última revisão doc:** 2026-06-17
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -52,6 +52,15 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.9.3** | WebChat: badge menu, notificação browser, reabrir conversa, assign agente na 1ª resposta |
 | **2.9.4** | WebChat: resposta automática por widget, nome do remetente no bubble, rate limit API pública |
 | **2.9.5** | WebChat: modo IA na auto-resposta (`WebChatAiService`, fallback mensagem fixa) |
+| **2.9.6** | WebChat: fila de escalação (`queueStatus`), setor padrão no widget, aba Na fila, `POST …/escalate`, auto-escalação IA |
+| **2.9.7** | WebChat: horário comercial (herda Inbox ou custom), `isOnline` na API pública, aviso offline no widget |
+| **2.9.8** | WebChat: status fila no widget visitante; webhooks `webchat.message.received`, `webchat.conversation.escalated/closed` |
+| **2.9.9** | WebChat: ponte Inbox (banner, métrica, `webchat:escalated`, `myWaitingQueueCount`, deep link) |
+| **2.10.0** | WebChat: lista unificada no Inbox (`?channel=all`, IDs `wc:`, reply/resolve no Inbox) |
+| **2.10.1** | WebChat: round-robin na fila do site (prioridade/aceitar/puxar via Inbox) |
+| **2.10.2** | WebChat: anexos de imagem no widget visitante |
+| **2.10.3** | WebChat: atendente envia imagens no painel (WebChat + Inbox) |
+| **2.10.4** | WebChat: PDF no widget/painel + legenda opcional em anexos |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 

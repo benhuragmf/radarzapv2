@@ -71,7 +71,8 @@ export function EventNotificationProvider({
       if (
         (ev.type === 'inbox:new_chat' ||
           ev.type === 'inbox:priority' ||
-          ev.type === 'inbox:priority_expired') &&
+          ev.type === 'inbox:priority_expired' ||
+          ev.type === 'webchat:escalated') &&
         !settings.alertOnNewChat
       ) {
         return

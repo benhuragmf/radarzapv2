@@ -58,6 +58,53 @@
     }
   }
 
+  function visitorMediaSrc(mediaUrl) {
+    if (!mediaUrl || !state.visitorToken) return null;
+    var parts = String(mediaUrl).split('/');
+    var filename = parts[parts.length - 1];
+    if (!filename) return null;
+    return (
+      baseUrl +
+      '/api/webchat/public/media/' +
+      encodeURIComponent(filename) +
+      '?v=' +
+      encodeURIComponent(state.visitorToken)
+    );
+  }
+
+  function renderMessageBody(m) {
+    var html = '';
+    if (m.mediaType === 'image' && m.mediaUrl) {
+      var src = visitorMediaSrc(m.mediaUrl);
+      if (src) {
+        html +=
+          '<a href="' +
+          src +
+          '" target="_blank" rel="noreferrer" style="display:block;">' +
+          '<img src="' +
+          src +
+          '" alt="" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin-bottom:4px;" />' +
+          '</a>';
+      }
+    } else if (m.mediaType === 'document' && m.mediaUrl) {
+      var docSrc = visitorMediaSrc(m.mediaUrl);
+      var label = escHtml(m.mediaFileName || 'Documento PDF');
+      if (docSrc) {
+        html +=
+          '<a href="' +
+          docSrc +
+          '" target="_blank" rel="noreferrer" style="display:block;font-size:13px;text-decoration:underline;margin-bottom:4px;">📎 ' +
+          label +
+          '</a>';
+      }
+    }
+    if (m.body && (!m.mediaUrl || m.body.indexOf('📎') !== 0)) {
+      html += '<div>' + escHtml(m.body) + '</div>';
+    }
+    if (!html && m.body) html = escHtml(m.body);
+    return html;
+  }
+
   var script = currentScript();
   var widgetKey = script.getAttribute('data-widget-key') || script.dataset.widgetKey;
   if (!widgetKey) {
@@ -89,12 +136,21 @@
     visitorToken: readStore().visitorToken || null,
     conversationId: readStore().conversationId || null,
     conversationStatus: 'open',
+    queueStatus: 'bot',
+    departmentName: '',
     messages: [],
     open: false,
     socket: null,
     sending: false,
     started: false,
   };
+
+  function applyConversationMeta(conv) {
+    if (!conv) return;
+    if (conv.queueStatus) state.queueStatus = conv.queueStatus;
+    if (conv.departmentName !== undefined) state.departmentName = conv.departmentName || '';
+    if (conv.status) state.conversationStatus = conv.status;
+  }
 
   var root = document.createElement('div');
   root.id = 'rz-webchat-root';
@@ -151,6 +207,34 @@
         ';color:#fff;font-weight:600;cursor:pointer;font-size:13px;">Nova conversa</button></div>'
       : '';
 
+    var offlineBanner =
+      !isClosed && state.config && state.config.businessHoursEnabled && state.config.isOnline === false
+        ? '<div style="padding:10px 14px;background:#fffbeb;border-bottom:1px solid #fde68a;font-size:12px;color:#92400e;line-height:1.4;">' +
+          '<strong>Fora do horário</strong>' +
+          (state.config.scheduleSummary
+            ? '<div style="margin-top:4px;opacity:.85;">' + escHtml(state.config.scheduleSummary) + '</div>'
+            : '') +
+          '</div>'
+        : '';
+
+    var queueBanner = '';
+    if (!isClosed) {
+      if (state.queueStatus === 'waiting_human') {
+        queueBanner =
+          '<div style="padding:10px 14px;background:#eff6ff;border-bottom:1px solid #bfdbfe;font-size:12px;color:#1e40af;line-height:1.4;">' +
+          '<strong>Aguardando atendente</strong>' +
+          (state.departmentName
+            ? '<div style="margin-top:4px;opacity:.9;">Setor: ' + escHtml(state.departmentName) + '</div>'
+            : '') +
+          '</div>';
+      } else if (state.queueStatus === 'with_agent') {
+        queueBanner =
+          '<div style="padding:10px 14px;background:#ecfdf5;border-bottom:1px solid #a7f3d0;font-size:12px;color:#065f46;line-height:1.4;">' +
+          '<strong>Atendente conectado</strong>' +
+          '</div>';
+      }
+    }
+
     var messagesHtml = state.messages
       .map(function (m) {
         var align = m.direction === 'inbound' ? 'flex-end' : 'flex-start';
@@ -177,7 +261,7 @@
           color +
           ';font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word;">' +
           nameLabel +
-          escHtml(m.body) +
+          renderMessageBody(m) +
           '<div style="font-size:10px;opacity:.7;margin-top:4px;">' +
           formatTime(m.createdAt) +
           '</div></div></div>'
@@ -210,11 +294,17 @@
       (subtitle ? '<div style="font-size:12px;opacity:.9;margin-top:2px;">' + escHtml(subtitle) + '</div>' : '') +
       '</div>' +
       prechat +
+      offlineBanner +
+      queueBanner +
       closedBanner +
       '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:12px 14px;background:#fff;">' +
       messagesHtml +
       '</div>' +
-      '<form id="rz-webchat-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid #e5e7eb;background:#fafafa;">' +
+      '<form id="rz-webchat-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid #e5e7eb;background:#fafafa;align-items:center;">' +
+      '<input type="file" id="rz-webchat-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" />' +
+      '<button type="button" id="rz-webchat-attach" title="Enviar imagem" ' +
+      (showPrechat || isClosed ? 'disabled' : '') +
+      ' style="padding:10px 12px;border:1px solid #d1d5db;border-radius:999px;background:#fff;cursor:pointer;font-size:16px;line-height:1;">📎</button>' +
       '<input id="rz-webchat-input" placeholder="Digite sua mensagem..." autocomplete="off" ' +
       (showPrechat || isClosed ? 'disabled' : '') +
       ' style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:999px;font-size:14px;" />' +
@@ -251,6 +341,18 @@
         sendMessage();
       };
     }
+    var attachBtn = document.getElementById('rz-webchat-attach');
+    var fileInput = document.getElementById('rz-webchat-file');
+    if (attachBtn && fileInput) {
+      attachBtn.onclick = function () {
+        if (!attachBtn.disabled) fileInput.click();
+      };
+      fileInput.onchange = function () {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        sendAttachment(fileInput.files[0]);
+        fileInput.value = '';
+      };
+    }
   }
 
   function connectSocket() {
@@ -268,6 +370,7 @@
       state.socket.on('webchat:message', function (payload) {
         if (!payload || !payload.message) return;
         if (payload.conversationId && state.conversationId && payload.conversationId !== state.conversationId) return;
+        applyConversationMeta(payload.conversation);
         var exists = state.messages.some(function (m) {
           return m.id === payload.message.id;
         });
@@ -278,6 +381,7 @@
       });
       state.socket.on('webchat:conversation', function (payload) {
         if (!payload || !payload.conversation) return;
+        applyConversationMeta(payload.conversation);
         if (payload.conversation.status === 'closed') {
           state.conversationStatus = 'closed';
           if (state.socket) {
@@ -288,6 +392,8 @@
         } else if (payload.conversation.status === 'open') {
           state.conversationStatus = 'open';
           connectSocket();
+          renderBubble();
+        } else {
           renderBubble();
         }
       });
@@ -302,6 +408,8 @@
     state.visitorToken = null;
     state.conversationId = null;
     state.conversationStatus = 'open';
+    state.queueStatus = 'bot';
+    state.departmentName = '';
     state.messages = [];
     state.started = false;
     writeStore({});
@@ -325,6 +433,8 @@
         state.visitorToken = data.visitorToken;
         state.conversationId = data.conversationId;
         state.conversationStatus = 'open';
+        state.queueStatus = data.queueStatus || 'bot';
+        state.departmentName = data.departmentName || '';
         state.messages = data.messages || [];
         state.started = true;
         writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
@@ -372,6 +482,54 @@
       });
   }
 
+  function sendAttachment(file) {
+    if (state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
+    if (!file || file.size > 5 * 1024 * 1024) {
+      console.error('[RadarZap WebChat]', 'Imagem muito grande (máx. 5 MB)');
+      return;
+    }
+    var allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (allowed.indexOf(file.type) < 0) {
+      console.error('[RadarZap WebChat]', 'Tipo de arquivo não permitido');
+      return;
+    }
+    state.sending = true;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var result = String(reader.result || '');
+      var base64 = result.indexOf(',') >= 0 ? result.split(',')[1] : result;
+      apiFetch(baseUrl, '/messages/attachment', {
+        method: 'POST',
+        headers: { 'X-WebChat-Visitor': state.visitorToken },
+        body: JSON.stringify({
+          dataBase64: base64,
+          mimeType: file.type,
+          fileName: file.name,
+        }),
+      })
+        .then(function (data) {
+          if (data.message) {
+            var exists = state.messages.some(function (m) {
+              return m.id === data.message.id;
+            });
+            if (!exists) state.messages.push(data.message);
+          }
+          renderBubble();
+        })
+        .catch(function (err) {
+          console.error('[RadarZap WebChat]', err.message);
+        })
+        .finally(function () {
+          state.sending = false;
+        });
+    };
+    reader.onerror = function () {
+      state.sending = false;
+      console.error('[RadarZap WebChat]', 'Falha ao ler arquivo');
+    };
+    reader.readAsDataURL(file);
+  }
+
   apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/config', { method: 'GET' })
     .then(function (config) {
       state.config = config;
@@ -382,6 +540,8 @@
         }).then(function (data) {
           state.conversationId = data.conversationId;
           state.conversationStatus = data.status || 'open';
+          state.queueStatus = data.queueStatus || 'bot';
+          state.departmentName = data.departmentName || '';
           state.messages = data.messages || [];
           state.started = true;
           if (data.status === 'open') connectSocket();

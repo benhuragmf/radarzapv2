@@ -9,6 +9,7 @@ const TYPE_LABEL: Record<string, string> = {
   'inbox:priority': 'Prioridade',
   'inbox:priority_expired': 'Pode puxar',
   'inbox:queue_sla': 'Fila parada',
+  'webchat:escalated': 'Chat do site',
   'whatsapp:disconnected': 'WhatsApp',
   'whatsapp:connected': 'WhatsApp',
 }

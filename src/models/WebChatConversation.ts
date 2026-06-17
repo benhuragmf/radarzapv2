@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import type { WebChatConversationStatus } from '../types/webchat';
+import type { WebChatConversationStatus, WebChatQueueStatus } from '../types/webchat';
 
 export interface IWebChatConversation extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -8,6 +8,12 @@ export interface IWebChatConversation extends Document {
   visitorName?: string;
   visitorEmail?: string;
   status: WebChatConversationStatus;
+  queueStatus: WebChatQueueStatus;
+  departmentId?: mongoose.Types.ObjectId;
+  escalatedAt?: Date;
+  queueEnteredAt?: Date;
+  suggestedUserId?: string;
+  suggestedAt?: Date;
   assignedUserId?: string;
   pageUrl?: string;
   userAgent?: string;
@@ -26,6 +32,17 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     visitorName: { type: String, trim: true, maxlength: 120 },
     visitorEmail: { type: String, trim: true, lowercase: true, maxlength: 200 },
     status: { type: String, enum: ['open', 'closed'], default: 'open', index: true },
+    queueStatus: {
+      type: String,
+      enum: ['bot', 'waiting_human', 'with_agent'],
+      default: 'bot',
+      index: true,
+    },
+    departmentId: { type: Schema.Types.ObjectId, ref: 'InboxDepartment', index: true },
+    escalatedAt: { type: Date },
+    queueEnteredAt: { type: Date },
+    suggestedUserId: { type: String, index: true },
+    suggestedAt: { type: Date },
     assignedUserId: { type: String, index: true },
     pageUrl: { type: String, maxlength: 2000 },
     userAgent: { type: String, maxlength: 500 },

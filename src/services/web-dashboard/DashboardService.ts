@@ -94,6 +94,7 @@ import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { WebChatService } from '../webchat/WebChatService';
+import { isWebChatInboxId, webChatInboxIdToMongo } from '../webchat/webchat-inbox-bridge';
 import { WebChatAiService } from '../webchat/WebChatAiService';
 import {
   agentPresenceConnect,
@@ -1393,21 +1394,56 @@ export class DashboardService {
     r.get('/inbox/conversations', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { status, departmentId, mine, hasTicket, search } = req.query as {
+        const { status, departmentId, mine, hasTicket, search, channel } = req.query as {
           status?: string;
           departmentId?: string;
           mine?: string;
           hasTicket?: string;
           search?: string;
+          channel?: string;
         };
-        const rows = await inboxSvc.listConversations(auth.clientId, auth.userId, {
+        const channelMode = channel === 'webchat' || channel === 'all' ? channel : 'whatsapp';
+        const canWebchat = auth.capabilities.includes(Cap.WEBCHAT_VIEW);
+
+        const filters = {
           status,
           departmentId,
           mine: mine === '1' || mine === 'true',
           hasTicket: hasTicket === '1' || hasTicket === 'true',
           search,
-        });
-        res.json(rows);
+        };
+
+        let whatsappRows: Array<Record<string, unknown>> = [];
+        let webchatRows: Array<Record<string, unknown>> = [];
+
+        if (channelMode === 'whatsapp' || channelMode === 'all') {
+          whatsappRows = (await inboxSvc.listConversations(auth.clientId, auth.userId, filters)).map(
+            r => ({ ...r, channel: (r as { channel?: string }).channel ?? 'whatsapp_qr' }),
+          );
+        }
+
+        if ((channelMode === 'webchat' || channelMode === 'all') && canWebchat && !filters.hasTicket) {
+          webchatRows = await WebChatService.getInstance().listForInbox(
+            auth.clientId,
+            auth.userId,
+            {
+              status: filters.status,
+              departmentId: filters.departmentId,
+              mine: filters.mine,
+              search: filters.search,
+            },
+          );
+        }
+
+        const merged = [...whatsappRows, ...webchatRows]
+          .sort(
+            (a, b) =>
+              new Date(String(b.lastMessageAt)).getTime() -
+              new Date(String(a.lastMessageAt)).getTime(),
+          )
+          .slice(0, 100);
+
+        res.json(merged);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -1416,6 +1452,18 @@ export class DashboardService {
     r.get('/inbox/conversations/:id', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
+        if (isWebChatInboxId(req.params.id)) {
+          if (!auth.capabilities.includes(Cap.WEBCHAT_VIEW)) {
+            return res.status(403).json({ error: 'Sem permissão para chat do site' });
+          }
+          const data = await WebChatService.getInstance().getDetailForInbox(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+          );
+          if (!data) return res.status(404).json({ error: 'Conversa não encontrada' });
+          return res.json(data);
+        }
         const data = await inboxSvc.getConversationDetail(
           auth.clientId,
           auth.userId,
@@ -1431,6 +1479,17 @@ export class DashboardService {
     r.post('/inbox/conversations/:id/assign', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
+        if (isWebChatInboxId(req.params.id)) {
+          if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
+            return res.status(403).json({ error: 'Sem permissão para atender no chat do site' });
+          }
+          const conv = await WebChatService.getInstance().assignConversation(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+          );
+          return res.json(conv);
+        }
         const conv = await inboxSvc.assignConversation(
           auth.clientId,
           auth.userId,
@@ -1446,6 +1505,18 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const { text } = req.body as { text?: string };
+        if (isWebChatInboxId(req.params.id)) {
+          if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
+            return res.status(403).json({ error: 'Sem permissão para responder no chat do site' });
+          }
+          const message = await WebChatService.getInstance().sendAgentMessage(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+            text ?? '',
+          );
+          return res.json({ message });
+        }
         const result = await inboxSvc.replyToConversation(
           auth.clientId,
           auth.userId,
@@ -1453,6 +1524,34 @@ export class DashboardService {
           text ?? '',
         );
         res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/reply/attachment', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        if (!isWebChatInboxId(req.params.id)) {
+          return res.status(400).json({ error: 'Anexos no Inbox disponíveis apenas no chat do site' });
+        }
+        if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
+          return res.status(403).json({ error: 'Sem permissão para responder no chat do site' });
+        }
+        const { dataBase64, mimeType, fileName, caption } = req.body as {
+          dataBase64?: string;
+          mimeType?: string;
+          fileName?: string;
+          caption?: string;
+        };
+        const message = await WebChatService.getInstance().sendAgentAttachment(
+          auth.clientId,
+          auth.userId,
+          webChatInboxIdToMongo(req.params.id),
+          { dataBase64: dataBase64 ?? '', mimeType, fileName, caption },
+          auth.username,
+        );
+        res.json({ message });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -1479,6 +1578,17 @@ export class DashboardService {
     r.post('/inbox/conversations/:id/resolve', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
+        if (isWebChatInboxId(req.params.id)) {
+          if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
+            return res.status(403).json({ error: 'Sem permissão para encerrar chat do site' });
+          }
+          await WebChatService.getInstance().closeConversation(
+            auth.clientId,
+            webChatInboxIdToMongo(req.params.id),
+            auth.userId,
+          );
+          return res.json({ ok: true });
+        }
         const conv = await inboxSvc.resolveConversation(
           auth.clientId,
           auth.userId,
@@ -4810,6 +4920,12 @@ export class DashboardService {
             autoReplyMessage: w.autoReplyMessage,
             autoReplySenderName: w.autoReplySenderName,
             autoReplyUseAi: w.autoReplyUseAi ?? false,
+            defaultDepartmentId: w.defaultDepartmentId ? String(w.defaultDepartmentId) : null,
+            useInboxBusinessHours: w.useInboxBusinessHours ?? true,
+            businessHoursEnabled: w.businessHoursEnabled ?? false,
+            timezone: w.timezone ?? 'America/Sao_Paulo',
+            schedule: w.schedule,
+            outsideHoursMessage: w.outsideHoursMessage,
             createdAt: w.createdAt,
             updatedAt: w.updatedAt,
           })),
@@ -4844,6 +4960,12 @@ export class DashboardService {
           autoReplyMessage: widget.autoReplyMessage,
           autoReplySenderName: widget.autoReplySenderName,
           autoReplyUseAi: widget.autoReplyUseAi,
+          defaultDepartmentId: widget.defaultDepartmentId ? String(widget.defaultDepartmentId) : null,
+          useInboxBusinessHours: widget.useInboxBusinessHours ?? true,
+          businessHoursEnabled: widget.businessHoursEnabled ?? false,
+          timezone: widget.timezone ?? 'America/Sao_Paulo',
+          schedule: widget.schedule,
+          outsideHoursMessage: widget.outsideHoursMessage,
         });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
@@ -4870,6 +4992,12 @@ export class DashboardService {
           autoReplyMessage: widget.autoReplyMessage,
           autoReplySenderName: widget.autoReplySenderName,
           autoReplyUseAi: widget.autoReplyUseAi,
+          defaultDepartmentId: widget.defaultDepartmentId ? String(widget.defaultDepartmentId) : null,
+          useInboxBusinessHours: widget.useInboxBusinessHours ?? true,
+          businessHoursEnabled: widget.businessHoursEnabled ?? false,
+          timezone: widget.timezone ?? 'America/Sao_Paulo',
+          schedule: widget.schedule,
+          outsideHoursMessage: widget.outsideHoursMessage,
         });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
@@ -4900,10 +5028,26 @@ export class DashboardService {
     r.get('/webchat/stats', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const stats = await WebChatService.getInstance().getStats(auth.clientId);
+        const stats = await WebChatService.getInstance().getStats(auth.clientId, {
+          userId: auth.userId,
+        });
         res.json(stats);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/webchat/media/:clientId/:filename', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const filePath = WebChatService.getInstance().resolveAgentMediaFile(
+          auth.clientId,
+          req.params.clientId,
+          req.params.filename,
+        );
+        res.sendFile(filePath);
+      } catch (e) {
+        res.status(404).json({ error: (e as Error).message });
       }
     });
 
@@ -4911,8 +5055,13 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const status = (req.query as { status?: string }).status;
+        const queueStatus = (req.query as { queueStatus?: string }).queueStatus;
         const conversations = await WebChatService.getInstance().listConversations(auth.clientId, {
           status: status === 'open' || status === 'closed' ? status : undefined,
+          queueStatus:
+            queueStatus === 'bot' || queueStatus === 'waiting_human' || queueStatus === 'with_agent'
+              ? queueStatus
+              : undefined,
         });
         res.json(conversations);
       } catch (e) {
@@ -4926,6 +5075,7 @@ export class DashboardService {
         const detail = await WebChatService.getInstance().getConversationForAgent(
           auth.clientId,
           req.params.id,
+          auth.userId,
         );
         if (!detail) return res.status(404).json({ error: 'Conversa não encontrada' });
         res.json(detail);
@@ -4951,6 +5101,32 @@ export class DashboardService {
       }
     });
 
+    r.post(
+      '/webchat/conversations/:id/messages/attachment',
+      requireCapability(Cap.WEBCHAT_REPLY),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { dataBase64, mimeType, fileName, caption } = req.body as {
+            dataBase64?: string;
+            mimeType?: string;
+            fileName?: string;
+            caption?: string;
+          };
+          const message = await WebChatService.getInstance().sendAgentAttachment(
+            auth.clientId,
+            auth.userId,
+            req.params.id,
+            { dataBase64: dataBase64 ?? '', mimeType, fileName, caption },
+            auth.username,
+          );
+          res.json({ message });
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
     r.post('/webchat/conversations/:id/close', requireCapability(Cap.WEBCHAT_REPLY), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -4973,6 +5149,21 @@ export class DashboardService {
           req.params.id,
           auth.userId,
         );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/webchat/conversations/:id/escalate', requireCapability(Cap.WEBCHAT_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { departmentId, reason } = req.body as { departmentId?: string; reason?: string };
+        await WebChatService.getInstance().escalateToQueue(auth.clientId, req.params.id, {
+          departmentId,
+          userId: auth.userId,
+          reason,
+        });
         res.json({ ok: true });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });

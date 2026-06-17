@@ -8,6 +8,7 @@ import {
   Eye,
   BarChart3,
   Sparkles,
+  Globe,
 } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
 
@@ -20,6 +21,7 @@ const LINKS = [
   { to: '/platform/inbox/respostas', label: 'Respostas', icon: Zap, cap: 'inbox:department:manage' },
   { to: '/platform/inbox/supervisor', label: 'Supervisor', icon: Eye, cap: 'inbox:supervise' },
   { to: '/platform/inbox/relatorios', label: 'Relatórios', icon: BarChart3, cap: 'inbox:reports:view' },
+  { to: '/platform/webchat', label: 'Chat do site', icon: Globe, cap: 'webchat:view' },
 ] as const
 
 interface Props {

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Send } from 'lucide-react'
+import { Paperclip, Send } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { WhatsAppEmojiPicker } from '../whatsapp/WhatsAppEmojiPicker'
 import { textareaCls } from '@/design-system'
@@ -19,6 +19,9 @@ interface Props {
   sendDisabled?: boolean
   sending?: boolean
   quickReplies?: QuickReplyItem[]
+  onImageAttach?: (file: File) => void
+  imageAttachDisabled?: boolean
+  imageAttaching?: boolean
 }
 
 export function InboxComposer({
@@ -28,8 +31,12 @@ export function InboxComposer({
   sendDisabled,
   sending,
   quickReplies = [],
+  onImageAttach,
+  imageAttachDisabled,
+  imageAttaching,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const slashMatches = useMemo(() => {
     const m = value.match(/^\/(\w*)$/i)
@@ -86,6 +93,31 @@ export function InboxComposer({
         <div className="flex-1 relative">
           <div className="absolute left-2 bottom-2 z-10 flex items-center gap-0.5">
             <WhatsAppEmojiPicker disabled={sendDisabled} onPick={insertEmoji} />
+            {onImageAttach && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) onImageAttach(file)
+                    e.target.value = ''
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={sendDisabled || imageAttachDisabled || imageAttaching}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1.5 rounded-lg text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface-muted)] disabled:opacity-40"
+                  title="Enviar imagem"
+                  aria-label="Enviar imagem"
+                >
+                  <Paperclip size={16} />
+                </button>
+              </>
+            )}
           </div>
           <textarea
             ref={textareaRef}

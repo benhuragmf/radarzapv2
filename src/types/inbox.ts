@@ -1,5 +1,5 @@
-/** Canal de origem da conversa — extensível para Cloud API */
-export type InboxChannel = 'whatsapp_qr' | 'whatsapp_cloud';
+/** Canal de origem da conversa — extensível para Cloud API e WebChat */
+export type InboxChannel = 'whatsapp_qr' | 'whatsapp_cloud' | 'webchat_site';
 
 /** Ciclo de vida da conversa no RadarZap Inbox */
 export enum InboxConversationStatus {

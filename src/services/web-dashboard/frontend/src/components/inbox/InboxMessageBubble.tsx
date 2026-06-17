@@ -6,6 +6,7 @@ export interface InboxMessageView {
   body: string
   mediaType?: InboxMessageMediaType
   mediaUrl?: string
+  mediaSrc?: string
   mediaMime?: string
   createdAt: string
 }
@@ -41,7 +42,7 @@ interface Props {
 export function InboxMessageBubble({ message: m }: Props) {
   const isOut = m.direction === 'outbound'
   const isSystem = m.direction === 'system'
-  const mediaSrc = m.mediaUrl ? inboxMediaSrc(m.mediaUrl) : null
+  const mediaSrc = m.mediaSrc ?? (m.mediaUrl ? inboxMediaSrc(m.mediaUrl) : null)
 
   return (
     <div

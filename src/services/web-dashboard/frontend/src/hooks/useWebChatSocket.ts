@@ -44,11 +44,12 @@ function maybeBrowserNotify(body?: string) {
 
 export function useWebChatSocket(
   enabled: boolean,
-  options?: { onInboundChime?: boolean; notifyBrowser?: boolean },
+  options?: { onInboundChime?: boolean; notifyBrowser?: boolean; syncInbox?: boolean },
 ) {
   const qc = useQueryClient()
   const chime = options?.onInboundChime !== false
   const notifyBrowser = options?.notifyBrowser === true
+  const syncInbox = options?.syncInbox === true
 
   useEffect(() => {
     if (!enabled) return
@@ -66,11 +67,25 @@ export function useWebChatSocket(
       qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
       qc.invalidateQueries({ queryKey: ['webchat-stats'] })
       qc.invalidateQueries({ queryKey: ['webchat-conversation', payload.conversationId] })
+      if (syncInbox) {
+        qc.invalidateQueries({ queryKey: ['inbox-conversations'] })
+        qc.invalidateQueries({
+          queryKey: ['inbox-conversation', `wc:${payload.conversationId}`],
+        })
+      }
     }
 
-    const onConversation = () => {
+    const onConversation = (payload?: { conversationId?: string }) => {
       qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
       qc.invalidateQueries({ queryKey: ['webchat-stats'] })
+      if (syncInbox) {
+        qc.invalidateQueries({ queryKey: ['inbox-conversations'] })
+        if (payload?.conversationId) {
+          qc.invalidateQueries({
+            queryKey: ['inbox-conversation', `wc:${payload.conversationId}`],
+          })
+        }
+      }
     }
 
     socket.on('webchat:message', onMessage)
@@ -80,5 +95,5 @@ export function useWebChatSocket(
       socket.off('webchat:message', onMessage)
       socket.off('webchat:conversation', onConversation)
     }
-  }, [enabled, chime, notifyBrowser, qc])
+  }, [enabled, chime, notifyBrowser, syncInbox, qc])
 }

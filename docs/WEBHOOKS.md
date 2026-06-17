@@ -24,6 +24,9 @@ Painel: **Configurações → Webhooks** (`/settings#api-webhooks`)
 | `inbox.conversation.resolved` | Atendente finalizou conversa |
 | `inbox.conversation.closed` | Conversa encerrada por inatividade (`/enc` ou timeout automático) |
 | `inbox.csat.rated` | Cliente respondeu pesquisa CSAT (1–5) após encerramento |
+| `webchat.message.received` | Visitante enviou mensagem no chat do site |
+| `webchat.conversation.escalated` | Conversa WebChat encaminhada para fila humana |
+| `webchat.conversation.closed` | Conversa WebChat encerrada pelo atendente |
 
 ## Payload
 

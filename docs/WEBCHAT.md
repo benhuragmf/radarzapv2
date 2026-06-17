@@ -78,8 +78,94 @@ Por widget, em **Widgets → Resposta automática**:
 
 `GET /webchat/ai-status` — disponibilidade da IA para o widget.
 
+## Fila e setores (2.9.6)
+
+Estado da conversa (`queueStatus`):
+
+| Valor | Significado |
+|-------|-------------|
+| `bot` | Bot/IA ou aguardando primeira interação humana |
+| `waiting_human` | Na fila para atendente |
+| `with_agent` | Atendente assumiu (primeira resposta humana) |
+
+- **Setor padrão** no widget (`defaultDepartmentId`) — usado na escalação manual ou automática.
+- **Escalação manual:** `POST /webchat/conversations/:id/escalate` — body opcional `{ departmentId, reason }`.
+- **Escalação IA:** quando a auto-resposta com IA retorna `shouldEscalate`, a conversa vai para `waiting_human` após a mensagem.
+- **Stats:** `GET /webchat/stats` inclui `waitingQueueCount`.
+- **Painel:** aba **Na fila**, botão **Encaminhar para fila**, badges de setor.
+
+## Horário comercial (2.9.7)
+
+- Por padrão o widget **herda o horário do Inbox** (`useInboxBusinessHours: true`).
+- Opção de horário **próprio** no editor do widget (dias, fuso, mensagem fora do horário).
+- API pública: `GET .../config` retorna `isOnline`, `businessHoursEnabled`, `outsideHoursMessage`, `scheduleSummary`.
+- Fora do horário: visitante pode enviar mensagem; recebe aviso automático (sem auto-resposta/IA).
+- Widget exibe faixa **Fora do horário** no painel do visitante.
+
+## Status da fila no widget (2.9.8)
+
+- Sessão pública retorna `queueStatus` e `departmentName` (`POST …/sessions`, `GET …/sessions/messages`).
+- Widget exibe faixas: **Aguardando atendente** (`waiting_human`) e **Atendente conectado** (`with_agent`).
+- Atualização em tempo real via socket `webchat:conversation` / `webchat:message`.
+
+## Webhooks (2.9.8)
+
+| Evento | Quando |
+|--------|--------|
+| `webchat.message.received` | Visitante envia mensagem |
+| `webchat.conversation.escalated` | Conversa vai para fila humana |
+| `webchat.conversation.closed` | Atendente encerra conversa |
+
+Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
+
+## Ponte com o Inbox (2.9.9)
+
+- **Inbox** exibe banner e métrica **Chat do site** quando há conversas na fila (filtradas pelos setores do atendente).
+- Menu **Atendimento** inclui atalho **Chat do site** ao lado do Inbox.
+- Escalação dispara evento de painel `webchat:escalated` (som + sino de notificações) com link direto.
+- `GET /webchat/stats` retorna `myWaitingQueueCount` (fila visível ao usuário logado).
+- Deep link: `/platform/webchat?filter=queue&conv={id}`.
+
+## Lista unificada no Inbox (2.10.0)
+
+- `GET /inbox/conversations?channel=whatsapp|webchat|all` — mescla WhatsApp + chat do site.
+- IDs WebChat no Inbox: prefixo `wc:` (ex.: `wc:64f…`).
+- Detalhe, resposta e finalizar via rotas do Inbox (`/inbox/conversations/wc:…/reply|resolve`).
+- Filtros de canal **Todos / WhatsApp / Site** na lista do Inbox.
+- Status mapeados: `bot_triage`, `waiting_queue`, `in_progress`, `closed`.
+
+## Round-robin na fila (2.10.1)
+
+- Ao escalar para humano, se `InboxSettings.roundRobinEnabled`, sugere atendente online do setor (`suggestedUserId`, `suggestedAt`).
+- Mesmas regras do Inbox WhatsApp: **Aceitar** (prioridade), **Puxar** (timeout/ocupado/offline), **Assumir** (fila aberta).
+- `POST /inbox/conversations/wc:{id}/assign` — aceitar/puxar/assumir conversa do site.
+- Resposta do agente exige conversa assumida (`waiting_human` bloqueia envio direto).
+- Evento de painel `inbox:priority` com link para o Inbox unificado.
+
+## Anexos no widget (2.10.2)
+
+- Visitante envia **imagens** (JPEG, PNG, WebP — máx. 5 MB) pelo botão 📎 no widget.
+- `POST /api/webchat/public/messages/attachment` — corpo JSON `{ dataBase64, mimeType?, fileName? }`.
+- `GET /api/webchat/public/media/:filename?v={visitorToken}` — exibição no widget.
+- Painel: `GET /api/webchat/media/:clientId/:filename` (auth `webchat:view`).
+- Mensagens guardam `mediaType`, `mediaUrl`, `mediaMime`, `mediaFileName` em `WebChatMessage`.
+- Armazenamento em `data/webchat-media/{clientId}/`.
+
+## Anexos do atendente (2.10.3)
+
+- Atendente envia **imagens** pelo botão 📎 no painel (página WebChat e Inbox unificado).
+- `POST /webchat/conversations/:id/messages/attachment` — auth `webchat:reply`.
+- `POST /inbox/conversations/wc:{id}/reply/attachment` — mesmo payload JSON do visitante.
+- Visitante vê a imagem no widget em tempo real (socket + `mediaType: image`).
+
+## PDF e legenda (2.10.4)
+
+- **PDF** aceito no widget visitante e no painel (máx. 5 MB, validação `%PDF-`).
+- `mediaType: document` em mensagens com link para download/visualização.
+- Campo opcional **`caption`** no payload de anexo — texto da mensagem (máx. 500 caracteres).
+- No painel: texto do composer vira legenda ao clicar em 📎 (WebChat e Inbox).
+
 ## Próximos passos (roadmap)
 
-- Unificar com Inbox (mesma fila/setores).
-- Escalação IA → notificar agentes no painel.
-- Horário de atendimento / offline.
+- Áudio e outros formatos no widget.
+- Arrastar-e-soltar arquivos no widget.

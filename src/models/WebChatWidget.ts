@@ -1,6 +1,14 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import type { WebChatWidgetAppearance } from '../types/webchat';
-import { DEFAULT_WEBCHAT_APPEARANCE, DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE } from '../types/webchat';
+import {
+  DEFAULT_WEBCHAT_APPEARANCE,
+  DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE,
+  DEFAULT_WEBCHAT_OUTSIDE_HOURS_MESSAGE,
+} from '../types/webchat';
+import {
+  DEFAULT_INBOX_WEEKLY_SCHEDULE,
+  type InboxWeeklySchedule,
+} from '../types/inbox-settings';
 
 export interface IWebChatWidget extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -13,6 +21,12 @@ export interface IWebChatWidget extends Document {
   autoReplyMessage: string;
   autoReplySenderName: string;
   autoReplyUseAi: boolean;
+  defaultDepartmentId?: mongoose.Types.ObjectId;
+  useInboxBusinessHours: boolean;
+  businessHoursEnabled: boolean;
+  timezone: string;
+  schedule: InboxWeeklySchedule;
+  outsideHoursMessage: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +56,19 @@ const WebChatWidgetSchema = new Schema<IWebChatWidget>(
     autoReplyMessage: { type: String, default: DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE, maxlength: 500 },
     autoReplySenderName: { type: String, default: 'Assistente virtual', maxlength: 80 },
     autoReplyUseAi: { type: Boolean, default: false },
+    defaultDepartmentId: { type: Schema.Types.ObjectId, ref: 'InboxDepartment' },
+    useInboxBusinessHours: { type: Boolean, default: true },
+    businessHoursEnabled: { type: Boolean, default: false },
+    timezone: { type: String, default: 'America/Sao_Paulo' },
+    schedule: {
+      type: Schema.Types.Mixed,
+      default: () => ({ ...DEFAULT_INBOX_WEEKLY_SCHEDULE }),
+    },
+    outsideHoursMessage: {
+      type: String,
+      default: DEFAULT_WEBCHAT_OUTSIDE_HOURS_MESSAGE,
+      maxlength: 800,
+    },
   },
   { timestamps: true, collection: 'webChatWidgets' },
 );

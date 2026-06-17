@@ -1,13 +1,64 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Globe, MessageSquare, Plus, Copy, Trash2, Send, XCircle, Save, ExternalLink, RotateCcw } from 'lucide-react'
+import { Globe, MessageSquare, Plus, Copy, Trash2, Send, XCircle, Save, ExternalLink, RotateCcw, ArrowUpRight, UserCheck, Hand, Paperclip } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
+import { cn } from '@/lib/utils'
+import { webChatMediaSrc } from '../../lib/webchatInbox'
+import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
+
+type Weekday =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday'
+
+interface DaySchedule {
+  enabled: boolean
+  start: string
+  end: string
+}
+
+type WeeklySchedule = Record<Weekday, DaySchedule>
+
+const WEEKDAYS: Weekday[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+]
+
+const DEFAULT_WEEKLY_SCHEDULE: WeeklySchedule = {
+  monday: { enabled: true, start: '09:00', end: '18:00' },
+  tuesday: { enabled: true, start: '09:00', end: '18:00' },
+  wednesday: { enabled: true, start: '09:00', end: '18:00' },
+  thursday: { enabled: true, start: '09:00', end: '18:00' },
+  friday: { enabled: true, start: '09:00', end: '18:00' },
+  saturday: { enabled: false, start: '09:00', end: '13:00' },
+  sunday: { enabled: false, start: '09:00', end: '13:00' },
+}
+
+const WEEKDAY_LABEL: Record<Weekday, string> = {
+  monday: 'Segunda',
+  tuesday: 'Terça',
+  wednesday: 'Quarta',
+  thursday: 'Quinta',
+  friday: 'Sexta',
+  saturday: 'Sábado',
+  sunday: 'Domingo',
+}
 
 interface WebChatWidgetRow {
   id: string
@@ -28,6 +79,18 @@ interface WebChatWidgetRow {
   autoReplyMessage: string
   autoReplySenderName: string
   autoReplyUseAi: boolean
+  defaultDepartmentId?: string | null
+  useInboxBusinessHours: boolean
+  businessHoursEnabled: boolean
+  timezone: string
+  schedule: WeeklySchedule
+  outsideHoursMessage: string
+}
+
+interface InboxDepartmentOption {
+  id: string
+  name: string
+  isActive?: boolean
 }
 
 interface WebChatConversationRow {
@@ -40,6 +103,16 @@ interface WebChatConversationRow {
   lastMessagePreview?: string
   unreadCount?: number
   widgetName?: string
+  queueStatus?: 'bot' | 'waiting_human' | 'with_agent'
+  departmentId?: string
+  departmentName?: string
+  assignedUserId?: string
+  assignedUserName?: string
+  suggestedUserId?: string
+  suggestedUserName?: string
+  priorityForMe?: boolean
+  canAccept?: boolean
+  canPull?: boolean
 }
 
 interface WebChatMessageRow {
@@ -48,10 +121,20 @@ interface WebChatMessageRow {
   body: string
   createdAt: string
   senderName?: string
+  mediaType?: 'image' | 'document'
+  mediaUrl?: string
+  mediaFileName?: string
 }
 
 type Tab = 'chats' | 'widgets'
-type ChatFilter = 'open' | 'closed'
+type ChatFilter = 'open' | 'closed' | 'queue'
+
+function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
+  if (status === 'waiting_human') return 'Na fila'
+  if (status === 'with_agent') return 'Com atendente'
+  if (status === 'bot') return 'Bot/IA'
+  return null
+}
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
@@ -60,16 +143,19 @@ function embedSnippet(publicKey: string) {
 
 export default function WebChat() {
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>('chats')
   const [chatFilter, setChatFilter] = useState<ChatFilter>('open')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [newWidgetName, setNewWidgetName] = useState('Site principal')
+  const [escalateDeptId, setEscalateDeptId] = useState('')
 
   const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
   const canView = can(me ?? null, 'webchat:view')
   const canManage = can(me ?? null, 'webchat:manage')
   const canReply = can(me ?? null, 'webchat:reply')
+  const canInbox = can(me ?? null, 'inbox:view')
 
   const { data: widgets, isLoading: loadingWidgets } = useQuery({
     queryKey: ['webchat-widgets'],
@@ -79,15 +165,41 @@ export default function WebChat() {
 
   const { data: stats } = useQuery({
     queryKey: ['webchat-stats'],
-    queryFn: () => api.get<{ openCount: number; unreadCount: number }>('/webchat/stats'),
+    queryFn: () =>
+      api.get<{
+        openCount: number
+        unreadCount: number
+        waitingQueueCount: number
+        myWaitingQueueCount?: number
+      }>('/webchat/stats'),
     enabled: canView,
     refetchInterval: 30_000,
   })
 
+  useEffect(() => {
+    const filter = searchParams.get('filter')
+    const conv = searchParams.get('conv')
+    if (filter === 'queue' || filter === 'open' || filter === 'closed') {
+      setChatFilter(filter)
+      setTab('chats')
+    }
+    if (conv) setSelectedId(conv)
+  }, [searchParams])
+
+  const { data: departments = [] } = useQuery({
+    queryKey: ['inbox-departments', 'webchat'],
+    queryFn: () => api.get<InboxDepartmentOption[]>('/inbox/departments'),
+    enabled: canInbox,
+  })
+
+  const conversationsUrl = useMemo(() => {
+    if (chatFilter === 'queue') return '/webchat/conversations?status=open&queueStatus=waiting_human'
+    return `/webchat/conversations?status=${chatFilter}`
+  }, [chatFilter])
+
   const { data: conversations, isLoading: loadingConversations } = useQuery({
     queryKey: ['webchat-conversations', chatFilter],
-    queryFn: () =>
-      api.get<WebChatConversationRow[]>(`/webchat/conversations?status=${chatFilter}`),
+    queryFn: () => api.get<WebChatConversationRow[]>(conversationsUrl),
     enabled: canView,
     refetchInterval: 30_000,
   })
@@ -140,6 +252,21 @@ export default function WebChat() {
     onError: mutationError,
   })
 
+  const sendAttachment = useMutation({
+    mutationFn: async ({ file, caption }: { file: File; caption?: string }) => {
+      const payload = await readWebChatAttachmentFile(file, caption)
+      return api.post(`/webchat/conversations/${selectedId}/messages/attachment`, payload)
+    },
+    onSuccess: () => {
+      setDraft('')
+      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
+      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
+    },
+    onError: mutationError,
+  })
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const closeChat = useMutation({
     mutationFn: () => api.post(`/webchat/conversations/${selectedId}/close`, {}),
     onSuccess: () => {
@@ -163,8 +290,43 @@ export default function WebChat() {
     onError: mutationError,
   })
 
+  const escalateChat = useMutation({
+    mutationFn: () =>
+      api.post(`/webchat/conversations/${selectedId}/escalate`, {
+        departmentId: escalateDeptId || undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
+      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
+      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
+      notifySuccess('Conversa encaminhada para a fila')
+    },
+    onError: mutationError,
+  })
+
+  const assignChat = useMutation({
+    mutationFn: () => api.post(`/inbox/conversations/wc:${selectedId}/assign`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
+      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
+      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
+      notifySuccess('Conversa assumida')
+    },
+    onError: mutationError,
+  })
+
   const selected = detail?.conversation
   const messages = detail?.messages ?? []
+  const canAgentReply =
+    canReply &&
+    selected?.status === 'open' &&
+    selected.queueStatus === 'with_agent' &&
+    (!selected.assignedUserId || selected.assignedUserId === me?.userId)
+  const showAssignPull =
+    canReply &&
+    selected?.status === 'open' &&
+    selected.queueStatus === 'waiting_human' &&
+    Boolean(selected.canAccept || selected.canPull)
 
   const sortedConversations = useMemo(
     () => [...(conversations ?? [])].sort((a, b) => {
@@ -248,6 +410,8 @@ export default function WebChat() {
                 <WidgetEditorCard
                   key={w.id}
                   widget={w}
+                  departments={departments}
+                  canPickDepartment={canInbox}
                   onDelete={() => deleteWidget.mutate(w.id)}
                   deleting={deleteWidget.isPending}
                 />
@@ -272,9 +436,16 @@ export default function WebChat() {
                     {stats!.unreadCount} nova(s)
                   </span>
                 )}
-                {chatFilter === 'open' ? 'Abertas' : 'Encerradas'} ({sortedConversations.length})
+                {(stats?.myWaitingQueueCount ?? stats?.waitingQueueCount ?? 0) > 0 && chatFilter !== 'queue' && (
+                  <span className="mr-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">
+                    {stats!.myWaitingQueueCount ?? stats!.waitingQueueCount} na fila
+                  </span>
+                )}
+                {chatFilter === 'open' && 'Abertas'}
+                {chatFilter === 'closed' && 'Encerradas'}
+                {chatFilter === 'queue' && 'Na fila'} ({sortedConversations.length})
               </div>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 <Button
                   type="button"
                   size="sm"
@@ -282,6 +453,19 @@ export default function WebChat() {
                   onClick={() => setChatFilter('open')}
                 >
                   Abertas
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={chatFilter === 'queue' ? 'primary' : 'secondary'}
+                  onClick={() => setChatFilter('queue')}
+                >
+                  Na fila
+                  {(stats?.myWaitingQueueCount ?? stats?.waitingQueueCount ?? 0) > 0 && (
+                    <span className="ml-1 rounded-full bg-amber-500 px-1.5 text-[10px] text-white">
+                      {stats!.myWaitingQueueCount ?? stats!.waitingQueueCount}
+                    </span>
+                  )}
                 </Button>
                 <Button
                   type="button"
@@ -320,12 +504,28 @@ export default function WebChat() {
                       <div className="mt-1 truncate text-xs text-[var(--rz-text-muted)]">
                         {c.lastMessagePreview || 'Sem mensagens'}
                       </div>
+                      {(queueStatusLabel(c.queueStatus) || c.departmentName) && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {queueStatusLabel(c.queueStatus) && (
+                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                              {queueStatusLabel(c.queueStatus)}
+                            </span>
+                          )}
+                          {c.departmentName && (
+                            <span className="rounded bg-[var(--rz-surface-muted)] px-1.5 py-0.5 text-[10px] text-[var(--rz-text-muted)]">
+                              {c.departmentName}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </button>
                   </li>
                 ))}
                 {!sortedConversations.length && (
                   <li className="px-4 py-6 text-sm text-[var(--rz-text-muted)]">
-                    {chatFilter === 'open' ? 'Nenhuma conversa aberta.' : 'Nenhuma conversa encerrada.'}
+                    {chatFilter === 'open' && 'Nenhuma conversa aberta.'}
+                    {chatFilter === 'queue' && 'Nenhuma conversa na fila.'}
+                    {chatFilter === 'closed' && 'Nenhuma conversa encerrada.'}
                   </li>
                 )}
               </ul>
@@ -359,31 +559,112 @@ export default function WebChat() {
                         Página de origem
                       </a>
                     )}
+                    {(queueStatusLabel(selected?.queueStatus) || selected?.departmentName) && (
+                      <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                        {queueStatusLabel(selected?.queueStatus) && (
+                          <span className="rounded bg-amber-500/15 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
+                            {queueStatusLabel(selected?.queueStatus)}
+                          </span>
+                        )}
+                        {selected?.departmentName && (
+                          <span className="text-[var(--rz-text-muted)]">Setor: {selected.departmentName}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {canReply && selected?.status === 'open' && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => closeChat.mutate()}
-                      disabled={closeChat.isPending}
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Encerrar
-                    </Button>
-                  )}
-                  {canReply && selected?.status === 'closed' && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => reopenChat.mutate()}
-                      disabled={reopenChat.isPending}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Reabrir
-                    </Button>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {showAssignPull && selected?.priorityForMe && selected.canAccept && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => assignChat.mutate()}
+                        disabled={assignChat.isPending}
+                        className="bg-yellow-600 hover:bg-yellow-500 text-[var(--rz-on-accent)]"
+                      >
+                        <UserCheck className="h-4 w-4" />
+                        Aceitar
+                      </Button>
+                    )}
+                    {showAssignPull && !selected?.priorityForMe && selected?.canPull && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => assignChat.mutate()}
+                        disabled={assignChat.isPending}
+                      >
+                        <Hand className="h-4 w-4" />
+                        Puxar
+                      </Button>
+                    )}
+                    {showAssignPull &&
+                      !selected?.priorityForMe &&
+                      selected?.canAccept &&
+                      !selected?.suggestedUserId && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => assignChat.mutate()}
+                          disabled={assignChat.isPending}
+                        >
+                          <UserCheck className="h-4 w-4" />
+                          Assumir
+                        </Button>
+                      )}
+                    {canReply && selected?.status === 'open' && selected.queueStatus !== 'waiting_human' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {canInbox && departments.length > 0 && (
+                          <select
+                            className={inputCls + ' !w-auto text-xs'}
+                            value={escalateDeptId}
+                            onChange={e => setEscalateDeptId(e.target.value)}
+                          >
+                            <option value="">Setor padrão do widget</option>
+                            {departments.map(d => (
+                              <option key={d.id} value={d.id}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => escalateChat.mutate()}
+                          disabled={escalateChat.isPending}
+                        >
+                          <ArrowUpRight className="h-4 w-4" />
+                          Encaminhar para fila
+                        </Button>
+                      </div>
+                    )}
+                    {canReply && selected?.status === 'open' && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => closeChat.mutate()}
+                        disabled={closeChat.isPending}
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Encerrar
+                      </Button>
+                    )}
+                    {canReply && selected?.status === 'closed' && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => reopenChat.mutate()}
+                        disabled={reopenChat.isPending}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Reabrir
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 space-y-2 overflow-auto p-4">
@@ -407,7 +688,38 @@ export default function WebChat() {
                         {m.direction === 'outbound' && m.senderName && (
                           <div className="mb-1 text-[10px] font-medium opacity-80">{m.senderName}</div>
                         )}
-                        <div className="whitespace-pre-wrap">{m.body}</div>
+                        {m.mediaType === 'image' && m.mediaUrl && (
+                          <a
+                            href={webChatMediaSrc(m.mediaUrl)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mb-1 block"
+                          >
+                            <img
+                              src={webChatMediaSrc(m.mediaUrl)}
+                              alt={m.mediaFileName ?? m.body}
+                              className="max-h-64 max-w-full rounded-lg object-contain"
+                            />
+                          </a>
+                        )}
+                        {m.mediaType === 'document' && m.mediaUrl && (
+                          <a
+                            href={webChatMediaSrc(m.mediaUrl)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mb-1 block text-sm underline"
+                          >
+                            📎 {m.mediaFileName ?? 'Documento PDF'}
+                          </a>
+                        )}
+                        {!(m.mediaUrl && (m.mediaType === 'image' || m.mediaType === 'document')) && (
+                          <div className="whitespace-pre-wrap">{m.body}</div>
+                        )}
+                        {m.mediaUrl &&
+                          m.body &&
+                          !m.body.startsWith('📎') && (
+                            <div className="mt-1 whitespace-pre-wrap">{m.body}</div>
+                          )}
                         <div className="mt-1 text-[10px] opacity-70">
                           {new Date(m.createdAt).toLocaleString()}
                         </div>
@@ -416,7 +728,7 @@ export default function WebChat() {
                   ))}
                 </div>
 
-                {canReply && selected?.status === 'open' && (
+                {canAgentReply && selected?.status === 'open' && (
                   <form
                     className="flex gap-2 border-t border-[var(--rz-border)] p-3"
                     onSubmit={e => {
@@ -426,10 +738,30 @@ export default function WebChat() {
                     }}
                   >
                     <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (file) sendAttachment.mutate({ file, caption: draft.trim() || undefined })
+                        e.target.value = ''
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={sendAttachment.isPending}
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Enviar imagem"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+                    <input
                       className={inputCls}
                       value={draft}
                       onChange={e => setDraft(e.target.value)}
-                      placeholder="Responder visitante..."
+                      placeholder="Responder visitante… (texto vira legenda ao anexar)"
                     />
                     <Button type="submit" disabled={sendMessage.isPending || !draft.trim()}>
                       <Send className="h-4 w-4" />
@@ -447,10 +779,14 @@ export default function WebChat() {
 
 function WidgetEditorCard({
   widget,
+  departments,
+  canPickDepartment,
   onDelete,
   deleting,
 }: {
   widget: WebChatWidgetRow
+  departments: InboxDepartmentOption[]
+  canPickDepartment: boolean
   onDelete: () => void
   deleting: boolean
 }) {
@@ -477,6 +813,12 @@ function WidgetEditorCard({
         autoReplyMessage: form.autoReplyMessage,
         autoReplySenderName: form.autoReplySenderName,
         autoReplyUseAi: form.autoReplyUseAi,
+        defaultDepartmentId: form.defaultDepartmentId || null,
+        useInboxBusinessHours: form.useInboxBusinessHours,
+        businessHoursEnabled: form.businessHoursEnabled,
+        timezone: form.timezone,
+        schedule: form.schedule,
+        outsideHoursMessage: form.outsideHoursMessage,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
@@ -487,6 +829,19 @@ function WidgetEditorCard({
 
   const snippet = embedSnippet(widget.publicKey)
   const demoUrl = `/webchat/demo.html?key=${encodeURIComponent(widget.publicKey)}`
+
+  const patchDay = (day: Weekday, field: 'enabled' | 'start' | 'end', value: boolean | string) => {
+    setForm(f => ({
+      ...f,
+      schedule: {
+        ...(f.schedule ?? DEFAULT_WEEKLY_SCHEDULE),
+        [day]: {
+          ...(f.schedule?.[day] ?? DEFAULT_WEEKLY_SCHEDULE[day]),
+          [field]: value,
+        },
+      },
+    }))
+  }
 
   return (
     <Card className="p-4">
@@ -621,6 +976,108 @@ function WidgetEditorCard({
           />
           Pedir e-mail antes do chat
         </label>
+        {canPickDepartment && (
+          <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
+            Setor padrão na escalação (opcional)
+            <select
+              className={inputCls + ' mt-1'}
+              value={form.defaultDepartmentId ?? ''}
+              onChange={e =>
+                setForm(f => ({
+                  ...f,
+                  defaultDepartmentId: e.target.value || null,
+                }))
+              }
+            >
+              <option value="">Nenhum — fila geral</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[10px] text-[var(--rz-text-muted)]">
+              Usado ao encaminhar para humano (manual ou pela IA).
+            </span>
+          </label>
+        )}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
+        <h4 className="text-sm font-semibold text-[var(--rz-text)]">Horário de atendimento</h4>
+        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+          Fora do horário o visitante ainda pode enviar mensagens e recebe aviso automático.
+        </p>
+        <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
+          <input
+            type="checkbox"
+            checked={form.useInboxBusinessHours}
+            onChange={e => setForm(f => ({ ...f, useInboxBusinessHours: e.target.checked }))}
+          />
+          Usar horário do Inbox WhatsApp
+        </label>
+        {!form.useInboxBusinessHours && (
+          <div className="mt-3 space-y-3">
+            <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
+              <input
+                type="checkbox"
+                checked={form.businessHoursEnabled}
+                onChange={e => setForm(f => ({ ...f, businessHoursEnabled: e.target.checked }))}
+              />
+              Ativar horário comercial neste widget
+            </label>
+            <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+              Fuso horário
+              <input
+                className={inputCls + ' mt-1'}
+                value={form.timezone}
+                onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
+                placeholder="America/Sao_Paulo"
+              />
+            </label>
+            <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+              Mensagem fora do horário
+              <textarea
+                className={textareaCls + ' mt-1'}
+                rows={2}
+                value={form.outsideHoursMessage}
+                onChange={e => setForm(f => ({ ...f, outsideHoursMessage: e.target.value }))}
+              />
+            </label>
+            <div className="space-y-1">
+              {WEEKDAYS.map(day => (
+                <div
+                  key={day}
+                  className="flex flex-wrap items-center gap-3 border-b border-[var(--rz-border)]/80 py-2 last:border-0"
+                >
+                  <label className="flex w-28 items-center gap-2 text-sm text-[var(--rz-text)]">
+                    <input
+                      type="checkbox"
+                      checked={form.schedule?.[day]?.enabled ?? false}
+                      onChange={e => patchDay(day, 'enabled', e.target.checked)}
+                    />
+                    {WEEKDAY_LABEL[day]}
+                  </label>
+                  <input
+                    type="time"
+                    className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
+                    value={form.schedule?.[day]?.start ?? '09:00'}
+                    disabled={!form.schedule?.[day]?.enabled}
+                    onChange={e => patchDay(day, 'start', e.target.value)}
+                  />
+                  <span className="text-xs text-[var(--rz-text-muted)]">até</span>
+                  <input
+                    type="time"
+                    className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
+                    value={form.schedule?.[day]?.end ?? '18:00'}
+                    disabled={!form.schedule?.[day]?.enabled}
+                    onChange={e => patchDay(day, 'end', e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">

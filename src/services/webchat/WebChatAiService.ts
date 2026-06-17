@@ -37,7 +37,7 @@ export class WebChatAiService {
     clientId: string,
     conversationId: string,
     opts: { visitorName?: string; visitorEmail?: string },
-  ): Promise<{ body: string; senderName: string } | null> {
+  ): Promise<{ body: string; senderName: string; shouldEscalate?: boolean } | null> {
     const availability = await this.getAvailability(clientId);
     if (!availability.available) return null;
 
@@ -97,6 +97,7 @@ export class WebChatAiService {
       return {
         body: reply,
         senderName: blueprint.agentName?.trim() || 'Assistente IA',
+        shouldEscalate: Boolean(result.structured.shouldEscalate),
       };
     } catch {
       return null;

@@ -6,6 +6,7 @@ export type PanelEventType =
   | 'inbox:priority'
   | 'inbox:priority_expired'
   | 'inbox:queue_sla'
+  | 'webchat:escalated'
   | 'whatsapp:disconnected'
   | 'whatsapp:connected';
 

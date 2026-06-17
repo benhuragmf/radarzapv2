@@ -18,6 +18,9 @@ const EVENTS = [
   'inbox.message.received',
   'inbox.conversation.resolved',
   'inbox.conversation.closed',
+  'webchat.message.received',
+  'webchat.conversation.escalated',
+  'webchat.conversation.closed',
 ] as const
 
 interface WebhookRow {

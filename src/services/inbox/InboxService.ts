@@ -2222,19 +2222,61 @@ export class InboxService {
   }
 
   /** Indica prioridade ao próximo atendente — não assume automaticamente. */
+  private async pickNextRoundRobinUser(
+    clientId: string,
+    department: IInboxDepartment,
+  ): Promise<mongoose.Types.ObjectId | { noOnline: true } | null> {
+    const settings = await loadInboxSettings(clientId);
+    if (!settings.roundRobinEnabled) return null;
+
+    const candidates = await this.resolveRoundRobinCandidates(clientId, department);
+    const onlineOnly = candidates.filter(c => isAgentOnline(clientId, c.toString()));
+    if (!onlineOnly.length) return { noOnline: true };
+
+    const lastIdx = department.lastRoundRobinIndex ?? -1;
+    const nextIdx = (lastIdx + 1) % onlineOnly.length;
+    const userId = onlineOnly[nextIdx];
+
+    department.lastRoundRobinIndex = nextIdx;
+    await department.save();
+
+    return userId;
+  }
+
+  /**
+   * Sugere atendente online (round-robin) para fila de um setor.
+   * Usado pelo WebChat e integrações externas — não altera conversa do Inbox.
+   */
+  async suggestRoundRobinAgent(
+    clientId: string,
+    departmentId: mongoose.Types.ObjectId,
+  ): Promise<
+    | { kind: 'suggested'; userId: string; agentName: string }
+    | { kind: 'no_online' }
+    | null
+  > {
+    const department = await InboxDepartment.findOne({
+      _id: departmentId,
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!department) return null;
+
+    const picked = await this.pickNextRoundRobinUser(clientId, department);
+    if (!picked) return null;
+    if (typeof picked === 'object' && 'noOnline' in picked) return { kind: 'no_online' };
+
+    const agentName = await this.resolveAgentDisplayName(picked.toString());
+    return { kind: 'suggested', userId: picked.toString(), agentName };
+  }
+
   private async tryRoundRobinSuggest(
     clientId: string,
     conversation: IInboxConversation,
     department: IInboxDepartment,
   ): Promise<mongoose.Types.ObjectId | null> {
-    const settings = await loadInboxSettings(clientId);
-    if (!settings.roundRobinEnabled) return null;
-
-    let candidates = await this.resolveRoundRobinCandidates(clientId, department);
-    if (!candidates.length) return null;
-
-    const onlineOnly = candidates.filter(c => isAgentOnline(clientId, c.toString()));
-    if (!onlineOnly.length) {
+    const picked = await this.pickNextRoundRobinUser(clientId, department);
+    if (!picked) return null;
+    if (typeof picked === 'object' && 'noOnline' in picked) {
       await this.appendSystemMessage(
         conversation,
         'Nenhum atendente online no painel — fila aberta para a equipe assumir.',
@@ -2256,12 +2298,7 @@ export class InboxService {
       return null;
     }
 
-    const lastIdx = department.lastRoundRobinIndex ?? -1;
-    const nextIdx = (lastIdx + 1) % onlineOnly.length;
-    const userId = onlineOnly[nextIdx];
-
-    department.lastRoundRobinIndex = nextIdx;
-    await department.save();
+    const userId = picked;
 
     conversation.suggestedUserId = userId;
     conversation.suggestedAt = new Date();
