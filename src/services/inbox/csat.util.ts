@@ -20,6 +20,47 @@ export function isCsatIntent(text: string): boolean {
   return /\b(quero\s+)?avaliar(\s+o\s+atendimento)?\b/.test(norm);
 }
 
+/** Novo atendimento / humano — CSAT pendente não deve bloquear o Inbox. */
+export function shouldBypassCsatForNewService(text: string): boolean {
+  if (!text.trim() || isCsatIntent(text)) return false;
+  const norm = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[!?.]+$/g, '');
+  if (!norm) return false;
+
+  const greetings = [
+    'oi',
+    'ola',
+    'bom dia',
+    'boa tarde',
+    'boa noite',
+    'hello',
+    'hi',
+    'opa',
+    'eai',
+    'e ai',
+    'novo atendimento',
+    'quero atendimento',
+    'preciso de ajuda',
+    'atendimento',
+    'pode me ajudar',
+    'voce pode me ajudar',
+    'me ajuda',
+    'ajuda',
+  ];
+  if (greetings.some(g => norm === g || norm.startsWith(`${g} `) || norm.includes(g))) {
+    return true;
+  }
+  if (/\b(falar com|quero falar|preciso falar|gostaria de)\b.*\b(atendente|humano|pessoa)\b/.test(norm)) {
+    return true;
+  }
+  if (norm === 'novo' || norm === 'novo atendimento') return true;
+  return false;
+}
+
 /** CSAT só quando não há atendimento ativo nem menu de setores em curso. */
 export function shouldDeferCsatForActiveService(opts: {
   hasOpenConversation: boolean;

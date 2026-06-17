@@ -504,9 +504,10 @@ Setores continuam em `inboxDepartments` — o menu é montado dinamicamente a pa
 | **Finalizar** no painel (`resolveConversation`) | Envia pesquisa CSAT se `csatEnabled` (antes só no encerramento automático `/enc`) |
 | Cliente responde `1`–`5` | Grava nota, agradece, webhook `inbox.csat.rated` |
 | Cliente escreve *avaliar* / *nota* / etc. | Reenvia pesquisa ou inicia CSAT na conversa recente (24 h) — **não** abre ticket |
-| CSAT pendente + texto qualquer | Lembrete *"responda só com 1 a 5"* — bloqueia captura pelo ticket |
+| CSAT pendente + nota inválida | Lembrete *"responda só com 1 a 5"* |
+| CSAT pendente + novo atendimento (*ola*, *atendimento*, *atendente*) | Limpa `csatPending` e segue para Inbox (2.8.11) |
 
-Ordem inbound: `handleTicketInboundMessage` chama `tryHandleCsatReply` **antes** de rotear ao ticket. Helpers: `parseCsatScore`, `isCsatIntent` — `src/services/inbox/csat.util.ts`.
+Ordem inbound: `handleTicketInboundMessage` chama `tryHandleCsatReply` **antes** de rotear ao ticket. Helpers: `parseCsatScore`, `isCsatIntent`, `shouldBypassCsatForNewService` — `src/services/inbox/csat.util.ts`.
 
 ## Tempo real e round-robin (Fase 3)
 

@@ -77,7 +77,7 @@ import {
   shouldAutoCloseForInactivity,
   shouldSendInactivityWarning,
 } from '@/services/inbox/inbox-inactivity';
-import { parseCsatScore, isCsatIntent, DEFAULT_CSAT_PROMPT } from '@/services/inbox/csat.util';
+import { parseCsatScore, isCsatIntent, DEFAULT_CSAT_PROMPT, shouldBypassCsatForNewService } from '@/services/inbox/csat.util';
 import {
   closedTicketReplyWindowMongoFilter,
   isClosedTicketReplyWindowActive,
@@ -3750,6 +3750,17 @@ export class InboxService {
     closedByUserId?: string,
   ): Promise<void> {
     if (!settings.csatEnabled) return;
+
+    await InboxConversation.updateMany(
+      {
+        clientId: conv.clientId,
+        destinationId: conv.destinationId,
+        csatPending: true,
+        _id: { $ne: conv._id },
+      },
+      { $set: { csatPending: false } },
+    );
+
     conv.csatPending = true;
     conv.csatScore = undefined;
     conv.csatRatedAt = undefined;
@@ -3799,12 +3810,30 @@ export class InboxService {
     const settings = await loadInboxSettings(clientId);
     const score = parseCsatScore(text);
 
+    if (pendingConv && shouldBypassCsatForNewService(text)) {
+      await InboxConversation.updateMany(
+        { clientId: clientOid, destinationId, csatPending: true },
+        { $set: { csatPending: false } },
+      );
+      return false;
+    }
+
     if (pendingConv) {
       if (score) {
         pendingConv.csatPending = false;
         pendingConv.csatScore = score;
         pendingConv.csatRatedAt = new Date();
         await pendingConv.save();
+
+        await InboxConversation.updateMany(
+          {
+            clientId: clientOid,
+            destinationId,
+            csatPending: true,
+            _id: { $ne: pendingConv._id },
+          },
+          { $set: { csatPending: false } },
+        );
 
         const thanks = settings.csatThankYou?.trim() || 'Obrigado pela sua avaliação!';
         await this.sendToContact(clientId, dest.identifier, thanks);

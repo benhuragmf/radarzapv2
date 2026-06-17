@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.8.10` (`package.json`) · **Última revisão doc:** 2026-06-15
+**Versão atual:** `2.8.11` (`package.json`) · **Última revisão doc:** 2026-06-16
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -45,6 +45,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.8.8** | Fix CSAT: pesquisa ao **Finalizar** (`resolveConversation`); `"avaliar"` não abre ticket; CSAT tem prioridade sobre ticket; status `resolved` + `closed` — ver `INBOX-ATENDIMENTO.md` § CSAT |
 | **2.8.9** | Fix ticket: janela 12 h só renova em envio **via Ticket** (`sendTicketMessageToClient`); inbox/finalizar/CSAT não reativam TK antigo — ver `TICKET-ATENDIMENTO.md` § Janela de retorno |
 | **2.8.10** | Ticket fechado: janela exige `lastTeamMessageAt` recente (ignora `clientReplyExpiresAt` inflado pelo inbox pré-2.8.9) — `ticket-reply-window.util.ts` |
+| **2.8.11** | Fix CSAT: *ola* / novo atendimento libera Inbox com `csatPending`; só uma pesquisa pendente por contato — ver `INBOX-ATENDIMENTO.md` § CSAT |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 

@@ -1,4 +1,4 @@
-import { parseCsatScore, shouldDeferCsatForActiveService, isCsatIntent } from '../csat.util';
+import { parseCsatScore, shouldDeferCsatForActiveService, isCsatIntent, shouldBypassCsatForNewService } from '../csat.util';
 
 describe('csat.util', () => {
   it('aceita 1-5', () => {
@@ -28,5 +28,13 @@ describe('csat.util', () => {
     expect(isCsatIntent('Avaliar')).toBe(true);
     expect(isCsatIntent('quero avaliar o atendimento')).toBe(true);
     expect(isCsatIntent('preciso falar com o comercial')).toBe(false);
+  });
+
+  it('libera inbox quando cliente pede novo atendimento com CSAT pendente', () => {
+    expect(shouldBypassCsatForNewService('Ola')).toBe(true);
+    expect(shouldBypassCsatForNewService('gostaria de atendimento')).toBe(true);
+    expect(shouldBypassCsatForNewService('falar com atendente')).toBe(true);
+    expect(shouldBypassCsatForNewService('avaliar')).toBe(false);
+    expect(shouldBypassCsatForNewService('3')).toBe(false);
   });
 });
