@@ -1,6 +1,6 @@
 # RadarZap v2 — completude do sistema e roadmap
 
-> **Versão ref:** `2.8.11` · **Última revisão:** 2026-06-17  
+> **Versão ref:** `2.9.1` · **Última revisão:** 2026-06-17  
 > **Fase atual:** **estabilização do produto** — **não** preparação de produção nem go-live.
 
 | Fase | Documento | Quando |
@@ -113,6 +113,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | 14 | E2E | 🟡 smoke | 6 testes — login/PWA apenas |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
+| 17 | **WebChat (site)** | ✅ **2.9.0** | Widget embed + painel; editor 2.9.1 — ver `WEBCHAT.md` |
 
 ---
 
@@ -134,6 +135,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 - Design system 2.8.x
 - RBAC, equipe, setores internos, consentimento LGPD base
 - Campanhas, Discord, integrações API, OpenAPI
+- **WebChat** embedável (widget + console painel) — `WEBCHAT.md`
 - Docker monolito + `deploy.yml` **documentados** (não validados em servidor)
 
 ---

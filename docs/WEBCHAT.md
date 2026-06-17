@@ -16,10 +16,25 @@ Widget embedável para sites externos, com atendimento em tempo real no painel R
 ## Embed no site
 
 1. Painel → **Atendimento → Chat do site** → aba **Widgets** → criar widget.
-2. Copiar o snippet:
+2. Copiar o snippet ou abrir **Testar** no painel → `/webchat/demo.html?key=wck_...`
 
 ```html
 <script src="https://SEU-PAINEL/webchat/widget.js" data-widget-key="wck_..." async></script>
+```
+
+Em dev (`npm run dev` + `dashboard:frontend`), o Vite faz proxy de `/webchat` para a API (`:3001`).
+
+### Páginas de teste (dev)
+
+| URL | Uso |
+|-----|-----|
+| `http://localhost:5174/webchat/widget.html` | Página fixa com chave de dev embutida (editável via `?key=`) |
+| `http://localhost:5174/webchat/demo.html?key=wck_...` | Demo genérica — exige `key` na URL |
+
+Snippet equivalente ao `widget.html`:
+
+```html
+<script src="http://localhost:5174/webchat/widget.js" data-widget-key="wck_..." async></script>
 ```
 
 3. Opcional: `data-base-url="https://SEU-PAINEL"` se o script for servido de outro host.

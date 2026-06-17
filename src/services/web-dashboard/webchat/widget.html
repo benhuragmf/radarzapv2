@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RadarZap WebChat — teste local</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 16px 24px;
+    }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    header p { margin: 6px 0 0; font-size: 0.875rem; color: #64748b; }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 24px 140px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      word-break: break-all;
+    }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Página de teste — WebChat RadarZap</h1>
+    <p>Widget carregado via script embed (dev: Vite :5174 com proxy → API :3001)</p>
+  </header>
+  <main>
+    <div class="card">
+      <p>
+        Use o botão <strong>💬</strong> no canto da tela. Requer <code>npm run dev</code> e
+        <code>npm run dashboard:frontend</code> rodando.
+      </p>
+      <p>
+        Chave: <code id="widget-key-label"></code>
+      </p>
+      <p>
+        Outra chave: <code>?key=wck_...</code> na URL substitui a padrão.
+      </p>
+    </div>
+    <div class="card">
+      <p><strong>Painel:</strong> <a href="http://localhost:5174/platform/webchat" target="_blank" rel="noreferrer">Chat do site</a></p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var DEFAULT_KEY = 'wck_a1677053ed6af040a3706f86a96ce97d';
+      var params = new URLSearchParams(location.search);
+      var key = params.get('key') || DEFAULT_KEY;
+      var label = document.getElementById('widget-key-label');
+      if (label) label.textContent = key;
+
+      var origin = location.origin;
+      var script = document.createElement('script');
+      script.src = origin + '/webchat/widget.js';
+      script.setAttribute('data-widget-key', key);
+      script.setAttribute('data-base-url', origin);
+      script.async = true;
+      document.body.appendChild(script);
+    })();
+  </script>
+</body>
+</html>

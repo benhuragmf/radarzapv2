@@ -73,6 +73,7 @@ export default defineConfig({
         target: API_TARGET,
         ws: true,
       },
+      '/webchat': createApiProxy(),
     },
   },
 })

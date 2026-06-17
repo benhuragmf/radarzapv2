@@ -349,6 +349,12 @@ export class DashboardService {
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.sendFile(path.join(__dirname, 'webchat', 'widget.js'));
     });
+    this.app.get('/webchat/demo.html', (_req, res) => {
+      res.sendFile(path.join(__dirname, 'webchat', 'demo.html'));
+    });
+    this.app.get('/webchat/widget.html', (_req, res) => {
+      res.sendFile(path.join(__dirname, 'webchat', 'widget.html'));
+    });
 
     this.app.use('/api', sanitizeInput);
 
