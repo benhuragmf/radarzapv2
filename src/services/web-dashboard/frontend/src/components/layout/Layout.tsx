@@ -10,6 +10,7 @@ import { GuildContext } from '../../lib/guildContext'
 import { NavModeContext } from '../../lib/navModeContext'
 import { detectNavMode, type NavMode } from '../../lib/navConfig'
 import { EventNotificationProvider } from '../../context/EventNotificationContext'
+import { WebChatGlobalListener } from '../webchat/WebChatGlobalListener'
 
 interface Props {
   user: AuthUser
@@ -30,6 +31,7 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
 
   return (
     <EventNotificationProvider user={user}>
+      <WebChatGlobalListener user={user} />
       <NavModeContext.Provider value={navMode}>
         <GuildContext.Provider value={{ guildId: guild?.id ?? null, guildName: guild?.name ?? null }}>
           {sidebarOpen && (

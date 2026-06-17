@@ -4941,6 +4941,20 @@ export class DashboardService {
       }
     });
 
+    r.post('/webchat/conversations/:id/reopen', requireCapability(Cap.WEBCHAT_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await WebChatService.getInstance().reopenConversation(
+          auth.clientId,
+          req.params.id,
+          auth.userId,
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     this.app.use('/api', r);
 
     this.app.use((err: { type?: string; status?: number; statusCode?: number; message?: string }, _req: express.Request, res: express.Response, next: express.NextFunction) => {

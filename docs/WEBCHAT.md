@@ -57,6 +57,10 @@ Snippet equivalente ao `widget.html`:
 - Abas **Abertas** / **Encerradas** na lista de conversas.
 - Contador de não lidas (`GET /webchat/stats`).
 - Som discreto ao receber mensagem do visitante (socket).
+- **Reabrir** conversa encerrada (`POST /webchat/conversations/:id/reopen`).
+- Indicador âmbar no menu **Chat do site** quando há não lidas (2.9.3).
+- Notificação do navegador fora da página WebChat (2.9.3).
+- Atribuição automática do agente na primeira resposta (2.9.3).
 
 ## Widget visitante
 

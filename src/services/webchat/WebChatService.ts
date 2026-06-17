@@ -421,6 +421,11 @@ export class WebChatService {
     if (!conversation) throw new Error('Conversa não encontrada');
     if (conversation.status === 'closed') throw new Error('Conversa encerrada');
 
+    if (!conversation.assignedUserId) {
+      conversation.assignedUserId = userId;
+      await conversation.save();
+    }
+
     const msg = await this.appendMessage(conversation, {
       direction: 'outbound',
       body: text,
@@ -428,6 +433,44 @@ export class WebChatService {
       senderName: senderName?.trim() || 'Atendente',
     });
     return this.toMessageDto(msg);
+  }
+
+  async reopenConversation(
+    clientId: string,
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'open') throw new Error('Conversa já está aberta');
+
+    conversation.status = 'open';
+    conversation.assignedUserId = userId;
+    await conversation.save();
+
+    await this.appendMessage(conversation, {
+      direction: 'system',
+      body: 'Atendimento reaberto. Pode continuar por aqui.',
+    });
+
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    const widget = await WebChatWidget.findById(conversation.widgetId).select('name').lean();
+    const conversationDto = this.toConversationDto(conversation, widget?.name);
+
+    emitWebChatToTenant(clientIdStr, 'webchat:conversation', {
+      clientId: clientIdStr,
+      conversationId: convId,
+      conversation: conversationDto,
+    });
+    emitWebChatToVisitor(convId, 'webchat:conversation', {
+      clientId: clientIdStr,
+      conversationId: convId,
+      conversation: conversationDto,
+    });
   }
 
   async closeConversation(

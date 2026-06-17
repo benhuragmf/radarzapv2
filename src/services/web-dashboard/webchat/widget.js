@@ -270,12 +270,17 @@
         }
       });
       state.socket.on('webchat:conversation', function (payload) {
-        if (payload && payload.conversation && payload.conversation.status === 'closed') {
+        if (!payload || !payload.conversation) return;
+        if (payload.conversation.status === 'closed') {
           state.conversationStatus = 'closed';
           if (state.socket) {
             state.socket.disconnect();
             state.socket = null;
           }
+          renderBubble();
+        } else if (payload.conversation.status === 'open') {
+          state.conversationStatus = 'open';
+          connectSocket();
           renderBubble();
         }
       });

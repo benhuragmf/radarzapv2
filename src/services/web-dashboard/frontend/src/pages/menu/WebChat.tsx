@@ -5,10 +5,9 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Globe, MessageSquare, Plus, Copy, Trash2, Send, XCircle, Save, ExternalLink } from 'lucide-react'
+import { Globe, MessageSquare, Plus, Copy, Trash2, Send, XCircle, Save, ExternalLink, RotateCcw } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
-import { useWebChatSocket } from '../../hooks/useWebChatSocket'
 
 interface WebChatWidgetRow {
   id: string
@@ -68,7 +67,7 @@ export default function WebChat() {
   const canManage = can(me ?? null, 'webchat:manage')
   const canReply = can(me ?? null, 'webchat:reply')
 
-  useWebChatSocket(canView)
+  useWebChatSocket(canView, { notifyBrowser: false })
 
   const { data: widgets, isLoading: loadingWidgets } = useQuery({
     queryKey: ['webchat-widgets'],
@@ -146,6 +145,18 @@ export default function WebChat() {
       qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
       qc.invalidateQueries({ queryKey: ['webchat-stats'] })
       notifySuccess('Conversa encerrada')
+    },
+    onError: mutationError,
+  })
+
+  const reopenChat = useMutation({
+    mutationFn: () => api.post(`/webchat/conversations/${selectedId}/reopen`, {}),
+    onSuccess: () => {
+      setChatFilter('open')
+      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
+      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
+      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
+      notifySuccess('Conversa reaberta')
     },
     onError: mutationError,
   })
@@ -357,6 +368,18 @@ export default function WebChat() {
                     >
                       <XCircle className="h-4 w-4" />
                       Encerrar
+                    </Button>
+                  )}
+                  {canReply && selected?.status === 'closed' && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => reopenChat.mutate()}
+                      disabled={reopenChat.isPending}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Reabrir
                     </Button>
                   )}
                 </div>

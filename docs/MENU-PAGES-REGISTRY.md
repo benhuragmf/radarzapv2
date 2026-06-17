@@ -24,7 +24,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
 | `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` |
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |
-| `/platform/webchat` | `menu/WebChat.tsx` | `GET/POST/PATCH/DELETE /webchat/widgets`, `GET /webchat/conversations`, `POST .../messages`, `POST .../close` · API pública `/api/webchat/public/*` · doc `WEBCHAT.md` |
+| `/platform/webchat` | `menu/WebChat.tsx` | `GET/POST/PATCH/DELETE /webchat/widgets`, `GET /webchat/stats`, `GET /webchat/conversations`, `POST …/messages`, `POST …/close`, `POST …/reopen` · API pública `/api/webchat/public/*` · doc `WEBCHAT.md` |
 
 ## Integrações API
 
