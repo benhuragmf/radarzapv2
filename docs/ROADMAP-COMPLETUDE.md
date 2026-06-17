@@ -113,7 +113,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | 14 | E2E | 🟡 smoke | 6 testes — login/PWA apenas |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
-| 17 | **WebChat (site)** | ✅ **2.9.0** | Widget embed + painel; editor 2.9.1 — ver `WEBCHAT.md` |
+| 17 | **WebChat (site)** | ✅ **2.9.4** | Widget embed + painel + auto-reply — ver `WEBCHAT.md` |
 
 ---
 

@@ -10,6 +10,11 @@ import {
   type WebChatWidgetAppearance,
 } from '../../types/webchat';
 import {
+  DEFAULT_AUTO_REPLY_MESSAGE,
+  shouldSendWebChatAutoReply,
+  WEBCHAT_BOT_SENDER_ID,
+} from './webchat-bot.util';
+import {
   generateWebChatPublicKey,
   generateWebChatVisitorToken,
   hashWebChatVisitorToken,
@@ -58,6 +63,9 @@ export class WebChatService {
       active?: boolean;
       allowedDomains?: string[];
       appearance?: Partial<WebChatWidgetAppearance>;
+      autoReplyEnabled?: boolean;
+      autoReplyMessage?: string;
+      autoReplySenderName?: string;
     },
   ): Promise<IWebChatWidget | null> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
@@ -72,6 +80,13 @@ export class WebChatService {
     }
     if (patch.appearance) {
       existing.appearance = { ...existing.appearance, ...patch.appearance };
+    }
+    if (patch.autoReplyEnabled !== undefined) existing.autoReplyEnabled = patch.autoReplyEnabled;
+    if (patch.autoReplyMessage !== undefined) {
+      existing.autoReplyMessage = patch.autoReplyMessage.trim();
+    }
+    if (patch.autoReplySenderName !== undefined) {
+      existing.autoReplySenderName = patch.autoReplySenderName.trim();
     }
     await existing.save();
     return existing;
@@ -401,7 +416,48 @@ export class WebChatService {
       direction: 'inbound',
       body: text,
     });
+    await this.maybeAutoReply(conversation, widget);
     return this.toMessageDto(msg);
+  }
+
+  private async maybeAutoReply(
+    conversation: IWebChatConversation,
+    widget: IWebChatWidget,
+  ): Promise<void> {
+    const [hasHumanOutbound, hasBotOutbound] = await Promise.all([
+      WebChatMessage.exists({
+        conversationId: conversation._id,
+        direction: 'outbound',
+        senderUserId: { $exists: true, $nin: [null, '', WEBCHAT_BOT_SENDER_ID] },
+      }),
+      WebChatMessage.exists({
+        conversationId: conversation._id,
+        direction: 'outbound',
+        senderUserId: WEBCHAT_BOT_SENDER_ID,
+      }),
+    ]);
+
+    if (
+      !shouldSendWebChatAutoReply({
+        autoReplyEnabled: Boolean(widget.autoReplyEnabled),
+        autoReplyMessage: widget.autoReplyMessage,
+        assignedUserId: conversation.assignedUserId,
+        hasHumanOutbound: Boolean(hasHumanOutbound),
+        hasBotOutbound: Boolean(hasBotOutbound),
+      })
+    ) {
+      return;
+    }
+
+    const fresh = await WebChatConversation.findById(conversation._id);
+    if (!fresh || fresh.status === 'closed') return;
+
+    await this.appendMessage(fresh, {
+      direction: 'outbound',
+      body: (widget.autoReplyMessage ?? DEFAULT_AUTO_REPLY_MESSAGE).trim(),
+      senderUserId: WEBCHAT_BOT_SENDER_ID,
+      senderName: widget.autoReplySenderName?.trim() || 'Assistente virtual',
+    });
   }
 
   async sendAgentMessage(

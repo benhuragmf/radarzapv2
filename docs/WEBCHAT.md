@@ -65,9 +65,20 @@ Snippet equivalente ao `widget.html`:
 ## Widget visitante
 
 - Ao encerrar, exibe **Nova conversa** (limpa sessão e abre novo atendimento).
+- Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
+
+## Resposta automática (2.9.4)
+
+Por widget, em **Widgets → Resposta automática**:
+
+- Enviada **uma vez** após a primeira mensagem do visitante.
+- Desativada assim que um atendente humano responde.
+- Configurável: ativar/desativar, nome e texto.
+
+API pública com **rate limit** de mensagens (`rateLimiters.messages`).
 
 ## Próximos passos (roadmap)
 
 - Unificar com Inbox (mesma fila/setores).
-- Pré-chat customizável, horário de atendimento, bot/IA.
-- Anexos e notificações sonoras no painel.
+- IA no WebChat (reutilizar `AiSettingsService`).
+- Horário de atendimento / offline.

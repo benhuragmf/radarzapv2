@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import type { WebChatWidgetAppearance } from '../types/webchat';
-import { DEFAULT_WEBCHAT_APPEARANCE } from '../types/webchat';
+import { DEFAULT_WEBCHAT_APPEARANCE, DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE } from '../types/webchat';
 
 export interface IWebChatWidget extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -9,6 +9,9 @@ export interface IWebChatWidget extends Document {
   active: boolean;
   allowedDomains: string[];
   appearance: WebChatWidgetAppearance;
+  autoReplyEnabled: boolean;
+  autoReplyMessage: string;
+  autoReplySenderName: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +37,9 @@ const WebChatWidgetSchema = new Schema<IWebChatWidget>(
     active: { type: Boolean, default: true, index: true },
     allowedDomains: { type: [String], default: [] },
     appearance: { type: AppearanceSchema, default: () => ({ ...DEFAULT_WEBCHAT_APPEARANCE }) },
+    autoReplyEnabled: { type: Boolean, default: true },
+    autoReplyMessage: { type: String, default: DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE, maxlength: 500 },
+    autoReplySenderName: { type: String, default: 'Assistente virtual', maxlength: 80 },
   },
   { timestamps: true, collection: 'webChatWidgets' },
 );

@@ -342,6 +342,7 @@ export class DashboardService {
     this.app.use(
       '/api/webchat/public',
       cors({ origin: true, methods: ['GET', 'POST', 'OPTIONS'] }),
+      rateLimiters.messages,
       createWebChatPublicRouter(),
     );
     this.app.get('/webchat/widget.js', (_req, res) => {
@@ -4804,6 +4805,9 @@ export class DashboardService {
             active: w.active,
             allowedDomains: w.allowedDomains ?? [],
             appearance: w.appearance,
+            autoReplyEnabled: w.autoReplyEnabled ?? true,
+            autoReplyMessage: w.autoReplyMessage,
+            autoReplySenderName: w.autoReplySenderName,
             createdAt: w.createdAt,
             updatedAt: w.updatedAt,
           })),
@@ -4834,6 +4838,9 @@ export class DashboardService {
           active: widget.active,
           allowedDomains: widget.allowedDomains,
           appearance: widget.appearance,
+          autoReplyEnabled: widget.autoReplyEnabled,
+          autoReplyMessage: widget.autoReplyMessage,
+          autoReplySenderName: widget.autoReplySenderName,
         });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
@@ -4856,6 +4863,9 @@ export class DashboardService {
           active: widget.active,
           allowedDomains: widget.allowedDomains,
           appearance: widget.appearance,
+          autoReplyEnabled: widget.autoReplyEnabled,
+          autoReplyMessage: widget.autoReplyMessage,
+          autoReplySenderName: widget.autoReplySenderName,
         });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });

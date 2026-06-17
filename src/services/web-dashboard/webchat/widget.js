@@ -161,6 +161,12 @@
               ? primaryColor()
               : '#e5e7eb';
         var color = m.direction === 'inbound' ? '#fff' : '#111827';
+        var nameLabel =
+          m.direction === 'outbound' && m.senderName
+            ? '<div style="font-size:10px;font-weight:600;opacity:.85;margin-bottom:4px;">' +
+              escHtml(m.senderName) +
+              '</div>'
+            : '';
         return (
           '<div style="display:flex;justify-content:' +
           align +
@@ -170,6 +176,7 @@
           ';color:' +
           color +
           ';font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word;">' +
+          nameLabel +
           escHtml(m.body) +
           '<div style="font-size:10px;opacity:.7;margin-top:4px;">' +
           formatTime(m.createdAt) +

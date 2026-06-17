@@ -24,6 +24,9 @@ interface WebChatWidgetRow {
     askName: boolean
     askEmail: boolean
   }
+  autoReplyEnabled: boolean
+  autoReplyMessage: string
+  autoReplySenderName: string
 }
 
 interface WebChatConversationRow {
@@ -400,6 +403,9 @@ export default function WebChat() {
                               : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text)]')
                         }
                       >
+                        {m.direction === 'outbound' && m.senderName && (
+                          <div className="mb-1 text-[10px] font-medium opacity-80">{m.senderName}</div>
+                        )}
                         <div className="whitespace-pre-wrap">{m.body}</div>
                         <div className="mt-1 text-[10px] opacity-70">
                           {new Date(m.createdAt).toLocaleString()}
@@ -461,6 +467,9 @@ function WidgetEditorCard({
         active: form.active,
         allowedDomains: form.allowedDomains,
         appearance: form.appearance,
+        autoReplyEnabled: form.autoReplyEnabled,
+        autoReplyMessage: form.autoReplyMessage,
+        autoReplySenderName: form.autoReplySenderName,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
@@ -604,6 +613,38 @@ function WidgetEditorCard({
             }
           />
           Pedir e-mail antes do chat
+        </label>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
+        <h4 className="text-sm font-semibold text-[var(--rz-text)]">Resposta automática</h4>
+        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+          Enviada uma vez após a primeira mensagem do visitante, até um atendente responder.
+        </p>
+        <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
+          <input
+            type="checkbox"
+            checked={form.autoReplyEnabled}
+            onChange={e => setForm(f => ({ ...f, autoReplyEnabled: e.target.checked }))}
+          />
+          Ativar resposta automática
+        </label>
+        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+          Nome exibido
+          <input
+            className={inputCls + ' mt-1'}
+            value={form.autoReplySenderName}
+            onChange={e => setForm(f => ({ ...f, autoReplySenderName: e.target.value }))}
+          />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+          Mensagem
+          <textarea
+            className={textareaCls + ' mt-1'}
+            rows={2}
+            value={form.autoReplyMessage}
+            onChange={e => setForm(f => ({ ...f, autoReplyMessage: e.target.value }))}
+          />
         </label>
       </div>
 

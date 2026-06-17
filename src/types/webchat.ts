@@ -24,6 +24,9 @@ export const DEFAULT_WEBCHAT_APPEARANCE: WebChatWidgetAppearance = {
   askEmail: false,
 };
 
+export const DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE =
+  'Recebemos sua mensagem! Um atendente responderá em breve.';
+
 export interface WebChatPublicConfig {
   publicKey: string;
   title: string;
