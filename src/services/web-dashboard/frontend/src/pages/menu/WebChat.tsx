@@ -67,8 +67,6 @@ export default function WebChat() {
   const canManage = can(me ?? null, 'webchat:manage')
   const canReply = can(me ?? null, 'webchat:reply')
 
-  useWebChatSocket(canView, { notifyBrowser: false })
-
   const { data: widgets, isLoading: loadingWidgets } = useQuery({
     queryKey: ['webchat-widgets'],
     queryFn: () => api.get<WebChatWidgetRow[]>('/webchat/widgets'),
