@@ -17,6 +17,7 @@
  */
 
 import express, { Express, Request, Response, NextFunction } from 'express';
+import cors from 'cors';
 import { Server as SocketIOServer } from 'socket.io';
 import { createServer, Server as HTTPServer } from 'http';
 import session, { Store } from 'express-session';
@@ -90,6 +91,9 @@ import { RuleGroupBlockService } from '../rules/RuleGroupBlockService';
 import { InboxService } from '../inbox/InboxService';
 import { setInboxSocketServer } from '../inbox/InboxRealtime';
 import { setPanelSocketServer } from '../inbox/PanelNotifications';
+import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
+import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
+import { WebChatService } from '../webchat/WebChatService';
 import {
   agentPresenceConnect,
   agentPresenceDisconnect,
@@ -188,7 +192,14 @@ export class DashboardService {
     ].filter(Boolean);
     this.io = new SocketIOServer(this.server, {
       cors: {
-        origin: allowedSocketOrigins,
+        origin: (origin, callback) => {
+          if (!origin || allowedSocketOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+          }
+          // Widget embed em sites externos — visitante autentica com webchatVisitorToken
+          callback(null, true);
+        },
         credentials: true,
       },
     });
@@ -327,6 +338,18 @@ export class DashboardService {
 
     /** VCF/CSV com milhares de contatos; padrão Express é 100kb */
     this.app.use(express.json({ limit: '16mb' }));
+
+    this.app.use(
+      '/api/webchat/public',
+      cors({ origin: true, methods: ['GET', 'POST', 'OPTIONS'] }),
+      createWebChatPublicRouter(),
+    );
+    this.app.get('/webchat/widget.js', (_req, res) => {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.sendFile(path.join(__dirname, 'webchat', 'widget.js'));
+    });
+
     this.app.use('/api', sanitizeInput);
 
     // Session middleware — custom Redis store using ioredis (survives restarts)
@@ -385,7 +408,27 @@ export class DashboardService {
 
     this.app.use(sessionMiddleware);
     this.io.engine.use(sessionMiddleware);
-    this.io.use((socket, next) => {
+    this.io.use(async (socket, next) => {
+      const visitorToken = socket.handshake.auth?.webchatVisitorToken as string | undefined;
+      if (visitorToken?.startsWith('wcv_')) {
+        try {
+          const conversation = await WebChatService.getInstance().resolveVisitorToken(visitorToken);
+          if (!conversation) {
+            next(new Error('Unauthorized'));
+            return;
+          }
+          const convId = String(conversation._id);
+          socket.data.webchatConversationId = convId;
+          socket.data.webchatClientId = String(conversation.clientId);
+          await socket.join(`webchat:conv:${convId}`);
+          next();
+          return;
+        } catch {
+          next(new Error('Unauthorized'));
+          return;
+        }
+      }
+
       const sess = (socket.request as typeof socket.request & { session?: { userId?: string } }).session;
       if (config.NODE_ENV !== 'production' || sess?.userId) {
         next();
@@ -4742,6 +4785,146 @@ export class DashboardService {
       }
     });
 
+    // ── WebChat (chat do site) ─────────────────────────────────────────────
+    r.get('/webchat/widgets', requireCapability(Cap.WEBCHAT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const widgets = await WebChatService.getInstance().listWidgets(auth.clientId);
+        res.json(
+          widgets.map(w => ({
+            id: String(w._id),
+            name: w.name,
+            publicKey: w.publicKey,
+            active: w.active,
+            allowedDomains: w.allowedDomains ?? [],
+            appearance: w.appearance,
+            createdAt: w.createdAt,
+            updatedAt: w.updatedAt,
+          })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/webchat/widgets', requireCapability(Cap.WEBCHAT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { name, allowedDomains, appearance } = req.body as {
+          name?: string;
+          allowedDomains?: string[];
+          appearance?: Record<string, unknown>;
+        };
+        if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+        const widget = await WebChatService.getInstance().createWidget(auth.clientId, {
+          name,
+          allowedDomains,
+          appearance: appearance as never,
+        });
+        res.status(201).json({
+          id: String(widget._id),
+          name: widget.name,
+          publicKey: widget.publicKey,
+          active: widget.active,
+          allowedDomains: widget.allowedDomains,
+          appearance: widget.appearance,
+        });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/webchat/widgets/:id', requireCapability(Cap.WEBCHAT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const widget = await WebChatService.getInstance().updateWidget(
+          auth.clientId,
+          req.params.id,
+          req.body as never,
+        );
+        if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
+        res.json({
+          id: String(widget._id),
+          name: widget.name,
+          publicKey: widget.publicKey,
+          active: widget.active,
+          allowedDomains: widget.allowedDomains,
+          appearance: widget.appearance,
+        });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/webchat/widgets/:id', requireCapability(Cap.WEBCHAT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const ok = await WebChatService.getInstance().deleteWidget(auth.clientId, req.params.id);
+        if (!ok) return res.status(404).json({ error: 'Widget não encontrado' });
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/webchat/conversations', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const status = (req.query as { status?: string }).status;
+        const conversations = await WebChatService.getInstance().listConversations(auth.clientId, {
+          status: status === 'open' || status === 'closed' ? status : undefined,
+        });
+        res.json(conversations);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/webchat/conversations/:id', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const detail = await WebChatService.getInstance().getConversationForAgent(
+          auth.clientId,
+          req.params.id,
+        );
+        if (!detail) return res.status(404).json({ error: 'Conversa não encontrada' });
+        res.json(detail);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/webchat/conversations/:id/messages', requireCapability(Cap.WEBCHAT_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { body } = req.body as { body?: string };
+        const message = await WebChatService.getInstance().sendAgentMessage(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+          body ?? '',
+          auth.username,
+        );
+        res.json({ message });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/webchat/conversations/:id/close', requireCapability(Cap.WEBCHAT_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await WebChatService.getInstance().closeConversation(
+          auth.clientId,
+          req.params.id,
+          auth.userId,
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     this.app.use('/api', r);
 
     this.app.use((err: { type?: string; status?: number; statusCode?: number; message?: string }, _req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -4768,6 +4951,7 @@ export class DashboardService {
   private setupSocket(): void {
     setInboxSocketServer(this.io);
     setPanelSocketServer(this.io);
+    setWebChatSocketServer(this.io);
     const orgSvc = OrganizationService.getInstance();
 
     this.io.on('connection', async socket => {

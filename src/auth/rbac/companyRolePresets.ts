@@ -71,6 +71,12 @@ export const TENANT_ASSIGNABLE_CAPABILITIES: Capability[] = [
 
   Cap.INBOX_SUPERVISE,
 
+  Cap.WEBCHAT_VIEW,
+
+  Cap.WEBCHAT_REPLY,
+
+  Cap.WEBCHAT_MANAGE,
+
   Cap.WHATSAPP_SESSION_VIEW,
 
   Cap.WHATSAPP_SESSION_MANAGE,
@@ -264,6 +270,18 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       Cap.INBOX_REPORTS_VIEW,
 
     ],
+
+  },
+
+  {
+
+    id: 'webchat',
+
+    label: 'Chat do site',
+
+    description: 'Widget embedável e atendimento no site',
+
+    capabilities: [Cap.WEBCHAT_VIEW, Cap.WEBCHAT_REPLY, Cap.WEBCHAT_MANAGE],
 
   },
 

@@ -51,6 +51,7 @@ import InboxQuickReplies from './pages/menu/InboxQuickReplies'
 import InboxTickets from './pages/menu/InboxTickets'
 import InboxTicketDetail from './pages/menu/InboxTicketDetail'
 import InboxSupervisor from './pages/menu/InboxSupervisor'
+import WebChat from './pages/menu/WebChat'
 import AdminMonitoring from './pages/menu/AdminMonitoring'
 import AdminErrors from './pages/menu/AdminErrors'
 import AdminServers from './pages/menu/AdminServers'
@@ -199,6 +200,7 @@ export default function App() {
           <Route path="platform/inbox/respostas" element={<Guard user={user} path="/platform/inbox/respostas"><InboxQuickReplies /></Guard>} />
           <Route path="platform/inbox/tickets" element={<Guard user={user} path="/platform/inbox/tickets"><InboxTickets /></Guard>} />
           <Route path="platform/inbox/tickets/:ref" element={<Guard user={user} path="/platform/inbox/tickets"><InboxTicketDetail /></Guard>} />
+          <Route path="platform/webchat" element={<Guard user={user} path="/platform/webchat"><WebChat /></Guard>} />
           <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
           <Route path="platform/fila" element={<Guard user={user} path="/platform/fila"><Queue scope="tenant" /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />

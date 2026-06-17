@@ -4,7 +4,7 @@ import {
   ListOrdered, ScrollText, Send, Crown, Settings, Shield, Server, History,
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
-  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3, Ticket, Clock, Sparkles,
+  UserCog, Lock, Database, Building2, Circle, MessageSquare, Bot, Eye, BarChart3, Ticket, Clock, Sparkles, Globe,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -95,6 +95,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   link('inbox-quick-replies', 'Respostas rápidas', Zap, '/platform/inbox/respostas', 'inbox:department:manage'),
   link('inbox-supervisor', 'Supervisor', Eye, '/platform/inbox/supervisor', 'inbox:supervise'),
   link('inbox-reports', 'Relatórios Inbox', BarChart3, '/platform/inbox/relatorios', 'inbox:reports:view'),
+  link('webchat', 'Chat do site', Globe, '/platform/webchat', 'webchat:view'),
 
   section('sec-contatos', 'Contatos'),
   group('grp-contatos', 'Contatos', Users, [
@@ -400,6 +401,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/inbox/respostas': 'inbox:department:manage',
   '/platform/inbox/supervisor': 'inbox:supervise',
   '/platform/inbox/relatorios': 'inbox:reports:view',
+  '/platform/webchat': 'webchat:view',
   '/platform/contacts': 'consent:view',
   '/integrations/playground': 'send:test',
   '/sessions': 'whatsapp:session:view',
@@ -476,6 +478,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/inbox/respostas': 'Respostas rápidas',
   '/platform/inbox/supervisor': 'Supervisor',
   '/platform/inbox/relatorios': 'Relatórios de atendimento',
+  '/platform/webchat': 'Chat do site',
   '/platform/contacts': 'Importar / Exportar',
   '/integrations/playground': 'Playground',
   '/sessions': 'Sessões e QR Code',

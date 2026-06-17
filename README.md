@@ -128,7 +128,7 @@ flowchart TB
 | `WebhookDispatcherService` | — | Entrega assíncrona de webhooks outbound |
 | `APIGateway` | `:3000` (opcional) | Gateway HTTP legado — não necessário no monolito |
 
-> **Produção:** ver [docs/PRODUCTION.md](docs/PRODUCTION.md) — monolito Docker (`docker/Dockerfile.monolith`) ou PM2 + nginx.
+> **Produção:** ver [docs/PREPARACAO-PRODUCAO.md](docs/PREPARACAO-PRODUCAO.md) — monolito Docker (`docker/Dockerfile.monolith`) ou PM2 + nginx. Atalho go-live: [docs/PRODUCTION.md](docs/PRODUCTION.md).
 
 ---
 
@@ -518,7 +518,7 @@ Todos os scripts definidos em `package.json` e sua função.
 | `docker-compose.deploy.yml` | Monolito com imagem GHCR (`RADARZAP_IMAGE`) |
 | `docker/Dockerfile.monolith` | Multi-stage: frontend Vite + backend TS → imagem única |
 
-**Deploy automático:** GitHub Actions `.github/workflows/deploy.yml` — build → GHCR → SSH. Secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH`, `MONGO_PASSWORD`. Guia: [docs/PRODUCTION.md](docs/PRODUCTION.md).
+**Deploy automático:** GitHub Actions `.github/workflows/deploy.yml` — build → GHCR → SSH. Secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH`, `MONGO_PASSWORD`. Guia: [docs/PREPARACAO-PRODUCAO.md](docs/PREPARACAO-PRODUCAO.md).
 
 ---
 
@@ -649,7 +649,7 @@ Copie `.env.example` → `.env`.
 | `WHATSAPP_CLOUD_VERIFY_TOKEN` | Verificação webhook GET |
 | `WHATSAPP_DEFAULT_CHANNEL` | `baileys` (padrão) ou `cloud` |
 
-Lista completa: `.env.example` · Produção: [docs/PRODUCTION.md](docs/PRODUCTION.md)
+Lista completa: `.env.example` · Servidor/deploy: [docs/PREPARACAO-PRODUCAO.md](docs/PREPARACAO-PRODUCAO.md)
 
 ---
 
@@ -752,7 +752,8 @@ radarzapv2/
 | [docs/MENUS-SISTEMA.md](docs/MENUS-SISTEMA.md) | Menus UX (Plataforma / Discord / Admin) |
 | [docs/MENU-PAGES-REGISTRY.md](docs/MENU-PAGES-REGISTRY.md) | Mapa rota → componente → API |
 | [docs/RADARZAP-V2-MIGRACAO.md](docs/RADARZAP-V2-MIGRACAO.md) | Diferenças v1/v2 |
-| [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, staging→prod, Cloud API §7 |
+| [docs/PREPARACAO-PRODUCAO.md](docs/PREPARACAO-PRODUCAO.md) | Servidor, deploy, staging, prod, smoke, rollback, Cloud API |
+| [docs/PRODUCTION.md](docs/PRODUCTION.md) | Atalho go-live → aponta para PREPARACAO-PRODUCAO |
 | [docs/BILLING.md](docs/BILLING.md) | Stripe, webhooks, planos |
 | [docs/WEBHOOKS.md](docs/WEBHOOKS.md) | Webhooks outbound e eventos |
 | [docs/INBOX-ATENDIMENTO.md](docs/INBOX-ATENDIMENTO.md) | Inbox, tickets assíncronos (12h / `sair`), setores, bot, CSAT |

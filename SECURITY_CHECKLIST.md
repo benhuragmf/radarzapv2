@@ -67,4 +67,4 @@ Use antes de **deploy staging/prod** e em revisões trimestrais.
 
 ---
 
-**Última revisão:** 2026-06-09 · Ver também `docs/PRODUCTION.md` §2
+**Última revisão:** 2026-06-16 · Detalhes completos em `docs/PREPARACAO-PRODUCAO.md` (§ Checkup de segurança, § Smoke)

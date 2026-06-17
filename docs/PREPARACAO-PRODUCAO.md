@@ -1,11 +1,10 @@
 # RadarZap v2 — preparação para produção
 
-> **Documento de trabalho contínuo durante o desenvolvimento.**  
-> Aqui ficam servidores, env, segurança, mudanças no código/config e checklists — tudo que **já dá para preparar antes** do go-live.
+> **Referência de servidor e deploy** — infra, env, segurança, staging, go-live, smoke e rollback.  
+> **⚠️ Fase atual do projeto (2.8.11): estabilização do produto** — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Gate Estabilização.  
+> **Não execute** checklist de VPS/deploy até o produto passar no QA WhatsApp e no gate da Fase 1.
 
-**Quando o sistema estiver 100% pronto:** executar o runbook enxuto em [`PRODUCTION.md`](./PRODUCTION.md) (gate §0 + comandos de deploy).
-
-**Versão ref:** `2.7.1` · **Última revisão:** 2026-06-10
+**Versão ref:** `2.8.11` · **Última revisão:** 2026-06-17
 
 ---
 
@@ -13,12 +12,50 @@
 
 | Documento | Quando usar |
 |-----------|-------------|
-| **`PREPARACAO-PRODUCAO.md`** (este) | **Agora** — infra, env, segurança, validação local |
-| **`PRODUCTION.md`** | **Só no go-live** — comandos de deploy no dedicado |
-| `ROADMAP-COMPLETUDE.md` | Lacunas e prioridades antes do release |
+| **`ROADMAP-COMPLETUDE.md`** | **Agora** — fase atual, estabilização, QA, lacunas |
+| **`PREPARACAO-PRODUCAO.md`** (este) | **Depois do gate Fase 1** — servidor, deploy, env, segurança |
+| **`PRODUCTION.md`** | Go-live — atalho após staging |
 | `SISTEMA-REGISTRO.md` | Versão e changelog |
 | `TICKET-ATENDIMENTO.md`, `INBOX-ATENDIMENTO.md` | Comportamento do produto |
 | `WEBHOOKS.md`, `BILLING.md` | Contratos de integração |
+| `SECURITY_CHECKLIST.md` | Resumo de segurança (detalhes aqui § Checkup) |
+
+---
+
+## WhatsApp Cloud API (Meta) — Fase 2 produto (não bloqueia estabilização Baileys)
+
+Canal Enterprise; Baileys continua padrão até implementação completa.
+
+**Pré-requisitos:** Business verificado, app Live, WABA, webhook HTTPS, token permanente.
+
+**Env plataforma:** `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN`, `WHATSAPP_CLOUD_API_VERSION`.
+
+**Webhook:** `GET/POST …/api/integrations/whatsapp/cloud/webhook` — body raw + `X-Hub-Signature-256`.
+
+**Por org (Mongo):** `wabaId`, `phoneNumberId`, `accessToken` criptografado.
+
+Arquitetura alvo: `BaileysProvider` | `CloudApiProvider` → mesmo contrato Inbox/campanhas.
+
+**Estado atual (2.8.11):** stub de verificação GET; POST retorna 503 — ingestão pendente.
+
+Checklist Cloud API, migração Baileys→Cloud e dev com ngrok: `INBOX-ATENDIMENTO.md` fase 5 e `ROADMAP-COMPLETUDE.md`.
+
+---
+
+## Gate — antes de qualquer deploy no servidor (Fase 3)
+
+**Pré-requisito:** [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Gate § Estabilização **concluído**.
+
+Só subir staging/prod quando **todos** estiverem ok:
+
+- [ ] **`npm test`** + **`npm run build`** (backend e frontend) sem erro
+- [ ] **CI verde** em `main` (`test`, `backend-build`, `frontend-build`, E2E)
+- [ ] **Smoke manual local** (login, Inbox, WA, ticket, billing teste)
+- [ ] Checklist **§ Infra preparatório** e **§ Checkup de segurança** abaixo
+- [ ] Roadmap sem bloqueador crítico para o release
+- [ ] **Tag semver** (`v2.x.x`) + changelog `SISTEMA-REGISTRO.md` alinhados ao commit (recomendado em prod)
+
+**Ordem:** dev estável → **staging** → smoke staging → **produção**.
 
 ---
 
@@ -29,14 +66,23 @@
 | SO | Ubuntu 22.04 LTS |
 | RAM | 4 GB+ (Baileys + filas BullMQ) |
 | Disco | SSD; espaço para `sessions/`, `media/`, Mongo, Redis |
-| Rede | IP fixo; portas **443** (HTTPS) públicas; **3001/27017/6379 só localhost/VPC** |
+| Rede | IP fixo; porta **443** (HTTPS) pública; **3001/27017/6379 só localhost/VPC** |
 | Software | Docker + Compose **ou** Node 20 LTS + PM2 + nginx/Caddy |
+
+### Onde **não** hospedar
+
+| Opção | Motivo |
+|-------|--------|
+| Cloudflare Workers/Pages sozinhos | Sem processo Node 24/7, sem Mongo/Redis, sem Baileys |
+| Free tier que “dorme” | WhatsApp e filas BullMQ exigem processo contínuo |
+
+Cloudflare **grátis** serve como **DNS + SSL + Tunnel** na frente de um VPS/PC — não substitui o servidor.
 
 ### Diretórios persistentes (VPS)
 
 ```text
 /opt/radarzap/
-  app/              ← repo ou só compose + scripts
+  app/              ← repo ou compose + scripts
   data/sessions/    ← volume WA (crítico)
   data/media/
   logs/
@@ -66,15 +112,15 @@ Docker: volumes `radarzap-sessions`, `radarzap-media`, `mongodb-data`, `redis-da
          MongoDB              Redis              sessions/ + media/
 ```
 
-Arquivos de deploy:
+### Arquivos de deploy
 
 | Arquivo | Função |
 |---------|--------|
 | `docker/Dockerfile.monolith` | Build app + frontend |
 | `docker-compose.deploy.yml` | Stack: app + Mongo + Redis |
-| `scripts/deploy-remote.sh` | Pull + compose + health |
-| `.github/workflows/deploy.yml` | GHCR + SSH |
-| `.github/workflows/ci.yml` | test + build |
+| `scripts/deploy-remote.sh` | Pull imagem + compose + health |
+| `.github/workflows/deploy.yml` | GHCR + SSH (staging/production) |
+| `.github/workflows/ci.yml` | test + build + E2E |
 
 **Dev local:** `npm run docker:infra` — **nunca** `auto-setup` em prod.
 
@@ -97,7 +143,7 @@ Staging deve espelhar produção (mesmo build, env diferente).
 
 ---
 
-## Variáveis de ambiente
+## Variáveis de ambiente (servidor)
 
 Copiar `.env.example` → `.env` no servidor. **Nunca commitar.**
 
@@ -113,19 +159,22 @@ Copiar `.env.example` → `.env` no servidor. **Nunca commitar.**
 | `ALLOW_DEV_API_KEY_BYPASS` | — | **nunca** |
 | `FRONTEND_URL` | `http://localhost:5174` | HTTPS domínio real |
 | `CORS_ORIGIN` | localhost | = `FRONTEND_URL` |
+| `COOKIE_SECURE` | `false` | `true` em prod |
+| `API_HOST` | `0.0.0.0` (dev) | `127.0.0.1` se nginx na frente |
 | `DISCORD_*` / `GOOGLE_*` | apps dev | apps prod + redirects HTTPS |
 | `LOG_FORMAT` | `pretty` | `json` |
 | `WHATSAPP_HEADLESS` | `true` | `true` |
 | `STRIPE_*` | test | live em prod |
 | `RESEND_API_KEY` / `SMTP_*` | log console | domínio verificado |
 | `WEBHOOK_*` | defaults | ver `WEBHOOKS.md` |
-| `META_*` / `WHATSAPP_CLOUD_*` | vazio | Enterprise — § Cloud API abaixo |
+| `META_*` / `WHATSAPP_CLOUD_*` | vazio | § WhatsApp Cloud API (início deste doc) |
+| `ALERT_SLACK_WEBHOOK_URL` / `SENTRY_DSN` | opcional | opcional |
 
-**GitHub Environment** (deploy): `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH`, `MONGO_PASSWORD`.
+**GitHub Environment** (deploy CI): `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH`, `MONGO_PASSWORD`.
 
 ---
 
-## Validação local (fazer agora, antes do go-live)
+## Validação local (antes de subir ao servidor)
 
 ```bash
 npm ci
@@ -143,83 +192,91 @@ NODE_ENV=production node dist/index.js
 | `vite build` frontend | ✅ |
 | E2E Playwright | ✅ |
 | Imagem Docker monolito | ✅ |
-| Deploy GHCR + SSH | ✅ (executar só no go-live) |
+| Deploy GHCR + SSH | ✅ (executar no servidor) |
 | `npm run lint` no CI | 🟡 pendente |
 
 ---
 
-## O que mudar / conferir no código e config
+## Deploy — primeira vez no VPS (Docker)
 
-Itens já implementados no código — **configurar em prod**:
+```bash
+ssh root@SEU_IP
 
-| Área | O que conferir |
-|------|----------------|
-| Auth | Cookies `secure: true`; `FRONTEND_URL` HTTPS |
-| API | Helmet, rate limit `/auth` e `/api`; `requireDashboardOrigin` em mutações |
-| Erros | `productionSafeError` — sem stack trace ao cliente |
-| Socket.IO | Rooms por `tenant:{clientId}` |
-| IDOR | Rotas filtradas por `clientId` |
-| Sessões WA | `GET /sessions/:id/connect` desabilitado em prod — usar `POST` |
-| Webhooks Stripe/Meta | Body **raw** antes de `express.json()` |
-| Backup | `BACKUP_ENCRYPT_EXPORT=true` |
-| Billing | `validateConfig` bloqueia `ALLOW_DEV_BILLING` em prod |
-| RBAC | `RADARZAP_SYSTEM_ADMIN_*` revisados |
+apt update && apt install -y docker.io docker-compose-plugin git
+systemctl enable --now docker
 
-**Não definir** `SERVICE_NAME` no monolito de produção.
+mkdir -p /opt/radarzap && cd /opt/radarzap
+git clone https://github.com/benhuragmf/radarzapv2.git .
 
----
+cp .env.example .env
+nano .env                    # secrets — ver § Variáveis acima
+export MONGO_PASSWORD='…'
 
-## Checkup de segurança
+# Firewall: só 443 (e 22 SSH); bloquear 3001/27017/6379 publicamente
+ufw allow 22
+ufw allow 443
+ufw enable
 
-### Secrets e flags
+echo $GITHUB_PAT | docker login ghcr.io -u SEU_USER --password-stdin
 
-- [ ] Rotacionar todos os secrets do `.env.example` (nunca reusar dev)
-- [ ] `SESSION_ENCRYPTION_KEY` forte (≥ 32 caracteres)
-- [ ] `BACKUP_ENCRYPT_EXPORT=true`
-- [ ] `ALLOW_DEV_BILLING` e `ALLOW_DEV_API_KEY_BYPASS` **ausentes**
-
-### Rede
-
-- [ ] Node em `127.0.0.1:3001` — não expor na internet
-- [ ] Mongo/Redis sem bind público
-- [ ] HTTPS + `CORS_ORIGIN` = `FRONTEND_URL`
-- [ ] Webhooks cliente: só HTTPS
-- [ ] nginx não altera body de Stripe/Meta
-
-### Redis com senha (recomendado)
-
-```yaml
-# trecho docker-compose — Redis interno
-redis:
-  command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
-  # ports: NÃO publicar 6379
-app:
-  environment:
-    REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+export RADARZAP_IMAGE=ghcr.io/benhuragmf/radarzap:latest
+bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
 ```
 
-### Criptografia de dados
+Configurar **nginx + SSL** (§ abaixo) apontando para `127.0.0.1:3001`.
 
-| Dado | Mecanismo |
-|------|-----------|
-| Webhook secret (Mongo) | AES-256-CBC + `SESSION_ENCRYPTION_KEY` |
-| Export backup | `ciphertext` se `BACKUP_ENCRYPT_EXPORT=true` |
-| Sessões Baileys | mesma chave |
+**Não** rodar `npm run docker:infra` nem `auto-setup` em prod.
 
-### Checklist rápido segurança
-
-- [ ] Mongo/Redis/Node sem porta pública
-- [ ] HTTPS ativo
-- [ ] Smoke: criar webhook, export/import backup em org teste
-- [ ] Backup Mongo antes de deploy com migration
-- [ ] Scan secrets no repo (gitleaks / GitHub secret scanning)
-- [ ] `npm audit --audit-level=high` limpo
-
-Docs complementares (se existirem no repo): `SECURITY.md`, `SECURITY_AUDIT.md`, `SECURITY_CHECKLIST.md`.
+O script `scripts/deploy-remote.sh` faz: `docker pull` → `docker compose -f docker-compose.deploy.yml up -d` → health em `http://127.0.0.1:3001/api/services/health`.
 
 ---
 
-## nginx (referência)
+## Deploy — CI (GitHub Actions)
+
+Workflow: `.github/workflows/deploy.yml`
+
+| Gatilho | Ambiente |
+|---------|----------|
+| `workflow_dispatch` | escolher **staging** ou **production** |
+| Push tag `v*` | **production** (environment GitHub) |
+
+Fluxo: build `docker/Dockerfile.monolith` → push **GHCR** → SSH no servidor → `deploy-remote.sh` com imagem `ghcr.io/<repo>:<sha>`.
+
+Secrets no **GitHub Environment** (staging ≠ production): `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH`, `MONGO_PASSWORD`.
+
+---
+
+## Deploy — staging
+
+1. Mesmo procedimento **§ primeira vez no VPS** em host **staging** (Mongo/Redis **separados** de prod)
+2. `.env` com keys **de teste** (Stripe test, OAuth staging)
+3. `FRONTEND_URL` / `CORS_ORIGIN` = URL staging HTTPS
+4. GitHub Actions → workflow **Deploy** → `workflow_dispatch` → **staging**
+5. Conectar 1 sessão WA de teste
+6. **Smoke § pós-deploy** completo em staging
+7. Só avançar para produção se staging ok
+
+---
+
+## Deploy — produção (go-live)
+
+| Passo | Ação |
+|-------|------|
+| 1 | Deploy **mesmo commit/tag** validado em staging |
+| 2 | Secrets prod **únicos** (`JWT_SECRET`, `SESSION_SECRET`); manter `SESSION_ENCRYPTION_KEY` se copiar volume `sessions/` |
+| 3 | Mongo prod **limpo** ou migração seletiva — não copiar lixo de staging |
+| 4 | Redis prod **vazio** (filas BullMQ não migram) |
+| 5 | `.env`: `NODE_ENV=production`, Stripe **Live**, e-mail prod |
+| 6 | DNS + SSL prod ativos |
+| 7 | Webhooks externos URLs **prod** (Stripe, clientes, futuro Meta) |
+| 8 | Sessões WA: copiar volume staging→prod **só** com mesma encryption key; senão **novo QR** |
+| 9 | Workflow Deploy → **production** ou tag `v*` |
+| 10 | **Smoke § pós-deploy** em prod |
+| 11 | Monitorar 24h: logs, WA, filas BullMQ |
+
+---
+
+## nginx + SSL
 
 Express serve React + `/api` na `:3001` — um upstream basta:
 
@@ -241,7 +298,17 @@ server {
 }
 ```
 
-Rotas webhook (body raw): `POST /api/billing/webhook/stripe`, (futuro) Cloud API Meta.
+Certificado: Let's Encrypt (`certbot`) ou **Cloudflare** (proxy SSL na frente do VPS).
+
+Rotas webhook (body **raw**, nginx não pode alterar body):  
+`POST /api/billing/webhook/stripe`, `POST /api/integrations/whatsapp/cloud/webhook`.
+
+### Cloudflare Tunnel (opcional — PC em casa ou VPS sem IP fixo)
+
+1. Instalar `cloudflared` no servidor
+2. Tunnel → `http://127.0.0.1:3001`
+3. DNS no painel Cloudflare apontando para o tunnel  
+Baileys e Mongo/Redis continuam **no servidor local/VPS**, não na Cloudflare.
 
 ---
 
@@ -262,11 +329,11 @@ module.exports = {
 };
 ```
 
-`API_HOST=127.0.0.1` no `.env`. Sem `SERVICE_NAME`.
+Requisitos: Mongo e Redis instalados separadamente; `API_HOST=127.0.0.1` no `.env`; sem `SERVICE_NAME`.
 
 ---
 
-## OAuth (preparar nos consoles)
+## OAuth (cadastrar antes do go-live)
 
 1. Discord → `https://app.seudominio.com/auth/discord/callback`
 2. Google → `https://app.seudominio.com/auth/google/callback`
@@ -274,71 +341,146 @@ module.exports = {
 
 ---
 
-## WhatsApp Baileys (canal padrão hoje)
+## WhatsApp Baileys no servidor
 
 - Volume persistente `sessions/` — perda = novo QR
 - RAM suficiente; `WHATSAPP_HEADLESS=true`
 - `SESSION_ENCRYPTION_KEY` estável após conectar
-- Firewall: só 443 público
-- Enterprise futuro: Cloud API — § abaixo
+- Firewall: só **443** público (3001 só localhost)
+- Futuro Enterprise: § WhatsApp Cloud API
+
+---
+
+## Configuração em produção (código já implementado)
+
+| Área | O que conferir |
+|------|----------------|
+| Auth | Cookies `secure: true`; `FRONTEND_URL` HTTPS |
+| API | Helmet, rate limit `/auth` e `/api`; `requireDashboardOrigin` em mutações |
+| Erros | `productionSafeError` — sem stack trace ao cliente |
+| Socket.IO | Rooms por `tenant:{clientId}` |
+| IDOR | Rotas filtradas por `clientId` |
+| Sessões WA | `GET /sessions/:id/connect` desabilitado em prod — usar `POST` |
+| Webhooks Stripe/Meta | Body **raw** antes de `express.json()` |
+| Backup | `BACKUP_ENCRYPT_EXPORT=true` |
+| Billing | `validateConfig` bloqueia `ALLOW_DEV_BILLING` em prod |
+| RBAC | `RADARZAP_SYSTEM_ADMIN_*` revisados |
+
+**Não definir** `SERVICE_NAME` no monolito de produção.
+
+---
+
+## Checkup de segurança
+
+### Secrets e repositório
+
+- [ ] `.env` **não** commitado (`git check-ignore .env`)
+- [ ] `sessions/` e `**/creds.json` ignorados
+- [ ] Rotacionar todos os secrets do `.env.example` (nunca reusar dev)
+- [ ] `JWT_SECRET`, `SESSION_SECRET`, `SESSION_ENCRYPTION_KEY` únicos (≥ 32 chars)
+- [ ] `STRIPE_*` live só em prod; test só em staging
+- [ ] `ALLOW_DEV_BILLING` e `ALLOW_DEV_API_KEY_BYPASS` **ausentes** em staging/prod
+- [ ] `RADARZAP_SYSTEM_ADMIN_DISCORD_IDS` só com IDs da equipe
+
+### Rede e TLS
+
+- [ ] Node em `127.0.0.1:3001` — não expor na internet
+- [ ] Mongo/Redis sem bind público
+- [ ] `FRONTEND_URL` HTTPS; `COOKIE_SECURE=true`
+- [ ] `CORS_ORIGIN` = `FRONTEND_URL`
+- [ ] Webhooks cliente: só HTTPS
+- [ ] nginx não altera body de Stripe/Meta
+
+### Redis com senha (recomendado)
+
+```yaml
+redis:
+  command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+  # ports: NÃO publicar 6379
+app:
+  environment:
+    REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+```
+
+### Criptografia de dados
+
+| Dado | Mecanismo |
+|------|-----------|
+| Webhook secret (Mongo) | AES-256-CBC + `SESSION_ENCRYPTION_KEY` |
+| Export backup | `ciphertext` se `BACKUP_ENCRYPT_EXPORT=true` |
+| Sessões Baileys | mesma chave |
+
+### Docker
+
+- [ ] Imagem roda como usuário não-root (quando aplicável)
+- [ ] Volumes `sessions/`, `media/` persistentes e permissão restrita
+- [ ] **Não** montar `docker.sock` em prod
+- [ ] Compose sem expor 27017/6379 publicamente
+
+### CI/CD
+
+- [ ] Secrets no GitHub Environment (não no código)
+- [ ] Branch `main` protegida
+- [ ] Deploy production com aprovação manual ou tag `v*`
+
+### LGPD
+
+- [ ] Fluxo de consentimento testado
+- [ ] Export/backup tratado como dado sensível
+
+### Auditoria
+
+- [ ] `npm audit --audit-level=high` revisado
+- [ ] Scan secrets no repo (gitleaks / GitHub secret scanning)
+- [ ] Backup Mongo antes de deploy com migration
+
+Docs: `SECURITY.md`, `SECURITY_AUDIT.md`, `SECURITY_CHECKLIST.md`.
+
+---
+
+## Smoke — pós-deploy (staging e produção)
+
+- [ ] `GET /api/services/health` → healthy
+- [ ] Login Google + Discord
+- [ ] Painel + WebSocket Inbox
+- [ ] Sessão WA conectada ou QR ok
+- [ ] Enviar mensagem teste
+- [ ] Convite equipe (e-mail)
+- [ ] Checkout plano (Stripe test em staging / live em prod)
+- [ ] Webhook outbound HTTPS (criar endpoint + evento teste)
+- [ ] Export/import backup em org teste
+- [ ] Ticket menu WhatsApp + SLA painel
+- [ ] IA (se ativa): status ticket não grava complemento indevido
+- [ ] Usuário tenant A **não** acessa dados de tenant B (IDOR manual)
+- [ ] QR WhatsApp visível só para o tenant correto
+
+---
+
+## Rollback
+
+1. Redeploy imagem/tag **anterior** (`RADARZAP_IMAGE=ghcr.io/.../radarzap:<sha-anterior>`)
+2. **Não** rollback Mongo se migration irreversível — restore snapshot pré-deploy
+3. Manter volume `sessions/` — rollback de código compatível se schema igual
+4. Stripe: reconciliar pedidos pendentes no dashboard Stripe
 
 ---
 
 ## Por feature → o que muda em produção
 
-### Webhooks outbound — ✅ 2.2.0
-
-Redis + fila `notifications`; URLs HTTPS clientes. Doc: `WEBHOOKS.md`.
-
-### E-mail equipe — ✅ 2.2.2
-
-`RESEND_API_KEY` ou SMTP prod; `MAIL_FROM` verificado.
-
-### Billing — ✅ 2.4.0
-
-Stripe Live; webhook `POST …/api/billing/webhook/stripe`. Doc: `BILLING.md`.
-
-### Inbox SLA — ✅ 2.2.1
-
-Cron/BullMQ no mesmo processo; `inboxSettings.timezone` por tenant.
-
-### Tickets — ✅ 2.7.x
-
-SLA equipe (`ticketTeamResponseHours`); menu bot; IA assist — sem env extra. Doc: `TICKET-ATENDIMENTO.md`.
-
-### Backup tenant — ✅ 2.5.2
-
-`BACKUP_ENCRYPT_EXPORT=true`; auditoria export/import.
-
-### Testes — ✅ 2.5.1
-
-CI bloqueia merge; E2E Playwright; validar staging manualmente.
-
-### Admin observabilidade
-
-`/admin/monitoring`; opcional: `ALERT_SLACK_WEBHOOK_URL`, `SENTRY_DSN`.
+| Feature | Produção |
+|---------|----------|
+| Webhooks outbound (2.2.0) | Redis + fila `notifications`; URLs HTTPS — `WEBHOOKS.md` |
+| E-mail equipe (2.2.2) | `RESEND_API_KEY` ou SMTP; `MAIL_FROM` verificado |
+| Billing (2.4.0) | Stripe Live; `POST …/api/billing/webhook/stripe` — `BILLING.md` |
+| Inbox SLA (2.2.1) | Cron/BullMQ; `inboxSettings.timezone` por tenant |
+| Tickets (2.7.x) | SLA equipe; menu bot; IA assist — `TICKET-ATENDIMENTO.md` |
+| Backup tenant (2.5.2) | `BACKUP_ENCRYPT_EXPORT=true` |
+| Testes (2.5.1) | CI + E2E; validar staging manualmente |
+| Admin observabilidade | `/admin/monitoring`; opcional Slack/Sentry |
 
 ---
 
-## WhatsApp Cloud API (Meta) — 🟡 futuro
-
-Canal Enterprise; Baileys continua padrão até implementação.
-
-**Pré-requisitos:** Business verificado, app Live, WABA, webhook HTTPS, token permanente.
-
-**Env plataforma:** `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN`, `WHATSAPP_CLOUD_API_VERSION`.
-
-**Webhook:** `GET/POST …/api/integrations/whatsapp/cloud/webhook` — body raw + `X-Hub-Signature-256`.
-
-**Por org (Mongo):** `wabaId`, `phoneNumberId`, `accessToken` criptografado.
-
-Arquitetura alvo: `BaileysProvider` | `CloudApiProvider` → mesmo contrato Inbox/campanhas.
-
-Checklist go-live Cloud API, migração Baileys→Cloud e dev com ngrok: detalhes em `INBOX-ATENDIMENTO.md` fase 5 e `ROADMAP-COMPLETUDE.md`.
-
----
-
-## Infra — checklist preparatório (antes do go-live)
+## Infra — checklist preparatório (resumo)
 
 - [ ] VPS provisionado; Docker ou Node+PM2+nginx
 - [ ] Domínio + SSL (Let's Encrypt / Cloudflare)
@@ -349,13 +491,14 @@ Checklist go-live Cloud API, migração Baileys→Cloud e dev com ngrok: detalhe
 - [ ] OAuth redirects prod/staging cadastrados
 - [ ] Stripe webhook prod registrado
 - [ ] GitHub Environment secrets de deploy
-- [ ] Gate §0 de `PRODUCTION.md` ✅
+- [ ] Gate § início deste doc ✅
+- [ ] Staging validado antes de produção
 
 ---
 
 ## Referências
 
-- Go-live (executar depois): [`PRODUCTION.md`](./PRODUCTION.md)
-- Roadmap: [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md)
+- Atalho go-live: [`PRODUCTION.md`](./PRODUCTION.md)
+- Roadmap produto: [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md)
 - Dev local: [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md)
 - Billing: [`BILLING.md`](./BILLING.md)
