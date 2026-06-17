@@ -26,11 +26,35 @@ describe('webchat-bot.util', () => {
     ).toBe(false);
   });
 
-  it('nao envia se bot ja respondeu', () => {
+  it('nao envia se bot ja respondeu (mensagem fixa)', () => {
     expect(
       shouldSendWebChatAutoReply({
         autoReplyEnabled: true,
         autoReplyMessage: 'Oi',
+        hasHumanOutbound: false,
+        hasBotOutbound: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('continua com IA em triagem mesmo apos resposta do bot', () => {
+    expect(
+      shouldSendWebChatAutoReply({
+        autoReplyEnabled: true,
+        autoReplyUseAi: true,
+        queueStatus: 'bot',
+        hasHumanOutbound: false,
+        hasBotOutbound: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('nao envia IA quando conversa ja esta na fila humana', () => {
+    expect(
+      shouldSendWebChatAutoReply({
+        autoReplyEnabled: true,
+        autoReplyUseAi: true,
+        queueStatus: 'waiting_human',
         hasHumanOutbound: false,
         hasBotOutbound: true,
       }),

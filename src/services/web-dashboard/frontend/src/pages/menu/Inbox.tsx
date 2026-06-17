@@ -41,7 +41,7 @@ import {
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
-import { isWebChatInboxId, webChatMediaSrc } from '../../lib/webchatInbox'
+import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../lib/webchatInbox'
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
 import { useWebChatSocket } from '../../hooks/useWebChatSocket'
 
@@ -181,7 +181,7 @@ function inboxReplyBlockedReason(
       if (!conv.suggestedUserId) return 'Fila aberta — clique em Assumir para atender.'
       return 'Aguardando o atendente indicado aceitar a conversa.'
     }
-    if (conv.status === 'bot_triage') return 'Conversa em triagem automática — aguarde encaminhamento.'
+    if (conv.status === 'bot_triage') return 'Clique em Assumir acima para interromper a triagem automática.'
     if (conv.status === 'in_progress' && conv.assignedUserId && conv.assignedUserId !== me?.userId) {
       return `Em atendimento por ${conv.assignedUserName ?? 'outro agente'}.`
     }
@@ -232,10 +232,10 @@ export default function Inbox() {
   })
   const canManageSectors = can(me ?? null, 'inbox:department:manage')
   const canSupervise = can(me ?? null, 'inbox:supervise')
-  const canWebChat = can(me ?? null, 'webchat:view')
+  const canInboxView = can(me ?? null, 'inbox:view')
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   useInboxSocket(Boolean(me))
-  useWebChatSocket(canWebChat, { syncInbox: true })
+  useWebChatSocket(canInboxView, { syncInbox: true })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDept, setFilterDept] = useState('')
@@ -268,7 +268,19 @@ export default function Inbox() {
 
   useEffect(() => {
     const convParam = searchParams.get('conv')
+    const statusParam = searchParams.get('status')
+    const channelParam = searchParams.get('channel')
     if (convParam) setSelectedId(convParam)
+    if (statusParam === 'waiting_queue') {
+      setFilterStatus('waiting_queue')
+      setMineOnly(false)
+      setHasTicketOnly(false)
+    } else if (statusParam) {
+      setFilterStatus(statusParam)
+    }
+    if (channelParam === 'webchat' || channelParam === 'whatsapp' || channelParam === 'all') {
+      setChannelFilter(channelParam)
+    }
   }, [searchParams])
 
   const { data: departments = [] } = useQuery({
@@ -288,7 +300,7 @@ export default function Inbox() {
   if (filterDept) listParams.set('departmentId', filterDept)
   if (mineOnly) listParams.set('mine', '1')
   if (hasTicketOnly) listParams.set('hasTicket', '1')
-  if (canWebChat) listParams.set('channel', channelFilter)
+  if (canInboxView) listParams.set('channel', channelFilter)
 
   const { data: conversations = [], isLoading: loadingList } = useQuery({
     queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly, hasTicketOnly, channelFilter],
@@ -304,7 +316,7 @@ export default function Inbox() {
         myWaitingQueueCount?: number
         unreadCount: number
       }>('/webchat/stats'),
-    enabled: canWebChat,
+    enabled: canInboxView,
     refetchInterval: 30_000,
   })
 
@@ -371,6 +383,13 @@ export default function Inbox() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['inbox-conversations'] })
     if (selectedId) qc.invalidateQueries({ queryKey: ['inbox-conversation', selectedId] })
+    qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
+    qc.invalidateQueries({ queryKey: ['webchat-stats'] })
+    if (selectedId && isWebChatInboxId(selectedId)) {
+      qc.invalidateQueries({
+        queryKey: ['webchat-conversation', webChatInboxIdToMongo(selectedId)],
+      })
+    }
   }
 
   const assign = useMutation({
@@ -560,7 +579,7 @@ export default function Inbox() {
 
         <InboxAtendimentoNav me={me} className="mt-3" />
 
-        {canWebChat && webchatQueueCount > 0 && (
+        {canInboxView && webchatQueueCount > 0 && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
             <div className="flex items-center gap-2 text-amber-200">
               <Globe size={16} className="shrink-0" />
@@ -574,28 +593,28 @@ export default function Inbox() {
                 )}
               </span>
             </div>
-            <Link to="/platform/webchat?filter=queue">
+            <Link to="/platform/inbox?status=waiting_queue&channel=webchat">
               <Button size="sm" variant="secondary">
-                Abrir chat do site
+                Ver fila no Inbox
               </Button>
             </Link>
           </div>
         )}
 
         {/* Métricas rápidas */}
-        <div className={`grid gap-2 mt-4 ${canWebChat ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        <div className={`grid gap-2 mt-4 ${canInboxView ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
           {[
             { label: 'Na fila', value: stats.queue, color: 'text-blue-400' },
             { label: 'Em atendimento', value: stats.active, color: 'text-green-400' },
             { label: 'Triagem', value: stats.triage, color: 'text-yellow-400' },
             { label: 'Suas prioridades', value: stats.priority, color: 'text-amber-400' },
-            ...(canWebChat
+            ...(canInboxView
               ? [
                   {
                     label: 'Chat do site',
                     value: webchatQueueCount,
                     color: 'text-violet-400',
-                    href: '/platform/webchat?filter=queue',
+                    href: '/platform/inbox?status=waiting_queue&channel=webchat',
                   },
                 ]
               : []),
@@ -654,7 +673,7 @@ export default function Inbox() {
               ))}
             </div>
 
-            {canWebChat && (
+            {canInboxView && (
               <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin">
                 {CHANNEL_FILTERS.map(f => (
                   <button
@@ -948,7 +967,7 @@ export default function Inbox() {
                       conv.status !== 'in_progress' &&
                       conv.canAccept &&
                       !conv.priorityForMe &&
-                      !conv.suggestedUserId && (
+                      (!conv.suggestedUserId || conv.status === 'bot_triage') && (
                         <Button
                           size="sm"
                           variant="secondary"
@@ -971,7 +990,7 @@ export default function Inbox() {
                   </div>
                 </div>
 
-                {!isWebChatConv && conv.suggestedUserId && conv.status === 'waiting_queue' && (
+                {conv.suggestedUserId && conv.status === 'waiting_queue' && (
                   <div className={queueUrgencyPanelClass(convLive.urgency)}>
                     <Clock size={14} className={`shrink-0 ${queueUrgencyTimerClass(convLive.urgency)}`} />
                     {conv.priorityForMe ? (
@@ -1050,7 +1069,7 @@ export default function Inbox() {
                     imageAttachDisabled={!canReply}
                     imageAttaching={sendWebChatAttachment.isPending}
                   />
-                  {canReply && !isWebChatConv && (
+                  {canReply && (
                     <div className="flex flex-wrap items-center gap-2">
                       <select
                         value={transferDept}

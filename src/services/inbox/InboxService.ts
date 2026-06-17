@@ -769,7 +769,7 @@ export class InboxService {
     return false;
   }
 
-  private async assertUserCanTransferToDepartment(
+  async assertUserCanTransferToDepartment(
     clientId: string,
     userId: string,
     target: IInboxDepartment,

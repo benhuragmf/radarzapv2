@@ -15,7 +15,7 @@ import {
 } from '../../lib/navConfig'
 import type { NavAlertItem } from '../../lib/navAlerts'
 import { useDiscordNavAlerts } from '../../lib/useDiscordNavAlerts'
-import { WEBCHAT_NAV_ID, useWebChatNavAlerts } from '../../lib/useWebChatNavAlerts'
+import { INBOX_NAV_ID, useWebChatNavAlerts } from '../../lib/useWebChatNavAlerts'
 import { can } from '../../lib/auth'
 import DiscordGuildPicker from '../discord/DiscordGuildPicker'
 import type { Guild } from '../../lib/guild'
@@ -288,14 +288,14 @@ export default function Sidebar({
     guild?.id,
     mode === 'discord' && guildReady,
   )
-  const webchatNavEnabled = mode !== 'discord' && mode !== 'admin' && can(user, 'webchat:view')
+  const webchatNavEnabled = mode !== 'discord' && mode !== 'admin' && can(user, 'inbox:view')
   const { data: webchatAlert } = useWebChatNavAlerts(webchatNavEnabled)
 
   const navAlerts =
     mode === 'discord'
       ? navAlertsData?.items
       : webchatAlert
-        ? { [WEBCHAT_NAV_ID]: webchatAlert }
+        ? { [INBOX_NAV_ID]: webchatAlert }
         : undefined
 
   useEffect(() => {

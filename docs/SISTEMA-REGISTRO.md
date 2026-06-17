@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.10.4` (`package.json`) · **Última revisão doc:** 2026-06-17
+**Versão atual:** `2.10.8` (`package.json`) · **Última revisão doc:** 2026-06-17
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -61,6 +61,10 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.10.2** | WebChat: anexos de imagem no widget visitante |
 | **2.10.3** | WebChat: atendente envia imagens no painel (WebChat + Inbox) |
 | **2.10.4** | WebChat: PDF no widget/painel + legenda opcional em anexos |
+| **2.10.5** | WebChat Inbox: paridade WhatsApp — assign obrigatório, quick replies `/bd` `/enc`, transferência, assumir da IA — ver `WEBCHAT.md` |
+| **2.10.6** | WebChat fila global no Inbox — visível a todos atendentes (`inbox:view`), Assumir igual WhatsApp — ver `WEBCHAT.md` |
+| **2.10.7** | `/platform/webchat` = histórico + widgets; atendimento ativo só no Inbox — ver `WEBCHAT.md` |
+| **2.10.8** | Fix WebChat: IA continua em triagem após 1ª resposta; Finalizar não reabre conversa — ver `WEBCHAT.md` |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 

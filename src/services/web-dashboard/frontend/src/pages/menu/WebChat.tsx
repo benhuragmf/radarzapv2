@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Globe, MessageSquare, Plus, Copy, Trash2, Send, XCircle, Save, ExternalLink, RotateCcw, ArrowUpRight, UserCheck, Hand, Paperclip } from 'lucide-react'
+import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
 import { cn } from '@/lib/utils'
-import { webChatMediaSrc } from '../../lib/webchatInbox'
-import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
+import { inboxWebChatUrl, webChatMediaSrc } from '../../lib/webchatInbox'
 
 type Weekday =
   | 'monday'
@@ -143,19 +142,34 @@ function embedSnippet(publicKey: string) {
 
 export default function WebChat() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>('chats')
   const [chatFilter, setChatFilter] = useState<ChatFilter>('open')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [draft, setDraft] = useState('')
   const [newWidgetName, setNewWidgetName] = useState('Site principal')
-  const [escalateDeptId, setEscalateDeptId] = useState('')
 
   const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
   const canView = can(me ?? null, 'webchat:view')
   const canManage = can(me ?? null, 'webchat:manage')
-  const canReply = can(me ?? null, 'webchat:reply')
   const canInbox = can(me ?? null, 'inbox:view')
+
+  useEffect(() => {
+    const conv = searchParams.get('conv')
+    const filter = searchParams.get('filter')
+    if (conv) {
+      navigate(inboxWebChatUrl(conv), { replace: true })
+      return
+    }
+    if (filter === 'queue') {
+      navigate('/platform/inbox?status=waiting_queue&channel=webchat', { replace: true })
+      return
+    }
+    if (filter === 'open' || filter === 'closed') {
+      setChatFilter(filter)
+      setTab('chats')
+    }
+  }, [searchParams, navigate])
 
   const { data: widgets, isLoading: loadingWidgets } = useQuery({
     queryKey: ['webchat-widgets'],
@@ -176,20 +190,10 @@ export default function WebChat() {
     refetchInterval: 30_000,
   })
 
-  useEffect(() => {
-    const filter = searchParams.get('filter')
-    const conv = searchParams.get('conv')
-    if (filter === 'queue' || filter === 'open' || filter === 'closed') {
-      setChatFilter(filter)
-      setTab('chats')
-    }
-    if (conv) setSelectedId(conv)
-  }, [searchParams])
-
   const { data: departments = [] } = useQuery({
     queryKey: ['inbox-departments', 'webchat'],
     queryFn: () => api.get<InboxDepartmentOption[]>('/inbox/departments'),
-    enabled: canInbox,
+    enabled: canInbox && canManage,
   })
 
   const conversationsUrl = useMemo(() => {
@@ -242,91 +246,8 @@ export default function WebChat() {
     onError: mutationError,
   })
 
-  const sendMessage = useMutation({
-    mutationFn: (body: string) => api.post(`/webchat/conversations/${selectedId}/messages`, { body }),
-    onSuccess: () => {
-      setDraft('')
-      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
-      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
-    },
-    onError: mutationError,
-  })
-
-  const sendAttachment = useMutation({
-    mutationFn: async ({ file, caption }: { file: File; caption?: string }) => {
-      const payload = await readWebChatAttachmentFile(file, caption)
-      return api.post(`/webchat/conversations/${selectedId}/messages/attachment`, payload)
-    },
-    onSuccess: () => {
-      setDraft('')
-      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
-      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
-    },
-    onError: mutationError,
-  })
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const closeChat = useMutation({
-    mutationFn: () => api.post(`/webchat/conversations/${selectedId}/close`, {}),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
-      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
-      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
-      notifySuccess('Conversa encerrada')
-    },
-    onError: mutationError,
-  })
-
-  const reopenChat = useMutation({
-    mutationFn: () => api.post(`/webchat/conversations/${selectedId}/reopen`, {}),
-    onSuccess: () => {
-      setChatFilter('open')
-      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
-      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
-      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
-      notifySuccess('Conversa reaberta')
-    },
-    onError: mutationError,
-  })
-
-  const escalateChat = useMutation({
-    mutationFn: () =>
-      api.post(`/webchat/conversations/${selectedId}/escalate`, {
-        departmentId: escalateDeptId || undefined,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
-      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
-      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
-      notifySuccess('Conversa encaminhada para a fila')
-    },
-    onError: mutationError,
-  })
-
-  const assignChat = useMutation({
-    mutationFn: () => api.post(`/inbox/conversations/wc:${selectedId}/assign`, {}),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
-      qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
-      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
-      notifySuccess('Conversa assumida')
-    },
-    onError: mutationError,
-  })
-
   const selected = detail?.conversation
   const messages = detail?.messages ?? []
-  const canAgentReply =
-    canReply &&
-    selected?.status === 'open' &&
-    selected.queueStatus === 'with_agent' &&
-    (!selected.assignedUserId || selected.assignedUserId === me?.userId)
-  const showAssignPull =
-    canReply &&
-    selected?.status === 'open' &&
-    selected.queueStatus === 'waiting_human' &&
-    Boolean(selected.canAccept || selected.canPull)
 
   const sortedConversations = useMemo(
     () => [...(conversations ?? [])].sort((a, b) => {
@@ -351,8 +272,17 @@ export default function WebChat() {
     <PlatformPage
       title="Chat do site"
       icon={Globe}
-      description="Widget embedável para o seu website — atenda visitantes em tempo real pelo painel."
+      description="Histórico e status das conversas do widget — o atendimento ao visitante é feito pelo Inbox."
     >
+      {canInbox && (
+        <Card className="mb-4 border border-brand-500/25 bg-brand-500/10 p-3 text-sm text-[var(--rz-text-secondary)]">
+          O atendimento ao visitante (Assumir, responder, comandos rápidos) é feito pelo{' '}
+          <Link to="/platform/inbox?channel=webchat" className="font-medium text-brand-400 hover:underline">
+            Inbox
+          </Link>
+          . Esta página mostra histórico, status e configuração dos widgets.
+        </Card>
+      )}
       <Card className="mb-4 p-3 text-sm text-[var(--rz-text-muted)]">
         Teste local:{' '}
         <a className="text-[var(--rz-primary)] hover:underline" href="/webchat/widget.html" target="_blank" rel="noreferrer">
@@ -370,7 +300,7 @@ export default function WebChat() {
           type="button"
         >
           <MessageSquare className="h-4 w-4" />
-          Conversas
+          Histórico
         </Button>
         {canManage && (
           <Button
@@ -437,9 +367,12 @@ export default function WebChat() {
                   </span>
                 )}
                 {(stats?.myWaitingQueueCount ?? stats?.waitingQueueCount ?? 0) > 0 && chatFilter !== 'queue' && (
-                  <span className="mr-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">
-                    {stats!.myWaitingQueueCount ?? stats!.waitingQueueCount} na fila
-                  </span>
+                  <Link
+                    to="/platform/inbox?status=waiting_queue&channel=webchat"
+                    className="mr-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white hover:bg-amber-400"
+                  >
+                    {stats!.myWaitingQueueCount ?? stats!.waitingQueueCount} na fila → Inbox
+                  </Link>
                 )}
                 {chatFilter === 'open' && 'Abertas'}
                 {chatFilter === 'closed' && 'Encerradas'}
@@ -573,99 +506,30 @@ export default function WebChat() {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {showAssignPull && selected?.priorityForMe && selected.canAccept && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => assignChat.mutate()}
-                        disabled={assignChat.isPending}
-                        className="bg-yellow-600 hover:bg-yellow-500 text-[var(--rz-on-accent)]"
-                      >
-                        <UserCheck className="h-4 w-4" />
-                        Aceitar
-                      </Button>
-                    )}
-                    {showAssignPull && !selected?.priorityForMe && selected?.canPull && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => assignChat.mutate()}
-                        disabled={assignChat.isPending}
-                      >
-                        <Hand className="h-4 w-4" />
-                        Puxar
-                      </Button>
-                    )}
-                    {showAssignPull &&
-                      !selected?.priorityForMe &&
-                      selected?.canAccept &&
-                      !selected?.suggestedUserId && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => assignChat.mutate()}
-                          disabled={assignChat.isPending}
-                        >
-                          <UserCheck className="h-4 w-4" />
-                          Assumir
+                    {canInbox && selectedId && selected?.status === 'open' && (
+                      <Link to={inboxWebChatUrl(selectedId)}>
+                        <Button type="button" size="sm">
+                          <InboxIcon className="h-4 w-4" />
+                          Atender no Inbox
                         </Button>
-                      )}
-                    {canReply && selected?.status === 'open' && selected.queueStatus !== 'waiting_human' && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {canInbox && departments.length > 0 && (
-                          <select
-                            className={inputCls + ' !w-auto text-xs'}
-                            value={escalateDeptId}
-                            onChange={e => setEscalateDeptId(e.target.value)}
-                          >
-                            <option value="">Setor padrão do widget</option>
-                            {departments.map(d => (
-                              <option key={d.id} value={d.id}>
-                                {d.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => escalateChat.mutate()}
-                          disabled={escalateChat.isPending}
-                        >
-                          <ArrowUpRight className="h-4 w-4" />
-                          Encaminhar para fila
-                        </Button>
-                      </div>
+                      </Link>
                     )}
-                    {canReply && selected?.status === 'open' && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => closeChat.mutate()}
-                        disabled={closeChat.isPending}
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Encerrar
-                      </Button>
-                    )}
-                    {canReply && selected?.status === 'closed' && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => reopenChat.mutate()}
-                        disabled={reopenChat.isPending}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        Reabrir
-                      </Button>
+                    {selected?.assignedUserName && (
+                      <span className="text-xs text-[var(--rz-text-muted)]">
+                        Atendente: {selected.assignedUserName}
+                      </span>
                     )}
                   </div>
                 </div>
+
+                {canInbox && selected?.status === 'open' && selected.queueStatus === 'waiting_human' && (
+                  <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+                    Conversa na fila —{' '}
+                    <Link to={inboxWebChatUrl(selectedId!)} className="font-medium underline hover:opacity-90">
+                      abrir no Inbox para Assumir e responder
+                    </Link>
+                  </div>
+                )}
 
                 <div className="flex-1 space-y-2 overflow-auto p-4">
                   {messages.map(m => (
@@ -727,47 +591,6 @@ export default function WebChat() {
                     </div>
                   ))}
                 </div>
-
-                {canAgentReply && selected?.status === 'open' && (
-                  <form
-                    className="flex gap-2 border-t border-[var(--rz-border)] p-3"
-                    onSubmit={e => {
-                      e.preventDefault()
-                      if (!draft.trim()) return
-                      sendMessage.mutate(draft.trim())
-                    }}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      className="hidden"
-                      onChange={e => {
-                        const file = e.target.files?.[0]
-                        if (file) sendAttachment.mutate({ file, caption: draft.trim() || undefined })
-                        e.target.value = ''
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={sendAttachment.isPending}
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Enviar imagem"
-                    >
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-                    <input
-                      className={inputCls}
-                      value={draft}
-                      onChange={e => setDraft(e.target.value)}
-                      placeholder="Responder visitante… (texto vira legenda ao anexar)"
-                    />
-                    <Button type="submit" disabled={sendMessage.isPending || !draft.trim()}>
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </form>
-                )}
               </>
             )}
           </Card>

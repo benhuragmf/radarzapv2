@@ -30,11 +30,11 @@ export async function enrichWebChatInboxRow(
   let suggestedUserOnline = true;
 
   if (status === 'waiting_queue' && suggestedId) {
-    priorityForMe = suggestedId === userId;
+    priorityForMe = String(suggestedId) === String(userId);
     canAccept = priorityForMe;
-    suggestedUserOnline = isAgentOnline(clientId, suggestedId);
+    suggestedUserOnline = isAgentOnline(clientId, String(suggestedId));
     if (!priorityForMe) {
-      suggestedUserBusy = await isAgentBusyWithClients(clientId, suggestedId, {
+      suggestedUserBusy = await isAgentBusyWithClients(clientId, String(suggestedId), {
         webChatConversationId: mongoConvId,
       });
       const { pullAllowedByTimeout } = getQueuePriorityState(row.suggestedAt, pullTimeoutSeconds);
@@ -43,6 +43,8 @@ export async function enrichWebChatInboxRow(
   } else if (status === 'waiting_queue' && !assignedId) {
     canAccept = true;
     canPull = true;
+  } else if (status === 'bot_triage' && !assignedId) {
+    canAccept = true;
   }
 
   const priority = getQueuePriorityState(row.suggestedAt, pullTimeoutSeconds);

@@ -165,6 +165,30 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Campo opcional **`caption`** no payload de anexo — texto da mensagem (máx. 500 caracteres).
 - No painel: texto do composer vira legenda ao clicar em 📎 (WebChat e Inbox).
 
+## Paridade Inbox WhatsApp (2.10.5)
+
+- **Aceitar / Puxar / Assumir** obrigatórios antes de responder — não há auto-atribuição silenciosa ao enviar.
+- Mensagem de sistema *"{nome} entrou no atendimento"* só ao assumir via botão (assign).
+- **Respostas rápidas** (`/bd`, `/bt`, `/enc`, etc.) expandidas no envio — mesmas regras do Inbox WhatsApp.
+- `/enc` envia o template de encerramento e fecha a conversa.
+- **Assumir** disponível durante triagem IA (`bot_triage`) para interromper o bot.
+- Painel de **prioridade/timer** na fila também para conversas do site.
+- **Transferência** entre setores via Inbox unificado (`POST /inbox/conversations/wc:{id}/transfer`).
+
+## Fila global para atendentes (2.10.6)
+
+- Conversas do **site** na fila aparecem para **todos os atendentes** com `inbox:view` (sem silo por setor).
+- **Assumir / Aceitar / Puxar** no Inbox unificado usam as mesmas permissões do WhatsApp (`inbox:reply`).
+- Rotas `/inbox/conversations/wc:…` não exigem `webchat:view` separado — basta acesso ao Inbox.
+- Notificações de fila apontam para `/platform/inbox?conv=wc:…`.
+
+## Atendimento só no Inbox (2.10.7)
+
+- **`/platform/webchat`** virou **histórico + status + widgets** (somente leitura das mensagens).
+- Atendimento ativo (Assumir, responder, `/bd`, anexos) é **somente** em `/platform/inbox` (filtro Site ou Todos).
+- Links antigos `?conv=` e `?filter=queue` redirecionam automaticamente para o Inbox.
+- Badge de fila do site no menu **Inbox**.
+
 ## Próximos passos (roadmap)
 
 - Áudio e outros formatos no widget.

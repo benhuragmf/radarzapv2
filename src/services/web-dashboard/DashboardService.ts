@@ -1403,7 +1403,7 @@ export class DashboardService {
           channel?: string;
         };
         const channelMode = channel === 'webchat' || channel === 'all' ? channel : 'whatsapp';
-        const canWebchat = auth.capabilities.includes(Cap.WEBCHAT_VIEW);
+        const canInboxWebChat = auth.capabilities.includes(Cap.INBOX_VIEW);
 
         const filters = {
           status,
@@ -1422,7 +1422,7 @@ export class DashboardService {
           );
         }
 
-        if ((channelMode === 'webchat' || channelMode === 'all') && canWebchat && !filters.hasTicket) {
+        if ((channelMode === 'webchat' || channelMode === 'all') && canInboxWebChat && !filters.hasTicket) {
           webchatRows = await WebChatService.getInstance().listForInbox(
             auth.clientId,
             auth.userId,
@@ -1453,9 +1453,6 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         if (isWebChatInboxId(req.params.id)) {
-          if (!auth.capabilities.includes(Cap.WEBCHAT_VIEW)) {
-            return res.status(403).json({ error: 'Sem permissão para chat do site' });
-          }
           const data = await WebChatService.getInstance().getDetailForInbox(
             auth.clientId,
             auth.userId,
@@ -1480,9 +1477,6 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         if (isWebChatInboxId(req.params.id)) {
-          if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
-            return res.status(403).json({ error: 'Sem permissão para atender no chat do site' });
-          }
           const conv = await WebChatService.getInstance().assignConversation(
             auth.clientId,
             auth.userId,
@@ -1506,9 +1500,6 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const { text } = req.body as { text?: string };
         if (isWebChatInboxId(req.params.id)) {
-          if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
-            return res.status(403).json({ error: 'Sem permissão para responder no chat do site' });
-          }
           const message = await WebChatService.getInstance().sendAgentMessage(
             auth.clientId,
             auth.userId,
@@ -1535,9 +1526,6 @@ export class DashboardService {
         if (!isWebChatInboxId(req.params.id)) {
           return res.status(400).json({ error: 'Anexos no Inbox disponíveis apenas no chat do site' });
         }
-        if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
-          return res.status(403).json({ error: 'Sem permissão para responder no chat do site' });
-        }
         const { dataBase64, mimeType, fileName, caption } = req.body as {
           dataBase64?: string;
           mimeType?: string;
@@ -1562,6 +1550,16 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const { departmentId, reason } = req.body as { departmentId?: string; reason?: string };
         if (!departmentId) return res.status(400).json({ error: 'departmentId is required' });
+        if (isWebChatInboxId(req.params.id)) {
+          const conv = await WebChatService.getInstance().transferConversation(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+            departmentId,
+            reason,
+          );
+          return res.json(conv);
+        }
         const conv = await inboxSvc.transferConversation(
           auth.clientId,
           auth.userId,
@@ -1579,9 +1577,6 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         if (isWebChatInboxId(req.params.id)) {
-          if (!auth.capabilities.includes(Cap.WEBCHAT_REPLY)) {
-            return res.status(403).json({ error: 'Sem permissão para encerrar chat do site' });
-          }
           await WebChatService.getInstance().closeConversation(
             auth.clientId,
             webChatInboxIdToMongo(req.params.id),
@@ -5025,7 +5020,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/webchat/stats', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
+    r.get('/webchat/stats', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const stats = await WebChatService.getInstance().getStats(auth.clientId, {

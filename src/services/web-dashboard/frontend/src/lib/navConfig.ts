@@ -87,7 +87,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   ]),
 
   section('sec-atendimento', 'Atendimento'),
-  link('inbox', 'Inbox WhatsApp', MessageSquare, '/platform/inbox', 'inbox:view'),
+  link('inbox', 'Inbox', MessageSquare, '/platform/inbox', 'inbox:view'),
   link('inbox-tickets', 'Tickets', Ticket, '/platform/inbox/tickets', 'inbox:view'),
   link('inbox-sectors', 'Setores do Inbox', Building2, '/platform/inbox/setores', 'inbox:department:manage'),
   link('inbox-bot', 'Bot do Inbox', Bot, '/platform/inbox/bot', 'inbox:department:manage'),
@@ -95,7 +95,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   link('inbox-quick-replies', 'Respostas rápidas', Zap, '/platform/inbox/respostas', 'inbox:department:manage'),
   link('inbox-supervisor', 'Supervisor', Eye, '/platform/inbox/supervisor', 'inbox:supervise'),
   link('inbox-reports', 'Relatórios Inbox', BarChart3, '/platform/inbox/relatorios', 'inbox:reports:view'),
-  link('webchat', 'Chat do site', Globe, '/platform/webchat', 'webchat:view'),
+  link('webchat', 'Site — histórico', Globe, '/platform/webchat', 'webchat:view'),
 
   section('sec-contatos', 'Contatos'),
   group('grp-contatos', 'Contatos', Users, [
@@ -470,7 +470,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/wa-stories': 'Publicar status WhatsApp',
   '/platform/wa-status': 'Status das conexões',
   '/platform/fila': 'Fila de envio',
-  '/platform/inbox': 'Inbox WhatsApp',
+  '/platform/inbox': 'Inbox',
   '/platform/inbox/tickets': 'Tickets de atendimento',
   '/platform/inbox/setores': 'Setores do Inbox',
   '/platform/inbox/bot': 'Bot do Inbox',
@@ -478,7 +478,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/inbox/respostas': 'Respostas rápidas',
   '/platform/inbox/supervisor': 'Supervisor',
   '/platform/inbox/relatorios': 'Relatórios de atendimento',
-  '/platform/webchat': 'Chat do site',
+  '/platform/webchat': 'Site — histórico',
   '/platform/contacts': 'Importar / Exportar',
   '/integrations/playground': 'Playground',
   '/sessions': 'Sessões e QR Code',

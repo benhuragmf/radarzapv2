@@ -3,6 +3,7 @@ import { api } from './api'
 import type { NavAlertItem } from './navAlerts'
 
 export const WEBCHAT_NAV_ID = 'webchat'
+export const INBOX_NAV_ID = 'inbox'
 
 type WebChatStats = {
   openCount: number
@@ -23,7 +24,7 @@ export function useWebChatNavAlerts(enabled: boolean) {
         return {
           severity: 'warn',
           count: data.unreadCount,
-          summary: `${data.unreadCount} mensagem(ns) não lida(s) no chat do site`,
+          summary: `${data.unreadCount} mensagem(ns) não lida(s) no chat do site — atenda pelo Inbox`,
           code: 'webchat_unread',
         }
       }
@@ -32,7 +33,7 @@ export function useWebChatNavAlerts(enabled: boolean) {
         return {
           severity: 'warn',
           count: queueCount,
-          summary: `${queueCount} conversa(s) aguardando atendente no chat do site`,
+          summary: `${queueCount} conversa(s) do site na fila — atenda pelo Inbox`,
           code: 'webchat_queue',
         }
       }

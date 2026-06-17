@@ -31,6 +31,12 @@ import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
 import { loadInboxSettings } from '../../constants/inbox-triage';
+import {
+  expandQuickReply,
+  normalizeQuickReplies,
+  parseQuickReplyCode,
+  type InboxQuickReply,
+} from '../../types/inbox-quick-replies';
 import { isAgentOnline } from '../inbox/inbox-agent-presence';
 import {
   getQueuePriorityState,
@@ -464,19 +470,10 @@ export class WebChatService {
     if (wcFilter.conversationStatus) query.status = wcFilter.conversationStatus;
     if (wcFilter.queueStatus) query.queueStatus = wcFilter.queueStatus;
 
-    const depts = await InboxService.getInstance().listDepartmentsForUser(clientId, userId);
-    const viewableDeptOids = depts
-      .filter(d => d.canViewQueue)
-      .map(d => new mongoose.Types.ObjectId(d._id));
-
+    // Chat do site: fila visível para todos os atendentes com Inbox (sem silo por setor).
+    // Filtro por setor só quando o painel pede explicitamente.
     if (filters.departmentId) {
       query.departmentId = new mongoose.Types.ObjectId(filters.departmentId);
-    } else {
-      query.$or = [
-        { departmentId: { $exists: false } },
-        { departmentId: null },
-        ...(viewableDeptOids.length ? [{ departmentId: { $in: viewableDeptOids } }] : []),
-      ];
     }
 
     if (filters.mine) {
@@ -593,7 +590,7 @@ export class WebChatService {
     contactStats?: undefined;
     previousConversations?: [];
     contact: null;
-    quickReplies: [];
+    quickReplies: InboxQuickReply[];
   } | null> {
     const detail = await this.getConversationForAgent(clientId, conversationId);
     if (!detail) return null;
@@ -603,13 +600,6 @@ export class WebChatService {
       clientId: new mongoose.Types.ObjectId(clientId),
     }).lean();
     if (!convDoc) return null;
-
-    const depts = await InboxService.getInstance().listDepartmentsForUser(clientId, userId);
-    if (convDoc.departmentId) {
-      const deptId = String(convDoc.departmentId);
-      const allowed = depts.some(d => d.canViewQueue && d._id === deptId);
-      if (!allowed) return null;
-    }
 
     const { contactName, contactIdentifier } = visitorDisplayName(
       convDoc.visitorName,
@@ -680,7 +670,7 @@ export class WebChatService {
       })),
       transfers: [],
       contact: null,
-      quickReplies: [],
+      quickReplies: normalizeQuickReplies(inboxSettings.quickReplies),
     };
   }
 
@@ -803,14 +793,20 @@ export class WebChatService {
     });
 
     const unreadDelta = data.direction === 'inbound' ? 1 : 0;
+    const currentStatus = await WebChatConversation.findById(conversation._id)
+      .select('status')
+      .lean();
+    const setFields: Record<string, unknown> = {
+      lastMessageAt: now,
+      lastMessagePreview: preview,
+    };
+    if (currentStatus?.status !== 'closed') {
+      setFields.status = 'open';
+    }
     await WebChatConversation.updateOne(
       { _id: conversation._id },
       {
-        $set: {
-          lastMessageAt: now,
-          lastMessagePreview: preview,
-          status: 'open',
-        },
+        $set: setFields,
         ...(unreadDelta ? { $inc: { unreadAgentCount: unreadDelta } } : {}),
       },
     );
@@ -1023,20 +1019,22 @@ export class WebChatService {
       }),
     ]);
 
+    const fresh = await WebChatConversation.findById(conversation._id);
+    if (!fresh || fresh.status === 'closed') return;
+
     if (
       !shouldSendWebChatAutoReply({
         autoReplyEnabled: Boolean(widget.autoReplyEnabled),
         autoReplyMessage: widget.autoReplyMessage,
-        assignedUserId: conversation.assignedUserId,
+        autoReplyUseAi: Boolean(widget.autoReplyUseAi),
+        queueStatus: fresh.queueStatus,
+        assignedUserId: fresh.assignedUserId,
         hasHumanOutbound: Boolean(hasHumanOutbound),
         hasBotOutbound: Boolean(hasBotOutbound),
       })
     ) {
       return;
     }
-
-    const fresh = await WebChatConversation.findById(conversation._id);
-    if (!fresh || fresh.status === 'closed') return;
 
     let body = (widget.autoReplyMessage ?? DEFAULT_AUTO_REPLY_MESSAGE).trim();
     let senderName = widget.autoReplySenderName?.trim() || 'Assistente virtual';
@@ -1160,7 +1158,7 @@ export class WebChatService {
       type: 'webchat:escalated',
       title: 'Chat do site — fila',
       body: dept?.name ? `${visitorLabel} · ${dept.name}` : visitorLabel,
-      href: `/platform/webchat?filter=queue&conv=${String(conversation._id)}`,
+      href: `/platform/inbox?conv=${toWebChatInboxId(String(conversation._id))}`,
       conversationId: String(conversation._id),
       createdAt: new Date().toISOString(),
     });
@@ -1181,19 +1179,50 @@ export class WebChatService {
     if (
       conversation.queueStatus === 'with_agent' &&
       conversation.assignedUserId &&
-      conversation.assignedUserId !== userId
+      String(conversation.assignedUserId) === String(userId)
+    ) {
+      const inboxSettings = await loadInboxSettings(clientId);
+      const agent = await User.findById(userId).select('displayName email').lean();
+      const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+      const agentMap = new Map([[userId, agentName]]);
+      const { contactName, contactIdentifier } = visitorDisplayName(
+        conversation.visitorName,
+        conversation.visitorEmail,
+      );
+      return enrichWebChatInboxRow(
+        {
+          _id: toWebChatInboxId(String(conversation._id)),
+          channel: 'webchat_site',
+          contactName,
+          contactIdentifier,
+          status: 'in_progress',
+          departmentId: conversation.departmentId ? String(conversation.departmentId) : undefined,
+          assignedUserId: userId,
+          assignedUserName: agentName,
+          lastMessageAt: (conversation.lastMessageAt ?? conversation.updatedAt).toISOString(),
+          lastMessagePreview: conversation.lastMessagePreview,
+        },
+        userId,
+        clientId,
+        agentMap,
+        inboxSettings.roundRobinPullTimeoutSeconds ?? 120,
+      );
+    }
+
+    if (
+      conversation.queueStatus === 'with_agent' &&
+      conversation.assignedUserId &&
+      String(conversation.assignedUserId) !== String(userId)
     ) {
       throw new Error('Conversa em atendimento por outro agente');
     }
 
     if (conversation.queueStatus === 'waiting_human') {
       await this.assertCanTakeWebChatQueue(clientId, userId, conversation);
-    } else if (conversation.queueStatus === 'bot') {
-      throw new Error('Conversa ainda em triagem automática');
     }
 
     const pulledFrom = conversation.suggestedUserId;
-    const wasPull = Boolean(pulledFrom && pulledFrom !== userId);
+    const wasPull = Boolean(pulledFrom && String(pulledFrom) !== String(userId));
 
     conversation.suggestedUserId = undefined;
     conversation.suggestedAt = undefined;
@@ -1257,7 +1286,7 @@ export class WebChatService {
   ): Promise<void> {
     const suggestedId = conversation.suggestedUserId;
     if (!suggestedId) return;
-    if (suggestedId === userId) return;
+    if (String(suggestedId) === String(userId)) return;
 
     const settings = await loadInboxSettings(clientId);
     const busy = await isAgentBusyWithClients(clientId, suggestedId, {
@@ -1282,10 +1311,18 @@ export class WebChatService {
     body: string,
     senderName?: string,
   ): Promise<WebChatMessageDto> {
-    const text = body?.trim();
-    if (!text) throw new Error('Mensagem vazia');
+    const raw = body?.trim();
+    if (!raw) throw new Error('Mensagem vazia');
 
     const conversation = await this.prepareAgentReply(clientId, userId, conversationId);
+    const settings = await loadInboxSettings(clientId);
+    const quickReplies = normalizeQuickReplies(settings.quickReplies);
+    const { contactName } = visitorDisplayName(
+      conversation.visitorName,
+      conversation.visitorEmail,
+    );
+    const quickCode = parseQuickReplyCode(raw);
+    const text = expandQuickReply(raw, quickReplies, contactName);
 
     const msg = await this.appendMessage(conversation, {
       direction: 'outbound',
@@ -1293,6 +1330,11 @@ export class WebChatService {
       senderUserId: userId,
       senderName: senderName?.trim() || 'Atendente',
     });
+
+    if (quickCode === 'enc') {
+      await this.closeConversation(clientId, conversationId, userId, { skipSystemMessage: true });
+    }
+
     return this.toMessageDto(msg);
   }
 
@@ -1335,22 +1377,103 @@ export class WebChatService {
     if (conversation.status === 'closed') throw new Error('Conversa encerrada');
 
     if (conversation.queueStatus === 'waiting_human') {
-      throw new Error('Aceite a conversa na fila antes de responder.');
+      if (
+        conversation.suggestedUserId &&
+        String(conversation.suggestedUserId) !== String(userId)
+      ) {
+        throw new Error('Aceite ou aguarde a prioridade desta conversa antes de responder');
+      }
+      throw new Error('Assuma a conversa antes de responder');
     }
+    if (conversation.queueStatus === 'bot') {
+      throw new Error('Assuma a conversa antes de responder');
+    }
+    const assignedId = conversation.assignedUserId
+      ? String(conversation.assignedUserId)
+      : '';
+    if (!assignedId || assignedId !== String(userId)) {
+      if (assignedId && assignedId !== String(userId)) {
+        throw new Error('Conversa em atendimento por outro agente');
+      }
+      throw new Error('Assuma a conversa antes de responder');
+    }
+
+    return conversation;
+  }
+
+  async transferConversation(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+    departmentId: string,
+    reason?: string,
+  ): Promise<InboxWebChatListRow> {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') throw new Error('Conversa encerrada');
+
+    const target = await InboxDepartment.findOne({
+      _id: new mongoose.Types.ObjectId(departmentId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+      isActive: true,
+    });
+    if (!target) throw new Error('Setor inválido');
+
+    await InboxService.getInstance().assertUserCanTransferToDepartment(
+      clientId,
+      userId,
+      target,
+    );
+
     if (
       conversation.queueStatus === 'with_agent' &&
       conversation.assignedUserId &&
-      conversation.assignedUserId !== userId
+      String(conversation.assignedUserId) !== String(userId)
     ) {
       throw new Error('Conversa em atendimento por outro agente');
     }
 
-    if (!conversation.assignedUserId) {
-      conversation.assignedUserId = userId;
-    }
-    conversation.queueStatus = 'with_agent';
-    await conversation.save();
-    return conversation;
+    const agent = await User.findById(userId).select('displayName email').lean();
+    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+    const customReason = reason?.trim();
+    const systemReason =
+      customReason ||
+      (target.clientVisible !== false
+        ? `Transferido para o setor ${target.name} por ${agentName}.`
+        : `Transferência interna para ${target.name} por ${agentName}.`);
+
+    await this.escalateToQueue(clientId, conversationId, {
+      departmentId,
+      reason: systemReason,
+    });
+
+    const inboxSettings = await loadInboxSettings(clientId);
+    const { contactName, contactIdentifier } = visitorDisplayName(
+      conversation.visitorName,
+      conversation.visitorEmail,
+    );
+    const agentMap = new Map([[userId, agentName]]);
+
+    return enrichWebChatInboxRow(
+      {
+        _id: toWebChatInboxId(String(conversation._id)),
+        channel: 'webchat_site',
+        contactName,
+        contactIdentifier,
+        status: 'waiting_queue',
+        departmentName: target.name,
+        departmentId: String(target._id),
+        lastMessageAt: (conversation.lastMessageAt ?? conversation.updatedAt).toISOString(),
+        lastMessagePreview: conversation.lastMessagePreview,
+      },
+      userId,
+      clientId,
+      agentMap,
+      inboxSettings.roundRobinPullTimeoutSeconds ?? 120,
+    );
   }
 
   async reopenConversation(
@@ -1399,20 +1522,27 @@ export class WebChatService {
     clientId: string,
     conversationId: string,
     _userId: string,
+    opts?: { skipSystemMessage?: boolean },
   ): Promise<void> {
     const conversation = await WebChatConversation.findOne({
       _id: new mongoose.Types.ObjectId(conversationId),
       clientId: new mongoose.Types.ObjectId(clientId),
     });
     if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') return;
+
+    if (!opts?.skipSystemMessage) {
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: 'Atendimento encerrado. Obrigado pelo contato!',
+      });
+    }
 
     conversation.status = 'closed';
+    conversation.assignedUserId = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
     await conversation.save();
-
-    await this.appendMessage(conversation, {
-      direction: 'system',
-      body: 'Atendimento encerrado. Obrigado pelo contato!',
-    });
 
     this.emitWebchatWebhook(String(conversation.clientId), 'webchat.conversation.closed', {
       conversation_id: String(conversation._id),
