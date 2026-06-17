@@ -1227,7 +1227,7 @@ export class AiConversationService {
 
     const menuKey = state.suggestedDepartmentMenuKey;
     const clientOid = new mongoose.Types.ObjectId(ctx.clientId);
-    let department = menuKey
+    let department: IInboxDepartment | null = menuKey
       ? await InboxDepartment.findOne({ clientId: clientOid, menuKey, isActive: true })
       : null;
     if (!department && opts?.lastAiReply) {
