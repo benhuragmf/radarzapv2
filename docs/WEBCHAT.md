@@ -52,6 +52,16 @@ Snippet equivalente ao `widget.html`:
 3. Mensagens via REST + eventos `webchat:message` / `webchat:conversation`.
 4. Agente responde no painel; visitante recebe em tempo real.
 
+## Painel (2.9.2+)
+
+- Abas **Abertas** / **Encerradas** na lista de conversas.
+- Contador de não lidas (`GET /webchat/stats`).
+- Som discreto ao receber mensagem do visitante (socket).
+
+## Widget visitante
+
+- Ao encerrar, exibe **Nova conversa** (limpa sessão e abre novo atendimento).
+
 ## Próximos passos (roadmap)
 
 - Unificar com Inbox (mesma fila/setores).

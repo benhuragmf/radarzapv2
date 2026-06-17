@@ -48,6 +48,7 @@ interface WebChatMessageRow {
 }
 
 type Tab = 'chats' | 'widgets'
+type ChatFilter = 'open' | 'closed'
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
@@ -57,6 +58,7 @@ function embedSnippet(publicKey: string) {
 export default function WebChat() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('chats')
+  const [chatFilter, setChatFilter] = useState<ChatFilter>('open')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [newWidgetName, setNewWidgetName] = useState('Site principal')
@@ -74,9 +76,17 @@ export default function WebChat() {
     enabled: canManage,
   })
 
+  const { data: stats } = useQuery({
+    queryKey: ['webchat-stats'],
+    queryFn: () => api.get<{ openCount: number; unreadCount: number }>('/webchat/stats'),
+    enabled: canView,
+    refetchInterval: 30_000,
+  })
+
   const { data: conversations, isLoading: loadingConversations } = useQuery({
-    queryKey: ['webchat-conversations'],
-    queryFn: () => api.get<WebChatConversationRow[]>('/webchat/conversations?status=open'),
+    queryKey: ['webchat-conversations', chatFilter],
+    queryFn: () =>
+      api.get<WebChatConversationRow[]>(`/webchat/conversations?status=${chatFilter}`),
     enabled: canView,
     refetchInterval: 30_000,
   })
@@ -89,6 +99,10 @@ export default function WebChat() {
       ),
     enabled: canView && !!selectedId,
   })
+
+  useEffect(() => {
+    setSelectedId(null)
+  }, [chatFilter])
 
   useEffect(() => {
     if (!selectedId && conversations?.length) {
@@ -130,6 +144,7 @@ export default function WebChat() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-conversation', selectedId] })
       qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
+      qc.invalidateQueries({ queryKey: ['webchat-stats'] })
       notifySuccess('Conversa encerrada')
     },
     onError: mutationError,
@@ -237,8 +252,33 @@ export default function WebChat() {
       {tab === 'chats' && (
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
           <Card className="overflow-hidden p-0">
-            <div className="border-b border-[var(--rz-border)] px-4 py-3 text-sm font-semibold">
-              Abertas ({sortedConversations.length})
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--rz-border)] px-4 py-3">
+              <div className="text-sm font-semibold">
+                {(stats?.unreadCount ?? 0) > 0 && (
+                  <span className="mr-2 rounded-full bg-[var(--rz-primary)] px-2 py-0.5 text-xs text-white">
+                    {stats!.unreadCount} nova(s)
+                  </span>
+                )}
+                {chatFilter === 'open' ? 'Abertas' : 'Encerradas'} ({sortedConversations.length})
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={chatFilter === 'open' ? 'primary' : 'secondary'}
+                  onClick={() => setChatFilter('open')}
+                >
+                  Abertas
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={chatFilter === 'closed' ? 'primary' : 'secondary'}
+                  onClick={() => setChatFilter('closed')}
+                >
+                  Encerradas
+                </Button>
+              </div>
             </div>
             {loadingConversations ? (
               <LoadingState label="Carregando..." />
@@ -271,7 +311,9 @@ export default function WebChat() {
                   </li>
                 ))}
                 {!sortedConversations.length && (
-                  <li className="px-4 py-6 text-sm text-[var(--rz-text-muted)]">Nenhuma conversa aberta.</li>
+                  <li className="px-4 py-6 text-sm text-[var(--rz-text-muted)]">
+                    {chatFilter === 'open' ? 'Nenhuma conversa aberta.' : 'Nenhuma conversa encerrada.'}
+                  </li>
                 )}
               </ul>
             )}
@@ -290,6 +332,9 @@ export default function WebChat() {
                   <div>
                     <div className="font-semibold text-[var(--rz-text)]">
                       {selected?.visitorName || selected?.visitorEmail || 'Visitante'}
+                      {selected?.status === 'closed' && (
+                        <span className="ml-2 text-xs font-normal text-[var(--rz-text-muted)]">(encerrada)</span>
+                      )}
                     </div>
                     {selected?.pageUrl && (
                       <a

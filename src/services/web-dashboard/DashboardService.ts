@@ -4873,6 +4873,16 @@ export class DashboardService {
       }
     });
 
+    r.get('/webchat/stats', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const stats = await WebChatService.getInstance().getStats(auth.clientId);
+        res.json(stats);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/webchat/conversations', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;

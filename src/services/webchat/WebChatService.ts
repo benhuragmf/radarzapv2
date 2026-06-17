@@ -226,6 +226,21 @@ export class WebChatService {
     };
   }
 
+  async getStats(clientId: string): Promise<{ openCount: number; unreadCount: number }> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const [openCount, unreadRows] = await Promise.all([
+      WebChatConversation.countDocuments({ clientId: clientOid, status: 'open' }),
+      WebChatConversation.aggregate<{ total: number }>([
+        { $match: { clientId: clientOid, status: 'open' } },
+        { $group: { _id: null, total: { $sum: '$unreadAgentCount' } } },
+      ]),
+    ]);
+    return {
+      openCount,
+      unreadCount: unreadRows[0]?.total ?? 0,
+    };
+  }
+
   async listConversations(
     clientId: string,
     opts: { status?: 'open' | 'closed'; limit?: number } = {},
