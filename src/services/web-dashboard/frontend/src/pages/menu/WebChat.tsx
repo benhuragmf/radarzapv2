@@ -27,6 +27,7 @@ interface WebChatWidgetRow {
   autoReplyEnabled: boolean
   autoReplyMessage: string
   autoReplySenderName: string
+  autoReplyUseAi: boolean
 }
 
 interface WebChatConversationRow {
@@ -456,6 +457,11 @@ function WidgetEditorCard({
   const qc = useQueryClient()
   const [form, setForm] = useState(widget)
 
+  const { data: aiStatus } = useQuery({
+    queryKey: ['webchat-ai-status'],
+    queryFn: () => api.get<{ available: boolean; reason?: string }>('/webchat/ai-status'),
+  })
+
   useEffect(() => {
     setForm(widget)
   }, [widget])
@@ -470,6 +476,7 @@ function WidgetEditorCard({
         autoReplyEnabled: form.autoReplyEnabled,
         autoReplyMessage: form.autoReplyMessage,
         autoReplySenderName: form.autoReplySenderName,
+        autoReplyUseAi: form.autoReplyUseAi,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
@@ -629,8 +636,32 @@ function WidgetEditorCard({
           />
           Ativar resposta automática
         </label>
+        <label
+          className={
+            'mt-3 flex items-center gap-2 text-sm ' +
+            (aiStatus?.available ? 'text-[var(--rz-text)]' : 'text-[var(--rz-text-muted)]')
+          }
+        >
+          <input
+            type="checkbox"
+            checked={form.autoReplyUseAi}
+            disabled={!aiStatus?.available || !form.autoReplyEnabled}
+            onChange={e => setForm(f => ({ ...f, autoReplyUseAi: e.target.checked }))}
+          />
+          Usar IA da empresa (mesmas configs de Inbox → IA Atendimento)
+        </label>
+        {!aiStatus?.available && (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            {aiStatus?.reason ?? 'IA indisponível — usa mensagem fixa abaixo.'}
+          </p>
+        )}
+        {form.autoReplyUseAi && form.autoReplyEnabled && (
+          <p className="mt-2 text-xs text-[var(--rz-text-muted)]">
+            Se a IA falhar, envia a mensagem fixa como fallback.
+          </p>
+        )}
         <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-          Nome exibido
+          Nome exibido (mensagem fixa / fallback)
           <input
             className={inputCls + ' mt-1'}
             value={form.autoReplySenderName}
@@ -638,7 +669,7 @@ function WidgetEditorCard({
           />
         </label>
         <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-          Mensagem
+          Mensagem fixa (fallback)
           <textarea
             className={textareaCls + ' mt-1'}
             rows={2}

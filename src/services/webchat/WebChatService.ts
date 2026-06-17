@@ -21,6 +21,7 @@ import {
   isWebChatOriginAllowed,
 } from './webchat-token.util';
 import { emitWebChatToTenant, emitWebChatToVisitor } from './WebChatRealtime';
+import { WebChatAiService } from './WebChatAiService';
 
 export class WebChatService {
   private static instance: WebChatService;
@@ -66,6 +67,7 @@ export class WebChatService {
       autoReplyEnabled?: boolean;
       autoReplyMessage?: string;
       autoReplySenderName?: string;
+      autoReplyUseAi?: boolean;
     },
   ): Promise<IWebChatWidget | null> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
@@ -88,6 +90,7 @@ export class WebChatService {
     if (patch.autoReplySenderName !== undefined) {
       existing.autoReplySenderName = patch.autoReplySenderName.trim();
     }
+    if (patch.autoReplyUseAi !== undefined) existing.autoReplyUseAi = patch.autoReplyUseAi;
     await existing.save();
     return existing;
   }
@@ -452,11 +455,29 @@ export class WebChatService {
     const fresh = await WebChatConversation.findById(conversation._id);
     if (!fresh || fresh.status === 'closed') return;
 
+    let body = (widget.autoReplyMessage ?? DEFAULT_AUTO_REPLY_MESSAGE).trim();
+    let senderName = widget.autoReplySenderName?.trim() || 'Assistente virtual';
+
+    if (widget.autoReplyUseAi) {
+      const ai = await WebChatAiService.getInstance().generateVisitorReply(
+        String(conversation.clientId),
+        String(conversation._id),
+        {
+          visitorName: fresh.visitorName,
+          visitorEmail: fresh.visitorEmail,
+        },
+      );
+      if (ai) {
+        body = ai.body;
+        senderName = ai.senderName;
+      }
+    }
+
     await this.appendMessage(fresh, {
       direction: 'outbound',
-      body: (widget.autoReplyMessage ?? DEFAULT_AUTO_REPLY_MESSAGE).trim(),
+      body,
       senderUserId: WEBCHAT_BOT_SENDER_ID,
-      senderName: widget.autoReplySenderName?.trim() || 'Assistente virtual',
+      senderName,
     });
   }
 

@@ -94,6 +94,7 @@ import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { WebChatService } from '../webchat/WebChatService';
+import { WebChatAiService } from '../webchat/WebChatAiService';
 import {
   agentPresenceConnect,
   agentPresenceDisconnect,
@@ -4808,6 +4809,7 @@ export class DashboardService {
             autoReplyEnabled: w.autoReplyEnabled ?? true,
             autoReplyMessage: w.autoReplyMessage,
             autoReplySenderName: w.autoReplySenderName,
+            autoReplyUseAi: w.autoReplyUseAi ?? false,
             createdAt: w.createdAt,
             updatedAt: w.updatedAt,
           })),
@@ -4841,6 +4843,7 @@ export class DashboardService {
           autoReplyEnabled: widget.autoReplyEnabled,
           autoReplyMessage: widget.autoReplyMessage,
           autoReplySenderName: widget.autoReplySenderName,
+          autoReplyUseAi: widget.autoReplyUseAi,
         });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
@@ -4866,9 +4869,20 @@ export class DashboardService {
           autoReplyEnabled: widget.autoReplyEnabled,
           autoReplyMessage: widget.autoReplyMessage,
           autoReplySenderName: widget.autoReplySenderName,
+          autoReplyUseAi: widget.autoReplyUseAi,
         });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/webchat/ai-status', requireCapability(Cap.WEBCHAT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const status = await WebChatAiService.getInstance().getAvailability(auth.clientId);
+        res.json(status);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
       }
     });
 

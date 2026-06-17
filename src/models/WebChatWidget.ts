@@ -12,6 +12,7 @@ export interface IWebChatWidget extends Document {
   autoReplyEnabled: boolean;
   autoReplyMessage: string;
   autoReplySenderName: string;
+  autoReplyUseAi: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +41,7 @@ const WebChatWidgetSchema = new Schema<IWebChatWidget>(
     autoReplyEnabled: { type: Boolean, default: true },
     autoReplyMessage: { type: String, default: DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE, maxlength: 500 },
     autoReplySenderName: { type: String, default: 'Assistente virtual', maxlength: 80 },
+    autoReplyUseAi: { type: Boolean, default: false },
   },
   { timestamps: true, collection: 'webChatWidgets' },
 );

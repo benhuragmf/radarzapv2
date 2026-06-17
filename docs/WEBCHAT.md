@@ -74,11 +74,12 @@ Por widget, em **Widgets → Resposta automática**:
 - Enviada **uma vez** após a primeira mensagem do visitante.
 - Desativada assim que um atendente humano responde.
 - Configurável: ativar/desativar, nome e texto.
+- **Modo IA** (2.9.5): usa `AiSettingsService` + prompt da empresa; fallback para mensagem fixa.
 
-API pública com **rate limit** de mensagens (`rateLimiters.messages`).
+`GET /webchat/ai-status` — disponibilidade da IA para o widget.
 
 ## Próximos passos (roadmap)
 
 - Unificar com Inbox (mesma fila/setores).
-- IA no WebChat (reutilizar `AiSettingsService`).
+- Escalação IA → notificar agentes no painel.
 - Horário de atendimento / offline.
