@@ -19,6 +19,7 @@
     "seed:platform-templates": "ts-node -r dotenv/config -r tsconfig-paths/register seed-platform-templates.ts",
     "update:templates": "ts-node -r dotenv/config -r tsconfig-paths/register update-templates.ts",
     "clear:test": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/clear-test-state.ts",
+    "qa:prep": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/qa-prep.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

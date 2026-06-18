@@ -1,0 +1,155 @@
+# RadarZap v2 — Roteiro QA Fase 1 (passo a passo)
+
+> Complementa [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) com ordem de execução e mensagens exatas.  
+> **Versão alvo:** `2.10.19+`
+
+## Antes de começar
+
+```bash
+npm run qa:prep    # verifica Mongo, sessão WA e CSAT
+npm test           # 326 testes
+```
+
+1. Painel aberto (`npm run dev` + `npm run dashboard:frontend`)
+2. Sessão WhatsApp **conectada** (`/sessions`)
+3. CSAT **habilitado** (`/platform/inbox/bot` → Pesquisa de satisfação)
+4. Celular de teste como **cliente** (número diferente do atendente)
+5. Anote versão: `package.json` → campo `version`
+
+---
+
+## Parte 1 — WhatsApp (§ A do checklist)
+
+Execute **na ordem**. Aguarde cada resposta antes do próximo passo.
+
+### Cenário 1 — Triagem → humano
+
+| Quem | Ação |
+|------|------|
+| Cliente | Envia `Oi` ou `preciso de ajuda` |
+| Sistema | Bot/IA responde (menu ou triagem) |
+| Cliente | Escolhe setor ou pede atendente conforme fluxo |
+| Atendente | Abre `/platform/inbox`, **Assume**, responde uma mensagem |
+
+**Esperado:** conversa no Inbox; **sem** ticket `TK-` criado automaticamente.
+
+---
+
+### Cenários 2–5 — CSAT completo
+
+| # | Quem | Ação | Esperado |
+|---|------|------|----------|
+| 2 | Atendente | No Inbox, clica **Finalizar** | Cliente recebe pesquisa CSAT na hora |
+| 3 | Cliente | Envia `avaliar` (se ainda não recebeu nota) | Mensagem de nota 1–5; **não** abre ticket antigo |
+| 4 | Cliente | Responde `4` | Agradecimento; nota gravada |
+| 5 | Cliente | Envia `Ola` ou `gostaria de atendimento` | **Novo** atendimento no Inbox; **sem** loop pedindo nota |
+
+---
+
+### Cenário 6 — Pedido de humano pós-CSAT
+
+| Quem | Ação |
+|------|------|
+| Cliente | `falar com atendente` |
+
+**Esperado:** escala ou menu de setores; **não** lembrete de CSAT pendente.
+
+---
+
+### Cenário 7 — Ticket antigo fechado
+
+**Pré-condição:** existe `TK-…` **fechado** há dias para este contato.
+
+| Quem | Ação |
+|------|------|
+| Cliente | Envia mensagem nova (ex.: `tenho outra dúvida`) |
+
+**Esperado:** novo fluxo Inbox; mensagem **não** vira complemento do TK antigo.
+
+---
+
+### Cenário 8 — Janela 12 h do ticket
+
+| Quem | Ação |
+|------|------|
+| Atendente | Abre ticket em `/platform/inbox/tickets/:ref` |
+| Atendente | Envia resumo ao cliente **via Ticket** (não só pelo Inbox) |
+| Cliente | Responde em menos de 12 h |
+
+**Esperado:** complemento no **mesmo** `TK-…`; status `client_replied`.
+
+---
+
+### Cenário 9 — IA promete transferência
+
+**Pré-condição:** IA Atendimento ativa (`/platform/inbox/ia`).
+
+| Quem | Ação |
+|------|------|
+| Cliente | Inicia conversa; pergunta algo que leve a transferência |
+| Cliente | Ou diga algo que faça a IA responder “vou transferir” / “encaminhar” |
+
+**Esperado:** conversa vai para fila (`waiting_queue`); **não** fica travada em triagem.
+
+---
+
+### Cenário 10 — Menu ticket × inbox
+
+**Pré-condição:** inbox ativo **e** menu de ticket enviado ao cliente.
+
+| Quem | Ação |
+|------|------|
+| Cliente | Responde `1` ou `2` conforme menu recebido |
+
+**Esperado:** escolha respeita contexto (ticket vs inbox); sem colisão entre fluxos.
+
+---
+
+## Parte 2 — Painel Atendimento (§ B)
+
+Percorra cada rota logado. Marque no checklist.
+
+| Rota | O que validar rapidamente |
+|------|---------------------------|
+| `/platform/inbox` | Cards de métricas; filtro **Encerrados**; 3 colunas ao abrir conversa |
+| `/platform/inbox/tickets` | Métricas; busca; paginação (Próxima/Anterior) |
+| `/platform/inbox/setores` | Criar/editar setor |
+| `/platform/inbox/bot` | Prévia WhatsApp muda ao editar texto |
+| `/platform/inbox/respostas` | Busca; prévia de atalho |
+| `/platform/inbox/supervisor` | Fila visível; reatribuir (se houver itens) |
+| `/platform/webchat` | Aba Widgets + snippet; histórico 3 colunas |
+| `/platform/inbox/ia` | Métricas no topo; salvar configurações |
+| `/platform/inbox/relatorios` | Trocar período; tabelas carregam |
+
+---
+
+## Parte 3 — WebChat (§ C)
+
+1. Abra o site de teste ou `/webchat/widget.html` com chave do widget
+2. Preencha nome/e-mail se o widget pedir
+3. Envie mensagem → verifique triagem
+4. No painel: `/platform/inbox?channel=webchat` → **Assumir** e responder
+5. Teste anexo (imagem/PDF) se possível
+6. **Finalizar** e confirme no widget que encerrou
+
+---
+
+## Ao encontrar falha
+
+Registre em **QA-FASE1-CHECKLIST.md** § Registro de falhas:
+
+- Cenário #
+- O que fez (passo a passo)
+- O que aconteceu vs esperado
+- Print ou trecho da mensagem
+- Versão (`2.10.x`)
+
+Abra issue ou informe o agente com esses dados para correção.
+
+---
+
+## Referências
+
+- [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)
+- [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md)
+- [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) · [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md)

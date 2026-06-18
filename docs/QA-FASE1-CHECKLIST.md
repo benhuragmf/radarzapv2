@@ -1,7 +1,7 @@
 # RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
-> **Versão alvo:** `2.10.18` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
-> Preencher data, responsável e pass/fail ao executar. Anexar prints em falhas.
+> **Versão alvo:** `2.10.19` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
+> **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Pré-check:** `npm run qa:prep`
 
 **Execução:** _______________ · **Responsável:** _______________ · **Ambiente:** dev / piloto
 
@@ -11,8 +11,7 @@
 
 - [ ] `npm test` verde (326 testes em 2.10.18)
 - [ ] `npm run build` + build frontend verdes
-- [ ] Sessão WhatsApp conectada (`/sessions`)
-- [ ] CSAT habilitado na org (`csatEnabled`)
+- [ ] `npm run qa:prep` sem bloqueios (WA + CSAT)
 - [ ] Contato de teste (idealmente o que reproduziu bugs anteriores)
 - [ ] Pelo menos 1 widget WebChat ativo (para cenários site)
 
@@ -73,7 +72,8 @@
 | `npm test` + `npm run build` verdes | [x] validado local 2026-06-18 |
 | CI verde em `main` | [x] validado 2026-06-18 (2.10.19) |
 | Testes helpers 2.8.8–2.8.11 (`csat`, `ticket-reply-window`, `inbound-routing`) | [x] em `npm test` |
-| ROADMAP + changelog alinhados | [x] 2.10.18 |
+| E2E smoke rotas Atendimento (`atendimento-smoke.spec.ts`) | [x] CI 2.10.19+ |
+| ROADMAP + changelog alinhados | [x] 2.10.19 |
 
 ---
 

@@ -55,7 +55,8 @@ Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 
 ### A. QA manual WhatsApp (obrigatório)
 
-Checklist imprimível com tabelas pass/fail: **[`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)** (§ A WhatsApp, § B painel, § C WebChat).
+Checklist imprimível com tabelas pass/fail: **[`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)** (§ A WhatsApp, § B painel, § C WebChat).  
+Passo a passo com mensagens: **[`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md)** · pré-check: `npm run qa:prep`
 
 Executar com `csatEnabled`, sessão WA conectada, contato de teste (idealmente o que reproduziu bugs).
 
@@ -158,4 +159,4 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 - Servidor (referência, não executar agora): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md)
 - Go-live (atalho): [`PRODUCTION.md`](./PRODUCTION.md)
 - Changelog: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md)
-- QA Fase 1: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)
+- QA Fase 1: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) · [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md)
