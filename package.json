@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.10.18",
+  "version": "2.10.19",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -70,7 +70,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.8.0",
     "mongoose": "^8.5.2",
-    "nodemailer": "^8.0.10",
+    "nodemailer": "^9.0.1",
     "pino": "^9.3.2",
     "pino-http": "^10.2.0",
     "pino-pretty": "^11.2.2",
