@@ -71,7 +71,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.10.16** | WebChat: modelos de preview (clássico, tecnológico, SaaS, minimal) + aplicar visual no painel — ver `WEBCHAT.md` |
 | **2.10.17** | WebChat widget: tema escuro (`appearance.theme`) alinhado ao modelo tecnológico — ver `WEBCHAT.md` |
 | **2.10.18** | Atendimento: upgrade visual (Inbox 3 colunas, métricas, Tickets/Setores/Bot/Respostas/Supervisor/WebChat/IA/Relatórios), paginação server-side em `GET /inbox/tickets` — ver `radarzap-inbox-upgrade.md` |
-| **2.10.19** | CI: `npm audit` runtime (high+) verde — `npm audit fix`, nodemailer 9.0.1 |
+| **2.10.19** | CI: `npm audit` runtime (high+) verde — `npm audit fix`, nodemailer 9.0.1; kit QA Fase 1 (`qa:prep`, roteiro, E2E atendimento-smoke, `parseTicketListQuery`) |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 
@@ -102,6 +102,8 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | Tickets Inbox | Janela cliente 12h pós-envio equipe; grace 30min; menu follow-up após 2h |
 | Painel | scroll do navegador; `Layout.tsx` `min-h-screen` |
 | Design system (2.8) | Tokens CSS `--rz-*`; `RadarPageShell`, `PageHeader`, `LoadingState`/`EmptyState`/`ErrorState`; `inputCls`/`selectCls`; Sonner + `ToastContext` legado |
+| Estabilização Fase 1 | `npm run qa:prep`; docs `QA-FASE1-*`; gate em `ROADMAP-COMPLETUDE.md` |
+| Atendimento UI (2.10.18) | Upgrade visual — `radarzap-inbox-upgrade.md`; paginação `GET /inbox/tickets` |
 
 ---
 

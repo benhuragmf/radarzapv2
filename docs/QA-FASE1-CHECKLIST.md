@@ -9,7 +9,7 @@
 
 ## Pré-requisitos
 
-- [ ] `npm test` verde (326 testes em 2.10.18)
+- [ ] `npm test` verde (331 testes em 2.10.19+)
 - [ ] `npm run build` + build frontend verdes
 - [ ] `npm run qa:prep` sem bloqueios (WA + CSAT)
 - [ ] Contato de teste (idealmente o que reproduziu bugs anteriores)
