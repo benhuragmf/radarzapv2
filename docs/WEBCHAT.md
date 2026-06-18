@@ -73,6 +73,7 @@ Snippet equivalente ao `widget.html`:
 
 - Ao encerrar, exibe **Nova conversa** (limpa sessão e abre novo atendimento).
 - Botão **×** no cabeçalho e **Fechar janela** após encerramento (2.10.9).
+- **Encerrar atendimento** — link no rodapé do chat; visitante fecha a conversa (`POST /api/webchat/public/sessions/close`) sem precisar digitar (2.10.37).
 - Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
 - Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
 - **Tema claro/escuro** (`appearance.theme`, 2.10.17): modelo **Tecnológico** aplica tema escuro (fundo `#060b14`, grid sutil, bolhas escuras). Editor: **Tema do chat** em Widgets.
@@ -88,6 +89,27 @@ Por widget, em **Widgets → Resposta automática**:
 
 `GET /webchat/ai-status` — disponibilidade da IA para o widget.
 
+## Visitantes ao vivo no Inbox (2.10.31)
+
+Painel **Visitantes no site agora** em `/platform/inbox`:
+
+| Coluna | Fonte |
+|--------|--------|
+| Página | `pageUrl` / `document.title` (heartbeat 30s) |
+| Origem | `document.referrer` → Google, Facebook, Direto, etc. |
+| Cidade | GeoIP pelo IP do visitante (localhost = "Local") |
+| Chat | Aberto agora / já clicou (botão ou balão) / não clicou |
+| Convite | Clicou no balão / fechou (×, cooldown 24h) / só exibido |
+| Ação | **Chamar no chat** / **Abrir chat** (2.10.32) |
+
+- API painel: `GET /api/webchat/live-visitors` (`inbox:view`)
+- **Chamar visitante:** `POST /api/webchat/live-visitors/:presenceId/engage` (`webchat:reply`) — body opcional `{ openOnly: true }` para só abrir o widget sem nova mensagem; sem `openOnly` cria/retoma conversa, envia saudação, abre o widget (`webchat:agent-engage`) e redireciona o painel para `wc:{conversationId}`
+- API pública: `POST /api/webchat/public/widgets/:key/presence`
+- Socket visitante: join `webchat:presence:{presenceId}` via auth `webchatPresenceId` no handshake (token inválido não bloqueia presença)
+- **Fallback abrir chat:** comando em Redis + `GET /api/webchat/public/widgets/:key/presence/:presenceId/pending` (poll 3s no widget) além do socket `webchat:agent-engage`
+- Socket painel: `webchat:presence` na room do tenant
+- Presença expira em **120s** sem heartbeat
+
 ## Saudação proativa (2.10.25)
 
 Por widget, em **Widgets → Saudação proativa** (versão inicial):
@@ -95,9 +117,11 @@ Por widget, em **Widgets → Saudação proativa** (versão inicial):
 - **Desligada por padrão** — o empresário ativa no painel.
 - Após **30 segundos** (configurável, 5–300 s) com o script do chat carregado na página, o sistema envia uma mensagem curta e amigável ao visitante (ex.: *Olá! Estou por aqui caso precise de ajuda 😊*).
 - Mensagem aparece como **resposta do atendimento** (`outbound`); se o chat estiver fechado, exibe um **balão acima do botão** 💬.
-- Enviada **uma vez por conversa**; não dispara se o visitante já enviou mensagem ou se já abriu o chat (saudação inicial).
-- Respeita **horário comercial** quando ativo (não envia fora do horário).
-- API pública: `POST /api/webchat/public/widgets/:key/proactive-greeting` — body opcional `{ visitorToken, pageUrl }`.
+- O **balão reaparece a cada visita** à página (após o delay), mesmo com o mesmo visitante — o Local Storage mantém a conversa, mas não esconde o convite.
+- Se o visitante **fechar o balão (×)**, ele só volta a aparecer após **24 horas** (cooldown no navegador).
+- No servidor, a mensagem é gravada **uma vez por conversa** (evita spam no Inbox); visitas seguintes só reexibem o balão.
+- **Não depende de horário comercial** (é um convite amigável, não promessa de atendente online).
+- API pública: `POST /api/webchat/public/widgets/:key/proactive-greeting` — body opcional `{ visitorToken, pageUrl }`; resposta inclui `skipReason` quando `sent: false`.
 
 ## Fila e setores (2.9.6)
 

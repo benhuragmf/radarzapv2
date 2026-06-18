@@ -1,17 +1,22 @@
 export interface ProactiveGreetingCheckInput {
   proactiveGreetingEnabled: boolean;
   proactiveGreetingMessage?: string | null;
-  businessHoursEnabled: boolean;
-  isOnline: boolean;
   proactiveGreetingSentAt?: Date | string | null;
   hasVisitorInbound: boolean;
+  outboundCount?: number;
+}
+
+export function getProactiveGreetingSkipReason(
+  input: ProactiveGreetingCheckInput,
+): string | null {
+  if (!input.proactiveGreetingEnabled) return 'disabled';
+  if (!input.proactiveGreetingMessage?.trim()) return 'no_message';
+  if (input.proactiveGreetingSentAt) return 'already_sent';
+  if (input.hasVisitorInbound) return 'visitor_replied';
+  if ((input.outboundCount ?? 0) > 0) return 'has_outbound';
+  return null;
 }
 
 export function shouldSendProactiveGreeting(input: ProactiveGreetingCheckInput): boolean {
-  if (!input.proactiveGreetingEnabled) return false;
-  if (!input.proactiveGreetingMessage?.trim()) return false;
-  if (input.proactiveGreetingSentAt) return false;
-  if (input.hasVisitorInbound) return false;
-  if (input.businessHoursEnabled && !input.isOnline) return false;
-  return true;
+  return getProactiveGreetingSkipReason(input) === null;
 }

@@ -95,6 +95,7 @@ import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { WebChatService } from '../webchat/WebChatService';
+import { WebChatPresenceService } from '../webchat/WebChatPresenceService';
 import { isWebChatInboxId, webChatInboxIdToMongo } from '../webchat/webchat-inbox-bridge';
 import { WebChatAiService } from '../webchat/WebChatAiService';
 import {
@@ -439,24 +440,31 @@ export class DashboardService {
     this.app.use(sessionMiddleware);
     this.io.engine.use(sessionMiddleware);
     this.io.use(async (socket, next) => {
+      const presenceId = socket.handshake.auth?.webchatPresenceId as string | undefined;
+      if (presenceId?.startsWith('wcp_')) {
+        await socket.join(`webchat:presence:${presenceId}`);
+      }
+
       const visitorToken = socket.handshake.auth?.webchatVisitorToken as string | undefined;
       if (visitorToken?.startsWith('wcv_')) {
         try {
           const conversation = await WebChatService.getInstance().resolveVisitorToken(visitorToken);
-          if (!conversation) {
-            next(new Error('Unauthorized'));
+          if (conversation) {
+            const convId = String(conversation._id);
+            socket.data.webchatConversationId = convId;
+            socket.data.webchatClientId = String(conversation.clientId);
+            await socket.join(`webchat:conv:${convId}`);
+            next();
             return;
           }
-          const convId = String(conversation._id);
-          socket.data.webchatConversationId = convId;
-          socket.data.webchatClientId = String(conversation.clientId);
-          await socket.join(`webchat:conv:${convId}`);
-          next();
-          return;
         } catch {
-          next(new Error('Unauthorized'));
-          return;
+          /* token inválido — continua só com presença */
         }
+      }
+
+      if (presenceId?.startsWith('wcp_')) {
+        next();
+        return;
       }
 
       const sess = (socket.request as typeof socket.request & { session?: { userId?: string } }).session;
@@ -5078,6 +5086,38 @@ export class DashboardService {
         res.status(500).json({ error: (e as Error).message });
       }
     });
+
+    r.get('/webchat/live-visitors', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const visitors = await WebChatPresenceService.getInstance().listLive(auth.clientId);
+        res.json({ count: visitors.length, visitors });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post(
+      '/webchat/live-visitors/:presenceId/engage',
+      requireCapability(Cap.WEBCHAT_REPLY),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { message, openOnly } = req.body as { message?: string; openOnly?: boolean };
+          const result = await WebChatPresenceService.getInstance().engageVisitor(
+            auth.clientId,
+            auth.userId,
+            req.params.presenceId,
+            { message, openOnly: !!openOnly },
+          );
+          res.json(result);
+        } catch (e) {
+          const msg = (e as Error).message;
+          const status = msg.includes('online') ? 404 : 400;
+          res.status(status).json({ error: msg });
+        }
+      },
+    );
 
     r.get('/webchat/media/:clientId/:filename', requireCapability(Cap.WEBCHAT_VIEW), async (req, res) => {
       try {

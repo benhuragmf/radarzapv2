@@ -19,6 +19,7 @@ import {
   DEFAULT_AUTO_REPLY_MESSAGE,
   shouldSendWebChatAutoReply,
   WEBCHAT_BOT_SENDER_ID,
+  WEBCHAT_VISITOR_CLOSE_ID,
 } from './webchat-bot.util';
 import {
   generateWebChatPublicKey,
@@ -29,7 +30,7 @@ import {
 import { emitWebChatToTenant, emitWebChatToVisitor } from './WebChatRealtime';
 import { WebChatAiService } from './WebChatAiService';
 import { resolveWebChatBusinessHours } from './webchat-business-hours.util';
-import { shouldSendProactiveGreeting } from './webchat-proactive.util';
+import { shouldSendProactiveGreeting, getProactiveGreetingSkipReason } from './webchat-proactive.util';
 import type { WebChatMessageRow } from './webchat-ai-triage.util';
 import {
   visitorRefusesHumanHandoff,
@@ -420,14 +421,13 @@ export class WebChatService {
     visitorToken: string;
     conversationId: string;
     sent: boolean;
+    skipReason?: string;
     messages: WebChatMessageDto[];
   }> {
     const widget = await this.getActiveWidgetByPublicKey(publicKey);
     if (!widget) throw new Error('Widget não encontrado');
 
     this.assertOrigin(widget, opts.origin, opts.referer);
-
-    const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
 
     const session = await this.createOrResumeSession(publicKey, {
       ...opts,
@@ -441,33 +441,25 @@ export class WebChatService {
       conversationId: conversation._id,
       direction: 'inbound',
     });
-    const totalMessages = await WebChatMessage.countDocuments({
+    const outboundCount = await WebChatMessage.countDocuments({
       conversationId: conversation._id,
+      direction: 'outbound',
     });
 
-    if (
-      !shouldSendProactiveGreeting({
-        proactiveGreetingEnabled: Boolean(widget.proactiveGreetingEnabled),
-        proactiveGreetingMessage: widget.proactiveGreetingMessage,
-        businessHoursEnabled: hours.businessHoursEnabled,
-        isOnline: hours.isOnline,
-        proactiveGreetingSentAt: conversation.proactiveGreetingSentAt,
-        hasVisitorInbound: inboundCount > 0,
-      })
-    ) {
-      return {
-        visitorToken: session.visitorToken,
-        conversationId: session.conversationId,
-        sent: false,
-        messages: session.messages,
-      };
-    }
+    const skipReason = getProactiveGreetingSkipReason({
+      proactiveGreetingEnabled: Boolean(widget.proactiveGreetingEnabled),
+      proactiveGreetingMessage: widget.proactiveGreetingMessage,
+      proactiveGreetingSentAt: conversation.proactiveGreetingSentAt,
+      hasVisitorInbound: inboundCount > 0,
+      outboundCount,
+    });
 
-    if (totalMessages > 0 && !conversation.proactiveGreetingSentAt) {
+    if (skipReason) {
       return {
         visitorToken: session.visitorToken,
         conversationId: session.conversationId,
         sent: false,
+        skipReason,
         messages: session.messages,
       };
     }
@@ -994,6 +986,25 @@ export class WebChatService {
       .lean();
 
     return this.visitorSessionDto(conversation, messages);
+  }
+
+  async closeVisitorConversation(
+    visitorToken: string,
+    origin?: string | null,
+    referer?: string | null,
+  ): Promise<void> {
+    const conversation = await this.resolveVisitorToken(visitorToken);
+    if (!conversation) throw new Error('Sessão inválida ou encerrada');
+
+    const widget = await WebChatWidget.findById(conversation.widgetId);
+    if (!widget?.active) throw new Error('Widget inativo');
+    this.assertOrigin(widget, origin, referer);
+
+    await this.closeConversation(
+      String(conversation.clientId),
+      String(conversation._id),
+      WEBCHAT_VISITOR_CLOSE_ID,
+    );
   }
 
   async sendVisitorMessage(

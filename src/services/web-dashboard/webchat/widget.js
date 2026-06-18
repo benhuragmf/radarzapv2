@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.25';
+  var WIDGET_BUILD = '2.10.37';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -217,12 +217,44 @@
     }
   }
 
-  function writeStore(data) {
+  function writeStore(patch) {
     try {
-      localStorage.setItem(storageKey, JSON.stringify(data));
+      var current = readStore();
+      if (patch && typeof patch === 'object') {
+        Object.keys(patch).forEach(function (key) {
+          if (patch[key] === undefined || patch[key] === null) {
+            delete current[key];
+          } else {
+            current[key] = patch[key];
+          }
+        });
+      }
+      localStorage.setItem(storageKey, JSON.stringify(current));
     } catch (e) {
       /* ignore */
     }
+  }
+
+  var PROACTIVE_DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+  function proactiveDismissRemainingMs() {
+    var dismissedAt = Number(readStore().proactiveDismissedAt);
+    if (!dismissedAt || isNaN(dismissedAt)) return 0;
+    var remaining = PROACTIVE_DISMISS_COOLDOWN_MS - (Date.now() - dismissedAt);
+    return remaining > 0 ? remaining : 0;
+  }
+
+  function isProactiveDismissCooldownActive() {
+    return proactiveDismissRemainingMs() > 0;
+  }
+
+  function recordProactiveDismiss() {
+    writeStore({ proactiveDismissedAt: Date.now() });
+    clearProactiveTimer();
+    state.proactiveTeaser = null;
+    state.proactiveSkipReason = 'dismissed_cooldown';
+    renderBubble();
+    sendPresencePing();
   }
 
   var state = {
@@ -243,9 +275,135 @@
     emojiPickerOpen: false,
     expanded: false,
     proactiveTimer: null,
-    proactiveDone: false,
     proactiveTeaser: null,
+    proactiveLastError: '',
+    proactiveSkipReason: '',
+    proactiveScheduledAt: null,
+    chatEverOpened: false,
+    proactiveInviteClicked: false,
+    skipPrechat: false,
+    closingConversation: false,
+    presenceId: null,
+    presenceTimer: null,
   };
+
+  function ensurePresenceId() {
+    if (state.presenceId) return state.presenceId;
+    var key = 'rz_presence_' + widgetKey;
+    try {
+      var stored = sessionStorage.getItem(key);
+      if (stored) {
+        state.presenceId = stored;
+        return stored;
+      }
+      var id = 'wcp_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      sessionStorage.setItem(key, id);
+      state.presenceId = id;
+      return id;
+    } catch (e) {
+      state.presenceId = 'wcp_' + Date.now();
+      return state.presenceId;
+    }
+  }
+
+  function presenceEngagementKey() {
+    return 'rz_presence_eng_' + widgetKey;
+  }
+
+  function readPresenceEngagement() {
+    try {
+      var raw = sessionStorage.getItem(presenceEngagementKey());
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function writePresenceEngagement(patch) {
+    try {
+      var cur = readPresenceEngagement();
+      sessionStorage.setItem(presenceEngagementKey(), JSON.stringify(Object.assign(cur, patch)));
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function syncPresenceEngagementFromStore() {
+    var stored = readPresenceEngagement();
+    if (stored.chatEverOpened) state.chatEverOpened = true;
+    if (stored.proactiveInviteClicked) state.proactiveInviteClicked = true;
+  }
+
+  function recordChatEngagement(opts) {
+    state.chatEverOpened = true;
+    if (opts && opts.proactiveInvite) {
+      state.proactiveInviteClicked = true;
+    }
+    writePresenceEngagement({
+      chatEverOpened: true,
+      proactiveInviteClicked: !!(opts && opts.proactiveInvite) || !!state.proactiveInviteClicked,
+    });
+    sendPresencePing();
+  }
+
+  function presenceEngagementFlags() {
+    var stored = readPresenceEngagement();
+    return {
+      chatEverOpened: !!(state.chatEverOpened || stored.chatEverOpened),
+      proactiveInviteClicked: !!(state.proactiveInviteClicked || stored.proactiveInviteClicked),
+    };
+  }
+
+  function sendPresencePing() {
+    if (!state.config) return;
+    var engagement = presenceEngagementFlags();
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/presence', {
+      method: 'POST',
+      body: JSON.stringify({
+        presenceId: ensurePresenceId(),
+        pageUrl: window.location.href,
+        pageTitle: document.title || '',
+        referrer: document.referrer || '',
+        chatOpened: state.open,
+        chatEverOpened: engagement.chatEverOpened,
+        proactiveInviteClicked: engagement.proactiveInviteClicked,
+        notificationDismissed: isProactiveDismissCooldownActive(),
+        visitorToken: state.visitorToken,
+      }),
+    }).catch(function () {
+      /* ignore */
+    });
+  }
+
+  function pollPendingEngage() {
+    if (!state.config) return;
+    apiFetch(
+      baseUrl,
+      '/widgets/' +
+        encodeURIComponent(widgetKey) +
+        '/presence/' +
+        encodeURIComponent(ensurePresenceId()) +
+        '/pending',
+      { method: 'GET' },
+    )
+      .then(function (data) {
+        if (data && data.agentEngage) handleAgentEngage(data.agentEngage);
+      })
+      .catch(function () {
+        /* ignore */
+      });
+  }
+
+  function startPresenceHeartbeat() {
+    if (state.presenceTimer) return;
+    connectSocket();
+    sendPresencePing();
+    pollPendingEngage();
+    state.presenceTimer = setInterval(function () {
+      sendPresencePing();
+      pollPendingEngage();
+    }, 3000);
+  }
 
   function hasVisitorInbound() {
     return state.messages.some(function (m) {
@@ -260,16 +418,55 @@
     }
   }
 
+  function proactiveMessageText() {
+    if (!state.config) return '';
+    return String(state.config.proactiveGreetingMessage || 'Olá! Estou por aqui caso precise de ajuda 😊').trim();
+  }
+
+  function hasProactiveInMessages() {
+    var text = proactiveMessageText();
+    if (!text) return false;
+    return state.messages.some(function (m) {
+      return m.direction === 'outbound' && String(m.body || '').trim() === text;
+    });
+  }
+
+  function showProactiveTeaser() {
+    if (!state.config || !state.config.proactiveGreetingEnabled) return;
+    if (state.open || hasVisitorInbound() || isConversationEnded()) return;
+    if (isProactiveDismissCooldownActive()) return;
+    var text = proactiveMessageText();
+    if (!text) return;
+    state.proactiveTeaser = text;
+    renderBubble();
+  }
+
   function scheduleProactiveGreeting() {
     clearProactiveTimer();
     if (!state.config || !state.config.proactiveGreetingEnabled) return;
-    if (state.proactiveDone || hasVisitorInbound() || isConversationEnded()) return;
-    if (state.proactiveTeaser) return;
+    if (hasVisitorInbound() || isConversationEnded()) return;
+    if (isProactiveDismissCooldownActive()) {
+      state.proactiveSkipReason = 'dismissed_cooldown';
+      return;
+    }
     var delaySec = Number(state.config.proactiveGreetingDelaySeconds);
     if (!delaySec || delaySec < 5) delaySec = 30;
+    state.proactiveScheduledAt = Date.now() + delaySec * 1000;
+    state.proactiveLastError = '';
+    state.proactiveSkipReason = '';
     state.proactiveTimer = setTimeout(function () {
       state.proactiveTimer = null;
-      if (state.proactiveDone || hasVisitorInbound() || isConversationEnded()) return;
+      if (hasVisitorInbound() || isConversationEnded()) return;
+      if (isProactiveDismissCooldownActive()) {
+        state.proactiveSkipReason = 'dismissed_cooldown';
+        return;
+      }
+      showProactiveTeaser();
+      if (hasProactiveInMessages()) {
+        state.proactiveSkipReason = 'already_sent';
+        if (state.visitorToken) connectSocket();
+        return;
+      }
       apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/proactive-greeting', {
         method: 'POST',
         body: JSON.stringify({
@@ -282,28 +479,23 @@
           if (data.conversationId) state.conversationId = data.conversationId;
           if (data.messages) state.messages = data.messages;
           writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
+          state.proactiveSkipReason = data.skipReason || '';
           if (data.sent) {
-            state.proactiveDone = true;
-            if (!state.open) {
-              var outbound = data.messages.filter(function (m) {
-                return m.direction === 'outbound';
-              });
-              var last = outbound[outbound.length - 1];
-              state.proactiveTeaser = last && last.body ? last.body : null;
-            }
+            state.proactiveSkipReason = '';
             connectSocket();
-          } else if (data.messages && data.messages.length) {
-            state.proactiveDone = true;
           }
+          if (!state.proactiveTeaser) showProactiveTeaser();
           renderBubble();
         })
         .catch(function (err) {
+          state.proactiveLastError = err.message || String(err);
           console.error('[RadarZap WebChat]', err.message);
         });
     }, delaySec * 1000);
   }
 
   function needsPrechat() {
+    if (state.skipPrechat) return false;
     if (!state.config) return false;
     if (state.conversationStatus === 'closed' || isConversationEnded()) return false;
     var askName = !!state.config.askName;
@@ -535,10 +727,13 @@
         state.prechatError = '';
         state.emojiPickerOpen = false;
         if (state.open) {
+          recordChatEngagement({ proactiveInvite: false });
           state.proactiveTeaser = null;
           if (!state.started && !needsPrechat()) {
             startSession();
           }
+        } else {
+          sendPresencePing();
         }
         renderBubble();
       };
@@ -546,8 +741,15 @@
     var teaser = document.getElementById('rz-webchat-teaser');
     if (teaser) {
       teaser.onclick = function (e) {
-        if (e.target && e.target.id === 'rz-webchat-teaser-dismiss') return;
+        if (
+          e.target &&
+          (e.target.id === 'rz-webchat-teaser-dismiss' ||
+            (e.target.closest && e.target.closest('#rz-webchat-teaser-dismiss')))
+        ) {
+          return;
+        }
         state.open = true;
+        recordChatEngagement({ proactiveInvite: true });
         state.proactiveTeaser = null;
         if (!state.started && !needsPrechat()) startSession();
         renderBubble();
@@ -557,8 +759,7 @@
     if (teaserDismiss) {
       teaserDismiss.onclick = function (e) {
         e.stopPropagation();
-        state.proactiveTeaser = null;
-        renderBubble();
+        recordProactiveDismiss();
       };
     }
     bindPanelEvents();
@@ -782,7 +983,10 @@
       '<button type="submit" id="rz-webchat-send" title="Enviar" style="width:38px;height:38px;border:none;border-radius:999px;background:' +
       primaryColor() +
       ';color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.18);">↑</button>' +
-      '</div></div></form></div>';
+      '</div></div></form>' +
+      '<button type="button" id="rz-webchat-end" style="width:100%;margin-top:8px;padding:6px 8px;border:none;background:transparent;color:' +
+      t.textMuted +
+      ';font-size:11px;line-height:1.3;cursor:pointer;text-decoration:underline;">Encerrar atendimento</button></div>';
 
     var panelBody = '';
     if (mode === 'prechat') {
@@ -859,6 +1063,42 @@
     if (el) el.scrollTop = el.scrollHeight;
   }
 
+  function closeConversationByVisitor() {
+    if (!state.visitorToken || state.conversationStatus === 'closed' || state.closingConversation) return;
+    if (!window.confirm('Deseja encerrar este atendimento?')) return;
+    state.closingConversation = true;
+    renderBubble();
+    apiFetch(baseUrl, '/sessions/close', {
+      method: 'POST',
+      headers: { 'X-WebChat-Visitor': state.visitorToken },
+      body: JSON.stringify({}),
+    })
+      .then(function () {
+        state.closingConversation = false;
+        markConversationClosed();
+        var exists = state.messages.some(function (m) {
+          return m.direction === 'system' && isClosedSystemMessage(m);
+        });
+        if (!exists) {
+          state.messages.push({
+            id: 'local-close-' + Date.now(),
+            direction: 'system',
+            body: 'Atendimento encerrado. Obrigado pelo contato!',
+            createdAt: new Date().toISOString(),
+          });
+        }
+        renderBubble();
+        sendPresencePing();
+      })
+      .catch(function (err) {
+        state.closingConversation = false;
+        if (String(err.message).toLowerCase().indexOf('encerr') >= 0) {
+          markConversationClosed();
+        }
+        renderBubble();
+      });
+  }
+
   function bindPanelEvents() {
     var startBtn = document.getElementById('rz-webchat-start');
     if (startBtn) {
@@ -871,6 +1111,15 @@
       newBtn.onclick = function () {
         startNewConversation();
       };
+    }
+    var endBtn = document.getElementById('rz-webchat-end');
+    if (endBtn) {
+      endBtn.onclick = function () {
+        closeConversationByVisitor();
+      };
+      endBtn.disabled = !!state.closingConversation;
+      endBtn.style.opacity = state.closingConversation ? '0.6' : '1';
+      endBtn.textContent = state.closingConversation ? 'Encerrando…' : 'Encerrar atendimento';
     }
     var closeBtn = document.getElementById('rz-webchat-close');
     if (closeBtn) {
@@ -947,18 +1196,112 @@
     }
   }
 
-  function connectSocket() {
-    if (!state.visitorToken) return;
+  function finishAgentEngageSession(data) {
+    applySessionData(data);
+    state.skipPrechat = true;
+    state.conversationStatus = 'open';
+    state.started = true;
+    if (data.visitorToken) {
+      state.visitorToken = data.visitorToken;
+      state.conversationId = data.conversationId || state.conversationId;
+      writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
+    }
+    connectSocket();
+    renderBubble();
+    sendPresencePing();
+  }
+
+  function resumeEngageSession() {
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        visitorToken: state.visitorToken,
+        visitorName: state.visitorName || undefined,
+        visitorEmail: state.visitorEmail || undefined,
+        pageUrl: window.location.href,
+      }),
+    })
+      .then(function (data) {
+        finishAgentEngageSession(data);
+      })
+      .catch(function () {
+        connectSocket({ presenceOnly: true });
+        renderBubble();
+      });
+  }
+
+  function handleAgentEngage(payload) {
+    if (!payload || !payload.conversationId) return;
+    state.skipPrechat = payload.skipPrechat !== false;
+    state.open = true;
+    state.chatEverOpened = true;
+    state.proactiveTeaser = null;
+    state.started = true;
+    state.conversationStatus = 'open';
+    state.messages = [];
+    if (payload.visitorToken) {
+      state.visitorToken = payload.visitorToken;
+      state.conversationId = payload.conversationId;
+      writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
+    } else {
+      state.conversationId = payload.conversationId;
+    }
+    writePresenceEngagement({ chatEverOpened: true });
+    renderBubble();
+    if (state.visitorToken) {
+      apiFetch(baseUrl, '/sessions/messages', {
+        method: 'GET',
+        headers: { 'X-WebChat-Visitor': state.visitorToken },
+      })
+        .then(function (data) {
+          if (!data || data.status === 'closed') {
+            state.visitorToken = payload.visitorToken || state.visitorToken;
+            state.conversationId = payload.conversationId;
+            state.conversationStatus = 'open';
+            state.skipPrechat = true;
+            state.started = true;
+            if (payload.visitorToken) {
+              writeStore({ visitorToken: payload.visitorToken, conversationId: payload.conversationId });
+            }
+            connectSocket();
+            renderBubble();
+            sendPresencePing();
+            return;
+          }
+          finishAgentEngageSession(data);
+        })
+        .catch(function () {
+          resumeEngageSession();
+        });
+    } else {
+      resumeEngageSession();
+    }
+  }
+
+  function connectSocket(opts) {
+    opts = opts || {};
     loadSocketIo(baseUrl, function (io) {
       if (!io) return;
       if (state.socket) {
         state.socket.disconnect();
+        state.socket = null;
+      }
+      var auth = { webchatPresenceId: ensurePresenceId() };
+      if (state.visitorToken && !opts.presenceOnly) {
+        auth.webchatVisitorToken = state.visitorToken;
       }
       state.socket = io(baseUrl, {
         path: '/socket.io',
         transports: ['websocket', 'polling'],
-        auth: { webchatVisitorToken: state.visitorToken },
+        auth: auth,
       });
+      state.socket.on('webchat:agent-engage', handleAgentEngage);
+      state.socket.on('connect_error', function () {
+        if (!opts.presenceOnly && state.visitorToken) {
+          connectSocket({ presenceOnly: true });
+        }
+      });
+      if (!state.visitorToken || opts.presenceOnly) return;
       state.socket.on('webchat:message', function (payload) {
         if (!payload || !payload.message) return;
         if (payload.conversationId && state.conversationId && payload.conversationId !== state.conversationId) return;
@@ -1004,7 +1347,7 @@
     state.messages = [];
     state.started = false;
     state.prechatError = '';
-    writeStore({});
+    writeStore({ visitorToken: null, conversationId: null });
     renderBubble();
     if (!needsPrechat()) {
       startSession();
@@ -1180,13 +1523,6 @@
           headers: { 'X-WebChat-Visitor': state.visitorToken },
         }).then(function (data) {
           applySessionData(data);
-          if (
-            state.messages.some(function (m) {
-              return m.direction === 'outbound';
-            })
-          ) {
-            state.proactiveDone = true;
-          }
           if (isConversationEnded()) {
             markConversationClosed();
             state.started = true;
@@ -1206,7 +1542,30 @@
       console.error('[RadarZap WebChat]', err.message);
     })
     .finally(function () {
+      syncPresenceEngagementFromStore();
       renderBubble();
       scheduleProactiveGreeting();
+      startPresenceHeartbeat();
     });
+
+  window.__RZ_WEBCHAT_DEBUG__ = function () {
+    return {
+      build: WIDGET_BUILD,
+      configLoaded: !!state.config,
+      proactiveEnabled: !!(state.config && state.config.proactiveGreetingEnabled),
+      proactiveDelaySec: state.config ? state.config.proactiveGreetingDelaySeconds : null,
+      proactiveTimerActive: !!state.proactiveTimer,
+      proactiveScheduledAt: state.proactiveScheduledAt,
+      proactiveTeaser: state.proactiveTeaser,
+      proactiveInHistory: hasProactiveInMessages(),
+      proactiveDismissCooldownMs: proactiveDismissRemainingMs(),
+      proactiveLastError: state.proactiveLastError || null,
+      proactiveSkipReason: state.proactiveSkipReason || null,
+      chatOpen: state.open,
+      chatEverOpened: presenceEngagementFlags().chatEverOpened,
+      proactiveInviteClicked: presenceEngagementFlags().proactiveInviteClicked,
+      visitorToken: state.visitorToken ? 'set' : null,
+      messageCount: state.messages.length,
+    };
+  };
 })();

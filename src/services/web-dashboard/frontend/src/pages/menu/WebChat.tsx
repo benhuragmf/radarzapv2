@@ -152,7 +152,7 @@ function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/webchat/widget.js?v=2.10.25" data-widget-key="${publicKey}" async></script>`
+  return `<script src="${origin}/webchat/widget.js?v=2.10.37" data-widget-key="${publicKey}" async></script>`
 }
 
 export default function WebChat() {
@@ -750,6 +750,7 @@ function WidgetEditorCard({
 }) {
   const qc = useQueryClient()
   const [form, setForm] = useState(widget)
+  const [delayDraft, setDelayDraft] = useState(String(widget.proactiveGreetingDelaySeconds ?? 30))
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(() => {
     const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
       appearanceMatchesTemplate(widget.appearance, t.appearance),
@@ -763,7 +764,14 @@ function WidgetEditorCard({
   })
 
   useEffect(() => {
-    setForm(widget)
+    setForm({
+      ...widget,
+      proactiveGreetingEnabled: widget.proactiveGreetingEnabled ?? false,
+      proactiveGreetingMessage:
+        widget.proactiveGreetingMessage ?? 'Olá! Estou por aqui caso precise de ajuda 😊',
+      proactiveGreetingDelaySeconds: widget.proactiveGreetingDelaySeconds ?? 30,
+    })
+    setDelayDraft(String(widget.proactiveGreetingDelaySeconds ?? 30))
     const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
       appearanceMatchesTemplate(widget.appearance, t.appearance),
     )
@@ -771,8 +779,12 @@ function WidgetEditorCard({
   }, [widget])
 
   const save = useMutation({
-    mutationFn: () =>
-      api.patch(`/webchat/widgets/${widget.id}`, {
+    mutationFn: () => {
+      const delaySeconds = Math.min(
+        300,
+        Math.max(5, parseInt(delayDraft, 10) || form.proactiveGreetingDelaySeconds || 30),
+      )
+      return api.patch(`/webchat/widgets/${widget.id}`, {
         name: form.name,
         active: form.active,
         allowedDomains: form.allowedDomains,
@@ -783,14 +795,15 @@ function WidgetEditorCard({
         autoReplyUseAi: form.autoReplyUseAi,
         proactiveGreetingEnabled: form.proactiveGreetingEnabled,
         proactiveGreetingMessage: form.proactiveGreetingMessage,
-        proactiveGreetingDelaySeconds: form.proactiveGreetingDelaySeconds,
+        proactiveGreetingDelaySeconds: delaySeconds,
         defaultDepartmentId: form.defaultDepartmentId || null,
         useInboxBusinessHours: form.useInboxBusinessHours,
         businessHoursEnabled: form.businessHoursEnabled,
         timezone: form.timezone,
         schedule: form.schedule,
         outsideHoursMessage: form.outsideHoursMessage,
-      }),
+      })
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
       notifySuccess('Widget atualizado')
@@ -1106,7 +1119,8 @@ function WidgetEditorCard({
         <h4 className="text-sm font-semibold text-[var(--rz-text)]">Saudação proativa</h4>
         <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
           Envia uma mensagem amigável automaticamente após o visitante ficar na página com o chat
-          carregado — sem precisar abrir ou escrever primeiro.
+          carregado — sem precisar abrir ou escrever primeiro. Marque a opção, ajuste o tempo e
+          clique em <strong>Salvar alterações</strong>.
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
           <input
@@ -1137,21 +1151,20 @@ function WidgetEditorCard({
                 type="number"
                 min={5}
                 max={300}
+                step={1}
                 className={inputCls + ' mt-1 w-28'}
-                value={form.proactiveGreetingDelaySeconds ?? 30}
-                onChange={e =>
-                  setForm(f => ({
-                    ...f,
-                    proactiveGreetingDelaySeconds: Math.min(
-                      300,
-                      Math.max(5, Number(e.target.value) || 30),
-                    ),
-                  }))
-                }
+                value={delayDraft}
+                onChange={e => setDelayDraft(e.target.value)}
+                onBlur={() => {
+                  const clamped = Math.min(300, Math.max(5, parseInt(delayDraft, 10) || 30))
+                  setDelayDraft(String(clamped))
+                  setForm(f => ({ ...f, proactiveGreetingDelaySeconds: clamped }))
+                }}
               />
             </label>
             <p className="mt-2 text-xs text-[var(--rz-text-muted)]">
-              Padrão: 30 segundos. Respeita o horário comercial quando configurado.
+              Padrão: 30 segundos (mín. 5, máx. 300). O balão reaparece em novas visitas; se o
+              visitante fechar com ×, só volta após 24 horas.
             </p>
           </>
         )}

@@ -90,6 +90,30 @@ export interface WebChatVisitorSendResult {
   replies: WebChatMessageDto[];
 }
 
+/** Visitante ao vivo no site (Redis + heartbeat do widget). */
+export interface WebChatLiveVisitorDto {
+  id: string;
+  clientId: string;
+  widgetId?: string;
+  widgetName?: string;
+  conversationId?: string;
+  visitorName?: string;
+  pageUrl: string;
+  pageTitle?: string;
+  trafficSource: string;
+  referrer?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  chatOpened: boolean;
+  chatEverOpened: boolean;
+  /** Visitante clicou no balão da saudação proativa (não só no botão 💬). */
+  proactiveInviteClicked?: boolean;
+  notificationDismissed: boolean;
+  lastSeenAt: string;
+  onlineSince: string;
+}
+
 export interface WebChatConversationDto {
   id: string;
   status: WebChatConversationStatus;

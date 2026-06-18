@@ -1,4 +1,5 @@
 export const WEBCHAT_BOT_SENDER_ID = 'bot';
+export const WEBCHAT_VISITOR_CLOSE_ID = 'visitor';
 
 export const DEFAULT_AUTO_REPLY_MESSAGE =
   'Recebemos sua mensagem! Um atendente responderá em breve.';

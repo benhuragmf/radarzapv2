@@ -1,5 +1,6 @@
 import { Router, type Request } from 'express';
 import { WebChatService } from './WebChatService';
+import { WebChatPresenceService } from './WebChatPresenceService';
 
 function visitorTokenFromReq(req: Request): string | undefined {
   const header = req.headers['x-webchat-visitor'];
@@ -48,6 +49,64 @@ export function createWebChatPublicRouter(): Router {
     }
   });
 
+  r.post('/widgets/:publicKey/presence', async (req, res) => {
+    try {
+      const body = req.body as {
+        presenceId?: string;
+        pageUrl?: string;
+        pageTitle?: string;
+        referrer?: string;
+        chatOpened?: boolean;
+        chatEverOpened?: boolean;
+        proactiveInviteClicked?: boolean;
+        notificationDismissed?: boolean;
+        visitorToken?: string;
+      };
+      const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
+      if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
+      svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
+      const visitor = await WebChatPresenceService.getInstance().upsertFromPublic({
+        publicKey: req.params.publicKey,
+        presenceId: body.presenceId ?? '',
+        pageUrl: body.pageUrl,
+        pageTitle: body.pageTitle,
+        referrer: body.referrer ?? (typeof req.headers.referer === 'string' ? req.headers.referer : undefined),
+        chatOpened: body.chatOpened,
+        chatEverOpened: body.chatEverOpened,
+        proactiveInviteClicked: body.proactiveInviteClicked,
+        notificationDismissed: body.notificationDismissed,
+        visitorToken: body.visitorToken,
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        headers: req.headers,
+        remoteIp: req.socket.remoteAddress,
+      });
+      if (!visitor) return res.status(400).json({ error: 'presenceId inválido' });
+      res.json({ ok: true });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status = msg.includes('não encontrado') ? 404 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  r.get('/widgets/:publicKey/presence/:presenceId/pending', async (req, res) => {
+    try {
+      const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
+      if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
+      svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
+      const agentEngage = await WebChatPresenceService.getInstance().consumePendingEngage(
+        req.params.publicKey,
+        req.params.presenceId,
+      );
+      res.json({ agentEngage: agentEngage ?? null });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status = msg.includes('não encontrado') ? 404 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
   r.post('/widgets/:publicKey/proactive-greeting', async (req, res) => {
     try {
       const body = req.body as { visitorToken?: string; pageUrl?: string };
@@ -61,6 +120,20 @@ export function createWebChatPublicRouter(): Router {
     } catch (e) {
       const msg = (e as Error).message;
       const status = msg.includes('não encontrado') ? 404 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  r.post('/sessions/close', async (req, res) => {
+    try {
+      const token = visitorTokenFromReq(req);
+      if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
+      await svc.closeVisitorConversation(token, req.headers.origin, req.headers.referer);
+      res.json({ ok: true });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 400;
       res.status(status).json({ error: msg });
     }
   });

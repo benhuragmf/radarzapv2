@@ -88,12 +88,18 @@ export function useWebChatSocket(
       }
     }
 
+    const onPresence = () => {
+      qc.invalidateQueries({ queryKey: ['webchat-live-visitors'] })
+    }
+
     socket.on('webchat:message', onMessage)
     socket.on('webchat:conversation', onConversation)
+    socket.on('webchat:presence', onPresence)
 
     return () => {
       socket.off('webchat:message', onMessage)
       socket.off('webchat:conversation', onConversation)
+      socket.off('webchat:presence', onPresence)
     }
   }, [enabled, chime, notifyBrowser, syncInbox, qc])
 }

@@ -44,6 +44,7 @@ import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
 import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
+import { InboxLiveVisitors } from '../../components/inbox/InboxLiveVisitors'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../lib/webchatInbox'
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
@@ -241,6 +242,7 @@ export default function Inbox() {
   const canManageSectors = can(me ?? null, 'inbox:department:manage')
   const canSupervise = can(me ?? null, 'inbox:supervise')
   const canInboxView = can(me ?? null, 'inbox:view')
+  const canWebChatEngage = can(me ?? null, 'webchat:reply')
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   useInboxSocket(Boolean(me))
   useWebChatSocket(canInboxView, { syncInbox: true })
@@ -656,6 +658,8 @@ export default function Inbox() {
         )}
 
         {!chatFocus && (
+        <>
+        <InboxLiveVisitors className="mt-4" canEngage={canWebChatEngage} />
         <InboxStatsRow
           className="mt-4"
           items={[
@@ -715,6 +719,7 @@ export default function Inbox() {
             },
           ]}
         />
+        </>
         )}
       </div>
 
