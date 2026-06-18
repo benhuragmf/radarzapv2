@@ -38,6 +38,11 @@ export const DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE =
 export const DEFAULT_WEBCHAT_OUTSIDE_HOURS_MESSAGE =
   'Nosso horário de atendimento é de segunda a sexta, das 9h às 18h. Deixe sua mensagem que retornaremos no próximo horário útil.';
 
+export const DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE =
+  'Olá! Estou por aqui caso precise de ajuda 😊';
+
+export const DEFAULT_WEBCHAT_PROACTIVE_GREETING_DELAY_SECONDS = 30;
+
 export interface WebChatPublicConfig {
   publicKey: string;
   title: string;
@@ -52,6 +57,9 @@ export interface WebChatPublicConfig {
   businessHoursEnabled: boolean;
   outsideHoursMessage: string;
   scheduleSummary?: string;
+  proactiveGreetingEnabled: boolean;
+  proactiveGreetingMessage: string;
+  proactiveGreetingDelaySeconds: number;
 }
 
 export interface WebChatVisitorSessionDto {

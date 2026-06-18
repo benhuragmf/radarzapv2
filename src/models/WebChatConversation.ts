@@ -20,6 +20,7 @@ export interface IWebChatConversation extends Document {
   lastMessageAt?: Date;
   lastMessagePreview?: string;
   unreadAgentCount: number;
+  proactiveGreetingSentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +50,7 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     lastMessageAt: { type: Date, index: true },
     lastMessagePreview: { type: String, maxlength: 300 },
     unreadAgentCount: { type: Number, default: 0 },
+    proactiveGreetingSentAt: { type: Date },
   },
   { timestamps: true, collection: 'webChatConversations' },
 );

@@ -88,6 +88,17 @@ Por widget, em **Widgets → Resposta automática**:
 
 `GET /webchat/ai-status` — disponibilidade da IA para o widget.
 
+## Saudação proativa (2.10.25)
+
+Por widget, em **Widgets → Saudação proativa** (versão inicial):
+
+- **Desligada por padrão** — o empresário ativa no painel.
+- Após **30 segundos** (configurável, 5–300 s) com o script do chat carregado na página, o sistema envia uma mensagem curta e amigável ao visitante (ex.: *Olá! Estou por aqui caso precise de ajuda 😊*).
+- Mensagem aparece como **resposta do atendimento** (`outbound`); se o chat estiver fechado, exibe um **balão acima do botão** 💬.
+- Enviada **uma vez por conversa**; não dispara se o visitante já enviou mensagem ou se já abriu o chat (saudação inicial).
+- Respeita **horário comercial** quando ativo (não envia fora do horário).
+- API pública: `POST /api/webchat/public/widgets/:key/proactive-greeting` — body opcional `{ visitorToken, pageUrl }`.
+
 ## Fila e setores (2.9.6)
 
 Estado da conversa (`queueStatus`):

@@ -6,6 +6,7 @@ import { WebChatConversation, type IWebChatConversation } from '../../models/Web
 import { WebChatMessage, type IWebChatMessage } from '../../models/WebChatMessage';
 import {
   DEFAULT_WEBCHAT_APPEARANCE,
+  DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE,
   type WebChatConversationDto,
   type WebChatMessageDto,
   type WebChatPublicConfig,
@@ -28,6 +29,7 @@ import {
 import { emitWebChatToTenant, emitWebChatToVisitor } from './WebChatRealtime';
 import { WebChatAiService } from './WebChatAiService';
 import { resolveWebChatBusinessHours } from './webchat-business-hours.util';
+import { shouldSendProactiveGreeting } from './webchat-proactive.util';
 import type { WebChatMessageRow } from './webchat-ai-triage.util';
 import {
   visitorRefusesHumanHandoff,
@@ -115,6 +117,9 @@ export class WebChatService {
       autoReplyMessage?: string;
       autoReplySenderName?: string;
       autoReplyUseAi?: boolean;
+      proactiveGreetingEnabled?: boolean;
+      proactiveGreetingMessage?: string;
+      proactiveGreetingDelaySeconds?: number;
       defaultDepartmentId?: string | null;
       useInboxBusinessHours?: boolean;
       businessHoursEnabled?: boolean;
@@ -144,6 +149,16 @@ export class WebChatService {
       existing.autoReplySenderName = patch.autoReplySenderName.trim();
     }
     if (patch.autoReplyUseAi !== undefined) existing.autoReplyUseAi = patch.autoReplyUseAi;
+    if (patch.proactiveGreetingEnabled !== undefined) {
+      existing.proactiveGreetingEnabled = patch.proactiveGreetingEnabled;
+    }
+    if (patch.proactiveGreetingMessage !== undefined) {
+      existing.proactiveGreetingMessage = patch.proactiveGreetingMessage.trim();
+    }
+    if (patch.proactiveGreetingDelaySeconds !== undefined) {
+      const delay = Math.round(Number(patch.proactiveGreetingDelaySeconds));
+      existing.proactiveGreetingDelaySeconds = Math.min(300, Math.max(5, delay || 30));
+    }
     if (patch.defaultDepartmentId !== undefined) {
       existing.defaultDepartmentId = patch.defaultDepartmentId
         ? new mongoose.Types.ObjectId(patch.defaultDepartmentId)
@@ -197,6 +212,10 @@ export class WebChatService {
       businessHoursEnabled: hours.businessHoursEnabled,
       outsideHoursMessage: hours.outsideHoursMessage,
       scheduleSummary: hours.scheduleSummary,
+      proactiveGreetingEnabled: Boolean(widget.proactiveGreetingEnabled),
+      proactiveGreetingMessage:
+        widget.proactiveGreetingMessage?.trim() || DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE,
+      proactiveGreetingDelaySeconds: widget.proactiveGreetingDelaySeconds ?? 30,
     };
   }
 
@@ -310,6 +329,7 @@ export class WebChatService {
       userAgent?: string;
       origin?: string | null;
       referer?: string | null;
+      skipInitialGreeting?: boolean;
     },
   ): Promise<{
     visitorToken: string;
@@ -351,7 +371,7 @@ export class WebChatService {
       });
 
       const greeting = widget.appearance?.greeting?.trim();
-      if (greeting) {
+      if (greeting && !opts.skipInitialGreeting) {
         await this.appendMessage(conversation, {
           direction: 'system',
           body: greeting,
@@ -384,6 +404,101 @@ export class WebChatService {
       visitorName: session.visitorName,
       visitorEmail: session.visitorEmail,
       messages: session.messages,
+    };
+  }
+
+  async triggerProactiveGreeting(
+    publicKey: string,
+    opts: {
+      visitorToken?: string;
+      pageUrl?: string;
+      userAgent?: string;
+      origin?: string | null;
+      referer?: string | null;
+    },
+  ): Promise<{
+    visitorToken: string;
+    conversationId: string;
+    sent: boolean;
+    messages: WebChatMessageDto[];
+  }> {
+    const widget = await this.getActiveWidgetByPublicKey(publicKey);
+    if (!widget) throw new Error('Widget não encontrado');
+
+    this.assertOrigin(widget, opts.origin, opts.referer);
+
+    const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
+
+    const session = await this.createOrResumeSession(publicKey, {
+      ...opts,
+      skipInitialGreeting: true,
+    });
+
+    const conversation = await WebChatConversation.findById(session.conversationId);
+    if (!conversation) throw new Error('Conversa não encontrada');
+
+    const inboundCount = await WebChatMessage.countDocuments({
+      conversationId: conversation._id,
+      direction: 'inbound',
+    });
+    const totalMessages = await WebChatMessage.countDocuments({
+      conversationId: conversation._id,
+    });
+
+    if (
+      !shouldSendProactiveGreeting({
+        proactiveGreetingEnabled: Boolean(widget.proactiveGreetingEnabled),
+        proactiveGreetingMessage: widget.proactiveGreetingMessage,
+        businessHoursEnabled: hours.businessHoursEnabled,
+        isOnline: hours.isOnline,
+        proactiveGreetingSentAt: conversation.proactiveGreetingSentAt,
+        hasVisitorInbound: inboundCount > 0,
+      })
+    ) {
+      return {
+        visitorToken: session.visitorToken,
+        conversationId: session.conversationId,
+        sent: false,
+        messages: session.messages,
+      };
+    }
+
+    if (totalMessages > 0 && !conversation.proactiveGreetingSentAt) {
+      return {
+        visitorToken: session.visitorToken,
+        conversationId: session.conversationId,
+        sent: false,
+        messages: session.messages,
+      };
+    }
+
+    const body = (widget.proactiveGreetingMessage || DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE).trim();
+    const senderName =
+      widget.autoReplySenderName?.trim() ||
+      widget.appearance?.title?.trim() ||
+      'Atendimento';
+
+    await this.appendMessage(conversation, {
+      direction: 'outbound',
+      body,
+      senderName,
+      senderUserId: WEBCHAT_BOT_SENDER_ID,
+      notifyVisitor: true,
+    });
+
+    conversation.proactiveGreetingSentAt = new Date();
+    await conversation.save();
+
+    const messages = await WebChatMessage.find({ conversationId: conversation._id })
+      .sort({ createdAt: 1 })
+      .limit(200)
+      .lean();
+
+    return {
+      visitorToken: session.visitorToken,
+      conversationId: session.conversationId,
+      sent: true,
+      messages: messages.map(m => this.toMessageDto(m)),
     };
   }
 

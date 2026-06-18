@@ -88,6 +88,9 @@ interface WebChatWidgetRow {
   autoReplyMessage: string
   autoReplySenderName: string
   autoReplyUseAi: boolean
+  proactiveGreetingEnabled: boolean
+  proactiveGreetingMessage: string
+  proactiveGreetingDelaySeconds: number
   defaultDepartmentId?: string | null
   useInboxBusinessHours: boolean
   businessHoursEnabled: boolean
@@ -149,7 +152,7 @@ function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/webchat/widget.js?v=2.10.24" data-widget-key="${publicKey}" async></script>`
+  return `<script src="${origin}/webchat/widget.js?v=2.10.25" data-widget-key="${publicKey}" async></script>`
 }
 
 export default function WebChat() {
@@ -778,6 +781,9 @@ function WidgetEditorCard({
         autoReplyMessage: form.autoReplyMessage,
         autoReplySenderName: form.autoReplySenderName,
         autoReplyUseAi: form.autoReplyUseAi,
+        proactiveGreetingEnabled: form.proactiveGreetingEnabled,
+        proactiveGreetingMessage: form.proactiveGreetingMessage,
+        proactiveGreetingDelaySeconds: form.proactiveGreetingDelaySeconds,
         defaultDepartmentId: form.defaultDepartmentId || null,
         useInboxBusinessHours: form.useInboxBusinessHours,
         businessHoursEnabled: form.businessHoursEnabled,
@@ -1093,6 +1099,61 @@ function WidgetEditorCard({
               ))}
             </div>
           </div>
+        )}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
+        <h4 className="text-sm font-semibold text-[var(--rz-text)]">Saudação proativa</h4>
+        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+          Envia uma mensagem amigável automaticamente após o visitante ficar na página com o chat
+          carregado — sem precisar abrir ou escrever primeiro.
+        </p>
+        <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
+          <input
+            type="checkbox"
+            checked={form.proactiveGreetingEnabled ?? false}
+            onChange={e => setForm(f => ({ ...f, proactiveGreetingEnabled: e.target.checked }))}
+          />
+          Ativar saudação proativa
+        </label>
+        {form.proactiveGreetingEnabled && (
+          <>
+            <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+              Mensagem
+              <textarea
+                className={textareaCls + ' mt-1'}
+                rows={2}
+                maxLength={300}
+                value={form.proactiveGreetingMessage ?? ''}
+                onChange={e =>
+                  setForm(f => ({ ...f, proactiveGreetingMessage: e.target.value }))
+                }
+                placeholder="Olá! Estou por aqui caso precise de ajuda 😊"
+              />
+            </label>
+            <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+              Aguardar antes de enviar (segundos)
+              <input
+                type="number"
+                min={5}
+                max={300}
+                className={inputCls + ' mt-1 w-28'}
+                value={form.proactiveGreetingDelaySeconds ?? 30}
+                onChange={e =>
+                  setForm(f => ({
+                    ...f,
+                    proactiveGreetingDelaySeconds: Math.min(
+                      300,
+                      Math.max(5, Number(e.target.value) || 30),
+                    ),
+                  }))
+                }
+              />
+            </label>
+            <p className="mt-2 text-xs text-[var(--rz-text-muted)]">
+              Padrão: 30 segundos. Respeita o horário comercial quando configurado.
+            </p>
+          </>
         )}
       </div>
 

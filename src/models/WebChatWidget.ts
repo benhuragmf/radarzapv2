@@ -4,6 +4,8 @@ import {
   DEFAULT_WEBCHAT_APPEARANCE,
   DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE,
   DEFAULT_WEBCHAT_OUTSIDE_HOURS_MESSAGE,
+  DEFAULT_WEBCHAT_PROACTIVE_GREETING_DELAY_SECONDS,
+  DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE,
 } from '../types/webchat';
 import {
   DEFAULT_INBOX_WEEKLY_SCHEDULE,
@@ -21,6 +23,9 @@ export interface IWebChatWidget extends Document {
   autoReplyMessage: string;
   autoReplySenderName: string;
   autoReplyUseAi: boolean;
+  proactiveGreetingEnabled: boolean;
+  proactiveGreetingMessage: string;
+  proactiveGreetingDelaySeconds: number;
   defaultDepartmentId?: mongoose.Types.ObjectId;
   useInboxBusinessHours: boolean;
   businessHoursEnabled: boolean;
@@ -57,6 +62,18 @@ const WebChatWidgetSchema = new Schema<IWebChatWidget>(
     autoReplyMessage: { type: String, default: DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE, maxlength: 500 },
     autoReplySenderName: { type: String, default: 'Assistente virtual', maxlength: 80 },
     autoReplyUseAi: { type: Boolean, default: false },
+    proactiveGreetingEnabled: { type: Boolean, default: false },
+    proactiveGreetingMessage: {
+      type: String,
+      default: DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE,
+      maxlength: 300,
+    },
+    proactiveGreetingDelaySeconds: {
+      type: Number,
+      default: DEFAULT_WEBCHAT_PROACTIVE_GREETING_DELAY_SECONDS,
+      min: 5,
+      max: 300,
+    },
     defaultDepartmentId: { type: Schema.Types.ObjectId, ref: 'InboxDepartment' },
     useInboxBusinessHours: { type: Boolean, default: true },
     businessHoursEnabled: { type: Boolean, default: false },

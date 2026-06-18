@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.24';
+  var WIDGET_BUILD = '2.10.25';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -242,18 +242,76 @@
     prechatError: '',
     emojiPickerOpen: false,
     expanded: false,
+    proactiveTimer: null,
+    proactiveDone: false,
+    proactiveTeaser: null,
   };
+
+  function hasVisitorInbound() {
+    return state.messages.some(function (m) {
+      return m.direction === 'inbound';
+    });
+  }
+
+  function clearProactiveTimer() {
+    if (state.proactiveTimer) {
+      clearTimeout(state.proactiveTimer);
+      state.proactiveTimer = null;
+    }
+  }
+
+  function scheduleProactiveGreeting() {
+    clearProactiveTimer();
+    if (!state.config || !state.config.proactiveGreetingEnabled) return;
+    if (state.proactiveDone || hasVisitorInbound() || isConversationEnded()) return;
+    if (state.proactiveTeaser) return;
+    var delaySec = Number(state.config.proactiveGreetingDelaySeconds);
+    if (!delaySec || delaySec < 5) delaySec = 30;
+    state.proactiveTimer = setTimeout(function () {
+      state.proactiveTimer = null;
+      if (state.proactiveDone || hasVisitorInbound() || isConversationEnded()) return;
+      apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/proactive-greeting', {
+        method: 'POST',
+        body: JSON.stringify({
+          visitorToken: state.visitorToken,
+          pageUrl: window.location.href,
+        }),
+      })
+        .then(function (data) {
+          if (data.visitorToken) state.visitorToken = data.visitorToken;
+          if (data.conversationId) state.conversationId = data.conversationId;
+          if (data.messages) state.messages = data.messages;
+          writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
+          if (data.sent) {
+            state.proactiveDone = true;
+            if (!state.open) {
+              var outbound = data.messages.filter(function (m) {
+                return m.direction === 'outbound';
+              });
+              var last = outbound[outbound.length - 1];
+              state.proactiveTeaser = last && last.body ? last.body : null;
+            }
+            connectSocket();
+          } else if (data.messages && data.messages.length) {
+            state.proactiveDone = true;
+          }
+          renderBubble();
+        })
+        .catch(function (err) {
+          console.error('[RadarZap WebChat]', err.message);
+        });
+    }, delaySec * 1000);
+  }
 
   function needsPrechat() {
     if (!state.config) return false;
     if (state.conversationStatus === 'closed' || isConversationEnded()) return false;
-    if (state.messages.length > 0) return false;
     var askName = !!state.config.askName;
     var askEmail = !!state.config.askEmail;
     if (!askName && !askEmail) return false;
     if (askName && !String(state.visitorName || '').trim()) return true;
     if (askEmail && !String(state.visitorEmail || '').trim()) return true;
-    return !state.started;
+    return false;
   }
 
   function applySessionData(data) {
@@ -431,6 +489,27 @@
     };
   }
 
+  function renderProactiveTeaser(t) {
+    if (!state.proactiveTeaser || state.open) return '';
+    return (
+      '<div id="rz-webchat-teaser" role="button" tabindex="0" style="max-width:min(280px,92vw);margin-bottom:10px;padding:10px 12px;border-radius:14px 14px 4px 14px;background:' +
+      t.panelBg +
+      ';border:1px solid ' +
+      t.border +
+      ';box-shadow:' +
+      t.panelShadow +
+      ';cursor:pointer;position:relative;">' +
+      '<div style="font-size:13px;line-height:1.45;color:' +
+      t.text +
+      ';padding-right:18px;">' +
+      escHtml(state.proactiveTeaser) +
+      '</div>' +
+      '<button type="button" id="rz-webchat-teaser-dismiss" aria-label="Fechar" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border:none;background:transparent;color:' +
+      t.textMuted +
+      ';font-size:16px;line-height:1;cursor:pointer;border-radius:6px;">×</button></div>'
+    );
+  }
+
   function renderBubble() {
     var savedInput = '';
     var inputEl = document.getElementById('rz-webchat-input');
@@ -442,6 +521,7 @@
       ((state.config && state.config.position) === 'left' ? 'flex-start' : 'flex-end') +
       ';">' +
       (state.open ? renderPanel() : '') +
+      renderProactiveTeaser(t) +
       '<button type="button" id="rz-webchat-toggle" aria-label="Abrir chat" style="width:56px;height:56px;border-radius:999px;border:none;cursor:pointer;box-shadow:' +
       t.toggleShadow +
       ';background:' +
@@ -454,9 +534,30 @@
         state.open = !state.open;
         state.prechatError = '';
         state.emojiPickerOpen = false;
-        if (state.open && !state.started && !needsPrechat()) {
-          startSession();
+        if (state.open) {
+          state.proactiveTeaser = null;
+          if (!state.started && !needsPrechat()) {
+            startSession();
+          }
         }
+        renderBubble();
+      };
+    }
+    var teaser = document.getElementById('rz-webchat-teaser');
+    if (teaser) {
+      teaser.onclick = function (e) {
+        if (e.target && e.target.id === 'rz-webchat-teaser-dismiss') return;
+        state.open = true;
+        state.proactiveTeaser = null;
+        if (!state.started && !needsPrechat()) startSession();
+        renderBubble();
+      };
+    }
+    var teaserDismiss = document.getElementById('rz-webchat-teaser-dismiss');
+    if (teaserDismiss) {
+      teaserDismiss.onclick = function (e) {
+        e.stopPropagation();
+        state.proactiveTeaser = null;
         renderBubble();
       };
     }
@@ -964,6 +1065,8 @@
   function sendMessageWithText(text) {
     var trimmed = String(text || '').trim();
     if (!trimmed || state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
+    clearProactiveTimer();
+    state.proactiveTeaser = null;
     state.sending = true;
     state.emojiPickerOpen = false;
     apiFetch(baseUrl, '/messages', {
@@ -1077,6 +1180,13 @@
           headers: { 'X-WebChat-Visitor': state.visitorToken },
         }).then(function (data) {
           applySessionData(data);
+          if (
+            state.messages.some(function (m) {
+              return m.direction === 'outbound';
+            })
+          ) {
+            state.proactiveDone = true;
+          }
           if (isConversationEnded()) {
             markConversationClosed();
             state.started = true;
@@ -1097,5 +1207,6 @@
     })
     .finally(function () {
       renderBubble();
+      scheduleProactiveGreeting();
     });
 })();

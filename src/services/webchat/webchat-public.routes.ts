@@ -48,6 +48,23 @@ export function createWebChatPublicRouter(): Router {
     }
   });
 
+  r.post('/widgets/:publicKey/proactive-greeting', async (req, res) => {
+    try {
+      const body = req.body as { visitorToken?: string; pageUrl?: string };
+      const result = await svc.triggerProactiveGreeting(req.params.publicKey, {
+        ...body,
+        userAgent: req.headers['user-agent'],
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+      });
+      res.json(result);
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status = msg.includes('não encontrado') ? 404 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
   r.post('/messages', async (req, res) => {
     try {
       const token = visitorTokenFromReq(req);

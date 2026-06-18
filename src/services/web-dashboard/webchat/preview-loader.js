@@ -33,7 +33,7 @@
 
   var origin = location.origin;
   var widgetScript = document.createElement('script');
-  widgetScript.src = origin + '/webchat/widget.js?v=2.10.24';
+  widgetScript.src = origin + '/webchat/widget.js?v=2.10.25';
   widgetScript.setAttribute('data-widget-key', key);
   widgetScript.setAttribute('data-base-url', origin);
   widgetScript.async = true;
