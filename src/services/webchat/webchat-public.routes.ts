@@ -53,13 +53,13 @@ export function createWebChatPublicRouter(): Router {
       const token = visitorTokenFromReq(req);
       if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
       const { body } = req.body as { body?: string };
-      const message = await svc.sendVisitorMessage(
+      const result = await svc.sendVisitorMessage(
         token,
         body ?? '',
         req.headers.origin,
         req.headers.referer,
       );
-      res.json({ message });
+      res.json(result);
     } catch (e) {
       const msg = (e as Error).message;
       const status =
@@ -78,13 +78,13 @@ export function createWebChatPublicRouter(): Router {
         fileName?: string;
         caption?: string;
       };
-      const message = await svc.sendVisitorAttachment(
+      const result = await svc.sendVisitorAttachment(
         token,
         { dataBase64: dataBase64 ?? '', mimeType, fileName, caption },
         req.headers.origin,
         req.headers.referer,
       );
-      res.json({ message });
+      res.json(result);
     } catch (e) {
       const msg = (e as Error).message;
       const status =

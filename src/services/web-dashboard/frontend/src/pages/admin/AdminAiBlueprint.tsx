@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Save, RotateCcw, Sparkles } from 'lucide-react'
+import { Save, RotateCcw, Sparkles, Info } from 'lucide-react'
 import { RadarPageShell, PageHeader, LoadingState, inputCls, textareaCls } from '@/design-system'
+import { BLUEPRINT_ADMIN_TAB_HELP } from '../../lib/blueprintAdminHelp'
 
 type BlueprintTab =
   | 'identity'
@@ -46,6 +47,25 @@ const TABS: { id: BlueprintTab; label: string; field: keyof BlueprintPayload }[]
 ]
 
 const textareaClsBlueprint = `${textareaCls} min-h-[280px] font-mono text-xs leading-relaxed`
+
+function TabHelp({ tabId }: { tabId: BlueprintTab }) {
+  const help = BLUEPRINT_ADMIN_TAB_HELP[tabId]
+  if (!help) return null
+  return (
+    <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 p-4 space-y-2 text-sm text-[var(--rz-text-secondary)]">
+      <p className="font-medium text-[var(--rz-text-primary)] flex items-center gap-2">
+        <Info className="w-4 h-4 text-brand-400 shrink-0" />
+        {help.title}
+      </p>
+      <p>{help.purpose}</p>
+      <ul className="list-disc pl-5 space-y-1 text-xs text-[var(--rz-text-muted)]">
+        {help.tips.map(tip => (
+          <li key={tip}>{tip}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 export default function AdminAiBlueprint() {
   const qc = useQueryClient()
@@ -94,11 +114,11 @@ export default function AdminAiBlueprint() {
         title="Blueprint IA (RadarZap)"
         subtitle={
           <>
-            Cérebro padrão aplicado a todos os tenants (modo RadarZap ou IA própria). Clientes
-            cadastram base de conhecimento, aprovam skills/memórias e regras leves — não editam
-            IDENTITY/SOUL/AGENTS.
+            Cérebro padrão de <strong>todos</strong> os tenants. Fluxo eficiente:{' '}
+            <strong>SKILLS → KNOWLEDGE → MEMORY</strong> antes de escalar. Clientes só alimentam o
+            conteúdo nas abas deles — não editam este blueprint.
             <span className="block text-xs text-[var(--rz-text-muted)] mt-1">
-              Versão {form.version} · variáveis: {'{agentName}'}, {'{companyName}'}, {'{customerName}'}…
+              Versão {form.version} · variáveis: {'{agentName}'}, {'{companyName}'}, {'{customerName}'}
             </span>
           </>
         }
@@ -110,7 +130,7 @@ export default function AdminAiBlueprint() {
               onClick={() => reset.mutate()}
               disabled={reset.isPending}
             >
-              <RotateCcw className="w-4 h-4 mr-1" /> Restaurar padrão
+              <RotateCcw className="w-4 h-4 mr-1" /> Restaurar padrão v2
             </Button>
             <Button type="button" onClick={() => save.mutate(form)} disabled={save.isPending}>
               <Save className="w-4 h-4 mr-1" /> Salvar blueprint
@@ -119,14 +139,20 @@ export default function AdminAiBlueprint() {
         }
       />
 
-      <Card className="p-4 flex flex-wrap gap-2 items-center">
-        <Sparkles className="w-4 h-4 text-[var(--rz-primary)]" />
-        <label className="text-sm text-[var(--rz-text-secondary)]">Nome padrão do agente:</label>
-        <input
-          className={`${inputCls} max-w-xs`}
-          value={form.agentName}
-          onChange={e => setForm(f => (f ? { ...f, agentName: e.target.value } : f))}
-        />
+      <Card className="p-4 space-y-3">
+        <div className="flex flex-wrap gap-2 items-center">
+          <Sparkles className="w-4 h-4 text-[var(--rz-primary)]" />
+          <label className="text-sm text-[var(--rz-text-secondary)]">Nome padrão do agente:</label>
+          <input
+            className={`${inputCls} max-w-xs`}
+            value={form.agentName}
+            onChange={e => setForm(f => (f ? { ...f, agentName: e.target.value } : f))}
+          />
+        </div>
+        <p className="text-xs text-[var(--rz-text-muted)]">
+          Após alterar os textos padrão no código, use <strong>Restaurar padrão v2</strong> para
+          aplicar no banco. Tenants podem sobrescrever só o nome do assistente na aba IA.
+        </p>
       </Card>
 
       <div className="flex flex-wrap gap-2 border-b border-[var(--rz-border)] pb-2">
@@ -146,12 +172,15 @@ export default function AdminAiBlueprint() {
         ))}
       </div>
 
-      <Card className="p-6 space-y-3">
+      <Card className="p-6 space-y-4">
+        <TabHelp tabId={tab} />
         <h2 className="text-sm font-medium text-[var(--rz-primary)]">{active.label}</h2>
         {tab === 'greetings' ? (
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Cliente conhecido</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
+                Cliente com nome no cadastro (WhatsApp)
+              </label>
               <textarea
                 className={textareaClsBlueprint}
                 value={form.greetingKnown}
@@ -159,7 +188,9 @@ export default function AdminAiBlueprint() {
               />
             </div>
             <div>
-              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Cliente novo</label>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
+                Cliente sem nome no cadastro
+              </label>
               <textarea
                 className={textareaClsBlueprint}
                 value={form.greetingUnknown}
@@ -171,9 +202,7 @@ export default function AdminAiBlueprint() {
           <textarea
             className={textareaClsBlueprint}
             value={String(form[active.field] ?? '')}
-            onChange={e =>
-              setForm(f => (f ? { ...f, [active.field]: e.target.value } : f))
-            }
+            onChange={e => setForm(f => (f ? { ...f, [active.field]: e.target.value } : f))}
           />
         )}
       </Card>

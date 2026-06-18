@@ -10,6 +10,8 @@ const dashboardApiMax = isDevelopment()
   ? 20_000
   : Math.max(config.RATE_LIMIT.MAX_REQUESTS, 500);
 
+const devRelax = isDevelopment();
+
 /**
  * Rate limiting configuration by endpoint type
  */
@@ -28,7 +30,7 @@ const rateLimitConfigs = {
   // Authentication endpoints
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 10 login attempts per window
+    max: devRelax ? 200 : 10,
     message: {
       error: 'Too many authentication attempts',
       code: 'AUTH_RATE_LIMIT_EXCEEDED',
@@ -39,7 +41,7 @@ const rateLimitConfigs = {
   // Template operations
   templates: {
     windowMs: 5 * 60 * 1000, // 5 minutes
-    max: 50, // 50 template operations per window
+    max: devRelax ? 500 : 50,
     message: {
       error: 'Too many template requests',
       code: 'TEMPLATE_RATE_LIMIT_EXCEEDED',
@@ -47,13 +49,24 @@ const rateLimitConfigs = {
     }
   },
   
-  // Message sending
+  // Message sending (API Gateway / integrações)
   messages: {
     windowMs: 60 * 1000, // 1 minute
-    max: 10, // 10 messages per minute
+    max: devRelax ? 500 : 30,
     message: {
       error: 'Too many message requests',
       code: 'MESSAGE_RATE_LIMIT_EXCEEDED',
+      retryAfter: '1 minute'
+    }
+  },
+
+  // Widget público no site — leituras não contam; POST mais folgado
+  webchatPublic: {
+    windowMs: 60 * 1000,
+    max: devRelax ? 2_000 : 120,
+    message: {
+      error: 'Muitas mensagens no chat — aguarde um momento',
+      code: 'WEBCHAT_RATE_LIMIT_EXCEEDED',
       retryAfter: '1 minute'
     }
   },
@@ -61,7 +74,7 @@ const rateLimitConfigs = {
   // Heavy operations
   heavy: {
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 10, // 10 heavy operations per hour
+    max: devRelax ? 500 : 10,
     message: {
       error: 'Too many heavy operations',
       code: 'HEAVY_RATE_LIMIT_EXCEEDED',
@@ -94,13 +107,19 @@ const createRateLimiter = (configKey: keyof typeof rateLimitConfigs) => {
     
     // Custom handler for rate limit exceeded
     handler: (req: Request, res: Response) => {
-      logger.warn('Rate limit exceeded', {
+      const meta = {
         ip: req.ip,
         path: req.path,
         method: req.method,
         userAgent: req.get('User-Agent'),
-        userId: (req as AuthenticatedRequest).user?.id
-      });
+        userId: (req as AuthenticatedRequest).user?.id,
+        limiter: configKey,
+      };
+      if (isDevelopment()) {
+        logger.debug('Rate limit exceeded', meta);
+      } else {
+        logger.warn('Rate limit exceeded', meta);
+      }
       
       res.status(429).json({
         ...config.message,
@@ -109,10 +128,11 @@ const createRateLimiter = (configKey: keyof typeof rateLimitConfigs) => {
       });
     },
     
-    // Painel faz polling frequente — leituras não entram na cota
     skip: (req: Request) => {
-      if (configKey !== 'general') return false;
-      return req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+      if (configKey === 'general' || configKey === 'webchatPublic') {
+        return req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+      }
+      return false;
     },
   });
 };
@@ -247,6 +267,7 @@ export const rateLimiters = {
   auth: createRateLimiter('auth'),
   templates: createRateLimiter('templates'),
   messages: createRateLimiter('messages'),
+  webchatPublic: createRateLimiter('webchatPublic'),
   heavy: createRateLimiter('heavy'),
   
   // Plan-based limiters

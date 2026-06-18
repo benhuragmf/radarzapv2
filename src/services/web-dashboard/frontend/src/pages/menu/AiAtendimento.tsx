@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Settings2,
   Brain,
+  Hand,
   CheckCircle2,
   XCircle,
 } from 'lucide-react'
@@ -30,6 +31,7 @@ const textareaClsAi = `${textareaCls} min-h-[120px]`
 
 type TabId =
   | 'geral'
+  | 'saudacoes'
   | 'provedor'
   | 'regras'
   | 'coleta'
@@ -43,6 +45,7 @@ type TabId =
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'geral', label: 'Geral' },
+  { id: 'saudacoes', label: 'Saudações' },
   { id: 'provedor', label: 'Provedor' },
   { id: 'regras', label: 'Economia e regras' },
   { id: 'coleta', label: 'Dados a coletar' },
@@ -69,6 +72,9 @@ interface AiPayload {
     transferRules: Record<string, boolean | number>
   }
   prompt: {
+    agentName: string
+    greetingKnown: string
+    greetingUnknown: string
     customRules: string
     useSystemContext: boolean
     skipKnownFields: boolean
@@ -123,6 +129,9 @@ interface AiPayload {
     managedBy: 'radarzap'
     version: number
     agentName: string
+    defaultAgentName: string
+    defaultGreetingKnown: string
+    defaultGreetingUnknown: string
     updatedAt: string
   }
 }
@@ -298,10 +307,29 @@ export default function AiAtendimento() {
       {form.blueprintInfo && (
         <Card className="p-4 mb-4 border-brand-800/40 bg-brand-950/20">
           <p className="text-sm text-[var(--rz-text-secondary)]">
-            O <strong>agente de atendimento</strong> (IDENTITY, SOUL, AGENTS, TOOLS) é gerenciado pela{' '}
-            <strong>RadarZap</strong> — blueprint v{form.blueprintInfo.version}, agente{' '}
-            <em>{form.blueprintInfo.agentName}</em>. Você configura a <strong>base de conhecimento</strong>,
-            aprova <strong>skills/memórias</strong> aprendidas e regras leves da sua empresa.
+            O <strong>assistente virtual já vem pré-configurado</strong> pela RadarZap — personalidade,
+            triagem, tom de voz e fluxo de atendimento funcionam assim que você ativar a IA. Você só
+            precisa alimentar o conhecimento da <em>sua</em> empresa:{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('kb')}>
+              Base de conhecimento
+            </button>
+            ,{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('skills')}>
+              Skills
+            </button>{' '}
+            e{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('memory')}>
+              Memória
+            </button>
+            . Opcionalmente ajuste o <strong>nome do assistente</strong> (aba Geral), as{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('saudacoes')}>
+              saudações
+            </button>{' '}
+            e as{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('regras')}>
+              regras da empresa
+            </button>
+            .
           </p>
         </Card>
       )}
@@ -326,6 +354,33 @@ export default function AiAtendimento() {
           <h2 className="text-lg font-medium flex items-center gap-2">
             <Settings2 className="w-5 h-5" /> Modo de operação
           </h2>
+          {form.blueprintInfo && (
+            <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
+                  Nome do assistente virtual
+                </label>
+                <input
+                  className={inputCls}
+                  value={form.prompt.agentName ?? ''}
+                  onChange={e => patchPrompt({ agentName: e.target.value })}
+                  placeholder={form.blueprintInfo.defaultAgentName || 'Assistente'}
+                />
+                <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+                  Nome que o cliente vê nas mensagens. Vazio usa o padrão RadarZap (
+                  <em>{form.blueprintInfo.defaultAgentName}</em>). Saudações ficam na aba{' '}
+                  <button
+                    type="button"
+                    className="text-brand-400 hover:underline"
+                    onClick={() => setTab('saudacoes')}
+                  >
+                    Saudações
+                  </button>
+                  .
+                </p>
+              </div>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-sm">
             <input
               type="radio"
@@ -358,6 +413,62 @@ export default function AiAtendimento() {
             Uso hoje: {form.usage.dailyUsed}/{form.usage.dailyLimit} diário ·{' '}
             {form.usage.monthlyUsed}/{form.usage.monthlyLimit} mensal
           </p>
+        </Card>
+      )}
+
+      {tab === 'saudacoes' && form.blueprintInfo && (
+        <Card className="p-6 space-y-4">
+          <h2 className="text-lg font-medium flex items-center gap-2">
+            <Hand className="w-5 h-5" /> Saudações da IA
+          </h2>
+          <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 p-4 text-sm text-[var(--rz-text-secondary)]">
+            <p>
+              Primeira mensagem automática quando a IA assume o atendimento no <strong>WhatsApp</strong>.
+              No chat do site, a conversa segue o fluxo da triagem (nome já vem do formulário).
+            </p>
+            <p className="text-xs text-[var(--rz-text-muted)] mt-2">
+              Variáveis: {'{companyName}'}, {'{agentName}'}, {'{customerName}'} (apenas no cliente
+              conhecido). Deixe em branco para usar o padrão RadarZap.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
+                Cliente com nome no cadastro
+              </label>
+              <textarea
+                className={`${textareaCls} min-h-[100px] text-sm`}
+                value={form.prompt.greetingKnown ?? ''}
+                onChange={e => patchPrompt({ greetingKnown: e.target.value })}
+                placeholder={form.blueprintInfo.defaultGreetingKnown}
+              />
+              <button
+                type="button"
+                className="text-xs text-brand-400 hover:underline mt-1"
+                onClick={() => patchPrompt({ greetingKnown: '' })}
+              >
+                Usar padrão RadarZap
+              </button>
+            </div>
+            <div>
+              <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
+                Cliente sem nome no cadastro
+              </label>
+              <textarea
+                className={`${textareaCls} min-h-[100px] text-sm`}
+                value={form.prompt.greetingUnknown ?? ''}
+                onChange={e => patchPrompt({ greetingUnknown: e.target.value })}
+                placeholder={form.blueprintInfo.defaultGreetingUnknown}
+              />
+              <button
+                type="button"
+                className="text-xs text-brand-400 hover:underline mt-1"
+                onClick={() => patchPrompt({ greetingUnknown: '' })}
+              >
+                Usar padrão RadarZap
+              </button>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -450,8 +561,9 @@ export default function AiAtendimento() {
             <Shield className="w-5 h-5" /> Economia de créditos e regras da empresa
           </h2>
           <p className="text-xs text-[var(--rz-text-muted)]">
-            O comportamento do agente vem do blueprint RadarZap. Aqui você só ajusta economia de tokens e
-            regras específicas do seu negócio.
+            O assistente já vem com triagem e comportamento padrão da RadarZap. Aqui você ajusta
+            economia de créditos e regras específicas do seu negócio (horários, produtos, o que não
+            oferecer).
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             {(
@@ -549,10 +661,45 @@ export default function AiAtendimento() {
               Adicionar manual
             </Button>
           </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Skills aprovadas entram no atendimento automático. Itens <em>pendentes</em> vêm do aprendizado
-            após escalações — o dono aprova ou rejeita.
-          </p>
+          <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 p-4 space-y-3 text-sm text-[var(--rz-text-secondary)]">
+            <div>
+              <p className="font-medium text-[var(--rz-text-primary)]">Para que serve</p>
+              <p className="mt-1">
+                <strong>Skills</strong> são <em>receitas de solução</em>: quando o cliente descreve um problema
+                recorrente, a IA segue o passo a passo que você cadastrou — muitas vezes <strong>sem chamar
+                atendente</strong> e sem gastar créditos extras de IA.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-[var(--rz-text-primary)]">O que colocar aqui</p>
+              <ul className="mt-1 list-disc pl-5 space-y-1">
+                <li>
+                  <strong>Título:</strong> nome curto do problema — ex. &quot;Rastreador offline&quot;, &quot;App não
+                  conecta&quot;.
+                </li>
+                <li>
+                  <strong>Gatilhos:</strong> palavras que o cliente costuma usar — ex. &quot;offline, sem sinal,
+                  parou de atualizar, gps&quot;.
+                </li>
+                <li>
+                  <strong>Solução:</strong> instruções claras em ordem — ex. reiniciar equipamento, conferir
+                  cabo, reinstalar app.
+                </li>
+              </ul>
+            </div>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              <strong>Diferença:</strong> use Skills para <em>resolver um problema</em>. Use a{' '}
+              <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('kb')}>
+                Base de conhecimento
+              </button>{' '}
+              para informações gerais (preços, planos, políticas) e{' '}
+              <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('memory')}>
+                Memória
+              </button>{' '}
+              para fatos curtos que valem em qualquer conversa. Itens <em>pendentes</em> podem surgir do
+              aprendizado após atendimentos — você aprova ou rejeita antes de entrarem no ar.
+            </p>
+          </div>
           {(form.skills ?? []).length === 0 && (
             <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma skill ainda. A IA pode propor após atendimentos.</p>
           )}
@@ -604,7 +751,7 @@ export default function AiAtendimento() {
                   skills[idx] = { ...skills[idx], title: e.target.value }
                   setForm(f => (f ? { ...f, skills } : f))
                 }}
-                placeholder="Título"
+                placeholder="Ex.: Rastreador offline / App não conecta"
               />
               <input
                 className={inputCls}
@@ -614,7 +761,7 @@ export default function AiAtendimento() {
                   skills[idx] = { ...skills[idx], triggers: e.target.value }
                   setForm(f => (f ? { ...f, skills } : f))
                 }}
-                placeholder="Gatilhos / palavras-chave"
+                placeholder="Ex.: offline, sem sinal, parou, não atualiza, gps"
               />
               <textarea
                 className={textareaClsAi}
@@ -624,7 +771,7 @@ export default function AiAtendimento() {
                   skills[idx] = { ...skills[idx], solution: e.target.value }
                   setForm(f => (f ? { ...f, skills } : f))
                 }}
-                placeholder="Solução passo a passo para o cliente"
+                placeholder="Passo a passo para o cliente seguir. Ex.: 1) Desligue o rastreador por 30s. 2) Verifique se o LED pisca verde. 3) Abra o app e atualize a posição."
               />
               {skill.sourceProblem && (
                 <p className="text-xs text-[var(--rz-text-muted)]">Problema origem: {skill.sourceProblem}</p>
@@ -669,10 +816,42 @@ export default function AiAtendimento() {
               Adicionar manual
             </Button>
           </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Fatos duráveis da empresa — equivalente ao MEMORY.md do OpenClaw. Aprendidas ficam pendentes até
-            o dono aprovar.
-          </p>
+          <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 p-4 space-y-3 text-sm text-[var(--rz-text-secondary)]">
+            <div>
+              <p className="font-medium text-[var(--rz-text-primary)]">Para que serve</p>
+              <p className="mt-1">
+                <strong>Memória</strong> guarda <em>fatos curtos e permanentes</em> que a IA deve lembrar em
+                qualquer atendimento — regras internas, exceções, promoções vigentes ou decisões da empresa.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-[var(--rz-text-primary)]">O que colocar aqui</p>
+              <ul className="mt-1 list-disc pl-5 space-y-1">
+                <li>
+                  <strong>Título:</strong> rótulo do fato — ex. &quot;Promoção março&quot;, &quot;Plano VIP&quot;.
+                </li>
+                <li>
+                  <strong>Tags:</strong> palavras para a IA achar o fato — ex. &quot;promoção, desconto,
+                  vip, plano anual&quot;.
+                </li>
+                <li>
+                  <strong>Conteúdo:</strong> o fato em 1–3 frases — ex. &quot;Em março o plano anual tem 20%
+                  de desconto&quot; ou &quot;Não vendemos mais o plano Básico 2019&quot;.
+                </li>
+              </ul>
+            </div>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              <strong>Diferença:</strong> Memória é um <em>lembrete rápido</em>, não um tutorial (isso é{' '}
+              <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('skills')}>
+                Skill
+              </button>
+              ) nem um artigo longo (isso é{' '}
+              <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('kb')}>
+                Base de conhecimento
+              </button>
+              ). Sugestões aprendidas em atendimentos ficam <em>pendentes</em> até você aprovar.
+            </p>
+          </div>
           {(form.memories ?? []).length === 0 && (
             <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma memória ainda.</p>
           )}
@@ -723,7 +902,7 @@ export default function AiAtendimento() {
                   memories[idx] = { ...memories[idx], title: e.target.value }
                   setForm(f => (f ? { ...f, memories } : f))
                 }}
-                placeholder="Título"
+                placeholder="Ex.: Promoção março / Plano VIP / Horário especial"
               />
               <input
                 className={inputCls}
@@ -733,7 +912,7 @@ export default function AiAtendimento() {
                   memories[idx] = { ...memories[idx], tags: e.target.value }
                   setForm(f => (f ? { ...f, memories } : f))
                 }}
-                placeholder="Tags / palavras-chave"
+                placeholder="Ex.: promoção, desconto, vip, plano anual"
               />
               <textarea
                 className={textareaClsAi}
@@ -743,7 +922,7 @@ export default function AiAtendimento() {
                   memories[idx] = { ...memories[idx], content: e.target.value }
                   setForm(f => (f ? { ...f, memories } : f))
                 }}
-                placeholder="Fato ou decisão que a IA deve lembrar"
+                placeholder="Fato em poucas frases. Ex.: Em março o plano anual tem 20% de desconto. / Clientes VIP têm suporte prioritário."
               />
             </div>
           ))}
@@ -776,10 +955,48 @@ export default function AiAtendimento() {
               Adicionar
             </Button>
           </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Itens ativos são buscados por relevância na mensagem do cliente — só os mais pertinentes vão
-            no prompt (economia de tokens).
-          </p>
+          <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 p-4 space-y-3 text-sm text-[var(--rz-text-secondary)]">
+            <div>
+              <p className="font-medium text-[var(--rz-text-primary)]">Para que serve</p>
+              <p className="mt-1">
+                A <strong>Base de conhecimento</strong> é o <em>FAQ oficial</em> da sua empresa: produtos,
+                serviços, preços, horários, políticas, promoções e qualquer informação que o cliente possa
+                perguntar. A IA busca os itens mais relevantes na mensagem e responde com base neles.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-[var(--rz-text-primary)]">O que colocar aqui</p>
+              <ul className="mt-1 list-disc pl-5 space-y-1">
+                <li>
+                  <strong>Título:</strong> tema da pergunta — ex. &quot;Planos e preços&quot;, &quot;Horário de
+                  atendimento&quot;, &quot;Como contratar&quot;.
+                </li>
+                <li>
+                  <strong>Conteúdo:</strong> texto completo e oficial — valores, condições, passos de
+                  contratação, o que está incluso em cada plano, links úteis.
+                </li>
+              </ul>
+            </div>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              <strong>Diferença:</strong> use a base para <em>informar</em> (o que vendemos, quanto custa, como
+              funciona). Use{' '}
+              <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('skills')}>
+                Skills
+              </button>{' '}
+              para <em>resolver problemas</em> com passo a passo e{' '}
+              <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('memory')}>
+                Memória
+              </button>{' '}
+              para fatos curtos que valem em qualquer conversa. Só itens <strong>ativos</strong> entram na
+              busca — desative os desatualizados em vez de apagar.
+            </p>
+          </div>
+          {form.knowledgeBase.length === 0 && (
+            <p className="text-sm text-[var(--rz-text-muted)]">
+              Nenhum item ainda. Comece pelos temas que os clientes mais perguntam: planos, preços, suporte e
+              como contratar.
+            </p>
+          )}
           {form.knowledgeBase.map((item, idx) => (
             <div key={item.id || idx} className="border border-[var(--rz-border)] rounded-lg p-4 space-y-2">
               <input
@@ -790,7 +1007,7 @@ export default function AiAtendimento() {
                   kb[idx] = { ...kb[idx], title: e.target.value }
                   setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
                 }}
-                placeholder="Título"
+                placeholder="Ex.: Planos e preços / Horário de atendimento / Promoções vigentes"
               />
               <textarea
                 className={textareaClsAi}
@@ -800,7 +1017,7 @@ export default function AiAtendimento() {
                   kb[idx] = { ...kb[idx], content: e.target.value }
                   setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
                 }}
-                placeholder="Conteúdo"
+                placeholder="Texto oficial com todas as informações. Ex.: Oferecemos planos Mensal (R$ 49), Anual (R$ 490 com 2 meses grátis) e VIP (R$ 99/mês com suporte prioritário). Horário comercial: seg–sex 8h–18h."
               />
               <label className="flex items-center gap-2 text-sm">
                 <input

@@ -20,7 +20,7 @@ export class AiAutoResolveService {
     return this.instance;
   }
 
-  /** Evita skill técnica de rastreador em dúvidas de plano/VIP/comercial. */
+  /** Evita skill técnica de rastreador em dúvidas de plano/VIP/comercial (inbox/WhatsApp). */
   shouldAttemptAutoResolve(problemText: string, threadContext?: string): boolean {
     const query = problemText.trim();
     if (query.length < 12) return false;
@@ -37,10 +37,22 @@ export class AiAutoResolveService {
     if (/^(sim|nao|não|s|ss|ok|isso|confirmo|correto)$/i.test(query)) return false;
 
     const techKeywords =
-      /\b(n[aã]o conecta|aplicativo|app|erro|instala[cç][aã]o|configurar|offline|equipamento|sinal|gps|cobran[cç]a|boleto|pagamento)\b/i;
+      /\b(n[aã]o conecta|aplicativo|app|erro|instala[cç][aã]o|configurar|offline|equipamento|sinal|gps|cobran[cç]a|boleto|pagamento|rastreador|rastreadores|parou)\b/i;
     if (query.length < 28 && !techKeywords.test(query)) return false;
 
     return true;
+  }
+
+  /** WebChat: permite busca na base para dúvidas comerciais e técnicas concretas. */
+  shouldAttemptWebChatInquiry(problemText: string, threadContext?: string): boolean {
+    const query = problemText.trim();
+    if (query.length < 12) return false;
+    if (/^(sim|nao|não|s|ss|ok|isso|confirmo|correto)$/i.test(query)) return false;
+
+    const combined = `${threadContext ?? ''} ${query}`.toLowerCase();
+    const inquiryKeywords =
+      /\b(produto|promo[cç]|venda|pre[cç]o|plano|contrat|assinatura|pacote|desconto|oferta|rastreador|parou|n[aã]o funciona|n[aã]o conecta|aplicativo|app|erro|gps|offline|cobran[cç]a|boleto|pagamento)\b/i;
+    return inquiryKeywords.test(combined);
   }
 
   /**
@@ -50,11 +62,14 @@ export class AiAutoResolveService {
   async tryResolve(
     clientId: string,
     problemText: string,
-    opts?: { threadContext?: string; ticketAssist?: boolean },
+    opts?: { threadContext?: string; ticketAssist?: boolean; webchatInquiry?: boolean },
   ): Promise<AiAutoResolveResult> {
     const query = problemText.trim();
-    if (!opts?.ticketAssist && !this.shouldAttemptAutoResolve(query, opts?.threadContext)) {
-      return { hit: false };
+    if (!opts?.ticketAssist) {
+      const allowed = opts?.webchatInquiry
+        ? this.shouldAttemptWebChatInquiry(query, opts?.threadContext)
+        : this.shouldAttemptAutoResolve(query, opts?.threadContext);
+      if (!allowed) return { hit: false };
     }
     if (opts?.ticketAssist && query.length < 6) return { hit: false };
 

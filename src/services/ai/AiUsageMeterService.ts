@@ -61,6 +61,11 @@ export class AiUsageMeterService {
     };
   }
 
+  private conversationOid(id?: string): mongoose.Types.ObjectId | undefined {
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) return undefined;
+    return new mongoose.Types.ObjectId(id);
+  }
+
   async getUsageSnapshot(
     clientId: string,
     conversationId?: string,
@@ -73,13 +78,14 @@ export class AiUsageMeterService {
       (await AiSettings.create({ clientId: clientOid }));
 
     const limits = await this.resolveLimits(clientId, cfg);
+    const convOid = this.conversationOid(conversationId);
     const [dailyUsed, monthlyUsed, conversationUsed] = await Promise.all([
       AiUsage.countDocuments({ clientId: clientOid, createdAt: { $gte: this.startOfDay() } }),
       AiUsage.countDocuments({ clientId: clientOid, createdAt: { $gte: this.startOfMonth() } }),
-      conversationId
+      convOid
         ? AiUsage.countDocuments({
             clientId: clientOid,
-            conversationId: new mongoose.Types.ObjectId(conversationId),
+            conversationId: convOid,
           })
         : Promise.resolve(0),
     ]);
@@ -93,7 +99,7 @@ export class AiUsageMeterService {
       allowed = false;
       reason = 'Limite mensal de IA atingido';
     } else if (
-      conversationId &&
+      convOid &&
       limits.perConversationLimit > 0 &&
       conversationUsed >= limits.perConversationLimit
     ) {
@@ -123,11 +129,10 @@ export class AiUsageMeterService {
     estimatedCost?: number;
   }): Promise<void> {
     const total = params.inputTokens + params.outputTokens;
+    const convOid = this.conversationOid(params.conversationId);
     await AiUsage.create({
       clientId: new mongoose.Types.ObjectId(params.clientId),
-      conversationId: params.conversationId
-        ? new mongoose.Types.ObjectId(params.conversationId)
-        : undefined,
+      conversationId: convOid,
       provider: params.provider,
       llmModel: params.llmModel,
       inputTokens: params.inputTokens,

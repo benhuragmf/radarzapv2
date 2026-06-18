@@ -39,19 +39,20 @@ export class AiPromptBuilderService {
     clientId: string,
     contactContext?: AiContactContext,
   ): Promise<string> {
-    const [blueprint, org] = await Promise.all([
+    const [blueprint, org, prompt] = await Promise.all([
       PlatformAiBlueprintService.getInstance().getGlobal(),
       Organization.findById(clientId).select('name').lean(),
+      this.getOrCreatePrompt(clientId),
     ]);
     const varCtx = {
       companyName: org?.name ?? 'sua empresa',
-      agentName: blueprint.agentName,
+      agentName: prompt.agentName?.trim() || blueprint.agentName,
       contact: contactContext,
     };
     const template =
       contactContext?.knownFields.name && contactContext.name
-        ? blueprint.greetingKnown
-        : blueprint.greetingUnknown;
+        ? prompt.greetingKnown?.trim() || blueprint.greetingKnown
+        : prompt.greetingUnknown?.trim() || blueprint.greetingUnknown;
     return applyAiPromptVars(template, varCtx);
   }
 
@@ -77,9 +78,10 @@ export class AiPromptBuilderService {
       ]);
 
     const companyName = org?.name ?? 'sua empresa';
+    const agentName = prompt.agentName?.trim() || blueprint.agentName;
     const varCtx = {
       companyName,
-      agentName: blueprint.agentName,
+      agentName,
       contact: opts.contactContext,
     };
 
@@ -175,27 +177,34 @@ export class AiPromptBuilderService {
 ${workspaceBootstrap}
 ${ticketBlock ? `\n${ticketBlock}\n` : ''}
 
-Política de cadastro:
-1. Confirme o nome com o cliente no início (mesmo se USER já tiver nome) — evita atender pessoa errada no mesmo WhatsApp.
-2. Complete e-mail e dados básicos faltantes antes de encerrar ou transferir.
-3. Uma pergunta por vez; não repita o que o cliente já informou nesta conversa.
-4. Ao confirmar dado curto (nome de plano, produto), repita **uma vez** exatamente como o cliente disse — nunca duplique (ex.: "Rastreador", não "RastreadorRastreador").
-5. Dúvidas de plano, VIP, comercial ou benefícios → use LLM ou encaminhe ao setor Comercial; não use resposta técnica de rastreador/app.
+Política de cadastro e nome:
+1. WhatsApp sem nome no USER: peça o nome. Com nome no USER: confirme levemente antes de aprofundar.
+2. Chat do site ou USER com nome/e-mail conhecidos: use o nome — não peça nem confirme de novo.
+3. Complete e-mail e dados básicos faltantes antes de encerrar ou transferir (uma pergunta por vez).
+4. Ao confirmar dado curto (plano, produto), repita **uma vez** exatamente como o cliente disse.
+
+Política de resolução (antes de transferir):
+1. Pedido vago de setor/suporte/comercial → pergunte o que precisa; shouldEscalate=false.
+2. Dúvida concreta → SKILLS, depois KNOWLEDGE, depois MEMORY.
+3. Depois de orientar, pergunte se resolveu ou se quer humano.
+4. shouldEscalate=true só após tentativa de ajuda, insistência do cliente ou caso urgente/sensível.
+5. Não prometa encaminhamento na primeira mensagem sobre um assunto.
+6. Comercial/promoções: responda pela KNOWLEDGE antes de sugerir setor humano.
 
 Dados a coletar antes de transferir: ${mustCollect.join(', ') || 'problema/dúvida'}.
 ${skipKnown.length ? `Já temos no cadastro (não pergunte de novo): ${skipKnown.join(', ')}.\n` : ''}
-${contactCtx?.knownFields.name && contactCtx.name ? `Nome no cadastro (confirmar): ${contactCtx.name}.\n` : ''}
+${contactCtx?.knownFields.name && contactCtx.name ? `Nome no cadastro: ${contactCtx.name}.\n` : ''}
 Setores (departmentMenuKey):
 ${deptList || '(nenhum setor cadastrado)'}
 
 Prioridade:
-1. KNOWLEDGE + SKILLS + MEMORY para resolver sem escalar.
+1. SKILLS + KNOWLEDGE + MEMORY para resolver sem escalar.
 2. Só peça dados faltantes.
 3. shouldEscalate=true só quando necessário; shouldCreateTicket=true só para casos assíncronos.
 4. Cliente quer complementar ticket existente: preencha targetTicketRef (TK-XXXXXX) e, ao receber dado factual novo (telefone, endereço, descrição), shouldAppendToTicket=true + ticketAppendBody.
 5. Pergunta sobre status/andamento do ticket: responda com clareza; shouldAppendToTicket=false — nunca grave perguntas como complemento.
 6. Cliente recusou ("não obrigado", "nada mais"): despedida curta; shouldAppendToTicket=false.
-7. Tente resolver dúvidas com KNOWLEDGE/SKILLS/MEMORY antes de só registrar no ticket.
+7. Tente resolver com a base antes de só registrar no ticket.
 
 JSON obrigatório:
 {

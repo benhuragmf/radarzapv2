@@ -1,5 +1,17 @@
 (function () {
   'use strict';
+  var WIDGET_BUILD = '2.10.16';
+
+  if (window.__RZ_WEBCHAT_WIDGET__) {
+    console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
+    return;
+  }
+  window.__RZ_WEBCHAT_WIDGET__ = WIDGET_BUILD;
+
+  var staleRoots = document.querySelectorAll('#rz-webchat-root');
+  for (var i = 0; i < staleRoots.length; i++) {
+    if (staleRoots[i].parentNode) staleRoots[i].parentNode.removeChild(staleRoots[i]);
+  }
 
   var STORAGE_PREFIX = 'rz_webchat_';
 
@@ -135,6 +147,8 @@
     config: null,
     visitorToken: readStore().visitorToken || null,
     conversationId: readStore().conversationId || null,
+    visitorName: '',
+    visitorEmail: '',
     conversationStatus: 'open',
     queueStatus: 'bot',
     departmentName: '',
@@ -143,13 +157,84 @@
     socket: null,
     sending: false,
     started: false,
+    prechatError: '',
   };
+
+  function needsPrechat() {
+    if (!state.config) return false;
+    if (state.conversationStatus === 'closed' || isConversationEnded()) return false;
+    if (state.messages.length > 0) return false;
+    var askName = !!state.config.askName;
+    var askEmail = !!state.config.askEmail;
+    if (!askName && !askEmail) return false;
+    if (askName && !String(state.visitorName || '').trim()) return true;
+    if (askEmail && !String(state.visitorEmail || '').trim()) return true;
+    return !state.started;
+  }
+
+  function applySessionData(data) {
+    if (!data) return;
+    if (data.visitorToken) state.visitorToken = data.visitorToken;
+    if (data.conversationId) state.conversationId = data.conversationId;
+    if (data.visitorName !== undefined) state.visitorName = data.visitorName || '';
+    if (data.visitorEmail !== undefined) state.visitorEmail = data.visitorEmail || '';
+    if (data.status) state.conversationStatus = data.status;
+    if (data.queueStatus) state.queueStatus = data.queueStatus;
+    if (data.departmentName !== undefined) state.departmentName = data.departmentName || '';
+    if (data.messages) state.messages = data.messages;
+  }
+
+  function pushChatMessages(items) {
+    if (!items || !items.length) return;
+    items.forEach(function (item) {
+      if (!item || !item.id) return;
+      var exists = state.messages.some(function (m) {
+        return m.id === item.id;
+      });
+      if (!exists) state.messages.push(item);
+    });
+  }
 
   function applyConversationMeta(conv) {
     if (!conv) return;
     if (conv.queueStatus) state.queueStatus = conv.queueStatus;
     if (conv.departmentName !== undefined) state.departmentName = conv.departmentName || '';
-    if (conv.status) state.conversationStatus = conv.status;
+    if (conv.status) {
+      if (state.conversationStatus === 'closed' && conv.status === 'open') return;
+      state.conversationStatus = conv.status;
+    }
+  }
+
+  function markConversationClosed() {
+    if (state.conversationStatus === 'closed') return;
+    state.conversationStatus = 'closed';
+    if (state.socket) {
+      state.socket.disconnect();
+      state.socket = null;
+    }
+  }
+
+  function isClosedSystemMessage(message) {
+    if (!message || message.direction !== 'system') return false;
+    return /atendimento encerrad|encerramos o atendimento|foi encerrad/i.test(String(message.body || ''));
+  }
+
+  function isConversationEnded() {
+    if (state.conversationStatus === 'closed') return true;
+    return state.messages.some(function (m) {
+      return isClosedSystemMessage(m);
+    });
+  }
+
+  function resolvePanelMode() {
+    if (isConversationEnded()) {
+      if (state.conversationStatus !== 'closed') {
+        markConversationClosed();
+      }
+      return 'closed';
+    }
+    if (needsPrechat()) return 'prechat';
+    return 'chat';
   }
 
   var root = document.createElement('div');
@@ -179,9 +264,11 @@
       ';color:#fff;font-size:24px;line-height:1;">💬</button></div>';
     var toggle = document.getElementById('rz-webchat-toggle');
     if (toggle) {
+      toggle.setAttribute('aria-label', state.open ? 'Fechar chat' : 'Abrir chat');
       toggle.onclick = function () {
         state.open = !state.open;
-        if (state.open && !state.started) {
+        state.prechatError = '';
+        if (state.open && !state.started && !needsPrechat()) {
           startSession();
         }
         renderBubble();
@@ -194,21 +281,24 @@
   function renderPanel() {
     var title = (state.config && state.config.title) || 'Fale conosco';
     var subtitle = (state.config && state.config.subtitle) || '';
-  var askName = state.config && state.config.askName;
-  var askEmail = state.config && state.config.askEmail;
-  var showPrechat = !state.started && (askName || askEmail);
-  var isClosed = state.conversationStatus === 'closed';
+    var askName = state.config && state.config.askName;
+    var askEmail = state.config && state.config.askEmail;
+    var mode = resolvePanelMode();
+    var visitorLabel =
+      state.visitorName || state.visitorEmail
+        ? escHtml(state.visitorName || state.visitorEmail)
+        : '';
 
-    var closedBanner = isClosed
-      ? '<div style="padding:12px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;text-align:center;">' +
-        '<div style="font-size:13px;color:#991b1b;margin-bottom:8px;">Atendimento encerrado</div>' +
-        '<button type="button" id="rz-webchat-new" style="padding:8px 14px;border:none;border-radius:8px;background:' +
-        primaryColor() +
-        ';color:#fff;font-weight:600;cursor:pointer;font-size:13px;">Nova conversa</button></div>'
-      : '';
+    var closedFooter =
+      '<div style="padding:12px 14px;border-top:1px solid #e5e7eb;background:#fafafa;display:flex;flex-direction:column;gap:8px;">' +
+      '<div style="font-size:13px;color:#64748b;text-align:center;">Este atendimento foi encerrado.</div>' +
+      '<button type="button" id="rz-webchat-new" style="width:100%;padding:10px 14px;border:none;border-radius:8px;background:' +
+      primaryColor() +
+      ';color:#fff;font-weight:600;cursor:pointer;font-size:14px;">Nova conversa</button>' +
+      '<button type="button" id="rz-webchat-dismiss" style="width:100%;padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;font-size:13px;cursor:pointer;">Fechar janela</button></div>';
 
     var offlineBanner =
-      !isClosed && state.config && state.config.businessHoursEnabled && state.config.isOnline === false
+      state.config && state.config.businessHoursEnabled && state.config.isOnline === false
         ? '<div style="padding:10px 14px;background:#fffbeb;border-bottom:1px solid #fde68a;font-size:12px;color:#92400e;line-height:1.4;">' +
           '<strong>Fora do horário</strong>' +
           (state.config.scheduleSummary
@@ -218,7 +308,7 @@
         : '';
 
     var queueBanner = '';
-    if (!isClosed) {
+    if (mode === 'chat') {
       if (state.queueStatus === 'waiting_human') {
         queueBanner =
           '<div style="padding:10px 14px;background:#eff6ff;border-bottom:1px solid #bfdbfe;font-size:12px;color:#1e40af;line-height:1.4;">' +
@@ -270,49 +360,74 @@
       .join('');
 
     var prechat =
-      showPrechat
-        ? '<div id="rz-webchat-prechat" style="padding:12px 14px;border-bottom:1px solid #e5e7eb;background:#fafafa;">' +
-          (askName
-            ? '<input id="rz-webchat-name" placeholder="Seu nome" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;" />'
-            : '') +
-          (askEmail
-            ? '<input id="rz-webchat-email" type="email" placeholder="Seu e-mail" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;" />'
-            : '') +
-          '<button type="button" id="rz-webchat-start" style="width:100%;padding:10px;border:none;border-radius:8px;background:' +
-          primaryColor() +
-          ';color:#fff;font-weight:600;cursor:pointer;">Iniciar conversa</button></div>'
-        : '';
+      '<div id="rz-webchat-prechat" style="flex:1;overflow:auto;padding:14px;background:#fafafa;">' +
+      '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:10px;">Antes de começar</div>' +
+      (askName
+        ? '<label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Nome *' +
+          '<input id="rz-webchat-name" value="' +
+          escHtml(state.visitorName || '') +
+          '" placeholder="Seu nome" style="width:100%;margin-top:4px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;" /></label>'
+        : '') +
+      (askEmail
+        ? '<label style="display:block;font-size:12px;color:#64748b;margin-bottom:8px;' +
+          (askName ? 'margin-top:8px;' : '') +
+          '">E-mail *' +
+          '<input id="rz-webchat-email" type="email" value="' +
+          escHtml(state.visitorEmail || '') +
+          '" placeholder="seu@email.com" style="width:100%;margin-top:4px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;" /></label>'
+        : '') +
+      (state.prechatError
+        ? '<div style="font-size:12px;color:#b91c1c;margin-bottom:8px;">' + escHtml(state.prechatError) + '</div>'
+        : '') +
+      '<button type="button" id="rz-webchat-start" style="width:100%;padding:10px;border:none;border-radius:8px;background:' +
+      primaryColor() +
+      ';color:#fff;font-weight:600;cursor:pointer;">Iniciar conversa</button></div>';
+
+    var messagesBlock =
+      '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:12px 14px;background:#fff;">' +
+      messagesHtml +
+      '</div>';
+
+    var composer =
+      '<form id="rz-webchat-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid #e5e7eb;background:#fafafa;align-items:center;">' +
+      '<input type="file" id="rz-webchat-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" />' +
+      '<button type="button" id="rz-webchat-attach" title="Enviar imagem" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:999px;background:#fff;cursor:pointer;font-size:16px;line-height:1;">📎</button>' +
+      '<input id="rz-webchat-input" placeholder="Digite sua mensagem..." autocomplete="off" style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:999px;font-size:14px;" />' +
+      '<button type="submit" style="padding:10px 14px;border:none;border-radius:999px;background:' +
+      primaryColor() +
+      ';color:#fff;font-weight:600;cursor:pointer;">Enviar</button></form>';
+
+    var panelBody = '';
+    if (mode === 'prechat') {
+      panelBody = offlineBanner + prechat;
+    } else if (mode === 'closed') {
+      panelBody = messagesBlock + closedFooter;
+    } else {
+      panelBody = offlineBanner + queueBanner + messagesBlock + composer;
+    }
 
     return (
-      '<div id="rz-webchat-panel" style="width:min(360px,calc(100vw - 40px));height:480px;margin-bottom:12px;background:#fff;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;">' +
+      '<div id="rz-webchat-panel" data-rz-mode="' +
+      mode +
+      '" data-rz-build="' +
+      WIDGET_BUILD +
+      '" style="width:min(360px,calc(100vw - 40px));height:480px;margin-bottom:12px;background:#fff;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;">' +
       '<div style="padding:14px 16px;background:' +
       primaryColor() +
-      ';color:#fff;">' +
+      ';color:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">' +
+      '<div style="min-width:0;">' +
       '<div style="font-weight:700;font-size:16px;">' +
       escHtml(title) +
       '</div>' +
       (subtitle ? '<div style="font-size:12px;opacity:.9;margin-top:2px;">' + escHtml(subtitle) + '</div>' : '') +
+      (visitorLabel && mode === 'chat'
+        ? '<div style="font-size:11px;opacity:.85;margin-top:4px;">' + visitorLabel + '</div>'
+        : '') +
       '</div>' +
-      prechat +
-      offlineBanner +
-      queueBanner +
-      closedBanner +
-      '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:12px 14px;background:#fff;">' +
-      messagesHtml +
+      '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" style="flex-shrink:0;width:32px;height:32px;border:none;border-radius:999px;background:rgba(255,255,255,.2);color:#fff;font-size:18px;line-height:1;cursor:pointer;">×</button>' +
       '</div>' +
-      '<form id="rz-webchat-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid #e5e7eb;background:#fafafa;align-items:center;">' +
-      '<input type="file" id="rz-webchat-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" />' +
-      '<button type="button" id="rz-webchat-attach" title="Enviar imagem" ' +
-      (showPrechat || isClosed ? 'disabled' : '') +
-      ' style="padding:10px 12px;border:1px solid #d1d5db;border-radius:999px;background:#fff;cursor:pointer;font-size:16px;line-height:1;">📎</button>' +
-      '<input id="rz-webchat-input" placeholder="Digite sua mensagem..." autocomplete="off" ' +
-      (showPrechat || isClosed ? 'disabled' : '') +
-      ' style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:999px;font-size:14px;" />' +
-      '<button type="submit" ' +
-      (showPrechat || isClosed ? 'disabled' : '') +
-      ' style="padding:10px 14px;border:none;border-radius:999px;background:' +
-      primaryColor() +
-      ';color:#fff;font-weight:600;cursor:pointer;">Enviar</button></form></div>'
+      panelBody +
+      '</div>'
     );
   }
 
@@ -332,6 +447,20 @@
     if (newBtn) {
       newBtn.onclick = function () {
         startNewConversation();
+      };
+    }
+    var closeBtn = document.getElementById('rz-webchat-close');
+    if (closeBtn) {
+      closeBtn.onclick = function () {
+        state.open = false;
+        renderBubble();
+      };
+    }
+    var dismissBtn = document.getElementById('rz-webchat-dismiss');
+    if (dismissBtn) {
+      dismissBtn.onclick = function () {
+        state.open = false;
+        renderBubble();
       };
     }
     var form = document.getElementById('rz-webchat-form');
@@ -371,6 +500,9 @@
         if (!payload || !payload.message) return;
         if (payload.conversationId && state.conversationId && payload.conversationId !== state.conversationId) return;
         applyConversationMeta(payload.conversation);
+        if (isClosedSystemMessage(payload.message)) {
+          markConversationClosed();
+        }
         var exists = state.messages.some(function (m) {
           return m.id === payload.message.id;
         });
@@ -383,11 +515,7 @@
         if (!payload || !payload.conversation) return;
         applyConversationMeta(payload.conversation);
         if (payload.conversation.status === 'closed') {
-          state.conversationStatus = 'closed';
-          if (state.socket) {
-            state.socket.disconnect();
-            state.socket = null;
-          }
+          markConversationClosed();
           renderBubble();
         } else if (payload.conversation.status === 'open') {
           state.conversationStatus = 'open';
@@ -412,17 +540,47 @@
     state.departmentName = '';
     state.messages = [];
     state.started = false;
+    state.prechatError = '';
     writeStore({});
-    startSession();
+    renderBubble();
+    if (!needsPrechat()) {
+      startSession();
+    }
+  }
+
+  function validatePrechatInputs(nameEl, emailEl) {
+    if (state.config && state.config.askName) {
+      if (!nameEl || !nameEl.value.trim()) {
+        state.prechatError = 'Informe seu nome para continuar.';
+        return false;
+      }
+    }
+    if (state.config && state.config.askEmail) {
+      if (!emailEl || !emailEl.value.trim()) {
+        state.prechatError = 'Informe seu e-mail para continuar.';
+        return false;
+      }
+      var email = emailEl.value.trim();
+      if (email.indexOf('@') < 1 || email.indexOf('.') < 3) {
+        state.prechatError = 'Informe um e-mail válido.';
+        return false;
+      }
+    }
+    state.prechatError = '';
+    return true;
   }
 
   function startSession() {
     var nameEl = document.getElementById('rz-webchat-name');
     var emailEl = document.getElementById('rz-webchat-email');
+    if (needsPrechat() && !validatePrechatInputs(nameEl, emailEl)) {
+      renderBubble();
+      return;
+    }
     var body = {
       visitorToken: state.visitorToken,
-      visitorName: nameEl ? nameEl.value : undefined,
-      visitorEmail: emailEl ? emailEl.value : undefined,
+      visitorName: nameEl ? nameEl.value.trim() : state.visitorName || undefined,
+      visitorEmail: emailEl ? emailEl.value.trim() : state.visitorEmail || undefined,
       pageUrl: window.location.href,
     };
     apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/sessions', {
@@ -430,12 +588,7 @@
       body: JSON.stringify(body),
     })
       .then(function (data) {
-        state.visitorToken = data.visitorToken;
-        state.conversationId = data.conversationId;
-        state.conversationStatus = 'open';
-        state.queueStatus = data.queueStatus || 'bot';
-        state.departmentName = data.departmentName || '';
-        state.messages = data.messages || [];
+        applySessionData(data);
         state.started = true;
         writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
         connectSocket();
@@ -460,18 +613,14 @@
       body: JSON.stringify({ body: text }),
     })
       .then(function (data) {
-        if (data.message) {
-          var exists = state.messages.some(function (m) {
-            return m.id === data.message.id;
-          });
-          if (!exists) state.messages.push(data.message);
-        }
+        if (data.message) pushChatMessages([data.message]);
+        if (data.replies && data.replies.length) pushChatMessages(data.replies);
         renderBubble();
       })
       .catch(function (err) {
         console.error('[RadarZap WebChat]', err.message);
         if (String(err.message).toLowerCase().indexOf('encerr') >= 0) {
-          state.conversationStatus = 'closed';
+          markConversationClosed();
           renderBubble();
         } else {
           input.value = text;
@@ -508,12 +657,8 @@
         }),
       })
         .then(function (data) {
-          if (data.message) {
-            var exists = state.messages.some(function (m) {
-              return m.id === data.message.id;
-            });
-            if (!exists) state.messages.push(data.message);
-          }
+          if (data.message) pushChatMessages([data.message]);
+          if (data.replies && data.replies.length) pushChatMessages(data.replies);
           renderBubble();
         })
         .catch(function (err) {
@@ -538,13 +683,19 @@
           method: 'GET',
           headers: { 'X-WebChat-Visitor': state.visitorToken },
         }).then(function (data) {
-          state.conversationId = data.conversationId;
-          state.conversationStatus = data.status || 'open';
-          state.queueStatus = data.queueStatus || 'bot';
-          state.departmentName = data.departmentName || '';
-          state.messages = data.messages || [];
-          state.started = true;
-          if (data.status === 'open') connectSocket();
+          applySessionData(data);
+          if (isConversationEnded()) {
+            markConversationClosed();
+            state.started = true;
+          } else if (state.messages.length > 0 || state.visitorToken) {
+            state.started = true;
+            if (data.status === 'open') connectSocket();
+          } else if (needsPrechat()) {
+            state.started = false;
+          } else {
+            state.started = true;
+            if (data.status === 'open') connectSocket();
+          }
         });
       }
     })

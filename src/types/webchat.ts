@@ -25,7 +25,7 @@ export const DEFAULT_WEBCHAT_APPEARANCE: WebChatWidgetAppearance = {
   subtitle: 'Respondemos em instantes',
   greeting: 'Olá! Como podemos ajudar?',
   askName: true,
-  askEmail: false,
+  askEmail: true,
 };
 
 export const DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE =
@@ -54,6 +54,8 @@ export interface WebChatVisitorSessionDto {
   status: WebChatConversationStatus;
   queueStatus: WebChatQueueStatus;
   departmentName?: string;
+  visitorName?: string;
+  visitorEmail?: string;
   messages: WebChatMessageDto[];
 }
 
@@ -67,6 +69,12 @@ export interface WebChatMessageDto {
   mediaUrl?: string;
   mediaMime?: string;
   mediaFileName?: string;
+}
+
+/** Resposta de POST /messages — mensagem do visitante + respostas automáticas (bot/IA). */
+export interface WebChatVisitorSendResult {
+  message: WebChatMessageDto;
+  replies: WebChatMessageDto[];
 }
 
 export interface WebChatConversationDto {

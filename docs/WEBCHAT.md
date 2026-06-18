@@ -48,7 +48,8 @@ Snippet equivalente ao `widget.html`:
 ## Fluxo
 
 1. Widget carrega config (`GET .../widgets/:key/config`).
-2. Visitante inicia sessão (`POST .../widgets/:key/sessions`) → recebe token + histórico.
+2. Visitante preenche **nome/e-mail** (se habilitado no widget) e clica **Iniciar conversa**.
+3. Sessão criada (`POST .../widgets/:key/sessions`) → token + histórico.
 3. Mensagens via REST + eventos `webchat:message` / `webchat:conversation`.
 4. Agente responde no painel; visitante recebe em tempo real.
 
@@ -65,6 +66,8 @@ Snippet equivalente ao `widget.html`:
 ## Widget visitante
 
 - Ao encerrar, exibe **Nova conversa** (limpa sessão e abre novo atendimento).
+- Botão **×** no cabeçalho e **Fechar janela** após encerramento (2.10.9).
+- Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
 - Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
 
 ## Resposta automática (2.9.4)

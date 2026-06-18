@@ -344,12 +344,18 @@ export class DashboardService {
     this.app.use(
       '/api/webchat/public',
       cors({ origin: true, methods: ['GET', 'POST', 'OPTIONS'] }),
-      rateLimiters.messages,
+      rateLimiters.webchatPublic,
       createWebChatPublicRouter(),
     );
     this.app.get('/webchat/widget.js', (_req, res) => {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      if (config.NODE_ENV !== 'production') {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
       res.sendFile(path.join(__dirname, 'webchat', 'widget.js'));
     });
     this.app.get('/webchat/demo.html', (_req, res) => {

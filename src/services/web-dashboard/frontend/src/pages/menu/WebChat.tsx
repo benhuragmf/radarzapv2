@@ -137,7 +137,7 @@ function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/webchat/widget.js" data-widget-key="${publicKey}" async></script>`
+  return `<script src="${origin}/webchat/widget.js?v=2.10.14" data-widget-key="${publicKey}" async></script>`
 }
 
 export default function WebChat() {
@@ -787,7 +787,7 @@ function WidgetEditorCard({
               setForm(f => ({ ...f, appearance: { ...f.appearance, askName: e.target.checked } }))
             }
           />
-          Pedir nome antes do chat
+          Pedir nome antes do chat (recomendado)
         </label>
         <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
           <input
@@ -797,7 +797,7 @@ function WidgetEditorCard({
               setForm(f => ({ ...f, appearance: { ...f.appearance, askEmail: e.target.checked } }))
             }
           />
-          Pedir e-mail antes do chat
+          Pedir e-mail antes do chat (recomendado)
         </label>
         {canPickDepartment && (
           <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
@@ -906,7 +906,8 @@ function WidgetEditorCard({
       <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
         <h4 className="text-sm font-semibold text-[var(--rz-text)]">Resposta automática</h4>
         <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Enviada uma vez após a primeira mensagem do visitante, até um atendente responder.
+          Responde a cada mensagem do visitante enquanto a conversa estiver em triagem (antes de um
+          atendente assumir).
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
           <input

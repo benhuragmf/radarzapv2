@@ -1,17 +1,26 @@
 import mongoose from 'mongoose';
+import { createServiceLogger } from '@/utils/logger';
 import { WebChatMessage } from '@/models/WebChatMessage';
 import { AiProviderService, type AiChatMessage } from '@/services/ai/AiProviderService';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
 import { AiPromptBuilderService } from '@/services/ai/AiPromptBuilderService';
+import { AiAutoResolveService } from '@/services/ai/AiAutoResolveService';
 import { PlatformAiBlueprintService } from '@/services/ai/PlatformAiBlueprintService';
 import type { AiContactContext } from '@/services/ai/AiContextService';
-
-const WEBCHAT_CHANNEL_HINT =
-  '\n\nCanal atual: chat do site (visitante no website). Respostas curtas, claras e em português. ' +
-  'Não solicite dados que o visitante já informou no pré-chat.';
+import { AiEscalationService } from '@/services/ai/AiEscalationService';
+import {
+  buildWebChatPromptSuffix,
+  buildWebChatThreadContext,
+  formatWebChatAutoResolveReply,
+  resolveWebChatShouldEscalate,
+  rewritePrematureTransferReply,
+  textLooksLikeWebChatInquiry,
+  type WebChatMessageRow,
+} from './webchat-ai-triage.util';
 
 export class WebChatAiService {
   private static instance: WebChatAiService;
+  private serviceLogger = createServiceLogger('WebChatAiService');
 
   static getInstance(): WebChatAiService {
     if (!WebChatAiService.instance) {
@@ -42,12 +51,18 @@ export class WebChatAiService {
     if (!availability.available) return null;
 
     const settings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
+    const prompt = await AiPromptBuilderService.getInstance().getOrCreatePrompt(clientId);
     const convOid = new mongoose.Types.ObjectId(conversationId);
 
     const rows = await WebChatMessage.find({ conversationId: convOid })
       .sort({ createdAt: 1 })
       .limit(24)
       .lean();
+
+    const messageRows: WebChatMessageRow[] = rows.map(m => ({
+      direction: m.direction as WebChatMessageRow['direction'],
+      body: m.body,
+    }));
 
     const contactContext: AiContactContext | undefined =
       opts.visitorName || opts.visitorEmail
@@ -64,12 +79,42 @@ export class WebChatAiService {
         : undefined;
 
     const lastInbound = [...rows].reverse().find(m => m.direction === 'inbound')?.body ?? '';
+    const threadContext = buildWebChatThreadContext(messageRows);
+    const blueprint = await PlatformAiBlueprintService.getInstance().getGlobal();
+    const senderName =
+      prompt.agentName?.trim() || blueprint.agentName?.trim() || 'Assistente IA';
+
+    if (
+      prompt.autoResolveEnabled &&
+      textLooksLikeWebChatInquiry(lastInbound)
+    ) {
+      const auto = await AiAutoResolveService.getInstance().tryResolve(clientId, lastInbound, {
+        threadContext,
+        webchatInquiry: true,
+      });
+      if (auto.hit && auto.reply) {
+        this.serviceLogger.info('WebChat auto-resolve', {
+          conversationId,
+          source: auto.source,
+          score: auto.score,
+        });
+        return {
+          body: formatWebChatAutoResolveReply(auto.reply),
+          senderName,
+          shouldEscalate: false,
+        };
+      }
+    }
 
     const systemPrompt =
       (await AiPromptBuilderService.getInstance().buildSystemPrompt(clientId, {
         contactContext,
         clientText: lastInbound,
-      })) + WEBCHAT_CHANNEL_HINT;
+      })) +
+      buildWebChatPromptSuffix({
+        visitorName: opts.visitorName,
+        visitorEmail: opts.visitorEmail,
+      });
 
     const history: AiChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
@@ -84,22 +129,47 @@ export class WebChatAiService {
 
     try {
       const provider = AiProviderService.getInstance();
-      const result = await provider.complete(
-        clientId,
-        settings,
-        history,
-        `webchat:${conversationId}`,
-      );
+      const result = await provider.complete(clientId, settings, history, conversationId);
       const reply = result.structured.reply?.trim();
       if (!reply || provider.isUnusableClientReply(result.structured)) return null;
 
-      const blueprint = await PlatformAiBlueprintService.getInstance().getGlobal();
+      const shouldEscalate = resolveWebChatShouldEscalate({
+        clientText: lastInbound,
+        modelWantsEscalate: Boolean(result.structured.shouldEscalate),
+        modelReply: reply,
+        messages: messageRows,
+      });
+
+      const esc = AiEscalationService.getInstance();
+      let body = reply;
+      if (!shouldEscalate && esc.aiReplyPromisesTransfer(reply)) {
+        body = rewritePrematureTransferReply(lastInbound, opts.visitorName);
+      }
+
       return {
-        body: reply,
-        senderName: blueprint.agentName?.trim() || 'Assistente IA',
-        shouldEscalate: Boolean(result.structured.shouldEscalate),
+        body,
+        senderName,
+        shouldEscalate,
       };
-    } catch {
+    } catch (e) {
+      if (prompt.autoResolveEnabled && textLooksLikeWebChatInquiry(lastInbound)) {
+        const auto = await AiAutoResolveService.getInstance().tryResolve(clientId, lastInbound, {
+          threadContext,
+          webchatInquiry: true,
+        });
+        if (auto.hit && auto.reply) {
+          return {
+            body: formatWebChatAutoResolveReply(auto.reply),
+            senderName,
+            shouldEscalate: false,
+          };
+        }
+      }
+      this.serviceLogger.warn('Falha ao gerar resposta IA no WebChat', {
+        conversationId,
+        clientId,
+        error: (e as Error).message,
+      });
       return null;
     }
   }

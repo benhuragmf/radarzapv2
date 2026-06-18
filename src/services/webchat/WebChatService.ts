@@ -12,6 +12,7 @@ import {
   type WebChatWidgetAppearance,
   type WebChatQueueStatus,
   type WebChatVisitorSessionDto,
+  type WebChatVisitorSendResult,
 } from '../../types/webchat';
 import {
   DEFAULT_AUTO_REPLY_MESSAGE,
@@ -27,6 +28,13 @@ import {
 import { emitWebChatToTenant, emitWebChatToVisitor } from './WebChatRealtime';
 import { WebChatAiService } from './WebChatAiService';
 import { resolveWebChatBusinessHours } from './webchat-business-hours.util';
+import type { WebChatMessageRow } from './webchat-ai-triage.util';
+import {
+  visitorRefusesHumanHandoff,
+  visitorWantsToCloseChat,
+  WEBCHAT_CLOSE_GOODBYE,
+  WEBCHAT_DEESCALATE_REPLY,
+} from './webchat-visitor-intent.util';
 import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
@@ -43,6 +51,7 @@ import {
   isAgentBusyWithClients,
 } from '../inbox/inbox-queue-priority';
 import { enrichWebChatInboxRow } from './webchat-inbox-enrich.util';
+import { createServiceLogger } from '../../utils/logger';
 import { InboxService } from '../inbox/InboxService';
 import { parseWebChatAttachment } from './webchat-attachment.util';
 import {
@@ -62,6 +71,7 @@ import {
 
 export class WebChatService {
   private static instance: WebChatService;
+  private serviceLogger = createServiceLogger('WebChatService');
 
   static getInstance(): WebChatService {
     if (!WebChatService.instance) {
@@ -218,6 +228,8 @@ export class WebChatService {
       status: conversation.status,
       queueStatus: (conversation.queueStatus as WebChatQueueStatus) ?? 'bot',
       departmentName: await this.departmentNameFor(conversation.departmentId),
+      visitorName: conversation.visitorName,
+      visitorEmail: conversation.visitorEmail,
       messages: messages.map(m => this.toMessageDto(m)),
     };
   }
@@ -301,6 +313,8 @@ export class WebChatService {
     conversationId: string;
     queueStatus: WebChatQueueStatus;
     departmentName?: string;
+    visitorName?: string;
+    visitorEmail?: string;
     messages: WebChatMessageDto[];
   }> {
     const widget = await this.getActiveWidgetByPublicKey(publicKey);
@@ -364,6 +378,8 @@ export class WebChatService {
       conversationId: session.conversationId,
       queueStatus: session.queueStatus,
       departmentName: session.departmentName,
+      visitorName: session.visitorName,
+      visitorEmail: session.visitorEmail,
       messages: session.messages,
     };
   }
@@ -867,7 +883,7 @@ export class WebChatService {
     body: string,
     origin?: string | null,
     referer?: string | null,
-  ): Promise<WebChatMessageDto> {
+  ): Promise<WebChatVisitorSendResult> {
     const text = body?.trim();
     if (!text) throw new Error('Mensagem vazia');
 
@@ -884,14 +900,52 @@ export class WebChatService {
       body: text,
     });
 
+    const replies: WebChatMessageDto[] = [];
+    const messageRows: WebChatMessageRow[] = (
+      await WebChatMessage.find({ conversationId: conversation._id })
+        .sort({ createdAt: 1 })
+        .limit(24)
+        .lean()
+    ).map(m => ({
+      direction: m.direction as WebChatMessageRow['direction'],
+      body: m.body,
+    }));
+
+    const freshAfterInbound = await WebChatConversation.findById(conversation._id);
+    if (!freshAfterInbound || freshAfterInbound.status === 'closed') {
+      return { message: this.toMessageDto(msg), replies };
+    }
+
+    const intentReply = await this.handleVisitorIntentMessages(
+      freshAfterInbound,
+      widget,
+      text,
+      messageRows,
+    );
+    if (intentReply.handled) {
+      const clientIdStr = String(conversation.clientId);
+      this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
+        conversation_id: String(conversation._id),
+        message_id: String(msg._id),
+        body: text,
+        visitor_name: conversation.visitorName,
+        visitor_email: conversation.visitorEmail,
+        widget_id: String(conversation.widgetId),
+        page_url: conversation.pageUrl,
+        queue_status: freshAfterInbound.queueStatus ?? 'bot',
+      });
+      return { message: this.toMessageDto(msg), replies: intentReply.replies };
+    }
+
     const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
     if (!hours.isOnline && hours.businessHoursEnabled) {
-      await this.appendMessage(conversation, {
+      const systemMsg = await this.appendMessage(conversation, {
         direction: 'system',
         body: hours.outsideHoursMessage,
       });
+      replies.push(this.toMessageDto(systemMsg));
     } else {
-      await this.maybeAutoReply(conversation, widget);
+      replies.push(...(await this.maybeAutoReply(conversation, widget)));
     }
 
     const clientIdStr = String(conversation.clientId);
@@ -906,7 +960,7 @@ export class WebChatService {
       queue_status: conversation.queueStatus ?? 'bot',
     });
 
-    return this.toMessageDto(msg);
+    return { message: this.toMessageDto(msg), replies };
   }
 
   async sendVisitorAttachment(
@@ -914,7 +968,7 @@ export class WebChatService {
     input: { dataBase64: string; mimeType?: string; fileName?: string; caption?: string },
     origin?: string | null,
     referer?: string | null,
-  ): Promise<WebChatMessageDto> {
+  ): Promise<WebChatVisitorSendResult> {
     const parsed = parseWebChatAttachment(input);
     if (parsed.ok === false) throw new Error(parsed.error);
 
@@ -938,14 +992,16 @@ export class WebChatService {
       mediaFileName: parsed.fileName,
     });
 
+    const replies: WebChatMessageDto[] = [];
     const hours = await resolveWebChatBusinessHours(clientIdStr, widget);
     if (!hours.isOnline && hours.businessHoursEnabled) {
-      await this.appendMessage(conversation, {
+      const systemMsg = await this.appendMessage(conversation, {
         direction: 'system',
         body: hours.outsideHoursMessage,
       });
+      replies.push(this.toMessageDto(systemMsg));
     } else {
-      await this.maybeAutoReply(conversation, widget);
+      replies.push(...(await this.maybeAutoReply(conversation, widget)));
     }
 
     this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
@@ -961,7 +1017,7 @@ export class WebChatService {
       queue_status: conversation.queueStatus ?? 'bot',
     });
 
-    return this.toMessageDto(msg);
+    return { message: this.toMessageDto(msg), replies };
   }
 
   async resolveVisitorMediaFile(
@@ -1002,10 +1058,86 @@ export class WebChatService {
     return filePath;
   }
 
+  private async handleVisitorIntentMessages(
+    conversation: IWebChatConversation,
+    widget: IWebChatWidget,
+    text: string,
+    messageRows: WebChatMessageRow[],
+  ): Promise<{ handled: boolean; replies: WebChatMessageDto[] }> {
+    const replies: WebChatMessageDto[] = [];
+    const senderName = widget.autoReplySenderName?.trim() || 'Assistente virtual';
+    const clientId = String(conversation.clientId);
+    const convId = String(conversation._id);
+
+    if (visitorWantsToCloseChat(text)) {
+      const goodbye = await this.appendMessage(conversation, {
+        direction: 'outbound',
+        body: WEBCHAT_CLOSE_GOODBYE,
+        senderUserId: WEBCHAT_BOT_SENDER_ID,
+        senderName,
+      });
+      replies.push(this.toMessageDto(goodbye));
+      await this.closeConversation(clientId, convId, WEBCHAT_BOT_SENDER_ID, {
+        skipSystemMessage: true,
+      });
+      return { handled: true, replies };
+    }
+
+    if (visitorRefusesHumanHandoff(text, messageRows)) {
+      await this.deescalateFromQueue(clientId, convId);
+      const reply = await this.appendMessage(conversation, {
+        direction: 'outbound',
+        body: WEBCHAT_DEESCALATE_REPLY,
+        senderUserId: WEBCHAT_BOT_SENDER_ID,
+        senderName,
+      });
+      replies.push(this.toMessageDto(reply));
+      return { handled: true, replies };
+    }
+
+    return { handled: false, replies };
+  }
+
+  private async deescalateFromQueue(clientId: string, conversationId: string): Promise<void> {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation || conversation.status === 'closed') return;
+    if (conversation.queueStatus === 'bot') return;
+
+    conversation.queueStatus = 'bot';
+    conversation.escalatedAt = undefined;
+    conversation.queueEnteredAt = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
+    await conversation.save();
+
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    const widget = await WebChatWidget.findById(conversation.widgetId).select('name').lean();
+    const dept = conversation.departmentId
+      ? await InboxDepartment.findById(conversation.departmentId).select('name').lean()
+      : null;
+    const conversationDto = this.toConversationDto(conversation, widget?.name, dept?.name);
+
+    emitWebChatToTenant(clientIdStr, 'webchat:conversation', {
+      clientId: clientIdStr,
+      conversationId: convId,
+      conversation: conversationDto,
+    });
+    emitWebChatToVisitor(convId, 'webchat:conversation', {
+      clientId: clientIdStr,
+      conversationId: convId,
+      conversation: conversationDto,
+    });
+  }
+
   private async maybeAutoReply(
     conversation: IWebChatConversation,
     widget: IWebChatWidget,
-  ): Promise<void> {
+  ): Promise<WebChatMessageDto[]> {
+    const replies: WebChatMessageDto[] = [];
     const [hasHumanOutbound, hasBotOutbound] = await Promise.all([
       WebChatMessage.exists({
         conversationId: conversation._id,
@@ -1020,7 +1152,7 @@ export class WebChatService {
     ]);
 
     const fresh = await WebChatConversation.findById(conversation._id);
-    if (!fresh || fresh.status === 'closed') return;
+    if (!fresh || fresh.status === 'closed') return replies;
 
     if (
       !shouldSendWebChatAutoReply({
@@ -1033,7 +1165,7 @@ export class WebChatService {
         hasBotOutbound: Boolean(hasBotOutbound),
       })
     ) {
-      return;
+      return replies;
     }
 
     let body = (widget.autoReplyMessage ?? DEFAULT_AUTO_REPLY_MESSAGE).trim();
@@ -1053,21 +1185,29 @@ export class WebChatService {
         body = ai.body;
         senderName = ai.senderName;
         shouldEscalate = Boolean(ai.shouldEscalate);
+      } else {
+        this.serviceLogger.warn('WebChat IA indisponível — usando mensagem fixa', {
+          conversationId: String(conversation._id),
+          clientId: String(conversation.clientId),
+        });
       }
     }
 
-    await this.appendMessage(fresh, {
+    const botMsg = await this.appendMessage(fresh, {
       direction: 'outbound',
       body,
       senderUserId: WEBCHAT_BOT_SENDER_ID,
       senderName,
     });
+    replies.push(this.toMessageDto(botMsg));
 
     if (shouldEscalate) {
       await this.escalateToQueue(String(fresh.clientId), String(fresh._id), {
         reason: 'A IA identificou que um atendente humano deve assumir esta conversa.',
       });
     }
+
+    return replies;
   }
 
   async escalateToQueue(
@@ -1531,18 +1671,18 @@ export class WebChatService {
     if (!conversation) throw new Error('Conversa não encontrada');
     if (conversation.status === 'closed') return;
 
+    conversation.status = 'closed';
+    conversation.assignedUserId = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
+    await conversation.save();
+
     if (!opts?.skipSystemMessage) {
       await this.appendMessage(conversation, {
         direction: 'system',
         body: 'Atendimento encerrado. Obrigado pelo contato!',
       });
     }
-
-    conversation.status = 'closed';
-    conversation.assignedUserId = undefined;
-    conversation.suggestedUserId = undefined;
-    conversation.suggestedAt = undefined;
-    await conversation.save();
 
     this.emitWebchatWebhook(String(conversation.clientId), 'webchat.conversation.closed', {
       conversation_id: String(conversation._id),

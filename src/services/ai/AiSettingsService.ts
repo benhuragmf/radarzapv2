@@ -49,6 +49,9 @@ export interface AiSettingsPayload {
     managedBy: 'radarzap';
     version: number;
     agentName: string;
+    defaultAgentName: string;
+    defaultGreetingKnown: string;
+    defaultGreetingUnknown: string;
     updatedAt: Date;
   };
 }
@@ -164,6 +167,9 @@ export class AiSettingsService {
         transferRules: settings.transferRules,
       },
       prompt: {
+        agentName: promptDoc.agentName ?? '',
+        greetingKnown: promptDoc.greetingKnown ?? '',
+        greetingUnknown: promptDoc.greetingUnknown ?? '',
         customRules: promptDoc.customRules ?? '',
         useSystemContext: promptDoc.useSystemContext !== false,
         skipKnownFields: promptDoc.skipKnownFields !== false,
@@ -198,7 +204,10 @@ export class AiSettingsService {
       blueprintInfo: {
         managedBy: 'radarzap',
         version: blueprint.version,
-        agentName: blueprint.agentName,
+        agentName: promptDoc.agentName?.trim() || blueprint.agentName,
+        defaultAgentName: blueprint.agentName,
+        defaultGreetingKnown: blueprint.greetingKnown,
+        defaultGreetingUnknown: blueprint.greetingUnknown,
         updatedAt: blueprint.updatedAt,
       },
     };
@@ -275,6 +284,13 @@ export class AiSettingsService {
         { clientId: new mongoose.Types.ObjectId(clientId) },
         {
           $set: {
+            ...(typeof p.agentName === 'string' ? { agentName: p.agentName.trim().slice(0, 80) } : {}),
+            ...(typeof p.greetingKnown === 'string'
+              ? { greetingKnown: p.greetingKnown.trim().slice(0, 500) }
+              : {}),
+            ...(typeof p.greetingUnknown === 'string'
+              ? { greetingUnknown: p.greetingUnknown.trim().slice(0, 500) }
+              : {}),
             ...(typeof p.customRules === 'string' ? { customRules: p.customRules } : {}),
             ...(typeof p.useSystemContext === 'boolean' ? { useSystemContext: p.useSystemContext } : {}),
             ...(typeof p.skipKnownFields === 'boolean' ? { skipKnownFields: p.skipKnownFields } : {}),
