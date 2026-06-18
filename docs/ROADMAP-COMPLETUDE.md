@@ -82,6 +82,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | Alta | Ticket janela 12 h + `lastTeamMessageAt` | `ticket-reply-window.util.test.ts` ✅ |
 | Alta | Routing ticket vs inbox | `inbound-routing.test.ts` ✅ |
 | **Média** | Integração `tryHandleCsatReply` + ordem inbound | **Falta** — `InboxService` ~4k linhas sem teste integrado |
+| Média | E2E rotas Atendimento (smoke login) | ✅ `e2e/atendimento-smoke.spec.ts` |
 | Média | E2E inbox autenticado | **Falta** |
 | Baixa | `npm run lint` no CI | ~7k issues — não bloqueia hoje |
 
@@ -112,7 +113,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | 11 | WhatsApp Cloud API | 🟡 stub | POST 503 — Fase 2 (se bloquear release) |
 | 12 | Mobile PWA | ✅ 2.5.1 | |
 | 13 | Testes unitários | ✅ 298 | Não cobrem WA ponta a ponta |
-| 14 | E2E | 🟡 smoke | 6 testes — login/PWA apenas |
+| 14 | E2E | 🟡 smoke | login/PWA + **rotas Atendimento** (`e2e/atendimento-smoke.spec.ts`, 10 testes) — autenticado ainda falta |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
 | 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, `radarzap-inbox-upgrade.md` |
