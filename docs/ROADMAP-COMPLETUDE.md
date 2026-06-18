@@ -1,6 +1,6 @@
 # RadarZap v2 — completude do sistema e roadmap
 
-> **Versão ref:** `2.9.1` · **Última revisão:** 2026-06-17  
+> **Versão ref:** `2.10.18` · **Última revisão:** 2026-06-18  
 > **Fase atual:** **estabilização do produto** — **não** preparação de produção nem go-live.
 
 | Fase | Documento | Quando |
@@ -42,18 +42,20 @@ Porém o **núcleo de atendimento WhatsApp** (Inbox × Ticket × CSAT × IA) pas
 
 Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 
-- [ ] Roteiro **QA WhatsApp** (abaixo) executado sem falha crítica
+- [ ] Roteiro **QA WhatsApp** — checklist em [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A
 - [ ] Nenhum bug **crítico aberto** em Inbox/Ticket/CSAT/IA por ≥ 1 ciclo completo de teste
-- [ ] `npm test` + `npm run build` verdes
+- [x] `npm test` + `npm run build` verdes — validado local 2026-06-18 (326 testes)
 - [ ] CI verde em `main`
 - [ ] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 (helpers + routing — ver § Testes)
-- [ ] `ROADMAP` e changelog alinhados ao estado validado
+- [x] `ROADMAP` e changelog alinhados ao estado validado — 2.10.18
 
 ---
 
 ## Plano de estabilização (Fase 1)
 
 ### A. QA manual WhatsApp (obrigatório)
+
+Checklist imprimível com tabelas pass/fail: **[`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)** (§ A WhatsApp, § B painel, § C WebChat).
 
 Executar com `csatEnabled`, sessão WA conectada, contato de teste (idealmente o que reproduziu bugs).
 
@@ -113,7 +115,8 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | 14 | E2E | 🟡 smoke | 6 testes — login/PWA apenas |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
-| 17 | **WebChat (site)** | ✅ **2.10.0** | Lista unificada no Inbox (`channel=all`) — ver `WEBCHAT.md` |
+| 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, `radarzap-inbox-upgrade.md` |
+| 18 | **UI módulo Atendimento** | ✅ **2.10.18** | Inbox 3 colunas, métricas, tickets paginados — ver `radarzap-inbox-upgrade.md` |
 
 ---
 
@@ -132,7 +135,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 ## O que já está sólido (não confundir com “pronto para prod”)
 
 - Menus do painel sem placeholder “Em breve”
-- Design system 2.8.x
+- Design system 2.8.x + **upgrade visual Atendimento 2.10.18** (`radarzap-inbox-upgrade.md`)
 - RBAC, equipe, setores internos, consentimento LGPD base
 - Campanhas, Discord, integrações API, OpenAPI
 - **WebChat** embedável (widget + console painel) — `WEBCHAT.md`
@@ -154,3 +157,4 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 - Servidor (referência, não executar agora): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md)
 - Go-live (atalho): [`PRODUCTION.md`](./PRODUCTION.md)
 - Changelog: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md)
+- QA Fase 1: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)
