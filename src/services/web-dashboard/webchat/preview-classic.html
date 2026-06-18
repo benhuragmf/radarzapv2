@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview clássico — RadarZap WebChat</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(165deg, #f8fafc 0%, #eef2ff 55%, #fff 100%);
+      color: #0f172a;
+    }
+    header {
+      padding: 20px 28px;
+      background: rgba(255,255,255,.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid #e2e8f0;
+    }
+    header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+    header p { margin: 6px 0 0; font-size: .875rem; color: #64748b; }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 24px 140px;
+    }
+    .hero h2 {
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      line-height: 1.2;
+      margin: 0 0 12px;
+      letter-spacing: -0.02em;
+    }
+    .hero p { color: #475569; line-height: 1.65; font-size: 1.05rem; }
+    .cards {
+      display: grid;
+      gap: 14px;
+      margin-top: 28px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    }
+    .card strong { display: block; margin-bottom: 4px; }
+    .card span { font-size: .9rem; color: #64748b; }
+    .meta {
+      margin-top: 24px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px dashed #cbd5e1;
+      font-size: .85rem;
+      color: #64748b;
+    }
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: .85em;
+      word-break: break-all;
+    }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Modelo clássico</h1>
+    <p>Simula um site corporativo com widget de atendimento</p>
+  </header>
+  <main>
+    <section class="hero">
+      <h2>Atendimento rápido e humanizado</h2>
+      <p>
+        Ideal para lojas, clínicas e serviços em geral. O visitante inicia o chat pelo botão
+        flutuante e fala com sua equipe em tempo real.
+      </p>
+    </section>
+    <div class="cards">
+      <div class="card"><strong>Resposta em minutos</strong><span>Equipe notificada no painel RadarZap.</span></div>
+      <div class="card"><strong>Histórico unificado</strong><span>Conversas do site aparecem no Inbox.</span></div>
+      <div class="card"><strong>IA opcional</strong><span>Triagem automática antes do humano.</span></div>
+    </div>
+    <div class="meta" id="rz-preview-status">Carregando widget…</div>
+    <p class="meta" style="border-style: solid;">
+      Chave: <code id="rz-preview-key">—</code>
+    </p>
+  </main>
+  <script src="/webchat/preview-loader.js"></script>
+</body>
+</html>

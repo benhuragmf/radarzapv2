@@ -40,6 +40,7 @@ const AppearanceSchema = new Schema<WebChatWidgetAppearance>(
     greeting: { type: String, default: DEFAULT_WEBCHAT_APPEARANCE.greeting, maxlength: 500 },
     askName: { type: Boolean, default: DEFAULT_WEBCHAT_APPEARANCE.askName },
     askEmail: { type: Boolean, default: DEFAULT_WEBCHAT_APPEARANCE.askEmail },
+    theme: { type: String, enum: ['light', 'dark'], default: DEFAULT_WEBCHAT_APPEARANCE.theme },
   },
   { _id: false },
 );

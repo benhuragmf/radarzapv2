@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview SaaS — RadarZap WebChat</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+      color: #fff;
+    }
+    .shell {
+      min-height: 100vh;
+      background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,.15) 100%);
+      padding: 32px 20px 140px;
+    }
+    nav {
+      max-width: 900px;
+      margin: 0 auto 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .95rem;
+      font-weight: 600;
+    }
+    .logo { opacity: .95; }
+    .pill {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.15);
+      backdrop-filter: blur(8px);
+      font-size: .8rem;
+      font-weight: 500;
+    }
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      gap: 28px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 768px) {
+      main { grid-template-columns: 1.2fr 1fr; align-items: center; }
+    }
+    h1 {
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      line-height: 1.15;
+      margin: 0 0 16px;
+      letter-spacing: -0.03em;
+    }
+    .sub {
+      font-size: 1.05rem;
+      line-height: 1.6;
+      opacity: .9;
+      max-width: 420px;
+    }
+    .panel {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(16px);
+    }
+    .panel h2 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .panel p {
+      margin: 0;
+      font-size: .9rem;
+      opacity: .85;
+      line-height: 1.55;
+    }
+    .checks {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+      font-size: .85rem;
+    }
+    .checks div::before { content: '✓ '; opacity: .8; }
+    .meta {
+      grid-column: 1 / -1;
+      font-size: .8rem;
+      opacity: .75;
+      text-align: center;
+    }
+    code {
+      background: rgba(0,0,0,.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: .85em;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav>
+      <span class="logo">SuaPlataforma</span>
+      <span class="pill">Chat ao vivo</span>
+    </nav>
+    <main>
+      <div>
+        <h1>Escale o suporte sem perder o tom humano</h1>
+        <p class="sub">
+          Modelo vibrante para startups e SaaS. Combine landing page moderna com widget RadarZap
+          na cor roxa.
+        </p>
+      </div>
+      <div class="panel">
+        <h2>Pronto para conversar</h2>
+        <p id="rz-preview-status">Carregando widget…</p>
+        <div class="checks">
+          <div>Triagem com IA</div>
+          <div>Fila no Inbox unificado</div>
+          <div>Histórico por visitante</div>
+        </div>
+      </div>
+      <p class="meta">Chave: <code id="rz-preview-key">—</code></p>
+    </main>
+  </div>
+  <script src="/webchat/preview-loader.js"></script>
+</body>
+</html>

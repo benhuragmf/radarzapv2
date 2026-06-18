@@ -358,12 +358,26 @@ export class DashboardService {
       }
       res.sendFile(path.join(__dirname, 'webchat', 'widget.js'));
     });
-    this.app.get('/webchat/demo.html', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'webchat', 'demo.html'));
+    this.app.get('/webchat/preview-loader.js', (_req, res) => {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      if (config.NODE_ENV !== 'production') {
+        res.setHeader('Cache-Control', 'no-store');
+      }
+      res.sendFile(path.join(__dirname, 'webchat', 'preview-loader.js'));
     });
-    this.app.get('/webchat/widget.html', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'webchat', 'widget.html'));
-    });
+    const webchatPreviewPages = [
+      'widget',
+      'demo',
+      'preview-classic',
+      'preview-tech',
+      'preview-minimal',
+      'preview-saas',
+    ];
+    for (const page of webchatPreviewPages) {
+      this.app.get(`/webchat/${page}.html`, (_req, res) => {
+        res.sendFile(path.join(__dirname, 'webchat', `${page}.html`));
+      });
+    }
 
     this.app.use('/api', sanitizeInput);
 
@@ -1217,19 +1231,25 @@ export class DashboardService {
     r.get('/inbox/tickets', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { status, departmentId, mine, search } = req.query as {
+        const { status, departmentId, mine, search, page, limit } = req.query as {
           status?: string;
           departmentId?: string;
           mine?: string;
           search?: string;
+          page?: string;
+          limit?: string;
         };
-        const rows = await inboxSvc.listTickets(auth.clientId, auth.userId, {
+        const parsedPage = Math.max(parseInt(String(page ?? '1'), 10) || 1, 1);
+        const parsedLimit = Math.min(Math.max(parseInt(String(limit ?? '15'), 10) || 15, 1), 100);
+        const result = await inboxSvc.listTickets(auth.clientId, auth.userId, {
           status,
           departmentId,
           mine: mine === '1' || mine === 'true',
           search,
+          page: parsedPage,
+          limit: parsedLimit,
         });
-        res.json(rows);
+        res.json(result);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

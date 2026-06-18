@@ -6,11 +6,20 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon } from 'lucide-react'
+import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, CheckCircle2, CircleOff, Code2 } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
-import { inputCls, textareaCls, LoadingState } from '@/design-system'
+import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
 import { cn } from '@/lib/utils'
 import { inboxWebChatUrl, webChatMediaSrc } from '../../lib/webchatInbox'
+import { WebChatPreviewTemplates } from '../../components/webchat/WebChatPreviewTemplates'
+import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
+import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
+import { WebChatVisitorPanel } from '../../components/webchat/WebChatVisitorPanel'
+import {
+  WEBCHAT_PREVIEW_TEMPLATES,
+  webChatPreviewUrl,
+  type WebChatAppearancePreset,
+} from '../../lib/webchatPreviewTemplates'
 
 type Weekday =
   | 'monday'
@@ -73,6 +82,7 @@ interface WebChatWidgetRow {
     greeting: string
     askName: boolean
     askEmail: boolean
+    theme: 'light' | 'dark'
   }
   autoReplyEnabled: boolean
   autoReplyMessage: string
@@ -98,6 +108,8 @@ interface WebChatConversationRow {
   visitorName?: string
   visitorEmail?: string
   pageUrl?: string
+  userAgent?: string
+  createdAt?: string
   lastMessageAt?: string
   lastMessagePreview?: string
   unreadCount?: number
@@ -137,7 +149,7 @@ function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/webchat/widget.js?v=2.10.14" data-widget-key="${publicKey}" async></script>`
+  return `<script src="${origin}/webchat/widget.js?v=2.10.17" data-widget-key="${publicKey}" async></script>`
 }
 
 export default function WebChat() {
@@ -147,6 +159,8 @@ export default function WebChat() {
   const [tab, setTab] = useState<Tab>('chats')
   const [chatFilter, setChatFilter] = useState<ChatFilter>('open')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [chatSearch, setChatSearch] = useState('')
+  const [showVisitorPanel, setShowVisitorPanel] = useState(true)
   const [newWidgetName, setNewWidgetName] = useState('Site principal')
 
   const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
@@ -219,13 +233,31 @@ export default function WebChat() {
 
   useEffect(() => {
     setSelectedId(null)
+    setChatSearch('')
   }, [chatFilter])
 
+  const filteredConversations = useMemo(() => {
+    const q = chatSearch.trim().toLowerCase()
+    const sorted = [...(conversations ?? [])].sort((a, b) => {
+      const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
+      const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
+      return tb - ta
+    })
+    if (!q) return sorted
+    return sorted.filter(c => {
+      const name = (c.visitorName ?? '').toLowerCase()
+      const email = (c.visitorEmail ?? '').toLowerCase()
+      const page = (c.pageUrl ?? '').toLowerCase()
+      const preview = (c.lastMessagePreview ?? '').toLowerCase()
+      return name.includes(q) || email.includes(q) || page.includes(q) || preview.includes(q)
+    })
+  }, [conversations, chatSearch])
+
   useEffect(() => {
-    if (!selectedId && conversations?.length) {
-      setSelectedId(conversations[0].id)
+    if (!selectedId && filteredConversations.length) {
+      setSelectedId(filteredConversations[0].id)
     }
-  }, [conversations, selectedId])
+  }, [filteredConversations, selectedId])
 
   const createWidget = useMutation({
     mutationFn: () => api.post<WebChatWidgetRow>('/webchat/widgets', { name: newWidgetName }),
@@ -249,18 +281,9 @@ export default function WebChat() {
   const selected = detail?.conversation
   const messages = detail?.messages ?? []
 
-  const sortedConversations = useMemo(
-    () => [...(conversations ?? [])].sort((a, b) => {
-      const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
-      const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
-      return tb - ta
-    }),
-    [conversations],
-  )
-
   if (!canView) {
     return (
-      <PlatformPage title="Chat do site" icon={Globe}>
+      <PlatformPage title="Chat do site">
         <Card className="p-6 text-sm text-[var(--rz-text-muted)]">
           Você não tem permissão para acessar o chat do site.
         </Card>
@@ -271,7 +294,6 @@ export default function WebChat() {
   return (
     <PlatformPage
       title="Chat do site"
-      icon={Globe}
       description="Histórico e status das conversas do widget — o atendimento ao visitante é feito pelo Inbox."
     >
       {canInbox && (
@@ -283,16 +305,38 @@ export default function WebChat() {
           . Esta página mostra histórico, status e configuração dos widgets.
         </Card>
       )}
-      <Card className="mb-4 p-3 text-sm text-[var(--rz-text-muted)]">
-        Teste local:{' '}
-        <a className="text-[var(--rz-primary)] hover:underline" href="/webchat/widget.html" target="_blank" rel="noreferrer">
-          /webchat/widget.html
-        </a>
-        {' · '}
-        <a className="text-[var(--rz-primary)] hover:underline" href="/webchat/demo.html" target="_blank" rel="noreferrer">
-          demo.html?key=…
-        </a>
-      </Card>
+
+      {canInbox && <InboxAtendimentoNav me={me} className="mb-4" />}
+
+      {stats && tab === 'chats' && (
+        <InboxStatsRow
+          className="mb-4"
+          items={[
+            {
+              label: 'Abertas',
+              value: stats.openCount,
+              icon: MessageSquare,
+              colorClass: 'text-green-400',
+              href: '/platform/webchat?filter=open',
+            },
+            {
+              label: 'Na fila',
+              value: stats.waitingQueueCount,
+              icon: InboxIcon,
+              colorClass: 'text-blue-400',
+              href: '/platform/inbox?status=waiting_queue&channel=webchat',
+              alert: stats.waitingQueueCount > 0,
+            },
+            {
+              label: 'Não lidas',
+              value: stats.unreadCount,
+              icon: Globe,
+              colorClass: 'text-violet-400',
+            },
+          ]}
+        />
+      )}
+
       <div className="mb-4 flex flex-wrap gap-2">
         <Button
           variant={tab === 'chats' ? 'primary' : 'secondary'}
@@ -316,26 +360,70 @@ export default function WebChat() {
 
       {tab === 'widgets' && canManage && (
         <div className="space-y-4">
-          <Card className="p-4">
-            <h3 className="mb-3 text-sm font-semibold text-[var(--rz-text)]">Novo widget</h3>
-            <div className="flex flex-wrap gap-2">
+          <InboxStatsRow
+            items={[
+              {
+                label: 'Widgets',
+                value: (widgets ?? []).length,
+                icon: LayoutGrid,
+                colorClass: 'text-brand-400',
+              },
+              {
+                label: 'Ativos',
+                value: (widgets ?? []).filter(w => w.active).length,
+                icon: CheckCircle2,
+                colorClass: 'text-emerald-400',
+              },
+              {
+                label: 'Inativos',
+                value: (widgets ?? []).filter(w => !w.active).length,
+                icon: CircleOff,
+                colorClass: 'text-[var(--rz-text-muted)]',
+              },
+              ...(stats
+                ? [
+                    {
+                      label: 'Conversas abertas',
+                      value: stats.openCount,
+                      icon: MessageSquare,
+                      colorClass: 'text-green-400',
+                      href: '/platform/webchat?filter=open',
+                    },
+                  ]
+                : []),
+            ]}
+          />
+
+          <Card className="p-4 border border-brand-500/20 bg-brand-500/5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
+                  <Plus className="h-4 w-4 text-brand-400" />
+                  Novo widget
+                </h3>
+                <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+                  Crie um widget, personalize o visual e cole o script no HTML do seu site.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
               <input
-                className={inputCls}
+                className={inputCls + ' max-w-xs'}
                 value={newWidgetName}
                 onChange={e => setNewWidgetName(e.target.value)}
-                placeholder="Nome do widget"
+                placeholder="Nome do widget (ex.: Site principal)"
               />
               <Button type="button" onClick={() => createWidget.mutate()} disabled={createWidget.isPending}>
                 <Plus className="h-4 w-4" />
-                Criar
+                Criar widget
               </Button>
             </div>
           </Card>
 
           {loadingWidgets ? (
-            <LoadingState label="Carregando widgets..." />
+            <LoadingState rows={3} className="py-8" />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {(widgets ?? []).map(w => (
                 <WidgetEditorCard
                   key={w.id}
@@ -347,9 +435,11 @@ export default function WebChat() {
                 />
               ))}
               {!widgets?.length && (
-                <Card className="p-6 text-sm text-[var(--rz-text-muted)]">
-                  Nenhum widget ainda. Crie um e cole o script no HTML do seu site.
-                </Card>
+                <EmptyState
+                  icon={LayoutGrid}
+                  title="Nenhum widget configurado"
+                  description="Crie seu primeiro widget para exibir o chat no site. Após salvar, copie o código de instalação e cole antes do fechamento da tag </body>."
+                />
               )}
             </div>
           )}
@@ -357,246 +447,288 @@ export default function WebChat() {
       )}
 
       {tab === 'chats' && (
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          <Card className="overflow-hidden p-0">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--rz-border)] px-4 py-3">
-              <div className="text-sm font-semibold">
-                {(stats?.unreadCount ?? 0) > 0 && (
-                  <span className="mr-2 rounded-full bg-[var(--rz-primary)] px-2 py-0.5 text-xs text-white">
-                    {stats!.unreadCount} nova(s)
-                  </span>
-                )}
-                {(stats?.myWaitingQueueCount ?? stats?.waitingQueueCount ?? 0) > 0 && chatFilter !== 'queue' && (
-                  <Link
-                    to="/platform/inbox?status=waiting_queue&channel=webchat"
-                    className="mr-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white hover:bg-amber-400"
-                  >
-                    {stats!.myWaitingQueueCount ?? stats!.waitingQueueCount} na fila → Inbox
-                  </Link>
-                )}
-                {chatFilter === 'open' && 'Abertas'}
-                {chatFilter === 'closed' && 'Encerradas'}
-                {chatFilter === 'queue' && 'Na fila'} ({sortedConversations.length})
-              </div>
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={chatFilter === 'open' ? 'primary' : 'secondary'}
-                  onClick={() => setChatFilter('open')}
-                >
-                  Abertas
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={chatFilter === 'queue' ? 'primary' : 'secondary'}
-                  onClick={() => setChatFilter('queue')}
-                >
-                  Na fila
-                  {(stats?.myWaitingQueueCount ?? stats?.waitingQueueCount ?? 0) > 0 && (
-                    <span className="ml-1 rounded-full bg-amber-500 px-1.5 text-[10px] text-white">
-                      {stats!.myWaitingQueueCount ?? stats!.waitingQueueCount}
-                    </span>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={chatFilter === 'closed' ? 'primary' : 'secondary'}
-                  onClick={() => setChatFilter('closed')}
-                >
-                  Encerradas
-                </Button>
-              </div>
-            </div>
-            {loadingConversations ? (
-              <LoadingState label="Carregando..." />
-            ) : (
-              <ul className="max-h-[60vh] overflow-auto">
-                {sortedConversations.map(c => (
-                  <li key={c.id}>
+        <div className="flex flex-col min-h-[70vh] lg:h-[calc(100vh-12rem)] rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/30 overflow-hidden shadow-xl shadow-black/10">
+          <div className="flex flex-1 min-h-0 flex-col xl:flex-row">
+            {/* Lista */}
+            <aside
+              className={cn(
+                'w-full xl:w-[320px] shrink-0 flex flex-col border-b xl:border-b-0 xl:border-r border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/30',
+                selectedId ? 'max-xl:hidden' : 'max-xl:flex-1',
+              )}
+            >
+              <div className="p-3 space-y-2.5 border-b border-[var(--rz-border)]/80 shrink-0">
+                <div className="relative">
+                  <Search size={14} className={searchFieldIconCls} />
+                  <input
+                    type="search"
+                    value={chatSearch}
+                    onChange={e => setChatSearch(e.target.value)}
+                    placeholder="Buscar visitante, e-mail ou página…"
+                    className={`${inputCls} pl-9 text-sm`}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {(['open', 'queue', 'closed'] as ChatFilter[]).map(f => (
                     <button
+                      key={f}
+                      type="button"
+                      onClick={() => setChatFilter(f)}
+                      className={cn(
+                        'shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors',
+                        chatFilter === f
+                          ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
+                          : 'text-[var(--rz-text-muted)] border border-transparent hover:bg-[var(--rz-surface-muted)]',
+                      )}
+                    >
+                      {f === 'open' && 'Abertas'}
+                      {f === 'queue' && `Na fila${(stats?.waitingQueueCount ?? 0) > 0 ? ` (${stats!.waitingQueueCount})` : ''}`}
+                      {f === 'closed' && 'Encerradas'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-[var(--rz-text-muted)]">
+                  {filteredConversations.length} conversa(s)
+                </p>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                {loadingConversations ? (
+                  <LoadingState rows={4} className="py-8" />
+                ) : filteredConversations.length === 0 ? (
+                  <EmptyState
+                    icon={MessageSquare}
+                    title="Nenhuma conversa encontrada"
+                    description={
+                      chatSearch
+                        ? 'Ajuste a busca ou troque o filtro.'
+                        : chatFilter === 'queue'
+                          ? 'Nenhum visitante aguardando no momento.'
+                          : 'Novas conversas do site aparecerão aqui.'
+                    }
+                    className="py-10"
+                  />
+                ) : (
+                  filteredConversations.map(c => (
+                    <button
+                      key={c.id}
                       type="button"
                       onClick={() => setSelectedId(c.id)}
-                      className={
-                        'w-full border-b border-[var(--rz-border)] px-4 py-3 text-left transition hover:bg-[var(--rz-surface-hover)] ' +
-                        (selectedId === c.id ? 'bg-[var(--rz-surface-hover)]' : '')
-                      }
+                      className={cn(
+                        'w-full text-left px-3 py-3 flex gap-3 border-b border-[var(--rz-border)]/50 hover:bg-[var(--rz-surface-muted)]/40 transition-colors',
+                        selectedId === c.id
+                          ? 'bg-violet-500/[0.08] border-l-2 border-l-violet-500'
+                          : 'border-l-2 border-l-transparent',
+                        c.status === 'closed' && 'opacity-60',
+                      )}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-[var(--rz-text)]">
-                          {c.visitorName || c.visitorEmail || 'Visitante'}
-                        </span>
-                        {(c.unreadCount ?? 0) > 0 && (
-                          <span className="rounded-full bg-[var(--rz-primary)] px-2 py-0.5 text-xs text-white">
-                            {c.unreadCount}
+                      <div className="w-9 h-9 rounded-full bg-violet-500/15 flex items-center justify-center text-sm font-semibold text-violet-300 shrink-0">
+                        {(c.visitorName || c.visitorEmail || 'V').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium truncate text-[var(--rz-text-primary)]">
+                            {c.visitorName || c.visitorEmail || 'Visitante'}
                           </span>
-                        )}
-                      </div>
-                      <div className="mt-1 truncate text-xs text-[var(--rz-text-muted)]">
-                        {c.lastMessagePreview || 'Sem mensagens'}
-                      </div>
-                      {(queueStatusLabel(c.queueStatus) || c.departmentName) && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {queueStatusLabel(c.queueStatus) && (
-                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
-                              {queueStatusLabel(c.queueStatus)}
-                            </span>
-                          )}
-                          {c.departmentName && (
-                            <span className="rounded bg-[var(--rz-surface-muted)] px-1.5 py-0.5 text-[10px] text-[var(--rz-text-muted)]">
-                              {c.departmentName}
+                          {(c.unreadCount ?? 0) > 0 && (
+                            <span className="rounded-full bg-brand-500 px-1.5 text-[10px] font-bold text-white">
+                              {c.unreadCount}
                             </span>
                           )}
                         </div>
-                      )}
-                    </button>
-                  </li>
-                ))}
-                {!sortedConversations.length && (
-                  <li className="px-4 py-6 text-sm text-[var(--rz-text-muted)]">
-                    {chatFilter === 'open' && 'Nenhuma conversa aberta.'}
-                    {chatFilter === 'queue' && 'Nenhuma conversa na fila.'}
-                    {chatFilter === 'closed' && 'Nenhuma conversa encerrada.'}
-                  </li>
-                )}
-              </ul>
-            )}
-          </Card>
-
-          <Card className="flex min-h-[60vh] flex-col overflow-hidden p-0">
-            {!selectedId ? (
-              <div className="flex flex-1 items-center justify-center p-6 text-sm text-[var(--rz-text-muted)]">
-                Selecione uma conversa
-              </div>
-            ) : loadingDetail ? (
-              <LoadingState label="Carregando conversa..." />
-            ) : (
-              <>
-                <div className="flex items-center justify-between gap-2 border-b border-[var(--rz-border)] px-4 py-3">
-                  <div>
-                    <div className="font-semibold text-[var(--rz-text)]">
-                      {selected?.visitorName || selected?.visitorEmail || 'Visitante'}
-                      {selected?.status === 'closed' && (
-                        <span className="ml-2 text-xs font-normal text-[var(--rz-text-muted)]">(encerrada)</span>
-                      )}
-                    </div>
-                    {selected?.pageUrl && (
-                      <a
-                        href={selected.pageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-[var(--rz-primary)] hover:underline"
-                      >
-                        Página de origem
-                      </a>
-                    )}
-                    {(queueStatusLabel(selected?.queueStatus) || selected?.departmentName) && (
-                      <div className="mt-1 flex flex-wrap gap-1 text-xs">
-                        {queueStatusLabel(selected?.queueStatus) && (
-                          <span className="rounded bg-amber-500/15 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
-                            {queueStatusLabel(selected?.queueStatus)}
+                        <p className="text-[11px] text-[var(--rz-text-muted)] truncate mt-0.5">
+                          {c.lastMessagePreview || 'Sem mensagens'}
+                        </p>
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <span className="text-[10px] text-violet-300/80">
+                            {queueStatusLabel(c.queueStatus) ?? (c.status === 'closed' ? 'Encerrada' : 'Aberta')}
                           </span>
-                        )}
-                        {selected?.departmentName && (
-                          <span className="text-[var(--rz-text-muted)]">Setor: {selected.departmentName}</span>
+                          {c.lastMessageAt && (
+                            <span className="text-[10px] text-[var(--rz-text-muted)] tabular-nums shrink-0">
+                              {new Date(c.lastMessageAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {canInbox && (
+                <div className="p-3 border-t border-[var(--rz-border)]/80 shrink-0">
+                  <Link to="/platform/inbox?channel=webchat" className="text-xs text-brand-400 hover:underline">
+                    Ver todas no Inbox →
+                  </Link>
+                </div>
+              )}
+            </aside>
+
+            {/* Conversa */}
+            <section
+              className={cn(
+                'flex-1 min-w-0 flex flex-col bg-[var(--rz-surface)]/20 min-h-[360px]',
+                selectedId ? '' : 'max-xl:hidden',
+              )}
+            >
+              {!selectedId ? (
+                <div className="hidden xl:flex flex-1 flex-col items-center justify-center p-8 text-center">
+                  <MessageSquare size={32} className="text-[var(--rz-text-muted)]/40 mb-3" />
+                  <p className="text-sm font-medium text-[var(--rz-text-secondary)]">Selecione uma conversa</p>
+                  <p className="text-xs text-[var(--rz-text-muted)] mt-1 max-w-xs">
+                    Escolha um visitante na lista para ver o histórico. Atendimento ativo é feito pelo Inbox.
+                  </p>
+                </div>
+              ) : loadingDetail ? (
+                <LoadingState rows={3} className="py-8 flex-1" />
+              ) : selected ? (
+                <>
+                  <header className="shrink-0 px-4 py-3 border-b border-[var(--rz-border)]/80 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(null)}
+                        className="xl:hidden p-1.5 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] rounded-lg"
+                        aria-label="Voltar"
+                      >
+                        <ArrowLeft size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowVisitorPanel(v => !v)}
+                        className="xl:hidden p-1.5 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] rounded-lg"
+                        aria-label="Detalhes do visitante"
+                      >
+                        <PanelRight size={18} />
+                      </button>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--rz-text-primary)] truncate">
+                          {selected.visitorName || selected.visitorEmail || 'Visitante'}
+                        </p>
+                        {selected.pageUrl && (
+                          <a
+                            href={selected.pageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-brand-400 hover:underline truncate block"
+                          >
+                            {selected.pageUrl.replace(/^https?:\/\//, '')}
+                          </a>
                         )}
                       </div>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {canInbox && selectedId && selected?.status === 'open' && (
+                    </div>
+                    {canInbox && selected.status === 'open' && (
                       <Link to={inboxWebChatUrl(selectedId)}>
-                        <Button type="button" size="sm">
-                          <InboxIcon className="h-4 w-4" />
-                          Atender no Inbox
+                        <Button size="sm">
+                          <InboxIcon size={14} /> Inbox
                         </Button>
                       </Link>
                     )}
-                    {selected?.assignedUserName && (
-                      <span className="text-xs text-[var(--rz-text-muted)]">
-                        Atendente: {selected.assignedUserName}
-                      </span>
+                  </header>
+
+                  {canInbox && selected.status === 'open' && selected.queueStatus === 'waiting_human' && (
+                    <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+                      Na fila —{' '}
+                      <Link to={inboxWebChatUrl(selectedId)} className="font-medium underline">
+                        atender no Inbox
+                      </Link>
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
+                    {messages.length === 0 ? (
+                      <p className="text-center text-sm text-[var(--rz-text-muted)] py-8">Nenhuma mensagem.</p>
+                    ) : (
+                      messages.map(m => (
+                        <div
+                          key={m.id}
+                          className={'flex ' + (m.direction === 'outbound' ? 'justify-end' : 'justify-start')}
+                        >
+                          <div
+                            className={cn(
+                              'max-w-[85%] rounded-2xl px-3 py-2 text-sm',
+                              m.direction === 'system'
+                                ? 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] text-xs text-center w-full max-w-full'
+                                : m.direction === 'outbound'
+                                  ? 'bg-brand-500 text-white rounded-tr-sm'
+                                  : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-primary)] rounded-tl-sm',
+                            )}
+                          >
+                            {m.direction === 'outbound' && m.senderName && (
+                              <div className="mb-1 text-[10px] font-medium opacity-80">{m.senderName}</div>
+                            )}
+                            {m.mediaType === 'image' && m.mediaUrl && (
+                              <a href={webChatMediaSrc(m.mediaUrl)} target="_blank" rel="noreferrer" className="block mb-1">
+                                <img
+                                  src={webChatMediaSrc(m.mediaUrl)}
+                                  alt={m.mediaFileName ?? m.body}
+                                  className="max-h-64 max-w-full rounded-lg object-contain"
+                                />
+                              </a>
+                            )}
+                            {m.mediaType === 'document' && m.mediaUrl && (
+                              <a
+                                href={webChatMediaSrc(m.mediaUrl)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mb-1 block text-sm underline"
+                              >
+                                📎 {m.mediaFileName ?? 'Documento PDF'}
+                              </a>
+                            )}
+                            {!(m.mediaUrl && (m.mediaType === 'image' || m.mediaType === 'document')) && (
+                              <div className="whitespace-pre-wrap">{m.body}</div>
+                            )}
+                            <div className="mt-1 text-[10px] opacity-70">
+                              {new Date(m.createdAt).toLocaleString('pt-BR')}
+                            </div>
+                          </div>
+                        </div>
+                      ))
                     )}
                   </div>
-                </div>
 
-                {canInbox && selected?.status === 'open' && selected.queueStatus === 'waiting_human' && (
-                  <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
-                    Conversa na fila —{' '}
-                    <Link to={inboxWebChatUrl(selectedId!)} className="font-medium underline hover:opacity-90">
-                      abrir no Inbox para Assumir e responder
-                    </Link>
-                  </div>
-                )}
+                  <footer className="shrink-0 border-t border-[var(--rz-border)]/80 px-4 py-3 text-xs text-[var(--rz-text-muted)] text-center bg-[var(--rz-surface-muted)]/40">
+                    {selected.status === 'open' && canInbox ? (
+                      <>
+                        Atendimento ativo pelo{' '}
+                        <Link to={inboxWebChatUrl(selectedId)} className="text-brand-400 hover:underline">
+                          Inbox
+                        </Link>
+                        .
+                      </>
+                    ) : (
+                      'Conversa encerrada. O atendimento é feito pelo Inbox.'
+                    )}
+                  </footer>
+                </>
+              ) : null}
+            </section>
 
-                <div className="flex-1 space-y-2 overflow-auto p-4">
-                  {messages.map(m => (
-                    <div
-                      key={m.id}
-                      className={
-                        'flex ' + (m.direction === 'outbound' ? 'justify-end' : 'justify-start')
-                      }
-                    >
-                      <div
-                        className={
-                          'max-w-[85%] rounded-2xl px-3 py-2 text-sm ' +
-                          (m.direction === 'system'
-                            ? 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]'
-                            : m.direction === 'outbound'
-                              ? 'bg-[var(--rz-primary)] text-white'
-                              : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text)]')
-                        }
-                      >
-                        {m.direction === 'outbound' && m.senderName && (
-                          <div className="mb-1 text-[10px] font-medium opacity-80">{m.senderName}</div>
-                        )}
-                        {m.mediaType === 'image' && m.mediaUrl && (
-                          <a
-                            href={webChatMediaSrc(m.mediaUrl)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mb-1 block"
-                          >
-                            <img
-                              src={webChatMediaSrc(m.mediaUrl)}
-                              alt={m.mediaFileName ?? m.body}
-                              className="max-h-64 max-w-full rounded-lg object-contain"
-                            />
-                          </a>
-                        )}
-                        {m.mediaType === 'document' && m.mediaUrl && (
-                          <a
-                            href={webChatMediaSrc(m.mediaUrl)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mb-1 block text-sm underline"
-                          >
-                            📎 {m.mediaFileName ?? 'Documento PDF'}
-                          </a>
-                        )}
-                        {!(m.mediaUrl && (m.mediaType === 'image' || m.mediaType === 'document')) && (
-                          <div className="whitespace-pre-wrap">{m.body}</div>
-                        )}
-                        {m.mediaUrl &&
-                          m.body &&
-                          !m.body.startsWith('📎') && (
-                            <div className="mt-1 whitespace-pre-wrap">{m.body}</div>
-                          )}
-                        <div className="mt-1 text-[10px] opacity-70">
-                          {new Date(m.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
+            {/* Visitante */}
+            {selected && (
+              <WebChatVisitorPanel
+                visitor={selected}
+                canInbox={canInbox}
+                messageCount={messages.length}
+                className={showVisitorPanel ? 'max-xl:flex' : 'max-xl:hidden'}
+              />
             )}
-          </Card>
+          </div>
         </div>
       )}
     </PlatformPage>
+  )
+}
+
+function appearanceMatchesTemplate(
+  appearance: WebChatWidgetRow['appearance'],
+  preset: WebChatAppearancePreset,
+): boolean {
+  return (
+    appearance.primaryColor.toLowerCase() === preset.primaryColor.toLowerCase() &&
+    appearance.title === preset.title &&
+    appearance.subtitle === preset.subtitle &&
+    (appearance.theme ?? 'light') === preset.theme
   )
 }
 
@@ -615,6 +747,12 @@ function WidgetEditorCard({
 }) {
   const qc = useQueryClient()
   const [form, setForm] = useState(widget)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(() => {
+    const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
+      appearanceMatchesTemplate(widget.appearance, t.appearance),
+    )
+    return match?.id ?? null
+  })
 
   const { data: aiStatus } = useQuery({
     queryKey: ['webchat-ai-status'],
@@ -623,6 +761,10 @@ function WidgetEditorCard({
 
   useEffect(() => {
     setForm(widget)
+    const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
+      appearanceMatchesTemplate(widget.appearance, t.appearance),
+    )
+    setSelectedTemplateId(match?.id ?? null)
   }, [widget])
 
   const save = useMutation({
@@ -651,7 +793,17 @@ function WidgetEditorCard({
   })
 
   const snippet = embedSnippet(widget.publicKey)
-  const demoUrl = `/webchat/demo.html?key=${encodeURIComponent(widget.publicKey)}`
+  const previewUrl = webChatPreviewUrl(
+    WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)?.path ??
+      '/webchat/preview-tech.html',
+    widget.publicKey,
+  )
+
+  const applyTemplateAppearance = (appearance: WebChatAppearancePreset, templateId: string) => {
+    setForm(f => ({ ...f, appearance: { ...f.appearance, ...appearance } }))
+    setSelectedTemplateId(templateId)
+    notifySuccess('Visual do modelo aplicado — clique em Salvar alterações.')
+  }
 
   const patchDay = (day: Weekday, field: 'enabled' | 'start' | 'end', value: boolean | string) => {
     setForm(f => ({
@@ -667,17 +819,29 @@ function WidgetEditorCard({
   }
 
   return (
-    <Card className="p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <Card className="p-0 overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30 px-4 py-3">
         <div>
-          <div className="font-semibold text-[var(--rz-text)]">{widget.name}</div>
-          <div className="mt-1 text-xs text-[var(--rz-text-muted)]">Chave: {widget.publicKey}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-[var(--rz-text-primary)]">{widget.name}</span>
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+                form.active
+                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                  : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] border border-[var(--rz-border)]',
+              )}
+            >
+              {form.active ? 'Ativo' : 'Inativo'}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-[var(--rz-text-muted)] font-mono">Chave: {widget.publicKey}</div>
         </div>
         <div className="flex gap-2">
-          <a href={demoUrl} target="_blank" rel="noreferrer">
+          <a href={previewUrl} target="_blank" rel="noreferrer">
             <Button type="button" variant="secondary" size="sm">
               <ExternalLink className="h-4 w-4" />
-              Testar
+              Testar modelo
             </Button>
           </a>
           <Button variant="danger" size="sm" type="button" onClick={onDelete} disabled={deleting}>
@@ -686,7 +850,8 @@ function WidgetEditorCard({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="p-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
           Nome interno
           <input
@@ -779,6 +944,25 @@ function WidgetEditorCard({
             <option value="left">Esquerda</option>
           </select>
         </label>
+        <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+          Tema do chat
+          <select
+            className={inputCls + ' mt-1'}
+            value={form.appearance.theme ?? 'light'}
+            onChange={e =>
+              setForm(f => ({
+                ...f,
+                appearance: {
+                  ...f.appearance,
+                  theme: e.target.value as 'light' | 'dark',
+                },
+              }))
+            }
+          >
+            <option value="light">Claro (padrão)</option>
+            <option value="dark">Escuro (tecnológico)</option>
+          </select>
+        </label>
         <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
           <input
             type="checkbox"
@@ -824,6 +1008,15 @@ function WidgetEditorCard({
             </span>
           </label>
         )}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-4">
+        <WebChatPreviewTemplates
+          compact
+          publicKey={widget.publicKey}
+          selectedTemplateId={selectedTemplateId}
+          onSelectTemplate={template => applyTemplateAppearance(template.appearance, template.id)}
+        />
       </div>
 
       <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
@@ -967,21 +1160,30 @@ function WidgetEditorCard({
         </Button>
       </div>
 
-      <label className="mt-4 block text-xs font-medium text-[var(--rz-text-muted)]">
-        Código para colar no site
-      </label>
-      <div className="mt-1 flex gap-2">
-        <textarea className={textareaCls + ' font-mono text-xs'} readOnly rows={3} value={snippet} />
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => {
-            navigator.clipboard.writeText(snippet)
-            notifySuccess('Código copiado')
-          }}
-        >
-          <Copy className="h-4 w-4" />
-        </Button>
+      <div className="mt-4 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
+            <Code2 className="h-4 w-4 text-brand-400" />
+            Instalação no site
+          </h4>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(snippet)
+              notifySuccess('Código copiado')
+            }}
+          >
+            <Copy className="h-4 w-4" />
+            Copiar script
+          </Button>
+        </div>
+        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+          Cole este código antes do fechamento da tag <code className="text-[var(--rz-text-secondary)]">&lt;/body&gt;</code> em todas as páginas onde o chat deve aparecer.
+        </p>
+        <textarea className={textareaCls + ' mt-2 font-mono text-xs bg-[var(--rz-surface)]'} readOnly rows={3} value={snippet} />
+      </div>
       </div>
     </Card>
   )

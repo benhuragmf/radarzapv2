@@ -37,26 +37,31 @@ export function InboxAtendimentoNav({ me, className = '' }: Props) {
 
   return (
     <nav
-      className={`flex flex-wrap gap-1.5 p-1 rounded-xl bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 ${className}`}
-      aria-label="Atendimento WhatsApp"
+      className={`rounded-xl bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 overflow-hidden ${className}`}
+      aria-label="Navegação do módulo de atendimento"
     >
-      {visible.map(({ to, label, icon: Icon }) => {
-        const active = pathname === to || (to !== '/platform/inbox' && pathname.startsWith(to))
-        return (
-          <Link
-            key={to}
-            to={to}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              active
-                ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
-                : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]'
-            }`}
-          >
-            <Icon size={14} />
-            {label}
-          </Link>
-        )
-      })}
+      <div className="flex gap-1 p-1 overflow-x-auto scrollbar-thin">
+        {visible.map(({ to, label, icon: Icon }) => {
+          const active =
+            to === '/platform/inbox'
+              ? pathname === '/platform/inbox'
+              : pathname === to || pathname.startsWith(`${to}/`)
+          return (
+            <Link
+              key={to}
+              to={to}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 whitespace-nowrap ${
+                active
+                  ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30 shadow-sm shadow-brand-500/10'
+                  : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]'
+              }`}
+            >
+              <Icon size={14} aria-hidden />
+              {label}
+            </Link>
+          )
+        })}
+      </div>
     </nav>
   )
 }

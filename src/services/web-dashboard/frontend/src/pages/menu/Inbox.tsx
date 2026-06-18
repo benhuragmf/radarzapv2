@@ -27,19 +27,23 @@ import {
   Zap,
   ArrowLeft,
   Globe,
+  Clock3,
+  Star,
+  Smartphone,
+  PanelRight,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
 import { formatQueueTimer, liveQueueState, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
-import {
-  InboxContactSidebar,
-  type ContactStats,
-  type PreviousConversation,
-} from '../../components/inbox/InboxContactSidebar'
+import { InboxContactDetailsPanel } from '../../components/inbox/InboxContactDetailsPanel'
+import type { ContactStats, PreviousConversation } from '../../components/inbox/InboxContactSidebar'
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
+import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
+import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
+import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../lib/webchatInbox'
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
@@ -84,6 +88,9 @@ interface Conversation {
   unreadCount?: number
   widgetName?: string
   pageUrl?: string
+  createdAt?: string
+  resolvedAt?: string
+  acceptedAt?: string
 }
 
 interface InboxContactInfo {
@@ -123,7 +130,7 @@ const STATUS_VARIANT: Record<string, 'yellow' | 'blue' | 'green' | 'gray' | 'red
   closed: 'gray',
 }
 
-type QuickFilter = 'all' | 'queue' | 'mine' | 'active' | 'triage' | 'tickets'
+type QuickFilter = 'all' | 'queue' | 'mine' | 'active' | 'triage' | 'tickets' | 'closed'
 type ChannelFilter = 'whatsapp' | 'webchat' | 'all'
 
 const CHANNEL_FILTERS: { id: ChannelFilter; label: string }[] = [
@@ -145,6 +152,7 @@ const QUICK_FILTERS: {
   { id: 'active', label: 'Atendendo', status: 'in_progress' },
   { id: 'triage', label: 'Triagem', status: 'bot_triage' },
   { id: 'tickets', label: 'Tickets', hasTicket: true },
+  { id: 'closed', label: 'Encerrados', status: 'closed' },
 ]
 
 function conversationBadge(c: Conversation): { label: string; variant: 'yellow' | 'blue' | 'green' | 'gray' | 'red' } {
@@ -247,8 +255,8 @@ export default function Inbox() {
   const [tick, setTick] = useState(0)
   const [historyConvId, setHistoryConvId] = useState<string | null>(null)
   const [showContactEditor, setShowContactEditor] = useState(false)
-  const [showHistoryPanel, setShowHistoryPanel] = useState(true)
-  const historyPanelRef = useRef<HTMLDivElement>(null)
+  const [showDetailsPanel, setShowDetailsPanel] = useState(true)
+  const [composeMode, setComposeMode] = useState<'reply' | 'internal'>('reply')
 
   const activeQuickFilter: QuickFilter = useMemo(() => {
     if (hasTicketOnly) return 'tickets'
@@ -256,6 +264,7 @@ export default function Inbox() {
     if (filterStatus === 'waiting_queue') return 'queue'
     if (filterStatus === 'in_progress') return 'active'
     if (filterStatus === 'bot_triage') return 'triage'
+    if (filterStatus === 'closed') return 'closed'
     return 'all'
   }, [filterStatus, mineOnly, hasTicketOnly])
 
@@ -307,6 +316,14 @@ export default function Inbox() {
     queryFn: () => api.get<Conversation[]>(`/inbox/conversations?${listParams}`),
     refetchInterval: 30_000,
   })
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ['sessions'],
+    queryFn: () => api.get<Array<{ status: string }>>('/sessions'),
+    enabled: canInboxView,
+    staleTime: 60_000,
+  })
+  const waConnected = sessions.some(s => s.status === 'connected')
 
   const { data: webchatBridge } = useQuery({
     queryKey: ['webchat-stats'],
@@ -374,6 +391,7 @@ export default function Inbox() {
   useEffect(() => {
     setHistoryConvId(null)
     setShowContactEditor(false)
+    setComposeMode('reply')
   }, [selectedId])
 
   useEffect(() => {
@@ -477,6 +495,32 @@ export default function Inbox() {
     onError: mutationError,
   })
 
+  const saveInternalNote = useMutation({
+    mutationFn: async (text: string) => {
+      const d = qc.getQueryData<ConversationDetail>(['inbox-conversation', selectedId])
+      const ticketRef = d?.conversation?.ticketRef
+      if (ticketRef) {
+        return api.post(`/inbox/tickets/${encodeURIComponent(ticketRef)}/internal-notes`, { body: text })
+      }
+      if (!d?.contact?._id) throw new Error('Sem contato vinculado para salvar nota')
+      const stamp = new Date().toLocaleString('pt-BR')
+      const agent = me?.username ?? 'Atendente'
+      const prev = d.contact.notes?.trim() ?? ''
+      const next = prev ? `${prev}\n\n[${stamp}] ${agent}: ${text}` : `[${stamp}] ${agent}: ${text}`
+      return api.patch(`/destinations/${d.contact._id}`, { notes: next })
+    },
+    onSuccess: (_data, text) => {
+      setReply('')
+      invalidate()
+      const d = qc.getQueryData<ConversationDetail>(['inbox-conversation', selectedId])
+      if (d?.conversation?.ticketRef) {
+        qc.invalidateQueries({ queryKey: ['inbox-ticket-notes', d.conversation.ticketRef] })
+      }
+      notifySuccess('Nota interna salva')
+    },
+    onError: mutationError,
+  })
+
   const conv = detail?.conversation
   const isWebChatConv =
     conv?.channel === 'webchat_site' || Boolean(conv?._id && isWebChatInboxId(conv._id))
@@ -522,7 +566,7 @@ export default function Inbox() {
   const inboxSearchCls = cn(inputCls, 'pl-9 text-sm')
 
   return (
-    <div className="flex flex-col min-h-[70vh] lg:h-[calc(100vh-5.5rem)] max-w-[1400px] -mx-1">
+    <div className="flex flex-col min-h-[70vh] lg:h-[calc(100vh-5.5rem)] max-w-[1600px] -mx-1">
       {/* Cabeçalho */}
       <div className="shrink-0 mb-4">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -601,39 +645,65 @@ export default function Inbox() {
           </div>
         )}
 
-        {/* Métricas rápidas */}
-        <div className={`grid gap-2 mt-4 ${canInboxView ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
-          {[
-            { label: 'Na fila', value: stats.queue, color: 'text-blue-400' },
-            { label: 'Em atendimento', value: stats.active, color: 'text-green-400' },
-            { label: 'Triagem', value: stats.triage, color: 'text-yellow-400' },
-            { label: 'Suas prioridades', value: stats.priority, color: 'text-amber-400' },
+        <InboxStatsRow
+          className="mt-4"
+          items={[
+            {
+              label: 'Na fila',
+              value: stats.queue,
+              icon: Clock3,
+              colorClass: 'text-blue-400',
+              description: 'Aguardando atendente',
+              href: '/platform/inbox?status=waiting_queue',
+              alert: stats.queue > 0,
+            },
+            {
+              label: 'Em atendimento',
+              value: stats.active,
+              icon: UserCheck,
+              colorClass: 'text-green-400',
+              description: 'Conversas ativas',
+              href: '/platform/inbox?status=in_progress',
+            },
+            {
+              label: 'Triagem',
+              value: stats.triage,
+              icon: Bot,
+              colorClass: 'text-yellow-400',
+              description: 'Bot automático',
+              href: '/platform/inbox?status=bot_triage',
+            },
+            {
+              label: 'Prioridades',
+              value: stats.priority,
+              icon: Star,
+              colorClass: 'text-amber-400',
+              description: 'Round-robin para você',
+            },
             ...(canInboxView
               ? [
                   {
                     label: 'Chat do site',
                     value: webchatQueueCount,
-                    color: 'text-violet-400',
+                    icon: Globe,
+                    colorClass: 'text-violet-400',
+                    description: 'Visitantes na fila',
                     href: '/platform/inbox?status=waiting_queue&channel=webchat',
+                    alert: webchatQueueCount > 0,
                   },
                 ]
               : []),
-          ].map(s => (
-            <div
-              key={s.label}
-              className="rounded-xl border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 px-3 py-2.5"
-            >
-              <p className="text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)]">{s.label}</p>
-              {'href' in s && s.href ? (
-                <Link to={s.href} className={`text-lg font-semibold tabular-nums mt-0.5 block hover:underline ${s.color}`}>
-                  {s.value}
-                </Link>
-              ) : (
-                <p className={`text-lg font-semibold tabular-nums mt-0.5 ${s.color}`}>{s.value}</p>
-              )}
-            </div>
-          ))}
-        </div>
+            {
+              label: 'WhatsApp',
+              value: waConnected ? 'On' : 'Off',
+              icon: Smartphone,
+              colorClass: waConnected ? 'text-emerald-400' : 'text-red-400',
+              description: waConnected ? 'Conectado' : 'Desconectado',
+              href: '/sessions',
+              alert: !waConnected,
+            },
+          ]}
+        />
       </div>
 
       {/* Painel principal */}
@@ -754,6 +824,7 @@ export default function Inbox() {
                     : [c.departmentName, c.assignedUserName].filter(Boolean).join(' · ')
 
                 const selected = selectedId === c._id
+                const isClosed = c.status === 'closed' || c.status === 'resolved'
 
                 return (
                   <button
@@ -762,18 +833,14 @@ export default function Inbox() {
                     onClick={() => setSelectedId(c._id)}
                     className={`w-full text-left px-3 py-3 flex gap-3 border-b border-[var(--rz-border)]/50 hover:bg-[var(--rz-surface-muted)]/40 transition-colors ${borderCls} ${
                       selected ? 'bg-brand-500/[0.08] border-l-2 border-l-brand-500' : 'border-l-2 border-l-transparent'
-                    }`}
+                    } ${isClosed ? 'opacity-55 hover:opacity-75' : ''}`}
                   >
                     <ContactAvatar name={c.contactName} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{c.contactName}</span>
                         <div className="flex items-center gap-1 shrink-0">
-                          {c.channel === 'webchat_site' && (
-                            <span className="text-[9px] font-medium text-violet-300 bg-violet-500/15 px-1.5 py-0.5 rounded">
-                              Site
-                            </span>
-                          )}
+                          <InboxChannelBadge channel={c.channel} />
                           {(c.unreadCount ?? 0) > 0 && (
                             <span className="min-w-[18px] rounded-full bg-brand-500 px-1.5 text-[10px] font-bold text-white text-center">
                               {c.unreadCount}
@@ -825,15 +892,13 @@ export default function Inbox() {
         >
         <section className="flex-1 min-w-0 flex flex-col bg-[var(--rz-surface)]/20 min-h-[360px] max-lg:min-h-[70vh]">
           {!selectedId ? (
-            <div className="hidden lg:flex flex-col items-center justify-center flex-1 text-[var(--rz-text-muted)] p-8">
-              <div className="w-16 h-16 rounded-2xl bg-[var(--rz-surface-muted)]/50 flex items-center justify-center mb-4">
-                <MessageSquare size={32} className="opacity-40" />
-              </div>
-              <p className="text-base font-medium text-[var(--rz-text-secondary)]">Selecione uma conversa</p>
-              <p className="text-sm text-[var(--rz-text-muted)] mt-1 text-center max-w-xs">
-                Escolha um contato na lista para ver o histórico e responder.
-              </p>
-            </div>
+            <InboxEmptyChat
+              queueCount={stats.queue}
+              triageCount={stats.triage}
+              priorityCount={stats.priority}
+              webchatQueueCount={webchatQueueCount}
+              waConnected={waConnected}
+            />
           ) : loadingDetail ? (
             <div className="flex justify-center items-center flex-1">
               <LoadingState rows={3} className="py-8" />
@@ -844,6 +909,14 @@ export default function Inbox() {
               <header className="shrink-0 px-4 py-3 border-b border-[var(--rz-border)]/80 bg-[var(--rz-surface)]/50 backdrop-blur-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDetailsPanel(v => !v)}
+                      className="xl:hidden shrink-0 p-1.5 -mr-1 mt-0.5 text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)] rounded-lg hover:bg-[var(--rz-surface-muted)]"
+                      aria-label="Detalhes do contato"
+                    >
+                      <PanelRight size={18} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => setSelectedId(null)}
@@ -861,9 +934,7 @@ export default function Inbox() {
                           variant={conversationBadge(conv).variant}
                         />
                         {isWebChatConv && (
-                          <span className="text-[10px] font-medium text-violet-300 bg-violet-500/15 px-1.5 py-0.5 rounded">
-                            Chat do site
-                          </span>
+                          <InboxChannelBadge channel="webchat_site" size="md" />
                         )}
                         {conv.ticketRef && (
                           <Link
@@ -919,12 +990,9 @@ export default function Inbox() {
                       </button>
                       <button
                         type="button"
-                        title="Histórico de mensagens"
-                        onClick={() => {
-                          setShowHistoryPanel(true)
-                          historyPanelRef.current?.scrollIntoView({ behavior: 'smooth' })
-                        }}
-                        className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-brand-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60"
+                        title="Histórico de atendimentos"
+                        onClick={() => setShowDetailsPanel(true)}
+                        className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-brand-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 xl:hidden"
                       >
                         <History size={16} />
                       </button>
@@ -1058,9 +1126,18 @@ export default function Inbox() {
                     value={reply}
                     onChange={setReply}
                     quickReplies={quickReplies}
-                    sending={sendReply.isPending}
+                    sending={composeMode === 'internal' ? saveInternalNote.isPending : sendReply.isPending}
                     sendDisabled={!canReply}
-                    onSend={() => sendReply.mutate({ id: conv._id, text: reply })}
+                    composeMode={composeMode}
+                    onComposeModeChange={setComposeMode}
+                    internalNoteDisabled={!detail?.contact && !conv.ticketRef}
+                    onSend={() => {
+                      if (composeMode === 'internal') {
+                        saveInternalNote.mutate(reply)
+                        return
+                      }
+                      sendReply.mutate({ id: conv._id, text: reply })
+                    }}
                     onImageAttach={
                       isWebChatConv && canReply
                         ? file => sendWebChatAttachment.mutate({ id: conv._id, file, caption: reply })
@@ -1106,23 +1183,43 @@ export default function Inbox() {
 
               {isTerminal && (
                 <footer className="shrink-0 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 px-4 py-3 text-xs text-[var(--rz-text-muted)] text-center">
-                  Conversa finalizada.
+                  Conversa encerrada. Reabra o atendimento para responder.
                 </footer>
               )}
             </>
           ) : null}
         </section>
 
-        {conv && !isWebChatConv && showHistoryPanel && (
-          <div ref={historyPanelRef} className="min-h-0 flex flex-col">
-            <InboxContactSidebar
-              contactStats={detail?.contactStats}
-              previousConversations={detail?.previousConversations}
-              selectedHistoryId={historyConvId}
-              onSelectHistory={setHistoryConvId}
-              currentConversationId={conv._id}
-            />
-          </div>
+        {conv && (
+          <InboxContactDetailsPanel
+            className={showDetailsPanel ? 'max-xl:flex' : 'max-xl:hidden'}
+            conversation={conv}
+            contact={detail?.contact}
+            contactStats={detail?.contactStats}
+            previousConversations={detail?.previousConversations}
+            isWebChat={isWebChatConv}
+            isTerminal={isTerminal}
+            historyConvId={historyConvId}
+            onSelectHistory={id => {
+              setHistoryConvId(id)
+            }}
+            onEditContact={detail?.contact ? () => setShowContactEditor(true) : undefined}
+            onAssign={() => assign.mutate(conv._id)}
+            onResolve={() => resolve.mutate(conv._id)}
+            onConvertTicket={!isWebChatConv ? () => convertTicket.mutate(conv._id) : undefined}
+            assignPending={assign.isPending}
+            resolvePending={resolve.isPending}
+            ticketPending={convertTicket.isPending}
+            showAccept={!isTerminal && Boolean(conv.canAccept && conv.priorityForMe)}
+            showPull={!isTerminal && convLiveCanPull && !conv.priorityForMe && conv.status === 'waiting_queue'}
+            showAssume={
+              !isTerminal &&
+              conv.status !== 'in_progress' &&
+              Boolean(conv.canAccept && !conv.priorityForMe && (!conv.suggestedUserId || conv.status === 'bot_triage'))
+            }
+            onSaveInternalNote={body => saveInternalNote.mutateAsync(body)}
+            savingNote={saveInternalNote.isPending}
+          />
         )}
         </div>
       </div>

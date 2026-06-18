@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button'
 import { Bot, Clock, Users, ArrowLeft, Save, Bell } from 'lucide-react'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
 import { cn } from '@/lib/utils'
+import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
+import { InboxBotFlowPreview } from '../../components/inbox/InboxBotFlowPreview'
 
 type Weekday =
   | 'monday'
@@ -74,6 +76,14 @@ const WEEKDAYS: Weekday[] = [
   'sunday',
 ]
 
+function CharCount({ value, max }: { value: string; max: number }) {
+  return (
+    <span className={cn('tabular-nums', value.length > max ? 'text-red-400' : 'text-[var(--rz-text-muted)]')}>
+      {value.length}/{max}
+    </span>
+  )
+}
+
 export default function InboxBotSettings() {
   const qc = useQueryClient()
   const { data: me } = useQuery<AuthUser | null>({
@@ -85,6 +95,15 @@ export default function InboxBotSettings() {
   const { data, isLoading } = useQuery({
     queryKey: ['inbox-settings'],
     queryFn: () => api.get<InboxSettings>('/inbox/settings'),
+    enabled: canManage,
+  })
+
+  const { data: departments = [] } = useQuery({
+    queryKey: ['inbox-departments', 'bot-preview'],
+    queryFn: () =>
+      api.get<Array<{ name: string; menuKey: string; clientVisible?: boolean; isActive?: boolean }>>(
+        '/inbox/departments?all=1',
+      ),
     enabled: canManage,
   })
 
@@ -143,6 +162,8 @@ export default function InboxBotSettings() {
       title="Bot do Inbox"
       description="Personalize o menu automático, horário comercial e distribuição de conversas."
     >
+      <InboxAtendimentoNav me={me} className="mb-4" />
+
       <div className="flex flex-wrap gap-2 mb-4">
         <Link to="/platform/inbox/setores">
           <Button size="sm" variant="secondary">
@@ -154,7 +175,8 @@ export default function InboxBotSettings() {
         </Link>
       </div>
 
-      <div className="space-y-6 max-w-3xl">
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px] max-w-6xl">
+        <div className="space-y-6">
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 text-brand-400">
             <Bot size={18} />
@@ -168,7 +190,10 @@ export default function InboxBotSettings() {
           </p>
 
           <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Boas-vindas (com nome da empresa)</span>
+            <span className="text-xs text-[var(--rz-text-muted)] flex justify-between">
+              <span>Boas-vindas (com nome da empresa)</span>
+              <CharCount value={form.welcomeWithCompany} max={500} />
+            </span>
             <textarea
               className={textareaCls}
               value={form.welcomeWithCompany}
@@ -451,15 +476,37 @@ export default function InboxBotSettings() {
           </label>
         </Card>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 sticky bottom-4 z-10 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/95 backdrop-blur p-3 shadow-lg">
           <Button onClick={() => save.mutate(form)} disabled={save.isPending}>
             <Save size={14} /> {save.isPending ? 'Salvando…' : 'Salvar configurações'}
           </Button>
-          {saved && <span className="text-sm text-brand-400">Salvo!</span>}
+          {saved && <span className="text-sm text-brand-400">Configurações salvas com sucesso!</span>}
           {save.isError && (
             <span className="text-sm text-red-400">{(save.error as Error).message}</span>
           )}
         </div>
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <Card className="p-4 space-y-3">
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Prévia do fluxo</h2>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              Atualiza conforme você edita as mensagens do menu.
+            </p>
+            <InboxBotFlowPreview
+              welcomeText={form.welcomeWithCompany}
+              menuIntro={form.menuIntro}
+              menuFooter={form.menuFooter}
+              queueMessage={form.queueMessage}
+              departmentOptions={
+                departments
+                  .filter(d => d.clientVisible !== false && d.isActive !== false)
+                  .slice(0, 6)
+                  .map(d => `${d.menuKey} — ${d.name}`) || undefined
+              }
+            />
+          </Card>
+        </aside>
       </div>
     </PlatformPage>
   )

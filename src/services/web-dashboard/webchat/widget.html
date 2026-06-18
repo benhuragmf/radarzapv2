@@ -32,6 +32,18 @@
       padding: 20px;
       margin-bottom: 16px;
     }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .links a {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      text-decoration: none;
+      font-size: .85rem;
+      font-weight: 500;
+    }
+    .links a:hover { background: #dbeafe; }
     code {
       background: #f1f5f9;
       padding: 2px 6px;
@@ -45,42 +57,27 @@
 <body>
   <header>
     <h1>Página de teste — WebChat RadarZap</h1>
-    <p>Widget carregado via script embed (dev: Vite :5174 com proxy → API :3001)</p>
+    <p>Atalho dev — modelos completos em Chat do site → Widgets</p>
   </header>
   <main>
     <div class="card">
       <p>
         Use o botão <strong>💬</strong> no canto da tela. Requer <code>npm run dev</code> e
-        <code>npm run dashboard:frontend</code> rodando.
+        <code>npm run dashboard:frontend</code>.
       </p>
-      <p>
-        Chave: <code id="widget-key-label"></code>
-      </p>
-      <p>
-        Outra chave: <code>?key=wck_...</code> na URL substitui a padrão.
-      </p>
+      <p>Chave: <code id="rz-preview-key">—</code> · override: <code>?key=wck_...</code></p>
+      <p id="rz-preview-status">Carregando…</p>
+      <div class="links">
+        <a href="/webchat/preview-classic.html">Clássico</a>
+        <a href="/webchat/preview-tech.html">Tecnológico</a>
+        <a href="/webchat/preview-saas.html">SaaS</a>
+        <a href="/webchat/preview-minimal.html">Minimalista</a>
+      </div>
     </div>
     <div class="card">
-      <p><strong>Painel:</strong> <a href="http://localhost:5174/platform/inbox?channel=webchat" target="_blank" rel="noreferrer">Inbox (chat do site)</a> · <a href="http://localhost:5174/platform/webchat" target="_blank" rel="noreferrer">Histórico</a></p>
+      <p><strong>Painel:</strong> <a href="/platform/webchat">Chat do site</a> · <a href="/platform/inbox?channel=webchat">Inbox</a></p>
     </div>
   </main>
-
-  <script>
-    (function () {
-      var DEFAULT_KEY = 'wck_a1677053ed6af040a3706f86a96ce97d';
-      var params = new URLSearchParams(location.search);
-      var key = params.get('key') || DEFAULT_KEY;
-      var label = document.getElementById('widget-key-label');
-      if (label) label.textContent = key;
-
-      var origin = location.origin;
-      var script = document.createElement('script');
-      script.src = origin + '/webchat/widget.js?v=2.10.14';
-      script.setAttribute('data-widget-key', key);
-      script.setAttribute('data-base-url', origin);
-      script.async = true;
-      document.body.appendChild(script);
-    })();
-  </script>
+  <script src="/webchat/preview-loader.js" data-default-key="wck_a1677053ed6af040a3706f86a96ce97d"></script>
 </body>
 </html>

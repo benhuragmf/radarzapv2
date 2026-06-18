@@ -8,6 +8,8 @@ export type WebChatMessageDirection = 'inbound' | 'outbound' | 'system';
 
 export type WebChatMessageMediaType = 'image' | 'document';
 
+export type WebChatWidgetTheme = 'light' | 'dark';
+
 export interface WebChatWidgetAppearance {
   primaryColor: string;
   position: WebChatWidgetPosition;
@@ -16,6 +18,7 @@ export interface WebChatWidgetAppearance {
   greeting: string;
   askName: boolean;
   askEmail: boolean;
+  theme: WebChatWidgetTheme;
 }
 
 export const DEFAULT_WEBCHAT_APPEARANCE: WebChatWidgetAppearance = {
@@ -26,6 +29,7 @@ export const DEFAULT_WEBCHAT_APPEARANCE: WebChatWidgetAppearance = {
   greeting: 'Olá! Como podemos ajudar?',
   askName: true,
   askEmail: true,
+  theme: 'light',
 };
 
 export const DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE =
@@ -43,6 +47,7 @@ export interface WebChatPublicConfig {
   position: WebChatWidgetPosition;
   askName: boolean;
   askEmail: boolean;
+  theme: WebChatWidgetTheme;
   isOnline: boolean;
   businessHoursEnabled: boolean;
   outsideHoursMessage: string;
@@ -83,6 +88,8 @@ export interface WebChatConversationDto {
   visitorName?: string;
   visitorEmail?: string;
   pageUrl?: string;
+  userAgent?: string;
+  createdAt?: string;
   lastMessageAt?: string;
   lastMessagePreview?: string;
   unreadCount?: number;

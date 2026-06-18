@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
@@ -9,7 +9,8 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Building2, Plus, Pencil, Users, UserPlus, Bot } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
-import { inputCls, LoadingState } from '@/design-system'
+import { inputCls, LoadingState, MetricCard } from '@/design-system'
+import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 
 const INTERNAL_RANK_TIERS = [
   { rank: 2, title: '2ª instância', hint: 'Atendentes da 1ª linha podem transferir para cá.' },
@@ -160,6 +161,13 @@ export default function InboxSectors() {
 
   const linkedTeam = team.filter(t => t.linked && t.userId)
 
+  const sectorStats = useMemo(() => {
+    const active = departments.filter(d => d.isActive).length
+    const publicMenus = departments.filter(d => d.clientVisible !== false).length
+    const internal = departments.filter(d => d.clientVisible === false).length
+    return { total: departments.length, active, publicMenus, internal }
+  }, [departments])
+
   function MemberPicker() {
     if (linkedTeam.length === 0) {
       return (
@@ -203,6 +211,8 @@ export default function InboxSectors() {
       title="Setores do Inbox"
       description="Setores visíveis aparecem no menu WhatsApp do cliente. Setores internos usam instâncias (2ª, 3ª…) — só quem está no nível anterior pode transferir para o próximo."
     >
+      <InboxAtendimentoNav me={me} className="mb-4" />
+
       <div className="flex flex-wrap gap-2 mb-4">
         <Link to="/platform/inbox">
           <Button size="sm" variant="secondary">← Voltar ao Inbox</Button>
@@ -223,6 +233,15 @@ export default function InboxSectors() {
           </Button>
         )}
       </div>
+
+      {!isLoading && departments.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <MetricCard title="Total de setores" value={sectorStats.total} icon={Building2} />
+          <MetricCard title="Setores ativos" value={sectorStats.active} icon={Users} />
+          <MetricCard title="Menus públicos" value={sectorStats.publicMenus} icon={Bot} />
+          <MetricCard title="Instâncias internas" value={sectorStats.internal} icon={Building2} />
+        </div>
+      )}
 
       {(creating || editingId) && (
         <Card className="mb-4 space-y-3">
@@ -312,7 +331,7 @@ export default function InboxSectors() {
       ) : (
         <div className="space-y-3">
           {departments.map(d => (
-            <Card key={d._id} className={!d.isActive ? 'opacity-60' : undefined}>
+            <Card key={d._id} className={!d.isActive ? 'opacity-60 border-dashed' : 'border-[var(--rz-border)]/80'}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1 flex-wrap">

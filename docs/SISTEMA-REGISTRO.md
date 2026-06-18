@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.10.11` (`package.json`) · **Última revisão doc:** 2026-06-17
+**Versão atual:** `2.10.18` (`package.json`) · **Última revisão doc:** 2026-06-18
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -68,6 +68,9 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.10.9** | Fix widget: encerramento reconhecido no visitante; botão fechar + rodapé sem composer — ver `WEBCHAT.md` |
 | **2.10.10** | Rate limit WebChat: limiter dedicado; dev relaxado — ver `WEBCHAT.md` |
 | **2.10.11** | Fix IA WebChat (contador usage); pré-chat nome/e-mail; widget aguarda formulário — ver `WEBCHAT.md` |
+| **2.10.16** | WebChat: modelos de preview (clássico, tecnológico, SaaS, minimal) + aplicar visual no painel — ver `WEBCHAT.md` |
+| **2.10.17** | WebChat widget: tema escuro (`appearance.theme`) alinhado ao modelo tecnológico — ver `WEBCHAT.md` |
+| **2.10.18** | Atendimento: upgrade visual (Inbox 3 colunas, métricas, Tickets/Setores/Bot/Respostas/Supervisor/WebChat/IA/Relatórios), paginação server-side em `GET /inbox/tickets` — ver `radarzap-inbox-upgrade.md` |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 

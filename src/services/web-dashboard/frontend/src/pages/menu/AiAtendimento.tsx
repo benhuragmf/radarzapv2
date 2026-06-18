@@ -23,6 +23,8 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react'
+import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
+import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { AiModelPicker, type AiModelOption } from '../../components/ai/AiModelPicker'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
@@ -292,17 +294,75 @@ export default function AiAtendimento() {
   }
 
   return (
-    <PlatformPage title="IA Atendimento">
+    <PlatformPage
+      title="IA Atendimento"
+      description="Configure triagem inteligente, base de conhecimento, skills e regras de transferência para humano."
+    >
+      <InboxAtendimentoNav me={me} className="mb-4" />
+
       <div className="max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3">
         <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
-          <ArrowLeft className="w-4 h-4" /> Inbox
+          <ArrowLeft className="w-4 h-4" /> Voltar ao Inbox
         </Link>
-        <span className="text-[var(--rz-text-muted)]">|</span>
-        <span className="inline-flex items-center gap-2 text-brand-400">
-          <Sparkles className="w-5 h-5" /> Triagem inteligente WhatsApp
+        <span className="inline-flex items-center gap-2 text-sm text-brand-400">
+          <Sparkles className="w-4 h-4" /> Assistente virtual WhatsApp e site
         </span>
       </div>
+
+      <InboxStatsRow
+        items={[
+          {
+            label: 'Status da IA',
+            value: form.settings.mode === 'disabled' ? 'Desligada' : 'Ativa',
+            icon: Sparkles,
+            colorClass: form.settings.mode === 'disabled' ? 'text-[var(--rz-text-muted)]' : 'text-emerald-400',
+            description:
+              form.settings.mode === 'radarzap'
+                ? 'Modo RadarZap'
+                : form.settings.mode === 'company'
+                  ? 'Chave da empresa'
+                  : 'Bot fixo',
+          },
+          {
+            label: 'Uso diário',
+            value: `${form.usage.dailyUsed}/${form.usage.dailyLimit}`,
+            icon: BarChart3,
+            colorClass: 'text-blue-400',
+            description: 'Chamadas hoje',
+            alert: form.usage.dailyUsed >= form.usage.dailyLimit * 0.9,
+          },
+          {
+            label: 'Uso mensal',
+            value: `${form.usage.monthlyUsed}/${form.usage.monthlyLimit}`,
+            icon: BarChart3,
+            colorClass: 'text-violet-400',
+            description: 'Chamadas no mês',
+          },
+          {
+            label: 'Skills pendentes',
+            value: (form.skills ?? []).filter(s => s.status === 'pending').length,
+            icon: Brain,
+            colorClass: 'text-amber-400',
+            description: 'Aguardando aprovação',
+            alert: (form.skills ?? []).some(s => s.status === 'pending'),
+          },
+          {
+            label: 'Memórias pendentes',
+            value: (form.memories ?? []).filter(m => m.status === 'pending').length,
+            icon: MessageSquare,
+            colorClass: 'text-amber-400',
+            description: 'Aguardando aprovação',
+          },
+          {
+            label: 'Base ativa',
+            value: form.knowledgeBase.filter(k => k.active).length,
+            icon: BookOpen,
+            colorClass: 'text-brand-400',
+            description: `${form.knowledgeBase.length} itens no total`,
+          },
+        ]}
+      />
 
       {form.blueprintInfo && (
         <Card className="p-4 mb-4 border-brand-800/40 bg-brand-950/20">
@@ -334,19 +394,23 @@ export default function AiAtendimento() {
         </Card>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-6 border-b border-[var(--rz-border)] pb-2">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm ${
-              tab === t.id ? 'bg-brand-600 text-white' : 'text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="rounded-xl bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 overflow-hidden">
+        <div className="flex gap-1 p-1 overflow-x-auto scrollbar-thin">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                tab === t.id
+                  ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
+                  : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === 'geral' && (
@@ -1161,10 +1225,10 @@ export default function AiAtendimento() {
       )}
 
       {tab !== 'testar' && tab !== 'logs' && (
-        <div className="mt-6 flex justify-end">
-          <Button type="button" onClick={handleSave} disabled={save.isPending}>
+        <div className="sticky bottom-4 z-10 flex justify-end">
+          <Button type="button" onClick={handleSave} disabled={save.isPending} className="shadow-lg">
             <Save className="w-4 h-4 mr-2" />
-            {save.isPending ? 'Salvando…' : 'Salvar'}
+            {save.isPending ? 'Salvando…' : 'Salvar configurações'}
           </Button>
         </div>
       )}

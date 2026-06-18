@@ -26,10 +26,16 @@ Em dev (`npm run dev` + `dashboard:frontend`), o Vite faz proxy de `/webchat` pa
 
 ### Páginas de teste (dev)
 
-| URL | Uso |
-|-----|-----|
-| `http://localhost:5174/webchat/widget.html` | Página fixa com chave de dev embutida (editável via `?key=`) |
-| `http://localhost:5174/webchat/demo.html?key=wck_...` | Demo genérica — exige `key` na URL |
+Escolha o modelo em **Chat do site → Widgets** (aplica cores/textos ao widget e abre preview).
+
+| URL | Modelo |
+|-----|--------|
+| `/webchat/preview-classic.html?key=wck_...` | Clássico — corporativo claro |
+| `/webchat/preview-tech.html?key=wck_...` | **Tecnológico** — dark, grid, suporte TI |
+| `/webchat/preview-saas.html?key=wck_...` | SaaS — gradiente roxo/rosa |
+| `/webchat/preview-minimal.html?key=wck_...` | Minimalista — branco e tipografia serif |
+| `/webchat/widget.html` | Atalho dev com links para todos os modelos |
+| `/webchat/demo.html?key=wck_...` | Legado (genérico) |
 
 Snippet equivalente ao `widget.html`:
 
@@ -69,6 +75,7 @@ Snippet equivalente ao `widget.html`:
 - Botão **×** no cabeçalho e **Fechar janela** após encerramento (2.10.9).
 - Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
 - Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
+- **Tema claro/escuro** (`appearance.theme`, 2.10.17): modelo **Tecnológico** aplica tema escuro (fundo `#060b14`, grid sutil, bolhas escuras). Editor: **Tema do chat** em Widgets.
 
 ## Resposta automática (2.9.4)
 

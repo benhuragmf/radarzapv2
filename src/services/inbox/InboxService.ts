@@ -2355,7 +2355,11 @@ export class InboxService {
     await this.ensureDepartments(clientId);
 
     const query: Record<string, unknown> = { clientId: clientOid };
-    if (filters.status) query.status = filters.status;
+    if (filters.status === 'closed') {
+      query.status = { $in: [InboxConversationStatus.CLOSED, InboxConversationStatus.RESOLVED] };
+    } else if (filters.status) {
+      query.status = filters.status;
+    }
     if (filters.departmentId) {
       query.departmentId = new mongoose.Types.ObjectId(filters.departmentId);
     }
@@ -2647,11 +2651,17 @@ export class InboxService {
       departmentId?: string;
       mine?: boolean;
       search?: string;
+      page?: number;
+      limit?: number;
     },
   ) {
     await this.syncLegacyTickets(clientId);
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const query: Record<string, unknown> = { clientId: clientOid, ...TICKET_NOT_DELETED };
+
+    const limit = Math.min(Math.max(filters.limit ?? 15, 1), 100);
+    const page = Math.max(filters.page ?? 1, 1);
+    const skip = (page - 1) * limit;
 
     if (filters.status && ['open', 'in_progress', 'client_replied', 'closed'].includes(filters.status)) {
       query.status = filters.status;
@@ -2663,7 +2673,9 @@ export class InboxService {
 
     const visibility = await this.departmentVisibility(clientId, userId);
     if (visibility.restricted) {
-      if (visibility.departmentIds.length === 0) return [];
+      if (visibility.departmentIds.length === 0) {
+        return { items: [], total: 0, page, limit };
+      }
       if (!filters.departmentId) {
         query.departmentId = { $in: visibility.departmentIds };
       }
@@ -2679,8 +2691,12 @@ export class InboxService {
       query.$or = [{ contactName: rx }, { contactIdentifier: rx }, { ticketRef: rx }];
     }
 
-    const rows = await InboxTicket.find(query).sort({ updatedAt: -1 }).limit(100).lean();
-    return this.enrichTicketRows(rows, clientId);
+    const [total, rows] = await Promise.all([
+      InboxTicket.countDocuments(query),
+      InboxTicket.find(query).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+    ]);
+    const items = await this.enrichTicketRows(rows, clientId);
+    return { items, total, page, limit };
   }
 
   async getTicketStats(clientId: string, userId: string) {

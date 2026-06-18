@@ -372,7 +372,7 @@ Respostas enriquecidas (2.7.0): `displayStatus`, `displayStatusLabel`, `teamSlaO
 
 | Método | Rota | Cap | Descrição |
 |--------|------|-----|-----------|
-| GET | `/inbox/tickets` | `inbox:view` | Lista tickets (+ `displayStatus`, SLA) |
+| GET | `/inbox/tickets` | `inbox:view` | Lista paginada: query `page` (1+), `limit` (1–100, padrão 15), `status`, `mine`, `search` → `{ items, total, page, limit }` |
 | GET | `/inbox/tickets/stats` | `inbox:view` | Contadores (+ `slaBreached`, `waitingTeam`) |
 | GET | `/inbox/tickets/:ref` | `inbox:view` | Detalhe + comentários + respostas do cliente |
 | PATCH | `/inbox/tickets/:ref` | `inbox:reply` | Atualizar responsável / `status` (`open`, `in_progress`, `client_replied`) |
