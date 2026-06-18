@@ -59,6 +59,7 @@ import {
 } from '../../config/limits';
 import { processContactImport } from '../destinations/contactCsvImportService';
 import { normalizeContactPhoneE164 } from '../../utils/contact-csv-import';
+import { parseTicketListQuery } from '../../utils/ticket-list-query.util';
 import { exportContactsCsv } from '../destinations/contactCsvExportService';
 import {
   PlatformTemplate,
@@ -1231,7 +1232,7 @@ export class DashboardService {
     r.get('/inbox/tickets', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { status, departmentId, mine, search, page, limit } = req.query as {
+        const { status, departmentId, mine, search, page: pageQ, limit: limitQ } = req.query as {
           status?: string;
           departmentId?: string;
           mine?: string;
@@ -1239,15 +1240,14 @@ export class DashboardService {
           page?: string;
           limit?: string;
         };
-        const parsedPage = Math.max(parseInt(String(page ?? '1'), 10) || 1, 1);
-        const parsedLimit = Math.min(Math.max(parseInt(String(limit ?? '15'), 10) || 15, 1), 100);
+        const { page, limit } = parseTicketListQuery({ page: pageQ, limit: limitQ });
         const result = await inboxSvc.listTickets(auth.clientId, auth.userId, {
           status,
           departmentId,
           mine: mine === '1' || mine === 'true',
           search,
-          page: parsedPage,
-          limit: parsedLimit,
+          page,
+          limit,
         });
         res.json(result);
       } catch (e) {

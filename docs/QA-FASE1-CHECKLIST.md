@@ -1,7 +1,7 @@
 # RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
 > **Versão alvo:** `2.10.19` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
-> **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Pré-check:** `npm run qa:prep`
+> **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Pré-check:** `npm run qa:prep` · **Resultado:** copiar [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
 
 **Execução:** _______________ · **Responsável:** _______________ · **Ambiente:** dev / piloto
 

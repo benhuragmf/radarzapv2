@@ -82,6 +82,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | Alta | CSAT bypass novo atendimento | `csat.util.test.ts` ✅ |
 | Alta | Ticket janela 12 h + `lastTeamMessageAt` | `ticket-reply-window.util.test.ts` ✅ |
 | Alta | Routing ticket vs inbox | `inbound-routing.test.ts` ✅ |
+| Alta | Paginação `GET /inbox/tickets` (`page`/`limit`) | `ticket-list-query.util.test.ts` ✅ |
 | **Média** | Integração `tryHandleCsatReply` + ordem inbound | **Falta** — `InboxService` ~4k linhas sem teste integrado |
 | Média | E2E rotas Atendimento (smoke login) | ✅ `e2e/atendimento-smoke.spec.ts` |
 | Média | E2E inbox autenticado | **Falta** |
