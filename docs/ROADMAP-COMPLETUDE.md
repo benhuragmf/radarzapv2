@@ -45,7 +45,7 @@ Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 - [ ] Roteiro **QA WhatsApp** — checklist em [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A
 - [ ] Nenhum bug **crítico aberto** em Inbox/Ticket/CSAT/IA por ≥ 1 ciclo completo de teste
 - [x] `npm test` + `npm run build` verdes — validado local 2026-06-18 (326 testes)
-- [ ] CI verde em `main`
+- [x] CI verde em `main` — validado 2026-06-18 (run 27785738989, 2.10.19)
 - [ ] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 (helpers + routing — ver § Testes)
 - [x] `ROADMAP` e changelog alinhados ao estado validado — 2.10.18
 

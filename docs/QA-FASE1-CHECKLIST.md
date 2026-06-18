@@ -71,7 +71,7 @@
 | QA painel (§ B + C) sem regressão visual/funcional | [ ] |
 | Nenhum bug crítico aberto após 1 ciclo completo | [ ] |
 | `npm test` + `npm run build` verdes | [x] validado local 2026-06-18 |
-| CI verde em `main` | [ ] — corrigido audit runtime em 2.10.19 (aguardando pipeline) |
+| CI verde em `main` | [x] validado 2026-06-18 (2.10.19) |
 | Testes helpers 2.8.8–2.8.11 (`csat`, `ticket-reply-window`, `inbound-routing`) | [x] em `npm test` |
 | ROADMAP + changelog alinhados | [x] 2.10.18 |
 
