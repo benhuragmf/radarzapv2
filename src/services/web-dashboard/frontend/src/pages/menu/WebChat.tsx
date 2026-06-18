@@ -149,7 +149,7 @@ function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/webchat/widget.js?v=2.10.17" data-widget-key="${publicKey}" async></script>`
+  return `<script src="${origin}/webchat/widget.js?v=2.10.24" data-widget-key="${publicKey}" async></script>`
 }
 
 export default function WebChat() {

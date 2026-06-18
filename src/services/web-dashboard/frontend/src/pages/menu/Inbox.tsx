@@ -564,66 +564,76 @@ export default function Inbox() {
 
   const inboxSelectCls = cn(selectCls, 'text-xs py-1.5')
   const inboxSearchCls = cn(inputCls, 'pl-9 text-sm')
+  const chatFocus = Boolean(selectedId)
 
   return (
-    <div className="flex flex-col min-h-[70vh] lg:h-[calc(100vh-5.5rem)] max-w-[1600px] -mx-1">
-      {/* Cabeçalho */}
-      <div className="shrink-0 mb-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
-              <InboxIcon size={22} className="text-brand-400" />
-              Inbox
-            </h1>
-            <p className="text-sm text-[var(--rz-text-muted)] mt-1 max-w-xl">
-              Atenda conversas do WhatsApp. Prioridades do round-robin aparecem destacadas — aceite ou puxe quando puder.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 shrink-0">
-            <Link to="/platform/inbox/tickets">
-              <Button size="sm" variant="secondary">
-                <Ticket size={14} /> Tickets
-              </Button>
-            </Link>
-            {canSupervise && (
-              <Link to="/platform/inbox/supervisor">
+    <div
+      className={cn(
+        'flex flex-col max-w-[1600px]',
+        chatFocus
+          ? 'h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8'
+          : 'min-h-[70vh] lg:h-[calc(100vh-5.5rem)] -mx-1',
+      )}
+    >
+      {/* Cabeçalho — compacto quando há conversa aberta */}
+      <div className={cn('shrink-0', chatFocus ? 'mb-2' : 'mb-4')}>
+        {!chatFocus && (
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
+                <InboxIcon size={22} className="text-brand-400" />
+                Inbox
+              </h1>
+              <p className="text-sm text-[var(--rz-text-muted)] mt-1 max-w-xl">
+                Atenda conversas do WhatsApp. Prioridades do round-robin aparecem destacadas — aceite ou puxe quando puder.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Link to="/platform/inbox/tickets">
                 <Button size="sm" variant="secondary">
-                  <Users size={14} /> Supervisor
+                  <Ticket size={14} /> Tickets
                 </Button>
               </Link>
-            )}
-            {can(me ?? null, 'inbox:reports:view') && (
-              <Link to="/platform/inbox/relatorios">
-                <Button size="sm" variant="secondary">
-                  <BarChart3 size={14} /> Relatórios
-                </Button>
-              </Link>
-            )}
-            {canManageSectors && (
-              <>
-                <Link to="/platform/inbox/bot">
+              {canSupervise && (
+                <Link to="/platform/inbox/supervisor">
                   <Button size="sm" variant="secondary">
-                    <Bot size={14} /> Bot
+                    <Users size={14} /> Supervisor
                   </Button>
                 </Link>
-                <Link to="/platform/inbox/respostas">
+              )}
+              {can(me ?? null, 'inbox:reports:view') && (
+                <Link to="/platform/inbox/relatorios">
                   <Button size="sm" variant="secondary">
-                    <Zap size={14} /> Respostas
+                    <BarChart3 size={14} /> Relatórios
                   </Button>
                 </Link>
-                <Link to="/platform/inbox/setores">
-                  <Button size="sm" variant="secondary">
-                    <Settings2 size={14} /> Setores
-                  </Button>
-                </Link>
-              </>
-            )}
+              )}
+              {canManageSectors && (
+                <>
+                  <Link to="/platform/inbox/bot">
+                    <Button size="sm" variant="secondary">
+                      <Bot size={14} /> Bot
+                    </Button>
+                  </Link>
+                  <Link to="/platform/inbox/respostas">
+                    <Button size="sm" variant="secondary">
+                      <Zap size={14} /> Respostas
+                    </Button>
+                  </Link>
+                  <Link to="/platform/inbox/setores">
+                    <Button size="sm" variant="secondary">
+                      <Settings2 size={14} /> Setores
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        <InboxAtendimentoNav me={me} className="mt-3" />
+        <InboxAtendimentoNav me={me} className={chatFocus ? undefined : 'mt-3'} />
 
-        {canInboxView && webchatQueueCount > 0 && (
+        {!chatFocus && canInboxView && webchatQueueCount > 0 && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
             <div className="flex items-center gap-2 text-amber-200">
               <Globe size={16} className="shrink-0" />
@@ -645,6 +655,7 @@ export default function Inbox() {
           </div>
         )}
 
+        {!chatFocus && (
         <InboxStatsRow
           className="mt-4"
           items={[
@@ -704,6 +715,7 @@ export default function Inbox() {
             },
           ]}
         />
+        )}
       </div>
 
       {/* Painel principal */}
@@ -886,11 +898,12 @@ export default function Inbox() {
 
         {/* Área do chat + histórico */}
         <div
-          className={`flex-1 min-w-0 flex flex-col xl:flex-row min-h-[360px] lg:min-h-0 ${
-            selectedId ? '' : 'max-lg:hidden'
-          }`}
+          className={cn(
+            'flex-1 min-w-0 flex flex-col xl:flex-row min-h-0',
+            selectedId ? '' : 'max-lg:hidden',
+          )}
         >
-        <section className="flex-1 min-w-0 flex flex-col bg-[var(--rz-surface)]/20 min-h-[360px] max-lg:min-h-[70vh]">
+        <section className="flex-1 min-w-0 flex flex-col bg-[var(--rz-surface)]/20 min-h-0">
           {!selectedId ? (
             <InboxEmptyChat
               queueCount={stats.queue}
@@ -906,9 +919,9 @@ export default function Inbox() {
           ) : conv ? (
             <>
               {/* Header do chat */}
-              <header className="shrink-0 px-4 py-3 border-b border-[var(--rz-border)]/80 bg-[var(--rz-surface)]/50 backdrop-blur-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
+              <header className="shrink-0 px-4 py-2 border-b border-[var(--rz-border)]/80 bg-[var(--rz-surface)]/50 backdrop-blur-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <button
                       type="button"
                       onClick={() => setShowDetailsPanel(v => !v)}
@@ -925,7 +938,7 @@ export default function Inbox() {
                     >
                       <ArrowLeft size={18} />
                     </button>
-                    <ContactAvatar name={conv.contactName} size="lg" />
+                    <ContactAvatar name={conv.contactName} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-[var(--rz-text-primary)] truncate">{conv.contactName}</p>
@@ -1096,7 +1109,7 @@ export default function Inbox() {
                 )}
               </header>
 
-              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[var(--rz-surface-muted)]/40 via-transparent to-transparent">
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2.5 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[var(--rz-surface-muted)]/40 via-transparent to-transparent">
                 {messages.length === 0 ? (
                   <p className="text-center text-sm text-[var(--rz-text-muted)] py-8">Nenhuma mensagem ainda.</p>
                 ) : (

@@ -61,7 +61,7 @@ export function TicketStatusBadge({
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                 : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] border-[var(--rz-border)]/60'
     return (
-      <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${color}`}>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium whitespace-nowrap ${color}`}>
         {label}
         {teamSlaOverdue ? ' · SLA' : ''}
       </span>

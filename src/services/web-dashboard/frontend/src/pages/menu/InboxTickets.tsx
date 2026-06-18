@@ -204,7 +204,7 @@ export default function InboxTickets() {
                     <th className="px-4 py-2.5 font-medium">Status</th>
                     <th className="px-4 py-2.5 font-medium hidden md:table-cell">Setor</th>
                     <th className="px-4 py-2.5 font-medium hidden lg:table-cell">Atendente</th>
-                    <th className="px-4 py-2.5 font-medium">Atualizado</th>
+                    <th className="px-4 py-2.5 font-medium hidden sm:table-cell">Atualizado</th>
                     <th className="px-4 py-2.5 font-medium text-right">Ações</th>
                   </tr>
                 </thead>
@@ -227,6 +227,9 @@ export default function InboxTickets() {
                         <p className="text-[11px] text-[var(--rz-text-muted)] truncate max-w-[160px]">
                           {formatContactIdentifier(t.contactIdentifier, t.contactName)}
                         </p>
+                        <p className="text-[10px] text-[var(--rz-text-muted)] sm:hidden tabular-nums mt-0.5">
+                          {formatInboxMsgTime(t.lastMessageAt, true)}
+                        </p>
                       </td>
                       <td className="px-4 py-3">
                         <TicketStatusBadge
@@ -245,7 +248,7 @@ export default function InboxTickets() {
                       <td className="px-4 py-3 text-[var(--rz-text-muted)] hidden lg:table-cell truncate max-w-[120px]">
                         {t.assignedUserName ?? '—'}
                       </td>
-                      <td className="px-4 py-3 text-[var(--rz-text-muted)] text-xs tabular-nums whitespace-nowrap">
+                      <td className="px-4 py-3 text-[var(--rz-text-muted)] text-xs tabular-nums whitespace-nowrap hidden sm:table-cell">
                         {formatInboxMsgTime(t.lastMessageAt, true)}
                       </td>
                       <td className="px-4 py-3 text-right">

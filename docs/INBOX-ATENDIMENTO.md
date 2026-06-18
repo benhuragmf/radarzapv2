@@ -450,7 +450,7 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 | GET | `/inbox/settings` | `inbox:department:manage` | Config do bot |
 | PATCH | `/inbox/settings` | `inbox:department:manage` | Salvar bot / horários / round-robin |
 | GET | `/inbox/reports` | `inbox:reports:view` | Métricas de atendimento (`from`, `to`) |
-| GET | `/inbox/supervisor/queue` | `inbox:supervise` | Fila ao vivo (supervisor) |
+| GET | `/inbox/supervisor/queue` | `inbox:supervise` | Fila ao vivo (supervisor) — WhatsApp + WebChat unificados (desde 2.10.20) |
 | POST | `/inbox/conversations/:id/reassign` | `inbox:supervise` | Reatribuir (`mode: suggest` \| `assign`) |
 
 ## Permissões

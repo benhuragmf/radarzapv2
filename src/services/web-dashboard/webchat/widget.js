@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.17';
+  var WIDGET_BUILD = '2.10.24';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -68,6 +68,88 @@
     } catch (e) {
       return '';
     }
+  }
+
+  var VISITOR_EMOJIS = [
+    '😀', '😊', '🙂', '😉', '😍', '🥰', '😘', '😎',
+    '🤔', '😅', '😢', '😭', '😡', '🙏', '👍', '👎',
+    '👋', '🙌', '💪', '❤️', '🔥', '✅', '❌', '⭐',
+    '🎉', '💯', '😂', '🤣', '🚗', '📍', '⏰', '💬',
+  ];
+
+  function panelSizeStyle() {
+    if (state.expanded) {
+      return (
+        'width:min(520px,calc(100vw - 24px));' +
+        'height:min(720px,calc(82dvh - 28px - env(safe-area-inset-bottom,0px)));'
+      );
+    }
+    return (
+      'width:clamp(320px,min(38vw,400px),calc(100vw - 20px));' +
+      'height:clamp(480px,min(68dvh,600px),calc(100dvh - 80px - env(safe-area-inset-bottom,0px)));'
+    );
+  }
+
+  function headerIconBtn(extra) {
+    return (
+      'width:34px;height:34px;border:1px solid rgba(255,255,255,.22);border-radius:10px;background:rgba(255,255,255,.12);color:#fff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;' +
+      (extra || '')
+    );
+  }
+
+  function renderEmojiPicker(t) {
+    if (!state.emojiPickerOpen) return '';
+    var cells = VISITOR_EMOJIS.map(function (em) {
+      return (
+        '<button type="button" class="rz-emoji-pick" data-emoji="' +
+        em +
+        '" title="' +
+        em +
+        '" style="border:none;background:transparent;font-size:22px;line-height:1;padding:7px 4px;border-radius:10px;cursor:pointer;transition:background .15s;">' +
+        em +
+        '</button>'
+      );
+    }).join('');
+    return (
+      '<div id="rz-webchat-emoji-picker" role="listbox" aria-label="Emojis" style="position:absolute;bottom:calc(100% + 8px);left:0;right:0;padding:10px;border-radius:16px;border:1px solid ' +
+      t.inputBorder +
+      ';background:' +
+      t.panelBg +
+      ';box-shadow:' +
+      t.panelShadow +
+      ';display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px;max-height:168px;overflow-y:auto;z-index:5;">' +
+      cells +
+      '</div>'
+    );
+  }
+  function insertAtCursor(input, text) {
+    if (!input) return;
+    var start = input.selectionStart;
+    var end = input.selectionEnd;
+    var val = input.value;
+    if (typeof start === 'number' && typeof end === 'number') {
+      input.value = val.slice(0, start) + text + val.slice(end);
+      var pos = start + text.length;
+      input.setSelectionRange(pos, pos);
+    } else {
+      input.value = val + text;
+    }
+    input.focus();
+  }
+
+  function renderPoweredBy(t) {
+    return (
+      '<div style="flex-shrink:0;padding:5px 10px 7px;text-align:center;background:' +
+      t.footerBg +
+      ';border-top:1px solid ' +
+      t.border +
+      ';">' +
+      '<span style="font-size:10px;line-height:1.35;color:' +
+      t.textMuted +
+      ';">Powered by <strong style="color:' +
+      primaryColor() +
+      ';font-weight:600;">RadarZap</strong></span></div>'
+    );
   }
 
   function visitorMediaSrc(mediaUrl) {
@@ -158,6 +240,8 @@
     sending: false,
     started: false,
     prechatError: '',
+    emojiPickerOpen: false,
+    expanded: false,
   };
 
   function needsPrechat() {
@@ -243,8 +327,20 @@
   document.body.appendChild(root);
 
   function positionStyle() {
-    var side = (state.config && state.config.position) === 'left' ? 'left:20px;' : 'right:20px;';
-    return side + 'bottom:20px;';
+    var isLeft = (state.config && state.config.position) === 'left';
+    var horizontal = isLeft
+      ? 'left:max(12px, env(safe-area-inset-left, 0px));'
+      : 'right:max(12px, env(safe-area-inset-right, 0px));';
+    return horizontal + 'bottom:max(12px, env(safe-area-inset-bottom, 0px));';
+  }
+
+  function applyRootPosition() {
+    var t = ui();
+    root.style.cssText =
+      'position:fixed;z-index:2147483000;font-family:' +
+      t.font +
+      ';' +
+      positionStyle();
   }
 
   function primaryColor() {
@@ -273,6 +369,8 @@
         textMuted: '#64748b',
         bubbleAgent: '#e5e7eb',
         bubbleAgentText: '#111827',
+        bubbleVisitor: primaryColor(),
+        bubbleVisitorText: '#fff',
         bubbleSystem: '#f3f4f6',
         bubbleSystemText: '#374151',
         dismissBg: '#fff',
@@ -310,6 +408,8 @@
       textMuted: '#94a3b8',
       bubbleAgent: '#1e293b',
       bubbleAgentText: '#e2e8f0',
+      bubbleVisitor: '#f8fafc',
+      bubbleVisitorText: '#0f172a',
       bubbleSystem: 'rgba(148,163,184,.14)',
       bubbleSystemText: '#94a3b8',
       dismissBg: 'transparent',
@@ -332,12 +432,13 @@
   }
 
   function renderBubble() {
+    var savedInput = '';
+    var inputEl = document.getElementById('rz-webchat-input');
+    if (inputEl) savedInput = inputEl.value;
+    applyRootPosition();
     var t = ui();
-    root.style.fontFamily = t.font;
     root.innerHTML =
-      '<div style="' +
-      positionStyle() +
-      'display:flex;flex-direction:column;align-items:' +
+      '<div style="display:flex;flex-direction:column;align-items:' +
       ((state.config && state.config.position) === 'left' ? 'flex-start' : 'flex-end') +
       ';">' +
       (state.open ? renderPanel() : '') +
@@ -352,6 +453,7 @@
       toggle.onclick = function () {
         state.open = !state.open;
         state.prechatError = '';
+        state.emojiPickerOpen = false;
         if (state.open && !state.started && !needsPrechat()) {
           startSession();
         }
@@ -359,6 +461,8 @@
       };
     }
     bindPanelEvents();
+    var newInput = document.getElementById('rz-webchat-input');
+    if (newInput && savedInput) newInput.value = savedInput;
     scrollMessages();
   }
 
@@ -442,45 +546,43 @@
 
     var messagesHtml = state.messages
       .map(function (m) {
-        var align = m.direction === 'inbound' ? 'flex-end' : 'flex-start';
-        var bg =
-          m.direction === 'system'
-            ? t.bubbleSystem
-            : m.direction === 'inbound'
-              ? primaryColor()
-              : t.bubbleAgent;
-        var color =
-          m.direction === 'system'
-            ? t.bubbleSystemText
-            : m.direction === 'inbound'
-              ? '#fff'
-              : t.bubbleAgentText;
-        var nameLabel =
-          m.direction === 'outbound' && m.senderName
-            ? '<div style="font-size:10px;font-weight:600;opacity:.85;margin-bottom:4px;">' +
-              escHtml(m.senderName) +
-              '</div>'
+        var isInbound = m.direction === 'inbound';
+        var isSystem = m.direction === 'system';
+        var align = isInbound ? 'flex-end' : 'flex-start';
+        var bg = isSystem ? t.bubbleSystem : isInbound ? t.bubbleVisitor : t.bubbleAgent;
+        var color = isSystem ? t.bubbleSystemText : isInbound ? t.bubbleVisitorText : t.bubbleAgentText;
+        var radius = isInbound
+          ? '18px 18px 4px 18px'
+          : isSystem
+            ? '12px'
+            : '18px 18px 18px 4px';
+        var meta =
+          !isInbound && !isSystem && m.senderName
+            ? escHtml(m.senderName) + ' · '
             : '';
+        meta += formatTime(m.createdAt);
         return (
-          '<div style="display:flex;justify-content:' +
-          align +
-          ';margin:6px 0;">' +
-          '<div style="max-width:85%;padding:10px 12px;border-radius:' +
-          (isDarkTheme() ? '12px 12px 12px 4px' : '14px') +
+          '<div style="display:flex;flex-direction:column;align-items:' +
+          (isInbound ? 'flex-end' : 'flex-start') +
+          ';margin:10px 0;max-width:88%;' +
+          (isInbound ? 'margin-left:auto;' : '') +
+          '">' +
+          '<div style="padding:12px 14px;border-radius:' +
+          radius +
           ';background:' +
           bg +
           ';color:' +
           color +
-          ';font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word;' +
-          (m.direction === 'inbound' && isDarkTheme()
-            ? 'box-shadow:0 2px 12px rgba(6,182,212,.25);border-radius:12px 12px 4px 12px;'
-            : '') +
+          ';font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word;' +
+          (isInbound ? 'box-shadow:0 2px 12px rgba(0,0,0,.12);' : '') +
           '">' +
-          nameLabel +
           renderMessageBody(m) +
-          '<div style="font-size:10px;opacity:.7;margin-top:4px;">' +
-          formatTime(m.createdAt) +
-          '</div></div></div>'
+          '</div>' +
+          '<div style="font-size:10px;color:' +
+          t.textMuted +
+          ';margin-top:5px;padding:0 4px;">' +
+          meta +
+          '</div></div>'
         );
       })
       .join('');
@@ -530,37 +632,56 @@
       ';color:#fff;font-weight:600;cursor:pointer;">Iniciar conversa</button></div>';
 
     var messagesBlock =
-      '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:12px 14px;background:' +
+      '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:16px 14px 12px;background:' +
       t.messagesBg +
       (isDarkTheme()
-        ? ';background-image:linear-gradient(rgba(34,211,238,.03) 1px, transparent 1px),linear-gradient(90deg, rgba(34,211,238,.03) 1px, transparent 1px);background-size:24px 24px;'
+        ? ';background-image:linear-gradient(rgba(34,211,238,.025) 1px, transparent 1px),linear-gradient(90deg, rgba(34,211,238,.025) 1px, transparent 1px);background-size:28px 28px;'
         : '') +
       '">' +
       messagesHtml +
       '</div>';
 
-    var composer =
-      '<form id="rz-webchat-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid ' +
-      t.border +
-      ';background:' +
-      t.footerBg +
-      ';align-items:center;">' +
-      '<input type="file" id="rz-webchat-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" />' +
-      '<button type="button" id="rz-webchat-attach" title="Enviar imagem" style="padding:10px 12px;border:1px solid ' +
+    var toolBtn =
+      'padding:0;width:34px;height:34px;border:1px solid ' +
       t.inputBorder +
       ';border-radius:999px;background:' +
       t.attachBg +
-      ';cursor:pointer;font-size:16px;line-height:1;">📎</button>' +
-      '<input id="rz-webchat-input" placeholder="Digite sua mensagem..." autocomplete="off" style="flex:1;padding:10px 12px;border:1px solid ' +
+      ';cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;color:' +
+      t.textMuted +
+      ';';
+
+    var composer =
+      '<div style="flex-shrink:0;padding:10px 12px 6px;background:' +
+      t.footerBg +
+      ';border-top:1px solid ' +
+      t.border +
+      ';position:relative;">' +
+      renderEmojiPicker(t) +
+      '<form id="rz-webchat-form">' +
+      '<input type="file" id="rz-webchat-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" />' +
+      '<div style="border:1px solid ' +
       t.inputBorder +
-      ';border-radius:999px;font-size:14px;background:' +
+      ';border-radius:18px;background:' +
       t.inputBg +
-      ';color:' +
+      ';padding:10px 12px 8px;">' +
+      '<textarea id="rz-webchat-input" rows="1" placeholder="Envie uma mensagem..." autocomplete="off" style="width:100%;min-height:22px;max-height:120px;padding:0;border:none;font-size:14px;line-height:1.45;background:transparent;color:' +
       t.inputColor +
-      ';" />' +
-      '<button type="submit" style="padding:10px 14px;border:none;border-radius:999px;background:' +
+      ';outline:none;resize:none;font-family:inherit;"></textarea>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:8px;">' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<button type="button" id="rz-webchat-attach" title="Anexar arquivo" style="' +
+      toolBtn +
+      '">+</button>' +
+      '<button type="button" id="rz-webchat-emoji" title="Emojis" aria-expanded="' +
+      (state.emojiPickerOpen ? 'true' : 'false') +
+      '" style="' +
+      toolBtn +
+      '">😊</button>' +
+      '</div>' +
+      '<button type="submit" id="rz-webchat-send" title="Enviar" style="width:38px;height:38px;border:none;border-radius:999px;background:' +
       primaryColor() +
-      ';color:#fff;font-weight:600;cursor:pointer;">Enviar</button></form>';
+      ';color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.18);">↑</button>' +
+      '</div></div></form></div>';
 
     var panelBody = '';
     if (mode === 'prechat') {
@@ -578,28 +699,56 @@
       (isDarkTheme() ? 'dark' : 'light') +
       '" data-rz-build="' +
       WIDGET_BUILD +
-      '" style="width:min(360px,calc(100vw - 40px));height:480px;margin-bottom:12px;background:' +
+      '" style="' +
+      panelSizeStyle() +
+      ';margin-bottom:12px;background:' +
       t.panelBg +
       ';border:' +
       t.panelBorder +
-      ';border-radius:16px;box-shadow:' +
+      ';border-radius:20px;box-shadow:' +
       t.panelShadow +
       ';display:flex;flex-direction:column;overflow:hidden;">' +
-      '<div style="padding:14px 16px;background:' +
-      t.headerBg +
-      ';color:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">' +
-      '<div style="min-width:0;">' +
-      '<div style="font-weight:700;font-size:16px;">' +
+      '<div style="flex-shrink:0;background:' +
+      (isDarkTheme() ? t.headerBg : '#fff') +
+      ';color:' +
+      (isDarkTheme() ? '#fff' : t.text) +
+      ';border-bottom:1px solid ' +
+      t.border +
+      ';">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 0;">' +
+      '<button type="button" id="rz-webchat-expand" aria-label="' +
+      (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
+      '" title="' +
+      (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
+      '" style="' +
+      headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
+      '">' +
+      (state.expanded ? '⤡' : '⤢') +
+      '</button>' +
+      '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" title="Fechar" style="' +
+      headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
+      '">×</button>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 16px 14px;gap:6px;">' +
+      '<div style="width:44px;height:44px;border-radius:999px;background:' +
+      (isDarkTheme() ? 'rgba(255,255,255,.16)' : primaryColor() + '18') +
+      ';border:1px solid ' +
+      (isDarkTheme() ? 'rgba(255,255,255,.2)' : t.inputBorder) +
+      ';display:flex;align-items:center;justify-content:center;font-size:20px;color:' +
+      (isDarkTheme() ? '#fff' : primaryColor()) +
+      ';">💬</div>' +
+      '<div style="font-weight:700;font-size:15px;line-height:1.2;">' +
       escHtml(title) +
       '</div>' +
-      (subtitle ? '<div style="font-size:12px;opacity:.9;margin-top:2px;">' + escHtml(subtitle) + '</div>' : '') +
+      (subtitle
+        ? '<div style="font-size:12px;opacity:.82;line-height:1.35;">' + escHtml(subtitle) + '</div>'
+        : '<div style="font-size:12px;opacity:.72;">Assistente virtual</div>') +
       (visitorLabel && mode === 'chat'
-        ? '<div style="font-size:11px;opacity:.85;margin-top:4px;">' + visitorLabel + '</div>'
+        ? '<div style="font-size:11px;opacity:.7;">' + visitorLabel + '</div>'
         : '') +
-      '</div>' +
-      '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" style="flex-shrink:0;width:32px;height:32px;border:none;border-radius:999px;background:rgba(255,255,255,.2);color:#fff;font-size:18px;line-height:1;cursor:pointer;">×</button>' +
-      '</div>' +
+      '</div></div>' +
       panelBody +
+      renderPoweredBy(t) +
       '</div>'
     );
   }
@@ -626,6 +775,15 @@
     if (closeBtn) {
       closeBtn.onclick = function () {
         state.open = false;
+        state.emojiPickerOpen = false;
+        state.expanded = false;
+        renderBubble();
+      };
+    }
+    var expandBtn = document.getElementById('rz-webchat-expand');
+    if (expandBtn) {
+      expandBtn.onclick = function () {
+        state.expanded = !state.expanded;
         renderBubble();
       };
     }
@@ -643,6 +801,19 @@
         sendMessage();
       };
     }
+    var chatInput = document.getElementById('rz-webchat-input');
+    if (chatInput) {
+      chatInput.onkeydown = function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      };
+      chatInput.oninput = function () {
+        chatInput.style.height = 'auto';
+        chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+      };
+    }
     var attachBtn = document.getElementById('rz-webchat-attach');
     var fileInput = document.getElementById('rz-webchat-file');
     if (attachBtn && fileInput) {
@@ -653,6 +824,24 @@
         if (!fileInput.files || !fileInput.files[0]) return;
         sendAttachment(fileInput.files[0]);
         fileInput.value = '';
+      };
+    }
+    var emojiBtn = document.getElementById('rz-webchat-emoji');
+    if (emojiBtn) {
+      emojiBtn.onclick = function (e) {
+        e.preventDefault();
+        state.emojiPickerOpen = !state.emojiPickerOpen;
+        renderBubble();
+      };
+    }
+    var emojiPicks = document.getElementsByClassName('rz-emoji-pick');
+    for (var ei = 0; ei < emojiPicks.length; ei++) {
+      emojiPicks[ei].onclick = function (e) {
+        e.preventDefault();
+        var em = this.getAttribute('data-emoji') || '';
+        var input = document.getElementById('rz-webchat-input');
+        insertAtCursor(input, em);
+        if (input && input.oninput) input.oninput();
       };
     }
   }
@@ -772,18 +961,48 @@
       });
   }
 
+  function sendMessageWithText(text) {
+    var trimmed = String(text || '').trim();
+    if (!trimmed || state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
+    state.sending = true;
+    state.emojiPickerOpen = false;
+    apiFetch(baseUrl, '/messages', {
+      method: 'POST',
+      headers: { 'X-WebChat-Visitor': state.visitorToken },
+      body: JSON.stringify({ body: trimmed }),
+    })
+      .then(function (data) {
+        if (data.message) pushChatMessages([data.message]);
+        if (data.replies && data.replies.length) pushChatMessages(data.replies);
+        renderBubble();
+      })
+      .catch(function (err) {
+        console.error('[RadarZap WebChat]', err.message);
+        if (String(err.message).toLowerCase().indexOf('encerr') >= 0) {
+          markConversationClosed();
+          renderBubble();
+        }
+      })
+      .finally(function () {
+        state.sending = false;
+      });
+  }
+
   function sendMessage() {
     if (state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
     var input = document.getElementById('rz-webchat-input');
     if (!input) return;
     var text = input.value.trim();
     if (!text) return;
-    state.sending = true;
+    var draft = text;
     input.value = '';
+    input.style.height = 'auto';
+    state.sending = true;
+    state.emojiPickerOpen = false;
     apiFetch(baseUrl, '/messages', {
       method: 'POST',
       headers: { 'X-WebChat-Visitor': state.visitorToken },
-      body: JSON.stringify({ body: text }),
+      body: JSON.stringify({ body: draft }),
     })
       .then(function (data) {
         if (data.message) pushChatMessages([data.message]);
@@ -796,7 +1015,8 @@
           markConversationClosed();
           renderBubble();
         } else {
-          input.value = text;
+          var inp = document.getElementById('rz-webchat-input');
+          if (inp) inp.value = draft;
         }
       })
       .finally(function () {

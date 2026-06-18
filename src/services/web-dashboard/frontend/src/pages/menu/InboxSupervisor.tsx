@@ -28,11 +28,22 @@ interface Conversation {
   contactName: string
   status: string
   departmentName?: string
+  widgetName?: string
   assignedUserName?: string
   suggestedUserName?: string
   suggestedAt?: string
   pullTimeoutSeconds?: number
   priorityForMe?: boolean
+}
+
+const STATUS_BADGE: Record<string, 'green' | 'blue' | 'yellow'> = {
+  bot_triage: 'yellow',
+  waiting_queue: 'blue',
+  in_progress: 'green',
+}
+
+function isWebChatConv(id: string): boolean {
+  return id.startsWith('wc:')
 }
 
 interface TeamOption {
@@ -75,8 +86,8 @@ export default function InboxSupervisor() {
   })
 
   const { data: activeConversations = [] } = useQuery({
-    queryKey: ['inbox-conversations', 'in_progress'],
-    queryFn: () => api.get<Conversation[]>('/inbox/conversations?status=in_progress'),
+    queryKey: ['inbox-conversations', 'in_progress', 'all'],
+    queryFn: () => api.get<Conversation[]>('/inbox/conversations?status=in_progress&channel=all'),
     refetchInterval: 30_000,
   })
 
@@ -201,7 +212,7 @@ export default function InboxSupervisor() {
                     <div>
                       <p className="font-medium text-sm text-[var(--rz-text-primary)]">{c.contactName}</p>
                       <p className="text-xs text-[var(--rz-text-muted)] mt-0.5">
-                        {[c.departmentName, c.assignedUserName && `· ${c.assignedUserName}`]
+                        {[c.widgetName, c.departmentName, c.assignedUserName && `· ${c.assignedUserName}`]
                           .filter(Boolean)
                           .join(' ')}
                         {c.suggestedUserName && (
@@ -218,18 +229,20 @@ export default function InboxSupervisor() {
                     <div className="flex items-center gap-2">
                       <Badge
                         label={STATUS_LABEL[c.status] ?? c.status}
-                        variant={c.status === 'in_progress' ? 'green' : 'blue'}
+                        variant={STATUS_BADGE[c.status] ?? 'blue'}
                       />
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setReassignFor(c._id)
-                          setMode('suggest')
-                        }}
-                      >
-                        <Eye size={14} /> Reatribuir
-                      </Button>
+                      {!isWebChatConv(c._id) && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setReassignFor(c._id)
+                            setMode('suggest')
+                          }}
+                        >
+                          <Eye size={14} /> Reatribuir
+                        </Button>
+                      )}
                       <Link to={`/platform/inbox?conv=${c._id}`}>
                         <Button size="sm" variant="secondary">Abrir</Button>
                       </Link>

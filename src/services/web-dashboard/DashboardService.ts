@@ -1911,12 +1911,24 @@ export class DashboardService {
     r.get('/inbox/supervisor/queue', requireCapability(Cap.INBOX_SUPERVISE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const rows = await inboxSvc.listSupervisorQueue(auth.clientId, auth.userId);
-        const active = rows.filter(r => {
-          const status = String((r as { status?: string }).status ?? '');
-          return ['waiting_queue', 'in_progress', 'bot_triage'].includes(status);
-        });
-        res.json(active);
+        const whatsappRows = (await inboxSvc.listSupervisorQueue(auth.clientId, auth.userId)).map(
+          r => ({ ...r, channel: (r as { channel?: string }).channel ?? 'whatsapp_qr' }),
+        );
+        const webchatRows = await WebChatService.getInstance().listForInbox(
+          auth.clientId,
+          auth.userId,
+          {},
+        );
+        const activeStatuses = new Set(['waiting_queue', 'in_progress', 'bot_triage']);
+        const merged = [...whatsappRows, ...webchatRows]
+          .filter(r => activeStatuses.has(String((r as { status?: string }).status ?? '')))
+          .sort(
+            (a, b) =>
+              new Date(String(b.lastMessageAt)).getTime() -
+              new Date(String(a.lastMessageAt)).getTime(),
+          )
+          .slice(0, 100);
+        res.json(merged);
       } catch (e) {
         res.status(403).json({ error: (e as Error).message });
       }
@@ -5385,7 +5397,7 @@ export class DashboardService {
     startOfDay.setHours(0, 0, 0, 0);
 
     const wa = WhatsAppService.getInstance();
-    const [contactsCount, messagesToday, waState, org, queuePending, discordRules] =
+    const [contactsCount, messagesToday, sessionDetails, org, queuePending, discordRules] =
       await Promise.all([
         Destination.countDocuments({ clientId: clientOid, type: 'contact', isActive: true }),
         SystemLog.countDocuments({
@@ -5393,7 +5405,10 @@ export class DashboardService {
           message: 'Message sent successfully',
           timestamp: { $gte: startOfDay },
         }),
-        wa.getConnectionState(auth!.clientId).catch(() => ({ state: 'close', status: 'disconnected' })),
+        wa.getSessionDetails(auth!.clientId).catch(() => ({
+          status: 'disconnected' as const,
+          state: 'close' as const,
+        })),
         Organization.findById(orgOid).lean(),
         MessageQueue.countDocuments({
           clientId: clientOid,
@@ -5403,15 +5418,13 @@ export class DashboardService {
       ]);
 
     const linkedGuilds = org?.linkedGuildIds?.length ?? 0;
-    const waStatus =
-      (waState as { status?: string }).status ??
-      ((waState as { state?: string }).state === 'open' ? 'connected' : 'disconnected');
+    const waStatus = sessionDetails.status ?? 'disconnected';
 
     return {
       contactsCount,
       messagesToday,
       waStatus,
-      waState: (waState as { state?: string }).state ?? 'close',
+      waState: sessionDetails.state ?? 'close',
       queuePending,
       discord: {
         linkedGuilds,
