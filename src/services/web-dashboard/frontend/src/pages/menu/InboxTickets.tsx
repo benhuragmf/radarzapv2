@@ -95,8 +95,8 @@ export default function InboxTickets() {
 
   return (
     <PlatformPage
-      title="Tickets de atendimento"
-      description="Chamados abertos a partir do Inbox. Permanecem abertos para a equipe mesmo após finalizar o chat WhatsApp."
+      title="Chamados de atendimento"
+      description="Chamados abertos a partir da caixa de entrada. Permanecem abertos para a equipe mesmo após finalizar o chat WhatsApp."
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
 
@@ -185,11 +185,11 @@ export default function InboxTickets() {
             description={
               statusFilter || mineOnly || search
                 ? 'Ajuste os filtros ou limpe a busca.'
-                : 'Converta uma conversa no Inbox usando o ícone de ticket.'
+                : 'Converta uma conversa na caixa de entrada usando o ícone de ticket.'
             }
             action={
               <Link to="/platform/inbox" className="text-sm text-[var(--rz-primary)] hover:underline">
-                Ir para o Inbox
+                Ir para a caixa de entrada
               </Link>
             }
           />

@@ -90,7 +90,7 @@ function ApiPlaygroundPage() {
   return (
     <RadarPageShell maxWidth="wide" className="space-y-6">
       <PageHeader
-        title="Playground"
+        title="Testar API"
         subtitle="Teste envios e respostas da API sem sair do painel."
       />
       <ApiPlayground />

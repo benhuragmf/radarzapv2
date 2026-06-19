@@ -132,14 +132,14 @@ export default function InboxSupervisor() {
 
   return (
     <PlatformPage
-      title="Supervisor"
+      title="Supervisão"
       description="Fila ao vivo, redistribuição de conversas e monitoramento da equipe em tempo real."
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">← Inbox</Button>
+          <Button size="sm" variant="secondary">← Caixa de Entrada</Button>
         </Link>
         <Button size="sm" variant="secondary" onClick={refresh} disabled={isFetching}>
           <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Atualizar
@@ -313,7 +313,7 @@ export default function InboxSupervisor() {
               <h3 className="text-sm font-semibold text-[var(--rz-text-primary)]">Ações rápidas</h3>
               <Link to="/platform/inbox?status=waiting_queue" className="block">
                 <Button size="sm" variant="secondary" className="w-full justify-start">
-                  Abrir fila no Inbox
+                  Abrir fila na caixa de entrada
                 </Button>
               </Link>
               <Link to="/platform/inbox/tickets" className="block">

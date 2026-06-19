@@ -136,12 +136,12 @@ export default function InboxQuickReplies() {
 
   return (
     <PlatformPage
-      title="Respostas rápidas do Inbox"
+      title="Respostas rápidas"
       description="Atalhos digitados no chat ajudam o atendente a responder mais rápido com mensagens padronizadas e precisas."
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
-          <ArrowLeft size={14} /> Voltar ao Inbox
+          <ArrowLeft size={14} /> Caixa de Entrada
         </Link>
         <InboxAtendimentoNav me={me} className="flex-1 min-w-0" />
       </div>

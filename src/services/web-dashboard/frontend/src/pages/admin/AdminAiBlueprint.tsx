@@ -111,7 +111,7 @@ export default function AdminAiBlueprint() {
   return (
     <RadarPageShell maxWidth="wide">
       <PageHeader
-        title="Blueprint IA (RadarZap)"
+        title="Modelo global de IA (RadarZap)"
         subtitle={
           <>
             Cérebro padrão de <strong>todos</strong> os tenants. Fluxo eficiente:{' '}

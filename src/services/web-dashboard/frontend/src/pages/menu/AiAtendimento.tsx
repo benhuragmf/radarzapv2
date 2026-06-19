@@ -229,7 +229,7 @@ export default function AiAtendimento() {
 
   if (!canManage) {
     return (
-      <PlatformPage title="IA Atendimento">
+      <PlatformPage title="IA de Atendimento">
         <p className="text-[var(--rz-text-muted)]">Sem permissão para configurar IA.</p>
       </PlatformPage>
     )
@@ -237,7 +237,7 @@ export default function AiAtendimento() {
 
   if (isLoading || !form) {
     return (
-      <PlatformPage title="IA Atendimento">
+      <PlatformPage title="IA de Atendimento">
         <LoadingState rows={4} className="pt-4" />
       </PlatformPage>
     )
@@ -295,7 +295,7 @@ export default function AiAtendimento() {
 
   return (
     <PlatformPage
-      title="IA Atendimento"
+      title="IA de Atendimento"
       description="Configure triagem inteligente, base de conhecimento, skills e regras de transferência para humano."
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
@@ -303,7 +303,7 @@ export default function AiAtendimento() {
       <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
-          <ArrowLeft className="w-4 h-4" /> Voltar ao Inbox
+          <ArrowLeft className="w-4 h-4" /> Voltar à caixa de entrada
         </Link>
         <span className="inline-flex items-center gap-2 text-sm text-brand-400">
           <Sparkles className="w-4 h-4" /> Assistente virtual WhatsApp e site

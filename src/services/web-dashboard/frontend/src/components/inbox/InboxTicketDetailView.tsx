@@ -160,7 +160,7 @@ export function InboxTicketDetailView({
             <div className="flex flex-wrap gap-2 shrink-0">
               <Link to={`/platform/inbox?conv=${conv._id}`}>
                 <Button size="sm" variant="secondary">
-                  <MessageSquare size={14} /> Abrir no Inbox
+                  <MessageSquare size={14} /> Abrir na caixa de entrada
                 </Button>
               </Link>
               {contact && (

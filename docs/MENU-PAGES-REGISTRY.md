@@ -2,6 +2,8 @@
 
 Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
+**Nomes visuais do menu (labels):** ver `docs/menu-renaming-audit.md` — rotas abaixo permanecem estáveis; labels exibidos vêm de `navConfig.ts` (`PAGE_TITLES`).
+
 ## Plataforma (tenant)
 
 | Rota | Componente | API principal |

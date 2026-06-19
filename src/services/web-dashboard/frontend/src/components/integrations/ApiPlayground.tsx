@@ -41,7 +41,7 @@ export function ApiPlayground() {
     <Card className="space-y-4 border-brand-800/30">
       <div className="flex items-center gap-2 text-brand-300 font-medium text-sm">
         <Zap size={16} />
-        Playground API
+        Testar API
       </div>
       <p className="text-xs text-[var(--rz-text-muted)]">
         Testa o mesmo contrato de <code className="text-[var(--rz-text-muted)]">POST /api/integrations/playground</code>.

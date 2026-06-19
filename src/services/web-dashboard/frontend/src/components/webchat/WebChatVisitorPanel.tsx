@@ -201,7 +201,7 @@ export function WebChatVisitorPanel({ visitor, canInbox, messageCount, className
         {canInbox && isOpen && (
           <Link to={inboxWebChatUrl(visitor.id)} className="block">
             <Button size="sm" className="w-full justify-start">
-              <InboxIcon size={14} /> Atender no Inbox
+              <InboxIcon size={14} /> Atender na caixa de entrada
             </Button>
           </Link>
         )}
@@ -218,12 +218,12 @@ export function WebChatVisitorPanel({ visitor, canInbox, messageCount, className
 
         {isOpen && canInbox && (
           <p className="text-[10px] text-[var(--rz-text-muted)] pt-2 border-t border-[var(--rz-border)]/60">
-            O atendimento ativo é feito pelo Inbox. Esta tela é para histórico e contexto do visitante.
+            O atendimento ativo é feito na caixa de entrada. Esta tela é para histórico e contexto do visitante.
           </p>
         )}
         {!isOpen && (
           <p className="text-[10px] text-[var(--rz-text-muted)] pt-2 border-t border-[var(--rz-border)]/60">
-            Conversa encerrada. O atendimento é feito pelo Inbox.
+            Conversa encerrada. O atendimento é feito na caixa de entrada.
           </p>
         )}
       </div>

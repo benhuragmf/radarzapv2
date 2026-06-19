@@ -712,7 +712,7 @@ export default function Inbox() {
             <div>
               <h1 className="text-xl font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
                 <InboxIcon size={22} className="text-brand-400" />
-                Inbox
+                Caixa de Entrada
               </h1>
               <p className="text-sm text-[var(--rz-text-muted)] mt-1 max-w-xl">
                 Atenda conversas do WhatsApp. Prioridades do round-robin aparecem destacadas — aceite ou puxe quando puder.
@@ -779,7 +779,7 @@ export default function Inbox() {
             </div>
             <Link to="/platform/inbox?status=waiting_queue&channel=webchat">
               <Button size="sm" variant="secondary">
-                Ver fila no Inbox
+                Ver fila na caixa de entrada
               </Button>
             </Link>
           </div>

@@ -35,7 +35,7 @@ const WA_LABEL: Record<string, string> = {
 const QUICK_LINKS = [
   { to: '/send', label: 'Enviar agora', icon: Send },
   { to: '/contact', label: 'Contatos', icon: Phone },
-  { to: '/platform/templates', label: 'Modelos', icon: FileText },
+  { to: '/platform/templates', label: 'Modelos de mensagem', icon: FileText },
   { to: '/platform/reports', label: 'Relatórios', icon: ScrollText },
 ] as const
 

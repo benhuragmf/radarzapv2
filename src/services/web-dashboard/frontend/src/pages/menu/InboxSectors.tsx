@@ -151,7 +151,7 @@ export default function InboxSectors() {
 
   if (!canManage) {
     return (
-      <PlatformPage title="Setores do Inbox">
+      <PlatformPage title="Setores de atendimento">
         <Card className="text-center py-12 text-[var(--rz-text-muted)]">
           Apenas dono ou administrador pode gerenciar setores.
         </Card>
@@ -208,14 +208,14 @@ export default function InboxSectors() {
 
   return (
     <PlatformPage
-      title="Setores do Inbox"
+      title="Setores de atendimento"
       description="Setores visíveis aparecem no menu WhatsApp do cliente. Setores internos usam instâncias (2ª, 3ª…) — só quem está no nível anterior pode transferir para o próximo."
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
 
       <div className="flex flex-wrap gap-2 mb-4">
         <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">← Voltar ao Inbox</Button>
+          <Button size="sm" variant="secondary">← Caixa de Entrada</Button>
         </Link>
         <Link to="/platform/inbox/bot">
           <Button size="sm" variant="secondary">

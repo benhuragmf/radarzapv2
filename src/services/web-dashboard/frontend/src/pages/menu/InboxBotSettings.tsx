@@ -125,7 +125,7 @@ export default function InboxBotSettings() {
 
   if (!canManage) {
     return (
-      <PlatformPage title="Bot do Inbox" description="Sem permissão.">
+      <PlatformPage title="Triagem e Bot" description="Sem permissão.">
         <p className="text-sm text-[var(--rz-text-muted)]">Apenas dono ou administrador pode configurar o bot.</p>
       </PlatformPage>
     )
@@ -133,7 +133,7 @@ export default function InboxBotSettings() {
 
   if (isLoading || !form) {
     return (
-      <PlatformPage title="Bot do Inbox" description="Carregando configurações…">
+      <PlatformPage title="Triagem e Bot" description="Carregando configurações…">
         <LoadingState rows={4} className="pt-4" />
       </PlatformPage>
     )
@@ -159,7 +159,7 @@ export default function InboxBotSettings() {
 
   return (
     <PlatformPage
-      title="Bot do Inbox"
+      title="Triagem e Bot"
       description="Personalize o menu automático, horário comercial e distribuição de conversas."
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
@@ -171,7 +171,7 @@ export default function InboxBotSettings() {
           </Button>
         </Link>
         <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">Abrir Inbox</Button>
+          <Button size="sm" variant="secondary">Abrir caixa de entrada</Button>
         </Link>
       </div>
 

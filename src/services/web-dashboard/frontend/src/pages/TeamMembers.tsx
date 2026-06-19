@@ -234,14 +234,14 @@ export default function TeamMembers() {
         <p className="text-xs text-[var(--rz-text-muted)] mt-2 max-w-xl">
           Membros com papel <span className="text-[var(--rz-text-muted)]">Atendente</span>,{' '}
           <span className="text-[var(--rz-text-muted)]">Atendente 2ª instância</span> ou{' '}
-          <span className="text-[var(--rz-text-muted)]">Gerente</span> podem usar o Inbox. Crie papéis
+          <span className="text-[var(--rz-text-muted)]">Gerente</span> podem usar a caixa de entrada. Crie papéis
           personalizados em <span className="text-[var(--rz-text-muted)]">Papéis do sistema</span> (+ Novo papel).
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {can(me ?? null, 'inbox:view') && (
             <Link to="/platform/inbox">
               <Button size="sm" variant="secondary">
-                <MessageSquare size={14} /> Inbox
+                <MessageSquare size={14} /> Caixa de Entrada
               </Button>
             </Link>
           )}
@@ -269,7 +269,7 @@ export default function TeamMembers() {
         </div>
         {(role === 'ATTENDANT' || role === 'MANAGER') && tab === 'equipe' && (
           <p className="text-[11px] text-amber-500/80 mt-3">
-            Convite selecionado: {ROLE_LABEL[role]} — inclui permissões de Inbox conforme o papel
+            Convite selecionado: {ROLE_LABEL[role]} — inclui permissões da caixa de entrada conforme o papel
             configurado em Papéis do sistema.
           </p>
         )}

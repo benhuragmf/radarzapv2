@@ -1,27 +1,27 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
-  MessageSquare,
+  Inbox,
   Ticket,
   Building2,
   Bot,
-  Zap,
+  MessageSquareText,
   Eye,
   BarChart3,
   Sparkles,
-  Globe,
+  PanelTop,
 } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
 
 const LINKS = [
-  { to: '/platform/inbox', label: 'Inbox', icon: MessageSquare, cap: 'inbox:view' },
-  { to: '/platform/inbox/tickets', label: 'Tickets', icon: Ticket, cap: 'inbox:view' },
+  { to: '/platform/inbox', label: 'Caixa de Entrada', icon: Inbox, cap: 'inbox:view' },
+  { to: '/platform/inbox/tickets', label: 'Chamados', icon: Ticket, cap: 'inbox:view' },
   { to: '/platform/inbox/setores', label: 'Setores', icon: Building2, cap: 'inbox:department:manage' },
-  { to: '/platform/inbox/bot', label: 'Bot', icon: Bot, cap: 'inbox:department:manage' },
+  { to: '/platform/inbox/bot', label: 'Triagem e Bot', icon: Bot, cap: 'inbox:department:manage' },
   { to: '/platform/inbox/ia', label: 'IA', icon: Sparkles, cap: 'inbox:ai:manage' },
-  { to: '/platform/inbox/respostas', label: 'Respostas', icon: Zap, cap: 'inbox:department:manage' },
-  { to: '/platform/inbox/supervisor', label: 'Supervisor', icon: Eye, cap: 'inbox:supervise' },
-  { to: '/platform/inbox/relatorios', label: 'Relatórios', icon: BarChart3, cap: 'inbox:reports:view' },
-  { to: '/platform/webchat', label: 'Histórico site', icon: Globe, cap: 'webchat:view' },
+  { to: '/platform/inbox/respostas', label: 'Respostas', icon: MessageSquareText, cap: 'inbox:department:manage' },
+  { to: '/platform/inbox/supervisor', label: 'Supervisão', icon: Eye, cap: 'inbox:supervise' },
+  { to: '/platform/inbox/relatorios', label: 'Métricas', icon: BarChart3, cap: 'inbox:reports:view' },
+  { to: '/platform/webchat', label: 'Chat do Site', icon: PanelTop, cap: 'webchat:view' },
 ] as const
 
 interface Props {

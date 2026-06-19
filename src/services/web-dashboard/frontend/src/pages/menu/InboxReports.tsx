@@ -76,14 +76,14 @@ export default function InboxReports() {
 
   return (
     <PlatformPage
-      title="Relatórios de atendimento"
+      title="Métricas de atendimento"
       description="Volume, tempos de fila, primeira resposta e desempenho por setor e atendente."
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">← Inbox</Button>
+          <Button size="sm" variant="secondary">← Caixa de Entrada</Button>
         </Link>
         <select
           value={days}

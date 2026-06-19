@@ -38,7 +38,7 @@ export default function Settings({ user, onUserUpdate }: Props) {
 
   return (
     <RadarPageShell maxWidth="wide">
-      <PageHeader title="Configurações" subtitle="Empresa, conta, integrações API e limites." />
+      <PageHeader title="Configurações da empresa" subtitle="Conta, integrações API, equipe e limites." />
       <div className="space-y-6 w-full max-w-4xl">
       <section id="empresa">
         <h2 className="text-lg font-semibold mb-3">Dados da empresa</h2>

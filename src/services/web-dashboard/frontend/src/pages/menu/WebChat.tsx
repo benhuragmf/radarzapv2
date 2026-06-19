@@ -353,7 +353,7 @@ export default function WebChat() {
 
   if (!canView) {
     return (
-      <PlatformPage title="Chat do site">
+      <PlatformPage title="Chat do Site">
         <Card className="p-6 text-sm text-[var(--rz-text-muted)]">
           Você não tem permissão para acessar o chat do site.
         </Card>
@@ -363,8 +363,8 @@ export default function WebChat() {
 
   return (
     <PlatformPage
-      title="Chat do site"
-      description="Configure o widget no site e consulte o histórico — o atendimento ativo é no Inbox."
+      title="Chat do Site"
+      description="Configure o widget no site e consulte o histórico — o atendimento ativo é na caixa de entrada."
     >
       {canInbox && <InboxAtendimentoNav me={me} className="mb-4" />}
 
@@ -372,7 +372,7 @@ export default function WebChat() {
         <div
           className="inline-flex w-fit gap-1 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/50 p-1"
           role="tablist"
-          aria-label="Chat do site"
+          aria-label="Chat do Site"
         >
           <button
             type="button"
@@ -434,7 +434,7 @@ export default function WebChat() {
             ) : null}
             Atendimento no{' '}
             <Link to="/platform/inbox?channel=webchat" className="text-brand-400 hover:underline">
-              Inbox
+              Caixa de Entrada
             </Link>
           </p>
         )}
@@ -444,7 +444,7 @@ export default function WebChat() {
         <p className="mb-4 rounded-lg border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/30 px-3 py-2 text-xs text-[var(--rz-text-muted)]">
           Esta aba é somente leitura. Para assumir, responder ou usar comandos rápidos, abra a conversa no{' '}
           <Link to="/platform/inbox?channel=webchat" className="font-medium text-brand-400 hover:underline">
-            Inbox
+            caixa de entrada
           </Link>
           .
         </p>
@@ -643,7 +643,7 @@ export default function WebChat() {
               {canInbox && (
                 <div className="p-3 border-t border-[var(--rz-border)]/80 shrink-0">
                   <Link to="/platform/inbox?channel=webchat" className="text-xs text-brand-400 hover:underline">
-                    Ver todas no Inbox →
+                    Ver todas na caixa de entrada →
                   </Link>
                 </div>
               )}
@@ -661,7 +661,7 @@ export default function WebChat() {
                   <MessageSquare size={32} className="text-[var(--rz-text-muted)]/40 mb-3" />
                   <p className="text-sm font-medium text-[var(--rz-text-secondary)]">Selecione uma conversa</p>
                   <p className="text-xs text-[var(--rz-text-muted)] mt-1 max-w-xs">
-                    Escolha um visitante na lista para ver o histórico. Atendimento ativo é feito pelo Inbox.
+                    Escolha um visitante na lista para ver o histórico. Atendimento ativo é feito na caixa de entrada.
                   </p>
                 </div>
               ) : loadingDetail ? (
@@ -705,7 +705,7 @@ export default function WebChat() {
                     {canInbox && selected.status === 'open' && (
                       <Link to={inboxWebChatUrl(selectedId)}>
                         <Button size="sm">
-                          <InboxIcon size={14} /> Inbox
+                          <InboxIcon size={14} /> Caixa de Entrada
                         </Button>
                       </Link>
                     )}
@@ -715,7 +715,7 @@ export default function WebChat() {
                     <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
                       Na fila —{' '}
                       <Link to={inboxWebChatUrl(selectedId)} className="font-medium underline">
-                        atender no Inbox
+                        atender na caixa de entrada
                       </Link>
                     </div>
                   )}
@@ -778,12 +778,12 @@ export default function WebChat() {
                       <>
                         Atendimento ativo pelo{' '}
                         <Link to={inboxWebChatUrl(selectedId)} className="text-brand-400 hover:underline">
-                          Inbox
+                          Caixa de Entrada
                         </Link>
                         .
                       </>
                     ) : (
-                      'Conversa encerrada. O atendimento é feito pelo Inbox.'
+                      'Conversa encerrada. O atendimento é feito na caixa de entrada.'
                     )}
                   </footer>
                 </>
@@ -1481,7 +1481,7 @@ function WidgetEditorCard({
               checked={form.useInboxBusinessHours}
               onChange={e => setForm(f => ({ ...f, useInboxBusinessHours: e.target.checked }))}
             />
-            Usar horário do Inbox WhatsApp
+            Usar horário da caixa de entrada (WhatsApp)
           </label>
           {!form.useInboxBusinessHours && (
             <div className="mt-3 space-y-3">
