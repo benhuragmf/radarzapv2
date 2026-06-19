@@ -1,8 +1,23 @@
 /** Comandos operacionais via WhatsApp (!assumir, !ticket, …) — Fase D. */
 
-export type WhatsappAgentCommandName = 'assumir' | 'ticket' | 'encerrar' | 'ajuda' | 'help';
+export type WhatsappAgentCommandName =
+  | 'assumir'
+  | 'ticket'
+  | 'encerrar'
+  | 'encerrarchat'
+  | 'sairchat'
+  | 'fecharchat'
+  | 'ajuda'
+  | 'help';
 
-const COMMAND_RE = /^!(assumir|ticket|encerrar|ajuda|help)(?:\s+(.+))?$/i;
+const CHAT_END_ALIASES = new Set(['encerrarchat', 'sairchat', 'fecharchat']);
+
+const COMMAND_RE =
+  /^!(assumir|ticket|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+(.+))?$/i;
+
+export function isWhatsappChatEndCommand(command: WhatsappAgentCommandName): boolean {
+  return CHAT_END_ALIASES.has(command);
+}
 
 export function parseWhatsappAgentCommand(
   text: string,
@@ -30,7 +45,8 @@ export const WHATSAPP_AGENT_COMMAND_HELP = [
   '',
   '!assumir TK-XXXX — assumir chamado (chat do site ou WhatsApp)',
   '!ticket TK-XXXX — resumo do chamado',
-  '!encerrar TK-XXXX — encerrar chamado',
+  '!encerrarchat TK-XXXX — encerrar só o chat WhatsApp (chamado continua aberto)',
+  '!encerrar TK-XXXX — finalizar chamado e conversa',
   '!ajuda — esta mensagem',
   '',
   'Com bridge ativo: responda normalmente ou TK-XXXX sua mensagem (vários chamados).',

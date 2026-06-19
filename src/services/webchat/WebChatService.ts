@@ -2535,6 +2535,59 @@ export class WebChatService {
     });
   }
 
+  /** Desativa bridge WhatsApp sem fechar chamado/conversa (comando !encerrarchat). */
+  async endWhatsappBridgeOnly(
+    clientId: string,
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') {
+      throw new Error('Conversa já está encerrada.');
+    }
+    if (!conversation.whatsappBridgeActive) {
+      throw new Error('Bridge WhatsApp não está ativo neste chamado.');
+    }
+
+    await deactivateWhatsappBridge(clientId, conversationId);
+
+    const agent = await User.findById(userId).select('displayName email').lean();
+    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+
+    await this.appendMessage(conversation, {
+      direction: 'system',
+      body: `${agentName} encerrou o atendimento via WhatsApp. O chamado permanece aberto — você pode continuar aqui no chat ou aguardar retorno.`,
+      senderUserId: userId,
+      senderName: agentName,
+    });
+
+    const reloaded = await WebChatConversation.findById(conversation._id);
+    if (!reloaded) return;
+
+    const clientIdStr = String(reloaded.clientId);
+    const convId = String(reloaded._id);
+    const widget = await WebChatWidget.findById(reloaded.widgetId).select('name').lean();
+    const dept = reloaded.departmentId
+      ? await InboxDepartment.findById(reloaded.departmentId).select('name').lean()
+      : null;
+    const conversationDto = this.toConversationDto(reloaded, widget?.name, dept?.name);
+
+    emitWebChatToTenant(clientIdStr, 'webchat:conversation', {
+      clientId: clientIdStr,
+      conversationId: convId,
+      conversation: conversationDto,
+    });
+    emitWebChatToVisitor(convId, 'webchat:conversation', {
+      clientId: clientIdStr,
+      conversationId: convId,
+      conversation: conversationDto,
+    });
+  }
+
   async closeConversation(
     clientId: string,
     conversationId: string,

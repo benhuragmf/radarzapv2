@@ -222,6 +222,55 @@ async function handleTicketSummary(clientId: string, ticketRef: string): Promise
   return lines.join('\n');
 }
 
+async function handleEncerrarChat(
+  clientId: string,
+  userId: string,
+  ticketRef: string,
+): Promise<string> {
+  const { ticket, webChat } = await findTicketByRef(clientId, ticketRef);
+
+  if (!webChat && !ticket?.webChatConversationId) {
+    return `Chamado ${ticketRef} não é chat do site. Use !encerrar para finalizar o chamado.`;
+  }
+
+  const conversation =
+    webChat ??
+    (await WebChatConversation.findOne({
+      _id: ticket!.webChatConversationId,
+      clientId: new mongoose.Types.ObjectId(clientId),
+    }));
+  if (!conversation) return `Conversa de ${ticketRef} não encontrada.`;
+
+  if (conversation.status === 'closed') {
+    return `Conversa de ${ticketRef} já está encerrada.`;
+  }
+
+  if (!conversation.whatsappBridgeActive) {
+    return [
+      `Bridge WhatsApp não está ativo em ${ticketRef}.`,
+      'Use !encerrar para finalizar o chamado e a conversa.',
+    ].join('\n');
+  }
+
+  try {
+    await WebChatService.getInstance().endWhatsappBridgeOnly(
+      clientId,
+      String(conversation._id),
+      userId,
+    );
+  } catch (err) {
+    return (err as Error).message || `Não foi possível encerrar o chat de ${ticketRef}.`;
+  }
+
+  return [
+    `Chat WhatsApp de ${ticketRef} encerrado.`,
+    'Chamado permanece aberto no painel.',
+    'Visitante pode continuar no site; você atende pelo Inbox.',
+    '',
+    'Para finalizar o chamado: !encerrar ' + ticketRef.replace(/^TK-/i, ''),
+  ].join('\n');
+}
+
 async function handleEncerrar(
   clientId: string,
   userId: string,
@@ -266,7 +315,7 @@ async function handleEncerrar(
       );
     }
 
-    return `Chamado ${ticketRef} encerrado. Visitante notificado no chat do site.`;
+    return `Chamado ${ticketRef} finalizado. Visitante notificado no chat do site.`;
   }
 
   if (ticket && ticketIsActive(ticket.status)) {
@@ -328,6 +377,11 @@ export async function handleWhatsappAgentCommand(
         break;
       case 'encerrar':
         response = await handleEncerrar(input.clientId, agent.userId, ticketRef);
+        break;
+      case 'encerrarchat':
+      case 'sairchat':
+      case 'fecharchat':
+        response = await handleEncerrarChat(input.clientId, agent.userId, ticketRef);
         break;
       default:
         response = WHATSAPP_AGENT_COMMAND_HELP;

@@ -43,7 +43,10 @@ export function buildWhatsAppFallbackAlertBody(input: {
     `Para ver resumo:`,
     `!ticket ${ticketNum}`,
     '',
-    `Para encerrar:`,
+    `Para encerrar só o chat WhatsApp:`,
+    `!encerrarchat ${ticketNum}`,
+    '',
+    `Para finalizar o chamado:`,
     `!encerrar ${ticketNum}`,
   ].filter((line): line is string => Boolean(line));
   return lines.join('\n');

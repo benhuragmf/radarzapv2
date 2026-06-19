@@ -114,7 +114,8 @@
 | E3 | Comando `!foo` no WA | **Não** aparece no widget | [ ] |
 | E4 | Inbox: conversa mostra badge **Bridge WA** | Lista + cabeçalho | [ ] |
 | E5 | Painel: atendente também responde pelo Inbox | Visitante vê (paridade painel) | [ ] |
-| E6 | `!encerrar TK-XXXX` no WA | Chamado fechado; bridge desativado; visitante notificado | [ ] |
+| E6 | `!encerrarchat TK-XXXX` no WA | Bridge desativado; chamado **permanece aberto**; visitante avisado | [ ] |
+| E7 | `!encerrar TK-XXXX` no WA | Chamado fechado; conversa encerrada; visitante notificado | [ ] |
 
 ---
 

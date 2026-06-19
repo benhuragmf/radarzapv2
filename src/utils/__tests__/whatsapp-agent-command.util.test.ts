@@ -32,8 +32,20 @@ describe('whatsapp-agent-command.util', () => {
     expect(normalizeCommandTicketRef('TK-XYZ')).toBe('TK-XYZ');
   });
 
+  it('parses encerrarchat aliases', () => {
+    expect(parseWhatsappAgentCommand('!encerrarchat L4O2V2')).toEqual({
+      command: 'encerrarchat',
+      arg: 'L4O2V2',
+    });
+    expect(parseWhatsappAgentCommand('!sairchat TK-ABC')).toEqual({
+      command: 'sairchat',
+      arg: 'TK-ABC',
+    });
+  });
+
   it('includes help text for all commands', () => {
     expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!assumir');
+    expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!encerrarchat');
     expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!encerrar');
   });
 });

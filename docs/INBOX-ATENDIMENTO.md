@@ -482,7 +482,7 @@ Quando ninguém está online no painel e uma conversa **WebChat** entra na fila:
 2. Alerta enviado via `WhatsAppService.sendInternalAlert` (sessão Baileys da empresa).
 3. Atendente autorizado (WhatsApp em **Equipe** + `inbox:reply`) responde `!assumir TK-…` → assume no painel + **bridge** (`whatsappBridgeActive` na conversa).
 4. Visitante ↔ atendente: mensagens espelhadas site ↔ WhatsApp pessoal do atendente (texto; anexos = aviso no WA).
-5. Comandos `!` interceptados **antes** do fluxo cliente; `!encerrar` desativa bridge.
+5. Comandos `!` interceptados **antes** do fluxo cliente: `!encerrarchat` desativa só o bridge (chamado aberto); `!encerrar` finaliza chamado e conversa.
 
 **Presença:** socket `agent:heartbeat` a cada 45s (`useAgentPresenceHeartbeat` no `Layout.tsx`); timeout configurável (padrão 90s) — `inbox-agent-presence.ts`.
 
