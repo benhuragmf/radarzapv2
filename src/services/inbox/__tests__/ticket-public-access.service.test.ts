@@ -2,14 +2,18 @@ import mongoose from 'mongoose';
 import {
   lookupTicketByPublicAccess,
   assignInboxTicketPublicAccessToken,
-  resendTicketPublicAccessToken,
+  requestTicketTokenResendOtp,
+  confirmTicketTokenResendOtp,
+  TICKET_TOKEN_RESEND_REQUEST_MSG,
   TICKET_TOKEN_RESEND_SUCCESS_MSG,
+  TICKET_TOKEN_RESEND_OTP_INVALID_MSG,
 } from '@/services/inbox/ticket-public-access.service';
 import { InboxTicket } from '@/models/InboxTicket';
 import {
   resetTicketLookupRateLimits,
   resetTicketTokenResendLimits,
 } from '@/services/inbox/ticket-public-lookup-rate-limit';
+import { resetTicketTokenResendOtpStore, storeTicketResendOtp } from '@/services/inbox/ticket-token-resend-otp';
 import { hashTicketPublicAccessToken } from '@/utils/ticket-public-access.util';
 
 const sendInternalAlert = jest.fn().mockResolvedValue({ success: true });
@@ -51,6 +55,7 @@ describe('ticket-public-access.service lookup', () => {
   beforeEach(() => {
     resetTicketLookupRateLimits();
     resetTicketTokenResendLimits();
+    resetTicketTokenResendOtpStore();
     jest.clearAllMocks();
   });
 
@@ -128,7 +133,7 @@ describe('assignInboxTicketPublicAccessToken', () => {
   });
 });
 
-describe('resendTicketPublicAccessToken', () => {
+describe('ticket token resend OTP flow', () => {
   const clientId = new mongoose.Types.ObjectId().toString();
 
   function mockFindOneTicket(ticket: object | null) {
@@ -140,20 +145,20 @@ describe('resendTicketPublicAccessToken', () => {
   beforeEach(() => {
     resetTicketLookupRateLimits();
     resetTicketTokenResendLimits();
+    resetTicketTokenResendOtpStore();
     sendInternalAlert.mockClear();
     emailSend.mockClear();
     jest.clearAllMocks();
   });
 
-  it('sends new token via WhatsApp when phone matches ticket', async () => {
-    const save = jest.fn().mockResolvedValue(undefined);
+  it('sends OTP via WhatsApp when phone matches ticket', async () => {
     mockFindOneTicket({
       ticketRef: 'TK-L402V2',
       contactIdentifier: '5566996819456',
-      save,
+      save: jest.fn().mockResolvedValue(undefined),
     });
 
-    const result = await resendTicketPublicAccessToken({
+    const result = await requestTicketTokenResendOtp({
       clientId,
       ticketRef: 'L402V2',
       channel: 'whatsapp',
@@ -161,22 +166,60 @@ describe('resendTicketPublicAccessToken', () => {
       remoteIp: '127.0.0.1',
     });
 
+    expect(result.message).toBe(TICKET_TOKEN_RESEND_REQUEST_MSG);
+    expect(sendInternalAlert).toHaveBeenCalledTimes(1);
+    expect(sendInternalAlert.mock.calls[0][2]).toMatch(/Código:/);
+    expect(emailSend).not.toHaveBeenCalled();
+  });
+
+  it('delivers access token after valid OTP confirm', async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    mockFindOneTicket({
+      ticketRef: 'TK-L402V2',
+      contactIdentifier: '5566996819456',
+      save,
+    });
+
+    await requestTicketTokenResendOtp({
+      clientId,
+      ticketRef: 'L402V2',
+      channel: 'whatsapp',
+      phone: '66996819456',
+      remoteIp: '127.0.0.1',
+    });
+
+    const otpText = sendInternalAlert.mock.calls[0][2] as string;
+    const codeMatch = otpText.match(/Código: \*(\d{6})\*/);
+    expect(codeMatch).toBeTruthy();
+    const code = codeMatch![1]!;
+
+    sendInternalAlert.mockClear();
+
+    const result = await confirmTicketTokenResendOtp({
+      clientId,
+      ticketRef: 'L402V2',
+      channel: 'whatsapp',
+      phone: '66996819456',
+      verificationCode: code,
+      remoteIp: '127.0.0.1',
+    });
+
+    expect(result.ok).toBe(true);
     expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
     expect(sendInternalAlert).toHaveBeenCalledTimes(1);
-    expect(emailSend).not.toHaveBeenCalled();
+    expect(sendInternalAlert.mock.calls[0][2]).toMatch(/Token:/);
     expect(save).toHaveBeenCalled();
   });
 
-  it('sends new token via email when address matches ticket', async () => {
-    const save = jest.fn().mockResolvedValue(undefined);
+  it('sends OTP via email when address matches ticket', async () => {
     mockFindOneTicket({
       ticketRef: 'TK-EMAIL1',
       contactIdentifier: 'cliente@example.com',
       contactName: 'Cliente',
-      save,
+      save: jest.fn().mockResolvedValue(undefined),
     });
 
-    const result = await resendTicketPublicAccessToken({
+    const result = await requestTicketTokenResendOtp({
       clientId,
       ticketRef: 'TK-EMAIL1',
       channel: 'email',
@@ -184,10 +227,9 @@ describe('resendTicketPublicAccessToken', () => {
       remoteIp: '127.0.0.1',
     });
 
-    expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
+    expect(result.message).toBe(TICKET_TOKEN_RESEND_REQUEST_MSG);
     expect(emailSend).toHaveBeenCalledTimes(1);
     expect(sendInternalAlert).not.toHaveBeenCalled();
-    expect(save).toHaveBeenCalled();
   });
 
   it('returns generic message without sending when contact mismatches', async () => {
@@ -197,7 +239,7 @@ describe('resendTicketPublicAccessToken', () => {
       save: jest.fn(),
     });
 
-    const result = await resendTicketPublicAccessToken({
+    const result = await requestTicketTokenResendOtp({
       clientId,
       ticketRef: 'TK-L402V2',
       channel: 'whatsapp',
@@ -205,8 +247,37 @@ describe('resendTicketPublicAccessToken', () => {
       remoteIp: '127.0.0.1',
     });
 
-    expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
+    expect(result.message).toBe(TICKET_TOKEN_RESEND_REQUEST_MSG);
     expect(sendInternalAlert).not.toHaveBeenCalled();
     expect(emailSend).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid OTP on confirm', async () => {
+    mockFindOneTicket({
+      ticketRef: 'TK-L402V2',
+      contactIdentifier: '5566996819456',
+      save: jest.fn(),
+    });
+
+    storeTicketResendOtp({
+      clientId,
+      ticketRef: 'TK-L402V2',
+      contact: '66996819456',
+      channel: 'whatsapp',
+      code: '111222',
+    });
+
+    const result = await confirmTicketTokenResendOtp({
+      clientId,
+      ticketRef: 'TK-L402V2',
+      channel: 'whatsapp',
+      phone: '66996819456',
+      verificationCode: '999888',
+      remoteIp: '127.0.0.1',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe(TICKET_TOKEN_RESEND_OTP_INVALID_MSG);
+    expect(sendInternalAlert).not.toHaveBeenCalled();
   });
 });

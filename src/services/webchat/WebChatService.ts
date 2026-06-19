@@ -44,7 +44,12 @@ import {
   hashWebChatVisitorToken,
   isWebChatOriginAllowed,
 } from './webchat-token.util';
-import { emitWebChatToTenant, emitWebChatToVisitor, emitWebChatTypingToTenant, emitWebChatTypingToVisitor } from './WebChatRealtime';
+import {
+  emitWebChatToTenant,
+  emitWebChatToVisitor,
+  emitWebChatTypingToTenant,
+  emitWebChatTypingToVisitor,
+} from './WebChatRealtime';
 import { WebChatAiService } from './WebChatAiService';
 import { resolveWebChatBusinessHours } from './webchat-business-hours.util';
 import { shouldSendProactiveGreeting, getProactiveGreetingSkipReason } from './webchat-proactive.util';
@@ -79,10 +84,11 @@ import {
 import { enrichWebChatInboxRow } from './webchat-inbox-enrich.util';
 import { createServiceLogger } from '../../utils/logger';
 import {
+  confirmTicketTokenResendOtp,
   ensureInboxTicketPublicAccessToken,
   formatTicketCreatedWithTokenMessage,
   lookupTicketByPublicAccess,
-  resendTicketPublicAccessToken,
+  requestTicketTokenResendOtp,
   sendTicketAccessTokenEmail,
   type TicketTokenResendChannel,
 } from '../inbox/ticket-public-access.service';
@@ -92,6 +98,12 @@ import { looksLikeEmail, normalizeEmailForTicketMatch } from '../../utils/ticket
 import { TICKET_CLIENT_REPLY_FOOTER } from '../../types/inbox-ticket';
 import { InboxService } from '../inbox/InboxService';
 import { parseWebChatAttachment } from './webchat-attachment.util';
+import {
+  markInboundReadByAgent,
+  markInboundReadOnTeamReply,
+  markOutboundDelivered,
+  markOutboundReadThrough,
+} from './webchat-message-receipt.service';
 import { AiKnowledgeBaseService } from '../ai/AiKnowledgeBaseService';
 import { buildWebChatFaqReplyBody } from '../../utils/webchat-faq-reply.util';
 import { sanitizeWebChatActionLinks } from '../../utils/webchat-safe-url.util';
@@ -355,6 +367,8 @@ export class WebChatService {
       mediaMime: m.mediaMime,
       mediaFileName: m.mediaFileName,
       actionLinks: m.actionLinks?.length ? sanitizeWebChatActionLinks(m.actionLinks) : undefined,
+      deliveredAt: m.deliveredAt ? new Date(m.deliveredAt).toISOString() : undefined,
+      readAt: m.readAt ? new Date(m.readAt).toISOString() : undefined,
     };
   }
 
@@ -904,7 +918,7 @@ export class WebChatService {
     } | null;
     quickReplies: InboxQuickReply[];
   } | null> {
-    const detail = await this.getConversationForAgent(clientId, conversationId);
+    const detail = await this.getConversationForAgent(clientId, conversationId, userId);
     if (!detail) return null;
 
     const convDoc = await WebChatConversation.findOne({
@@ -999,6 +1013,8 @@ export class WebChatService {
         mediaUrl: m.mediaUrl,
         mediaMime: m.mediaMime,
         mediaFileName: m.mediaFileName,
+        deliveredAt: m.deliveredAt,
+        readAt: m.readAt,
       })),
       transfers: [],
       contact: destination
@@ -1278,7 +1294,7 @@ export class WebChatService {
             toEmail: email,
             contactName,
           }).catch(err => {
-            logger.warn('Failed to send ticket token email on create', {
+            this.serviceLogger.warn('Failed to send ticket token email on create', {
               err: (err as Error).message,
               ticketRef: ref,
             });
@@ -1312,6 +1328,14 @@ export class WebChatService {
     }).lean();
     if (!conv) return null;
 
+    if (userId && (conv.unreadAgentCount ?? 0) > 0) {
+      await WebChatConversation.updateOne(
+        { _id: conv._id },
+        { $set: { unreadAgentCount: 0 } },
+      );
+      await markInboundReadByAgent(clientId, conversationId);
+    }
+
     const widget = await WebChatWidget.findById(conv.widgetId).select('name').lean();
     const dept = conv.departmentId
       ? await InboxDepartment.findById(conv.departmentId).select('name').lean()
@@ -1320,13 +1344,6 @@ export class WebChatService {
       .sort({ createdAt: 1 })
       .limit(500)
       .lean();
-
-    if (conv.unreadAgentCount > 0) {
-      await WebChatConversation.updateOne(
-        { _id: conv._id },
-        { $set: { unreadAgentCount: 0 } },
-      );
-    }
 
     let conversation = this.toConversationDto(conv, widget?.name, dept?.name);
 
@@ -1420,6 +1437,7 @@ export class WebChatService {
       mediaUrl: data.mediaUrl,
       mediaMime: data.mediaMime,
       mediaFileName: data.mediaFileName,
+      ...(data.direction === 'inbound' ? { deliveredAt: now } : {}),
       ...(data.actionLinks?.length
         ? { actionLinks: sanitizeWebChatActionLinks(data.actionLinks) }
         : {}),
@@ -1463,6 +1481,9 @@ export class WebChatService {
     emitWebChatToTenant(clientId, 'webchat:message', payload);
     if (!isInternal && data.notifyVisitor !== false) {
       emitWebChatToVisitor(conversationId, 'webchat:message', payload);
+    }
+    if (data.direction === 'outbound') {
+      void markInboundReadOnTeamReply(clientId, conversationId, msg.createdAt).catch(() => {});
     }
     if (conversationDto) {
       emitWebChatToTenant(clientId, 'webchat:conversation', {
@@ -1582,6 +1603,30 @@ export class WebChatService {
       .lean();
 
     return this.visitorSessionDto(conversation, messages);
+  }
+
+  async markVisitorMessageReceipts(
+    visitorToken: string,
+    opts: { deliveredMessageIds?: string[]; readThroughMessageId?: string },
+    origin?: string | null,
+    referer?: string | null,
+  ): Promise<void> {
+    const conversation = await this.resolveVisitorToken(visitorToken);
+    if (!conversation) throw new Error('Sessão inválida ou encerrada');
+
+    const widget = await WebChatWidget.findById(conversation.widgetId);
+    if (!widget?.active) throw new Error('Widget inativo');
+    this.assertOrigin(widget, origin, referer);
+
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+
+    if (opts.deliveredMessageIds?.length) {
+      await markOutboundDelivered(clientIdStr, convId, opts.deliveredMessageIds);
+    }
+    if (opts.readThroughMessageId) {
+      await markOutboundReadThrough(clientIdStr, convId, opts.readThroughMessageId);
+    }
   }
 
   async closeVisitorConversation(
@@ -2720,12 +2765,46 @@ export class WebChatService {
     const channel: TicketTokenResendChannel =
       opts.channel === 'email' || (opts.email && !opts.phone) ? 'email' : 'whatsapp';
 
-    return resendTicketPublicAccessToken({
+    return requestTicketTokenResendOtp({
       clientId: String(widget.clientId),
       ticketRef: opts.ticketRef,
       channel,
       phone: opts.phone,
       email: opts.email,
+      remoteIp: opts.remoteIp,
+    });
+  }
+
+  async confirmTicketTokenResendPublic(
+    publicKey: string,
+    opts: {
+      ticketRef: string;
+      channel?: TicketTokenResendChannel;
+      phone?: string;
+      email?: string;
+      verificationCode: string;
+      origin?: string | null;
+      referer?: string | null;
+      remoteIp?: string;
+    },
+  ) {
+    const widget = await this.getActiveWidgetByPublicKey(publicKey);
+    if (!widget) throw new Error('Widget não encontrado');
+    if (widget.ticketLookupEnabled === false) {
+      throw new Error('Consulta de chamado não está disponível');
+    }
+    this.assertOrigin(widget, opts.origin, opts.referer);
+
+    const channel: TicketTokenResendChannel =
+      opts.channel === 'email' || (opts.email && !opts.phone) ? 'email' : 'whatsapp';
+
+    return confirmTicketTokenResendOtp({
+      clientId: String(widget.clientId),
+      ticketRef: opts.ticketRef,
+      channel,
+      phone: opts.phone,
+      email: opts.email,
+      verificationCode: opts.verificationCode,
       remoteIp: opts.remoteIp,
     });
   }

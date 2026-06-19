@@ -11,6 +11,42 @@ export interface InboxMessageView {
   createdAt: string
   senderName?: string
   authorUserName?: string
+  deliveredAt?: string
+  readAt?: string
+}
+
+function MessageReceiptTicks({
+  deliveredAt,
+  readAt,
+  light,
+}: {
+  deliveredAt?: string
+  readAt?: string
+  light?: boolean
+}) {
+  if (!deliveredAt && !readAt) return null
+  const read = Boolean(readAt)
+  const color = read ? (light ? '#bfdbfe' : '#38bdf8') : light ? 'rgba(255,255,255,0.65)' : 'var(--rz-text-muted)'
+  return (
+    <span className="inline-flex items-center ml-1 align-middle" aria-label={read ? 'Lida' : 'Entregue'}>
+      <svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-hidden="true">
+        <path
+          d="M1 5.5L3.5 8L7 3"
+          stroke={color}
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M5.5 5.5L8 8L14 2"
+          stroke={color}
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  )
 }
 
 export function formatInboxMsgTime(iso: string, withSeconds = true) {
@@ -111,12 +147,13 @@ export function InboxMessageBubble({ message: m }: Props) {
         </div>
         {!isSystem && (
           <p
-            className={`text-[10px] text-[var(--rz-text-muted)] mt-1 px-1 tabular-nums ${
-              isOut ? 'text-right' : 'text-left'
+            className={`text-[10px] text-[var(--rz-text-muted)] mt-1 px-1 tabular-nums flex items-center gap-0.5 ${
+              isOut ? 'justify-end' : 'justify-start'
             }`}
             title={new Date(m.createdAt).toLocaleString('pt-BR')}
           >
-            {formatInboxMsgTime(m.createdAt, true)}
+            <span>{formatInboxMsgTime(m.createdAt, false)}</span>
+            {isOut && <MessageReceiptTicks deliveredAt={m.deliveredAt} readAt={m.readAt} light={isOut} />}
           </p>
         )}
       </div>

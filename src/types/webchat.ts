@@ -190,6 +190,8 @@ export interface WebChatMessageDto {
   mediaMime?: string;
   mediaFileName?: string;
   actionLinks?: WebChatActionLink[];
+  deliveredAt?: string;
+  readAt?: string;
 }
 
 /** Resposta de POST /messages — mensagem do visitante + respostas automáticas (bot/IA). */

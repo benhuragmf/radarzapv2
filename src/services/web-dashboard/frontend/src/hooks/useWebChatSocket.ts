@@ -1,6 +1,13 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { getSocket } from '../lib/socket'
+import { applyReceiptsToInboxMessages, type WebChatReceiptPayload } from '../lib/webchatReceipts'
+import type { InboxMessageView } from '../components/inbox/InboxMessageBubble'
+
+interface ConversationDetail {
+  conversation: Record<string, unknown>
+  messages: InboxMessageView[]
+}
 
 function playInboundChime() {
   try {
@@ -92,14 +99,37 @@ export function useWebChatSocket(
       qc.invalidateQueries({ queryKey: ['webchat-live-visitors'] })
     }
 
+    const onReceipt = (payload: WebChatReceiptPayload) => {
+      if (!payload?.conversationId) return
+      const convKey = `wc:${payload.conversationId}`
+
+      if (syncInbox) {
+        qc.setQueryData<ConversationDetail>(['inbox-conversation', convKey], old => {
+          if (!old?.messages?.length) return old
+          return {
+            ...old,
+            messages: applyReceiptsToInboxMessages(old.messages, payload),
+          }
+        })
+        void qc.invalidateQueries({
+          queryKey: ['inbox-conversation', convKey],
+          refetchType: 'active',
+        })
+      }
+
+      qc.invalidateQueries({ queryKey: ['webchat-conversation', payload.conversationId] })
+    }
+
     socket.on('webchat:message', onMessage)
     socket.on('webchat:conversation', onConversation)
     socket.on('webchat:presence', onPresence)
+    socket.on('webchat:message-receipt', onReceipt)
 
     return () => {
       socket.off('webchat:message', onMessage)
       socket.off('webchat:conversation', onConversation)
       socket.off('webchat:presence', onPresence)
+      socket.off('webchat:message-receipt', onReceipt)
     }
   }, [enabled, chime, notifyBrowser, syncInbox, qc])
 }

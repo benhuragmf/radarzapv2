@@ -1,6 +1,7 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.81';
+  var WIDGET_BUILD = '2.10.86';
+  var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
@@ -336,6 +337,7 @@
     ticketLookupResendChannel: 'whatsapp',
     ticketLookupResendLoading: false,
     ticketLookupResendNotice: '',
+    ticketLookupResendOtp: '',
   };
 
   function ticketLookupEnabled() {
@@ -354,6 +356,7 @@
     state.ticketLookupResendChannel = 'whatsapp';
     state.ticketLookupResendLoading = false;
     state.ticketLookupResendNotice = '';
+    state.ticketLookupResendOtp = '';
   }
 
   function formatTicketDate(iso) {
@@ -431,12 +434,134 @@
   }
 
   function markMessagesRead() {
-    if (state.unreadCount === 0 && !state.firstUnreadMessageId && !state.messagePreview) return;
+    var hadUiUnread =
+      state.unreadCount > 0 || Boolean(state.firstUnreadMessageId) || Boolean(state.messagePreview);
     state.unreadCount = 0;
     state.firstUnreadMessageId = null;
     state.messagePreview = null;
     updateTabTitle();
-    if (state.open) renderBubble();
+    if (state.open && state.visitorToken && isMessagesAtBottom()) {
+      scheduleAckOutboundReceipts(true);
+    }
+    if (hadUiUnread) renderBubble();
+  }
+
+  function lastOutboundMessageId() {
+    for (var i = state.messages.length - 1; i >= 0; i--) {
+      if (state.messages[i].direction === 'outbound') return state.messages[i].id;
+    }
+    return null;
+  }
+
+  function outboundWithoutDelivered() {
+    return state.messages
+      .filter(function (m) {
+        return m.direction === 'outbound' && !m.deliveredAt;
+      })
+      .map(function (m) {
+        return m.id;
+      });
+  }
+
+  function postMessageReceipts(body) {
+    if (!state.visitorToken) return Promise.resolve();
+    return apiFetch(baseUrl, '/sessions/message-receipts', {
+      method: 'POST',
+      headers: {
+        'X-WebChat-Visitor': state.visitorToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }).catch(function () {});
+  }
+
+  function scheduleAckOutboundReceipts(markRead) {
+    if (receiptAckTimer) clearTimeout(receiptAckTimer);
+    receiptAckTimer = setTimeout(function () {
+      receiptAckTimer = null;
+      ackOutboundReceipts(markRead);
+    }, 350);
+  }
+
+  function ackOutboundReceipts(markRead) {
+    var deliveredIds = outboundWithoutDelivered();
+    var lastId = markRead ? lastOutboundMessageId() : null;
+    if (!deliveredIds.length && !lastId) return;
+    var body = {};
+    if (deliveredIds.length) body.deliveredMessageIds = deliveredIds;
+    if (lastId) body.readThroughMessageId = lastId;
+    postMessageReceipts(body);
+  }
+
+  function patchInboundReceiptMeta() {
+    var t = ui();
+    state.messages.forEach(function (m) {
+      if (m.direction !== 'inbound') return;
+      var el = document.getElementById('rz-msg-meta-' + m.id);
+      if (!el) return;
+      el.innerHTML = formatTime(m.createdAt) + renderInboundReceiptTicks(m, t);
+    });
+  }
+
+  function applyMessageReceiptPayload(payload) {
+    if (!payload) return;
+    var ids = payload.messageIds || [];
+    var deliveredAt = payload.deliveredAt;
+    var readAt = payload.readAt;
+    var touchedInbound = false;
+    if (payload.inboundBatch && readAt) {
+      state.messages.forEach(function (m) {
+        if (m.direction === 'inbound' && !m.readAt) {
+          m.readAt = readAt;
+          touchedInbound = true;
+        }
+      });
+    } else if ((payload.readThrough || (readAt && ids.length === 1)) && readAt && ids.length >= 1) {
+      var anchorId = ids[0];
+      var anchor = state.messages.find(function (m) {
+        return m.id === anchorId;
+      });
+      var anchorTime = anchor && anchor.createdAt ? new Date(anchor.createdAt).getTime() : null;
+      state.messages.forEach(function (m) {
+        if (m.direction !== 'outbound') return;
+        if (anchorTime != null && new Date(m.createdAt).getTime() > anchorTime) return;
+        if (deliveredAt && !m.deliveredAt) m.deliveredAt = deliveredAt;
+        if (readAt && !m.readAt) m.readAt = readAt;
+      });
+    } else {
+      state.messages.forEach(function (m) {
+        if (ids.indexOf(m.id) < 0) return;
+        if (deliveredAt && m.direction === 'outbound' && !m.deliveredAt) m.deliveredAt = deliveredAt;
+        if (readAt && m.direction === 'outbound' && !m.readAt) m.readAt = readAt;
+        if (readAt && m.direction === 'inbound' && !m.readAt) {
+          m.readAt = readAt;
+          touchedInbound = true;
+        }
+      });
+    }
+    if (touchedInbound || payload.inboundBatch) {
+      patchInboundReceiptMeta();
+    }
+  }
+
+  function renderInboundReceiptTicks(m, t) {
+    if (m.direction !== 'inbound') return '';
+    if (!m.deliveredAt && !m.readAt) return '';
+    var read = Boolean(m.readAt);
+    var color = read ? primaryColor() : t.textMuted;
+      return (
+      '<span style="display:inline-flex;align-items:center;margin-left:4px;vertical-align:middle;" aria-label="' +
+      (read ? 'Lida' : 'Enviada') +
+      '">' +
+      '<svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-hidden="true">' +
+      '<path d="M1 5.5L3.5 8L7 3" stroke="' +
+      color +
+      '" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M5.5 5.5L8 8L14 2" stroke="' +
+      color +
+      '" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg></span>'
+    );
   }
 
   function updateTabTitle() {
@@ -1159,7 +1284,7 @@
   }
 
   function resolvePanelMode() {
-    if (state.ticketLookupStep === 'ref' || state.ticketLookupStep === 'token' || state.ticketLookupStep === 'resend') return 'ticket_lookup';
+    if (state.ticketLookupStep === 'ref' || state.ticketLookupStep === 'token' || state.ticketLookupStep === 'resend' || state.ticketLookupStep === 'resend_otp') return 'ticket_lookup';
     if (state.ticketLookupStep === 'result') return 'ticket_result';
     if (isConversationEnded()) {
       if (state.conversationStatus !== 'closed') {
@@ -1367,6 +1492,9 @@
             }
             if (changed) applyRootPosition();
             renderBubble();
+            setTimeout(function () {
+              scrollMessages();
+            }, 50);
           });
         } else {
           sendPresencePing();
@@ -1477,6 +1605,8 @@
         ? 'Token de acesso'
         : step === 'resend'
           ? 'Reenviar token'
+          : step === 'resend_otp'
+            ? 'Código de verificação'
           : step === 'result'
             ? 'Chamado encontrado'
             : 'Consultar chamado';
@@ -1545,7 +1675,9 @@
         t.textMuted +
         ';margin:0 0 10px;">Chamado <strong>' +
         escHtml(state.ticketLookupRef) +
-        '</strong>. Enviaremos um <em>novo</em> token (o anterior deixa de valer).</p>' +
+        '</strong>. Enviaremos um código de verificação por ' +
+        (ch === 'email' ? 'e-mail' : 'WhatsApp') +
+        ' antes do novo token (o anterior deixa de valer).</p>' +
         (state.ticketLookupResendNotice
           ? '<p style="font-size:12px;color:' +
             t.text +
@@ -1577,11 +1709,43 @@
         '<button type="button" id="rz-ticket-lookup-resend-submit" style="' +
         btnStyle +
         '">' +
-        (state.ticketLookupResendLoading ? 'Enviando…' : 'Reenviar token') +
+        (state.ticketLookupResendLoading ? 'Enviando…' : 'Enviar código') +
         '</button>' +
         '<button type="button" id="rz-ticket-lookup-resend-back" style="' +
         btnStyle.replace('background:' + primaryColor(), 'background:transparent;border:1px solid ' + t.inputBorder + ';color:' + t.text + ';margin-top:6px;') +
         '">Voltar</button>';
+    } else if (step === 'resend_otp') {
+      var chOtp = state.ticketLookupResendChannel === 'email' ? 'e-mail' : 'WhatsApp';
+      body =
+        '<p style="font-size:13px;color:' +
+        t.textMuted +
+        ';margin:0 0 10px;">Chamado <strong>' +
+        escHtml(state.ticketLookupRef) +
+        '</strong>. Informe o código de 6 dígitos enviado por ' +
+        chOtp +
+        '.</p>' +
+        (state.ticketLookupResendNotice
+          ? '<p style="font-size:12px;color:' +
+            t.text +
+            ';margin:0 0 10px;padding:8px 10px;border-radius:10px;background:' +
+            t.bubbleSystem +
+            ';">' +
+            escHtml(state.ticketLookupResendNotice) +
+            '</p>'
+          : '') +
+        '<input id="rz-ticket-lookup-resend-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" value="' +
+        escHtml(state.ticketLookupResendOtp) +
+        '" style="' +
+        inputStyle +
+        'letter-spacing:4px;text-align:center;font-size:18px;" />' +
+        '<button type="button" id="rz-ticket-lookup-resend-confirm" style="' +
+        btnStyle +
+        '">' +
+        (state.ticketLookupResendLoading ? 'Verificando…' : 'Confirmar e reenviar token') +
+        '</button>' +
+        '<button type="button" id="rz-ticket-lookup-resend-otp-back" style="' +
+        btnStyle.replace('background:' + primaryColor(), 'background:transparent;border:1px solid ' + t.inputBorder + ';color:' + t.text + ';margin-top:6px;') +
+        '">Solicitar novo código</button>';
     } else if (step === 'result' && state.ticketLookupResult) {
       var r = state.ticketLookupResult;
       var msgs = (r.recentMessages || [])
@@ -1705,8 +1869,9 @@
         state.ticketLookupResendLoading = false;
         state.ticketLookupResendNotice =
           (result && result.message) ||
-          'Se o chamado e o WhatsApp conferirem, você receberá o token em instantes.';
-        state.ticketLookupStep = 'token';
+          'Se o chamado e o contato conferirem, você receberá um código em instantes.';
+        state.ticketLookupStep = 'resend_otp';
+        state.ticketLookupResendOtp = '';
         state.ticketLookupError = '';
         renderBubble();
       })
@@ -1714,6 +1879,57 @@
         state.ticketLookupResendLoading = false;
         state.ticketLookupError =
           (err && err.message) || 'Não foi possível solicitar o reenvio. Tente novamente.';
+        renderBubble();
+      });
+  }
+
+  function submitTicketLookupResendConfirm() {
+    if (state.ticketLookupResendLoading) return;
+    var channel = state.ticketLookupResendChannel === 'email' ? 'email' : 'whatsapp';
+    var otpInput = document.getElementById('rz-ticket-lookup-resend-otp');
+    var code = otpInput
+      ? String(otpInput.value || '')
+          .replace(/\D/g, '')
+          .slice(0, 6)
+      : state.ticketLookupResendOtp.replace(/\D/g, '').slice(0, 6);
+    if (!code || code.length !== 6) {
+      state.ticketLookupError = 'Informe o código de 6 dígitos.';
+      renderBubble();
+      return;
+    }
+    state.ticketLookupResendOtp = code;
+    state.ticketLookupError = '';
+    state.ticketLookupResendLoading = true;
+    renderBubble();
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/tickets/resend-token/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        ticketRef: state.ticketLookupRef,
+        channel: channel,
+        phone: channel === 'whatsapp' ? state.ticketLookupResendPhone : undefined,
+        email: channel === 'email' ? state.ticketLookupResendEmail : undefined,
+        verificationCode: code,
+      }),
+    })
+      .then(function (result) {
+        state.ticketLookupResendLoading = false;
+        if (result && result.ok) {
+          state.ticketLookupResendNotice =
+            result.message ||
+            'Se a verificação foi concluída, você receberá o novo token em instantes.';
+          state.ticketLookupStep = 'token';
+          state.ticketLookupResendOtp = '';
+          state.ticketLookupError = '';
+        } else {
+          state.ticketLookupError =
+            (result && result.message) || 'Código inválido ou expirado. Solicite um novo código.';
+        }
+        renderBubble();
+      })
+      .catch(function (err) {
+        state.ticketLookupResendLoading = false;
+        state.ticketLookupError =
+          (err && err.message) || 'Código inválido ou expirado. Solicite um novo código.';
         renderBubble();
       });
   }
@@ -2051,6 +2267,7 @@
             ? escHtml(m.senderName) + ' · '
             : '';
         meta += formatTime(m.createdAt);
+        if (isInbound) meta += renderInboundReceiptTicks(m, t);
         return (
           separator +
           '<div style="display:flex;flex-direction:column;align-items:' +
@@ -2069,9 +2286,13 @@
           '">' +
           renderMessageBody(m) +
           '</div>' +
-          '<div style="font-size:10px;color:' +
+          '<div id="rz-msg-meta-' +
+          escHtml(m.id) +
+          '" style="font-size:10px;color:' +
           t.textMuted +
-          ';margin-top:5px;padding:0 4px;">' +
+          ';margin-top:5px;padding:0 4px;display:flex;align-items:center;' +
+          (isInbound ? 'justify-content:flex-end;' : '') +
+          '">' +
           meta +
           '</div></div>'
         );
@@ -2350,6 +2571,22 @@
         renderBubble();
       };
     }
+    var ticketLookupResendConfirm = document.getElementById('rz-ticket-lookup-resend-confirm');
+    if (ticketLookupResendConfirm) {
+      ticketLookupResendConfirm.onclick = function () {
+        submitTicketLookupResendConfirm();
+      };
+      ticketLookupResendConfirm.disabled = !!state.ticketLookupResendLoading;
+    }
+    var ticketLookupResendOtpBack = document.getElementById('rz-ticket-lookup-resend-otp-back');
+    if (ticketLookupResendOtpBack) {
+      ticketLookupResendOtpBack.onclick = function () {
+        state.ticketLookupStep = 'resend';
+        state.ticketLookupResendOtp = '';
+        state.ticketLookupError = '';
+        renderBubble();
+      };
+    }
     var ticketLookupResume = document.getElementById('rz-ticket-lookup-resume');
     if (ticketLookupResume) {
       ticketLookupResume.onclick = function () {
@@ -2560,6 +2797,9 @@
     connectSocket();
     renderBubble();
     sendPresencePing();
+    setTimeout(function () {
+      scrollMessages();
+    }, 0);
   }
 
   function resumeEngageSession() {
@@ -2668,10 +2908,27 @@
           if (payload.message.direction === 'outbound') {
             clearRemoteTyping();
             handleNewOutboundMessage(payload.message);
+            scheduleAckOutboundReceipts(state.open && isMessagesAtBottom());
           }
           state.messages.push(payload.message);
           renderBubble();
+        } else if (payload.message.direction === 'inbound') {
+          var existing = state.messages.find(function (m) {
+            return m.id === payload.message.id;
+          });
+          if (existing) {
+            if (payload.message.deliveredAt) existing.deliveredAt = payload.message.deliveredAt;
+            if (payload.message.readAt) existing.readAt = payload.message.readAt;
+          }
+          patchInboundReceiptMeta();
         }
+      });
+      state.socket.on('webchat:message-receipt', function (payload) {
+        if (!payload) return;
+        if (payload.conversationId && state.conversationId && payload.conversationId !== state.conversationId) {
+          return;
+        }
+        applyMessageReceiptPayload(payload);
       });
       state.socket.on('webchat:typing', handleRemoteTyping);
       state.socket.on('webchat:conversation', function (payload) {
@@ -2895,6 +3152,7 @@
       .then(function (data) {
         if (data.message) pushChatMessages([data.message]);
         if (data.replies && data.replies.length) pushChatMessages(data.replies);
+        patchInboundReceiptMeta();
         renderBubble();
       })
       .catch(function (err) {
@@ -2929,6 +3187,7 @@
       .then(function (data) {
         if (data.message) pushChatMessages([data.message]);
         if (data.replies && data.replies.length) pushChatMessages(data.replies);
+        patchInboundReceiptMeta();
         renderBubble();
       })
       .catch(function (err) {

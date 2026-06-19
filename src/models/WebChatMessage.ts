@@ -17,6 +17,10 @@ export interface IWebChatMessage extends Document {
   senderUserId?: string;
   senderName?: string;
   actionLinks?: WebChatActionLink[];
+  /** Visitante recebeu (mensagens outbound). */
+  deliveredAt?: Date;
+  /** Visitante leu (outbound) ou atendente leu (inbound). */
+  readAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +52,8 @@ const WebChatMessageSchema = new Schema<IWebChatMessage>(
       ],
       default: undefined,
     },
+    deliveredAt: { type: Date },
+    readAt: { type: Date },
   },
   { timestamps: true, collection: 'webChatMessages' },
 );

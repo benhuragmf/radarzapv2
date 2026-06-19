@@ -26,6 +26,13 @@ import {
   recordTicketLookupFailure,
   recordTicketTokenResendAttempt,
 } from './ticket-public-lookup-rate-limit';
+import {
+  generateTicketResendOtpCode,
+  isTicketResendOtpRequestLimited,
+  recordTicketResendOtpRequest,
+  storeTicketResendOtp,
+  verifyTicketResendOtp,
+} from './ticket-token-resend-otp';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { EmailService } from '@/services/email/EmailService';
 import { createServiceLogger } from '@/utils/logger';
@@ -55,7 +62,13 @@ const LOOKUP_FAIL_MSG =
   'Não encontramos um chamado com esses dados. Verifique o número e o token e tente novamente.';
 
 export const TICKET_TOKEN_RESEND_SUCCESS_MSG =
-  'Se o chamado e os dados informados conferirem com nosso cadastro, você receberá um novo token em instantes (WhatsApp ou e-mail).';
+  'Se a verificação foi concluída, você receberá o novo token em instantes (WhatsApp ou e-mail).';
+
+export const TICKET_TOKEN_RESEND_REQUEST_MSG =
+  'Se o chamado e o contato informado conferirem com nosso cadastro, você receberá um código de 6 dígitos em instantes.';
+
+export const TICKET_TOKEN_RESEND_OTP_INVALID_MSG =
+  'Código inválido ou expirado. Solicite um novo código.';
 
 export type TicketTokenResendChannel = 'whatsapp' | 'email';
 
@@ -329,35 +342,88 @@ export async function sendTicketAccessTokenEmail(opts: {
   return result.ok;
 }
 
-/** Reenvia token por WhatsApp ou e-mail após validar contato do visitante. */
-export async function resendTicketPublicAccessToken(opts: {
+export function formatTicketTokenResendOtpWhatsApp(ticketRef: string, code: string): string {
+  return [
+    'RadarZap — verificação',
+    '',
+    `Chamado: *${ticketRef}*`,
+    `Código: *${code}*`,
+    '',
+    'Informe este código no chat do site para reenviar seu token de consulta.',
+    'Válido por 10 minutos. Não compartilhe.',
+  ].join('\n');
+}
+
+export function formatTicketTokenResendOtpEmail(
+  ticketRef: string,
+  code: string,
+  contactName?: string,
+): { subject: string; text: string; html: string } {
+  const greeting = contactName?.trim() ? `Olá, ${contactName.trim()}!` : 'Olá!';
+  const text = [
+    greeting,
+    '',
+    'Use o código abaixo no chat do site para reenviar seu token de consulta:',
+    '',
+    `Chamado: ${ticketRef}`,
+    `Código: ${code}`,
+    '',
+    'Válido por 10 minutos. Não compartilhe este código.',
+    '',
+    '— RadarZap',
+  ].join('\n');
+
+  const html = `
+    <p>${greeting}</p>
+    <p>Use o código abaixo no chat do site para reenviar seu token de consulta:</p>
+    <p><strong>Chamado:</strong> ${ticketRef}<br/>
+    <strong>Código:</strong> <code style="font-size:18px;letter-spacing:2px;">${code}</code></p>
+    <p>Válido por 10 minutos. Não compartilhe este código.</p>
+    <p style="color:#888;font-size:12px;">RadarZap</p>
+  `.trim();
+
+  return { subject: `Código de verificação — ${ticketRef}`, text, html };
+}
+
+/** Envia OTP de reenvio por e-mail. */
+export async function sendTicketResendOtpEmail(opts: {
+  ticketRef: string;
+  code: string;
+  toEmail: string;
+  contactName?: string;
+}): Promise<boolean> {
+  const to = normalizeEmailForTicketMatch(opts.toEmail);
+  if (!to) return false;
+
+  const content = formatTicketTokenResendOtpEmail(opts.ticketRef, opts.code, opts.contactName);
+  const result = await EmailService.getInstance().send({
+    to,
+    subject: content.subject,
+    text: content.text,
+    html: content.html,
+  });
+  return result.ok;
+}
+
+type TicketResendContactMatch = {
+  ticket: IInboxTicket;
+  channel: TicketTokenResendChannel;
+  destination: string;
+  contactRaw: string;
+};
+
+async function matchTicketForTokenResend(opts: {
   clientId: string;
   ticketRef: string;
   channel: TicketTokenResendChannel;
   phone?: string;
   email?: string;
-  remoteIp?: string;
-}): Promise<{ message: string }> {
-  if (isTicketTokenResendRateLimited(opts.clientId, opts.remoteIp)) {
-    logger.warn('ticket token resend rate limited', { clientId: opts.clientId });
-    return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
-  }
-
-  recordTicketTokenResendAttempt(opts.clientId, opts.remoteIp);
-
+}): Promise<TicketResendContactMatch | null> {
   const normalizedRef = normalizeTicketRefForLookup(opts.ticketRef);
-  if (!normalizedRef) {
-    return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
-  }
+  if (!normalizedRef) return null;
 
   const contactRaw = opts.channel === 'email' ? opts.email?.trim() : opts.phone?.trim();
-  if (!contactRaw) {
-    return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
-  }
-
-  if (isTicketTokenResendOnCooldown(opts.clientId, normalizedRef, contactRaw)) {
-    return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
-  }
+  if (!contactRaw) return null;
 
   const clientOid = new mongoose.Types.ObjectId(opts.clientId);
   const ticket = await InboxTicket.findOne({
@@ -366,69 +432,132 @@ export async function resendTicketPublicAccessToken(opts: {
     deletedAt: { $exists: false },
   }).select('+publicAccessTokenHash');
 
-  if (!ticket) {
-    return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
+  if (!ticket) return null;
+
+  if (opts.channel === 'email') {
+    const knownEmails = await resolveTicketEmails(ticket);
+    const emailMatches = knownEmails.some(stored => emailsMatchForTicket(contactRaw, stored));
+    if (!emailMatches || knownEmails.length === 0) return null;
+
+    const destination =
+      knownEmails.find(stored => emailsMatchForTicket(contactRaw, stored)) ??
+      normalizeEmailForTicketMatch(contactRaw)!;
+
+    return { ticket, channel: 'email', destination, contactRaw };
+  }
+
+  const inputPhone = normalizePhoneForTicketMatch(opts.phone);
+  if (!inputPhone) return null;
+
+  const knownPhones = await resolveTicketWhatsAppPhones(ticket);
+  const phoneMatches = knownPhones.some(stored => phonesMatchForTicket(contactRaw, stored));
+  if (!phoneMatches || knownPhones.length === 0) return null;
+
+  const destination =
+    knownPhones.find(stored => phonesMatchForTicket(contactRaw, stored)) ?? inputPhone;
+
+  return { ticket, channel: 'whatsapp', destination, contactRaw };
+}
+
+async function deliverRotatedTicketAccessToken(
+  clientId: string,
+  ticketRef: string,
+  match: TicketResendContactMatch,
+): Promise<boolean> {
+  const token = await rotateInboxTicketPublicAccessToken(match.ticket);
+
+  if (match.channel === 'email') {
+    return sendTicketAccessTokenEmail({
+      ticketRef: match.ticket.ticketRef,
+      accessToken: token,
+      toEmail: match.destination,
+      contactName: match.ticket.contactName,
+    });
+  }
+
+  const text = formatTicketTokenResendWhatsAppMessage(match.ticket.ticketRef, token);
+  await WhatsAppService.getInstance().sendInternalAlert(clientId, match.destination, text);
+  return true;
+}
+
+/** Etapa 1: valida contato e envia OTP (não envia o token de consulta). */
+export async function requestTicketTokenResendOtp(opts: {
+  clientId: string;
+  ticketRef: string;
+  channel: TicketTokenResendChannel;
+  phone?: string;
+  email?: string;
+  remoteIp?: string;
+}): Promise<{ message: string }> {
+  if (isTicketTokenResendRateLimited(opts.clientId, opts.remoteIp)) {
+    logger.warn('ticket token resend OTP request rate limited', { clientId: opts.clientId });
+    return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
+  }
+
+  recordTicketTokenResendAttempt(opts.clientId, opts.remoteIp);
+
+  const normalizedRef = normalizeTicketRefForLookup(opts.ticketRef);
+  const contactRaw = opts.channel === 'email' ? opts.email?.trim() : opts.phone?.trim();
+  if (!normalizedRef || !contactRaw) {
+    return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
+  }
+
+  if (isTicketTokenResendOnCooldown(opts.clientId, normalizedRef, contactRaw)) {
+    return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
+  }
+
+  if (isTicketResendOtpRequestLimited(opts.clientId, normalizedRef, contactRaw)) {
+    logger.warn('ticket token resend OTP contact limited', {
+      clientId: opts.clientId,
+      ticketRef: normalizedRef,
+    });
+    return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
+  }
+
+  const match = await matchTicketForTokenResend(opts);
+  if (!match) {
+    logger.info('ticket token resend OTP skipped — contact mismatch', {
+      clientId: opts.clientId,
+      ticketRef: normalizedRef,
+      channel: opts.channel,
+    });
+    return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
   }
 
   try {
-    if (opts.channel === 'email') {
-      const knownEmails = await resolveTicketEmails(ticket);
-      const emailMatches = knownEmails.some(stored => emailsMatchForTicket(contactRaw, stored));
-      if (!emailMatches || knownEmails.length === 0) {
-        logger.info('ticket token resend skipped — email mismatch', {
-          clientId: opts.clientId,
-          ticketRef: normalizedRef,
-        });
-        return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
-      }
+    const code = generateTicketResendOtpCode();
+    storeTicketResendOtp({
+      clientId: opts.clientId,
+      ticketRef: normalizedRef,
+      contact: match.contactRaw,
+      channel: match.channel,
+      code,
+    });
+    recordTicketResendOtpRequest(opts.clientId, normalizedRef, match.contactRaw);
 
-      const destination =
-        knownEmails.find(stored => emailsMatchForTicket(contactRaw, stored)) ??
-        normalizeEmailForTicketMatch(contactRaw)!;
-
-      const token = await rotateInboxTicketPublicAccessToken(ticket);
-      const sent = await sendTicketAccessTokenEmail({
-        ticketRef: ticket.ticketRef,
-        accessToken: token,
-        toEmail: destination,
-        contactName: ticket.contactName,
+    if (match.channel === 'email') {
+      await sendTicketResendOtpEmail({
+        ticketRef: match.ticket.ticketRef,
+        code,
+        toEmail: match.destination,
+        contactName: match.ticket.contactName,
       });
-      if (sent) {
-        markTicketTokenResendSent(opts.clientId, normalizedRef, contactRaw);
-        logger.info('ticket token resent via email', {
-          clientId: opts.clientId,
-          ticketRef: normalizedRef,
-        });
-      }
     } else {
-      const inputPhone = normalizePhoneForTicketMatch(opts.phone);
-      if (!inputPhone) {
-        return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
-      }
-
-      const knownPhones = await resolveTicketWhatsAppPhones(ticket);
-      const phoneMatches = knownPhones.some(stored => phonesMatchForTicket(contactRaw, stored));
-      if (!phoneMatches || knownPhones.length === 0) {
-        logger.info('ticket token resend skipped — phone mismatch', {
-          clientId: opts.clientId,
-          ticketRef: normalizedRef,
-        });
-        return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
-      }
-
-      const destination =
-        knownPhones.find(stored => phonesMatchForTicket(contactRaw, stored)) ?? inputPhone;
-      const token = await rotateInboxTicketPublicAccessToken(ticket);
-      const text = formatTicketTokenResendWhatsAppMessage(ticket.ticketRef, token);
-      await WhatsAppService.getInstance().sendInternalAlert(opts.clientId, destination, text);
-      markTicketTokenResendSent(opts.clientId, normalizedRef, contactRaw);
-      logger.info('ticket token resent via WhatsApp', {
-        clientId: opts.clientId,
-        ticketRef: normalizedRef,
-      });
+      const text = formatTicketTokenResendOtpWhatsApp(match.ticket.ticketRef, code);
+      await WhatsAppService.getInstance().sendInternalAlert(
+        opts.clientId,
+        match.destination,
+        text,
+      );
     }
+
+    logger.info('ticket token resend OTP sent', {
+      clientId: opts.clientId,
+      ticketRef: normalizedRef,
+      channel: match.channel,
+    });
   } catch (err) {
-    logger.warn('ticket token resend failed', {
+    logger.warn('ticket token resend OTP failed', {
       clientId: opts.clientId,
       ticketRef: normalizedRef,
       channel: opts.channel,
@@ -436,7 +565,87 @@ export async function resendTicketPublicAccessToken(opts: {
     });
   }
 
-  return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };
+  return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
+}
+
+/** Etapa 2: confirma OTP e envia novo token de consulta. */
+export async function confirmTicketTokenResendOtp(opts: {
+  clientId: string;
+  ticketRef: string;
+  channel: TicketTokenResendChannel;
+  phone?: string;
+  email?: string;
+  verificationCode: string;
+  remoteIp?: string;
+}): Promise<{ message: string; ok?: boolean }> {
+  if (isTicketTokenResendRateLimited(opts.clientId, opts.remoteIp)) {
+    logger.warn('ticket token resend confirm rate limited', { clientId: opts.clientId });
+    return { message: TICKET_TOKEN_RESEND_OTP_INVALID_MSG, ok: false };
+  }
+
+  recordTicketTokenResendAttempt(opts.clientId, opts.remoteIp);
+
+  const normalizedRef = normalizeTicketRefForLookup(opts.ticketRef);
+  const contactRaw = opts.channel === 'email' ? opts.email?.trim() : opts.phone?.trim();
+  const code = opts.verificationCode?.replace(/\D/g, '').slice(0, 6);
+
+  if (!normalizedRef || !contactRaw || !code || code.length !== 6) {
+    return { message: TICKET_TOKEN_RESEND_OTP_INVALID_MSG, ok: false };
+  }
+
+  const otpOk = verifyTicketResendOtp({
+    clientId: opts.clientId,
+    ticketRef: normalizedRef,
+    contact: contactRaw,
+    code,
+    channel: opts.channel,
+  });
+
+  if (!otpOk) {
+    logger.info('ticket token resend OTP verify failed', {
+      clientId: opts.clientId,
+      ticketRef: normalizedRef,
+    });
+    return { message: TICKET_TOKEN_RESEND_OTP_INVALID_MSG, ok: false };
+  }
+
+  const match = await matchTicketForTokenResend(opts);
+  if (!match) {
+    return { message: TICKET_TOKEN_RESEND_OTP_INVALID_MSG, ok: false };
+  }
+
+  try {
+    const sent = await deliverRotatedTicketAccessToken(opts.clientId, normalizedRef, match);
+    if (sent) {
+      markTicketTokenResendSent(opts.clientId, normalizedRef, contactRaw);
+      logger.info('ticket token resent after OTP', {
+        clientId: opts.clientId,
+        ticketRef: normalizedRef,
+        channel: match.channel,
+      });
+    }
+  } catch (err) {
+    logger.warn('ticket token resend after OTP failed', {
+      clientId: opts.clientId,
+      ticketRef: normalizedRef,
+      err: (err as Error).message,
+    });
+    return { message: TICKET_TOKEN_RESEND_OTP_INVALID_MSG, ok: false };
+  }
+
+  return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG, ok: true };
+}
+
+/** @deprecated Use requestTicketTokenResendOtp + confirmTicketTokenResendOtp */
+export async function resendTicketPublicAccessToken(opts: {
+  clientId: string;
+  ticketRef: string;
+  channel: TicketTokenResendChannel;
+  phone?: string;
+  email?: string;
+  remoteIp?: string;
+}): Promise<{ message: string }> {
+  return requestTicketTokenResendOtp(opts);
 }
 
 /** @deprecated Use resendTicketPublicAccessToken({ channel: 'whatsapp', ... }) */

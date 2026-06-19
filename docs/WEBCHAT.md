@@ -86,6 +86,7 @@ Snippet equivalente ao `widget.html`:
 - **Painel Widgets reorganizado** (2.10.57): lista lateral + editor por seções (Geral, Visual, Pré-chat, IA, Horários, Instalação); abas com `?tab=widgets`.
 - **Toolbar de widgets** (2.10.60): chips horizontais no topo do card, criação sob demanda (+ Novo), cabeçalho com título do chat; fix JSX que quebrava o Vite.
 - **Indicador de digitação** (2.10.61): visitante vê atendente/IA digitando; painel Inbox vê visitante; evento socket `webchat:typing` + REST `POST …/sessions/typing` e `POST …/inbox/conversations/wc:…/typing`.
+- **Confirmação de leitura** (2.10.82, refinado 2.10.86): hora + ✓✓ estilo WhatsApp — **outbound** no Inbox; **inbound** no widget: ✓ cinza ao enviar (`deliveredAt` na criação), ✓ colorido quando bot/atendente responde ou atendente abre o Inbox (`readAt`). Evento `webchat:message-receipt`; visitante confirma entrega/leitura de mensagens do atendente via `POST /api/webchat/public/sessions/message-receipts`. Widget usa patch leve do DOM (sem re-render completo) e debounce nos ACKs.
 - **Notificações visitante** (2.10.63): badge com contagem no botão 💬, pulse leve (~2,5 s), prévia da mensagem com chat fechado, separador “Nova mensagem” no painel aberto, título da aba `(N) Nova mensagem` em background tab, som curto opcional (🔔/🔕 no cabeçalho, preferência em localStorage).
 - **Política de transferência IA** (2.10.63): por widget — atendente/comercial/suporte com “triagem primeiro” ou “transferir na 1ª vez”; limite de pedidos repetidos antes de escalar (`aiEscalationPolicy` no painel → IA e proativa).
 - Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
@@ -271,11 +272,12 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - WhatsApp: token incluído na mensagem ao cliente ao abrir chamado.
 - Site: mensagem de sistema no widget inclui número + token.
 - Widget: botão **Consultar chamado** (pré-chat ou após encerrar) → número `TK-…` + token → status e últimas mensagens públicas.
-- **Reenvio (2.10.79+):** link *Perdi meu token — reenviar* → abas **WhatsApp** ou **E-mail** → novo token (rotação; anterior invalida).
+- **Reenvio (2.10.79+):** link *Perdi meu token — reenviar* → abas **WhatsApp** ou **E-mail** → **código OTP de 6 dígitos** (10 min) → confirmação → novo token (rotação; anterior invalida). **2.10.83:** OTP obrigatório antes de enviar o token.
 - **Abertura de chamado (2.10.80):** se o visitante informou e-mail no pré-chat, o token também é enviado por e-mail além da mensagem no chat.
 - API pública:
   - `POST /api/webchat/public/widgets/:publicKey/tickets/lookup` — body `{ ticketRef, accessToken }`
-  - `POST /api/webchat/public/widgets/:publicKey/tickets/resend-token` — body `{ ticketRef, channel: "whatsapp"|"email", phone?, email? }`
+  - `POST /api/webchat/public/widgets/:publicKey/tickets/resend-token` — body `{ ticketRef, channel, phone?, email? }` → envia **OTP**
+  - `POST /api/webchat/public/widgets/:publicKey/tickets/resend-token/confirm` — body `{ ticketRef, channel, phone?, email?, verificationCode }` → envia **token** após OTP válido
   - `POST /api/webchat/public/widgets/:publicKey/tickets/resume` — retoma conversa WebChat vinculada (se aberta)
 - Rate limit lookup: 8 tentativas falhas / 15 min por IP + empresa; reenvio: 5/IP/15 min + cooldown 2 min por chamado+telefone; erro genérico (anti-enumeração).
 - Config widget: `ticketLookupEnabled` (default `true`).

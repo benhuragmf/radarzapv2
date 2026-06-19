@@ -237,6 +237,30 @@ export function createWebChatPublicRouter(): Router {
     }
   });
 
+  r.post('/sessions/message-receipts', async (req, res) => {
+    try {
+      const token = visitorTokenFromReq(req);
+      if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
+      const body = req.body as { deliveredMessageIds?: string[]; readThroughMessageId?: string };
+      await svc.markVisitorMessageReceipts(
+        token,
+        {
+          deliveredMessageIds: Array.isArray(body.deliveredMessageIds) ? body.deliveredMessageIds : undefined,
+          readThroughMessageId:
+            typeof body.readThroughMessageId === 'string' ? body.readThroughMessageId : undefined,
+        },
+        req.headers.origin,
+        req.headers.referer,
+      );
+      res.json({ ok: true });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
   r.post('/widgets/:publicKey/tickets/lookup', async (req, res) => {
     try {
       const body = req.body as { ticketRef?: string; accessToken?: string };
@@ -275,6 +299,38 @@ export function createWebChatPublicRouter(): Router {
         channel: body.channel,
         phone: body.phone,
         email: body.email,
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        remoteIp: req.ip || req.socket.remoteAddress,
+      });
+      res.json(result);
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('não encontrado') || msg.includes('não está disponível')
+          ? 404
+          : msg.includes('Origem')
+            ? 403
+            : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  r.post('/widgets/:publicKey/tickets/resend-token/confirm', async (req, res) => {
+    try {
+      const body = req.body as {
+        ticketRef?: string;
+        channel?: 'whatsapp' | 'email';
+        phone?: string;
+        email?: string;
+        verificationCode?: string;
+      };
+      const result = await svc.confirmTicketTokenResendPublic(req.params.publicKey, {
+        ticketRef: body.ticketRef ?? '',
+        channel: body.channel,
+        phone: body.phone,
+        email: body.email,
+        verificationCode: body.verificationCode ?? '',
         origin: req.headers.origin,
         referer: req.headers.referer,
         remoteIp: req.ip || req.socket.remoteAddress,
