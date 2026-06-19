@@ -95,6 +95,8 @@ import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { WebChatService } from '../webchat/WebChatService';
+import { normalizeEscalationPolicy } from '../webchat/webchat-ai-escalation-policy.util';
+import type { WebChatAiEscalationPolicy } from '../../types/webchat';
 import { WebChatPresenceService } from '../webchat/WebChatPresenceService';
 import { isWebChatInboxId, webChatInboxIdToMongo } from '../webchat/webchat-inbox-bridge';
 import { WebChatAiService } from '../webchat/WebChatAiService';
@@ -1551,6 +1553,39 @@ export class DashboardService {
           text ?? '',
         );
         res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/inbox/conversations/:id/internal-chat', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const canSupervise = auth.capabilities?.includes(Cap.INBOX_SUPERVISE) ?? false;
+        const canReply = auth.capabilities?.includes(Cap.INBOX_REPLY) ?? false;
+        if (!canSupervise && !canReply) {
+          return res.status(403).json({ error: 'Sem permissão para chat interno' });
+        }
+        const { text } = req.body as { text?: string };
+        if (isWebChatInboxId(req.params.id)) {
+          const message = await WebChatService.getInstance().sendInternalChatMessage(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+            text ?? '',
+            auth.username,
+            { canSupervise },
+          );
+          return res.json({ message });
+        }
+        const message = await inboxSvc.sendInternalChatMessage(
+          auth.clientId,
+          auth.userId,
+          req.params.id,
+          text ?? '',
+          { canSupervise },
+        );
+        res.json({ message });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -4983,6 +5018,9 @@ export class DashboardService {
             autoReplyMessage: w.autoReplyMessage,
             autoReplySenderName: w.autoReplySenderName,
             autoReplyUseAi: w.autoReplyUseAi ?? false,
+            aiEscalationPolicy: normalizeEscalationPolicy(
+              w.aiEscalationPolicy as Partial<WebChatAiEscalationPolicy> | undefined,
+            ),
             proactiveGreetingEnabled: w.proactiveGreetingEnabled ?? false,
             proactiveGreetingMessage: w.proactiveGreetingMessage,
             proactiveGreetingDelaySeconds: w.proactiveGreetingDelaySeconds ?? 30,
@@ -5026,6 +5064,9 @@ export class DashboardService {
           autoReplyMessage: widget.autoReplyMessage,
           autoReplySenderName: widget.autoReplySenderName,
           autoReplyUseAi: widget.autoReplyUseAi,
+          aiEscalationPolicy: normalizeEscalationPolicy(
+            widget.aiEscalationPolicy as Partial<WebChatAiEscalationPolicy> | undefined,
+          ),
           proactiveGreetingEnabled: widget.proactiveGreetingEnabled ?? false,
           proactiveGreetingMessage: widget.proactiveGreetingMessage,
           proactiveGreetingDelaySeconds: widget.proactiveGreetingDelaySeconds ?? 30,
@@ -5061,6 +5102,9 @@ export class DashboardService {
           autoReplyMessage: widget.autoReplyMessage,
           autoReplySenderName: widget.autoReplySenderName,
           autoReplyUseAi: widget.autoReplyUseAi,
+          aiEscalationPolicy: normalizeEscalationPolicy(
+            widget.aiEscalationPolicy as Partial<WebChatAiEscalationPolicy> | undefined,
+          ),
           proactiveGreetingEnabled: widget.proactiveGreetingEnabled ?? false,
           proactiveGreetingMessage: widget.proactiveGreetingMessage,
           proactiveGreetingDelaySeconds: widget.proactiveGreetingDelaySeconds ?? 30,

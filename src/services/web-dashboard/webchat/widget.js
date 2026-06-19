@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.62';
+  var WIDGET_BUILD = '2.10.63';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -292,6 +292,15 @@
     remoteTyping: null,
     remoteTypingTimer: null,
     visitorTypingStopTimer: null,
+    unreadCount: 0,
+    firstUnreadMessageId: null,
+    messagePreview: null,
+    pulseActive: false,
+    pulseTimer: null,
+    originalPageTitle: null,
+    notificationsReady: false,
+    soundEnabled: false,
+    userHasInteracted: false,
   };
 
   function ensureTypingStyles() {
@@ -299,8 +308,168 @@
     var s = document.createElement('style');
     s.id = 'rz-webchat-typing-style';
     s.textContent =
-      '@keyframes rz-typing-bounce{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}';
+      '@keyframes rz-typing-bounce{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}' +
+      '@keyframes rz-notify-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}' +
+      '@keyframes rz-notify-glow{0%,100%{box-shadow:0 8px 24px rgba(0,0,0,.18)}50%{box-shadow:0 8px 28px rgba(0,0,0,.22),0 0 0 4px rgba(255,255,255,.35)}}' +
+      '.rz-notify-pulse{animation:rz-notify-pulse .65s ease-in-out 3,rz-notify-glow .65s ease-in-out 3;}';
     document.head.appendChild(s);
+  }
+
+  function readSoundPref() {
+    try {
+      return localStorage.getItem(storageKey + '_sound') === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function writeSoundPref(on) {
+    try {
+      localStorage.setItem(storageKey + '_sound', on ? '1' : '0');
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  state.soundEnabled = readSoundPref();
+
+  function isNotifiableOutbound(message) {
+    if (!message || message.direction !== 'outbound') return false;
+    if (isHiddenVisitorSystemMessage(message)) return false;
+    return true;
+  }
+
+  function formatBadgeCount(count) {
+    if (count >= 100) return '99+';
+    if (count > 9) return '9+';
+    return String(count);
+  }
+
+  function messagePreviewText(message) {
+    var sender = message.senderName || 'Atendente';
+    var body = String(message.body || '').trim();
+    if (message.mediaType === 'image') body = '📷 Imagem';
+    else if (message.mediaType === 'document') {
+      body = '📎 ' + (message.mediaFileName || 'Documento');
+    }
+    if (!body) body = 'Nova mensagem';
+    if (body.length > 80) body = body.slice(0, 77) + '…';
+    return sender + ': ' + body;
+  }
+
+  function isMessagesAtBottom() {
+    var el = document.getElementById('rz-webchat-messages');
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  }
+
+  function markMessagesRead() {
+    if (state.unreadCount === 0 && !state.firstUnreadMessageId && !state.messagePreview) return;
+    state.unreadCount = 0;
+    state.firstUnreadMessageId = null;
+    state.messagePreview = null;
+    updateTabTitle();
+    if (state.open) renderBubble();
+  }
+
+  function updateTabTitle() {
+    if (!state.originalPageTitle) state.originalPageTitle = document.title.replace(/^\(\d+\)\s+/, '');
+    if (document.hidden && state.unreadCount > 0) {
+      document.title = '(' + state.unreadCount + ') Nova mensagem';
+    } else {
+      document.title = state.originalPageTitle;
+    }
+  }
+
+  function triggerNotifyPulse() {
+    state.pulseActive = true;
+    if (state.pulseTimer) clearTimeout(state.pulseTimer);
+    state.pulseTimer = setTimeout(function () {
+      state.pulseActive = false;
+      state.pulseTimer = null;
+      var toggle = document.getElementById('rz-webchat-toggle');
+      if (toggle) toggle.classList.remove('rz-notify-pulse');
+    }, 2600);
+  }
+
+  function playNotifyChime() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 784;
+      gain.gain.value = 0.035;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.14);
+      osc.onended = function () {
+        void ctx.close();
+      };
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function handleNewOutboundMessage(message) {
+    if (!state.notificationsReady || !isNotifiableOutbound(message)) return;
+    if (state.open && isMessagesAtBottom()) {
+      markMessagesRead();
+      return;
+    }
+    state.unreadCount += 1;
+    if (!state.firstUnreadMessageId) state.firstUnreadMessageId = message.id;
+    state.messagePreview = messagePreviewText(message);
+    triggerNotifyPulse();
+    if (state.soundEnabled && state.userHasInteracted) playNotifyChime();
+    updateTabTitle();
+  }
+
+  function renderNewMessageSeparator(t) {
+    return (
+      '<div style="display:flex;align-items:center;gap:10px;margin:14px 0;color:' +
+      t.textMuted +
+      ';font-size:11px;font-weight:600;letter-spacing:.04em;">' +
+      '<span style="flex:1;height:1px;background:' +
+      t.border +
+      ';"></span>' +
+      'Nova mensagem' +
+      '<span style="flex:1;height:1px;background:' +
+      t.border +
+      ';"></span></div>'
+    );
+  }
+
+  function renderMessagePreview(t) {
+    if (!state.messagePreview || state.open) return '';
+    return (
+      '<div id="rz-webchat-msg-preview" role="button" tabindex="0" style="max-width:min(280px,92vw);margin-bottom:10px;padding:10px 12px;border-radius:14px 14px 4px 14px;background:' +
+      t.panelBg +
+      ';border:1px solid ' +
+      t.border +
+      ';box-shadow:' +
+      t.panelShadow +
+      ';cursor:pointer;position:relative;">' +
+      '<div style="font-size:13px;line-height:1.45;color:' +
+      t.text +
+      ';padding-right:18px;">' +
+      escHtml(state.messagePreview) +
+      '</div>' +
+      '<button type="button" id="rz-webchat-msg-preview-dismiss" aria-label="Fechar prévia" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border:none;background:transparent;color:' +
+      t.textMuted +
+      ';font-size:16px;line-height:1;cursor:pointer;border-radius:6px;">×</button></div>'
+    );
+  }
+
+  function renderUnreadBadge() {
+    if (state.open || state.unreadCount <= 0) return '';
+    return (
+      '<span id="rz-webchat-badge" aria-label="' +
+      state.unreadCount +
+      ' mensagens não lidas" style="position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.25);border:2px solid #fff;">' +
+      escHtml(formatBadgeCount(state.unreadCount)) +
+      '</span>'
+    );
   }
 
   function clearRemoteTyping() {
@@ -867,7 +1036,10 @@
       var exists = state.messages.some(function (m) {
         return m.id === item.id;
       });
-      if (!exists) state.messages.push(item);
+      if (!exists) {
+        state.messages.push(item);
+        if (item.direction === 'outbound') handleNewOutboundMessage(item);
+      }
     });
   }
 
@@ -1080,12 +1252,17 @@
       ((state.config && state.config.position) === 'left' ? 'flex-start' : 'flex-end') +
       ';">' +
       (state.open ? renderPanel() : '') +
-      renderProactiveTeaser(t) +
-      '<button type="button" id="rz-webchat-toggle" aria-label="Abrir chat" style="width:56px;height:56px;border-radius:999px;border:none;cursor:pointer;box-shadow:' +
+      (!state.open && state.messagePreview ? renderMessagePreview(t) : renderProactiveTeaser(t)) +
+      '<div style="position:relative;display:inline-block;">' +
+      '<button type="button" id="rz-webchat-toggle" aria-label="Abrir chat" class="' +
+      (state.pulseActive ? 'rz-notify-pulse' : '') +
+      '" style="width:56px;height:56px;border-radius:999px;border:none;cursor:pointer;box-shadow:' +
       t.toggleShadow +
       ';background:' +
       primaryColor() +
-      ';color:#fff;font-size:24px;line-height:1;">💬</button></div>';
+      ';color:#fff;font-size:24px;line-height:1;">💬</button>' +
+      renderUnreadBadge() +
+      '</div></div>';
     var toggle = document.getElementById('rz-webchat-toggle');
     if (toggle) {
       toggle.setAttribute('aria-label', state.open ? 'Fechar chat' : 'Abrir chat');
@@ -1095,6 +1272,7 @@
         state.prechatError = '';
         state.emojiPickerOpen = false;
         if (opening) {
+          markMessagesRead();
           refreshWidgetConfig().then(function (changed) {
             recordChatEngagement({ proactiveInvite: false });
             state.proactiveTeaser = null;
@@ -1132,6 +1310,31 @@
       teaserDismiss.onclick = function (e) {
         e.stopPropagation();
         recordProactiveDismiss();
+      };
+    }
+    var msgPreview = document.getElementById('rz-webchat-msg-preview');
+    if (msgPreview) {
+      msgPreview.onclick = function (e) {
+        if (
+          e.target &&
+          (e.target.id === 'rz-webchat-msg-preview-dismiss' ||
+            (e.target.closest && e.target.closest('#rz-webchat-msg-preview-dismiss')))
+        ) {
+          return;
+        }
+        state.open = true;
+        markMessagesRead();
+        recordChatEngagement({ proactiveInvite: false });
+        if (!state.started && !needsPrechat()) startSession();
+        renderBubble();
+      };
+    }
+    var msgPreviewDismiss = document.getElementById('rz-webchat-msg-preview-dismiss');
+    if (msgPreviewDismiss) {
+      msgPreviewDismiss.onclick = function (e) {
+        e.stopPropagation();
+        state.messagePreview = null;
+        renderBubble();
       };
     }
     bindPanelEvents();
@@ -1373,6 +1576,12 @@
 
     var messagesHtml = state.messages
       .map(function (m) {
+        var separator =
+          state.open &&
+          state.firstUnreadMessageId &&
+          m.id === state.firstUnreadMessageId
+            ? renderNewMessageSeparator(t)
+            : '';
         var isInbound = m.direction === 'inbound';
         var isSystem = m.direction === 'system';
         var align = isInbound ? 'flex-end' : 'flex-start';
@@ -1389,6 +1598,7 @@
             : '';
         meta += formatTime(m.createdAt);
         return (
+          separator +
           '<div style="display:flex;flex-direction:column;align-items:' +
           (isInbound ? 'flex-end' : 'flex-start') +
           ';margin:10px 0;max-width:88%;' +
@@ -1518,6 +1728,7 @@
       t.border +
       ';">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 0;">' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
       '<button type="button" id="rz-webchat-expand" aria-label="' +
       (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
       '" title="' +
@@ -1527,6 +1738,15 @@
       '">' +
       (state.expanded ? '⤡' : '⤢') +
       '</button>' +
+      '<button type="button" id="rz-webchat-sound" aria-label="' +
+      (state.soundEnabled ? 'Desativar som de notificação' : 'Ativar som de notificação') +
+      '" title="' +
+      (state.soundEnabled ? 'Som ligado' : 'Som desligado') +
+      '" style="' +
+      headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
+      '">' +
+      (state.soundEnabled ? '🔔' : '🔕') +
+      '</button></div>' +
       '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" title="Fechar" style="' +
       headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
       '">×</button>' +
@@ -1557,7 +1777,9 @@
 
   function scrollMessages() {
     var el = document.getElementById('rz-webchat-messages');
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    if (state.open && isMessagesAtBottom()) markMessagesRead();
   }
 
   function closeConversationByVisitor() {
@@ -1665,6 +1887,16 @@
         renderBubble();
       };
     }
+    var soundBtn = document.getElementById('rz-webchat-sound');
+    if (soundBtn) {
+      soundBtn.onclick = function () {
+        state.userHasInteracted = true;
+        state.soundEnabled = !state.soundEnabled;
+        writeSoundPref(state.soundEnabled);
+        if (state.soundEnabled) playNotifyChime();
+        renderBubble();
+      };
+    }
     var dismissBtn = document.getElementById('rz-webchat-dismiss');
     if (dismissBtn) {
       dismissBtn.onclick = function () {
@@ -1727,6 +1959,12 @@
         if (input && input.oninput) input.oninput();
       };
     }
+    var messagesScroll = document.getElementById('rz-webchat-messages');
+    if (messagesScroll) {
+      messagesScroll.onscroll = function () {
+        if (state.open && isMessagesAtBottom()) markMessagesRead();
+      };
+    }
   }
 
   function finishAgentEngageSession(data) {
@@ -1767,6 +2005,7 @@
     if (!payload || !payload.conversationId) return;
     state.skipPrechat = payload.skipPrechat !== false;
     state.open = true;
+    markMessagesRead();
     state.chatEverOpened = true;
     state.proactiveTeaser = null;
     state.started = true;
@@ -1848,6 +2087,7 @@
         if (!exists) {
           if (payload.message.direction === 'outbound') {
             clearRemoteTyping();
+            handleNewOutboundMessage(payload.message);
           }
           state.messages.push(payload.message);
           renderBubble();
@@ -1893,6 +2133,9 @@
     state.selectOtherDraft = '';
     state.endConfirmOpen = false;
     state.closingConversation = false;
+    state.unreadCount = 0;
+    state.firstUnreadMessageId = null;
+    state.messagePreview = null;
     writeStore({ visitorToken: null, conversationId: null });
     renderBubble();
     if (!needsPrechat()) {
@@ -2168,6 +2411,7 @@
   }
 
   document.addEventListener('visibilitychange', function () {
+    updateTabTitle();
     if (document.visibilityState !== 'visible' || !state.config) return;
     refreshWidgetConfig().then(function (changed) {
       if (changed) {
@@ -2175,6 +2419,10 @@
         renderBubble();
       }
     });
+  });
+
+  root.addEventListener('click', function () {
+    state.userHasInteracted = true;
   });
 
   apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/config', { method: 'GET' })
@@ -2206,6 +2454,7 @@
     })
     .finally(function () {
       syncPresenceEngagementFromStore();
+      state.notificationsReady = true;
       renderBubble();
       scheduleProactiveGreeting();
       startPresenceHeartbeat();
@@ -2238,6 +2487,9 @@
       proactiveInviteClicked: presenceEngagementFlags().proactiveInviteClicked,
       visitorToken: state.visitorToken ? 'set' : null,
       messageCount: state.messages.length,
+      unreadCount: state.unreadCount,
+      soundEnabled: state.soundEnabled,
+      messagePreview: state.messagePreview || null,
     };
   };
 })();

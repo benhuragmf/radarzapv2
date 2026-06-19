@@ -25,7 +25,7 @@ const WebChatMessageSchema = new Schema<IWebChatMessage>(
       index: true,
     },
     clientId: { type: Schema.Types.ObjectId, required: true, ref: 'Organization', index: true },
-    direction: { type: String, enum: ['inbound', 'outbound', 'system'], required: true },
+    direction: { type: String, enum: ['inbound', 'outbound', 'system', 'internal'], required: true },
     body: { type: String, required: true, trim: true, maxlength: 4000 },
     mediaType: { type: String, enum: ['image', 'document'] },
     mediaUrl: { type: String, maxlength: 500 },

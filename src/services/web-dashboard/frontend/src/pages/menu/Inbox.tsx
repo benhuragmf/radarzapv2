@@ -180,6 +180,28 @@ function canReplyToConversation(conv: Conversation, me: AuthUser | null | undefi
   return conv.status === 'in_progress' && conv.assignedUserId === me?.userId
 }
 
+function canSendInternalChat(conv: Conversation, me: AuthUser | null | undefined): boolean {
+  if (!me?.userId || conv.status === 'closed' || conv.status === 'resolved') return false
+  if (!can(me, 'inbox:reply') && !can(me, 'inbox:supervise')) return false
+  if (can(me, 'inbox:supervise')) return true
+  return conv.status === 'in_progress' && conv.assignedUserId === me.userId
+}
+
+function internalChatBlockedReason(
+  conv: Conversation,
+  me: AuthUser | null | undefined,
+): string | null {
+  if (canSendInternalChat(conv, me)) return null
+  if (conv.status === 'closed' || conv.status === 'resolved') return 'Conversa encerrada.'
+  if (!can(me, 'inbox:reply') && !can(me, 'inbox:supervise')) {
+    return 'Sem permissão para o chat interno.'
+  }
+  if (conv.status === 'in_progress' && conv.assignedUserId && conv.assignedUserId !== me?.userId) {
+    return `Chat interno disponível para ${conv.assignedUserName ?? 'o atendente'} ou supervisores.`
+  }
+  return 'Assuma a conversa para usar o chat interno.'
+}
+
 function inboxReplyBlockedReason(
   conv: Conversation,
   me: AuthUser | null | undefined,
@@ -524,28 +546,32 @@ export default function Inbox() {
     onError: mutationError,
   })
 
-  const saveInternalNote = useMutation({
+  const saveTicketInternalNote = useMutation({
     mutationFn: async (text: string) => {
       const d = qc.getQueryData<ConversationDetail>(['inbox-conversation', selectedId])
       const ticketRef = d?.conversation?.ticketRef
-      if (ticketRef) {
-        return api.post(`/inbox/tickets/${encodeURIComponent(ticketRef)}/internal-notes`, { body: text })
-      }
-      if (!d?.contact?._id) throw new Error('Sem contato vinculado para salvar nota')
-      const stamp = new Date().toLocaleString('pt-BR')
-      const agent = me?.username ?? 'Atendente'
-      const prev = d.contact.notes?.trim() ?? ''
-      const next = prev ? `${prev}\n\n[${stamp}] ${agent}: ${text}` : `[${stamp}] ${agent}: ${text}`
-      return api.patch(`/destinations/${d.contact._id}`, { notes: next })
+      if (!ticketRef) throw new Error('Sem ticket vinculado')
+      return api.post(`/inbox/tickets/${encodeURIComponent(ticketRef)}/internal-notes`, { body: text })
     },
-    onSuccess: (_data, text) => {
-      setReply('')
-      invalidate()
+    onSuccess: () => {
       const d = qc.getQueryData<ConversationDetail>(['inbox-conversation', selectedId])
       if (d?.conversation?.ticketRef) {
         qc.invalidateQueries({ queryKey: ['inbox-ticket-notes', d.conversation.ticketRef] })
       }
-      notifySuccess('Nota interna salva')
+      notifySuccess('Nota do ticket salva')
+    },
+    onError: mutationError,
+  })
+
+  const saveInternalChat = useMutation({
+    mutationFn: (text: string) =>
+      api.post<{ message: InboxMessageView }>(
+        `/inbox/conversations/${encodeURIComponent(selectedId!)}/internal-chat`,
+        { text },
+      ),
+    onSuccess: () => {
+      setReply('')
+      invalidate()
     },
     onError: mutationError,
   })
@@ -603,9 +629,11 @@ export default function Inbox() {
       conv?.suggestedUserOnline === false)
 
   const canReply = conv ? canReplyToConversation(conv, me) : false
+  const canInternalChat = conv ? canSendInternalChat(conv, me) : false
   const replyBlockedReason = conv
     ? inboxReplyBlockedReason(conv, me, convLiveCanPull)
     : null
+  const internalChatBlocked = conv ? internalChatBlockedReason(conv, me) : null
 
   useEffect(() => {
     if (!isWebChatConv || !selectedId || composeMode !== 'reply') return
@@ -1215,7 +1243,7 @@ export default function Inbox() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {!isTerminal && (
+              {!isTerminal && (canReply || canInternalChat) && (
                 <footer className="shrink-0 border-t border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/60 backdrop-blur-sm p-3 space-y-2">
                   {detailError && (
                     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--rz-warning-text)]/30 bg-[var(--rz-warning-bg)] px-3 py-2 text-xs text-[var(--rz-warning-text)]">
@@ -1229,21 +1257,24 @@ export default function Inbox() {
                       </button>
                     </div>
                   )}
-                  {replyBlockedReason && (
+                  {composeMode === 'reply' && replyBlockedReason && (
                     <p className="text-xs text-[var(--rz-text-muted)]">{replyBlockedReason}</p>
+                  )}
+                  {composeMode === 'internal' && internalChatBlocked && (
+                    <p className="text-xs text-[var(--rz-text-muted)]">{internalChatBlocked}</p>
                   )}
                   <InboxComposer
                     value={reply}
                     onChange={setReply}
                     quickReplies={quickReplies}
-                    sending={composeMode === 'internal' ? saveInternalNote.isPending : sendReply.isPending}
+                    sending={composeMode === 'internal' ? saveInternalChat.isPending : sendReply.isPending}
                     sendDisabled={!canReply}
                     composeMode={composeMode}
                     onComposeModeChange={setComposeMode}
-                    internalNoteDisabled={!detail?.contact && !conv.ticketRef}
+                    internalChatDisabled={!canInternalChat}
                     onSend={() => {
                       if (composeMode === 'internal') {
-                        saveInternalNote.mutate(reply)
+                        saveInternalChat.mutate(reply)
                         return
                       }
                       sendReply.mutate({ id: conv._id, text: reply })
@@ -1327,8 +1358,10 @@ export default function Inbox() {
               conv.status !== 'in_progress' &&
               Boolean(conv.canAccept && !conv.priorityForMe && (!conv.suggestedUserId || conv.status === 'bot_triage'))
             }
-            onSaveInternalNote={body => saveInternalNote.mutateAsync(body)}
-            savingNote={saveInternalNote.isPending}
+            onSaveInternalNote={
+              conv.ticketRef ? body => saveTicketInternalNote.mutateAsync(body) : undefined
+            }
+            savingNote={saveTicketInternalNote.isPending}
           />
         )}
         </div>

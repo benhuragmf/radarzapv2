@@ -3441,12 +3441,34 @@ export class InboxService {
       ]),
     );
 
-    const messages = await InboxMessage.find({
+    const messagesRaw = await InboxMessage.find({
       conversationId: conv._id,
     })
       .sort({ createdAt: 1 })
       .limit(500)
       .lean();
+
+    const internalAuthorIds = messagesRaw
+      .filter(m => m.direction === 'internal' && m.authorUserId)
+      .map(m => String(m.authorUserId));
+    const internalAuthors =
+      internalAuthorIds.length > 0
+        ? await User.find({ _id: { $in: internalAuthorIds } }).select('displayName email').lean()
+        : [];
+    const internalAuthorMap = new Map(
+      internalAuthors.map(a => [
+        String(a._id),
+        a.displayName?.trim() || a.email?.split('@')[0] || 'Equipe',
+      ]),
+    );
+    const messages = messagesRaw.map(m => ({
+      ...m,
+      _id: String(m._id),
+      authorUserName:
+        m.direction === 'internal' && m.authorUserId
+          ? internalAuthorMap.get(String(m.authorUserId))
+          : undefined,
+    }));
     const transfers = await InboxTransfer.find({ conversationId: conv._id })
       .sort({ createdAt: -1 })
       .limit(20)
@@ -3664,6 +3686,54 @@ export class InboxService {
     }
 
     return { ok: true, messageId: result.messageId };
+  }
+
+  async sendInternalChatMessage(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+    text: string,
+    opts?: { canSupervise?: boolean },
+  ) {
+    const raw = text.trim();
+    if (!raw) throw new Error('Mensagem vazia');
+
+    const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
+    if (TERMINAL_STATUSES.has(conv.status)) {
+      throw new Error('Conversa encerrada');
+    }
+
+    const canSupervise = opts?.canSupervise === true;
+    const assignedId = conv.assignedUserId?.toString();
+    if (!canSupervise) {
+      if (conv.status !== InboxConversationStatus.IN_PROGRESS) {
+        throw new Error('Assuma a conversa para usar o chat interno');
+      }
+      if (!assignedId || assignedId !== userId) {
+        throw new Error('Somente o atendente responsável ou supervisor pode enviar no chat interno');
+      }
+    }
+
+    const authorName = await this.resolveAgentDisplayName(userId);
+    const msg = await InboxMessage.create({
+      clientId: conv.clientId,
+      conversationId: conv._id,
+      direction: 'internal',
+      body: raw,
+      authorUserId: new mongoose.Types.ObjectId(userId),
+    });
+
+    conv.lastMessageAt = new Date();
+    await conv.save();
+    this.notifyMessage(clientId, String(conv._id));
+
+    return {
+      _id: String(msg._id),
+      direction: 'internal' as const,
+      body: raw,
+      createdAt: msg.createdAt.toISOString(),
+      authorUserName: authorName,
+    };
   }
 
   async transferConversation(

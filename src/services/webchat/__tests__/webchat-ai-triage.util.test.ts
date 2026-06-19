@@ -75,4 +75,31 @@ describe('webchat-ai-triage.util', () => {
       }),
     ).toBe(true);
   });
+
+  it('escala comercial na 1ª vez quando politica immediate', () => {
+    expect(
+      resolveWebChatShouldEscalate({
+        clientText: 'falar com o setor comercial',
+        modelWantsEscalate: false,
+        modelReply: 'Vou encaminhar.',
+        messages: [{ direction: 'inbound', body: 'falar com o setor comercial' }],
+        policy: { commercialRequest: 'immediate' },
+      }),
+    ).toBe(true);
+  });
+
+  it('escala após N pedidos repetidos com triagem', () => {
+    expect(
+      resolveWebChatShouldEscalate({
+        clientText: 'atendente',
+        modelWantsEscalate: false,
+        modelReply: 'Como posso ajudar?',
+        messages: [
+          { direction: 'inbound', body: 'falar com atendente' },
+          { direction: 'outbound', body: 'Sobre o que?' },
+        ],
+        policy: { humanRequest: 'triage_first', escalateAfterRepeatedRequests: 2 },
+      }),
+    ).toBe(true);
+  });
 });

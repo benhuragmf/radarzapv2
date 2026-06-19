@@ -4,7 +4,7 @@ export type WebChatConversationStatus = 'open' | 'closed';
 
 export type WebChatQueueStatus = 'bot' | 'waiting_human' | 'with_agent';
 
-export type WebChatMessageDirection = 'inbound' | 'outbound' | 'system';
+export type WebChatMessageDirection = 'inbound' | 'outbound' | 'system' | 'internal';
 
 export type WebChatTypingSenderType = 'visitor' | 'agent' | 'bot';
 
@@ -90,6 +90,24 @@ export const DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE =
   'Olá! Estou por aqui caso precise de ajuda 😊';
 
 export const DEFAULT_WEBCHAT_PROACTIVE_GREETING_DELAY_SECONDS = 30;
+
+/** triage_first = tenta ajudar antes de encaminhar; immediate = fila na 1ª vez que pedir */
+export type WebChatAiTransferTrigger = 'triage_first' | 'immediate';
+
+export interface WebChatAiEscalationPolicy {
+  humanRequest: WebChatAiTransferTrigger;
+  commercialRequest: WebChatAiTransferTrigger;
+  supportRequest: WebChatAiTransferTrigger;
+  /** Com triagem: escalar após N pedidos de humano/setor (0 = só após confirmação explícita). */
+  escalateAfterRepeatedRequests: number;
+}
+
+export const DEFAULT_WEBCHAT_AI_ESCALATION_POLICY: WebChatAiEscalationPolicy = {
+  humanRequest: 'triage_first',
+  commercialRequest: 'triage_first',
+  supportRequest: 'triage_first',
+  escalateAfterRepeatedRequests: 2,
+};
 
 export interface WebChatPublicConfig {
   publicKey: string;

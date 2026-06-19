@@ -17,7 +17,9 @@ import {
   type WebChatVisitorSessionDto,
   type WebChatVisitorSendResult,
   type WebChatTypingSenderType,
+  type WebChatAiEscalationPolicy,
 } from '../../types/webchat';
+import { normalizeEscalationPolicy } from './webchat-ai-escalation-policy.util';
 import {
   applyVisitorIntake,
   buildIntakeSystemNote,
@@ -133,6 +135,7 @@ export class WebChatService {
       autoReplyMessage?: string;
       autoReplySenderName?: string;
       autoReplyUseAi?: boolean;
+      aiEscalationPolicy?: Partial<WebChatAiEscalationPolicy>;
       proactiveGreetingEnabled?: boolean;
       proactiveGreetingMessage?: string;
       proactiveGreetingDelaySeconds?: number;
@@ -173,6 +176,10 @@ export class WebChatService {
       existing.autoReplySenderName = patch.autoReplySenderName.trim();
     }
     if (patch.autoReplyUseAi !== undefined) existing.autoReplyUseAi = patch.autoReplyUseAi;
+    if (patch.aiEscalationPolicy !== undefined) {
+      existing.aiEscalationPolicy = normalizeEscalationPolicy(patch.aiEscalationPolicy);
+      existing.markModified('aiEscalationPolicy');
+    }
     if (patch.proactiveGreetingEnabled !== undefined) {
       existing.proactiveGreetingEnabled = patch.proactiveGreetingEnabled;
     }
@@ -288,7 +295,11 @@ export class WebChatService {
       pageTitle: conversation.pageTitle,
       visitorIntake: conversation.visitorIntake,
       messages: messages
-        .filter(m => !isVisitorHiddenSystemMessage(m as { direction: string; body: string }))
+        .filter(m => {
+          const dir = (m as IWebChatMessage).direction;
+          if (dir === 'internal') return false;
+          return !isVisitorHiddenSystemMessage(m as { direction: string; body: string });
+        })
         .map(m => this.toMessageDto(m)),
     };
   }
@@ -824,7 +835,7 @@ export class WebChatService {
     conversation: InboxWebChatListRow & { createdAt?: string };
     messages: Array<{
       _id: string;
-      direction: 'inbound' | 'outbound' | 'system';
+      direction: 'inbound' | 'outbound' | 'system' | 'internal';
       body: string;
       createdAt: string;
       senderName?: string;
@@ -1028,7 +1039,7 @@ export class WebChatService {
   private async appendMessage(
     conversation: IWebChatConversation,
     data: {
-      direction: 'inbound' | 'outbound' | 'system';
+      direction: 'inbound' | 'outbound' | 'system' | 'internal';
       body: string;
       senderUserId?: string;
       senderName?: string;
@@ -1039,6 +1050,7 @@ export class WebChatService {
       mediaFileName?: string;
     },
   ): Promise<IWebChatMessage> {
+    const isInternal = data.direction === 'internal';
     const preview =
       data.mediaType === 'image'
         ? '📎 Imagem'
@@ -1066,8 +1078,10 @@ export class WebChatService {
       .lean();
     const setFields: Record<string, unknown> = {
       lastMessageAt: now,
-      lastMessagePreview: preview,
     };
+    if (!isInternal) {
+      setFields.lastMessagePreview = preview;
+    }
     if (currentStatus?.status !== 'closed') {
       setFields.status = 'open';
     }
@@ -1094,7 +1108,7 @@ export class WebChatService {
     const payload = { clientId, conversationId, message: messageDto, conversation: conversationDto };
 
     emitWebChatToTenant(clientId, 'webchat:message', payload);
-    if (data.notifyVisitor !== false) {
+    if (!isInternal && data.notifyVisitor !== false) {
       emitWebChatToVisitor(conversationId, 'webchat:message', payload);
     }
     if (conversationDto) {
@@ -1543,7 +1557,10 @@ export class WebChatService {
         ai = await WebChatAiService.getInstance().generateVisitorReply(
           clientIdStr,
           convId,
-          aiCtx,
+          {
+            ...aiCtx,
+            escalationPolicy: normalizeEscalationPolicy(widget.aiEscalationPolicy),
+          },
         );
       } finally {
         const minVisibleMs = 900;
@@ -1823,6 +1840,54 @@ export class WebChatService {
         'Esta conversa está em prioridade para outro atendente. Aguarde o tempo ou até ele ficar ocupado.',
       );
     }
+  }
+
+  async sendInternalChatMessage(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+    body: string,
+    senderName?: string,
+    opts?: { canSupervise?: boolean },
+  ): Promise<WebChatMessageDto> {
+    const raw = body?.trim();
+    if (!raw) throw new Error('Mensagem vazia');
+
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') throw new Error('Conversa encerrada');
+
+    const canSupervise = opts?.canSupervise === true;
+    const assignedId = conversation.assignedUserId
+      ? String(conversation.assignedUserId)
+      : '';
+    if (!canSupervise) {
+      if (conversation.queueStatus !== 'with_agent') {
+        throw new Error('Assuma a conversa para usar o chat interno');
+      }
+      if (!assignedId || assignedId !== String(userId)) {
+        throw new Error('Somente o atendente responsável ou supervisor pode enviar no chat interno');
+      }
+    }
+
+    let authorName = senderName?.trim();
+    if (!authorName) {
+      const user = await User.findById(userId).select('displayName email').lean();
+      authorName = user?.displayName?.trim() || user?.email?.split('@')[0] || 'Equipe';
+    }
+
+    const msg = await this.appendMessage(conversation, {
+      direction: 'internal',
+      body: raw,
+      senderUserId: userId,
+      senderName: authorName,
+      notifyVisitor: false,
+    });
+
+    return this.toMessageDto(msg);
   }
 
   async sendAgentMessage(

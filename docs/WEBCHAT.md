@@ -86,6 +86,8 @@ Snippet equivalente ao `widget.html`:
 - **Painel Widgets reorganizado** (2.10.57): lista lateral + editor por seções (Geral, Visual, Pré-chat, IA, Horários, Instalação); abas com `?tab=widgets`.
 - **Toolbar de widgets** (2.10.60): chips horizontais no topo do card, criação sob demanda (+ Novo), cabeçalho com título do chat; fix JSX que quebrava o Vite.
 - **Indicador de digitação** (2.10.61): visitante vê atendente/IA digitando; painel Inbox vê visitante; evento socket `webchat:typing` + REST `POST …/sessions/typing` e `POST …/inbox/conversations/wc:…/typing`.
+- **Notificações visitante** (2.10.63): badge com contagem no botão 💬, pulse leve (~2,5 s), prévia da mensagem com chat fechado, separador “Nova mensagem” no painel aberto, título da aba `(N) Nova mensagem` em background tab, som curto opcional (🔔/🔕 no cabeçalho, preferência em localStorage).
+- **Política de transferência IA** (2.10.63): por widget — atendente/comercial/suporte com “triagem primeiro” ou “transferir na 1ª vez”; limite de pedidos repetidos antes de escalar (`aiEscalationPolicy` no painel → IA e proativa).
 - Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
 - Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
 - **Tema claro/escuro** (`appearance.theme`, 2.10.17): aplicado pelos modelos (Tecnológico, Obsidian = escuro). Editor: indicador **Tema do widget** + **Aplicar** nos cards de modelo (2.10.52).

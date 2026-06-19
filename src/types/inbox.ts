@@ -11,6 +11,6 @@ export enum InboxConversationStatus {
   CLOSED = 'closed',
 }
 
-export type InboxMessageDirection = 'inbound' | 'outbound' | 'system';
+export type InboxMessageDirection = 'inbound' | 'outbound' | 'system' | 'internal';
 
 export type InboxMessageMediaType = 'image' | 'audio' | 'video' | 'document' | 'sticker';

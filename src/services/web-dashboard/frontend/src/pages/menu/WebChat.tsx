@@ -29,6 +29,13 @@ import {
   webChatPreviewUrl,
   type WebChatAppearancePreset,
 } from '../../lib/webchatPreviewTemplates'
+import {
+  DEFAULT_WEBCHAT_AI_ESCALATION_POLICY,
+  normalizeEscalationPolicyForm,
+  WEBCHAT_TRANSFER_TRIGGER_OPTIONS,
+  type WebChatAiEscalationPolicy,
+  type WebChatAiTransferTrigger,
+} from '../../lib/webchatEscalationPolicy'
 
 type Weekday =
   | 'monday'
@@ -103,6 +110,7 @@ interface WebChatWidgetRow {
   autoReplyMessage: string
   autoReplySenderName: string
   autoReplyUseAi: boolean
+  aiEscalationPolicy: WebChatAiEscalationPolicy
   proactiveGreetingEnabled: boolean
   proactiveGreetingMessage: string
   proactiveGreetingDelaySeconds: number
@@ -887,6 +895,7 @@ function WidgetEditorCard({
       proactiveGreetingMessage:
         widget.proactiveGreetingMessage ?? 'Olá! Estou por aqui caso precise de ajuda 😊',
       proactiveGreetingDelaySeconds: widget.proactiveGreetingDelaySeconds ?? 30,
+      aiEscalationPolicy: normalizeEscalationPolicyForm(widget.aiEscalationPolicy),
     })
     setDelayDraft(String(widget.proactiveGreetingDelaySeconds ?? 30))
     const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
@@ -913,6 +922,7 @@ function WidgetEditorCard({
         autoReplyMessage: form.autoReplyMessage,
         autoReplySenderName: form.autoReplySenderName,
         autoReplyUseAi: form.autoReplyUseAi,
+        aiEscalationPolicy: form.aiEscalationPolicy,
         proactiveGreetingEnabled: form.proactiveGreetingEnabled,
         proactiveGreetingMessage: form.proactiveGreetingMessage,
         proactiveGreetingDelaySeconds: delaySeconds,
@@ -983,6 +993,31 @@ function WidgetEditorCard({
       })
       return next
     })
+  }
+
+  const persistEscalationPolicy = useMutation({
+    mutationFn: (policy: WebChatAiEscalationPolicy) =>
+      api.patch(`/webchat/widgets/${widget.id}`, { aiEscalationPolicy: policy }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
+      notifySuccess('Regras de transferência salvas')
+    },
+    onError: mutationError,
+  })
+
+  const patchEscalationPolicy = (patch: Partial<WebChatAiEscalationPolicy>) => {
+    setForm(f => {
+      const next = normalizeEscalationPolicyForm({ ...f.aiEscalationPolicy, ...patch })
+      persistEscalationPolicy.mutate(next)
+      return { ...f, aiEscalationPolicy: next }
+    })
+  }
+
+  const patchEscalationTrigger = (
+    key: 'humanRequest' | 'commercialRequest' | 'supportRequest',
+    value: WebChatAiTransferTrigger,
+  ) => {
+    patchEscalationPolicy({ [key]: value })
   }
 
   const snippet = embedSnippet(widget.publicKey)
@@ -1311,6 +1346,76 @@ function WidgetEditorCard({
                 onChange={e => setForm(f => ({ ...f, autoReplyMessage: e.target.value }))}
               />
             </label>
+          </WebChatWidgetEditorSection>
+
+          <WebChatWidgetEditorSection
+            id="webchat-section-transferencia"
+            title="Transferência para humano (IA)"
+            description="Por widget: defina se a IA encaminha na 1ª vez ou tenta ajudar antes. Exige “Usar IA da empresa” ativo."
+          >
+            <div
+              className={
+                !form.autoReplyUseAi || !form.autoReplyEnabled
+                  ? 'opacity-60 pointer-events-none space-y-4'
+                  : 'space-y-4'
+              }
+            >
+              {!form.autoReplyUseAi && (
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Ative a IA acima para configurar transferência automática.
+                </p>
+              )}
+              {(
+                [
+                  ['humanRequest', 'Pedido de atendente humano'],
+                  ['commercialRequest', 'Pedido de setor comercial / vendas'],
+                  ['supportRequest', 'Pedido de suporte técnico'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                  {label}
+                  <select
+                    className={inputCls + ' mt-1 text-sm'}
+                    value={form.aiEscalationPolicy?.[key] ?? DEFAULT_WEBCHAT_AI_ESCALATION_POLICY[key]}
+                    disabled={!form.autoReplyUseAi || persistEscalationPolicy.isPending}
+                    onChange={e =>
+                      patchEscalationTrigger(key, e.target.value as WebChatAiTransferTrigger)
+                    }
+                  >
+                    {WEBCHAT_TRANSFER_TRIGGER_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label} — {opt.hint}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                Com triagem: escalar após quantos pedidos repetidos?
+                <select
+                  className={inputCls + ' mt-1 text-sm w-full max-w-xs'}
+                  value={String(form.aiEscalationPolicy?.escalateAfterRepeatedRequests ?? 2)}
+                  disabled={!form.autoReplyUseAi || persistEscalationPolicy.isPending}
+                  onChange={e =>
+                    patchEscalationPolicy({
+                      escalateAfterRepeatedRequests: Number(e.target.value),
+                    })
+                  }
+                >
+                  <option value="0">0 — só após o visitante confirmar que ainda precisa</option>
+                  <option value="1">1 pedido</option>
+                  <option value="2">2 pedidos (padrão)</option>
+                  <option value="3">3 pedidos</option>
+                  <option value="4">4 pedidos</option>
+                  <option value="5">5 pedidos</option>
+                </select>
+              </label>
+              <p className="text-[11px] leading-relaxed text-[var(--rz-text-muted)]">
+                Exemplo comercial imediato: visitante diz “quero falar com o comercial” → vai para a
+                fila. Com triagem: a IA pergunta o assunto e só encaminha depois, conforme as regras
+                acima. O setor padrão do widget (aba Geral) define para onde encaminhar.
+              </p>
+            </div>
           </WebChatWidgetEditorSection>
 
           <WebChatWidgetEditorSection

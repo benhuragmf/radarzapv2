@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import type { WebChatWidgetAppearance } from '../types/webchat';
+import type { WebChatAiEscalationPolicy, WebChatWidgetAppearance } from '../types/webchat';
 import {
+  DEFAULT_WEBCHAT_AI_ESCALATION_POLICY,
   DEFAULT_WEBCHAT_APPEARANCE,
   DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE,
   DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS,
@@ -24,6 +25,7 @@ export interface IWebChatWidget extends Document {
   autoReplyMessage: string;
   autoReplySenderName: string;
   autoReplyUseAi: boolean;
+  aiEscalationPolicy: WebChatAiEscalationPolicy;
   proactiveGreetingEnabled: boolean;
   proactiveGreetingMessage: string;
   proactiveGreetingDelaySeconds: number;
@@ -72,6 +74,10 @@ const WebChatWidgetSchema = new Schema<IWebChatWidget>(
     autoReplyMessage: { type: String, default: DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE, maxlength: 500 },
     autoReplySenderName: { type: String, default: 'Assistente virtual', maxlength: 80 },
     autoReplyUseAi: { type: Boolean, default: false },
+    aiEscalationPolicy: {
+      type: Schema.Types.Mixed,
+      default: () => ({ ...DEFAULT_WEBCHAT_AI_ESCALATION_POLICY }),
+    },
     proactiveGreetingEnabled: { type: Boolean, default: false },
     proactiveGreetingMessage: {
       type: String,

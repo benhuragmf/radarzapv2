@@ -444,7 +444,8 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 | GET | `/inbox/conversations` | `inbox:view` | Lista (`status`, `departmentId`, `mine`) |
 | GET | `/inbox/conversations/:id` | `inbox:view` | Detalhe + mensagens |
 | POST | `/inbox/conversations/:id/assign` | `inbox:reply` | Assumir |
-| POST | `/inbox/conversations/:id/reply` | `inbox:reply` | Responder no WhatsApp |
+| POST | `/inbox/conversations/:id/reply` | `inbox:reply` | Responder ao cliente (WhatsApp / WebChat) |
+| POST | `/inbox/conversations/:id/internal-chat` | `inbox:reply` ou `inbox:supervise` | **Chat interno** — mensagem na timeline do Inbox, só equipe (supervisor pode enviar sem assumir) |
 | POST | `/inbox/conversations/:id/transfer` | `inbox:transfer` | Transferir setor |
 | POST | `/inbox/conversations/:id/resolve` | `inbox:reply` | Finalizar |
 | GET | `/inbox/settings` | `inbox:department:manage` | Config do bot |

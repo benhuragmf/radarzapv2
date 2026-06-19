@@ -26,7 +26,7 @@ const InboxMessageSchema = new Schema<IInboxMessage>(
     },
     direction: {
       type: String,
-      enum: ['inbound', 'outbound', 'system'],
+      enum: ['inbound', 'outbound', 'system', 'internal'],
       required: true,
     },
     body: { type: String, required: true, maxlength: 4096 },

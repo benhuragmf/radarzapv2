@@ -1,4 +1,9 @@
 import { AiEscalationService } from '../ai/AiEscalationService';
+import type { WebChatAiEscalationPolicy } from '../../types/webchat';
+import {
+  normalizeEscalationPolicy,
+  policyAllowsImmediateTransfer,
+} from './webchat-ai-escalation-policy.util';
 
 export type WebChatMessageRow = {
   direction: 'inbound' | 'outbound' | 'system';
@@ -25,16 +30,62 @@ const STILL_NEEDS_HUMAN =
 const RESOLVED_CONFIRM =
   /\b(resolveu|funcionou|deu certo|era isso|obrigad|valeu|s[oó] isso|nao preciso mais|não preciso mais)\b/i;
 
-export function buildWebChatPromptSuffix(opts: {
-  visitorName?: string;
-  visitorEmail?: string;
-  visitorPhone?: string;
-  contactReason?: string;
-  pageUrl?: string;
-  pageTitle?: string;
-  intakeSummary?: string;
-}): string {
+const COMMERCIAL_DEPARTMENT =
+  /\b(comercial|vendas|o comercial|a comercial|setor comercial|time comercial|falar com (?:o |a )?comercial)\b/i;
+
+const SUPPORT_DEPARTMENT =
+  /\b(suporte(?: técnico| tecnico)?|suporte tecnico|t[eé]cnico|falar com (?:o )?suporte)\b/i;
+
+export type WebChatTransferIntent = 'human' | 'commercial' | 'support';
+
+export function classifyTransferIntent(text: string): WebChatTransferIntent | null {
+  const t = text.trim();
+  if (!t) return null;
+  const esc = AiEscalationService.getInstance();
+  if (COMMERCIAL_DEPARTMENT.test(t) && !SUPPORT_DEPARTMENT.test(t)) return 'commercial';
+  if (SUPPORT_DEPARTMENT.test(t)) return 'support';
+  if (esc.clientRequestsHuman(t)) return 'human';
+  return null;
+}
+
+export function countTransferIntentMessages(messages: WebChatMessageRow[], currentText?: string): number {
+  let count = 0;
+  for (const m of messages) {
+    if (m.direction !== 'inbound') continue;
+    if (classifyTransferIntent(m.body)) count += 1;
+  }
+  const current = currentText?.trim();
+  if (current && classifyTransferIntent(current)) {
+    const lastInbound = [...messages].reverse().find(m => m.direction === 'inbound')?.body?.trim();
+    if (lastInbound !== current) count += 1;
+  }
+  return count;
+}
+
+function transferPromptLine(
+  label: string,
+  trigger: WebChatAiEscalationPolicy['humanRequest'],
+): string {
+  if (trigger === 'immediate') {
+    return `- Pedido de ${label}: encaminhe para humano (shouldEscalate=true) na primeira vez.`;
+  }
+  return `- Pedido de ${label} sem detalhar a dúvida: pergunte o que deseja tratar; shouldEscalate=false.`;
+}
+
+export function buildWebChatPromptSuffix(
+  opts: {
+    visitorName?: string;
+    visitorEmail?: string;
+    visitorPhone?: string;
+    contactReason?: string;
+    pageUrl?: string;
+    pageTitle?: string;
+    intakeSummary?: string;
+  },
+  policyInput?: Partial<WebChatAiEscalationPolicy> | null,
+): string {
   const first = opts.visitorName?.trim().split(/\s+/)[0];
+  const policy = normalizeEscalationPolicy(policyInput);
   const lines = [
     '',
     '## Regras obrigatórias — chat do site',
@@ -69,12 +120,32 @@ export function buildWebChatPromptSuffix(opts: {
   }
   lines.push(
     '- Colete só o que faltar para ajudar — não peça tudo de uma vez.',
-    '- Se pedir setor/suporte/comercial/atendente SEM detalhar a dúvida, pergunte o que deseja tratar (ex.: "Pode me adiantar sobre o que gostaria de saber?"). shouldEscalate=false.',
-    '- Com dúvida concreta (técnica, produto, promoção, plano, cobrança), use KNOWLEDGE/SKILLS/MEMORY para orientar ANTES de transferir.',
-    '- Para produtos/promoções: informe o que souber da base; se faltar detalhe, pergunte qual produto/serviço interessa.',
-    '- Depois de orientar, pergunte se resolveu ou se ainda quer falar com um atendente humano.',
-    '- shouldEscalate=true SOMENTE se: (a) cliente confirmar que ainda precisa de humano após você tentar ajudar; (b) pedido explícito de humano E dúvida já descrita; (c) caso sensível/urgente.',
-    '- NUNCA prometa encaminhar/transferir na primeira mensagem sobre um assunto — tente ajudar primeiro.',
+    transferPromptLine('atendente humano', policy.humanRequest),
+    transferPromptLine('setor comercial / vendas', policy.commercialRequest),
+    transferPromptLine('suporte técnico', policy.supportRequest),
+  );
+
+  const anyTriage =
+    policy.humanRequest === 'triage_first' ||
+    policy.commercialRequest === 'triage_first' ||
+    policy.supportRequest === 'triage_first';
+
+  if (anyTriage) {
+    lines.push(
+      '- Com dúvida concreta (técnica, produto, promoção, plano, cobrança), use KNOWLEDGE/SKILLS/MEMORY para orientar ANTES de transferir.',
+      '- Para produtos/promoções: informe o que souber da base; se faltar detalhe, pergunte qual produto/serviço interessa.',
+      '- Depois de orientar, pergunte se resolveu ou se ainda quer falar com um atendente humano.',
+    );
+  }
+
+  if (policy.escalateAfterRepeatedRequests > 0) {
+    lines.push(
+      `- Após ${policy.escalateAfterRepeatedRequests} pedido(s) repetido(s) de humano/setor, shouldEscalate=true.`,
+    );
+  }
+
+  lines.push(
+    '- shouldEscalate=true também se: cliente confirmar que ainda precisa de humano após você tentar ajudar; caso sensível/urgente.',
     '- Insulto sem pedido de humano: responda com calma; shouldEscalate=false.',
     '- Se pedir para fechar/encerrar o atendimento: despedida curta; não escale.',
   );
@@ -162,14 +233,29 @@ export function resolveWebChatShouldEscalate(opts: {
   modelWantsEscalate: boolean;
   modelReply: string;
   messages: WebChatMessageRow[];
+  policy?: Partial<WebChatAiEscalationPolicy> | null;
 }): boolean {
   const esc = AiEscalationService.getInstance();
   const text = opts.clientText.trim();
   const lastBot = lastBotReplyBody(opts.messages);
+  const policy = normalizeEscalationPolicy(opts.policy);
 
   if (!text) return false;
   if (clientConfirmedResolved(text)) return false;
   if (isInsultWithoutHumanRequest(text)) return false;
+
+  const intent = classifyTransferIntent(text);
+  if (intent && policyAllowsImmediateTransfer(policy, intent)) {
+    return true;
+  }
+
+  if (
+    policy.escalateAfterRepeatedRequests > 0 &&
+    intent &&
+    countTransferIntentMessages(opts.messages, text) >= policy.escalateAfterRepeatedRequests
+  ) {
+    return true;
+  }
 
   if (lastBot && /Isso ajudou a resolver|ainda precisar falar com um atendente/i.test(lastBot)) {
     if (clientStillNeedsHumanAfterHelp(text, lastBot)) return true;
@@ -199,6 +285,16 @@ export function resolveWebChatShouldEscalate(opts: {
 
 export function formatWebChatAutoResolveReply(reply: string): string {
   return `${reply.trim()}\n\nIsso ajudou a resolver? Se ainda precisar falar com um atendente humano, é só me avisar.`;
+}
+
+export function shouldRewritePrematureTransfer(
+  clientText: string,
+  policyInput?: Partial<WebChatAiEscalationPolicy> | null,
+): boolean {
+  const intent = classifyTransferIntent(clientText);
+  if (!intent) return true;
+  const policy = normalizeEscalationPolicy(policyInput);
+  return !policyAllowsImmediateTransfer(policy, intent);
 }
 
 export function rewritePrematureTransferReply(

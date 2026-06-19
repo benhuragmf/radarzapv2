@@ -2,13 +2,15 @@ export type InboxMessageMediaType = 'image' | 'audio' | 'video' | 'document' | '
 
 export interface InboxMessageView {
   _id: string
-  direction: 'inbound' | 'outbound' | 'system'
+  direction: 'inbound' | 'outbound' | 'system' | 'internal'
   body: string
   mediaType?: InboxMessageMediaType
   mediaUrl?: string
   mediaSrc?: string
   mediaMime?: string
   createdAt: string
+  senderName?: string
+  authorUserName?: string
 }
 
 export function formatInboxMsgTime(iso: string, withSeconds = true) {
@@ -41,17 +43,28 @@ interface Props {
 
 export function InboxMessageBubble({ message: m }: Props) {
   const isOut = m.direction === 'outbound'
+  const isInternal = m.direction === 'internal'
   const isSystem = m.direction === 'system'
   const mediaSrc = m.mediaSrc ?? (m.mediaUrl ? inboxMediaSrc(m.mediaUrl) : null)
+  const authorLabel = m.senderName || m.authorUserName
 
   return (
     <div
-      className={`flex ${isOut ? 'justify-end' : isSystem ? 'justify-center' : 'justify-start'}`}
+      className={`flex ${isInternal ? 'justify-center' : isOut ? 'justify-end' : isSystem ? 'justify-center' : 'justify-start'}`}
     >
-      <div className={`max-w-[min(85%,420px)] ${isSystem ? 'w-full max-w-full' : ''}`}>
+      <div
+        className={`max-w-[min(85%,420px)] ${isSystem || isInternal ? 'w-full max-w-full' : ''}`}
+      >
+        {isInternal && (
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-500/90 text-center mb-1">
+            Chat interno{authorLabel ? ` · ${authorLabel}` : ''}
+          </p>
+        )}
         <div
           className={`rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap break-words shadow-sm ${
-            isOut
+            isInternal
+              ? 'bg-amber-500/10 text-[var(--rz-text-primary)] border border-amber-500/35 rounded-xl'
+              : isOut
               ? 'bg-brand-600/90 text-white rounded-br-md'
               : isSystem
                 ? 'bg-[var(--rz-surface-muted)]/40 text-[var(--rz-text-muted)] text-xs text-center border border-[var(--rz-border)]/60 rounded-xl py-2'

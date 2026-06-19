@@ -8,15 +8,18 @@ import { AiAutoResolveService } from '@/services/ai/AiAutoResolveService';
 import { PlatformAiBlueprintService } from '@/services/ai/PlatformAiBlueprintService';
 import type { AiContactContext } from '@/services/ai/AiContextService';
 import { AiEscalationService } from '@/services/ai/AiEscalationService';
+import type { WebChatAiEscalationPolicy } from '../../types/webchat';
 import {
   buildWebChatPromptSuffix,
   buildWebChatThreadContext,
   formatWebChatAutoResolveReply,
   resolveWebChatShouldEscalate,
   rewritePrematureTransferReply,
+  shouldRewritePrematureTransfer,
   textLooksLikeWebChatInquiry,
   type WebChatMessageRow,
 } from './webchat-ai-triage.util';
+import { normalizeEscalationPolicy } from './webchat-ai-escalation-policy.util';
 
 export class WebChatAiService {
   private static instance: WebChatAiService;
@@ -53,10 +56,13 @@ export class WebChatAiService {
       pageUrl?: string;
       pageTitle?: string;
       intakeSummary?: string;
+      escalationPolicy?: Partial<WebChatAiEscalationPolicy> | null;
     },
   ): Promise<{ body: string; senderName: string; shouldEscalate?: boolean } | null> {
     const availability = await this.getAvailability(clientId);
     if (!availability.available) return null;
+
+    const escalationPolicy = normalizeEscalationPolicy(opts.escalationPolicy);
 
     const settings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
     const prompt = await AiPromptBuilderService.getInstance().getOrCreatePrompt(clientId);
@@ -123,15 +129,18 @@ export class WebChatAiService {
         contactContext,
         clientText: lastInbound,
       })) +
-      buildWebChatPromptSuffix({
-        visitorName: opts.visitorName,
-        visitorEmail: opts.visitorEmail,
-        visitorPhone: opts.visitorPhone,
-        contactReason: opts.contactReason,
-        pageUrl: opts.pageUrl,
-        pageTitle: opts.pageTitle,
-        intakeSummary: opts.intakeSummary,
-      });
+      buildWebChatPromptSuffix(
+        {
+          visitorName: opts.visitorName,
+          visitorEmail: opts.visitorEmail,
+          visitorPhone: opts.visitorPhone,
+          contactReason: opts.contactReason,
+          pageUrl: opts.pageUrl,
+          pageTitle: opts.pageTitle,
+          intakeSummary: opts.intakeSummary,
+        },
+        escalationPolicy,
+      );
 
     const history: AiChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
@@ -155,11 +164,16 @@ export class WebChatAiService {
         modelWantsEscalate: Boolean(result.structured.shouldEscalate),
         modelReply: reply,
         messages: messageRows,
+        policy: escalationPolicy,
       });
 
       const esc = AiEscalationService.getInstance();
       let body = reply;
-      if (!shouldEscalate && esc.aiReplyPromisesTransfer(reply)) {
+      if (
+        !shouldEscalate &&
+        esc.aiReplyPromisesTransfer(reply) &&
+        shouldRewritePrematureTransfer(lastInbound, escalationPolicy)
+      ) {
         body = rewritePrematureTransferReply(lastInbound, opts.visitorName);
       }
 

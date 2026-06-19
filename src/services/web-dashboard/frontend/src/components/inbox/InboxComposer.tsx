@@ -24,7 +24,7 @@ interface Props {
   imageAttaching?: boolean
   composeMode?: 'reply' | 'internal'
   onComposeModeChange?: (mode: 'reply' | 'internal') => void
-  internalNoteDisabled?: boolean
+  internalChatDisabled?: boolean
 }
 
 export function InboxComposer({
@@ -39,7 +39,7 @@ export function InboxComposer({
   imageAttaching,
   composeMode = 'reply',
   onComposeModeChange,
-  internalNoteDisabled,
+  internalChatDisabled,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -74,7 +74,7 @@ export function InboxComposer({
   }
 
   const isInternal = composeMode === 'internal'
-  const canSubmit = Boolean(value.trim()) && !sending && (isInternal ? !internalNoteDisabled : !sendDisabled)
+  const canSubmit = Boolean(value.trim()) && !sending && (isInternal ? !internalChatDisabled : !sendDisabled)
 
   return (
     <div className="space-y-2">
@@ -102,9 +102,15 @@ export function InboxComposer({
                 : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]',
             )}
           >
-            Nota interna
+            Chat interno
           </button>
         </div>
+      )}
+
+      {isInternal && (
+        <p className="text-[11px] text-amber-500/90 leading-snug">
+          Visível só para atendentes e supervisores — o cliente não recebe esta mensagem.
+        </p>
       )}
 
       {!isInternal && slashMatches.length > 0 && (
@@ -163,7 +169,7 @@ export function InboxComposer({
             onChange={e => onChange(e.currentTarget.value)}
             placeholder={
               isInternal
-                ? 'Nota visível só para a equipe…'
+                ? 'Mensagem para a equipe (supervisor ou atendente)…'
                 : sendDisabled
                   ? 'Aceite a conversa para enviar · você pode rascunhar aqui'
                   : 'Digite sua resposta… (/bd, /bt…) · Enter envia'
@@ -187,7 +193,7 @@ export function InboxComposer({
           className="h-10 w-10 p-0 shrink-0 rounded-xl"
           onClick={onSend}
           disabled={!canSubmit}
-          aria-label={isInternal ? 'Salvar nota' : 'Enviar'}
+          aria-label={isInternal ? 'Enviar no chat interno' : 'Enviar'}
         >
           <Send size={16} />
         </Button>

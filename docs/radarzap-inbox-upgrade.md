@@ -33,8 +33,8 @@ Escopo desta entrega: aprimoramento visual e UX das telas de atendimento com bas
 | Componente | Alteração |
 |------------|-----------|
 | `InboxAtendimentoNav` | Scroll horizontal, destaque de aba ativa corrigido |
-| `Inbox.tsx` | Métricas, estado vazio, filtro Encerrados, **3ª coluna** (contato + notas + histórico), abas Responder/Nota interna |
-| `InboxComposer.tsx` | Abas Responder / Nota interna |
+| `Inbox.tsx` | Métricas, estado vazio, filtro Encerrados, **3ª coluna** (contato + notas + histórico), abas Responder/**Chat interno** |
+| `InboxComposer.tsx` | Abas Responder / **Chat interno** (timeline só equipe; supervisor + atendente) |
 | `InboxTickets.tsx` | Métricas, erro/vazio, coluna Ações, **paginação server-side** (15/página) |
 | `InboxSectors.tsx` | Nav secundária, cards de métricas |
 | `InboxBotSettings.tsx` | Nav, prévia WhatsApp ao vivo, contador de caracteres, salvar destacado |
