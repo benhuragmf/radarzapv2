@@ -379,6 +379,7 @@ export class DashboardService {
       'preview-saas',
       'preview-luxe',
       'preview-obsidian',
+      'preview-copilot',
     ];
     for (const page of webchatPreviewPages) {
       this.app.get(`/webchat/${page}.html`, (_req, res) => {
