@@ -6,7 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, CheckCircle2, CircleOff, Code2 } from 'lucide-react'
+import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, CheckCircle2, CircleOff, Code2, Moon, Sun } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
 import { cn } from '@/lib/utils'
@@ -90,6 +90,7 @@ interface WebChatWidgetRow {
     prechatFields?: import('../../lib/webchatPrechatFields').WebChatPrechatField[]
     prechatMode?: import('../../lib/webchatPrechatFields').WebChatPrechatMode
     theme: 'light' | 'dark'
+    previewTemplateId?: string
   }
   autoReplyEnabled: boolean
   autoReplyMessage: string
@@ -163,7 +164,7 @@ function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/webchat/widget.js?v=2.10.37" data-widget-key="${publicKey}" async></script>`
+  return `<script src="${origin}/webchat/widget.js?v=2.10.54" data-widget-key="${publicKey}" async></script>`
 }
 
 export default function WebChat() {
@@ -746,6 +747,37 @@ function appearanceMatchesTemplate(
   )
 }
 
+/** Só campos de pré-chat — evita sobrescrever tema/cores em PATCH concorrente. */
+function prechatAppearancePatch(
+  appearance: WebChatWidgetRow['appearance'],
+): Partial<WebChatWidgetRow['appearance']> {
+  const synced = syncLegacyAppearanceFlags(appearance)
+  return {
+    prechatMode: synced.prechatMode,
+    prechatFields: synced.prechatFields,
+    askName: synced.askName,
+    askPhone: synced.askPhone,
+    askContactReason: synced.askContactReason,
+    askEmail: synced.askEmail,
+    contactReasonOptions: synced.contactReasonOptions,
+  }
+}
+
+/** Visual do widget (tema, cores, textos) — independente do pré-chat. */
+function visualAppearancePatch(
+  appearance: WebChatWidgetRow['appearance'],
+): Partial<WebChatWidgetRow['appearance']> {
+  return {
+    primaryColor: appearance.primaryColor,
+    position: appearance.position,
+    title: appearance.title,
+    subtitle: appearance.subtitle,
+    greeting: appearance.greeting,
+    theme: appearance.theme ?? 'light',
+    previewTemplateId: appearance.previewTemplateId,
+  }
+}
+
 function WidgetEditorCard({
   widget,
   departments,
@@ -763,6 +795,7 @@ function WidgetEditorCard({
   const [form, setForm] = useState(widget)
   const [delayDraft, setDelayDraft] = useState(String(widget.proactiveGreetingDelaySeconds ?? 30))
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(() => {
+    if (widget.appearance.previewTemplateId) return widget.appearance.previewTemplateId
     const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
       appearanceMatchesTemplate(widget.appearance, t.appearance),
     )
@@ -790,7 +823,7 @@ function WidgetEditorCard({
     const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
       appearanceMatchesTemplate(widget.appearance, t.appearance),
     )
-    setSelectedTemplateId(match?.id ?? null)
+    setSelectedTemplateId(widget.appearance.previewTemplateId ?? match?.id ?? null)
   }, [widget])
 
   const save = useMutation({
@@ -826,17 +859,26 @@ function WidgetEditorCard({
     onError: mutationError,
   })
 
-  const persistAppearance = useMutation({
-    mutationFn: (appearance: WebChatWidgetRow['appearance']) =>
-      api.patch(`/webchat/widgets/${widget.id}`, {
-        appearance: syncLegacyAppearanceFlags(appearance),
-      }),
+  const persistAppearancePatch = useMutation({
+    mutationFn: (appearance: Partial<WebChatWidgetRow['appearance']>) =>
+      api.patch(`/webchat/widgets/${widget.id}`, { appearance }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
-      notifySuccess('Modo de formulário aplicado no widget')
     },
     onError: mutationError,
   })
+
+  const persistPrechatAppearance = (appearance: WebChatWidgetRow['appearance']) => {
+    persistAppearancePatch.mutate(prechatAppearancePatch(appearance), {
+      onSuccess: () => notifySuccess('Pré-chat salvo no widget'),
+    })
+  }
+
+  const persistVisualAppearance = (appearance: WebChatWidgetRow['appearance']) => {
+    persistAppearancePatch.mutate(visualAppearancePatch(appearance), {
+      onSuccess: () => notifySuccess('Visual do widget salvo no servidor'),
+    })
+  }
 
   const persistAutoReply = useMutation({
     mutationFn: (patch: Pick<WebChatWidgetRow, 'autoReplyEnabled' | 'autoReplyUseAi'>) =>
@@ -867,9 +909,16 @@ function WidgetEditorCard({
   )
 
   const applyTemplateAppearance = (appearance: WebChatAppearancePreset, templateId: string) => {
-    setForm(f => ({ ...f, appearance: { ...f.appearance, ...appearance } }))
+    setForm(f => {
+      const nextAppearance = syncLegacyAppearanceFlags({
+        ...f.appearance,
+        ...appearance,
+        previewTemplateId: templateId,
+      })
+      persistVisualAppearance(nextAppearance)
+      return { ...f, appearance: nextAppearance }
+    })
     setSelectedTemplateId(templateId)
-    notifySuccess('Visual do modelo aplicado — clique em Salvar alterações.')
   }
 
   const patchDay = (day: Weekday, field: 'enabled' | 'start' | 'end', value: boolean | string) => {
@@ -1012,28 +1061,30 @@ function WidgetEditorCard({
           </select>
         </label>
         <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-          Tema do chat
-          <select
-            className={inputCls + ' mt-1'}
-            value={form.appearance.theme ?? 'light'}
-            onChange={e =>
-              setForm(f => ({
-                ...f,
-                appearance: {
-                  ...f.appearance,
-                  theme: e.target.value as 'light' | 'dark',
-                },
-              }))
-            }
+          Tema do widget
+          <div
+            className={cn(
+              'mt-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
+              'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 text-[var(--rz-text)]',
+            )}
           >
-            <option value="light">Claro (padrão)</option>
-            <option value="dark">Escuro (tecnológico)</option>
-          </select>
+            {form.appearance.theme === 'dark' ? (
+              <Moon className="h-4 w-4 shrink-0 text-cyan-400" />
+            ) : (
+              <Sun className="h-4 w-4 shrink-0 text-amber-400" />
+            )}
+            <span className="font-medium">
+              {form.appearance.theme === 'dark' ? 'Escuro' : 'Claro'}
+            </span>
+          </div>
+          <span className="mt-1 block text-[10px] text-[var(--rz-text-muted)]">
+            Definido pelo modelo aplicado abaixo (ex.: Tecnológico ou Obsidian = escuro).
+          </span>
         </label>
         <WebChatPrechatFieldsEditor
           appearance={form.appearance}
           onChange={appearance => setForm(f => ({ ...f, appearance }))}
-          onPersist={appearance => persistAppearance.mutate(appearance)}
+          onPersist={appearance => persistPrechatAppearance(appearance)}
         />
         {canPickDepartment && (
           <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
@@ -1121,6 +1172,9 @@ function WidgetEditorCard({
       </div>
 
       <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-4 md:p-5">
+        <p className="mb-3 text-xs text-[var(--rz-text-muted)]">
+          O layout claro ou escuro do chat é aplicado ao clicar em <strong className="text-[var(--rz-text-secondary)]">Aplicar</strong> em um modelo — não use um seletor de tema separado.
+        </p>
         <WebChatPreviewTemplates
           publicKey={widget.publicKey}
           selectedTemplateId={selectedTemplateId}

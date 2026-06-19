@@ -1,8 +1,21 @@
 import {
+  DEFAULT_WEBCHAT_APPEARANCE,
   DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS,
   type WebChatPrechatField,
   type WebChatWidgetAppearance,
 } from '../types/webchat';
+
+/** Subdocumentos Mongoose não copiam todos os campos com spread — normaliza antes de merge. */
+export function toPlainAppearance(
+  appearance: Partial<WebChatWidgetAppearance> | Record<string, unknown> | null | undefined,
+): Partial<WebChatWidgetAppearance> {
+  if (!appearance) return {};
+  const maybeDoc = appearance as { toObject?: () => WebChatWidgetAppearance };
+  if (typeof maybeDoc.toObject === 'function') {
+    return maybeDoc.toObject();
+  }
+  return { ...(appearance as Partial<WebChatWidgetAppearance>) };
+}
 
 export function defaultPrechatFields(): WebChatPrechatField[] {
   return [
@@ -173,9 +186,10 @@ export function slugifyPrechatFieldId(raw: string): string {
 }
 
 export function syncLegacyAppearanceFlags(
-  appearance: WebChatWidgetAppearance,
+  appearance: WebChatWidgetAppearance | Partial<WebChatWidgetAppearance>,
 ): WebChatWidgetAppearance {
-  const fields = resolvePrechatFields(appearance);
+  const base = toPlainAppearance(appearance) as WebChatWidgetAppearance;
+  const fields = resolvePrechatFields(base);
   const byPreset = (preset: WebChatPrechatField['preset']) =>
     fields.find(f => f.preset === preset);
 
@@ -185,9 +199,10 @@ export function syncLegacyAppearanceFlags(
   const email = byPreset('email');
 
   return {
-    ...appearance,
+    ...DEFAULT_WEBCHAT_APPEARANCE,
+    ...base,
     prechatFields: fields,
-    prechatMode: resolvePrechatMode(appearance),
+    prechatMode: resolvePrechatMode(base),
     askName: name?.enabled !== false,
     askPhone: phone?.enabled !== false,
     askContactReason: reason?.enabled !== false,
@@ -195,6 +210,8 @@ export function syncLegacyAppearanceFlags(
     contactReasonOptions: reason?.options?.length
       ? reason.options
       : [...DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS],
+    theme: base.theme ?? DEFAULT_WEBCHAT_APPEARANCE.theme,
+    previewTemplateId: base.previewTemplateId,
   };
 }
 

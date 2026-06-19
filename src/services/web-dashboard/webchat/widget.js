@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.48';
+  var WIDGET_BUILD = '2.10.54';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -437,18 +437,22 @@
 
   function showProactiveTeaser() {
     if (!state.config || !state.config.proactiveGreetingEnabled) return;
-    if (state.open || hasVisitorInbound() || isConversationEnded()) return;
-    if (isProactiveDismissCooldownActive()) return;
+    if (state.open || isProactiveDismissCooldownActive()) return;
     var text = proactiveMessageText();
     if (!text) return;
     state.proactiveTeaser = text;
     renderBubble();
   }
 
+  function shouldSkipProactiveServerPersist() {
+    if (hasVisitorInbound()) return 'visitor_replied';
+    if (hasProactiveInMessages() && !isConversationEnded()) return 'already_sent';
+    return '';
+  }
+
   function scheduleProactiveGreeting() {
     clearProactiveTimer();
     if (!state.config || !state.config.proactiveGreetingEnabled) return;
-    if (hasVisitorInbound() || isConversationEnded()) return;
     if (isProactiveDismissCooldownActive()) {
       state.proactiveSkipReason = 'dismissed_cooldown';
       return;
@@ -460,15 +464,16 @@
     state.proactiveSkipReason = '';
     state.proactiveTimer = setTimeout(function () {
       state.proactiveTimer = null;
-      if (hasVisitorInbound() || isConversationEnded()) return;
       if (isProactiveDismissCooldownActive()) {
         state.proactiveSkipReason = 'dismissed_cooldown';
         return;
       }
       showProactiveTeaser();
-      if (hasProactiveInMessages()) {
-        state.proactiveSkipReason = 'already_sent';
-        if (state.visitorToken) connectSocket();
+      var skipReason = shouldSkipProactiveServerPersist();
+      if (skipReason) {
+        state.proactiveSkipReason = skipReason;
+        if (state.visitorToken && !isConversationEnded()) connectSocket();
+        renderBubble();
         return;
       }
       apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/proactive-greeting', {
@@ -841,6 +846,30 @@
     return state.config && state.config.theme === 'dark';
   }
 
+  function appearanceConfigSignature(cfg) {
+    if (!cfg) return '';
+    return [
+      cfg.theme || 'light',
+      cfg.primaryColor || '',
+      cfg.title || '',
+      cfg.subtitle || '',
+      cfg.position || '',
+      cfg.prechatMode || 'steps',
+    ].join('|');
+  }
+
+  function refreshWidgetConfig() {
+    return apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/config', { method: 'GET' })
+      .then(function (config) {
+        var prevSig = appearanceConfigSignature(state.config);
+        state.config = config;
+        return prevSig !== appearanceConfigSignature(config);
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+
   function ui() {
     if (!isDarkTheme()) {
       return {
@@ -963,19 +992,24 @@
     if (toggle) {
       toggle.setAttribute('aria-label', state.open ? 'Fechar chat' : 'Abrir chat');
       toggle.onclick = function () {
-        state.open = !state.open;
+        var opening = !state.open;
+        state.open = opening;
         state.prechatError = '';
         state.emojiPickerOpen = false;
-        if (state.open) {
-          recordChatEngagement({ proactiveInvite: false });
-          state.proactiveTeaser = null;
-          if (!state.started && !needsPrechat()) {
-            startSession();
-          }
+        if (opening) {
+          refreshWidgetConfig().then(function (changed) {
+            recordChatEngagement({ proactiveInvite: false });
+            state.proactiveTeaser = null;
+            if (!state.started && !needsPrechat()) {
+              startSession();
+            }
+            if (changed) applyRootPosition();
+            renderBubble();
+          });
         } else {
           sendPresencePing();
+          renderBubble();
         }
-        renderBubble();
       };
     }
     var teaser = document.getElementById('rz-webchat-teaser');
@@ -1329,33 +1363,28 @@
       toolBtn +
       '">😊</button>' +
       '</div>' +
+      '<div style="flex:1;min-width:8px;"></div>' +
+      '<button type="submit" id="rz-webchat-send" title="Enviar" style="flex-shrink:0;width:38px;height:38px;border:none;border-radius:999px;background:' +
+      primaryColor() +
+      ';color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.18);">↑</button>' +
+      '</div></div></form>' +
+      '<div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:8px;padding:0 4px;min-height:28px;">' +
       (state.endConfirmOpen
-        ? '<div id="rz-webchat-end-confirm" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 4px;">' +
-          '<span style="font-size:11px;color:' +
+        ? '<span style="font-size:11px;color:' +
           t.textMuted +
           ';white-space:nowrap;">Encerrar atendimento?</span>' +
-          '<button type="button" id="rz-webchat-end-confirm-yes" style="padding:5px 10px;border:none;border-radius:999px;background:' +
-          primaryColor() +
-          ';color:#fff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">Sim</button>' +
-          '<button type="button" id="rz-webchat-end-confirm-no" style="padding:5px 10px;border:1px solid ' +
+          '<button type="button" id="rz-webchat-end-confirm-yes" style="padding:5px 12px;border:none;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">Sim</button>' +
+          '<button type="button" id="rz-webchat-end-confirm-no" style="padding:5px 12px;border:1px solid ' +
           t.inputBorder +
           ';border-radius:999px;background:' +
           t.attachBg +
           ';color:' +
           t.text +
-          ';font-size:11px;cursor:pointer;white-space:nowrap;">Não</button>' +
-          '</div>'
-        : '<div style="flex:1;min-width:8px;"></div>') +
-      '<button type="submit" id="rz-webchat-send" title="Enviar" style="flex-shrink:0;width:38px;height:38px;border:none;border-radius:999px;background:' +
-      primaryColor() +
-      ';color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.18);">↑</button>' +
-      '</div></div></form>' +
-      (state.endConfirmOpen
-        ? ''
-        : '<button type="button" id="rz-webchat-end" style="width:100%;margin-top:8px;padding:6px 8px;border:none;background:transparent;color:' +
+          ';font-size:11px;cursor:pointer;white-space:nowrap;">Não</button>'
+        : '<button type="button" id="rz-webchat-end" style="padding:6px 8px;border:none;background:transparent;color:' +
           t.textMuted +
           ';font-size:11px;line-height:1.3;cursor:pointer;text-decoration:underline;">Encerrar atendimento</button>') +
-      '</div>';
+      '</div></div>';
 
     var panelBody = '';
     if (mode === 'prechat') {
@@ -2027,6 +2056,16 @@
     reader.readAsDataURL(file);
   }
 
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible' || !state.config) return;
+    refreshWidgetConfig().then(function (changed) {
+      if (changed) {
+        applyRootPosition();
+        renderBubble();
+      }
+    });
+  });
+
   apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/config', { method: 'GET' })
     .then(function (config) {
       state.config = config;
@@ -2062,15 +2101,23 @@
     });
 
   window.__RZ_WEBCHAT_DEBUG__ = function () {
+    var panel = document.getElementById('rz-webchat-panel');
     return {
       build: WIDGET_BUILD,
       configLoaded: !!state.config,
+      theme: state.config ? state.config.theme || 'light' : null,
+      isDarkTheme: isDarkTheme(),
+      panelTheme: panel ? panel.getAttribute('data-rz-theme') : null,
+      primaryColor: state.config ? state.config.primaryColor : null,
+      title: state.config ? state.config.title : null,
       proactiveEnabled: !!(state.config && state.config.proactiveGreetingEnabled),
       proactiveDelaySec: state.config ? state.config.proactiveGreetingDelaySeconds : null,
       proactiveTimerActive: !!state.proactiveTimer,
       proactiveScheduledAt: state.proactiveScheduledAt,
       proactiveTeaser: state.proactiveTeaser,
       proactiveInHistory: hasProactiveInMessages(),
+      conversationEnded: isConversationEnded(),
+      hasVisitorInbound: hasVisitorInbound(),
       proactiveDismissCooldownMs: proactiveDismissRemainingMs(),
       proactiveLastError: state.proactiveLastError || null,
       proactiveSkipReason: state.proactiveSkipReason || null,

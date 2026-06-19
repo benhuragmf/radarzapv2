@@ -75,10 +75,15 @@ Snippet equivalente ao `widget.html`:
 
 - Ao encerrar, exibe **Nova conversa** (limpa sessão e abre novo atendimento).
 - Botão **×** no cabeçalho e **Fechar janela** após encerramento (2.10.9).
-- **Encerrar atendimento** — link no rodapé do chat; ao clicar, confirmação inline entre emojis e enviar (**Sim** / **Não**); visitante fecha a conversa (`POST /api/webchat/public/sessions/close`) (2.10.48).
+- **Encerrar atendimento** — link no rodapé; ao clicar, confirmação na mesma linha (**Sim** vermelho / **Não**) (2.10.49).
+- **Aplicar modelo** (2.10.50): salva aparência automaticamente (`previewTemplateId`, tema, cores, textos); widget recarrega config ao abrir o painel ou voltar à aba do preview.
+- **Fix tema × pré-chat** (2.10.51): PATCH parcial — pré-chat e visual salvos separadamente; troca de modo formulário não sobrescreve tema.
+- **Tema só via modelo** (2.10.52): removido select duplicado “Tema do chat”; claro/escuro vem de **Aplicar** no modelo (Tecnológico, Obsidian = escuro); indicador somente leitura no editor.
+- **Fix tema na API pública** (2.10.53): `syncLegacyAppearanceFlags` + `toPlainAppearance` — subdocumento Mongoose não copiava `theme`/cores no `GET …/config`.
+- **Fix balão proativo** (2.10.54): balão volta após o delay em toda visita — não bloqueia mais por conversa encerrada ou mensagem já no histórico (só cooldown 24h ao fechar com ×).
 - Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
 - Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
-- **Tema claro/escuro** (`appearance.theme`, 2.10.17): modelo **Tecnológico** aplica tema escuro (fundo `#060b14`, grid sutil, bolhas escuras). Editor: **Tema do chat** em Widgets.
+- **Tema claro/escuro** (`appearance.theme`, 2.10.17): aplicado pelos modelos (Tecnológico, Obsidian = escuro). Editor: indicador **Tema do widget** + **Aplicar** nos cards de modelo (2.10.52).
 - **Modelos de preview** (2.10.38): cards com miniatura do site + widget, badge claro/escuro, “Ideal para” e páginas HTML aprimoradas (Clássico, Tecnológico, SaaS, Minimalista).
 - **Modelos premium** (2.10.39): **Luxe** (concierge champagne/dourado, tema claro) e **Obsidian** (executivo escuro com ouro, tema dark) — landing completa com serviços, depoimentos e métricas.
 - **UI coleção premium** (2.10.40): seção destacada no painel — cards grandes com borda dourada, lista de destaques, miniatura da landing completa e botão “Aplicar premium”; modelos essenciais ficam em grid menor abaixo.

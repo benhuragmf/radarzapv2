@@ -52,6 +52,8 @@ export interface WebChatWidgetAppearance {
   contactReasonOptions: string[];
   askEmail: boolean;
   theme: WebChatWidgetTheme;
+  /** Modelo de preview aplicado no painel (classic, tech, saas, …) */
+  previewTemplateId?: string;
 }
 
 export const DEFAULT_WEBCHAT_APPEARANCE: WebChatWidgetAppearance = {

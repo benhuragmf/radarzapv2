@@ -6,6 +6,8 @@
 (function () {
   'use strict';
 
+  var LOADER_BUILD = '2.10.54';
+
   var params = new URLSearchParams(location.search);
   var script = document.currentScript;
   if (!script) {
@@ -42,19 +44,26 @@
     return pad2(m) + ':' + pad2(s);
   }
 
+  function themeLabel(theme) {
+    return theme === 'dark' ? 'escuro' : theme === 'light' ? 'claro' : String(theme || '?');
+  }
+
   function createDebugHud() {
     var hud = document.createElement('div');
     hud.id = 'rz-preview-debug';
     hud.setAttribute('aria-live', 'polite');
     hud.style.cssText =
-      'position:fixed;left:12px;bottom:12px;z-index:2147482999;max-width:min(320px,calc(100vw - 24px));' +
-      'padding:12px 14px;border-radius:12px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;' +
+      'position:fixed;left:12px;bottom:12px;z-index:2147482999;max-width:min(360px,calc(100vw - 24px));' +
+      'padding:12px 14px;border-radius:12px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;' +
       'background:rgba(15,23,42,.92);color:#e2e8f0;border:1px solid rgba(34,211,238,.35);' +
       'box-shadow:0 8px 32px rgba(0,0,0,.45);pointer-events:none;';
     hud.innerHTML =
-      '<div style="font-weight:700;color:#22d3ee;margin-bottom:6px;">⏱ Debug saudação proativa</div>' +
+      '<div style="font-weight:700;color:#22d3ee;margin-bottom:6px;">⏱ Debug WebChat (' +
+      LOADER_BUILD +
+      ')</div>' +
       '<div id="rz-debug-elapsed">Tempo na página: 00:00</div>' +
-      '<div id="rz-debug-api">Config API: carregando…</div>' +
+      '<div id="rz-debug-theme">Tema API: carregando…</div>' +
+      '<div id="rz-debug-api">Proativa: carregando…</div>' +
       '<div id="rz-debug-widget">Widget: aguardando script…</div>' +
       '<div id="rz-debug-status" style="margin-top:6px;color:#94a3b8;">—</div>';
     document.body.appendChild(hud);
@@ -76,6 +85,7 @@
 
   function updateDebugHud() {
     var elapsedEl = document.getElementById('rz-debug-elapsed');
+    var themeEl = document.getElementById('rz-debug-theme');
     var apiEl = document.getElementById('rz-debug-api');
     var widgetEl = document.getElementById('rz-debug-widget');
     var statusEl = document.getElementById('rz-debug-status');
@@ -85,14 +95,34 @@
     var elapsedSec = Math.floor(elapsedMs / 1000);
     elapsedEl.textContent = 'Tempo na página: ' + formatElapsed(elapsedMs) + ' (' + elapsedSec + 's)';
 
+    if (themeEl) {
+      if (apiConfigError) {
+        themeEl.textContent = 'Tema API: erro — ' + apiConfigError;
+        themeEl.style.color = '#fca5a5';
+      } else if (apiConfig) {
+        themeEl.textContent =
+          'Tema API: ' +
+          themeLabel(apiConfig.theme) +
+          ' · cor ' +
+          (apiConfig.primaryColor || '—') +
+          ' · "' +
+          (apiConfig.title || '—') +
+          '"';
+        themeEl.style.color = apiConfig.theme === 'dark' ? '#6ee7b7' : '#fcd34d';
+      } else {
+        themeEl.textContent = 'Tema API: carregando…';
+        themeEl.style.color = '#94a3b8';
+      }
+    }
+
     if (apiConfigError) {
-      apiEl.textContent = 'Config API: erro — ' + apiConfigError;
+      apiEl.textContent = 'Proativa: erro na config';
       apiEl.style.color = '#fca5a5';
     } else if (apiConfig) {
       var enabled = !!apiConfig.proactiveGreetingEnabled;
       var delay = Number(apiConfig.proactiveGreetingDelaySeconds) || 30;
       apiEl.textContent =
-        'Config API: proativa ' +
+        'Proativa ' +
         (enabled ? 'LIGADA' : 'DESLIGADA') +
         (enabled ? ' · delay ' + delay + 's' : '');
       apiEl.style.color = enabled ? '#6ee7b7' : '#fcd34d';
@@ -102,7 +132,7 @@
         apiEl.textContent += ' · falta ' + Math.max(0, delay - elapsedSec) + 's';
       }
     } else {
-      apiEl.textContent = 'Config API: carregando…';
+      apiEl.textContent = 'Proativa: carregando…';
       apiEl.style.color = '#94a3b8';
     }
 
@@ -114,16 +144,22 @@
       widgetEl.textContent =
         'Widget ' +
         dbg.build +
-        ': proativa ' +
-        (dbg.proactiveEnabled ? 'sim' : 'não') +
-        (dbg.proactiveEnabled ? ' · timer ' + (dbg.proactiveTimerActive ? 'ativo' : 'inativo') : '') +
-        (dbg.proactiveTeaser ? ' · balão visível' : '') +
-        (dbg.proactiveInHistory ? ' · msg no histórico' : '');
-      widgetEl.style.color = dbg.proactiveEnabled ? '#6ee7b7' : '#fcd34d';
+        ': tema ' +
+        themeLabel(dbg.theme) +
+        (dbg.panelTheme ? ' · painel=' + dbg.panelTheme : '') +
+        (dbg.isDarkTheme ? ' · dark=sim' : ' · dark=não') +
+        (dbg.proactiveTeaser ? ' · balão=visível' : '');
+      widgetEl.style.color = dbg.isDarkTheme ? '#6ee7b7' : '#fcd34d';
 
       var teaserDom = document.getElementById('rz-webchat-teaser');
       var lines = [];
-      if (dbg.proactiveLastError) {
+      if (apiConfig && dbg.configLoaded && apiConfig.theme !== dbg.theme) {
+        lines.push('⚠ API tema=' + themeLabel(apiConfig.theme) + ' mas widget tema=' + themeLabel(dbg.theme));
+        statusEl.style.color = '#fca5a5';
+      } else if (apiConfig && apiConfig.theme === 'dark' && !dbg.isDarkTheme) {
+        lines.push('⚠ API diz escuro mas painel está claro — recarregue (F5)');
+        statusEl.style.color = '#fca5a5';
+      } else if (dbg.proactiveLastError) {
         lines.push('Erro: ' + dbg.proactiveLastError);
         statusEl.style.color = '#fca5a5';
       } else if (dbg.proactiveDismissCooldownMs > 0) {
@@ -141,24 +177,27 @@
       } else if (dbg.proactiveSkipReason) {
         lines.push('Bloqueado: ' + skipReasonLabel(dbg.proactiveSkipReason));
         statusEl.style.color = '#fcd34d';
-      } else if (teaserDom || dbg.proactiveTeaser) {
-        lines.push('✓ Saudação apareceu (balão ou teaser)');
+      } else if (dbg.proactiveTeaser || teaserDom) {
+        lines.push('✓ Balão de saudação visível');
         statusEl.style.color = '#6ee7b7';
       } else if (dbg.proactiveEnabled && dbg.proactiveTimerActive && dbg.proactiveScheduledAt) {
         var remain = Math.max(0, Math.ceil((dbg.proactiveScheduledAt - Date.now()) / 1000));
-        lines.push('Aguardando balão em ~' + remain + 's (reaparece a cada visita)');
+        lines.push('Aguardando balão em ~' + remain + 's');
         statusEl.style.color = '#93c5fd';
-      } else if (dbg.proactiveEnabled && dbg.proactiveInHistory && !dbg.proactiveTeaser) {
-        lines.push('Msg já no histórico — balão volta após o delay nesta visita');
+      } else if (dbg.proactiveEnabled && dbg.proactiveDismissCooldownMs > 0) {
+        lines.push('Balão em cooldown (visitante fechou com ×)');
+        statusEl.style.color = '#fcd34d';
+      } else if (dbg.proactiveEnabled && dbg.proactiveSkipReason) {
+        lines.push('Servidor: ' + skipReasonLabel(dbg.proactiveSkipReason) + ' — balão pode reaparecer na visita');
         statusEl.style.color = '#93c5fd';
       } else if (dbg.proactiveEnabled && !dbg.configLoaded) {
         lines.push('Config do widget ainda não carregou');
         statusEl.style.color = '#94a3b8';
       } else if (!dbg.proactiveEnabled) {
-        lines.push('Ative e salve no painel → Saudação proativa');
+        lines.push('Ative em Widgets → Saudação proativa');
         statusEl.style.color = '#fcd34d';
       } else {
-        lines.push('Monitorando… não abra o chat ainda');
+        lines.push('Aguardando delay da saudação proativa…');
         statusEl.style.color = '#94a3b8';
       }
       statusEl.textContent = lines.join(' · ');
@@ -189,7 +228,7 @@
   fetchApiConfig(origin, key);
 
   var widgetScript = document.createElement('script');
-  widgetScript.src = origin + '/webchat/widget.js?v=2.10.43';
+  widgetScript.src = origin + '/webchat/widget.js?v=' + LOADER_BUILD;
   widgetScript.setAttribute('data-widget-key', key);
   widgetScript.setAttribute('data-base-url', origin);
   widgetScript.async = true;

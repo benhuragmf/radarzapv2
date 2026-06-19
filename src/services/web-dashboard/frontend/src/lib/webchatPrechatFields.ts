@@ -186,6 +186,13 @@ export function slugifyPrechatFieldId(raw: string): string {
 }
 
 export function syncLegacyAppearanceFlags<T extends {
+  primaryColor?: string
+  position?: 'left' | 'right'
+  title?: string
+  subtitle?: string
+  greeting?: string
+  theme?: 'light' | 'dark'
+  previewTemplateId?: string
   prechatFields?: WebChatPrechatField[]
   askName: boolean
   askPhone: boolean
@@ -212,6 +219,8 @@ export function syncLegacyAppearanceFlags<T extends {
     contactReasonOptions: reason?.options?.length
       ? reason.options
       : [...DEFAULT_CONTACT_REASON_OPTIONS],
+    theme: appearance.theme ?? 'light',
+    previewTemplateId: appearance.previewTemplateId,
   }
 }
 

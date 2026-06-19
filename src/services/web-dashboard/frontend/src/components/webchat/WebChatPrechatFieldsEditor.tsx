@@ -149,7 +149,7 @@ export function WebChatPrechatFieldsEditor({ appearance, onChange, onPersist }: 
       </div>
       <p className="text-[10px] text-[var(--rz-text-muted)]">
         Formulário clássico: Nome + Telefone + Motivo do contato (texto, máx. 150 caracteres). O modo e o
-        formulário clássico são salvos automaticamente no widget.
+        formulário clássico são salvos automaticamente no widget (não alteram tema nem cores).
       </p>
 
       <div className="space-y-2">
