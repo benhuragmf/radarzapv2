@@ -135,6 +135,9 @@ const STATUS_VARIANT: Record<string, 'yellow' | 'blue' | 'green' | 'gray' | 'red
   closed: 'gray',
 }
 
+const AGENT_TYPING_STOP_MS = 4500
+const VISITOR_TYPING_IDLE_MS = 8000
+
 type QuickFilter = 'all' | 'queue' | 'mine' | 'active' | 'triage' | 'tickets' | 'closed'
 type ChannelFilter = 'whatsapp' | 'webchat' | 'all'
 
@@ -606,7 +609,7 @@ export default function Inbox() {
       setVisitorTyping(Boolean(payload.typing))
       if (visitorTypingTimerRef.current) clearTimeout(visitorTypingTimerRef.current)
       if (payload.typing) {
-        visitorTypingTimerRef.current = setTimeout(() => setVisitorTyping(false), 5000)
+        visitorTypingTimerRef.current = setTimeout(() => setVisitorTyping(false), VISITOR_TYPING_IDLE_MS)
       }
     }
 
@@ -661,7 +664,7 @@ export default function Inbox() {
     }
 
     sendTyping(true)
-    agentTypingTimerRef.current = setTimeout(() => sendTyping(false), 2500)
+    agentTypingTimerRef.current = setTimeout(() => sendTyping(false), AGENT_TYPING_STOP_MS)
 
     return () => {
       if (agentTypingTimerRef.current) clearTimeout(agentTypingTimerRef.current)

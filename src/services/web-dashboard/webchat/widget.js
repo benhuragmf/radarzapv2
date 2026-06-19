@@ -1,6 +1,8 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.63';
+  var WIDGET_BUILD = '2.10.65';
+  var REMOTE_TYPING_IDLE_MS = 8000;
+  var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -486,8 +488,12 @@
     if (convId && state.conversationId && String(state.conversationId) !== convId) return;
     if (convId && !state.conversationId) state.conversationId = convId;
     if (!payload.typing) {
-      clearRemoteTyping();
-      renderBubble();
+      if (!state.remoteTyping) return;
+      if (state.remoteTypingTimer) clearTimeout(state.remoteTypingTimer);
+      state.remoteTypingTimer = setTimeout(function () {
+        clearRemoteTyping();
+        renderBubble();
+      }, REMOTE_TYPING_HIDE_GRACE_MS);
       return;
     }
     state.remoteTyping = {
@@ -498,7 +504,7 @@
     state.remoteTypingTimer = setTimeout(function () {
       clearRemoteTyping();
       renderBubble();
-    }, 5000);
+    }, REMOTE_TYPING_IDLE_MS);
     renderBubble();
   }
 
