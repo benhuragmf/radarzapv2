@@ -5,6 +5,7 @@ export interface IAiKnowledgeBase extends Document {
   clientId: mongoose.Types.ObjectId;
   title: string;
   content: string;
+  category: string;
   keywords: string[];
   links: WebChatActionLink[];
   showAsQuickReply: boolean;
@@ -19,6 +20,7 @@ const AiKnowledgeBaseSchema = new Schema<IAiKnowledgeBase>(
     clientId: { type: Schema.Types.ObjectId, required: true, index: true },
     title: { type: String, required: true, trim: true, maxlength: 200 },
     content: { type: String, required: true, maxlength: 12000 },
+    category: { type: String, trim: true, maxlength: 80, default: 'Geral' },
     keywords: { type: [String], default: [] },
     links: {
       type: [

@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.87';
+  var WIDGET_BUILD = '2.10.89';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -219,6 +219,31 @@
           .join('') +
         '</div>';
     }
+    if (m.kbSuggestions && m.kbSuggestions.length) {
+      var accent = primaryColor();
+      html +=
+        '<div class="rz-kb-suggestions" style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">' +
+        m.kbSuggestions
+          .map(function (s) {
+            if (!s || !s.id || !s.label) return '';
+            var num = s.index || 1;
+            return (
+              '<button type="button" class="rz-kb-pick" data-kb-id="' +
+              escHtml(String(s.id)) +
+              '" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.95);color:#111827;font-size:13px;font-weight:600;text-align:left;cursor:pointer;">' +
+              '<span style="flex-shrink:0;width:26px;height:26px;border-radius:999px;background:' +
+              accent +
+              ';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">' +
+              escHtml(String(num)) +
+              '</span>' +
+              '<span style="flex:1;line-height:1.35;">' +
+              escHtml(String(s.label)) +
+              '</span></button>'
+            );
+          })
+          .join('') +
+        '</div>';
+    }
     if (!html && m.body) html = escHtml(m.body);
     return html;
   }
@@ -338,7 +363,19 @@
     ticketLookupResendLoading: false,
     ticketLookupResendNotice: '',
     ticketLookupResendOtp: '',
+    faqOpen: false,
+    faqCatalog: null,
+    faqLoading: false,
+    faqError: '',
+    pendingFaqArticleId: null,
+    faqPendingHint: false,
   };
+
+  function faqBrowserEnabled() {
+    if (!state.config || state.config.faqInChatEnabled === false) return false;
+    if (state.config.faqCatalogAvailable === false) return false;
+    return true;
+  }
 
   function ticketLookupEnabled() {
     return !state.config || state.config.ticketLookupEnabled !== false;
@@ -1276,7 +1313,9 @@
 
   function isClosedSystemMessage(message) {
     if (!message || message.direction !== 'system') return false;
-    return /atendimento encerrad|encerramos o atendimento|foi encerrad/i.test(String(message.body || ''));
+    return /atendimento encerrad|encerramos o atendimento|foi encerrad|encerrou o atendimento/i.test(
+      String(message.body || ''),
+    );
   }
 
   function isConversationEnded() {
@@ -1287,6 +1326,7 @@
   }
 
   function resolvePanelMode() {
+    if (state.faqOpen) return 'faq';
     if (state.ticketLookupStep === 'ref' || state.ticketLookupStep === 'token' || state.ticketLookupStep === 'resend' || state.ticketLookupStep === 'resend_otp') return 'ticket_lookup';
     if (state.ticketLookupStep === 'result') return 'ticket_result';
     if (isConversationEnded()) {
@@ -1588,6 +1628,157 @@
       t.border +
       ';display:flex;flex-wrap:wrap;gap:6px;">' +
       chips +
+      '</div>'
+    );
+  }
+
+  function renderFaqHeaderButton() {
+    if (!faqBrowserEnabled()) return '';
+    var accent = primaryColor();
+    return (
+      '<button type="button" id="rz-webchat-faq-open" aria-label="Perguntas frequentes" title="FAQ" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid ' +
+      accent +
+      ';background:' +
+      (isDarkTheme() ? 'rgba(0,0,0,.28)' : accent + '10') +
+      ';color:' +
+      accent +
+      ';font-size:11px;font-weight:700;letter-spacing:.04em;cursor:pointer;">' +
+      '<span style="width:18px;height:18px;border-radius:999px;border:1px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:1;">?</span>FAQ</button>'
+    );
+  }
+
+  function loadFaqCatalog(callback) {
+    if (state.faqCatalog) {
+      if (callback) callback();
+      return;
+    }
+    state.faqLoading = true;
+    state.faqError = '';
+    renderBubble();
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/faq-catalog', { method: 'GET' })
+      .then(function (data) {
+        state.faqCatalog = data;
+        state.faqLoading = false;
+        if (callback) callback();
+        renderBubble();
+      })
+      .catch(function (err) {
+        state.faqLoading = false;
+        state.faqError = err.message || 'Não foi possível carregar o FAQ.';
+        renderBubble();
+      });
+  }
+
+  function openFaqBrowser() {
+    state.faqOpen = true;
+    loadFaqCatalog(function () {
+      renderBubble();
+    });
+  }
+
+  function closeFaqBrowser() {
+    state.faqOpen = false;
+    renderBubble();
+  }
+
+  function flushPendingFaqPick() {
+    if (!state.pendingFaqArticleId || !state.visitorToken) return;
+    var id = state.pendingFaqArticleId;
+    state.pendingFaqArticleId = null;
+    state.faqPendingHint = false;
+    pickKbArticle(id);
+  }
+
+  function openFaqArticleFromCatalog(articleId) {
+    if (!articleId) return;
+    state.faqOpen = false;
+    if (state.started && state.visitorToken && !needsPrechat()) {
+      pickKbArticle(articleId);
+      return;
+    }
+    state.pendingFaqArticleId = articleId;
+    state.faqPendingHint = true;
+    if (!needsPrechat()) {
+      startSessionCore();
+      return;
+    }
+    renderBubble();
+  }
+
+  function renderFaqBrowserPanel(t) {
+    var accent = primaryColor();
+    var body = '';
+    if (state.faqLoading) {
+      body =
+        '<div style="padding:24px;text-align:center;color:' +
+        t.textMuted +
+        ';font-size:13px;">Carregando…</div>';
+    } else if (state.faqError) {
+      body =
+        '<div style="padding:24px;text-align:center;color:' +
+        t.errorText +
+        ';font-size:13px;">' +
+        escHtml(state.faqError) +
+        '</div>';
+    } else if (!state.faqCatalog || !state.faqCatalog.categories || !state.faqCatalog.categories.length) {
+      body =
+        '<div style="padding:24px;text-align:center;color:' +
+        t.textMuted +
+        ';font-size:13px;">Nenhum artigo disponível no momento.</div>';
+    } else {
+      body = state.faqCatalog.categories
+        .map(function (cat) {
+          var items = (cat.articles || [])
+            .map(function (article) {
+              return (
+                '<button type="button" class="rz-faq-catalog-item" data-faq-article-id="' +
+                escHtml(String(article.id)) +
+                '" style="display:flex;width:100%;align-items:center;gap:10px;padding:12px 14px;border:none;border-bottom:1px solid ' +
+                t.border +
+                ';background:transparent;color:' +
+                t.text +
+                ';font-size:13px;text-align:left;cursor:pointer;">' +
+                '<span style="flex:1;line-height:1.35;font-weight:500;">' +
+                escHtml(article.label) +
+                '</span>' +
+                '<span style="color:' +
+                t.textMuted +
+                ';font-size:16px;">›</span></button>'
+              );
+            })
+            .join('');
+          return (
+            '<div style="margin-bottom:12px;">' +
+            '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:' +
+            accent +
+            ';padding:8px 14px 6px;">' +
+            escHtml(cat.name) +
+            '</div>' +
+            '<div style="border:1px solid ' +
+            t.border +
+            ';border-radius:14px;overflow:hidden;background:' +
+            (isDarkTheme() ? 'rgba(255,255,255,.03)' : '#fff') +
+            ';">' +
+            items +
+            '</div></div>'
+          );
+        })
+        .join('');
+    }
+    return (
+      '<div id="rz-webchat-faq-browser" style="flex:1;overflow:auto;padding:12px 14px 16px;background:' +
+      t.prechatBg +
+      ';">' +
+      '<button type="button" id="rz-webchat-faq-back" style="display:inline-flex;align-items:center;gap:6px;padding:0;border:none;background:transparent;color:' +
+      accent +
+      ';font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;">← Voltar</button>' +
+      '<div style="font-size:17px;font-weight:700;color:' +
+      t.text +
+      ';margin-bottom:4px;">Perguntas frequentes</div>' +
+      '<div style="font-size:12px;color:' +
+      t.textMuted +
+      ';margin-bottom:14px;">Escolha um tema para ver a resposta no chat.</div>' +
+      body +
       '</div>'
     );
   }
@@ -2142,6 +2333,15 @@
       ';margin-bottom:10px;">' +
       escHtml(prechatTitle) +
       '</div>' +
+      (state.faqPendingHint
+        ? '<div style="font-size:12px;line-height:1.45;padding:10px 12px;border-radius:12px;margin-bottom:10px;background:' +
+          primaryColor() +
+          '18;color:' +
+          t.text +
+          ';border:1px solid ' +
+          primaryColor() +
+          '44;">Complete o cadastro abaixo para ver a resposta escolhida no chat.</div>'
+        : '') +
       prechatBody +
       (state.prechatError
         ? '<div style="font-size:12px;color:' + t.errorText + ';margin-top:8px;">' + escHtml(state.prechatError) + '</div>'
@@ -2374,7 +2574,9 @@
       '</div></div>';
 
     var panelBody = '';
-    if (mode === 'ticket_lookup' || mode === 'ticket_result') {
+    if (mode === 'faq') {
+      panelBody = renderFaqBrowserPanel(t);
+    } else if (mode === 'ticket_lookup' || mode === 'ticket_result') {
       panelBody = offlineBanner + renderTicketLookupPanel(t, inputStyle, btnStyle);
     } else if (mode === 'prechat') {
       panelBody = offlineBanner + prechat;
@@ -2427,9 +2629,11 @@
       '">' +
       (state.soundEnabled ? '🔔' : '🔕') +
       '</button></div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      renderFaqHeaderButton() +
       '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" title="Fechar" style="' +
       headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
-      '">×</button>' +
+      '">×</button></div>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 16px 14px;gap:6px;">' +
       '<div style="width:44px;height:44px;border-radius:999px;background:' +
@@ -2622,6 +2826,25 @@
         }
       };
     }
+    var faqOpenBtn = document.getElementById('rz-webchat-faq-open');
+    if (faqOpenBtn) {
+      faqOpenBtn.onclick = function () {
+        openFaqBrowser();
+      };
+    }
+    var faqBackBtn = document.getElementById('rz-webchat-faq-back');
+    if (faqBackBtn) {
+      faqBackBtn.onclick = function () {
+        closeFaqBrowser();
+      };
+    }
+    var faqCatalogItems = document.getElementsByClassName('rz-faq-catalog-item');
+    for (var fc = 0; fc < faqCatalogItems.length; fc++) {
+      faqCatalogItems[fc].onclick = function () {
+        var articleId = this.getAttribute('data-faq-article-id') || '';
+        openFaqArticleFromCatalog(articleId);
+      };
+    }
     var faqQuickBtns = document.getElementsByClassName('rz-faq-quick');
     for (var fq = 0; fq < faqQuickBtns.length; fq++) {
       faqQuickBtns[fq].onclick = function () {
@@ -2636,6 +2859,15 @@
           return;
         }
         sendMessageWithText(label);
+      };
+    }
+
+    var kbPickBtns = document.getElementsByClassName('rz-kb-pick');
+    for (var kb = 0; kb < kbPickBtns.length; kb++) {
+      kbPickBtns[kb].onclick = function () {
+        var articleId = this.getAttribute('data-kb-id') || '';
+        if (!articleId || state.sending || !state.visitorToken) return;
+        pickKbArticle(articleId);
       };
     }
 
@@ -3126,6 +3358,7 @@
         writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
         connectSocket();
         renderBubble();
+        flushPendingFaqPick();
       })
       .catch(function (err) {
         console.error('[RadarZap WebChat]', err.message);
@@ -3138,6 +3371,30 @@
       return;
     }
     startSessionCore();
+  }
+
+  function pickKbArticle(articleId) {
+    if (!articleId || state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
+    state.sending = true;
+    apiFetch(baseUrl, '/sessions/faq-pick', {
+      method: 'POST',
+      headers: {
+        'X-WebChat-Visitor': state.visitorToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ articleId: articleId }),
+    })
+      .then(function (data) {
+        if (data.message) pushChatMessages([data.message]);
+        patchInboundReceiptMeta();
+        renderBubble();
+      })
+      .catch(function (err) {
+        console.error('[RadarZap WebChat]', err.message);
+      })
+      .finally(function () {
+        state.sending = false;
+      });
   }
 
   function sendMessageWithText(text) {

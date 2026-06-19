@@ -96,6 +96,7 @@ interface AiPayload {
     id: string
     title: string
     content: string
+    category?: string
     active: boolean
     keywords?: string[]
     links?: Array<{ label: string; url: string; openInNewTab?: boolean }>
@@ -1022,6 +1023,7 @@ export default function AiAtendimento() {
                             id: '',
                             title: 'Novo item',
                             content: '',
+                            category: 'Geral',
                             active: true,
                             keywords: [],
                             links: [],
@@ -1053,6 +1055,10 @@ export default function AiAtendimento() {
                   atendimento&quot;, &quot;Como contratar&quot;.
                 </li>
                 <li>
+                  <strong>Categoria:</strong> agrupa artigos no botão <strong>FAQ</strong> do chat do site — ex.
+                  &quot;Planos&quot;, &quot;Suporte&quot;, &quot;Contratação&quot;.
+                </li>
+                <li>
                   <strong>Conteúdo:</strong> texto completo e oficial — valores, condições, passos de
                   contratação, o que está incluso em cada plano, links úteis.
                 </li>
@@ -1080,6 +1086,22 @@ export default function AiAtendimento() {
           )}
           {form.knowledgeBase.map((item, idx) => (
             <div key={item.id || idx} className="border border-[var(--rz-border)] rounded-lg p-4 space-y-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  className={inputCls}
+                  value={item.category ?? 'Geral'}
+                  list="kb-category-suggestions"
+                  onChange={e => {
+                    const kb = [...form.knowledgeBase]
+                    kb[idx] = { ...kb[idx], category: e.target.value }
+                    setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                  }}
+                  placeholder="Categoria — ex.: Planos, Suporte, Contratação"
+                />
+                <p className="text-xs text-[var(--rz-text-muted)] self-center sm:text-right">
+                  Agrupa no botão FAQ do chat do site
+                </p>
+              </div>
               <input
                 className={inputCls}
                 value={item.title}
@@ -1212,6 +1234,13 @@ export default function AiAtendimento() {
               </label>
             </div>
           ))}
+          <datalist id="kb-category-suggestions">
+            {[...new Set(form.knowledgeBase.map(k => (k.category?.trim() || 'Geral')))]
+              .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+              .map(cat => (
+                <option key={cat} value={cat} />
+              ))}
+          </datalist>
         </Card>
       )}
 

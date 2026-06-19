@@ -115,10 +115,32 @@ export interface WebChatActionLink {
   openInNewTab?: boolean;
 }
 
+/** Artigo da base de conhecimento — clique abre conteúdo no chat (não link externo). */
+export interface WebChatKbSuggestion {
+  id: string;
+  label: string;
+  index: number;
+}
+
 export interface WebChatFaqQuickReply {
   id: string;
   label: string;
   title: string;
+}
+
+export interface WebChatFaqCatalogArticle {
+  id: string;
+  title: string;
+  label: string;
+}
+
+export interface WebChatFaqCatalogCategory {
+  name: string;
+  articles: WebChatFaqCatalogArticle[];
+}
+
+export interface WebChatFaqCatalog {
+  categories: WebChatFaqCatalogCategory[];
 }
 
 export interface WebChatPublicConfig {
@@ -146,6 +168,7 @@ export interface WebChatPublicConfig {
   ticketLookupEnabled: boolean;
   faqInChatEnabled: boolean;
   faqQuickReplies: WebChatFaqQuickReply[];
+  faqCatalogAvailable: boolean;
 }
 
 export interface WebChatTicketPublicLookupDto {
@@ -190,6 +213,7 @@ export interface WebChatMessageDto {
   mediaMime?: string;
   mediaFileName?: string;
   actionLinks?: WebChatActionLink[];
+  kbSuggestions?: WebChatKbSuggestion[];
   deliveredAt?: string;
   readAt?: string;
 }

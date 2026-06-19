@@ -189,6 +189,7 @@ export class AiSettingsService {
         id: String(k._id),
         title: k.title,
         content: k.content,
+        category: k.category?.trim() || 'Geral',
         active: k.active,
         keywords: k.keywords ?? [],
         links: k.links ?? [],
@@ -228,6 +229,7 @@ export class AiSettingsService {
       id?: string;
       title: string;
       content: string;
+      category?: string;
       active?: boolean;
       keywords?: string[];
       links?: Array<{ label: string; url: string; openInNewTab?: boolean }>;

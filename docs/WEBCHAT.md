@@ -290,6 +290,21 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Config widget: `faqInChatEnabled`, `faqShowQuickReplies` (default `true`).
 - Mensagens outbound podem ter `actionLinks[]` persistidos em `WebChatMessage`.
 
+### Seletor numerado de artigos (2.10.88)
+
+- Pergunta aberta com **2+ artigos** relacionados na KB → bot responde com texto introdutório + botões **1, 2, 3…** (`kbSuggestions[]`).
+- **1 artigo** com score alto → conteúdo direto no chat (sem seletor).
+- Clique no botão → `POST /api/webchat/public/widgets/:publicKey/sessions/faq-pick` `{ articleId }` → conteúdo do artigo entra no chat (sem abrir link externo).
+- Match exato (chip/título) → resposta imediata com o artigo.
+- Desativado quando FAQ off, conversa encerrada ou atendimento humano ativo (`with_agent`).
+
+### Botão FAQ no header (2.10.89)
+
+- Pill **FAQ** no canto superior do widget (visível no pré-chat e no chat).
+- `GET /api/webchat/public/widgets/:publicKey/faq-catalog` → artigos ativos agrupados por **categoria**.
+- Cada item da base tem campo `category` (painel **IA → Base de conhecimento**); padrão **Geral**.
+- Clique em um artigo → conteúdo entra no chat (`faq-pick`); se ainda no pré-chat, pede conclusão do cadastro antes.
+
 ## Fallback WhatsApp offline (2.10.72)
 
 - Config em **Triagem e Bot** → seção *Chat do site — fallback WhatsApp*.

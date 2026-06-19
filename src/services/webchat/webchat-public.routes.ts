@@ -28,6 +28,17 @@ export function createWebChatPublicRouter(): Router {
     }
   });
 
+  r.get('/widgets/:publicKey/faq-catalog', async (req, res) => {
+    try {
+      const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
+      if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
+      svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
+      res.json(await svc.getFaqCatalog(widget));
+    } catch (e) {
+      res.status(403).json({ error: (e as Error).message });
+    }
+  });
+
   r.post('/widgets/:publicKey/sessions', async (req, res) => {
     try {
       const body = req.body as {
@@ -229,6 +240,27 @@ export function createWebChatPublicRouter(): Router {
       const token = visitorTokenFromReq(req);
       if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
       const result = await svc.listVisitorMessages(token, req.headers.origin, req.headers.referer);
+      res.json(result);
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  r.post('/sessions/faq-pick', async (req, res) => {
+    try {
+      const token = visitorTokenFromReq(req);
+      if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
+      const body = req.body as { articleId?: string };
+      if (!body.articleId?.trim()) return res.status(400).json({ error: 'articleId obrigatório' });
+      const result = await svc.pickFaqArticle(
+        token,
+        body.articleId.trim(),
+        req.headers.origin,
+        req.headers.referer,
+      );
       res.json(result);
     } catch (e) {
       const msg = (e as Error).message;

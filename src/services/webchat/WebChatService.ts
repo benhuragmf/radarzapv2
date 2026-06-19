@@ -105,7 +105,11 @@ import {
   markOutboundReadThrough,
 } from './webchat-message-receipt.service';
 import { AiKnowledgeBaseService } from '../ai/AiKnowledgeBaseService';
-import { buildWebChatFaqReplyBody } from '../../utils/webchat-faq-reply.util';
+import { AI_AUTO_RESOLVE_MIN_SCORE } from '../../utils/ai-text-match';
+import {
+  buildWebChatFaqReplyBody,
+  buildWebChatFaqPickerIntro,
+} from '../../utils/webchat-faq-reply.util';
 import { sanitizeWebChatActionLinks } from '../../utils/webchat-safe-url.util';
 import type { WebChatActionLink } from '../../types/webchat';
 import {
@@ -265,10 +269,13 @@ export class WebChatService {
     const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
     const prechatFields = enabledPrechatFields(a);
     const faqEnabled = widget.faqInChatEnabled !== false;
+    const kbSvc = AiKnowledgeBaseService.getInstance();
     const faqQuickReplies =
       faqEnabled && widget.faqShowQuickReplies !== false
-        ? await AiKnowledgeBaseService.getInstance().listQuickReplies(String(widget.clientId))
+        ? await kbSvc.listQuickReplies(String(widget.clientId))
         : [];
+    const faqCatalogAvailable =
+      faqEnabled && (await kbSvc.countActiveArticles(String(widget.clientId))) > 0;
     return {
       publicKey: widget.publicKey,
       title: a.title,
@@ -298,7 +305,15 @@ export class WebChatService {
       ticketLookupEnabled: widget.ticketLookupEnabled !== false,
       faqInChatEnabled: faqEnabled,
       faqQuickReplies,
+      faqCatalogAvailable,
     };
+  }
+
+  async getFaqCatalog(widget: IWebChatWidget): Promise<import('../../types/webchat').WebChatFaqCatalog> {
+    if (widget.faqInChatEnabled === false) {
+      return { categories: [] };
+    }
+    return AiKnowledgeBaseService.getInstance().listFaqCatalog(String(widget.clientId));
   }
 
   assertOrigin(widget: IWebChatWidget, origin?: string | null, referer?: string | null): void {
@@ -367,6 +382,7 @@ export class WebChatService {
       mediaMime: m.mediaMime,
       mediaFileName: m.mediaFileName,
       actionLinks: m.actionLinks?.length ? sanitizeWebChatActionLinks(m.actionLinks) : undefined,
+      kbSuggestions: m.kbSuggestions?.length ? m.kbSuggestions : undefined,
       deliveredAt: m.deliveredAt ? new Date(m.deliveredAt).toISOString() : undefined,
       readAt: m.readAt ? new Date(m.readAt).toISOString() : undefined,
     };
@@ -1415,6 +1431,7 @@ export class WebChatService {
       mediaMime?: string;
       mediaFileName?: string;
       actionLinks?: WebChatActionLink[];
+      kbSuggestions?: import('../../types/webchat').WebChatKbSuggestion[];
     },
   ): Promise<IWebChatMessage> {
     const isInternal = data.direction === 'internal';
@@ -1441,6 +1458,7 @@ export class WebChatService {
       ...(data.actionLinks?.length
         ? { actionLinks: sanitizeWebChatActionLinks(data.actionLinks) }
         : {}),
+      ...(data.kbSuggestions?.length ? { kbSuggestions: data.kbSuggestions } : {}),
     });
 
     const unreadDelta = data.direction === 'inbound' ? 1 : 0;
@@ -1945,6 +1963,55 @@ export class WebChatService {
     });
   }
 
+  async pickFaqArticle(
+    visitorToken: string,
+    articleId: string,
+    origin?: string | null,
+    referer?: string | null,
+  ): Promise<{ message: WebChatMessageDto }> {
+    const conversation = await this.resolveVisitorToken(visitorToken);
+    if (!conversation) throw new Error('Sessão inválida ou encerrada');
+
+    const widget = await WebChatWidget.findById(conversation.widgetId);
+    if (!widget?.active) throw new Error('Widget inativo');
+    this.assertOrigin(widget, origin, referer);
+    if (widget.faqInChatEnabled === false) throw new Error('FAQ desativada neste widget');
+
+    const fresh = await WebChatConversation.findById(conversation._id);
+    if (!fresh || fresh.status === 'closed') throw new Error('Conversa encerrada');
+    if (fresh.queueStatus === 'with_agent' && fresh.assignedUserId) {
+      throw new Error('Atendimento humano ativo');
+    }
+
+    const row = await AiKnowledgeBaseService.getInstance().findByIdForClient(
+      String(conversation.clientId),
+      articleId,
+    );
+    if (!row) throw new Error('Artigo não encontrado');
+
+    const dto = await this.appendKbArticleReply(fresh, widget, row);
+    return { message: dto };
+  }
+
+  private async appendKbArticleReply(
+    conversation: IWebChatConversation,
+    widget: IWebChatWidget,
+    row: { content: string; links?: import('../../types/webchat').WebChatActionLink[]; title: string },
+  ): Promise<WebChatMessageDto> {
+    const body = buildWebChatFaqReplyBody(row.content);
+    if (!body) throw new Error('Artigo sem conteúdo');
+
+    const links = sanitizeWebChatActionLinks(row.links ?? []);
+    const botMsg = await this.appendMessage(conversation, {
+      direction: 'outbound',
+      body,
+      senderUserId: WEBCHAT_BOT_SENDER_ID,
+      senderName: widget.autoReplySenderName?.trim() || 'Assistente',
+      actionLinks: links.length ? links : undefined,
+    });
+    return this.toMessageDto(botMsg);
+  }
+
   private async tryFaqAutoReply(
     conversation: IWebChatConversation,
     widget: IWebChatWidget,
@@ -1956,22 +2023,35 @@ export class WebChatService {
     if (!fresh || fresh.status === 'closed') return null;
     if (fresh.queueStatus === 'with_agent' && fresh.assignedUserId) return null;
 
-    const match = await AiKnowledgeBaseService.getInstance().matchForWebChat(
-      String(conversation.clientId),
-      query,
-    );
-    if (!match) return null;
+    const kb = AiKnowledgeBaseService.getInstance();
+    const clientId = String(conversation.clientId);
 
-    const links = sanitizeWebChatActionLinks(match.row.links ?? []);
-    const body = buildWebChatFaqReplyBody(match.row.content);
-    if (!body) return null;
+    const exact = await kb.matchForWebChat(clientId, query);
+    if (exact && exact.score >= 100) {
+      return this.appendKbArticleReply(fresh, widget, exact.row);
+    }
+
+    const hits = await kb.searchForWebChatPicker(clientId, query);
+    if (!hits.length) {
+      if (exact && exact.score >= AI_AUTO_RESOLVE_MIN_SCORE) {
+        return this.appendKbArticleReply(fresh, widget, exact.row);
+      }
+      return null;
+    }
+
+    if (hits.length === 1 && hits[0].score >= AI_AUTO_RESOLVE_MIN_SCORE) {
+      return this.appendKbArticleReply(fresh, widget, hits[0].row);
+    }
+
+    const suggestions = kb.buildKbSuggestions(hits);
+    if (!suggestions.length) return null;
 
     const botMsg = await this.appendMessage(fresh, {
       direction: 'outbound',
-      body,
+      body: buildWebChatFaqPickerIntro(suggestions.length),
       senderUserId: WEBCHAT_BOT_SENDER_ID,
       senderName: widget.autoReplySenderName?.trim() || 'Assistente',
-      actionLinks: links,
+      kbSuggestions: suggestions,
     });
     return this.toMessageDto(botMsg);
   }
@@ -2613,7 +2693,7 @@ export class WebChatService {
     });
   }
 
-  /** Desativa bridge WhatsApp sem fechar chamado/conversa (comando !encerrarchat). */
+  /** Desativa bridge WhatsApp e encerra sessão do visitante; chamado Inbox permanece aberto (!encerrarchat). */
   async endWhatsappBridgeOnly(
     clientId: string,
     conversationId: string,
@@ -2633,26 +2713,39 @@ export class WebChatService {
 
     await deactivateWhatsappBridge(clientId, conversationId);
 
+    conversation.status = 'closed';
+    conversation.assignedUserId = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
+    conversation.queueStatus = 'bot';
+    await conversation.save();
+
     const agent = await User.findById(userId).select('displayName email').lean();
     const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
 
     await this.appendMessage(conversation, {
       direction: 'system',
-      body: `${agentName} encerrou o atendimento via WhatsApp. O chamado permanece aberto — você pode continuar aqui no chat ou aguardar retorno.`,
+      body: `${agentName} encerrou o atendimento. Obrigado pelo contato!`,
       senderUserId: userId,
       senderName: agentName,
     });
 
-    const reloaded = await WebChatConversation.findById(conversation._id);
-    if (!reloaded) return;
+    this.emitWebchatWebhook(String(conversation.clientId), 'webchat.conversation.closed', {
+      conversation_id: String(conversation._id),
+      widget_id: String(conversation.widgetId),
+      visitor_name: conversation.visitorName,
+      visitor_email: conversation.visitorEmail,
+      closed_by_user_id: userId,
+      bridge_only: true,
+    });
 
-    const clientIdStr = String(reloaded.clientId);
-    const convId = String(reloaded._id);
-    const widget = await WebChatWidget.findById(reloaded.widgetId).select('name').lean();
-    const dept = reloaded.departmentId
-      ? await InboxDepartment.findById(reloaded.departmentId).select('name').lean()
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    const widget = await WebChatWidget.findById(conversation.widgetId).select('name').lean();
+    const dept = conversation.departmentId
+      ? await InboxDepartment.findById(conversation.departmentId).select('name').lean()
       : null;
-    const conversationDto = this.toConversationDto(reloaded, widget?.name, dept?.name);
+    const conversationDto = this.toConversationDto(conversation, widget?.name, dept?.name);
 
     emitWebChatToTenant(clientIdStr, 'webchat:conversation', {
       clientId: clientIdStr,

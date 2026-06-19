@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import type {
   WebChatActionLink,
+  WebChatKbSuggestion,
   WebChatMessageDirection,
   WebChatMessageMediaType,
 } from '../types/webchat';
@@ -17,6 +18,7 @@ export interface IWebChatMessage extends Document {
   senderUserId?: string;
   senderName?: string;
   actionLinks?: WebChatActionLink[];
+  kbSuggestions?: WebChatKbSuggestion[];
   /** Visitante recebeu (mensagens outbound). */
   deliveredAt?: Date;
   /** Visitante leu (outbound) ou atendente leu (inbound). */
@@ -48,6 +50,16 @@ const WebChatMessageSchema = new Schema<IWebChatMessage>(
           label: { type: String, maxlength: 80 },
           url: { type: String, maxlength: 500 },
           openInNewTab: { type: Boolean, default: true },
+        },
+      ],
+      default: undefined,
+    },
+    kbSuggestions: {
+      type: [
+        {
+          id: { type: String, maxlength: 32 },
+          label: { type: String, maxlength: 80 },
+          index: { type: Number, min: 1, max: 9 },
         },
       ],
       default: undefined,

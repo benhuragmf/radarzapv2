@@ -6,12 +6,25 @@ import {
   scoreAiTextMatch,
 } from '@/utils/ai-text-match';
 import { sanitizeWebChatActionLinks } from '@/utils/webchat-safe-url.util';
-import type { WebChatActionLink, WebChatFaqQuickReply } from '@/types/webchat';
+import type {
+  WebChatActionLink,
+  WebChatFaqCatalog,
+  WebChatFaqQuickReply,
+  WebChatKbSuggestion,
+} from '@/types/webchat';
+import {
+  WEBCHAT_FAQ_PICKER_MAX,
+  WEBCHAT_FAQ_PICKER_MIN_SCORE,
+} from '@/utils/webchat-faq-reply.util';
+
+/** Categoria padrão quando o artigo não tem categoria definida. */
+export const AI_KB_DEFAULT_CATEGORY = 'Geral';
 
 export type KnowledgeBaseUpsertInput = {
   id?: string;
   title: string;
   content: string;
+  category?: string;
   active?: boolean;
   keywords?: string[];
   links?: WebChatActionLink[];
@@ -40,6 +53,7 @@ export class AiKnowledgeBaseService {
     const payload = {
       title: item.title.trim(),
       content: item.content.trim(),
+      category: normalizeKbCategory(item.category),
       active: item.active ?? true,
       keywords: (item.keywords ?? [])
         .map(k => k.trim())
@@ -70,6 +84,77 @@ export class AiKnowledgeBaseService {
       _id: id,
       clientId: new mongoose.Types.ObjectId(clientId),
     });
+  }
+
+  async findByIdForClient(clientId: string, id: string): Promise<IAiKnowledgeBase | null> {
+    if (!mongoose.Types.ObjectId.isValid(id)) return null;
+    const row = await AiKnowledgeBase.findOne({
+      _id: new mongoose.Types.ObjectId(id),
+      clientId: new mongoose.Types.ObjectId(clientId),
+      active: true,
+    }).lean();
+    return row ? (row as unknown as IAiKnowledgeBase) : null;
+  }
+
+  /** Artigos candidatos ao seletor numerado no widget (pergunta aberta). */
+  async searchForWebChatPicker(
+    clientId: string,
+    query: string,
+    limit = WEBCHAT_FAQ_PICKER_MAX,
+  ): Promise<Array<{ row: IAiKnowledgeBase; score: number }>> {
+    const hits = await this.searchRelevant(clientId, query, limit);
+    return hits.filter(h => h.score >= WEBCHAT_FAQ_PICKER_MIN_SCORE);
+  }
+
+  buildKbSuggestions(
+    hits: Array<{ row: IAiKnowledgeBase; score: number }>,
+  ): WebChatKbSuggestion[] {
+    return hits.slice(0, WEBCHAT_FAQ_PICKER_MAX).map((h, i) => ({
+      id: String(h.row._id),
+      label: (h.row.quickReplyLabel?.trim() || h.row.title).slice(0, 80),
+      index: i + 1,
+    }));
+  }
+
+  async countActiveArticles(clientId: string): Promise<number> {
+    return AiKnowledgeBase.countDocuments({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      active: true,
+    });
+  }
+
+  /** Catálogo FAQ agrupado por categoria para o botão FAQ do widget. */
+  async listFaqCatalog(clientId: string): Promise<WebChatFaqCatalog> {
+    const rows = await AiKnowledgeBase.find({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      active: true,
+    })
+      .sort({ category: 1, title: 1 })
+      .select('title category quickReplyLabel')
+      .lean();
+
+    const grouped = new Map<string, WebChatFaqCatalog['categories'][number]['articles']>();
+    for (const row of rows) {
+      const category = normalizeKbCategory(row.category);
+      const article = {
+        id: String(row._id),
+        title: row.title,
+        label: (row.quickReplyLabel?.trim() || row.title).slice(0, 80),
+      };
+      const list = grouped.get(category) ?? [];
+      list.push(article);
+      grouped.set(category, list);
+    }
+
+    const categories = [...grouped.entries()]
+      .map(([name, articles]) => ({ name, articles }))
+      .sort((a, b) => {
+        if (a.name === AI_KB_DEFAULT_CATEGORY) return 1;
+        if (b.name === AI_KB_DEFAULT_CATEGORY) return -1;
+        return a.name.localeCompare(b.name, 'pt-BR');
+      });
+
+    return { categories };
   }
 
   async listQuickReplies(clientId: string): Promise<WebChatFaqQuickReply[]> {
@@ -182,4 +267,9 @@ export class AiKnowledgeBaseService {
     if (!best || best.score < AI_AUTO_RESOLVE_MIN_SCORE) return null;
     return best;
   }
+}
+
+export function normalizeKbCategory(raw?: string | null): string {
+  const trimmed = String(raw ?? '').trim().slice(0, 80);
+  return trimmed || AI_KB_DEFAULT_CATEGORY;
 }

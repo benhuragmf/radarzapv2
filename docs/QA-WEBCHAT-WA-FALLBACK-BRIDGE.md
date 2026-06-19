@@ -80,6 +80,10 @@
 | B1 | Abrir widget novo; ver chips de sugestão (se configurados) | Chips clicáveis | [ ] |
 | B2 | Clicar chip ou digitar palavra-chave do artigo | Resposta da base + botão de link | [ ] |
 | B3 | Link abre `https` em nova aba | URL sanitizada (sem `javascript:`) | [ ] |
+| B4 | Pergunta genérica que bate em **2+ artigos** (ex.: "como funciona") | Bot lista opções **1, 2, 3…** no chat | [ ] |
+| B5 | Clicar opção numerada | Conteúdo do artigo aparece **no chat** (sem nova aba) | [ ] |
+| B6 | Clicar botão **FAQ** no header do widget | Lista por categorias da base de conhecimento | [ ] |
+| B7 | Clicar artigo na lista FAQ | Conteúdo entra no chat (ou aviso para concluir pré-chat) | [ ] |
 
 ---
 
