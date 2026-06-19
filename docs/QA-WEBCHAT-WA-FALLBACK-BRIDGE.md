@@ -5,7 +5,8 @@
 
 **Execução:** _______________ · **Responsável:** _______________ · **Data:** _______________
 
-**Automatizado (antes do manual):** `npm run qa:webchat-wa` — testes unitários das fases A–F + `qa:prep` (Mongo, WA, fallback, whitelist).  
+**Automatizado (antes do manual):** `npm run qa:webchat-wa` — testes unitários + `qa:prep`.  
+**Setup rápido dev:** `QA_WA_PHONE=5511999999999 npm run qa:webchat-wa:setup` (habilita fallback + whitelist Equipe).  
 **Resultado:** copie [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) ao concluir.
 
 ---

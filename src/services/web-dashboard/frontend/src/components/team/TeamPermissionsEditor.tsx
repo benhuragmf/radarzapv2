@@ -365,7 +365,9 @@ export function TeamMemberRoleModal({
             {preset && <p className="text-xs text-[var(--rz-text-muted)] mt-1.5">{preset.description}</p>}
           </div>
           <div>
-            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">WhatsApp (encaminhamentos de ticket)</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">
+              WhatsApp pessoal (bridge, comandos e encaminhamentos)
+            </label>
             <input
               type="tel"
               value={whatsappPhone}
@@ -374,7 +376,8 @@ export function TeamMemberRoleModal({
               className={inputCls}
             />
             <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
-              Usado para receber encaminhamentos e menções de tickets via WhatsApp.
+              Recebe alertas de fallback, responde com <code className="text-[var(--rz-text-secondary)]">!assumir</code>,{' '}
+              <code className="text-[var(--rz-text-secondary)]">!ticket</code> e encaminhamentos de chamados.
             </p>
           </div>
           {error && (
