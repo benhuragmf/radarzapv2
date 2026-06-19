@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.80';
+  var WIDGET_BUILD = '2.10.81';
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
@@ -1504,7 +1504,9 @@
       body =
         '<p style="font-size:13px;color:' +
         t.textMuted +
-        ';margin:0 0 10px;">Digite o token que você recebeu ao abrir o chamado (no chat, WhatsApp ou e-mail).</p>' +
+        ';margin:0 0 10px;">Chamado <strong>' +
+        escHtml(state.ticketLookupRef) +
+        '</strong> — digite o token recebido no chat, WhatsApp ou e-mail.</p>' +
         (state.ticketLookupResendNotice
           ? '<p style="font-size:12px;color:' +
             t.text +
@@ -1719,7 +1721,7 @@
   function submitTicketLookupToken() {
     if (state.ticketLookupLoading) return;
     var input = document.getElementById('rz-ticket-lookup-token');
-    var token = input ? String(input.value || '').trim() : state.ticketLookupToken.trim();
+    var token = input ? String(input.value || '').trim().toUpperCase() : state.ticketLookupToken.trim().toUpperCase();
     if (!token) {
       state.ticketLookupError = 'Informe o token de acesso.';
       renderBubble();

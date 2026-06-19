@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.10.80` (`package.json`) · **Última revisão doc:** 2026-06-19
+**Versão atual:** `2.10.81` (`package.json`) · **Última revisão doc:** 2026-06-19
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -83,6 +83,7 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.10.78** | WhatsApp: `!encerrarchat` desativa bridge sem fechar chamado; `!encerrar` finaliza |
 | **2.10.79** | WebChat: reenvio de token de consulta por WhatsApp (widget + `POST …/resend-token`) |
 | **2.10.80** | WebChat: reenvio de token por e-mail + envio automático na abertura do chamado |
+| **2.10.81** | Fix: consulta de token carrega `publicAccessTokenHash` (campo select:false) |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 

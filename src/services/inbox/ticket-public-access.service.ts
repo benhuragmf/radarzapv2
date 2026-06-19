@@ -235,7 +235,7 @@ export async function lookupTicketByPublicAccess(opts: {
     clientId: clientOid,
     ticketRef: normalizedRef,
     deletedAt: { $exists: false },
-  });
+  }).select('+publicAccessTokenHash');
 
   if (!ticket?.publicAccessTokenHash) {
     recordTicketLookupFailure(opts.clientId, opts.remoteIp);
@@ -364,7 +364,7 @@ export async function resendTicketPublicAccessToken(opts: {
     clientId: clientOid,
     ticketRef: normalizedRef,
     deletedAt: { $exists: false },
-  });
+  }).select('+publicAccessTokenHash');
 
   if (!ticket) {
     return { message: TICKET_TOKEN_RESEND_SUCCESS_MSG };

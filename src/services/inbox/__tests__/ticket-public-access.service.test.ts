@@ -42,6 +42,12 @@ jest.mock('@/models/WebChatMessage', () => ({
 describe('ticket-public-access.service lookup', () => {
   const clientId = new mongoose.Types.ObjectId().toString();
 
+  function mockFindOneTicket(ticket: object | null) {
+    (InboxTicket.findOne as jest.Mock).mockReturnValue({
+      select: jest.fn().mockResolvedValue(ticket),
+    });
+  }
+
   beforeEach(() => {
     resetTicketLookupRateLimits();
     resetTicketTokenResendLimits();
@@ -50,7 +56,7 @@ describe('ticket-public-access.service lookup', () => {
 
   it('rejects wrong token without revealing ticket existence', async () => {
     const token = 'ABCD-EFGH';
-    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+    mockFindOneTicket({
       ticketRef: 'TK-TEST01',
       status: 'open',
       channel: 'whatsapp',
@@ -69,7 +75,7 @@ describe('ticket-public-access.service lookup', () => {
       }),
     ).rejects.toThrow(/Não encontramos/);
 
-    (InboxTicket.findOne as jest.Mock).mockResolvedValue(null);
+    mockFindOneTicket(null);
 
     await expect(
       lookupTicketByPublicAccess({
@@ -83,7 +89,7 @@ describe('ticket-public-access.service lookup', () => {
 
   it('returns ticket on valid ref and token', async () => {
     const token = 'WXYZ-2345';
-    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+    mockFindOneTicket({
       ticketRef: 'TK-VALID1',
       status: 'in_progress',
       channel: 'whatsapp',
@@ -125,6 +131,12 @@ describe('assignInboxTicketPublicAccessToken', () => {
 describe('resendTicketPublicAccessToken', () => {
   const clientId = new mongoose.Types.ObjectId().toString();
 
+  function mockFindOneTicket(ticket: object | null) {
+    (InboxTicket.findOne as jest.Mock).mockReturnValue({
+      select: jest.fn().mockResolvedValue(ticket),
+    });
+  }
+
   beforeEach(() => {
     resetTicketLookupRateLimits();
     resetTicketTokenResendLimits();
@@ -135,7 +147,7 @@ describe('resendTicketPublicAccessToken', () => {
 
   it('sends new token via WhatsApp when phone matches ticket', async () => {
     const save = jest.fn().mockResolvedValue(undefined);
-    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+    mockFindOneTicket({
       ticketRef: 'TK-L402V2',
       contactIdentifier: '5566996819456',
       save,
@@ -157,7 +169,7 @@ describe('resendTicketPublicAccessToken', () => {
 
   it('sends new token via email when address matches ticket', async () => {
     const save = jest.fn().mockResolvedValue(undefined);
-    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+    mockFindOneTicket({
       ticketRef: 'TK-EMAIL1',
       contactIdentifier: 'cliente@example.com',
       contactName: 'Cliente',
@@ -179,7 +191,7 @@ describe('resendTicketPublicAccessToken', () => {
   });
 
   it('returns generic message without sending when contact mismatches', async () => {
-    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+    mockFindOneTicket({
       ticketRef: 'TK-L402V2',
       contactIdentifier: '5566996819456',
       save: jest.fn(),
