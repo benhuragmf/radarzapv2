@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.10.75",
+  "version": "2.10.76",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -20,6 +20,7 @@
     "update:templates": "ts-node -r dotenv/config -r tsconfig-paths/register update-templates.ts",
     "clear:test": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/clear-test-state.ts",
     "qa:prep": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/qa-prep.ts",
+    "qa:webchat-wa": "jest --testPathPattern=\"ticket-public|webchat-whatsapp|whatsapp-agent|webchat-safe-url|inbox-agent-presence|webchat-faq\" && npm run qa:prep",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

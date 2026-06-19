@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { InboxSettings } from '@/models/InboxSettings';
 import { WhatsAppSession } from '@/models/WhatsAppSession';
 import { WebChatWidget } from '@/models/WebChatWidget';
+import { CompanyMember } from '@/models/CompanyMember';
 
 const MONGODB_URL =
   process.env.MONGODB_URL ||
@@ -30,14 +31,20 @@ async function main() {
     process.exit(1);
   }
 
-  const [activeSessions, csatOrgs, totalSettings, activeWidgets] = await Promise.all([
+  const [activeSessions, csatOrgs, totalSettings, activeWidgets, fallbackOrgs, agentsWithWa] =
+    await Promise.all([
     WhatsAppSession.countDocuments({ status: 'active' }),
     InboxSettings.countDocuments({ csatEnabled: true }),
     InboxSettings.countDocuments(),
     WebChatWidget.countDocuments({ active: true }),
+    InboxSettings.countDocuments({ whatsappFallbackEnabled: true }),
+    CompanyMember.countDocuments({
+      isActive: true,
+      whatsappPhone: { $exists: true, $nin: [null, ''] },
+    }),
   ]);
 
-  const checks: Array<{ ok: boolean; label: string; hint?: string }> = [
+  const checks: Array<{ ok: boolean; label: string; hint?: string; optional?: boolean }> = [
     {
       ok: activeSessions > 0,
       label: `Sessão WhatsApp ativa: ${activeSessions}`,
@@ -53,6 +60,18 @@ async function main() {
       label: `Widgets WebChat ativos: ${activeWidgets}`,
       hint: 'Opcional para § C — crie em /platform/webchat',
     },
+    {
+      ok: fallbackOrgs > 0,
+      label: `Fallback WhatsApp habilitado: ${fallbackOrgs}/${totalSettings} org(s)`,
+      hint: 'Ative em /platform/inbox/bot → Chat do site — fallback WhatsApp (QA § C)',
+      optional: true,
+    },
+    {
+      ok: agentsWithWa > 0,
+      label: `Membros com WhatsApp em Equipe: ${agentsWithWa}`,
+      hint: 'Cadastre WhatsApp pessoal em Configurações → Equipe (comandos !assumir)',
+      optional: true,
+    },
   ];
 
   let blockers = 0;
@@ -60,10 +79,14 @@ async function main() {
     const icon = c.ok ? '✓' : '✗';
     console.log(`${icon} ${c.label}`);
     if (!c.ok && c.hint) console.log(`  → ${c.hint}`);
-    if (!c.ok && (c.label.includes('WhatsApp') || c.label.includes('CSAT'))) blockers++;
+    if (!c.ok && !c.optional && (c.label.includes('WhatsApp ativa') || c.label.includes('CSAT'))) {
+      blockers++;
+    }
   }
 
-  console.log('\nDocs: docs/QA-FASE1-ROTEIRO.md (passo a passo) · docs/QA-FASE1-CHECKLIST.md (marcar OK/fail)');
+  console.log(
+    '\nDocs: docs/QA-FASE1-ROTEIRO.md · docs/QA-FASE1-CHECKLIST.md · docs/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md (fallback/bridge 2.10.75)',
+  );
 
   await mongoose.disconnect();
   process.exit(blockers > 0 ? 1 : 0);

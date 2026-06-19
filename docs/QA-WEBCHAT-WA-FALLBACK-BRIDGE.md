@@ -5,6 +5,9 @@
 
 **Execução:** _______________ · **Responsável:** _______________ · **Data:** _______________
 
+**Automatizado (antes do manual):** `npm run qa:webchat-wa` — testes unitários das fases A–F + `qa:prep` (Mongo, WA, fallback, whitelist).  
+**Resultado:** copie [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) ao concluir.
+
 ---
 
 ## Pré-requisitos
