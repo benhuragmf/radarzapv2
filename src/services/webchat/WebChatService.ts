@@ -990,11 +990,11 @@ export class WebChatService {
 
     const destination = convDoc.destinationId
       ? await Destination.findOne({
-          _id: convDoc.destinationId,
-          clientId: new mongoose.Types.ObjectId(clientId),
-        })
-          .select('name email notes organization identifier contactGroupIds')
-          .lean()
+        _id: convDoc.destinationId,
+        clientId: new mongoose.Types.ObjectId(clientId),
+      })
+        .select('name email notes organization identifier contactGroupIds')
+        .lean()
       : null;
 
     const visitorContact = destination
@@ -1019,14 +1019,14 @@ export class WebChatService {
       transfers: [],
       contact: destination
         ? {
-            _id: String(destination._id),
-            name: destination.name,
-            email: destination.email ?? '',
-            notes: destination.notes ?? '',
-            organization: destination.organization ?? '',
-            identifier: destination.identifier,
-            contactGroupIds: (destination.contactGroupIds ?? []).map(String),
-          }
+          _id: String(destination._id),
+          name: destination.name,
+          email: destination.email ?? '',
+          notes: destination.notes ?? '',
+          organization: destination.organization ?? '',
+          identifier: destination.identifier,
+          contactGroupIds: (destination.contactGroupIds ?? []).map(String),
+        }
         : visitorContact,
       quickReplies: normalizeQuickReplies(inboxSettings.quickReplies),
     };
@@ -1329,11 +1329,11 @@ export class WebChatService {
     if (!conv) return null;
 
     if (userId && (conv.unreadAgentCount ?? 0) > 0) {
+      await markInboundReadByAgent(clientId, conversationId);
       await WebChatConversation.updateOne(
         { _id: conv._id },
         { $set: { unreadAgentCount: 0 } },
       );
-      await markInboundReadByAgent(clientId, conversationId);
     }
 
     const widget = await WebChatWidget.findById(conv.widgetId).select('name').lean();
@@ -1483,7 +1483,13 @@ export class WebChatService {
       emitWebChatToVisitor(conversationId, 'webchat:message', payload);
     }
     if (data.direction === 'outbound') {
-      void markInboundReadOnTeamReply(clientId, conversationId, msg.createdAt).catch(() => {});
+      void markInboundReadOnTeamReply(clientId, conversationId, msg.createdAt).catch(err => {
+        this.serviceLogger.warn('markInboundReadOnTeamReply failed', {
+          clientId,
+          conversationId,
+          err: (err as Error).message,
+        });
+      });
     }
     if (conversationDto) {
       emitWebChatToTenant(clientId, 'webchat:conversation', {

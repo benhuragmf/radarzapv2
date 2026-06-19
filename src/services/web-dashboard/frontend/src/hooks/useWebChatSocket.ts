@@ -111,13 +111,7 @@ export function useWebChatSocket(
             messages: applyReceiptsToInboxMessages(old.messages, payload),
           }
         })
-        void qc.invalidateQueries({
-          queryKey: ['inbox-conversation', convKey],
-          refetchType: 'active',
-        })
       }
-
-      qc.invalidateQueries({ queryKey: ['webchat-conversation', payload.conversationId] })
     }
 
     socket.on('webchat:message', onMessage)

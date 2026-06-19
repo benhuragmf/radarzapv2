@@ -506,7 +506,7 @@ export async function requestTicketTokenResendOtp(opts: {
     return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
   }
 
-  if (isTicketResendOtpRequestLimited(opts.clientId, normalizedRef, contactRaw)) {
+  if (await isTicketResendOtpRequestLimited(opts.clientId, normalizedRef, contactRaw)) {
     logger.warn('ticket token resend OTP contact limited', {
       clientId: opts.clientId,
       ticketRef: normalizedRef,
@@ -526,14 +526,14 @@ export async function requestTicketTokenResendOtp(opts: {
 
   try {
     const code = generateTicketResendOtpCode();
-    storeTicketResendOtp({
+    await storeTicketResendOtp({
       clientId: opts.clientId,
       ticketRef: normalizedRef,
       contact: match.contactRaw,
       channel: match.channel,
       code,
     });
-    recordTicketResendOtpRequest(opts.clientId, normalizedRef, match.contactRaw);
+    await recordTicketResendOtpRequest(opts.clientId, normalizedRef, match.contactRaw);
 
     if (match.channel === 'email') {
       await sendTicketResendOtpEmail({
@@ -593,7 +593,7 @@ export async function confirmTicketTokenResendOtp(opts: {
     return { message: TICKET_TOKEN_RESEND_OTP_INVALID_MSG, ok: false };
   }
 
-  const otpOk = verifyTicketResendOtp({
+  const otpOk = await verifyTicketResendOtp({
     clientId: opts.clientId,
     ticketRef: normalizedRef,
     contact: contactRaw,

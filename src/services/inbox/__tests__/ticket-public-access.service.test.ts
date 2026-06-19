@@ -259,7 +259,7 @@ describe('ticket token resend OTP flow', () => {
       save: jest.fn(),
     });
 
-    storeTicketResendOtp({
+    await storeTicketResendOtp({
       clientId,
       ticketRef: 'TK-L402V2',
       contact: '66996819456',

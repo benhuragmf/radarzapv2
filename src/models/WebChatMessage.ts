@@ -59,5 +59,6 @@ const WebChatMessageSchema = new Schema<IWebChatMessage>(
 );
 
 WebChatMessageSchema.index({ conversationId: 1, createdAt: 1 });
+WebChatMessageSchema.index({ conversationId: 1, direction: 1, readAt: 1 });
 
 export const WebChatMessage = mongoose.model<IWebChatMessage>('WebChatMessage', WebChatMessageSchema);

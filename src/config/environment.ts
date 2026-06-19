@@ -396,6 +396,15 @@ export function validateConfig(): void {
     if (process.env.ALLOW_DEV_API_KEY_BYPASS === 'true') {
       errors.push('ALLOW_DEV_API_KEY_BYPASS must not be true in production');
     }
+
+    const otpPepper = process.env.TICKET_OTP_PEPPER?.trim();
+    if (!otpPepper || otpPepper === 'radarzap-ticket-otp-change-in-production') {
+      errors.push('TICKET_OTP_PEPPER must be set to a strong secret in production');
+    }
+
+    if (!config.REDIS.URL) {
+      errors.push('REDIS_URL is required in production (OTP, sessões, filas)');
+    }
   }
   
   // Validate numeric ranges

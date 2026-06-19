@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.86';
+  var WIDGET_BUILD = '2.10.87';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -1246,6 +1246,9 @@
         return m.id === item.id;
       });
       if (!exists) {
+        if (item.direction === 'inbound' && !item.deliveredAt) {
+          item.deliveredAt = item.createdAt || new Date().toISOString();
+        }
         state.messages.push(item);
         if (item.direction === 'outbound') handleNewOutboundMessage(item);
       }

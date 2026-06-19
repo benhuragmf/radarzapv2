@@ -27,16 +27,6 @@ export function setWebChatSocketServer(server: SocketIOServer): void {
   io = server;
 }
 
-export async function hasVisitorSocketInConversation(conversationId: string): Promise<boolean> {
-  if (!io || !conversationId) return false;
-  try {
-    const sockets = await io.in(`webchat:conv:${conversationId}`).fetchSockets();
-    return sockets.length > 0;
-  } catch {
-    return false;
-  }
-}
-
 export function emitWebChatToTenant(
   clientId: string,
   event: WebChatRealtimeEvent,

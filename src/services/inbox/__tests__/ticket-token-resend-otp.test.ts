@@ -15,13 +15,13 @@ describe('ticket-token-resend-otp', () => {
     expect(code).toMatch(/^\d{6}$/);
   });
 
-  it('verifies valid OTP and consumes entry', () => {
+  it('verifies valid OTP and consumes entry', async () => {
     const clientId = 'client1';
     const ticketRef = 'TK-TEST';
     const contact = '66996819456';
     const code = '482910';
 
-    storeTicketResendOtp({
+    await storeTicketResendOtp({
       clientId,
       ticketRef,
       contact,
@@ -30,7 +30,7 @@ describe('ticket-token-resend-otp', () => {
     });
 
     expect(
-      verifyTicketResendOtp({
+      await verifyTicketResendOtp({
         clientId,
         ticketRef,
         contact,
@@ -40,7 +40,7 @@ describe('ticket-token-resend-otp', () => {
     ).toBe(true);
 
     expect(
-      verifyTicketResendOtp({
+      await verifyTicketResendOtp({
         clientId,
         ticketRef,
         contact,
@@ -50,8 +50,8 @@ describe('ticket-token-resend-otp', () => {
     ).toBe(false);
   });
 
-  it('rejects wrong channel', () => {
-    storeTicketResendOtp({
+  it('rejects wrong channel', async () => {
+    await storeTicketResendOtp({
       clientId: 'c1',
       ticketRef: 'TK-A',
       contact: 'a@b.com',
@@ -60,7 +60,7 @@ describe('ticket-token-resend-otp', () => {
     });
 
     expect(
-      verifyTicketResendOtp({
+      await verifyTicketResendOtp({
         clientId: 'c1',
         ticketRef: 'TK-A',
         contact: 'a@b.com',

@@ -1,6 +1,7 @@
 import { Router, type Request } from 'express';
 import { WebChatService } from './WebChatService';
 import { WebChatPresenceService } from './WebChatPresenceService';
+import { isWebChatMessageReceiptRateLimited } from './webchat-message-receipt-rate-limit';
 
 function visitorTokenFromReq(req: Request): string | undefined {
   const header = req.headers['x-webchat-visitor'];
@@ -241,6 +242,10 @@ export function createWebChatPublicRouter(): Router {
     try {
       const token = visitorTokenFromReq(req);
       if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
+      const remoteIp = req.ip || req.socket.remoteAddress;
+      if (isWebChatMessageReceiptRateLimited(token, remoteIp)) {
+        return res.status(429).json({ error: 'Muitas confirmações. Aguarde um momento.' });
+      }
       const body = req.body as { deliveredMessageIds?: string[]; readThroughMessageId?: string };
       await svc.markVisitorMessageReceipts(
         token,

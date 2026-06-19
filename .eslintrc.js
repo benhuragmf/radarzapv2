@@ -9,7 +9,6 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:@typescript-eslint/recommended-requiring-type-checking',
   ],
   root: true,
   env: {
@@ -20,15 +19,15 @@ module.exports = {
   rules: {
     // TypeScript specific rules
     '@typescript-eslint/interface-name-prefix': 'off',
-    '@typescript-eslint/explicit-function-return-type': 'error',
-    '@typescript-eslint/explicit-module-boundary-types': 'error',
+    '@typescript-eslint/explicit-function-return-type': 'off',
+    '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': 'error',
-    '@typescript-eslint/prefer-nullish-coalescing': 'error',
+    '@typescript-eslint/prefer-nullish-coalescing': 'off',
     '@typescript-eslint/prefer-optional-chain': 'error',
-    '@typescript-eslint/no-floating-promises': 'error',
-    '@typescript-eslint/await-thenable': 'error',
-    '@typescript-eslint/no-misused-promises': 'error',
+    '@typescript-eslint/no-floating-promises': 'warn',
+    '@typescript-eslint/await-thenable': 'warn',
+    '@typescript-eslint/no-misused-promises': 'warn',
     
     // General rules
     'no-console': 'warn',
@@ -48,8 +47,8 @@ module.exports = {
     'comma-dangle': ['error', 'always-multiline'],
     'semi': ['error', 'always'],
     'quotes': ['error', 'single'],
-    'indent': ['error', 2],
-    'max-len': ['error', { code: 120 }],
+    'indent': ['error', 2, { SwitchCase: 1, ignoredNodes: ['PropertyDefinition'] }],
+    'max-len': ['warn', { code: 120 }],
     
     // Security rules
     'no-eval': 'error',

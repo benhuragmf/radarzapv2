@@ -1034,22 +1034,13 @@ export class DashboardService {
       }
     });
 
-    /** @deprecated GET removido em produção (CSRF) — use POST */
-    r.get('/sessions/:id/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
-      if (config.NODE_ENV === 'production') {
-        res.setHeader('Allow', 'POST');
-        return res.status(405).json({
-          error: 'Use POST /api/sessions/:id/connect',
-          code: 'METHOD_NOT_ALLOWED',
-        });
-      }
-      try {
-        const wa = WhatsAppService.getInstance();
-        const result = await wa.connectInstance(req.params.id);
-        res.json(result);
-      } catch (e) {
-        res.status(500).json({ error: (e as Error).message });
-      }
+    /** @deprecated GET removido (CSRF) — use POST */
+    r.get('/sessions/:id/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), (_req, res) => {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({
+        error: 'Use POST /api/sessions/:id/connect',
+        code: 'METHOD_NOT_ALLOWED',
+      });
     });
 
     r.post('/sessions/:id/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {

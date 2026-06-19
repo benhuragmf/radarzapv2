@@ -63,6 +63,18 @@ export default defineConfig({
   build: {
     outDir: '../public',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts')) return 'charts';
+            if (id.includes('@tanstack')) return 'query';
+            if (id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
+            return 'vendor';
+          }
+        },
+      },
+    },
   },
   server: {
     port: 5174,
