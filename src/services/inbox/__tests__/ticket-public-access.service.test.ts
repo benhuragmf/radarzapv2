@@ -2,14 +2,29 @@ import mongoose from 'mongoose';
 import {
   lookupTicketByPublicAccess,
   assignInboxTicketPublicAccessToken,
+  resendTicketPublicAccessTokenViaWhatsApp,
+  TICKET_TOKEN_RESEND_SUCCESS_MSG,
 } from '@/services/inbox/ticket-public-access.service';
 import { InboxTicket } from '@/models/InboxTicket';
-import { resetTicketLookupRateLimits } from '@/services/inbox/ticket-public-lookup-rate-limit';
+import {
+  resetTicketLookupRateLimits,
+  resetTicketTokenResendLimits,
+} from '@/services/inbox/ticket-public-lookup-rate-limit';
 import { hashTicketPublicAccessToken } from '@/utils/ticket-public-access.util';
 
+const sendInternalAlert = jest.fn().mockResolvedValue({ success: true });
+
+jest.mock('@/services/whatsapp/WhatsAppService', () => ({
+  WhatsAppService: {
+    getInstance: () => ({ sendInternalAlert }),
+  },
+}));
 jest.mock('@/models/InboxTicket');
 jest.mock('@/models/InboxDepartment', () => ({
   InboxDepartment: { findById: jest.fn().mockReturnValue({ select: () => ({ lean: async () => null }) }) },
+}));
+jest.mock('@/models/Destination', () => ({
+  Destination: { findById: jest.fn().mockReturnValue({ select: () => ({ lean: async () => null }) }) },
 }));
 jest.mock('@/models/WebChatConversation', () => ({
   WebChatConversation: { findById: jest.fn().mockReturnValue({ select: () => ({ lean: async () => null }) }) },
@@ -23,6 +38,7 @@ describe('ticket-public-access.service lookup', () => {
 
   beforeEach(() => {
     resetTicketLookupRateLimits();
+    resetTicketTokenResendLimits();
     jest.clearAllMocks();
   });
 
@@ -97,5 +113,54 @@ describe('assignInboxTicketPublicAccessToken', () => {
     expect(ticket.publicAccessTokenHint).toHaveLength(4);
     expect(ticket.publicAccessTokenHash).toHaveLength(64);
     expect(save).toHaveBeenCalled();
+  });
+});
+
+describe('resendTicketPublicAccessTokenViaWhatsApp', () => {
+  const clientId = new mongoose.Types.ObjectId().toString();
+
+  beforeEach(() => {
+    resetTicketLookupRateLimits();
+    resetTicketTokenResendLimits();
+    sendInternalAlert.mockClear();
+    jest.clearAllMocks();
+  });
+
+  it('sends new token when phone matches ticket', async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+      ticketRef: 'TK-L402V2',
+      contactIdentifier: '5566996819456',
+      save,
+    });
+
+    const result = await resendTicketPublicAccessTokenViaWhatsApp({
+      clientId,
+      ticketRef: 'L402V2',
+      phone: '66996819456',
+      remoteIp: '127.0.0.1',
+    });
+
+    expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
+    expect(sendInternalAlert).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalled();
+  });
+
+  it('returns generic message without sending when phone mismatches', async () => {
+    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+      ticketRef: 'TK-L402V2',
+      contactIdentifier: '5566996819456',
+      save: jest.fn(),
+    });
+
+    const result = await resendTicketPublicAccessTokenViaWhatsApp({
+      clientId,
+      ticketRef: 'TK-L402V2',
+      phone: '11999998888',
+      remoteIp: '127.0.0.1',
+    });
+
+    expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
+    expect(sendInternalAlert).not.toHaveBeenCalled();
   });
 });

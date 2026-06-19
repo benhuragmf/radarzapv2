@@ -82,6 +82,7 @@ import {
   ensureInboxTicketPublicAccessToken,
   formatTicketCreatedWithTokenMessage,
   lookupTicketByPublicAccess,
+  resendTicketPublicAccessTokenViaWhatsApp,
 } from '../inbox/ticket-public-access.service';
 import { InboxTicket } from '../../models/InboxTicket';
 import { generateInboxTicketRef } from '../../utils/inbox-ticket-ref';
@@ -2667,6 +2668,31 @@ export class WebChatService {
       clientId: String(widget.clientId),
       ticketRef: opts.ticketRef,
       accessToken: opts.accessToken,
+      remoteIp: opts.remoteIp,
+    });
+  }
+
+  async resendTicketTokenPublic(
+    publicKey: string,
+    opts: {
+      ticketRef: string;
+      phone: string;
+      origin?: string | null;
+      referer?: string | null;
+      remoteIp?: string;
+    },
+  ) {
+    const widget = await this.getActiveWidgetByPublicKey(publicKey);
+    if (!widget) throw new Error('Widget não encontrado');
+    if (widget.ticketLookupEnabled === false) {
+      throw new Error('Consulta de chamado não está disponível');
+    }
+    this.assertOrigin(widget, opts.origin, opts.referer);
+
+    return resendTicketPublicAccessTokenViaWhatsApp({
+      clientId: String(widget.clientId),
+      ticketRef: opts.ticketRef,
+      phone: opts.phone,
       remoteIp: opts.remoteIp,
     });
   }

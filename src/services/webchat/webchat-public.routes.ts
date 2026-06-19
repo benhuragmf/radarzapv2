@@ -262,6 +262,29 @@ export function createWebChatPublicRouter(): Router {
     }
   });
 
+  r.post('/widgets/:publicKey/tickets/resend-token', async (req, res) => {
+    try {
+      const body = req.body as { ticketRef?: string; phone?: string };
+      const result = await svc.resendTicketTokenPublic(req.params.publicKey, {
+        ticketRef: body.ticketRef ?? '',
+        phone: body.phone ?? '',
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        remoteIp: req.ip || req.socket.remoteAddress,
+      });
+      res.json(result);
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('não encontrado') || msg.includes('não está disponível')
+          ? 404
+          : msg.includes('Origem')
+            ? 403
+            : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
   r.post('/widgets/:publicKey/tickets/resume', async (req, res) => {
     try {
       const body = req.body as { ticketRef?: string; accessToken?: string; pageUrl?: string; pageTitle?: string };

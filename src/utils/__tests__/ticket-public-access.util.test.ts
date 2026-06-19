@@ -3,6 +3,8 @@ import {
   hashTicketPublicAccessToken,
   normalizeTicketPublicAccessToken,
   normalizeTicketRefForLookup,
+  normalizePhoneForTicketMatch,
+  phonesMatchForTicket,
   publicAccessTokenHint,
   verifyTicketPublicAccessToken,
 } from '@/utils/ticket-public-access.util';
@@ -35,5 +37,11 @@ describe('ticket-public-access.util', () => {
 
   it('builds hint from last 4 chars', () => {
     expect(publicAccessTokenHint('AB7K-92QD')).toBe('92QD');
+  });
+
+  it('matches phones with or without country code', () => {
+    expect(normalizePhoneForTicketMatch('66996819456')).toBe('5566996819456');
+    expect(phonesMatchForTicket('66996819456', '5566996819456')).toBe(true);
+    expect(phonesMatchForTicket('11999887766', '5511999887766')).toBe(true);
   });
 });

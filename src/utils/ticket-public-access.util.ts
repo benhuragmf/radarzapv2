@@ -43,6 +43,28 @@ export function publicAccessTokenHint(raw: string): string {
   return norm.slice(-4);
 }
 
+/** Normaliza telefone para comparação (E.164 BR sem +). */
+export function normalizePhoneForTicketMatch(raw?: string | null): string | null {
+  if (!raw?.trim()) return null;
+  let digits = raw.replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  if (!digits.startsWith('55') && digits.length <= 11) {
+    digits = `55${digits}`;
+  }
+  return digits;
+}
+
+/** Compara telefones informados (tolera DDI/DDD). */
+export function phonesMatchForTicket(input: string, stored: string): boolean {
+  const a = normalizePhoneForTicketMatch(input);
+  const b = normalizePhoneForTicketMatch(stored);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const tail11 = (s: string) => s.slice(-11);
+  const tail9 = (s: string) => s.slice(-9);
+  return tail11(a) === tail11(b) || tail9(a) === tail9(b);
+}
+
 /** Normaliza referência digitada pelo cliente (TK-XXXXXX, #TK-…, etc.). */
 export function normalizeTicketRefForLookup(raw: string): string {
   let ref = raw.trim().toUpperCase().replace(/^#+/, '');

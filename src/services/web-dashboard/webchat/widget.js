@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.75';
+  var WIDGET_BUILD = '2.10.79';
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
@@ -331,6 +331,9 @@
     ticketLookupResult: null,
     ticketLookupError: '',
     ticketLookupLoading: false,
+    ticketLookupResendPhone: '',
+    ticketLookupResendLoading: false,
+    ticketLookupResendNotice: '',
   };
 
   function ticketLookupEnabled() {
@@ -344,6 +347,9 @@
     state.ticketLookupResult = null;
     state.ticketLookupError = '';
     state.ticketLookupLoading = false;
+    state.ticketLookupResendPhone = '';
+    state.ticketLookupResendLoading = false;
+    state.ticketLookupResendNotice = '';
   }
 
   function formatTicketDate(iso) {
@@ -1149,7 +1155,7 @@
   }
 
   function resolvePanelMode() {
-    if (state.ticketLookupStep === 'ref' || state.ticketLookupStep === 'token') return 'ticket_lookup';
+    if (state.ticketLookupStep === 'ref' || state.ticketLookupStep === 'token' || state.ticketLookupStep === 'resend') return 'ticket_lookup';
     if (state.ticketLookupStep === 'result') return 'ticket_result';
     if (isConversationEnded()) {
       if (state.conversationStatus !== 'closed') {
@@ -1465,9 +1471,11 @@
     var title =
       step === 'token'
         ? 'Token de acesso'
-        : step === 'result'
-          ? 'Chamado encontrado'
-          : 'Consultar chamado';
+        : step === 'resend'
+          ? 'Reenviar token'
+          : step === 'result'
+            ? 'Chamado encontrado'
+            : 'Consultar chamado';
     var body = '';
     if (step === 'ref') {
       body =
@@ -1483,10 +1491,25 @@
         btnStyle +
         '">Continuar</button>';
     } else if (step === 'token') {
+      var backBtnStyle =
+        btnStyle.replace('background:' + primaryColor(), 'background:transparent;border:1px solid ' + t.inputBorder + ';color:' + t.text + ';margin-top:6px;');
+      var linkStyle =
+        'display:block;margin-top:12px;padding:0;border:none;background:transparent;color:' +
+        primaryColor() +
+        ';font-size:13px;font-weight:600;cursor:pointer;text-align:center;text-decoration:underline;';
       body =
         '<p style="font-size:13px;color:' +
         t.textMuted +
-        ';margin:0 0 10px;">Agora digite o token de acesso que você recebeu ao abrir o chamado.</p>' +
+        ';margin:0 0 10px;">Digite o token que você recebeu ao abrir o chamado (também enviamos no WhatsApp, se cadastrou seu número).</p>' +
+        (state.ticketLookupResendNotice
+          ? '<p style="font-size:12px;color:' +
+            t.text +
+            ';margin:0 0 10px;padding:8px 10px;border-radius:10px;background:' +
+            t.bubbleSystem +
+            ';">' +
+            escHtml(state.ticketLookupResendNotice) +
+            '</p>'
+          : '') +
         '<input id="rz-ticket-lookup-token" type="text" autocomplete="off" placeholder="XXXX-XXXX" value="' +
         escHtml(state.ticketLookupToken) +
         '" style="' +
@@ -1497,7 +1520,39 @@
         '">' +
         (state.ticketLookupLoading ? 'Consultando…' : 'Consultar') +
         '</button>' +
+        '<button type="button" id="rz-ticket-lookup-resend-open" style="' +
+        linkStyle +
+        '">Perdi meu token — reenviar por WhatsApp</button>' +
         '<button type="button" id="rz-ticket-lookup-back" style="' +
+        backBtnStyle +
+        '">Voltar</button>';
+    } else if (step === 'resend') {
+      body =
+        '<p style="font-size:13px;color:' +
+        t.textMuted +
+        ';margin:0 0 10px;">Informe o WhatsApp cadastrado no chamado <strong>' +
+        escHtml(state.ticketLookupRef) +
+        '</strong>. Enviaremos um <em>novo</em> token (o anterior deixa de valer).</p>' +
+        (state.ticketLookupResendNotice
+          ? '<p style="font-size:12px;color:' +
+            t.text +
+            ';margin:0 0 10px;padding:8px 10px;border-radius:10px;background:' +
+            t.bubbleSystem +
+            ';">' +
+            escHtml(state.ticketLookupResendNotice) +
+            '</p>'
+          : '') +
+        '<input id="rz-ticket-lookup-resend-phone" type="tel" autocomplete="tel" placeholder="DDD + número (ex.: 66996819456)" value="' +
+        escHtml(state.ticketLookupResendPhone) +
+        '" style="' +
+        inputStyle +
+        '" />' +
+        '<button type="button" id="rz-ticket-lookup-resend-submit" style="' +
+        btnStyle +
+        '">' +
+        (state.ticketLookupResendLoading ? 'Enviando…' : 'Reenviar token') +
+        '</button>' +
+        '<button type="button" id="rz-ticket-lookup-resend-back" style="' +
         btnStyle.replace('background:' + primaryColor(), 'background:transparent;border:1px solid ' + t.inputBorder + ';color:' + t.text + ';margin-top:6px;') +
         '">Voltar</button>';
     } else if (step === 'result' && state.ticketLookupResult) {
@@ -1580,6 +1635,41 @@
     state.ticketLookupError = '';
     state.ticketLookupStep = 'token';
     renderBubble();
+  }
+
+  function submitTicketLookupResend() {
+    if (state.ticketLookupResendLoading) return;
+    var input = document.getElementById('rz-ticket-lookup-resend-phone');
+    var phone = input ? String(input.value || '').trim() : state.ticketLookupResendPhone.trim();
+    if (!phone || phone.replace(/\D/g, '').length < 10) {
+      state.ticketLookupError = 'Informe seu WhatsApp com DDD.';
+      renderBubble();
+      return;
+    }
+    state.ticketLookupResendPhone = phone;
+    state.ticketLookupError = '';
+    state.ticketLookupResendLoading = true;
+    state.ticketLookupResendNotice = '';
+    renderBubble();
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/tickets/resend-token', {
+      method: 'POST',
+      body: JSON.stringify({ ticketRef: state.ticketLookupRef, phone: phone }),
+    })
+      .then(function (result) {
+        state.ticketLookupResendLoading = false;
+        state.ticketLookupResendNotice =
+          (result && result.message) ||
+          'Se o chamado e o WhatsApp conferirem, você receberá o token em instantes.';
+        state.ticketLookupStep = 'token';
+        state.ticketLookupError = '';
+        renderBubble();
+      })
+      .catch(function (err) {
+        state.ticketLookupResendLoading = false;
+        state.ticketLookupError =
+          (err && err.message) || 'Não foi possível solicitar o reenvio. Tente novamente.';
+        renderBubble();
+      });
   }
 
   function submitTicketLookupToken() {
@@ -2164,6 +2254,33 @@
     if (ticketLookupBack) {
       ticketLookupBack.onclick = function () {
         state.ticketLookupStep = 'ref';
+        state.ticketLookupError = '';
+        state.ticketLookupResendNotice = '';
+        renderBubble();
+      };
+    }
+    var ticketLookupResendOpen = document.getElementById('rz-ticket-lookup-resend-open');
+    if (ticketLookupResendOpen) {
+      ticketLookupResendOpen.onclick = function () {
+        state.ticketLookupStep = 'resend';
+        state.ticketLookupError = '';
+        if (!state.ticketLookupResendPhone && state.visitorIntake && state.visitorIntake.phone) {
+          state.ticketLookupResendPhone = state.visitorIntake.phone;
+        }
+        renderBubble();
+      };
+    }
+    var ticketLookupResendSubmit = document.getElementById('rz-ticket-lookup-resend-submit');
+    if (ticketLookupResendSubmit) {
+      ticketLookupResendSubmit.onclick = function () {
+        submitTicketLookupResend();
+      };
+      ticketLookupResendSubmit.disabled = !!state.ticketLookupResendLoading;
+    }
+    var ticketLookupResendBack = document.getElementById('rz-ticket-lookup-resend-back');
+    if (ticketLookupResendBack) {
+      ticketLookupResendBack.onclick = function () {
+        state.ticketLookupStep = 'token';
         state.ticketLookupError = '';
         renderBubble();
       };
