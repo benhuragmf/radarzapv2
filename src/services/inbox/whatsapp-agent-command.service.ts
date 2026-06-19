@@ -263,11 +263,11 @@ async function handleEncerrarChat(
   }
 
   return [
-    `Chat WhatsApp de ${ticketRef} encerrado.`,
-    'Chamado permanece aberto no painel.',
-    'Visitante pode continuar no site; você atende pelo Inbox.',
+    `Atendimento de ${ticketRef} encerrado para o visitante no chat do site.`,
+    'Bridge WhatsApp desativado.',
+    'Chamado permanece aberto no painel para registro.',
     '',
-    'Para finalizar o chamado: !encerrar ' + ticketRef.replace(/^TK-/i, ''),
+    'Para arquivar o chamado no sistema: !encerrar ' + ticketRef.replace(/^TK-/i, ''),
   ].join('\n');
 }
 
