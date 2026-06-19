@@ -1,6 +1,6 @@
 # RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
-> **Versão alvo:** `2.10.19` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
+> **Versão alvo:** `2.10.60` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
 > **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Pré-check:** `npm run qa:prep` · **Resultado:** copiar [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
 
 **Execução:** _______________ · **Responsável:** _______________ · **Ambiente:** dev / piloto
@@ -44,7 +44,7 @@
 | `/platform/inbox/bot` | Prévia ao vivo, salvar textos | [ ] | |
 | `/platform/inbox/respostas` | Busca, filtros, prévia `/bd` | [ ] | |
 | `/platform/inbox/supervisor` | Fila, equipe online, reatribuir | [ ] | |
-| `/platform/webchat` | Histórico 3 colunas, aba Widgets, snippet instalação | [ ] | |
+| `/platform/webchat` | Histórico 3 colunas, aba Widgets, snippet instalação | [x] | 2.10.60 — toolbar chips, seções, preview sticky |
 | `/platform/inbox/ia` | Métricas, abas, salvar configurações | [ ] | |
 | `/platform/inbox/relatorios` | Período, métricas, tabelas setor/atendente | [ ] | |
 
@@ -56,9 +56,19 @@
 |---|---------|----------|-----|-------|
 | 1 | Visitante abre widget → pré-chat nome/e-mail | Formulário antes do chat (se configurado) | [ ] | |
 | 2 | Mensagem → triagem IA | Bot/IA responde; conversa em `bot` | [ ] | |
-| 3 | Escalação → Inbox | Aparece em `/platform/inbox?channel=webchat`; **Assumir** funciona | [ ] | |
-| 4 | Atendente responde com imagem/PDF | Anexo visível no widget | [ ] | |
+| 3 | Escalação → Inbox | Aparece em `/platform/inbox?channel=webchat`; **Assumir** funciona | [x] | 2.10.60 — assumir + anexo ida/volta |
+| 4 | Atendente responde com imagem/PDF | Anexo visível no widget | [x] | 2.10.60 |
 | 5 | Finalizar conversa site | Visitante vê encerramento; não reabre sozinho | [ ] | |
+
+### C.1 Painel widgets (2.10.55–2.10.60)
+
+| # | Cenário | OK? | Notas |
+|---|---------|-----|-------|
+| W1 | Trocar seções (Geral, Visual, Pré-chat…) e **Salvar** | [x] | 2026-06-18 |
+| W2 | **Aplicar modelo** → preview ao vivo atualiza | [x] | |
+| W3 | Pré-chat (modo/campos) **não muda tema** | [x] | fix 2.10.55 |
+| W4 | **Balão proativo** após delay configurado | [x] | fix 2.10.54 |
+| W5 | Inbox → **Assumir** → anexo ida e volta | [x] | imagem/PDF |
 
 ---
 
@@ -67,7 +77,7 @@
 | Item | Status |
 |------|--------|
 | QA WhatsApp (§ A) sem falha crítica | [ ] |
-| QA painel (§ B + C) sem regressão visual/funcional | [ ] |
+| QA painel (§ B + C) sem regressão visual/funcional | [~] WebChat § C.1 + rotas B webchat OK 2.10.60; restante § B pendente |
 | Nenhum bug crítico aberto após 1 ciclo completo | [ ] |
 | `npm test` + `npm run build` verdes | [x] validado local 2026-06-18 |
 | CI verde em `main` | [x] validado 2026-06-18 (2.10.19) |
