@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import {
   lookupTicketByPublicAccess,
   assignInboxTicketPublicAccessToken,
-  resendTicketPublicAccessTokenViaWhatsApp,
+  resendTicketPublicAccessToken,
   TICKET_TOKEN_RESEND_SUCCESS_MSG,
 } from '@/services/inbox/ticket-public-access.service';
 import { InboxTicket } from '@/models/InboxTicket';
@@ -13,10 +13,16 @@ import {
 import { hashTicketPublicAccessToken } from '@/utils/ticket-public-access.util';
 
 const sendInternalAlert = jest.fn().mockResolvedValue({ success: true });
+const emailSend = jest.fn().mockResolvedValue({ ok: true, transport: 'console' });
 
 jest.mock('@/services/whatsapp/WhatsAppService', () => ({
   WhatsAppService: {
     getInstance: () => ({ sendInternalAlert }),
+  },
+}));
+jest.mock('@/services/email/EmailService', () => ({
+  EmailService: {
+    getInstance: () => ({ send: emailSend }),
   },
 }));
 jest.mock('@/models/InboxTicket');
@@ -116,17 +122,18 @@ describe('assignInboxTicketPublicAccessToken', () => {
   });
 });
 
-describe('resendTicketPublicAccessTokenViaWhatsApp', () => {
+describe('resendTicketPublicAccessToken', () => {
   const clientId = new mongoose.Types.ObjectId().toString();
 
   beforeEach(() => {
     resetTicketLookupRateLimits();
     resetTicketTokenResendLimits();
     sendInternalAlert.mockClear();
+    emailSend.mockClear();
     jest.clearAllMocks();
   });
 
-  it('sends new token when phone matches ticket', async () => {
+  it('sends new token via WhatsApp when phone matches ticket', async () => {
     const save = jest.fn().mockResolvedValue(undefined);
     (InboxTicket.findOne as jest.Mock).mockResolvedValue({
       ticketRef: 'TK-L402V2',
@@ -134,33 +141,60 @@ describe('resendTicketPublicAccessTokenViaWhatsApp', () => {
       save,
     });
 
-    const result = await resendTicketPublicAccessTokenViaWhatsApp({
+    const result = await resendTicketPublicAccessToken({
       clientId,
       ticketRef: 'L402V2',
+      channel: 'whatsapp',
       phone: '66996819456',
       remoteIp: '127.0.0.1',
     });
 
     expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
     expect(sendInternalAlert).toHaveBeenCalledTimes(1);
+    expect(emailSend).not.toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
 
-  it('returns generic message without sending when phone mismatches', async () => {
+  it('sends new token via email when address matches ticket', async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    (InboxTicket.findOne as jest.Mock).mockResolvedValue({
+      ticketRef: 'TK-EMAIL1',
+      contactIdentifier: 'cliente@example.com',
+      contactName: 'Cliente',
+      save,
+    });
+
+    const result = await resendTicketPublicAccessToken({
+      clientId,
+      ticketRef: 'TK-EMAIL1',
+      channel: 'email',
+      email: 'Cliente@Example.com',
+      remoteIp: '127.0.0.1',
+    });
+
+    expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
+    expect(emailSend).toHaveBeenCalledTimes(1);
+    expect(sendInternalAlert).not.toHaveBeenCalled();
+    expect(save).toHaveBeenCalled();
+  });
+
+  it('returns generic message without sending when contact mismatches', async () => {
     (InboxTicket.findOne as jest.Mock).mockResolvedValue({
       ticketRef: 'TK-L402V2',
       contactIdentifier: '5566996819456',
       save: jest.fn(),
     });
 
-    const result = await resendTicketPublicAccessTokenViaWhatsApp({
+    const result = await resendTicketPublicAccessToken({
       clientId,
       ticketRef: 'TK-L402V2',
+      channel: 'whatsapp',
       phone: '11999998888',
       remoteIp: '127.0.0.1',
     });
 
     expect(result.message).toBe(TICKET_TOKEN_RESEND_SUCCESS_MSG);
     expect(sendInternalAlert).not.toHaveBeenCalled();
+    expect(emailSend).not.toHaveBeenCalled();
   });
 });

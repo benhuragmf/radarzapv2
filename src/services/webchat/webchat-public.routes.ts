@@ -264,10 +264,17 @@ export function createWebChatPublicRouter(): Router {
 
   r.post('/widgets/:publicKey/tickets/resend-token', async (req, res) => {
     try {
-      const body = req.body as { ticketRef?: string; phone?: string };
+      const body = req.body as {
+        ticketRef?: string;
+        channel?: 'whatsapp' | 'email';
+        phone?: string;
+        email?: string;
+      };
       const result = await svc.resendTicketTokenPublic(req.params.publicKey, {
         ticketRef: body.ticketRef ?? '',
-        phone: body.phone ?? '',
+        channel: body.channel,
+        phone: body.phone,
+        email: body.email,
         origin: req.headers.origin,
         referer: req.headers.referer,
         remoteIp: req.ip || req.socket.remoteAddress,

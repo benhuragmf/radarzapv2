@@ -65,6 +65,25 @@ export function phonesMatchForTicket(input: string, stored: string): boolean {
   return tail11(a) === tail11(b) || tail9(a) === tail9(b);
 }
 
+/** Normaliza e-mail para comparação. */
+export function normalizeEmailForTicketMatch(raw?: string | null): string | null {
+  if (!raw?.trim()) return null;
+  const email = raw.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+export function looksLikeEmail(raw?: string | null): boolean {
+  return Boolean(normalizeEmailForTicketMatch(raw));
+}
+
+/** Compara e-mails (case-insensitive). */
+export function emailsMatchForTicket(input: string, stored: string): boolean {
+  const a = normalizeEmailForTicketMatch(input);
+  const b = normalizeEmailForTicketMatch(stored);
+  return Boolean(a && b && a === b);
+}
+
 /** Normaliza referência digitada pelo cliente (TK-XXXXXX, #TK-…, etc.). */
 export function normalizeTicketRefForLookup(raw: string): string {
   let ref = raw.trim().toUpperCase().replace(/^#+/, '');

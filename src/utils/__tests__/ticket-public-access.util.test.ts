@@ -5,6 +5,8 @@ import {
   normalizeTicketRefForLookup,
   normalizePhoneForTicketMatch,
   phonesMatchForTicket,
+  normalizeEmailForTicketMatch,
+  emailsMatchForTicket,
   publicAccessTokenHint,
   verifyTicketPublicAccessToken,
 } from '@/utils/ticket-public-access.util';
@@ -43,5 +45,10 @@ describe('ticket-public-access.util', () => {
     expect(normalizePhoneForTicketMatch('66996819456')).toBe('5566996819456');
     expect(phonesMatchForTicket('66996819456', '5566996819456')).toBe(true);
     expect(phonesMatchForTicket('11999887766', '5511999887766')).toBe(true);
+  });
+
+  it('matches emails case-insensitively', () => {
+    expect(emailsMatchForTicket('A@B.COM', 'a@b.com')).toBe(true);
+    expect(normalizeEmailForTicketMatch(' invalid ')).toBeNull();
   });
 });

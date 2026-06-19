@@ -82,10 +82,13 @@ import {
   ensureInboxTicketPublicAccessToken,
   formatTicketCreatedWithTokenMessage,
   lookupTicketByPublicAccess,
-  resendTicketPublicAccessTokenViaWhatsApp,
+  resendTicketPublicAccessToken,
+  sendTicketAccessTokenEmail,
+  type TicketTokenResendChannel,
 } from '../inbox/ticket-public-access.service';
 import { InboxTicket } from '../../models/InboxTicket';
 import { generateInboxTicketRef } from '../../utils/inbox-ticket-ref';
+import { looksLikeEmail, normalizeEmailForTicketMatch } from '../../utils/ticket-public-access.util';
 import { TICKET_CLIENT_REPLY_FOOTER } from '../../types/inbox-ticket';
 import { InboxService } from '../inbox/InboxService';
 import { parseWebChatAttachment } from './webchat-attachment.util';
@@ -1259,6 +1262,29 @@ export class WebChatService {
         body,
         notifyVisitor: true,
       });
+
+      if (publicAccessToken) {
+        const emailSet = new Set<string>();
+        const addEmail = (raw?: string | null) => {
+          const n = normalizeEmailForTicketMatch(raw);
+          if (n) emailSet.add(n);
+        };
+        addEmail(conversation.visitorEmail);
+        if (looksLikeEmail(contactIdentifier)) addEmail(contactIdentifier);
+        for (const email of emailSet) {
+          void sendTicketAccessTokenEmail({
+            ticketRef: ref,
+            accessToken: publicAccessToken,
+            toEmail: email,
+            contactName,
+          }).catch(err => {
+            logger.warn('Failed to send ticket token email on create', {
+              err: (err as Error).message,
+              ticketRef: ref,
+            });
+          });
+        }
+      }
     } else {
       await this.appendMessage(conversation, {
         direction: 'system',
@@ -2676,7 +2702,9 @@ export class WebChatService {
     publicKey: string,
     opts: {
       ticketRef: string;
-      phone: string;
+      channel?: TicketTokenResendChannel;
+      phone?: string;
+      email?: string;
       origin?: string | null;
       referer?: string | null;
       remoteIp?: string;
@@ -2689,10 +2717,15 @@ export class WebChatService {
     }
     this.assertOrigin(widget, opts.origin, opts.referer);
 
-    return resendTicketPublicAccessTokenViaWhatsApp({
+    const channel: TicketTokenResendChannel =
+      opts.channel === 'email' || (opts.email && !opts.phone) ? 'email' : 'whatsapp';
+
+    return resendTicketPublicAccessToken({
       clientId: String(widget.clientId),
       ticketRef: opts.ticketRef,
+      channel,
       phone: opts.phone,
+      email: opts.email,
       remoteIp: opts.remoteIp,
     });
   }

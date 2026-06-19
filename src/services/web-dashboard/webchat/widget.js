@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.79';
+  var WIDGET_BUILD = '2.10.80';
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
@@ -332,6 +332,8 @@
     ticketLookupError: '',
     ticketLookupLoading: false,
     ticketLookupResendPhone: '',
+    ticketLookupResendEmail: '',
+    ticketLookupResendChannel: 'whatsapp',
     ticketLookupResendLoading: false,
     ticketLookupResendNotice: '',
   };
@@ -348,6 +350,8 @@
     state.ticketLookupError = '';
     state.ticketLookupLoading = false;
     state.ticketLookupResendPhone = '';
+    state.ticketLookupResendEmail = '';
+    state.ticketLookupResendChannel = 'whatsapp';
     state.ticketLookupResendLoading = false;
     state.ticketLookupResendNotice = '';
   }
@@ -1500,7 +1504,7 @@
       body =
         '<p style="font-size:13px;color:' +
         t.textMuted +
-        ';margin:0 0 10px;">Digite o token que você recebeu ao abrir o chamado (também enviamos no WhatsApp, se cadastrou seu número).</p>' +
+        ';margin:0 0 10px;">Digite o token que você recebeu ao abrir o chamado (no chat, WhatsApp ou e-mail).</p>' +
         (state.ticketLookupResendNotice
           ? '<p style="font-size:12px;color:' +
             t.text +
@@ -1522,15 +1526,22 @@
         '</button>' +
         '<button type="button" id="rz-ticket-lookup-resend-open" style="' +
         linkStyle +
-        '">Perdi meu token — reenviar por WhatsApp</button>' +
+        '">Perdi meu token — reenviar</button>' +
         '<button type="button" id="rz-ticket-lookup-back" style="' +
         backBtnStyle +
         '">Voltar</button>';
     } else if (step === 'resend') {
+      var ch = state.ticketLookupResendChannel === 'email' ? 'email' : 'whatsapp';
+      var tabStyle =
+        'flex:1;padding:8px 10px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ' +
+        t.inputBorder +
+        ';';
+      var tabActiveStyle = tabStyle + 'background:' + primaryColor() + ';color:#fff;border-color:' + primaryColor() + ';';
+      var tabInactiveStyle = tabStyle + 'background:transparent;color:' + t.text + ';';
       body =
         '<p style="font-size:13px;color:' +
         t.textMuted +
-        ';margin:0 0 10px;">Informe o WhatsApp cadastrado no chamado <strong>' +
+        ';margin:0 0 10px;">Chamado <strong>' +
         escHtml(state.ticketLookupRef) +
         '</strong>. Enviaremos um <em>novo</em> token (o anterior deixa de valer).</p>' +
         (state.ticketLookupResendNotice
@@ -1542,11 +1553,25 @@
             escHtml(state.ticketLookupResendNotice) +
             '</p>'
           : '') +
-        '<input id="rz-ticket-lookup-resend-phone" type="tel" autocomplete="tel" placeholder="DDD + número (ex.: 66996819456)" value="' +
-        escHtml(state.ticketLookupResendPhone) +
-        '" style="' +
-        inputStyle +
-        '" />' +
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+        '<button type="button" id="rz-ticket-lookup-resend-ch-wa" style="' +
+        (ch === 'whatsapp' ? tabActiveStyle : tabInactiveStyle) +
+        '">WhatsApp</button>' +
+        '<button type="button" id="rz-ticket-lookup-resend-ch-email" style="' +
+        (ch === 'email' ? tabActiveStyle : tabInactiveStyle) +
+        '">E-mail</button>' +
+        '</div>' +
+        (ch === 'email'
+          ? '<input id="rz-ticket-lookup-resend-email" type="email" autocomplete="email" placeholder="seu@email.com" value="' +
+            escHtml(state.ticketLookupResendEmail) +
+            '" style="' +
+            inputStyle +
+            '" />'
+          : '<input id="rz-ticket-lookup-resend-phone" type="tel" autocomplete="tel" placeholder="DDD + número (ex.: 66996819456)" value="' +
+            escHtml(state.ticketLookupResendPhone) +
+            '" style="' +
+            inputStyle +
+            '" />') +
         '<button type="button" id="rz-ticket-lookup-resend-submit" style="' +
         btnStyle +
         '">' +
@@ -1639,21 +1664,40 @@
 
   function submitTicketLookupResend() {
     if (state.ticketLookupResendLoading) return;
-    var input = document.getElementById('rz-ticket-lookup-resend-phone');
-    var phone = input ? String(input.value || '').trim() : state.ticketLookupResendPhone.trim();
-    if (!phone || phone.replace(/\D/g, '').length < 10) {
-      state.ticketLookupError = 'Informe seu WhatsApp com DDD.';
-      renderBubble();
-      return;
+    var channel = state.ticketLookupResendChannel === 'email' ? 'email' : 'whatsapp';
+    var phone = '';
+    var email = '';
+    if (channel === 'email') {
+      var emailInput = document.getElementById('rz-ticket-lookup-resend-email');
+      email = emailInput ? String(emailInput.value || '').trim() : state.ticketLookupResendEmail.trim();
+      if (!email || email.indexOf('@') < 1) {
+        state.ticketLookupError = 'Informe o e-mail cadastrado no chamado.';
+        renderBubble();
+        return;
+      }
+      state.ticketLookupResendEmail = email;
+    } else {
+      var phoneInput = document.getElementById('rz-ticket-lookup-resend-phone');
+      phone = phoneInput ? String(phoneInput.value || '').trim() : state.ticketLookupResendPhone.trim();
+      if (!phone || phone.replace(/\D/g, '').length < 10) {
+        state.ticketLookupError = 'Informe seu WhatsApp com DDD.';
+        renderBubble();
+        return;
+      }
+      state.ticketLookupResendPhone = phone;
     }
-    state.ticketLookupResendPhone = phone;
     state.ticketLookupError = '';
     state.ticketLookupResendLoading = true;
     state.ticketLookupResendNotice = '';
     renderBubble();
     apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/tickets/resend-token', {
       method: 'POST',
-      body: JSON.stringify({ ticketRef: state.ticketLookupRef, phone: phone }),
+      body: JSON.stringify({
+        ticketRef: state.ticketLookupRef,
+        channel: channel,
+        phone: phone || undefined,
+        email: email || undefined,
+      }),
     })
       .then(function (result) {
         state.ticketLookupResendLoading = false;
@@ -2267,6 +2311,25 @@
         if (!state.ticketLookupResendPhone && state.visitorIntake && state.visitorIntake.phone) {
           state.ticketLookupResendPhone = state.visitorIntake.phone;
         }
+        if (!state.ticketLookupResendEmail && state.visitorIntake && state.visitorIntake.email) {
+          state.ticketLookupResendEmail = state.visitorIntake.email;
+        }
+        renderBubble();
+      };
+    }
+    var ticketLookupResendChWa = document.getElementById('rz-ticket-lookup-resend-ch-wa');
+    if (ticketLookupResendChWa) {
+      ticketLookupResendChWa.onclick = function () {
+        state.ticketLookupResendChannel = 'whatsapp';
+        state.ticketLookupError = '';
+        renderBubble();
+      };
+    }
+    var ticketLookupResendChEmail = document.getElementById('rz-ticket-lookup-resend-ch-email');
+    if (ticketLookupResendChEmail) {
+      ticketLookupResendChEmail.onclick = function () {
+        state.ticketLookupResendChannel = 'email';
+        state.ticketLookupError = '';
         renderBubble();
       };
     }

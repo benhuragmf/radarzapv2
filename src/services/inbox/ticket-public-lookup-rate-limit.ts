@@ -47,8 +47,12 @@ const RESEND_COOLDOWN_MS = 2 * 60 * 1000;
 const resendIpBuckets = new Map<string, Bucket>();
 const resendTicketCooldown = new Map<string, number>();
 
-function resendTicketKey(clientId: string, ticketRef: string, phone: string): string {
-  return `${clientId}:${ticketRef}:${phone.replace(/\D/g, '').slice(-11)}`;
+function resendTicketContactKey(clientId: string, ticketRef: string, contact: string): string {
+  const trimmed = contact.trim();
+  const norm = trimmed.includes('@')
+    ? trimmed.toLowerCase()
+    : trimmed.replace(/\D/g, '').slice(-11);
+  return `${clientId}:${ticketRef}:${norm}`;
 }
 
 export function isTicketTokenResendRateLimited(clientId: string, ip: string | undefined): boolean {
@@ -76,9 +80,9 @@ export function recordTicketTokenResendAttempt(clientId: string, ip: string | un
 export function isTicketTokenResendOnCooldown(
   clientId: string,
   ticketRef: string,
-  phone: string,
+  contact: string,
 ): boolean {
-  const key = resendTicketKey(clientId, ticketRef, phone);
+  const key = resendTicketContactKey(clientId, ticketRef, contact);
   const until = resendTicketCooldown.get(key);
   if (!until) return false;
   if (Date.now() > until) {
@@ -88,9 +92,13 @@ export function isTicketTokenResendOnCooldown(
   return true;
 }
 
-export function markTicketTokenResendSent(clientId: string, ticketRef: string, phone: string): void {
+export function markTicketTokenResendSent(
+  clientId: string,
+  ticketRef: string,
+  contact: string,
+): void {
   resendTicketCooldown.set(
-    resendTicketKey(clientId, ticketRef, phone),
+    resendTicketContactKey(clientId, ticketRef, contact),
     Date.now() + RESEND_COOLDOWN_MS,
   );
 }
