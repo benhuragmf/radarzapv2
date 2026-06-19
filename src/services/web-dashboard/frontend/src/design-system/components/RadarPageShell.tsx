@@ -1,17 +1,17 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { pageShellClassName } from '../theme'
+import { pageShellClassName, platformPageMaxWidthClass } from '../theme'
 
 interface RadarPageShellProps {
   children: ReactNode
   className?: string
-  /** Largura máxima — padrão max-w-6xl alinhado ao PlatformPage */
+  /** Largura máxima — padrão 1600px (mesmo do Inbox) */
   maxWidth?: 'default' | 'wide' | 'full'
 }
 
 const maxWidthClass = {
-  default: 'max-w-6xl',
-  wide: 'max-w-7xl',
+  default: platformPageMaxWidthClass,
+  wide: platformPageMaxWidthClass,
   full: 'max-w-none',
 } as const
 

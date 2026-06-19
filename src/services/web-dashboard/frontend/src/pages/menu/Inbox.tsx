@@ -6,7 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import { LoadingState, selectCls, inputCls, searchFieldIconCls } from '@/design-system'
+import { LoadingState, selectCls, inputCls, searchFieldIconCls, platformPageMaxWidthClass } from '@/design-system'
 import { cn } from '@/lib/utils'
 import {
   MessageSquare,
@@ -574,7 +574,8 @@ export default function Inbox() {
   return (
     <div
       className={cn(
-        'flex flex-col max-w-[1600px]',
+        'flex flex-col',
+        platformPageMaxWidthClass,
         chatFocus
           ? 'h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8'
           : 'min-h-[70vh] lg:h-[calc(100vh-5.5rem)] -mx-1',

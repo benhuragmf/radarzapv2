@@ -300,7 +300,7 @@ export default function AiAtendimento() {
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
 
-      <div className="max-w-6xl space-y-6">
+      <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
           <ArrowLeft className="w-4 h-4" /> Voltar ao Inbox

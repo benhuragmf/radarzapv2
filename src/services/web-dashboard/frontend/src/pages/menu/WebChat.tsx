@@ -6,7 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, CheckCircle2, CircleOff, Code2, Moon, Sun } from 'lucide-react'
+import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, Moon, Sun } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,12 @@ import { inboxWebChatUrl, webChatMediaSrc } from '../../lib/webchatInbox'
 import { WebChatPreviewTemplates } from '../../components/webchat/WebChatPreviewTemplates'
 import { WebChatLivePreview } from '../../components/webchat/WebChatLivePreview'
 import { WebChatPrechatFieldsEditor } from '../../components/webchat/WebChatPrechatFieldsEditor'
+import { WebChatWidgetList } from '../../components/webchat/WebChatWidgetList'
+import {
+  WebChatWidgetEditorSection,
+  WebChatWidgetSectionNav,
+  type WebChatWidgetEditorSectionId,
+} from '../../components/webchat/WebChatWidgetEditorSection'
 import { resolvePrechatFields, syncLegacyAppearanceFlags } from '../../lib/webchatPrechatFields'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
@@ -165,19 +171,37 @@ function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
 
 function embedSnippet(publicKey: string) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/webchat/widget.js?v=2.10.54" data-widget-key="${publicKey}" async></script>`
+  return `<script src="${origin}/webchat/widget.js?v=2.10.57" data-widget-key="${publicKey}" async></script>`
+}
+
+function parseWebChatTab(param: string | null): Tab {
+  return param === 'widgets' ? 'widgets' : 'chats'
 }
 
 export default function WebChat() {
   const qc = useQueryClient()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>('chats')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => parseWebChatTab(searchParams.get('tab')))
   const [chatFilter, setChatFilter] = useState<ChatFilter>('open')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [chatSearch, setChatSearch] = useState('')
   const [showVisitorPanel, setShowVisitorPanel] = useState(true)
   const [newWidgetName, setNewWidgetName] = useState('Site principal')
+  const [activeWidgetId, setActiveWidgetId] = useState<string | null>(null)
+
+  const setPageTab = (next: Tab) => {
+    setTab(next)
+    setSearchParams(
+      prev => {
+        const p = new URLSearchParams(prev)
+        if (next === 'widgets') p.set('tab', 'widgets')
+        else p.delete('tab')
+        return p
+      },
+      { replace: true },
+    )
+  }
 
   const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
   const canView = can(me ?? null, 'webchat:view')
@@ -197,15 +221,35 @@ export default function WebChat() {
     }
     if (filter === 'open' || filter === 'closed') {
       setChatFilter(filter)
-      setTab('chats')
+      setPageTab('chats')
     }
   }, [searchParams, navigate])
+
+  useEffect(() => {
+    const fromUrl = parseWebChatTab(searchParams.get('tab'))
+    if (fromUrl !== tab) setTab(fromUrl)
+  }, [searchParams, tab])
 
   const { data: widgets, isLoading: loadingWidgets } = useQuery({
     queryKey: ['webchat-widgets'],
     queryFn: () => api.get<WebChatWidgetRow[]>('/webchat/widgets'),
     enabled: canManage,
   })
+
+  useEffect(() => {
+    if (!widgets?.length) {
+      setActiveWidgetId(null)
+      return
+    }
+    if (!activeWidgetId || !widgets.some(w => w.id === activeWidgetId)) {
+      setActiveWidgetId(widgets[0].id)
+    }
+  }, [widgets, activeWidgetId])
+
+  const activeWidget = useMemo(
+    () => widgets?.find(w => w.id === activeWidgetId) ?? null,
+    [widgets, activeWidgetId],
+  )
 
   const { data: stats } = useQuery({
     queryKey: ['webchat-stats'],
@@ -277,10 +321,11 @@ export default function WebChat() {
 
   const createWidget = useMutation({
     mutationFn: () => api.post<WebChatWidgetRow>('/webchat/widgets', { name: newWidgetName }),
-    onSuccess: () => {
+    onSuccess: created => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
       notifySuccess('Widget criado')
-      setTab('widgets')
+      setActiveWidgetId(created.id)
+      setPageTab('widgets')
     },
     onError: mutationError,
   })
@@ -310,19 +355,91 @@ export default function WebChat() {
   return (
     <PlatformPage
       title="Chat do site"
-      description="Histórico e status das conversas do widget — o atendimento ao visitante é feito pelo Inbox."
+      description="Configure o widget no site e consulte o histórico — o atendimento ativo é no Inbox."
     >
-      {canInbox && (
-        <Card className="mb-4 border border-brand-500/25 bg-brand-500/10 p-3 text-sm text-[var(--rz-text-secondary)]">
-          O atendimento ao visitante (Assumir, responder, comandos rápidos) é feito pelo{' '}
+      {canInbox && <InboxAtendimentoNav me={me} className="mb-4" />}
+
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className="inline-flex w-fit gap-1 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/50 p-1"
+          role="tablist"
+          aria-label="Chat do site"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'chats'}
+            onClick={() => setPageTab('chats')}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+              tab === 'chats'
+                ? 'bg-brand-500/15 text-brand-300 border border-brand-500/30'
+                : 'text-[var(--rz-text-muted)] border border-transparent hover:bg-[var(--rz-surface-muted)]',
+            )}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            Histórico
+            {stats && stats.openCount > 0 ? (
+              <span className="rounded-full bg-emerald-500/20 px-1.5 text-[10px] text-emerald-300">
+                {stats.openCount}
+              </span>
+            ) : null}
+          </button>
+          {canManage && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'widgets'}
+              onClick={() => setPageTab('widgets')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                tab === 'widgets'
+                  ? 'bg-brand-500/15 text-brand-300 border border-brand-500/30'
+                  : 'text-[var(--rz-text-muted)] border border-transparent hover:bg-[var(--rz-surface-muted)]',
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Widgets
+              {(widgets?.length ?? 0) > 0 ? (
+                <span className="rounded-full bg-[var(--rz-surface-muted)] px-1.5 text-[10px] text-[var(--rz-text-secondary)]">
+                  {widgets!.length}
+                </span>
+              ) : null}
+            </button>
+          )}
+        </div>
+
+        {tab === 'chats' && stats && (
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            {stats.waitingQueueCount > 0 ? (
+              <>
+                <span className="font-medium text-amber-300">{stats.waitingQueueCount} na fila</span>
+                {' · '}
+              </>
+            ) : null}
+            {stats.unreadCount > 0 ? (
+              <>
+                <span className="font-medium text-violet-300">{stats.unreadCount} não lidas</span>
+                {' · '}
+              </>
+            ) : null}
+            Atendimento no{' '}
+            <Link to="/platform/inbox?channel=webchat" className="text-brand-400 hover:underline">
+              Inbox
+            </Link>
+          </p>
+        )}
+      </div>
+
+      {tab === 'chats' && canInbox && (
+        <p className="mb-4 rounded-lg border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/30 px-3 py-2 text-xs text-[var(--rz-text-muted)]">
+          Esta aba é somente leitura. Para assumir, responder ou usar comandos rápidos, abra a conversa no{' '}
           <Link to="/platform/inbox?channel=webchat" className="font-medium text-brand-400 hover:underline">
             Inbox
           </Link>
-          . Esta página mostra histórico, status e configuração dos widgets.
-        </Card>
+          .
+        </p>
       )}
-
-      {canInbox && <InboxAtendimentoNav me={me} className="mb-4" />}
 
       {stats && tab === 'chats' && (
         <InboxStatsRow
@@ -353,111 +470,56 @@ export default function WebChat() {
         />
       )}
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Button
-          variant={tab === 'chats' ? 'primary' : 'secondary'}
-          onClick={() => setTab('chats')}
-          type="button"
-        >
-          <MessageSquare className="h-4 w-4" />
-          Histórico
-        </Button>
-        {canManage && (
-          <Button
-            variant={tab === 'widgets' ? 'primary' : 'secondary'}
-            onClick={() => setTab('widgets')}
-            type="button"
-          >
-            <Globe className="h-4 w-4" />
-            Widgets
-          </Button>
-        )}
-      </div>
-
       {tab === 'widgets' && canManage && (
-        <div className="space-y-4">
-          <InboxStatsRow
-            items={[
-              {
-                label: 'Widgets',
-                value: (widgets ?? []).length,
-                icon: LayoutGrid,
-                colorClass: 'text-brand-400',
-              },
-              {
-                label: 'Ativos',
-                value: (widgets ?? []).filter(w => w.active).length,
-                icon: CheckCircle2,
-                colorClass: 'text-emerald-400',
-              },
-              {
-                label: 'Inativos',
-                value: (widgets ?? []).filter(w => !w.active).length,
-                icon: CircleOff,
-                colorClass: 'text-[var(--rz-text-muted)]',
-              },
-              ...(stats
-                ? [
-                    {
-                      label: 'Conversas abertas',
-                      value: stats.openCount,
-                      icon: MessageSquare,
-                      colorClass: 'text-green-400',
-                      href: '/platform/webchat?filter=open',
-                    },
-                  ]
-                : []),
-            ]}
-          />
-
-          <Card className="p-4 border border-brand-500/20 bg-brand-500/5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
-                  <Plus className="h-4 w-4 text-brand-400" />
-                  Novo widget
-                </h3>
-                <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-                  Crie um widget, personalize o visual e cole o script no HTML do seu site.
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                className={inputCls + ' max-w-xs'}
-                value={newWidgetName}
-                onChange={e => setNewWidgetName(e.target.value)}
-                placeholder="Nome do widget (ex.: Site principal)"
-              />
-              <Button type="button" onClick={() => createWidget.mutate()} disabled={createWidget.isPending}>
-                <Plus className="h-4 w-4" />
-                Criar widget
-              </Button>
-            </div>
-          </Card>
-
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           {loadingWidgets ? (
-            <LoadingState rows={3} className="py-8" />
+            <LoadingState rows={4} className="w-full py-12" />
+          ) : !widgets?.length ? (
+            <Card className="w-full p-8">
+              <EmptyState
+                icon={LayoutGrid}
+                title="Nenhum widget configurado"
+                description="Crie seu primeiro widget para exibir o chat no site. Depois copie o script de instalação."
+                action={
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <input
+                      className={inputCls + ' max-w-xs'}
+                      value={newWidgetName}
+                      onChange={e => setNewWidgetName(e.target.value)}
+                      placeholder="Nome do widget"
+                    />
+                    <Button type="button" onClick={() => createWidget.mutate()} disabled={createWidget.isPending}>
+                      <Plus className="h-4 w-4" />
+                      Criar widget
+                    </Button>
+                  </div>
+                }
+              />
+            </Card>
           ) : (
-            <div className="space-y-4">
-              {(widgets ?? []).map(w => (
-                <WidgetEditorCard
-                  key={w.id}
-                  widget={w}
-                  departments={departments}
-                  canPickDepartment={canInbox}
-                  onDelete={() => deleteWidget.mutate(w.id)}
-                  deleting={deleteWidget.isPending}
-                />
-              ))}
-              {!widgets?.length && (
-                <EmptyState
-                  icon={LayoutGrid}
-                  title="Nenhum widget configurado"
-                  description="Crie seu primeiro widget para exibir o chat no site. Após salvar, copie o código de instalação e cole antes do fechamento da tag </body>."
-                />
-              )}
-            </div>
+            <>
+              <WebChatWidgetList
+                widgets={widgets}
+                selectedId={activeWidgetId}
+                onSelect={setActiveWidgetId}
+                newWidgetName={newWidgetName}
+                onNewWidgetNameChange={setNewWidgetName}
+                onCreate={() => createWidget.mutate()}
+                creating={createWidget.isPending}
+              />
+              <div className="min-w-0 flex-1">
+                {activeWidget ? (
+                  <WidgetEditorCard
+                    key={activeWidget.id}
+                    widget={activeWidget}
+                    departments={departments}
+                    canPickDepartment={canInbox}
+                    onDelete={() => deleteWidget.mutate(activeWidget.id)}
+                    deleting={deleteWidget.isPending}
+                  />
+                ) : null}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -804,6 +866,7 @@ function WidgetEditorCard({
   })
   const [previewReloadKey, setPreviewReloadKey] = useState(0)
   const bumpPreview = () => setPreviewReloadKey(k => k + 1)
+  const [editorSection, setEditorSection] = useState<WebChatWidgetEditorSectionId>('geral')
 
   const { data: aiStatus } = useQuery({
     queryKey: ['webchat-ai-status'],
@@ -827,6 +890,7 @@ function WidgetEditorCard({
       appearanceMatchesTemplate(widget.appearance, t.appearance),
     )
     setSelectedTemplateId(widget.appearance.previewTemplateId ?? match?.id ?? null)
+    setEditorSection('geral')
     // Só reseta o editor ao trocar de widget — evita pular layout ao salvar pré-chat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widget.id])
@@ -986,383 +1050,410 @@ function WidgetEditorCard({
       <div className="p-4">
       <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_min(340px,34%)] xl:gap-5">
         <div className="order-2 min-w-0 xl:order-1">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-          Nome interno
-          <input
-            className={inputCls + ' mt-1'}
-            value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          />
-        </label>
-        <label className="flex items-center gap-2 pt-5 text-sm text-[var(--rz-text)]">
-          <input
-            type="checkbox"
-            checked={form.active}
-            onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
-          />
-          Widget ativo
-        </label>
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
-          Domínios permitidos (um por linha; vazio = qualquer)
-          <textarea
-            className={textareaCls + ' mt-1 font-mono text-xs'}
-            rows={2}
-            value={form.allowedDomains.join('\n')}
-            onChange={e =>
-              setForm(f => ({
-                ...f,
-                allowedDomains: e.target.value
-                  .split(/[\n,]/)
-                  .map(s => s.trim())
-                  .filter(Boolean),
-              }))
-            }
-            placeholder="meusite.com.br&#10;*.loja.com"
-          />
-        </label>
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-          Título
-          <input
-            className={inputCls + ' mt-1'}
-            value={form.appearance.title}
-            onChange={e =>
-              setForm(f => ({ ...f, appearance: { ...f.appearance, title: e.target.value } }))
-            }
-          />
-        </label>
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-          Subtítulo
-          <input
-            className={inputCls + ' mt-1'}
-            value={form.appearance.subtitle}
-            onChange={e =>
-              setForm(f => ({ ...f, appearance: { ...f.appearance, subtitle: e.target.value } }))
-            }
-          />
-        </label>
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
-          Saudação (mensagem de boas-vindas)
-          <textarea
-            className={textareaCls + ' mt-1'}
-            rows={2}
-            value={form.appearance.greeting}
-            onChange={e =>
-              setForm(f => ({ ...f, appearance: { ...f.appearance, greeting: e.target.value } }))
-            }
-          />
-        </label>
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-          Cor principal
-          <input
-            type="color"
-            className="mt-1 h-10 w-full cursor-pointer rounded border border-[var(--rz-border)]"
-            value={form.appearance.primaryColor}
-            onChange={e =>
-              setForm(f => ({ ...f, appearance: { ...f.appearance, primaryColor: e.target.value } }))
-            }
-          />
-        </label>
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-          Posição do botão
-          <select
-            className={inputCls + ' mt-1'}
-            value={form.appearance.position}
-            onChange={e =>
-              setForm(f => ({
-                ...f,
-                appearance: { ...f.appearance, position: e.target.value as 'left' | 'right' },
-              }))
-            }
-          >
-            <option value="right">Direita</option>
-            <option value="left">Esquerda</option>
-          </select>
-        </label>
-        <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-          Tema do widget
-          <div
-            className={cn(
-              'mt-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
-              'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 text-[var(--rz-text)]',
-            )}
-          >
-            {form.appearance.theme === 'dark' ? (
-              <Moon className="h-4 w-4 shrink-0 text-cyan-400" />
-            ) : (
-              <Sun className="h-4 w-4 shrink-0 text-amber-400" />
-            )}
-            <span className="font-medium">
-              {form.appearance.theme === 'dark' ? 'Escuro' : 'Claro'}
-            </span>
-          </div>
-          <span className="mt-1 block text-[10px] text-[var(--rz-text-muted)]">
-            Definido pelo modelo aplicado abaixo (ex.: Tecnológico ou Obsidian = escuro).
-          </span>
-        </label>
-        <WebChatPrechatFieldsEditor
-          appearance={form.appearance}
-          onChange={appearance => setForm(f => ({ ...f, appearance }))}
-          onPersist={appearance => persistPrechatAppearance(appearance)}
-        />
-        {canPickDepartment && (
-          <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
-            Setor padrão na escalação (opcional)
-            <select
-              className={inputCls + ' mt-1'}
-              value={form.defaultDepartmentId ?? ''}
-              onChange={e =>
-                setForm(f => ({
-                  ...f,
-                  defaultDepartmentId: e.target.value || null,
-                }))
-              }
-            >
-              <option value="">Nenhum — fila geral</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            <span className="mt-1 block text-[10px] text-[var(--rz-text-muted)]">
-              Usado ao encaminhar para humano (manual ou pela IA).
-            </span>
-          </label>
-        )}
-      </div>
+      <WebChatWidgetSectionNav active={editorSection} onChange={setEditorSection} />
 
-      <div className="mt-4 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30 p-4">
-        <h4 className="text-sm font-semibold text-[var(--rz-text)]">IA e resposta automática</h4>
-        <p className="mt-2 text-xs leading-relaxed text-[var(--rz-text-muted)]">
-          Os dados coletados no formulário acima alimentam a IA antes da primeira resposta. A página de
-          origem também entra no contexto automaticamente.
-        </p>
-        <label className="mt-4 flex items-center gap-2 text-sm text-[var(--rz-text)]">
-          <input
-            type="checkbox"
-            checked={form.autoReplyEnabled}
-            onChange={e => patchAutoReply({ autoReplyEnabled: e.target.checked })}
-          />
-          Ativar resposta automática
-        </label>
-        <label
-          className={
-            'mt-3 flex items-center gap-2 text-sm ' +
-            (aiStatus?.available !== false ? 'text-[var(--rz-text)]' : 'text-[var(--rz-text-muted)]')
-          }
+      {editorSection === 'geral' && (
+        <WebChatWidgetEditorSection
+          id="webchat-section-geral"
+          title="Geral e segurança"
+          description="Nome interno, status e domínios onde o script pode rodar."
         >
-          <input
-            type="checkbox"
-            checked={form.autoReplyUseAi}
-            disabled={aiStatus?.available === false || !form.autoReplyEnabled}
-            onChange={e => patchAutoReply({ autoReplyUseAi: e.target.checked })}
-          />
-          Usar IA da empresa (mesmas configs de Inbox → IA Atendimento)
-        </label>
-        {aiStatus?.available === false && (
-          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            {aiStatus.reason ?? 'IA indisponível — usa mensagem fixa abaixo.'}
-          </p>
-        )}
-        {form.autoReplyUseAi && form.autoReplyEnabled && (
-          <p className="mt-2 text-xs text-[var(--rz-text-muted)]">
-            A IA responde a cada mensagem do visitante em triagem. Se falhar, envia a mensagem fixa como
-            fallback.
-          </p>
-        )}
-        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-          Nome exibido (mensagem fixa / fallback)
-          <input
-            className={inputCls + ' mt-1'}
-            value={form.autoReplySenderName}
-            onChange={e => setForm(f => ({ ...f, autoReplySenderName: e.target.value }))}
-          />
-        </label>
-        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-          Mensagem fixa (fallback)
-          <textarea
-            className={textareaCls + ' mt-1'}
-            rows={2}
-            value={form.autoReplyMessage}
-            onChange={e => setForm(f => ({ ...f, autoReplyMessage: e.target.value }))}
-          />
-        </label>
-      </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+              Nome interno
+              <input
+                className={inputCls + ' mt-1'}
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              />
+            </label>
+            <label className="flex items-center gap-2 pt-5 text-sm text-[var(--rz-text)]">
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
+              />
+              Widget ativo
+            </label>
+            <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
+              Domínios permitidos (um por linha; vazio = qualquer)
+              <textarea
+                className={textareaCls + ' mt-1 font-mono text-xs'}
+                rows={3}
+                value={form.allowedDomains.join('\n')}
+                onChange={e =>
+                  setForm(f => ({
+                    ...f,
+                    allowedDomains: e.target.value
+                      .split(/[\n,]/)
+                      .map(s => s.trim())
+                      .filter(Boolean),
+                  }))
+                }
+                placeholder="meusite.com.br&#10;*.loja.com"
+              />
+            </label>
+            {canPickDepartment && (
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
+                Setor padrão na escalação (opcional)
+                <select
+                  className={inputCls + ' mt-1'}
+                  value={form.defaultDepartmentId ?? ''}
+                  onChange={e =>
+                    setForm(f => ({
+                      ...f,
+                      defaultDepartmentId: e.target.value || null,
+                    }))
+                  }
+                >
+                  <option value="">Nenhum — fila geral</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        </WebChatWidgetEditorSection>
+      )}
 
-      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-4 md:p-5">
-        <p className="mb-3 text-xs text-[var(--rz-text-muted)]">
-          O layout claro ou escuro do chat é aplicado ao clicar em <strong className="text-[var(--rz-text-secondary)]">Aplicar</strong> em um modelo — não use um seletor de tema separado.
-        </p>
-        <WebChatPreviewTemplates
-          publicKey={widget.publicKey}
-          selectedTemplateId={selectedTemplateId}
-          onSelectTemplate={template => applyTemplateAppearance(template.appearance, template.id)}
-        />
-      </div>
+      {editorSection === 'visual' && (
+        <div className="space-y-4">
+          <WebChatWidgetEditorSection
+            id="webchat-section-visual"
+            title="Textos e cores"
+            description="O que o visitante vê no cabeçalho do chat."
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                Título
+                <input
+                  className={inputCls + ' mt-1'}
+                  value={form.appearance.title}
+                  onChange={e =>
+                    setForm(f => ({ ...f, appearance: { ...f.appearance, title: e.target.value } }))
+                  }
+                />
+              </label>
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                Subtítulo
+                <input
+                  className={inputCls + ' mt-1'}
+                  value={form.appearance.subtitle}
+                  onChange={e =>
+                    setForm(f => ({ ...f, appearance: { ...f.appearance, subtitle: e.target.value } }))
+                  }
+                />
+              </label>
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
+                Saudação (mensagem de boas-vindas)
+                <textarea
+                  className={textareaCls + ' mt-1'}
+                  rows={2}
+                  value={form.appearance.greeting}
+                  onChange={e =>
+                    setForm(f => ({ ...f, appearance: { ...f.appearance, greeting: e.target.value } }))
+                  }
+                />
+              </label>
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                Cor principal
+                <input
+                  type="color"
+                  className="mt-1 h-10 w-full cursor-pointer rounded border border-[var(--rz-border)]"
+                  value={form.appearance.primaryColor}
+                  onChange={e =>
+                    setForm(f => ({ ...f, appearance: { ...f.appearance, primaryColor: e.target.value } }))
+                  }
+                />
+              </label>
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                Posição do botão
+                <select
+                  className={inputCls + ' mt-1'}
+                  value={form.appearance.position}
+                  onChange={e =>
+                    setForm(f => ({
+                      ...f,
+                      appearance: { ...f.appearance, position: e.target.value as 'left' | 'right' },
+                    }))
+                  }
+                >
+                  <option value="right">Direita</option>
+                  <option value="left">Esquerda</option>
+                </select>
+              </label>
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
+                Tema do widget
+                <div
+                  className={cn(
+                    'mt-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
+                    'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 text-[var(--rz-text)]',
+                  )}
+                >
+                  {form.appearance.theme === 'dark' ? (
+                    <Moon className="h-4 w-4 shrink-0 text-cyan-400" />
+                  ) : (
+                    <Sun className="h-4 w-4 shrink-0 text-amber-400" />
+                  )}
+                  <span className="font-medium">
+                    {form.appearance.theme === 'dark' ? 'Escuro' : 'Claro'}
+                  </span>
+                </div>
+                <span className="mt-1 block text-[10px] text-[var(--rz-text-muted)]">
+                  Definido pelo modelo aplicado abaixo.
+                </span>
+              </label>
+            </div>
+          </WebChatWidgetEditorSection>
 
-      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
-        <h4 className="text-sm font-semibold text-[var(--rz-text)]">Horário de atendimento</h4>
-        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Fora do horário o visitante ainda pode enviar mensagens e recebe aviso automático.
-        </p>
-        <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
-          <input
-            type="checkbox"
-            checked={form.useInboxBusinessHours}
-            onChange={e => setForm(f => ({ ...f, useInboxBusinessHours: e.target.checked }))}
+          <WebChatWidgetEditorSection
+            id="webchat-section-modelos"
+            title="Modelos visuais"
+            description="Clique em Aplicar para salvar tema, cores e textos do modelo no widget."
+          >
+            <WebChatPreviewTemplates
+              publicKey={widget.publicKey}
+              selectedTemplateId={selectedTemplateId}
+              onSelectTemplate={template => applyTemplateAppearance(template.appearance, template.id)}
+            />
+          </WebChatWidgetEditorSection>
+        </div>
+      )}
+
+      {editorSection === 'prechat' && (
+        <WebChatWidgetEditorSection
+          id="webchat-section-prechat"
+          title="Formulário antes do chat"
+          description="Campos que o visitante preenche antes de iniciar a conversa."
+        >
+          <WebChatPrechatFieldsEditor
+            appearance={form.appearance}
+            onChange={appearance => setForm(f => ({ ...f, appearance }))}
+            onPersist={appearance => persistPrechatAppearance(appearance)}
           />
-          Usar horário do Inbox WhatsApp
-        </label>
-        {!form.useInboxBusinessHours && (
-          <div className="mt-3 space-y-3">
+        </WebChatWidgetEditorSection>
+      )}
+
+      {editorSection === 'automacao' && (
+        <div className="space-y-4">
+          <WebChatWidgetEditorSection
+            id="webchat-section-ia"
+            title="IA e resposta automática"
+            description="Responde na primeira mensagem do visitante; dados do pré-chat entram no contexto."
+          >
             <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
               <input
                 type="checkbox"
-                checked={form.businessHoursEnabled}
-                onChange={e => setForm(f => ({ ...f, businessHoursEnabled: e.target.checked }))}
+                checked={form.autoReplyEnabled}
+                onChange={e => patchAutoReply({ autoReplyEnabled: e.target.checked })}
               />
-              Ativar horário comercial neste widget
+              Ativar resposta automática
             </label>
-            <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-              Fuso horário
+            <label
+              className={
+                'mt-3 flex items-center gap-2 text-sm ' +
+                (aiStatus?.available !== false ? 'text-[var(--rz-text)]' : 'text-[var(--rz-text-muted)]')
+              }
+            >
+              <input
+                type="checkbox"
+                checked={form.autoReplyUseAi}
+                disabled={aiStatus?.available === false || !form.autoReplyEnabled}
+                onChange={e => patchAutoReply({ autoReplyUseAi: e.target.checked })}
+              />
+              Usar IA da empresa
+            </label>
+            {aiStatus?.available === false && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                {aiStatus.reason ?? 'IA indisponível — usa mensagem fixa abaixo.'}
+              </p>
+            )}
+            <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+              Nome exibido (mensagem fixa / fallback)
               <input
                 className={inputCls + ' mt-1'}
-                value={form.timezone}
-                onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
-                placeholder="America/Sao_Paulo"
+                value={form.autoReplySenderName}
+                onChange={e => setForm(f => ({ ...f, autoReplySenderName: e.target.value }))}
               />
             </label>
-            <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-              Mensagem fora do horário
+            <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+              Mensagem fixa (fallback)
               <textarea
                 className={textareaCls + ' mt-1'}
                 rows={2}
-                value={form.outsideHoursMessage}
-                onChange={e => setForm(f => ({ ...f, outsideHoursMessage: e.target.value }))}
+                value={form.autoReplyMessage}
+                onChange={e => setForm(f => ({ ...f, autoReplyMessage: e.target.value }))}
               />
             </label>
-            <div className="space-y-1">
-              {WEEKDAYS.map(day => (
-                <div
-                  key={day}
-                  className="flex flex-wrap items-center gap-3 border-b border-[var(--rz-border)]/80 py-2 last:border-0"
-                >
-                  <label className="flex w-28 items-center gap-2 text-sm text-[var(--rz-text)]">
-                    <input
-                      type="checkbox"
-                      checked={form.schedule?.[day]?.enabled ?? false}
-                      onChange={e => patchDay(day, 'enabled', e.target.checked)}
-                    />
-                    {WEEKDAY_LABEL[day]}
-                  </label>
-                  <input
-                    type="time"
-                    className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
-                    value={form.schedule?.[day]?.start ?? '09:00'}
-                    disabled={!form.schedule?.[day]?.enabled}
-                    onChange={e => patchDay(day, 'start', e.target.value)}
-                  />
-                  <span className="text-xs text-[var(--rz-text-muted)]">até</span>
-                  <input
-                    type="time"
-                    className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
-                    value={form.schedule?.[day]?.end ?? '18:00'}
-                    disabled={!form.schedule?.[day]?.enabled}
-                    onChange={e => patchDay(day, 'end', e.target.value)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          </WebChatWidgetEditorSection>
 
-      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
-        <h4 className="text-sm font-semibold text-[var(--rz-text)]">Saudação proativa</h4>
-        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Envia uma mensagem amigável automaticamente após o visitante ficar na página com o chat
-          carregado — sem precisar abrir ou escrever primeiro. Marque a opção, ajuste o tempo e
-          clique em <strong>Salvar alterações</strong>.
-        </p>
-        <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
-          <input
-            type="checkbox"
-            checked={form.proactiveGreetingEnabled ?? false}
-            onChange={e => setForm(f => ({ ...f, proactiveGreetingEnabled: e.target.checked }))}
-          />
-          Ativar saudação proativa
-        </label>
-        {form.proactiveGreetingEnabled && (
-          <>
-            <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-              Mensagem
-              <textarea
-                className={textareaCls + ' mt-1'}
-                rows={2}
-                maxLength={300}
-                value={form.proactiveGreetingMessage ?? ''}
-                onChange={e =>
-                  setForm(f => ({ ...f, proactiveGreetingMessage: e.target.value }))
-                }
-                placeholder="Olá! Estou por aqui caso precise de ajuda 😊"
-              />
-            </label>
-            <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-              Aguardar antes de enviar (segundos)
+          <WebChatWidgetEditorSection
+            id="webchat-section-proativa"
+            title="Saudação proativa"
+            description="Balão amigável após alguns segundos na página — independente do horário comercial."
+          >
+            <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
               <input
-                type="number"
-                min={5}
-                max={300}
-                step={1}
-                className={inputCls + ' mt-1 w-28'}
-                value={delayDraft}
-                onChange={e => setDelayDraft(e.target.value)}
-                onBlur={() => {
-                  const clamped = Math.min(300, Math.max(5, parseInt(delayDraft, 10) || 30))
-                  setDelayDraft(String(clamped))
-                  setForm(f => ({ ...f, proactiveGreetingDelaySeconds: clamped }))
-                }}
+                type="checkbox"
+                checked={form.proactiveGreetingEnabled ?? false}
+                onChange={e => setForm(f => ({ ...f, proactiveGreetingEnabled: e.target.checked }))}
               />
+              Ativar saudação proativa
             </label>
-            <p className="mt-2 text-xs text-[var(--rz-text-muted)]">
-              Padrão: 30 segundos (mín. 5, máx. 300). O balão reaparece em novas visitas; se o
-              visitante fechar com ×, só volta após 24 horas.
-            </p>
-          </>
-        )}
-      </div>
+            {form.proactiveGreetingEnabled && (
+              <>
+                <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+                  Mensagem
+                  <textarea
+                    className={textareaCls + ' mt-1'}
+                    rows={2}
+                    maxLength={300}
+                    value={form.proactiveGreetingMessage ?? ''}
+                    onChange={e =>
+                      setForm(f => ({ ...f, proactiveGreetingMessage: e.target.value }))
+                    }
+                    placeholder="Olá! Estou por aqui caso precise de ajuda 😊"
+                  />
+                </label>
+                <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+                  Aguardar antes de enviar (segundos)
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    step={1}
+                    className={inputCls + ' mt-1 w-28'}
+                    value={delayDraft}
+                    onChange={e => setDelayDraft(e.target.value)}
+                    onBlur={() => {
+                      const clamped = Math.min(300, Math.max(5, parseInt(delayDraft, 10) || 30))
+                      setDelayDraft(String(clamped))
+                      setForm(f => ({ ...f, proactiveGreetingDelaySeconds: clamped }))
+                    }}
+                  />
+                </label>
+              </>
+            )}
+          </WebChatWidgetEditorSection>
+        </div>
+      )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      {editorSection === 'horarios' && (
+        <WebChatWidgetEditorSection
+          id="webchat-section-horarios"
+          title="Horário de atendimento"
+          description="Fora do horário o visitante ainda pode enviar mensagens e recebe aviso automático."
+        >
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
+            <input
+              type="checkbox"
+              checked={form.useInboxBusinessHours}
+              onChange={e => setForm(f => ({ ...f, useInboxBusinessHours: e.target.checked }))}
+            />
+            Usar horário do Inbox WhatsApp
+          </label>
+          {!form.useInboxBusinessHours && (
+            <div className="mt-3 space-y-3">
+              <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
+                <input
+                  type="checkbox"
+                  checked={form.businessHoursEnabled}
+                  onChange={e => setForm(f => ({ ...f, businessHoursEnabled: e.target.checked }))}
+                />
+                Ativar horário comercial neste widget
+              </label>
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                Fuso horário
+                <input
+                  className={inputCls + ' mt-1'}
+                  value={form.timezone}
+                  onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
+                  placeholder="America/Sao_Paulo"
+                />
+              </label>
+              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                Mensagem fora do horário
+                <textarea
+                  className={textareaCls + ' mt-1'}
+                  rows={2}
+                  value={form.outsideHoursMessage}
+                  onChange={e => setForm(f => ({ ...f, outsideHoursMessage: e.target.value }))}
+                />
+              </label>
+              <div className="space-y-1">
+                {WEEKDAYS.map(day => (
+                  <div
+                    key={day}
+                    className="flex flex-wrap items-center gap-3 border-b border-[var(--rz-border)]/80 py-2 last:border-0"
+                  >
+                    <label className="flex w-28 items-center gap-2 text-sm text-[var(--rz-text)]">
+                      <input
+                        type="checkbox"
+                        checked={form.schedule?.[day]?.enabled ?? false}
+                        onChange={e => patchDay(day, 'enabled', e.target.checked)}
+                      />
+                      {WEEKDAY_LABEL[day]}
+                    </label>
+                    <input
+                      type="time"
+                      className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
+                      value={form.schedule?.[day]?.start ?? '09:00'}
+                      disabled={!form.schedule?.[day]?.enabled}
+                      onChange={e => patchDay(day, 'start', e.target.value)}
+                    />
+                    <span className="text-xs text-[var(--rz-text-muted)]">até</span>
+                    <input
+                      type="time"
+                      className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
+                      value={form.schedule?.[day]?.end ?? '18:00'}
+                      disabled={!form.schedule?.[day]?.enabled}
+                      onChange={e => patchDay(day, 'end', e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </WebChatWidgetEditorSection>
+      )}
+
+      {editorSection === 'instalacao' && (
+        <WebChatWidgetEditorSection
+          id="webchat-section-instalacao"
+          title="Instalação no site"
+          description="Cole antes do fechamento da tag </body> em todas as páginas do site."
+        >
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(snippet)
+                notifySuccess('Código copiado')
+              }}
+            >
+              <Copy className="h-4 w-4" />
+              Copiar script
+            </Button>
+          </div>
+          <textarea
+            className={textareaCls + ' mt-3 font-mono text-xs bg-[var(--rz-surface-muted)]/40'}
+            readOnly
+            rows={4}
+            value={snippet}
+          />
+        </WebChatWidgetEditorSection>
+      )}
+
+      <div className="sticky bottom-0 z-10 -mx-4 mt-4 border-t border-[var(--rz-border)] bg-[var(--rz-surface)]/95 px-4 py-3 backdrop-blur-sm">
         <Button type="button" onClick={() => save.mutate()} disabled={save.isPending}>
           <Save className="h-4 w-4" />
           Salvar alterações
         </Button>
-      </div>
-
-      <div className="mt-4 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
-            <Code2 className="h-4 w-4 text-brand-400" />
-            Instalação no site
-          </h4>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              navigator.clipboard.writeText(snippet)
-              notifySuccess('Código copiado')
-            }}
-          >
-            <Copy className="h-4 w-4" />
-            Copiar script
-          </Button>
-        </div>
-        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Cole este código antes do fechamento da tag <code className="text-[var(--rz-text-secondary)]">&lt;/body&gt;</code> em todas as páginas onde o chat deve aparecer.
-        </p>
-        <textarea className={textareaCls + ' mt-2 font-mono text-xs bg-[var(--rz-surface)]'} readOnly rows={3} value={snippet} />
       </div>
         </div>
         <div className="order-1 mb-4 xl:order-2 xl:mb-0">

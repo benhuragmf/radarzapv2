@@ -53,7 +53,7 @@ Paleta de cores de **status WA** (produto): `lib/wa-status-colors.ts`.
 
 | Componente | Quando usar |
 |------------|-------------|
-| `RadarPageShell` | Página tenant padrão (`max-w-6xl`) |
+| `RadarPageShell` | Página tenant padrão (`max-w-[1600px]`, alinhado ao Inbox) |
 | `PageHeader` | Título + subtítulo + ações |
 | `MetricCard` | KPIs no topo |
 | `FilterBar` | Filtros em linha |

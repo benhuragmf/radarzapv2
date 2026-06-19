@@ -175,7 +175,7 @@ export default function InboxBotSettings() {
         </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px] max-w-6xl">
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 text-brand-400">
