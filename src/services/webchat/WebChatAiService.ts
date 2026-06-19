@@ -45,7 +45,15 @@ export class WebChatAiService {
   async generateVisitorReply(
     clientId: string,
     conversationId: string,
-    opts: { visitorName?: string; visitorEmail?: string },
+    opts: {
+      visitorName?: string;
+      visitorEmail?: string;
+      visitorPhone?: string;
+      contactReason?: string;
+      pageUrl?: string;
+      pageTitle?: string;
+      intakeSummary?: string;
+    },
   ): Promise<{ body: string; senderName: string; shouldEscalate?: boolean } | null> {
     const availability = await this.getAvailability(clientId);
     if (!availability.available) return null;
@@ -65,11 +73,15 @@ export class WebChatAiService {
     }));
 
     const contactContext: AiContactContext | undefined =
-      opts.visitorName || opts.visitorEmail
+      opts.visitorName ||
+      opts.visitorEmail ||
+      opts.visitorPhone ||
+      opts.contactReason
         ? {
             name: opts.visitorName,
             email: opts.visitorEmail,
-            tags: [],
+            phone: opts.visitorPhone,
+            tags: opts.contactReason ? [opts.contactReason] : [],
             recentTickets: [],
             knownFields: {
               name: Boolean(opts.visitorName?.trim()),
@@ -114,6 +126,11 @@ export class WebChatAiService {
       buildWebChatPromptSuffix({
         visitorName: opts.visitorName,
         visitorEmail: opts.visitorEmail,
+        visitorPhone: opts.visitorPhone,
+        contactReason: opts.contactReason,
+        pageUrl: opts.pageUrl,
+        pageTitle: opts.pageTitle,
+        intakeSummary: opts.intakeSummary,
       });
 
     const history: AiChatMessage[] = [{ role: 'system', content: systemPrompt }];

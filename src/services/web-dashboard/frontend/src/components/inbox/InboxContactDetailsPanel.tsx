@@ -47,6 +47,9 @@ export interface InboxContactDetailsConversation {
   lastMessageAt?: string
   pageUrl?: string
   widgetName?: string
+  visitorPhone?: string
+  contactReason?: string
+  visitorIntake?: Record<string, string>
   canAccept?: boolean
   priorityForMe?: boolean
 }
@@ -209,6 +212,25 @@ export function InboxContactDetailsPanel({
           <div className="mt-4 space-y-2">
             <DetailRow label="E-mail" value={contact?.email} />
             <DetailRow label="Empresa" value={contact?.organization} />
+            {isWebChat && (
+              <DetailRow
+                label="WhatsApp / telefone"
+                value={conv.visitorPhone || conv.visitorIntake?.phone}
+              />
+            )}
+            {isWebChat && (
+              <DetailRow
+                label="Motivo do contato"
+                value={conv.contactReason || conv.visitorIntake?.contact_reason}
+              />
+            )}
+            {isWebChat &&
+              conv.visitorIntake &&
+              Object.entries(conv.visitorIntake)
+                .filter(([key]) => !['name', 'phone', 'email', 'contact_reason'].includes(key))
+                .map(([key, val]) => (
+                  <DetailRow key={key} label={key.replace(/_/g, ' ')} value={val} />
+                ))}
             {isWebChat && conv.widgetName && <DetailRow label="Widget" value={conv.widgetName} />}
             {isWebChat && conv.pageUrl && (
               <div className="flex justify-between gap-3 text-xs">

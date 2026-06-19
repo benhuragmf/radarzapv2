@@ -4,44 +4,84 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Preview minimalista — RadarZap WebChat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: Georgia, 'Times New Roman', serif;
-      background: #fff;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      background: #fafafa;
       color: #18181b;
     }
+    .frame {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px 160px;
+    }
     main {
-      max-width: 520px;
-      margin: 0 auto;
-      padding: 80px 28px 160px;
+      max-width: 480px;
+      width: 100%;
       text-align: center;
+      padding: 56px 40px;
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 2px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+    .eyebrow {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: .65rem;
+      font-weight: 500;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #a1a1aa;
+      margin-bottom: 20px;
     }
     h1 {
-      font-size: 2rem;
+      font-size: clamp(2.25rem, 5vw, 2.75rem);
       font-weight: 400;
-      margin: 0 0 16px;
+      margin: 0 0 20px;
       letter-spacing: -0.02em;
+      line-height: 1.15;
     }
-    p {
-      font-family: system-ui, sans-serif;
+    .lead {
+      font-family: 'Inter', system-ui, sans-serif;
       color: #71717a;
-      line-height: 1.7;
-      font-size: 1rem;
+      line-height: 1.75;
+      font-size: .95rem;
+      margin: 0;
     }
     .line {
-      width: 48px;
+      width: 40px;
       height: 1px;
       background: #d4d4d8;
-      margin: 32px auto;
+      margin: 36px auto;
     }
-    .note {
-      font-family: system-ui, sans-serif;
+    .cta-hint {
+      font-family: 'Inter', system-ui, sans-serif;
       font-size: .8rem;
       color: #a1a1aa;
-      margin-top: 40px;
+      margin-top: 8px;
+    }
+    .cta-hint strong {
+      color: #52525b;
+      font-weight: 500;
+    }
+    #rz-preview-status {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: .8rem;
+      color: #a1a1aa;
+    }
+    .note {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: .75rem;
+      color: #d4d4d8;
+      margin-top: 32px;
     }
     code {
       font-family: ui-monospace, monospace;
@@ -49,17 +89,24 @@
       background: #f4f4f5;
       padding: 2px 6px;
       border-radius: 4px;
+      color: #71717a;
     }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Uma pergunta?</h1>
-    <p>Fale conosco pelo chat. Sem formulários longos — só o essencial.</p>
-    <div class="line"></div>
-    <p id="rz-preview-status">Carregando…</p>
-    <p class="note">Chave <code id="rz-preview-key">—</code></p>
-  </main>
+  <div class="frame">
+    <main>
+      <div class="eyebrow">Modelo minimalista</div>
+      <h1>Uma pergunta?</h1>
+      <p class="lead">
+        Fale conosco pelo chat. Sem formulários longos — só o essencial, no seu ritmo.
+      </p>
+      <div class="line"></div>
+      <p id="rz-preview-status">Carregando…</p>
+      <p class="cta-hint">Use o botão <strong>💬</strong> no canto da tela</p>
+      <p class="note">Chave <code id="rz-preview-key">—</code></p>
+    </main>
+  </div>
   <script src="/webchat/preview-loader.js"></script>
 </body>
 </html>

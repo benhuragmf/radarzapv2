@@ -28,6 +28,11 @@ const RESOLVED_CONFIRM =
 export function buildWebChatPromptSuffix(opts: {
   visitorName?: string;
   visitorEmail?: string;
+  visitorPhone?: string;
+  contactReason?: string;
+  pageUrl?: string;
+  pageTitle?: string;
+  intakeSummary?: string;
 }): string {
   const first = opts.visitorName?.trim().split(/\s+/)[0];
   const lines = [
@@ -40,10 +45,30 @@ export function buildWebChatPromptSuffix(opts: {
       `- O visitante JÁ informou o nome no formulário: trate-o como *${first}*. NÃO peça nome, NÃO peça confirmação de nome.`,
     );
   }
+  if (opts.visitorPhone?.trim()) {
+    lines.push(
+      `- WhatsApp/telefone já informado no formulário (${opts.visitorPhone.trim()}). NÃO peça telefone novamente.`,
+    );
+  }
   if (opts.visitorEmail?.trim()) {
     lines.push(`- E-mail já informado no formulário. NÃO peça e-mail.`);
   }
+  if (opts.contactReason?.trim()) {
+    lines.push(
+      `- Motivo do contato já informado: "${opts.contactReason.trim()}". Use isso para direcionar a conversa; não repita a pergunta do motivo.`,
+    );
+  }
+  if (opts.pageUrl?.trim()) {
+    const pageLabel = opts.pageTitle?.trim()
+      ? `${opts.pageTitle.trim()} (${opts.pageUrl.trim()})`
+      : opts.pageUrl.trim();
+    lines.push(`- Página de origem do visitante: ${pageLabel}. Use como contexto quando relevante.`);
+  }
+  if (opts.intakeSummary?.trim()) {
+    lines.push(`- Outros dados já informados no formulário: ${opts.intakeSummary.trim()}. NÃO peça novamente.`);
+  }
   lines.push(
+    '- Colete só o que faltar para ajudar — não peça tudo de uma vez.',
     '- Se pedir setor/suporte/comercial/atendente SEM detalhar a dúvida, pergunte o que deseja tratar (ex.: "Pode me adiantar sobre o que gostaria de saber?"). shouldEscalate=false.',
     '- Com dúvida concreta (técnica, produto, promoção, plano, cobrança), use KNOWLEDGE/SKILLS/MEMORY para orientar ANTES de transferir.',
     '- Para produtos/promoções: informe o que souber da base; se faltar detalhe, pergunte qual produto/serviço interessa.',

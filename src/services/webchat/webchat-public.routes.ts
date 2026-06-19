@@ -33,7 +33,11 @@ export function createWebChatPublicRouter(): Router {
         visitorToken?: string;
         visitorName?: string;
         visitorEmail?: string;
+        visitorPhone?: string;
+        contactReason?: string;
+        visitorIntake?: Record<string, string>;
         pageUrl?: string;
+        pageTitle?: string;
       };
       const result = await svc.createOrResumeSession(req.params.publicKey, {
         ...body,

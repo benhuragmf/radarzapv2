@@ -189,7 +189,7 @@
   fetchApiConfig(origin, key);
 
   var widgetScript = document.createElement('script');
-  widgetScript.src = origin + '/webchat/widget.js?v=2.10.37';
+  widgetScript.src = origin + '/webchat/widget.js?v=2.10.43';
   widgetScript.setAttribute('data-widget-key', key);
   widgetScript.setAttribute('data-base-url', origin);
   widgetScript.async = true;

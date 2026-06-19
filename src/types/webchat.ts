@@ -10,13 +10,46 @@ export type WebChatMessageMediaType = 'image' | 'document';
 
 export type WebChatWidgetTheme = 'light' | 'dark';
 
+export const DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS = [
+  'Quero saber preços',
+  'Quero contratar',
+  'Preciso de suporte',
+  'Dúvida sobre planos',
+  'Outro',
+] as const;
+
+export type WebChatPrechatFieldType = 'text' | 'phone' | 'email' | 'select' | 'textarea';
+
+export type WebChatPrechatMode = 'steps' | 'form';
+
+export interface WebChatPrechatField {
+  id: string;
+  label: string;
+  type: WebChatPrechatFieldType;
+  enabled: boolean;
+  required: boolean;
+  placeholder?: string;
+  /** Limite de caracteres (texto / textarea) */
+  maxLength?: number;
+  options?: string[];
+  preset?: 'name' | 'phone' | 'email' | 'contact_reason';
+}
+
 export interface WebChatWidgetAppearance {
   primaryColor: string;
   position: WebChatWidgetPosition;
   title: string;
   subtitle: string;
   greeting: string;
+  /** Campos configuráveis do pré-chat (prioridade sobre flags legadas) */
+  prechatFields?: WebChatPrechatField[];
+  /** steps = uma pergunta por vez; form = todos os campos na mesma tela */
+  prechatMode?: WebChatPrechatMode;
+  /** @deprecated — use prechatFields; mantido para migração */
   askName: boolean;
+  askPhone: boolean;
+  askContactReason: boolean;
+  contactReasonOptions: string[];
   askEmail: boolean;
   theme: WebChatWidgetTheme;
 }
@@ -28,7 +61,10 @@ export const DEFAULT_WEBCHAT_APPEARANCE: WebChatWidgetAppearance = {
   subtitle: 'Respondemos em instantes',
   greeting: 'Olá! Como podemos ajudar?',
   askName: true,
-  askEmail: true,
+  askPhone: true,
+  askContactReason: true,
+  contactReasonOptions: [...DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS],
+  askEmail: false,
   theme: 'light',
 };
 
@@ -51,7 +87,12 @@ export interface WebChatPublicConfig {
   primaryColor: string;
   position: WebChatWidgetPosition;
   askName: boolean;
+  askPhone: boolean;
+  askContactReason: boolean;
+  contactReasonOptions: string[];
   askEmail: boolean;
+  prechatMode: WebChatPrechatMode;
+  prechatFields: WebChatPrechatField[];
   theme: WebChatWidgetTheme;
   isOnline: boolean;
   businessHoursEnabled: boolean;
@@ -69,6 +110,10 @@ export interface WebChatVisitorSessionDto {
   departmentName?: string;
   visitorName?: string;
   visitorEmail?: string;
+  visitorPhone?: string;
+  contactReason?: string;
+  pageTitle?: string;
+  visitorIntake?: Record<string, string>;
   messages: WebChatMessageDto[];
 }
 
@@ -119,7 +164,11 @@ export interface WebChatConversationDto {
   status: WebChatConversationStatus;
   visitorName?: string;
   visitorEmail?: string;
+  visitorPhone?: string;
+  contactReason?: string;
   pageUrl?: string;
+  pageTitle?: string;
+  visitorIntake?: Record<string, string>;
   userAgent?: string;
   createdAt?: string;
   lastMessageAt?: string;

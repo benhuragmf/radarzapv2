@@ -8,6 +8,10 @@ export type InboxWebChatListRow = {
   channel: 'webchat_site';
   contactName: string;
   contactIdentifier: string;
+  destinationId?: string;
+  visitorPhone?: string;
+  contactReason?: string;
+  visitorIntake?: Record<string, string>;
   status: string;
   departmentName?: string;
   departmentId?: string;
@@ -68,9 +72,17 @@ export function inboxStatusToWebChatFilter(status?: string): {
 export function visitorDisplayName(
   visitorName?: string,
   visitorEmail?: string,
+  visitorPhone?: string,
 ): { contactName: string; contactIdentifier: string } {
-  const name = visitorName?.trim() || visitorEmail?.trim() || 'Visitante do site';
-  const identifier = visitorEmail?.trim() || 'chat do site';
+  const name =
+    visitorName?.trim() ||
+    visitorEmail?.trim() ||
+    visitorPhone?.trim() ||
+    'Visitante do site';
+  const identifier =
+    visitorEmail?.trim() ||
+    visitorPhone?.trim() ||
+    'chat do site';
   return { contactName: name, contactIdentifier: identifier };
 }
 

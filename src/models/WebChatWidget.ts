@@ -3,6 +3,7 @@ import type { WebChatWidgetAppearance } from '../types/webchat';
 import {
   DEFAULT_WEBCHAT_APPEARANCE,
   DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE,
+  DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS,
   DEFAULT_WEBCHAT_OUTSIDE_HOURS_MESSAGE,
   DEFAULT_WEBCHAT_PROACTIVE_GREETING_DELAY_SECONDS,
   DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE,
@@ -44,7 +45,15 @@ const AppearanceSchema = new Schema<WebChatWidgetAppearance>(
     subtitle: { type: String, default: DEFAULT_WEBCHAT_APPEARANCE.subtitle, maxlength: 120 },
     greeting: { type: String, default: DEFAULT_WEBCHAT_APPEARANCE.greeting, maxlength: 500 },
     askName: { type: Boolean, default: DEFAULT_WEBCHAT_APPEARANCE.askName },
+    askPhone: { type: Boolean, default: DEFAULT_WEBCHAT_APPEARANCE.askPhone },
+    askContactReason: { type: Boolean, default: DEFAULT_WEBCHAT_APPEARANCE.askContactReason },
+    contactReasonOptions: {
+      type: [String],
+      default: () => [...DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS],
+    },
     askEmail: { type: Boolean, default: DEFAULT_WEBCHAT_APPEARANCE.askEmail },
+    prechatFields: { type: Schema.Types.Mixed, default: undefined },
+    prechatMode: { type: String, enum: ['steps', 'form'], default: 'steps' },
     theme: { type: String, enum: ['light', 'dark'], default: DEFAULT_WEBCHAT_APPEARANCE.theme },
   },
   { _id: false },

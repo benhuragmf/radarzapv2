@@ -5,6 +5,7 @@ import {
   Copy,
   Monitor,
   Mail,
+  Phone,
   ExternalLink,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -17,7 +18,11 @@ export interface WebChatVisitorInfo {
   status: 'open' | 'closed'
   visitorName?: string
   visitorEmail?: string
+  visitorPhone?: string
+  contactReason?: string
+  visitorIntake?: Record<string, string>
   pageUrl?: string
+  pageTitle?: string
   userAgent?: string
   createdAt?: string
   lastMessageAt?: string
@@ -120,6 +125,11 @@ export function WebChatVisitorPanel({ visitor, canInbox, messageCount, className
                 <Mail size={10} /> {visitor.visitorEmail}
               </p>
             )}
+            {visitor.visitorPhone && (
+              <p className="text-xs text-[var(--rz-text-muted)] truncate flex items-center gap-1 mt-0.5">
+                <Phone size={10} /> {visitor.visitorPhone}
+              </p>
+            )}
             <span
               className={cn(
                 'inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded',
@@ -138,6 +148,18 @@ export function WebChatVisitorPanel({ visitor, canInbox, messageCount, className
           Informações do visitante
         </h3>
         <DetailRow label="Widget" value={visitor.widgetName} />
+        <DetailRow label="Motivo" value={visitor.contactReason || visitor.visitorIntake?.contact_reason} />
+        <DetailRow label="WhatsApp" value={visitor.visitorPhone || visitor.visitorIntake?.phone} />
+        {visitor.visitorIntake &&
+          Object.entries(visitor.visitorIntake)
+            .filter(([key]) => !['name', 'email', 'phone', 'contact_reason'].includes(key))
+            .map(([key, val]) => (
+              <DetailRow
+                key={key}
+                label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                value={val}
+              />
+            ))}
         <DetailRow label="Setor" value={visitor.departmentName} />
         <DetailRow label="Atendente" value={visitor.assignedUserName} />
         <DetailRow

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview Luxe — RadarZap WebChat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --cream: #faf8f5;
+      --ink: #1c1917;
+      --gold: #9a7b4f;
+      --gold-light: #c4a574;
+      --muted: #78716c;
+      --line: #e7e5e4;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+    }
+    .top-bar {
+      text-align: center;
+      padding: 10px;
+      font-size: .7rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, transparent, rgba(154,123,79,.08), transparent);
+      animation: shimmer 4s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hero > * { animation: fadeUp .8s ease-out both; }
+    .hero > *:nth-child(2) { animation-delay: .15s; }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+    }
+    nav {
+      display: flex;
+      gap: 28px;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    nav a { color: inherit; text-decoration: none; }
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 56px 32px 48px;
+      display: grid;
+      gap: 40px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px) {
+      .hero { grid-template-columns: 1.1fr 1fr; align-items: center; }
+    }
+    .eyebrow {
+      font-size: .7rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2.5rem, 5vw, 3.5rem);
+      font-weight: 400;
+      line-height: 1.12;
+      margin: 0 0 20px;
+      letter-spacing: -0.01em;
+    }
+    .hero h1 em { font-style: italic; color: var(--gold); }
+    .hero-lead {
+      font-size: 1rem;
+      line-height: 1.75;
+      color: var(--muted);
+      max-width: 420px;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 28px;
+      padding: 14px 28px;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: .8rem;
+      font-weight: 500;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: background .2s, color .2s;
+    }
+    .hero-cta:hover { background: var(--gold); color: #fff; }
+    .hero-visual {
+      position: relative;
+      aspect-ratio: 4/3;
+      border-radius: 4px;
+      overflow: hidden;
+      background: linear-gradient(145deg, #f5f0e8 0%, #e8dfd0 50%, #d4c4a8 100%);
+      border: 1px solid var(--line);
+    }
+    .hero-visual::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(28,25,23,.15), transparent 50%);
+    }
+    .hero-visual-caption {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      z-index: 1;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.25rem;
+      color: var(--ink);
+    }
+    .marquee {
+      overflow: hidden;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      padding: 14px 0;
+    }
+    .marquee-track {
+      display: flex;
+      gap: 48px;
+      width: max-content;
+      animation: marquee 28s linear infinite;
+      font-size: .72rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    .stats-row {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 32px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      text-align: center;
+    }
+    .stat-val {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.25rem;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .stat-lbl {
+      margin-top: 8px;
+      font-size: .72rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .services {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px 56px;
+    }
+    .services h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.75rem;
+      font-weight: 400;
+      text-align: center;
+      margin: 0 0 32px;
+    }
+    .service-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+    }
+    .service-card {
+      padding: 28px 24px;
+      background: #fff;
+      border: 1px solid var(--line);
+      text-align: center;
+      transition: box-shadow .25s;
+    }
+    .service-card:hover { box-shadow: 0 12px 40px rgba(154,123,79,.1); }
+    .service-card .icon { font-size: 1.5rem; margin-bottom: 12px; }
+    .service-card strong {
+      display: block;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .service-card span { font-size: .85rem; color: var(--muted); line-height: 1.55; }
+    .testimonial {
+      max-width: 680px;
+      margin: 0 auto 56px;
+      padding: 40px 32px;
+      text-align: center;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .testimonial blockquote {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-style: italic;
+      line-height: 1.5;
+      margin: 0 0 16px;
+      color: var(--ink);
+    }
+    .testimonial cite {
+      font-size: .8rem;
+      color: var(--muted);
+      font-style: normal;
+      letter-spacing: .04em;
+    }
+    .concierge {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px 48px;
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 768px) {
+      .concierge { grid-template-columns: 1fr 1fr; align-items: center; }
+    }
+    .concierge-box {
+      padding: 32px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--gold);
+    }
+    .concierge-box h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.35rem;
+      margin: 0 0 12px;
+    }
+    .concierge-box p { margin: 0; font-size: .9rem; color: var(--muted); line-height: 1.65; }
+    .status-box {
+      padding: 20px 24px;
+      background: #fff;
+      border: 1px dashed var(--line);
+      font-size: .85rem;
+      color: var(--muted);
+    }
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: .75rem;
+      color: #a8a29e;
+      border-top: 1px solid var(--line);
+    }
+    code {
+      background: #f5f5f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: .85em;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">Coleção exclusiva · atendimento sob medida</div>
+  <header>
+    <span class="logo">Maison Élégance</span>
+    <nav>
+      <a href="#">Coleções</a>
+      <a href="#">Experiências</a>
+      <a href="#">Concierge</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Modelo Luxe · Premium</div>
+      <h1>Excelência em cada <em>detalhe</em></h1>
+      <p class="hero-lead">
+        Para marcas que valorizam discrição e atendimento personalizado. O visitante fala com
+        seu concierge digital — integrado ao Inbox RadarZap em tempo real.
+      </p>
+      <a class="hero-cta" href="#">Agendar conversa</a>
+    </div>
+    <div class="hero-visual">
+      <p class="hero-visual-caption">“O luxo está no cuidado com quem nos escolhe.”</p>
+    </div>
+  </section>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Joalheria · Hotelaria · Imóveis · Lifestyle · Yacht · Private club ·</span>
+      <span>Joalheria · Hotelaria · Imóveis · Lifestyle · Yacht · Private club ·</span>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div><div class="stat-val">24h</div><div class="stat-lbl">Concierge ativo</div></div>
+    <div><div class="stat-val">4.9</div><div class="stat-lbl">Avaliação média</div></div>
+    <div><div class="stat-val">VIP</div><div class="stat-lbl">Fila prioritária</div></div>
+  </div>
+
+  <section class="services">
+    <h2>Nossos serviços</h2>
+    <div class="service-grid">
+      <div class="service-card">
+        <div class="icon">✦</div>
+        <strong>Concierge 24h</strong>
+        <span>Respostas rápidas com tom refinado e histórico preservado.</span>
+      </div>
+      <div class="service-card">
+        <div class="icon">◇</div>
+        <strong>Reservas &amp; pedidos</strong>
+        <span>Triagem inteligente antes de passar ao especialista.</span>
+      </div>
+      <div class="service-card">
+        <div class="icon">○</div>
+        <strong>Pós-venda VIP</strong>
+        <span>Follow-up discreto e fila prioritária no painel.</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="testimonial">
+    <blockquote>“O chat transmite a mesma sofisticação do nosso atendimento presencial.”</blockquote>
+    <cite>— Diretora de Experiência, cliente RadarZap</cite>
+  </div>
+
+  <section class="concierge">
+    <div class="concierge-box">
+      <h3>Fale com o concierge</h3>
+      <p>
+        Clique no botão dourado no canto da tela. Nossa equipe responde com a atenção que você
+        espera de uma marca premium.
+      </p>
+    </div>
+    <div class="status-box" id="rz-preview-status">Carregando widget…</div>
+  </section>
+
+  <footer>
+    Preview Luxe · Chave <code id="rz-preview-key">—</code> · Powered by RadarZap
+  </footer>
+  <script src="/webchat/preview-loader.js"></script>
+</body>
+</html>

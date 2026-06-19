@@ -89,6 +89,9 @@ interface Conversation {
   unreadCount?: number
   widgetName?: string
   pageUrl?: string
+  visitorPhone?: string
+  contactReason?: string
+  visitorIntake?: Record<string, string>
   createdAt?: string
   resolvedAt?: string
   acceptedAt?: string

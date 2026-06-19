@@ -12,6 +12,8 @@ import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } f
 import { cn } from '@/lib/utils'
 import { inboxWebChatUrl, webChatMediaSrc } from '../../lib/webchatInbox'
 import { WebChatPreviewTemplates } from '../../components/webchat/WebChatPreviewTemplates'
+import { WebChatPrechatFieldsEditor } from '../../components/webchat/WebChatPrechatFieldsEditor'
+import { resolvePrechatFields, syncLegacyAppearanceFlags } from '../../lib/webchatPrechatFields'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { WebChatVisitorPanel } from '../../components/webchat/WebChatVisitorPanel'
@@ -81,7 +83,12 @@ interface WebChatWidgetRow {
     subtitle: string
     greeting: string
     askName: boolean
+    askPhone: boolean
+    askContactReason: boolean
+    contactReasonOptions: string[]
     askEmail: boolean
+    prechatFields?: import('../../lib/webchatPrechatFields').WebChatPrechatField[]
+    prechatMode?: import('../../lib/webchatPrechatFields').WebChatPrechatMode
     theme: 'light' | 'dark'
   }
   autoReplyEnabled: boolean
@@ -110,7 +117,11 @@ interface WebChatConversationRow {
   status: 'open' | 'closed'
   visitorName?: string
   visitorEmail?: string
+  visitorPhone?: string
+  contactReason?: string
+  visitorIntake?: Record<string, string>
   pageUrl?: string
+  pageTitle?: string
   userAgent?: string
   createdAt?: string
   lastMessageAt?: string
@@ -766,6 +777,10 @@ function WidgetEditorCard({
   useEffect(() => {
     setForm({
       ...widget,
+      appearance: syncLegacyAppearanceFlags({
+        ...widget.appearance,
+        prechatFields: resolvePrechatFields(widget.appearance),
+      }),
       proactiveGreetingEnabled: widget.proactiveGreetingEnabled ?? false,
       proactiveGreetingMessage:
         widget.proactiveGreetingMessage ?? 'Olá! Estou por aqui caso precise de ajuda 😊',
@@ -788,7 +803,7 @@ function WidgetEditorCard({
         name: form.name,
         active: form.active,
         allowedDomains: form.allowedDomains,
-        appearance: form.appearance,
+        appearance: syncLegacyAppearanceFlags(form.appearance),
         autoReplyEnabled: form.autoReplyEnabled,
         autoReplyMessage: form.autoReplyMessage,
         autoReplySenderName: form.autoReplySenderName,
@@ -810,6 +825,39 @@ function WidgetEditorCard({
     },
     onError: mutationError,
   })
+
+  const persistAppearance = useMutation({
+    mutationFn: (appearance: WebChatWidgetRow['appearance']) =>
+      api.patch(`/webchat/widgets/${widget.id}`, {
+        appearance: syncLegacyAppearanceFlags(appearance),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
+      notifySuccess('Modo de formulário aplicado no widget')
+    },
+    onError: mutationError,
+  })
+
+  const persistAutoReply = useMutation({
+    mutationFn: (patch: Pick<WebChatWidgetRow, 'autoReplyEnabled' | 'autoReplyUseAi'>) =>
+      api.patch(`/webchat/widgets/${widget.id}`, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
+      notifySuccess('Configuração de IA salva no widget')
+    },
+    onError: mutationError,
+  })
+
+  const patchAutoReply = (patch: Partial<Pick<WebChatWidgetRow, 'autoReplyEnabled' | 'autoReplyUseAi'>>) => {
+    setForm(f => {
+      const next = { ...f, ...patch }
+      persistAutoReply.mutate({
+        autoReplyEnabled: next.autoReplyEnabled,
+        autoReplyUseAi: next.autoReplyUseAi,
+      })
+      return next
+    })
+  }
 
   const snippet = embedSnippet(widget.publicKey)
   const previewUrl = webChatPreviewUrl(
@@ -982,26 +1030,11 @@ function WidgetEditorCard({
             <option value="dark">Escuro (tecnológico)</option>
           </select>
         </label>
-        <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
-          <input
-            type="checkbox"
-            checked={form.appearance.askName}
-            onChange={e =>
-              setForm(f => ({ ...f, appearance: { ...f.appearance, askName: e.target.checked } }))
-            }
-          />
-          Pedir nome antes do chat (recomendado)
-        </label>
-        <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
-          <input
-            type="checkbox"
-            checked={form.appearance.askEmail}
-            onChange={e =>
-              setForm(f => ({ ...f, appearance: { ...f.appearance, askEmail: e.target.checked } }))
-            }
-          />
-          Pedir e-mail antes do chat (recomendado)
-        </label>
+        <WebChatPrechatFieldsEditor
+          appearance={form.appearance}
+          onChange={appearance => setForm(f => ({ ...f, appearance }))}
+          onPersist={appearance => persistAppearance.mutate(appearance)}
+        />
         {canPickDepartment && (
           <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
             Setor padrão na escalação (opcional)
@@ -1029,9 +1062,66 @@ function WidgetEditorCard({
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-4">
+      <div className="mt-4 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30 p-4">
+        <h4 className="text-sm font-semibold text-[var(--rz-text)]">IA e resposta automática</h4>
+        <p className="mt-2 text-xs leading-relaxed text-[var(--rz-text-muted)]">
+          Os dados coletados no formulário acima alimentam a IA antes da primeira resposta. A página de
+          origem também entra no contexto automaticamente.
+        </p>
+        <label className="mt-4 flex items-center gap-2 text-sm text-[var(--rz-text)]">
+          <input
+            type="checkbox"
+            checked={form.autoReplyEnabled}
+            onChange={e => patchAutoReply({ autoReplyEnabled: e.target.checked })}
+          />
+          Ativar resposta automática
+        </label>
+        <label
+          className={
+            'mt-3 flex items-center gap-2 text-sm ' +
+            (aiStatus?.available !== false ? 'text-[var(--rz-text)]' : 'text-[var(--rz-text-muted)]')
+          }
+        >
+          <input
+            type="checkbox"
+            checked={form.autoReplyUseAi}
+            disabled={aiStatus?.available === false || !form.autoReplyEnabled}
+            onChange={e => patchAutoReply({ autoReplyUseAi: e.target.checked })}
+          />
+          Usar IA da empresa (mesmas configs de Inbox → IA Atendimento)
+        </label>
+        {aiStatus?.available === false && (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            {aiStatus.reason ?? 'IA indisponível — usa mensagem fixa abaixo.'}
+          </p>
+        )}
+        {form.autoReplyUseAi && form.autoReplyEnabled && (
+          <p className="mt-2 text-xs text-[var(--rz-text-muted)]">
+            A IA responde a cada mensagem do visitante em triagem. Se falhar, envia a mensagem fixa como
+            fallback.
+          </p>
+        )}
+        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+          Nome exibido (mensagem fixa / fallback)
+          <input
+            className={inputCls + ' mt-1'}
+            value={form.autoReplySenderName}
+            onChange={e => setForm(f => ({ ...f, autoReplySenderName: e.target.value }))}
+          />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
+          Mensagem fixa (fallback)
+          <textarea
+            className={textareaCls + ' mt-1'}
+            rows={2}
+            value={form.autoReplyMessage}
+            onChange={e => setForm(f => ({ ...f, autoReplyMessage: e.target.value }))}
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-4 md:p-5">
         <WebChatPreviewTemplates
-          compact
           publicKey={widget.publicKey}
           selectedTemplateId={selectedTemplateId}
           onSelectTemplate={template => applyTemplateAppearance(template.appearance, template.id)}
@@ -1168,63 +1258,6 @@ function WidgetEditorCard({
             </p>
           </>
         )}
-      </div>
-
-      <div className="mt-4 rounded-lg border border-[var(--rz-border)] p-3">
-        <h4 className="text-sm font-semibold text-[var(--rz-text)]">Resposta automática</h4>
-        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Responde a cada mensagem do visitante enquanto a conversa estiver em triagem (antes de um
-          atendente assumir).
-        </p>
-        <label className="mt-3 flex items-center gap-2 text-sm text-[var(--rz-text)]">
-          <input
-            type="checkbox"
-            checked={form.autoReplyEnabled}
-            onChange={e => setForm(f => ({ ...f, autoReplyEnabled: e.target.checked }))}
-          />
-          Ativar resposta automática
-        </label>
-        <label
-          className={
-            'mt-3 flex items-center gap-2 text-sm ' +
-            (aiStatus?.available ? 'text-[var(--rz-text)]' : 'text-[var(--rz-text-muted)]')
-          }
-        >
-          <input
-            type="checkbox"
-            checked={form.autoReplyUseAi}
-            disabled={!aiStatus?.available || !form.autoReplyEnabled}
-            onChange={e => setForm(f => ({ ...f, autoReplyUseAi: e.target.checked }))}
-          />
-          Usar IA da empresa (mesmas configs de Inbox → IA Atendimento)
-        </label>
-        {!aiStatus?.available && (
-          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            {aiStatus?.reason ?? 'IA indisponível — usa mensagem fixa abaixo.'}
-          </p>
-        )}
-        {form.autoReplyUseAi && form.autoReplyEnabled && (
-          <p className="mt-2 text-xs text-[var(--rz-text-muted)]">
-            Se a IA falhar, envia a mensagem fixa como fallback.
-          </p>
-        )}
-        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-          Nome exibido (mensagem fixa / fallback)
-          <input
-            className={inputCls + ' mt-1'}
-            value={form.autoReplySenderName}
-            onChange={e => setForm(f => ({ ...f, autoReplySenderName: e.target.value }))}
-          />
-        </label>
-        <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-          Mensagem fixa (fallback)
-          <textarea
-            className={textareaCls + ' mt-1'}
-            rows={2}
-            value={form.autoReplyMessage}
-            onChange={e => setForm(f => ({ ...f, autoReplyMessage: e.target.value }))}
-          />
-        </label>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

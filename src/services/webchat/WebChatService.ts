@@ -2,10 +2,12 @@ import mongoose from 'mongoose';
 import { WebChatWidget, type IWebChatWidget } from '../../models/WebChatWidget';
 import { InboxDepartment } from '../../models/InboxDepartment';
 import { User } from '../../models/User';
+import { Destination } from '../../models/Destination';
 import { WebChatConversation, type IWebChatConversation } from '../../models/WebChatConversation';
 import { WebChatMessage, type IWebChatMessage } from '../../models/WebChatMessage';
 import {
   DEFAULT_WEBCHAT_APPEARANCE,
+  DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS,
   DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE,
   type WebChatConversationDto,
   type WebChatMessageDto,
@@ -15,6 +17,16 @@ import {
   type WebChatVisitorSessionDto,
   type WebChatVisitorSendResult,
 } from '../../types/webchat';
+import {
+  applyVisitorIntake,
+  buildIntakeSystemNote,
+  enabledPrechatFields,
+  intakeForAiContext,
+  normalizePrechatField,
+  resolvePrechatMode,
+  syncLegacyAppearanceFlags,
+} from '../../utils/webchat-prechat-fields.util';
+import { isVisitorHiddenSystemMessage } from '../../utils/webchat-visitor-message.util';
 import {
   DEFAULT_AUTO_REPLY_MESSAGE,
   shouldSendWebChatAutoReply,
@@ -38,6 +50,7 @@ import {
   WEBCHAT_CLOSE_GOODBYE,
   WEBCHAT_DEESCALATE_REPLY,
 } from './webchat-visitor-intent.util';
+import { linkWebChatVisitorToDestination } from './webchat-destination-link.util';
 import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
@@ -140,7 +153,15 @@ export class WebChatService {
       existing.allowedDomains = patch.allowedDomains.map(d => d.trim()).filter(Boolean);
     }
     if (patch.appearance) {
-      existing.appearance = { ...existing.appearance, ...patch.appearance };
+      const merged = {
+        ...existing.appearance,
+        ...patch.appearance,
+      } as WebChatWidgetAppearance;
+      if (merged.prechatFields?.length) {
+        merged.prechatFields = merged.prechatFields.map(normalizePrechatField);
+      }
+      existing.appearance = syncLegacyAppearanceFlags(merged);
+      existing.markModified('appearance');
     }
     if (patch.autoReplyEnabled !== undefined) existing.autoReplyEnabled = patch.autoReplyEnabled;
     if (patch.autoReplyMessage !== undefined) {
@@ -197,8 +218,9 @@ export class WebChatService {
   }
 
   async getPublicConfig(widget: IWebChatWidget): Promise<WebChatPublicConfig> {
-    const a = widget.appearance ?? DEFAULT_WEBCHAT_APPEARANCE;
+    const a = syncLegacyAppearanceFlags(widget.appearance ?? DEFAULT_WEBCHAT_APPEARANCE);
     const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
+    const prechatFields = enabledPrechatFields(a);
     return {
       publicKey: widget.publicKey,
       title: a.title,
@@ -207,7 +229,15 @@ export class WebChatService {
       primaryColor: a.primaryColor,
       position: a.position,
       askName: a.askName,
+      askPhone: a.askPhone ?? true,
+      askContactReason: a.askContactReason ?? true,
+      contactReasonOptions:
+        a.contactReasonOptions?.length
+          ? a.contactReasonOptions
+          : [...DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS],
       askEmail: a.askEmail,
+      prechatFields,
+      prechatMode: resolvePrechatMode(a),
       theme: a.theme ?? 'light',
       isOnline: hours.isOnline,
       businessHoursEnabled: hours.businessHoursEnabled,
@@ -251,7 +281,13 @@ export class WebChatService {
       departmentName: await this.departmentNameFor(conversation.departmentId),
       visitorName: conversation.visitorName,
       visitorEmail: conversation.visitorEmail,
-      messages: messages.map(m => this.toMessageDto(m)),
+      visitorPhone: conversation.visitorPhone,
+      contactReason: conversation.contactReason,
+      pageTitle: conversation.pageTitle,
+      visitorIntake: conversation.visitorIntake,
+      messages: messages
+        .filter(m => !isVisitorHiddenSystemMessage(m as { direction: string; body: string }))
+        .map(m => this.toMessageDto(m)),
     };
   }
 
@@ -306,7 +342,11 @@ export class WebChatService {
       status: c.status,
       visitorName: c.visitorName,
       visitorEmail: c.visitorEmail,
+      visitorPhone: c.visitorPhone,
+      contactReason: c.contactReason,
       pageUrl: c.pageUrl,
+      pageTitle: c.pageTitle,
+      visitorIntake: c.visitorIntake as Record<string, string> | undefined,
       userAgent: c.userAgent,
       createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : undefined,
       lastMessageAt: c.lastMessageAt?.toISOString(),
@@ -326,7 +366,11 @@ export class WebChatService {
       visitorToken?: string;
       visitorName?: string;
       visitorEmail?: string;
+      visitorPhone?: string;
+      contactReason?: string;
+      visitorIntake?: Record<string, string>;
       pageUrl?: string;
+      pageTitle?: string;
       userAgent?: string;
       origin?: string | null;
       referer?: string | null;
@@ -339,12 +383,29 @@ export class WebChatService {
     departmentName?: string;
     visitorName?: string;
     visitorEmail?: string;
+    visitorPhone?: string;
+    contactReason?: string;
+    visitorIntake?: Record<string, string>;
     messages: WebChatMessageDto[];
   }> {
     const widget = await this.getActiveWidgetByPublicKey(publicKey);
     if (!widget) throw new Error('Widget não encontrado');
 
     this.assertOrigin(widget, opts.origin, opts.referer);
+
+    const intakeRaw: Record<string, string | undefined> = {
+      ...(opts.visitorIntake ?? {}),
+    };
+    if (opts.visitorName?.trim()) intakeRaw.name = opts.visitorName.trim();
+    if (opts.visitorEmail?.trim()) intakeRaw.email = opts.visitorEmail.trim();
+    if (opts.visitorPhone?.trim()) intakeRaw.phone = opts.visitorPhone.trim();
+    if (opts.contactReason?.trim()) intakeRaw.contact_reason = opts.contactReason.trim();
+    const applied = applyVisitorIntake(intakeRaw, widget.appearance);
+    const destinationId = await linkWebChatVisitorToDestination(
+      String(widget.clientId),
+      applied,
+      { pageUrl: opts.pageUrl, pageTitle: opts.pageTitle },
+    );
 
     let visitorToken = opts.visitorToken?.trim();
     let conversation: IWebChatConversation | null = null;
@@ -362,10 +423,15 @@ export class WebChatService {
         clientId: widget.clientId,
         widgetId: widget._id,
         visitorTokenHash: hashWebChatVisitorToken(visitorToken),
-        visitorName: opts.visitorName?.trim() || undefined,
-        visitorEmail: opts.visitorEmail?.trim() || undefined,
+        visitorName: applied.visitorName,
+        visitorEmail: applied.visitorEmail,
+        visitorPhone: applied.visitorPhone,
+        contactReason: applied.contactReason,
+        visitorIntake: applied.visitorIntake,
         pageUrl: opts.pageUrl?.trim() || undefined,
+        pageTitle: opts.pageTitle?.trim() || undefined,
         userAgent: opts.userAgent?.trim() || undefined,
+        destinationId,
         status: 'open',
         queueStatus: 'bot',
         unreadAgentCount: 0,
@@ -379,11 +445,30 @@ export class WebChatService {
           notifyVisitor: false,
         });
       }
+
+      const intakeNote = buildIntakeSystemNote(applied.visitorIntake, widget.appearance, {
+        url: opts.pageUrl,
+        title: opts.pageTitle,
+      });
+      if (intakeNote) {
+        await this.appendMessage(conversation, {
+          direction: 'system',
+          body: intakeNote,
+          notifyVisitor: false,
+        });
+      }
     } else {
       const patch: Partial<IWebChatConversation> = {};
-      if (opts.visitorName?.trim()) patch.visitorName = opts.visitorName.trim();
-      if (opts.visitorEmail?.trim()) patch.visitorEmail = opts.visitorEmail.trim();
+      if (applied.visitorName) patch.visitorName = applied.visitorName;
+      if (applied.visitorEmail) patch.visitorEmail = applied.visitorEmail;
+      if (applied.visitorPhone) patch.visitorPhone = applied.visitorPhone;
+      if (applied.contactReason) patch.contactReason = applied.contactReason;
+      if (Object.keys(applied.visitorIntake).length) {
+        patch.visitorIntake = { ...(conversation.visitorIntake ?? {}), ...applied.visitorIntake };
+      }
       if (opts.pageUrl?.trim()) patch.pageUrl = opts.pageUrl.trim();
+      if (opts.pageTitle?.trim()) patch.pageTitle = opts.pageTitle.trim();
+      if (destinationId) patch.destinationId = destinationId;
       if (Object.keys(patch).length) {
         Object.assign(conversation, patch);
         await conversation.save();
@@ -404,8 +489,37 @@ export class WebChatService {
       departmentName: session.departmentName,
       visitorName: session.visitorName,
       visitorEmail: session.visitorEmail,
+      visitorPhone: session.visitorPhone,
+      contactReason: session.contactReason,
+      visitorIntake: session.visitorIntake,
       messages: session.messages,
     };
+  }
+
+  private async aiContextFromConversation(
+    conversation: IWebChatConversation,
+    widget?: IWebChatWidget | null,
+  ) {
+    const w =
+      widget ??
+      (await WebChatWidget.findById(conversation.widgetId).lean());
+    const intake: Record<string, string> = { ...(conversation.visitorIntake ?? {}) };
+    if (!intake.name && conversation.visitorName?.trim()) {
+      intake.name = conversation.visitorName.trim();
+    }
+    if (!intake.email && conversation.visitorEmail?.trim()) {
+      intake.email = conversation.visitorEmail.trim();
+    }
+    if (!intake.phone && conversation.visitorPhone?.trim()) {
+      intake.phone = conversation.visitorPhone.trim();
+    }
+    if (!intake.contact_reason && conversation.contactReason?.trim()) {
+      intake.contact_reason = conversation.contactReason.trim();
+    }
+    return intakeForAiContext(intake, w?.appearance, {
+      url: conversation.pageUrl,
+      title: conversation.pageTitle,
+    });
   }
 
   async triggerProactiveGreeting(
@@ -668,6 +782,7 @@ export class WebChatService {
       const { contactName, contactIdentifier } = visitorDisplayName(
         r.visitorName,
         r.visitorEmail,
+        r.visitorPhone,
       );
       return {
         _id: toWebChatInboxId(String(r._id)),
@@ -730,6 +845,7 @@ export class WebChatService {
     const { contactName, contactIdentifier } = visitorDisplayName(
       convDoc.visitorName,
       convDoc.visitorEmail,
+      convDoc.visitorPhone,
     );
     let assignedUserName: string | undefined;
     if (convDoc.assignedUserId) {
@@ -757,6 +873,10 @@ export class WebChatService {
         channel: 'webchat_site',
         contactName,
         contactIdentifier,
+        destinationId: convDoc.destinationId ? String(convDoc.destinationId) : undefined,
+        visitorPhone: convDoc.visitorPhone,
+        contactReason: convDoc.contactReason,
+        visitorIntake: convDoc.visitorIntake as Record<string, string> | undefined,
         status: mapWebChatToInboxStatus(convDoc.status, convDoc.queueStatus),
         departmentName: detail.conversation.departmentName,
         departmentId: detail.conversation.departmentId,
@@ -781,6 +901,15 @@ export class WebChatService {
       pullTimeoutSeconds,
     );
 
+    const destination = convDoc.destinationId
+      ? await Destination.findOne({
+          _id: convDoc.destinationId,
+          clientId: new mongoose.Types.ObjectId(clientId),
+        })
+          .select('name email notes organization identifier contactGroupIds')
+          .lean()
+      : null;
+
     return {
       conversation: { ...conversation, createdAt: convDoc.createdAt.toISOString() },
       messages: detail.messages.map(m => ({
@@ -795,7 +924,17 @@ export class WebChatService {
         mediaFileName: m.mediaFileName,
       })),
       transfers: [],
-      contact: null,
+      contact: destination
+        ? {
+            _id: String(destination._id),
+            name: destination.name,
+            email: destination.email ?? '',
+            notes: destination.notes ?? '',
+            organization: destination.organization ?? '',
+            identifier: destination.identifier,
+            contactGroupIds: (destination.contactGroupIds ?? []).map(String),
+          }
+        : null,
       quickReplies: normalizeQuickReplies(inboxSettings.quickReplies),
     };
   }
@@ -841,12 +980,13 @@ export class WebChatService {
         ]),
       );
       const inboxSettings = await loadInboxSettings(clientId);
+      const display = visitorDisplayName(conv.visitorName, conv.visitorEmail, conv.visitorPhone);
       const enriched = await enrichWebChatInboxRow(
         {
           _id: toWebChatInboxId(String(conv._id)),
           channel: 'webchat_site',
-          contactName: conv.visitorName || conv.visitorEmail || 'Visitante',
-          contactIdentifier: conv.visitorEmail || 'chat do site',
+          contactName: display.contactName,
+          contactIdentifier: display.contactIdentifier,
           status: mapWebChatToInboxStatus(conv.status, conv.queueStatus),
           departmentName: dept?.name,
           departmentId: conv.departmentId ? String(conv.departmentId) : undefined,
@@ -1302,13 +1442,11 @@ export class WebChatService {
     let shouldEscalate = false;
 
     if (widget.autoReplyUseAi) {
+      const aiCtx = await this.aiContextFromConversation(fresh, widget);
       const ai = await WebChatAiService.getInstance().generateVisitorReply(
         String(conversation.clientId),
         String(conversation._id),
-        {
-          visitorName: fresh.visitorName,
-          visitorEmail: fresh.visitorEmail,
-        },
+        aiCtx,
       );
       if (ai) {
         body = ai.body;
@@ -1457,6 +1595,7 @@ export class WebChatService {
       const { contactName, contactIdentifier } = visitorDisplayName(
         conversation.visitorName,
         conversation.visitorEmail,
+        conversation.visitorPhone,
       );
       return enrichWebChatInboxRow(
         {
@@ -1526,15 +1665,17 @@ export class WebChatService {
 
     const inboxSettings = await loadInboxSettings(clientId);
     const agentMap = new Map([[userId, agentName]]);
+    const display = visitorDisplayName(
+      conversation.visitorName,
+      conversation.visitorEmail,
+      conversation.visitorPhone,
+    );
     return enrichWebChatInboxRow(
       {
         _id: toWebChatInboxId(String(conversation._id)),
         channel: 'webchat_site',
-        contactName:
-          conversation.visitorName?.trim() ||
-          conversation.visitorEmail?.trim() ||
-          'Visitante do site',
-        contactIdentifier: conversation.visitorEmail?.trim() || 'chat do site',
+        contactName: display.contactName,
+        contactIdentifier: display.contactIdentifier,
         status: 'in_progress',
         assignedUserId: userId,
         assignedUserName: agentName,
@@ -1589,6 +1730,7 @@ export class WebChatService {
     const { contactName } = visitorDisplayName(
       conversation.visitorName,
       conversation.visitorEmail,
+      conversation.visitorPhone,
     );
     const quickCode = parseQuickReplyCode(raw);
     const text = expandQuickReply(raw, quickReplies, contactName);
@@ -1723,6 +1865,7 @@ export class WebChatService {
     const { contactName, contactIdentifier } = visitorDisplayName(
       conversation.visitorName,
       conversation.visitorEmail,
+      conversation.visitorPhone,
     );
     const agentMap = new Map([[userId, agentName]]);
 

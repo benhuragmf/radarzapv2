@@ -7,6 +7,10 @@ export interface IWebChatConversation extends Document {
   visitorTokenHash: string;
   visitorName?: string;
   visitorEmail?: string;
+  visitorPhone?: string;
+  contactReason?: string;
+  visitorIntake?: Record<string, string>;
+  destinationId?: mongoose.Types.ObjectId;
   status: WebChatConversationStatus;
   queueStatus: WebChatQueueStatus;
   departmentId?: mongoose.Types.ObjectId;
@@ -32,6 +36,10 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     visitorTokenHash: { type: String, required: true, index: true },
     visitorName: { type: String, trim: true, maxlength: 120 },
     visitorEmail: { type: String, trim: true, lowercase: true, maxlength: 200 },
+    visitorPhone: { type: String, trim: true, maxlength: 40 },
+    contactReason: { type: String, trim: true, maxlength: 200 },
+    visitorIntake: { type: Schema.Types.Mixed, default: undefined },
+    destinationId: { type: Schema.Types.ObjectId, ref: 'Destination', index: true },
     status: { type: String, enum: ['open', 'closed'], default: 'open', index: true },
     queueStatus: {
       type: String,
@@ -46,6 +54,7 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     suggestedAt: { type: Date },
     assignedUserId: { type: String, index: true },
     pageUrl: { type: String, maxlength: 2000 },
+    pageTitle: { type: String, maxlength: 500 },
     userAgent: { type: String, maxlength: 500 },
     lastMessageAt: { type: Date, index: true },
     lastMessagePreview: { type: String, maxlength: 300 },

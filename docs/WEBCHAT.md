@@ -34,6 +34,8 @@ Escolha o modelo em **Chat do site → Widgets** (aplica cores/textos ao widget 
 | `/webchat/preview-tech.html?key=wck_...` | **Tecnológico** — dark, grid, suporte TI |
 | `/webchat/preview-saas.html?key=wck_...` | SaaS — gradiente roxo/rosa |
 | `/webchat/preview-minimal.html?key=wck_...` | Minimalista — branco e tipografia serif |
+| `/webchat/preview-luxe.html?key=wck_...` | **Luxe** (Premium) — concierge champagne, landing editorial |
+| `/webchat/preview-obsidian.html?key=wck_...` | **Obsidian** (Premium) — executivo dark com ouro |
 | `/webchat/widget.html` | Atalho dev com links para todos os modelos |
 | `/webchat/demo.html?key=wck_...` | Legado (genérico) |
 
@@ -73,10 +75,20 @@ Snippet equivalente ao `widget.html`:
 
 - Ao encerrar, exibe **Nova conversa** (limpa sessão e abre novo atendimento).
 - Botão **×** no cabeçalho e **Fechar janela** após encerramento (2.10.9).
-- **Encerrar atendimento** — link no rodapé do chat; visitante fecha a conversa (`POST /api/webchat/public/sessions/close`) sem precisar digitar (2.10.37).
+- **Encerrar atendimento** — link no rodapé do chat; ao clicar, confirmação inline entre emojis e enviar (**Sim** / **Não**); visitante fecha a conversa (`POST /api/webchat/public/sessions/close`) (2.10.48).
 - Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
 - Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
 - **Tema claro/escuro** (`appearance.theme`, 2.10.17): modelo **Tecnológico** aplica tema escuro (fundo `#060b14`, grid sutil, bolhas escuras). Editor: **Tema do chat** em Widgets.
+- **Modelos de preview** (2.10.38): cards com miniatura do site + widget, badge claro/escuro, “Ideal para” e páginas HTML aprimoradas (Clássico, Tecnológico, SaaS, Minimalista).
+- **Modelos premium** (2.10.39): **Luxe** (concierge champagne/dourado, tema claro) e **Obsidian** (executivo escuro com ouro, tema dark) — landing completa com serviços, depoimentos e métricas.
+- **UI coleção premium** (2.10.40): seção destacada no painel — cards grandes com borda dourada, lista de destaques, miniatura da landing completa e botão “Aplicar premium”; modelos essenciais ficam em grid menor abaixo.
+- **Coleta de dados visitante** (2.10.41): pré-chat em etapas (nome → WhatsApp → motivo → e-mail opcional); campos `visitorPhone`, `contactReason`, `pageTitle`; contexto na IA; painel “Informações para IA e chatbot”.
+- **Campos configuráveis por empresa** (2.10.42): editor de pré-chat com ativar/obrigatório, campos custom (pedido, NF, etc.), ordem e exemplos rápidos; `visitorIntake` + `prechatFields` no widget.
+- **Modo formulário** (2.10.43): exibir todos os campos na mesma tela (`prechatMode: form`); tipo `textarea` com `maxLength`; preset **Formulário clássico** (Nome + Telefone + Motivo 150 caracteres).
+- **Fix modo formulário** (2.10.44): `prechatMode` persistido no servidor + salvamento automático ao trocar modo no painel; widget recarrega `form` corretamente.
+- **Fix IA WebChat** (2.10.45): toggle **Usar IA** de volta na seção de IA (não removido); salvamento automático; contexto da IA usa dados do formulário + campos legados da conversa.
+- **Dados do visitante** (2.10.46): intake não vai mais como mensagem no chat do visitante; vincula contato existente pelo telefone e atualiza perfil/notas; painel Inbox exibe motivo e telefone.
+- **Intake no Inbox** (2.10.47): mensagem `📋 Dados do visitante` visível só no chat do painel (`/platform/inbox`); oculta no widget do visitante.
 
 ## Resposta automática (2.9.4)
 

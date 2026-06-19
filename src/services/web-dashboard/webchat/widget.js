@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.37';
+  var WIDGET_BUILD = '2.10.48';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -263,6 +263,9 @@
     conversationId: readStore().conversationId || null,
     visitorName: '',
     visitorEmail: '',
+    visitorIntake: {},
+    prechatSkippedOptional: {},
+    selectOtherDraft: '',
     conversationStatus: 'open',
     queueStatus: 'bot',
     departmentName: '',
@@ -283,6 +286,7 @@
     proactiveInviteClicked: false,
     skipPrechat: false,
     closingConversation: false,
+    endConfirmOpen: false,
     presenceId: null,
     presenceTimer: null,
   };
@@ -494,15 +498,235 @@
     }, delaySec * 1000);
   }
 
+  function legacyPrechatFields(config) {
+    var fields = [];
+    if (config.askName) {
+      fields.push({
+        id: 'name',
+        label: 'Nome',
+        type: 'text',
+        enabled: true,
+        required: true,
+        placeholder: 'Seu nome',
+      });
+    }
+    if (config.askPhone !== false) {
+      fields.push({
+        id: 'phone',
+        label: 'WhatsApp',
+        type: 'phone',
+        enabled: true,
+        required: true,
+        placeholder: '(11) 99999-9999',
+      });
+    }
+    if (config.askContactReason !== false) {
+      fields.push({
+        id: 'contact_reason',
+        label: 'Motivo do contato',
+        type: 'select',
+        enabled: true,
+        required: true,
+        options:
+          config.contactReasonOptions && config.contactReasonOptions.length
+            ? config.contactReasonOptions
+            : ['Quero saber preços', 'Quero contratar', 'Preciso de suporte', 'Dúvida sobre planos', 'Outro'],
+      });
+    }
+    if (config.askEmail) {
+      fields.push({
+        id: 'email',
+        label: 'E-mail',
+        type: 'email',
+        enabled: true,
+        required: false,
+        placeholder: 'seu@email.com',
+      });
+    }
+    return fields;
+  }
+
+  function activePrechatFields() {
+    if (!state.config) return [];
+    if (state.config.prechatFields && state.config.prechatFields.length) {
+      return state.config.prechatFields.filter(function (f) {
+        return f.enabled;
+      });
+    }
+    return legacyPrechatFields(state.config);
+  }
+
+  function prechatFieldsEnabled() {
+    return activePrechatFields().length > 0;
+  }
+
+  function intakeValue(fieldId) {
+    return String((state.visitorIntake && state.visitorIntake[fieldId]) || '').trim();
+  }
+
+  function getPrechatStep() {
+    if (state.skipPrechat) return null;
+    if (!state.config) return null;
+    if (state.conversationStatus === 'closed' || isConversationEnded()) return null;
+    var fields = activePrechatFields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      var val = intakeValue(f.id);
+      if (f.required && !val) return f.id;
+      if (!f.required && !state.prechatSkippedOptional[f.id] && !val) return f.id;
+    }
+    return null;
+  }
+
+  function isFormPrechatMode() {
+    return state.config && state.config.prechatMode === 'form';
+  }
+
+  function prechatInputId(fieldId) {
+    return 'rz-prechat-field-' + fieldId;
+  }
+
+  function renderPrechatFieldBlock(field, t, inputStyle, reasonBtnStyle, formMode) {
+    var margin = formMode ? 'margin-bottom:12px;' : '';
+    var label =
+      '<label style="display:block;font-size:12px;color:' +
+      t.textMuted +
+      ';' +
+      margin +
+      '">' +
+      escHtml(field.label) +
+      (field.required ? ' *' : formMode ? '' : '') +
+      (formMode && !field.required ? ' <span style="opacity:.7;">(opcional)</span>' : '');
+
+    if (field.type === 'select') {
+      if (formMode) {
+        var opts = field.options && field.options.length ? field.options : ['Outro'];
+        var selected = intakeValue(field.id);
+        return (
+          label +
+          '<select id="' +
+          prechatInputId(field.id) +
+          '" data-field="' +
+          escHtml(field.id) +
+          '" style="' +
+          inputStyle +
+          '"><option value="">Selecione…</option>' +
+          opts
+            .map(function (opt) {
+              return (
+                '<option value="' +
+                escHtml(opt) +
+                '"' +
+                (selected === opt ? ' selected' : '') +
+                '>' +
+                escHtml(opt) +
+                '</option>'
+              );
+            })
+            .join('') +
+          '</select></label>'
+        );
+      }
+      return '';
+    }
+
+    if (field.type === 'textarea') {
+      var maxAttr = field.maxLength ? ' maxlength="' + field.maxLength + '"' : '';
+      var counter = field.maxLength
+        ? '<div style="font-size:10px;color:' +
+          t.textMuted +
+          ';margin-top:4px;text-align:right;">Máx. ' +
+          field.maxLength +
+          ' caracteres</div>'
+        : '';
+      return (
+        label +
+        '<textarea id="' +
+        prechatInputId(field.id) +
+        '" data-field="' +
+        escHtml(field.id) +
+        '" rows="3"' +
+        maxAttr +
+        ' placeholder="' +
+        escHtml(field.placeholder || '') +
+        '" style="' +
+        inputStyle +
+        'resize:vertical;min-height:72px;">' +
+        escHtml(intakeValue(field.id)) +
+        '</textarea>' +
+        counter +
+        '</label>'
+      );
+    }
+
+    var inputType = field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text';
+    var maxAttr2 = field.maxLength ? ' maxlength="' + field.maxLength + '"' : '';
+    return (
+      label +
+      '<input id="' +
+      prechatInputId(field.id) +
+      '" data-field="' +
+      escHtml(field.id) +
+      '" type="' +
+      inputType +
+      '" value="' +
+      escHtml(intakeValue(field.id)) +
+      '" placeholder="' +
+      escHtml(field.placeholder || '') +
+      '"' +
+      maxAttr2 +
+      ' style="' +
+      inputStyle +
+      '" /></label>'
+    );
+  }
+
+  function formPrechatIncomplete() {
+    var fields = activePrechatFields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      if (f.required && !intakeValue(f.id)) return true;
+    }
+    return false;
+  }
+
   function needsPrechat() {
     if (state.skipPrechat) return false;
     if (!state.config) return false;
     if (state.conversationStatus === 'closed' || isConversationEnded()) return false;
-    var askName = !!state.config.askName;
-    var askEmail = !!state.config.askEmail;
-    if (!askName && !askEmail) return false;
-    if (askName && !String(state.visitorName || '').trim()) return true;
-    if (askEmail && !String(state.visitorEmail || '').trim()) return true;
+    if (!prechatFieldsEnabled()) return false;
+    if (isFormPrechatMode()) {
+      if (!state.visitorToken || formPrechatIncomplete()) return true;
+      return !state.started;
+    }
+    return getPrechatStep() !== null;
+  }
+
+  function isValidPhone(val) {
+    var digits = String(val || '').replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 15;
+  }
+
+  function isValidEmail(val) {
+    return val.indexOf('@') >= 1 && val.indexOf('.') >= 3;
+  }
+
+  function visitorFirstName() {
+    var n = intakeValue('name') || String(state.visitorName || '').trim();
+    return n ? n.split(/\s+/)[0] : '';
+  }
+
+  function syncLegacyFromIntake() {
+    if (state.visitorIntake.name) state.visitorName = state.visitorIntake.name;
+    if (state.visitorIntake.email) state.visitorEmail = state.visitorIntake.email;
+  }
+
+  function isHiddenVisitorSystemMessage(message) {
+    if (!message || message.direction !== 'system') return false;
+    var body = String(message.body || '').trim();
+    if (body.indexOf('📋 Dados do visitante') === 0) return true;
+    if (/^Prioridade para .+ — aguardando aceite no painel\.$/.test(body)) return true;
+    if (body === 'Nenhum atendente online no painel — fila aberta para a equipe assumir.') return true;
     return false;
   }
 
@@ -512,16 +736,32 @@
     if (data.conversationId) state.conversationId = data.conversationId;
     if (data.visitorName !== undefined) state.visitorName = data.visitorName || '';
     if (data.visitorEmail !== undefined) state.visitorEmail = data.visitorEmail || '';
+    if (data.visitorIntake) state.visitorIntake = data.visitorIntake;
+    else if (data.visitorName || data.visitorEmail || data.visitorPhone || data.contactReason) {
+      var prev = state.visitorIntake || {};
+      state.visitorIntake = {
+        name: data.visitorName || prev.name,
+        email: data.visitorEmail || prev.email,
+        phone: data.visitorPhone || prev.phone,
+        contact_reason: data.contactReason || prev.contact_reason,
+      };
+    }
+    syncLegacyFromIntake();
     if (data.status) state.conversationStatus = data.status;
     if (data.queueStatus) state.queueStatus = data.queueStatus;
     if (data.departmentName !== undefined) state.departmentName = data.departmentName || '';
-    if (data.messages) state.messages = data.messages;
+    if (data.messages) {
+      state.messages = data.messages.filter(function (m) {
+        return !isHiddenVisitorSystemMessage(m);
+      });
+    }
   }
 
   function pushChatMessages(items) {
     if (!items || !items.length) return;
     items.forEach(function (item) {
       if (!item || !item.id) return;
+      if (isHiddenVisitorSystemMessage(item)) return;
       var exists = state.messages.some(function (m) {
         return m.id === item.id;
       });
@@ -772,9 +1012,162 @@
     var t = ui();
     var title = (state.config && state.config.title) || 'Fale conosco';
     var subtitle = (state.config && state.config.subtitle) || '';
-    var askName = state.config && state.config.askName;
-    var askEmail = state.config && state.config.askEmail;
     var mode = resolvePanelMode();
+    var prechatStep = getPrechatStep();
+    var stepField = null;
+    if (prechatStep) {
+      var allFields = activePrechatFields();
+      for (var fi = 0; fi < allFields.length; fi++) {
+        if (allFields[fi].id === prechatStep) {
+          stepField = allFields[fi];
+          break;
+        }
+      }
+    }
+    var inputStyle =
+      'width:100%;margin-top:4px;padding:10px;border:1px solid ' +
+      t.inputBorder +
+      ';border-radius:8px;font-size:14px;background:' +
+      t.inputBg +
+      ';color:' +
+      t.inputColor +
+      ';';
+    var btnStyle =
+      'width:100%;padding:10px;border:none;border-radius:10px;background:' +
+      primaryColor() +
+      ';color:#fff;font-weight:600;cursor:pointer;margin-top:10px;';
+    var reasonBtnStyle =
+      'display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;border:1px solid ' +
+      t.inputBorder +
+      ';border-radius:10px;background:' +
+      t.inputBg +
+      ';color:' +
+      t.inputColor +
+      ';font-size:13px;cursor:pointer;';
+
+    var prechatTitle = 'Antes de começar';
+    var prechatBody = '';
+    var formMode = isFormPrechatMode();
+
+    if (formMode && needsPrechat()) {
+      prechatTitle = 'Preencha para iniciar o atendimento';
+      prechatBody = activePrechatFields()
+        .map(function (field) {
+          return renderPrechatFieldBlock(field, t, inputStyle, reasonBtnStyle, true);
+        })
+        .join('');
+    } else if (stepField) {
+      var isFirst = activePrechatFields()[0] && activePrechatFields()[0].id === stepField.id;
+      if (isFirst && stepField.id === 'name') {
+        prechatTitle = 'Olá! Estou aqui para te ajudar 😊';
+      } else if (stepField.id === 'name') {
+        prechatTitle = stepField.label;
+      } else if (visitorFirstName()) {
+        prechatTitle = 'Obrigado, ' + escHtml(visitorFirstName()) + '.';
+      } else {
+        prechatTitle = stepField.label;
+      }
+
+      if (stepField.type === 'select') {
+        var opts = stepField.options && stepField.options.length ? stepField.options : ['Outro'];
+        prechatBody =
+          '<p style="font-size:13px;color:' +
+          t.textMuted +
+          ';margin:0 0 10px;">' +
+          escHtml(stepField.label) +
+          (stepField.required ? '' : ' (opcional)') +
+          '</p><div id="rz-webchat-reason-list">' +
+          opts
+            .map(function (opt) {
+              return (
+                '<button type="button" class="rz-prechat-pick" data-field="' +
+                escHtml(stepField.id) +
+                '" data-value="' +
+                escHtml(opt) +
+                '" style="' +
+                reasonBtnStyle +
+                (state.selectOtherDraft === opt ? 'border-color:' + primaryColor() + ';' : '') +
+                '">' +
+                escHtml(opt) +
+                '</button>'
+              );
+            })
+            .join('') +
+          '</div>' +
+          (state.selectOtherDraft === 'Outro'
+            ? '<label style="display:block;font-size:12px;color:' +
+              t.textMuted +
+              ';margin-top:4px;">Descreva brevemente' +
+              '<input id="rz-prechat-other" data-field="' +
+              escHtml(stepField.id) +
+              '" value="' +
+              escHtml(intakeValue(stepField.id)) +
+              '" placeholder="Sua resposta" style="' +
+              inputStyle +
+              '" /></label>'
+            : '');
+      } else {
+        var inputType = stepField.type === 'email' ? 'email' : stepField.type === 'phone' ? 'tel' : 'text';
+        var optionalHint =
+          !stepField.required
+            ? '<p style="font-size:12px;color:' +
+              t.textMuted +
+              ';margin:0 0 8px;">Opcional — pode continuar em branco.</p>'
+            : '';
+        if (stepField.type === 'textarea') {
+          prechatBody =
+            optionalHint +
+            renderPrechatFieldBlock(stepField, t, inputStyle, reasonBtnStyle, false);
+        } else {
+          prechatBody =
+            optionalHint +
+            '<label style="display:block;font-size:12px;color:' +
+            t.textMuted +
+            ';">' +
+            escHtml(stepField.label) +
+            (stepField.required ? ' *' : '') +
+            '<input id="' +
+            prechatInputId(stepField.id) +
+            '" data-field="' +
+            escHtml(stepField.id) +
+            '" type="' +
+            inputType +
+            '" value="' +
+            escHtml(intakeValue(stepField.id)) +
+            '" placeholder="' +
+            escHtml(stepField.placeholder || '') +
+            '"' +
+            (stepField.maxLength ? ' maxlength="' + stepField.maxLength + '"' : '') +
+            ' style="' +
+            inputStyle +
+            '" /></label>';
+        }
+      }
+    }
+
+    var prechat =
+      '<div id="rz-webchat-prechat" style="flex:1;overflow:auto;padding:14px;background:' +
+      t.prechatBg +
+      ';">' +
+      '<div style="font-size:13px;font-weight:600;color:' +
+      t.text +
+      ';margin-bottom:10px;">' +
+      escHtml(prechatTitle) +
+      '</div>' +
+      prechatBody +
+      (state.prechatError
+        ? '<div style="font-size:12px;color:' + t.errorText + ';margin-top:8px;">' + escHtml(state.prechatError) + '</div>'
+        : '') +
+      (formMode && needsPrechat()
+        ? '<button type="button" id="rz-webchat-prechat-next" style="' + btnStyle + '">Iniciar conversa</button>'
+        : prechatStep &&
+          (!stepField ||
+            stepField.type !== 'select' ||
+            (stepField.type === 'select' && state.selectOtherDraft === 'Outro') ||
+            !stepField.required)
+          ? '<button type="button" id="rz-webchat-prechat-next" style="' + btnStyle + '">Continuar</button>'
+          : '') +
+      '</div>';
     var visitorLabel =
       state.visitorName || state.visitorEmail
         ? escHtml(state.visitorName || state.visitorEmail)
@@ -889,50 +1282,6 @@
       })
       .join('');
 
-    var prechat =
-      '<div id="rz-webchat-prechat" style="flex:1;overflow:auto;padding:14px;background:' +
-      t.prechatBg +
-      ';">' +
-      '<div style="font-size:13px;font-weight:600;color:' +
-      t.text +
-      ';margin-bottom:10px;">Antes de começar</div>' +
-      (askName
-        ? '<label style="display:block;font-size:12px;color:' +
-          t.textMuted +
-          ';margin-bottom:4px;">Nome *' +
-          '<input id="rz-webchat-name" value="' +
-          escHtml(state.visitorName || '') +
-          '" placeholder="Seu nome" style="width:100%;margin-top:4px;padding:10px;border:1px solid ' +
-          t.inputBorder +
-          ';border-radius:8px;font-size:14px;background:' +
-          t.inputBg +
-          ';color:' +
-          t.inputColor +
-          ';" /></label>'
-        : '') +
-      (askEmail
-        ? '<label style="display:block;font-size:12px;color:' +
-          t.textMuted +
-          ';margin-bottom:8px;' +
-          (askName ? 'margin-top:8px;' : '') +
-          '">E-mail *' +
-          '<input id="rz-webchat-email" type="email" value="' +
-          escHtml(state.visitorEmail || '') +
-          '" placeholder="seu@email.com" style="width:100%;margin-top:4px;padding:10px;border:1px solid ' +
-          t.inputBorder +
-          ';border-radius:8px;font-size:14px;background:' +
-          t.inputBg +
-          ';color:' +
-          t.inputColor +
-          ';" /></label>'
-        : '') +
-      (state.prechatError
-        ? '<div style="font-size:12px;color:' + t.errorText + ';margin-bottom:8px;">' + escHtml(state.prechatError) + '</div>'
-        : '') +
-      '<button type="button" id="rz-webchat-start" style="width:100%;padding:10px;border:none;border-radius:10px;background:' +
-      primaryColor() +
-      ';color:#fff;font-weight:600;cursor:pointer;">Iniciar conversa</button></div>';
-
     var messagesBlock =
       '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:16px 14px 12px;background:' +
       t.messagesBg +
@@ -969,8 +1318,8 @@
       '<textarea id="rz-webchat-input" rows="1" placeholder="Envie uma mensagem..." autocomplete="off" style="width:100%;min-height:22px;max-height:120px;padding:0;border:none;font-size:14px;line-height:1.45;background:transparent;color:' +
       t.inputColor +
       ';outline:none;resize:none;font-family:inherit;"></textarea>' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:8px;">' +
-      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<div style="display:flex;align-items:center;margin-top:8px;gap:8px;">' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
       '<button type="button" id="rz-webchat-attach" title="Anexar arquivo" style="' +
       toolBtn +
       '">+</button>' +
@@ -980,13 +1329,33 @@
       toolBtn +
       '">😊</button>' +
       '</div>' +
-      '<button type="submit" id="rz-webchat-send" title="Enviar" style="width:38px;height:38px;border:none;border-radius:999px;background:' +
+      (state.endConfirmOpen
+        ? '<div id="rz-webchat-end-confirm" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 4px;">' +
+          '<span style="font-size:11px;color:' +
+          t.textMuted +
+          ';white-space:nowrap;">Encerrar atendimento?</span>' +
+          '<button type="button" id="rz-webchat-end-confirm-yes" style="padding:5px 10px;border:none;border-radius:999px;background:' +
+          primaryColor() +
+          ';color:#fff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">Sim</button>' +
+          '<button type="button" id="rz-webchat-end-confirm-no" style="padding:5px 10px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:999px;background:' +
+          t.attachBg +
+          ';color:' +
+          t.text +
+          ';font-size:11px;cursor:pointer;white-space:nowrap;">Não</button>' +
+          '</div>'
+        : '<div style="flex:1;min-width:8px;"></div>') +
+      '<button type="submit" id="rz-webchat-send" title="Enviar" style="flex-shrink:0;width:38px;height:38px;border:none;border-radius:999px;background:' +
       primaryColor() +
       ';color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.18);">↑</button>' +
       '</div></div></form>' +
-      '<button type="button" id="rz-webchat-end" style="width:100%;margin-top:8px;padding:6px 8px;border:none;background:transparent;color:' +
-      t.textMuted +
-      ';font-size:11px;line-height:1.3;cursor:pointer;text-decoration:underline;">Encerrar atendimento</button></div>';
+      (state.endConfirmOpen
+        ? ''
+        : '<button type="button" id="rz-webchat-end" style="width:100%;margin-top:8px;padding:6px 8px;border:none;background:transparent;color:' +
+          t.textMuted +
+          ';font-size:11px;line-height:1.3;cursor:pointer;text-decoration:underline;">Encerrar atendimento</button>') +
+      '</div>';
 
     var panelBody = '';
     if (mode === 'prechat') {
@@ -1065,7 +1434,7 @@
 
   function closeConversationByVisitor() {
     if (!state.visitorToken || state.conversationStatus === 'closed' || state.closingConversation) return;
-    if (!window.confirm('Deseja encerrar este atendimento?')) return;
+    state.endConfirmOpen = false;
     state.closingConversation = true;
     renderBubble();
     apiFetch(baseUrl, '/sessions/close', {
@@ -1100,10 +1469,25 @@
   }
 
   function bindPanelEvents() {
-    var startBtn = document.getElementById('rz-webchat-start');
-    if (startBtn) {
-      startBtn.onclick = function () {
-        startSession();
+    var prechatNext = document.getElementById('rz-webchat-prechat-next');
+    if (prechatNext) {
+      prechatNext.onclick = function () {
+        advancePrechatStep();
+      };
+    }
+    var reasonPicks = document.getElementsByClassName('rz-prechat-pick');
+    for (var ri = 0; ri < reasonPicks.length; ri++) {
+      reasonPicks[ri].onclick = function () {
+        var fieldId = this.getAttribute('data-field') || '';
+        var value = this.getAttribute('data-value') || '';
+        state.selectOtherDraft = value;
+        if (value !== 'Outro') {
+          state.visitorIntake[fieldId] = value;
+          state.selectOtherDraft = '';
+          advancePrechatStep();
+        } else {
+          renderBubble();
+        }
       };
     }
     var newBtn = document.getElementById('rz-webchat-new');
@@ -1115,11 +1499,27 @@
     var endBtn = document.getElementById('rz-webchat-end');
     if (endBtn) {
       endBtn.onclick = function () {
+        state.endConfirmOpen = true;
+        state.emojiPickerOpen = false;
+        renderBubble();
+      };
+    }
+    var endConfirmYes = document.getElementById('rz-webchat-end-confirm-yes');
+    if (endConfirmYes) {
+      endConfirmYes.onclick = function () {
         closeConversationByVisitor();
       };
-      endBtn.disabled = !!state.closingConversation;
-      endBtn.style.opacity = state.closingConversation ? '0.6' : '1';
-      endBtn.textContent = state.closingConversation ? 'Encerrando…' : 'Encerrar atendimento';
+      endConfirmYes.disabled = !!state.closingConversation;
+      endConfirmYes.style.opacity = state.closingConversation ? '0.6' : '1';
+      if (state.closingConversation) endConfirmYes.textContent = '…';
+    }
+    var endConfirmNo = document.getElementById('rz-webchat-end-confirm-no');
+    if (endConfirmNo) {
+      endConfirmNo.onclick = function () {
+        state.endConfirmOpen = false;
+        renderBubble();
+      };
+      endConfirmNo.disabled = !!state.closingConversation;
     }
     var closeBtn = document.getElementById('rz-webchat-close');
     if (closeBtn) {
@@ -1347,6 +1747,13 @@
     state.messages = [];
     state.started = false;
     state.prechatError = '';
+    state.visitorName = '';
+    state.visitorEmail = '';
+    state.visitorIntake = {};
+    state.prechatSkippedOptional = {};
+    state.selectOtherDraft = '';
+    state.endConfirmOpen = false;
+    state.closingConversation = false;
     writeStore({ visitorToken: null, conversationId: null });
     renderBubble();
     if (!needsPrechat()) {
@@ -1354,40 +1761,136 @@
     }
   }
 
-  function validatePrechatInputs(nameEl, emailEl) {
-    if (state.config && state.config.askName) {
-      if (!nameEl || !nameEl.value.trim()) {
-        state.prechatError = 'Informe seu nome para continuar.';
-        return false;
-      }
-    }
-    if (state.config && state.config.askEmail) {
-      if (!emailEl || !emailEl.value.trim()) {
-        state.prechatError = 'Informe seu e-mail para continuar.';
-        return false;
-      }
-      var email = emailEl.value.trim();
-      if (email.indexOf('@') < 1 || email.indexOf('.') < 3) {
-        state.prechatError = 'Informe um e-mail válido.';
-        return false;
-      }
-    }
-    state.prechatError = '';
-    return true;
+  function readFieldValueFromDom(field) {
+    var el = document.getElementById(prechatInputId(field.id));
+    return el ? String(el.value || '').trim() : intakeValue(field.id);
   }
 
-  function startSession() {
-    var nameEl = document.getElementById('rz-webchat-name');
-    var emailEl = document.getElementById('rz-webchat-email');
-    if (needsPrechat() && !validatePrechatInputs(nameEl, emailEl)) {
+  function validateFieldValue(field, val) {
+    if (!val) {
+      if (field.required) return 'Preencha "' + field.label + '" para continuar.';
+      return null;
+    }
+    if (field.type === 'phone' && !isValidPhone(val)) {
+      return 'Informe um telefone válido em "' + field.label + '".';
+    }
+    if (field.type === 'email' && !isValidEmail(val)) {
+      return 'Informe um e-mail válido em "' + field.label + '".';
+    }
+    if (field.maxLength && val.length > field.maxLength) {
+      return '"' + field.label + '" deve ter no máximo ' + field.maxLength + ' caracteres.';
+    }
+    return null;
+  }
+
+  function advancePrechatForm() {
+    state.prechatError = '';
+    var fields = activePrechatFields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      var val = readFieldValueFromDom(f);
+      var err = validateFieldValue(f, val);
+      if (err) {
+        state.prechatError = err;
+        renderBubble();
+        return;
+      }
+      if (val) state.visitorIntake[f.id] = val;
+      else delete state.visitorIntake[f.id];
+    }
+    syncLegacyFromIntake();
+    startSessionCore();
+  }
+
+  function advancePrechatStep() {
+    if (isFormPrechatMode()) {
+      advancePrechatForm();
+      return;
+    }
+    state.prechatError = '';
+    var stepId = getPrechatStep();
+    if (!stepId) {
+      startSessionCore();
+      return;
+    }
+
+    var stepField = null;
+    var fields = activePrechatFields();
+    for (var i = 0; i < fields.length; i++) {
+      if (fields[i].id === stepId) {
+        stepField = fields[i];
+        break;
+      }
+    }
+    if (!stepField) {
+      startSessionCore();
+      return;
+    }
+
+    if (stepField.type === 'select') {
+      if (state.selectOtherDraft === 'Outro') {
+        var otherEl = document.getElementById('rz-prechat-other');
+        if (!otherEl || !otherEl.value.trim()) {
+          state.prechatError = 'Descreva brevemente para continuar.';
+          renderBubble();
+          return;
+        }
+        state.visitorIntake[stepField.id] = otherEl.value.trim();
+        state.selectOtherDraft = '';
+      } else if (!intakeValue(stepField.id)) {
+        state.prechatError = 'Escolha uma opção para continuar.';
+        renderBubble();
+        return;
+      }
+    } else {
+      var val = readFieldValueFromDom(stepField);
+      if (!val) {
+        if (stepField.required) {
+          state.prechatError = 'Preencha este campo para continuar.';
+          renderBubble();
+          return;
+        }
+        state.prechatSkippedOptional[stepField.id] = true;
+      } else {
+        if (stepField.type === 'phone' && !isValidPhone(val)) {
+          state.prechatError = 'Informe um telefone válido (com DDD).';
+          renderBubble();
+          return;
+        }
+        if (stepField.type === 'email' && !isValidEmail(val)) {
+          state.prechatError = 'Informe um e-mail válido.';
+          renderBubble();
+          return;
+        }
+        if (stepField.maxLength && val.length > stepField.maxLength) {
+          state.prechatError = 'Máximo de ' + stepField.maxLength + ' caracteres.';
+          renderBubble();
+          return;
+        }
+        state.visitorIntake[stepField.id] = val;
+      }
+    }
+
+    syncLegacyFromIntake();
+
+    if (needsPrechat()) {
       renderBubble();
       return;
     }
+    startSessionCore();
+  }
+
+  function startSessionCore() {
+    syncLegacyFromIntake();
     var body = {
       visitorToken: state.visitorToken,
-      visitorName: nameEl ? nameEl.value.trim() : state.visitorName || undefined,
-      visitorEmail: emailEl ? emailEl.value.trim() : state.visitorEmail || undefined,
+      visitorIntake: state.visitorIntake,
+      visitorName: state.visitorIntake.name || state.visitorName || undefined,
+      visitorEmail: state.visitorIntake.email || state.visitorEmail || undefined,
+      visitorPhone: state.visitorIntake.phone || undefined,
+      contactReason: state.visitorIntake.contact_reason || undefined,
       pageUrl: window.location.href,
+      pageTitle: document.title || '',
     };
     apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/sessions', {
       method: 'POST',
@@ -1396,6 +1899,8 @@
       .then(function (data) {
         applySessionData(data);
         state.started = true;
+        state.selectOtherDraft = '';
+        state.prechatSkippedOptional = {};
         writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
         connectSocket();
         renderBubble();
@@ -1403,6 +1908,14 @@
       .catch(function (err) {
         console.error('[RadarZap WebChat]', err.message);
       });
+  }
+
+  function startSession() {
+    if (needsPrechat()) {
+      advancePrechatStep();
+      return;
+    }
+    startSessionCore();
   }
 
   function sendMessageWithText(text) {
@@ -1561,6 +2074,7 @@
       proactiveDismissCooldownMs: proactiveDismissRemainingMs(),
       proactiveLastError: state.proactiveLastError || null,
       proactiveSkipReason: state.proactiveSkipReason || null,
+      prechatMode: state.config ? state.config.prechatMode || 'steps' : null,
       chatOpen: state.open,
       chatEverOpened: presenceEngagementFlags().chatEverOpened,
       proactiveInviteClicked: presenceEngagementFlags().proactiveInviteClicked,
