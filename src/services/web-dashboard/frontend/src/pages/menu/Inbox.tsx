@@ -308,6 +308,7 @@ export default function Inbox() {
   const [visitorTyping, setVisitorTyping] = useState(false)
   const visitorTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const agentTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const agentTypingActiveRef = useRef(false)
 
   const activeQuickFilter: QuickFilter = useMemo(() => {
     if (hasTicketOnly) return 'tickets'
@@ -659,12 +660,21 @@ export default function Inbox() {
     }
 
     if (!trimmed) {
-      sendTyping(false)
+      if (agentTypingActiveRef.current) {
+        sendTyping(false)
+        agentTypingActiveRef.current = false
+      }
       return
     }
 
-    sendTyping(true)
-    agentTypingTimerRef.current = setTimeout(() => sendTyping(false), AGENT_TYPING_STOP_MS)
+    if (!agentTypingActiveRef.current) {
+      sendTyping(true)
+      agentTypingActiveRef.current = true
+    }
+    agentTypingTimerRef.current = setTimeout(() => {
+      sendTyping(false)
+      agentTypingActiveRef.current = false
+    }, AGENT_TYPING_STOP_MS)
 
     return () => {
       if (agentTypingTimerRef.current) clearTimeout(agentTypingTimerRef.current)

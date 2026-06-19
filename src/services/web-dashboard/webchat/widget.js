@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.65';
+  var WIDGET_BUILD = '2.10.66';
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
@@ -294,6 +294,7 @@
     remoteTyping: null,
     remoteTypingTimer: null,
     visitorTypingStopTimer: null,
+    visitorTypingActive: false,
     unreadCount: 0,
     firstUnreadMessageId: null,
     messagePreview: null,
@@ -482,6 +483,14 @@
     }
   }
 
+  function remoteTypingMatches(payload) {
+    if (!state.remoteTyping || !payload) return false;
+    return (
+      state.remoteTyping.senderType === (payload.senderType || 'agent') &&
+      String(state.remoteTyping.senderName || '') === String(payload.senderName || '')
+    );
+  }
+
   function handleRemoteTyping(payload) {
     if (!payload || payload.senderType === 'visitor') return;
     var convId = payload.conversationId ? String(payload.conversationId) : '';
@@ -496,6 +505,7 @@
       }, REMOTE_TYPING_HIDE_GRACE_MS);
       return;
     }
+    var alreadyVisible = remoteTypingMatches(payload);
     state.remoteTyping = {
       senderType: payload.senderType || 'agent',
       senderName: payload.senderName || '',
@@ -505,7 +515,7 @@
       clearRemoteTyping();
       renderBubble();
     }, REMOTE_TYPING_IDLE_MS);
-    renderBubble();
+    if (!alreadyVisible) renderBubble();
   }
 
   function emitVisitorTyping(typing) {
@@ -526,9 +536,13 @@
   }
 
   function scheduleVisitorTypingPulse() {
-    emitVisitorTyping(true);
+    if (!state.visitorTypingActive) {
+      state.visitorTypingActive = true;
+      emitVisitorTyping(true);
+    }
     if (state.visitorTypingStopTimer) clearTimeout(state.visitorTypingStopTimer);
     state.visitorTypingStopTimer = setTimeout(function () {
+      state.visitorTypingActive = false;
       emitVisitorTyping(false);
     }, 2000);
   }
