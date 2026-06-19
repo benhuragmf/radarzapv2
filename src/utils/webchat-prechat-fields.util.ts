@@ -211,6 +211,7 @@ export function syncLegacyAppearanceFlags(
       ? reason.options
       : [...DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS],
     theme: base.theme ?? DEFAULT_WEBCHAT_APPEARANCE.theme,
+    chatLayout: base.chatLayout === 'copilot' ? 'copilot' : 'classic',
     previewTemplateId: base.previewTemplateId,
   };
 }

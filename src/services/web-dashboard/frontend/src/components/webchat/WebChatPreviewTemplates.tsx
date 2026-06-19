@@ -30,6 +30,19 @@ function StandardThumbnail({ template }: { template: WebChatPreviewTemplate }) {
         template.thumbClass,
       )}
     >
+      {template.id === 'copilot' && (
+        <>
+          <div
+            className="pointer-events-none absolute inset-0 opacity-35"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(99,102,241,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,.14) 1px, transparent 1px)',
+              backgroundSize: '12px 12px',
+            }}
+          />
+          <div className="pointer-events-none absolute -right-4 top-2 h-20 w-20 rounded-full bg-indigo-500/30 blur-2xl" />
+        </>
+      )}
       {template.id === 'tech' && (
         <div
           className="pointer-events-none absolute inset-0 opacity-40"

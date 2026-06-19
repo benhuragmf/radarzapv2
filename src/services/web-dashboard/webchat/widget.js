@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.89';
+  var WIDGET_BUILD = '2.10.90';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -199,8 +199,16 @@
       html += '<div>' + escHtml(m.body) + '</div>';
     }
     if (m.actionLinks && m.actionLinks.length) {
+      var pillWrap = isCopilotLayout()
+        ? 'display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;'
+        : 'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
+      var pillStyle = isCopilotLayout()
+        ? 'display:inline-block;padding:8px 14px;border-radius:999px;background:#fff;color:#111827;font-size:12px;font-weight:600;text-decoration:none;border:1px solid #e5e7eb;box-shadow:0 1px 2px rgba(0,0,0,.04);'
+        : 'display:inline-block;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.92);color:#111827;font-size:13px;font-weight:600;text-decoration:none;text-align:center;border:1px solid rgba(0,0,0,.08);';
       html +=
-        '<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">' +
+        '<div style="' +
+        pillWrap +
+        '">' +
         m.actionLinks
           .map(function (link) {
             if (!link || !link.url || !link.label) return '';
@@ -211,7 +219,9 @@
               escHtml(safeUrl) +
               '" target="' +
               (link.openInNewTab !== false ? '_blank' : '_self') +
-              '" rel="noopener noreferrer" style="display:inline-block;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.92);color:#111827;font-size:13px;font-weight:600;text-decoration:none;text-align:center;border:1px solid rgba(0,0,0,.08);">' +
+              '" rel="noopener noreferrer" style="' +
+              pillStyle +
+              '">' +
               escHtml(link.label) +
               '</a>'
             );
@@ -221,7 +231,24 @@
     }
     if (m.kbSuggestions && m.kbSuggestions.length) {
       var accent = primaryColor();
-      html +=
+      if (isCopilotLayout()) {
+        html +=
+          '<div class="rz-kb-suggestions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">' +
+          m.kbSuggestions
+            .map(function (s) {
+              if (!s || !s.id || !s.label) return '';
+              return (
+                '<button type="button" class="rz-kb-pick" data-kb-id="' +
+                escHtml(String(s.id)) +
+                '" style="display:inline-block;padding:8px 14px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04);">' +
+                escHtml(String(s.label)) +
+                '</button>'
+              );
+            })
+            .join('') +
+          '</div>';
+      } else {
+        html +=
         '<div class="rz-kb-suggestions" style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">' +
         m.kbSuggestions
           .map(function (s) {
@@ -243,6 +270,7 @@
           })
           .join('') +
         '</div>';
+      }
     }
     if (!html && m.body) html = escHtml(m.body);
     return html;
@@ -1365,6 +1393,100 @@
     return (state.config && state.config.primaryColor) || '#2563eb';
   }
 
+  function isCopilotLayout() {
+    if (!state.config) return false;
+    if (state.config.chatLayout === 'copilot') return true;
+    return state.config.previewTemplateId === 'copilot';
+  }
+
+  function ensureCopilotFont() {
+    if (!isCopilotLayout() || document.getElementById('rz-copilot-font')) return;
+    var link = document.createElement('link');
+    link.id = 'rz-copilot-font';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
+    document.head.appendChild(link);
+  }
+
+  function botDisplayName() {
+    return (state.config && state.config.title) || 'Assistente';
+  }
+
+  function visitorInitials() {
+    var name = visitorFirstName() || state.visitorName || 'V';
+    return String(name).trim().charAt(0).toUpperCase() || 'V';
+  }
+
+  function copilotAvatarHtml(isBot, label) {
+    var accent = primaryColor();
+    if (isBot) {
+      return (
+        '<div style="flex-shrink:0;width:36px;height:36px;border-radius:999px;background:linear-gradient(135deg,' +
+        accent +
+        ' 0%,#4338ca 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(99,102,241,.35);font-size:15px;color:#fff;font-weight:700;">✦</div>'
+      );
+    }
+    return (
+      '<div style="flex-shrink:0;width:36px;height:36px;border-radius:999px;background:linear-gradient(135deg,#e5e7eb,#f9fafb);border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#374151;" title="' +
+      escHtml(label || 'Visitante') +
+      '">' +
+      escHtml(visitorInitials()) +
+      '</div>'
+    );
+  }
+
+  function copilotHeaderIconBtn(extra) {
+    return (
+      'width:32px;height:32px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.06);color:#fff;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;' +
+      (extra || '')
+    );
+  }
+
+  function renderCopilotHeader(title, subtitle, t) {
+    var accent = primaryColor();
+    var faqBtn = renderFaqHeaderButton();
+    if (faqBtn) {
+      faqBtn = faqBtn.replace(/border:1px solid [^;]+;/, 'border:1px solid rgba(255,255,255,.35);');
+      faqBtn = faqBtn.replace(/background:[^;]+;/, 'background:rgba(255,255,255,.08);');
+      faqBtn = faqBtn.replace(/color:[^;]+;/, 'color:#fff;');
+    }
+    return (
+      '<div style="flex-shrink:0;position:relative;overflow:hidden;background:#181818;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);">' +
+      '<div style="pointer-events:none;position:absolute;inset:0;opacity:.12;background-image:radial-gradient(circle at 20% 30%,rgba(99,102,241,.55) 0%,transparent 45%),radial-gradient(circle at 80% 70%,rgba(56,189,248,.25) 0%,transparent 40%),url(\"data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.08\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\");"></div>' +
+      '<div style="position:relative;display:flex;align-items:center;gap:12px;padding:14px 14px 16px;">' +
+      copilotAvatarHtml(true) +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-weight:700;font-size:15px;line-height:1.25;letter-spacing:-.01em;">' +
+      escHtml(title) +
+      '</div>' +
+      (subtitle
+        ? '<div style="font-size:12px;color:rgba(255,255,255,.72);margin-top:3px;line-height:1.35;">' +
+          escHtml(subtitle) +
+          '</div>'
+        : '') +
+      '</div>' +
+      (faqBtn || '') +
+      '<button type="button" id="rz-webchat-expand" aria-label="' +
+      (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
+      '" title="' +
+      (state.expanded ? 'Reduzir' : 'Expandir') +
+      '" style="' +
+      copilotHeaderIconBtn() +
+      '">' +
+      (state.expanded ? '⤡' : '⤢') +
+      '</button>' +
+      '<button type="button" id="rz-webchat-sound" aria-label="Som" title="Som" style="' +
+      copilotHeaderIconBtn() +
+      '">' +
+      (state.soundEnabled ? '🔔' : '🔕') +
+      '</button>' +
+      '<button type="button" id="rz-webchat-close" aria-label="Fechar" title="Fechar" style="' +
+      copilotHeaderIconBtn() +
+      '">×</button>' +
+      '</div></div>'
+    );
+  }
+
   function isDarkTheme() {
     return state.config && state.config.theme === 'dark';
   }
@@ -1373,6 +1495,7 @@
     if (!cfg) return '';
     return [
       cfg.theme || 'light',
+      cfg.chatLayout || 'classic',
       cfg.primaryColor || '',
       cfg.title || '',
       cfg.subtitle || '',
@@ -1394,6 +1517,48 @@
   }
 
   function ui() {
+    if (isCopilotLayout()) {
+      var accent = primaryColor();
+      return {
+        copilot: true,
+        panelBg: '#ffffff',
+        panelBorder: 'none',
+        panelShadow: '0 24px 64px rgba(15,23,42,.18)',
+        headerBg: '#181818',
+        messagesBg: '#f4f4f5',
+        prechatBg: '#f4f4f5',
+        footerBg: '#ffffff',
+        border: '#e5e7eb',
+        inputBorder: '#e5e7eb',
+        inputBg: '#fafafa',
+        inputColor: '#111827',
+        text: '#111827',
+        textMuted: '#6b7280',
+        bubbleAgent: '#ffffff',
+        bubbleAgentText: '#111827',
+        bubbleVisitor: '#ffffff',
+        bubbleVisitorText: '#111827',
+        bubbleSystem: '#eef2ff',
+        bubbleSystemText: '#4338ca',
+        dismissBg: '#fff',
+        dismissBorder: '#e5e7eb',
+        dismissText: '#374151',
+        attachBg: '#fff',
+        toggleShadow: '0 8px 28px rgba(99,102,241,.45)',
+        offlineBg: '#fffbeb',
+        offlineBorder: '#fde68a',
+        offlineText: '#92400e',
+        queueWaitBg: '#eff6ff',
+        queueWaitBorder: '#bfdbfe',
+        queueWaitText: '#1e40af',
+        queueAgentBg: '#ecfdf5',
+        queueAgentBorder: '#a7f3d0',
+        queueAgentText: '#065f46',
+        errorText: '#b91c1c',
+        font: "'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
+        accent: accent,
+      };
+    }
     if (!isDarkTheme()) {
       return {
         panelBg: '#fff',
@@ -1496,6 +1661,7 @@
 
   function renderBubble() {
     ensureTypingStyles();
+    ensureCopilotFont();
     var savedInput = '';
     var inputEl = document.getElementById('rz-webchat-input');
     if (inputEl) savedInput = inputEl.value;
@@ -2187,6 +2353,52 @@
       });
   }
 
+  function renderCopilotMessageRow(m, t) {
+    var isInbound = m.direction === 'inbound';
+    var isSystem = m.direction === 'system';
+    if (isSystem) {
+      return (
+        '<div style="display:flex;justify-content:center;margin:12px 0;">' +
+        '<div style="padding:8px 12px;border-radius:12px;background:' +
+        t.bubbleSystem +
+        ';color:' +
+        t.bubbleSystemText +
+        ';font-size:12px;text-align:center;max-width:90%;">' +
+        escHtml(m.body || '') +
+        '</div></div>'
+      );
+    }
+    var senderLabel = isInbound ? visitorFirstName() || 'Você' : m.senderName || botDisplayName();
+    var metaLine =
+      '<div style="font-size:11px;font-weight:600;color:' +
+      t.textMuted +
+      ';margin-bottom:8px;line-height:1.3;">' +
+      escHtml(senderLabel) +
+      ' <span style="font-weight:400;">' +
+      formatTime(m.createdAt) +
+      '</span>' +
+      (isInbound ? renderInboundReceiptTicks(m, t) : '') +
+      '</div>';
+    var radius = isInbound ? '16px 16px 4px 16px' : '16px 16px 16px 4px';
+    return (
+      '<div style="display:flex;gap:10px;align-items:flex-end;margin:14px 0;' +
+      (isInbound ? 'flex-direction:row-reverse;' : '') +
+      '">' +
+      copilotAvatarHtml(!isInbound, senderLabel) +
+      '<div style="max-width:min(82%,320px);' +
+      (isInbound ? 'display:flex;flex-direction:column;align-items:flex-end;' : '') +
+      '">' +
+      '<div style="padding:14px 16px;background:#fff;border-radius:' +
+      radius +
+      ';color:' +
+      t.bubbleAgentText +
+      ';font-size:14px;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);white-space:pre-wrap;word-break:break-word;">' +
+      metaLine +
+      renderMessageBody(m) +
+      '</div></div></div>'
+    );
+  }
+
   function renderPanel() {
     var t = ui();
     var title = (state.config && state.config.title) || 'Fale conosco';
@@ -2455,6 +2667,9 @@
           m.id === state.firstUnreadMessageId
             ? renderNewMessageSeparator(t)
             : '';
+        if (isCopilotLayout()) {
+          return separator + renderCopilotMessageRow(m, t);
+        }
         var isInbound = m.direction === 'inbound';
         var isSystem = m.direction === 'system';
         var align = isInbound ? 'flex-end' : 'flex-start';
@@ -2536,7 +2751,9 @@
       ';border-radius:18px;background:' +
       t.inputBg +
       ';padding:10px 12px 8px;">' +
-      '<textarea id="rz-webchat-input" rows="1" placeholder="Envie uma mensagem..." autocomplete="off" style="width:100%;min-height:22px;max-height:120px;padding:0;border:none;font-size:14px;line-height:1.45;background:transparent;color:' +
+      '<textarea id="rz-webchat-input" rows="1" placeholder="' +
+      (isCopilotLayout() ? 'Escreva uma mensagem' : 'Envie uma mensagem...') +
+      '" autocomplete="off" style="width:100%;min-height:22px;max-height:120px;padding:0;border:none;font-size:14px;line-height:1.45;background:transparent;color:' +
       t.inputColor +
       ';outline:none;resize:none;font-family:inherit;"></textarea>' +
       '<div style="display:flex;align-items:center;margin-top:8px;gap:8px;">' +
@@ -2586,11 +2803,68 @@
       panelBody = offlineBanner + queueBanner + messagesBlock + renderFaqQuickReplies(t) + composer;
     }
 
+    var panelRadius = isCopilotLayout() ? '16px' : '20px';
+    var headerBlock = isCopilotLayout()
+      ? renderCopilotHeader(title, subtitle, t)
+      : '<div style="flex-shrink:0;background:' +
+        (isDarkTheme() ? t.headerBg : '#fff') +
+        ';color:' +
+        (isDarkTheme() ? '#fff' : t.text) +
+        ';border-bottom:1px solid ' +
+        t.border +
+        ';">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 0;">' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        '<button type="button" id="rz-webchat-expand" aria-label="' +
+        (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
+        '" title="' +
+        (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
+        '" style="' +
+        headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
+        '">' +
+        (state.expanded ? '⤡' : '⤢') +
+        '</button>' +
+        '<button type="button" id="rz-webchat-sound" aria-label="' +
+        (state.soundEnabled ? 'Desativar som de notificação' : 'Ativar som de notificação') +
+        '" title="' +
+        (state.soundEnabled ? 'Som ligado' : 'Som desligado') +
+        '" style="' +
+        headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
+        '">' +
+        (state.soundEnabled ? '🔔' : '🔕') +
+        '</button></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        renderFaqHeaderButton() +
+        '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" title="Fechar" style="' +
+        headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
+        '">×</button></div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 16px 14px;gap:6px;">' +
+        '<div style="width:44px;height:44px;border-radius:999px;background:' +
+        (isDarkTheme() ? 'rgba(255,255,255,.16)' : primaryColor() + '18') +
+        ';border:1px solid ' +
+        (isDarkTheme() ? 'rgba(255,255,255,.2)' : t.inputBorder) +
+        ';display:flex;align-items:center;justify-content:center;font-size:20px;color:' +
+        (isDarkTheme() ? '#fff' : primaryColor()) +
+        ';">💬</div>' +
+        '<div style="font-weight:700;font-size:15px;line-height:1.2;">' +
+        escHtml(title) +
+        '</div>' +
+        (subtitle
+          ? '<div style="font-size:12px;opacity:.82;line-height:1.35;">' + escHtml(subtitle) + '</div>'
+          : '<div style="font-size:12px;opacity:.72;">Assistente virtual</div>') +
+        (visitorLabel && mode === 'chat'
+          ? '<div style="font-size:11px;opacity:.7;">' + visitorLabel + '</div>'
+          : '') +
+        '</div></div>';
+
     return (
       '<div id="rz-webchat-panel" data-rz-mode="' +
       mode +
       '" data-rz-theme="' +
-      (isDarkTheme() ? 'dark' : 'light') +
+      (isCopilotLayout() ? 'copilot' : isDarkTheme() ? 'dark' : 'light') +
+      '" data-rz-layout="' +
+      (isCopilotLayout() ? 'copilot' : 'classic') +
       '" data-rz-build="' +
       WIDGET_BUILD +
       '" style="' +
@@ -2599,60 +2873,14 @@
       t.panelBg +
       ';border:' +
       t.panelBorder +
-      ';border-radius:20px;box-shadow:' +
+      ';border-radius:' +
+      panelRadius +
+      ';box-shadow:' +
       t.panelShadow +
-      ';display:flex;flex-direction:column;overflow:hidden;">' +
-      '<div style="flex-shrink:0;background:' +
-      (isDarkTheme() ? t.headerBg : '#fff') +
-      ';color:' +
-      (isDarkTheme() ? '#fff' : t.text) +
-      ';border-bottom:1px solid ' +
-      t.border +
+      ';display:flex;flex-direction:column;overflow:hidden;font-family:' +
+      t.font +
       ';">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 0;">' +
-      '<div style="display:flex;align-items:center;gap:6px;">' +
-      '<button type="button" id="rz-webchat-expand" aria-label="' +
-      (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
-      '" title="' +
-      (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
-      '" style="' +
-      headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
-      '">' +
-      (state.expanded ? '⤡' : '⤢') +
-      '</button>' +
-      '<button type="button" id="rz-webchat-sound" aria-label="' +
-      (state.soundEnabled ? 'Desativar som de notificação' : 'Ativar som de notificação') +
-      '" title="' +
-      (state.soundEnabled ? 'Som ligado' : 'Som desligado') +
-      '" style="' +
-      headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
-      '">' +
-      (state.soundEnabled ? '🔔' : '🔕') +
-      '</button></div>' +
-      '<div style="display:flex;align-items:center;gap:8px;">' +
-      renderFaqHeaderButton() +
-      '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" title="Fechar" style="' +
-      headerIconBtn(isDarkTheme() ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';') +
-      '">×</button></div>' +
-      '</div>' +
-      '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 16px 14px;gap:6px;">' +
-      '<div style="width:44px;height:44px;border-radius:999px;background:' +
-      (isDarkTheme() ? 'rgba(255,255,255,.16)' : primaryColor() + '18') +
-      ';border:1px solid ' +
-      (isDarkTheme() ? 'rgba(255,255,255,.2)' : t.inputBorder) +
-      ';display:flex;align-items:center;justify-content:center;font-size:20px;color:' +
-      (isDarkTheme() ? '#fff' : primaryColor()) +
-      ';">💬</div>' +
-      '<div style="font-weight:700;font-size:15px;line-height:1.2;">' +
-      escHtml(title) +
-      '</div>' +
-      (subtitle
-        ? '<div style="font-size:12px;opacity:.82;line-height:1.35;">' + escHtml(subtitle) + '</div>'
-        : '<div style="font-size:12px;opacity:.72;">Assistente virtual</div>') +
-      (visitorLabel && mode === 'chat'
-        ? '<div style="font-size:11px;opacity:.7;">' + visitorLabel + '</div>'
-        : '') +
-      '</div></div>' +
+      headerBlock +
       panelBody +
       renderPoweredBy(t) +
       '</div>'

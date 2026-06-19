@@ -305,6 +305,13 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Cada item da base tem campo `category` (painel **IA → Base de conhecimento**); padrão **Geral**.
 - Clique em um artigo → conteúdo entra no chat (`faq-pick`); se ainda no pré-chat, pede conclusão do cadastro antes.
 
+### Layout Copilot (2.10.90)
+
+- Modelo **Copilot** no painel WebChat (`chatLayout: copilot`, template `preview-copilot.html`).
+- Estilo CX Bot / Workativ: avatares, bolhas brancas com sombra, nome+horário dentro da bolha, pills de FAQ.
+- Header escuro (#181818) com grid indigo (toque Cursor); área de mensagens clara (#f4f4f5).
+- Preview: `/webchat/preview-copilot.html?key=…`
+
 ## Fallback WhatsApp offline (2.10.72)
 
 - Config em **Triagem e Bot** → seção *Chat do site — fallback WhatsApp*.

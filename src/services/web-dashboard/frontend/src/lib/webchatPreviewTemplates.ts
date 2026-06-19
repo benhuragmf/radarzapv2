@@ -10,6 +10,7 @@ export type WebChatAppearancePreset = {
   contactReasonOptions: string[]
   askEmail: boolean
   theme: 'light' | 'dark'
+  chatLayout?: 'classic' | 'copilot'
 }
 
 export const DEFAULT_CONTACT_REASON_OPTIONS = [
@@ -36,6 +37,38 @@ export type WebChatPreviewTemplate = {
 }
 
 export const WEBCHAT_PREVIEW_TEMPLATES: WebChatPreviewTemplate[] = [
+  {
+    id: 'copilot',
+    name: 'Copilot',
+    description:
+      'Conversa estilo CX Bot — avatares, bolhas claras e pills de ação, com header escuro inspirado no Cursor.',
+    bestFor: 'Suporte interno, onboarding, RH e help desk',
+    path: '/webchat/preview-copilot.html',
+    thumbClass: 'bg-gradient-to-br from-[#181818] via-[#1e1e2e] to-indigo-950',
+    accentColor: '#6366f1',
+    tags: ['Copilot', 'Avatares', 'Pills'],
+    highlights: [
+      'Header escuro com gradiente indigo (toque Cursor)',
+      'Avatares + nome e horário dentro da bolha',
+      'Área de chat clara estilo CX Bot / Workativ',
+      'Sugestões FAQ como pills abaixo da resposta',
+    ],
+    appearance: {
+      primaryColor: '#6366f1',
+      position: 'right',
+      title: 'Copilot de atendimento',
+      subtitle: 'Seu co-piloto para suporte no trabalho',
+      greeting:
+        'Olá! Sou seu copilot de suporte. Conte o que precisa — posso sugerir artigos da base ou encaminhar para a equipe.',
+      askName: true,
+      askPhone: true,
+      askContactReason: true,
+      contactReasonOptions: [...DEFAULT_CONTACT_REASON_OPTIONS],
+      askEmail: false,
+      theme: 'light',
+      chatLayout: 'copilot',
+    },
+  },
   {
     id: 'classic',
     name: 'Clássico',

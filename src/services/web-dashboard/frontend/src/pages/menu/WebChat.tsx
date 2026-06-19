@@ -104,6 +104,7 @@ interface WebChatWidgetRow {
     prechatFields?: import('../../lib/webchatPrechatFields').WebChatPrechatField[]
     prechatMode?: import('../../lib/webchatPrechatFields').WebChatPrechatMode
     theme: 'light' | 'dark'
+    chatLayout?: 'classic' | 'copilot'
     previewTemplateId?: string
   }
   autoReplyEnabled: boolean
@@ -846,6 +847,7 @@ function visualAppearancePatch(
     greeting: appearance.greeting,
     theme: appearance.theme ?? 'light',
     previewTemplateId: appearance.previewTemplateId,
+    chatLayout: appearance.chatLayout === 'copilot' ? 'copilot' : 'classic',
   }
 }
 

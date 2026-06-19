@@ -306,6 +306,7 @@ export class WebChatService {
       faqInChatEnabled: faqEnabled,
       faqQuickReplies,
       faqCatalogAvailable,
+      chatLayout: a.chatLayout === 'copilot' ? 'copilot' : 'classic',
     };
   }
 

@@ -20,6 +20,9 @@ export type WebChatMessageMediaType = 'image' | 'document';
 
 export type WebChatWidgetTheme = 'light' | 'dark';
 
+/** classic = bolhas padrão; copilot = avatares, meta na bolha, pills (estilo CX Bot + Cursor) */
+export type WebChatChatLayout = 'classic' | 'copilot';
+
 export const DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS = [
   'Quero saber preços',
   'Quero contratar',
@@ -62,6 +65,8 @@ export interface WebChatWidgetAppearance {
   contactReasonOptions: string[];
   askEmail: boolean;
   theme: WebChatWidgetTheme;
+  /** Layout da conversa no widget */
+  chatLayout?: WebChatChatLayout;
   /** Modelo de preview aplicado no painel (classic, tech, saas, …) */
   previewTemplateId?: string;
 }
@@ -169,6 +174,7 @@ export interface WebChatPublicConfig {
   faqInChatEnabled: boolean;
   faqQuickReplies: WebChatFaqQuickReply[];
   faqCatalogAvailable: boolean;
+  chatLayout: WebChatChatLayout;
 }
 
 export interface WebChatTicketPublicLookupDto {
