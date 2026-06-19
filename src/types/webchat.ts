@@ -6,6 +6,16 @@ export type WebChatQueueStatus = 'bot' | 'waiting_human' | 'with_agent';
 
 export type WebChatMessageDirection = 'inbound' | 'outbound' | 'system';
 
+export type WebChatTypingSenderType = 'visitor' | 'agent' | 'bot';
+
+export interface WebChatTypingPayload {
+  clientId: string;
+  conversationId: string;
+  typing: boolean;
+  senderType: WebChatTypingSenderType;
+  senderName?: string;
+}
+
 export type WebChatMessageMediaType = 'image' | 'document';
 
 export type WebChatWidgetTheme = 'light' | 'dark';

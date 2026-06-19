@@ -187,6 +187,21 @@ export function createWebChatPublicRouter(): Router {
     }
   });
 
+  r.post('/sessions/typing', async (req, res) => {
+    try {
+      const token = visitorTokenFromReq(req);
+      if (!token) return res.status(401).json({ error: 'Token de visitante obrigatório' });
+      const { typing } = req.body as { typing?: boolean };
+      await svc.setVisitorTyping(token, Boolean(typing), req.headers.origin, req.headers.referer);
+      res.json({ ok: true });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
   r.get('/media/:filename', async (req, res) => {
     try {
       const token = visitorTokenFromReq(req);

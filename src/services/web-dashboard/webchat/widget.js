@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.54';
+  var WIDGET_BUILD = '2.10.61';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -289,7 +289,103 @@
     endConfirmOpen: false,
     presenceId: null,
     presenceTimer: null,
+    remoteTyping: null,
+    remoteTypingTimer: null,
+    visitorTypingStopTimer: null,
   };
+
+  function ensureTypingStyles() {
+    if (document.getElementById('rz-webchat-typing-style')) return;
+    var s = document.createElement('style');
+    s.id = 'rz-webchat-typing-style';
+    s.textContent =
+      '@keyframes rz-typing-bounce{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}';
+    document.head.appendChild(s);
+  }
+
+  function clearRemoteTyping() {
+    state.remoteTyping = null;
+    if (state.remoteTypingTimer) {
+      clearTimeout(state.remoteTypingTimer);
+      state.remoteTypingTimer = null;
+    }
+  }
+
+  function handleRemoteTyping(payload) {
+    if (!payload || payload.conversationId !== state.conversationId) return;
+    if (payload.senderType === 'visitor') return;
+    if (!payload.typing) {
+      clearRemoteTyping();
+      renderBubble();
+      return;
+    }
+    state.remoteTyping = {
+      senderType: payload.senderType || 'agent',
+      senderName: payload.senderName || '',
+    };
+    if (state.remoteTypingTimer) clearTimeout(state.remoteTypingTimer);
+    state.remoteTypingTimer = setTimeout(function () {
+      clearRemoteTyping();
+      renderBubble();
+    }, 4000);
+    renderBubble();
+  }
+
+  function emitVisitorTyping(typing) {
+    if (!state.conversationId || state.conversationStatus === 'closed') return;
+    if (state.socket && state.socket.connected) {
+      state.socket.emit('webchat:typing', {
+        conversationId: state.conversationId,
+        typing: typing,
+        senderType: 'visitor',
+      });
+      return;
+    }
+    if (!state.visitorToken) return;
+    apiFetch(baseUrl, '/sessions/typing', {
+      method: 'POST',
+      headers: { 'X-WebChat-Visitor': state.visitorToken },
+      body: JSON.stringify({ typing: typing }),
+    }).catch(function () {});
+  }
+
+  function scheduleVisitorTypingPulse() {
+    emitVisitorTyping(true);
+    if (state.visitorTypingStopTimer) clearTimeout(state.visitorTypingStopTimer);
+    state.visitorTypingStopTimer = setTimeout(function () {
+      emitVisitorTyping(false);
+    }, 2000);
+  }
+
+  function renderTypingBubble(t) {
+    if (!state.remoteTyping) return '';
+    var name =
+      state.remoteTyping.senderName ||
+      (state.remoteTyping.senderType === 'bot' ? 'Assistente' : 'Atendente');
+    var dots =
+      '<span style="display:inline-flex;gap:3px;margin-right:6px;vertical-align:middle;">' +
+      '<span style="width:5px;height:5px;border-radius:50%;background:' +
+      t.bubbleAgentText +
+      ';opacity:.5;animation:rz-typing-bounce 1.2s infinite ease-in-out;"></span>' +
+      '<span style="width:5px;height:5px;border-radius:50%;background:' +
+      t.bubbleAgentText +
+      ';opacity:.5;animation:rz-typing-bounce 1.2s infinite ease-in-out;animation-delay:.15s;"></span>' +
+      '<span style="width:5px;height:5px;border-radius:50%;background:' +
+      t.bubbleAgentText +
+      ';opacity:.5;animation:rz-typing-bounce 1.2s infinite ease-in-out;animation-delay:.3s;"></span></span>';
+    return (
+      '<div id="rz-webchat-typing" style="display:flex;flex-direction:column;align-items:flex-start;margin:10px 0 4px;max-width:88%;">' +
+      '<div style="padding:10px 14px;border-radius:18px 18px 18px 4px;background:' +
+      t.bubbleAgent +
+      ';color:' +
+      t.bubbleAgentText +
+      ';font-size:13px;line-height:1.4;display:flex;align-items:center;">' +
+      dots +
+      escHtml(name) +
+      ' está digitando…' +
+      '</div></div>'
+    );
+  }
 
   function ensurePresenceId() {
     if (state.presenceId) return state.presenceId;
@@ -972,6 +1068,7 @@
   }
 
   function renderBubble() {
+    ensureTypingStyles();
     var savedInput = '';
     var inputEl = document.getElementById('rz-webchat-input');
     if (inputEl) savedInput = inputEl.value;
@@ -1314,7 +1411,8 @@
           '</div></div>'
         );
       })
-      .join('');
+      .join('') +
+      renderTypingBubble(t);
 
     var messagesBlock =
       '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:16px 14px 12px;background:' +
@@ -1591,6 +1689,11 @@
       chatInput.oninput = function () {
         chatInput.style.height = 'auto';
         chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        if (chatInput.value.trim()) {
+          scheduleVisitorTypingPulse();
+        } else {
+          emitVisitorTyping(false);
+        }
       };
     }
     var attachBtn = document.getElementById('rz-webchat-attach');
@@ -1742,10 +1845,14 @@
           return m.id === payload.message.id;
         });
         if (!exists) {
+          if (payload.message.direction === 'outbound') {
+            clearRemoteTyping();
+          }
           state.messages.push(payload.message);
           renderBubble();
         }
       });
+      state.socket.on('webchat:typing', handleRemoteTyping);
       state.socket.on('webchat:conversation', function (payload) {
         if (!payload || !payload.conversation) return;
         applyConversationMeta(payload.conversation);
@@ -1985,6 +2092,7 @@
     var draft = text;
     input.value = '';
     input.style.height = 'auto';
+    emitVisitorTyping(false);
     state.sending = true;
     state.emojiPickerOpen = false;
     apiFetch(baseUrl, '/messages', {

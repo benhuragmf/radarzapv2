@@ -16,6 +16,7 @@ import {
   type WebChatQueueStatus,
   type WebChatVisitorSessionDto,
   type WebChatVisitorSendResult,
+  type WebChatTypingSenderType,
 } from '../../types/webchat';
 import {
   applyVisitorIntake,
@@ -40,7 +41,7 @@ import {
   hashWebChatVisitorToken,
   isWebChatOriginAllowed,
 } from './webchat-token.util';
-import { emitWebChatToTenant, emitWebChatToVisitor } from './WebChatRealtime';
+import { emitWebChatToTenant, emitWebChatToVisitor, emitWebChatTypingToTenant, emitWebChatTypingToVisitor } from './WebChatRealtime';
 import { WebChatAiService } from './WebChatAiService';
 import { resolveWebChatBusinessHours } from './webchat-business-hours.util';
 import { shouldSendProactiveGreeting, getProactiveGreetingSkipReason } from './webchat-proactive.util';
@@ -1107,6 +1108,79 @@ export class WebChatService {
     return msg;
   }
 
+  emitTypingIndicator(input: {
+    clientId: string;
+    conversationId: string;
+    typing: boolean;
+    senderType: WebChatTypingSenderType;
+    senderName?: string;
+  }): void {
+    const payload = {
+      clientId: input.clientId,
+      conversationId: input.conversationId,
+      typing: input.typing,
+      senderType: input.senderType,
+      senderName: input.senderName,
+    };
+    if (input.senderType === 'visitor') {
+      emitWebChatTypingToTenant(input.clientId, payload);
+      return;
+    }
+    emitWebChatTypingToVisitor(input.conversationId, payload);
+  }
+
+  async relayAgentTyping(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+    typing: boolean,
+    senderName?: string,
+  ): Promise<void> {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    })
+      .select('status')
+      .lean();
+    if (!conversation || conversation.status === 'closed') return;
+
+    let name = senderName?.trim();
+    if (!name) {
+      const user = await User.findById(userId).select('displayName').lean();
+      name = user?.displayName?.trim() || 'Atendente';
+    }
+
+    this.emitTypingIndicator({
+      clientId,
+      conversationId,
+      typing,
+      senderType: 'agent',
+      senderName: name,
+    });
+  }
+
+  async setVisitorTyping(
+    visitorToken: string,
+    typing: boolean,
+    origin?: string | null,
+    referer?: string | null,
+  ): Promise<void> {
+    const conversation = await this.resolveVisitorToken(visitorToken);
+    if (!conversation || conversation.status === 'closed') return;
+
+    const widget = await WebChatWidget.findById(conversation.widgetId);
+    if (!widget?.active) return;
+
+    this.assertOrigin(widget, origin, referer);
+
+    this.emitTypingIndicator({
+      clientId: String(conversation.clientId),
+      conversationId: String(conversation._id),
+      typing,
+      senderType: 'visitor',
+    });
+  }
+
   async listVisitorMessages(
     visitorToken: string,
     origin?: string | null,
@@ -1165,6 +1239,15 @@ export class WebChatService {
 
     this.assertOrigin(widget, origin, referer);
 
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    this.emitTypingIndicator({
+      clientId: clientIdStr,
+      conversationId: convId,
+      typing: false,
+      senderType: 'visitor',
+    });
+
     const msg = await this.appendMessage(conversation, {
       direction: 'inbound',
       body: text,
@@ -1218,7 +1301,6 @@ export class WebChatService {
       replies.push(...(await this.maybeAutoReply(conversation, widget)));
     }
 
-    const clientIdStr = String(conversation.clientId);
     this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
       conversation_id: String(conversation._id),
       message_id: String(msg._id),
@@ -1444,11 +1526,31 @@ export class WebChatService {
 
     if (widget.autoReplyUseAi) {
       const aiCtx = await this.aiContextFromConversation(fresh, widget);
-      const ai = await WebChatAiService.getInstance().generateVisitorReply(
-        String(conversation.clientId),
-        String(conversation._id),
-        aiCtx,
-      );
+      const clientIdStr = String(conversation.clientId);
+      const convId = String(conversation._id);
+      this.emitTypingIndicator({
+        clientId: clientIdStr,
+        conversationId: convId,
+        typing: true,
+        senderType: 'bot',
+        senderName,
+      });
+      let ai: Awaited<ReturnType<WebChatAiService['generateVisitorReply']>> = null;
+      try {
+        ai = await WebChatAiService.getInstance().generateVisitorReply(
+          clientIdStr,
+          convId,
+          aiCtx,
+        );
+      } finally {
+        this.emitTypingIndicator({
+          clientId: clientIdStr,
+          conversationId: convId,
+          typing: false,
+          senderType: 'bot',
+          senderName,
+        });
+      }
       if (ai) {
         body = ai.body;
         senderName = ai.senderName;
@@ -1735,6 +1837,14 @@ export class WebChatService {
     );
     const quickCode = parseQuickReplyCode(raw);
     const text = expandQuickReply(raw, quickReplies, contactName);
+
+    this.emitTypingIndicator({
+      clientId,
+      conversationId,
+      typing: false,
+      senderType: 'agent',
+      senderName: senderName?.trim() || 'Atendente',
+    });
 
     const msg = await this.appendMessage(conversation, {
       direction: 'outbound',

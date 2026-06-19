@@ -3,13 +3,15 @@ import type {
   WebChatConversationDto,
   WebChatLiveVisitorDto,
   WebChatMessageDto,
+  WebChatTypingPayload,
 } from '../../types/webchat';
 
 export type WebChatRealtimeEvent =
   | 'webchat:message'
   | 'webchat:conversation'
   | 'webchat:presence'
-  | 'webchat:agent-engage';
+  | 'webchat:agent-engage'
+  | 'webchat:typing';
 
 export interface WebChatRealtimePayload {
   clientId: string;
@@ -61,4 +63,14 @@ export function emitWebChatAgentEngage(
   if (payload.conversationId) {
     io.to(`webchat:conv:${payload.conversationId}`).emit('webchat:agent-engage', payload);
   }
+}
+
+export function emitWebChatTypingToTenant(clientId: string, payload: WebChatTypingPayload): void {
+  if (!io) return;
+  io.to(`tenant:${clientId}`).emit('webchat:typing', payload);
+}
+
+export function emitWebChatTypingToVisitor(conversationId: string, payload: WebChatTypingPayload): void {
+  if (!io) return;
+  io.to(`webchat:conv:${conversationId}`).emit('webchat:typing', payload);
 }

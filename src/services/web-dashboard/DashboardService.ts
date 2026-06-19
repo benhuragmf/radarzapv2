@@ -1581,6 +1581,26 @@ export class DashboardService {
       }
     });
 
+    r.post('/inbox/conversations/:id/typing', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        if (!isWebChatInboxId(req.params.id)) {
+          return res.status(400).json({ error: 'Indicador de digitação disponível apenas no chat do site' });
+        }
+        const { typing } = req.body as { typing?: boolean };
+        await WebChatService.getInstance().relayAgentTyping(
+          auth.clientId,
+          auth.userId,
+          webChatInboxIdToMongo(req.params.id),
+          Boolean(typing),
+          auth.username,
+        );
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     r.post('/inbox/conversations/:id/transfer', requireCapability(Cap.INBOX_TRANSFER), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -5314,6 +5334,49 @@ export class DashboardService {
           agentPresenceDisconnect(clientId, userId);
         }
         logger.debug(`Dashboard client disconnected: ${socket.id}`);
+      });
+
+      socket.on('webchat:typing', (raw: unknown) => {
+        void (async () => {
+          try {
+            const payload = raw as {
+              conversationId?: string;
+              typing?: boolean;
+              senderType?: string;
+              senderName?: string;
+            };
+            if (!payload?.conversationId) return;
+
+            const wcSvc = WebChatService.getInstance();
+
+            if (socket.data.webchatConversationId) {
+              if (socket.data.webchatConversationId !== payload.conversationId) return;
+              const clientId = socket.data.webchatClientId as string | undefined;
+              if (!clientId) return;
+              wcSvc.emitTypingIndicator({
+                clientId,
+                conversationId: payload.conversationId,
+                typing: Boolean(payload.typing),
+                senderType: 'visitor',
+              });
+              return;
+            }
+
+            const clientId = socket.data.tenantClientId as string | undefined;
+            const userId = socket.data.panelUserId as string | undefined;
+            if (!clientId || !userId || payload.senderType !== 'agent') return;
+
+            await wcSvc.relayAgentTyping(
+              clientId,
+              userId,
+              payload.conversationId,
+              Boolean(payload.typing),
+              payload.senderName,
+            );
+          } catch {
+            /* ignore */
+          }
+        })();
       });
     });
   }

@@ -49,6 +49,7 @@ import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib
 import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../lib/webchatInbox'
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
 import { useWebChatSocket } from '../../hooks/useWebChatSocket'
+import { getSocket } from '../../lib/socket'
 
 interface Department {
   _id: string
@@ -217,6 +218,23 @@ function inboxReplyBlockedReason(
   return 'Assuma a conversa para enviar mensagens.'
 }
 
+function WebChatTypingLine({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 px-1 py-1 text-xs text-[var(--rz-text-muted)]">
+      <span className="inline-flex gap-0.5 items-end h-3" aria-hidden>
+        {[0, 1, 2].map(i => (
+          <span
+            key={i}
+            className="w-1 h-1 rounded-full bg-[var(--rz-text-muted)] animate-bounce"
+            style={{ animationDelay: `${i * 0.15}s` }}
+          />
+        ))}
+      </span>
+      <span>{label}</span>
+    </div>
+  )
+}
+
 function ContactAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
   const initial = (name || '?').charAt(0).toUpperCase()
   const cls =
@@ -262,6 +280,9 @@ export default function Inbox() {
   const [showContactEditor, setShowContactEditor] = useState(false)
   const [showDetailsPanel, setShowDetailsPanel] = useState(true)
   const [composeMode, setComposeMode] = useState<'reply' | 'internal'>('reply')
+  const [visitorTyping, setVisitorTyping] = useState(false)
+  const visitorTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const agentTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const activeQuickFilter: QuickFilter = useMemo(() => {
     if (hasTicketOnly) return 'tickets'
@@ -397,11 +418,14 @@ export default function Inbox() {
     setHistoryConvId(null)
     setShowContactEditor(false)
     setComposeMode('reply')
+    setVisitorTyping(false)
+    if (visitorTypingTimerRef.current) clearTimeout(visitorTypingTimerRef.current)
+    if (agentTypingTimerRef.current) clearTimeout(agentTypingTimerRef.current)
   }, [selectedId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, selectedId])
+  }, [messages, selectedId, visitorTyping])
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['inbox-conversations'] })
@@ -540,6 +564,31 @@ export default function Inbox() {
     )
   }, [messages, isWebChatConv])
 
+  useEffect(() => {
+    if (!isWebChatConv || !selectedId) return
+    const convMongoId = webChatInboxIdToMongo(selectedId)
+    const socket = getSocket()
+
+    const onTyping = (payload: {
+      conversationId?: string
+      typing?: boolean
+      senderType?: string
+    }) => {
+      if (payload.conversationId !== convMongoId) return
+      if (payload.senderType !== 'visitor') return
+      setVisitorTyping(Boolean(payload.typing))
+      if (visitorTypingTimerRef.current) clearTimeout(visitorTypingTimerRef.current)
+      if (payload.typing) {
+        visitorTypingTimerRef.current = setTimeout(() => setVisitorTyping(false), 4000)
+      }
+    }
+
+    socket.on('webchat:typing', onTyping)
+    return () => {
+      socket.off('webchat:typing', onTyping)
+    }
+  }, [isWebChatConv, selectedId])
+
   const convLive = conv?.suggestedAt
     ? liveQueueState(conv.suggestedAt, conv.pullTimeoutSeconds ?? 120, tick)
     : { elapsedSec: 0, urgency: 0 }
@@ -556,6 +605,36 @@ export default function Inbox() {
   const replyBlockedReason = conv
     ? inboxReplyBlockedReason(conv, me, convLiveCanPull)
     : null
+
+  useEffect(() => {
+    if (!isWebChatConv || !selectedId || composeMode !== 'reply' || !canReply) return
+    const convMongoId = webChatInboxIdToMongo(selectedId)
+    const socket = getSocket()
+    const trimmed = reply.trim()
+
+    if (agentTypingTimerRef.current) clearTimeout(agentTypingTimerRef.current)
+
+    const emitAgentTyping = (typing: boolean) => {
+      socket.emit('webchat:typing', {
+        conversationId: convMongoId,
+        typing,
+        senderType: 'agent',
+        senderName: me?.username ?? undefined,
+      })
+    }
+
+    if (!trimmed) {
+      emitAgentTyping(false)
+      return
+    }
+
+    emitAgentTyping(true)
+    agentTypingTimerRef.current = setTimeout(() => emitAgentTyping(false), 2000)
+
+    return () => {
+      if (agentTypingTimerRef.current) clearTimeout(agentTypingTimerRef.current)
+    }
+  }, [reply, isWebChatConv, selectedId, composeMode, canReply, me?.username])
 
   const needsLiveTimer =
     hasPriorityQueue ||
@@ -1123,6 +1202,11 @@ export default function Inbox() {
                   <p className="text-center text-sm text-[var(--rz-text-muted)] py-8">Nenhuma mensagem ainda.</p>
                 ) : (
                   displayMessages.map(m => <InboxMessageBubble key={m._id} message={m} />)
+                )}
+                {isWebChatConv && visitorTyping && (
+                  <WebChatTypingLine
+                    label={`${conv?.contactName?.trim() || 'Visitante'} está digitando…`}
+                  />
                 )}
                 <div ref={messagesEndRef} />
               </div>
