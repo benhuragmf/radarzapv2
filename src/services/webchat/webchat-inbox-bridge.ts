@@ -31,6 +31,8 @@ export type InboxWebChatListRow = {
   widgetName?: string;
   pageUrl?: string;
   ticketRef?: string;
+  /** Bridge WhatsApp ativo (atendente responde pelo celular) */
+  whatsappBridgeActive?: boolean;
   priorityForMe?: boolean;
   canAccept?: boolean;
   canPull?: boolean;

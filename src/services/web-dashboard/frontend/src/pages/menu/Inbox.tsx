@@ -96,6 +96,7 @@ interface Conversation {
   createdAt?: string
   resolvedAt?: string
   acceptedAt?: string
+  whatsappBridgeActive?: boolean
 }
 
 interface InboxContactInfo {
@@ -1041,6 +1042,15 @@ export default function Inbox() {
                               {c.ticketRef}
                             </Link>
                           )}
+                          {c.whatsappBridgeActive && (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded"
+                              title="Atendimento espelhado no WhatsApp do atendente"
+                            >
+                              <Smartphone size={10} aria-hidden />
+                              Bridge
+                            </span>
+                          )}
                           <Badge label={badge.label} variant={badge.variant} />
                         </div>
                       </div>
@@ -1122,6 +1132,15 @@ export default function Inbox() {
                         />
                         {isWebChatConv && (
                           <InboxChannelBadge channel="webchat_site" size="md" />
+                        )}
+                        {isWebChatConv && conv.whatsappBridgeActive && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded"
+                            title="Visitante ↔ WhatsApp do atendente (bridge ativo)"
+                          >
+                            <Smartphone size={12} aria-hidden />
+                            Bridge WA
+                          </span>
                         )}
                         {conv.ticketRef && (
                           <Link

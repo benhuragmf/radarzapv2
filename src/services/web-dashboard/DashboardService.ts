@@ -103,6 +103,7 @@ import { WebChatAiService } from '../webchat/WebChatAiService';
 import {
   agentPresenceConnect,
   agentPresenceDisconnect,
+  agentPresenceHeartbeat,
 } from '../inbox/inbox-agent-presence';
 import { InboxReportsService } from '../inbox/InboxReportsService';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
@@ -2038,8 +2039,8 @@ export class DashboardService {
           .filter(r => activeStatuses.has(String((r as { status?: string }).status ?? '')))
           .sort(
             (a, b) =>
-              new Date(String(b.lastMessageAt)).getTime() -
-              new Date(String(a.lastMessageAt)).getTime(),
+              new Date(String((b as { lastMessageAt?: string }).lastMessageAt ?? 0)).getTime() -
+              new Date(String((a as { lastMessageAt?: string }).lastMessageAt ?? 0)).getTime(),
           )
           .slice(0, 100);
         res.json(merged);
@@ -5419,6 +5420,14 @@ export class DashboardService {
           logger.debug('Socket inbox room skip', { err: (err as Error).message });
         }
       }
+
+      socket.on('agent:heartbeat', () => {
+        const clientId = socket.data.inboxClientId as string | undefined;
+        const userId = socket.data.panelUserId as string | undefined;
+        if (clientId && userId) {
+          agentPresenceHeartbeat(clientId, userId);
+        }
+      });
 
       socket.on('disconnect', () => {
         const clientId = socket.data.inboxClientId as string | undefined;

@@ -35,6 +35,12 @@ export interface IWebChatWidget extends Document {
   timezone: string;
   schedule: InboxWeeklySchedule;
   outsideHoursMessage: string;
+  /** Permite consulta de chamado por número + token no widget. */
+  ticketLookupEnabled: boolean;
+  /** FAQ/base de conhecimento no chat (antes de IA/humano). */
+  faqInChatEnabled: boolean;
+  /** Exibir sugestões rápidas da base no widget. */
+  faqShowQuickReplies: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,6 +109,9 @@ const WebChatWidgetSchema = new Schema<IWebChatWidget>(
       default: DEFAULT_WEBCHAT_OUTSIDE_HOURS_MESSAGE,
       maxlength: 800,
     },
+    ticketLookupEnabled: { type: Boolean, default: true },
+    faqInChatEnabled: { type: Boolean, default: true },
+    faqShowQuickReplies: { type: Boolean, default: true },
   },
   { timestamps: true, collection: 'webChatWidgets' },
 );

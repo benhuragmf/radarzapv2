@@ -3,6 +3,7 @@ import { ConsentService } from '@/services/consent/ConsentService';
 import { InboxDepartment, IInboxDepartment } from '@/models/InboxDepartment';
 import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
 import { DEFAULT_INBOX_BOT_TEXTS } from '@/types/inbox-settings';
+import { setAgentPresenceTimeout } from '@/services/inbox/inbox-agent-presence';
 
 export const DEFAULT_INBOX_DEPARTMENTS = [
   { name: 'Comercial', menuKey: '1', sortOrder: 1, description: 'Vendas e propostas' },
@@ -25,7 +26,9 @@ function applyTemplate(template: string, vars: Record<string, string>): string {
 }
 
 export async function loadInboxSettings(clientId: string): Promise<IInboxSettings> {
-  return InboxSettings.getOrCreate(clientId);
+  const doc = await InboxSettings.getOrCreate(clientId);
+  setAgentPresenceTimeout(clientId, doc.agentPresenceTimeoutSeconds ?? 90);
+  return doc;
 }
 
 export async function loadActiveDepartments(clientId: string): Promise<IInboxDepartment[]> {

@@ -60,24 +60,38 @@ import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
 import { loadInboxSettings } from '../../constants/inbox-triage';
+import { handleWebChatNoAgentOnline } from './webchat-whatsapp-fallback.service';
+import {
+  deactivateWhatsappBridge,
+  forwardVisitorMessageToWhatsappBridge,
+} from './webchat-whatsapp-bridge.service';
+import { getOnlineAgentIds, isAgentOnline } from '../inbox/inbox-agent-presence';
 import {
   expandQuickReply,
   normalizeQuickReplies,
   parseQuickReplyCode,
   type InboxQuickReply,
 } from '../../types/inbox-quick-replies';
-import { isAgentOnline } from '../inbox/inbox-agent-presence';
 import {
   getQueuePriorityState,
   isAgentBusyWithClients,
 } from '../inbox/inbox-queue-priority';
 import { enrichWebChatInboxRow } from './webchat-inbox-enrich.util';
 import { createServiceLogger } from '../../utils/logger';
+import {
+  ensureInboxTicketPublicAccessToken,
+  formatTicketCreatedWithTokenMessage,
+  lookupTicketByPublicAccess,
+} from '../inbox/ticket-public-access.service';
 import { InboxTicket } from '../../models/InboxTicket';
 import { generateInboxTicketRef } from '../../utils/inbox-ticket-ref';
 import { TICKET_CLIENT_REPLY_FOOTER } from '../../types/inbox-ticket';
 import { InboxService } from '../inbox/InboxService';
 import { parseWebChatAttachment } from './webchat-attachment.util';
+import { AiKnowledgeBaseService } from '../ai/AiKnowledgeBaseService';
+import { buildWebChatFaqReplyBody } from '../../utils/webchat-faq-reply.util';
+import { sanitizeWebChatActionLinks } from '../../utils/webchat-safe-url.util';
+import type { WebChatActionLink } from '../../types/webchat';
 import {
   resolveWebChatMediaPath,
   saveWebChatMedia,
@@ -234,6 +248,11 @@ export class WebChatService {
     const a = syncLegacyAppearanceFlags(widget.appearance ?? DEFAULT_WEBCHAT_APPEARANCE);
     const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
     const prechatFields = enabledPrechatFields(a);
+    const faqEnabled = widget.faqInChatEnabled !== false;
+    const faqQuickReplies =
+      faqEnabled && widget.faqShowQuickReplies !== false
+        ? await AiKnowledgeBaseService.getInstance().listQuickReplies(String(widget.clientId))
+        : [];
     return {
       publicKey: widget.publicKey,
       title: a.title,
@@ -260,6 +279,9 @@ export class WebChatService {
       proactiveGreetingMessage:
         widget.proactiveGreetingMessage?.trim() || DEFAULT_WEBCHAT_PROACTIVE_GREETING_MESSAGE,
       proactiveGreetingDelaySeconds: widget.proactiveGreetingDelaySeconds ?? 30,
+      ticketLookupEnabled: widget.ticketLookupEnabled !== false,
+      faqInChatEnabled: faqEnabled,
+      faqQuickReplies,
     };
   }
 
@@ -328,6 +350,7 @@ export class WebChatService {
       mediaUrl: m.mediaUrl,
       mediaMime: m.mediaMime,
       mediaFileName: m.mediaFileName,
+      actionLinks: m.actionLinks?.length ? sanitizeWebChatActionLinks(m.actionLinks) : undefined,
     };
   }
 
@@ -836,6 +859,7 @@ export class WebChatService {
         widgetName: widgetNames.get(String(r.widgetId)),
         pageUrl: r.pageUrl,
         ticketRef: r.ticketRef?.trim() || undefined,
+        whatsappBridgeActive: Boolean(r.whatsappBridgeActive),
         priorityForMe: false,
         canAccept: false,
         canPull: false,
@@ -865,7 +889,15 @@ export class WebChatService {
     transfers: [];
     contactStats?: undefined;
     previousConversations?: [];
-    contact: null;
+    contact: {
+      _id: string;
+      name: string;
+      email: string;
+      notes: string;
+      organization: string;
+      identifier: string;
+      contactGroupIds: string[];
+    } | null;
     quickReplies: InboxQuickReply[];
   } | null> {
     const detail = await this.getConversationForAgent(clientId, conversationId);
@@ -927,6 +959,7 @@ export class WebChatService {
         widgetName: detail.conversation.widgetName,
         pageUrl: convDoc.pageUrl,
         ticketRef: convDoc.ticketRef?.trim() || undefined,
+        whatsappBridgeActive: Boolean(convDoc.whatsappBridgeActive),
         priorityForMe: false,
         canAccept: false,
         canPull: false,
@@ -1183,6 +1216,12 @@ export class WebChatService {
       created = true;
     }
 
+    let publicAccessToken: string | undefined;
+    if (created) {
+      const access = await ensureInboxTicketPublicAccessToken(ticket);
+      publicAccessToken = access.token || undefined;
+    }
+
     const dept = conversation.departmentId
       ? await InboxDepartment.findById(conversation.departmentId).select('name').lean()
       : null;
@@ -1197,12 +1236,14 @@ export class WebChatService {
     }
 
     if (created) {
+      const tokenBlock =
+        publicAccessToken && formatTicketCreatedWithTokenMessage(ref, publicAccessToken);
       const body = [
         `📋 Chamado aberto — *${ref}*`,
         '',
         `Olá *${contactName}*!`,
         '',
-        `Registramos sua solicitação. Guarde a referência *${ref}* para acompanhar.`,
+        tokenBlock || `Registramos sua solicitação. Guarde a referência *${ref}* para acompanhar.`,
         dept?.name ? `Setor: ${dept.name}` : null,
         assignedName ? `Responsável: ${assignedName}` : null,
         `Aberto por: ${agentName}`,
@@ -1329,6 +1370,7 @@ export class WebChatService {
       mediaUrl?: string;
       mediaMime?: string;
       mediaFileName?: string;
+      actionLinks?: WebChatActionLink[];
     },
   ): Promise<IWebChatMessage> {
     const isInternal = data.direction === 'internal';
@@ -1351,6 +1393,9 @@ export class WebChatService {
       mediaUrl: data.mediaUrl,
       mediaMime: data.mediaMime,
       mediaFileName: data.mediaFileName,
+      ...(data.actionLinks?.length
+        ? { actionLinks: sanitizeWebChatActionLinks(data.actionLinks) }
+        : {}),
     });
 
     const unreadDelta = data.direction === 'inbound' ? 1 : 0;
@@ -1401,6 +1446,18 @@ export class WebChatService {
     }
 
     return msg;
+  }
+
+  /** Mensagem de sistema visível (ex.: ativação do bridge WhatsApp). */
+  async appendBridgeSystemMessage(
+    conversation: IWebChatConversation,
+    body: string,
+  ): Promise<IWebChatMessage> {
+    return this.appendMessage(conversation, {
+      direction: 'system',
+      body,
+      notifyVisitor: false,
+    });
   }
 
   emitTypingIndicator(input: {
@@ -1566,6 +1623,21 @@ export class WebChatService {
       return { message: this.toMessageDto(msg), replies };
     }
 
+    if (freshAfterInbound.whatsappBridgeActive) {
+      await forwardVisitorMessageToWhatsappBridge(freshAfterInbound, text);
+      this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
+        conversation_id: String(conversation._id),
+        message_id: String(msg._id),
+        body: text,
+        visitor_name: conversation.visitorName,
+        visitor_email: conversation.visitorEmail,
+        widget_id: String(conversation.widgetId),
+        page_url: conversation.pageUrl,
+        queue_status: freshAfterInbound.queueStatus ?? 'bot',
+      });
+      return { message: this.toMessageDto(msg), replies: [] };
+    }
+
     const intentReply = await this.handleVisitorIntentMessages(
       freshAfterInbound,
       widget,
@@ -1588,7 +1660,10 @@ export class WebChatService {
     }
 
     const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
-    if (!hours.isOnline && hours.businessHoursEnabled) {
+    const faqReply = await this.tryFaqAutoReply(freshAfterInbound, widget, text);
+    if (faqReply) {
+      replies.push(faqReply);
+    } else if (!hours.isOnline && hours.businessHoursEnabled) {
       const systemMsg = await this.appendMessage(conversation, {
         direction: 'system',
         body: hours.outsideHoursMessage,
@@ -1642,6 +1717,16 @@ export class WebChatService {
     });
 
     const replies: WebChatMessageDto[] = [];
+    const freshAfterInbound = await WebChatConversation.findById(conversation._id);
+    if (freshAfterInbound?.whatsappBridgeActive) {
+      const mediaLabel =
+        parsed.mediaType === 'image'
+          ? `📎 Imagem${parsed.body ? `: ${parsed.body}` : ''}`
+          : `📎 PDF${parsed.body ? `: ${parsed.body}` : ''}`;
+      await forwardVisitorMessageToWhatsappBridge(freshAfterInbound, parsed.body, { mediaLabel });
+      return { message: this.toMessageDto(msg), replies: [] };
+    }
+
     const hours = await resolveWebChatBusinessHours(clientIdStr, widget);
     if (!hours.isOnline && hours.businessHoursEnabled) {
       const systemMsg = await this.appendMessage(conversation, {
@@ -1780,6 +1865,37 @@ export class WebChatService {
       conversationId: convId,
       conversation: conversationDto,
     });
+  }
+
+  private async tryFaqAutoReply(
+    conversation: IWebChatConversation,
+    widget: IWebChatWidget,
+    query: string,
+  ): Promise<WebChatMessageDto | null> {
+    if (widget.faqInChatEnabled === false) return null;
+
+    const fresh = await WebChatConversation.findById(conversation._id);
+    if (!fresh || fresh.status === 'closed') return null;
+    if (fresh.queueStatus === 'with_agent' && fresh.assignedUserId) return null;
+
+    const match = await AiKnowledgeBaseService.getInstance().matchForWebChat(
+      String(conversation.clientId),
+      query,
+    );
+    if (!match) return null;
+
+    const links = sanitizeWebChatActionLinks(match.row.links ?? []);
+    const body = buildWebChatFaqReplyBody(match.row.content);
+    if (!body) return null;
+
+    const botMsg = await this.appendMessage(fresh, {
+      direction: 'outbound',
+      body,
+      senderUserId: WEBCHAT_BOT_SENDER_ID,
+      senderName: widget.autoReplySenderName?.trim() || 'Assistente',
+      actionLinks: links,
+    });
+    return this.toMessageDto(botMsg);
   }
 
   private async maybeAutoReply(
@@ -1949,12 +2065,21 @@ export class WebChatService {
           conversationId: toWebChatInboxId(String(conversation._id)),
           createdAt: new Date().toISOString(),
         });
-      } else if (rr?.kind === 'no_online') {
+      } else if (await this.isNoAgentOnlineForEscalation(clientId, departmentOid, rr)) {
+        const { visitorMessage } = await handleWebChatNoAgentOnline(clientId, conversation, {
+          departmentName: dept?.name,
+        });
         await this.appendMessage(conversation, {
           direction: 'system',
-          body: 'Nenhum atendente online no painel — fila aberta para a equipe assumir.',
+          body: visitorMessage,
         });
       }
+    } else if (await this.isNoAgentOnlineForEscalation(clientId, undefined, null)) {
+      const { visitorMessage } = await handleWebChatNoAgentOnline(clientId, conversation);
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: visitorMessage,
+      });
     }
 
     this.emitWebchatWebhook(String(conversation.clientId), 'webchat.conversation.escalated', {
@@ -1978,6 +2103,21 @@ export class WebChatService {
       conversationId: String(conversation._id),
       createdAt: new Date().toISOString(),
     });
+  }
+
+  private async isNoAgentOnlineForEscalation(
+    clientId: string,
+    departmentOid: mongoose.Types.ObjectId | undefined,
+    rr: Awaited<ReturnType<InboxService['suggestRoundRobinAgent']>> | null,
+  ): Promise<boolean> {
+    if (rr?.kind === 'no_online') return true;
+    if (rr?.kind === 'suggested') return false;
+    if (departmentOid) {
+      const settings = await loadInboxSettings(clientId);
+      if (settings.roundRobinEnabled) return false;
+    }
+    const online = getOnlineAgentIds(clientId).filter(uid => isAgentOnline(clientId, uid));
+    return online.length === 0;
   }
 
   async assignConversation(
@@ -2408,6 +2548,10 @@ export class WebChatService {
     if (!conversation) throw new Error('Conversa não encontrada');
     if (conversation.status === 'closed') return;
 
+    if (conversation.whatsappBridgeActive) {
+      await deactivateWhatsappBridge(clientId, conversationId);
+    }
+
     conversation.status = 'closed';
     conversation.assignedUserId = undefined;
     conversation.suggestedUserId = undefined;
@@ -2447,5 +2591,100 @@ export class WebChatService {
       conversationId: convId,
       conversation: conversationDto,
     });
+  }
+
+  async lookupTicketPublic(
+    publicKey: string,
+    opts: {
+      ticketRef: string;
+      accessToken: string;
+      origin?: string | null;
+      referer?: string | null;
+      remoteIp?: string;
+    },
+  ) {
+    const widget = await this.getActiveWidgetByPublicKey(publicKey);
+    if (!widget) throw new Error('Widget não encontrado');
+    if (widget.ticketLookupEnabled === false) {
+      throw new Error('Consulta de chamado não está disponível');
+    }
+    this.assertOrigin(widget, opts.origin, opts.referer);
+
+    return lookupTicketByPublicAccess({
+      clientId: String(widget.clientId),
+      ticketRef: opts.ticketRef,
+      accessToken: opts.accessToken,
+      remoteIp: opts.remoteIp,
+    });
+  }
+
+  /** Reabre sessão do visitante na conversa WebChat vinculada ao chamado (token válido). */
+  async resumeTicketSession(
+    publicKey: string,
+    opts: {
+      ticketRef: string;
+      accessToken: string;
+      pageUrl?: string;
+      pageTitle?: string;
+      userAgent?: string;
+      origin?: string | null;
+      referer?: string | null;
+      remoteIp?: string;
+    },
+  ) {
+    const lookup = await this.lookupTicketPublic(publicKey, opts);
+    if (!lookup.canContinueInChat) {
+      throw new Error('Este chamado não pode ser continuado pelo chat do site no momento.');
+    }
+
+    const widget = await this.getActiveWidgetByPublicKey(publicKey);
+    if (!widget) throw new Error('Widget não encontrado');
+
+    const ticket = await InboxTicket.findOne({
+      clientId: widget.clientId,
+      ticketRef: lookup.ticketRef,
+    }).select('+publicAccessTokenHash webChatConversationId');
+    if (!ticket?.webChatConversationId) {
+      throw new Error('Conversa vinculada não encontrada');
+    }
+
+    const conversation = await WebChatConversation.findOne({
+      _id: ticket.webChatConversationId,
+      clientId: widget.clientId,
+      status: 'open',
+    });
+    if (!conversation) {
+      throw new Error('Conversa encerrada — inicie um novo atendimento.');
+    }
+    if (String(conversation.widgetId) !== String(widget._id)) {
+      throw new Error('Chamado não pertence a este widget');
+    }
+
+    const visitorToken = generateWebChatVisitorToken();
+    conversation.visitorTokenHash = hashWebChatVisitorToken(visitorToken);
+    if (opts.pageUrl?.trim()) conversation.pageUrl = opts.pageUrl.trim();
+    if (opts.pageTitle?.trim()) conversation.pageTitle = opts.pageTitle.trim();
+    await conversation.save();
+
+    const messages = await WebChatMessage.find({ conversationId: conversation._id })
+      .sort({ createdAt: 1 })
+      .limit(200)
+      .lean();
+    const session = await this.visitorSessionDto(conversation, messages);
+
+    await this.appendMessage(conversation, {
+      direction: 'system',
+      body: `Você retomou o chamado *${lookup.ticketRef}* pelo chat do site.`,
+      notifyVisitor: true,
+    });
+
+    return {
+      visitorToken,
+      conversationId: session.conversationId,
+      queueStatus: session.queueStatus,
+      departmentName: session.departmentName,
+      messages: session.messages,
+      ticket: lookup,
+    };
   }
 }

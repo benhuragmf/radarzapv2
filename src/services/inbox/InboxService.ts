@@ -74,6 +74,7 @@ import {
 } from '@/services/inbox/inbox-queue-priority';
 import {
   isAgentOnline,
+  setAgentPresenceTimeout,
 } from '@/services/inbox/inbox-agent-presence';
 import {
   shouldAlertQueueStall,
@@ -92,6 +93,9 @@ import {
   INBOX_INTERNAL_RANK_MIN,
 } from '@/types/inbox-department';
 import { createServiceLogger } from '@/utils/logger';
+import {
+  ensureInboxTicketPublicAccessToken,
+} from '@/services/inbox/ticket-public-access.service';
 import type { InboxMenuContext } from '@/types/inbox-menu-context';
 import { TicketClientMenuService } from '@/services/inbox/TicketClientMenuService';
 import { serializeTicketDisplayFields } from '@/services/inbox/ticket-display-status';
@@ -146,7 +150,9 @@ type TicketEnrichmentRow = Pick<
   | '_id'
   | 'ticketRef'
   | 'status'
+  | 'channel'
   | 'conversationId'
+  | 'webChatConversationId'
   | 'contactName'
   | 'contactIdentifier'
   | 'departmentId'
@@ -311,6 +317,10 @@ export class InboxService {
       csatPrompt: string;
       csatThankYou: string;
       quickReplies: InboxQuickReply[];
+      whatsappFallbackEnabled: boolean;
+      whatsappFallbackAlertPhones: string[];
+      whatsappFallbackVisitorMessage: string;
+      agentPresenceTimeoutSeconds: number;
     }>,
   ): Promise<IInboxSettings> {
     const settings = await InboxSettings.getOrCreate(clientId);
@@ -382,6 +392,24 @@ export class InboxService {
     if (patch.quickReplies !== undefined) {
       settings.quickReplies = normalizeQuickReplies(patch.quickReplies);
     }
+    if (patch.whatsappFallbackEnabled !== undefined) {
+      settings.whatsappFallbackEnabled = Boolean(patch.whatsappFallbackEnabled);
+    }
+    if (patch.whatsappFallbackAlertPhones !== undefined) {
+      settings.whatsappFallbackAlertPhones = patch.whatsappFallbackAlertPhones
+        .map(p => p.trim())
+        .filter(Boolean)
+        .slice(0, 10);
+    }
+    if (patch.whatsappFallbackVisitorMessage !== undefined) {
+      settings.whatsappFallbackVisitorMessage = patch.whatsappFallbackVisitorMessage.trim();
+    }
+    if (patch.agentPresenceTimeoutSeconds !== undefined) {
+      settings.agentPresenceTimeoutSeconds = Math.min(
+        300,
+        Math.max(30, Number(patch.agentPresenceTimeoutSeconds) || 90),
+      );
+    }
     if (patch.timezone !== undefined) {
       settings.timezone = patch.timezone.trim() || 'America/Sao_Paulo';
     }
@@ -398,6 +426,7 @@ export class InboxService {
       settings.markModified('schedule');
     }
     await settings.save();
+    setAgentPresenceTimeout(clientId, settings.agentPresenceTimeoutSeconds ?? 90);
     return settings;
   }
 
@@ -2508,7 +2537,7 @@ export class InboxService {
       return null;
     }
 
-    const { ticket, created } = await this.ensureTicketRecord(conv, openerUserId);
+    const { ticket, created, publicAccessToken } = await this.ensureTicketRecord(conv, openerUserId);
     if (!created) {
       return { ticketRef: ticket.ticketRef, created: false };
     }
@@ -2533,7 +2562,7 @@ export class InboxService {
     await ticket.save();
 
     const ctx = await this.loadTicketMessageContext(ticket, clientId);
-    const clientMsg = this.buildAiTicketOpenedClientMessage(ticket, ctx);
+    const clientMsg = this.buildAiTicketOpenedClientMessage(ticket, ctx, publicAccessToken);
     await this.sendTicketMessageToClient(clientId, openerUserId, ticket, clientMsg);
 
     await this.appendSystemMessage(
@@ -2551,7 +2580,7 @@ export class InboxService {
   private async ensureTicketRecord(
     conv: IInboxConversation,
     openedByUserId: string,
-  ): Promise<{ ticket: IInboxTicket; created: boolean }> {
+  ): Promise<{ ticket: IInboxTicket; created: boolean; publicAccessToken?: string }> {
     const clientOid = conv.clientId;
     const ref = (conv.ticketRef ?? this.generateTicketRef()).trim().toUpperCase();
 
@@ -2574,7 +2603,8 @@ export class InboxService {
         status: conv.assignedUserId ? 'in_progress' : 'open',
         openedByUserId: new mongoose.Types.ObjectId(openedByUserId),
       });
-      return { ticket, created: true };
+      const access = await ensureInboxTicketPublicAccessToken(ticket);
+      return { ticket, created: true, publicAccessToken: access.token || undefined };
     }
     return { ticket, created: false };
   }
@@ -2779,7 +2809,7 @@ export class InboxService {
           ticketRef: ticket.ticketRef,
           channel: 'webchat_site',
         },
-      } as typeof detail;
+      } as unknown as typeof detail;
     } else if (ticket.conversationId) {
       detail = await this.getConversationDetail(clientId, userId, String(ticket.conversationId));
     } else {
@@ -3342,6 +3372,7 @@ export class InboxService {
   private buildAiTicketOpenedClientMessage(
     ticket: IInboxTicket,
     ctx: Awaited<ReturnType<InboxService['loadTicketMessageContext']>>,
+    publicAccessToken?: string,
   ): string {
     const lines = [
       `*Chamado registrado — ${ticket.ticketRef}*`,
@@ -3349,6 +3380,9 @@ export class InboxService {
       `Olá *${ticket.contactName}*!`,
       '',
       `Registramos sua solicitação para acompanhamento assíncrono. Guarde a referência *${ticket.ticketRef}*.`,
+      publicAccessToken
+        ? `Token de consulta no chat do site: *${publicAccessToken}*`
+        : null,
       ticket.subject?.trim() ? `Assunto: ${ticket.subject.trim()}` : null,
       ctx.deptName ? `Setor: ${ctx.deptName}` : null,
       '',
@@ -3361,6 +3395,7 @@ export class InboxService {
     ticket: IInboxTicket,
     ctx: Awaited<ReturnType<InboxService['loadTicketMessageContext']>>,
     openedByName: string,
+    publicAccessToken?: string,
   ): string {
     const lines = [
       `*Chamado aberto — ${ticket.ticketRef}*`,
@@ -3368,6 +3403,9 @@ export class InboxService {
       `Olá *${ticket.contactName}*!`,
       '',
       `Registramos sua solicitação. Guarde a referência *${ticket.ticketRef}* para acompanhar.`,
+      publicAccessToken
+        ? `Token de consulta no chat do site: *${publicAccessToken}*`
+        : null,
       ctx.deptName ? `Setor: ${ctx.deptName}` : null,
       ctx.assignedName ? `Responsável: ${ctx.assignedName}` : null,
       `Aberto por: ${openedByName}`,
@@ -4332,12 +4370,12 @@ export class InboxService {
 
   async convertToTicket(clientId: string, userId: string, conversationId: string) {
     const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
-    const { ticket, created } = await this.ensureTicketRecord(conv, userId);
+    const { ticket, created, publicAccessToken } = await this.ensureTicketRecord(conv, userId);
     const agentName = await this.resolveAgentDisplayName(userId);
 
     if (created) {
       const ctx = await this.loadTicketMessageContext(ticket, clientId);
-      const clientMsg = this.buildTicketOpenedClientMessage(ticket, ctx, agentName);
+      const clientMsg = this.buildTicketOpenedClientMessage(ticket, ctx, agentName, publicAccessToken);
 
       ticket.teamHasMessagedClient = true;
       await ticket.save();

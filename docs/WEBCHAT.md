@@ -265,6 +265,43 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - API: `PATCH /api/inbox/conversations/wc:{id}/visitor-profile` — atualiza conversa WebChat e contato CRM (`Destination`) quando houver telefone vinculado ou informado.
 - Se o visitante ainda não existir em Contatos, o salvamento **cria o contato** pelo telefone do pré-chat.
 
+## Consulta de chamado por token (2.10.70)
+
+- Cada **novo** chamado (`InboxTicket`) recebe token público aleatório (`XXXX-XXXX`); apenas **hash SHA-256** é persistido.
+- WhatsApp: token incluído na mensagem ao cliente ao abrir chamado.
+- Site: mensagem de sistema no widget inclui número + token.
+- Widget: botão **Consultar chamado** (pré-chat ou após encerrar) → número `TK-…` + token → status e últimas mensagens públicas.
+- API pública:
+  - `POST /api/webchat/public/widgets/:publicKey/tickets/lookup` — body `{ ticketRef, accessToken }`
+  - `POST /api/webchat/public/widgets/:publicKey/tickets/resume` — retoma conversa WebChat vinculada (se aberta)
+- Rate limit: 8 tentativas falhas / 15 min por IP + empresa; erro genérico (anti-enumeração).
+- Config widget: `ticketLookupEnabled` (default `true`).
+
+## FAQ / base de conhecimento no chat (2.10.71)
+
+- Itens da **Base de conhecimento** (Inbox → IA Atendimento) ganham: palavras-chave, links (`https`), sugestão rápida no widget.
+- Widget: chips de sugestão acima do composer; respostas da FAQ incluem botões de link seguros.
+- Fluxo: mensagem do visitante → match na KB (sem LLM) → resposta + links; se não houver match, segue auto-resposta/IA existente.
+- Config widget: `faqInChatEnabled`, `faqShowQuickReplies` (default `true`).
+- Mensagens outbound podem ter `actionLinks[]` persistidos em `WebChatMessage`.
+
+## Fallback WhatsApp offline (2.10.72)
+
+- Config em **Triagem e Bot** → seção *Chat do site — fallback WhatsApp*.
+- Campos: `whatsappFallbackEnabled`, `whatsappFallbackAlertPhones[]`, `whatsappFallbackVisitorMessage`, `agentPresenceTimeoutSeconds`.
+- Ao escalar chat do site sem atendente online: mensagem ao visitante + alerta via `WhatsAppService.sendInternalAlert` (Baileys).
+- Presença: heartbeat `agent:heartbeat` a cada 45s no painel; timeout configurável (padrão 90s).
+- Bridge bidirecional site ↔ WhatsApp após `!assumir` (2.10.74) — campos `whatsappBridgeActive` em `WebChatConversation`.
+- Comandos `!assumir` / `!ticket` / `!encerrar` / `!ajuda` para atendentes com WhatsApp em Equipe (2.10.73).
+
+### Bridge site ↔ WhatsApp (2.10.74)
+
+- Ativado automaticamente ao `!assumir` chamado do chat do site.
+- Visitante escreve no widget → atendente recebe no WhatsApp (`*[Site · TK-…] Nome*`).
+- Atendente responde no WhatsApp → mensagem outbound no widget (sem comandos `!`).
+- Vários chamados abertos: `TK-XXXX sua resposta`.
+- `!encerrar` ou encerrar conversa desativa o bridge.
+
 ## Atendimento só no Inbox (2.10.7)
 
 - **`/platform/webchat`** virou **histórico + status + widgets** (somente leitura das mensagens).

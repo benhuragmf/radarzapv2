@@ -190,6 +190,10 @@ export class AiSettingsService {
         title: k.title,
         content: k.content,
         active: k.active,
+        keywords: k.keywords ?? [],
+        links: k.links ?? [],
+        showAsQuickReply: Boolean(k.showAsQuickReply),
+        quickReplyLabel: k.quickReplyLabel ?? '',
         updatedAt: k.updatedAt,
       })),
       skills: skills.map(s => AiSkillService.getInstance().toPayload(s)),
@@ -225,6 +229,10 @@ export class AiSettingsService {
       title: string;
       content: string;
       active?: boolean;
+      keywords?: string[];
+      links?: Array<{ label: string; url: string; openInNewTab?: boolean }>;
+      showAsQuickReply?: boolean;
+      quickReplyLabel?: string;
       _delete?: boolean;
     }> | undefined;
     const skills = body.skills as Array<{

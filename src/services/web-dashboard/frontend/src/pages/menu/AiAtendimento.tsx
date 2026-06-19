@@ -92,7 +92,16 @@ interface AiPayload {
     collectUrgency: boolean
     collectAttachments: boolean
   }
-  knowledgeBase: Array<{ id: string; title: string; content: string; active: boolean }>
+  knowledgeBase: Array<{
+    id: string
+    title: string
+    content: string
+    active: boolean
+    keywords?: string[]
+    links?: Array<{ label: string; url: string; openInNewTab?: boolean }>
+    showAsQuickReply?: boolean
+    quickReplyLabel?: string
+  }>
   skills: Array<{
     id: string
     title: string
@@ -1009,7 +1018,15 @@ export default function AiAtendimento() {
                         ...f,
                         knowledgeBase: [
                           ...f.knowledgeBase,
-                          { id: '', title: 'Novo item', content: '', active: true },
+                          {
+                            id: '',
+                            title: 'Novo item',
+                            content: '',
+                            active: true,
+                            keywords: [],
+                            links: [],
+                            showAsQuickReply: false,
+                          },
                         ],
                       }
                     : f,
@@ -1083,6 +1100,104 @@ export default function AiAtendimento() {
                 }}
                 placeholder="Texto oficial com todas as informações. Ex.: Oferecemos planos Mensal (R$ 49), Anual (R$ 490 com 2 meses grátis) e VIP (R$ 99/mês com suporte prioritário). Horário comercial: seg–sex 8h–18h."
               />
+              <input
+                className={inputCls}
+                value={(item.keywords ?? []).join(', ')}
+                onChange={e => {
+                  const kb = [...form.knowledgeBase]
+                  kb[idx] = {
+                    ...kb[idx],
+                    keywords: e.target.value
+                      .split(',')
+                      .map(s => s.trim())
+                      .filter(Boolean),
+                  }
+                  setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                }}
+                placeholder="Palavras-chave (separadas por vírgula): rastreio, pedido, entrega"
+              />
+              <div className="space-y-2">
+                <p className="text-xs text-[var(--rz-text-muted)]">Links no chat (rótulo + URL https)</p>
+                {(item.links ?? []).map((link, linkIdx) => (
+                  <div key={linkIdx} className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      className={inputCls}
+                      value={link.label}
+                      placeholder="Rótulo — ex.: Acompanhar pedido"
+                      onChange={e => {
+                        const kb = [...form.knowledgeBase]
+                        const links = [...(kb[idx].links ?? [])]
+                        links[linkIdx] = { ...links[linkIdx], label: e.target.value }
+                        kb[idx] = { ...kb[idx], links }
+                        setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                      }}
+                    />
+                    <input
+                      className={inputCls}
+                      value={link.url}
+                      placeholder="https://…"
+                      onChange={e => {
+                        const kb = [...form.knowledgeBase]
+                        const links = [...(kb[idx].links ?? [])]
+                        links[linkIdx] = { ...links[linkIdx], url: e.target.value }
+                        kb[idx] = { ...kb[idx], links }
+                        setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        const kb = [...form.knowledgeBase]
+                        const links = [...(kb[idx].links ?? [])]
+                        links.splice(linkIdx, 1)
+                        kb[idx] = { ...kb[idx], links }
+                        setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                      }}
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    const kb = [...form.knowledgeBase]
+                    kb[idx] = {
+                      ...kb[idx],
+                      links: [...(kb[idx].links ?? []), { label: '', url: '', openInNewTab: true }],
+                    }
+                    setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                  }}
+                >
+                  Adicionar link
+                </Button>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(item.showAsQuickReply)}
+                  onChange={e => {
+                    const kb = [...form.knowledgeBase]
+                    kb[idx] = { ...kb[idx], showAsQuickReply: e.target.checked }
+                    setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                  }}
+                />
+                Sugestão rápida no chat do site
+              </label>
+              {item.showAsQuickReply && (
+                <input
+                  className={inputCls}
+                  value={item.quickReplyLabel ?? ''}
+                  onChange={e => {
+                    const kb = [...form.knowledgeBase]
+                    kb[idx] = { ...kb[idx], quickReplyLabel: e.target.value }
+                    setForm(f => (f ? { ...f, knowledgeBase: kb } : f))
+                  }}
+                  placeholder="Texto do botão (opcional — usa o título se vazio)"
+                />
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"

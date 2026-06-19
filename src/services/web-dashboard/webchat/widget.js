@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.66';
+  var WIDGET_BUILD = '2.10.71';
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
@@ -197,6 +197,27 @@
     if (m.body && (!m.mediaUrl || m.body.indexOf('📎') !== 0)) {
       html += '<div>' + escHtml(m.body) + '</div>';
     }
+    if (m.actionLinks && m.actionLinks.length) {
+      html +=
+        '<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">' +
+        m.actionLinks
+          .map(function (link) {
+            if (!link || !link.url || !link.label) return '';
+            var safeUrl = String(link.url);
+            if (safeUrl.indexOf('https://') !== 0 && safeUrl.indexOf('http://') !== 0) return '';
+            return (
+              '<a href="' +
+              escHtml(safeUrl) +
+              '" target="' +
+              (link.openInNewTab !== false ? '_blank' : '_self') +
+              '" rel="noopener noreferrer" style="display:inline-block;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.92);color:#111827;font-size:13px;font-weight:600;text-decoration:none;text-align:center;border:1px solid rgba(0,0,0,.08);">' +
+              escHtml(link.label) +
+              '</a>'
+            );
+          })
+          .join('') +
+        '</div>';
+    }
     if (!html && m.body) html = escHtml(m.body);
     return html;
   }
@@ -304,7 +325,40 @@
     notificationsReady: false,
     soundEnabled: false,
     userHasInteracted: false,
+    ticketLookupStep: null,
+    ticketLookupRef: '',
+    ticketLookupToken: '',
+    ticketLookupResult: null,
+    ticketLookupError: '',
+    ticketLookupLoading: false,
   };
+
+  function ticketLookupEnabled() {
+    return !state.config || state.config.ticketLookupEnabled !== false;
+  }
+
+  function resetTicketLookup() {
+    state.ticketLookupStep = null;
+    state.ticketLookupRef = '';
+    state.ticketLookupToken = '';
+    state.ticketLookupResult = null;
+    state.ticketLookupError = '';
+    state.ticketLookupLoading = false;
+  }
+
+  function formatTicketDate(iso) {
+    try {
+      return new Date(iso).toLocaleString([], {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      return '';
+    }
+  }
 
   function ensureTypingStyles() {
     if (document.getElementById('rz-webchat-typing-style')) return;
@@ -1095,6 +1149,8 @@
   }
 
   function resolvePanelMode() {
+    if (state.ticketLookupStep === 'ref' || state.ticketLookupStep === 'token') return 'ticket_lookup';
+    if (state.ticketLookupStep === 'result') return 'ticket_result';
     if (isConversationEnded()) {
       if (state.conversationStatus !== 'closed') {
         markConversationClosed();
@@ -1363,6 +1419,228 @@
     scrollMessages();
   }
 
+  function renderFaqQuickReplies(t) {
+    if (!state.config || state.config.faqInChatEnabled === false) return '';
+    if (!state.config.faqQuickReplies || !state.config.faqQuickReplies.length) return '';
+    if (resolvePanelMode() !== 'chat' || state.conversationStatus === 'closed') return '';
+    var chips = state.config.faqQuickReplies
+      .map(function (item) {
+        return (
+          '<button type="button" class="rz-faq-quick" data-faq-label="' +
+          escHtml(item.label) +
+          '" style="padding:6px 10px;border-radius:999px;border:1px solid ' +
+          t.inputBorder +
+          ';background:' +
+          t.attachBg +
+          ';color:' +
+          t.text +
+          ';font-size:12px;cursor:pointer;white-space:nowrap;">' +
+          escHtml(item.label) +
+          '</button>'
+        );
+      })
+      .join('');
+    return (
+      '<div id="rz-webchat-faq-quick" style="flex-shrink:0;padding:8px 12px 4px;background:' +
+      t.footerBg +
+      ';border-top:1px solid ' +
+      t.border +
+      ';display:flex;flex-wrap:wrap;gap:6px;">' +
+      chips +
+      '</div>'
+    );
+  }
+
+  function renderConsultTicketLink(t, btnStyle, extraStyle) {
+    if (!ticketLookupEnabled()) return '';
+    return (
+      '<button type="button" class="rz-webchat-ticket-lookup-open" style="' +
+      (extraStyle || btnStyle.replace('background:' + primaryColor(), 'background:transparent;border:1px solid ' + t.inputBorder + ';color:' + t.text)) +
+      '">Consultar chamado</button>'
+    );
+  }
+
+  function renderTicketLookupPanel(t, inputStyle, btnStyle) {
+    var step = state.ticketLookupStep;
+    var title =
+      step === 'token'
+        ? 'Token de acesso'
+        : step === 'result'
+          ? 'Chamado encontrado'
+          : 'Consultar chamado';
+    var body = '';
+    if (step === 'ref') {
+      body =
+        '<p style="font-size:13px;color:' +
+        t.textMuted +
+        ';margin:0 0 10px;">Digite o número do seu chamado (ex.: TK-XXXXXX).</p>' +
+        '<input id="rz-ticket-lookup-ref" type="text" autocomplete="off" placeholder="TK-…" value="' +
+        escHtml(state.ticketLookupRef) +
+        '" style="' +
+        inputStyle +
+        '" />' +
+        '<button type="button" id="rz-ticket-lookup-next" style="' +
+        btnStyle +
+        '">Continuar</button>';
+    } else if (step === 'token') {
+      body =
+        '<p style="font-size:13px;color:' +
+        t.textMuted +
+        ';margin:0 0 10px;">Agora digite o token de acesso que você recebeu ao abrir o chamado.</p>' +
+        '<input id="rz-ticket-lookup-token" type="text" autocomplete="off" placeholder="XXXX-XXXX" value="' +
+        escHtml(state.ticketLookupToken) +
+        '" style="' +
+        inputStyle +
+        '" />' +
+        '<button type="button" id="rz-ticket-lookup-submit" style="' +
+        btnStyle +
+        '">' +
+        (state.ticketLookupLoading ? 'Consultando…' : 'Consultar') +
+        '</button>' +
+        '<button type="button" id="rz-ticket-lookup-back" style="' +
+        btnStyle.replace('background:' + primaryColor(), 'background:transparent;border:1px solid ' + t.inputBorder + ';color:' + t.text + ';margin-top:6px;') +
+        '">Voltar</button>';
+    } else if (step === 'result' && state.ticketLookupResult) {
+      var r = state.ticketLookupResult;
+      var msgs = (r.recentMessages || [])
+        .map(function (m) {
+          return (
+            '<div style="margin:8px 0;padding:8px 10px;border-radius:10px;background:' +
+            t.bubbleSystem +
+            ';font-size:13px;color:' +
+            t.bubbleSystemText +
+            ';white-space:pre-wrap;">' +
+            escHtml(m.body) +
+            '</div>'
+          );
+        })
+        .join('');
+      body =
+        '<div style="font-size:13px;color:' +
+        t.text +
+        ';line-height:1.5;">' +
+        '<div><strong>' +
+        escHtml(r.ticketRef) +
+        '</strong></div>' +
+        '<div style="margin-top:6px;">Status: <strong>' +
+        escHtml(r.statusLabel || r.status) +
+        '</strong></div>' +
+        (r.departmentName
+          ? '<div style="margin-top:4px;color:' + t.textMuted + ';">Setor: ' + escHtml(r.departmentName) + '</div>'
+          : '') +
+        '<div style="margin-top:4px;color:' +
+        t.textMuted +
+        ';">Última atualização: ' +
+        escHtml(formatTicketDate(r.updatedAt)) +
+        '</div>' +
+        (msgs ? '<div style="margin-top:12px;">' + msgs + '</div>' : '') +
+        '</div>' +
+        (r.canContinueInChat
+          ? '<button type="button" id="rz-ticket-lookup-resume" style="' + btnStyle + '">Continuar atendimento</button>'
+          : r.channel === 'whatsapp'
+            ? '<p style="font-size:12px;color:' +
+              t.textMuted +
+              ';margin-top:12px;">Este chamado foi aberto pelo WhatsApp. Continue por lá ou inicie uma nova conversa.</p>'
+            : '<p style="font-size:12px;color:' +
+              t.textMuted +
+              ';margin-top:12px;">Este chamado não pode ser retomado pelo chat no momento.</p>') +
+        '<button type="button" id="rz-ticket-lookup-close" style="' +
+        btnStyle.replace('background:' + primaryColor(), 'background:transparent;border:1px solid ' + t.inputBorder + ';color:' + t.text + ';margin-top:6px;') +
+        '">Fechar</button>';
+    }
+    if (state.ticketLookupError) {
+      body +=
+        '<div style="font-size:12px;color:' + t.errorText + ';margin-top:8px;">' +
+        escHtml(state.ticketLookupError) +
+        '</div>';
+    }
+    return (
+      '<div id="rz-webchat-ticket-lookup" style="flex:1;overflow:auto;padding:14px;background:' +
+      t.prechatBg +
+      ';">' +
+      '<div style="font-size:13px;font-weight:600;color:' +
+      t.text +
+      ';margin-bottom:10px;">' +
+      escHtml(title) +
+      '</div>' +
+      body +
+      '</div>'
+    );
+  }
+
+  function submitTicketLookupRef() {
+    var input = document.getElementById('rz-ticket-lookup-ref');
+    var ref = input ? String(input.value || '').trim() : state.ticketLookupRef.trim();
+    if (!ref) {
+      state.ticketLookupError = 'Informe o número do chamado.';
+      renderBubble();
+      return;
+    }
+    state.ticketLookupRef = ref;
+    state.ticketLookupError = '';
+    state.ticketLookupStep = 'token';
+    renderBubble();
+  }
+
+  function submitTicketLookupToken() {
+    if (state.ticketLookupLoading) return;
+    var input = document.getElementById('rz-ticket-lookup-token');
+    var token = input ? String(input.value || '').trim() : state.ticketLookupToken.trim();
+    if (!token) {
+      state.ticketLookupError = 'Informe o token de acesso.';
+      renderBubble();
+      return;
+    }
+    state.ticketLookupToken = token;
+    state.ticketLookupError = '';
+    state.ticketLookupLoading = true;
+    renderBubble();
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/tickets/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ ticketRef: state.ticketLookupRef, accessToken: token }),
+    })
+      .then(function (result) {
+        state.ticketLookupLoading = false;
+        state.ticketLookupResult = result;
+        state.ticketLookupStep = 'result';
+        state.ticketLookupError = '';
+        renderBubble();
+      })
+      .catch(function (err) {
+        state.ticketLookupLoading = false;
+        state.ticketLookupError =
+          (err && err.message) ||
+          'Não encontramos um chamado com esses dados. Verifique o número e o token e tente novamente.';
+        renderBubble();
+      });
+  }
+
+  function resumeTicketFromLookup() {
+    if (state.ticketLookupLoading || !state.ticketLookupResult) return;
+    state.ticketLookupLoading = true;
+    state.ticketLookupError = '';
+    renderBubble();
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/tickets/resume', {
+      method: 'POST',
+      body: JSON.stringify({
+        ticketRef: state.ticketLookupRef,
+        accessToken: state.ticketLookupToken,
+        pageUrl: window.location.href,
+        pageTitle: document.title,
+      }),
+    })
+      .then(function (data) {
+        state.ticketLookupLoading = false;
+        resetTicketLookup();
+        finishAgentEngageSession(data);
+      })
+      .catch(function (err) {
+        state.ticketLookupLoading = false;
+        state.ticketLookupError = (err && err.message) || 'Não foi possível retomar o atendimento.';
+        renderBubble();
+      });
+  }
+
   function renderPanel() {
     var t = ui();
     var title = (state.config && state.config.title) || 'Fale conosco';
@@ -1522,6 +1800,15 @@
             !stepField.required)
           ? '<button type="button" id="rz-webchat-prechat-next" style="' + btnStyle + '">Continuar</button>'
           : '') +
+      renderConsultTicketLink(
+        t,
+        btnStyle,
+        'width:100%;padding:10px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:10px;background:transparent;color:' +
+          t.text +
+          ';font-weight:600;cursor:pointer;margin-top:8px;font-size:13px;'
+      ) +
       '</div>';
     var visitorLabel =
       state.visitorName || state.visitorEmail
@@ -1540,6 +1827,17 @@
       '<button type="button" id="rz-webchat-new" style="width:100%;padding:10px 14px;border:none;border-radius:10px;background:' +
       primaryColor() +
       ';color:#fff;font-weight:600;cursor:pointer;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.15);">Nova conversa</button>' +
+      renderConsultTicketLink(
+        t,
+        '',
+        'width:100%;padding:10px 14px;border:1px solid ' +
+          t.dismissBorder +
+          ';border-radius:10px;background:' +
+          t.dismissBg +
+          ';color:' +
+          t.dismissText +
+          ';font-weight:600;cursor:pointer;font-size:13px;'
+      ) +
       '<button type="button" id="rz-webchat-dismiss" style="width:100%;padding:8px 14px;border:1px solid ' +
       t.dismissBorder +
       ';border-radius:10px;background:' +
@@ -1716,12 +2014,14 @@
       '</div></div>';
 
     var panelBody = '';
-    if (mode === 'prechat') {
+    if (mode === 'ticket_lookup' || mode === 'ticket_result') {
+      panelBody = offlineBanner + renderTicketLookupPanel(t, inputStyle, btnStyle);
+    } else if (mode === 'prechat') {
       panelBody = offlineBanner + prechat;
     } else if (mode === 'closed') {
       panelBody = messagesBlock + closedFooter;
     } else {
-      panelBody = offlineBanner + queueBanner + messagesBlock + composer;
+      panelBody = offlineBanner + queueBanner + messagesBlock + renderFaqQuickReplies(t) + composer;
     }
 
     return (
@@ -1839,6 +2139,84 @@
   }
 
   function bindPanelEvents() {
+    var lookupOpenBtns = document.getElementsByClassName('rz-webchat-ticket-lookup-open');
+    for (var li = 0; li < lookupOpenBtns.length; li++) {
+      lookupOpenBtns[li].onclick = function () {
+        resetTicketLookup();
+        state.ticketLookupStep = 'ref';
+        renderBubble();
+      };
+    }
+    var ticketLookupNext = document.getElementById('rz-ticket-lookup-next');
+    if (ticketLookupNext) {
+      ticketLookupNext.onclick = function () {
+        submitTicketLookupRef();
+      };
+    }
+    var ticketLookupSubmit = document.getElementById('rz-ticket-lookup-submit');
+    if (ticketLookupSubmit) {
+      ticketLookupSubmit.onclick = function () {
+        submitTicketLookupToken();
+      };
+      ticketLookupSubmit.disabled = !!state.ticketLookupLoading;
+    }
+    var ticketLookupBack = document.getElementById('rz-ticket-lookup-back');
+    if (ticketLookupBack) {
+      ticketLookupBack.onclick = function () {
+        state.ticketLookupStep = 'ref';
+        state.ticketLookupError = '';
+        renderBubble();
+      };
+    }
+    var ticketLookupResume = document.getElementById('rz-ticket-lookup-resume');
+    if (ticketLookupResume) {
+      ticketLookupResume.onclick = function () {
+        resumeTicketFromLookup();
+      };
+      ticketLookupResume.disabled = !!state.ticketLookupLoading;
+    }
+    var ticketLookupClose = document.getElementById('rz-ticket-lookup-close');
+    if (ticketLookupClose) {
+      ticketLookupClose.onclick = function () {
+        resetTicketLookup();
+        renderBubble();
+      };
+    }
+    var ticketRefInput = document.getElementById('rz-ticket-lookup-ref');
+    if (ticketRefInput) {
+      ticketRefInput.onkeydown = function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitTicketLookupRef();
+        }
+      };
+    }
+    var ticketTokenInput = document.getElementById('rz-ticket-lookup-token');
+    if (ticketTokenInput) {
+      ticketTokenInput.onkeydown = function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitTicketLookupToken();
+        }
+      };
+    }
+    var faqQuickBtns = document.getElementsByClassName('rz-faq-quick');
+    for (var fq = 0; fq < faqQuickBtns.length; fq++) {
+      faqQuickBtns[fq].onclick = function () {
+        var label = this.getAttribute('data-faq-label') || '';
+        if (!label) return;
+        if (!state.started || !state.visitorToken) {
+          state.open = true;
+          if (!state.started && !needsPrechat()) startSession();
+          setTimeout(function () {
+            sendMessageWithText(label);
+          }, state.started ? 0 : 600);
+          return;
+        }
+        sendMessageWithText(label);
+      };
+    }
+
     var prechatNext = document.getElementById('rz-webchat-prechat-next');
     if (prechatNext) {
       prechatNext.onclick = function () {

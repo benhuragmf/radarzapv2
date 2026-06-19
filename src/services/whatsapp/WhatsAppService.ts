@@ -1334,6 +1334,44 @@ export class WhatsAppService {
     });
   }
 
+  /**
+   * Alerta interno (ex.: fallback WebChat) — não exige contato no CRM.
+   * Aceita telefone E.164, JID @s.whatsapp.net ou grupo @g.us.
+   */
+  async sendInternalAlert(
+    clientId: string,
+    destination: string,
+    text: string,
+  ): Promise<{ success: boolean; messageId?: string }> {
+    await this.ensureClientReady(clientId);
+    const socket = this.sessions.get(String(clientId));
+    if (!socket?.user) {
+      throw new Error('WhatsApp não conectado');
+    }
+
+    const trimmed = destination.trim();
+    let resolvedJid: string;
+    if (trimmed.includes('@')) {
+      resolvedJid = trimmed;
+    } else if (trimmed.includes('-')) {
+      resolvedJid = this.formatJid(trimmed, 'group');
+    } else {
+      resolvedJid = this.formatJid(trimmed, 'contact');
+      try {
+        const plainNumber = resolvedJid.replace('@s.whatsapp.net', '');
+        const [result] = await socket.onWhatsApp(plainNumber);
+        if (result?.exists && result.jid) {
+          resolvedJid = result.jid;
+        }
+      } catch {
+        /* fallback to formatted JID */
+      }
+    }
+
+    const result = await socket.sendMessage(resolvedJid, { text });
+    return { success: true, messageId: result?.key?.id ?? undefined };
+  }
+
   /** Detecta WhatsApp Business pela sessão Baileys */
   detectAccountType(user: { verifiedName?: string | null; lid?: string | null; id?: string } | undefined): 'web' | 'business' {
     if (!user) return 'web';
@@ -2433,6 +2471,46 @@ export class WhatsAppService {
           }
 
           if (!text && !mediaPayload) return;
+
+          if (text.trim().startsWith('!')) {
+            let commandHandled = false;
+            try {
+              const { handleWhatsappAgentCommand } = await import(
+                '@/services/inbox/whatsapp-agent-command.service'
+              );
+              commandHandled = await handleWhatsappAgentCommand({
+                clientId,
+                remoteJid: msg.key.remoteJid!,
+                altJid: msg.key.remoteJidAlt,
+                participant: msg.key.participant,
+                text: text.trim(),
+                replyJid: msg.key.remoteJid!,
+              });
+            } catch (err) {
+              this.serviceLogger.warn('WhatsApp agent command handler error', err);
+            }
+            if (commandHandled) return;
+          }
+
+          if (text.trim()) {
+            let bridgeHandled = false;
+            try {
+              const { handleWhatsappBridgeAgentReply } = await import(
+                '@/services/webchat/webchat-whatsapp-bridge.service'
+              );
+              bridgeHandled = await handleWhatsappBridgeAgentReply({
+                clientId,
+                remoteJid: msg.key.remoteJid!,
+                altJid: msg.key.remoteJidAlt,
+                participant: msg.key.participant,
+                text: text.trim(),
+                replyJid: msg.key.remoteJid!,
+              });
+            } catch (err) {
+              this.serviceLogger.warn('WhatsApp bridge handler error', err);
+            }
+            if (bridgeHandled) return;
+          }
 
           this.serviceLogger.info('WA inbound recebido', {
             text: text.slice(0, 40),

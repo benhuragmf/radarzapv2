@@ -7,6 +7,10 @@ import {
 } from '@/types/inbox-settings';
 import { DEFAULT_INBOX_QUICK_REPLIES, InboxQuickReply } from '@/types/inbox-quick-replies';
 import { DEFAULT_CSAT_PROMPT, DEFAULT_CSAT_THANK_YOU } from '@/services/inbox/csat.util';
+import {
+  DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS,
+  DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
+} from '@/types/inbox-settings';
 
 export interface IInboxSettings extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -38,6 +42,12 @@ export interface IInboxSettings extends Document {
   csatPrompt: string;
   csatThankYou: string;
   quickReplies: InboxQuickReply[];
+  /** Fallback WhatsApp quando chat do site escala sem atendente online */
+  whatsappFallbackEnabled: boolean;
+  whatsappFallbackAlertPhones: string[];
+  whatsappFallbackVisitorMessage: string;
+  /** Segundos sem heartbeat para considerar atendente offline (30–300) */
+  agentPresenceTimeoutSeconds: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -119,6 +129,19 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
         },
       ],
       default: () => DEFAULT_INBOX_QUICK_REPLIES.map(q => ({ ...q })),
+    },
+    whatsappFallbackEnabled: { type: Boolean, default: false },
+    whatsappFallbackAlertPhones: { type: [String], default: [] },
+    whatsappFallbackVisitorMessage: {
+      type: String,
+      default: DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
+      maxlength: 800,
+    },
+    agentPresenceTimeoutSeconds: {
+      type: Number,
+      default: DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS,
+      min: 30,
+      max: 300,
     },
   },
   { timestamps: true, collection: 'inboxSettings' },

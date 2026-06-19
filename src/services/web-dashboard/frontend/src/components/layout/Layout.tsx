@@ -11,6 +11,7 @@ import { NavModeContext } from '../../lib/navModeContext'
 import { detectNavMode, type NavMode } from '../../lib/navConfig'
 import { EventNotificationProvider } from '../../context/EventNotificationContext'
 import { WebChatGlobalListener } from '../webchat/WebChatGlobalListener'
+import { useAgentPresenceHeartbeat } from '../../hooks/useAgentPresenceHeartbeat'
 
 interface Props {
   user: AuthUser
@@ -20,6 +21,7 @@ interface Props {
 
 export default function Layout({ user, onLogout, onUserUpdate }: Props) {
   const { pathname, hash } = useLocation()
+  useAgentPresenceHeartbeat(Boolean(user))
   const initial = getSelectedGuild()
   const [guild, setGuild] = useState<Guild | null>(initial)
   const [navMode, setNavMode] = useState<NavMode>(() => detectNavMode(pathname, hash))

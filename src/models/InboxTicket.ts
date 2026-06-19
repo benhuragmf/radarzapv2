@@ -70,6 +70,11 @@ export interface IInboxTicket extends Document {
   deletedAt?: Date;
   deletedBy?: mongoose.Types.ObjectId;
   deleteReason?: string;
+  /** Hash SHA-256 do token público de consulta (nunca armazenar token puro). */
+  publicAccessTokenHash?: string;
+  /** Últimos 4 caracteres do token — hint para suporte. */
+  publicAccessTokenHint?: string;
+  publicAccessCreatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -158,6 +163,9 @@ const InboxTicketSchema = new Schema<IInboxTicket>(
     deletedAt: Date,
     deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     deleteReason: { type: String, maxlength: 500 },
+    publicAccessTokenHash: { type: String, maxlength: 128, select: false },
+    publicAccessTokenHint: { type: String, maxlength: 8 },
+    publicAccessCreatedAt: Date,
   },
   { timestamps: true, collection: 'inboxTickets' },
 );

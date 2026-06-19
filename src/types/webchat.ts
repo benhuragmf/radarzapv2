@@ -109,6 +109,18 @@ export const DEFAULT_WEBCHAT_AI_ESCALATION_POLICY: WebChatAiEscalationPolicy = {
   escalateAfterRepeatedRequests: 2,
 };
 
+export interface WebChatActionLink {
+  label: string;
+  url: string;
+  openInNewTab?: boolean;
+}
+
+export interface WebChatFaqQuickReply {
+  id: string;
+  label: string;
+  title: string;
+}
+
 export interface WebChatPublicConfig {
   publicKey: string;
   title: string;
@@ -131,6 +143,26 @@ export interface WebChatPublicConfig {
   proactiveGreetingEnabled: boolean;
   proactiveGreetingMessage: string;
   proactiveGreetingDelaySeconds: number;
+  ticketLookupEnabled: boolean;
+  faqInChatEnabled: boolean;
+  faqQuickReplies: WebChatFaqQuickReply[];
+}
+
+export interface WebChatTicketPublicLookupDto {
+  ticketRef: string;
+  status: string;
+  statusLabel: string;
+  subject?: string;
+  departmentName?: string;
+  openedAt: string;
+  updatedAt: string;
+  recentMessages: Array<{
+    body: string;
+    createdAt: string;
+    kind: 'client' | 'team' | 'system';
+  }>;
+  canContinueInChat: boolean;
+  channel: 'whatsapp' | 'webchat_site';
 }
 
 export interface WebChatVisitorSessionDto {
@@ -157,6 +189,7 @@ export interface WebChatMessageDto {
   mediaUrl?: string;
   mediaMime?: string;
   mediaFileName?: string;
+  actionLinks?: WebChatActionLink[];
 }
 
 /** Resposta de POST /messages — mensagem do visitante + respostas automáticas (bot/IA). */

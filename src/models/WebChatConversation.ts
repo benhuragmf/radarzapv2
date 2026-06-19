@@ -20,6 +20,7 @@ export interface IWebChatConversation extends Document {
   suggestedAt?: Date;
   assignedUserId?: string;
   pageUrl?: string;
+  pageTitle?: string;
   userAgent?: string;
   lastMessageAt?: Date;
   lastMessagePreview?: string;
@@ -27,6 +28,12 @@ export interface IWebChatConversation extends Document {
   proactiveGreetingSentAt?: Date;
   /** Referência do chamado vinculado (paridade com Inbox WhatsApp) */
   ticketRef?: string;
+  /** Último alerta WhatsApp enviado por fallback offline */
+  whatsappFallbackAlertSentAt?: Date;
+  /** Bridge bidirecional site ↔ WhatsApp do atendente (Fase E) */
+  whatsappBridgeActive?: boolean;
+  whatsappBridgeAgentUserId?: string;
+  whatsappBridgeActivatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +70,10 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     unreadAgentCount: { type: Number, default: 0 },
     proactiveGreetingSentAt: { type: Date },
     ticketRef: { type: String, trim: true, maxlength: 32, index: true },
+    whatsappFallbackAlertSentAt: { type: Date },
+    whatsappBridgeActive: { type: Boolean, default: false, index: true },
+    whatsappBridgeAgentUserId: { type: String, index: true },
+    whatsappBridgeActivatedAt: { type: Date },
   },
   { timestamps: true, collection: 'webChatConversations' },
 );

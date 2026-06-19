@@ -1,5 +1,9 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import type { WebChatMessageDirection, WebChatMessageMediaType } from '../types/webchat';
+import type {
+  WebChatActionLink,
+  WebChatMessageDirection,
+  WebChatMessageMediaType,
+} from '../types/webchat';
 
 export interface IWebChatMessage extends Document {
   conversationId: mongoose.Types.ObjectId;
@@ -12,6 +16,7 @@ export interface IWebChatMessage extends Document {
   mediaFileName?: string;
   senderUserId?: string;
   senderName?: string;
+  actionLinks?: WebChatActionLink[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +38,16 @@ const WebChatMessageSchema = new Schema<IWebChatMessage>(
     mediaFileName: { type: String, maxlength: 200 },
     senderUserId: { type: String },
     senderName: { type: String, trim: true, maxlength: 120 },
+    actionLinks: {
+      type: [
+        {
+          label: { type: String, maxlength: 80 },
+          url: { type: String, maxlength: 500 },
+          openInNewTab: { type: Boolean, default: true },
+        },
+      ],
+      default: undefined,
+    },
   },
   { timestamps: true, collection: 'webChatMessages' },
 );

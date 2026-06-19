@@ -6,7 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Bot, Clock, Users, ArrowLeft, Save, Bell } from 'lucide-react'
+import { Bot, Clock, Users, ArrowLeft, Save, Bell, MessageCircle } from 'lucide-react'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
 import { cn } from '@/lib/utils'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
@@ -54,6 +54,10 @@ interface InboxSettings {
   csatEnabled: boolean
   csatPrompt: string
   csatThankYou: string
+  whatsappFallbackEnabled: boolean
+  whatsappFallbackAlertPhones: string[]
+  whatsappFallbackVisitorMessage: string
+  agentPresenceTimeoutSeconds: number
 }
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -474,6 +478,85 @@ export default function InboxBotSettings() {
             />
             Alertar em cada nova mensagem do cliente (pode ser frequente)
           </label>
+        </Card>
+
+        <Card className="p-6 space-y-4">
+          <h2 className="font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
+            <MessageCircle className="w-5 h-5" /> Chat do site — fallback WhatsApp
+          </h2>
+          <p className="text-sm text-[var(--rz-text-muted)]">
+            Quando ninguém estiver online no painel e uma conversa do site entrar na fila, o sistema pode
+            avisar números/grupos WhatsApp autorizados e exibir uma mensagem ao visitante.
+          </p>
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={form.whatsappFallbackEnabled}
+              onChange={e => patch('whatsappFallbackEnabled', e.target.checked)}
+            />
+            Ativar fallback WhatsApp quando não houver atendente online
+          </label>
+          <div>
+            <label className="text-xs text-[var(--rz-text-muted)]">
+              Números ou grupos para alerta (um por linha)
+            </label>
+            <textarea
+              className={textareaCls}
+              rows={3}
+              value={(form.whatsappFallbackAlertPhones ?? []).join('\n')}
+              onChange={e =>
+                patch(
+                  'whatsappFallbackAlertPhones',
+                  e.target.value
+                    .split('\n')
+                    .map(s => s.trim())
+                    .filter(Boolean),
+                )
+              }
+              placeholder={'5511999999999\n120363012345678901@g.us'}
+              disabled={!form.whatsappFallbackEnabled}
+            />
+          </div>
+          <div>
+            <div className="flex justify-between text-xs text-[var(--rz-text-muted)] mb-1">
+              <label>Mensagem exibida ao visitante no chat</label>
+              <CharCount value={form.whatsappFallbackVisitorMessage} max={800} />
+            </div>
+            <textarea
+              className={textareaCls}
+              rows={3}
+              value={form.whatsappFallbackVisitorMessage}
+              onChange={e => patch('whatsappFallbackVisitorMessage', e.target.value)}
+              disabled={!form.whatsappFallbackEnabled}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[var(--rz-text-muted)]">
+              Timeout de presença do atendente (segundos, 30–300)
+            </label>
+            <input
+              type="number"
+              min={30}
+              max={300}
+              className={inputCls}
+              value={form.agentPresenceTimeoutSeconds}
+              onChange={e => patch('agentPresenceTimeoutSeconds', Number(e.target.value))}
+            />
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+              Sem heartbeat do painel por este tempo, o atendente deixa de contar como online.
+            </p>
+            <p className="text-xs text-[var(--rz-text-muted)] mt-2">
+              Atendentes autorizados respondem alertas com{' '}
+              <code className="text-[var(--rz-text-secondary)]">!assumir TK-…</code>,{' '}
+              <code className="text-[var(--rz-text-secondary)]">!ticket</code>,{' '}
+              <code className="text-[var(--rz-text-secondary)]">!encerrar</code>. Cadastre o WhatsApp
+              pessoal em{' '}
+              <Link to="/settings/team" className="text-[var(--rz-accent)] hover:underline">
+                Equipe
+              </Link>
+              .
+            </p>
+          </div>
         </Card>
 
         <div className="flex items-center gap-3 sticky bottom-4 z-10 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/95 backdrop-blur p-3 shadow-lg">

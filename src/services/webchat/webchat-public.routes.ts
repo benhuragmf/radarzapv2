@@ -237,5 +237,56 @@ export function createWebChatPublicRouter(): Router {
     }
   });
 
+  r.post('/widgets/:publicKey/tickets/lookup', async (req, res) => {
+    try {
+      const body = req.body as { ticketRef?: string; accessToken?: string };
+      const result = await svc.lookupTicketPublic(req.params.publicKey, {
+        ticketRef: body.ticketRef ?? '',
+        accessToken: body.accessToken ?? '',
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        remoteIp: req.ip || req.socket.remoteAddress,
+      });
+      res.json(result);
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('não encontrado') || msg.includes('não está disponível')
+          ? 404
+          : msg.includes('Origem')
+            ? 403
+            : msg.includes('Não encontramos')
+              ? 404
+              : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  r.post('/widgets/:publicKey/tickets/resume', async (req, res) => {
+    try {
+      const body = req.body as { ticketRef?: string; accessToken?: string; pageUrl?: string; pageTitle?: string };
+      const result = await svc.resumeTicketSession(req.params.publicKey, {
+        ticketRef: body.ticketRef ?? '',
+        accessToken: body.accessToken ?? '',
+        pageUrl: body.pageUrl,
+        pageTitle: body.pageTitle,
+        userAgent: req.headers['user-agent'],
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        remoteIp: req.ip || req.socket.remoteAddress,
+      });
+      res.json(result);
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status =
+        msg.includes('não encontrado') || msg.includes('Não encontramos') || msg.includes('encerrada')
+          ? 404
+          : msg.includes('Origem')
+            ? 403
+            : 400;
+      res.status(status).json({ error: msg });
+    }
+  });
+
   return r;
 }

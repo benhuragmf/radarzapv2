@@ -62,3 +62,8 @@ export const DEFAULT_INBOX_SLA = {
   /** Horas para equipe responder após mensagem do cliente no ticket (0 = desligado). */
   ticketTeamResponseHours: 24,
 } as const;
+
+export const DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS = 90;
+
+export const DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE =
+  'No momento não temos atendentes online no painel, mas podemos continuar seu atendimento pelo WhatsApp. Um atendente autorizado poderá assumir sua conversa em breve.';
