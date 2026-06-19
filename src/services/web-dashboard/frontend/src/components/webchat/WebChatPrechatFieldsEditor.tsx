@@ -103,7 +103,8 @@ export function WebChatPrechatFieldsEditor({ appearance, onChange, onPersist }: 
         <h4 className="text-sm font-semibold text-[var(--rz-text)]">Dados coletados antes do chat</h4>
         <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
           Escolha como o visitante preenche: <strong>etapas</strong> (uma pergunta por vez) ou{' '}
-          <strong>formulário</strong> (todos os campos na mesma tela, ex.: Nome + Telefone + Motivo).
+          <strong>formulário</strong> (todos os campos na mesma tela). Altera só o conteúdo do
+          formulário — <strong>não</strong> muda tema, cores nem modelo do chat.
         </p>
       </div>
 

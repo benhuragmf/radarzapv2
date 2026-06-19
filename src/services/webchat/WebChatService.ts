@@ -25,6 +25,7 @@ import {
   normalizePrechatField,
   resolvePrechatMode,
   syncLegacyAppearanceFlags,
+  toPlainAppearance,
 } from '../../utils/webchat-prechat-fields.util';
 import { isVisitorHiddenSystemMessage } from '../../utils/webchat-visitor-message.util';
 import {
@@ -154,7 +155,7 @@ export class WebChatService {
     }
     if (patch.appearance) {
       const merged = {
-        ...existing.appearance,
+        ...toPlainAppearance(existing.appearance),
         ...patch.appearance,
       } as WebChatWidgetAppearance;
       if (merged.prechatFields?.length) {

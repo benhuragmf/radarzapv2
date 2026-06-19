@@ -824,7 +824,9 @@ function WidgetEditorCard({
       appearanceMatchesTemplate(widget.appearance, t.appearance),
     )
     setSelectedTemplateId(widget.appearance.previewTemplateId ?? match?.id ?? null)
-  }, [widget])
+    // Só reseta o editor ao trocar de widget — evita pular layout ao salvar pré-chat
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [widget.id])
 
   const save = useMutation({
     mutationFn: () => {
@@ -861,22 +863,31 @@ function WidgetEditorCard({
 
   const persistAppearancePatch = useMutation({
     mutationFn: (appearance: Partial<WebChatWidgetRow['appearance']>) =>
-      api.patch(`/webchat/widgets/${widget.id}`, { appearance }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
-    },
+      api.patch<WebChatWidgetRow>(`/webchat/widgets/${widget.id}`, { appearance }),
     onError: mutationError,
   })
 
+  const mergeWidgetAppearanceInCache = (updated: WebChatWidgetRow) => {
+    qc.setQueryData<WebChatWidgetRow[]>(['webchat-widgets'], old =>
+      old?.map(w => (w.id === updated.id ? { ...w, appearance: updated.appearance } : w)),
+    )
+  }
+
   const persistPrechatAppearance = (appearance: WebChatWidgetRow['appearance']) => {
     persistAppearancePatch.mutate(prechatAppearancePatch(appearance), {
-      onSuccess: () => notifySuccess('Pré-chat salvo no widget'),
+      onSuccess: updated => {
+        mergeWidgetAppearanceInCache(updated)
+        notifySuccess('Formulário do visitante salvo')
+      },
     })
   }
 
   const persistVisualAppearance = (appearance: WebChatWidgetRow['appearance']) => {
     persistAppearancePatch.mutate(visualAppearancePatch(appearance), {
-      onSuccess: () => notifySuccess('Visual do widget salvo no servidor'),
+      onSuccess: updated => {
+        mergeWidgetAppearanceInCache(updated)
+        notifySuccess('Visual do widget salvo no servidor')
+      },
     })
   }
 
