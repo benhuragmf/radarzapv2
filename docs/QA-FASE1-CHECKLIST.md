@@ -9,7 +9,7 @@
 
 ## Pré-requisitos
 
-- [ ] `npm test` verde (331 testes em 2.10.19+)
+- [ ] `npm test` verde (377 testes em 2.10.75+)
 - [ ] `npm run build` + build frontend verdes
 - [ ] `npm run qa:prep` sem bloqueios (WA + CSAT)
 - [ ] Contato de teste (idealmente o que reproduziu bugs anteriores)
@@ -41,7 +41,7 @@
 | `/platform/inbox` | Métricas, filtros (incl. Encerrados), estado vazio, 3 colunas, WA + site | [ ] | |
 | `/platform/inbox/tickets` | Métricas, busca, paginação (15/página), abrir ticket | [ ] | |
 | `/platform/inbox/setores` | Métricas, criar/editar setor público e interno | [ ] | |
-| `/platform/inbox/bot` | Prévia ao vivo, salvar textos | [ ] | |
+| `/platform/inbox/bot` | Prévia ao vivo, salvar textos, **fallback WhatsApp** | [ ] | 2.10.72 |
 | `/platform/inbox/respostas` | Busca, filtros, prévia `/bd` | [ ] | |
 | `/platform/inbox/supervisor` | Fila, equipe online, reatribuir | [ ] | |
 | `/platform/webchat` | Histórico 3 colunas, aba Widgets, snippet instalação | [x] | 2.10.60 — toolbar chips, seções, preview sticky |
@@ -59,6 +59,18 @@
 | 3 | Escalação → Inbox | Aparece em `/platform/inbox?channel=webchat`; **Assumir** funciona | [x] | 2.10.60 — assumir + anexo ida/volta |
 | 4 | Atendente responde com imagem/PDF | Anexo visível no widget | [x] | 2.10.60 |
 | 5 | Finalizar conversa site | Visitante vê encerramento; não reabre sozinho | [ ] | |
+
+### C.2 Token, FAQ, fallback WA e bridge (2.10.70–2.10.75)
+
+> Roteiro passo a passo: [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md)
+
+| # | Cenário | Esperado | OK? | Notas |
+|---|---------|----------|-----|-------|
+| 6 | Consulta chamado por token no widget | Ref + token → status; token errado genérico | [ ] | Fase A |
+| 7 | FAQ chips + link no widget | Resposta KB + botão https | [ ] | Fase B |
+| 8 | Fallback offline → alerta WA | Mensagem visitante + alerta com `TK-` | [ ] | Fase C |
+| 9 | `!assumir` / `!ticket` / `!encerrar` | Só número cadastrado em Equipe | [ ] | Fase D |
+| 10 | Bridge visitante ↔ WA | Msg site → celular; resposta WA → widget; badge Bridge | [ ] | Fase E |
 
 ### C.1 Painel widgets (2.10.55–2.10.60)
 
