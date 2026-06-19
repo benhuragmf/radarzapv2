@@ -196,8 +196,13 @@ export const WEBCHAT_PREVIEW_TEMPLATES: WebChatPreviewTemplate[] = [
 export const WEBCHAT_STANDARD_TEMPLATES = WEBCHAT_PREVIEW_TEMPLATES.filter(t => !t.premium)
 export const WEBCHAT_PREMIUM_TEMPLATES = WEBCHAT_PREVIEW_TEMPLATES.filter(t => t.premium)
 
-export function webChatPreviewUrl(templatePath: string, publicKey: string): string {
+export function webChatPreviewUrl(
+  templatePath: string,
+  publicKey: string,
+  cacheBust?: number,
+): string {
   const q = new URLSearchParams({ key: publicKey })
+  if (cacheBust) q.set('_', String(cacheBust))
   return `${templatePath}?${q.toString()}`
 }
 

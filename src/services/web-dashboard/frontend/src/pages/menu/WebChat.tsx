@@ -12,6 +12,7 @@ import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } f
 import { cn } from '@/lib/utils'
 import { inboxWebChatUrl, webChatMediaSrc } from '../../lib/webchatInbox'
 import { WebChatPreviewTemplates } from '../../components/webchat/WebChatPreviewTemplates'
+import { WebChatLivePreview } from '../../components/webchat/WebChatLivePreview'
 import { WebChatPrechatFieldsEditor } from '../../components/webchat/WebChatPrechatFieldsEditor'
 import { resolvePrechatFields, syncLegacyAppearanceFlags } from '../../lib/webchatPrechatFields'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
@@ -801,6 +802,8 @@ function WidgetEditorCard({
     )
     return match?.id ?? null
   })
+  const [previewReloadKey, setPreviewReloadKey] = useState(0)
+  const bumpPreview = () => setPreviewReloadKey(k => k + 1)
 
   const { data: aiStatus } = useQuery({
     queryKey: ['webchat-ai-status'],
@@ -856,6 +859,7 @@ function WidgetEditorCard({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
+      bumpPreview()
       notifySuccess('Widget atualizado')
     },
     onError: mutationError,
@@ -877,6 +881,7 @@ function WidgetEditorCard({
     persistAppearancePatch.mutate(prechatAppearancePatch(appearance), {
       onSuccess: updated => {
         mergeWidgetAppearanceInCache(updated)
+        bumpPreview()
         notifySuccess('Formulário do visitante salvo')
       },
     })
@@ -886,6 +891,7 @@ function WidgetEditorCard({
     persistAppearancePatch.mutate(visualAppearancePatch(appearance), {
       onSuccess: updated => {
         mergeWidgetAppearanceInCache(updated)
+        bumpPreview()
         notifySuccess('Visual do widget salvo no servidor')
       },
     })
@@ -946,7 +952,7 @@ function WidgetEditorCard({
   }
 
   return (
-    <Card className="p-0 overflow-hidden">
+    <Card className="overflow-visible p-0">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30 px-4 py-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -978,6 +984,8 @@ function WidgetEditorCard({
       </div>
 
       <div className="p-4">
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_min(340px,34%)] xl:gap-5">
+        <div className="order-2 min-w-0 xl:order-1">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
           Nome interno
@@ -1355,6 +1363,17 @@ function WidgetEditorCard({
           Cole este código antes do fechamento da tag <code className="text-[var(--rz-text-secondary)]">&lt;/body&gt;</code> em todas as páginas onde o chat deve aparecer.
         </p>
         <textarea className={textareaCls + ' mt-2 font-mono text-xs bg-[var(--rz-surface)]'} readOnly rows={3} value={snippet} />
+      </div>
+        </div>
+        <div className="order-1 mb-4 xl:order-2 xl:mb-0">
+          <div className="xl:sticky xl:top-28 xl:z-20 xl:max-h-[calc(100vh-7.5rem)]">
+            <WebChatLivePreview
+              publicKey={widget.publicKey}
+              selectedTemplateId={selectedTemplateId}
+              reloadKey={previewReloadKey}
+            />
+          </div>
+        </div>
       </div>
       </div>
     </Card>

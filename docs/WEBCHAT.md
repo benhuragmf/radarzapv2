@@ -82,6 +82,7 @@ Snippet equivalente ao `widget.html`:
 - **Fix tema na API pública** (2.10.53): `syncLegacyAppearanceFlags` + `toPlainAppearance` — subdocumento Mongoose não copiava `theme`/cores no `GET …/config`.
 - **Fix balão proativo** (2.10.54): balão volta após o delay em toda visita — não bloqueia mais por conversa encerrada ou mensagem já no histórico (só cooldown 24h ao fechar com ×).
 - **Fix pré-chat × layout** (2.10.55): salvar modo/campos do formulário não reseta tema nem modelo (`toPlainAppearance` no `updateWidget`); painel não recarrega o editor inteiro.
+- **Preview ao vivo no painel** (2.10.56): iframe embutido (80% escala), sticky ao rolar o formulário; testes do merge `appearance` (pré-chat não apaga tema/cores).
 - Campo de mensagem some quando encerrado; visitante não fica com input “travado” (2.10.9).
 - Mensagens de atendente/bot exibem **nome do remetente** (2.9.4).
 - **Tema claro/escuro** (`appearance.theme`, 2.10.17): aplicado pelos modelos (Tecnológico, Obsidian = escuro). Editor: indicador **Tema do widget** + **Aplicar** nos cards de modelo (2.10.52).
