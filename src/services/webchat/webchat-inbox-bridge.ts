@@ -30,6 +30,7 @@ export type InboxWebChatListRow = {
   unreadCount?: number;
   widgetName?: string;
   pageUrl?: string;
+  ticketRef?: string;
   priorityForMe?: boolean;
   canAccept?: boolean;
   canPull?: boolean;

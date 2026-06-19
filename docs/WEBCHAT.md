@@ -251,6 +251,20 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Rotas `/inbox/conversations/wc:…` não exigem `webchat:view` separado — basta acesso ao Inbox.
 - Notificações de fila apontam para `/platform/inbox?conv=wc:…`.
 
+## Chamados (tickets) no chat do site (2.10.68)
+
+- Atendente pode **Converter em chamado** na caixa de entrada (ícone 🎫 no cabeçalho da conversa Site), igual ao WhatsApp.
+- API: `POST /api/inbox/conversations/wc:{id}/ticket` → cria `InboxTicket` com `channel: webchat_site` e `webChatConversationId`.
+- Visitante recebe mensagem de sistema no widget com a referência (`TK-…`).
+- Chamados aparecem em **Atendimento → Chamados**; detalhe carrega histórico do chat do site.
+- **Pendente:** envio de atualização/fechamento de chamado ainda usa fluxo WhatsApp quando aplicável — respostas do visitante no widget ainda não alimentam `clientReplies` do ticket automaticamente.
+
+## Perfil do visitante no Inbox (2.10.69)
+
+- Atendente edita visitante do site com o **mesmo modal** de contatos (nome, e-mail, empresa, observações, listas).
+- API: `PATCH /api/inbox/conversations/wc:{id}/visitor-profile` — atualiza conversa WebChat e contato CRM (`Destination`) quando houver telefone vinculado ou informado.
+- Se o visitante ainda não existir em Contatos, o salvamento **cria o contato** pelo telefone do pré-chat.
+
 ## Atendimento só no Inbox (2.10.7)
 
 - **`/platform/webchat`** virou **histórico + status + widgets** (somente leitura das mensagens).

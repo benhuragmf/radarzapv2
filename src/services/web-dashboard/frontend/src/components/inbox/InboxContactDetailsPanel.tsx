@@ -259,9 +259,9 @@ export function InboxContactDetailsPanel({
             />
           </div>
 
-          {contact && onEditContact && (
+          {onEditContact && (
             <Button size="sm" variant="secondary" className="w-full mt-3" onClick={onEditContact}>
-              <UserPen size={14} /> Ver perfil completo
+              <UserPen size={14} /> {contact?._id ? 'Ver perfil completo' : 'Editar perfil'}
             </Button>
           )}
         </div>
@@ -307,9 +307,9 @@ export function InboxContactDetailsPanel({
                   Assumir
                 </Button>
               )}
-              {onConvertTicket && !isWebChat && (
+              {onConvertTicket && (
                 <Button size="sm" variant="secondary" onClick={onConvertTicket} disabled={ticketPending}>
-                  <Ticket size={14} /> Ticket
+                  <Ticket size={14} /> Chamado
                 </Button>
               )}
               {onResolve && (

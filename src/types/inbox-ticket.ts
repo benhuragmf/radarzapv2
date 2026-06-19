@@ -1,6 +1,8 @@
 /** Ciclo de vida do ticket — independente da conversa WhatsApp */
 export type InboxTicketStatus = 'open' | 'in_progress' | 'client_replied' | 'closed';
 
+export type InboxTicketChannel = 'whatsapp' | 'webchat_site';
+
 export const INBOX_TICKET_STATUS_LABEL: Record<InboxTicketStatus, string> = {
   open: 'Aberto',
   in_progress: 'Em andamento',

@@ -83,3 +83,57 @@ export async function linkWebChatVisitorToDestination(
   if (changed) await dest.save();
   return dest._id as mongoose.Types.ObjectId;
 }
+
+/** Encontra ou cria contato (Destination) pelo telefone do visitante WebChat. */
+export async function ensureDestinationForWebChatVisitor(
+  clientId: string,
+  phone: string,
+  name: string,
+  opts?: {
+    email?: string;
+    notes?: string;
+    organization?: string;
+  },
+): Promise<mongoose.Types.ObjectId | undefined> {
+  const trimmedPhone = phone.trim();
+  if (!trimmedPhone) return undefined;
+
+  const patch: VisitorIntakePatch = {
+    visitorPhone: trimmedPhone,
+    visitorName: name.trim() || undefined,
+    visitorEmail: opts?.email?.trim() || undefined,
+    contactReason: undefined,
+    visitorIntake: {},
+  };
+  const linked = await linkWebChatVisitorToDestination(clientId, patch);
+  if (linked) return linked;
+
+  const { normalizeContactPhoneE164 } = await import('@/utils/contact-csv-import');
+  const e164 = normalizeContactPhoneE164(trimmedPhone);
+  if (!e164) return undefined;
+
+  const clientOid = new mongoose.Types.ObjectId(clientId);
+  const existing = await Destination.findOne({
+    clientId: clientOid,
+    type: 'contact',
+    identifier: e164,
+  });
+  if (existing) {
+    return existing._id as mongoose.Types.ObjectId;
+  }
+
+  const displayName = name.trim() || e164;
+  const dest = await Destination.createDestination(
+    clientOid,
+    'contact',
+    e164,
+    displayName.slice(0, 100),
+    'manual',
+    '127.0.0.1',
+  );
+  if (opts?.email?.trim()) dest.email = opts.email.trim().toLowerCase();
+  if (opts?.organization?.trim()) dest.organization = opts.organization.trim();
+  if (opts?.notes?.trim()) dest.notes = opts.notes.trim();
+  await dest.save();
+  return dest._id as mongoose.Types.ObjectId;
+}

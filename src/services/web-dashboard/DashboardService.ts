@@ -1460,7 +1460,7 @@ export class DashboardService {
           );
         }
 
-        if ((channelMode === 'webchat' || channelMode === 'all') && canInboxWebChat && !filters.hasTicket) {
+        if ((channelMode === 'webchat' || channelMode === 'all') && canInboxWebChat) {
           webchatRows = await WebChatService.getInstance().listForInbox(
             auth.clientId,
             auth.userId,
@@ -1469,6 +1469,7 @@ export class DashboardService {
               departmentId: filters.departmentId,
               mine: filters.mine,
               search: filters.search,
+              hasTicket: filters.hasTicket,
             },
           );
         }
@@ -1689,6 +1690,14 @@ export class DashboardService {
     r.post('/inbox/conversations/:id/ticket', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
+        if (isWebChatInboxId(req.params.id)) {
+          const result = await WebChatService.getInstance().convertToTicket(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+          );
+          return res.json(result);
+        }
         const result = await inboxSvc.convertToTicket(
           auth.clientId,
           auth.userId,
@@ -1699,6 +1708,46 @@ export class DashboardService {
         res.status(400).json({ error: (e as Error).message });
       }
     });
+
+    r.patch(
+      '/inbox/conversations/:id/visitor-profile',
+      requireCapability(Cap.SEND_DESTINATION_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          if (!isWebChatInboxId(req.params.id)) {
+            return res.status(400).json({ error: 'Disponível apenas para conversas do chat do site' });
+          }
+          const { name, identifier, email, organization, notes, contactGroupIds } = req.body as {
+            name?: string;
+            identifier?: string;
+            email?: string;
+            organization?: string;
+            notes?: string;
+            contactGroupIds?: string[];
+          };
+          if (!name?.trim()) {
+            return res.status(400).json({ error: 'name é obrigatório' });
+          }
+          const result = await WebChatService.getInstance().updateVisitorProfileFromInbox(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+            {
+              name: name.trim(),
+              identifier: identifier?.trim(),
+              email,
+              organization,
+              notes,
+              contactGroupIds,
+            },
+          );
+          res.json(result);
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
 
     r.get('/inbox/conversations/:id/history', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {

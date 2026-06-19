@@ -117,6 +117,35 @@ interface ConversationDetail {
   quickReplies?: QuickReplyItem[]
 }
 
+/** Perfil editável no Inbox — contato CRM ou dados do visitante WebChat. */
+function resolveInboxProfileContact(
+  conv: Conversation | undefined,
+  contact: InboxContactInfo | null | undefined,
+  isWebChat: boolean,
+): InboxContactInfo | null {
+  if (contact?._id) return contact
+  if (!isWebChat || !conv) return contact ?? null
+  const phone = conv.visitorPhone?.trim() || conv.visitorIntake?.phone?.trim() || ''
+  const email = contact?.email?.trim() || conv.visitorIntake?.email?.trim() || ''
+  const name =
+    conv.contactName?.trim() ||
+    conv.visitorIntake?.name?.trim() ||
+    contact?.name?.trim() ||
+    email ||
+    phone ||
+    ''
+  if (!name && !phone && !email) return null
+  return {
+    _id: '',
+    name: name || 'Visitante',
+    email,
+    notes: contact?.notes ?? '',
+    organization: contact?.organization ?? '',
+    identifier: phone || contact?.identifier || email,
+    contactGroupIds: contact?.contactGroupIds ?? [],
+  }
+}
+
 const STATUS_LABEL: Record<string, string> = {
   bot_triage: 'Triagem',
   waiting_queue: 'Na fila',
@@ -196,7 +225,7 @@ function internalChatBlockedReason(
 ): string | null {
   if (canSendInternalChat(conv, me)) return null
   if (conv.status === 'closed' || conv.status === 'resolved') return 'Conversa encerrada.'
-  if (!can(me, 'inbox:reply') && !can(me, 'inbox:supervise')) {
+  if (!can(me ?? null, 'inbox:reply') && !can(me ?? null, 'inbox:supervise')) {
     return 'Sem permissão para o chat interno.'
   }
   if (conv.status === 'in_progress' && conv.assignedUserId && conv.assignedUserId !== me?.userId) {
@@ -432,10 +461,22 @@ export default function Inbox() {
     refetchOnReconnect: true,
   })
 
+  const conv = detail?.conversation
+  const isWebChatConv =
+    conv?.channel === 'webchat_site' || Boolean(conv?._id && isWebChatInboxId(conv._id))
+  const profileContact = useMemo(
+    () => resolveInboxProfileContact(conv, detail?.contact, isWebChatConv),
+    [conv, detail?.contact, isWebChatConv],
+  )
+  const contactEditorMode: 'create' | 'edit' =
+    isWebChatConv && profileContact && !profileContact._id && !profileContact.identifier
+      ? 'create'
+      : 'edit'
+
   const { data: contactGroups = [] } = useQuery({
     queryKey: ['contact-groups'],
     queryFn: () => api.get<{ _id: string; name: string }[]>('/contact-groups'),
-    enabled: showContactEditor,
+    enabled: showContactEditor && Boolean(profileContact),
   })
 
   const messages = detail?.messages ?? []
@@ -546,7 +587,10 @@ export default function Inbox() {
 
   const convertTicket = useMutation({
     mutationFn: (id: string) => api.post<{ ticketRef: string }>(`/inbox/conversations/${id}/ticket`, {}),
-    onSuccess: invalidate,
+    onSuccess: (data) => {
+      invalidate()
+      if (data?.ticketRef) notifySuccess(`Chamado ${data.ticketRef} aberto`)
+    },
     onError: mutationError,
   })
 
@@ -580,9 +624,6 @@ export default function Inbox() {
     onError: mutationError,
   })
 
-  const conv = detail?.conversation
-  const isWebChatConv =
-    conv?.channel === 'webchat_site' || Boolean(conv?._id && isWebChatInboxId(conv._id))
   const isTerminal = conv?.status === 'resolved' || conv?.status === 'closed'
 
   const displayMessages = useMemo(() => {
@@ -1123,11 +1164,9 @@ export default function Inbox() {
                     </div>
 
                     <div className="flex flex-col gap-1 shrink-0 ml-1">
-                      {!isWebChatConv && (
-                        <>
                       <button
                         type="button"
-                        title="Converter em ticket"
+                        title="Converter em chamado"
                         disabled={isTerminal || convertTicket.isPending}
                         onClick={() => convertTicket.mutate(conv._id)}
                         className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-amber-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 disabled:opacity-40"
@@ -1136,20 +1175,22 @@ export default function Inbox() {
                       </button>
                       <button
                         type="button"
+                        title="Editar perfil do cliente"
+                        disabled={!profileContact}
+                        onClick={() => setShowContactEditor(true)}
+                        className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-green-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 disabled:opacity-40"
+                      >
+                        <UserPen size={16} />
+                      </button>
+                      {!isWebChatConv && (
+                        <>
+                      <button
+                        type="button"
                         title="Histórico de atendimentos"
                         onClick={() => setShowDetailsPanel(true)}
                         className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-brand-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 xl:hidden"
                       >
                         <History size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        title="Editar perfil do cliente"
-                        disabled={!detail?.contact}
-                        onClick={() => setShowContactEditor(true)}
-                        className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-green-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 disabled:opacity-40"
-                      >
-                        <UserPen size={16} />
                       </button>
                         </>
                       )}
@@ -1348,7 +1389,7 @@ export default function Inbox() {
           <InboxContactDetailsPanel
             className={showDetailsPanel ? 'max-xl:flex' : 'max-xl:hidden'}
             conversation={conv}
-            contact={detail?.contact}
+            contact={profileContact ?? detail?.contact}
             contactStats={detail?.contactStats}
             previousConversations={detail?.previousConversations}
             isWebChat={isWebChatConv}
@@ -1357,10 +1398,10 @@ export default function Inbox() {
             onSelectHistory={id => {
               setHistoryConvId(id)
             }}
-            onEditContact={detail?.contact ? () => setShowContactEditor(true) : undefined}
+            onEditContact={profileContact ? () => setShowContactEditor(true) : undefined}
             onAssign={() => assign.mutate(conv._id)}
             onResolve={() => resolve.mutate(conv._id)}
-            onConvertTicket={!isWebChatConv ? () => convertTicket.mutate(conv._id) : undefined}
+            onConvertTicket={() => convertTicket.mutate(conv._id)}
             assignPending={assign.isPending}
             resolvePending={resolve.isPending}
             ticketPending={convertTicket.isPending}
@@ -1380,29 +1421,43 @@ export default function Inbox() {
         </div>
       </div>
 
-      {showContactEditor && detail?.contact && (
+      {showContactEditor && profileContact && conv && (
         <ContactEditorModal
-          mode="edit"
-          contactName={detail.contact.name}
-          contactPhone={detail.contact.identifier}
+          mode={contactEditorMode}
+          contactName={profileContact.name}
+          contactPhone={profileContact.identifier}
           initial={{
-            identifier: detail.contact.identifier,
-            name: detail.contact.name,
-            email: detail.contact.email,
-            organization: detail.contact.organization,
-            notes: detail.contact.notes,
-            contactGroupIds: detail.contact.contactGroupIds,
+            identifier: profileContact.identifier,
+            name: profileContact.name,
+            email: profileContact.email,
+            organization: profileContact.organization,
+            notes: profileContact.notes,
+            contactGroupIds: profileContact.contactGroupIds,
           }}
           groups={contactGroups.map(g => ({ _id: g._id, name: g.name, memberCount: 0 }))}
           onClose={() => setShowContactEditor(false)}
           onSave={async (data: ContactFormData) => {
-            await api.patch(`/destinations/${detail.contact!._id}`, {
-              name: data.name.trim(),
-              email: data.email.trim() || undefined,
-              organization: data.organization.trim() || undefined,
-              notes: data.notes.trim() || undefined,
-              contactGroupIds: data.contactGroupIds,
-            })
+            if (isWebChatConv) {
+              await api.patch(
+                `/inbox/conversations/${encodeURIComponent(conv._id)}/visitor-profile`,
+                {
+                  name: data.name.trim(),
+                  identifier: data.identifier.trim() || undefined,
+                  email: data.email.trim() || undefined,
+                  organization: data.organization.trim() || undefined,
+                  notes: data.notes.trim() || undefined,
+                  contactGroupIds: data.contactGroupIds,
+                },
+              )
+            } else {
+              await api.patch(`/destinations/${profileContact._id}`, {
+                name: data.name.trim(),
+                email: data.email.trim() || undefined,
+                organization: data.organization.trim() || undefined,
+                notes: data.notes.trim() || undefined,
+                contactGroupIds: data.contactGroupIds,
+              })
+            }
             invalidate()
           }}
         />

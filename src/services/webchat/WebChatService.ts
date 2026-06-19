@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { WebChatWidget, type IWebChatWidget } from '../../models/WebChatWidget';
 import { InboxDepartment } from '../../models/InboxDepartment';
 import { User } from '../../models/User';
+import { ContactGroup } from '../../models/ContactGroup';
 import { Destination } from '../../models/Destination';
 import { WebChatConversation, type IWebChatConversation } from '../../models/WebChatConversation';
 import { WebChatMessage, type IWebChatMessage } from '../../models/WebChatMessage';
@@ -54,7 +55,7 @@ import {
   WEBCHAT_CLOSE_GOODBYE,
   WEBCHAT_DEESCALATE_REPLY,
 } from './webchat-visitor-intent.util';
-import { linkWebChatVisitorToDestination } from './webchat-destination-link.util';
+import { linkWebChatVisitorToDestination, ensureDestinationForWebChatVisitor } from './webchat-destination-link.util';
 import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
@@ -72,6 +73,9 @@ import {
 } from '../inbox/inbox-queue-priority';
 import { enrichWebChatInboxRow } from './webchat-inbox-enrich.util';
 import { createServiceLogger } from '../../utils/logger';
+import { InboxTicket } from '../../models/InboxTicket';
+import { generateInboxTicketRef } from '../../utils/inbox-ticket-ref';
+import { TICKET_CLIENT_REPLY_FOOTER } from '../../types/inbox-ticket';
 import { InboxService } from '../inbox/InboxService';
 import { parseWebChatAttachment } from './webchat-attachment.util';
 import {
@@ -714,6 +718,7 @@ export class WebChatService {
       departmentId?: string;
       mine?: boolean;
       search?: string;
+      hasTicket?: boolean;
     } = {},
   ): Promise<InboxWebChatListRow[]> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
@@ -738,6 +743,22 @@ export class WebChatService {
         (query.$and as unknown[]).push(mineClause);
       } else {
         Object.assign(query, mineClause);
+      }
+    }
+
+    if (filters.hasTicket === true) {
+      query.ticketRef = { $exists: true, $nin: [null, ''] };
+    } else if (filters.hasTicket === false) {
+      const noTicketClause = {
+        $or: [{ ticketRef: { $exists: false } }, { ticketRef: null }, { ticketRef: '' }],
+      };
+      if (query.$and) {
+        (query.$and as unknown[]).push(noTicketClause);
+      } else if (query.$or) {
+        query.$and = [{ $or: query.$or as unknown[] }, noTicketClause];
+        delete query.$or;
+      } else {
+        Object.assign(query, noTicketClause);
       }
     }
 
@@ -814,6 +835,7 @@ export class WebChatService {
         unreadCount: r.unreadAgentCount ?? 0,
         widgetName: widgetNames.get(String(r.widgetId)),
         pageUrl: r.pageUrl,
+        ticketRef: r.ticketRef?.trim() || undefined,
         priorityForMe: false,
         canAccept: false,
         canPull: false,
@@ -904,6 +926,7 @@ export class WebChatService {
         unreadCount: detail.conversation.unreadCount,
         widgetName: detail.conversation.widgetName,
         pageUrl: convDoc.pageUrl,
+        ticketRef: convDoc.ticketRef?.trim() || undefined,
         priorityForMe: false,
         canAccept: false,
         canPull: false,
@@ -923,8 +946,12 @@ export class WebChatService {
           .lean()
       : null;
 
+    const visitorContact = destination
+      ? null
+      : this.buildVisitorProfileContact(convDoc);
+
     return {
-      conversation: { ...conversation, createdAt: convDoc.createdAt.toISOString() },
+      conversation: { ...conversation, createdAt: convDoc.createdAt.toISOString(), ticketRef: convDoc.ticketRef?.trim() || undefined },
       messages: detail.messages.map(m => ({
         _id: m.id,
         direction: m.direction,
@@ -947,8 +974,262 @@ export class WebChatService {
             identifier: destination.identifier,
             contactGroupIds: (destination.contactGroupIds ?? []).map(String),
           }
-        : null,
+        : visitorContact,
       quickReplies: normalizeQuickReplies(inboxSettings.quickReplies),
+    };
+  }
+
+  private buildVisitorProfileContact(convDoc: {
+    visitorName?: string;
+    visitorEmail?: string;
+    visitorPhone?: string;
+    visitorIntake?: Record<string, string>;
+  }) {
+    const phone = convDoc.visitorPhone?.trim() || convDoc.visitorIntake?.phone?.trim() || '';
+    const email = convDoc.visitorEmail?.trim() || convDoc.visitorIntake?.email?.trim() || '';
+    const name =
+      convDoc.visitorName?.trim() ||
+      convDoc.visitorIntake?.name?.trim() ||
+      email ||
+      phone ||
+      '';
+    if (!name && !phone && !email) return null;
+    return {
+      _id: '',
+      name: name || 'Visitante',
+      email,
+      notes: '',
+      organization: '',
+      identifier: phone || email,
+      contactGroupIds: [] as string[],
+    };
+  }
+
+  /** Atualiza perfil do visitante (contato CRM + campos da conversa WebChat). */
+  async updateVisitorProfileFromInbox(
+    clientId: string,
+    _userId: string,
+    conversationId: string,
+    data: {
+      name: string;
+      identifier?: string;
+      email?: string;
+      organization?: string;
+      notes?: string;
+      contactGroupIds?: string[];
+    },
+  ) {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+
+    const name = data.name.trim();
+    if (!name) throw new Error('Nome é obrigatório');
+
+    conversation.visitorName = name.slice(0, 120);
+    if (data.email !== undefined) {
+      conversation.visitorEmail = data.email.trim().toLowerCase().slice(0, 200) || undefined;
+    }
+    const phoneInput = data.identifier?.trim() || conversation.visitorPhone?.trim();
+    if (phoneInput) {
+      conversation.visitorPhone = phoneInput.slice(0, 40);
+    }
+
+    let destinationId = conversation.destinationId;
+
+    if (destinationId) {
+      const dest = await Destination.findOne({
+        _id: destinationId,
+        clientId: conversation.clientId,
+      });
+      if (!dest) throw new Error('Contato vinculado não encontrado');
+      dest.name = name.slice(0, 100);
+      if (data.email !== undefined) dest.email = data.email.trim() || undefined;
+      if (data.notes !== undefined) dest.notes = data.notes.trim() || undefined;
+      if (data.organization !== undefined) dest.organization = data.organization.trim() || undefined;
+      if (data.contactGroupIds !== undefined) {
+        if (!Array.isArray(data.contactGroupIds)) {
+          throw new Error('contactGroupIds deve ser um array');
+        }
+        const validGroups = await ContactGroup.find({
+          clientId: conversation.clientId,
+          _id: { $in: data.contactGroupIds.filter(Boolean) },
+        }).select('_id');
+        const validIds = new Set(validGroups.map(g => String(g._id)));
+        dest.contactGroupIds = data.contactGroupIds
+          .filter(id => validIds.has(String(id)))
+          .map(id => new mongoose.Types.ObjectId(id));
+      }
+      await dest.save();
+    } else if (phoneInput) {
+      const ensured = await ensureDestinationForWebChatVisitor(clientId, phoneInput, name, {
+        email: data.email,
+        notes: data.notes,
+        organization: data.organization,
+      });
+      if (!ensured) {
+        throw new Error(
+          'Informe o número com DDI internacional (ex: +5511999999999 ou +351912345678).',
+        );
+      }
+      destinationId = ensured;
+      conversation.destinationId = ensured;
+
+      const dest = await Destination.findById(ensured);
+      if (dest) {
+        if (data.notes !== undefined) dest.notes = data.notes.trim() || undefined;
+        if (data.organization !== undefined) dest.organization = data.organization.trim() || undefined;
+        if (data.contactGroupIds !== undefined && Array.isArray(data.contactGroupIds)) {
+          const validGroups = await ContactGroup.find({
+            clientId: conversation.clientId,
+            _id: { $in: data.contactGroupIds.filter(Boolean) },
+          }).select('_id');
+          const validIds = new Set(validGroups.map(g => String(g._id)));
+          dest.contactGroupIds = data.contactGroupIds
+            .filter(id => validIds.has(String(id)))
+            .map(id => new mongoose.Types.ObjectId(id));
+        }
+        await dest.save();
+      }
+    }
+
+    await conversation.save();
+
+    if (destinationId) {
+      const dest = await Destination.findById(destinationId)
+        .select('name email notes organization identifier contactGroupIds')
+        .lean();
+      if (dest) {
+        return {
+          contact: {
+            _id: String(dest._id),
+            name: dest.name,
+            email: dest.email ?? '',
+            notes: dest.notes ?? '',
+            organization: dest.organization ?? '',
+            identifier: dest.identifier,
+            contactGroupIds: (dest.contactGroupIds ?? []).map(String),
+          },
+        };
+      }
+    }
+
+    return {
+      contact: this.buildVisitorProfileContact(conversation),
+    };
+  }
+
+  /** Converte conversa do chat do site em chamado (paridade com WhatsApp no Inbox). */
+  async convertToTicket(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+  ): Promise<{
+    ticketRef: string;
+    ticketStatus: string;
+    notifiedClient: boolean;
+    ok: boolean;
+  }> {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') throw new Error('Conversa encerrada');
+
+    const clientOid = conversation.clientId;
+    const ref = (conversation.ticketRef ?? generateInboxTicketRef()).trim().toUpperCase();
+
+    if (!conversation.ticketRef) {
+      conversation.ticketRef = ref;
+      await conversation.save();
+    }
+
+    const { contactName, contactIdentifier } = visitorDisplayName(
+      conversation.visitorName,
+      conversation.visitorEmail,
+      conversation.visitorPhone,
+    );
+
+    const agent = await User.findById(userId).select('displayName email').lean();
+    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+
+    let ticket = await InboxTicket.findOne({ clientId: clientOid, ticketRef: ref });
+    let created = false;
+
+    if (!ticket) {
+      const assignedOid =
+        conversation.assignedUserId &&
+        mongoose.Types.ObjectId.isValid(conversation.assignedUserId)
+          ? new mongoose.Types.ObjectId(conversation.assignedUserId)
+          : undefined;
+
+      ticket = await InboxTicket.create({
+        clientId: clientOid,
+        ticketRef: ref,
+        channel: 'webchat_site',
+        webChatConversationId: conversation._id,
+        ...(conversation.destinationId ? { destinationId: conversation.destinationId } : {}),
+        contactName,
+        contactIdentifier,
+        ...(conversation.departmentId ? { departmentId: conversation.departmentId } : {}),
+        ...(assignedOid ? { assignedUserId: assignedOid } : {}),
+        status: assignedOid ? 'in_progress' : 'open',
+        openedByUserId: new mongoose.Types.ObjectId(userId),
+        teamHasMessagedClient: true,
+      });
+      created = true;
+    }
+
+    const dept = conversation.departmentId
+      ? await InboxDepartment.findById(conversation.departmentId).select('name').lean()
+      : null;
+
+    let assignedName: string | undefined;
+    if (conversation.assignedUserId) {
+      const assignee = await User.findById(conversation.assignedUserId)
+        .select('displayName email')
+        .lean();
+      assignedName =
+        assignee?.displayName?.trim() || assignee?.email?.split('@')[0] || 'Atendente';
+    }
+
+    if (created) {
+      const body = [
+        `📋 Chamado aberto — *${ref}*`,
+        '',
+        `Olá *${contactName}*!`,
+        '',
+        `Registramos sua solicitação. Guarde a referência *${ref}* para acompanhar.`,
+        dept?.name ? `Setor: ${dept.name}` : null,
+        assignedName ? `Responsável: ${assignedName}` : null,
+        `Aberto por: ${agentName}`,
+        '',
+        TICKET_CLIENT_REPLY_FOOTER,
+      ]
+        .filter((line): line is string => Boolean(line))
+        .join('\n');
+
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body,
+        notifyVisitor: true,
+      });
+    } else {
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: `Chamado *${ref}* já estava aberto — acompanhe em Chamados no painel.`,
+        notifyVisitor: false,
+      });
+    }
+
+    return {
+      ticketRef: ref,
+      ticketStatus: ticket.status,
+      notifiedClient: created,
+      ok: true,
     };
   }
 

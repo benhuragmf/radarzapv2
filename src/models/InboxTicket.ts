@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { InboxTicketStatus, type TicketInboundMode } from '@/types/inbox-ticket';
+import { InboxTicketStatus, type TicketInboundMode, type InboxTicketChannel } from '@/types/inbox-ticket';
 
 export interface IInboxTicketComment {
   _id?: mongoose.Types.ObjectId;
@@ -27,8 +27,11 @@ export interface IInboxTicketClientReply {
 export interface IInboxTicket extends Document {
   clientId: mongoose.Types.ObjectId;
   ticketRef: string;
-  conversationId: mongoose.Types.ObjectId;
-  destinationId: mongoose.Types.ObjectId;
+  /** Canal de origem — default whatsapp para registros legados */
+  channel?: InboxTicketChannel;
+  conversationId?: mongoose.Types.ObjectId;
+  webChatConversationId?: mongoose.Types.ObjectId;
+  destinationId?: mongoose.Types.ObjectId;
   contactName: string;
   contactIdentifier: string;
   departmentId?: mongoose.Types.ObjectId;
@@ -101,13 +104,23 @@ const InboxTicketSchema = new Schema<IInboxTicket>(
   {
     clientId: { type: Schema.Types.ObjectId, required: true, index: true },
     ticketRef: { type: String, required: true, maxlength: 32, index: true },
+    channel: {
+      type: String,
+      enum: ['whatsapp', 'webchat_site'],
+      default: 'whatsapp',
+      index: true,
+    },
     conversationId: {
       type: Schema.Types.ObjectId,
       ref: 'InboxConversation',
-      required: true,
       index: true,
     },
-    destinationId: { type: Schema.Types.ObjectId, ref: 'Destination', required: true, index: true },
+    webChatConversationId: {
+      type: Schema.Types.ObjectId,
+      ref: 'WebChatConversation',
+      index: true,
+    },
+    destinationId: { type: Schema.Types.ObjectId, ref: 'Destination', index: true },
     contactName: { type: String, required: true, maxlength: 120 },
     contactIdentifier: { type: String, required: true, maxlength: 64 },
     departmentId: { type: Schema.Types.ObjectId, ref: 'InboxDepartment', index: true },

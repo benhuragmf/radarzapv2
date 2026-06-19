@@ -25,6 +25,8 @@ export interface IWebChatConversation extends Document {
   lastMessagePreview?: string;
   unreadAgentCount: number;
   proactiveGreetingSentAt?: Date;
+  /** Referência do chamado vinculado (paridade com Inbox WhatsApp) */
+  ticketRef?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +62,7 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     lastMessagePreview: { type: String, maxlength: 300 },
     unreadAgentCount: { type: Number, default: 0 },
     proactiveGreetingSentAt: { type: Date },
+    ticketRef: { type: String, trim: true, maxlength: 32, index: true },
   },
   { timestamps: true, collection: 'webChatConversations' },
 );

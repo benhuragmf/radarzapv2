@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
 import { IDestination, Destination } from '@/models/Destination';
+import { generateInboxTicketRef } from '@/utils/inbox-ticket-ref';
 import { InboxTicket, IInboxTicket } from '@/models/InboxTicket';
+import { WebChatConversation } from '@/models/WebChatConversation';
+import { mapWebChatToInboxStatus } from '../webchat/webchat-inbox-bridge';
 import { InboxDepartment, IInboxDepartment } from '@/models/InboxDepartment';
 import { InboxConversation, IInboxConversation } from '@/models/InboxConversation';
 import { InboxMessage } from '@/models/InboxMessage';
@@ -2437,7 +2440,7 @@ export class InboxService {
   }
 
   private generateTicketRef(): string {
-    return `TK-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+    return generateInboxTicketRef();
   }
 
   /** Migra conversas antigas que tinham ticketRef sem documento inboxTickets */
@@ -2590,15 +2593,22 @@ export class InboxService {
       ),
     ];
 
-    const [depts, users, convs] = await Promise.all([
+    const [depts, users, convs, wcConvs] = await Promise.all([
       deptIds.length
         ? InboxDepartment.find({ _id: { $in: deptIds } }).select('name').lean()
         : [],
       userIds.length ? User.find({ _id: { $in: userIds } }).select('displayName email').lean() : [],
       InboxConversation.find({
-        _id: { $in: tickets.map(t => t.conversationId) },
+        _id: { $in: tickets.map(t => t.conversationId).filter(Boolean) },
       })
         .select('status lastMessageAt')
+        .lean(),
+      WebChatConversation.find({
+        _id: {
+          $in: tickets.map(t => t.webChatConversationId).filter(Boolean),
+        },
+      })
+        .select('status queueStatus lastMessageAt')
         .lean(),
     ]);
 
@@ -2617,24 +2627,33 @@ export class InboxService {
     const convMap = new Map<string, (typeof convs)[number]>(
       convs.map(c => [String(c._id), c] as [string, (typeof convs)[number]]),
     );
+    const wcMap = new Map<string, (typeof wcConvs)[number]>(
+      wcConvs.map(c => [String(c._id), c] as [string, (typeof wcConvs)[number]]),
+    );
 
     return tickets.map(t => {
-      const conv = convMap.get(String(t.conversationId));
+      const conv = t.conversationId ? convMap.get(String(t.conversationId)) : undefined;
+      const wc = t.webChatConversationId ? wcMap.get(String(t.webChatConversationId)) : undefined;
       const display = serializeTicketDisplayFields(t);
       return {
         _id: String(t._id),
         ticketRef: t.ticketRef,
         ticketStatus: t.status,
         ...display,
-        conversationId: String(t.conversationId),
-        conversationStatus: conv?.status,
+        conversationId: t.conversationId
+          ? String(t.conversationId)
+          : t.webChatConversationId
+            ? `wc:${t.webChatConversationId}`
+            : '',
+        conversationStatus: conv?.status ?? (wc ? mapWebChatToInboxStatus(wc.status, wc.queueStatus) : undefined),
+        channel: t.channel ?? (t.webChatConversationId ? 'webchat_site' : 'whatsapp'),
         contactName: t.contactName,
         contactIdentifier: t.contactIdentifier,
         departmentName: t.departmentId ? deptMap.get(String(t.departmentId)) : undefined,
         assignedUserName: t.assignedUserId ? userMap.get(String(t.assignedUserId)) : undefined,
         openedByUserName: userMap.get(String(t.openedByUserId)),
         closedByUserName: t.closedByUserId ? userMap.get(String(t.closedByUserId)) : undefined,
-        lastMessageAt: conv?.lastMessageAt ?? t.updatedAt,
+        lastMessageAt: conv?.lastMessageAt ?? wc?.lastMessageAt ?? t.updatedAt,
         unreadClientReply: Boolean(t.unreadClientReply),
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
@@ -2744,11 +2763,28 @@ export class InboxService {
 
     await this.migrateLegacyInternalNotes(ticket);
 
-    const detail = await this.getConversationDetail(
-      clientId,
-      userId,
-      String(ticket.conversationId),
-    );
+    let detail: Awaited<ReturnType<InboxService['getConversationDetail']>>;
+    if (ticket.webChatConversationId) {
+      const { WebChatService } = await import('../webchat/WebChatService');
+      const wcDetail = await WebChatService.getInstance().getDetailForInbox(
+        clientId,
+        userId,
+        String(ticket.webChatConversationId),
+      );
+      if (!wcDetail) throw new Error('Conversa do site não encontrada');
+      detail = {
+        ...wcDetail,
+        conversation: {
+          ...wcDetail.conversation,
+          ticketRef: ticket.ticketRef,
+          channel: 'webchat_site',
+        },
+      } as typeof detail;
+    } else if (ticket.conversationId) {
+      detail = await this.getConversationDetail(clientId, userId, String(ticket.conversationId));
+    } else {
+      throw new Error('Chamado sem conversa vinculada');
+    }
 
     const commentUserIds = ticket.comments.flatMap(c => [
       String(c.userId),
@@ -3168,7 +3204,17 @@ export class InboxService {
       ...TICKET_NOT_DELETED,
     });
     if (!ticket) throw new Error('Ticket não encontrado');
-    await this.getConversationIfAllowed(clientId, userId, String(ticket.conversationId));
+    if (ticket.webChatConversationId) {
+      const wc = await WebChatConversation.findOne({
+        _id: ticket.webChatConversationId,
+        clientId: new mongoose.Types.ObjectId(clientId),
+      });
+      if (!wc) throw new Error('Conversa do site não encontrada');
+    } else if (ticket.conversationId) {
+      await this.getConversationIfAllowed(clientId, userId, String(ticket.conversationId));
+    } else {
+      throw new Error('Chamado sem conversa vinculada');
+    }
     return ticket;
   }
 
