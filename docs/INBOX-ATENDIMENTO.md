@@ -474,6 +474,22 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 - **Menu 1–4:** exclusivo do atendimento (não é fluxo de opt-in LGPD)
 - **Ticket fechado:** respostas do cliente vão ao `TK-…` se dentro de **12 h** após o último envio da equipe — ver seção [Tickets de acompanhamento](#tickets-de-acompanhamento-atendimento-assíncrono)
 
+### Fallback WhatsApp + bridge site (2.10.72–2.10.75)
+
+Quando ninguém está online no painel e uma conversa **WebChat** entra na fila:
+
+1. **Triagem e Bot** (`/platform/inbox/bot`) — seção *Chat do site — fallback WhatsApp*: `whatsappFallbackEnabled`, números de alerta, mensagem ao visitante, `agentPresenceTimeoutSeconds`.
+2. Alerta enviado via `WhatsAppService.sendInternalAlert` (sessão Baileys da empresa).
+3. Atendente autorizado (WhatsApp em **Equipe** + `inbox:reply`) responde `!assumir TK-…` → assume no painel + **bridge** (`whatsappBridgeActive` na conversa).
+4. Visitante ↔ atendente: mensagens espelhadas site ↔ WhatsApp pessoal do atendente (texto; anexos = aviso no WA).
+5. Comandos `!` interceptados **antes** do fluxo cliente; `!encerrar` desativa bridge.
+
+**Presença:** socket `agent:heartbeat` a cada 45s (`useAgentPresenceHeartbeat` no `Layout.tsx`); timeout configurável (padrão 90s) — `inbox-agent-presence.ts`.
+
+**Inbox:** badge **Bridge WA** na lista e cabeçalho quando bridge ativo.
+
+Doc detalhada: `RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`, `WEBCHAT.md` § Fallback.
+
 ## Bot configurável (Fase 2)
 
 Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`.
@@ -493,6 +509,8 @@ Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`
 | `alertOnNewChat` | Alerta quando entra conversa nova na fila |
 | `alertOnNewMessage` | Alerta quando chega mensagem em conversa ativa |
 | `csatEnabled` / `csatPrompt` / `csatThankYou` | Pesquisa 1–5 pós-atendimento — ver § CSAT abaixo |
+| `whatsappFallbackEnabled` / `whatsappFallbackAlertPhones[]` / `whatsappFallbackVisitorMessage` | Fallback WebChat offline → alerta WA (2.10.72) |
+| `agentPresenceTimeoutSeconds` | Timeout presença atendente no painel (30–300s, padrão 90) |
 
 API: `GET/PATCH /api/inbox/settings` (`inbox:department:manage`).
 

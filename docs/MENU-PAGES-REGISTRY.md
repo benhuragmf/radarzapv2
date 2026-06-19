@@ -21,12 +21,12 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/inbox/tickets` | `menu/InboxTickets.tsx` | `GET /inbox/tickets?page&limit`, `GET /inbox/tickets/stats` — paginação server-side (2.10.18) |
 | `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref`, `POST …/client-update`, `…/close`, `…/comments`, `PATCH …/status` — regras: `TICKET-ATENDIMENTO.md` |
 | `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
-| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` — CSAT + `ticketTeamResponseHours` (SLA equipe ticket, 2.7.x) |
-| `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage` — fluxo WA: `INBOX-ATENDIMENTO.md` § IA opcional |
+| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` — CSAT, SLA ticket, **fallback WhatsApp** + timeout presença (2.10.72) |
+| `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, KB com keywords/links/sugestão rápida (2.10.71), `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage` |
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
 | `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` |
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |
-| `/platform/webchat` | `menu/WebChat.tsx` | `GET/POST/PATCH/DELETE /webchat/widgets`, `GET /webchat/stats`, `GET /webchat/conversations`, `POST …/messages`, `POST …/close`, `POST …/reopen`, `POST …/escalate` · API pública `/api/webchat/public/*` · doc `WEBCHAT.md` |
+| `/platform/webchat` | `menu/WebChat.tsx` | Widgets + histórico · API pública: `POST …/tickets/lookup`, `POST …/tickets/resume` (2.10.70), demais rotas em `WEBCHAT.md` |
 
 ## Integrações API
 

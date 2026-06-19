@@ -2,9 +2,29 @@
 
 Documento de referência do produto: o que é um Ticket, como difere do Inbox, quem cria, janelas de tempo e regras de roteamento no WhatsApp.
 
-**Última revisão:** 2026-06-10 (nomenclatura janelas, status × roteamento, prioridade WhatsApp, roadmap)  
-**Implementação:** `src/services/inbox/InboxService.ts`, `src/types/inbox-ticket.ts`, `src/models/InboxTicket.ts`, `src/services/inbox/inbound-routing.ts`  
-**Relacionado:** [INBOX-ATENDIMENTO.md](./INBOX-ATENDIMENTO.md) (atendimento ao vivo)
+**Última revisão:** 2026-06-19 (token público consulta widget 2.10.70)  
+**Implementação:** `src/services/inbox/InboxService.ts`, `src/types/inbox-ticket.ts`, `src/models/InboxTicket.ts`, `src/services/inbox/inbound-routing.ts`, `src/services/inbox/ticket-public-access.service.ts`  
+**Relacionado:** [INBOX-ATENDIMENTO.md](./INBOX-ATENDIMENTO.md) (atendimento ao vivo), [WEBCHAT.md](./WEBCHAT.md) (consulta token widget)
+
+---
+
+## Consulta pública por token (2.10.70)
+
+Chamados (`TK-XXXXXX`) podem ter **token de consulta** para o visitante acompanhar status no widget embed (sem login).
+
+| Campo `InboxTicket` | Uso |
+|---------------------|-----|
+| `publicAccessTokenHash` | SHA-256 do token (nunca armazenar token puro) |
+| `publicAccessTokenHint` | Últimos 4 caracteres — suporte interno |
+| `publicAccessCreatedAt` | Geração do token |
+
+- Token gerado ao criar chamado (WhatsApp, WebChat, IA).
+- Formato exibido ao cliente: `XXXX-XXXX` (uma vez na mensagem de abertura).
+- API pública: `POST /api/webchat/public/widgets/:publicKey/tickets/lookup` e `…/tickets/resume`.
+- Rate limit anti-força bruta; resposta genérica se token/ref inválidos.
+- Retomada pelo widget só para `channel: webchat_site` com conversa aberta.
+
+Helpers: `src/utils/ticket-public-access.util.ts`, `ticket-public-access.service.ts`.
 
 ---
 

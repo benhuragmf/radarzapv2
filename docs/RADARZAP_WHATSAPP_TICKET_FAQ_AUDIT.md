@@ -1,6 +1,6 @@
 # RadarZap — Auditoria: WhatsApp offline, consulta de ticket e FAQ/IA
 
-**Versão auditada:** `2.10.69` · **Data:** 2026-06-19  
+**Versão auditada:** `2.10.75` (implementado) · **Data auditoria inicial:** 2026-06-19 · **Conclusão:** 2026-06-19  
 **Escopo:** Funcionalidades 1 (fallback WhatsApp), 2 (consulta ticket por token), 3 (FAQ/base de conhecimento com IA)  
 **Metodologia:** Leitura do código em `src/`, modelos Mongo, APIs `/api`, widget `webchat/widget.js`, docs de módulo e roadmap Fase 1.
 
@@ -8,13 +8,13 @@
 
 ## 1. Resumo executivo
 
-| Funcionalidade solicitada | Status atual | Esforço estimado |
-|---------------------------|--------------|------------------|
-| **1. Atendimento via WhatsApp sem atendente online** | **PARCIAL** — presença existe; escalação WebChat avisa “ninguém online”; **não** há bridge bidirecional site↔WhatsApp nem `!assumir` | Alto (2–3 sprints) |
-| **2. Consulta de ticket por número + token no chat** | **MISSING** — `ticketRef` existe; **sem token público** nem fluxo no widget | Médio (1 sprint) |
-| **3. FAQ/base de conhecimento com IA e links** | **PARCIAL** — `AiKnowledgeBase` + UI em IA de Atendimento; **sem** categorias/links no widget, **sem** botões de sugestão | Médio (1–2 sprints) |
+| Funcionalidade solicitada | Status (pós 2.10.75) | Entrega |
+|---------------------------|----------------------|---------|
+| **1. Atendimento via WhatsApp sem atendente online** | **✅ IMPLEMENTADO** | Fallback + alerta Baileys + `!assumir` + bridge site↔WA — ver `RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` |
+| **2. Consulta de ticket por número + token no chat** | **✅ IMPLEMENTADO** | Token hash + widget + API pública lookup/resume (2.10.70) |
+| **3. FAQ/base de conhecimento com IA e links** | **✅ IMPLEMENTADO** | KB enriquecida + chips/links no widget (2.10.71); categorias separadas = backlog |
 
-**Recomendação de roadmap:** concluir **gate Fase 1** (`docs/ROADMAP-COMPLETUDE.md`) antes de produção; implementar as três features em **fases incrementais** (ver § 10).
+**Recomendação:** validar **QA manual** (§10) antes de produção; gate Fase 1 em `docs/ROADMAP-COMPLETUDE.md` continua aplicável.
 
 ---
 
@@ -301,8 +301,8 @@ Seguir § 17 do prompt + `docs/QA-FASE1-CHECKLIST.md` § C WebChat.
 
 ## 10. Checklist de validação pós-implementação
 
-- [x] `npm test` verde (unitários bridge/comandos/token)
-- [ ] `npm run build` verde (validar localmente)
+- [x] `npm test` verde (377 testes, 2026-06-19)
+- [x] `npm run build` verde (2026-06-19)
 - [x] Widget: consulta ticket, FAQ, offline message
 - [x] Painel: config fallback, whitelist WA (Equipe), KB com links
 - [x] WA: `!assumir` só número autorizado
@@ -339,13 +339,17 @@ Seguir § 17 do prompt + `docs/QA-FASE1-CHECKLIST.md` § C WebChat.
 
 ## 12. Próximo passo sugerido
 
-Iniciar **Fase A** (consulta de ticket por token no widget) — menor risco, não depende de bridge WhatsApp, reutiliza `InboxTicket` e API pública WebChat existente.
+**Implementação concluída (2.10.75).** Próximos passos operacionais:
 
-Para **Fase D/E** (WhatsApp bridge), validar com stakeholder:
+1. **QA manual** — checklist §10 (fallback → `!assumir` → bridge → `!encerrar`).
+2. **Gate Fase 1** — `docs/ROADMAP-COMPLETUDE.md` + `docs/QA-FASE1-CHECKLIST.md`.
+3. **Backlog opcional:** categorias FAQ, mídia no bridge WA, Cloud API Meta (Fase 2 roadmap).
 
-- Número WA da empresa (sessão Baileys) vs. celular individual do plantão?
-- Comandos em chat privado ou grupo interno?
-- Consentimento LGPD para continuar atendimento no WhatsApp pessoal?
+Decisões de produto já assumidas na implementação:
+
+- Alerta via sessão Baileys da empresa; atendente responde pelo **WhatsApp pessoal** cadastrado em Equipe.
+- Comandos em DM ou grupo (JID configurado nos alertas).
+- Bridge ativo só após `!assumir` em chamado **webchat_site**.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.10.19` (`package.json`) · **Última revisão doc:** 2026-06-18
+**Versão atual:** `2.10.75` (`package.json`) · **Última revisão doc:** 2026-06-19
 
 Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
 
@@ -72,6 +72,12 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.10.17** | WebChat widget: tema escuro (`appearance.theme`) alinhado ao modelo tecnológico — ver `WEBCHAT.md` |
 | **2.10.18** | Atendimento: upgrade visual (Inbox 3 colunas, métricas, Tickets/Setores/Bot/Respostas/Supervisor/WebChat/IA/Relatórios), paginação server-side em `GET /inbox/tickets` — ver `radarzap-inbox-upgrade.md` |
 | **2.10.19** | CI: `npm audit` runtime (high+) verde — `npm audit fix`, nodemailer 9.0.1; kit QA Fase 1 (`qa:prep`, roteiro, E2E atendimento-smoke, `parseTicketListQuery`) |
+| **2.10.70** | WebChat: consulta de chamado por `TK-…` + token no widget — `RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` |
+| **2.10.71** | WebChat: FAQ/base de conhecimento com links e chips no widget |
+| **2.10.72** | WebChat: fallback WhatsApp offline + presença heartbeat (`agent:heartbeat`) — `WEBCHAT.md` |
+| **2.10.73** | WhatsApp: comandos `!assumir` / `!ticket` / `!encerrar` (whitelist Equipe) |
+| **2.10.74** | WebChat: bridge bidirecional site ↔ WhatsApp após `!assumir` |
+| **2.10.75** | Inbox: badge Bridge WA; docs QA fases A–F — commit `98b06c3` |
 
 **Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
 
