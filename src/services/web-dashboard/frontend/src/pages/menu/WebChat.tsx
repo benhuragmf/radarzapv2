@@ -187,7 +187,7 @@ export default function WebChat() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [chatSearch, setChatSearch] = useState('')
   const [showVisitorPanel, setShowVisitorPanel] = useState(true)
-  const [newWidgetName, setNewWidgetName] = useState('Site principal')
+  const [newWidgetName, setNewWidgetName] = useState('')
   const [activeWidgetId, setActiveWidgetId] = useState<string | null>(null)
 
   const setPageTab = (next: Tab) => {
@@ -325,6 +325,7 @@ export default function WebChat() {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
       notifySuccess('Widget criado')
       setActiveWidgetId(created.id)
+      setNewWidgetName('')
       setPageTab('widgets')
     },
     onError: mutationError,
@@ -471,7 +472,7 @@ export default function WebChat() {
       )}
 
       {tab === 'widgets' && canManage && (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="space-y-4">
           {loadingWidgets ? (
             <LoadingState rows={4} className="w-full py-12" />
           ) : !widgets?.length ? (
@@ -497,7 +498,7 @@ export default function WebChat() {
               />
             </Card>
           ) : (
-            <>
+            <Card className="overflow-visible p-0">
               <WebChatWidgetList
                 widgets={widgets}
                 selectedId={activeWidgetId}
@@ -507,19 +508,18 @@ export default function WebChat() {
                 onCreate={() => createWidget.mutate()}
                 creating={createWidget.isPending}
               />
-              <div className="min-w-0 flex-1">
-                {activeWidget ? (
-                  <WidgetEditorCard
-                    key={activeWidget.id}
-                    widget={activeWidget}
-                    departments={departments}
-                    canPickDepartment={canInbox}
-                    onDelete={() => deleteWidget.mutate(activeWidget.id)}
-                    deleting={deleteWidget.isPending}
-                  />
-                ) : null}
-              </div>
-            </>
+              {activeWidget ? (
+                <WidgetEditorCard
+                  key={activeWidget.id}
+                  embedded
+                  widget={activeWidget}
+                  departments={departments}
+                  canPickDepartment={canInbox}
+                  onDelete={() => deleteWidget.mutate(activeWidget.id)}
+                  deleting={deleteWidget.isPending}
+                />
+              ) : null}
+            </Card>
           )}
         </div>
       )}
@@ -847,12 +847,15 @@ function WidgetEditorCard({
   canPickDepartment,
   onDelete,
   deleting,
+  embedded = false,
 }: {
   widget: WebChatWidgetRow
   departments: InboxDepartmentOption[]
   canPickDepartment: boolean
   onDelete: () => void
   deleting: boolean
+  /** Dentro do card unificado com toolbar de widgets no topo */
+  embedded?: boolean
 }) {
   const qc = useQueryClient()
   const [form, setForm] = useState(widget)
@@ -1015,12 +1018,14 @@ function WidgetEditorCard({
     }))
   }
 
-  return (
-    <Card className="overflow-visible p-0">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30 px-4 py-3">
-        <div>
+  const editorBody = (
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/15 px-4 py-3">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-[var(--rz-text-primary)]">{widget.name}</span>
+            <span className="font-semibold text-[var(--rz-text-primary)]">
+              {form.appearance.title || widget.name}
+            </span>
             <span
               className={cn(
                 'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
@@ -1032,7 +1037,13 @@ function WidgetEditorCard({
               {form.active ? 'Ativo' : 'Inativo'}
             </span>
           </div>
-          <div className="mt-1 text-xs text-[var(--rz-text-muted)] font-mono">Chave: {widget.publicKey}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--rz-text-muted)]">
+            <span>
+              Nome interno: <span className="text-[var(--rz-text-secondary)]">{form.name}</span>
+            </span>
+            <span className="hidden sm:inline text-[var(--rz-border)]">·</span>
+            <span className="font-mono text-[10px] sm:text-xs">{widget.publicKey}</span>
+          </div>
         </div>
         <div className="flex gap-2">
           <a href={previewUrl} target="_blank" rel="noreferrer">
@@ -1231,8 +1242,20 @@ function WidgetEditorCard({
         >
           <WebChatPrechatFieldsEditor
             appearance={form.appearance}
-            onChange={appearance => setForm(f => ({ ...f, appearance }))}
-            onPersist={appearance => persistPrechatAppearance(appearance)}
+            onChange={appearance =>
+              setForm(f => ({
+                ...f,
+                appearance: syncLegacyAppearanceFlags({
+                  ...f.appearance,
+                  ...appearance,
+                }),
+              }))
+            }
+            onPersist={appearance =>
+              persistPrechatAppearance(
+                syncLegacyAppearanceFlags({ ...form.appearance, ...appearance }),
+              )
+            }
           />
         </WebChatWidgetEditorSection>
       )}
@@ -1467,6 +1490,12 @@ function WidgetEditorCard({
         </div>
       </div>
       </div>
-    </Card>
+    </>
   )
+
+  if (embedded) {
+    return <div className="min-w-0">{editorBody}</div>
+  }
+
+  return <Card className="overflow-visible p-0">{editorBody}</Card>
 }
