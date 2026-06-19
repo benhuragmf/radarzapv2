@@ -5350,12 +5350,12 @@ export class DashboardService {
             const wcSvc = WebChatService.getInstance();
 
             if (socket.data.webchatConversationId) {
-              if (socket.data.webchatConversationId !== payload.conversationId) return;
               const clientId = socket.data.webchatClientId as string | undefined;
-              if (!clientId) return;
+              const conversationId = socket.data.webchatConversationId as string;
+              if (!clientId || !conversationId) return;
               wcSvc.emitTypingIndicator({
                 clientId,
-                conversationId: payload.conversationId,
+                conversationId,
                 typing: Boolean(payload.typing),
                 senderType: 'visitor',
               });

@@ -574,12 +574,13 @@ export default function Inbox() {
       typing?: boolean
       senderType?: string
     }) => {
-      if (payload.conversationId !== convMongoId) return
+      const incomingId = webChatInboxIdToMongo(payload.conversationId ?? '')
+      if (incomingId !== convMongoId) return
       if (payload.senderType !== 'visitor') return
       setVisitorTyping(Boolean(payload.typing))
       if (visitorTypingTimerRef.current) clearTimeout(visitorTypingTimerRef.current)
       if (payload.typing) {
-        visitorTypingTimerRef.current = setTimeout(() => setVisitorTyping(false), 4000)
+        visitorTypingTimerRef.current = setTimeout(() => setVisitorTyping(false), 5000)
       }
     }
 
@@ -607,34 +608,37 @@ export default function Inbox() {
     : null
 
   useEffect(() => {
-    if (!isWebChatConv || !selectedId || composeMode !== 'reply' || !canReply) return
+    if (!isWebChatConv || !selectedId || composeMode !== 'reply') return
+    const convId = selectedId
     const convMongoId = webChatInboxIdToMongo(selectedId)
     const socket = getSocket()
     const trimmed = reply.trim()
+    const senderName = me?.username?.trim() || undefined
 
     if (agentTypingTimerRef.current) clearTimeout(agentTypingTimerRef.current)
 
-    const emitAgentTyping = (typing: boolean) => {
+    const sendTyping = (typing: boolean) => {
       socket.emit('webchat:typing', {
         conversationId: convMongoId,
         typing,
         senderType: 'agent',
-        senderName: me?.username ?? undefined,
+        senderName,
       })
+      void api.post(`/inbox/conversations/${convId}/typing`, { typing }).catch(() => {})
     }
 
     if (!trimmed) {
-      emitAgentTyping(false)
+      sendTyping(false)
       return
     }
 
-    emitAgentTyping(true)
-    agentTypingTimerRef.current = setTimeout(() => emitAgentTyping(false), 2000)
+    sendTyping(true)
+    agentTypingTimerRef.current = setTimeout(() => sendTyping(false), 2500)
 
     return () => {
       if (agentTypingTimerRef.current) clearTimeout(agentTypingTimerRef.current)
     }
-  }, [reply, isWebChatConv, selectedId, composeMode, canReply, me?.username])
+  }, [reply, isWebChatConv, selectedId, composeMode, me?.username])
 
   const needsLiveTimer =
     hasPriorityQueue ||

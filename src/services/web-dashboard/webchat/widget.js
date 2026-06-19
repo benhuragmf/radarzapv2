@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.61';
+  var WIDGET_BUILD = '2.10.62';
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
     console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
@@ -312,8 +312,10 @@
   }
 
   function handleRemoteTyping(payload) {
-    if (!payload || payload.conversationId !== state.conversationId) return;
-    if (payload.senderType === 'visitor') return;
+    if (!payload || payload.senderType === 'visitor') return;
+    var convId = payload.conversationId ? String(payload.conversationId) : '';
+    if (convId && state.conversationId && String(state.conversationId) !== convId) return;
+    if (convId && !state.conversationId) state.conversationId = convId;
     if (!payload.typing) {
       clearRemoteTyping();
       renderBubble();
@@ -327,7 +329,7 @@
     state.remoteTypingTimer = setTimeout(function () {
       clearRemoteTyping();
       renderBubble();
-    }, 4000);
+    }, 5000);
     renderBubble();
   }
 
@@ -339,7 +341,6 @@
         typing: typing,
         senderType: 'visitor',
       });
-      return;
     }
     if (!state.visitorToken) return;
     apiFetch(baseUrl, '/sessions/typing', {
@@ -1861,7 +1862,9 @@
           renderBubble();
         } else if (payload.conversation.status === 'open') {
           state.conversationStatus = 'open';
-          connectSocket();
+          if (!state.socket || !state.socket.connected) {
+            connectSocket();
+          }
           renderBubble();
         } else {
           renderBubble();

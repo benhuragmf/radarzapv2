@@ -1136,6 +1136,8 @@ export class WebChatService {
     typing: boolean,
     senderName?: string,
   ): Promise<void> {
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) return;
+
     const conversation = await WebChatConversation.findOne({
       _id: new mongoose.Types.ObjectId(conversationId),
       clientId: new mongoose.Types.ObjectId(clientId),
@@ -1535,6 +1537,7 @@ export class WebChatService {
         senderType: 'bot',
         senderName,
       });
+      const typingStartedAt = Date.now();
       let ai: Awaited<ReturnType<WebChatAiService['generateVisitorReply']>> = null;
       try {
         ai = await WebChatAiService.getInstance().generateVisitorReply(
@@ -1543,6 +1546,11 @@ export class WebChatService {
           aiCtx,
         );
       } finally {
+        const minVisibleMs = 900;
+        const elapsed = Date.now() - typingStartedAt;
+        if (elapsed < minVisibleMs) {
+          await new Promise(resolve => setTimeout(resolve, minVisibleMs - elapsed));
+        }
         this.emitTypingIndicator({
           clientId: clientIdStr,
           conversationId: convId,
