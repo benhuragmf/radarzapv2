@@ -30,6 +30,12 @@ import {
   type WebChatAppearancePreset,
 } from '../../lib/webchatPreviewTemplates'
 import {
+  canUsePremiumChatBoxModels,
+  chatBoxPreviewTemplateId,
+  parseChatBoxModelId,
+  type ChatBoxModel,
+} from '../../lib/chatBoxModels'
+import {
   DEFAULT_WEBCHAT_AI_ESCALATION_POLICY,
   normalizeEscalationPolicyForm,
   WEBCHAT_TRANSFER_TRIGGER_OPTIONS,
@@ -524,6 +530,7 @@ export default function WebChat() {
                   widget={activeWidget}
                   departments={departments}
                   canPickDepartment={canInbox}
+                  userPlan={me?.plan}
                   onDelete={() => deleteWidget.mutate(activeWidget.id)}
                   deleting={deleteWidget.isPending}
                 />
@@ -855,6 +862,7 @@ function WidgetEditorCard({
   widget,
   departments,
   canPickDepartment,
+  userPlan,
   onDelete,
   deleting,
   embedded = false,
@@ -862,6 +870,7 @@ function WidgetEditorCard({
   widget: WebChatWidgetRow
   departments: InboxDepartmentOption[]
   canPickDepartment: boolean
+  userPlan?: string | null
   onDelete: () => void
   deleting: boolean
   /** Dentro do card unificado com toolbar de widgets no topo */
@@ -1040,7 +1049,16 @@ function WidgetEditorCard({
       return { ...f, appearance: nextAppearance }
     })
     setSelectedTemplateId(templateId)
+    bumpPreview()
   }
+
+  const applyChatBoxModel = (model: ChatBoxModel) => {
+    if (model.isPremium && !canUsePremiumChatBoxModels(userPlan)) return
+    applyTemplateAppearance(model.appearance, chatBoxPreviewTemplateId(model.id))
+    notifySuccess(`Modelo ${model.name} aplicado`)
+  }
+
+  const selectedChatBoxModelId = parseChatBoxModelId(form.appearance.previewTemplateId)
 
   const patchDay = (day: Weekday, field: 'enabled' | 'start' | 'end', value: boolean | string) => {
     setForm(f => ({
@@ -1265,7 +1283,10 @@ function WidgetEditorCard({
             <WebChatPreviewTemplates
               publicKey={widget.publicKey}
               selectedTemplateId={selectedTemplateId}
+              selectedChatBoxModelId={selectedChatBoxModelId}
+              userPlan={userPlan}
               onSelectTemplate={template => applyTemplateAppearance(template.appearance, template.id)}
+              onApplyChatBoxModel={applyChatBoxModel}
             />
           </WebChatWidgetEditorSection>
         </div>

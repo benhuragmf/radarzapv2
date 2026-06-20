@@ -10,12 +10,17 @@ import {
   type WebChatAppearancePreset,
   type WebChatPreviewTemplate,
 } from '@/lib/webchatPreviewTemplates'
+import type { ChatBoxModel } from '@/lib/chatBoxModels'
+import { ChatBoxModelsSection } from './chat-box/ChatBoxModelsSection'
 
 type Props = {
   publicKey?: string
   selectedTemplateId?: string | null
+  selectedChatBoxModelId?: string | null
+  userPlan?: string | null
   onSelectTemplate?: (template: WebChatPreviewTemplate) => void
   onApplyAppearance?: (appearance: WebChatAppearancePreset) => void
+  onApplyChatBoxModel?: (model: ChatBoxModel) => void
   compact?: boolean
 }
 
@@ -538,8 +543,11 @@ function PremiumCard({
 export function WebChatPreviewTemplates({
   publicKey,
   selectedTemplateId,
+  selectedChatBoxModelId,
+  userPlan,
   onSelectTemplate,
   onApplyAppearance,
+  onApplyChatBoxModel,
   compact = false,
 }: Props) {
   const premiumActive = WEBCHAT_PREMIUM_TEMPLATES.some(t => t.id === selectedTemplateId)
@@ -635,6 +643,14 @@ export function WebChatPreviewTemplates({
           </div>
         )}
       </section>
+
+      {!compact && onApplyChatBoxModel && (
+        <ChatBoxModelsSection
+          selectedChatBoxModelId={selectedChatBoxModelId}
+          userPlan={userPlan}
+          onApplyModel={onApplyChatBoxModel}
+        />
+      )}
 
       {!publicKey && (
         <p className="rounded-lg border border-dashed border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 px-3 py-2 text-xs text-[var(--rz-text-muted)]">
