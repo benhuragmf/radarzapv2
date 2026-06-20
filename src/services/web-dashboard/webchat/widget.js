@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.90';
+  var WIDGET_BUILD = '2.10.93';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -80,11 +80,330 @@
     '🎉', '💯', '😂', '🤣', '🚗', '📍', '⏰', '💬',
   ];
 
+  /** Runtime dos modelos Chat Box (`previewTemplateId` = `chatbox-*`). */
+  var CHATBOX_PREFIX = 'chatbox-';
+  var CHATBOX_RUNTIME = {
+    'blue-compact': { w: 360, h: 540, radius: 18, header: 'gradient', footer: '' },
+    'small-chat': { w: 320, h: 460, radius: 20, header: 'mini', footer: '' },
+    'clean-support': { w: 360, h: 540, radius: 20, header: 'compact', footer: '' },
+    'support-lite': { w: 340, h: 500, radius: 18, header: 'mini', footer: '' },
+    'pocket-chat': { w: 300, h: 560, radius: 18, header: 'pocket', footer: '', bottomNav: true },
+    'compact-pro': {
+      w: 380,
+      h: 620,
+      radius: 22,
+      header: 'corporate',
+      footer: 'Ambiente seguro e confidencial',
+    },
+    'smart-mini': { w: 370, h: 600, radius: 22, header: 'corporate', footer: 'IA segura e confiável • Respostas em segundos' },
+    'workplace-mini': {
+      w: 380,
+      h: 620,
+      radius: 22,
+      header: 'workplace',
+      footer: 'Conversa interna · Visível apenas para a equipe',
+    },
+    'mini-corporate': {
+      w: 390,
+      h: 620,
+      radius: 20,
+      header: 'secure',
+      footer: 'Protegido por criptografia de ponta a ponta',
+    },
+    'floating-mini': {
+      w: 340,
+      h: 520,
+      radius: 24,
+      header: 'glass',
+      footer: 'Experiência moderna e flutuante',
+      glass: true,
+      toggleSize: 64,
+      toggleIcon: '⚡',
+    },
+  };
+
+  function chatBoxModelId() {
+    if (!state.config || !state.config.previewTemplateId) return null;
+    var id = String(state.config.previewTemplateId);
+    if (id.indexOf(CHATBOX_PREFIX) !== 0) return null;
+    return id.slice(CHATBOX_PREFIX.length);
+  }
+
+  function chatBoxRuntime() {
+    var id = chatBoxModelId();
+    if (!id) return null;
+    return CHATBOX_RUNTIME[id] || null;
+  }
+
+  function applyChatBoxUiPatches(t, rt) {
+    if (!rt || !t) return t;
+    if (rt.glass) {
+      t.panelBg = 'rgba(15,23,42,0.78)';
+      t.panelBorder = '1px solid rgba(255,255,255,0.16)';
+      t.panelShadow = '0 24px 64px rgba(0,0,0,.45)';
+      t.messagesBg = 'transparent';
+      t.text = '#f8fafc';
+      t.textMuted = 'rgba(248,250,252,0.72)';
+      t.footerBg = 'rgba(15,23,42,0.55)';
+      t.border = 'rgba(255,255,255,0.12)';
+      t.inputBorder = 'rgba(255,255,255,0.2)';
+      t.inputBg = 'rgba(255,255,255,0.08)';
+      t.inputColor = '#f8fafc';
+      t.bubbleAgent = 'rgba(255,255,255,0.12)';
+      t.bubbleAgentText = '#f8fafc';
+      t.bubbleVisitor = primaryColor();
+      t.bubbleVisitorText = '#fff';
+      t.attachBg = 'rgba(255,255,255,0.1)';
+      t.dismissBg = 'transparent';
+      t.dismissBorder = 'rgba(255,255,255,0.25)';
+      t.dismissText = '#f8fafc';
+    }
+    return t;
+  }
+
+  function chatBoxHeaderActions(t, dark) {
+    var faqBtn = renderFaqHeaderButton();
+    if (faqBtn && dark) {
+      faqBtn = faqBtn.replace(/border:1px solid [^;]+;/, 'border:1px solid rgba(255,255,255,.35);');
+      faqBtn = faqBtn.replace(/background:[^;]+;/, 'background:rgba(255,255,255,.08);');
+      faqBtn = faqBtn.replace(/color:[^;]+;/, 'color:#fff;');
+    }
+    var btnExtra = dark ? '' : 'border-color:' + t.inputBorder + ';background:' + t.attachBg + ';color:' + t.text + ';';
+    return (
+      (faqBtn || '') +
+      '<button type="button" id="rz-webchat-expand" aria-label="' +
+      (state.expanded ? 'Reduzir janela' : 'Expandir janela') +
+      '" title="' +
+      (state.expanded ? 'Reduzir' : 'Expandir') +
+      '" style="' +
+      headerIconBtn(dark ? '' : btnExtra) +
+      '">' +
+      (state.expanded ? '⤡' : '⤢') +
+      '</button>' +
+      '<button type="button" id="rz-webchat-sound" aria-label="Som" title="Som" style="' +
+      headerIconBtn(dark ? '' : btnExtra) +
+      '">' +
+      (state.soundEnabled ? '🔔' : '🔕') +
+      '</button>' +
+      '<button type="button" id="rz-webchat-close" aria-label="Fechar chat" title="Fechar" style="' +
+      headerIconBtn(dark ? '' : btnExtra) +
+      '">×</button>'
+    );
+  }
+
+  function renderChatBoxHeader(title, subtitle, t, rt) {
+    var accent = primaryColor();
+    var actions = chatBoxHeaderActions(t, rt.header !== 'compact' && rt.header !== 'mini');
+    if (rt.header === 'gradient') {
+      return (
+        '<div style="flex-shrink:0;background:linear-gradient(135deg,' +
+        accent +
+        ',#1e40af);color:#fff;border-bottom:1px solid rgba(255,255,255,.12);">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:12px 12px 14px;">' +
+        '<div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">RZ</div>' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:700;font-size:14px;line-height:1.2;">' +
+        escHtml(title) +
+        '</div>' +
+        '<div style="font-size:11px;opacity:.85;margin-top:2px;">' +
+        escHtml(subtitle || 'Online agora') +
+        '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        actions +
+        '</div></div></div>'
+      );
+    }
+    if (rt.header === 'mini') {
+      return (
+        '<div style="flex-shrink:0;background:' +
+        (isDarkTheme() ? t.headerBg : '#fff') +
+        ';color:' +
+        (isDarkTheme() ? '#fff' : t.text) +
+        ';border-bottom:1px solid ' +
+        t.border +
+        ';">' +
+        '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;">' +
+        '<div style="width:28px;height:28px;border-radius:999px;background:' +
+        accent +
+        '22;border:1px solid ' +
+        accent +
+        '44;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:' +
+        accent +
+        ';">RZ</div>' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:600;font-size:13px;">' +
+        escHtml(title) +
+        '</div>' +
+        '<div style="font-size:10px;color:' +
+        t.textMuted +
+        ';">' +
+        escHtml(subtitle || 'Online agora') +
+        '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:4px;">' +
+        actions +
+        '</div></div></div>'
+      );
+    }
+    if (rt.header === 'pocket') {
+      return (
+        '<div style="flex-shrink:0;background:#0f172a;color:#e5e7eb;border-bottom:1px solid #1e293b;">' +
+        '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;">' +
+        '<div style="width:30px;height:30px;border-radius:999px;background:' +
+        accent +
+        ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;">RZ</div>' +
+        '<div style="flex:1;font-weight:600;font-size:13px;">Chat</div>' +
+        '<span style="font-size:10px;color:#94a3b8;">Online</span>' +
+        '<div style="display:flex;align-items:center;gap:4px;">' +
+        chatBoxHeaderActions(t, true) +
+        '</div></div></div>'
+      );
+    }
+    if (rt.header === 'workplace') {
+      return (
+        '<div style="flex-shrink:0;background:linear-gradient(135deg,#0f766e,#0e7490);color:#fff;">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:14px 12px;">' +
+        '<div style="width:36px;height:36px;border-radius:999px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;">👥</div>' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:700;font-size:14px;">' +
+        escHtml(title) +
+        '</div>' +
+        '<div style="font-size:11px;opacity:.85;margin-top:2px;">' +
+        escHtml(subtitle || 'Suporte interno da sua equipe') +
+        '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        chatBoxHeaderActions(t, true) +
+        '</div></div></div>'
+      );
+    }
+    if (rt.header === 'secure') {
+      return (
+        '<div style="flex-shrink:0;background:#0b1220;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:14px 12px;">' +
+        '<div style="width:36px;height:36px;border-radius:999px;background:rgba(59,130,246,.25);display:flex;align-items:center;justify-content:center;font-size:15px;">🛡</div>' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:700;font-size:14px;">' +
+        escHtml(title) +
+        '</div>' +
+        '<div style="font-size:11px;opacity:.78;margin-top:2px;">' +
+        escHtml(subtitle || 'Suporte corporativo • Resposta rápida e segura') +
+        '</div></div>' +
+        '<span style="font-size:14px;opacity:.7;" aria-hidden="true">🔒</span>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        chatBoxHeaderActions(t, true) +
+        '</div></div></div>'
+      );
+    }
+    if (rt.header === 'glass') {
+      return (
+        '<div style="flex-shrink:0;background:rgba(255,255,255,.08);color:#f8fafc;border-bottom:1px solid rgba(255,255,255,.12);">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;">' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:600;font-size:14px;">' +
+        escHtml(title) +
+        '</div>' +
+        '<div style="font-size:11px;opacity:.75;margin-top:2px;">' +
+        escHtml(subtitle || 'Online') +
+        '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        chatBoxHeaderActions(t, true) +
+        '</div></div></div>'
+      );
+    }
+    if (rt.header === 'corporate') {
+      return (
+        '<div style="flex-shrink:0;background:linear-gradient(135deg,' +
+        accent +
+        ',#1e3a8a);color:#fff;">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:14px 12px;">' +
+        '<div style="width:38px;height:38px;border-radius:999px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">⚡</div>' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:700;font-size:14px;">' +
+        escHtml(title) +
+        '</div>' +
+        '<div style="font-size:11px;opacity:.85;margin-top:2px;">' +
+        escHtml(subtitle || 'Suporte corporativo inteligente') +
+        '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        chatBoxHeaderActions(t, true) +
+        '</div></div></div>'
+      );
+    }
+    return (
+      '<div style="flex-shrink:0;background:' +
+      (isDarkTheme() ? t.headerBg : accent) +
+      ';color:#fff;border-bottom:1px solid ' +
+      t.border +
+      ';">' +
+      '<div style="display:flex;align-items:center;gap:10px;padding:12px;">' +
+      '<div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px;">💬</div>' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-weight:700;font-size:14px;">' +
+      escHtml(title) +
+      '</div>' +
+      (subtitle ? '<div style="font-size:11px;opacity:.85;margin-top:2px;">' + escHtml(subtitle) + '</div>' : '') +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      actions +
+      '</div></div></div>'
+    );
+  }
+
+  function renderChatBoxBottomNav(t) {
+    var accent = primaryColor();
+    var items = ['Início', 'Chat', 'Ajuda'];
+    return (
+      '<div style="flex-shrink:0;display:flex;border-top:1px solid ' +
+      t.border +
+      ';background:' +
+      t.footerBg +
+      ';">' +
+      items
+        .map(function (label, idx) {
+          var active = idx === 1;
+          return (
+            '<div style="flex:1;text-align:center;padding:10px 4px;font-size:10px;color:' +
+            (active ? accent : t.textMuted) +
+            ';font-weight:' +
+            (active ? '600' : '500') +
+            ';">' +
+            escHtml(label) +
+            '</div>'
+          );
+        })
+        .join('') +
+      '</div>'
+    );
+  }
+
+  function renderChatBoxFooterNote(t, note) {
+    if (!note) return '';
+    return (
+      '<div style="flex-shrink:0;padding:6px 12px 4px;text-align:center;font-size:10px;line-height:1.35;color:' +
+      t.textMuted +
+      ';background:' +
+      t.footerBg +
+      ';">' +
+      escHtml(note) +
+      '</div>'
+    );
+  }
+
   function panelSizeStyle() {
     if (state.expanded) {
       return (
         'width:min(520px,calc(100vw - 24px));' +
         'height:min(720px,calc(82dvh - 28px - env(safe-area-inset-bottom,0px)));'
+      );
+    }
+    var rt = chatBoxRuntime();
+    if (rt) {
+      return (
+        'width:min(' +
+        rt.w +
+        'px,calc(100vw - 24px));' +
+        'height:min(' +
+        rt.h +
+        'px,calc(100dvh - 80px - env(safe-area-inset-bottom,0px)));'
       );
     }
     return (
@@ -1501,6 +1820,7 @@
       cfg.subtitle || '',
       cfg.position || '',
       cfg.prechatMode || 'steps',
+      cfg.previewTemplateId || '',
     ].join('|');
   }
 
@@ -1666,7 +1986,8 @@
     var inputEl = document.getElementById('rz-webchat-input');
     if (inputEl) savedInput = inputEl.value;
     applyRootPosition();
-    var t = ui();
+    var rt = chatBoxRuntime();
+    var t = applyChatBoxUiPatches(ui(), rt);
     root.innerHTML =
       '<div style="display:flex;flex-direction:column;align-items:' +
       ((state.config && state.config.position) === 'left' ? 'flex-start' : 'flex-end') +
@@ -1676,11 +1997,17 @@
       '<div style="position:relative;display:inline-block;">' +
       '<button type="button" id="rz-webchat-toggle" aria-label="Abrir chat" class="' +
       (state.pulseActive ? 'rz-notify-pulse' : '') +
-      '" style="width:56px;height:56px;border-radius:999px;border:none;cursor:pointer;box-shadow:' +
+      '" style="width:' +
+      (rt && rt.toggleSize ? rt.toggleSize : 56) +
+      'px;height:' +
+      (rt && rt.toggleSize ? rt.toggleSize : 56) +
+      'px;border-radius:999px;border:none;cursor:pointer;box-shadow:' +
       t.toggleShadow +
       ';background:' +
       primaryColor() +
-      ';color:#fff;font-size:24px;line-height:1;">💬</button>' +
+      ';color:#fff;font-size:24px;line-height:1;">' +
+      (rt && rt.toggleIcon ? rt.toggleIcon : '💬') +
+      '</button>' +
       renderUnreadBadge() +
       '</div></div>';
     var toggle = document.getElementById('rz-webchat-toggle');
@@ -2400,7 +2727,8 @@
   }
 
   function renderPanel() {
-    var t = ui();
+    var rt = chatBoxRuntime();
+    var t = applyChatBoxUiPatches(ui(), rt);
     var title = (state.config && state.config.title) || 'Fale conosco';
     var subtitle = (state.config && state.config.subtitle) || '';
     var mode = resolvePanelMode();
@@ -2803,10 +3131,14 @@
       panelBody = offlineBanner + queueBanner + messagesBlock + renderFaqQuickReplies(t) + composer;
     }
 
-    var panelRadius = isCopilotLayout() ? '16px' : '20px';
+    var panelRadius = rt && rt.radius ? String(rt.radius) + 'px' : isCopilotLayout() ? '16px' : '20px';
+    var glassStyle = rt && rt.glass ? 'backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);' : '';
+    var chatBoxId = chatBoxModelId();
     var headerBlock = isCopilotLayout()
       ? renderCopilotHeader(title, subtitle, t)
-      : '<div style="flex-shrink:0;background:' +
+      : rt
+        ? renderChatBoxHeader(title, subtitle, t, rt)
+        : '<div style="flex-shrink:0;background:' +
         (isDarkTheme() ? t.headerBg : '#fff') +
         ';color:' +
         (isDarkTheme() ? '#fff' : t.text) +
@@ -2864,7 +3196,7 @@
       '" data-rz-theme="' +
       (isCopilotLayout() ? 'copilot' : isDarkTheme() ? 'dark' : 'light') +
       '" data-rz-layout="' +
-      (isCopilotLayout() ? 'copilot' : 'classic') +
+      (isCopilotLayout() ? 'copilot' : chatBoxId ? 'chatbox-' + chatBoxId : 'classic') +
       '" data-rz-build="' +
       WIDGET_BUILD +
       '" style="' +
@@ -2877,11 +3209,15 @@
       panelRadius +
       ';box-shadow:' +
       t.panelShadow +
-      ';display:flex;flex-direction:column;overflow:hidden;font-family:' +
+      ';' +
+      (glassStyle ? glassStyle + ';' : '') +
+      'display:flex;flex-direction:column;overflow:hidden;font-family:' +
       t.font +
       ';">' +
       headerBlock +
       panelBody +
+      (rt && rt.bottomNav && mode === 'chat' ? renderChatBoxBottomNav(t) : '') +
+      (rt && rt.footer ? renderChatBoxFooterNote(t, rt.footer) : '') +
       renderPoweredBy(t) +
       '</div>'
     );
