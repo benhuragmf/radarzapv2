@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.93';
+  var WIDGET_BUILD = '2.10.94';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -83,25 +83,96 @@
   /** Runtime dos modelos Chat Box (`previewTemplateId` = `chatbox-*`). */
   var CHATBOX_PREFIX = 'chatbox-';
   var CHATBOX_RUNTIME = {
-    'blue-compact': { w: 360, h: 540, radius: 18, header: 'gradient', footer: '' },
-    'small-chat': { w: 320, h: 460, radius: 20, header: 'mini', footer: '' },
-    'clean-support': { w: 360, h: 540, radius: 20, header: 'compact', footer: '' },
-    'support-lite': { w: 340, h: 500, radius: 18, header: 'mini', footer: '' },
-    'pocket-chat': { w: 300, h: 560, radius: 18, header: 'pocket', footer: '', bottomNav: true },
+    'blue-compact': {
+      w: 360,
+      h: 540,
+      radius: 18,
+      header: 'gradient',
+      footer: '',
+      introLines: ['Como podemos ajudar?', 'Respostas rápidas para você.'],
+      primaryCta: 'Nova conversa',
+      chips: ['Perguntas', 'Status', 'Falar com time'],
+      inputPlaceholder: 'Digite sua mensagem...',
+    },
+    'small-chat': {
+      w: 320,
+      h: 460,
+      radius: 20,
+      header: 'mini',
+      footer: '',
+      introLines: ['Olá! 👋', 'Como posso ajudar você hoje?'],
+      quickActions: ['Tenho uma dúvida', 'Quero saber mais', 'Falar com um atendente'],
+      inputPlaceholder: 'Digite sua mensagem...',
+    },
+    'clean-support': {
+      w: 360,
+      h: 540,
+      radius: 20,
+      header: 'compact',
+      footer: '',
+      faqTitle: 'Perguntas frequentes',
+      faqItems: ['Como redefinir minha senha', 'Problemas para fazer login', 'Atualizar dados da conta'],
+      infoLine: 'Tempo médio de resposta: 2 min',
+      primaryCta: 'Iniciar conversa',
+      inputPlaceholder: 'Digite sua mensagem...',
+    },
+    'support-lite': {
+      w: 340,
+      h: 500,
+      radius: 18,
+      header: 'mini',
+      footer: '',
+      introLines: ['Olá! Como podemos ajudar?', 'Respostas rápidas e sem complicação.'],
+      quickActions: ['Abrir chamado', 'Ver status', 'Base de conhecimento'],
+      infoLine: 'Médio tempo de resposta: 2min',
+      inputPlaceholder: 'Digite sua mensagem...',
+    },
+    'pocket-chat': {
+      w: 300,
+      h: 560,
+      radius: 18,
+      header: 'pocket',
+      footer: '',
+      bottomNav: true,
+      introLines: ['Oi! Precisa de ajuda?', 'Respondemos rapidinho.'],
+      chips: ['Dúvida', 'Suporte', 'Preços'],
+      quickActions: ['Abrir chamado', 'Ver status', 'Base de conhecimento'],
+      inputPlaceholder: 'Fale algo...',
+    },
     'compact-pro': {
       w: 380,
       h: 620,
       radius: 22,
       header: 'corporate',
       footer: 'Ambiente seguro e confidencial',
+      actionRows: [
+        'Falar com um especialista',
+        'Soluções e serviços',
+        'Abrir um ticket',
+        'Perguntas frequentes (FAQ)',
+      ],
+      inputPlaceholder: 'Digite sua mensagem...',
     },
-    'smart-mini': { w: 370, h: 600, radius: 22, header: 'corporate', footer: 'IA segura e confiável • Respostas em segundos' },
+    'smart-mini': {
+      w: 370,
+      h: 600,
+      radius: 22,
+      header: 'corporate',
+      footer: 'IA segura e confiável • Respostas em segundos',
+      suggestionsTitle: 'Sugestões para você',
+      suggestionsSubtitle: 'Com base na sua pergunta, selecione uma opção para continuar.',
+      suggestions: ['Resumir conteúdo', 'Integrar via API', 'Quais são os planos?'],
+      inputPlaceholder: 'Digite sua mensagem...',
+    },
     'workplace-mini': {
       w: 380,
       h: 620,
       radius: 22,
       header: 'workplace',
       footer: 'Conversa interna · Visível apenas para a equipe',
+      tiles: ['Políticas internas', 'TI e acessos', 'Recursos humanos', 'Guias e processos'],
+      infoLine: 'Dica: Digite sua dúvida para uma resposta rápida.',
+      inputPlaceholder: 'Digite sua mensagem...',
     },
     'mini-corporate': {
       w: 390,
@@ -109,6 +180,9 @@
       radius: 20,
       header: 'secure',
       footer: 'Protegido por criptografia de ponta a ponta',
+      actionRows: ['Abrir chamado', 'Portal do cliente', 'Ambiente seguro', 'Dados protegidos'],
+      infoLine: 'Conexão segura e criptografada',
+      inputPlaceholder: 'Escreva sua mensagem...',
     },
     'floating-mini': {
       w: 340,
@@ -119,6 +193,9 @@
       glass: true,
       toggleSize: 64,
       toggleIcon: '⚡',
+      introLines: ['Olá! 👋 Como podemos te ajudar hoje?'],
+      chips: ['Começar agora', 'Preços e planos', 'Dúvidas frequentes', 'Falar com especialista'],
+      inputPlaceholder: 'Digite sua dúvida...',
     },
   };
 
@@ -350,7 +427,12 @@
 
   function renderChatBoxBottomNav(t) {
     var accent = primaryColor();
-    var items = ['Início', 'Chat', 'Ajuda'];
+    var tab = chatBoxPocketTab();
+    var items = [
+      { key: 'home', label: 'Início' },
+      { key: 'chat', label: 'Chat' },
+      { key: 'help', label: 'Ajuda' },
+    ];
     return (
       '<div style="flex-shrink:0;display:flex;border-top:1px solid ' +
       t.border +
@@ -358,21 +440,303 @@
       t.footerBg +
       ';">' +
       items
-        .map(function (label, idx) {
-          var active = idx === 1;
+        .map(function (item) {
+          var active = tab === item.key;
           return (
-            '<div style="flex:1;text-align:center;padding:10px 4px;font-size:10px;color:' +
+            '<button type="button" class="rz-chatbox-nav" data-tab="' +
+            item.key +
+            '" aria-label="' +
+            escHtml(item.label) +
+            '" aria-current="' +
+            (active ? 'true' : 'false') +
+            '" style="flex:1;text-align:center;padding:10px 4px;font-size:10px;border:none;background:transparent;cursor:pointer;color:' +
             (active ? accent : t.textMuted) +
             ';font-weight:' +
             (active ? '600' : '500') +
             ';">' +
-            escHtml(label) +
-            '</div>'
+            escHtml(item.label) +
+            '</button>'
           );
         })
         .join('') +
       '</div>'
     );
+  }
+
+  function visitorSentInbound() {
+    return state.messages.some(function (m) {
+      return m.direction === 'inbound';
+    });
+  }
+
+  function chatBoxPocketTab() {
+    if (!chatBoxRuntime() || !chatBoxRuntime().bottomNav) return 'chat';
+    if (visitorSentInbound()) return 'chat';
+    return state.chatBoxPocketTab || 'home';
+  }
+
+  function renderChatBoxChip(label, t) {
+    return (
+      '<button type="button" class="rz-chatbox-pick" data-text="' +
+      escHtml(label) +
+      '" style="padding:5px 10px;border-radius:999px;border:1px solid ' +
+      t.inputBorder +
+      ';background:' +
+      t.attachBg +
+      ';color:' +
+      t.text +
+      ';font-size:11px;cursor:pointer;">' +
+      escHtml(label) +
+      '</button>'
+    );
+  }
+
+  function renderChatBoxActionsBlock(t, rt) {
+    if (!rt || visitorSentInbound()) return '';
+    var accent = primaryColor();
+    var html = '';
+    if (rt.introLines && rt.introLines.length) {
+      html += '<div style="margin-bottom:10px;">';
+      for (var li = 0; li < rt.introLines.length; li++) {
+        html +=
+          '<div style="font-size:13px;line-height:1.45;color:' +
+          t.text +
+          ';margin-bottom:4px;">' +
+          escHtml(rt.introLines[li]) +
+          '</div>';
+      }
+      html += '</div>';
+    }
+    if (rt.primaryCta) {
+      html +=
+        '<button type="button" class="rz-chatbox-pick" data-text="' +
+        escHtml(rt.primaryCta) +
+        '" style="width:100%;padding:10px;border:none;border-radius:10px;background:' +
+        accent +
+        ';color:#fff;font-weight:600;font-size:13px;cursor:pointer;margin-bottom:10px;">' +
+        escHtml(rt.primaryCta) +
+        '</button>';
+    }
+    if (rt.chips && rt.chips.length) {
+      html +=
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">' +
+        rt.chips.map(function (c) {
+          return renderChatBoxChip(c, t);
+        }).join('') +
+        '</div>';
+    }
+    if (rt.quickActions && rt.quickActions.length) {
+      for (var qa = 0; qa < rt.quickActions.length; qa++) {
+        var actionLabel = rt.quickActions[qa];
+        html +=
+          '<button type="button" class="rz-chatbox-pick" data-text="' +
+          escHtml(actionLabel) +
+          '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:10px;background:' +
+          t.inputBg +
+          ';color:' +
+          t.text +
+          ';font-size:12px;cursor:pointer;">' +
+          escHtml(actionLabel) +
+          '</button>';
+      }
+    }
+    if (rt.actionRows && rt.actionRows.length) {
+      for (var ar = 0; ar < rt.actionRows.length; ar++) {
+        var rowLabel = rt.actionRows[ar];
+        html +=
+          '<button type="button" class="rz-chatbox-pick" data-text="' +
+          escHtml(rowLabel) +
+          '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:10px;background:' +
+          t.inputBg +
+          ';color:' +
+          t.text +
+          ';font-size:12px;cursor:pointer;">' +
+          escHtml(rowLabel) +
+          '</button>';
+      }
+    }
+    if (rt.tiles && rt.tiles.length) {
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">';
+      for (var ti = 0; ti < rt.tiles.length; ti++) {
+        var tileLabel = rt.tiles[ti];
+        html +=
+          '<button type="button" class="rz-chatbox-pick" data-text="' +
+          escHtml(tileLabel) +
+          '" style="min-height:72px;padding:10px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:12px;background:' +
+          t.attachBg +
+          ';color:' +
+          t.text +
+          ';font-size:11px;font-weight:600;cursor:pointer;text-align:left;line-height:1.3;">' +
+          escHtml(tileLabel) +
+          '</button>';
+      }
+      html += '</div>';
+    }
+    if (rt.faqItems && rt.faqItems.length) {
+      html +=
+        '<div style="margin-top:12px;padding:10px;border:1px solid ' +
+        t.inputBorder +
+        ';border-radius:12px;background:' +
+        t.inputBg +
+        ';">';
+      if (rt.faqTitle) {
+        html +=
+          '<div style="font-size:11px;font-weight:600;color:' +
+          t.textMuted +
+          ';margin-bottom:8px;">' +
+          escHtml(rt.faqTitle) +
+          '</div>';
+      }
+      for (var fi = 0; fi < rt.faqItems.length; fi++) {
+        var faqItem = rt.faqItems[fi];
+        html +=
+          '<button type="button" class="rz-chatbox-pick" data-text="' +
+          escHtml(faqItem) +
+          '" style="display:block;width:100%;text-align:left;padding:6px 0;border:none;background:transparent;color:' +
+          t.text +
+          ';font-size:11px;cursor:pointer;">• ' +
+          escHtml(faqItem) +
+          '</button>';
+      }
+      html += '</div>';
+    }
+    if (rt.suggestions && rt.suggestions.length) {
+      html +=
+        '<div style="margin-top:10px;padding:12px;border:1px solid ' +
+        t.inputBorder +
+        ';border-radius:14px;background:' +
+        t.attachBg +
+        ';">';
+      if (rt.suggestionsTitle) {
+        html +=
+          '<div style="font-size:12px;font-weight:600;color:' +
+          t.text +
+          ';">' +
+          escHtml(rt.suggestionsTitle) +
+          '</div>';
+      }
+      if (rt.suggestionsSubtitle) {
+        html +=
+          '<div style="font-size:10px;color:' +
+          t.textMuted +
+          ';margin-top:4px;margin-bottom:8px;">' +
+          escHtml(rt.suggestionsSubtitle) +
+          '</div>';
+      }
+      for (var si = 0; si < rt.suggestions.length; si++) {
+        var sug = rt.suggestions[si];
+        html +=
+          '<button type="button" class="rz-chatbox-pick" data-text="' +
+          escHtml(sug) +
+          '" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:4px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:10px;background:' +
+          (isCopilotLayout() ? '#fff' : t.panelBg) +
+          ';color:' +
+          t.text +
+          ';font-size:11px;cursor:pointer;">' +
+          escHtml(sug) +
+          '</button>';
+      }
+      html += '</div>';
+    }
+    if (rt.infoLine) {
+      html +=
+        '<div style="margin-top:10px;font-size:10px;color:' +
+        t.textMuted +
+        ';text-align:center;">' +
+        escHtml(rt.infoLine) +
+        '</div>';
+    }
+    if (!html) return '';
+    return '<div class="rz-chatbox-actions" style="padding:4px 0 12px;">' + html + '</div>';
+  }
+
+  function renderChatBoxPocketHome(t, rt) {
+    var greeting = (state.config && state.config.greeting) || '';
+    var html =
+      '<div style="flex:1;overflow:auto;padding:16px 14px;background:' +
+      t.messagesBg +
+      ';">';
+    if (greeting) {
+      html +=
+        '<div style="font-size:14px;line-height:1.5;color:' +
+        t.text +
+        ';margin-bottom:12px;">' +
+        escHtml(greeting) +
+        '</div>';
+    }
+    html += renderChatBoxActionsBlock(t, rt);
+    html += '</div>';
+    return html;
+  }
+
+  function renderChatBoxPocketHelp(t, rt) {
+    var accent = primaryColor();
+    var html =
+      '<div style="flex:1;overflow:auto;padding:16px 14px;background:' +
+      t.messagesBg +
+      ';">' +
+      '<div style="font-size:14px;font-weight:600;color:' +
+      t.text +
+      ';margin-bottom:10px;">Central de ajuda</div>';
+    if (state.config && state.config.faqQuickReplies && state.config.faqQuickReplies.length) {
+      for (var i = 0; i < state.config.faqQuickReplies.length; i++) {
+        var item = state.config.faqQuickReplies[i];
+        html +=
+          '<button type="button" class="rz-chatbox-pick" data-text="' +
+          escHtml(item.label) +
+          '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:10px;background:' +
+          t.inputBg +
+          ';color:' +
+          t.text +
+          ';font-size:12px;cursor:pointer;">' +
+          escHtml(item.label) +
+          '</button>';
+      }
+    } else if (rt && rt.quickActions && rt.quickActions.length) {
+      for (var j = 0; j < rt.quickActions.length; j++) {
+        var helpAction = rt.quickActions[j];
+        html +=
+          '<button type="button" class="rz-chatbox-pick" data-text="' +
+          escHtml(helpAction) +
+          '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;border:1px solid ' +
+          t.inputBorder +
+          ';border-radius:10px;background:' +
+          t.inputBg +
+          ';color:' +
+          t.text +
+          ';font-size:12px;cursor:pointer;">' +
+          escHtml(helpAction) +
+          '</button>';
+      }
+    } else {
+      html +=
+        '<p style="font-size:12px;color:' +
+        t.textMuted +
+        ';">Digite sua dúvida na aba Chat ou consulte nosso FAQ.</p>';
+    }
+    if (faqBrowserEnabled()) {
+      html +=
+        '<button type="button" id="rz-webchat-faq-open-help" style="margin-top:12px;padding:10px;border:none;border-radius:10px;background:' +
+        accent +
+        ';color:#fff;font-weight:600;cursor:pointer;width:100%;font-size:13px;">Abrir FAQ</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function chatBoxInputPlaceholder(rt) {
+    if (rt && rt.inputPlaceholder) return rt.inputPlaceholder;
+    return isCopilotLayout() ? 'Escreva uma mensagem' : 'Envie uma mensagem...';
   }
 
   function renderChatBoxFooterNote(t, note) {
@@ -716,6 +1080,7 @@
     faqError: '',
     pendingFaqArticleId: null,
     faqPendingHint: false,
+    chatBoxPocketTab: 'home',
   };
 
   function faqBrowserEnabled() {
@@ -3044,6 +3409,7 @@
         );
       })
       .join('') +
+      renderChatBoxActionsBlock(t, rt) +
       renderTypingBubble(t);
 
     var messagesBlock =
@@ -3080,7 +3446,7 @@
       t.inputBg +
       ';padding:10px 12px 8px;">' +
       '<textarea id="rz-webchat-input" rows="1" placeholder="' +
-      (isCopilotLayout() ? 'Escreva uma mensagem' : 'Envie uma mensagem...') +
+      chatBoxInputPlaceholder(rt) +
       '" autocomplete="off" style="width:100%;min-height:22px;max-height:120px;padding:0;border:none;font-size:14px;line-height:1.45;background:transparent;color:' +
       t.inputColor +
       ';outline:none;resize:none;font-family:inherit;"></textarea>' +
@@ -3118,6 +3484,7 @@
           ';font-size:11px;line-height:1.3;cursor:pointer;text-decoration:underline;">Encerrar atendimento</button>') +
       '</div></div>';
 
+    var pocketTab = rt && rt.bottomNav ? chatBoxPocketTab() : 'chat';
     var panelBody = '';
     if (mode === 'faq') {
       panelBody = renderFaqBrowserPanel(t);
@@ -3127,6 +3494,10 @@
       panelBody = offlineBanner + prechat;
     } else if (mode === 'closed') {
       panelBody = messagesBlock + closedFooter;
+    } else if (rt && rt.bottomNav && pocketTab === 'home') {
+      panelBody = offlineBanner + renderChatBoxPocketHome(t, rt);
+    } else if (rt && rt.bottomNav && pocketTab === 'help') {
+      panelBody = offlineBanner + renderChatBoxPocketHelp(t, rt);
     } else {
       panelBody = offlineBanner + queueBanner + messagesBlock + renderFaqQuickReplies(t) + composer;
     }
@@ -3423,6 +3794,38 @@
           return;
         }
         sendMessageWithText(label);
+      };
+    }
+
+    var chatBoxNavBtns = document.getElementsByClassName('rz-chatbox-nav');
+    for (var cn = 0; cn < chatBoxNavBtns.length; cn++) {
+      chatBoxNavBtns[cn].onclick = function () {
+        var tab = this.getAttribute('data-tab') || 'chat';
+        state.chatBoxPocketTab = tab;
+        renderBubble();
+      };
+    }
+    var chatBoxPickBtns = document.getElementsByClassName('rz-chatbox-pick');
+    for (var cp = 0; cp < chatBoxPickBtns.length; cp++) {
+      chatBoxPickBtns[cp].onclick = function () {
+        var text = this.getAttribute('data-text') || '';
+        if (!text) return;
+        state.chatBoxPocketTab = 'chat';
+        if (!state.started || !state.visitorToken) {
+          state.open = true;
+          if (!state.started && !needsPrechat()) startSession();
+          setTimeout(function () {
+            sendMessageWithText(text);
+          }, state.started ? 0 : 600);
+          return;
+        }
+        sendMessageWithText(text);
+      };
+    }
+    var faqOpenHelp = document.getElementById('rz-webchat-faq-open-help');
+    if (faqOpenHelp) {
+      faqOpenHelp.onclick = function () {
+        openFaqBrowser();
       };
     }
 
@@ -3772,6 +4175,7 @@
     state.unreadCount = 0;
     state.firstUnreadMessageId = null;
     state.messagePreview = null;
+    state.chatBoxPocketTab = 'home';
     writeStore({ visitorToken: null, conversationId: null });
     renderBubble();
     if (!needsPrechat()) {
@@ -3964,6 +4368,7 @@
   function sendMessageWithText(text) {
     var trimmed = String(text || '').trim();
     if (!trimmed || state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
+    state.chatBoxPocketTab = 'chat';
     clearProactiveTimer();
     state.proactiveTeaser = null;
     state.sending = true;
@@ -3993,6 +4398,7 @@
 
   function sendMessage() {
     if (state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
+    state.chatBoxPocketTab = 'chat';
     var input = document.getElementById('rz-webchat-input');
     if (!input) return;
     var text = input.value.trim();
