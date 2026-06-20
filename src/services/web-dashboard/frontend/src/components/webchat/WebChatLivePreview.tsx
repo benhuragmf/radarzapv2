@@ -3,6 +3,7 @@ import {
   WEBCHAT_PREVIEW_TEMPLATES,
   webChatPreviewUrl,
 } from '../../lib/webchatPreviewTemplates'
+import { findChatBoxModel, parseChatBoxModelId } from '../../lib/chatBoxModels'
 
 type Props = {
   publicKey: string
@@ -16,13 +17,20 @@ const PREVIEW_SCALE = 0.8
 const PREVIEW_IFRAME_HEIGHT = 500
 const PREVIEW_VIEW_HEIGHT = Math.round(PREVIEW_IFRAME_HEIGHT * PREVIEW_SCALE)
 
+const CHATBOX_LIVE_PREVIEW_PATH = '/webchat/widget.html'
+
 export function WebChatLivePreview({ publicKey, selectedTemplateId, reloadKey = 0 }: Props) {
-  const templatePath =
-    WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)?.path ??
-    '/webchat/preview-tech.html'
+  const chatBoxId = parseChatBoxModelId(selectedTemplateId)
+  const chatBoxModel = chatBoxId ? findChatBoxModel(chatBoxId) : null
+  const landingTemplate = WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)
+
+  const templatePath = chatBoxModel
+    ? CHATBOX_LIVE_PREVIEW_PATH
+    : landingTemplate?.path ?? '/webchat/preview-tech.html'
+
+  const templateName = chatBoxModel?.name ?? landingTemplate?.name ?? 'Tecnológico'
+
   const href = webChatPreviewUrl(templatePath, publicKey, reloadKey || undefined)
-  const templateName =
-    WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)?.name ?? 'Tecnológico'
 
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-lg shadow-black/10">
@@ -30,8 +38,17 @@ export function WebChatLivePreview({ publicKey, selectedTemplateId, reloadKey = 
         <div>
           <p className="text-xs font-semibold text-[var(--rz-text)]">Pré-visualização ao vivo</p>
           <p className="text-[10px] text-[var(--rz-text-muted)]">
-            Modelo <span className="text-[var(--rz-text-secondary)]">{templateName}</span> — reflete o
-            widget salvo no servidor
+            {chatBoxModel ? (
+              <>
+                Chat Box <span className="text-[var(--rz-text-secondary)]">{templateName}</span> — widget
+                real com config salva
+              </>
+            ) : (
+              <>
+                Modelo <span className="text-[var(--rz-text-secondary)]">{templateName}</span> — reflete o
+                widget salvo no servidor
+              </>
+            )}
           </p>
         </div>
         <a

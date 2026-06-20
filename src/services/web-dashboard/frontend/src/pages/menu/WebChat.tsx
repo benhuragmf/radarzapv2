@@ -32,6 +32,7 @@ import {
 import {
   canUsePremiumChatBoxModels,
   chatBoxPreviewTemplateId,
+  findChatBoxModel,
   parseChatBoxModelId,
   type ChatBoxModel,
 } from '../../lib/chatBoxModels'
@@ -1032,9 +1033,13 @@ function WidgetEditorCard({
   }
 
   const snippet = embedSnippet(widget.publicKey)
+  const chatBoxPreviewId = parseChatBoxModelId(selectedTemplateId)
+  const chatBoxPreviewModel = chatBoxPreviewId ? findChatBoxModel(chatBoxPreviewId) : null
   const previewUrl = webChatPreviewUrl(
-    WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)?.path ??
-      '/webchat/preview-tech.html',
+    chatBoxPreviewModel
+      ? '/webchat/widget.html'
+      : WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)?.path ??
+          '/webchat/preview-tech.html',
     widget.publicKey,
   )
 

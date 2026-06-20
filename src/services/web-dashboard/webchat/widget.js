@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.95';
+  var WIDGET_BUILD = '2.10.96';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -126,6 +126,8 @@
       quickActions: ['Abrir chamado', 'Ver status', 'Base de conhecimento'],
       infoLine: 'Médio tempo de resposta: 2min',
       inputPlaceholder: 'Digite sua mensagem...',
+      search: true,
+      searchPlaceholder: 'Buscar ajuda rápida...',
     },
     'pocket-chat': {
       w: 300,
@@ -495,6 +497,9 @@
     if (!rt || visitorSentInbound()) return '';
     var accent = primaryColor();
     var html = '';
+    if (rt.search) {
+      html += renderChatBoxSearchBlock(t, rt);
+    }
     if (rt.introLines && rt.introLines.length) {
       html += '<div style="margin-bottom:10px;">';
       for (var li = 0; li < rt.introLines.length; li++) {
@@ -847,6 +852,76 @@
     if (rt.faqItems && rt.faqItems.length && !state.faqCatalog && !state.faqLoading) {
       loadFaqCatalog();
     }
+    if (rt.search && !state.faqCatalog && !state.faqLoading) {
+      loadFaqCatalog();
+    }
+  }
+
+  function renderChatBoxSearchResults(t, query) {
+    var needle = normalizePickText(query);
+    if (!needle || !state.faqCatalog || !state.faqCatalog.categories) return '';
+    var matches = [];
+    for (var ci = 0; ci < state.faqCatalog.categories.length; ci++) {
+      var cat = state.faqCatalog.categories[ci];
+      var articles = cat.articles || [];
+      for (var ai = 0; ai < articles.length; ai++) {
+        var art = articles[ai];
+        var artLabel = normalizePickText(art.label);
+        var artTitle = normalizePickText(art.title);
+        if (artLabel.indexOf(needle) >= 0 || artTitle.indexOf(needle) >= 0) {
+          matches.push(art);
+        }
+      }
+    }
+    if (!matches.length) {
+      return (
+        '<div style="font-size:11px;color:' +
+        t.textMuted +
+        ';margin-bottom:8px;">Nenhum resultado para sua busca.</div>'
+      );
+    }
+    var html = '';
+    for (var mi = 0; mi < matches.length && mi < 6; mi++) {
+      var match = matches[mi];
+      html +=
+        '<button type="button" class="rz-chatbox-pick" data-text="' +
+        escHtml(match.label) +
+        '" data-faq-article-id="' +
+        escHtml(String(match.id)) +
+        '" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:4px;border:1px solid ' +
+        t.inputBorder +
+        ';border-radius:8px;background:' +
+        t.inputBg +
+        ';color:' +
+        t.text +
+        ';font-size:12px;cursor:pointer;">' +
+        escHtml(match.label) +
+        '</button>';
+    }
+    return html;
+  }
+
+  function renderChatBoxSearchBlock(t, rt) {
+    if (!rt || !rt.search) return '';
+    var q = state.chatBoxSearchQuery || '';
+    return (
+      '<div style="margin-bottom:10px;">' +
+      '<input id="rz-chatbox-search" type="search" placeholder="' +
+      escHtml(rt.searchPlaceholder || 'Buscar ajuda rápida...') +
+      '" value="' +
+      escHtml(q) +
+      '" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid ' +
+      t.inputBorder +
+      ';border-radius:10px;font-size:13px;background:' +
+      t.inputBg +
+      ';color:' +
+      t.inputColor +
+      ';outline:none;" />' +
+      (state.faqLoading
+        ? '<div style="font-size:11px;color:' + t.textMuted + ';margin-top:6px;">Carregando base…</div>'
+        : renderChatBoxSearchResults(t, q)) +
+      '</div>'
+    );
   }
 
   function renderChatBoxFooterNote(t, note) {
@@ -1191,6 +1266,7 @@
     pendingFaqArticleId: null,
     faqPendingHint: false,
     chatBoxPocketTab: 'home',
+    chatBoxSearchQuery: '',
   };
 
   function faqBrowserEnabled() {
@@ -2458,8 +2534,12 @@
     ensureTypingStyles();
     ensureCopilotFont();
     var savedInput = '';
+    var savedSearch = state.chatBoxSearchQuery || '';
     var inputEl = document.getElementById('rz-webchat-input');
     if (inputEl) savedInput = inputEl.value;
+    var searchEl = document.getElementById('rz-chatbox-search');
+    if (searchEl) savedSearch = searchEl.value;
+    state.chatBoxSearchQuery = savedSearch;
     applyRootPosition();
     var rt = chatBoxRuntime();
     var t = applyChatBoxUiPatches(ui(), rt);
@@ -2565,6 +2645,20 @@
     bindPanelEvents();
     var newInput = document.getElementById('rz-webchat-input');
     if (newInput && savedInput) newInput.value = savedInput;
+    var newSearch = document.getElementById('rz-chatbox-search');
+    if (newSearch) {
+      newSearch.value = savedSearch;
+      newSearch.oninput = function () {
+        state.chatBoxSearchQuery = this.value;
+        if (faqBrowserEnabled() && !state.faqCatalog && !state.faqLoading) {
+          loadFaqCatalog(function () {
+            renderBubble();
+          });
+        } else {
+          renderBubble();
+        }
+      };
+    }
     scrollMessages();
   }
 
@@ -4293,6 +4387,7 @@
     state.firstUnreadMessageId = null;
     state.messagePreview = null;
     state.chatBoxPocketTab = 'home';
+    state.chatBoxSearchQuery = '';
     writeStore({ visitorToken: null, conversationId: null });
     renderBubble();
     if (!needsPrechat()) {
