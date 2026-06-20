@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.94';
+  var WIDGET_BUILD = '2.10.95';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -692,6 +692,8 @@
         html +=
           '<button type="button" class="rz-chatbox-pick" data-text="' +
           escHtml(item.label) +
+          '" data-faq-article-id="' +
+          escHtml(String(item.id)) +
           '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;border:1px solid ' +
           t.inputBorder +
           ';border-radius:10px;background:' +
@@ -737,6 +739,114 @@
   function chatBoxInputPlaceholder(rt) {
     if (rt && rt.inputPlaceholder) return rt.inputPlaceholder;
     return isCopilotLayout() ? 'Escreva uma mensagem' : 'Envie uma mensagem...';
+  }
+
+  function normalizePickText(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function findFaqArticleIdForLabel(label) {
+    var needle = normalizePickText(label);
+    if (!needle) return null;
+    if (state.config && state.config.faqQuickReplies) {
+      for (var qi = 0; qi < state.config.faqQuickReplies.length; qi++) {
+        var qr = state.config.faqQuickReplies[qi];
+        if (normalizePickText(qr.label) === needle || normalizePickText(qr.title) === needle) {
+          return qr.id;
+        }
+      }
+    }
+    if (!state.faqCatalog || !state.faqCatalog.categories) return null;
+    for (var ci = 0; ci < state.faqCatalog.categories.length; ci++) {
+      var cat = state.faqCatalog.categories[ci];
+      var articles = cat.articles || [];
+      for (var ai = 0; ai < articles.length; ai++) {
+        var art = articles[ai];
+        var artLabel = normalizePickText(art.label);
+        var artTitle = normalizePickText(art.title);
+        if (artLabel === needle || artTitle === needle) return art.id;
+        if (artLabel.indexOf(needle) >= 0 || needle.indexOf(artLabel) >= 0) return art.id;
+        if (artTitle.indexOf(needle) >= 0 || needle.indexOf(artTitle) >= 0) return art.id;
+      }
+    }
+    return null;
+  }
+
+  function isFaqBrowserLabel(label) {
+    var n = normalizePickText(label);
+    if (!n) return false;
+    return (
+      n.indexOf('base de conhecimento') >= 0 ||
+      n.indexOf('faq') >= 0 ||
+      n.indexOf('perguntas frequentes') >= 0 ||
+      n.indexOf('dúvidas frequentes') >= 0
+    );
+  }
+
+  function isTicketLookupLabel(label) {
+    var n = normalizePickText(label);
+    return n.indexOf('abrir chamado') >= 0 || n.indexOf('ver status') >= 0;
+  }
+
+  function openTicketLookupFlow() {
+    if (!ticketLookupEnabled()) return false;
+    resetTicketLookup();
+    state.ticketLookupStep = 'ref';
+    state.chatBoxPocketTab = 'chat';
+    renderBubble();
+    return true;
+  }
+
+  function handleChatBoxPick(text, explicitArticleId) {
+    var trimmed = String(text || '').trim();
+    if (!trimmed && !explicitArticleId) return;
+    state.chatBoxPocketTab = 'chat';
+
+    function runPick() {
+      if (explicitArticleId && faqBrowserEnabled()) {
+        openFaqArticleFromCatalog(explicitArticleId);
+        return;
+      }
+      if (trimmed && isTicketLookupLabel(trimmed)) {
+        if (openTicketLookupFlow()) return;
+      }
+      if (trimmed && isFaqBrowserLabel(trimmed) && faqBrowserEnabled()) {
+        openFaqBrowser();
+        return;
+      }
+      var articleId = trimmed ? findFaqArticleIdForLabel(trimmed) : null;
+      if (articleId && faqBrowserEnabled()) {
+        openFaqArticleFromCatalog(articleId);
+        return;
+      }
+      if (!state.started || !state.visitorToken) {
+        state.open = true;
+        if (!state.started && !needsPrechat()) startSession();
+        setTimeout(function () {
+          sendMessageWithText(trimmed);
+        }, state.started ? 0 : 600);
+        return;
+      }
+      sendMessageWithText(trimmed);
+    }
+
+    if (faqBrowserEnabled() && !state.faqCatalog && trimmed && !explicitArticleId) {
+      loadFaqCatalog(function () {
+        runPick();
+      });
+      return;
+    }
+    runPick();
+  }
+
+  function maybePreloadChatBoxFaqCatalog(rt) {
+    if (!rt || !faqBrowserEnabled()) return;
+    if (rt.faqItems && rt.faqItems.length && !state.faqCatalog && !state.faqLoading) {
+      loadFaqCatalog();
+    }
   }
 
   function renderChatBoxFooterNote(t, note) {
@@ -2467,6 +2577,8 @@
         return (
           '<button type="button" class="rz-faq-quick" data-faq-label="' +
           escHtml(item.label) +
+          '" data-faq-article-id="' +
+          escHtml(String(item.id)) +
           '" style="padding:6px 10px;border-radius:999px;border:1px solid ' +
           t.inputBorder +
           ';background:' +
@@ -3093,6 +3205,7 @@
 
   function renderPanel() {
     var rt = chatBoxRuntime();
+    maybePreloadChatBoxFaqCatalog(rt);
     var t = applyChatBoxUiPatches(ui(), rt);
     var title = (state.config && state.config.title) || 'Fale conosco';
     var subtitle = (state.config && state.config.subtitle) || '';
@@ -3784,6 +3897,19 @@
     for (var fq = 0; fq < faqQuickBtns.length; fq++) {
       faqQuickBtns[fq].onclick = function () {
         var label = this.getAttribute('data-faq-label') || '';
+        var articleId = this.getAttribute('data-faq-article-id') || '';
+        if (articleId && faqBrowserEnabled()) {
+          if (!state.started || !state.visitorToken) {
+            state.open = true;
+            if (!state.started && !needsPrechat()) startSession();
+            setTimeout(function () {
+              openFaqArticleFromCatalog(articleId);
+            }, state.started ? 0 : 600);
+            return;
+          }
+          openFaqArticleFromCatalog(articleId);
+          return;
+        }
         if (!label) return;
         if (!state.started || !state.visitorToken) {
           state.open = true;
@@ -3809,17 +3935,8 @@
     for (var cp = 0; cp < chatBoxPickBtns.length; cp++) {
       chatBoxPickBtns[cp].onclick = function () {
         var text = this.getAttribute('data-text') || '';
-        if (!text) return;
-        state.chatBoxPocketTab = 'chat';
-        if (!state.started || !state.visitorToken) {
-          state.open = true;
-          if (!state.started && !needsPrechat()) startSession();
-          setTimeout(function () {
-            sendMessageWithText(text);
-          }, state.started ? 0 : 600);
-          return;
-        }
-        sendMessageWithText(text);
+        var articleId = this.getAttribute('data-faq-article-id') || '';
+        handleChatBoxPick(text, articleId);
       };
     }
     var faqOpenHelp = document.getElementById('rz-webchat-faq-open-help');
