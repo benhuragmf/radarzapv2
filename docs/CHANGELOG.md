@@ -6,6 +6,22 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.28] — 2026-06-21
+
+### Adicionado
+
+- **Fallback WhatsApp deferido:** após escala na fila, aguarda `whatsappFallbackAcceptTimeoutSeconds` (padrão 60s, 30–900) sem aceite no painel → alerta WA + mensagem ao visitante; scan ~60s (`processWebChatFallbackAcceptTimeouts`).
+- **Notificações críticas (sino vermelho):** registro `src/types/panel-events.ts` + `PanelCriticalAlertsService` — plano expirando/expirado, cota IA/mensagens, config incompleta; tipos urgentes incluem `webchat:fallback_missed`, `whatsapp:disconnected`, `inbox:queue_sla`, `inbox:ticket_sla`.
+- Eventos de conta (`billing:*`, `ai:quota_*`, `system:critical_config`) visíveis só para quem tem `billing:view`.
+
+### Corrigido
+
+- **WebChat IA Básica:** triagem usa `resolveAttendanceMode` / `basic_triage` — não cai mais no menu robotizado 1–4 na 1ª mensagem.
+- **Fallback com atendente online:** presença por heartbeat (não exige socket); fallback não dispara na escala imediata.
+- **Testes:** mock `whatsapp-send-policy` em `WhatsAppService.test.ts`.
+
+---
+
 ## [2.11.25] — 2026-06-21
 
 ### Adicionado

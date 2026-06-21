@@ -321,12 +321,13 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Header escuro (#181818) com grid indigo (toque Cursor); área de mensagens clara (#f4f4f5).
 - Preview: `/webchat/preview-copilot.html?key=…`
 
-## Fallback WhatsApp offline (2.10.72)
+## Fallback WhatsApp offline (2.10.72, deferido 2.11.28)
 
 - Config em **Triagem e Bot** → seção *Chat do site — fallback WhatsApp*.
-- Campos: `whatsappFallbackEnabled`, `whatsappFallbackAlertPhones[]`, `whatsappFallbackVisitorMessage`, `agentPresenceTimeoutSeconds`.
-- Ao escalar chat do site sem atendente online: mensagem ao visitante + alerta via `WhatsAppService.sendInternalAlert` (Baileys).
-- Presença: heartbeat `agent:heartbeat` a cada 45s no painel; timeout configurável (padrão 90s).
+- Campos: `whatsappFallbackEnabled`, `whatsappFallbackAcceptTimeoutSeconds` (30–900s, padrão **60**), `whatsappFallbackAlertPhones[]`, `whatsappFallbackVisitorMessage`, `agentPresenceTimeoutSeconds`.
+- Ao escalar: prioridade round-robin se houver atendente online; **espera N segundos** sem aceite → mensagem ao visitante + alerta WA (`processWebChatFallbackAcceptTimeouts`, scan ~60s).
+- Atendente designado que não assumiu recebe **`webchat:fallback_missed`** no sino (vermelho urgente).
+- Presença: heartbeat `agent:heartbeat` a cada 30s; status operacional no header (2.11.25); timeout offline configurável (padrão 90s).
 - Bridge bidirecional site ↔ WhatsApp após `!assumir` (2.10.74) — campos `whatsappBridgeActive` em `WebChatConversation`.
 - Comandos `!assumir` / `!abrir` / `!ticket` / `!token` / `!encerrarchat` / `!encerrar` / `!ajuda` para atendentes com WhatsApp em Equipe (2.10.73+).
 - **`!assumir`** (2.11.7): só assume conversa + bridge WhatsApp — **não** abre chamado formal nem envia token.

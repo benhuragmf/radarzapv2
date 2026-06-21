@@ -70,6 +70,18 @@ Referência: [Stripe API keys](https://docs.stripe.com/keys). Checkout **hospeda
 - `Organization.canSendMessage()` — bloqueia envio se plano pago expirado
 - Rate limit diário continua via `limits.messagesPerDay`
 
+## Alertas no painel (2.11.28)
+
+Dono/admin (`billing:view`) recebe no **sino vermelho** (urgente):
+
+| Evento | Quando |
+|--------|--------|
+| `billing:plan_expiring` | Plano pago expira em ≤7 dias (scan ~60s) |
+| `billing:plan_expired` | Plano expirou (`subscription-expiry.service`) |
+| `billing:messages_quota_exceeded` | Limite diário de mensagens atingido |
+
+Implementação: `PanelCriticalAlertsService` · tipos em `src/types/panel-events.ts`.
+
 ## Arquivos principais
 
 - `src/services/billing/BillingService.ts`

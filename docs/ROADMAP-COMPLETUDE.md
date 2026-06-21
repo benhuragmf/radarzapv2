@@ -1,6 +1,6 @@
 # RadarZap v2 — completude do sistema e roadmap
 
-> **Versão ref:** `2.10.18` · **Última revisão:** 2026-06-18  
+> **Versão ref:** `2.11.28` · **Última revisão:** 2026-06-21  
 > **Fase atual:** **estabilização do produto** — **não** preparação de produção nem go-live.
 
 | Fase | Documento | Quando |
@@ -44,10 +44,10 @@ Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 
 - [ ] Roteiro **QA WhatsApp** — checklist em [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A
 - [ ] Nenhum bug **crítico aberto** em Inbox/Ticket/CSAT/IA por ≥ 1 ciclo completo de teste
-- [x] `npm test` + `npm run build` verdes — validado 2026-06-19 (392+ testes, `npm run qa:gate`)
+- [x] `npm test` + `npm run qa:atendimento:gate` verdes — validado **2026-06-21** (463 testes; gate 104+53; `qa:prep` OK)
 - [x] CI verde em `main` — validado 2026-06-18 (run 27785738989, 2.10.19)
 - [ ] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 (helpers + routing — ver § Testes)
-- [x] `ROADMAP` e changelog alinhados ao estado validado — 2.10.18
+- [x] `ROADMAP` e changelog alinhados ao estado validado — **2.11.28** (2026-06-21)
 
 ---
 
