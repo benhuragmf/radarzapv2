@@ -17,6 +17,8 @@ interface Props {
   priorityCount: number
   webchatQueueCount: number
   waConnected: boolean
+  /** Oculta cards duplicados quando InboxStatsRow já está visível acima */
+  compact?: boolean
 }
 
 export function InboxEmptyChat({
@@ -25,6 +27,7 @@ export function InboxEmptyChat({
   priorityCount,
   webchatQueueCount,
   waConnected,
+  compact = false,
 }: Props) {
   const cards: QuickCard[] = [
     {
@@ -70,8 +73,8 @@ export function InboxEmptyChat({
   ]
 
   return (
-    <div className="hidden lg:flex flex-col items-center justify-center flex-1 p-8">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500/20 to-violet-500/10 border border-[var(--rz-border)]/60 flex items-center justify-center mb-4">
+    <div className="hidden lg:flex flex-col items-center justify-center flex-1 min-h-[240px] p-6 overflow-y-auto">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500/20 to-violet-500/10 border border-[var(--rz-border)]/60 flex items-center justify-center mb-4 shrink-0">
         <MessageSquare size={32} className="text-brand-400/70" />
       </div>
       <p className="text-base font-medium text-[var(--rz-text-secondary)]">Selecione uma conversa</p>
@@ -79,6 +82,7 @@ export function InboxEmptyChat({
         Escolha um atendimento na lista para visualizar o histórico, responder e gerenciar o contato.
       </p>
 
+      {!compact && (
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 mt-8 w-full max-w-2xl">
         {cards.map(card => {
           const Icon = card.icon
@@ -100,6 +104,7 @@ export function InboxEmptyChat({
           )
         })}
       </div>
+      )}
     </div>
   )
 }

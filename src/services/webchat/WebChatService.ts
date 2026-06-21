@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { WebChatWidget, type IWebChatWidget } from '../../models/WebChatWidget';
 import { InboxDepartment } from '../../models/InboxDepartment';
 import { User } from '../../models/User';
+import { CompanyMember } from '../../models/CompanyMember';
 import { ContactGroup } from '../../models/ContactGroup';
 import { Destination } from '../../models/Destination';
 import { WebChatConversation, type IWebChatConversation } from '../../models/WebChatConversation';
@@ -72,7 +73,7 @@ import {
   deactivateWhatsappBridge,
   forwardVisitorMessageToWhatsappBridge,
 } from './webchat-whatsapp-bridge.service';
-import { getOnlineAgentIds, isAgentOnline } from '../inbox/inbox-agent-presence';
+import { getAvailableAgentIdsForQueue, isAgentAvailableForQueue } from '../inbox/inbox-agent-presence';
 import {
   applyWebChatAgentHumanDelay,
   assertWebChatSendAllowed,
@@ -2495,8 +2496,8 @@ export class WebChatService {
       const settings = await loadInboxSettings(clientId);
       if (settings.roundRobinEnabled) return false;
     }
-    const online = getOnlineAgentIds(clientId).filter(uid => isAgentOnline(clientId, uid));
-    return online.length === 0;
+    const available = getAvailableAgentIdsForQueue(clientId);
+    return available.length === 0;
   }
 
   async assignConversation(
@@ -2635,7 +2636,7 @@ export class WebChatService {
       settings.roundRobinPullTimeoutSeconds ?? 120,
     );
 
-    if (!busy && !pullAllowedByTimeout && isAgentOnline(clientId, suggestedId)) {
+    if (!busy && !pullAllowedByTimeout && isAgentAvailableForQueue(clientId, suggestedId)) {
       throw new Error(
         'Esta conversa está em prioridade para outro atendente. Aguarde o tempo ou até ele ficar ocupado.',
       );
@@ -3205,5 +3206,109 @@ export class WebChatService {
       messages: session.messages,
       ticket: lookup,
     };
+  }
+
+  async supervisorReassignConversation(
+    clientId: string,
+    supervisorUserId: string,
+    conversationId: string,
+    targetUserId: string,
+    mode: 'suggest' | 'assign' = 'suggest',
+  ): Promise<InboxWebChatListRow> {
+    await InboxService.getInstance().listSupervisorQueue(clientId, supervisorUserId);
+
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') throw new Error('Conversa já finalizada');
+
+    const targetMember = await CompanyMember.findOne({
+      userId: new mongoose.Types.ObjectId(targetUserId),
+      organizationId: new mongoose.Types.ObjectId(clientId),
+      isActive: true,
+    });
+    if (!targetMember?.userId) throw new Error('Atendente inválido');
+
+    const agent = await User.findById(targetUserId).select('displayName email').lean();
+    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+
+    if (mode === 'assign') {
+      conversation.assignedUserId = targetUserId;
+      conversation.suggestedUserId = undefined;
+      conversation.suggestedAt = undefined;
+      conversation.queueStatus = 'with_agent';
+      conversation.lastMessageAt = new Date();
+      await conversation.save();
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: `Supervisor reatribuiu o atendimento para ${agentName}.`,
+        senderUserId: supervisorUserId,
+        senderName: 'Supervisor',
+      });
+    } else {
+      conversation.suggestedUserId = targetUserId;
+      conversation.suggestedAt = new Date();
+      conversation.assignedUserId = undefined;
+      conversation.queueStatus = 'waiting_human';
+      conversation.lastMessageAt = new Date();
+      await conversation.save();
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: `Supervisor indicou prioridade para ${agentName}.`,
+        senderUserId: supervisorUserId,
+        senderName: 'Supervisor',
+      });
+      emitPanelEvent(String(conversation.clientId), {
+        id: crypto.randomUUID(),
+        type: 'inbox:priority',
+        title: 'Prioridade (supervisor)',
+        body: `${agentName} · chat do site`,
+        href: `/platform/inbox?conv=${toWebChatInboxId(String(conversation._id))}`,
+        conversationId: toWebChatInboxId(String(conversation._id)),
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    emitWebChatToTenant(String(conversation.clientId), 'webchat:conversation', {
+      clientId: String(conversation.clientId),
+      conversationId: String(conversation._id),
+    });
+
+    const inboxSettings = await loadInboxSettings(clientId);
+    const agentMap = new Map([[targetUserId, agentName]]);
+    const display = visitorDisplayName(
+      conversation.visitorName,
+      conversation.visitorEmail,
+      conversation.visitorPhone,
+    );
+    const inboxStatus =
+      conversation.queueStatus === 'with_agent'
+        ? 'in_progress'
+        : conversation.queueStatus === 'waiting_human'
+          ? 'waiting_queue'
+          : 'bot_triage';
+
+    return enrichWebChatInboxRow(
+      {
+        _id: toWebChatInboxId(String(conversation._id)),
+        channel: 'webchat_site',
+        contactName: display.contactName,
+        contactIdentifier: display.contactIdentifier,
+        status: inboxStatus,
+        departmentId: conversation.departmentId ? String(conversation.departmentId) : undefined,
+        assignedUserId: conversation.assignedUserId,
+        assignedUserName: conversation.assignedUserId ? agentName : undefined,
+        suggestedUserId: conversation.suggestedUserId,
+        suggestedAt: conversation.suggestedAt?.toISOString(),
+        lastMessageAt: (conversation.lastMessageAt ?? conversation.updatedAt).toISOString(),
+        lastMessagePreview: conversation.lastMessagePreview,
+      },
+      supervisorUserId,
+      clientId,
+      agentMap,
+      inboxSettings.roundRobinPullTimeoutSeconds ?? 120,
+    );
   }
 }

@@ -451,8 +451,9 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 | GET | `/inbox/settings` | `inbox:department:manage` | Config do bot |
 | PATCH | `/inbox/settings` | `inbox:department:manage` | Salvar bot / horários / round-robin |
 | GET | `/inbox/reports` | `inbox:reports:view` | Métricas de atendimento (`from`, `to`) |
+| GET | `/inbox/supervisor/dashboard` | `inbox:supervise` | Dashboard supervisor (equipe, presença, conversas ativas, fila, métricas 7 dias) — **2.11.24** |
 | GET | `/inbox/supervisor/queue` | `inbox:supervise` | Fila ao vivo (supervisor) — WhatsApp + WebChat unificados (desde 2.10.20) |
-| POST | `/inbox/conversations/:id/reassign` | `inbox:supervise` | Reatribuir (`mode: suggest` \| `assign`) |
+| POST | `/inbox/conversations/:id/reassign` | `inbox:supervise` | Reatribuir WA ou WebChat (`mode: suggest` \| `assign`) |
 
 ## Permissões
 
@@ -484,7 +485,9 @@ Quando ninguém está online no painel e uma conversa **WebChat** entra na fila:
 4. Visitante ↔ atendente: mensagens espelhadas site ↔ WhatsApp pessoal do atendente (texto; anexos = aviso no WA).
 5. Comandos `!` interceptados **antes** do fluxo cliente: `!encerrarchat` desativa só o bridge (chamado aberto); `!encerrar` finaliza chamado e conversa.
 
-**Presença:** socket `agent:heartbeat` a cada 45s (`useAgentPresenceHeartbeat` no `Layout.tsx`); timeout configurável (padrão 90s) — `inbox-agent-presence.ts`.
+**Presença operacional (2.11.25):** status `online` | `ausente` | `ocupado` | `offline` | `supervisor_online` — seletor no header do painel; heartbeat a cada 30s; inatividade configurável (`presenceIdleTimeoutSeconds`, padrão 300s); round-robin/fila só indicam quem está `online` e disponível. API: `GET/PATCH /inbox/presence/me`, `GET /inbox/presence/team`, `PATCH /inbox/presence/:userId` (gestão equipe). Constantes: `src/constants/agent-presence.ts`.
+
+**Presença técnica:** socket `agent:heartbeat` (`useAgentPresenceHeartbeat`); timeout offline configurável (`agentPresenceTimeoutSeconds`, padrão 90s) — `inbox-agent-presence.ts`.
 
 **Inbox:** badge **Bridge WA** na lista e cabeçalho quando bridge ativo.
 
@@ -510,7 +513,8 @@ Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`
 | `alertOnNewMessage` | Alerta quando chega mensagem em conversa ativa |
 | `csatEnabled` / `csatPrompt` / `csatThankYou` | Pesquisa 1–5 pós-atendimento — ver § CSAT abaixo |
 | `whatsappFallbackEnabled` / `whatsappFallbackAlertPhones[]` / `whatsappFallbackVisitorMessage` | Fallback WebChat offline → alerta WA (2.10.72) |
-| `agentPresenceTimeoutSeconds` | Timeout presença atendente no painel (30–300s, padrão 90) |
+| `agentPresenceTimeoutSeconds` | Timeout offline sem heartbeat (30–300s, padrão 90) |
+| `presenceIdleTimeoutSeconds` | Inatividade no painel antes de marcar ausente (60–3600s, padrão 300) |
 
 API: `GET/PATCH /api/inbox/settings` (`inbox:department:manage`).
 
@@ -555,9 +559,14 @@ Serviço: `InboxReportsService`.
 
 Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
 
-- Fila ao vivo com status, setor, atendente e prioridade sugerida
-- Reatribuir conversa: `suggest` (nova prioridade) ou `assign` (assume direto)
-- Atualização via WebSocket + refresh manual
+- **Equipe ao vivo:** online/offline, atividade (Inbox, supervisão, em conversa, outra área)
+- **Presença:** heartbeat `agent:heartbeat` envia `route` + `viewingConversationId` (Inbox seleciona conversa)
+- **Conversas ativas:** WhatsApp + ChatBox com tempo de atendimento e botão **Monitorar** (drawer somente leitura)
+- **Fila:** triagem + espera com reatribuição (WA e WebChat)
+- **Métricas (7 dias):** tempo médio de atendimento, tempo para puxar da fila, CSAT por atendente
+- API agregada: `GET /inbox/supervisor/dashboard` (`InboxSupervisorDashboardService`)
+- Reatribuir: `POST /inbox/conversations/:id/reassign` — IDs `wc:` incluídos desde **2.11.24**
+- Atualização via WebSocket + refresh manual (15s)
 
 ## Notificações no painel
 

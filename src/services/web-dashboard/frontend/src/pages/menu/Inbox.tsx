@@ -51,6 +51,7 @@ import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
 import { useWebChatSocket } from '../../hooks/useWebChatSocket'
 import { getSocket } from '../../lib/socket'
+import { useAgentPresenceContext } from '../../lib/agentPresenceContext'
 
 interface Department {
   _id: string
@@ -324,6 +325,7 @@ export default function Inbox() {
   useInboxSocket(Boolean(me))
   useWebChatSocket(canInboxView, { syncInbox: true })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const agentPresence = useAgentPresenceContext()
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDept, setFilterDept] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
@@ -374,6 +376,11 @@ export default function Inbox() {
       setChannelFilter(channelParam)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    agentPresence.setViewingConversationId(selectedId)
+    return () => agentPresence.setViewingConversationId(null)
+  }, [selectedId, agentPresence])
 
   const { data: departments = [] } = useQuery({
     queryKey: ['inbox-departments'],
@@ -744,7 +751,7 @@ export default function Inbox() {
         platformPageMaxWidthClass,
         chatFocus
           ? 'h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8'
-          : 'min-h-[70vh] lg:h-[calc(100vh-5.5rem)] -mx-1',
+          : '-mx-1',
       )}
     >
       {/* Cabeçalho — compacto quando há conversa aberta */}
@@ -898,10 +905,15 @@ export default function Inbox() {
       </div>
 
       {/* Painel principal */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-0 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/30 overflow-hidden shadow-xl shadow-black/20">
+      <div
+        className={cn(
+          'flex flex-col lg:flex-row gap-0 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/30 overflow-hidden shadow-xl shadow-black/20',
+          chatFocus ? 'flex-1 min-h-0' : 'min-h-[420px] lg:min-h-[480px]',
+        )}
+      >
         {/* Lista de conversas */}
         <aside
-          className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 ${
+          className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 ${
             selectedId ? 'max-lg:hidden' : 'max-lg:flex-1'
           }`}
         >
@@ -1099,6 +1111,7 @@ export default function Inbox() {
               priorityCount={stats.priority}
               webchatQueueCount={webchatQueueCount}
               waConnected={waConnected}
+              compact
             />
           ) : loadingDetail ? (
             <div className="flex justify-center items-center flex-1">

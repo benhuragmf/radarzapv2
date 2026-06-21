@@ -6,6 +6,7 @@ import { pageTitleFor } from '../../lib/navConfig'
 import { Wifi, WifiOff, LogOut, Menu, Sun, Moon } from 'lucide-react'
 import OrganizationSwitcher from './OrganizationSwitcher'
 import EventNotificationBell from './EventNotificationBell'
+import { AgentStatusSelector } from './AgentStatusSelector'
 import { useTheme } from '../../context/ThemeContext'
 
 interface Props {
@@ -53,6 +54,8 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
 
         <EventNotificationBell />
+
+        <AgentStatusSelector user={user} />
 
         <button
           type="button"

@@ -58,6 +58,7 @@ interface InboxSettings {
   whatsappFallbackAlertPhones: string[]
   whatsappFallbackVisitorMessage: string
   agentPresenceTimeoutSeconds: number
+  presenceIdleTimeoutSeconds: number
 }
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -544,6 +545,22 @@ export default function InboxBotSettings() {
             />
             <p className="text-xs text-[var(--rz-text-muted)] mt-1">
               Sem heartbeat do painel por este tempo, o atendente deixa de contar como online.
+            </p>
+          </div>
+          <div>
+            <label className="text-xs text-[var(--rz-text-muted)]">
+              Inatividade antes de marcar ausente (segundos, 60–3600)
+            </label>
+            <input
+              type="number"
+              min={60}
+              max={3600}
+              className={inputCls}
+              value={form.presenceIdleTimeoutSeconds}
+              onChange={e => patch('presenceIdleTimeoutSeconds', Number(e.target.value))}
+            />
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+              Tempo sem mouse/teclado/foco no painel antes de marcar o atendente como Ausente automaticamente (padrão 300s = 5 min).
             </p>
             <p className="text-xs text-[var(--rz-text-muted)] mt-2">
               Atendentes autorizados respondem alertas com{' '}

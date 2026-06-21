@@ -1,4 +1,4 @@
-import { isAgentOnline } from '../inbox/inbox-agent-presence';
+import { isAgentAvailableForQueue } from '../inbox/inbox-agent-presence';
 import {
   getQueuePriorityState,
   isAgentBusyWithClients,
@@ -32,7 +32,7 @@ export async function enrichWebChatInboxRow(
   if (status === 'waiting_queue' && suggestedId) {
     priorityForMe = String(suggestedId) === String(userId);
     canAccept = priorityForMe;
-    suggestedUserOnline = isAgentOnline(clientId, String(suggestedId));
+    suggestedUserOnline = isAgentAvailableForQueue(clientId, String(suggestedId));
     if (!priorityForMe) {
       suggestedUserBusy = await isAgentBusyWithClients(clientId, String(suggestedId), {
         webChatConversationId: mongoConvId,

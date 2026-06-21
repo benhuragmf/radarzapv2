@@ -11,7 +11,8 @@ import { NavModeContext } from '../../lib/navModeContext'
 import { detectNavMode, type NavMode } from '../../lib/navConfig'
 import { EventNotificationProvider } from '../../context/EventNotificationContext'
 import { WebChatGlobalListener } from '../webchat/WebChatGlobalListener'
-import { useAgentPresenceHeartbeat } from '../../hooks/useAgentPresenceHeartbeat'
+import { AgentPresenceProvider } from '../../lib/agentPresenceContext'
+import { AgentPresenceRuntime } from './AgentPresenceRuntime'
 
 interface Props {
   user: AuthUser
@@ -19,9 +20,8 @@ interface Props {
   onUserUpdate: (user: AuthUser) => void
 }
 
-export default function Layout({ user, onLogout, onUserUpdate }: Props) {
+function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
   const { pathname, hash } = useLocation()
-  useAgentPresenceHeartbeat(Boolean(user))
   const initial = getSelectedGuild()
   const [guild, setGuild] = useState<Guild | null>(initial)
   const [navMode, setNavMode] = useState<NavMode>(() => detectNavMode(pathname, hash))
@@ -33,6 +33,7 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
 
   return (
     <EventNotificationProvider user={user}>
+      <AgentPresenceRuntime user={user} />
       <WebChatGlobalListener user={user} />
       <NavModeContext.Provider value={navMode}>
         <GuildContext.Provider value={{ guildId: guild?.id ?? null, guildName: guild?.name ?? null }}>
@@ -72,5 +73,13 @@ export default function Layout({ user, onLogout, onUserUpdate }: Props) {
         </GuildContext.Provider>
       </NavModeContext.Provider>
     </EventNotificationProvider>
+  )
+}
+
+export default function Layout(props: Props) {
+  return (
+    <AgentPresenceProvider>
+      <LayoutInner {...props} />
+    </AgentPresenceProvider>
   )
 }

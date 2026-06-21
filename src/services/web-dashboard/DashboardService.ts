@@ -112,7 +112,18 @@ import {
   agentPresenceDisconnect,
   agentPresenceHeartbeat,
 } from '../inbox/inbox-agent-presence';
+import {
+  assertStatusAllowed,
+  getMyPresenceSnapshot,
+  getPresenceConfigForClient,
+  listTeamPresence,
+  selectableStatusesForCapabilities,
+  setAgentOperationalStatus,
+  setAgentPresenceSocketServer,
+} from '../inbox/inbox-agent-presence-api';
+import type { AgentOperationalStatus } from '../../types/agent-presence';
 import { InboxReportsService } from '../inbox/InboxReportsService';
+import { InboxSupervisorDashboardService } from '../inbox/inbox-supervisor-dashboard.service';
 import { BirthdayAutomationService } from '../platform/BirthdayAutomationService';
 import { BillingService, BillingHttpError } from '../billing/BillingService';
 import { BillingOrder } from '../../models/BillingOrder';
@@ -1438,6 +1449,77 @@ export class DashboardService {
       }
     });
 
+    r.get('/inbox/presence/config', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const config = await getPresenceConfigForClient(auth.clientId);
+        const selectable = selectableStatusesForCapabilities(auth.capabilities);
+        res.json({ ...config, selectableStatuses: selectable });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/inbox/presence/me', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(getMyPresenceSnapshot(auth.clientId, auth.userId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/inbox/presence/me', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const status = String((req.body as { status?: string })?.status ?? '').trim() as AgentOperationalStatus;
+        if (!status) {
+          res.status(400).json({ error: 'status é obrigatório' });
+          return;
+        }
+        assertStatusAllowed(status, auth.capabilities);
+        const snapshot = setAgentOperationalStatus(auth.clientId, auth.userId, status, 'manual');
+        res.json(snapshot);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get(
+      '/inbox/presence/team',
+      requireAnyCapability(Cap.INBOX_SUPERVISE, Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const members = await inboxSvc.listTeamMembersForAssignment(auth.clientId);
+          res.json(listTeamPresence(auth.clientId, members));
+        } catch (e) {
+          res.status(500).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.patch(
+      '/inbox/presence/:userId',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const targetUserId = req.params.userId;
+          const status = String((req.body as { status?: string })?.status ?? '').trim() as AgentOperationalStatus;
+          if (!status) {
+            res.status(400).json({ error: 'status é obrigatório' });
+            return;
+          }
+          assertStatusAllowed(status, auth.capabilities);
+          const snapshot = setAgentOperationalStatus(auth.clientId, targetUserId, status, 'manual');
+          res.json(snapshot);
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
     r.get('/inbox/conversations', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -2043,6 +2125,19 @@ export class DashboardService {
       }
     });
 
+    r.get('/inbox/supervisor/dashboard', requireCapability(Cap.INBOX_SUPERVISE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const payload = await InboxSupervisorDashboardService.getInstance().buildDashboard(
+          auth.clientId,
+          auth.userId,
+        );
+        res.json(payload);
+      } catch (e) {
+        res.status(403).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/inbox/supervisor/queue', requireCapability(Cap.INBOX_SUPERVISE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -2074,6 +2169,16 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const { userId, mode } = req.body as { userId?: string; mode?: 'suggest' | 'assign' };
         if (!userId) return res.status(400).json({ error: 'userId obrigatório' });
+        if (isWebChatInboxId(req.params.id)) {
+          const conv = await WebChatService.getInstance().supervisorReassignConversation(
+            auth.clientId,
+            auth.userId,
+            webChatInboxIdToMongo(req.params.id),
+            userId,
+            mode === 'assign' ? 'assign' : 'suggest',
+          );
+          return res.json(conv);
+        }
         const conv = await inboxSvc.reassignConversation(
           auth.clientId,
           auth.userId,
@@ -5449,6 +5554,7 @@ export class DashboardService {
     setInboxSocketServer(this.io);
     setPanelSocketServer(this.io);
     setWebChatSocketServer(this.io);
+    setAgentPresenceSocketServer(this.io);
     const orgSvc = OrganizationService.getInstance();
 
     this.io.on('connection', async socket => {
@@ -5475,13 +5581,26 @@ export class DashboardService {
         }
       }
 
-      socket.on('agent:heartbeat', () => {
+      socket.on(
+        'agent:heartbeat',
+        (raw?: {
+          route?: string;
+          viewingConversationId?: string | null;
+          operationalStatus?: AgentOperationalStatus;
+          statusSource?: 'manual' | 'auto';
+        }) => {
         const clientId = socket.data.inboxClientId as string | undefined;
         const userId = socket.data.panelUserId as string | undefined;
         if (clientId && userId) {
-          agentPresenceHeartbeat(clientId, userId);
+          agentPresenceHeartbeat(clientId, userId, {
+            route: raw?.route,
+            viewingConversationId: raw?.viewingConversationId,
+            operationalStatus: raw?.operationalStatus,
+            statusSource: raw?.statusSource,
+          });
         }
-      });
+      },
+      );
 
       socket.on('disconnect', () => {
         const clientId = socket.data.inboxClientId as string | undefined;

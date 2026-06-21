@@ -65,5 +65,8 @@ export const DEFAULT_INBOX_SLA = {
 
 export const DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS = 90;
 
+/** Minutos de inatividade no painel antes de marcar ausente (padrão 5 min). */
+export const DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS = 300;
+
 export const DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE =
   'No momento não temos atendentes online no painel, mas podemos continuar seu atendimento pelo WhatsApp. Um atendente autorizado poderá assumir sua conversa em breve.';

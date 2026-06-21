@@ -74,6 +74,8 @@ import {
   isSuggestedUserBusy,
 } from '@/services/inbox/inbox-queue-priority';
 import {
+  getAgentPresence,
+  isAgentAvailableForQueue,
   isAgentOnline,
   setAgentPresenceTimeout,
 } from '@/services/inbox/inbox-agent-presence';
@@ -322,6 +324,7 @@ export class InboxService {
       whatsappFallbackAlertPhones: string[];
       whatsappFallbackVisitorMessage: string;
       agentPresenceTimeoutSeconds: number;
+      presenceIdleTimeoutSeconds: number;
     }>,
   ): Promise<IInboxSettings> {
     const settings = await InboxSettings.getOrCreate(clientId);
@@ -409,6 +412,12 @@ export class InboxService {
       settings.agentPresenceTimeoutSeconds = Math.min(
         300,
         Math.max(30, Number(patch.agentPresenceTimeoutSeconds) || 90),
+      );
+    }
+    if (patch.presenceIdleTimeoutSeconds !== undefined) {
+      settings.presenceIdleTimeoutSeconds = Math.min(
+        3600,
+        Math.max(60, Number(patch.presenceIdleTimeoutSeconds) || 300),
       );
     }
     if (patch.timezone !== undefined) {
@@ -537,7 +546,7 @@ export class InboxService {
     if (status === InboxConversationStatus.WAITING_QUEUE && suggestedId) {
       priorityForMe = suggestedId === userId;
       canAccept = priorityForMe;
-      suggestedUserOnline = isAgentOnline(clientId, suggestedId);
+      suggestedUserOnline = isAgentAvailableForQueue(clientId, suggestedId);
       if (!priorityForMe) {
         suggestedUserBusy = await isSuggestedUserBusy(clientId, suggestedId, convId);
         const { pullAllowedByTimeout } = getQueuePriorityState(
@@ -607,6 +616,7 @@ export class InboxService {
 
     return active.map(m => {
       const u = m.userId ? userMap.get(String(m.userId)) : undefined;
+      const presence = m.userId ? getAgentPresence(clientId, String(m.userId)) : null;
       return {
         memberId: String(m._id),
         userId: m.userId ? String(m.userId) : null,
@@ -615,7 +625,10 @@ export class InboxService {
         displayName: u?.displayName?.trim() || m.email?.split('@')[0] || 'Sem nome',
         linked: Boolean(m.userId),
         whatsappPhone: m.whatsappPhone?.trim() || undefined,
-        online: m.userId ? isAgentOnline(clientId, String(m.userId)) : false,
+        online: presence?.online ?? false,
+        availableForQueue: presence?.availableForQueue ?? false,
+        operationalStatus: presence?.operationalStatus ?? 'offline',
+        statusLabel: presence?.statusLabel ?? 'Offline',
       };
     });
   }
@@ -2291,12 +2304,14 @@ export class InboxService {
     if (!settings.roundRobinEnabled) return null;
 
     const candidates = await this.resolveRoundRobinCandidates(clientId, department);
-    const onlineOnly = candidates.filter(c => isAgentOnline(clientId, c.toString()));
-    if (!onlineOnly.length) return { noOnline: true };
+    const availableOnly = candidates.filter(c =>
+      isAgentAvailableForQueue(clientId, c.toString()),
+    );
+    if (!availableOnly.length) return { noOnline: true };
 
     const lastIdx = department.lastRoundRobinIndex ?? -1;
-    const nextIdx = (lastIdx + 1) % onlineOnly.length;
-    const userId = onlineOnly[nextIdx];
+    const nextIdx = (lastIdx + 1) % availableOnly.length;
+    const userId = availableOnly[nextIdx];
 
     department.lastRoundRobinIndex = nextIdx;
     await department.save();
@@ -3859,7 +3874,7 @@ export class InboxService {
       settings.roundRobinPullTimeoutSeconds ?? 120,
     );
 
-    if (!busy && !pullAllowedByTimeout && isAgentOnline(clientId, suggestedId)) {
+    if (!busy && !pullAllowedByTimeout && isAgentAvailableForQueue(clientId, suggestedId)) {
       throw new Error(
         'Esta conversa está em prioridade para outro atendente. Aguarde o tempo ou até ele ficar ocupado.',
       );
@@ -4444,7 +4459,7 @@ export class InboxService {
 
     for (const conv of convs) {
       const suggestedId = conv.suggestedUserId?.toString();
-      if (!suggestedId || isAgentOnline(clientId, suggestedId)) continue;
+      if (!suggestedId || isAgentAvailableForQueue(clientId, suggestedId)) continue;
 
       const agentName = await this.resolveAgentDisplayName(suggestedId);
       conv.suggestedUserId = undefined;
@@ -4454,7 +4469,7 @@ export class InboxService {
 
       await this.appendSystemMessage(
         conv,
-        `Prioridade de *${agentName}* removida (offline no painel) — qualquer atendente pode assumir.`,
+        `Prioridade de *${agentName}* removida (indisponível no painel) — qualquer atendente pode assumir.`,
         undefined,
         clientId,
       );

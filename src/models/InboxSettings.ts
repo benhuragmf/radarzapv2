@@ -9,6 +9,7 @@ import { DEFAULT_INBOX_QUICK_REPLIES, InboxQuickReply } from '@/types/inbox-quic
 import { DEFAULT_CSAT_PROMPT, DEFAULT_CSAT_THANK_YOU } from '@/services/inbox/csat.util';
 import {
   DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS,
+  DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS,
   DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
 } from '@/types/inbox-settings';
 
@@ -48,6 +49,8 @@ export interface IInboxSettings extends Document {
   whatsappFallbackVisitorMessage: string;
   /** Segundos sem heartbeat para considerar atendente offline (30–300) */
   agentPresenceTimeoutSeconds: number;
+  /** Segundos de inatividade no painel antes de marcar ausente (60–3600) */
+  presenceIdleTimeoutSeconds: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -142,6 +145,12 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       default: DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS,
       min: 30,
       max: 300,
+    },
+    presenceIdleTimeoutSeconds: {
+      type: Number,
+      default: DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS,
+      min: 60,
+      max: 3600,
     },
   },
   { timestamps: true, collection: 'inboxSettings' },

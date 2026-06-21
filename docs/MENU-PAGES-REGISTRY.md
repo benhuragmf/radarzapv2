@@ -24,7 +24,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` — CSAT, SLA ticket, **fallback WhatsApp** + timeout presença (2.10.72) |
 | `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, KB com keywords/links/sugestão rápida (2.10.71), `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage` |
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
-| `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` |
+| `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/dashboard`, `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` (WA + WebChat) |
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |
 | `/platform/webchat` | `menu/WebChat.tsx` | Widgets + histórico · API pública: `POST …/tickets/lookup`, `POST …/tickets/resume` (2.10.70), demais rotas em `WEBCHAT.md` |
 

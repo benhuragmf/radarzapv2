@@ -1,0 +1,14 @@
+/** Defaults globais — espelhados em InboxSettings (editáveis pelo dono). */
+export const PRESENCE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+export const PRESENCE_HEARTBEAT_INTERVAL_MS = 30 * 1000;
+export const PRESENCE_OFFLINE_TIMEOUT_MS = 90 * 1000;
+
+export const DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS = Math.round(
+  PRESENCE_IDLE_TIMEOUT_MS / 1000,
+);
+export const DEFAULT_PRESENCE_HEARTBEAT_INTERVAL_SECONDS = Math.round(
+  PRESENCE_HEARTBEAT_INTERVAL_MS / 1000,
+);
+export const DEFAULT_PRESENCE_OFFLINE_TIMEOUT_SECONDS = Math.round(
+  PRESENCE_OFFLINE_TIMEOUT_MS / 1000,
+);

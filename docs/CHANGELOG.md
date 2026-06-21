@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.25] — 2026-06-21
+
+### Adicionado
+
+- **Status operacional de atendentes** no painel: `online`, `ausente`, `ocupado`, `offline`, `supervisor_online` — seletor no header, inatividade automática, round-robin/fila respeitam disponibilidade real.
+- API `GET/PATCH /inbox/presence/me`, `GET /inbox/presence/team`, `PATCH /inbox/presence/:userId`; config `presenceIdleTimeoutSeconds` em Triagem e Bot.
+- Constantes centralizadas em `src/constants/agent-presence.ts`.
+
+---
+
 ## [2.11.16] — 2026-06-21
 
 ### Adicionado / corrigido
