@@ -179,6 +179,9 @@ function mapWebChatRowToPublicMessage(m: {
   }
   const body = m.body?.trim();
   if (!body) return null;
+  if (direction === 'system' && !isPinnedPublicTicketMessage(body)) {
+    return null;
+  }
   return {
     body,
     createdAt: (m.createdAt ?? new Date()).toISOString(),
@@ -254,7 +257,24 @@ async function loadRecentPublicMessages(
       }))
       .filter(m => m.body?.trim());
 
-    return mergePublicLookupMessages([...chatEntries, ...ticketReplies]);
+    const clientBodies = new Set(ticketReplies.map(m => m.body.trim()));
+    const chatBodies = new Set(chatEntries.map(m => m.body.trim()));
+    const chatWithoutDupClient = chatEntries.filter(
+      m => !(m.kind === 'client' && clientBodies.has(m.body.trim())),
+    );
+    const ticketComments = (ticket.comments ?? [])
+      .map(c => ({
+        body: c.body,
+        createdAt: (c.createdAt ?? new Date()).toISOString(),
+        kind: 'team' as const,
+      }))
+      .filter(c => c.body?.trim() && !chatBodies.has(c.body.trim()));
+
+    return mergePublicLookupMessages([
+      ...chatWithoutDupClient,
+      ...ticketReplies,
+      ...ticketComments,
+    ]);
   }
 
   const clientMsgs = (ticket.clientReplies ?? [])

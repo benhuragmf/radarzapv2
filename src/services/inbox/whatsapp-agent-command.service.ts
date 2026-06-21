@@ -232,7 +232,7 @@ async function handleNota(
       ticketRef,
       noteBody.trim(),
     );
-    return [`Nota registrada em ${ticketRef}.`, '(Visível só no painel — não enviada ao cliente.)'].join(
+    return [`Nota interna registrada em ${ticketRef}.`, '(Só equipe — não vai ao cliente.)'].join(
       '\n',
     );
   } catch (err) {

@@ -196,6 +196,44 @@ describe('ticket-public-access.service lookup', () => {
     expect(result.recentMessages.some(m => m.body.includes('Bridge WhatsApp'))).toBe(false);
     expect(result.recentMessages.some(m => m.body.includes('Token de consulta'))).toBe(true);
   });
+
+  it('includes ticket follow-up comments in webchat public lookup', async () => {
+    const wcId = new mongoose.Types.ObjectId();
+    const { WebChatMessage } = await import('@/models/WebChatMessage');
+    (WebChatMessage.find as jest.Mock).mockReturnValue({
+      sort: () => ({
+        limit: () => ({
+          lean: async () => [
+            {
+              body: 'Token de consulta: *ABCD-1234*',
+              createdAt: new Date('2026-06-21T09:10:00Z'),
+              direction: 'system',
+            },
+          ],
+        }),
+      }),
+    });
+
+    const result = await buildTicketPublicLookupResult({
+      ticketRef: 'TK-WC003',
+      status: 'in_progress',
+      channel: 'webchat_site',
+      webChatConversationId: wcId,
+      clientReplies: [],
+      comments: [
+        {
+          body: 'Estamos dando andamento no ticket',
+          createdAt: new Date('2026-06-21T17:11:26Z'),
+        },
+      ],
+      createdAt: new Date('2026-06-21T09:00:00Z'),
+      updatedAt: new Date('2026-06-21T17:11:26Z'),
+    } as Parameters<typeof buildTicketPublicLookupResult>[0]);
+
+    expect(
+      result.recentMessages.some(m => m.body.includes('Estamos dando andamento no ticket')),
+    ).toBe(true);
+  });
 });
 
 describe('assignInboxTicketPublicAccessToken', () => {

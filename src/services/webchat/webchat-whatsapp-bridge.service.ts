@@ -7,6 +7,7 @@ import {
   type WhatsappSenderContext,
 } from '@/services/inbox/whatsapp-agent-auth.service';
 import { WebChatService } from '@/services/webchat/WebChatService';
+import { InboxService } from '@/services/inbox/InboxService';
 import { visitorDisplayName } from '@/services/webchat/webchat-inbox-bridge';
 import {
   formatVisitorBridgeMessage,
@@ -184,6 +185,15 @@ export async function handleWhatsappBridgeAgentReply(
       routing.body,
       agent.displayName,
     );
+    const ref = conversation!.ticketRef?.trim().toUpperCase();
+    if (ref) {
+      await InboxService.getInstance().recordTicketClientVisibleCommentFromBridge(
+        ctx.clientId,
+        agent.userId,
+        ref,
+        routing.body,
+      );
+    }
   } catch (err) {
     logger.warn('Bridge agent reply failed', {
       clientId: ctx.clientId,

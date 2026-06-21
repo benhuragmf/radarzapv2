@@ -3152,7 +3152,7 @@ export class InboxService {
 
     const ticket = await this.getTicketForUser(clientId, userId, ticketRef);
     if (!ticketIsActive(ticket.status)) {
-      throw new Error('Ticket fechado — reabra para adicionar acompanhamento');
+      throw new Error('Chamado fechado — reabra para enviar mensagem ao cliente');
     }
 
     const mentionIds = [...new Set(mentionedUserIds.filter(Boolean))].map(
@@ -3162,20 +3162,13 @@ export class InboxService {
       await this.resolveMemberUserIds(clientId, mentionIds.map(String));
     }
 
-    ticket.comments.push({
-      userId: new mongoose.Types.ObjectId(userId),
-      body: text,
+    const newComment = await this.appendClientVisibleTicketComment(ticket, userId, text, {
       mentionedUserIds: mentionIds.length ? mentionIds : undefined,
-      createdAt: new Date(),
     });
-    if (ticket.status === 'open') ticket.status = 'in_progress';
-    else if (ticket.status === 'client_replied') ticket.status = 'in_progress';
-    ticket.updatedAt = new Date();
-    await ticket.save();
 
     const authorName = await this.resolveAgentDisplayName(userId);
 
-    const newComment = ticket.comments[ticket.comments.length - 1];
+    await this.publishWebChatTicketCommentToVisitor(clientId, userId, ticket, text, authorName);
 
     if (mentionIds.length) {
       await this.notifyTicketMentions(clientId, userId, ticket, text, mentionIds);
@@ -3195,6 +3188,131 @@ export class InboxService {
       mentionedUserIds: mentionIds.map(String),
       mentionedUserNames: mentionedNames,
     };
+  }
+
+  /**
+   * Registra mensagem da equipe visível ao cliente no chamado (painel / WhatsApp TK-…).
+   * Não publica no WebChat — use quando a mensagem já foi enviada pelo chat.
+   */
+  async recordTicketClientVisibleCommentFromBridge(
+    clientId: string,
+    userId: string,
+    ticketRef: string,
+    body: string,
+  ): Promise<void> {
+    const text = body.trim();
+    if (!text) return;
+
+    const normalized = ticketRef.trim().toUpperCase();
+    const ticket = await InboxTicket.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ticketRef: normalized,
+      deletedAt: { $exists: false },
+    });
+    if (!ticket || !ticketIsActive(ticket.status)) return;
+
+    await this.appendClientVisibleTicketComment(ticket, userId, text);
+    ticket.teamHasMessagedClient = true;
+    ticket.lastTeamMessageAt = new Date();
+    ticket.unreadClientReply = false;
+    clearTeamSlaOnTeamReply(ticket);
+    if (ticket.status === 'client_replied') {
+      ticket.status = 'in_progress';
+      ticket.lastStatusChangeAt = new Date();
+    }
+    await ticket.save();
+    this.notifyTicketUpdated(clientId, ticket.ticketRef);
+  }
+
+  /** Sincroniza mensagem do visitante no WebChat para o chamado formal aberto. */
+  async syncWebChatVisitorMessageToTicket(
+    clientId: string,
+    ticketRef: string | undefined,
+    body: string,
+  ): Promise<void> {
+    const text = body.trim();
+    const ref = ticketRef?.trim().toUpperCase();
+    if (!text || !ref) return;
+
+    const ticket = await InboxTicket.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ticketRef: ref,
+      deletedAt: { $exists: false },
+    });
+    if (!ticket || !ticketIsActive(ticket.status)) return;
+
+    const duplicate = (ticket.clientReplies ?? []).some(
+      r => r.body.trim() === text && Date.now() - new Date(r.createdAt).getTime() < 5000,
+    );
+    if (duplicate) return;
+
+    if (!ticket.clientReplies) ticket.clientReplies = [];
+    ticket.clientReplies.push({ body: text, createdAt: new Date() });
+    ticket.unreadClientReply = true;
+    ticket.lastClientReplyAt = new Date();
+    if (ticket.status !== 'closed') ticket.status = 'client_replied';
+    ticket.updatedAt = new Date();
+    await ticket.save();
+    this.notifyTicketUpdated(clientId, ticket.ticketRef);
+  }
+
+  private async appendClientVisibleTicketComment(
+    ticket: IInboxTicket,
+    userId: string,
+    body: string,
+    opts?: { mentionedUserIds?: mongoose.Types.ObjectId[] },
+  ) {
+    ticket.comments.push({
+      userId: new mongoose.Types.ObjectId(userId),
+      body,
+      mentionedUserIds: opts?.mentionedUserIds,
+      createdAt: new Date(),
+    });
+    if (ticket.status === 'open') ticket.status = 'in_progress';
+    else if (ticket.status === 'client_replied') ticket.status = 'in_progress';
+    ticket.updatedAt = new Date();
+    await ticket.save();
+    return ticket.comments[ticket.comments.length - 1];
+  }
+
+  private async publishWebChatTicketCommentToVisitor(
+    clientId: string,
+    userId: string,
+    ticket: IInboxTicket,
+    body: string,
+    authorName: string,
+  ): Promise<void> {
+    const isWebChat =
+      ticket.channel === 'webchat_site' ||
+      Boolean(ticket.webChatConversationId && !ticket.conversationId);
+    if (!isWebChat || !ticket.webChatConversationId) return;
+
+    const conversation = await WebChatConversation.findById(ticket.webChatConversationId).select(
+      'status',
+    );
+    if (!conversation || conversation.status === 'closed') return;
+
+    try {
+      const { WebChatService } = await import('../webchat/WebChatService');
+      await WebChatService.getInstance().sendAgentMessage(
+        clientId,
+        userId,
+        String(ticket.webChatConversationId),
+        body,
+        authorName,
+      );
+      ticket.teamHasMessagedClient = true;
+      ticket.lastTeamMessageAt = new Date();
+      ticket.unreadClientReply = false;
+      clearTeamSlaOnTeamReply(ticket);
+      await ticket.save();
+    } catch (err) {
+      logger.warn('publishWebChatTicketCommentToVisitor failed', {
+        clientId,
+        ticketRef: ticket.ticketRef,
+        err: (err as Error).message,
+      });
+    }
   }
 
   async addTicketInternalNote(

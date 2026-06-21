@@ -105,7 +105,7 @@ export const WHATSAPP_AGENT_COMMAND_HELP = [
   '!abrir TK-… [motivo] — abrir chamado + token ao visitante',
   '   Ex.: !abrir TK-ABC Cliente precisa @suporte2, @financeiro',
   '!token TK-… — reenviar token de consulta ao visitante',
-  '!nota TK-… texto — nota interna no chamado (sem enviar ao cliente)',
+  '!nota TK-… texto — nota interna (só equipe; ex.: Cliente VIP @suporte2)',
   '',
   '▸ Consulta',
   '!ticket TK-… — resumo de um chamado',

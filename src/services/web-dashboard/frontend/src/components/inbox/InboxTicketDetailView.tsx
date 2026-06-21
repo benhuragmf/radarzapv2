@@ -262,11 +262,11 @@ export function InboxTicketDetailView({
         <section className="shrink-0 border-b border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/30 px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h3 className="text-xs font-semibold text-[var(--rz-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-              <Users size={12} /> Acompanhamento do ticket
+              <Users size={12} /> {isWebChat ? 'Mensagens ao cliente' : 'Acompanhamento do ticket'}
             </h3>
             <span className="text-[10px] text-[var(--rz-text-muted)]">
               {isWebChat
-                ? 'Visitante acompanha no chat do site e em Consultar chamado'
+                ? 'Visível no chamado, consulta TK+token e chat (chamado aberto)'
                 : ticket.clientCanReply
                   ? 'Cliente pode responder no WhatsApp'
                   : ticket.clientReplyPaused
@@ -281,10 +281,11 @@ export function InboxTicketDetailView({
           <p className="text-[11px] text-[var(--rz-text-muted)] mb-3">
             {isWebChat ? (
               <>
-                Registre o acompanhamento aqui — fica só no ticket até clicar em{' '}
-                <strong className="text-[var(--rz-text-muted)]">Enviar atualização ao visitante</strong>{' '}
-                para publicar no chat do site e na consulta TK+token. Notas internas ficam só para a
-                equipe.
+                Texto aqui vai para o cliente no chamado, no chat do site e na consulta TK+token.
+                Pelo celular, use <strong className="text-[var(--rz-text-muted)]">TK-XXXX sua mensagem</strong>{' '}
+                (ex.: <strong className="text-[var(--rz-text-muted)]">TK-O7WB2F Encaminhado @suporte2</strong>).
+                Notas só da equipe: campo abaixo ou <strong className="text-[var(--rz-text-muted)]">!nota TK-…</strong>{' '}
+                no WhatsApp. Chamado finalizado não aceita novas mensagens.
               </>
             ) : (
               <>
@@ -355,7 +356,7 @@ export function InboxTicketDetailView({
               <textarea
                 value={commentDraft}
                 onChange={e => setCommentDraft(e.currentTarget.value)}
-                placeholder="Adicionar informação ao acompanhamento…"
+                placeholder="Mensagem ao cliente (visível no chamado)…"
                 rows={2}
                 className={cn(textareaCls, 'flex-1 text-sm resize-none')}
                 onKeyDown={e => {
@@ -382,7 +383,8 @@ export function InboxTicketDetailView({
               <StickyNote size={10} /> Notas internas
             </p>
             <p className="text-[11px] text-[var(--rz-text-muted)] mb-3">
-              Cada membro da equipe adiciona sua nota — visível só internamente, com nome e horário.
+              Só a equipe vê — no painel ou via <strong className="text-[var(--rz-text-muted)]">!nota TK-…</strong>{' '}
+              no WhatsApp (ex.: <strong className="text-[var(--rz-text-muted)]">!nota TK-ABC Cliente VIP @suporte2</strong>).
             </p>
 
             <div className="space-y-2 max-h-[200px] overflow-y-auto mb-3">

@@ -1805,6 +1805,15 @@ export class WebChatService {
       body: text,
     });
 
+    void InboxService.getInstance()
+      .syncWebChatVisitorMessageToTicket(clientIdStr, conversation.ticketRef, text)
+      .catch(err => {
+        this.serviceLogger.warn('syncWebChatVisitorMessageToTicket failed', {
+          clientId: clientIdStr,
+          err: (err as Error).message,
+        });
+      });
+
     const replies: WebChatMessageDto[] = [];
     const messageRows: WebChatMessageRow[] = (
       await WebChatMessage.find({ conversationId: conversation._id })
