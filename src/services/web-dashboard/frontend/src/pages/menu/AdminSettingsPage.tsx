@@ -1,24 +1,80 @@
-import { useQuery } from '@tanstack/react-query'
-import { Card } from '../../components/ui/Card'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { api } from '../../lib/api'
 import { RadarPageShell, PageHeader, LoadingState } from '@/design-system'
+import {
+  WhatsAppSendLimitsEditor,
+  type WhatsAppLimitsFormState,
+} from '../../components/whatsapp/WhatsAppSendLimitsEditor'
+
+interface SystemPolicyResponse {
+  policy: {
+    humanizeEnabled: boolean
+    composingEnabled: boolean
+    defaults: WhatsAppLimitsFormState['conversation'] extends infer _T
+      ? Record<'conversation' | 'marketing' | 'alert', { enabled: boolean; maxPerMinute: number }>
+      : never
+    caps: Record<'conversation' | 'marketing' | 'alert', number>
+  }
+}
 
 export default function AdminSettingsPage() {
+  const qc = useQueryClient()
   const { data, isLoading } = useQuery({
-    queryKey: ['services-health'],
-    queryFn: () => api.get<Record<string, unknown>>('/services/health'),
+    queryKey: ['admin-whatsapp-send-policy'],
+    queryFn: () => api.get<SystemPolicyResponse>('/admin/whatsapp-send-policy'),
   })
+
+  const save = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api.patch<SystemPolicyResponse>('/admin/whatsapp-send-policy', body),
+    onSuccess: () => {
+      toast.success('Política global de envio WA salva')
+      qc.invalidateQueries({ queryKey: ['admin-whatsapp-send-policy'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const initial: WhatsAppLimitsFormState | null = data
+    ? {
+        humanizeEnabled: data.policy.humanizeEnabled,
+        composingEnabled: data.policy.composingEnabled,
+        caps: data.policy.caps,
+        conversation: data.policy.defaults.conversation,
+        marketing: data.policy.defaults.marketing,
+        alert: data.policy.defaults.alert,
+      }
+    : null
+
+  const handleSave = (state: WhatsAppLimitsFormState) => {
+    save.mutate({
+      humanizeEnabled: state.humanizeEnabled,
+      composingEnabled: state.composingEnabled,
+      caps: state.caps,
+      defaults: {
+        conversation: state.conversation,
+        marketing: state.marketing,
+        alert: state.alert,
+      },
+    })
+  }
 
   return (
     <RadarPageShell>
-      <PageHeader title="Configurações gerais" subtitle="Parâmetros globais e saúde dos serviços." />
+      <PageHeader
+        title="Configurações gerais"
+        subtitle="Limites globais de envio WhatsApp — fila humanizada anti-ban."
+      />
 
-      {isLoading ? (
-        <LoadingState rows={4} className="pt-4" />
+      {isLoading || !initial ? (
+        <LoadingState rows={6} className="pt-4" />
       ) : (
-        <Card className="text-xs font-mono text-[var(--rz-text-secondary)] overflow-x-auto">
-          <pre>{JSON.stringify(data, null, 2)}</pre>
-        </Card>
+        <WhatsAppSendLimitsEditor
+          mode="admin"
+          initial={initial}
+          saving={save.isPending}
+          onSave={handleSave}
+        />
       )}
     </RadarPageShell>
   )

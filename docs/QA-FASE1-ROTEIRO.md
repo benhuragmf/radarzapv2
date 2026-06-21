@@ -1,7 +1,8 @@
 # RadarZap v2 — Roteiro QA Fase 1 (passo a passo)
 
+> **Execute por último** — após Fase B/C do [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) e `npm run qa:atendimento:gate` verde.  
 > Complementa [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) com ordem de execução e mensagens exatas.  
-> **Versão alvo:** `2.10.19+`
+> **Versão alvo:** `2.11.17+`
 
 ## Antes de começar
 
@@ -131,6 +132,48 @@ Percorra cada rota logado. Marque no checklist.
 4. No painel: `/platform/inbox?channel=webchat` → **Assumir** e responder
 5. Teste anexo (imagem/PDF) se possível
 6. **Finalizar** e confirme no widget que encerrou
+
+---
+
+## Parte 4 — Fila e limites WhatsApp (anti-ban)
+
+**Automatizado:** `npm run qa:atendimento:gate` (inclui `whatsapp-session-rate-limit` + `whatsapp-human-send`).
+
+**Painéis:** `/platform/wa-limits` (empresa) · `/admin/settings` → limites WA (admin) · `/queue` (fila BullMQ).
+
+| Canal | Fila `whatsapp-sending` | Limite padrão |
+|-------|-------------------------|---------------|
+| Inbox / bot / ticket (resposta WA) | Sim (`sendKind: conversation`) | ~10/min + jitter + composing |
+| Campanhas / regras Discord | Sim (`sendKind: marketing`) | ~2/min |
+| Alertas internos (fallback WebChat, OTP ticket) | Sim (`sendKind: alert`) | bucket separado |
+| WebChat visitante (widget) | **Não** — rate limit próprio (~12/min/conv) | HTTP 429 no widget |
+
+### Cenário WA-1 — Inbox (conversa)
+
+| Quem | Ação | Esperado |
+|------|------|----------|
+| Atendente | No Inbox WA, envie **15 mensagens seguidas** ao mesmo contato | Todas entregues, **espaçadas** (não burst instantâneo); logs `WA send aguardando rate limit` se necessário |
+| Atendente | Abra `/queue` | Jobs `whatsapp-sending` processados; pending não acumula indefinidamente |
+
+### Cenário WA-2 — Campanha (marketing)
+
+| Quem | Ação | Esperado |
+|------|------|----------|
+| Operador | Dispare campanha pequena (5+ contatos) ou simule via `/send` | Envios **lentos** (~2/min); fila respeitada |
+| Operador | `/platform/wa-limits` → desative limite conversa temporariamente | Só afeta bucket conversa; marketing continua limitado |
+
+### Cenário WA-3 — WebChat bridge (alerta)
+
+| Quem | Ação | Esperado |
+|------|------|----------|
+| Visitante | Spam no widget até 429 | Aviso no chatbox; mensagens **não** floodam WA retroativamente |
+| Sistema | Mensagens anteriores ao bloqueio | Bridge `[Site · TK-…]` só do que passou no rate limit visitante |
+
+### Cenário WA-4 — Saúde
+
+| Quem | Ação | Esperado |
+|------|------|----------|
+| Atendente | `GET /api/platform/health/atendimento` (ou via devtools no painel) | `whatsappConnected: true`; sem fila crítica |
 
 ---
 

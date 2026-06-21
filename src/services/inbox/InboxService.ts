@@ -4723,8 +4723,8 @@ export class InboxService {
     const wa = WhatsAppService.getInstance();
     return wa.sendManualMessage(clientId, identifier, text, undefined, {
       skipConsentCheck: true,
-      skipRateLimit: true,
       consentOrigin: 'inbox-reply',
+      sendKind: 'conversation',
     });
   }
 

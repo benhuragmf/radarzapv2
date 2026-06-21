@@ -14,6 +14,7 @@ import {
   parseBridgeReplyRouting,
 } from '@/utils/webchat-whatsapp-bridge.util';
 import { createServiceLogger } from '@/utils/logger';
+import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
 
 const logger = createServiceLogger('WebChatWhatsAppBridge');
 
@@ -43,6 +44,14 @@ export async function activateWhatsappBridge(
     conversation,
     'Bridge WhatsApp ativo — mensagens do visitante serão encaminhadas ao seu WhatsApp. Responda por aqui para o visitante ver no chat.',
   );
+
+  await recordAttendanceEvent({
+    clientId,
+    kind: 'bridge.started',
+    conversationId,
+    actorUserId: agentUserId,
+    ticketRef: conversation.ticketRef ?? undefined,
+  });
 }
 
 export async function deactivateWhatsappBridge(
@@ -59,6 +68,12 @@ export async function deactivateWhatsappBridge(
       $unset: { whatsappBridgeAgentUserId: '', whatsappBridgeActivatedAt: '' },
     },
   );
+
+  await recordAttendanceEvent({
+    clientId,
+    kind: 'bridge.closed',
+    conversationId,
+  });
 }
 
 async function agentWhatsappDestination(
@@ -194,6 +209,14 @@ export async function handleWhatsappBridgeAgentReply(
         routing.body,
       );
     }
+    await recordAttendanceEvent({
+      clientId: ctx.clientId,
+      kind: 'bridge.agent_reply',
+      conversationId: String(conversation!._id),
+      actorUserId: agent.userId,
+      ticketRef: ref,
+      meta: { bodyLength: routing.body.length },
+    });
   } catch (err) {
     logger.warn('Bridge agent reply failed', {
       clientId: ctx.clientId,

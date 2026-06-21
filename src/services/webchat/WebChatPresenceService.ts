@@ -11,6 +11,9 @@ import { WebChatService } from './WebChatService';
 const PRESENCE_TTL_SEC = 120;
 const presencePrefix = (clientId: string) => `webchat:live:${clientId}:`;
 
+/** Fallback dev/local quando Redis indisponível */
+const memoryPresence = new Map<string, WebChatPresenceRecord>();
+
 interface WebChatPresenceRecord extends WebChatLiveVisitorDto {
   publicKey?: string;
   visitorToken?: string;
@@ -109,12 +112,12 @@ export class WebChatPresenceService {
 
   private async saveRecord(record: WebChatPresenceRecord): Promise<void> {
     const redis = RedisManager.getInstance();
-    if (!redis.isConnected()) return;
-    await redis.setWithTTL(
-      this.key(record.clientId, record.id),
-      JSON.stringify(record),
-      PRESENCE_TTL_SEC,
-    );
+    const memKey = this.key(record.clientId, record.id);
+    memoryPresence.set(memKey, { ...record });
+
+    if (redis.isConnected()) {
+      await redis.setWithTTL(memKey, JSON.stringify(record), PRESENCE_TTL_SEC);
+    }
     emitWebChatPresenceToTenant(record.clientId, this.toPublicDto(record));
   }
 
@@ -122,12 +125,22 @@ export class WebChatPresenceService {
     clientId: string,
     presenceId: string,
   ): Promise<WebChatPresenceRecord | null> {
+    const memKey = this.key(clientId, presenceId);
+    const cached = memoryPresence.get(memKey);
+    if (cached) {
+      const age = Date.now() - new Date(cached.lastSeenAt).getTime();
+      if (age <= PRESENCE_TTL_SEC * 1000) return cached;
+      memoryPresence.delete(memKey);
+    }
+
     const redis = RedisManager.getInstance();
     if (!redis.isConnected()) return null;
-    const raw = await redis.get(this.key(clientId, presenceId));
+    const raw = await redis.get(memKey);
     if (!raw) return null;
     try {
-      return JSON.parse(raw) as WebChatPresenceRecord;
+      const parsed = JSON.parse(raw) as WebChatPresenceRecord;
+      memoryPresence.set(memKey, parsed);
+      return parsed;
     } catch {
       return null;
     }
@@ -214,26 +227,41 @@ export class WebChatPresenceService {
   }
 
   async listLive(clientId: string): Promise<WebChatLiveVisitorDto[]> {
-    const redis = RedisManager.getInstance();
-    if (!redis.isConnected()) return [];
-
-    const pattern = `${presencePrefix(clientId)}*`;
-    const keys = await redis.keys(pattern);
-    if (!keys.length) return [];
-
     const rows: WebChatLiveVisitorDto[] = [];
-    for (const key of keys) {
-      const raw = await redis.get(key);
-      if (!raw) continue;
-      try {
-        const record = JSON.parse(raw) as WebChatPresenceRecord;
-        rows.push(this.toPublicDto(record));
-      } catch {
-        /* ignore */
+    const prefix = presencePrefix(clientId);
+    const now = Date.now();
+
+    for (const [key, record] of memoryPresence.entries()) {
+      if (!key.startsWith(prefix)) continue;
+      if (record.clientId !== clientId) continue;
+      if (now - new Date(record.lastSeenAt).getTime() > PRESENCE_TTL_SEC * 1000) {
+        memoryPresence.delete(key);
+        continue;
+      }
+      rows.push(this.toPublicDto(record));
+    }
+
+    const redis = RedisManager.getInstance();
+    if (redis.isConnected()) {
+      const pattern = `${prefix}*`;
+      const keys = await redis.keys(pattern);
+      for (const key of keys) {
+        if (memoryPresence.has(key)) continue;
+        const raw = await redis.get(key);
+        if (!raw) continue;
+        try {
+          const record = JSON.parse(raw) as WebChatPresenceRecord;
+          memoryPresence.set(key, record);
+          rows.push(this.toPublicDto(record));
+        } catch {
+          /* ignore */
+        }
       }
     }
 
-    return rows.sort(
+    const dedup = new Map<string, WebChatLiveVisitorDto>();
+    for (const row of rows) dedup.set(row.id, row);
+    return [...dedup.values()].sort(
       (a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime(),
     );
   }

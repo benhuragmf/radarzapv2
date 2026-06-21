@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.11.10';
+  var WIDGET_BUILD = '2.11.21';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -51,10 +51,57 @@
     return fetch(baseUrl + '/api/webchat/public' + path, Object.assign({}, options, { headers: headers }))
       .then(function (res) {
         return res.json().then(function (data) {
-          if (!res.ok) throw new Error(data.error || 'Erro na requisição');
+          if (!res.ok) {
+            var err = new Error(data.error || 'Erro na requisição');
+            err.status = res.status;
+            throw err;
+          }
           return data;
         });
       });
+  }
+
+  function showSendError(message) {
+    var text = String(message || 'Não foi possível enviar. Tente novamente.').trim();
+    state.sendError = text;
+    pushChatMessages([
+      {
+        id: 'sys-send-err-' + Date.now(),
+        direction: 'system',
+        body: '⚠️ ' + text,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderBubble();
+    if (state.sendErrorTimer) clearTimeout(state.sendErrorTimer);
+    state.sendErrorTimer = setTimeout(function () {
+      state.sendError = '';
+      renderBubble();
+    }, 15000);
+  }
+
+  function handleSendFailure(err, draftText) {
+    var msg = (err && err.message) || 'Não foi possível enviar. Tente novamente.';
+    if (err && err.status === 429) {
+      if (!/aguarde|muitas mensagens/i.test(msg)) {
+        msg = 'Você enviou muitas mensagens seguidas. Aguarde alguns segundos e tente de novo.';
+      }
+    }
+    if (String(msg).toLowerCase().indexOf('encerr') >= 0) {
+      markConversationClosed();
+      renderBubble();
+      return;
+    }
+    showSendError(msg);
+    if (draftText) {
+      state.keepComposerFocus = true;
+      var inp = document.getElementById('rz-webchat-input');
+      if (inp) {
+        inp.value = draftText;
+        inp.style.height = 'auto';
+        inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+      }
+    }
   }
 
   function escHtml(text) {
@@ -1252,6 +1299,11 @@
     sending: false,
     started: false,
     prechatError: '',
+    sendError: '',
+    sendErrorTimer: null,
+    composerFocused: false,
+    keepComposerFocus: false,
+    composerSelection: null,
     emojiPickerOpen: false,
     expanded: false,
     proactiveTimer: null,
@@ -2562,12 +2614,35 @@
     );
   }
 
+  function restoreComposerFocus() {
+    if (!state.open || resolvePanelMode() !== 'chat' || state.conversationStatus === 'closed') return;
+    if (!state.composerFocused && !state.keepComposerFocus) return;
+    var inp = document.getElementById('rz-webchat-input');
+    if (!inp || inp.disabled) return;
+    inp.focus();
+    if (state.composerSelection) {
+      try {
+        inp.setSelectionRange(state.composerSelection.start, state.composerSelection.end);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    state.keepComposerFocus = false;
+  }
+
   function renderBubble() {
     ensureTypingStyles();
     ensureCopilotFont();
     var savedInput = '';
     var savedSearch = state.chatBoxSearchQuery || '';
     var inputEl = document.getElementById('rz-webchat-input');
+    if (inputEl && document.activeElement === inputEl) {
+      state.composerFocused = true;
+      state.composerSelection = {
+        start: inputEl.selectionStart,
+        end: inputEl.selectionEnd,
+      };
+    }
     if (inputEl) savedInput = inputEl.value;
     var searchEl = document.getElementById('rz-chatbox-search');
     if (searchEl) savedSearch = searchEl.value;
@@ -2692,6 +2767,11 @@
       };
     }
     scrollMessages();
+    if (state.composerFocused || state.keepComposerFocus) {
+      requestAnimationFrame(function () {
+        restoreComposerFocus();
+      });
+    }
   }
 
   function renderFaqQuickReplies(t) {
@@ -3686,6 +3766,17 @@
       t.border +
       ';position:relative;">' +
       renderEmojiPicker(t) +
+      (state.sendError
+        ? '<div style="font-size:12px;color:' +
+          t.errorText +
+          ';margin-bottom:8px;line-height:1.4;padding:8px 10px;border-radius:10px;background:' +
+          (isDarkTheme() ? 'rgba(248,113,113,.12)' : 'rgba(220,38,38,.08)') +
+          ';border:1px solid ' +
+          (isDarkTheme() ? 'rgba(248,113,113,.35)' : 'rgba(220,38,38,.25)') +
+          ';">' +
+          escHtml(state.sendError) +
+          '</div>'
+        : '') +
       '<form id="rz-webchat-form">' +
       '<input type="file" id="rz-webchat-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" />' +
       '<div style="border:1px solid ' +
@@ -4184,6 +4275,20 @@
     }
     var chatInput = document.getElementById('rz-webchat-input');
     if (chatInput) {
+      chatInput.onfocus = function () {
+        state.composerFocused = true;
+      };
+      chatInput.onblur = function () {
+        var panel = document.getElementById('rz-webchat-panel');
+        window.setTimeout(function () {
+          if (state.keepComposerFocus) return;
+          var active = document.activeElement;
+          if (active && active.id === 'rz-webchat-input') return;
+          if (panel && active && panel.contains(active)) return;
+          state.composerFocused = false;
+          state.composerSelection = null;
+        }, 120);
+      };
       chatInput.onkeydown = function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
@@ -4625,16 +4730,19 @@
     var trimmed = String(text || '').trim();
     if (!trimmed || state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
     state.chatBoxPocketTab = 'chat';
+    state.keepComposerFocus = true;
     clearProactiveTimer();
     state.proactiveTeaser = null;
     state.sending = true;
     state.emojiPickerOpen = false;
+    state.sendError = '';
     apiFetch(baseUrl, '/messages', {
       method: 'POST',
       headers: { 'X-WebChat-Visitor': state.visitorToken },
       body: JSON.stringify({ body: trimmed }),
     })
       .then(function (data) {
+        state.sendError = '';
         if (data.message) pushChatMessages([data.message]);
         if (data.replies && data.replies.length) pushChatMessages(data.replies);
         patchInboundReceiptMeta();
@@ -4642,10 +4750,7 @@
       })
       .catch(function (err) {
         console.error('[RadarZap WebChat]', err.message);
-        if (String(err.message).toLowerCase().indexOf('encerr') >= 0) {
-          markConversationClosed();
-          renderBubble();
-        }
+        handleSendFailure(err);
       })
       .finally(function () {
         state.sending = false;
@@ -4655,6 +4760,7 @@
   function sendMessage() {
     if (state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
     state.chatBoxPocketTab = 'chat';
+    state.keepComposerFocus = true;
     var input = document.getElementById('rz-webchat-input');
     if (!input) return;
     var text = input.value.trim();
@@ -4665,12 +4771,14 @@
     emitVisitorTyping(false);
     state.sending = true;
     state.emojiPickerOpen = false;
+    state.sendError = '';
     apiFetch(baseUrl, '/messages', {
       method: 'POST',
       headers: { 'X-WebChat-Visitor': state.visitorToken },
       body: JSON.stringify({ body: draft }),
     })
       .then(function (data) {
+        state.sendError = '';
         if (data.message) pushChatMessages([data.message]);
         if (data.replies && data.replies.length) pushChatMessages(data.replies);
         patchInboundReceiptMeta();
@@ -4678,13 +4786,7 @@
       })
       .catch(function (err) {
         console.error('[RadarZap WebChat]', err.message);
-        if (String(err.message).toLowerCase().indexOf('encerr') >= 0) {
-          markConversationClosed();
-          renderBubble();
-        } else {
-          var inp = document.getElementById('rz-webchat-input');
-          if (inp) inp.value = draft;
-        }
+        handleSendFailure(err, draft);
       })
       .finally(function () {
         state.sending = false;
@@ -4702,6 +4804,7 @@
       console.error('[RadarZap WebChat]', 'Tipo de arquivo não permitido');
       return;
     }
+    state.keepComposerFocus = true;
     state.sending = true;
     var reader = new FileReader();
     reader.onload = function () {
@@ -4723,6 +4826,7 @@
         })
         .catch(function (err) {
           console.error('[RadarZap WebChat]', err.message);
+          handleSendFailure(err);
         })
         .finally(function () {
           state.sending = false;

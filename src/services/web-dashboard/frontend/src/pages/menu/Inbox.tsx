@@ -45,6 +45,7 @@ import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
 import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
 import { InboxLiveVisitors } from '../../components/inbox/InboxLiveVisitors'
+import { InboxLiveVisitorsStrip } from '../../components/inbox/InboxLiveVisitorsStrip'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../lib/webchatInbox'
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
@@ -804,6 +805,10 @@ export default function Inbox() {
         )}
 
         <InboxAtendimentoNav me={me} className={chatFocus ? undefined : 'mt-3'} />
+
+        {chatFocus && canInboxView && (
+          <InboxLiveVisitorsStrip className="mt-2 mb-1" />
+        )}
 
         {!chatFocus && canInboxView && webchatQueueCount > 0 && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">

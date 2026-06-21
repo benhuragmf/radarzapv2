@@ -42,6 +42,7 @@ import PlatformTriggers from './pages/menu/PlatformTriggers'
 import WaLogs from './pages/menu/WaLogs'
 import WaStatus from './pages/menu/WaStatus'
 import WaStatusPosts from './pages/menu/WaStatusPosts'
+import WhatsAppSendLimitsPage from './pages/menu/WhatsAppSendLimitsPage'
 import Inbox from './pages/menu/Inbox'
 import InboxSectors from './pages/menu/InboxSectors'
 import InboxBotSettings from './pages/menu/InboxBotSettings'
@@ -202,6 +203,7 @@ export default function App() {
           <Route path="platform/inbox/tickets/:ref" element={<Guard user={user} path="/platform/inbox/tickets"><InboxTicketDetail /></Guard>} />
           <Route path="platform/webchat" element={<Guard user={user} path="/platform/webchat"><WebChat /></Guard>} />
           <Route path="platform/wa-status" element={<Guard user={user} path="/platform/wa-status"><WaStatus /></Guard>} />
+          <Route path="platform/wa-limits" element={<Guard user={user} path="/platform/wa-limits"><WhatsAppSendLimitsPage /></Guard>} />
           <Route path="platform/fila" element={<Guard user={user} path="/platform/fila"><Queue scope="tenant" /></Guard>} />
           <Route path="send/aniversarios" element={<Navigate to="/platform/automacoes" replace />} />
           <Route path="send/historico" element={<Guard user={user} path="/send/historico"><SendHistory /></Guard>} />

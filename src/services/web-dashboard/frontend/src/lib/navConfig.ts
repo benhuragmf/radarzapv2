@@ -134,6 +134,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   group('grp-wa', 'WhatsApp', Smartphone, [
     link('wa-sessions', 'Conexão WhatsApp', Smartphone, '/sessions', 'whatsapp:session:view'),
     link('wa-status', 'Status da conexão', Activity, '/platform/wa-status', 'whatsapp:session:view'),
+    link('wa-limits', 'Limites de envio', Gauge, '/platform/wa-limits', 'whatsapp:session:manage'),
     link('wa-queue', 'Fila de envio', ListOrdered, '/platform/fila', 'queue:view'),
     link('wa-logs', 'Logs WhatsApp', ScrollText, '/platform/wa-logs', 'logs:view'),
   ], 'whatsapp:session:view'),
@@ -254,7 +255,7 @@ const LEGACY_DISCORD_ROUTES = new Set([
 const PLATFORM_ROUTES = new Set([
   '/dashboard', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
   '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/gatilhos',
-  '/platform/wa-logs', '/platform/wa-stories', '/platform/wa-status', '/platform/fila',
+  '/platform/wa-logs', '/platform/wa-stories', '/platform/wa-status', '/platform/wa-limits', '/platform/fila',
   '/integrations/playground',
   '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/send/autoagendamentos', '/platform/automacoes',
   '/send/historico', '/plans', '/settings', '/settings/team', '/settings/permissions', '/settings/security', '/settings/backup',
@@ -393,6 +394,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/wa-logs': 'logs:view',
   '/platform/wa-stories': 'send:test',
   '/platform/wa-status': 'whatsapp:session:view',
+  '/platform/wa-limits': 'whatsapp:session:manage',
   '/platform/fila': 'queue:view',
   '/platform/inbox': 'inbox:view',
   '/platform/inbox/tickets': 'inbox:view',
@@ -470,6 +472,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/wa-logs': 'Logs WhatsApp',
   '/platform/wa-stories': 'Status WhatsApp',
   '/platform/wa-status': 'Status da conexão',
+  '/platform/wa-limits': 'Limites de envio WhatsApp',
   '/platform/fila': 'Fila de envio',
   '/platform/inbox': 'Caixa de Entrada',
   '/platform/inbox/tickets': 'Chamados de atendimento',

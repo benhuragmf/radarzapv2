@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.11.16",
+  "version": "2.11.21",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -23,7 +23,7 @@
     "qa:prep": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/qa-prep.ts",
     "qa:webchat-wa": "jest --testPathPattern=\"ticket-public|webchat-whatsapp|whatsapp-agent|webchat-safe-url|inbox-agent-presence|webchat-faq\" && npm run qa:prep",
     "qa:webchat-wa:setup": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/qa-webchat-wa-setup.ts",
-    "qa:atendimento:gate": "jest --testPathPattern=\"inbound-routing|csat\\.util|ticket-reply-window|ticket-public-access|whatsapp-agent|webchat-whatsapp|inbox-csat-gate|consent-defer|webchat-faq|webchat-safe-url|inbox-agent-presence\" && npm run qa:webchat-wa",
+    "qa:atendimento:gate": "jest --testPathPattern=\"inbound-routing|csat\\.util|ticket-reply-window|ticket-public-access|whatsapp-agent|webchat-whatsapp|inbox-csat-gate|consent-defer|webchat-faq|webchat-safe-url|inbox-agent-presence|whatsapp-session-rate-limit|whatsapp-human-send\" && npm run qa:webchat-wa",
     "qa:gate": "npm test && npm run build && npm run build --prefix src/services/web-dashboard/frontend",
     "backfill:webchat-delivered": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/backfill-webchat-inbound-delivered-at.ts",
     "sync:widget-build": "node scripts/sync-widget-build.cjs",

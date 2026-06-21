@@ -29,7 +29,13 @@ import { SessionCache } from '../../cache/SessionCache';
 import { RedisManager } from '../../cache/RedisManager';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue, ContactGroup } from '../../models';
-import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
+import { buildAttendanceHealth } from '../attendance/attendance-health.service';
+import {
+  getSystemWhatsAppPolicyForAdmin,
+  patchOrgWhatsAppSendPolicy,
+  patchSystemWhatsAppPolicy,
+  resolveWhatsAppSendPolicy,
+} from '../whatsapp/whatsapp-send-policy.service';
 import { StatusDispatchService } from '../send/StatusDispatchService';
 import { StatusPost } from '../../models/StatusPost';
 import { parseAndValidateStatusImage } from '../../utils/safe-image-upload';
@@ -95,6 +101,7 @@ import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { WebChatService } from '../webchat/WebChatService';
+import { WebChatSendRateLimitError } from '../webchat/webchat-send-guard.service';
 import { normalizeEscalationPolicy } from '../webchat/webchat-ai-escalation-policy.util';
 import type { WebChatAiEscalationPolicy } from '../../types/webchat';
 import { WebChatPresenceService } from '../webchat/WebChatPresenceService';
@@ -989,6 +996,15 @@ export class DashboardService {
       }
     });
 
+    r.get('/platform/health/atendimento', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await buildAttendanceHealth(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     // ── Health ─────────────────────────────────────────────────────────────
     r.get('/services/health', (_req, res) => {
       res.json({ healthy: true, uptime: process.uptime() });
@@ -1532,13 +1548,20 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const { text } = req.body as { text?: string };
         if (isWebChatInboxId(req.params.id)) {
-          const message = await WebChatService.getInstance().sendAgentMessage(
-            auth.clientId,
-            auth.userId,
-            webChatInboxIdToMongo(req.params.id),
-            text ?? '',
-          );
-          return res.json({ message });
+          try {
+            const message = await WebChatService.getInstance().sendAgentMessage(
+              auth.clientId,
+              auth.userId,
+              webChatInboxIdToMongo(req.params.id),
+              text ?? '',
+            );
+            return res.json({ message });
+          } catch (e) {
+            if (e instanceof WebChatSendRateLimitError) {
+              return res.status(429).json({ error: (e as Error).message });
+            }
+            throw e;
+          }
         }
         const result = await inboxSvc.replyToConversation(
           auth.clientId,
@@ -4879,6 +4902,40 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const doc = await PlatformAiBlueprintService.getInstance().resetToDefaults(auth.userId);
         res.json(PlatformAiBlueprintService.getInstance().toPayload(doc));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/whatsapp-send-policy', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (_req, res) => {
+      try {
+        res.json(await getSystemWhatsAppPolicyForAdmin());
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/admin/whatsapp-send-policy', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
+      try {
+        res.json(await patchSystemWhatsAppPolicy(req.body as Record<string, unknown>));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/whatsapp-send-limits', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await resolveWhatsAppSendPolicy(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/platform/whatsapp-send-limits', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await patchOrgWhatsAppSendPolicy(auth.clientId, req.body ?? {}));
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }

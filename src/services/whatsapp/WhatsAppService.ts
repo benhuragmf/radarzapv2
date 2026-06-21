@@ -48,6 +48,15 @@ import {
   streamLinkFromExtracted,
 } from '@/utils/stream-template';
 import { ConsentService } from '@/services/consent/ConsentService';
+import {
+  resolveWhatsAppSendKind,
+  type WhatsAppSendKind,
+} from '@/utils/whatsapp-session-rate-limit';
+import { resolveWhatsAppSendPolicy } from '@/services/whatsapp/whatsapp-send-policy.service';
+import {
+  computeHumanTypingMs,
+  sendKindPriority,
+} from '@/utils/whatsapp-human-send.util';
 import { ConsentStatus } from '@/types/consent';
 import { isPhoneInParticipants, isWaIdentityInParticipants } from '@/utils/group-membership';
 import { downloadProfilePictureFromUrl } from '@/utils/profile-picture-download';
@@ -1312,33 +1321,154 @@ export class WhatsAppService {
 
   /** Reenvia job enfileirado após aceite LGPD (sem nova checagem de consentimento). */
   async replayOutboundJob(data: Record<string, unknown>): Promise<unknown> {
-    return this.handleSendMessage({ ...data, skipConsentCheck: true });
+    return this.processOutboundJob({ ...data, skipConsentCheck: true, skipRateLimit: false });
   }
 
-  /** Envio manual / campanha (sem prefixo de teste) */
+  /** Enfileira envio WA — retorna imediatamente (atendimento, campanha, alertas). */
+  private async enqueueWhatsAppSend(
+    data: Record<string, unknown>,
+    opts?: { priority?: number },
+  ): Promise<void> {
+    const kind = resolveWhatsAppSendKind({
+      sendKind: data.sendKind as WhatsAppSendKind | undefined,
+      consentOrigin: data.consentOrigin as string | undefined,
+      ruleId: data.ruleId as string | undefined,
+    });
+    await this.queueManager.addJob(
+      'whatsapp-sending',
+      'send-message',
+      data,
+      {
+        priority: opts?.priority ?? sendKindPriority(kind),
+        attempts: 10,
+        backoff: { type: 'fixed', delay: 4000 },
+      },
+    );
+  }
+
+  /** Aguarda slot no rate limit — re-enfileira na prática via espera no worker. */
+  private async awaitRateLimitSlot(
+    clientId: string,
+    kind: WhatsAppSendKind,
+    policy: Awaited<ReturnType<typeof resolveWhatsAppSendPolicy>>,
+  ): Promise<void> {
+    const maxWaitMs = 5 * 60_000;
+    const started = Date.now();
+    while (Date.now() - started < maxWaitMs) {
+      const result = await this.rateLimiter.checkWhatsAppSendLimit(clientId, kind, policy);
+      if (result.allowed) return;
+      const waitMs = Math.max(500, Math.min(result.resetTime - Date.now(), 15_000));
+      this.serviceLogger.debug('WA send aguardando rate limit', { clientId, kind, waitMs });
+      await this.sleep(waitMs);
+    }
+    this.serviceLogger.warn('WA rate limit — enviando após timeout de espera', { clientId, kind });
+  }
+
+  private async sendComposingPresence(
+    clientId: string,
+    destination: string,
+    internalAlert?: boolean,
+  ): Promise<void> {
+    if (internalAlert) return;
+    try {
+      await this.ensureClientReady(clientId);
+      const socket = this.sessions.get(String(clientId));
+      if (!socket) return;
+      const jid = destination.includes('@')
+        ? destination
+        : this.formatJid(destination, 'contact');
+      await socket.sendPresenceUpdate('composing', jid);
+    } catch {
+      /* não bloqueia envio */
+    }
+  }
+
+  private async clearComposingPresence(clientId: string, destination: string): Promise<void> {
+    try {
+      const socket = this.sessions.get(String(clientId));
+      if (!socket) return;
+      const jid = destination.includes('@')
+        ? destination
+        : this.formatJid(destination, 'contact');
+      await socket.sendPresenceUpdate('paused', jid);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Entrega real após fila + humanização + rate limit. */
+  async processOutboundJob(data: Record<string, unknown>): Promise<unknown> {
+    const clientId = String(data.clientId);
+    const kind = resolveWhatsAppSendKind({
+      sendKind: data.sendKind as WhatsAppSendKind | undefined,
+      consentOrigin: data.consentOrigin as string | undefined,
+      ruleId: data.ruleId as string | undefined,
+    });
+    const policy = await resolveWhatsAppSendPolicy(clientId);
+
+    if (data.skipRateLimit !== true) {
+      await this.awaitRateLimitSlot(clientId, kind, policy);
+    }
+
+    const text = String((data.content as { text?: string })?.text ?? data.text ?? '');
+    const typingMs = computeHumanTypingMs(text, kind, policy);
+    const destination = String(data.destination ?? '');
+
+    if (typingMs > 0) {
+      if (policy.composingEnabled) {
+        await this.sendComposingPresence(clientId, destination, data.internalAlert === true);
+      }
+      await this.sleep(typingMs);
+    }
+
+    try {
+      if (data.internalAlert === true) {
+        return this.deliverInternalAlertNow(clientId, destination, text);
+      }
+      return await this.handleSendMessage({ ...data, skipRateLimit: true });
+    } finally {
+      if (policy.composingEnabled && typingMs > 0) {
+        await this.clearComposingPresence(clientId, destination);
+      }
+    }
+  }
+
+  /** Envio manual / campanha — enfileira por padrão (não bloqueia atendimento). */
   async sendManualMessage(
     clientId: string,
     destination: string,
     text: string,
     image?: string,
-    options?: { skipRateLimit?: boolean; skipConsentCheck?: boolean; consentOrigin?: string },
-  ): Promise<{ success: boolean; messageId?: string }> {
-    return this.handleSendMessage({
+    options?: {
+      skipRateLimit?: boolean;
+      skipConsentCheck?: boolean;
+      consentOrigin?: string;
+      sendKind?: WhatsAppSendKind;
+      /** Bypass fila (testes / replay interno) */
+      skipQueue?: boolean;
+    },
+  ): Promise<{ success: boolean; messageId?: string; queued?: boolean }> {
+    const messageId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const payload = {
       clientId,
       destination,
       content: { text, ...(image ? { image } : {}) },
-      messageId: `manual-${Date.now()}`,
+      messageId,
       skipRateLimit: options?.skipRateLimit === true,
       skipConsentCheck: options?.skipConsentCheck === true,
       consentOrigin: options?.consentOrigin ?? 'dashboard-send',
-    });
+      sendKind: options?.sendKind,
+    };
+
+    if (options?.skipQueue) {
+      return this.processOutboundJob(payload) as Promise<{ success: boolean; messageId?: string }>;
+    }
+
+    await this.enqueueWhatsAppSend(payload);
+    return { success: true, queued: true, messageId };
   }
 
-  /**
-   * Alerta interno (ex.: fallback WebChat) — não exige contato no CRM.
-   * Aceita telefone E.164, JID @s.whatsapp.net ou grupo @g.us.
-   */
-  async sendInternalAlert(
+  private async deliverInternalAlertNow(
     clientId: string,
     destination: string,
     text: string,
@@ -1370,6 +1500,27 @@ export class WhatsAppService {
 
     const result = await socket.sendMessage(resolvedJid, { text });
     return { success: true, messageId: result?.key?.id ?? undefined };
+  }
+
+  /**
+   * Alerta interno (ex.: fallback WebChat) — enfileirado com limite tipo alerta.
+   */
+  async sendInternalAlert(
+    clientId: string,
+    destination: string,
+    text: string,
+  ): Promise<{ success: boolean; messageId?: string; queued?: boolean }> {
+    const messageId = `alert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await this.enqueueWhatsAppSend({
+      clientId,
+      destination,
+      content: { text },
+      messageId,
+      sendKind: 'alert',
+      skipConsentCheck: true,
+      internalAlert: true,
+    });
+    return { success: true, queued: true, messageId };
   }
 
   /** Dígitos da sessão Baileys conectada — usado para evitar loop em alertas fallback WebChat. */
@@ -1896,7 +2047,7 @@ export class WhatsAppService {
 
         switch (name) {
           case 'send-message':
-            return await this.handleSendMessage(data);
+            return await this.processOutboundJob(data);
           case 'send-test-message':
             return await this.handleSendTestMessage(data);
           case 'send-bulk-messages':
@@ -2763,11 +2914,25 @@ export class WhatsAppService {
     try {
       const clientObjectId = new mongoose.Types.ObjectId(clientId);
 
-      // Check rate limiting (campanhas com risco aceito podem pular)
-      if (!data.skipRateLimit) {
-        const rateLimitResult = await this.rateLimiter.checkWhatsAppSendingLimit(clientId);
-        if (!rateLimitResult.allowed) {
-          throw new Error('Limite de envio do WhatsApp atingido — aguarde alguns segundos e tente novamente.');
+      // Rate limit + humanização aplicados na fila (processOutboundJob)
+      if (!data.skipRateLimit && !data.skipQueue) {
+        const sendKind = resolveWhatsAppSendKind({
+          sendKind: data.sendKind,
+          consentOrigin: data.consentOrigin,
+          ruleId: data.ruleId,
+        });
+        if (sendKind !== 'alert') {
+          const policy = await resolveWhatsAppSendPolicy(clientId);
+          const rateLimitResult = await this.rateLimiter.checkWhatsAppSendLimit(
+            clientId,
+            sendKind,
+            policy,
+          );
+          if (!rateLimitResult.allowed) {
+            throw new Error(
+              'Limite de envio do WhatsApp atingido — aguarde alguns segundos e tente novamente.',
+            );
+          }
         }
       }
 

@@ -178,31 +178,31 @@ Ver [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFEREN
 ### 8.1 Marketing / disparo / agendado
 
 - **Desejado:** máx. **2 msg/min**, jitter ~30s, fila (não descartar).
-- **Hoje:** `WhatsAppService` usa fila BullMQ para campanhas; `checkWhatsAppSendingLimit` aplica **um** bucket por `clientId` — default `WHATSAPP_RATE_LIMIT` = **20/min** (`environment.ts` L262). **Não confirmado** limite 2/min nem jitter 30s dedicado.
+- **Hoje (2.11.17):** bucket `marketing` em `checkWhatsAppSendLimit` — **2/min** + jitter 25–35s via `whatsapp-session-rate-limit.ts`. Campanhas e fila `send-message` com `ruleId` usam kind `marketing`.
 
 ### 8.2 Conversação IA / chat / humano
 
 - **Desejado:** máx. **10 msg/min**, jitter ~6s mínimo.
-- **Hoje:** mesmo bucket 20/min (prod) / 120/min (dev) — **não** distingue origem conversa vs campanha. `sendInternalAlert` **não** passa por rate limit (envio direto socket).
+- **Hoje (2.11.17):** bucket `conversation` — **10/min** + jitter 4–8s. Inbox reply (`inbox-reply`) deixou de usar `skipRateLimit`. `sendInternalAlert` continua fora do bucket (kind `alert`).
 
 ### 8.3 Prioridade entre filas
 
-**Não implementado.** Proposta Fase B: conversa ativa > alertas > marketing.
+**Parcial.** Buckets Redis separados (`marketing` vs `conversation`) — conversa não consome tokens de marketing. Prioridade BullMQ campanha vs inbox ainda não unificada.
 
 ### 8.4 Jitter / delay variável
 
-Campanhas: delay fixo entre mensagens em loop L3197 (`WhatsAppService`) — **sem jitter documentado**.
+**Implementado (2.11.17)** em `computeSendJitterMs` antes do envio em `handleSendMessage`.
 
-### 8.5 Arquivos prováveis (Fase B)
+### 8.5 Arquivos
 
-- `src/cache/RateLimiter.ts`
-- `src/services/whatsapp/WhatsAppService.ts` (`sendManualMessage`, campanhas)
-- Novo: `src/utils/whatsapp-session-rate-limit.ts` (tipo: `marketing` | `conversation` | `alert`)
+- `src/utils/whatsapp-session-rate-limit.ts` ✅
+- `src/cache/RateLimiter.ts` — `checkWhatsAppSendLimit` ✅
+- `src/services/whatsapp/WhatsAppService.ts` ✅
 
-### 8.6 Testes necessários
+### 8.6 Testes
 
-- Unit: token bucket por tipo de origem.
-- Integração: campanha + resposta humana simultânea não bloqueia conversa crítica.
+- Unit: `whatsapp-session-rate-limit.test.ts` ✅
+- Integração: campanha + resposta humana simultânea — ⏳
 
 ---
 
@@ -251,25 +251,9 @@ Dentro de `handleInboundMessage`: CSAT → criar/abrir conversa → triagem/bot/
 
 ---
 
-## 10. QA obrigatório antes de piloto
+## 10. QA manual — ver §28 (última etapa)
 
-| Doc | Uso |
-|-----|-----|
-| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist § A/B/C |
-| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Passo a passo |
-| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Bridge + comandos + chamado |
-| [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro |
-
-### Scripts
-
-| Script | O que faz |
-|--------|-----------|
-| `npm run qa:prep` | Mongo, sessão WA, CSAT, fallback |
-| `npm run qa:webchat-wa` | Jest subset WebChat/WA + `qa:prep` |
-| **`npm run qa:atendimento:gate`** | Jest atendimento crítico + `qa:webchat-wa` (**2.11.16**) |
-| `npm run qa:gate` | test + build backend + frontend |
-
-**Lacuna:** nenhum script substitui QA manual § A (10 cenários WhatsApp).
+Checklists e roteiros permanecem válidos; **não executar antes** de concluir Fase B e gate automático verde. Detalhes consolidados em **§28**.
 
 ---
 
@@ -292,25 +276,27 @@ Dentro de `handleInboundMessage`: CSAT → criar/abrir conversa → triagem/bot/
 
 ## 12. Observabilidade e saúde do atendimento
 
-**Não existe** endpoint `GET /api/.../health/atendimento` nem painel dedicado.
+**Implementado (2.11.17):** `GET /api/platform/health/atendimento` (perm `inbox:view`).
 
-**Proposta Fase B** — métricas mínimas:
+Métricas retornadas:
 
-- Conversas `bot_triage` > N min
-- IA prometeu transferência sem escalação
-- Tickets `unreadClientReply` > SLA
-- CSAT pendente > limite
-- Bridges ativos > 24h
-- Comandos WA negados (contador)
-- Sessão WA desconectada
+- Conversas `bot_triage` stale (>15 min)
+- CSAT pendente (alerta se ≥50)
+- Tickets `unreadClientReply` (alerta se ≥20)
+- Bridges ativos / stale (>24h)
+- Sessão WA conectada e healthy (`monitorSessionHealth`)
+
+Serviço: `src/services/attendance/attendance-health.service.ts`
 
 ---
 
 ## 13. Auditoria append-only Ticket e Bridge
 
-**Não existe** modelo persistido (`TicketEvent`, `BridgeEvent`, `AttendanceEvent`).
+**Implementado (2.11.17):** modelo `AttendanceEvent` (`attendanceEvents`) + `recordAttendanceEvent`.
 
-Eventos mínimos propostos: ver prompt original §10 — implementar Fase B.
+Eventos bridge gravados: `bridge.started`, `bridge.closed`, `bridge.agent_reply`.
+
+**Pendente:** `ticket.created`, `ticket.client_replied`, `ticket.closed` nos handlers de ticket.
 
 **Evitar persistir:** token puro, corpo completo de mensagens, PII desnecessária.
 
@@ -330,9 +316,12 @@ Eventos mínimos propostos: ver prompt original §10 — implementar Fase B.
 
 ## 15. Modo piloto seguro
 
-**Não existe** `PILOT_MODE` no código (grep vazio).
+**Implementado (2.11.17):** `PILOT_MODE=true` em `environment.ts` → `config.PILOT.ENABLED`.
 
-Proposta Fase C: limites campanha/tenant, badge piloto, logs extras, bloqueio billing live.
+- Limite campanha: `PILOT_MAX_CAMPAIGN_RECIPIENTS` (default 50) em `CampaignDispatchService.createCampaign`
+- Health expõe `pilotMode: true` em `/platform/health/atendimento`
+
+**Pendente:** badge UI piloto, billing live bloqueado, tenants piloto assinados (§28).
 
 ---
 
@@ -360,21 +349,26 @@ Backlog Fase D — wizard e seeds por segmento. Ver §6.2 e [`RADARZAP-VISAO-PRO
 
 ## 19. Plano de correção por fases
 
-### Fase A — Estabilização crítica (agora)
+### Fase A — Gate automático + correções
 
-1. QA manual § A + § C WebChat
-2. `npm run qa:atendimento:gate` verde
+1. ✅ `npm run qa:atendimento:gate` (2.11.16)
+2. ✅ Anti-loop alerta fallback
 3. Corrigir regressões (patch 2.11.x)
-4. Testes integrados mínimos InboxService (próximo patch)
-5. Atualizar `WEBCHAT.md` § bridge operacional
+4. Testes integrados mínimos InboxService — ⏳
 
 ### Fase B — Segurança operacional
 
-Rate limit tipado, audit log, `health/atendimento`, webhooks ticket/bridge
+1. ✅ Rate limit tipado + jitter (2.11.17)
+2. ✅ Audit log bridge (`AttendanceEvent`)
+3. ✅ `health/atendimento`
+4. ⏳ Webhooks ticket/bridge
+5. ⏳ Audit ticket events
 
 ### Fase C — Piloto seguro
 
-`PILOT_MODE`, 1–3 tenants, monitoramento
+1. ✅ `PILOT_MODE` env (2.11.17)
+2. **QA manual §28** — última etapa
+3. 1–3 tenants com roteiro assinado
 
 ### Fase D — Produto vendável
 
@@ -447,33 +441,19 @@ npm run build --prefix src/services/web-dashboard/frontend
 | `sair` ≠ LGPD | Confirmada | `inbox-ticket.ts` L28–38 |
 | Bridge ignora `!` | Confirmada | `webchat-whatsapp-bridge.service.ts` L142 |
 | Comandos WA whitelist | Confirmada | `whatsapp-agent-auth.service.ts` (via bridge/command) |
-| Rate limit envio WA | Parcial 20/min global | `RateLimiter.checkWhatsAppSendingLimit` |
+| Rate limit envio WA | Tipado 2/10/min (2.11.17) | `whatsapp-session-rate-limit.ts` |
 | Alerta sem rate limit | Confirmada | `sendInternalAlert` direto socket |
 | IA Básica implementada | Confirmada | `basic_triage` + `webchat-basic-triage.service.ts` |
-| Audit log ticket/bridge | Ausente | grep `TicketEvent` vazio |
-| PILOT_MODE | Ausente | grep vazio |
+| Audit log bridge | Implementado 2.11.17 | `AttendanceEvent` |
+| Health atendimento | Implementado 2.11.17 | `GET /platform/health/atendimento` |
+| PILOT_MODE | Implementado 2.11.17 | `config.PILOT.ENABLED` |
 | Anti-loop alerta | Implementado 2.11.16 | `filterFallbackAlertPhones` |
 
 ---
 
 ## 24. O que ainda precisa ser testado manualmente
 
-| # | Cenário | Roteiro |
-|---|---------|---------|
-| 1 | Triagem → humano | QA-FASE1 § A.1 |
-| 2 | Finalizar → CSAT imediato | § A.2 |
-| 3 | `avaliar` → CSAT, não ticket | § A.3 |
-| 4 | Nota `4` gravada | § A.4 |
-| 5 | Pós-CSAT novo `Ola` | § A.5 |
-| 6 | `falar com atendente` pós-CSAT | § A.6 |
-| 7 | TK antigo fechado + msg nova | § A.7 |
-| 8 | Ticket 12h complemento | § A.8 |
-| 9 | IA promete transferência | § A.9 |
-| 10 | Menu ticket `1/2` vs inbox | § A.10 |
-| 11 | WebChat: msg cliente vs `!nota` | QA-WEBCHAT-WA |
-| 12 | Consulta TK+token | QA-WEBCHAT-WA |
-| 13 | `!encerrarchat` vs `!encerrar` | QA-WEBCHAT-WA |
-| 14 | Bridge com 2 chamados abertos | QA-WEBCHAT-WA |
+> Lista completa e ordem de execução em **§28** (última etapa — após Fase B).
 
 ---
 
@@ -491,8 +471,47 @@ npm run build --prefix src/services/web-dashboard/frontend
 
 ## 27. Conclusão
 
-A auditoria com evidência confirma: **funcionalidades existem**, **helpers testados**, **gaps em integração e QA manual**. Produção continua **bloqueada**. Próximo passo operacional: **executar QA-FASE1 § A** e registrar resultados; manter `qa:atendimento:gate` verde a cada patch de atendimento.
+Fase B entregou rate limit tipado, health API, audit bridge e `PILOT_MODE`. Gate automático (`qa:atendimento:gate`) deve permanecer verde a cada patch. **Produção continua bloqueada** até §28 (QA manual) assinado.
 
-Expansão horizontal de produto (CRM, gatilhos, templates) permanece **Fase D** — após gate estabilização.
+Próximo implementação: webhooks ticket/bridge + audit ticket + testes integrados InboxService.
 
-Visão comercial: [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md).
+Expansão horizontal (CRM, gatilhos) = **Fase D**. Visão: [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md).
+
+---
+
+## 28. QA manual — última etapa
+
+Execute **após** `npm run qa:atendimento:gate` verde e Fase B implementada.
+
+### Documentos
+
+| Doc | Uso |
+|-----|-----|
+| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist § A/B/C |
+| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Passo a passo (10 cenários WA) |
+| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Bridge + comandos + chamado |
+| [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro |
+
+### Scripts (gate automático — antes do manual)
+
+| Script | O que faz |
+|--------|-----------|
+| `npm run qa:prep` | Mongo, sessão WA, CSAT, fallback |
+| `npm run qa:webchat-wa` | Jest subset WebChat/WA + `qa:prep` |
+| **`npm run qa:atendimento:gate`** | Jest atendimento crítico + `qa:webchat-wa` |
+| `npm run qa:gate` | test + build backend + frontend |
+
+### Cenários manuais obrigatórios
+
+| Cenário | Doc |
+|---------|-----|
+| Triagem → humano | QA-FASE1 § cenário 1 |
+| CSAT 1–5 + bypass novo atendimento | QA-FASE1 § cenários 2–6 |
+| Ticket 12h / sair / reabrir | QA-FASE1 § cenários 7–8 |
+| IA promete transferir | QA-FASE1 § cenário 9 |
+| WebChat bridge + TK + `!nota` | QA-WEBCHAT-WA-FALLBACK-BRIDGE |
+| Consulta pública TK+token | QA-WEBCHAT-WA |
+| Chamado fechado — histórico consulta | QA-WEBCHAT-WA |
+| Fallback alerta sem loop | QA-WEBCHAT-WA |
+
+**Gate ROADMAP § Estabilização** → 🟢 somente com §28 registrado.

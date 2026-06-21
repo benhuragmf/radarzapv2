@@ -74,6 +74,11 @@ import {
 } from './webchat-whatsapp-bridge.service';
 import { getOnlineAgentIds, isAgentOnline } from '../inbox/inbox-agent-presence';
 import {
+  applyWebChatAgentHumanDelay,
+  assertWebChatSendAllowed,
+  WebChatSendRateLimitError,
+} from './webchat-send-guard.service';
+import {
   expandQuickReply,
   normalizeQuickReplies,
   parseQuickReplyCode,
@@ -1793,6 +1798,14 @@ export class WebChatService {
 
     const clientIdStr = String(conversation.clientId);
     const convId = String(conversation._id);
+
+    try {
+      await assertWebChatSendAllowed(clientIdStr, convId, 'visitor');
+    } catch (err) {
+      if (err instanceof WebChatSendRateLimitError) throw err;
+      throw err;
+    }
+
     this.emitTypingIndicator({
       clientId: clientIdStr,
       conversationId: convId,
@@ -2710,19 +2723,27 @@ export class WebChatService {
     const quickCode = parseQuickReplyCode(raw);
     const text = expandQuickReply(raw, quickReplies, contactName);
 
-    this.emitTypingIndicator({
-      clientId,
-      conversationId,
-      typing: false,
-      senderType: 'agent',
-      senderName: senderName?.trim() || 'Atendente',
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    const agentName = senderName?.trim() || 'Atendente';
+
+    await assertWebChatSendAllowed(clientIdStr, convId, 'agent');
+
+    await applyWebChatAgentHumanDelay(clientIdStr, text, typing => {
+      this.emitTypingIndicator({
+        clientId: clientIdStr,
+        conversationId: convId,
+        typing,
+        senderType: 'agent',
+        senderName: agentName,
+      });
     });
 
     const msg = await this.appendMessage(conversation, {
       direction: 'outbound',
       body: text,
       senderUserId: userId,
-      senderName: senderName?.trim() || 'Atendente',
+      senderName: agentName,
     });
 
     if (quickCode === 'enc') {

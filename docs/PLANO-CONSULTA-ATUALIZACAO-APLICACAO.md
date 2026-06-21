@@ -1,9 +1,11 @@
 # Plano — consulta, atualização e aplicação (origem GG)
 
-**Versão ref:** `2.11.13` · **Data:** 2026-06-21  
+**Versão ref:** `2.11.17` · **Data:** 2026-06-19  
 **Status:** Fase 1 — estabilização (sem go-live)
 
 Este documento consolida os rascunhos `gg.md`, `gg1.md` e `gg2.md` em entregas oficiais do **RadarZap v2** e define **como consultar, atualizar e aplicar** cada bloco no sistema.
+
+> **Ordem de execução:** implementação Fase B/C → gate automático → **QA manual por último** (§10).
 
 ---
 
@@ -22,7 +24,7 @@ Este documento consolida os rascunhos `gg.md`, `gg1.md` e `gg2.md` em entregas o
 ## 2. Fluxo de trabalho recomendado
 
 ```txt
-CONSULTAR → DOCUMENTAR → VALIDAR (QA/testes) → APLICAR (patch seguro) → REGISTRAR (changelog/registry)
+CONSULTAR → IMPLEMENTAR (patch seguro) → VALIDAR (gate automático) → QA MANUAL (último) → REGISTRAR (changelog/registry)
 ```
 
 ### 2.1 Consultar (antes de codar)
@@ -61,22 +63,22 @@ Regras do `gg.md` adaptadas:
 
 | Item (gg.md) | Onde aplicar | Doc / código | Status jun/2026 |
 |--------------|--------------|--------------|-----------------|
-| WA Inbox × Ticket × CSAT × IA | QA manual | `QA-FASE1-CHECKLIST.md`, `QA-FASE1-ROTEIRO.md` | 🔴 QA manual incompleto |
+| WA Inbox × Ticket × CSAT × IA | QA manual **§10** | `QA-FASE1-CHECKLIST.md`, `QA-FASE1-ROTEIRO.md` | 🔴 QA manual por último |
 | Ordem inbound | Testes | `inbound-routing.test.ts`, `csat.util.test.ts` | 🟡 unitários OK; integração falta |
 | Gate automático atendimento | `package.json` scripts | `npm run qa:atendimento:gate` | ✅ 2.11.16 |
-| WebChat bridge + comandos WA | Código + QA | `webchat-whatsapp-bridge.service.ts`, `whatsapp-agent-command.service.ts` | 🟡 2.11.8–2.11.13; validar QA |
-| Celular próprio / loop alerta | Análise | §7 em `ANALISE-CRITICA-…` | 🟡 parcial — ver análise |
-| Rate limit 2/min marketing, 10/min conversa | WhatsApp send layer | Documentar + implementar fase B | ⏳ planejado |
+| WebChat bridge + comandos WA | Código + QA | `webchat-whatsapp-bridge.service.ts` | 🟡 2.11.8–2.11.13; QA §10 |
+| Celular próprio / loop alerta | Análise | §7 em `ANALISE-CRITICA-…` | ✅ anti-loop 2.11.16 |
+| Rate limit 2/min marketing, 10/min conversa | WhatsApp send layer | `whatsapp-session-rate-limit.ts` | ✅ 2.11.17 |
 | Chamado WebChat × cliente × `!nota` | Ticket + bridge | `InboxService`, `TICKET-ATENDIMENTO.md` | ✅ 2.11.10–2.11.13 |
 
 ### Prioridade 2 — Segurança operacional
 
-| Item | Aplicação |
-|------|-----------|
-| Observabilidade “Saúde do Atendimento” | Doc + métricas mínimas (sem painel grande) |
-| Auditoria append-only Ticket/Bridge | Modelo `TicketEvent` / `BridgeEvent` — proposta |
-| Modo piloto `PILOT_MODE` | Env + flags — proposta |
-| Webhooks ticket/bridge | `WEBHOOKS.md` + dispatcher |
+| Item | Aplicação | Status |
+|------|-----------|--------|
+| Observabilidade “Saúde do Atendimento” | `GET /api/platform/health/atendimento` | ✅ 2.11.17 |
+| Auditoria append-only Ticket/Bridge | `AttendanceEvent` + `attendance-audit.service.ts` | ✅ 2.11.17 (bridge; ticket em patch) |
+| Modo piloto `PILOT_MODE` | Env + limite campanha | ✅ 2.11.17 |
+| Webhooks ticket/bridge | `WEBHOOKS.md` + dispatcher | ⏳ backlog |
 
 ### Prioridade 3 — Produto (Fase D+)
 
@@ -91,25 +93,27 @@ Regras do `gg.md` adaptadas:
 
 ## 4. Fases de execução
 
-### Fase A — Estabilização crítica (2–4 semanas)
+### Fase A — Gate automático + correções (em andamento)
 
-1. Rodar [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A + § C WebChat
-2. Rodar [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) com ticket novo
-3. Criar `npm run qa:atendimento:gate` (agrupa jest atendimento + `qa:webchat-wa`) — ✅ 2.11.16
-4. Corrigir regressões encontradas (patch 2.11.x)
-5. Atualizar gate em `ROADMAP-COMPLETUDE.md`
+1. ✅ `npm run qa:atendimento:gate` (2.11.16)
+2. ✅ Anti-loop alerta fallback (2.11.16)
+3. ✅ Auditoria rev.2 (`ANALISE-CRITICA-…`)
+4. Corrigir regressões encontradas no gate (patch 2.11.x)
+5. Testes integrados mínimos InboxService (próximo patch)
 
-### Fase B — Segurança operacional
+### Fase B — Segurança operacional (agora)
 
-1. Rate limit por sessão WA + jitter
-2. Proteção loop número próprio em alertas bridge
-3. Estrutura audit log Ticket/Bridge (append-only)
-4. Logs/métricas mínimas de saúde
+1. ✅ Rate limit por sessão WA tipado + jitter (2.11.17)
+2. ✅ Proteção loop número próprio em alertas bridge (2.11.16)
+3. ✅ Audit log append-only bridge (`AttendanceEvent`) (2.11.17)
+4. ✅ `GET /api/platform/health/atendimento` (2.11.17)
+5. ⏳ Webhooks ticket/bridge
+6. ⏳ Audit log eventos ticket (create/close/reply)
 
 ### Fase C — Piloto seguro
 
-1. `PILOT_MODE=true` (limites, badge, auditoria extra)
-2. 1–3 tenants reais com roteiro QA assinado
+1. ✅ `PILOT_MODE=true` + limite destinatários campanha (2.11.17)
+2. 1–3 tenants reais com roteiro QA assinado — **após §10**
 3. Só após gate § Estabilização verde
 
 ### Fase D — Produto vendável
@@ -120,27 +124,27 @@ Regras do `gg.md` adaptadas:
 
 ### Fase E — IA Básica
 
-1. Fase 5 modos — classificador local-first
+1. Fase 5 modos — refinamentos pós-estabilização
 2. Não misturar com estabilização WA
 
 ---
 
-## 5. Comandos de validação
+## 5. Comandos de validação (gate automático)
 
 ```bash
 npm run qa:prep
 npm run qa:webchat-wa
+npm run qa:atendimento:gate
 npm test
 npm run qa:gate
 ```
 
-**Futuro:** `npm run qa:atendimento:gate` = `qa:gate` + subset atendimento + smoke E2E quando estável.
-
 ---
 
-## 6. Arquivos que podem ser alterados (Fase A)
+## 6. Arquivos que podem ser alterados (Fase A/B)
 
 - `src/services/inbox/*`, `src/services/webchat/*`, `src/services/whatsapp/*`
+- `src/services/attendance/*`, `src/utils/whatsapp-session-rate-limit.ts`
 - `src/utils/*` (helpers ticket, CSAT, routing, bridge)
 - `docs/*`, `package.json` scripts, testes `__tests__`
 - `frontend/src/components/inbox/*`, `frontend/src/pages/menu/*` (atendimento)
@@ -155,12 +159,12 @@ npm run qa:gate
 
 ---
 
-## 8. Próximo passo imediato
+## 8. Próximo passo imediato (implementação)
 
-1. **QA manual** chamado WebChat (mensagem ao cliente × `!nota` × consulta TK+token) — roteiro em `QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`
-2. **Atualizar** [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) § mensagens visíveis vs notas internas (2.11.13)
-3. **Criar** script `qa:atendimento:gate` (agrupador)
-4. **Executar** checklist § A WhatsApp em `QA-FASE1-CHECKLIST.md`
+1. ⏳ Webhooks `ticket.*` / `webchat.bridge.*`
+2. ⏳ Audit log eventos ticket (create/close/client_replied)
+3. ⏳ Testes integrados ordem inbound em `InboxService`
+4. **Depois:** QA manual §10
 
 ---
 
@@ -171,3 +175,28 @@ npm run qa:gate
 | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria técnica detalhada (gg.md) |
 | [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão comercial (gg1.md) |
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Gate oficial Fase 1 |
+
+---
+
+## 10. QA manual — última etapa (não pular antes da Fase B)
+
+Execute **somente após** Fases A/B verdes no gate automático.
+
+| Ordem | Doc | Escopo |
+|-------|-----|--------|
+| 1 | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | § A WhatsApp (10 cenários) + § C WebChat |
+| 2 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível |
+| 3 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Bridge + `!nota` + consulta TK+token |
+| 4 | [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro de resultados |
+
+**Gate ROADMAP § Estabilização** só fica 🟢 quando §10 estiver assinado.
+
+**Pré-requisitos QA:**
+
+```bash
+npm run qa:atendimento:gate   # deve passar
+npm run dev                   # backend
+npm run dashboard:frontend    # painel
+```
+
+Sessão WA conectada, CSAT habilitado, celular de teste ≠ número do atendente.

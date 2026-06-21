@@ -168,8 +168,15 @@ export function createWebChatPublicRouter(): Router {
       res.json(result);
     } catch (e) {
       const msg = (e as Error).message;
+      const name = (e as Error).name;
       const status =
-        msg.includes('inválida') || msg.includes('encerrada') ? 401 : msg.includes('Origem') ? 403 : 400;
+        name === 'WebChatSendRateLimitError'
+          ? 429
+          : msg.includes('inválida') || msg.includes('encerrada')
+            ? 401
+            : msg.includes('Origem')
+              ? 403
+              : 400;
       res.status(status).json({ error: msg });
     }
   });

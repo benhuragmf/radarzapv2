@@ -1,6 +1,11 @@
 import { RedisManager } from './RedisManager';
-import { config, isDevelopment } from '@/config/environment';
-import { logger, createServiceLogger } from '@/utils/logger';
+import { config } from '@/config/environment';
+import { createServiceLogger } from '@/utils/logger';
+import {
+  getMaxPerMinuteForKind,
+  type WhatsAppSendKind,
+} from '@/utils/whatsapp-session-rate-limit';
+import type { WhatsAppSendPolicySnapshot } from '@/types/whatsapp-send-policy';
 
 /**
  * Rate Limiter using Token Bucket algorithm with Redis
@@ -153,18 +158,25 @@ export class RateLimiter {
   }
 
   /**
-   * Check WhatsApp sending rate limit
+   * Check WhatsApp sending rate limit (legado — bucket conversa).
    */
   async checkWhatsAppSendingLimit(
     sessionId: string
   ): Promise<{ allowed: boolean; tokensRemaining: number; resetTime: number }> {
-    const configured = config.WHATSAPP.RATE_LIMIT_MESSAGES_PER_MINUTE;
-    const maxPerMinute = isDevelopment()
-      ? Math.max(configured, 120)
-      : configured;
-    // refill_rate = maxPerMinute → ~1 token a cada (60/maxPerMinute) segundos no bucket Lua
+    return this.checkWhatsAppSendLimit(sessionId, 'conversation');
+  }
+
+  /**
+   * Rate limit por tipo: marketing 2/min, conversa 10/min, alertas bucket separado.
+   */
+  async checkWhatsAppSendLimit(
+    sessionId: string,
+    kind: WhatsAppSendKind,
+    policy?: WhatsAppSendPolicySnapshot,
+  ): Promise<{ allowed: boolean; tokensRemaining: number; resetTime: number }> {
+    const maxPerMinute = getMaxPerMinuteForKind(kind, policy);
     return await this.checkRateLimit(
-      `whatsapp:${sessionId}:sending`,
+      `whatsapp:${sessionId}:sending:${kind}`,
       maxPerMinute,
       maxPerMinute,
       60 * 1000,

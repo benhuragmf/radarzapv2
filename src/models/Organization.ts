@@ -35,6 +35,15 @@ export interface IOrganization extends Document {
   website?: string;
   taxId?: string;
   address?: string;
+  /** Limites de envio WA por tipo (chat ao vivo, marketing, alertas) */
+  whatsappSendPolicy?: {
+    limitsDisabled?: boolean;
+    humanizeEnabled?: boolean;
+    composingEnabled?: boolean;
+    conversation?: { enabled?: boolean; maxPerMinute?: number };
+    marketing?: { enabled?: boolean; maxPerMinute?: number };
+    alert?: { enabled?: boolean; maxPerMinute?: number };
+  };
   createdAt: Date;
   updatedAt: Date;
 
@@ -94,6 +103,10 @@ const OrganizationSchema = new Schema<IOrganization>({
   website: { type: String, trim: true, maxlength: 200 },
   taxId: { type: String, trim: true, maxlength: 20 },
   address: { type: String, trim: true, maxlength: 240 },
+  whatsappSendPolicy: {
+    type: Schema.Types.Mixed,
+    default: undefined,
+  },
 }, {
   timestamps: true,
   collection: 'organizations',

@@ -531,6 +531,8 @@ export class QueueProcessorService {
               },
               messageId,
               ruleId: rule._id.toString(),
+              consentOrigin: 'campaign',
+              sendKind: 'marketing',
               templateName: resolvedTemplate,
               resolvedTemplate,
               extractedData,

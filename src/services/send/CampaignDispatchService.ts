@@ -7,6 +7,7 @@ import { SessionCache } from '@/cache/SessionCache';
 import { ConsentService } from '@/services/consent/ConsentService';
 import { delay } from '@/services/whatsapp/waSessionEvents';
 import { createServiceLogger } from '@/utils/logger';
+import { config } from '@/config/environment';
 import { User } from '@/models/User';
 import { renderPlatformTemplateForClient } from '@/services/platform/platformTemplateRender';
 import {
@@ -110,6 +111,11 @@ export class CampaignDispatchService {
     if (!user) throw new Error('Usuário não encontrado');
 
     const destCount = input.destinations.length;
+    if (config.PILOT.ENABLED && destCount > config.PILOT.MAX_CAMPAIGN_RECIPIENTS) {
+      throw new Error(
+        `Modo piloto: máximo ${config.PILOT.MAX_CAMPAIGN_RECIPIENTS} destinatários por campanha`,
+      );
+    }
     const created = validateCampaignCreate(destCount);
     if (created.ok === false) throw new Error(created.error);
 
@@ -344,7 +350,11 @@ export class CampaignDispatchService {
           dest.identifier,
           outboundText,
           msg.content.image,
-          { skipRateLimit: acceptRisk, consentOrigin: 'campaign' },
+          {
+            skipRateLimit: acceptRisk,
+            consentOrigin: 'campaign',
+            sendKind: 'marketing',
+          },
         );
         if (vars.automationBirthdayTouch && dest.type === 'contact') {
           await Destination.updateOne(

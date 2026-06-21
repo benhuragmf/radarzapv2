@@ -131,6 +131,13 @@ export interface AppConfig {
     SMTP_USER: string;
     SMTP_PASS: string;
   };
+
+  /** Modo piloto — limites e auditoria extra (Fase C) */
+  PILOT: {
+    ENABLED: boolean;
+    /** Máx. destinatários por campanha quando piloto ativo */
+    MAX_CAMPAIGN_RECIPIENTS: number;
+  };
 }
 
 /**
@@ -312,6 +319,11 @@ export const config: AppConfig = {
     SMTP_SECURE: parseBoolean(process.env.SMTP_SECURE, false),
     SMTP_USER: getOptional('SMTP_USER', ''),
     SMTP_PASS: getOptional('SMTP_PASS', ''),
+  },
+
+  PILOT: {
+    ENABLED: parseBoolean(process.env.PILOT_MODE, false),
+    MAX_CAMPAIGN_RECIPIENTS: parseNumber(process.env.PILOT_MAX_CAMPAIGN_RECIPIENTS, 50),
   },
 };
 
