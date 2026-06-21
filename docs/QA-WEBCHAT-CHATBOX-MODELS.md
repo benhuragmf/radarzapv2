@@ -11,7 +11,7 @@
 
 | # | Passo | Esperado | OK? |
 |---|-------|----------|-----|
-| P1 | **WebChat → Visual → Modelos de Chat Box** | Seções Free e Premium visíveis abaixo das landings | [ ] |
+| P1 | **WebChat → Visual → Modelos visuais** | Abas **Chat Box** e **Landings de teste** (não tudo na mesma tela) | [ ] |
 | P2 | Aplicar **Blue Compact** (Free) | Badge **Aplicado**; previewTemplateId `chatbox-blue-compact` | [ ] |
 | P3 | Aplicar modelo **Premium** sem plano Starter/Pro/Enterprise | Botão **Aplicar** bloqueado / Upgrade | [ ] |
 | P4 | Cards: **Abrir**, **Ver detalhes**, **Aplicar** | Modal com preview ampliado e detalhes | [ ] |

@@ -6,35 +6,44 @@ import {
   type ChatBoxModel,
 } from '@/lib/chatBoxModels'
 import { ChatBoxModelCard } from './ChatBoxModelCard'
+import { cn } from '@/lib/utils'
 
 type Props = {
   selectedChatBoxModelId?: string | null
   userPlan?: string | null
   onApplyModel?: (model: ChatBoxModel) => void
+  /** Quando true, oculta título/descrição (ex.: aba pai já identifica a coleção). */
+  embedded?: boolean
 }
 
 export function ChatBoxModelsSection({
   selectedChatBoxModelId,
   userPlan,
   onApplyModel,
+  embedded = false,
 }: Props) {
   const premiumAllowed = canUsePremiumChatBoxModels(userPlan)
 
   return (
-    <section className="space-y-6 border-t border-[var(--rz-border)] pt-6" aria-labelledby="chatbox-models-heading">
-      <div>
-        <h4 id="chatbox-models-heading" className="text-sm font-semibold text-[var(--rz-text-primary)]">
-          Modelos de Chat Box
-        </h4>
-        <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Escolha um modelo compacto de atendimento para aplicar no widget do seu site.
-        </p>
-      </div>
+    <section
+      className={cn('space-y-6', !embedded && 'border-t border-[var(--rz-border)] pt-6')}
+      aria-labelledby={embedded ? undefined : 'chatbox-models-heading'}
+    >
+      {!embedded && (
+        <div>
+          <h4 id="chatbox-models-heading" className="text-sm font-semibold text-[var(--rz-text-primary)]">
+            Modelos de Chat Box
+          </h4>
+          <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+            Escolha um modelo compacto de atendimento para aplicar no widget do seu site.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-3">
         <div>
           <h5 className="text-xs font-semibold uppercase tracking-wider text-[var(--rz-text-muted)]">
-            Modelos Free
+            Grátis
           </h5>
           <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
             Modelos gratuitos, leves e prontos para atendimento rápido.
@@ -58,7 +67,7 @@ export function ChatBoxModelsSection({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h5 className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">
-            Modelos Premium
+            Premium (widget)
           </h5>
           {!premiumAllowed && (
             <span className="text-[10px] text-[var(--rz-text-muted)]">
@@ -67,7 +76,7 @@ export function ChatBoxModelsSection({
           )}
         </div>
         <p className="text-xs text-[var(--rz-text-muted)]">
-          Modelos avançados com experiência visual superior, fluxos inteligentes e maior personalização.
+          Widgets avançados com experiência visual superior — distinto das landings premium (Luxe/Obsidian).
         </p>
         <div
           className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"

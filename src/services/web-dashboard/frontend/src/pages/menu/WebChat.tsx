@@ -1283,7 +1283,7 @@ function WidgetEditorCard({
           <WebChatWidgetEditorSection
             id="webchat-section-modelos"
             title="Modelos visuais"
-            description="Clique em Aplicar para salvar tema, cores e textos do modelo no widget."
+            description="Aba Chat Box para o widget no site; aba Landings para páginas de demonstração (Clássico, Luxe, etc.)."
           >
             <WebChatPreviewTemplates
               publicKey={widget.publicKey}
