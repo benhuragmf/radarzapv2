@@ -1366,7 +1366,7 @@ export class WebChatService {
 
     if (!ticket) {
       throw new Error(
-        'Chamado ainda não aberto. No painel Inbox, use Abrir chamado antes de enviar o token.',
+        'Chamado ainda não aberto. Use !abrir TK-… no WhatsApp ou Abrir chamado no painel.',
       );
     }
 

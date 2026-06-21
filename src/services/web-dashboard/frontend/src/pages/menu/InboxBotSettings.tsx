@@ -548,6 +548,7 @@ export default function InboxBotSettings() {
             <p className="text-xs text-[var(--rz-text-muted)] mt-2">
               Atendentes autorizados respondem alertas com{' '}
               <code className="text-[var(--rz-text-secondary)]">!assumir TK-…</code>,{' '}
+              <code className="text-[var(--rz-text-secondary)]">!abrir TK-…</code> (abrir chamado + token no site),{' '}
               <code className="text-[var(--rz-text-secondary)]">!encerrarchat TK-…</code> (só chat WA),{' '}
               <code className="text-[var(--rz-text-secondary)]">!encerrar TK-…</code> (finalizar chamado). Cadastre o WhatsApp
               pessoal em{' '}

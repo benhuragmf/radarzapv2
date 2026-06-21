@@ -6,6 +6,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.8] — 2026-06-19
+
+### Adicionado
+
+- Comando WhatsApp **`!abrir TK-XXXX`** (alias `!abrirchamado`) — abre chamado formal no chat do site e envia token ao visitante (paridade com painel Inbox).
+- Alerta fallback WA e `!ajuda` atualizados com `!abrir`.
+
+---
+
 ## [2.11.7] — 2026-06-19
 
 ### Corrigido

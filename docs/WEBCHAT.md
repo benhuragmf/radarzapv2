@@ -328,9 +328,10 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Ao escalar chat do site sem atendente online: mensagem ao visitante + alerta via `WhatsAppService.sendInternalAlert` (Baileys).
 - Presença: heartbeat `agent:heartbeat` a cada 45s no painel; timeout configurável (padrão 90s).
 - Bridge bidirecional site ↔ WhatsApp após `!assumir` (2.10.74) — campos `whatsappBridgeActive` em `WebChatConversation`.
-- Comandos `!assumir` / `!ticket` / `!token` / `!encerrarchat` / `!encerrar` / `!ajuda` para atendentes com WhatsApp em Equipe (2.10.73+).
-- **`!assumir`** (2.11.7): só assume conversa + bridge WhatsApp — **não** abre chamado formal nem envia token (isso é *Abrir chamado* no painel).
-- **`!token TK-…`** (2.11.6+): reenvia token **depois** que o chamado foi aberto no painel.
+- Comandos `!assumir` / `!abrir` / `!ticket` / `!token` / `!encerrarchat` / `!encerrar` / `!ajuda` para atendentes com WhatsApp em Equipe (2.10.73+).
+- **`!assumir`** (2.11.7): só assume conversa + bridge WhatsApp — **não** abre chamado formal nem envia token.
+- **`!abrir TK-…`** (2.11.8): abre chamado formal e envia número + token ao visitante no widget (equivalente a *Abrir chamado* no painel).
+- **`!token TK-…`**: reenvia token **depois** que o chamado foi aberto (`!abrir` ou painel).
 
 ### Bridge site ↔ WhatsApp (2.10.74)
 

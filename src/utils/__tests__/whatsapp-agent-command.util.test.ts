@@ -18,6 +18,14 @@ describe('whatsapp-agent-command.util', () => {
       command: 'token',
       arg: 'O6CAYO',
     });
+    expect(parseWhatsappAgentCommand('!abrir O6CAYO')).toEqual({
+      command: 'abrir',
+      arg: 'O6CAYO',
+    });
+    expect(parseWhatsappAgentCommand('!abrirchamado TK-ABC')).toEqual({
+      command: 'abrirchamado',
+      arg: 'TK-ABC',
+    });
   });
 
   it('parses ajuda without arg', () => {
@@ -49,7 +57,7 @@ describe('whatsapp-agent-command.util', () => {
 
   it('includes help text for all commands', () => {
     expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!assumir');
-    expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!token');
+    expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!abrir');
     expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!encerrarchat');
     expect(WHATSAPP_AGENT_COMMAND_HELP).toContain('!encerrar');
   });

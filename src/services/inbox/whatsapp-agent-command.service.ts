@@ -117,8 +117,8 @@ async function handleAssumir(
       'Vários chamados? Use: TK-XXXX sua mensagem',
       '',
       ticketOpened
-        ? `Chamado formal aberto — token enviado ao abrir no painel. Reenvio: !token ${ref.replace(/^TK-/i, '')}`
-        : 'Chamado formal ainda não aberto — no painel Inbox use *Abrir chamado* para registrar e enviar token ao visitante.',
+        ? `Chamado formal aberto. Reenvio de token: !token ${ref.replace(/^TK-/i, '')}`
+        : `Para abrir chamado e enviar token ao visitante: !abrir ${ref.replace(/^TK-/i, '')}`,
       '',
       `Painel → Inbox → ${ref}`,
     ].join('\n');
@@ -175,8 +175,8 @@ async function handleToken(clientId: string, userId: string, ticketRef: string):
   if (!ticket) {
     return [
       `Chamado ${ticketRef} ainda não foi aberto formalmente.`,
-      'No painel: Inbox → conversa do visitante → *Abrir chamado*.',
-      'Depois use !token para reenviar o token ao visitante, se necessário.',
+      `Use: !abrir ${ticketRef.replace(/^TK-/i, '')}`,
+      'Ou no painel: Inbox → *Abrir chamado*.',
     ].join('\n');
   }
 
@@ -241,6 +241,103 @@ async function handleTicketSummary(clientId: string, ticketRef: string): Promise
   ].filter((line): line is string => Boolean(line));
 
   return lines.join('\n');
+}
+
+async function handleAbrir(
+  clientId: string,
+  userId: string,
+  ticketRef: string,
+): Promise<string> {
+  const { ticket, webChat } = await findTicketByRef(clientId, ticketRef);
+
+  if (webChat || ticket?.webChatConversationId) {
+    const conversation =
+      webChat ??
+      (await WebChatConversation.findOne({
+        _id: ticket!.webChatConversationId,
+        clientId: new mongoose.Types.ObjectId(clientId),
+      }));
+    if (!conversation) return `Conversa ${ticketRef} não encontrada.`;
+    if (conversation.status === 'closed') {
+      return `Conversa ${ticketRef} encerrada — não é possível abrir chamado.`;
+    }
+
+    if (ticket?.publicAccessTokenHash) {
+      return [
+        `Chamado ${ticketRef} já está aberto.`,
+        `Reenviar token ao visitante: !token ${ticketRef.replace(/^TK-/i, '')}`,
+      ].join('\n');
+    }
+
+    await WebChatService.getInstance().assignConversation(
+      clientId,
+      userId,
+      String(conversation._id),
+    );
+
+    let result: {
+      ticketRef: string;
+      ticketStatus: string;
+      notifiedClient: boolean;
+      ok: boolean;
+    };
+    try {
+      result = await WebChatService.getInstance().convertToTicket(
+        clientId,
+        userId,
+        String(conversation._id),
+      );
+    } catch (err) {
+      return (err as Error).message || `Não foi possível abrir ${ticketRef}.`;
+    }
+
+    const ticketDoc = await InboxTicket.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ticketRef: result.ticketRef,
+    });
+    if (ticketDoc) {
+      ticketDoc.assignedUserId = new mongoose.Types.ObjectId(userId);
+      ticketDoc.status = 'in_progress';
+      await ticketDoc.save();
+    }
+
+    if (result.notifiedClient) {
+      return [
+        `Chamado ${result.ticketRef} aberto.`,
+        'Visitante notificado no chat do site com número e token de consulta.',
+        '',
+        `Status: ${result.ticketStatus}`,
+        `Reenvio: !token ${result.ticketRef.replace(/^TK-/i, '')}`,
+      ].join('\n');
+    }
+
+    return [
+      `Chamado ${result.ticketRef} registrado.`,
+      'Visitante já havia sido notificado ou chamado já existia.',
+      `Reenvio de token: !token ${result.ticketRef.replace(/^TK-/i, '')}`,
+    ].join('\n');
+  }
+
+  if (ticket?.conversationId) {
+    try {
+      const result = await InboxService.getInstance().convertToTicket(
+        clientId,
+        userId,
+        String(ticket.conversationId),
+      );
+      if (result.notifiedClient) {
+        return `Chamado ${result.ticketRef} aberto. Cliente notificado no WhatsApp.`;
+      }
+      return `Chamado ${result.ticketRef} já estava aberto.`;
+    } catch (err) {
+      return (err as Error).message || `Não foi possível abrir ${ticketRef}.`;
+    }
+  }
+
+  return [
+    `Conversa ${ticketRef} não encontrada.`,
+    'Verifique o TK-… do alerta ou use !assumir antes, se for chat do site.',
+  ].join('\n');
 }
 
 async function handleEncerrarChat(
@@ -392,6 +489,10 @@ export async function handleWhatsappAgentCommand(
     switch (parsed.command) {
       case 'assumir':
         response = await handleAssumir(input.clientId, agent.userId, ticketRef);
+        break;
+      case 'abrir':
+      case 'abrirchamado':
+        response = await handleAbrir(input.clientId, agent.userId, ticketRef);
         break;
       case 'ticket':
         response = await handleTicketSummary(input.clientId, ticketRef);

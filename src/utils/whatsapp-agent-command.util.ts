@@ -2,6 +2,8 @@
 
 export type WhatsappAgentCommandName =
   | 'assumir'
+  | 'abrir'
+  | 'abrirchamado'
   | 'ticket'
   | 'token'
   | 'encerrar'
@@ -12,9 +14,14 @@ export type WhatsappAgentCommandName =
   | 'help';
 
 const CHAT_END_ALIASES = new Set(['encerrarchat', 'sairchat', 'fecharchat']);
+const ABRIR_ALIASES = new Set(['abrir', 'abrirchamado']);
 
 const COMMAND_RE =
-  /^!(assumir|ticket|token|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+(.+))?$/i;
+  /^!(assumir|abrir|abrirchamado|ticket|token|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+(.+))?$/i;
+
+export function isWhatsappAbrirCommand(command: WhatsappAgentCommandName): boolean {
+  return ABRIR_ALIASES.has(command);
+}
 
 export function isWhatsappChatEndCommand(command: WhatsappAgentCommandName): boolean {
   return CHAT_END_ALIASES.has(command);
@@ -45,8 +52,9 @@ export const WHATSAPP_AGENT_COMMAND_HELP = [
   'Comandos RadarZap (atendentes com WhatsApp cadastrado em Equipe):',
   '',
   '!assumir TK-XXXX — assumir conversa (chat do site: bridge WA; não abre chamado formal)',
+  '!abrir TK-XXXX — abrir chamado formal e enviar token ao visitante (chat do site)',
   '!ticket TK-XXXX — resumo do chamado',
-  '!token TK-XXXX — reenviar token ao visitante (após Abrir chamado no painel)',
+  '!token TK-XXXX — reenviar token ao visitante (após !abrir ou Abrir chamado no painel)',
   '!encerrarchat TK-XXXX — encerrar atendimento no site (chamado continua no painel)',
   '!encerrar TK-XXXX — arquivar chamado e conversa no sistema',
   '!ajuda — esta mensagem',
