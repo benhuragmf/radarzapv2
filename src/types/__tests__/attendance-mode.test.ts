@@ -1,16 +1,20 @@
 import {
-  attendanceSelectionFromLegacySettings,
+  attendanceSelectionFromSettings,
+  attendanceSettingsPatchFromSelection,
   inferAttendanceModeFromLegacyMode,
   inferCredentialSourceFromLegacyMode,
-  isAttendanceModeSelectableInPhase1,
+  isAttendanceModeSelectable,
+  isValidAttendanceMode,
   legacySettingsFromAttendanceSelection,
+  resolveAttendanceMode,
+  shouldRunGenerativeAi,
 } from '@/types/attendance-mode';
 
 describe('attendance-mode adapter', () => {
   it('disabled → attendanceMode disabled + credential none', () => {
     expect(inferAttendanceModeFromLegacyMode('disabled')).toBe('disabled');
     expect(inferCredentialSourceFromLegacyMode('disabled')).toBe('none');
-    expect(attendanceSelectionFromLegacySettings({ mode: 'disabled' })).toEqual({
+    expect(attendanceSelectionFromSettings({ mode: 'disabled' })).toEqual({
       attendanceMode: 'disabled',
       credentialSource: 'none',
     });
@@ -40,20 +44,20 @@ describe('attendance-mode adapter', () => {
 
   it('robotic salva legado disabled sem ativar IA', () => {
     expect(
-      legacySettingsFromAttendanceSelection({
+      attendanceSettingsPatchFromSelection({
         attendanceMode: 'robotic',
         credentialSource: 'none',
       }),
-    ).toEqual({ mode: 'disabled', enabled: false });
+    ).toEqual({ attendanceMode: 'robotic', mode: 'disabled', enabled: false });
   });
 
-  it('basic_triage não ativa IA externa (fase 1)', () => {
+  it('basic_triage não ativa IA externa', () => {
     expect(
-      legacySettingsFromAttendanceSelection({
+      attendanceSettingsPatchFromSelection({
         attendanceMode: 'basic_triage',
         credentialSource: 'radarzap',
       }),
-    ).toEqual({ mode: 'disabled', enabled: false });
+    ).toEqual({ attendanceMode: 'basic_triage', mode: 'disabled', enabled: false });
   });
 
   it('premium sem credencial cai em disabled', () => {
@@ -65,9 +69,35 @@ describe('attendance-mode adapter', () => {
     ).toEqual({ mode: 'disabled', enabled: false });
   });
 
-  it('IA Básica não é selecionável na fase 1', () => {
-    expect(isAttendanceModeSelectableInPhase1('basic_triage')).toBe(false);
-    expect(isAttendanceModeSelectableInPhase1('robotic')).toBe(true);
-    expect(isAttendanceModeSelectableInPhase1('premium_assistant')).toBe(true);
+  it('IA Básica não é selecionável na UI', () => {
+    expect(isAttendanceModeSelectable('basic_triage')).toBe(false);
+    expect(isAttendanceModeSelectable('robotic')).toBe(true);
+    expect(isAttendanceModeSelectable('premium_assistant')).toBe(true);
+  });
+
+  it('resolveAttendanceMode prioriza campo persistido', () => {
+    expect(
+      resolveAttendanceMode({ mode: 'disabled', attendanceMode: 'robotic' }),
+    ).toBe('robotic');
+    expect(
+      attendanceSelectionFromSettings({ mode: 'disabled', attendanceMode: 'robotic' }),
+    ).toEqual({ attendanceMode: 'robotic', credentialSource: 'none' });
+  });
+
+  it('shouldRunGenerativeAi só no premium com mode ativo', () => {
+    expect(
+      shouldRunGenerativeAi({ mode: 'radarzap', enabled: true, attendanceMode: 'premium_assistant' }),
+    ).toBe(true);
+    expect(
+      shouldRunGenerativeAi({ mode: 'disabled', enabled: false, attendanceMode: 'robotic' }),
+    ).toBe(false);
+    expect(
+      shouldRunGenerativeAi({ mode: 'radarzap', enabled: true, attendanceMode: 'robotic' }),
+    ).toBe(false);
+  });
+
+  it('isValidAttendanceMode valida enum', () => {
+    expect(isValidAttendanceMode('robotic')).toBe(true);
+    expect(isValidAttendanceMode('invalid')).toBe(false);
   });
 });

@@ -32,10 +32,10 @@ import {
 } from '../../components/ai/AttendanceModePicker'
 import {
   attendanceModeLabel,
-  attendanceSelectionFromLegacySettings,
+  attendanceSelectionFromSettings,
+  attendanceSettingsPatchFromSelection,
   credentialSourceLabel,
   isLegacyGenerativeAiActive,
-  legacySettingsFromAttendanceSelection,
   type AttendanceMode,
   type AttendanceUiSelection,
   type AiCredentialSource,
@@ -78,6 +78,7 @@ interface AiPayload {
   settings: {
     enabled: boolean
     mode: 'radarzap' | 'company' | 'disabled'
+    attendanceMode?: AttendanceMode
     provider: 'openai' | 'gemini'
     model: string
     temperature: number
@@ -202,7 +203,7 @@ export default function AiAtendimento() {
           learnMemoryEnabled: data.prompt?.learnMemoryEnabled ?? true,
         },
       })
-      setAttendanceUi(attendanceSelectionFromLegacySettings(data.settings))
+      setAttendanceUi(attendanceSelectionFromSettings(data.settings))
     }
   }, [data])
 
@@ -211,7 +212,7 @@ export default function AiAtendimento() {
       api.patch<AiPayload>('/platform/ai/settings', payload),
     onSuccess: (res: AiPayload) => {
       setForm(res)
-      setAttendanceUi(attendanceSelectionFromLegacySettings(res.settings))
+      setAttendanceUi(attendanceSelectionFromSettings(res.settings))
       qc.setQueryData(['ai-settings'], res)
       setApiKeyInput('')
       notifySuccess('Configurações salvas')
@@ -311,8 +312,8 @@ export default function AiAtendimento() {
 
   const applyAttendanceSelection = (next: AttendanceUiSelection) => {
     setAttendanceUi(next)
-    const legacy = legacySettingsFromAttendanceSelection(next)
-    patch(legacy)
+    const patchSettings = attendanceSettingsPatchFromSelection(next)
+    patch(patchSettings)
   }
 
   const handleAttendanceModeSelect = (mode: AttendanceMode) => {
@@ -327,7 +328,7 @@ export default function AiAtendimento() {
     applyAttendanceSelection({ attendanceMode: mode, credentialSource })
     if (mode === 'robotic') {
       notifyInfo(
-        'Modo robotizado salvo sem IA generativa. Configure menus em Triagem e Bot. Persistência dedicada na próxima etapa.',
+        'Modo robotizado ativo sem IA generativa. Configure menus em Triagem e Bot.',
       )
     }
   }
@@ -342,9 +343,9 @@ export default function AiAtendimento() {
 
   const handleSave = () => {
     if (!form) return
-    const legacy = legacySettingsFromAttendanceSelection(attendanceUi)
+    const patchSettings = attendanceSettingsPatchFromSelection(attendanceUi)
     const body: Record<string, unknown> = {
-      settings: { ...form.settings, ...legacy },
+      settings: { ...form.settings, ...patchSettings },
       prompt: { ...form.prompt },
       knowledgeBase: form.knowledgeBase,
       skills: form.skills,
@@ -485,8 +486,9 @@ export default function AiAtendimento() {
             </h2>
             <p className="text-xs text-[var(--rz-text-muted)] mt-1">
               Escolha <strong>como</strong> o atendimento se comporta e, no modo Premium,{' '}
-              <strong>quem fornece</strong> a IA. O backend continua usando o campo legado{' '}
-              <code className="text-[10px]">mode</code> até a próxima fase.
+              <strong>quem fornece</strong> a IA. O modo é salvo em{' '}
+              <code className="text-[10px]">attendanceMode</code>; o runtime de LLM ainda usa{' '}
+              <code className="text-[10px]">mode</code> legado em paralelo.
             </p>
           </div>
 
@@ -503,14 +505,12 @@ export default function AiAtendimento() {
           />
 
           {attendanceUi.attendanceMode === 'robotic' && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
-              O modo robotizado não ativa IA generativa. Após salvar, a seleção pode voltar a
-              &quot;Desativado&quot; ao recarregar — persistência dedicada na Fase 3. No WhatsApp, o
-              menu de setores segue em{' '}
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
+              O modo robotizado não ativa IA generativa. No WhatsApp, configure o menu de setores em{' '}
               <Link to="/platform/inbox/bot" className="text-brand-400 hover:underline">
                 Triagem e Bot
               </Link>
-              .
+              . WebChat robotizado completo virá na Fase 4.
             </div>
           )}
 

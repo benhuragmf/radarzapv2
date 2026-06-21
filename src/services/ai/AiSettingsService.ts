@@ -4,6 +4,14 @@ import { AiPrompt, IAiPrompt } from '@/models/AiPrompt';
 import { Organization } from '@/models/Organization';
 import type { AiMode, AiProvider } from '@/types/ai-assistant';
 import {
+  attendanceSettingsPatchFromSelection,
+  isValidAttendanceMode,
+  resolveAttendanceMode,
+  syncAttendanceModeFromLegacy,
+  type AttendanceMode,
+  type AiCredentialSource,
+} from '@/types/attendance-mode';
+import {
   estimateTypicalTurnCostUsd,
   getModelCatalogEntry,
   listModelsForProvider,
@@ -72,6 +80,14 @@ export class AiSettingsService {
     if (!doc) doc = await AiSettings.create({ clientId: clientOid });
     if (doc.maxTokens < MIN_AI_MAX_TOKENS) {
       doc.maxTokens = DEFAULT_AI_MAX_TOKENS;
+      await doc.save();
+    }
+    const backfilled = syncAttendanceModeFromLegacy({
+      mode: doc.mode,
+      attendanceMode: doc.attendanceMode,
+    });
+    if (doc.attendanceMode !== backfilled) {
+      doc.attendanceMode = backfilled;
       await doc.save();
     }
     return doc;
@@ -157,6 +173,7 @@ export class AiSettingsService {
       settings: {
         enabled: settings.enabled,
         mode: settings.mode,
+        attendanceMode: resolveAttendanceMode(settings),
         provider: settings.provider,
         model: settings.llmModel,
         temperature: settings.temperature,
@@ -254,12 +271,28 @@ export class AiSettingsService {
       _delete?: boolean;
     }> | undefined;
 
-    if (s.mode === 'disabled') {
+    if (isValidAttendanceMode(s.attendanceMode)) {
+      const credentialSource: AiCredentialSource =
+        s.mode === 'radarzap'
+          ? 'radarzap'
+          : s.mode === 'company'
+            ? 'company'
+            : 'none';
+      const patch = attendanceSettingsPatchFromSelection({
+        attendanceMode: s.attendanceMode as AttendanceMode,
+        credentialSource,
+      });
+      settings.attendanceMode = patch.attendanceMode;
+      settings.mode = patch.mode;
+      settings.enabled = patch.enabled;
+    } else if (s.mode === 'disabled') {
       settings.mode = 'disabled';
       settings.enabled = false;
+      settings.attendanceMode = 'disabled';
     } else if (s.mode === 'radarzap' || s.mode === 'company') {
       settings.mode = s.mode as AiMode;
       settings.enabled = typeof s.enabled === 'boolean' ? s.enabled : true;
+      settings.attendanceMode = 'premium_assistant';
     } else if (typeof s.enabled === 'boolean') {
       settings.enabled = s.enabled;
     }
@@ -354,6 +387,7 @@ export class AiSettingsService {
 
   async isAiActive(clientId: string): Promise<boolean> {
     const settings = await this.getSettingsDoc(clientId);
+    if (resolveAttendanceMode(settings) !== 'premium_assistant') return false;
     return settings.enabled && settings.mode !== 'disabled';
   }
 }

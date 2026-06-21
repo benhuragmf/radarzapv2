@@ -5,15 +5,17 @@ export type {
 } from '@radarzap-types/attendance-mode';
 
 export {
-  ATTENDANCE_MODES_SESSION_ONLY,
   attendanceModeLabel,
   attendanceSelectionFromLegacySettings,
+  attendanceSelectionFromSettings,
+  attendanceSettingsPatchFromSelection,
   credentialSourceLabel,
   inferAttendanceModeFromLegacyMode,
   inferCredentialSourceFromLegacyMode,
-  isAttendanceModeSelectableInPhase1,
+  isAttendanceModeSelectable,
   isLegacyGenerativeAiActive,
   legacySettingsFromAttendanceSelection,
+  resolveAttendanceMode,
 } from '@radarzap-types/attendance-mode';
 
 import type { AttendanceMode } from '@radarzap-types/attendance-mode';

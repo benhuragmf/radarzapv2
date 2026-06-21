@@ -7,12 +7,16 @@ import {
   DEFAULT_GEMINI_MODEL,
   DEFAULT_OPENAI_MODEL,
 } from '@/types/ai-assistant';
+import type { AttendanceMode } from '@/types/attendance-mode';
+import { ATTENDANCE_MODE_VALUES } from '@/types/attendance-mode';
 import { defaultModelForProviderCatalog } from '@/constants/ai-model-catalog';
 
 export interface IAiSettings extends Document {
   clientId: mongoose.Types.ObjectId;
   enabled: boolean;
   mode: AiMode;
+  /** Modo de atendimento (produto) — Fase 3+. Runtime LLM ainda usa `mode`. */
+  attendanceMode?: AttendanceMode;
   provider: AiProvider;
   llmModel: string;
   encryptedApiKey?: string;
@@ -48,6 +52,11 @@ const AiSettingsSchema = new Schema<IAiSettings>(
     clientId: { type: Schema.Types.ObjectId, required: true, unique: true, index: true },
     enabled: { type: Boolean, default: false },
     mode: { type: String, enum: ['radarzap', 'company', 'disabled'], default: 'disabled' },
+    attendanceMode: {
+      type: String,
+      enum: [...ATTENDANCE_MODE_VALUES],
+      default: 'disabled',
+    },
     provider: { type: String, enum: ['openai', 'gemini'], default: 'openai' },
     llmModel: { type: String, default: DEFAULT_OPENAI_MODEL, maxlength: 80 },
     encryptedApiKey: { type: String, select: false },
