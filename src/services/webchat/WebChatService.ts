@@ -1410,6 +1410,31 @@ export class WebChatService {
     return { ticketRef: ref, token, rotated };
   }
 
+  /** Notificação formal ao visitante (abertura, atualização ou fechamento de chamado). */
+  async sendTicketClientNotification(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+    body: string,
+  ): Promise<void> {
+    const text = body?.trim();
+    if (!text) throw new Error('Mensagem vazia');
+
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') throw new Error('Conversa encerrada');
+
+    await this.appendMessage(conversation, {
+      direction: 'system',
+      body: text,
+      senderUserId: userId,
+      notifyVisitor: true,
+    });
+  }
+
   async getConversationForAgent(
     clientId: string,
     conversationId: string,

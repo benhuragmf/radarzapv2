@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import {
   lookupTicketByPublicAccess,
   assignInboxTicketPublicAccessToken,
+  buildTicketPublicLookupResult,
   requestTicketTokenResendOtp,
   confirmTicketTokenResendOtp,
   TICKET_TOKEN_RESEND_REQUEST_MSG,
@@ -114,6 +115,42 @@ describe('ticket-public-access.service lookup', () => {
     expect(result.ticketRef).toBe('TK-VALID1');
     expect(result.statusLabel).toBe('Em andamento');
     expect(result.recentMessages.length).toBe(1);
+  });
+
+  it('keeps token messages in webchat public lookup when chat is long', async () => {
+    const wcId = new mongoose.Types.ObjectId();
+    const filler = Array.from({ length: 25 }, (_, i) => ({
+      body: `Mensagem ${i}`,
+      createdAt: new Date(`2026-06-21T10:${String(i).padStart(2, '0')}:00Z`),
+      direction: 'inbound',
+    }));
+    const tokenMsg = {
+      body: 'Seu chamado foi registrado.\n\nToken de consulta: *ABCD-1234*',
+      createdAt: new Date('2026-06-21T09:00:00Z'),
+      direction: 'system',
+    };
+    const { WebChatMessage } = await import('@/models/WebChatMessage');
+    (WebChatMessage.find as jest.Mock).mockReturnValue({
+      sort: () => ({
+        limit: () => ({
+          lean: async () => [...filler].reverse().concat(tokenMsg),
+        }),
+      }),
+    });
+
+    const result = await buildTicketPublicLookupResult({
+      ticketRef: 'TK-WC001',
+      status: 'in_progress',
+      channel: 'webchat_site',
+      webChatConversationId: wcId,
+      clientReplies: [],
+      subject: 'Suporte',
+      createdAt: new Date('2026-06-21T09:00:00Z'),
+      updatedAt: new Date('2026-06-21T17:00:00Z'),
+    } as Parameters<typeof buildTicketPublicLookupResult>[0]);
+
+    expect(result.subject).toBe('Suporte');
+    expect(result.recentMessages.some(m => m.body.includes('Token de consulta'))).toBe(true);
   });
 });
 

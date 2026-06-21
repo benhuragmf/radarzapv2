@@ -23,6 +23,7 @@ interface DetailResponse {
     contactIdentifier: string
     ticketRef?: string
     status: string
+    channel?: 'whatsapp' | 'webchat_site'
     departmentName?: string
     assignedUserName?: string
     createdAt?: string
@@ -95,7 +96,13 @@ export default function InboxTicketDetailPage() {
     mutationFn: () => api.post(`/inbox/tickets/${encodeURIComponent(ref)}/client-update`),
     onSuccess: () => {
       invalidate()
-      notifySuccess('Atualização enviada ao cliente no WhatsApp.')
+      const isWebChat =
+        data?.conversation.channel === 'webchat_site' || data?.ticket.channel === 'webchat_site'
+      notifySuccess(
+        isWebChat
+          ? 'Atualização enviada ao visitante no chat do site.'
+          : 'Atualização enviada ao cliente no WhatsApp.',
+      )
     },
     onError: mutationError,
   })

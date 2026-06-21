@@ -60,6 +60,7 @@ export interface InboxTicketDetail {
   status: InboxTicketStatus
   displayStatus?: InboxTicketDisplayStatus
   displayStatusLabel?: string
+  channel?: 'whatsapp' | 'webchat_site'
   subject?: string
   internalNotesList: InboxTicketInternalNote[]
   departmentName?: string

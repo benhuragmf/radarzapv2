@@ -17,6 +17,7 @@ import { ticketIsOpen } from '../../lib/inboxTicket'
 interface Props {
   ticket: InboxTicketDetail
   teamMembers: InboxTicketTeamMember[]
+  clientChannel?: 'whatsapp' | 'webchat_site'
   onCloseTicket?: () => void
   closingTicket?: boolean
   onReopenTicket?: () => void
@@ -38,6 +39,7 @@ interface Props {
 export function InboxTicketActionsBar({
   ticket,
   teamMembers,
+  clientChannel = 'whatsapp',
   onCloseTicket,
   closingTicket,
   onReopenTicket,
@@ -56,6 +58,7 @@ export function InboxTicketActionsBar({
   onMentionToggle,
 }: Props) {
   const open = ticketIsOpen(ticket.status)
+  const isWebChat = clientChannel === 'webchat_site'
   const [menuOpen, setMenuOpen] = useState(false)
   const [forwardOpen, setForwardOpen] = useState(false)
   const [forwardUserId, setForwardUserId] = useState('')
@@ -86,10 +89,18 @@ export function InboxTicketActionsBar({
             variant="secondary"
             onClick={onSendClientUpdate}
             disabled={sendingClientUpdate}
-            title="Envia status do ticket + histórico de acompanhamento até agora"
+            title={
+              isWebChat
+                ? 'Envia status + acompanhamento ao visitante no chat do site e na consulta TK+token'
+                : 'Envia status do ticket + histórico de acompanhamento até agora'
+            }
           >
             <Send size={14} />
-            {sendingClientUpdate ? 'Enviando…' : 'Enviar atualização ao cliente'}
+            {sendingClientUpdate
+              ? 'Enviando…'
+              : isWebChat
+                ? 'Enviar atualização ao visitante'
+                : 'Enviar atualização ao cliente'}
           </Button>
         )}
 

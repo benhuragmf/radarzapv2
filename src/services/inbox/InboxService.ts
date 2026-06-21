@@ -2876,6 +2876,7 @@ export class InboxService {
         _id: String(ticket._id),
         ticketRef: ticket.ticketRef,
         status: ticket.status,
+        channel: ticket.channel ?? (ticket.webChatConversationId ? 'webchat_site' : 'whatsapp'),
         subject: ticket.subject,
         internalNotesList: (ticket.internalNotesList ?? []).map(n => ({
           _id: String(n._id),
@@ -3468,9 +3469,6 @@ export class InboxService {
     ticket: IInboxTicket,
     body: string,
   ): Promise<void> {
-    const conv = await InboxConversation.findById(ticket.conversationId);
-    if (!conv) throw new Error('Conversa vinculada não encontrada');
-
     this.renewTeamClientReplyWindow(ticket, 'ticket');
     ticket.lastTeamMessageAt = new Date();
     ticket.teamHasMessagedClient = true;
@@ -3480,6 +3478,25 @@ export class InboxService {
       ticket.status = 'in_progress';
       ticket.lastStatusChangeAt = new Date();
     }
+
+    const isWebChat =
+      ticket.channel === 'webchat_site' ||
+      Boolean(ticket.webChatConversationId && !ticket.conversationId);
+
+    if (isWebChat && ticket.webChatConversationId) {
+      const { WebChatService } = await import('../webchat/WebChatService');
+      await WebChatService.getInstance().sendTicketClientNotification(
+        clientId,
+        userId,
+        String(ticket.webChatConversationId),
+        body,
+      );
+      await ticket.save();
+      return;
+    }
+
+    const conv = await InboxConversation.findById(ticket.conversationId);
+    if (!conv) throw new Error('Conversa vinculada não encontrada');
 
     const result = await this.sendToContact(clientId, ticket.contactIdentifier, body);
     await ticket.save();

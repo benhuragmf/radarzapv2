@@ -156,6 +156,67 @@ export async function ensureInboxTicketPublicAccessToken(
   return { token, created: true };
 }
 
+const PUBLIC_LOOKUP_MSG_LIMIT = 20;
+const PUBLIC_LOOKUP_FETCH_LIMIT = 50;
+
+/** Mensagens que devem aparecer na consulta pública mesmo se houver muitas outras no chat. */
+function isPinnedPublicTicketMessage(body: string): boolean {
+  return /Token de consulta|Chamado aberto|🔑 Token|Atualização do ticket|Seu chamado foi registrado/i.test(
+    body,
+  );
+}
+
+function mapWebChatRowToPublicMessage(m: {
+  body?: string;
+  createdAt?: Date;
+  direction?: string;
+}): TicketPublicLookupMessage | null {
+  const body = m.body?.trim();
+  if (!body) return null;
+  return {
+    body,
+    createdAt: (m.createdAt ?? new Date()).toISOString(),
+    kind:
+      m.direction === 'inbound'
+        ? ('client' as const)
+        : m.direction === 'system'
+          ? ('system' as const)
+          : ('team' as const),
+  };
+}
+
+function mergePublicLookupMessages(
+  entries: TicketPublicLookupMessage[],
+): TicketPublicLookupMessage[] {
+  const pinned = entries.filter(m => isPinnedPublicTicketMessage(m.body));
+  const regular = entries.filter(m => !isPinnedPublicTicketMessage(m.body));
+  const recentRegular = regular.slice(-PUBLIC_LOOKUP_MSG_LIMIT);
+  const merged = [...pinned, ...recentRegular];
+  const seen = new Set<string>();
+  const deduped: TicketPublicLookupMessage[] = [];
+  for (const msg of merged) {
+    const key = `${msg.createdAt}|${msg.body}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(msg);
+  }
+  deduped.sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  const pinnedKeys = new Set(
+    deduped.filter(m => isPinnedPublicTicketMessage(m.body)).map(m => `${m.createdAt}|${m.body}`),
+  );
+  const regularSorted = deduped.filter(m => !pinnedKeys.has(`${m.createdAt}|${m.body}`));
+  const tailRegular = regularSorted.slice(-PUBLIC_LOOKUP_MSG_LIMIT);
+  const final = deduped.filter(
+    m => pinnedKeys.has(`${m.createdAt}|${m.body}`) || tailRegular.includes(m),
+  );
+  final.sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  return final;
+}
+
 async function loadRecentPublicMessages(
   ticket: IInboxTicket,
 ): Promise<TicketPublicLookupMessage[]> {
@@ -165,26 +226,27 @@ async function loadRecentPublicMessages(
       direction: { $ne: 'internal' },
     })
       .sort({ createdAt: -1 })
-      .limit(8)
+      .limit(PUBLIC_LOOKUP_FETCH_LIMIT)
       .lean();
 
-    return rows
+    const chatEntries = rows
       .reverse()
-      .map(m => ({
-        body: m.body,
-        createdAt: (m.createdAt ?? new Date()).toISOString(),
-        kind:
-          m.direction === 'inbound'
-            ? ('client' as const)
-            : m.direction === 'system'
-              ? ('system' as const)
-              : ('team' as const),
+      .map(mapWebChatRowToPublicMessage)
+      .filter((m): m is TicketPublicLookupMessage => m !== null);
+
+    const ticketReplies = (ticket.clientReplies ?? [])
+      .map(r => ({
+        body: r.body,
+        createdAt: (r.createdAt ?? new Date()).toISOString(),
+        kind: 'client' as const,
       }))
       .filter(m => m.body?.trim());
+
+    return mergePublicLookupMessages([...chatEntries, ...ticketReplies]);
   }
 
   const clientMsgs = (ticket.clientReplies ?? [])
-    .slice(-5)
+    .slice(-PUBLIC_LOOKUP_MSG_LIMIT)
     .map(r => ({
       body: r.body,
       createdAt: (r.createdAt ?? new Date()).toISOString(),

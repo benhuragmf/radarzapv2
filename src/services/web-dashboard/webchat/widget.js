@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.108';
+  var WIDGET_BUILD = '2.11.10';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -3063,6 +3063,9 @@
         '</strong></div>' +
         (r.departmentName
           ? '<div style="margin-top:4px;color:' + t.textMuted + ';">Setor: ' + escHtml(r.departmentName) + '</div>'
+          : '') +
+        (r.subject
+          ? '<div style="margin-top:4px;color:' + t.textMuted + ';">Assunto: ' + escHtml(r.subject) + '</div>'
           : '') +
         '<div style="margin-top:4px;color:' +
         t.textMuted +

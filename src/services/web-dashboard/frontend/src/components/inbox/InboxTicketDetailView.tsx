@@ -28,6 +28,7 @@ export interface TicketConversation {
   contactIdentifier: string
   ticketRef?: string
   status: string
+  channel?: 'whatsapp' | 'webchat_site'
   departmentName?: string
   assignedUserName?: string
   createdAt?: string
@@ -102,6 +103,7 @@ export function InboxTicketDetailView({
 }: Props) {
   const ticketOpen = ticketIsOpen(ticket.status)
   const ref = ticket.ticketRef ?? conv.ticketRef ?? '—'
+  const isWebChat = conv.channel === 'webchat_site' || ticket.channel === 'webchat_site'
   const [commentDraft, setCommentDraft] = useState('')
   const [noteDraft, setNoteDraft] = useState('')
   const [mentionSelection, setMentionSelection] = useState<string[]>([])
@@ -186,6 +188,7 @@ export function InboxTicketDetailView({
             <InboxTicketActionsBar
               ticket={ticket}
               teamMembers={teamMembers}
+              clientChannel={isWebChat ? 'webchat_site' : 'whatsapp'}
               onCloseTicket={onCloseTicket}
               closingTicket={closingTicket}
               onReopenTicket={onReopenTicket}
@@ -262,21 +265,34 @@ export function InboxTicketDetailView({
               <Users size={12} /> Acompanhamento do ticket
             </h3>
             <span className="text-[10px] text-[var(--rz-text-muted)]">
-              {ticket.clientCanReply
-                ? 'Cliente pode responder no WhatsApp'
-                : ticket.clientReplyPaused
-                  ? 'Cliente pausou respostas (enviou sair)'
-                  : !ticket.teamHasMessagedClient
-                    ? 'Envie a 1ª mensagem para abrir resposta do cliente'
-                    : ticket.status === 'closed' && ticket.clientReplyExpiresAt
-                      ? 'Prazo de resposta encerrado'
-                      : 'Resposta do cliente pausada'}
+              {isWebChat
+                ? 'Visitante acompanha no chat do site e em Consultar chamado'
+                : ticket.clientCanReply
+                  ? 'Cliente pode responder no WhatsApp'
+                  : ticket.clientReplyPaused
+                    ? 'Cliente pausou respostas (enviou sair)'
+                    : !ticket.teamHasMessagedClient
+                      ? 'Envie a 1ª mensagem para abrir resposta do cliente'
+                      : ticket.status === 'closed' && ticket.clientReplyExpiresAt
+                        ? 'Prazo de resposta encerrado'
+                        : 'Resposta do cliente pausada'}
             </span>
           </div>
           <p className="text-[11px] text-[var(--rz-text-muted)] mb-3">
-            Registre o acompanhamento aqui — fica só no ticket até você clicar em{' '}
-            <strong className="text-[var(--rz-text-muted)]">Enviar atualização ao cliente</strong> para mandar o
-            resumo no WhatsApp. Notas internas ficam só para a equipe.
+            {isWebChat ? (
+              <>
+                Registre o acompanhamento aqui — fica só no ticket até clicar em{' '}
+                <strong className="text-[var(--rz-text-muted)]">Enviar atualização ao visitante</strong>{' '}
+                para publicar no chat do site e na consulta TK+token. Notas internas ficam só para a
+                equipe.
+              </>
+            ) : (
+              <>
+                Registre o acompanhamento aqui — fica só no ticket até você clicar em{' '}
+                <strong className="text-[var(--rz-text-muted)]">Enviar atualização ao cliente</strong> para
+                mandar o resumo no WhatsApp. Notas internas ficam só para a equipe.
+              </>
+            )}
           </p>
 
           <div className="space-y-3 max-h-[280px] overflow-y-auto mb-3">
@@ -421,7 +437,8 @@ export function InboxTicketDetailView({
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
           <p className="text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)] px-1">
-            Histórico WhatsApp · {messages.length} mensagem(ns)
+            {isWebChat ? 'Histórico do chat do site' : 'Histórico WhatsApp'} · {messages.length}{' '}
+            mensagem(ns)
           </p>
           {messages.length === 0 ? (
             <p className="text-center text-sm text-[var(--rz-text-muted)] py-8">Nenhuma mensagem registrada.</p>
