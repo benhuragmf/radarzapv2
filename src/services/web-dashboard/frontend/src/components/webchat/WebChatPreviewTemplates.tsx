@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ChevronDown, Crown, ExternalLink, Gem, Moon, Palette, Sparkles, Sun } from 'lucide-react'
+import { Check, ChevronDown, Crown, ExternalLink, Gem, MessageSquare, Moon, Palette, Sparkles, Sun } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { cn } from '@/lib/utils'
@@ -570,56 +570,71 @@ export function WebChatPreviewTemplates({
             Modelos visuais
           </h4>
           <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-            Landings de demonstração e modelos de Chat Box para o widget. Os essenciais cobrem a
-            maioria dos casos; a coleção premium traz experiências de alto padrão.
+            Chat Box com modelos essenciais e coleção premium. Landings para testar o widget em
+            páginas completas; widgets compactos aplicam layout direto no site.
           </p>
         </div>
       )}
 
       <section className="space-y-5">
         <div className="flex items-center gap-2">
-          <h5 className="text-xs font-semibold uppercase tracking-wider text-[var(--rz-text-muted)]">
-            Modelos essenciais
+          <h5 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--rz-text-muted)]">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Chat Box
           </h5>
           <div className="h-px flex-1 bg-[var(--rz-border)]" />
         </div>
+        <p className="text-xs text-[var(--rz-text-muted)]">
+          Modelos de atendimento para o widget — landings de teste e layouts compactos.
+        </p>
 
-        <div className="space-y-3">
-          <p className="text-[11px] font-medium text-[var(--rz-text-secondary)]">
-            Páginas de demonstração
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {WEBCHAT_STANDARD_TEMPLATES.map(template => (
-              <StandardCard
-                key={template.id}
-                template={template}
-                active={selectedTemplateId === template.id}
-                previewHref={publicKey ? webChatPreviewUrl(template.path, publicKey) : undefined}
-                onSelectTemplate={onSelectTemplate}
-                onApplyAppearance={onApplyAppearance}
-              />
-            ))}
+        <div className="space-y-5 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20 p-4">
+          <div className="flex items-center gap-2">
+            <h6 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--rz-text-secondary)]">
+              Modelos essenciais
+            </h6>
+            <div className="h-px flex-1 bg-[var(--rz-border)]/80" />
           </div>
-        </div>
 
-        {!compact && onApplyChatBoxModel && (
-          <div className="space-y-3 border-t border-[var(--rz-border)]/60 pt-5">
-            <div>
-              <p className="text-[11px] font-medium text-[var(--rz-text-secondary)]">Chat Box</p>
-              <p className="mt-0.5 text-[10px] text-[var(--rz-text-muted)]">
-                Widgets compactos aplicados diretamente no site — cores, textos e layout do chat.
-              </p>
+          <div className="space-y-3">
+            <p className="text-[11px] font-medium text-[var(--rz-text-secondary)]">
+              Páginas de demonstração
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {WEBCHAT_STANDARD_TEMPLATES.map(template => (
+                <StandardCard
+                  key={template.id}
+                  template={template}
+                  active={selectedTemplateId === template.id}
+                  previewHref={publicKey ? webChatPreviewUrl(template.path, publicKey) : undefined}
+                  onSelectTemplate={onSelectTemplate}
+                  onApplyAppearance={onApplyAppearance}
+                />
+              ))}
             </div>
-            <ChatBoxModelsSection
-              embedded
-              tier="free"
-              showReservedNote={false}
-              selectedChatBoxModelId={selectedChatBoxModelId}
-              userPlan={userPlan}
-              onApplyModel={onApplyChatBoxModel}
-            />
           </div>
-        )}
+
+          {!compact && onApplyChatBoxModel && (
+            <div className="space-y-3 border-t border-[var(--rz-border)]/60 pt-5">
+              <div>
+                <p className="text-[11px] font-medium text-[var(--rz-text-secondary)]">
+                  Widgets compactos
+                </p>
+                <p className="mt-0.5 text-[10px] text-[var(--rz-text-muted)]">
+                  Layout do chat aplicado diretamente no site — cores, textos e estrutura.
+                </p>
+              </div>
+              <ChatBoxModelsSection
+                embedded
+                tier="free"
+                showReservedNote={false}
+                selectedChatBoxModelId={selectedChatBoxModelId}
+                userPlan={userPlan}
+                onApplyModel={onApplyChatBoxModel}
+              />
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="space-y-3">
@@ -682,7 +697,7 @@ export function WebChatPreviewTemplates({
               <div className="space-y-3 border-t border-amber-500/20 pt-5">
                 <div>
                   <p className="text-[11px] font-medium text-amber-800/80 dark:text-amber-300/90">
-                    Chat Box
+                    Widgets compactos
                   </p>
                   <p className="mt-0.5 text-[10px] text-[var(--rz-text-muted)]">
                     Modelos avançados com fluxos inteligentes e maior personalização no widget.

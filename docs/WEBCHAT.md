@@ -101,6 +101,7 @@ Snippet equivalente ao `widget.html`:
 - **Widget Chat Box + FAQ** (2.10.95): itens FAQ do Clean Support e quick replies abrem artigo via `faq-pick`; “Base de conhecimento”/FAQ abre catálogo; “Abrir chamado”/“Ver status” abre consulta TK.
 - **Support Lite busca KB** (2.10.96): campo de busca no widget filtra artigos; live preview usa `widget.html` para modelos Chat Box; QA em `docs/QA-WEBCHAT-CHATBOX-MODELS.md`.
 - **Chat Box nas coleções** (2.10.98): modelos free em **Modelos essenciais** e premium na **Coleção Premium** (junto com landings Luxe/Obsidian); uma página sem abas que escondem landings.
+- **Chat Box hierarquia** (2.10.99): **Modelos essenciais** aninhados dentro da seção **Chat Box** (landings + widgets compactos free).
 - **Coleta de dados visitante** (2.10.41): pré-chat em etapas (nome → WhatsApp → motivo → e-mail opcional); campos `visitorPhone`, `contactReason`, `pageTitle`; contexto na IA; painel “Informações para IA e chatbot”.
 - **Campos configuráveis por empresa** (2.10.42): editor de pré-chat com ativar/obrigatório, campos custom (pedido, NF, etc.), ordem e exemplos rápidos; `visitorIntake` + `prechatFields` no widget.
 - **Modo formulário** (2.10.43): exibir todos os campos na mesma tela (`prechatMode: form`); tipo `textarea` com `maxLength`; preset **Formulário clássico** (Nome + Telefone + Motivo 150 caracteres).

@@ -1283,7 +1283,7 @@ function WidgetEditorCard({
           <WebChatWidgetEditorSection
             id="webchat-section-modelos"
             title="Modelos visuais"
-            description="Landings de demonstração e Chat Box nas coleções essenciais e premium."
+            description="Chat Box com modelos essenciais (landings + widgets) e coleção premium."
           >
             <WebChatPreviewTemplates
               publicKey={widget.publicKey}
