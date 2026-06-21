@@ -1,6 +1,6 @@
 # RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.0` · **Atualizado:** 2026-06-19
+**Versão do produto:** `2.11.1` · **Atualizado:** 2026-06-19
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -26,7 +26,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-1.md) | Fases 0–2: UI + adapter |
 | [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md) | Fase 3: Mongo `attendanceMode` |
 | [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md) | Fase 4: WebChat robotizado |
-| *PHASE-5* | ⏳ IA Básica — criar ao implementar |
+| [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | Fase 5: IA Básica local-first |
 
 ---
 

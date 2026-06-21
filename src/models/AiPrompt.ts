@@ -25,6 +25,8 @@ export interface IAiPrompt extends Document {
   skipKnownFields: boolean;
   /** Tentar resolver com base de conhecimento + skills antes de chamar LLM. */
   autoResolveEnabled: boolean;
+  /** IA Básica: chamar LLM só quando classificador local tiver baixa confiança. */
+  basicTriageLlmFallbackEnabled: boolean;
   /** Aprendizado automático de skills (ficam pendentes até aprovação). */
   learnSkillsEnabled: boolean;
   /** Aprendizado de memória curada (MEMORY — pendente até aprovação). */
@@ -55,6 +57,7 @@ const AiPromptSchema = new Schema<IAiPrompt>(
     useSystemContext: { type: Boolean, default: true },
     skipKnownFields: { type: Boolean, default: true },
     autoResolveEnabled: { type: Boolean, default: true },
+    basicTriageLlmFallbackEnabled: { type: Boolean, default: false },
     learnSkillsEnabled: { type: Boolean, default: true },
     learnMemoryEnabled: { type: Boolean, default: true },
     collectName: { type: Boolean, default: true },

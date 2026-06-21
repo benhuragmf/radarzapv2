@@ -1,6 +1,6 @@
 # RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
 
-**Versão atual:** `2.11.0` · **Última atualização:** 2026-06-19  
+**Versão atual:** `2.11.1` · **Última atualização:** 2026-06-19  
 **Análise prévia:** [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md)
 
 Documento consolidado de **tudo que foi implementado** na evolução dos modos de atendimento. Substitui a leitura fragmentada das fases individuais para quem quer visão única.
@@ -10,7 +10,7 @@ Documento consolidado de **tudo que foi implementado** na evolução dos modos d
 | 0–2 (conceito + UI) | 2.10.106 | [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-1.md) | ✅ |
 | 3 (persistência Mongo) | 2.10.107 | [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md) | ✅ |
 | 4 (robotizado WebChat) | 2.10.108 | [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md) | ✅ |
-| 5 (IA Básica local-first) | — | — | ⏳ pendente |
+| 5 (IA Básica local-first) | 2.11.1 | [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | ✅ |
 | 6–8 (Premium naming, custos, E2E) | — | — | ⏳ pendente |
 
 ---
@@ -246,7 +246,7 @@ attendanceMode === 'robotic'
 |---------|-------------|------------------|--------|-----------|-----|
 | Desativado | — | `disabled` | `disabled` | `false` | Não |
 | Robotizado | — | `robotic` | `disabled` | `false` | Não |
-| IA Básica | — | *(bloqueado)* | — | — | — |
+| IA Básica | — | `basic_triage` | `disabled` | `false` | Só fallback opcional |
 | IA Premium | RadarZap | `premium_assistant` | `radarzap` | `true` | Sim |
 | IA Premium | Chave própria | `premium_assistant` | `company` | `true` | Sim |
 
@@ -285,7 +285,7 @@ attendanceMode === 'robotic'
 |------|-------|--------------|
 | Desativado | Sem IA | Sim |
 | Robotizado | Custo IA R$ 0 | Sim |
-| IA Básica | Baixo custo | Não (Próxima etapa) |
+| IA Básica | Baixo custo | Sim |
 | IA Premium | Assistente completo | Sim |
 
 ---
@@ -298,6 +298,7 @@ attendanceMode === 'robotic'
 |------------------|---------------|
 | `disabled` | Bot fixo (menu setores) + fila + humano — **inalterado** |
 | `robotic` | Igual `disabled` para LLM; bot fixo ativo |
+| `basic_triage` | **IA Básica** — classificador local + KB → setor; LLM opcional |
 | `premium_assistant` | IA via `AiConversationService` quando `isAiActive()` |
 
 Configuração bot: `/platform/inbox/bot`, setores `/platform/inbox/setores`.
@@ -308,6 +309,7 @@ Configuração bot: `/platform/inbox/bot`, setores `/platform/inbox/setores`.
 |------------------|---------------|
 | `disabled` | FAQ (se ativo) → auto-reply → IA se `autoReplyUseAi` |
 | `robotic` | **Menu robotizado** (`WebChatRoboticTriageService`) — sem FAQ/IA |
+| `basic_triage` | **IA Básica** (`WebChatBasicTriageService`) — local-first |
 | `premium_assistant` | FAQ → auto-reply → IA se `autoReplyUseAi` |
 
 Fluxo robotizado WebChat:

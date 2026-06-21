@@ -52,6 +52,7 @@ import {
 } from './WebChatRealtime';
 import { WebChatAiService } from './WebChatAiService';
 import { WebChatRoboticTriageService } from './webchat-robotic-triage.service';
+import { WebChatBasicTriageService } from './webchat-basic-triage.service';
 import { resolveWebChatBusinessHours } from './webchat-business-hours.util';
 import { shouldSendProactiveGreeting, getProactiveGreetingSkipReason } from './webchat-proactive.util';
 import type { WebChatMessageRow } from './webchat-ai-triage.util';
@@ -1770,11 +1771,16 @@ export class WebChatService {
       if (roboticReplies !== null) {
         replies.push(...roboticReplies);
       } else {
-        const faqReply = await this.tryFaqAutoReply(freshAfterInbound, widget, text);
-        if (faqReply) {
-          replies.push(faqReply);
+        const basicReplies = await this.tryBasicTriage(freshAfterInbound, widget, text);
+        if (basicReplies !== null) {
+          replies.push(...basicReplies);
         } else {
-          replies.push(...(await this.maybeAutoReply(conversation, widget)));
+          const faqReply = await this.tryFaqAutoReply(freshAfterInbound, widget, text);
+          if (faqReply) {
+            replies.push(faqReply);
+          } else {
+            replies.push(...(await this.maybeAutoReply(conversation, widget)));
+          }
         }
       }
     }
@@ -1845,7 +1851,12 @@ export class WebChatService {
       if (roboticReplies !== null) {
         replies.push(...roboticReplies);
       } else {
-        replies.push(...(await this.maybeAutoReply(conversation, widget)));
+        const basicReplies = await this.tryBasicTriage(freshAfterInbound ?? conversation, widget, '');
+        if (basicReplies !== null) {
+          replies.push(...basicReplies);
+        } else {
+          replies.push(...(await this.maybeAutoReply(conversation, widget)));
+        }
       }
     }
 
@@ -2088,6 +2099,51 @@ export class WebChatService {
       clientId: clientIdStr,
       conversation,
       text,
+      sendBotReply: async (body: string) => {
+        const fresh = await WebChatConversation.findById(conversation._id);
+        if (!fresh || fresh.status === 'closed') {
+          throw new Error('Conversa encerrada');
+        }
+        const msg = await this.appendMessage(fresh, {
+          direction: 'outbound',
+          body,
+          senderUserId: WEBCHAT_BOT_SENDER_ID,
+          senderName,
+        });
+        return this.toMessageDto(msg);
+      },
+      escalate: async (departmentId: string, reason: string) => {
+        await this.escalateToQueue(clientIdStr, convId, { departmentId, reason });
+      },
+    });
+
+    if (!result.handled) return null;
+    return result.replies as WebChatMessageDto[];
+  }
+
+  /**
+   * IA Básica no WebChat — classificador local + KB antes de IA Premium.
+   * Retorna `null` se o fluxo padrão deve continuar.
+   */
+  private async tryBasicTriage(
+    conversation: IWebChatConversation,
+    widget: IWebChatWidget,
+    text: string,
+  ): Promise<WebChatMessageDto[] | null> {
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    const senderName = widget.autoReplySenderName?.trim() || 'Assistente';
+    const basicSvc = WebChatBasicTriageService.getInstance();
+
+    if (!(await basicSvc.isBasicTriageMode(clientIdStr))) return null;
+
+    const messageRows = await basicSvc.loadMessageRows(conversation._id as mongoose.Types.ObjectId);
+
+    const result = await basicSvc.handleInbound({
+      clientId: clientIdStr,
+      conversation,
+      text,
+      messageRows,
       sendBotReply: async (body: string) => {
         const fresh = await WebChatConversation.findById(conversation._id);
         if (!fresh || fresh.status === 'closed') {

@@ -6,6 +6,26 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.1] — 2026-06-19
+
+### Adicionado
+
+- **IA Básica (Fase 5):** modo `basic_triage` com classificador local, auto-resolve KB/skills, encaminhamento por setor (WA + WebChat).
+- `AiBasicTriageService`, `WebChatBasicTriageService`, `basic-triage-classifier.ts`.
+- Campo `basicTriageLlmFallbackEnabled` em `AiPrompt` — LLM RadarZap opcional em ambiguidade.
+- `AiProviderService.completeForBasicTriage()` — fallback econômico.
+
+### Alterado
+
+- UI `/platform/inbox/ia`: card IA Básica habilitado; banner e toggle LLM fallback.
+
+### Documentação
+
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md)
+- Consolidado modos atualizado para `2.11.1`.
+
+---
+
 ## [2.11.0] — 2026-06-19
 
 ### Adicionado

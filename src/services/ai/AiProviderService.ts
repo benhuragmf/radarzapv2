@@ -85,17 +85,78 @@ export class AiProviderService {
 
     const apiKey = await this.resolveApiKey(clientId, settings);
     const maxTokens = Math.max(settings.maxTokens, MIN_AI_MAX_TOKENS);
+    return this.completeWithKey(
+      clientId,
+      settings,
+      messages,
+      apiKey,
+      conversationId,
+      settings.mode === 'radarzap' ? 'radarzap' : settings.provider,
+      settings.temperature,
+      maxTokens,
+    );
+  }
+
+  /**
+   * Chamada LLM para IA Básica (fallback classificação) — usa chave RadarZap e limites do plano.
+   */
+  async completeForBasicTriage(
+    clientId: string,
+    settings: IAiSettings,
+    messages: AiChatMessage[],
+    conversationId?: string,
+  ): Promise<AiCompletionResult> {
+    const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
+      clientId,
+      conversationId,
+      settings,
+    );
+    if (!usage.allowed) throw new Error(usage.reason ?? 'Limite de IA atingido');
+
+    const apiKey = await this.resolveRadarzapPlatformKey(clientId);
+    return this.completeWithKey(
+      clientId,
+      settings,
+      messages,
+      apiKey,
+      conversationId,
+      'radarzap-basic-triage',
+      0.2,
+      Math.min(Math.max(settings.maxTokens, MIN_AI_MAX_TOKENS), 256),
+    );
+  }
+
+  private async resolveRadarzapPlatformKey(clientId: string): Promise<string> {
+    const org = await Organization.findById(clientId).select('plan').lean();
+    const plan = getAiPlanLimits(org?.plan ?? 'free');
+    if (!plan.radarzapAllowed) {
+      throw new Error('IA RadarZap não disponível no plano atual');
+    }
+    const key = process.env.RADARZAP_AI_OPENAI_KEY?.trim() || process.env.OPENAI_API_KEY?.trim();
+    if (!key) throw new Error('Chave interna RadarZap não configurada no servidor');
+    return key;
+  }
+
+  private async completeWithKey(
+    clientId: string,
+    settings: IAiSettings,
+    messages: AiChatMessage[],
+    apiKey: string,
+    conversationId: string | undefined,
+    providerLabel: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<AiCompletionResult> {
     const raw = await this.callProvider(
       settings.provider,
       settings.llmModel,
       apiKey,
       messages,
-      settings.temperature,
+      temperature,
       maxTokens,
     );
 
     const structured = this.parseStructuredReply(raw.text);
-    const providerLabel = settings.mode === 'radarzap' ? 'radarzap' : settings.provider;
 
     await AiUsageMeterService.getInstance().recordUsage({
       clientId,

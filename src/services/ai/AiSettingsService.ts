@@ -191,6 +191,7 @@ export class AiSettingsService {
         useSystemContext: promptDoc.useSystemContext !== false,
         skipKnownFields: promptDoc.skipKnownFields !== false,
         autoResolveEnabled: promptDoc.autoResolveEnabled !== false,
+        basicTriageLlmFallbackEnabled: promptDoc.basicTriageLlmFallbackEnabled === true,
         learnSkillsEnabled: promptDoc.learnSkillsEnabled !== false,
         learnMemoryEnabled: promptDoc.learnMemoryEnabled !== false,
         collectName: promptDoc.collectName,
@@ -338,6 +339,9 @@ export class AiSettingsService {
             ...(typeof p.useSystemContext === 'boolean' ? { useSystemContext: p.useSystemContext } : {}),
             ...(typeof p.skipKnownFields === 'boolean' ? { skipKnownFields: p.skipKnownFields } : {}),
             ...(typeof p.autoResolveEnabled === 'boolean' ? { autoResolveEnabled: p.autoResolveEnabled } : {}),
+            ...(typeof p.basicTriageLlmFallbackEnabled === 'boolean'
+              ? { basicTriageLlmFallbackEnabled: p.basicTriageLlmFallbackEnabled }
+              : {}),
             ...(typeof p.learnSkillsEnabled === 'boolean' ? { learnSkillsEnabled: p.learnSkillsEnabled } : {}),
             ...(typeof p.learnMemoryEnabled === 'boolean' ? { learnMemoryEnabled: p.learnMemoryEnabled } : {}),
             ...(typeof p.collectName === 'boolean' ? { collectName: p.collectName } : {}),

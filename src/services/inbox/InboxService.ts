@@ -39,6 +39,7 @@ import {
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { AiConversationService } from '@/services/ai/AiConversationService';
+import { AiBasicTriageService } from '@/services/ai/AiBasicTriageService';
 import { AiConversationState } from '@/models/AiConversationState';
 import { AiConversationStatus } from '@/types/ai-assistant';
 import {
@@ -1840,6 +1841,8 @@ export class InboxService {
 
       let forceStandardMenu = false;
       const aiActive = await AiConversationService.getInstance().isEnabled(clientId);
+      const basicActive = await AiBasicTriageService.getInstance().isActive(clientId);
+
       if (aiActive) {
         const aiResult = await AiConversationService.getInstance().handleInbound(
           {
@@ -1855,6 +1858,22 @@ export class InboxService {
         );
         if (aiResult.handled) return;
         if (!aiResult.useStandardTriage) return;
+        forceStandardMenu = true;
+      } else if (basicActive) {
+        const basicResult = await AiBasicTriageService.getInstance().handleInbound(
+          {
+            clientId,
+            conversation,
+            dest,
+            text: trimmed,
+            isNew,
+            hasMedia: Boolean(media),
+            mediaType: media?.mediaType,
+          },
+          this,
+        );
+        if (basicResult.handled) return;
+        if (!basicResult.useStandardTriage) return;
         forceStandardMenu = true;
       }
 
@@ -2189,6 +2208,16 @@ export class InboxService {
       outbound.some(m => m.body?.includes(`${d.menuKey} - ${d.name}`)),
     );
     return !sentMenu;
+  }
+
+  /** Roteia conversa para setor via menuKey — usado pela IA Básica. */
+  async routeFromTriageChoice(
+    clientId: string,
+    conversation: IInboxConversation,
+    dest: IDestination,
+    menuKey: string,
+  ): Promise<void> {
+    await this.handleTriageReply(clientId, conversation, menuKey, dest);
   }
 
   private async handleTriageReply(

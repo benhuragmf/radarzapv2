@@ -69,8 +69,8 @@ describe('attendance-mode adapter', () => {
     ).toEqual({ mode: 'disabled', enabled: false });
   });
 
-  it('IA Básica não é selecionável na UI', () => {
-    expect(isAttendanceModeSelectable('basic_triage')).toBe(false);
+  it('IA Básica é selecionável na UI (Fase 5)', () => {
+    expect(isAttendanceModeSelectable('basic_triage')).toBe(true);
     expect(isAttendanceModeSelectable('robotic')).toBe(true);
     expect(isAttendanceModeSelectable('premium_assistant')).toBe(true);
   });

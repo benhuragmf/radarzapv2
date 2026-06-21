@@ -29,9 +29,9 @@ export function isValidAttendanceMode(value: unknown): value is AttendanceMode {
   return typeof value === 'string' && (ATTENDANCE_MODE_VALUES as readonly string[]).includes(value);
 }
 
-/** Modos ainda não disponíveis na UI (Fase 5). */
-export function isAttendanceModeSelectable(mode: AttendanceMode): boolean {
-  return mode !== 'basic_triage';
+/** Todos os modos selecionáveis desde a Fase 5 (IA Básica). */
+export function isAttendanceModeSelectable(_mode: AttendanceMode): boolean {
+  return true;
 }
 
 /** @deprecated use isAttendanceModeSelectable */
@@ -161,6 +161,14 @@ export function credentialSourceLabel(source: AiCredentialSource): string {
 /** IA generativa (LLM) está ativa no runtime legado. */
 export function isLegacyGenerativeAiActive(settings: { mode: AiMode; enabled?: boolean }): boolean {
   return settings.mode !== 'disabled' && settings.enabled !== false;
+}
+
+/** Modo IA Básica ativo. */
+export function isBasicTriageMode(settings: {
+  mode: AiMode;
+  attendanceMode?: AttendanceMode | null;
+}): boolean {
+  return resolveAttendanceMode(settings) === 'basic_triage';
 }
 
 /** LLM deve rodar apenas no modo Premium com credencial ativa. */

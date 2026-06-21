@@ -60,8 +60,8 @@ export const ATTENDANCE_MODE_CARDS: AttendanceModeCardDef[] = [
       'Entende a intenção do cliente e encaminha para o setor correto usando o mínimo possível de IA.',
     badge: 'Baixo custo',
     badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    note: 'Triagem econômica com classificador local — disponível na próxima etapa (Fase 5).',
-    comingSoon: true,
+    note:
+      'Classificador local + base de conhecimento; LLM opcional só em ambiguidade (configurável em Economia e regras).',
   },
   {
     id: 'premium_assistant',

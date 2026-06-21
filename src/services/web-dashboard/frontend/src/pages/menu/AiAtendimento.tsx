@@ -96,6 +96,7 @@ interface AiPayload {
     useSystemContext: boolean
     skipKnownFields: boolean
     autoResolveEnabled: boolean
+    basicTriageLlmFallbackEnabled: boolean
     learnSkillsEnabled: boolean
     learnMemoryEnabled: boolean
     collectName: boolean
@@ -515,6 +516,14 @@ export default function AiAtendimento() {
             </div>
           )}
 
+          {attendanceUi.attendanceMode === 'basic_triage' && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
+              IA Básica usa classificador local e base de conhecimento — sem assistente conversacional
+              completo. Encaminha para setores quando a intenção é clara. LLM opcional só em ambiguidade
+              (aba <strong>Economia e regras</strong>).
+            </div>
+          )}
+
           {form.blueprintInfo && (
             <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
               <div>
@@ -714,6 +723,14 @@ export default function AiAtendimento() {
                 ['useSystemContext', 'Usar dados do cadastro (nome, e-mail, tickets)'],
                 ['skipKnownFields', 'Não pedir dados que já existem no contato'],
                 ['autoResolveEnabled', 'Resolver com base de conhecimento antes da IA (sem gastar crédito)'],
+                ...(attendanceUi.attendanceMode === 'basic_triage'
+                  ? ([
+                      [
+                        'basicTriageLlmFallbackEnabled',
+                        'IA Básica: usar LLM RadarZap só quando classificador local tiver baixa confiança',
+                      ],
+                    ] as const)
+                  : []),
                 ['learnSkillsEnabled', 'Aprender skills ao escalar (dono aprova depois)'],
                 ['learnMemoryEnabled', 'Aprender memória curada ao escalar (dono aprova depois)'],
               ] as const

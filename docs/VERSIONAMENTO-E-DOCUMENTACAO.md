@@ -151,7 +151,7 @@ Documentos-chave criados/atualizados no ciclo **Modos de atendimento**:
 | 0–2 UI + adapter | 2.10.106 | ✅ | PHASE-1 |
 | 3 Mongo `attendanceMode` | 2.10.107 | ✅ | PHASE-3 |
 | 4 WebChat robotizado | 2.10.108 | ✅ | PHASE-4 |
-| 5 IA Básica local-first | — | ⏳ | *(criar PHASE-5 ao implementar)* |
+| 5 IA Básica local-first | 2.11.1 | ✅ | PHASE-5 |
 | 6–8 Premium/custos/E2E | — | ⏳ | |
 
 **Próxima entrega esperada:** Fase 5 → bump `2.11.1` ou `2.12.0` conforme escopo; criar `RADARZAP-ATTENDANCE-MODES-PHASE-5.md`; atualizar consolidado + CHANGELOG.
