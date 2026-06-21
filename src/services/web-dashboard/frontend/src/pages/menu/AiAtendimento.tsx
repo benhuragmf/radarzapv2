@@ -26,6 +26,20 @@ import {
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { AiModelPicker, type AiModelOption } from '../../components/ai/AiModelPicker'
+import {
+  AttendanceModePicker,
+  CredentialSourcePicker,
+} from '../../components/ai/AttendanceModePicker'
+import {
+  attendanceModeLabel,
+  attendanceSelectionFromLegacySettings,
+  credentialSourceLabel,
+  isLegacyGenerativeAiActive,
+  legacySettingsFromAttendanceSelection,
+  type AttendanceMode,
+  type AttendanceUiSelection,
+  type AiCredentialSource,
+} from '../../lib/attendanceMode'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
 
@@ -152,6 +166,10 @@ export default function AiAtendimento() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<TabId>('geral')
   const [form, setForm] = useState<AiPayload | null>(null)
+  const [attendanceUi, setAttendanceUi] = useState<AttendanceUiSelection>({
+    attendanceMode: 'disabled',
+    credentialSource: 'none',
+  })
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [testResult, setTestResult] = useState<string | null>(null)
 
@@ -184,6 +202,7 @@ export default function AiAtendimento() {
           learnMemoryEnabled: data.prompt?.learnMemoryEnabled ?? true,
         },
       })
+      setAttendanceUi(attendanceSelectionFromLegacySettings(data.settings))
     }
   }, [data])
 
@@ -192,8 +211,10 @@ export default function AiAtendimento() {
       api.patch<AiPayload>('/platform/ai/settings', payload),
     onSuccess: (res: AiPayload) => {
       setForm(res)
+      setAttendanceUi(attendanceSelectionFromLegacySettings(res.settings))
       qc.setQueryData(['ai-settings'], res)
       setApiKeyInput('')
+      notifySuccess('Configurações salvas')
     },
     onError: mutationError,
   })
@@ -288,10 +309,42 @@ export default function AiAtendimento() {
   const patchPrompt = (partial: Partial<AiPayload['prompt']>) =>
     setForm(f => (f ? { ...f, prompt: { ...f.prompt, ...partial } } : f))
 
+  const applyAttendanceSelection = (next: AttendanceUiSelection) => {
+    setAttendanceUi(next)
+    const legacy = legacySettingsFromAttendanceSelection(next)
+    patch(legacy)
+  }
+
+  const handleAttendanceModeSelect = (mode: AttendanceMode) => {
+    let credentialSource = attendanceUi.credentialSource
+    if (mode === 'premium_assistant') {
+      if (credentialSource === 'none') {
+        credentialSource = form?.planLimits.radarzapAllowed ? 'radarzap' : 'company'
+      }
+    } else {
+      credentialSource = 'none'
+    }
+    applyAttendanceSelection({ attendanceMode: mode, credentialSource })
+    if (mode === 'robotic') {
+      notifyInfo(
+        'Modo robotizado salvo sem IA generativa. Configure menus em Triagem e Bot. Persistência dedicada na próxima etapa.',
+      )
+    }
+  }
+
+  const handleCredentialSourceSelect = (credentialSource: AiCredentialSource) => {
+    if (credentialSource === 'none') return
+    applyAttendanceSelection({
+      attendanceMode: 'premium_assistant',
+      credentialSource,
+    })
+  }
+
   const handleSave = () => {
     if (!form) return
+    const legacy = legacySettingsFromAttendanceSelection(attendanceUi)
     const body: Record<string, unknown> = {
-      settings: { ...form.settings },
+      settings: { ...form.settings, ...legacy },
       prompt: { ...form.prompt },
       knowledgeBase: form.knowledgeBase,
       skills: form.skills,
@@ -323,16 +376,17 @@ export default function AiAtendimento() {
       <InboxStatsRow
         items={[
           {
-            label: 'Status da IA',
-            value: form.settings.mode === 'disabled' ? 'Desligada' : 'Ativa',
+            label: 'Modo de atendimento',
+            value: attendanceModeLabel(attendanceUi.attendanceMode),
             icon: Sparkles,
-            colorClass: form.settings.mode === 'disabled' ? 'text-[var(--rz-text-muted)]' : 'text-emerald-400',
-            description:
-              form.settings.mode === 'radarzap'
-                ? 'Modo RadarZap'
-                : form.settings.mode === 'company'
-                  ? 'Chave da empresa'
-                  : 'Bot fixo',
+            colorClass: isLegacyGenerativeAiActive(form.settings)
+              ? 'text-emerald-400'
+              : 'text-[var(--rz-text-muted)]',
+            description: isLegacyGenerativeAiActive(form.settings)
+              ? `IA Premium · ${credentialSourceLabel(attendanceUi.credentialSource)}`
+              : attendanceUi.attendanceMode === 'robotic'
+                ? 'Robotizado · sem LLM'
+                : 'Sem IA generativa',
           },
           {
             label: 'Uso diário',
@@ -424,10 +478,42 @@ export default function AiAtendimento() {
       </div>
 
       {tab === 'geral' && (
-        <Card className="p-6 space-y-4">
-          <h2 className="text-lg font-medium flex items-center gap-2">
-            <Settings2 className="w-5 h-5" /> Modo de operação
-          </h2>
+        <Card className="p-6 space-y-6">
+          <div>
+            <h2 className="text-lg font-medium flex items-center gap-2">
+              <Settings2 className="w-5 h-5" /> Modo de atendimento e provedor
+            </h2>
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+              Escolha <strong>como</strong> o atendimento se comporta e, no modo Premium,{' '}
+              <strong>quem fornece</strong> a IA. O backend continua usando o campo legado{' '}
+              <code className="text-[10px]">mode</code> até a próxima fase.
+            </p>
+          </div>
+
+          <AttendanceModePicker
+            selected={attendanceUi.attendanceMode}
+            onSelect={handleAttendanceModeSelect}
+          />
+
+          <CredentialSourcePicker
+            selected={attendanceUi.credentialSource}
+            onSelect={handleCredentialSourceSelect}
+            disabled={attendanceUi.attendanceMode !== 'premium_assistant'}
+            radarzapAllowed={form.planLimits.radarzapAllowed}
+          />
+
+          {attendanceUi.attendanceMode === 'robotic' && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
+              O modo robotizado não ativa IA generativa. Após salvar, a seleção pode voltar a
+              &quot;Desativado&quot; ao recarregar — persistência dedicada na Fase 3. No WhatsApp, o
+              menu de setores segue em{' '}
+              <Link to="/platform/inbox/bot" className="text-brand-400 hover:underline">
+                Triagem e Bot
+              </Link>
+              .
+            </div>
+          )}
+
           {form.blueprintInfo && (
             <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
               <div>
@@ -439,10 +525,11 @@ export default function AiAtendimento() {
                   value={form.prompt.agentName ?? ''}
                   onChange={e => patchPrompt({ agentName: e.target.value })}
                   placeholder={form.blueprintInfo.defaultAgentName || 'Assistente'}
+                  disabled={attendanceUi.attendanceMode !== 'premium_assistant'}
                 />
                 <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-                  Nome que o cliente vê nas mensagens. Vazio usa o padrão RadarZap (
-                  <em>{form.blueprintInfo.defaultAgentName}</em>). Saudações ficam na aba{' '}
+                  Usado no modo <strong>IA Premium</strong>. Vazio usa o padrão RadarZap (
+                  <em>{form.blueprintInfo.defaultAgentName}</em>). Saudações na aba{' '}
                   <button
                     type="button"
                     className="text-brand-400 hover:underline"
@@ -455,35 +542,8 @@ export default function AiAtendimento() {
               </div>
             </div>
           )}
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={form.settings.mode === 'disabled'}
-              onChange={() => patch({ mode: 'disabled', enabled: false })}
-            />
-            IA desativada — usa bot fixo, fila e humano
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={form.settings.mode === 'radarzap'}
-              onChange={() => patch({ mode: 'radarzap', enabled: true })}
-              disabled={!form.planLimits.radarzapAllowed}
-            />
-            IA RadarZap (chave interna, limites do plano)
-            {!form.planLimits.radarzapAllowed && (
-              <span className="text-amber-500 text-xs">Indisponível no plano Free</span>
-            )}
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={form.settings.mode === 'company'}
-              onChange={() => patch({ mode: 'company', enabled: true })}
-            />
-            IA própria da empresa (sua API Key)
-          </label>
-          <p className="text-xs text-[var(--rz-text-muted)]">
+
+          <p className="text-xs text-[var(--rz-text-muted)] border-t border-[var(--rz-border)] pt-4">
             Uso hoje: {form.usage.dailyUsed}/{form.usage.dailyLimit} diário ·{' '}
             {form.usage.monthlyUsed}/{form.usage.monthlyLimit} mensal
           </p>
@@ -548,7 +608,15 @@ export default function AiAtendimento() {
 
       {tab === 'provedor' && (
         <Card className="p-6 space-y-4">
-          <h2 className="text-lg font-medium">Provedor e modelo</h2>
+          <h2 className="text-lg font-medium">Modelo LLM e parâmetros</h2>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Credencial da IA (RadarZap ou chave própria) fica na aba{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('geral')}>
+              Geral
+            </button>
+            . Aqui você escolhe o <strong>motor</strong> (OpenAI ou Gemini), modelo, temperature e API Key
+            quando usar chave própria.
+          </p>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-[var(--rz-text-muted)]">Provedor</label>

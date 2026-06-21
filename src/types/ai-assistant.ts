@@ -1,4 +1,4 @@
-/** Modo de operação da IA no tenant */
+/** Modo de operação da IA no tenant — legado (credencial + on/off). Ver `attendance-mode.ts` para separação conceitual Fase 1+. */
 export type AiMode = 'radarzap' | 'company' | 'disabled';
 
 /** Provedor LLM suportado */

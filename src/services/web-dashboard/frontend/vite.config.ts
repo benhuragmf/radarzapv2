@@ -58,6 +58,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@radarzap-types': path.resolve(__dirname, '../../../types'),
     },
   },
   build: {
