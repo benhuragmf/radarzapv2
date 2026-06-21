@@ -1,6 +1,6 @@
 # RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.1` · **Atualizado:** 2026-06-19
+**Versão do produto:** `2.11.14` · **Atualizado:** 2026-06-21
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -14,6 +14,9 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`CHANGELOG.md`](./CHANGELOG.md) | Changelog append-only (entregas recentes) |
 | [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) | Registro vivo espelho do sistema (versionado no git) |
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização, lacunas |
+| [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação (origem GG) |
+| [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria estabilização Fase 1 |
+| [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (pós-estabilização) |
 
 ---
 

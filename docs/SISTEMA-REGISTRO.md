@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.9` (`package.json`) · **Última revisão doc:** 2026-06-19
+**Versão atual:** `2.11.14` (`package.json`) · **Última revisão doc:** 2026-06-21
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -94,6 +94,10 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.1** | Modos Fase 5: IA Básica (`basic_triage`) — classificador local + KB + encaminhamento WA/WebChat — `RADARZAP-ATTENDANCE-MODES-PHASE-5.md` |
 | **2.11.2** | Fase 6: WebChat alinhado ao modo global — IA Premium só com `premium_assistant` — `RADARZAP-ATTENDANCE-MODES-PHASE-6.md` |
 | **2.11.9** | WA: menu !ajuda, !abertos, !meus, !nota; !abrir TK + motivo interno — `WEBCHAT.md` |
+| **2.11.10** | Fix: atualização chamado WebChat ao visitante; consulta TK+token ampliada — `TICKET-ATENDIMENTO.md` |
+| **2.11.11** | Consulta pública: filtra intake/bridge; assunto placeholder WA rejeitado — `TICKET-ATENDIMENTO.md` |
+| **2.11.13** | Mensagens ao cliente vs `!nota` interna; sync comments/replies WebChat+bridge — `TICKET-ATENDIMENTO.md` |
+| **2.11.14** | Docs: plano GG→oficial, auditoria estabilização, visão produto — `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md` |
 | **2.11.8** | Comando WhatsApp `!abrir` — abre chamado WebChat + token ao visitante — `WEBCHAT.md` |
 | **2.11.7** | Fix: `!assumir` WebChat não abre chamado — só Abrir chamado no painel envia token — `WEBCHAT.md` |
 | **2.11.6** | (revertido) `!assumir` abria chamado automaticamente |

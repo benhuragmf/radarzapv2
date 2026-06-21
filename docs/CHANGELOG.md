@@ -6,6 +6,41 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.14] — 2026-06-21
+
+### Documentação
+
+- Consolidação rascunhos GG → `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`, `ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`, `RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`.
+- `TICKET-ATENDIMENTO.md` § mensagens visíveis vs `!nota` interna.
+- `INDICE-DOCUMENTACAO.md` atualizado.
+
+---
+
+## [2.11.13] — 2026-06-21
+
+### Adicionado
+
+- Chamado WebChat: mensagens ao cliente (`comments`) publicadas no chat e consulta TK+token; `!nota` e notas internas só equipe.
+- Bridge WA `TK-…` sincroniza `comments`; visitante sincroniza `clientReplies`.
+
+---
+
+## [2.11.11] — 2026-06-21
+
+### Corrigido
+
+- Consulta pública: oculta intake/bridge; rejeita assunto placeholder do alerta WA `!abrir`.
+
+---
+
+## [2.11.10] — 2026-06-21
+
+### Corrigido
+
+- Atualização de chamado WebChat enviada ao visitante (não WhatsApp); consulta TK+token prioriza token e ampliada.
+
+---
+
 ## [2.11.9] — 2026-06-19
 
 ### Adicionado / alterado

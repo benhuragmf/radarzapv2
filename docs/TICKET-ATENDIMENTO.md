@@ -26,6 +26,20 @@ Chamados (`TK-XXXXXX`) podem ter **token de consulta** para o visitante acompanh
 
 Helpers: `src/utils/ticket-public-access.util.ts`, `ticket-public-access.service.ts`.
 
+### Mensagens visíveis ao cliente vs notas internas (2.11.13)
+
+| Canal | Visível ao cliente | Onde grava |
+|-------|-------------------|------------|
+| Painel — **Mensagens ao cliente** (WebChat) | Sim — chat + consulta TK+token | `InboxTicket.comments[]` + `WebChatMessage` |
+| WhatsApp — `TK-XXXX texto` (bridge) | Sim | `comments[]` + chat |
+| WhatsApp — **`!nota TK-XXXX texto`** | **Não** — só equipe | `internalNotesList[]` |
+| Painel — **Notas internas** | **Não** | `internalNotesList[]` |
+| Resposta do visitante (chat aberto) | Sim | `clientReplies[]` + chat |
+
+Chamado **fechado** não aceita novas mensagens ao cliente. Consulta TK+token mostra histórico; **Continuar atendimento** só com conversa + chamado abertos.
+
+Ver também: [`WEBCHAT.md`](./WEBCHAT.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
+
 ---
 
 ## Conceito
