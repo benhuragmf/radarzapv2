@@ -1,8 +1,9 @@
 import mongoose from 'mongoose';
-import { AiSettings } from '@/models/AiSettings';
 import { InboxDepartment } from '@/models/InboxDepartment';
 import { WebChatMessage } from '@/models/WebChatMessage';
 import type { IWebChatConversation } from '@/models/WebChatConversation';
+import { AiSettingsService } from '@/services/ai/AiSettingsService';
+import { resolveAttendanceMode } from '@/types/attendance-mode';
 import {
   buildInboxTriageMenu,
   buildInvalidMenuHint,
@@ -34,10 +35,8 @@ export class WebChatRoboticTriageService {
   }
 
   async isRoboticAttendanceMode(clientId: string): Promise<boolean> {
-    const doc = await AiSettings.findOne({ clientId: new mongoose.Types.ObjectId(clientId) })
-      .select('attendanceMode')
-      .lean();
-    return doc?.attendanceMode === 'robotic';
+    const settings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
+    return resolveAttendanceMode(settings) === 'robotic';
   }
 
   /** Conversa ainda no bot sem menu de setores enviado pelo assistente robotizado. */

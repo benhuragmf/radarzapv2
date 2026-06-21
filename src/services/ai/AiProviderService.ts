@@ -82,7 +82,15 @@ export class AiProviderService {
       conversationId,
       settings,
     );
-    if (!usage.allowed) throw new Error(usage.reason ?? 'Limite de IA atingido');
+    if (!usage.allowed) {
+      void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
+        PanelCriticalAlertsService.getInstance().notifyAiQuotaExceeded(
+          clientId,
+          usage.reason ?? 'Limite de IA atingido',
+        );
+      });
+      throw new Error(usage.reason ?? 'Limite de IA atingido');
+    }
 
     const apiKey = await this.resolveApiKey(clientId, settings);
     const maxTokens = Math.max(settings.maxTokens, MIN_AI_MAX_TOKENS);
@@ -112,7 +120,15 @@ export class AiProviderService {
       conversationId,
       settings,
     );
-    if (!usage.allowed) throw new Error(usage.reason ?? 'Limite de IA atingido');
+    if (!usage.allowed) {
+      void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
+        PanelCriticalAlertsService.getInstance().notifyAiQuotaExceeded(
+          clientId,
+          usage.reason ?? 'Limite de IA atingido',
+        );
+      });
+      throw new Error(usage.reason ?? 'Limite de IA atingido');
+    }
 
     const apiKey = await this.resolveRadarzapPlatformKey(clientId);
     return this.completeWithKey(

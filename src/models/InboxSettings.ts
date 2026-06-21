@@ -10,6 +10,7 @@ import { DEFAULT_CSAT_PROMPT, DEFAULT_CSAT_THANK_YOU } from '@/services/inbox/cs
 import {
   DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS,
   DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS,
+  DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS,
   DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
 } from '@/types/inbox-settings';
 
@@ -47,6 +48,8 @@ export interface IInboxSettings extends Document {
   whatsappFallbackEnabled: boolean;
   whatsappFallbackAlertPhones: string[];
   whatsappFallbackVisitorMessage: string;
+  /** Segundos aguardando aceite no painel antes do fallback WhatsApp (30–900) */
+  whatsappFallbackAcceptTimeoutSeconds: number;
   /** Segundos sem heartbeat para considerar atendente offline (30–300) */
   agentPresenceTimeoutSeconds: number;
   /** Segundos de inatividade no painel antes de marcar ausente (60–3600) */
@@ -139,6 +142,12 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       type: String,
       default: DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
       maxlength: 800,
+    },
+    whatsappFallbackAcceptTimeoutSeconds: {
+      type: Number,
+      default: DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS,
+      min: 30,
+      max: 900,
     },
     agentPresenceTimeoutSeconds: {
       type: Number,

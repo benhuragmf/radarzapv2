@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { WebChatWidget, type IWebChatWidget } from '../../models/WebChatWidget';
 import { InboxDepartment } from '../../models/InboxDepartment';
+import { InboxSettings } from '../../models/InboxSettings';
 import { User } from '../../models/User';
 import { CompanyMember } from '../../models/CompanyMember';
 import { ContactGroup } from '../../models/ContactGroup';
@@ -68,12 +69,12 @@ import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
 import { loadInboxSettings } from '../../constants/inbox-triage';
-import { handleWebChatNoAgentOnline } from './webchat-whatsapp-fallback.service';
+import { handleWebChatNoAgentOnline, isFallbackAcceptTimeoutElapsed } from './webchat-whatsapp-fallback.service';
 import {
   deactivateWhatsappBridge,
   forwardVisitorMessageToWhatsappBridge,
 } from './webchat-whatsapp-bridge.service';
-import { getAvailableAgentIdsForQueue, isAgentAvailableForQueue } from '../inbox/inbox-agent-presence';
+import { isAgentAvailableForQueue } from '../inbox/inbox-agent-presence';
 import {
   applyWebChatAgentHumanDelay,
   assertWebChatSendAllowed,
@@ -2443,23 +2444,10 @@ export class WebChatService {
           body: `${rr.agentName} · chat do site`,
           href: `/platform/inbox?conv=${toWebChatInboxId(String(conversation._id))}`,
           conversationId: toWebChatInboxId(String(conversation._id)),
+          targetUserId: rr.userId,
           createdAt: new Date().toISOString(),
         });
-      } else if (await this.isNoAgentOnlineForEscalation(clientId, departmentOid, rr)) {
-        const { visitorMessage } = await handleWebChatNoAgentOnline(clientId, conversation, {
-          departmentName: dept?.name,
-        });
-        await this.appendMessage(conversation, {
-          direction: 'system',
-          body: visitorMessage,
-        });
       }
-    } else if (await this.isNoAgentOnlineForEscalation(clientId, undefined, null)) {
-      const { visitorMessage } = await handleWebChatNoAgentOnline(clientId, conversation);
-      await this.appendMessage(conversation, {
-        direction: 'system',
-        body: visitorMessage,
-      });
     }
 
     this.emitWebchatWebhook(String(conversation.clientId), 'webchat.conversation.escalated', {
@@ -2485,19 +2473,67 @@ export class WebChatService {
     });
   }
 
-  private async isNoAgentOnlineForEscalation(
-    clientId: string,
-    departmentOid: mongoose.Types.ObjectId | undefined,
-    rr: Awaited<ReturnType<InboxService['suggestRoundRobinAgent']>> | null,
-  ): Promise<boolean> {
-    if (rr?.kind === 'no_online') return true;
-    if (rr?.kind === 'suggested') return false;
-    if (departmentOid) {
-      const settings = await loadInboxSettings(clientId);
-      if (settings.roundRobinEnabled) return false;
+  /** Scan periódico: após timeout configurável sem aceite, dispara fallback WhatsApp. */
+  async processWebChatFallbackAcceptTimeouts(): Promise<void> {
+    const rows = await InboxSettings.find({ whatsappFallbackEnabled: true })
+      .select('clientId whatsappFallbackAcceptTimeoutSeconds')
+      .lean();
+
+    const nowMs = Date.now();
+    for (const row of rows) {
+      const clientId = String(row.clientId);
+      const timeoutSec = Math.min(
+        900,
+        Math.max(30, Number(row.whatsappFallbackAcceptTimeoutSeconds) || 60),
+      );
+      const cutoff = new Date(nowMs - timeoutSec * 1000);
+
+      const candidates = await WebChatConversation.find({
+        clientId: row.clientId,
+        status: 'open',
+        queueStatus: 'waiting_human',
+        assignedUserId: { $in: [null, undefined, ''] },
+        whatsappFallbackAlertSentAt: { $exists: false },
+        $or: [
+          { suggestedAt: { $lte: cutoff } },
+          {
+            $and: [
+              { $or: [{ suggestedAt: { $exists: false } }, { suggestedAt: null }] },
+              { queueEnteredAt: { $lte: cutoff } },
+            ],
+          },
+        ],
+      })
+        .limit(25)
+        .exec();
+
+      for (const conv of candidates) {
+        if (!isFallbackAcceptTimeoutElapsed(conv, timeoutSec, nowMs)) continue;
+
+        const fresh = await WebChatConversation.findById(conv._id);
+        if (!fresh) continue;
+        if (fresh.status === 'closed' || fresh.queueStatus !== 'waiting_human') continue;
+        if (fresh.assignedUserId?.trim()) continue;
+        if (fresh.whatsappFallbackAlertSentAt) continue;
+
+        const { visitorMessage } = await handleWebChatNoAgentOnline(clientId, fresh);
+        await this.appendMessage(fresh, { direction: 'system', body: visitorMessage });
+
+        const visitorLabel =
+          fresh.visitorName || fresh.visitorEmail || 'Visitante do site';
+        emitPanelEvent(clientId, {
+          id: crypto.randomUUID(),
+          type: 'webchat:fallback_missed',
+          title: 'Chat perdido — fallback WhatsApp',
+          body: `${visitorLabel} · tempo esgotado sem aceite`,
+          href: `/platform/inbox?conv=${toWebChatInboxId(String(fresh._id))}`,
+          conversationId: toWebChatInboxId(String(fresh._id)),
+          targetUserId: fresh.suggestedUserId?.trim() || undefined,
+          urgent: true,
+          createdAt: new Date(nowMs).toISOString(),
+        });
+      }
     }
-    const available = getAvailableAgentIdsForQueue(clientId);
-    return available.length === 0;
   }
 
   async assignConversation(

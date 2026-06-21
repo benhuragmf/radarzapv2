@@ -59,6 +59,9 @@ export class SubscriptionExpiryService {
       previousPlan,
       source,
     });
+    void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
+      PanelCriticalAlertsService.getInstance().notifyPlanExpired(String(org._id), previousPlan);
+    });
     return { expired: true, planId: previousPlan };
   }
 

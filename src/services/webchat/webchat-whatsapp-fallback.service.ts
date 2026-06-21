@@ -11,6 +11,32 @@ const logger = createServiceLogger('WebChatWhatsAppFallback');
 
 const ALERT_COOLDOWN_MS = 15 * 60 * 1000;
 
+export function getFallbackAcceptWaitStart(conversation: {
+  suggestedAt?: Date | null;
+  suggestedUserId?: string | null;
+  queueEnteredAt?: Date | null;
+}): Date | null {
+  if (conversation.suggestedUserId?.trim() && conversation.suggestedAt) {
+    return conversation.suggestedAt;
+  }
+  return conversation.queueEnteredAt ?? null;
+}
+
+export function isFallbackAcceptTimeoutElapsed(
+  conversation: {
+    suggestedAt?: Date | null;
+    suggestedUserId?: string | null;
+    queueEnteredAt?: Date | null;
+  },
+  timeoutSeconds: number,
+  nowMs: number = Date.now(),
+): boolean {
+  if (timeoutSeconds <= 0) return false;
+  const start = getFallbackAcceptWaitStart(conversation);
+  if (!start) return false;
+  return nowMs - start.getTime() >= timeoutSeconds * 1000;
+}
+
 export function normalizeWhatsAppAlertDestination(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;

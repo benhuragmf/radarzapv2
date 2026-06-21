@@ -57,6 +57,7 @@ interface InboxSettings {
   whatsappFallbackEnabled: boolean
   whatsappFallbackAlertPhones: string[]
   whatsappFallbackVisitorMessage: string
+  whatsappFallbackAcceptTimeoutSeconds: number
   agentPresenceTimeoutSeconds: number
   presenceIdleTimeoutSeconds: number
 }
@@ -486,8 +487,9 @@ export default function InboxBotSettings() {
             <MessageCircle className="w-5 h-5" /> Chat do site — fallback WhatsApp
           </h2>
           <p className="text-sm text-[var(--rz-text-muted)]">
-            Quando ninguém estiver online no painel e uma conversa do site entrar na fila, o sistema pode
-            avisar números/grupos WhatsApp autorizados e exibir uma mensagem ao visitante.
+            Quando um chat do site entrar na fila e o atendente designado não aceitar dentro do prazo
+            configurado, o sistema avisa números/grupos WhatsApp autorizados e exibe uma mensagem ao
+            visitante.
           </p>
           <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
@@ -495,8 +497,26 @@ export default function InboxBotSettings() {
               checked={form.whatsappFallbackEnabled}
               onChange={e => patch('whatsappFallbackEnabled', e.target.checked)}
             />
-            Ativar fallback WhatsApp quando não houver atendente online
+            Ativar fallback WhatsApp após tempo sem aceite no painel
           </label>
+          <div>
+            <label className="text-xs text-[var(--rz-text-muted)]">
+              Tempo para aceitar antes do fallback (segundos, 30–900)
+            </label>
+            <input
+              type="number"
+              min={30}
+              max={900}
+              className={inputCls}
+              value={form.whatsappFallbackAcceptTimeoutSeconds ?? 60}
+              onChange={e => patch('whatsappFallbackAcceptTimeoutSeconds', Number(e.target.value))}
+              disabled={!form.whatsappFallbackEnabled}
+            />
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+              Ex.: 60 = 1 minuto. Se o atendente com prioridade não assumir no painel, o chat vai para
+              o WhatsApp e ele recebe alerta vermelho no sino.
+            </p>
+          </div>
           <div>
             <label className="text-xs text-[var(--rz-text-muted)]">
               Números ou grupos para alerta (um por linha)

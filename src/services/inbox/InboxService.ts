@@ -323,6 +323,7 @@ export class InboxService {
       whatsappFallbackEnabled: boolean;
       whatsappFallbackAlertPhones: string[];
       whatsappFallbackVisitorMessage: string;
+      whatsappFallbackAcceptTimeoutSeconds: number;
       agentPresenceTimeoutSeconds: number;
       presenceIdleTimeoutSeconds: number;
     }>,
@@ -407,6 +408,12 @@ export class InboxService {
     }
     if (patch.whatsappFallbackVisitorMessage !== undefined) {
       settings.whatsappFallbackVisitorMessage = patch.whatsappFallbackVisitorMessage.trim();
+    }
+    if (patch.whatsappFallbackAcceptTimeoutSeconds !== undefined) {
+      settings.whatsappFallbackAcceptTimeoutSeconds = Math.min(
+        900,
+        Math.max(30, Number(patch.whatsappFallbackAcceptTimeoutSeconds) || 60),
+      );
     }
     if (patch.agentPresenceTimeoutSeconds !== undefined) {
       settings.agentPresenceTimeoutSeconds = Math.min(
@@ -4298,6 +4305,10 @@ export class InboxService {
         await AiConversationService.getInstance().recoverStuckPromisedHandoffs(clientId, this);
         await this.processTicketTeamSla(clientId, row.ticketTeamResponseHours, nowMs);
       }
+      const { WebChatService } = await import('../webchat/WebChatService');
+      await WebChatService.getInstance().processWebChatFallbackAcceptTimeouts();
+      const { PanelCriticalAlertsService } = await import('./panel-critical-alerts.service');
+      await PanelCriticalAlertsService.getInstance().scanAll();
     } catch (err) {
       logger.error('Falha no scan de SLA do Inbox', { err });
     }
@@ -4329,7 +4340,7 @@ export class InboxService {
       this.notifyTicketUpdated(clientId, ticket.ticketRef);
       emitPanelEvent(clientId, {
         id: crypto.randomUUID(),
-        type: 'inbox:priority',
+        type: 'inbox:ticket_sla',
         title: 'SLA ticket estourado',
         body: `${ticket.ticketRef} — cliente aguardando equipe`,
         href: `/platform/inbox/tickets/${ticket.ticketRef}`,

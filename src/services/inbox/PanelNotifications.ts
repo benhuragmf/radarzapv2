@@ -1,24 +1,11 @@
 import { Server as SocketIOServer } from 'socket.io';
+import type { PanelEventPayload, PanelEventType } from '@/types/panel-events';
+import {
+  resolvePanelEventOwnerOnly,
+  resolvePanelEventUrgency,
+} from '@/types/panel-events';
 
-export type PanelEventType =
-  | 'inbox:new_chat'
-  | 'inbox:new_message'
-  | 'inbox:priority'
-  | 'inbox:priority_expired'
-  | 'inbox:queue_sla'
-  | 'webchat:escalated'
-  | 'whatsapp:disconnected'
-  | 'whatsapp:connected';
-
-export interface PanelEventPayload {
-  id: string;
-  type: PanelEventType;
-  title: string;
-  body: string;
-  href?: string;
-  conversationId?: string;
-  createdAt: string;
-}
+export type { PanelEventPayload, PanelEventType };
 
 let io: SocketIOServer | null = null;
 
@@ -28,5 +15,10 @@ export function setPanelSocketServer(server: SocketIOServer): void {
 
 export function emitPanelEvent(clientId: string, event: PanelEventPayload): void {
   if (!io) return;
-  io.to(`inbox:${clientId}`).emit('panel:event', event);
+  const normalized: PanelEventPayload = {
+    ...event,
+    urgent: resolvePanelEventUrgency(event.type, event.urgent),
+    ownerOnly: resolvePanelEventOwnerOnly(event.type, event.ownerOnly),
+  };
+  io.to(`inbox:${clientId}`).emit('panel:event', normalized);
 }

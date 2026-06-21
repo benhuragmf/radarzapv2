@@ -201,6 +201,13 @@ export class QueueProcessorService {
 
       if (org && !org.canSendMessage()) {
         this.serviceLogger.warn('Limite diário da organização atingido', logMeta);
+        void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
+          PanelCriticalAlertsService.getInstance().notifyMessagesQuotaExceeded(
+            clientId,
+            org.usage.messagesUsed,
+            org.limits.messagesPerDay,
+          );
+        });
         await SystemLog.createLog('warn', 'QueueProcessorService', 'Message limit exceeded', {
           ...logMeta, limit: org.limits.messagesPerDay, used: org.usage.messagesUsed, tenant: 'organization',
         }, logUserId, traceId);

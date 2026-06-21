@@ -1,8 +1,12 @@
 import mongoose from 'mongoose';
 import { WebChatRoboticTriageService } from '../webchat-robotic-triage.service';
 
-jest.mock('@/models/AiSettings', () => ({
-  AiSettings: { findOne: jest.fn() },
+const getSettingsDoc = jest.fn();
+
+jest.mock('@/services/ai/AiSettingsService', () => ({
+  AiSettingsService: {
+    getInstance: () => ({ getSettingsDoc }),
+  },
 }));
 
 jest.mock('@/models/WebChatMessage', () => ({
@@ -20,7 +24,6 @@ jest.mock('@/constants/inbox-triage', () => ({
   parseInboxMenuChoice: jest.fn(),
 }));
 
-import { AiSettings } from '@/models/AiSettings';
 import { WebChatMessage } from '@/models/WebChatMessage';
 import { InboxDepartment } from '@/models/InboxDepartment';
 import {
@@ -48,15 +51,17 @@ describe('WebChatRoboticTriageService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (AiSettings.findOne as jest.Mock).mockReturnValue({
-      select: () => ({ lean: async () => ({ attendanceMode: 'robotic' }) }),
+    getSettingsDoc.mockResolvedValue({
+      mode: 'disabled',
+      attendanceMode: 'robotic',
     });
     (WebChatMessage.exists as jest.Mock).mockResolvedValue(null);
   });
 
   it('ignora quando attendanceMode não é robotic', async () => {
-    (AiSettings.findOne as jest.Mock).mockReturnValue({
-      select: () => ({ lean: async () => ({ attendanceMode: 'disabled' }) }),
+    getSettingsDoc.mockResolvedValue({
+      mode: 'disabled',
+      attendanceMode: 'disabled',
     });
     const result = await svc.handleInbound({
       clientId,

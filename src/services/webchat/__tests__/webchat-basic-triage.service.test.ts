@@ -1,8 +1,10 @@
 import { WebChatBasicTriageService } from '../webchat-basic-triage.service';
 
-jest.mock('@/models/AiSettings', () => ({
-  AiSettings: {
-    findOne: jest.fn(),
+const getSettingsDoc = jest.fn();
+
+jest.mock('@/services/ai/AiSettingsService', () => ({
+  AiSettingsService: {
+    getInstance: () => ({ getSettingsDoc }),
   },
 }));
 
@@ -15,6 +17,7 @@ jest.mock('@/models/InboxDepartment', () => ({
 jest.mock('@/models/WebChatMessage', () => ({
   WebChatMessage: {
     find: jest.fn(),
+    exists: jest.fn(),
   },
 }));
 
@@ -42,8 +45,8 @@ jest.mock('@/constants/inbox-triage', () => ({
   buildQueueConfirmation: async (_c: string, dept: string) => `Fila ${dept}`,
 }));
 
-const { AiSettings } = jest.requireMock('@/models/AiSettings');
 const { InboxDepartment } = jest.requireMock('@/models/InboxDepartment');
+const { WebChatMessage } = jest.requireMock('@/models/WebChatMessage');
 
 describe('WebChatBasicTriageService', () => {
   const svc = WebChatBasicTriageService.getInstance();
@@ -59,18 +62,18 @@ describe('WebChatBasicTriageService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    AiSettings.findOne.mockReturnValue({
-      select: () => ({
-        lean: async () => ({ attendanceMode: 'basic_triage' }),
-      }),
+    getSettingsDoc.mockResolvedValue({
+      mode: 'disabled',
+      attendanceMode: 'basic_triage',
+      transferRules: { lowConfidenceThreshold: 0.45 },
     });
+    WebChatMessage.exists.mockResolvedValue(null);
   });
 
   it('ignora quando attendanceMode não é basic_triage', async () => {
-    AiSettings.findOne.mockReturnValue({
-      select: () => ({
-        lean: async () => ({ attendanceMode: 'premium_assistant' }),
-      }),
+    getSettingsDoc.mockResolvedValue({
+      mode: 'disabled',
+      attendanceMode: 'premium_assistant',
     });
     const result = await svc.handleInbound({
       clientId,
@@ -102,7 +105,7 @@ describe('WebChatBasicTriageService', () => {
     expect(escalate).toHaveBeenCalledWith('d2', expect.stringContaining('Financeiro'));
   });
 
-  it('envia menu quando texto vazio', async () => {
+  it('envia saudação inteligente quando texto vazio (não menu robotizado)', async () => {
     const sendBotReply = jest.fn(async (body: string) => ({ body }));
     const result = await svc.handleInbound({
       clientId,
@@ -113,6 +116,7 @@ describe('WebChatBasicTriageService', () => {
       escalate: async () => {},
     });
     expect(result.handled).toBe(true);
-    expect(sendBotReply).toHaveBeenCalledWith('Menu 1-4');
+    expect(sendBotReply).toHaveBeenCalledWith(expect.stringContaining('Descreva sua dúvida'));
+    expect(sendBotReply).not.toHaveBeenCalledWith('Menu 1-4');
   });
 });

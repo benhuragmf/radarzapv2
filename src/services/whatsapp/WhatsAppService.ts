@@ -2944,6 +2944,13 @@ export class WhatsAppService {
 
       const org = await Organization.findById(clientId);
       if (org && !org.canSendMessage()) {
+        void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
+          PanelCriticalAlertsService.getInstance().notifyMessagesQuotaExceeded(
+            clientId,
+            org.usage.messagesUsed,
+            org.limits.messagesPerDay,
+          );
+        });
         throw new Error(
           `Limite diário de mensagens atingido (${org.limits.messagesPerDay}/dia no plano).`,
         );
