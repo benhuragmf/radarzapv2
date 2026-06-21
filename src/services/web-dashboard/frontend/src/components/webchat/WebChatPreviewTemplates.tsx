@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Check, ChevronDown, Crown, ExternalLink, Gem, LayoutGrid, MessageSquare, Moon, Palette, Sparkles, Sun } from 'lucide-react'
+import { useState } from 'react'
+import { Check, ChevronDown, Crown, ExternalLink, Gem, Moon, Palette, Sparkles, Sun } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { cn } from '@/lib/utils'
@@ -10,19 +10,8 @@ import {
   type WebChatAppearancePreset,
   type WebChatPreviewTemplate,
 } from '@/lib/webchatPreviewTemplates'
-import { parseChatBoxModelId, type ChatBoxModel } from '@/lib/chatBoxModels'
+import { type ChatBoxModel, CHATBOX_PREMIUM_MODELS, CHATBOX_RESERVED_MODELS } from '@/lib/chatBoxModels'
 import { ChatBoxModelsSection } from './chat-box/ChatBoxModelsSection'
-
-type ModelCollectionTab = 'chatbox' | 'landings'
-
-function resolveModelTab(
-  selectedTemplateId?: string | null,
-  selectedChatBoxModelId?: string | null,
-): ModelCollectionTab {
-  if (selectedChatBoxModelId) return 'chatbox'
-  if (selectedTemplateId && !parseChatBoxModelId(selectedTemplateId)) return 'landings'
-  return 'chatbox'
-}
 
 type Props = {
   publicKey?: string
@@ -417,7 +406,7 @@ function PremiumCard({
             )}
           >
             <Crown className="h-3.5 w-3.5" />
-            Coleção Premium (landing)
+            Coleção Premium
           </span>
           {active && <Badge variant="green" label="Aplicado" />}
         </div>
@@ -561,114 +550,33 @@ export function WebChatPreviewTemplates({
   onApplyChatBoxModel,
   compact = false,
 }: Props) {
-  const premiumActive = WEBCHAT_PREMIUM_TEMPLATES.some(t => t.id === selectedTemplateId)
-  const [premiumOpen, setPremiumOpen] = useState(false)
-  const [collectionTab, setCollectionTab] = useState<ModelCollectionTab>(() =>
-    resolveModelTab(selectedTemplateId, selectedChatBoxModelId),
+  const premiumLandingActive = WEBCHAT_PREMIUM_TEMPLATES.some(t => t.id === selectedTemplateId)
+  const premiumChatBoxActive = Boolean(
+    selectedChatBoxModelId &&
+      CHATBOX_PREMIUM_MODELS.some(m => m.id === selectedChatBoxModelId),
   )
+  const premiumActive = premiumLandingActive || premiumChatBoxActive
+  const [premiumOpen, setPremiumOpen] = useState(false)
 
-  useEffect(() => {
-    setCollectionTab(resolveModelTab(selectedTemplateId, selectedChatBoxModelId))
-  }, [selectedTemplateId, selectedChatBoxModelId])
-
-  const chatBoxActive = Boolean(selectedChatBoxModelId)
-  const landingActive = Boolean(selectedTemplateId && !parseChatBoxModelId(selectedTemplateId))
-
-  if (compact) {
-    return (
-      <div className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {WEBCHAT_STANDARD_TEMPLATES.map(template => (
-            <StandardCard
-              key={template.id}
-              template={template}
-              active={selectedTemplateId === template.id}
-              previewHref={publicKey ? webChatPreviewUrl(template.path, publicKey) : undefined}
-              onSelectTemplate={onSelectTemplate}
-              onApplyAppearance={onApplyAppearance}
-            />
-          ))}
-        </div>
-      </div>
-    )
-  }
+  const premiumCount =
+    WEBCHAT_PREMIUM_TEMPLATES.length + (onApplyChatBoxModel ? CHATBOX_PREMIUM_MODELS.length : 0)
 
   return (
-    <div className="space-y-5">
-      <div
-        className="flex flex-wrap gap-2 border-b border-[var(--rz-border)] pb-3"
-        role="tablist"
-        aria-label="Tipo de modelo visual"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={collectionTab === 'chatbox'}
-          className={cn(
-            'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
-            collectionTab === 'chatbox'
-              ? 'bg-brand-500/15 text-brand-300 ring-1 ring-brand-500/35'
-              : 'text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)] hover:text-[var(--rz-text-secondary)]',
-          )}
-          onClick={() => setCollectionTab('chatbox')}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          Chat Box
-          {chatBoxActive && (
-            <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
-              Ativo
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={collectionTab === 'landings'}
-          className={cn(
-            'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
-            collectionTab === 'landings'
-              ? 'bg-brand-500/15 text-brand-300 ring-1 ring-brand-500/35'
-              : 'text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)] hover:text-[var(--rz-text-secondary)]',
-          )}
-          onClick={() => setCollectionTab('landings')}
-        >
-          <LayoutGrid className="h-3.5 w-3.5" />
-          Landings de teste
-          {landingActive && (
-            <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
-              Ativo
-            </span>
-          )}
-        </button>
-      </div>
-
-      {collectionTab === 'chatbox' && onApplyChatBoxModel ? (
-        <div role="tabpanel" aria-label="Modelos de Chat Box">
-          <p className="mb-4 text-xs text-[var(--rz-text-muted)]">
-            Modelos compactos aplicados diretamente no widget do site — cores, textos e layout do chat.
+    <div className={cn('space-y-6', compact && 'space-y-5')}>
+      {!compact && (
+        <div>
+          <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--rz-text)]">
+            <Sparkles className="h-4 w-4 text-brand-400" />
+            Modelos visuais
+          </h4>
+          <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+            Landings de demonstração e modelos de Chat Box para o widget. Os essenciais cobrem a
+            maioria dos casos; a coleção premium traz experiências de alto padrão.
           </p>
-          <ChatBoxModelsSection
-            embedded
-            selectedChatBoxModelId={selectedChatBoxModelId}
-            userPlan={userPlan}
-            onApplyModel={onApplyChatBoxModel}
-          />
         </div>
-      ) : null}
+      )}
 
-      {collectionTab === 'landings' ? (
-        <div role="tabpanel" aria-label="Landings de teste" className="space-y-6">
-          <div>
-            <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--rz-text)]">
-              <Sparkles className="h-4 w-4 text-brand-400" />
-              Páginas de demonstração
-            </h4>
-            <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-              Simule sites reais com o widget embedado. Use para testar aparência em landings completas.
-            </p>
-          </div>
-
-      <section className="space-y-3">
+      <section className="space-y-5">
         <div className="flex items-center gap-2">
           <h5 className="text-xs font-semibold uppercase tracking-wider text-[var(--rz-text-muted)]">
             Modelos essenciais
@@ -676,18 +584,42 @@ export function WebChatPreviewTemplates({
           <div className="h-px flex-1 bg-[var(--rz-border)]" />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {WEBCHAT_STANDARD_TEMPLATES.map(template => (
-            <StandardCard
-              key={template.id}
-              template={template}
-              active={selectedTemplateId === template.id}
-              previewHref={publicKey ? webChatPreviewUrl(template.path, publicKey) : undefined}
-              onSelectTemplate={onSelectTemplate}
-              onApplyAppearance={onApplyAppearance}
-            />
-          ))}
+        <div className="space-y-3">
+          <p className="text-[11px] font-medium text-[var(--rz-text-secondary)]">
+            Páginas de demonstração
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {WEBCHAT_STANDARD_TEMPLATES.map(template => (
+              <StandardCard
+                key={template.id}
+                template={template}
+                active={selectedTemplateId === template.id}
+                previewHref={publicKey ? webChatPreviewUrl(template.path, publicKey) : undefined}
+                onSelectTemplate={onSelectTemplate}
+                onApplyAppearance={onApplyAppearance}
+              />
+            ))}
+          </div>
         </div>
+
+        {!compact && onApplyChatBoxModel && (
+          <div className="space-y-3 border-t border-[var(--rz-border)]/60 pt-5">
+            <div>
+              <p className="text-[11px] font-medium text-[var(--rz-text-secondary)]">Chat Box</p>
+              <p className="mt-0.5 text-[10px] text-[var(--rz-text-muted)]">
+                Widgets compactos aplicados diretamente no site — cores, textos e layout do chat.
+              </p>
+            </div>
+            <ChatBoxModelsSection
+              embedded
+              tier="free"
+              showReservedNote={false}
+              selectedChatBoxModelId={selectedChatBoxModelId}
+              userPlan={userPlan}
+              onApplyModel={onApplyChatBoxModel}
+            />
+          </div>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -704,10 +636,10 @@ export function WebChatPreviewTemplates({
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-amber-500/30">
               <Crown className="h-4 w-4" />
-              Landings premium
+              Coleção Premium
             </span>
             <p className="text-xs text-[var(--rz-text-muted)]">
-              {WEBCHAT_PREMIUM_TEMPLATES.length} landings completas · Luxe e Obsidian
+              {premiumCount} modelos · landings Luxe e Obsidian · Chat Box premium
             </p>
             {premiumActive && !premiumOpen && (
               <Badge variant="green" label="Premium em uso" />
@@ -724,22 +656,48 @@ export function WebChatPreviewTemplates({
         {premiumOpen && (
           <div
             className={cn(
-              'rounded-xl border p-4',
+              'space-y-6 rounded-xl border p-4',
               'border-amber-500/25 bg-gradient-to-br from-amber-500/[0.06] via-transparent to-amber-600/[0.03]',
             )}
           >
-            <div className="grid gap-4">
-              {WEBCHAT_PREMIUM_TEMPLATES.map(template => (
-                <PremiumCard
-                  key={template.id}
-                  template={template}
-                  active={selectedTemplateId === template.id}
-                  previewHref={publicKey ? webChatPreviewUrl(template.path, publicKey) : undefined}
-                  onSelectTemplate={onSelectTemplate}
-                  onApplyAppearance={onApplyAppearance}
-                />
-              ))}
+            <div className="space-y-3">
+              <p className="text-[11px] font-medium text-amber-800/80 dark:text-amber-300/90">
+                Páginas de demonstração
+              </p>
+              <div className="grid gap-4">
+                {WEBCHAT_PREMIUM_TEMPLATES.map(template => (
+                  <PremiumCard
+                    key={template.id}
+                    template={template}
+                    active={selectedTemplateId === template.id}
+                    previewHref={publicKey ? webChatPreviewUrl(template.path, publicKey) : undefined}
+                    onSelectTemplate={onSelectTemplate}
+                    onApplyAppearance={onApplyAppearance}
+                  />
+                ))}
+              </div>
             </div>
+
+            {!compact && onApplyChatBoxModel && (
+              <div className="space-y-3 border-t border-amber-500/20 pt-5">
+                <div>
+                  <p className="text-[11px] font-medium text-amber-800/80 dark:text-amber-300/90">
+                    Chat Box
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-[var(--rz-text-muted)]">
+                    Modelos avançados com fluxos inteligentes e maior personalização no widget.
+                  </p>
+                </div>
+                <ChatBoxModelsSection
+                  embedded
+                  tier="premium"
+                  showReservedNote={false}
+                  selectedChatBoxModelId={selectedChatBoxModelId}
+                  userPlan={userPlan}
+                  onApplyModel={onApplyChatBoxModel}
+                />
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -750,8 +708,12 @@ export function WebChatPreviewTemplates({
           para abrir os previews com sua chave automaticamente.
         </p>
       )}
-        </div>
-      ) : null}
+
+      {!compact && onApplyChatBoxModel && (
+        <p className="text-[10px] text-[var(--rz-text-muted)]">
+          Próximos Chat Box reservados: {CHATBOX_RESERVED_MODELS.map(m => m.name).join(', ')}.
+        </p>
+      )}
     </div>
   )
 }
