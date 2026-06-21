@@ -107,6 +107,8 @@ import {
   markOutboundReadThrough,
 } from './webchat-message-receipt.service';
 import { AiKnowledgeBaseService } from '../ai/AiKnowledgeBaseService';
+import { AiSettingsService } from '../ai/AiSettingsService';
+import { effectiveWebChatPremiumAi } from '../../types/attendance-mode';
 import { AI_AUTO_RESOLVE_MIN_SCORE } from '../../utils/ai-text-match';
 import {
   buildWebChatFaqReplyBody,
@@ -2187,11 +2189,15 @@ export class WebChatService {
     const fresh = await WebChatConversation.findById(conversation._id);
     if (!fresh || fresh.status === 'closed') return replies;
 
+    const clientIdStr = String(conversation.clientId);
+    const aiSettings = await AiSettingsService.getInstance().getSettingsDoc(clientIdStr);
+    const usePremiumAi = effectiveWebChatPremiumAi(Boolean(widget.autoReplyUseAi), aiSettings);
+
     if (
       !shouldSendWebChatAutoReply({
         autoReplyEnabled: Boolean(widget.autoReplyEnabled),
         autoReplyMessage: widget.autoReplyMessage,
-        autoReplyUseAi: Boolean(widget.autoReplyUseAi),
+        autoReplyUseAi: usePremiumAi,
         queueStatus: fresh.queueStatus,
         assignedUserId: fresh.assignedUserId,
         hasHumanOutbound: Boolean(hasHumanOutbound),
@@ -2205,9 +2211,8 @@ export class WebChatService {
     let senderName = widget.autoReplySenderName?.trim() || 'Assistente virtual';
     let shouldEscalate = false;
 
-    if (widget.autoReplyUseAi) {
+    if (usePremiumAi) {
       const aiCtx = await this.aiContextFromConversation(fresh, widget);
-      const clientIdStr = String(conversation.clientId);
       const convId = String(conversation._id);
       this.emitTypingIndicator({
         clientId: clientIdStr,

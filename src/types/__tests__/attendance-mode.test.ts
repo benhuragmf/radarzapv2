@@ -8,6 +8,8 @@ import {
   legacySettingsFromAttendanceSelection,
   resolveAttendanceMode,
   shouldRunGenerativeAi,
+  effectiveWebChatPremiumAi,
+  webChatPremiumAiAllowed,
 } from '@/types/attendance-mode';
 
 describe('attendance-mode adapter', () => {
@@ -99,5 +101,16 @@ describe('attendance-mode adapter', () => {
   it('isValidAttendanceMode valida enum', () => {
     expect(isValidAttendanceMode('robotic')).toBe(true);
     expect(isValidAttendanceMode('invalid')).toBe(false);
+  });
+
+  it('effectiveWebChatPremiumAi exige modo Premium + toggle widget', () => {
+    const premium = { mode: 'radarzap' as const, enabled: true, attendanceMode: 'premium_assistant' as const };
+    expect(effectiveWebChatPremiumAi(true, premium)).toBe(true);
+    expect(effectiveWebChatPremiumAi(false, premium)).toBe(false);
+    expect(
+      effectiveWebChatPremiumAi(true, { mode: 'disabled', enabled: false, attendanceMode: 'basic_triage' }),
+    ).toBe(false);
+    expect(webChatPremiumAiAllowed(premium)).toBe(true);
+    expect(webChatPremiumAiAllowed({ mode: 'disabled', attendanceMode: 'robotic' })).toBe(false);
   });
 });

@@ -181,3 +181,40 @@ export function shouldRunGenerativeAi(settings: {
   if (mode !== 'premium_assistant') return false;
   return isLegacyGenerativeAiActive(settings);
 }
+
+/** IA Premium conversacional permitida no WebChat (modo global). */
+export function webChatPremiumAiAllowed(settings: {
+  mode: AiMode;
+  enabled?: boolean;
+  attendanceMode?: AttendanceMode | null;
+}): boolean {
+  return shouldRunGenerativeAi(settings);
+}
+
+/** Combina toggle do widget com modo global — evita LLM fora de Premium. */
+export function effectiveWebChatPremiumAi(
+  widgetAutoReplyUseAi: boolean,
+  settings: {
+    mode: AiMode;
+    enabled?: boolean;
+    attendanceMode?: AttendanceMode | null;
+  },
+): boolean {
+  return widgetAutoReplyUseAi && webChatPremiumAiAllowed(settings);
+}
+
+/** Texto curto para UI do WebChat conforme modo global. */
+export function webChatGlobalModeHint(mode: AttendanceMode): string {
+  switch (mode) {
+    case 'disabled':
+      return 'Modo global Desativado — o chat usa resposta fixa ou FAQ, sem IA Premium.';
+    case 'robotic':
+      return 'Modo global Robotizado — menu de setores no chat (configurado em IA Atendimento).';
+    case 'basic_triage':
+      return 'Modo global IA Básica — triagem inteligente local no chat (IA Atendimento).';
+    case 'premium_assistant':
+      return 'Modo global IA Premium — ative abaixo para o assistente conversacional no widget.';
+    default:
+      return '';
+  }
+}

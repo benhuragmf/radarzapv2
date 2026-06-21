@@ -1,6 +1,6 @@
 # RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
 
-**Versão atual:** `2.11.1` · **Última atualização:** 2026-06-19  
+**Versão atual:** `2.11.2` · **Última atualização:** 2026-06-19  
 **Análise prévia:** [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md)
 
 Documento consolidado de **tudo que foi implementado** na evolução dos modos de atendimento. Substitui a leitura fragmentada das fases individuais para quem quer visão única.
@@ -11,7 +11,8 @@ Documento consolidado de **tudo que foi implementado** na evolução dos modos d
 | 3 (persistência Mongo) | 2.10.107 | [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md) | ✅ |
 | 4 (robotizado WebChat) | 2.10.108 | [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md) | ✅ |
 | 5 (IA Básica local-first) | 2.11.1 | [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | ✅ |
-| 6–8 (Premium naming, custos, E2E) | — | — | ⏳ pendente |
+| 6 (WebChat × modo global) | 2.11.2 | [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-6.md) | ✅ |
+| 7–8 (custos, E2E) | — | — | ⏳ pendente |
 
 ---
 

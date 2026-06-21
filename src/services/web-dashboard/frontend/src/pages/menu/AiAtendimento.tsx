@@ -524,6 +524,16 @@ export default function AiAtendimento() {
             </div>
           )}
 
+          {attendanceUi.attendanceMode === 'premium_assistant' && (
+            <div className="rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
+              No WebChat, marque <strong>Usar IA Premium no widget</strong> em{' '}
+              <Link to="/platform/webchat" className="text-brand-400 hover:underline">
+                WebChat
+              </Link>{' '}
+              (resposta automática). KB, skills e memória abaixo alimentam o assistente Premium.
+            </div>
+          )}
+
           {form.blueprintInfo && (
             <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
               <div>

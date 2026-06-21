@@ -6,6 +6,20 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.2] — 2026-06-19
+
+### Alterado
+
+- **Fase 6:** WebChat alinhado ao modo global — IA Premium conversacional só com `premium_assistant` + toggle do widget.
+- `GET /webchat/ai-status` retorna `attendanceMode`, `premiumAiAllowed`, `globalModeHint`.
+- UI WebChat: checkbox renomeado; desabilitado fora de Premium.
+
+### Documentação
+
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-6.md)
+
+---
+
 ## [2.11.1] — 2026-06-19
 
 ### Adicionado

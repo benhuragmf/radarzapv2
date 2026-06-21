@@ -20,6 +20,23 @@ import {
   type WebChatMessageRow,
 } from './webchat-ai-triage.util';
 import { normalizeEscalationPolicy } from './webchat-ai-escalation-policy.util';
+import {
+  attendanceModeLabel,
+  effectiveWebChatPremiumAi,
+  resolveAttendanceMode,
+  webChatGlobalModeHint,
+  webChatPremiumAiAllowed,
+  type AttendanceMode,
+} from '@/types/attendance-mode';
+
+export interface WebChatAiAvailability {
+  available: boolean;
+  reason?: string;
+  attendanceMode: AttendanceMode;
+  attendanceModeLabel: string;
+  premiumAiAllowed: boolean;
+  globalModeHint: string;
+}
 
 export class WebChatAiService {
   private static instance: WebChatAiService;
@@ -32,16 +49,32 @@ export class WebChatAiService {
     return WebChatAiService.instance;
   }
 
-  async getAvailability(clientId: string): Promise<{ available: boolean; reason?: string }> {
+  async getAvailability(clientId: string): Promise<WebChatAiAvailability> {
     const settings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
-    if (settings.mode === 'disabled' || !settings.enabled) {
-      return { available: false, reason: 'IA desativada — configure em Inbox → IA Atendimento' };
+    const attendanceMode = resolveAttendanceMode(settings);
+    const base = {
+      attendanceMode,
+      attendanceModeLabel: attendanceModeLabel(attendanceMode),
+      premiumAiAllowed: webChatPremiumAiAllowed(settings),
+      globalModeHint: webChatGlobalModeHint(attendanceMode),
+    };
+
+    if (!webChatPremiumAiAllowed(settings)) {
+      return {
+        ...base,
+        available: false,
+        reason:
+          attendanceMode === 'premium_assistant'
+            ? 'IA Premium inativa — configure credencial em Inbox → IA Atendimento'
+            : `Modo global: ${attendanceModeLabel(attendanceMode)}. IA Premium conversacional só no modo IA Premium.`,
+      };
     }
+
     try {
       await AiProviderService.getInstance().resolveApiKey(clientId, settings);
-      return { available: true };
+      return { ...base, available: true };
     } catch (e) {
-      return { available: false, reason: (e as Error).message };
+      return { ...base, available: false, reason: (e as Error).message };
     }
   }
 
