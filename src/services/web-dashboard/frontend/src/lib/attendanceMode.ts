@@ -51,7 +51,7 @@ export const ATTENDANCE_MODE_CARDS: AttendanceModeCardDef[] = [
     badgeClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
     example: '1 — Comercial\n2 — Suporte\n3 — Financeiro\n4 — Falar com atendente',
     note:
-      'No WhatsApp, reaproveita a triagem e bot já existentes. WebChat robotizado completo ficará para etapa futura.',
+      'No WhatsApp e no chat do site (modo Robotizado em IA Atendimento), usa a triagem e os setores já configurados.',
   },
   {
     id: 'basic_triage',

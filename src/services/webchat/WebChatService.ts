@@ -51,6 +51,7 @@ import {
   emitWebChatTypingToVisitor,
 } from './WebChatRealtime';
 import { WebChatAiService } from './WebChatAiService';
+import { WebChatRoboticTriageService } from './webchat-robotic-triage.service';
 import { resolveWebChatBusinessHours } from './webchat-business-hours.util';
 import { shouldSendProactiveGreeting, getProactiveGreetingSkipReason } from './webchat-proactive.util';
 import type { WebChatMessageRow } from './webchat-ai-triage.util';
@@ -307,6 +308,7 @@ export class WebChatService {
       faqQuickReplies,
       faqCatalogAvailable,
       chatLayout: a.chatLayout === 'copilot' ? 'copilot' : 'classic',
+      previewTemplateId: a.previewTemplateId,
     };
   }
 
@@ -1757,17 +1759,24 @@ export class WebChatService {
     }
 
     const hours = await resolveWebChatBusinessHours(String(widget.clientId), widget);
-    const faqReply = await this.tryFaqAutoReply(freshAfterInbound, widget, text);
-    if (faqReply) {
-      replies.push(faqReply);
-    } else if (!hours.isOnline && hours.businessHoursEnabled) {
+    if (!hours.isOnline && hours.businessHoursEnabled) {
       const systemMsg = await this.appendMessage(conversation, {
         direction: 'system',
         body: hours.outsideHoursMessage,
       });
       replies.push(this.toMessageDto(systemMsg));
     } else {
-      replies.push(...(await this.maybeAutoReply(conversation, widget)));
+      const roboticReplies = await this.tryRoboticTriage(freshAfterInbound, widget, text);
+      if (roboticReplies !== null) {
+        replies.push(...roboticReplies);
+      } else {
+        const faqReply = await this.tryFaqAutoReply(freshAfterInbound, widget, text);
+        if (faqReply) {
+          replies.push(faqReply);
+        } else {
+          replies.push(...(await this.maybeAutoReply(conversation, widget)));
+        }
+      }
     }
 
     this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
@@ -1832,7 +1841,12 @@ export class WebChatService {
       });
       replies.push(this.toMessageDto(systemMsg));
     } else {
-      replies.push(...(await this.maybeAutoReply(conversation, widget)));
+      const roboticReplies = await this.tryRoboticTriage(freshAfterInbound ?? conversation, widget, '');
+      if (roboticReplies !== null) {
+        replies.push(...roboticReplies);
+      } else {
+        replies.push(...(await this.maybeAutoReply(conversation, widget)));
+      }
     }
 
     this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
@@ -2055,6 +2069,45 @@ export class WebChatService {
       kbSuggestions: suggestions,
     });
     return this.toMessageDto(botMsg);
+  }
+
+  /**
+   * Menu robotizado WebChat — só quando `AiSettings.attendanceMode === robotic`.
+   * Retorna `null` se o fluxo padrão (FAQ / auto-reply / IA) deve continuar.
+   */
+  private async tryRoboticTriage(
+    conversation: IWebChatConversation,
+    widget: IWebChatWidget,
+    text: string,
+  ): Promise<WebChatMessageDto[] | null> {
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    const senderName = widget.autoReplySenderName?.trim() || 'Assistente';
+
+    const result = await WebChatRoboticTriageService.getInstance().handleInbound({
+      clientId: clientIdStr,
+      conversation,
+      text,
+      sendBotReply: async (body: string) => {
+        const fresh = await WebChatConversation.findById(conversation._id);
+        if (!fresh || fresh.status === 'closed') {
+          throw new Error('Conversa encerrada');
+        }
+        const msg = await this.appendMessage(fresh, {
+          direction: 'outbound',
+          body,
+          senderUserId: WEBCHAT_BOT_SENDER_ID,
+          senderName,
+        });
+        return this.toMessageDto(msg);
+      },
+      escalate: async (departmentId: string, reason: string) => {
+        await this.escalateToQueue(clientIdStr, convId, { departmentId, reason });
+      },
+    });
+
+    if (!result.handled) return null;
+    return result.replies as WebChatMessageDto[];
   }
 
   private async maybeAutoReply(

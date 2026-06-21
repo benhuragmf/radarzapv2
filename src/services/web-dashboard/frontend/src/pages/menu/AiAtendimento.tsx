@@ -506,11 +506,12 @@ export default function AiAtendimento() {
 
           {attendanceUi.attendanceMode === 'robotic' && (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
-              O modo robotizado não ativa IA generativa. No WhatsApp, configure o menu de setores em{' '}
+              O modo robotizado não ativa IA generativa. Menu de setores no WhatsApp e no chat do site.
+              Configure textos e setores em{' '}
               <Link to="/platform/inbox/bot" className="text-brand-400 hover:underline">
                 Triagem e Bot
               </Link>
-              . WebChat robotizado completo virá na Fase 4.
+              .
             </div>
           )}
 
