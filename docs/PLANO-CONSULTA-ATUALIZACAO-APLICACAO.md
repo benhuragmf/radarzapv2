@@ -63,7 +63,7 @@ Regras do `gg.md` adaptadas:
 |--------------|--------------|--------------|-----------------|
 | WA Inbox × Ticket × CSAT × IA | QA manual | `QA-FASE1-CHECKLIST.md`, `QA-FASE1-ROTEIRO.md` | 🔴 QA manual incompleto |
 | Ordem inbound | Testes | `inbound-routing.test.ts`, `csat.util.test.ts` | 🟡 unitários OK; integração falta |
-| Gate automático atendimento | `package.json` scripts | Propor `qa:atendimento:gate` | ⏳ não criado |
+| Gate automático atendimento | `package.json` scripts | `npm run qa:atendimento:gate` | ✅ 2.11.16 |
 | WebChat bridge + comandos WA | Código + QA | `webchat-whatsapp-bridge.service.ts`, `whatsapp-agent-command.service.ts` | 🟡 2.11.8–2.11.13; validar QA |
 | Celular próprio / loop alerta | Análise | §7 em `ANALISE-CRITICA-…` | 🟡 parcial — ver análise |
 | Rate limit 2/min marketing, 10/min conversa | WhatsApp send layer | Documentar + implementar fase B | ⏳ planejado |
@@ -95,7 +95,7 @@ Regras do `gg.md` adaptadas:
 
 1. Rodar [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A + § C WebChat
 2. Rodar [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) com ticket novo
-3. Criar `npm run qa:atendimento:gate` (agrupa `qa:gate` + `qa:webchat-wa`)
+3. Criar `npm run qa:atendimento:gate` (agrupa jest atendimento + `qa:webchat-wa`) — ✅ 2.11.16
 4. Corrigir regressões encontradas (patch 2.11.x)
 5. Atualizar gate em `ROADMAP-COMPLETUDE.md`
 

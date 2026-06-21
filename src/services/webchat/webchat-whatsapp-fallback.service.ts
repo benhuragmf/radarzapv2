@@ -20,6 +20,35 @@ export function normalizeWhatsAppAlertDestination(raw: string): string | null {
   return null;
 }
 
+/**
+ * Remove destinos que coincidem com o número da sessão Baileys conectada (evita loop de alerta).
+ */
+export function filterFallbackAlertPhones(
+  phones: string[],
+  sessionPhoneDigits: string | null,
+): string[] {
+  if (!sessionPhoneDigits?.trim()) return phones;
+  const sessionNorm = sessionPhoneDigits.replace(/\D/g, '');
+  if (sessionNorm.length < 10) return phones;
+
+  return phones.filter(dest => {
+    if (dest.includes('@g.us')) return true;
+    const destDigits = (dest.includes('@') ? dest.split('@')[0] : dest).replace(/\D/g, '');
+    if (destDigits.length < 10) return true;
+    const match =
+      destDigits === sessionNorm ||
+      destDigits.endsWith(sessionNorm.slice(-11)) ||
+      sessionNorm.endsWith(destDigits.slice(-11));
+    if (match) {
+      logger.info('bridge:alert_skipped_same_session', {
+        destination: dest.slice(0, 6) + '…',
+      });
+      return false;
+    }
+    return true;
+  });
+}
+
 export function buildWhatsAppFallbackAlertBody(input: {
   ticketRef: string;
   visitorName: string;
@@ -123,7 +152,14 @@ export async function handleWebChatNoAgentOnline(
   let alertSent = false;
   if (phones.length > 0) {
     const wa = WhatsAppService.getInstance();
-    for (const dest of phones) {
+    const sessionDigits = wa.getConnectedSessionPhoneDigits(clientId);
+    const destinations = filterFallbackAlertPhones(phones, sessionDigits);
+    if (destinations.length === 0) {
+      logger.info('WhatsApp fallback: alert phones match session — skipped to avoid loop', {
+        clientId,
+      });
+    }
+    for (const dest of destinations) {
       try {
         const result = await wa.sendInternalAlert(clientId, dest, alertBody);
         if (result.success) alertSent = true;

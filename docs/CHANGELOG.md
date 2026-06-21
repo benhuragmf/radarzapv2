@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.16] — 2026-06-21
+
+### Adicionado / corrigido
+
+- Auditoria completa reescrita: [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) (revisão 2, evidências no código).
+- Script `npm run qa:atendimento:gate` — jest atendimento crítico + `qa:webchat-wa`.
+- Anti-loop alerta fallback WebChat: ignora telefones que coincidem com sessão Baileys (`filterFallbackAlertPhones`).
+
+---
+
 ## [2.11.15] — 2026-06-21
 
 ### Documentação

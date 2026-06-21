@@ -1372,6 +1372,19 @@ export class WhatsAppService {
     return { success: true, messageId: result?.key?.id ?? undefined };
   }
 
+  /** Dígitos da sessão Baileys conectada — usado para evitar loop em alertas fallback WebChat. */
+  getConnectedSessionPhoneDigits(clientId: string): string | null {
+    const socket = this.sessions.get(String(clientId));
+    if (!socket?.user?.id) return null;
+    const userPart = jidNormalizedUser(socket.user.id).split('@')[0] ?? '';
+    let digits = userPart.replace(/\D/g, '');
+    if (digits.length < 10) return null;
+    if (!digits.startsWith('55') && digits.length <= 11) {
+      digits = `55${digits}`;
+    }
+    return digits;
+  }
+
   /** Detecta WhatsApp Business pela sessão Baileys */
   detectAccountType(user: { verifiedName?: string | null; lid?: string | null; id?: string } | undefined): 'web' | 'business' {
     if (!user) return 'web';

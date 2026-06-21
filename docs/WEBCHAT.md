@@ -342,6 +342,7 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Vários chamados abertos: `TK-XXXX sua resposta`.
 - `!encerrarchat` — desativa bridge; chamado **permanece aberto** (2.10.78).
 - `!encerrar` — finaliza chamado e conversa; desativa bridge.
+- **Operacional (2.11.16):** cadastre em *Telefones de alerta* o **celular pessoal** do atendente (`CompanyMember.whatsappPhone`), não o número da sessão Baileys conectada — o sistema ignora alertas cujo destino coincide com a sessão (`filterFallbackAlertPhones`) para evitar loop.
 
 ## Atendimento só no Inbox (2.10.7)
 
