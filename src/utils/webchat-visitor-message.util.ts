@@ -11,3 +11,11 @@ export function isVisitorHiddenSystemMessage(msg: { direction: string; body: str
   }
   return false;
 }
+
+/** Oculta na consulta pública TK+token (mesmas regras do widget + ops internas). */
+export function isPublicTicketLookupHiddenMessage(msg: { direction: string; body: string }): boolean {
+  if (isVisitorHiddenSystemMessage(msg)) return true;
+  const body = msg.body.trim();
+  if (/Bridge WhatsApp ativo/i.test(body)) return true;
+  return false;
+}

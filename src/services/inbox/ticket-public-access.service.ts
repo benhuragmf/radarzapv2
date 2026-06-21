@@ -17,6 +17,8 @@ import {
   publicAccessTokenHint,
   verifyTicketPublicAccessToken,
 } from '@/utils/ticket-public-access.util';
+import { isPlaceholderTicketOpeningMessage } from '@/utils/whatsapp-agent-command.util';
+import { isPublicTicketLookupHiddenMessage } from '@/utils/webchat-visitor-message.util';
 import {
   clearTicketLookupFailures,
   isTicketLookupRateLimited,
@@ -171,6 +173,10 @@ function mapWebChatRowToPublicMessage(m: {
   createdAt?: Date;
   direction?: string;
 }): TicketPublicLookupMessage | null {
+  const direction = m.direction ?? 'outbound';
+  if (isPublicTicketLookupHiddenMessage({ direction, body: m.body ?? '' })) {
+    return null;
+  }
   const body = m.body?.trim();
   if (!body) return null;
   return {
@@ -215,6 +221,12 @@ function mergePublicLookupMessages(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
   return final;
+}
+
+function resolvePublicTicketSubject(ticket: IInboxTicket): string | undefined {
+  const subject = ticket.subject?.trim();
+  if (!subject || isPlaceholderTicketOpeningMessage(subject)) return undefined;
+  return subject;
 }
 
 async function loadRecentPublicMessages(
@@ -277,7 +289,7 @@ export async function buildTicketPublicLookupResult(
     ticketRef: ticket.ticketRef,
     status: ticket.status,
     statusLabel: INBOX_TICKET_STATUS_LABEL[ticket.status] ?? ticket.status,
-    subject: ticket.subject?.trim() || undefined,
+    subject: resolvePublicTicketSubject(ticket),
     departmentName: dept?.name,
     openedAt: (ticket.createdAt ?? new Date()).toISOString(),
     updatedAt: (ticket.updatedAt ?? ticket.createdAt ?? new Date()).toISOString(),

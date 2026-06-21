@@ -7,6 +7,7 @@ import {
   normalizeCommandTicketRef,
   parseCommandTicketArg,
   parseWhatsappAgentCommand,
+  isPlaceholderTicketOpeningMessage,
   WHATSAPP_AGENT_COMMAND_HELP,
 } from '@/utils/whatsapp-agent-command.util';
 import { WebChatService } from '@/services/webchat/WebChatService';
@@ -63,7 +64,7 @@ async function applyTicketOpeningContext(
   message: string,
 ): Promise<void> {
   const text = message.trim().slice(0, 2000);
-  if (!text) return;
+  if (!text || isPlaceholderTicketOpeningMessage(text)) return;
   if (!ticket.subject?.trim()) {
     ticket.subject = text.slice(0, 200);
   }
@@ -495,15 +496,17 @@ async function handleAbrir(
       ticketDoc.assignedUserId = new mongoose.Types.ObjectId(userId);
       ticketDoc.status = 'in_progress';
       if (openingMessage) {
-        if (!ticketDoc.subject?.trim()) {
+        if (!ticketDoc.subject?.trim() && !isPlaceholderTicketOpeningMessage(openingMessage)) {
           ticketDoc.subject = openingMessage.trim().slice(0, 200);
         }
-        if (!ticketDoc.internalNotesList) ticketDoc.internalNotesList = [];
-        ticketDoc.internalNotesList.push({
-          userId: new mongoose.Types.ObjectId(userId),
-          body: openingMessage.trim().slice(0, 2000),
-          createdAt: new Date(),
-        });
+        if (!isPlaceholderTicketOpeningMessage(openingMessage)) {
+          if (!ticketDoc.internalNotesList) ticketDoc.internalNotesList = [];
+          ticketDoc.internalNotesList.push({
+            userId: new mongoose.Types.ObjectId(userId),
+            body: openingMessage.trim().slice(0, 2000),
+            createdAt: new Date(),
+          });
+        }
       }
       await ticketDoc.save();
     }

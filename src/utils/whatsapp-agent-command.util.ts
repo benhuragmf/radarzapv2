@@ -68,6 +68,18 @@ export function normalizeCommandTicketRef(raw: string): string {
  * Separa referência TK-… do texto livre (motivo, @setores, etc.).
  * Ex.: `TK-ABC Cliente precisa @suporte2` → ref + message
  */
+/** Texto de exemplo do alerta WA / !ajuda — não gravar como assunto ou nota. */
+export function isPlaceholderTicketOpeningMessage(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  const lower = trimmed.toLowerCase();
+  if (/^motivo[…\.]{0,3}$/i.test(trimmed)) return true;
+  if (/^motivo/.test(lower) && /\bex\.:\s*@/i.test(trimmed)) return true;
+  if (/^ex\.:\s*@/i.test(trimmed)) return true;
+  if (/^cliente precisa @setor$/i.test(trimmed)) return true;
+  return false;
+}
+
 export function parseCommandTicketArg(raw: string): { ticketRef: string; message?: string } {
   const trimmed = raw.trim();
   if (!trimmed) {

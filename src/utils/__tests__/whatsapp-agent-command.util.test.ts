@@ -2,6 +2,7 @@ import {
   normalizeCommandTicketRef,
   parseCommandTicketArg,
   parseWhatsappAgentCommand,
+  isPlaceholderTicketOpeningMessage,
   WHATSAPP_AGENT_COMMAND_HELP,
 } from '@/utils/whatsapp-agent-command.util';
 
@@ -61,6 +62,12 @@ describe('whatsapp-agent-command.util', () => {
       ticketRef: 'TK-XYZ',
       message: 'texto  com  espaços',
     });
+  });
+
+  it('detects placeholder opening messages from WA alert template', () => {
+    expect(isPlaceholderTicketOpeningMessage('motivo… Ex.: @suporte2, @financeiro')).toBe(true);
+    expect(isPlaceholderTicketOpeningMessage('motivo…')).toBe(true);
+    expect(isPlaceholderTicketOpeningMessage('Cliente precisa @suporte2')).toBe(false);
   });
 
   it('parses encerrarchat aliases', () => {

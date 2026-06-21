@@ -152,6 +152,50 @@ describe('ticket-public-access.service lookup', () => {
     expect(result.subject).toBe('Suporte');
     expect(result.recentMessages.some(m => m.body.includes('Token de consulta'))).toBe(true);
   });
+
+  it('hides intake and placeholder subject from webchat public lookup', async () => {
+    const wcId = new mongoose.Types.ObjectId();
+    const { WebChatMessage } = await import('@/models/WebChatMessage');
+    (WebChatMessage.find as jest.Mock).mockReturnValue({
+      sort: () => ({
+        limit: () => ({
+          lean: async () => [
+            {
+              body: '📋 Dados do visitante\nNome: Benhur',
+              createdAt: new Date('2026-06-21T09:00:00Z'),
+              direction: 'system',
+            },
+            {
+              body: 'Bridge WhatsApp ativo — mensagens do visitante',
+              createdAt: new Date('2026-06-21T09:05:00Z'),
+              direction: 'system',
+            },
+            {
+              body: 'Token de consulta: *ABCD-1234*',
+              createdAt: new Date('2026-06-21T09:10:00Z'),
+              direction: 'system',
+            },
+          ],
+        }),
+      }),
+    });
+
+    const result = await buildTicketPublicLookupResult({
+      ticketRef: 'TK-WC002',
+      status: 'in_progress',
+      channel: 'webchat_site',
+      webChatConversationId: wcId,
+      clientReplies: [],
+      subject: 'motivo… Ex.: @suporte2, @financeiro',
+      createdAt: new Date('2026-06-21T09:00:00Z'),
+      updatedAt: new Date('2026-06-21T17:00:00Z'),
+    } as Parameters<typeof buildTicketPublicLookupResult>[0]);
+
+    expect(result.subject).toBeUndefined();
+    expect(result.recentMessages.some(m => m.body.includes('Dados do visitante'))).toBe(false);
+    expect(result.recentMessages.some(m => m.body.includes('Bridge WhatsApp'))).toBe(false);
+    expect(result.recentMessages.some(m => m.body.includes('Token de consulta'))).toBe(true);
+  });
 });
 
 describe('assignInboxTicketPublicAccessToken', () => {
