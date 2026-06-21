@@ -488,7 +488,7 @@ Quando ninguém está online no painel e uma conversa **WebChat** entra na fila:
 
 **Inbox:** badge **Bridge WA** na lista e cabeçalho quando bridge ativo.
 
-Doc detalhada: `RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`, `WEBCHAT.md` § Fallback.
+Doc detalhada: [`concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md), `WEBCHAT.md` § Fallback.
 
 ## Bot configurável (Fase 2)
 

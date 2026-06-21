@@ -92,4 +92,4 @@
 
 ## Próximos passos
 
-- QA manual completo (checklist em `RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` §10 e **`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`**).
+- QA manual completo (checklist em `RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` §10 e **`../QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`**).

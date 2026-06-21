@@ -2,7 +2,7 @@
 
 **Versão:** 2.10.106 · **Data:** 2026-06-19
 
-Documento da primeira entrega segura da evolução de modos de atendimento. Ver análise completa em [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md). **Implementação consolidada:** [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md).
+Documento da primeira entrega segura da evolução de modos de atendimento. Ver análise completa em [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md). **Implementação consolidada:** [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md).
 
 ---
 

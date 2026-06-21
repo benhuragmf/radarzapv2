@@ -5,7 +5,7 @@
 **Escopo:** somente leitura — nenhuma implementação de código  
 **Objetivo:** mapear o que já existe antes de evoluir para 4 modos de atendimento + separação modo × provedor
 
-> **Implementação (Fases 1–4 concluídas):** ver [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) · versão atual `2.10.108`
+> **Implementação (Fases 1–4 concluídas):** ver [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) · versão atual `2.10.108`
 
 ---
 
@@ -664,11 +664,11 @@ Isso preserva WhatsApp, Inbox e WebChat que já estão quase prontos.
 
 ## Referências cruzadas
 
-- `docs/INBOX-ATENDIMENTO.md` — triagem, fila, CSAT, escalação IA
-- `docs/WEBCHAT.md` — widget, pré-chat, IA, escalação
-- `docs/TICKET-ATENDIMENTO.md` — chamados e assistente ticket
-- `docs/MENU-PAGES-REGISTRY.md` — rotas painel
-- `docs/ROADMAP-COMPLETUDE.md` — gate estabilização Fase 1
+- `../INBOX-ATENDIMENTO.md` — triagem, fila, CSAT, escalação IA
+- `../WEBCHAT.md` — widget, pré-chat, IA, escalação
+- `../TICKET-ATENDIMENTO.md` — chamados e assistente ticket
+- `../MENU-PAGES-REGISTRY.md` — rotas painel
+- `../ROADMAP-COMPLETUDE.md` — gate estabilização Fase 1
 - `.cursor/rules/radarzap-v2-system-registry.mdc` — changelog sistema
 
 ---

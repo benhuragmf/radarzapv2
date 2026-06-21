@@ -23,10 +23,10 @@ Auditoria **incremental** focada nas modificações após a auditoria funcional 
 
 | Arquivo | Data | Escopo | Uso nesta rodada |
 |---------|------|--------|------------------|
-| `docs/RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` | 2026-06-19 | Fallback WA, bridge, FAQ, lookup token (2.10.70–2.10.75) | **Base principal** — áreas não modificadas reaproveitadas |
+| `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` | 2026-06-19 | Fallback WA, bridge, FAQ, lookup token (2.10.70–2.10.75) | **Base principal** — áreas não modificadas reaproveitadas |
 | `docs/QA-FASE1-CHECKLIST.md` | 2026-06-18+ | Gate estabilização Fase 1 | Referência QA manual |
 | `SECURITY_AUDIT.md` | 2026-06-09 | Segurança OWASP v2.5.1 | Referência riscos conhecidos (não reauditado linha a linha) |
-| `docs/menu-renaming-audit.md` | 2026-06-19 | Menus 2.10.67 | Reaproveitado |
+| `docs/concluidos/menu-renaming-audit.md` | 2026-06-19 | Menus 2.10.67 | Reaproveitado |
 | `SECURITY_CHECKLIST.md` | — | Checklist segurança | Referência |
 
 **Não encontrado:** `AUDITORIA.md`, `docs/audits/*` anterior a este arquivo.
@@ -362,8 +362,8 @@ Consulta TK+token, FAQ chips, fallback WA, `!assumir`, bridge — implementaçã
 
 ## Referências
 
-- `docs/RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` — auditoria base 2.10.75
-- `docs/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`
+- `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` — auditoria base 2.10.75
+- `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`
 - `docs/WEBCHAT.md` — receipts 2.10.86
 - `docs/ROADMAP-COMPLETUDE.md`
 - `docs/QA-FASE1-CHECKLIST.md`

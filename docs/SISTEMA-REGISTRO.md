@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.14` (`package.json`) · **Última revisão doc:** 2026-06-21
+**Versão atual:** `2.11.15` (`package.json`) · **Última revisão doc:** 2026-06-21
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -70,9 +70,9 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.10.11** | Fix IA WebChat (contador usage); pré-chat nome/e-mail; widget aguarda formulário — ver `WEBCHAT.md` |
 | **2.10.16** | WebChat: modelos de preview (clássico, tecnológico, SaaS, minimal) + aplicar visual no painel — ver `WEBCHAT.md` |
 | **2.10.17** | WebChat widget: tema escuro (`appearance.theme`) alinhado ao modelo tecnológico — ver `WEBCHAT.md` |
-| **2.10.18** | Atendimento: upgrade visual (Inbox 3 colunas, métricas, Tickets/Setores/Bot/Respostas/Supervisor/WebChat/IA/Relatórios), paginação server-side em `GET /inbox/tickets` — ver `radarzap-inbox-upgrade.md` |
+| **2.10.18** | Atendimento: upgrade visual (Inbox 3 colunas, métricas, Tickets/Setores/Bot/Respostas/Supervisor/WebChat/IA/Relatórios), paginação server-side em `GET /inbox/tickets` — ver `concluidos/radarzap-inbox-upgrade.md` |
 | **2.10.19** | CI: `npm audit` runtime (high+) verde — `npm audit fix`, nodemailer 9.0.1; kit QA Fase 1 (`qa:prep`, roteiro, E2E atendimento-smoke, `parseTicketListQuery`) |
-| **2.10.70** | WebChat: consulta de chamado por `TK-…` + token no widget — `RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` |
+| **2.10.70** | WebChat: consulta de chamado por `TK-…` + token no widget — `concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` |
 | **2.10.71** | WebChat: FAQ/base de conhecimento com links e chips no widget |
 | **2.10.72** | WebChat: fallback WhatsApp offline + presença heartbeat (`agent:heartbeat`) — `WEBCHAT.md` |
 | **2.10.73** | WhatsApp: comandos `!assumir` / `!ticket` / `!encerrar` (whitelist Equipe) |
@@ -87,12 +87,12 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.10.86** | WebChat: confirmação de leitura estilo WhatsApp (receipts widget + Inbox) |
 | **2.10.83** | WebChat: OTP 2 etapas no reenvio de token de chamado |
 | **2.10.87** | Hardening pós-auditoria: OTP Redis, rate limit receipts, lint, CSRF connect WA, backfill deliveredAt |
-| **2.10.106** | Modos atendimento Fase 1: UI 4 cards + adapter `attendance-mode.ts` — `RADARZAP-ATTENDANCE-MODES-PHASE-1.md` |
-| **2.10.107** | Modos atendimento Fase 3: `attendanceMode` em `AiSettings` + backfill — `RADARZAP-ATTENDANCE-MODES-PHASE-3.md` |
-| **2.10.108** | Modos atendimento Fase 4: WebChat robotizado — `RADARZAP-ATTENDANCE-MODES-PHASE-4.md` |
+| **2.10.106** | Modos atendimento Fase 1: UI 4 cards + adapter `attendance-mode.ts` — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md` |
+| **2.10.107** | Modos atendimento Fase 3: `attendanceMode` em `AiSettings` + backfill — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md` |
+| **2.10.108** | Modos atendimento Fase 4: WebChat robotizado — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md` |
 | **2.11.0** | **Baseline modos de atendimento** (Fases 1–4) + protocolo versionamento/docs `.md` — `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `VERSIONAMENTO-E-DOCUMENTACAO.md`, `CHANGELOG.md` |
-| **2.11.1** | Modos Fase 5: IA Básica (`basic_triage`) — classificador local + KB + encaminhamento WA/WebChat — `RADARZAP-ATTENDANCE-MODES-PHASE-5.md` |
-| **2.11.2** | Fase 6: WebChat alinhado ao modo global — IA Premium só com `premium_assistant` — `RADARZAP-ATTENDANCE-MODES-PHASE-6.md` |
+| **2.11.1** | Modos Fase 5: IA Básica (`basic_triage`) — classificador local + KB + encaminhamento WA/WebChat — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md` |
+| **2.11.2** | Fase 6: WebChat alinhado ao modo global — IA Premium só com `premium_assistant` — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md` |
 | **2.11.9** | WA: menu !ajuda, !abertos, !meus, !nota; !abrir TK + motivo interno — `WEBCHAT.md` |
 | **2.11.10** | Fix: atualização chamado WebChat ao visitante; consulta TK+token ampliada — `TICKET-ATENDIMENTO.md` |
 | **2.11.11** | Consulta pública: filtra intake/bridge; assunto placeholder WA rejeitado — `TICKET-ATENDIMENTO.md` |
@@ -102,8 +102,9 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.7** | Fix: `!assumir` WebChat não abre chamado — só Abrir chamado no painel envia token — `WEBCHAT.md` |
 | **2.11.6** | (revertido) `!assumir` abria chamado automaticamente |
 | **2.11.5** | WebChat: editor guiado painel widgets, preview interativa, `previewTemplateId` na API pública — `WEBCHAT.md` |
-| **2.11.4** | Fase 8: E2E Playwright modos de atendimento (mock auth) — `RADARZAP-ATTENDANCE-MODES-PHASE-8.md` |
-| **2.11.3** | Fase 7: custos/logs LLM por modo (`usageKind` Premium vs Básica) — `RADARZAP-ATTENDANCE-MODES-PHASE-7.md` |
+| **2.11.4** | Fase 8: E2E Playwright modos de atendimento (mock auth) — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md` |
+| **2.11.3** | Fase 7: custos/logs LLM por modo (`usageKind` Premium vs Básica) — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md` |
+| **2.11.15** | Docs: pasta `concluidos/` — arquivar entregas finalizadas (fases modos, FAQ WA, upgrades UI) |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 
@@ -135,7 +136,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | Painel | scroll do navegador; `Layout.tsx` `min-h-screen` |
 | Design system (2.8) | Tokens CSS `--rz-*`; `RadarPageShell`, `PageHeader`, `LoadingState`/`EmptyState`/`ErrorState`; `inputCls`/`selectCls`; Sonner + `ToastContext` legado |
 | Estabilização Fase 1 | `npm run qa:prep`; docs `QA-FASE1-*`; gate em `ROADMAP-COMPLETUDE.md` |
-| Atendimento UI (2.10.18) | Upgrade visual — `radarzap-inbox-upgrade.md`; paginação `GET /inbox/tickets` |
+| Atendimento UI (2.10.18) | Upgrade visual — `concluidos/radarzap-inbox-upgrade.md`; paginação `GET /inbox/tickets` |
 
 ---
 

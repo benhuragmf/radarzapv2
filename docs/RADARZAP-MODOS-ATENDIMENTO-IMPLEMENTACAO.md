@@ -1,19 +1,19 @@
 # RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
 
 **Versão atual:** `2.11.4` · **Última atualização:** 2026-06-19  
-**Análise prévia:** [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md)
+**Análise prévia:** [`concluidos/ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md)
 
 Documento consolidado de **tudo que foi implementado** na evolução dos modos de atendimento. Substitui a leitura fragmentada das fases individuais para quem quer visão única.
 
 | Fase | Versão | Doc parcial | Status |
 |------|--------|-------------|--------|
-| 0–2 (conceito + UI) | 2.10.106 | [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-1.md) | ✅ |
-| 3 (persistência Mongo) | 2.10.107 | [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md) | ✅ |
-| 4 (robotizado WebChat) | 2.10.108 | [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md) | ✅ |
-| 5 (IA Básica local-first) | 2.11.1 | [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | ✅ |
-| 6 (WebChat × modo global) | 2.11.2 | [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-6.md) | ✅ |
-| 7 (custos/logs por modo) | 2.11.3 | [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-7.md) | ✅ |
-| 8 (E2E Playwright) | 2.11.4 | [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-8.md) | ✅ |
+| 0–2 (conceito + UI) | 2.10.106 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md) | ✅ |
+| 3 (persistência Mongo) | 2.10.107 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md) | ✅ |
+| 4 (robotizado WebChat) | 2.10.108 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md) | ✅ |
+| 5 (IA Básica local-first) | 2.11.1 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | ✅ |
+| 6 (WebChat × modo global) | 2.11.2 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md) | ✅ |
+| 7 (custos/logs por modo) | 2.11.3 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md) | ✅ |
+| 8 (E2E Playwright) | 2.11.4 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md) | ✅ |
 
 ---
 
@@ -50,7 +50,7 @@ Antes da implementação, o RadarZap misturava dois conceitos no campo `AiSettin
 
 Isso confundia **como o atendimento se comporta** com **quem fornece a IA**. O bot robotizado (menu 1–2–3–4) vivia em `InboxSettings` / `inbox-triage`, separado da tela de IA.
 
-A análise ([`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md)) concluiu que ~70–80% da infraestrutura já existia; faltava reorganização conceitual, UI clara e persistência sem quebrar o legado.
+A análise ([`concluidos/ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md)) concluiu que ~70–80% da infraestrutura já existia; faltava reorganização conceitual, UI clara e persistência sem quebrar o legado.
 
 ---
 
@@ -358,10 +358,10 @@ Fluxo robotizado WebChat:
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `docs/ANALISE-MODOS-ATENDIMENTO.md` | Análise pré-implementação (675 linhas) |
-| `docs/RADARZAP-ATTENDANCE-MODES-PHASE-1.md` | Fases 0–2 |
-| `docs/RADARZAP-ATTENDANCE-MODES-PHASE-3.md` | Persistência Mongo |
-| `docs/RADARZAP-ATTENDANCE-MODES-PHASE-4.md` | WebChat robotizado |
+| `docs/concluidos/ANALISE-MODOS-ATENDIMENTO.md` | Análise pré-implementação (675 linhas) |
+| `docs/concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md` | Fases 0–2 |
+| `docs/concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md` | Persistência Mongo |
+| `docs/concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md` | WebChat robotizado |
 | **`docs/RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`** | **Este documento (consolidado)** |
 
 ### Não alterados (por design)

@@ -1,6 +1,6 @@
 # RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.14` · **Atualizado:** 2026-06-21
+**Versão do produto:** `2.11.15` · **Atualizado:** 2026-06-21
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -24,15 +24,8 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado** — tudo implementado Fases 1–4 |
-| [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md) | Análise pré-implementação |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-1.md) | Fases 0–2: UI + adapter |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md) | Fase 3: Mongo `attendanceMode` |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md) | Fase 4: WebChat robotizado |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | Fase 5: IA Básica local-first |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-6.md) | Fase 6: WebChat × modo global |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-7.md) | Fase 7: custos/logs por modo |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-8.md) | Fase 8: E2E Playwright modos |
+| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado ativo** — tudo implementado Fases 1–8 |
+| [`concluidos/`](./concluidos/README.md) | Fases parciais, análise prévia e entregas arquivadas ✅ |
 
 ---
 
@@ -43,7 +36,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem WA, fila, CSAT, IA |
 | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados, SLA, menu bot |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, IA, FAQ |
-| [`radarzap-inbox-upgrade.md`](./radarzap-inbox-upgrade.md) | Upgrade visual Inbox 2.10.18 |
+| [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) | Upgrade visual Inbox 2.10.18 (arquivo) |
 | [`WEBHOOKS.md`](./WEBHOOKS.md) | Webhooks outbound |
 
 ---
@@ -75,6 +68,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 |-----------|-----------|
 | [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md) | Tokens `--rz-*`, componentes |
 | [`docs/audits/`](./audits/) | Auditorias incrementais |
+| [`concluidos/`](./concluidos/README.md) | Entregas concluídas (fases, auditorias, upgrades) |
 
 ---
 

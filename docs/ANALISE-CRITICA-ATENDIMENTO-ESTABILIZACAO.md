@@ -212,7 +212,7 @@ Evitar: corpo completo de mensagens, tokens puros, PII desnecessária.
 
 ## 13. IA Básica local-first — proposta futura
 
-Ver [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md).
+Ver [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md).
 
 **Não implementar** durante estabilização. Ao implementar: atualizar CHANGELOG, SISTEMA-REGISTRO, INDICE, registry `.mdc`.
 

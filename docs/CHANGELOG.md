@@ -6,6 +6,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.15] — 2026-06-21
+
+### Documentação
+
+- Pasta [`concluidos/`](./concluidos/README.md) — 12 entregas finalizadas arquivadas (fases modos 1–8, FAQ WA, upgrade Inbox, audit menus).
+- Links atualizados em índice, consolidado, CHANGELOG e protocolo de versionamento.
+
+---
+
 ## [2.11.14] — 2026-06-21
 
 ### Documentação
@@ -103,7 +112,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-8.md)
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md)
 
 ---
 
@@ -117,7 +126,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-7.md)
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md)
 
 ---
 
@@ -131,7 +140,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-6.md)
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md)
 
 ---
 
@@ -150,7 +159,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md)
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md)
 - Consolidado modos atualizado para `2.11.1`.
 
 ---
@@ -166,8 +175,8 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 ### Documentação
 
 - Consolidado modos: [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md).
-- Análise: [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md).
-- Fases: [`PHASE-1`](./RADARZAP-ATTENDANCE-MODES-PHASE-1.md), [`PHASE-3`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md), [`PHASE-4`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md).
+- Análise: [`ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md).
+- Fases: [`PHASE-1`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md), [`PHASE-3`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md), [`PHASE-4`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md).
 - [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) sincronizado até `2.11.0`.
 
 **Commits:** `171b078`, `f899af0`, `b240284`, `2cc2b2a`
@@ -182,7 +191,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md)
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md)
 
 **Commit:** `f899af0`
 
@@ -198,7 +207,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md)
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md)
 
 **Commit:** `b240284`
 
@@ -214,8 +223,8 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-1.md)
-- [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md)
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md)
+- [`ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md)
 
 **Commit:** `2cc2b2a`
 

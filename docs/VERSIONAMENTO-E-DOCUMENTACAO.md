@@ -70,7 +70,7 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 | Tickets | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) |
 | Modos de atendimento | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) |
 | Análise / decisão arquitetural | doc dedicado `docs/ANALISE-*.md` ou seção no consolidado |
-| Fase de feature grande | `docs/RADARZAP-*-PHASE-N.md` + atualizar consolidado |
+| Fase de feature grande | `docs/RADARZAP-*-PHASE-N.md` + atualizar consolidado; ao concluir → mover para [`concluidos/`](./concluidos/README.md) |
 | Roadmap / produção | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) |
 
 **Regra:** se não existir doc de módulo, criar **`docs/NOME-MODULO.md`** mínimo (escopo, rotas, modelos, changelog local).
@@ -128,15 +128,13 @@ No doc consolidado (ex. modos de atendimento):
 
 Ver [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) — lista completa e links.
 
-Documentos-chave criados/atualizados no ciclo **Modos de atendimento**:
+Documentos-chave do ciclo **Modos de atendimento** (fases arquivadas em [`concluidos/`](./concluidos/README.md)):
 
 | Documento | Propósito |
 |-----------|-----------|
-| [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md) | Análise pré-implementação (leitura only) |
-| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado** Fases 1–4 |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-1.md) | Fases 0–2 |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-3.md) | Persistência `attendanceMode` |
-| [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-4.md) | Robotizado WebChat |
+| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado ativo** Fases 1–8 |
+| [`concluidos/ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md) | Análise pré-implementação (arquivo) |
+| [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-*.md`](./concluidos/README.md) | Docs parciais por fase (arquivo) |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Changelog append-only do projeto |
 | [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) | Este protocolo |
 
@@ -144,17 +142,19 @@ Documentos-chave criados/atualizados no ciclo **Modos de atendimento**:
 
 ## 6. Modos de atendimento (módulo ativo)
 
-**Baseline versionada:** `2.11.0` (Fases 1–4 + governança de docs).
+**Baseline versionada:** `2.11.4` (Fases 1–8 concluídas).
 
 | Fase | Versão | Status | Doc |
 |------|--------|--------|-----|
-| 0–2 UI + adapter | 2.10.106 | ✅ | PHASE-1 |
-| 3 Mongo `attendanceMode` | 2.10.107 | ✅ | PHASE-3 |
-| 4 WebChat robotizado | 2.10.108 | ✅ | PHASE-4 |
-| 5 IA Básica local-first | 2.11.1 | ✅ | PHASE-5 |
-| 6–8 Premium/custos/E2E | — | ⏳ | |
+| 0–2 UI + adapter | 2.10.106 | ✅ | [`concluidos/PHASE-1`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md) |
+| 3 Mongo `attendanceMode` | 2.10.107 | ✅ | [`concluidos/PHASE-3`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md) |
+| 4 WebChat robotizado | 2.10.108 | ✅ | [`concluidos/PHASE-4`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md) |
+| 5 IA Básica local-first | 2.11.1 | ✅ | [`concluidos/PHASE-5`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md) |
+| 6 WebChat × modo global | 2.11.2 | ✅ | [`concluidos/PHASE-6`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md) |
+| 7 Custos/logs por modo | 2.11.3 | ✅ | [`concluidos/PHASE-7`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md) |
+| 8 E2E Playwright | 2.11.4 | ✅ | [`concluidos/PHASE-8`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md) |
 
-**Próxima entrega esperada:** Fase 5 → bump `2.11.1` ou `2.12.0` conforme escopo; criar `RADARZAP-ATTENDANCE-MODES-PHASE-5.md`; atualizar consolidado + CHANGELOG.
+**Próxima entrega:** estabilização Fase 1 — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) e [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
 
 ---
 

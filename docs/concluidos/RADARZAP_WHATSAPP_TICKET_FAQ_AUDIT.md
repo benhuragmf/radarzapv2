@@ -14,7 +14,7 @@
 | **2. Consulta de ticket por número + token no chat** | **✅ IMPLEMENTADO** | Token hash + widget + API pública lookup/resume (2.10.70) |
 | **3. FAQ/base de conhecimento com IA e links** | **✅ IMPLEMENTADO** | KB enriquecida + chips/links no widget (2.10.71); categorias separadas = backlog |
 
-**Recomendação:** validar **QA manual** (§10) antes de produção; gate Fase 1 em `docs/ROADMAP-COMPLETUDE.md` continua aplicável.
+**Recomendação:** validar **QA manual** (§10) antes de produção; gate Fase 1 em `../ROADMAP-COMPLETUDE.md` continua aplicável.
 
 ---
 
@@ -272,7 +272,7 @@ Evitar duplicar rotas existentes em `DashboardService.ts`.
 
 ### QA manual
 
-Seguir § 17 do prompt + `docs/QA-FASE1-CHECKLIST.md` § C WebChat.
+Seguir § 17 do prompt + `../QA-FASE1-CHECKLIST.md` § C WebChat.
 
 ---
 
@@ -320,9 +320,9 @@ Seguir § 17 do prompt + `docs/QA-FASE1-CHECKLIST.md` § C WebChat.
 
 | Arquivo | Ação |
 |---------|------|
-| `docs/RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` | Criado / atualizado |
-| `docs/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` | Criado (Fase A) |
-| `docs/WEBCHAT.md` | § Consulta token 2.10.70 |
+| `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_AUDIT.md` | Criado / atualizado |
+| `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` | Criado (Fase A) |
+| `../WEBCHAT.md` | § Consulta token 2.10.70 |
 | `src/models/InboxTicket.ts` | Campos token hash |
 | `src/models/WebChatWidget.ts` | `ticketLookupEnabled` |
 | `src/utils/ticket-public-access.util.ts` | **Novo** |
@@ -342,7 +342,7 @@ Seguir § 17 do prompt + `docs/QA-FASE1-CHECKLIST.md` § C WebChat.
 **Implementação concluída (2.10.75).** Próximos passos operacionais:
 
 1. **QA manual** — checklist §10 (fallback → `!assumir` → bridge → `!encerrar`).
-2. **Gate Fase 1** — `docs/ROADMAP-COMPLETUDE.md` + `docs/QA-FASE1-CHECKLIST.md`.
+2. **Gate Fase 1** — `../ROADMAP-COMPLETUDE.md` + `../QA-FASE1-CHECKLIST.md`.
 3. **Backlog opcional:** categorias FAQ, mídia no bridge WA, Cloud API Meta (Fase 2 roadmap).
 
 Decisões de produto já assumidas na implementação:
@@ -355,8 +355,8 @@ Decisões de produto já assumidas na implementação:
 
 ## 13. Referências internas
 
-- `docs/WEBCHAT.md` — WebChat, chamados 2.10.68, perfil 2.10.69
-- `docs/TICKET-ATENDIMENTO.md` — ciclo ticket WhatsApp
-- `docs/INBOX-ATENDIMENTO.md` — Inbox, IA, escalação
-- `docs/ROADMAP-COMPLETUDE.md` — gate Fase 1
-- `docs/menu-renaming-audit.md` — menus 2.10.67
+- `../WEBCHAT.md` — WebChat, chamados 2.10.68, perfil 2.10.69
+- `../TICKET-ATENDIMENTO.md` — ciclo ticket WhatsApp
+- `../INBOX-ATENDIMENTO.md` — Inbox, IA, escalação
+- `../ROADMAP-COMPLETUDE.md` — gate Fase 1
+- `./menu-renaming-audit.md` — menus 2.10.67

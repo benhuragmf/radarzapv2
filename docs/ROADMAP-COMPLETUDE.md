@@ -118,8 +118,8 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | 14 | E2E | 🟡 smoke | login/PWA + **rotas Atendimento** (`e2e/atendimento-smoke.spec.ts`, 10 testes) — autenticado ainda falta |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
-| 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, `radarzap-inbox-upgrade.md` |
-| 18 | **UI módulo Atendimento** | ✅ **2.10.18** | Inbox 3 colunas, métricas, tickets paginados — ver `radarzap-inbox-upgrade.md` |
+| 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) |
+| 18 | **UI módulo Atendimento** | ✅ **2.10.18** | Inbox 3 colunas, métricas, tickets paginados — ver [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) |
 
 ---
 
@@ -138,7 +138,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 ## O que já está sólido (não confundir com “pronto para prod”)
 
 - Menus do painel sem placeholder “Em breve”
-- Design system 2.8.x + **upgrade visual Atendimento 2.10.18** (`radarzap-inbox-upgrade.md`)
+- Design system 2.8.x + **upgrade visual Atendimento 2.10.18** ([`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md))
 - RBAC, equipe, setores internos, consentimento LGPD base
 - Campanhas, Discord, integrações API, OpenAPI
 - **WebChat** embedável (widget + console painel) — `WEBCHAT.md`

@@ -85,7 +85,7 @@ Regras do `gg.md` adaptadas:
 | CRM leve / funil lead | Backlog — ver `RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md` |
 | Gatilhos inteligentes WebChat | `WEBCHAT.md` + widget |
 | Templates por segmento | Seeds + onboarding |
-| IA Básica local-first | `RADARZAP-ATTENDANCE-MODES-PHASE-5.md` |
+| IA Básica local-first | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md) |
 
 ---
 
