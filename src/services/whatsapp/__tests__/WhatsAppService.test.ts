@@ -50,6 +50,17 @@ jest.mock('@/services/consent/ConsentService', () => ({
     })),
   },
 }));
+jest.mock('@/services/whatsapp/whatsapp-send-policy.service', () => ({
+  resolveWhatsAppSendPolicy: jest.fn().mockResolvedValue({
+    limitsDisabled: false,
+    humanizeEnabled: true,
+    composingEnabled: true,
+    caps: { conversation: 30, marketing: 30, alert: 30 },
+    conversation: { enabled: true, maxPerMinute: 10 },
+    marketing: { enabled: true, maxPerMinute: 2 },
+    alert: { enabled: true, maxPerMinute: 30 },
+  }),
+}));
 jest.mock('../../common/CircuitBreaker');
 jest.mock('@whiskeysockets/baileys');
 jest.mock('qrcode');
@@ -88,7 +99,8 @@ describe('WhatsAppService', () => {
 
     mockRateLimiter = {
       getInstance: jest.fn().mockReturnThis(),
-      checkWhatsAppSendingLimit: jest.fn()
+      checkWhatsAppSendingLimit: jest.fn(),
+      checkWhatsAppSendLimit: jest.fn(),
     } as any;
 
     // Mock static methods
@@ -98,6 +110,10 @@ describe('WhatsAppService', () => {
 
     (Organization.findById as jest.Mock).mockResolvedValue(null);
     (User.findById as jest.Mock).mockResolvedValue(null);
+
+    const rateOk = { allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60_000 };
+    mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue(rateOk);
+    mockRateLimiter.checkWhatsAppSendLimit.mockResolvedValue(rateOk);
 
     whatsappService = new WhatsAppService();
   });
@@ -243,7 +259,11 @@ describe('WhatsAppService', () => {
       const content = { text: 'Test message' };
 
       // Mock rate limiting
-      mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue({ allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60000 });
+      mockRateLimiter.checkWhatsAppSendLimit.mockResolvedValue({
+        allowed: true,
+        tokensRemaining: 19,
+        resetTime: Date.now() + 60_000,
+      });
 
       // Mock WhatsApp socket
       const mockSocket = mockConnectedSocket();
@@ -279,7 +299,11 @@ describe('WhatsAppService', () => {
       const content = { text: 'Test message' };
 
       // Mock rate limiting failure
-      mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue({ allowed: false, tokensRemaining: 0, resetTime: Date.now() + 60000 });
+      mockRateLimiter.checkWhatsAppSendLimit.mockResolvedValue({
+        allowed: false,
+        tokensRemaining: 0,
+        resetTime: Date.now() + 60_000,
+      });
 
       await expect(
         (whatsappService as any).handleSendMessage({
@@ -297,7 +321,11 @@ describe('WhatsAppService', () => {
       const content = { text: 'Test message' };
 
       // Mock rate limiting
-      mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue({ allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60000 });
+      mockRateLimiter.checkWhatsAppSendLimit.mockResolvedValue({
+        allowed: true,
+        tokensRemaining: 19,
+        resetTime: Date.now() + 60_000,
+      });
 
       // Mock WhatsApp socket
       const mockSocket = mockConnectedSocket();
@@ -478,7 +506,11 @@ describe('WhatsAppService', () => {
       const content = { text: 'Test message' };
 
       // Mock rate limiting
-      mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue({ allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60000 });
+      mockRateLimiter.checkWhatsAppSendLimit.mockResolvedValue({
+        allowed: true,
+        tokensRemaining: 19,
+        resetTime: Date.now() + 60_000,
+      });
 
       // Mock socket that throws error on sendMessage but resolves onWhatsApp
       const mockSocket = mockConnectedSocket({
