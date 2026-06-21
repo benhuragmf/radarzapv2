@@ -10,8 +10,6 @@ import {
 } from '@/utils/whatsapp-agent-command.util';
 import { WebChatService } from '@/services/webchat/WebChatService';
 import { InboxService } from '@/services/inbox/InboxService';
-import { visitorDisplayName } from '@/services/webchat/webchat-inbox-bridge';
-import { generateInboxTicketRef } from '@/utils/inbox-ticket-ref';
 import { createServiceLogger } from '@/utils/logger';
 import {
   resolveAuthorizedWhatsappAgentFromContext,
@@ -57,42 +55,6 @@ async function findTicketByRef(
   return { ticket: null, webChat };
 }
 
-async function ensureWebChatTicketRecord(
-  clientId: string,
-  conversation: IWebChatConversation,
-  openedByUserId: string,
-): Promise<IInboxTicket> {
-  const clientOid = conversation.clientId;
-  const ref = (conversation.ticketRef ?? generateInboxTicketRef()).trim().toUpperCase();
-  if (!conversation.ticketRef) {
-    conversation.ticketRef = ref;
-    await conversation.save();
-  }
-
-  const existing = await InboxTicket.findOne({ clientId: clientOid, ticketRef: ref });
-  if (existing) return existing;
-
-  const { contactName, contactIdentifier } = visitorDisplayName(
-    conversation.visitorName,
-    conversation.visitorEmail,
-    conversation.visitorPhone,
-  );
-
-  return InboxTicket.create({
-    clientId: clientOid,
-    ticketRef: ref,
-    channel: 'webchat_site',
-    webChatConversationId: conversation._id,
-    ...(conversation.destinationId ? { destinationId: conversation.destinationId } : {}),
-    contactName,
-    contactIdentifier,
-    ...(conversation.departmentId ? { departmentId: conversation.departmentId } : {}),
-    status: 'open',
-    openedByUserId: new mongoose.Types.ObjectId(openedByUserId),
-    teamHasMessagedClient: true,
-  });
-}
-
 async function handleAssumir(
   clientId: string,
   userId: string,
@@ -129,7 +91,23 @@ async function handleAssumir(
       String(conversation._id),
     );
 
-    const ticketDoc = ticket ?? (await ensureWebChatTicketRecord(clientId, conversation, userId));
+    await WebChatService.getInstance().convertToTicket(
+      clientId,
+      userId,
+      String(conversation._id),
+    );
+
+    const freshConv = await WebChatConversation.findById(conversation._id).select('ticketRef').lean();
+    const resolvedRef = (freshConv?.ticketRef ?? ticketRef).trim().toUpperCase();
+
+    const ticketDoc = await InboxTicket.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      ticketRef: resolvedRef,
+    });
+    if (!ticketDoc) {
+      return `Falha ao registrar chamado ${ticketRef}. Tente novamente ou abra pelo painel.`;
+    }
+
     ticketDoc.assignedUserId = new mongoose.Types.ObjectId(userId);
     ticketDoc.status = 'in_progress';
     await ticketDoc.save();
@@ -179,6 +157,43 @@ async function handleAssumir(
   }
 
   return `Chamado ${ticketRef} não encontrado. Verifique o número TK-… do alerta.`;
+}
+
+async function handleToken(clientId: string, userId: string, ticketRef: string): Promise<string> {
+  const { ticket, webChat } = await findTicketByRef(clientId, ticketRef);
+
+  if (!webChat && !ticket?.webChatConversationId) {
+    return `Chamado ${ticketRef} não é do chat do site. Token de consulta vale só para visitantes do widget.`;
+  }
+
+  const conversation =
+    webChat ??
+    (await WebChatConversation.findOne({
+      _id: ticket!.webChatConversationId,
+      clientId: new mongoose.Types.ObjectId(clientId),
+    }));
+  if (!conversation) return `Conversa de ${ticketRef} não encontrada.`;
+
+  try {
+    const result = await WebChatService.getInstance().sendTicketTokenToVisitor(
+      clientId,
+      userId,
+      String(conversation._id),
+    );
+    const tokenLine =
+      result.token === '(enviado no chat do visitante)'
+        ? 'Token enviado no chat do visitante.'
+        : `Token: *${result.token}*${result.rotated ? ' (anterior invalidado)' : ''}`;
+    return [
+      `Token enviado ao visitante no chat do site.`,
+      `Chamado: ${result.ticketRef}`,
+      tokenLine,
+      '',
+      'Peça para usar *Consultar chamado* no widget.',
+    ].join('\n');
+  } catch (err) {
+    return (err as Error).message || `Não foi possível enviar token de ${ticketRef}.`;
+  }
 }
 
 async function handleTicketSummary(clientId: string, ticketRef: string): Promise<string> {
@@ -374,6 +389,9 @@ export async function handleWhatsappAgentCommand(
         break;
       case 'ticket':
         response = await handleTicketSummary(input.clientId, ticketRef);
+        break;
+      case 'token':
+        response = await handleToken(input.clientId, agent.userId, ticketRef);
         break;
       case 'encerrar':
         response = await handleEncerrar(input.clientId, agent.userId, ticketRef);

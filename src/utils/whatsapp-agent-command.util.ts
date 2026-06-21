@@ -3,6 +3,7 @@
 export type WhatsappAgentCommandName =
   | 'assumir'
   | 'ticket'
+  | 'token'
   | 'encerrar'
   | 'encerrarchat'
   | 'sairchat'
@@ -13,7 +14,7 @@ export type WhatsappAgentCommandName =
 const CHAT_END_ALIASES = new Set(['encerrarchat', 'sairchat', 'fecharchat']);
 
 const COMMAND_RE =
-  /^!(assumir|ticket|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+(.+))?$/i;
+  /^!(assumir|ticket|token|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+(.+))?$/i;
 
 export function isWhatsappChatEndCommand(command: WhatsappAgentCommandName): boolean {
   return CHAT_END_ALIASES.has(command);
@@ -45,6 +46,7 @@ export const WHATSAPP_AGENT_COMMAND_HELP = [
   '',
   '!assumir TK-XXXX — assumir chamado (chat do site ou WhatsApp)',
   '!ticket TK-XXXX — resumo do chamado',
+  '!token TK-XXXX — enviar token de consulta ao visitante (chat do site)',
   '!encerrarchat TK-XXXX — encerrar atendimento no site (chamado continua no painel)',
   '!encerrar TK-XXXX — arquivar chamado e conversa no sistema',
   '!ajuda — esta mensagem',

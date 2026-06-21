@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.6] — 2026-06-19
+
+### Corrigido
+
+- **WebChat + WhatsApp:** `!assumir` agora notifica o visitante com abertura do chamado e token (antes criava ticket silencioso).
+- Chamados legados sem token recebem notificação ao converter/abrir.
+- Novo comando **`!token TK-XXXX`** — reenvia token de consulta ao visitante no chat do site.
+
+---
+
 ## [2.11.5] — 2026-06-19
 
 ### Adicionado / alterado

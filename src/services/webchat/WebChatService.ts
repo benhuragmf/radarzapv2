@@ -91,6 +91,7 @@ import {
   formatTicketCreatedWithTokenMessage,
   lookupTicketByPublicAccess,
   requestTicketTokenResendOtp,
+  rotateInboxTicketPublicAccessToken,
   sendTicketAccessTokenEmail,
   type TicketTokenResendChannel,
 } from '../inbox/ticket-public-access.service';
@@ -1258,8 +1259,11 @@ export class WebChatService {
       created = true;
     }
 
+    /** Ticket legado (!assumir / fallback WA) pode existir sem token — visitante ainda não foi notificado. */
+    const needsOpeningNotification = created || !ticket.publicAccessTokenHash;
+
     let publicAccessToken: string | undefined;
-    if (created) {
+    if (needsOpeningNotification) {
       const access = await ensureInboxTicketPublicAccessToken(ticket);
       publicAccessToken = access.token || undefined;
     }
@@ -1277,7 +1281,7 @@ export class WebChatService {
         assignee?.displayName?.trim() || assignee?.email?.split('@')[0] || 'Atendente';
     }
 
-    if (created) {
+    if (needsOpeningNotification) {
       const tokenBlock =
         publicAccessToken && formatTicketCreatedWithTokenMessage(ref, publicAccessToken);
       const body = [
@@ -1334,9 +1338,79 @@ export class WebChatService {
     return {
       ticketRef: ref,
       ticketStatus: ticket.status,
-      notifiedClient: created,
+      notifiedClient: needsOpeningNotification,
       ok: true,
     };
+  }
+
+  /**
+   * Reenvia (ou gera) token de consulta no chat do visitante.
+   * Útil via `!token TK-…` quando o cliente não recebeu na abertura.
+   */
+  async sendTicketTokenToVisitor(
+    clientId: string,
+    userId: string,
+    conversationId: string,
+  ): Promise<{ ticketRef: string; token: string; rotated: boolean }> {
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation) throw new Error('Conversa não encontrada');
+    if (conversation.status === 'closed') throw new Error('Conversa encerrada');
+
+    let ticket = await InboxTicket.findOne({
+      clientId: conversation.clientId,
+      ticketRef: (conversation.ticketRef ?? '').trim().toUpperCase(),
+    });
+
+    if (!ticket) {
+      const opened = await this.convertToTicket(clientId, userId, conversationId);
+      return {
+        ticketRef: opened.ticketRef,
+        token: '(enviado no chat do visitante)',
+        rotated: false,
+      };
+    }
+
+    const ref = ticket.ticketRef;
+    let token: string;
+    let rotated = false;
+
+    if (!ticket.publicAccessTokenHash) {
+      const access = await ensureInboxTicketPublicAccessToken(ticket);
+      if (!access.token) throw new Error('Não foi possível gerar token.');
+      token = access.token;
+      const body = [
+        `📋 Chamado *${ref}*`,
+        '',
+        formatTicketCreatedWithTokenMessage(ref, token),
+        '',
+        TICKET_CLIENT_REPLY_FOOTER,
+      ].join('\n');
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body,
+        notifyVisitor: true,
+      });
+    } else {
+      token = await rotateInboxTicketPublicAccessToken(ticket);
+      rotated = true;
+      const body = [
+        `🔑 Token de consulta reenviado — *${ref}*`,
+        '',
+        formatTicketCreatedWithTokenMessage(ref, token),
+        '',
+        'O token anterior deixa de valer. Use *Consultar chamado* no widget.',
+      ].join('\n');
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body,
+        notifyVisitor: true,
+      });
+    }
+
+    return { ticketRef: ref, token, rotated };
   }
 
   async getConversationForAgent(
