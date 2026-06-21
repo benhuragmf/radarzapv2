@@ -1,6 +1,6 @@
 # RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
 
-**Versão atual:** `2.11.3` · **Última atualização:** 2026-06-19  
+**Versão atual:** `2.11.4` · **Última atualização:** 2026-06-19  
 **Análise prévia:** [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md)
 
 Documento consolidado de **tudo que foi implementado** na evolução dos modos de atendimento. Substitui a leitura fragmentada das fases individuais para quem quer visão única.
@@ -13,7 +13,7 @@ Documento consolidado de **tudo que foi implementado** na evolução dos modos d
 | 5 (IA Básica local-first) | 2.11.1 | [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | ✅ |
 | 6 (WebChat × modo global) | 2.11.2 | [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-6.md) | ✅ |
 | 7 (custos/logs por modo) | 2.11.3 | [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-7.md) | ✅ |
-| 8 (E2E) | — | — | ⏳ pendente |
+| 8 (E2E Playwright) | 2.11.4 | [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-8.md) | ✅ |
 
 ---
 
@@ -379,11 +379,19 @@ Fluxo robotizado WebChat:
 
 ```bash
 npm run typecheck
-npm test -- --testPathPattern="attendance-mode|webchat-robotic-triage"
+npm test -- --testPathPattern="attendance-mode|webchat-robotic-triage|basic-triage|ai-usage-kind"
 npm run build
 npm run build --prefix src/services/web-dashboard/frontend
+npm run test:e2e -- --project=chromium e2e/attendance-modes.spec.ts
 npm run qa:gate   # opcional — suite completa
 ```
+
+### E2E Playwright (Fase 8)
+
+| Arquivo | Cenários |
+|---------|----------|
+| `e2e/attendance-modes.spec.ts` | 4 cards, banners por modo, logs `byKind`, PATCH `attendanceMode` |
+| `e2e/fixtures/mock-panel-api.ts` | Mock `/auth/me` + `/api/platform/ai/settings` + usage |
 
 ### Cobertura unitária
 
@@ -418,12 +426,10 @@ Branch: `main` em `origin`.
 
 | Item | Fase prevista |
 |------|---------------|
-| IA Básica — classificador local-first | 5 |
-| Gate LLM por confiança local | 5 |
 | Orquestrador central de atendimento | — (evitado de propósito) |
 | Botões visuais no widget (só texto numérico) | futuro |
-| Custos/logs por modo na UI | 7 |
-| E2E autenticado dos modos | 8 |
+| Limites LLM separados por modo | futuro |
+| E2E WebChat com mock ai-status | futuro |
 | RAG / embeddings | — |
 | Provedor “local/interno” | — |
 | Remoção do campo legado `mode` | — (backward compat) |
@@ -457,14 +463,14 @@ Branch: `main` em `origin`.
 
 ## 15. Próximas fases
 
-| Fase | Escopo | Risco estimado |
-|------|--------|----------------|
-| **5** | IA Básica: heurísticas + score setor + LLM fallback | Alto |
-| **6** | IA Premium como produto nomeado (refino, sem mudar runtime) | Baixo |
-| **7** | Contadores custo por modo; UI logs | Médio |
-| **8** | E2E Playwright autenticado | Baixo |
+Fases **0–8 concluídas** (versão `2.11.4`). Melhorias futuras opcionais:
 
-Ordem recomendada: **5 → 7 → 8 → 6** (6 é mostly naming/polish).
+| Item | Prioridade |
+|------|------------|
+| Limites LLM separados por modo | Média |
+| E2E WebChat (`/webchat/ai-status`) | Baixa |
+| QA manual gate estabilização (Fase 1 roadmap) | Alta |
+| Botões visuais no widget robotizado | Baixa |
 
 ---
 

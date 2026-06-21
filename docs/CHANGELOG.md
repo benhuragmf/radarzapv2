@@ -6,6 +6,20 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.4] — 2026-06-19
+
+### Adicionado
+
+- **Fase 8:** E2E Playwright autenticado (mock API) dos 4 modos em `/platform/inbox/ia`.
+- Fixtures `e2e/fixtures/mock-panel-api.ts` + spec `e2e/attendance-modes.spec.ts`.
+- `data-testid` nos cards de `AttendanceModePicker`.
+
+### Documentação
+
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-8.md)
+
+---
+
 ## [2.11.3] — 2026-06-19
 
 ### Adicionado

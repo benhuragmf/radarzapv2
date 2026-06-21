@@ -29,6 +29,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md) | Fase 5: IA Básica local-first |
 | [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-6.md) | Fase 6: WebChat × modo global |
 | [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-7.md) | Fase 7: custos/logs por modo |
+| [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-8.md) | Fase 8: E2E Playwright modos |
 
 ---
 

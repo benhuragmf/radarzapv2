@@ -55,4 +55,4 @@ npm test -- --testPathPattern="ai-usage-kind"
 
 ## Próxima fase
 
-**Fase 8** — E2E Playwright autenticado dos modos de atendimento.
+Roadmap modos 0–8 concluído. Ver consolidado § Próximas fases.

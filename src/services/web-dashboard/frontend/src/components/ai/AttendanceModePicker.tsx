@@ -23,6 +23,7 @@ export function AttendanceModePicker({ selected, onSelect }: AttendanceModePicke
             <button
               key={card.id}
               type="button"
+              data-testid={`attendance-mode-${card.id}`}
               disabled={isDisabled}
               onClick={() => !isDisabled && onSelect(card.id)}
               className={`relative text-left rounded-xl border p-4 transition-colors ${
