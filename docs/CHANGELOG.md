@@ -6,6 +6,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.9] — 2026-06-19
+
+### Adicionado / alterado
+
+- Menu `!ajuda` reorganizado por seções (atendimento, consulta, encerrar).
+- **`!abertos`** / **`!meus`** — listar chamados abertos ou atribuídos ao atendente.
+- **`!nota TK-…`** — nota interna no chamado.
+- **`!abrir TK-… motivo`** — texto após a referência vira assunto + nota interna (@setores); visitante só recebe token.
+
+---
+
 ## [2.11.8] — 2026-06-19
 
 ### Adicionado

@@ -6,6 +6,10 @@ export type WhatsappAgentCommandName =
   | 'abrirchamado'
   | 'ticket'
   | 'token'
+  | 'nota'
+  | 'abertos'
+  | 'chamados'
+  | 'meus'
   | 'encerrar'
   | 'encerrarchat'
   | 'sairchat'
@@ -15,9 +19,17 @@ export type WhatsappAgentCommandName =
 
 const CHAT_END_ALIASES = new Set(['encerrarchat', 'sairchat', 'fecharchat']);
 const ABRIR_ALIASES = new Set(['abrir', 'abrirchamado']);
+const LIST_OPEN_ALIASES = new Set(['abertos', 'chamados']);
+const NO_ARG_COMMANDS = new Set<WhatsappAgentCommandName>([
+  'ajuda',
+  'help',
+  'abertos',
+  'chamados',
+  'meus',
+]);
 
 const COMMAND_RE =
-  /^!(assumir|abrir|abrirchamado|ticket|token|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+(.+))?$/i;
+  /^!(assumir|abrir|abrirchamado|ticket|token|nota|abertos|chamados|meus|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+([\s\S]+))?$/i;
 
 export function isWhatsappAbrirCommand(command: WhatsappAgentCommandName): boolean {
   return ABRIR_ALIASES.has(command);
@@ -25,6 +37,10 @@ export function isWhatsappAbrirCommand(command: WhatsappAgentCommandName): boole
 
 export function isWhatsappChatEndCommand(command: WhatsappAgentCommandName): boolean {
   return CHAT_END_ALIASES.has(command);
+}
+
+export function isWhatsappListOpenCommand(command: WhatsappAgentCommandName): boolean {
+  return LIST_OPEN_ALIASES.has(command);
 }
 
 export function parseWhatsappAgentCommand(
@@ -36,7 +52,7 @@ export function parseWhatsappAgentCommand(
   if (!match) return null;
   const command = match[1].toLowerCase() as WhatsappAgentCommandName;
   const arg = match[2]?.trim();
-  if (command !== 'ajuda' && command !== 'help' && !arg) return null;
+  if (!NO_ARG_COMMANDS.has(command) && !arg) return null;
   return { command, arg };
 }
 
@@ -48,15 +64,47 @@ export function normalizeCommandTicketRef(raw: string): string {
   return alnum ? `TK-${alnum}` : upper;
 }
 
+/**
+ * Separa referência TK-… do texto livre (motivo, @setores, etc.).
+ * Ex.: `TK-ABC Cliente precisa @suporte2` → ref + message
+ */
+export function parseCommandTicketArg(raw: string): { ticketRef: string; message?: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { ticketRef: '' };
+  }
+  const spaceIdx = trimmed.search(/\s/);
+  if (spaceIdx === -1) {
+    return { ticketRef: normalizeCommandTicketRef(trimmed) };
+  }
+  const refPart = trimmed.slice(0, spaceIdx);
+  const message = trimmed.slice(spaceIdx + 1).trim();
+  return {
+    ticketRef: normalizeCommandTicketRef(refPart),
+    message: message || undefined,
+  };
+}
+
 export const WHATSAPP_AGENT_COMMAND_HELP = [
-  'Comandos RadarZap (atendentes com WhatsApp cadastrado em Equipe):',
+  '📋 RadarZap — Comandos WhatsApp (Equipe)',
   '',
-  '!assumir TK-XXXX — assumir conversa (chat do site: bridge WA; não abre chamado formal)',
-  '!abrir TK-XXXX — abrir chamado formal e enviar token ao visitante (chat do site)',
-  '!ticket TK-XXXX — resumo do chamado',
-  '!token TK-XXXX — reenviar token ao visitante (após !abrir ou Abrir chamado no painel)',
-  '!encerrarchat TK-XXXX — encerrar atendimento no site (chamado continua no painel)',
-  '!encerrar TK-XXXX — arquivar chamado e conversa no sistema',
+  '▸ Atendimento — chat do site',
+  '!assumir TK-… — assumir conversa + bridge (não abre chamado)',
+  '!abrir TK-… [motivo] — abrir chamado + token ao visitante',
+  '   Ex.: !abrir TK-ABC Cliente precisa @suporte2, @financeiro',
+  '!token TK-… — reenviar token de consulta ao visitante',
+  '!nota TK-… texto — nota interna no chamado (sem enviar ao cliente)',
+  '',
+  '▸ Consulta',
+  '!ticket TK-… — resumo de um chamado',
+  '!abertos — chamados abertos + conversas site aguardando !abrir',
+  '!meus — seus chamados/conversas em andamento',
+  '',
+  '▸ Encerrar',
+  '!encerrarchat TK-… — encerra chat do site (chamado continua no painel)',
+  '!encerrar TK-… — arquiva chamado e conversa',
+  '',
+  '▸ Ajuda',
   '!ajuda — esta mensagem',
   '',
   'Com bridge ativo: responda normalmente ou TK-XXXX sua mensagem (vários chamados).',

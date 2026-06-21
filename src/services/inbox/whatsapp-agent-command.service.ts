@@ -5,6 +5,7 @@ import { WebChatConversation, IWebChatConversation } from '@/models/WebChatConve
 import { INBOX_TICKET_STATUS_LABEL, ticketIsActive } from '@/types/inbox-ticket';
 import {
   normalizeCommandTicketRef,
+  parseCommandTicketArg,
   parseWhatsappAgentCommand,
   WHATSAPP_AGENT_COMMAND_HELP,
 } from '@/utils/whatsapp-agent-command.util';
@@ -54,6 +55,188 @@ async function findTicketByRef(
     status: 'open',
   });
   return { ticket: null, webChat };
+}
+
+async function applyTicketOpeningContext(
+  ticket: IInboxTicket,
+  userId: string,
+  message: string,
+): Promise<void> {
+  const text = message.trim().slice(0, 2000);
+  if (!text) return;
+  if (!ticket.subject?.trim()) {
+    ticket.subject = text.slice(0, 200);
+  }
+  if (!ticket.internalNotesList) ticket.internalNotesList = [];
+  ticket.internalNotesList.push({
+    userId: new mongoose.Types.ObjectId(userId),
+    body: text,
+    createdAt: new Date(),
+  });
+  ticket.updatedAt = new Date();
+  await ticket.save();
+}
+
+function formatChannelLabel(channel?: string, bridge?: boolean): string {
+  if (channel === 'webchat_site') {
+    return bridge ? 'site · bridge' : 'site';
+  }
+  if (channel === 'whatsapp') return 'WA';
+  return '—';
+}
+
+async function handleAbertos(clientId: string): Promise<string> {
+  const clientOid = new mongoose.Types.ObjectId(clientId);
+  const tickets = await InboxTicket.find({
+    clientId: clientOid,
+    status: { $in: ['open', 'in_progress', 'client_replied'] },
+  })
+    .sort({ updatedAt: -1 })
+    .limit(20)
+    .select('ticketRef status channel contactName assignedUserId webChatConversationId')
+    .lean();
+
+  const openConvs = await WebChatConversation.find({
+    clientId: clientOid,
+    status: 'open',
+    ticketRef: { $exists: true, $nin: [null, ''] },
+  })
+    .select('ticketRef visitorName assignedUserId whatsappBridgeActive')
+    .lean();
+
+  const bridgeByRef = new Map(
+    openConvs.map(c => [(c.ticketRef ?? '').trim().toUpperCase(), Boolean(c.whatsappBridgeActive)]),
+  );
+
+  const formalRefs = new Set(tickets.map(t => t.ticketRef.toUpperCase()));
+  const informal = openConvs.filter(c => {
+    const ref = (c.ticketRef ?? '').trim().toUpperCase();
+    return ref && !formalRefs.has(ref);
+  });
+
+  if (tickets.length === 0 && informal.length === 0) {
+    return 'Nenhum chamado aberto no momento.';
+  }
+
+  const assigneeIds = [
+    ...new Set([
+      ...tickets.map(t => (t.assignedUserId ? String(t.assignedUserId) : '')),
+      ...informal.map(c => (c.assignedUserId ? String(c.assignedUserId) : '')),
+    ].filter(Boolean)),
+  ];
+  const users = assigneeIds.length
+    ? await User.find({ _id: { $in: assigneeIds } }).select('displayName email').lean()
+    : [];
+  const userName = (id?: string | null) => {
+    if (!id) return '—';
+    const u = users.find(x => String(x._id) === id);
+    return u?.displayName?.trim() || u?.email?.split('@')[0] || 'Atendente';
+  };
+
+  const lines: string[] = [`Chamados abertos (${tickets.length + informal.length}):`, ''];
+
+  for (const t of tickets) {
+    const status =
+      INBOX_TICKET_STATUS_LABEL[t.status as keyof typeof INBOX_TICKET_STATUS_LABEL] ?? t.status;
+    lines.push(
+      `${t.ticketRef} · ${status} · ${t.contactName} · ${formatChannelLabel(t.channel, bridgeByRef.get(t.ticketRef.toUpperCase()))} · ${userName(t.assignedUserId ? String(t.assignedUserId) : null)}`,
+    );
+  }
+
+  for (const c of informal.slice(0, 10)) {
+    const ref = (c.ticketRef ?? '').trim().toUpperCase();
+    const name = c.visitorName?.trim() || 'Visitante';
+    lines.push(
+      `${ref} · conversa site (use !abrir) · ${name} · ${c.whatsappBridgeActive ? 'bridge' : '—'} · ${userName(c.assignedUserId ? String(c.assignedUserId) : null)}`,
+    );
+  }
+
+  lines.push('', '!ticket TK-… — detalhes · !meus — só os seus');
+  return lines.join('\n');
+}
+
+async function handleMeus(clientId: string, userId: string): Promise<string> {
+  const clientOid = new mongoose.Types.ObjectId(clientId);
+  const userOid = new mongoose.Types.ObjectId(userId);
+
+  const tickets = await InboxTicket.find({
+    clientId: clientOid,
+    assignedUserId: userOid,
+    status: { $in: ['open', 'in_progress', 'client_replied'] },
+  })
+    .sort({ updatedAt: -1 })
+    .limit(15)
+    .select('ticketRef status channel contactName')
+    .lean();
+
+  const convs = await WebChatConversation.find({
+    clientId: clientOid,
+    assignedUserId: userOid,
+    status: 'open',
+  })
+    .sort({ updatedAt: -1 })
+    .limit(10)
+    .select('ticketRef visitorName whatsappBridgeActive')
+    .lean();
+
+  const ticketRefs = new Set(tickets.map(t => t.ticketRef.toUpperCase()));
+  const convOnly = convs.filter(c => {
+    const ref = (c.ticketRef ?? '').trim().toUpperCase();
+    return !ref || !ticketRefs.has(ref);
+  });
+
+  if (tickets.length === 0 && convOnly.length === 0) {
+    return 'Você não tem chamados ou conversas em andamento.';
+  }
+
+  const lines: string[] = [`Seus atendimentos (${tickets.length + convOnly.length}):`, ''];
+
+  for (const t of tickets) {
+    const status =
+      INBOX_TICKET_STATUS_LABEL[t.status as keyof typeof INBOX_TICKET_STATUS_LABEL] ?? t.status;
+    lines.push(`${t.ticketRef} · ${status} · ${t.contactName} · ${formatChannelLabel(t.channel)}`);
+  }
+
+  for (const c of convOnly) {
+    const ref = (c.ticketRef ?? '—').trim().toUpperCase() || '—';
+    const name = c.visitorName?.trim() || 'Visitante';
+    lines.push(
+      `${ref} · conversa site · ${name}${c.whatsappBridgeActive ? ' · bridge ativo' : ''}`,
+    );
+  }
+
+  lines.push('', '!ticket TK-… — resumo');
+  return lines.join('\n');
+}
+
+async function handleNota(
+  clientId: string,
+  userId: string,
+  ticketRef: string,
+  noteBody?: string,
+): Promise<string> {
+  if (!noteBody?.trim()) {
+    return 'Use: !nota TK-XXXX texto da nota interna (ex.: @suporte2 @financeiro)';
+  }
+
+  const { ticket } = await findTicketByRef(clientId, ticketRef);
+  if (!ticket) {
+    return `Chamado ${ticketRef} não encontrado. Abra com !abrir antes de anotar.`;
+  }
+
+  try {
+    await InboxService.getInstance().addTicketInternalNote(
+      clientId,
+      userId,
+      ticketRef,
+      noteBody.trim(),
+    );
+    return [`Nota registrada em ${ticketRef}.`, '(Visível só no painel — não enviada ao cliente.)'].join(
+      '\n',
+    );
+  } catch (err) {
+    return (err as Error).message || `Não foi possível salvar nota em ${ticketRef}.`;
+  }
 }
 
 async function handleAssumir(
@@ -229,6 +412,7 @@ async function handleTicketSummary(clientId: string, ticketRef: string): Promise
   }
 
   const bridgeLine = webChat?.whatsappBridgeActive ? 'Bridge WhatsApp: ativo' : null;
+  const subjectLine = ticket?.subject?.trim() ? `Assunto: ${ticket.subject.trim().slice(0, 160)}` : null;
 
   const lines = [
     `Ticket: ${ref}`,
@@ -236,6 +420,7 @@ async function handleTicketSummary(clientId: string, ticketRef: string): Promise
     `Canal: ${channel === 'webchat_site' ? 'Chat do site' : 'WhatsApp'}`,
     `Cliente: ${contact}`,
     `Responsável: ${assignee}`,
+    subjectLine,
     bridgeLine,
     preview ? `Última msg: ${preview.slice(0, 120)}` : null,
   ].filter((line): line is string => Boolean(line));
@@ -247,6 +432,7 @@ async function handleAbrir(
   clientId: string,
   userId: string,
   ticketRef: string,
+  openingMessage?: string,
 ): Promise<string> {
   const { ticket, webChat } = await findTicketByRef(clientId, ticketRef);
 
@@ -263,9 +449,19 @@ async function handleAbrir(
     }
 
     if (ticket?.publicAccessTokenHash) {
+      if (openingMessage) {
+        await applyTicketOpeningContext(ticket, userId, openingMessage);
+        return [
+          `Nota registrada em ${ticketRef}.`,
+          `Motivo: ${openingMessage.slice(0, 160)}${openingMessage.length > 160 ? '…' : ''}`,
+          '',
+          `Reenviar token: !token ${ticketRef.replace(/^TK-/i, '')}`,
+        ].join('\n');
+      }
       return [
         `Chamado ${ticketRef} já está aberto.`,
-        `Reenviar token ao visitante: !token ${ticketRef.replace(/^TK-/i, '')}`,
+        `Reenviar token: !token ${ticketRef.replace(/^TK-/i, '')}`,
+        'Adicionar motivo: !nota TK-… texto ou !abrir TK-… motivo',
       ].join('\n');
     }
 
@@ -298,14 +494,29 @@ async function handleAbrir(
     if (ticketDoc) {
       ticketDoc.assignedUserId = new mongoose.Types.ObjectId(userId);
       ticketDoc.status = 'in_progress';
+      if (openingMessage) {
+        if (!ticketDoc.subject?.trim()) {
+          ticketDoc.subject = openingMessage.trim().slice(0, 200);
+        }
+        if (!ticketDoc.internalNotesList) ticketDoc.internalNotesList = [];
+        ticketDoc.internalNotesList.push({
+          userId: new mongoose.Types.ObjectId(userId),
+          body: openingMessage.trim().slice(0, 2000),
+          createdAt: new Date(),
+        });
+      }
       await ticketDoc.save();
     }
+
+    const noteLine = openingMessage
+      ? [`Motivo registrado: ${openingMessage.slice(0, 120)}${openingMessage.length > 120 ? '…' : ''}`, '']
+      : [];
 
     if (result.notifiedClient) {
       return [
         `Chamado ${result.ticketRef} aberto.`,
         'Visitante notificado no chat do site com número e token de consulta.',
-        '',
+        ...noteLine,
         `Status: ${result.ticketStatus}`,
         `Reenvio: !token ${result.ticketRef.replace(/^TK-/i, '')}`,
       ].join('\n');
@@ -314,6 +525,7 @@ async function handleAbrir(
     return [
       `Chamado ${result.ticketRef} registrado.`,
       'Visitante já havia sido notificado ou chamado já existia.',
+      ...noteLine,
       `Reenvio de token: !token ${result.ticketRef.replace(/^TK-/i, '')}`,
     ].join('\n');
   }
@@ -325,8 +537,16 @@ async function handleAbrir(
         userId,
         String(ticket.conversationId),
       );
+      if (openingMessage && result.ticketRef) {
+        const ticketDoc = await InboxTicket.findOne({
+          clientId: new mongoose.Types.ObjectId(clientId),
+          ticketRef: result.ticketRef,
+        });
+        if (ticketDoc) await applyTicketOpeningContext(ticketDoc, userId, openingMessage);
+      }
       if (result.notifiedClient) {
-        return `Chamado ${result.ticketRef} aberto. Cliente notificado no WhatsApp.`;
+        const extra = openingMessage ? `\nMotivo: ${openingMessage.slice(0, 120)}` : '';
+        return `Chamado ${result.ticketRef} aberto. Cliente notificado no WhatsApp.${extra}`;
       }
       return `Chamado ${result.ticketRef} já estava aberto.`;
     } catch (err) {
@@ -483,31 +703,53 @@ export async function handleWhatsappAgentCommand(
       return true;
     }
 
-    const ticketRef = normalizeCommandTicketRef(parsed.arg!);
-
     let response: string;
     switch (parsed.command) {
-      case 'assumir':
+      case 'abertos':
+      case 'chamados':
+        response = await handleAbertos(input.clientId);
+        break;
+      case 'meus':
+        response = await handleMeus(input.clientId, agent.userId);
+        break;
+      case 'assumir': {
+        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
         response = await handleAssumir(input.clientId, agent.userId, ticketRef);
         break;
+      }
       case 'abrir':
-      case 'abrirchamado':
-        response = await handleAbrir(input.clientId, agent.userId, ticketRef);
+      case 'abrirchamado': {
+        const { ticketRef, message } = parseCommandTicketArg(parsed.arg!);
+        response = await handleAbrir(input.clientId, agent.userId, ticketRef, message);
         break;
-      case 'ticket':
+      }
+      case 'nota': {
+        const { ticketRef, message } = parseCommandTicketArg(parsed.arg!);
+        response = await handleNota(input.clientId, agent.userId, ticketRef, message);
+        break;
+      }
+      case 'ticket': {
+        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
         response = await handleTicketSummary(input.clientId, ticketRef);
         break;
-      case 'token':
+      }
+      case 'token': {
+        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
         response = await handleToken(input.clientId, agent.userId, ticketRef);
         break;
-      case 'encerrar':
+      }
+      case 'encerrar': {
+        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
         response = await handleEncerrar(input.clientId, agent.userId, ticketRef);
         break;
+      }
       case 'encerrarchat':
       case 'sairchat':
-      case 'fecharchat':
+      case 'fecharchat': {
+        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
         response = await handleEncerrarChat(input.clientId, agent.userId, ticketRef);
         break;
+      }
       default:
         response = WHATSAPP_AGENT_COMMAND_HELP;
     }

@@ -330,8 +330,9 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Bridge bidirecional site ↔ WhatsApp após `!assumir` (2.10.74) — campos `whatsappBridgeActive` em `WebChatConversation`.
 - Comandos `!assumir` / `!abrir` / `!ticket` / `!token` / `!encerrarchat` / `!encerrar` / `!ajuda` para atendentes com WhatsApp em Equipe (2.10.73+).
 - **`!assumir`** (2.11.7): só assume conversa + bridge WhatsApp — **não** abre chamado formal nem envia token.
-- **`!abrir TK-…`** (2.11.8): abre chamado formal e envia número + token ao visitante no widget (equivalente a *Abrir chamado* no painel).
-- **`!token TK-…`**: reenvia token **depois** que o chamado foi aberto (`!abrir` ou painel).
+- **`!abrir TK-… [motivo]`** (2.11.8+): abre chamado + token; texto após TK vira **assunto/nota interna** (ex.: `@suporte2`) — **não** vai ao visitante.
+- **`!abertos`** / **`!meus`** (2.11.9): listar chamados abertos ou só os seus.
+- **`!nota TK-… texto`** (2.11.9): nota interna em chamado já aberto.
 
 ### Bridge site ↔ WhatsApp (2.10.74)
 
