@@ -817,18 +817,6 @@ export class WebChatService {
 
     if (filters.hasTicket === true) {
       query.ticketRef = { $exists: true, $nin: [null, ''] };
-    } else if (filters.hasTicket === false) {
-      const noTicketClause = {
-        $or: [{ ticketRef: { $exists: false } }, { ticketRef: null }, { ticketRef: '' }],
-      };
-      if (query.$and) {
-        (query.$and as unknown[]).push(noTicketClause);
-      } else if (query.$or) {
-        query.$and = [{ $or: query.$or as unknown[] }, noTicketClause];
-        delete query.$or;
-      } else {
-        Object.assign(query, noTicketClause);
-      }
     }
 
     const q = filters.search?.trim();

@@ -420,8 +420,7 @@ export default function Inbox() {
     refetchInterval: 30_000,
   })
 
-  const webchatQueueCount =
-    webchatBridge?.myWaitingQueueCount ?? webchatBridge?.waitingQueueCount ?? 0
+  const webchatQueueCount = webchatBridge?.waitingQueueCount ?? 0
 
   const stats = useMemo(() => {
     const all = conversations
@@ -1406,7 +1405,26 @@ export default function Inbox() {
                 </footer>
               )}
             </>
-          ) : null}
+          ) : (
+            <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center">
+              <MessageSquare size={36} className="text-[var(--rz-text-muted)]/50 mb-3" />
+              <p className="text-sm font-medium text-[var(--rz-text-primary)]">
+                Não foi possível abrir esta conversa
+              </p>
+              <p className="text-xs text-[var(--rz-text-muted)] mt-2 max-w-sm">
+                Ela pode ter sido encerrada ou você não tem acesso. Volte à lista ou ajuste os filtros.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="mt-4"
+                onClick={() => setSelectedId(null)}
+              >
+                Voltar à lista
+              </Button>
+            </div>
+          )}
         </section>
 
         {conv && (

@@ -1456,7 +1456,12 @@ export class DashboardService {
           status,
           departmentId,
           mine: mine === '1' || mine === 'true',
-          hasTicket: hasTicket === '1' || hasTicket === 'true',
+          hasTicket:
+            hasTicket === '1' || hasTicket === 'true'
+              ? true
+              : hasTicket === '0' || hasTicket === 'false'
+                ? false
+                : undefined,
           search,
         };
 
