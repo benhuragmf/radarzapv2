@@ -2,9 +2,9 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.10.87` (`package.json`) · **Última revisão doc:** 2026-06-19
+**Versão atual:** `2.11.0` (`package.json`) · **Última revisão doc:** 2026-06-19
 
-Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`** (infra/env/segurança — usar agora), **`PRODUCTION.md`** (runbook go-live — só quando 100% pronto), `BILLING.md`
+Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
 ---
 
@@ -87,8 +87,12 @@ Documentação por módulo: `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `T
 | **2.10.86** | WebChat: confirmação de leitura estilo WhatsApp (receipts widget + Inbox) |
 | **2.10.83** | WebChat: OTP 2 etapas no reenvio de token de chamado |
 | **2.10.87** | Hardening pós-auditoria: OTP Redis, rate limit receipts, lint, CSRF connect WA, backfill deliveredAt |
+| **2.10.106** | Modos atendimento Fase 1: UI 4 cards + adapter `attendance-mode.ts` — `RADARZAP-ATTENDANCE-MODES-PHASE-1.md` |
+| **2.10.107** | Modos atendimento Fase 3: `attendanceMode` em `AiSettings` + backfill — `RADARZAP-ATTENDANCE-MODES-PHASE-3.md` |
+| **2.10.108** | Modos atendimento Fase 4: WebChat robotizado — `RADARZAP-ATTENDANCE-MODES-PHASE-4.md` |
+| **2.11.0** | **Baseline modos de atendimento** (Fases 1–4) + protocolo versionamento/docs `.md` — `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `VERSIONAMENTO-E-DOCUMENTACAO.md`, `CHANGELOG.md` |
 
-**Ao entregar feature nova:** incrementar patch (`2.2.x`) ou minor (`2.3.0`) em `package.json` e adicionar linha nesta tabela.
+**Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 
 ---
 
@@ -136,18 +140,21 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `InboxTicket` | `teamSlaDueAt`, `teamSlaBreachedAt`, `lastStatusChangeAt` | 2.7.0 |
 | `Destination` | `pendingTicketMenuChoices[]`, `pendingTicketTargetRef` | 2.7.0 |
 | `AiConversationState` | `targetTicketRef` | 2.6.4 |
-| `AiConversationState` | `pendingTicketChoices[]` | 2.6.7 |
+| `AiSettings` | `attendanceMode` | 2.10.107 |
 
 ---
 
 ## Protocolo ao criar ou alterar features
 
+**Obrigatório a partir de `2.11.0`:** [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)
+
 1. Implementar backend + frontend nos padrões do projeto
-2. Atualizar `MENU-PAGES-REGISTRY.md` se rota/menu/API mudou
-3. Atualizar doc do módulo se comportamento de domínio mudou
-4. Atualizar **este arquivo** e `.cursor/rules/radarzap-v2-system-registry.mdc`
-5. Versionar `package.json` quando fizer sentido
-6. **Commit e push** ao concluir a tarefa (não deixar alterações locais sem enviar)
-7. **Deploy dedicado:** preparar com `PREPARACAO-PRODUCAO.md`; executar `PRODUCTION.md` só quando sistema **100% pronto**
-8. **Roadmap/produção:** atualizar `ROADMAP-COMPLETUDE.md` e `PREPARACAO-PRODUCAO.md` quando feature impactar infra ou segurança
-9. Nunca commitar `sessions/`, `.env`, credenciais
+2. **Incrementar** `package.json` e registrar em **`CHANGELOG.md`**
+3. Atualizar `MENU-PAGES-REGISTRY.md` se rota/menu/API mudou
+4. Atualizar doc de módulo (`.md`) se comportamento de domínio mudou
+5. Features grandes: doc de fase + atualizar consolidado (ex. modos de atendimento)
+6. Atualizar **`INDICE-DOCUMENTACAO.md`** se novo doc criado
+7. Atualizar **este arquivo** e `.cursor/rules/radarzap-v2-system-registry.mdc`
+8. **Commit e push** ao concluir (não deixar alterações locais sem enviar)
+9. **Deploy:** `PREPARACAO-PRODUCAO.md` / `PRODUCTION.md` só quando gate estabilização OK
+10. Nunca commitar `sessions/`, `.env`, credenciais

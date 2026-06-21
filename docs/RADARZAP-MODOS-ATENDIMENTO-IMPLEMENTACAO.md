@@ -1,6 +1,6 @@
 # RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
 
-**Versão atual:** `2.10.108` · **Última atualização:** 2026-06-19  
+**Versão atual:** `2.11.0` · **Última atualização:** 2026-06-19  
 **Análise prévia:** [`ANALISE-MODOS-ATENDIMENTO.md`](./ANALISE-MODOS-ATENDIMENTO.md)
 
 Documento consolidado de **tudo que foi implementado** na evolução dos modos de atendimento. Substitui a leitura fragmentada das fases individuais para quem quer visão única.
@@ -476,6 +476,20 @@ Ordem recomendada: **5 → 7 → 8 → 6** (6 é mostly naming/polish).
 | IA Básica bloqueada na UI | Evitar prometer comportamento inexistente |
 | Menu WebChat em texto | Paridade WA mínima; botões = futuro |
 | Desativado ≠ zero automação | Honestidade: bot WA legado continua |
+
+---
+
+## Governança de versão (2.11.0)
+
+A partir de **`2.11.0`**, toda entrega segue o protocolo em [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md):
+
+| Artefato | Função |
+|----------|--------|
+| [`CHANGELOG.md`](./CHANGELOG.md) | Histórico append-only por versão |
+| [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) | Mapa de todos os `.md` |
+| [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) | Espelho versionado no git |
+
+**Baseline minor `2.11.0`:** agrupa Fases 1–4 (código `2.10.106`–`2.10.108`) + governança de documentação.
 
 ---
 
