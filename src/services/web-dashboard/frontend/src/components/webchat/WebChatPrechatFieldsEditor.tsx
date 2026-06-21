@@ -1,4 +1,4 @@
-import { Plus, Trash2, ChevronUp, ChevronDown, LayoutList, ListOrdered } from 'lucide-react'
+import { Plus, Trash2, ChevronUp, ChevronDown, LayoutList, ListOrdered, Copy } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { inputCls, textareaCls } from '@/design-system'
 import { cn } from '@/lib/utils'
@@ -44,6 +44,23 @@ function moveField(fields: WebChatPrechatField[], index: number, dir: -1 | 1): W
 export function WebChatPrechatFieldsEditor({ appearance, onChange, onPersist }: Props) {
   const fields = resolvePrechatFields(appearance)
   const mode = resolvePrechatMode(appearance)
+  const activeFields = fields.filter(f => f.enabled)
+  const requiredFields = activeFields.filter(f => f.required)
+  const hasPrechat = activeFields.length > 0
+
+  const duplicateField = (index: number) => {
+    const source = fields[index]
+    if (!source) return
+    const copy = normalizePrechatField({
+      ...source,
+      id: slugifyPrechatFieldId(`${source.label}_copia`),
+      label: `${source.label} (cópia)`,
+      preset: undefined,
+    })
+    const next = [...fields]
+    next.splice(index + 1, 0, copy)
+    updateFields(next)
+  }
 
   const updateAppearance = (patch: Partial<AppearanceWithFields>, persist = false) => {
     const next = syncLegacyAppearanceFlags({ ...appearance, ...patch })
@@ -102,11 +119,37 @@ export function WebChatPrechatFieldsEditor({ appearance, onChange, onPersist }: 
       <div>
         <h4 className="text-sm font-semibold text-[var(--rz-text)]">Dados coletados antes do chat</h4>
         <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Escolha como o visitante preenche: <strong>etapas</strong> (uma pergunta por vez) ou{' '}
-          <strong>formulário</strong> (todos os campos na mesma tela). Altera só o conteúdo do
-          formulário — <strong>não</strong> muda tema, cores nem modelo do chat.
+          <strong>Pergunta por vez</strong> melhora conversão no celular.{' '}
+          <strong>Formulário completo</strong> é melhor para suporte técnico e B2B.
         </p>
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
+        <input
+          type="checkbox"
+          checked={hasPrechat}
+          onChange={e => {
+            if (!e.target.checked) {
+              updateFields(fields.map(f => ({ ...f, enabled: false })))
+            } else if (!activeFields.length) {
+              addFromTemplate(FIELD_TEMPLATES[0])
+            }
+          }}
+        />
+        Solicitar dados antes de iniciar conversa
+      </label>
+
+      {!requiredFields.length && hasPrechat && (
+        <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/90">
+          Você não tem campos obrigatórios. Isso facilita o início da conversa, mas pode reduzir a
+          identificação do cliente.
+        </p>
+      )}
+      {activeFields.length > 6 && (
+        <p className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200/90">
+          Formulários longos podem diminuir a conversão, principalmente no celular.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button
@@ -202,6 +245,16 @@ export function WebChatPrechatFieldsEditor({ appearance, onChange, onPersist }: 
                   onClick={() => updateFields(moveField(fields, index, 1))}
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="px-2"
+                  onClick={() => duplicateField(index)}
+                  title="Duplicar campo"
+                >
+                  <Copy className="h-3.5 w-3.5" />
                 </Button>
                 {!field.preset && (
                   <Button

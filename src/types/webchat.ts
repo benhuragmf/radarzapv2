@@ -175,6 +175,8 @@ export interface WebChatPublicConfig {
   faqQuickReplies: WebChatFaqQuickReply[];
   faqCatalogAvailable: boolean;
   chatLayout: WebChatChatLayout;
+  /** Modelo visual (landing id ou `chatbox-*`) — usado pelo widget.js para layout Chat Box */
+  previewTemplateId?: string;
 }
 
 export interface WebChatTicketPublicLookupDto {

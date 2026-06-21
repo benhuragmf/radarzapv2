@@ -10,27 +10,41 @@ type Props = {
   selectedTemplateId: string | null
   /** Incrementar após salvar widget para recarregar config da API no iframe */
   reloadKey?: number
+  /** Visualização reduzida (balão fechado) */
+  compact?: boolean
+  /** Modelo sendo persistido — indicador não bloqueia cliques */
+  applying?: boolean
 }
 
-/** Escala visual do iframe (1 = 100%). 0.8 = 20% menor. */
-const PREVIEW_SCALE = 0.8
-const PREVIEW_IFRAME_HEIGHT = 500
-const PREVIEW_VIEW_HEIGHT = Math.round(PREVIEW_IFRAME_HEIGHT * PREVIEW_SCALE)
-
 const CHATBOX_LIVE_PREVIEW_PATH = '/webchat/widget.html'
+const PREVIEW_IFRAME_HEIGHT = 520
+const PREVIEW_IFRAME_HEIGHT_COMPACT = 280
+const PREVIEW_CHATBOX_EXTRA = 80
 
-export function WebChatLivePreview({ publicKey, selectedTemplateId, reloadKey = 0 }: Props) {
+/**
+ * Prévia interativa usa widget.html (widget real + API).
+ * Landings preview-*.html são só decoração nos cards.
+ */
+export function WebChatLivePreview({
+  publicKey,
+  selectedTemplateId,
+  reloadKey = 0,
+  compact = false,
+  applying = false,
+}: Props) {
   const chatBoxId = parseChatBoxModelId(selectedTemplateId)
   const chatBoxModel = chatBoxId ? findChatBoxModel(chatBoxId) : null
   const landingTemplate = WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)
 
-  const templatePath = chatBoxModel
-    ? CHATBOX_LIVE_PREVIEW_PATH
-    : landingTemplate?.path ?? '/webchat/preview-tech.html'
+  const templateName = chatBoxModel?.name ?? landingTemplate?.name ?? 'Widget'
 
-  const templateName = chatBoxModel?.name ?? landingTemplate?.name ?? 'Tecnológico'
+  const iframeHeight = compact
+    ? PREVIEW_IFRAME_HEIGHT_COMPACT
+    : chatBoxModel
+      ? Math.max(PREVIEW_IFRAME_HEIGHT, chatBoxModel.dimensions.widgetHeight + PREVIEW_CHATBOX_EXTRA)
+      : PREVIEW_IFRAME_HEIGHT
 
-  const href = webChatPreviewUrl(templatePath, publicKey, reloadKey || undefined)
+  const href = webChatPreviewUrl(CHATBOX_LIVE_PREVIEW_PATH, publicKey, reloadKey || undefined)
 
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-lg shadow-black/10">
@@ -38,15 +52,12 @@ export function WebChatLivePreview({ publicKey, selectedTemplateId, reloadKey = 
         <div>
           <p className="text-xs font-semibold text-[var(--rz-text)]">Pré-visualização ao vivo</p>
           <p className="text-[10px] text-[var(--rz-text-muted)]">
-            {chatBoxModel ? (
-              <>
-                Chat Box <span className="text-[var(--rz-text-secondary)]">{templateName}</span> — widget
-                real com config salva
-              </>
+            {applying ? (
+              'Aplicando modelo no servidor…'
             ) : (
               <>
-                Modelo <span className="text-[var(--rz-text-secondary)]">{templateName}</span> — reflete o
-                widget salvo no servidor
+                Modelo <span className="text-[var(--rz-text-secondary)]">{templateName}</span> — widget
+                real (config salva no servidor)
               </>
             )}
           </p>
@@ -61,24 +72,14 @@ export function WebChatLivePreview({ publicKey, selectedTemplateId, reloadKey = 
           Nova aba
         </a>
       </div>
-      <div className="overflow-hidden bg-[var(--rz-surface)]" style={{ height: PREVIEW_VIEW_HEIGHT }}>
-        <div
-          className="origin-top-left"
-          style={{
-            transform: `scale(${PREVIEW_SCALE})`,
-            width: `${100 / PREVIEW_SCALE}%`,
-            height: PREVIEW_IFRAME_HEIGHT,
-          }}
-        >
-          <iframe
-            key={href}
-            title={`Preview WebChat — ${templateName}`}
-            src={href}
-            className="w-full border-0 bg-white"
-            style={{ height: PREVIEW_IFRAME_HEIGHT }}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          />
-        </div>
+      <div className="overflow-hidden bg-[var(--rz-surface)]" style={{ height: iframeHeight }}>
+        <iframe
+          key={href}
+          title={`Preview WebChat — ${templateName}`}
+          src={href}
+          className="h-full w-full border-0 bg-white"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
       </div>
     </div>
   )

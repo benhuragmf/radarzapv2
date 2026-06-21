@@ -19,6 +19,9 @@ export function phoneLookupIdentifiers(phone: string): string[] {
   return [...ids];
 }
 
+/** Limite do schema `Destination.notes` — manter em sync com o modelo. */
+export const DESTINATION_NOTES_MAX_LENGTH = 2000;
+
 function buildWebChatDestinationNote(
   patch: VisitorIntakePatch,
   meta?: { pageUrl?: string; pageTitle?: string },
@@ -35,6 +38,28 @@ function buildWebChatDestinationNote(
   if (!parts.length) return null;
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
   return `[WebChat ${stamp}] ${parts.join(' · ')}`;
+}
+
+/** Conteúdo sem carimbo de data — evita duplicar a mesma visita a cada clique. */
+export function webChatNoteContentKey(noteLine: string): string {
+  return noteLine.replace(/^\[WebChat [^\]]+\]\s*/, '').trim();
+}
+
+/** Anexa linha mantendo as entradas mais recentes dentro do limite do Mongo. */
+export function appendCappedDestinationNotes(prev: string, noteLine: string): string {
+  const trimmedPrev = prev?.trim() ?? '';
+  const next = trimmedPrev ? `${trimmedPrev}\n${noteLine}` : noteLine;
+  if (next.length <= DESTINATION_NOTES_MAX_LENGTH) return next;
+
+  const lines = next.split('\n');
+  while (lines.length > 1 && lines.join('\n').length > DESTINATION_NOTES_MAX_LENGTH) {
+    lines.shift();
+  }
+  let joined = lines.join('\n');
+  if (joined.length > DESTINATION_NOTES_MAX_LENGTH) {
+    joined = joined.slice(joined.length - DESTINATION_NOTES_MAX_LENGTH);
+  }
+  return joined;
 }
 
 /** Vincula visitante ao contato (Destination) pelo telefone e atualiza o perfil. */
@@ -74,8 +99,11 @@ export async function linkWebChatVisitorToDestination(
   const noteLine = buildWebChatDestinationNote(patch, meta);
   if (noteLine) {
     const prev = dest.notes?.trim() ?? '';
-    if (!prev.includes(noteLine)) {
-      dest.notes = prev ? `${prev}\n${noteLine}` : noteLine;
+    const contentKey = webChatNoteContentKey(noteLine);
+    const lastLine = prev.split('\n').pop() ?? '';
+    const isDuplicate = contentKey && webChatNoteContentKey(lastLine) === contentKey;
+    if (!isDuplicate) {
+      dest.notes = appendCappedDestinationNotes(prev, noteLine);
       changed = true;
     }
   }

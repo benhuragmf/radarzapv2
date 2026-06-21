@@ -6,6 +6,20 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.5] — 2026-06-19
+
+### Adicionado / alterado
+
+- **WebChat painel:** editor guiado (navegação lateral, simples/avançado, visão geral, barra de salvar, duplicar widget).
+- **Preview:** `livePreviewTemplateId`, prévia interativa Chat Box, fixes overlay e sessão local.
+- **Widget/API:** `previewTemplateId` na config pública; localhost liberado em dev; notas de contato truncadas (2000 chars).
+
+### Documentação
+
+- `docs/WEBCHAT.md` — seção contrato painel ↔ widget (2.10.100–2.10.105).
+
+---
+
 ## [2.11.4] — 2026-06-19
 
 ### Adicionado

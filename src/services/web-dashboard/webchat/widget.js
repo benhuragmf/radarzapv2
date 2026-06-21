@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.10.96';
+  var WIDGET_BUILD = '2.10.108';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -666,7 +666,7 @@
   function renderChatBoxPocketHome(t, rt) {
     var greeting = (state.config && state.config.greeting) || '';
     var html =
-      '<div style="flex:1;overflow:auto;padding:16px 14px;background:' +
+      '<div style="flex:1;min-height:0;overflow:auto;padding:16px 14px;background:' +
       t.messagesBg +
       ';">';
     if (greeting) {
@@ -685,7 +685,7 @@
   function renderChatBoxPocketHelp(t, rt) {
     var accent = primaryColor();
     var html =
-      '<div style="flex:1;overflow:auto;padding:16px 14px;background:' +
+      '<div style="flex:1;min-height:0;overflow:auto;padding:16px 14px;background:' +
       t.messagesBg +
       ';">' +
       '<div style="font-size:14px;font-weight:600;color:' +
@@ -753,6 +753,25 @@
       .replace(/\s+/g, ' ');
   }
 
+  function isChatBoxSessionStartCta(text) {
+    var rt = chatBoxRuntime();
+    if (!rt || !text) return false;
+    var needle = normalizePickText(text);
+    if (!needle) return false;
+    if (rt.primaryCta && normalizePickText(rt.primaryCta) === needle) return true;
+    var defaults = [
+      'iniciar conversa',
+      'nova conversa',
+      'começar agora',
+      'comecar agora',
+      'iniciar atendimento',
+    ];
+    for (var si = 0; si < defaults.length; si++) {
+      if (needle === defaults[si]) return true;
+    }
+    return false;
+  }
+
   function findFaqArticleIdForLabel(label) {
     var needle = normalizePickText(label);
     if (!needle) return null;
@@ -811,6 +830,18 @@
     state.chatBoxPocketTab = 'chat';
 
     function runPick() {
+      if (isChatBoxSessionStartCta(trimmed)) {
+        state.open = true;
+        state.chatBoxPocketTab = 'chat';
+        if (needsPrechat()) {
+          renderBubble();
+          return;
+        }
+        if (!state.started || !state.visitorToken) {
+          startSessionCore();
+        }
+        return;
+      }
       if (explicitArticleId && faqBrowserEnabled()) {
         openFaqArticleFromCatalog(explicitArticleId);
         return;
@@ -1204,6 +1235,7 @@
 
   var state = {
     config: null,
+    configError: '',
     visitorToken: readStore().visitorToken || null,
     conversationId: readStore().conversationId || null,
     visitorName: '',
@@ -2830,7 +2862,7 @@
         .join('');
     }
     return (
-      '<div id="rz-webchat-faq-browser" style="flex:1;overflow:auto;padding:12px 14px 16px;background:' +
+      '<div id="rz-webchat-faq-browser" style="flex:1;min-height:0;overflow:auto;padding:12px 14px 16px;background:' +
       t.prechatBg +
       ';">' +
       '<button type="button" id="rz-webchat-faq-back" style="display:inline-flex;align-items:center;gap:6px;padding:0;border:none;background:transparent;color:' +
@@ -3059,7 +3091,7 @@
         '</div>';
     }
     return (
-      '<div id="rz-webchat-ticket-lookup" style="flex:1;overflow:auto;padding:14px;background:' +
+      '<div id="rz-webchat-ticket-lookup" style="flex:1;min-height:0;overflow:auto;padding:14px;background:' +
       t.prechatBg +
       ';">' +
       '<div style="font-size:13px;font-weight:600;color:' +
@@ -3437,7 +3469,7 @@
     }
 
     var prechat =
-      '<div id="rz-webchat-prechat" style="flex:1;overflow:auto;padding:14px;background:' +
+      '<div id="rz-webchat-prechat" style="flex:1;min-height:0;overflow:auto;padding:14px;background:' +
       t.prechatBg +
       ';">' +
       '<div style="font-size:13px;font-weight:600;color:' +
@@ -3528,6 +3560,12 @@
             : '') +
           '</div>'
         : '';
+
+    var configErrorBanner = state.configError
+      ? '<div style="padding:10px 14px;background:rgba(220,38,38,.12);border-bottom:1px solid rgba(220,38,38,.35);font-size:12px;color:#fecaca;line-height:1.45;">' +
+        escHtml(state.configError) +
+        '</div>'
+      : '';
 
     var queueBanner = '';
     if (mode === 'chat') {
@@ -3620,7 +3658,7 @@
       renderTypingBubble(t);
 
     var messagesBlock =
-      '<div id="rz-webchat-messages" style="flex:1;overflow:auto;padding:16px 14px 12px;background:' +
+      '<div id="rz-webchat-messages" style="flex:1;min-height:0;overflow:auto;padding:16px 14px 12px;background:' +
       t.messagesBg +
       (isDarkTheme()
         ? ';background-image:linear-gradient(rgba(34,211,238,.025) 1px, transparent 1px),linear-gradient(90deg, rgba(34,211,238,.025) 1px, transparent 1px);background-size:28px 28px;'
@@ -3696,17 +3734,17 @@
     if (mode === 'faq') {
       panelBody = renderFaqBrowserPanel(t);
     } else if (mode === 'ticket_lookup' || mode === 'ticket_result') {
-      panelBody = offlineBanner + renderTicketLookupPanel(t, inputStyle, btnStyle);
+      panelBody = configErrorBanner + offlineBanner + renderTicketLookupPanel(t, inputStyle, btnStyle);
     } else if (mode === 'prechat') {
-      panelBody = offlineBanner + prechat;
+      panelBody = configErrorBanner + offlineBanner + prechat;
     } else if (mode === 'closed') {
       panelBody = messagesBlock + closedFooter;
     } else if (rt && rt.bottomNav && pocketTab === 'home') {
-      panelBody = offlineBanner + renderChatBoxPocketHome(t, rt);
+      panelBody = configErrorBanner + offlineBanner + renderChatBoxPocketHome(t, rt);
     } else if (rt && rt.bottomNav && pocketTab === 'help') {
-      panelBody = offlineBanner + renderChatBoxPocketHelp(t, rt);
+      panelBody = configErrorBanner + offlineBanner + renderChatBoxPocketHelp(t, rt);
     } else {
-      panelBody = offlineBanner + queueBanner + messagesBlock + renderFaqQuickReplies(t) + composer;
+      panelBody = configErrorBanner + offlineBanner + queueBanner + messagesBlock + renderFaqQuickReplies(t) + composer;
     }
 
     var panelRadius = rt && rt.radius ? String(rt.radius) + 'px' : isCopilotLayout() ? '16px' : '20px';
@@ -4542,6 +4580,9 @@
       })
       .catch(function (err) {
         console.error('[RadarZap WebChat]', err.message);
+        state.prechatError =
+          err.message || 'Não foi possível iniciar a conversa. Tente novamente.';
+        renderBubble();
       });
   }
 
@@ -4706,9 +4747,10 @@
     state.userHasInteracted = true;
   });
 
-  apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/config', { method: 'GET' })
+    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/config', { method: 'GET' })
     .then(function (config) {
       state.config = config;
+      state.configError = '';
       if (state.visitorToken) {
         return apiFetch(baseUrl, '/sessions/messages', {
           method: 'GET',
@@ -4732,6 +4774,7 @@
     })
     .catch(function (err) {
       console.error('[RadarZap WebChat]', err.message);
+      state.configError = err.message || 'Falha ao carregar configuração do widget.';
     })
     .finally(function () {
       syncPresenceEngagementFromStore();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
@@ -6,20 +6,34 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Globe, MessageSquare, Plus, Copy, Trash2, Save, ExternalLink, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, Moon, Sun } from 'lucide-react'
+import { Globe, MessageSquare, Plus, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, Moon, Sun } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
 import { cn } from '@/lib/utils'
 import { inboxWebChatUrl, webChatMediaSrc } from '../../lib/webchatInbox'
 import { WebChatPreviewTemplates } from '../../components/webchat/WebChatPreviewTemplates'
-import { WebChatLivePreview } from '../../components/webchat/WebChatLivePreview'
 import { WebChatPrechatFieldsEditor } from '../../components/webchat/WebChatPrechatFieldsEditor'
 import { WebChatWidgetList } from '../../components/webchat/WebChatWidgetList'
 import {
   WebChatWidgetEditorSection,
   WebChatWidgetSectionNav,
+  WebChatWidgetSectionNavCompact,
+  WidgetSectionCard,
   type WebChatWidgetEditorSectionId,
 } from '../../components/webchat/WebChatWidgetEditorSection'
+import { WebChatWidgetEditorHeader } from '../../components/webchat/editor/WebChatWidgetEditorHeader'
+import { WebChatWidgetSaveBar } from '../../components/webchat/editor/WebChatWidgetSaveBar'
+import { WebChatWidgetPreviewPanel } from '../../components/webchat/editor/WebChatWidgetPreviewPanel'
+import { WebChatInstallSection } from '../../components/webchat/editor/WebChatInstallSection'
+import { WebChatBusinessHoursEditor } from '../../components/webchat/editor/WebChatBusinessHoursEditor'
+import { WebChatWidgetOverview } from '../../components/webchat/editor/WebChatWidgetOverview'
+import {
+  buildWidgetSavePayload,
+  getWidgetSectionStatuses,
+  isWidgetFormDirty,
+  validateWidgetForm,
+  type EditorMode,
+} from '../../lib/webchatWidgetEditorUtils'
 import { resolvePrechatFields, syncLegacyAppearanceFlags } from '../../lib/webchatPrechatFields'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
@@ -32,7 +46,6 @@ import {
 import {
   canUsePremiumChatBoxModels,
   chatBoxPreviewTemplateId,
-  findChatBoxModel,
   parseChatBoxModelId,
   type ChatBoxModel,
 } from '../../lib/chatBoxModels'
@@ -534,6 +547,7 @@ export default function WebChat() {
                   userPlan={me?.plan}
                   onDelete={() => deleteWidget.mutate(activeWidget.id)}
                   deleting={deleteWidget.isPending}
+                  onDuplicated={id => setActiveWidgetId(id)}
                 />
               ) : null}
             </Card>
@@ -866,6 +880,7 @@ function WidgetEditorCard({
   userPlan,
   onDelete,
   deleting,
+  onDuplicated,
   embedded = false,
 }: {
   widget: WebChatWidgetRow
@@ -874,6 +889,7 @@ function WidgetEditorCard({
   userPlan?: string | null
   onDelete: () => void
   deleting: boolean
+  onDuplicated?: (newId: string) => void
   /** Dentro do card unificado com toolbar de widgets no topo */
   embedded?: boolean
 }) {
@@ -889,12 +905,89 @@ function WidgetEditorCard({
   })
   const [previewReloadKey, setPreviewReloadKey] = useState(0)
   const bumpPreview = () => setPreviewReloadKey(k => k + 1)
-  const [editorSection, setEditorSection] = useState<WebChatWidgetEditorSectionId>('geral')
+  const [visualApplying, setVisualApplying] = useState(false)
+  /** Template usado no iframe — só muda após PATCH visual no servidor (evita landing nova + config antiga). */
+  const [livePreviewTemplateId, setLivePreviewTemplateId] = useState<string | null>(() => {
+    if (widget.appearance.previewTemplateId) return widget.appearance.previewTemplateId
+    const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
+      appearanceMatchesTemplate(widget.appearance, t.appearance),
+    )
+    return match?.id ?? null
+  })
+  const [editorSection, setEditorSection] = useState<WebChatWidgetEditorSectionId>('overview')
+  const [editorMode, setEditorMode] = useState<EditorMode>('simple')
+  const [baselineDelayDraft, setBaselineDelayDraft] = useState(
+    String(widget.proactiveGreetingDelaySeconds ?? 30),
+  )
+
+  const baselineForm = useMemo(
+    () => ({
+      ...widget,
+      appearance: syncLegacyAppearanceFlags({
+        ...widget.appearance,
+        prechatFields: resolvePrechatFields(widget.appearance),
+      }),
+      proactiveGreetingEnabled: widget.proactiveGreetingEnabled ?? false,
+      proactiveGreetingMessage:
+        widget.proactiveGreetingMessage ?? 'Olá! Estou por aqui caso precise de ajuda 😊',
+      proactiveGreetingDelaySeconds: widget.proactiveGreetingDelaySeconds ?? 30,
+      aiEscalationPolicy: normalizeEscalationPolicyForm(widget.aiEscalationPolicy),
+    }),
+    [widget],
+  )
+
+  const isDirty = useMemo(
+    () =>
+      isWidgetFormDirty(
+        baselineForm as import('../../types/webchatWidgetEditor').WebChatWidgetFormState,
+        form as import('../../types/webchatWidgetEditor').WebChatWidgetFormState,
+        delayDraft,
+        baselineDelayDraft,
+      ),
+    [baselineForm, form, delayDraft, baselineDelayDraft],
+  )
+
+  const validationErrors = useMemo(
+    () => validateWidgetForm(form as import('../../types/webchatWidgetEditor').WebChatWidgetFormState, delayDraft),
+    [form, delayDraft],
+  )
+
+  const sectionStatuses = useMemo(
+    () => getWidgetSectionStatuses(form as import('../../types/webchatWidgetEditor').WebChatWidgetFormState, delayDraft),
+    [form, delayDraft],
+  )
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty])
+
+  const handleEditorModeChange = useCallback((mode: EditorMode) => {
+    setEditorMode(mode)
+    if (mode === 'simple') {
+      setEditorSection(prev => (prev === 'avancado' ? 'overview' : prev))
+    }
+  }, [])
 
   const { data: aiStatus } = useQuery({
     queryKey: ['webchat-ai-status'],
-    queryFn: () => api.get<{ available: boolean; reason?: string }>('/webchat/ai-status'),
+    queryFn: () =>
+      api.get<{
+        available: boolean
+        reason?: string
+        attendanceMode?: string
+        attendanceModeLabel?: string
+        premiumAiAllowed?: boolean
+        globalModeHint?: string
+      }>('/webchat/ai-status'),
   })
+
+  const premiumAiAllowed = aiStatus?.premiumAiAllowed === true
 
   useEffect(() => {
     setForm({
@@ -913,43 +1006,50 @@ function WidgetEditorCard({
     const match = WEBCHAT_PREVIEW_TEMPLATES.find(t =>
       appearanceMatchesTemplate(widget.appearance, t.appearance),
     )
-    setSelectedTemplateId(widget.appearance.previewTemplateId ?? match?.id ?? null)
-    setEditorSection('geral')
+    const tplId = widget.appearance.previewTemplateId ?? match?.id ?? null
+    setSelectedTemplateId(tplId)
+    setLivePreviewTemplateId(tplId)
+    setEditorSection('overview')
+    setBaselineDelayDraft(String(widget.proactiveGreetingDelaySeconds ?? 30))
     // Só reseta o editor ao trocar de widget — evita pular layout ao salvar pré-chat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widget.id])
 
   const save = useMutation({
     mutationFn: () => {
-      const delaySeconds = Math.min(
-        300,
-        Math.max(5, parseInt(delayDraft, 10) || form.proactiveGreetingDelaySeconds || 30),
-      )
-      return api.patch(`/webchat/widgets/${widget.id}`, {
-        name: form.name,
-        active: form.active,
-        allowedDomains: form.allowedDomains,
-        appearance: syncLegacyAppearanceFlags(form.appearance),
-        autoReplyEnabled: form.autoReplyEnabled,
-        autoReplyMessage: form.autoReplyMessage,
-        autoReplySenderName: form.autoReplySenderName,
-        autoReplyUseAi: form.autoReplyUseAi,
-        aiEscalationPolicy: form.aiEscalationPolicy,
-        proactiveGreetingEnabled: form.proactiveGreetingEnabled,
-        proactiveGreetingMessage: form.proactiveGreetingMessage,
-        proactiveGreetingDelaySeconds: delaySeconds,
-        defaultDepartmentId: form.defaultDepartmentId || null,
-        useInboxBusinessHours: form.useInboxBusinessHours,
-        businessHoursEnabled: form.businessHoursEnabled,
-        timezone: form.timezone,
-        schedule: form.schedule,
-        outsideHoursMessage: form.outsideHoursMessage,
-      })
+      const errors = validateWidgetForm(form, delayDraft)
+      if (errors.length) throw new Error(errors[0])
+      return api.patch(`/webchat/widgets/${widget.id}`, buildWidgetSavePayload(form, delayDraft))
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
+      const tplId = form.appearance.previewTemplateId ?? selectedTemplateId
+      if (tplId) setLivePreviewTemplateId(tplId)
       bumpPreview()
+      setBaselineDelayDraft(delayDraft)
       notifySuccess('Widget atualizado')
+    },
+    onError: err => {
+      if (err instanceof Error && validateWidgetForm(form, delayDraft).includes(err.message)) {
+        mutationError(err)
+      } else {
+        mutationError(err)
+      }
+    },
+  })
+
+  const duplicateWidget = useMutation({
+    mutationFn: async () => {
+      const created = await api.post<WebChatWidgetRow>('/webchat/widgets', {
+        name: `${form.name.trim() || widget.name} (cópia)`,
+      })
+      await api.patch(`/webchat/widgets/${created.id}`, buildWidgetSavePayload(form, delayDraft))
+      return created
+    },
+    onSuccess: created => {
+      qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
+      notifySuccess('Widget duplicado')
+      onDuplicated?.(created.id)
     },
     onError: mutationError,
   })
@@ -976,15 +1076,56 @@ function WidgetEditorCard({
     })
   }
 
-  const persistVisualAppearance = (appearance: WebChatWidgetRow['appearance']) => {
+  const snippet = embedSnippet(widget.publicKey)
+  const activePreviewTemplateId =
+    form.appearance.previewTemplateId ?? selectedTemplateId ?? null
+  const previewUrl = webChatPreviewUrl('/webchat/widget.html', widget.publicKey)
+
+  const persistVisualAppearance = (
+    appearance: WebChatWidgetRow['appearance'],
+    options?: { successMessage?: string },
+  ) => {
+    setVisualApplying(true)
     persistAppearancePatch.mutate(visualAppearancePatch(appearance), {
       onSuccess: updated => {
         mergeWidgetAppearanceInCache(updated)
+        qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
+        const synced = syncLegacyAppearanceFlags(updated.appearance ?? appearance)
+        setForm(f => ({ ...f, appearance: synced }))
+        const tplId = synced.previewTemplateId
+        if (tplId) {
+          setSelectedTemplateId(tplId)
+          setLivePreviewTemplateId(tplId)
+        }
         bumpPreview()
-        notifySuccess('Visual do widget salvo no servidor')
+        notifySuccess(options?.successMessage ?? 'Visual do widget salvo no servidor')
       },
+      onSettled: () => setVisualApplying(false),
     })
   }
+
+  const applyTemplateAppearance = (appearance: WebChatAppearancePreset, templateId: string) => {
+    const nextAppearance = syncLegacyAppearanceFlags({
+      ...form.appearance,
+      ...appearance,
+      previewTemplateId: templateId,
+    })
+    setForm(f => ({ ...f, appearance: nextAppearance }))
+    setSelectedTemplateId(templateId)
+    persistVisualAppearance(nextAppearance, { successMessage: 'Modelo aplicado' })
+  }
+
+  const applyChatBoxModel = (model: ChatBoxModel) => {
+    if (model.isPremium && !canUsePremiumChatBoxModels(userPlan)) return
+    applyTemplateAppearance(
+      model.appearance,
+      chatBoxPreviewTemplateId(model.id),
+    )
+  }
+
+  const selectedChatBoxModelId = parseChatBoxModelId(
+    form.appearance.previewTemplateId ?? selectedTemplateId,
+  )
 
   const persistAutoReply = useMutation({
     mutationFn: (patch: Pick<WebChatWidgetRow, 'autoReplyEnabled' | 'autoReplyUseAi'>) =>
@@ -1032,125 +1173,107 @@ function WidgetEditorCard({
     patchEscalationPolicy({ [key]: value })
   }
 
-  const snippet = embedSnippet(widget.publicKey)
-  const chatBoxPreviewId = parseChatBoxModelId(selectedTemplateId)
-  const chatBoxPreviewModel = chatBoxPreviewId ? findChatBoxModel(chatBoxPreviewId) : null
-  const previewUrl = webChatPreviewUrl(
-    chatBoxPreviewModel
-      ? '/webchat/widget.html'
-      : WEBCHAT_PREVIEW_TEMPLATES.find(t => t.id === selectedTemplateId)?.path ??
-          '/webchat/preview-tech.html',
-    widget.publicKey,
-  )
-
-  const applyTemplateAppearance = (appearance: WebChatAppearancePreset, templateId: string) => {
-    setForm(f => {
-      const nextAppearance = syncLegacyAppearanceFlags({
-        ...f.appearance,
-        ...appearance,
-        previewTemplateId: templateId,
-      })
-      persistVisualAppearance(nextAppearance)
-      return { ...f, appearance: nextAppearance }
-    })
-    setSelectedTemplateId(templateId)
-    bumpPreview()
-  }
-
-  const applyChatBoxModel = (model: ChatBoxModel) => {
-    if (model.isPremium && !canUsePremiumChatBoxModels(userPlan)) return
-    applyTemplateAppearance(model.appearance, chatBoxPreviewTemplateId(model.id))
-    notifySuccess(`Modelo ${model.name} aplicado`)
-  }
-
-  const selectedChatBoxModelId = parseChatBoxModelId(form.appearance.previewTemplateId)
-
-  const patchDay = (day: Weekday, field: 'enabled' | 'start' | 'end', value: boolean | string) => {
-    setForm(f => ({
-      ...f,
-      schedule: {
-        ...(f.schedule ?? DEFAULT_WEEKLY_SCHEDULE),
-        [day]: {
-          ...(f.schedule?.[day] ?? DEFAULT_WEEKLY_SCHEDULE[day]),
-          [field]: value,
-        },
-      },
-    }))
+  const handleSave = () => save.mutate()
+  const copyScript = () => {
+    navigator.clipboard.writeText(snippet)
+    notifySuccess('Código copiado')
   }
 
   const editorBody = (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/15 px-4 py-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-[var(--rz-text-primary)]">
-              {form.appearance.title || widget.name}
-            </span>
-            <span
-              className={cn(
-                'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
-                form.active
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-                  : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] border border-[var(--rz-border)]',
-              )}
-            >
-              {form.active ? 'Ativo' : 'Inativo'}
-            </span>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--rz-text-muted)]">
-            <span>
-              Nome interno: <span className="text-[var(--rz-text-secondary)]">{form.name}</span>
-            </span>
-            <span className="hidden sm:inline text-[var(--rz-border)]">·</span>
-            <span className="font-mono text-[10px] sm:text-xs">{widget.publicKey}</span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <a href={previewUrl} target="_blank" rel="noreferrer">
-            <Button type="button" variant="secondary" size="sm">
-              <ExternalLink className="h-4 w-4" />
-              Testar modelo
-            </Button>
-          </a>
-          <Button variant="danger" size="sm" type="button" onClick={onDelete} disabled={deleting}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <WebChatWidgetEditorHeader
+        title={form.appearance.title || widget.name}
+        internalName={form.name}
+        publicKey={widget.publicKey}
+        active={form.active}
+        allowedDomains={form.allowedDomains}
+        isDirty={isDirty}
+        previewUrl={previewUrl}
+        snippet={snippet}
+        saving={save.isPending}
+        duplicating={duplicateWidget.isPending}
+        deleting={deleting}
+        validationErrors={validationErrors}
+        onSave={handleSave}
+        onDelete={onDelete}
+        onDuplicate={() => duplicateWidget.mutate()}
+        onCopyScript={copyScript}
+      />
 
-      <div className="p-4">
-      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_min(340px,34%)] xl:gap-5">
-        <div className="order-2 min-w-0 xl:order-1">
-      <WebChatWidgetSectionNav active={editorSection} onChange={setEditorSection} />
+      <div className="p-4 pb-24 xl:pb-4">
+        <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_min(320px,32%)] xl:gap-5">
+          <div className="order-2 min-w-0 xl:order-1">
+            <div className="xl:grid xl:grid-cols-[220px_minmax(0,1fr)] xl:gap-4">
+              <WebChatWidgetSectionNav
+                className="hidden xl:block"
+                active={editorSection}
+                onChange={setEditorSection}
+                statuses={sectionStatuses}
+                editorMode={editorMode}
+                onEditorModeChange={handleEditorModeChange}
+              />
 
-      {editorSection === 'geral' && (
+              <div className="min-w-0">
+                <WebChatWidgetSectionNavCompact
+                  active={editorSection}
+                  onChange={setEditorSection}
+                  editorMode={editorMode}
+                />
+
+      {editorSection === 'overview' && (
         <WebChatWidgetEditorSection
-          id="webchat-section-geral"
-          title="Geral e segurança"
-          description="Nome interno, status e domínios onde o script pode rodar."
+          id="webchat-section-overview"
+          title="Visão geral"
+          description="Resumo do widget e configurações essenciais para começar."
         >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-              Nome interno
-              <input
-                className={inputCls + ' mt-1'}
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              />
-            </label>
-            <label className="flex items-center gap-2 pt-5 text-sm text-[var(--rz-text)]">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
-              />
-              Widget ativo
-            </label>
-            <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
-              Domínios permitidos (um por linha; vazio = qualquer)
+          <div className="space-y-4">
+            <WebChatWidgetOverview
+              statuses={sectionStatuses}
+              onNavigate={setEditorSection}
+              editorMode={editorMode}
+            />
+            <WidgetSectionCard
+              title="Identificação"
+              description="Esse nome aparece apenas para sua equipe no painel."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                  Nome interno do widget
+                  <input
+                    className={inputCls + ' mt-1'}
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Ex.: Site principal"
+                  />
+                </label>
+                <label className="flex items-center gap-2 pt-5 text-sm text-[var(--rz-text)]">
+                  <input
+                    type="checkbox"
+                    checked={form.active}
+                    onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
+                  />
+                  Widget ativo no site
+                </label>
+              </div>
+            </WidgetSectionCard>
+          </div>
+        </WebChatWidgetEditorSection>
+      )}
+
+      {editorSection === 'avancado' && (
+        <WebChatWidgetEditorSection
+          id="webchat-section-avancado"
+          title="Configurações avançadas"
+          description="Segurança, domínios e roteamento de conversas."
+        >
+          <div className="space-y-4">
+            <WidgetSectionCard
+              title="Sites onde este widget pode aparecer"
+              description="Deixe vazio para permitir qualquer domínio. Recomendado informar os domínios reais antes de ir para produção."
+            >
               <textarea
-                className={textareaCls + ' mt-1 font-mono text-xs'}
-                rows={3}
+                className={textareaCls + ' font-mono text-xs'}
+                rows={4}
                 value={form.allowedDomains.join('\n')}
                 onChange={e =>
                   setForm(f => ({
@@ -1161,14 +1284,16 @@ function WidgetEditorCard({
                       .filter(Boolean),
                   }))
                 }
-                placeholder="meusite.com.br&#10;*.loja.com"
+                placeholder={'meusite.com.br\nwww.meusite.com.br\nloja.meusite.com.br'}
               />
-            </label>
+            </WidgetSectionCard>
             {canPickDepartment && (
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
-                Setor padrão na escalação (opcional)
+              <WidgetSectionCard
+                title="Setor que recebe novas conversas"
+                description="Conversas novas serão enviadas para esse setor quando não houver regra específica."
+              >
                 <select
-                  className={inputCls + ' mt-1'}
+                  className={inputCls}
                   value={form.defaultDepartmentId ?? ''}
                   onChange={e =>
                     setForm(f => ({
@@ -1184,7 +1309,7 @@ function WidgetEditorCard({
                     </option>
                   ))}
                 </select>
-              </label>
+              </WidgetSectionCard>
             )}
           </div>
         </WebChatWidgetEditorSection>
@@ -1194,90 +1319,99 @@ function WidgetEditorCard({
         <div className="space-y-4">
           <WebChatWidgetEditorSection
             id="webchat-section-visual"
-            title="Textos e cores"
-            description="O que o visitante vê no cabeçalho do chat."
+            title="Aparência"
+            description="Identidade do chat e modelo visual aplicado no site."
           >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-                Título
-                <input
-                  className={inputCls + ' mt-1'}
-                  value={form.appearance.title}
-                  onChange={e =>
-                    setForm(f => ({ ...f, appearance: { ...f.appearance, title: e.target.value } }))
-                  }
-                />
-              </label>
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-                Subtítulo
-                <input
-                  className={inputCls + ' mt-1'}
-                  value={form.appearance.subtitle}
-                  onChange={e =>
-                    setForm(f => ({ ...f, appearance: { ...f.appearance, subtitle: e.target.value } }))
-                  }
-                />
-              </label>
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
-                Saudação (mensagem de boas-vindas)
-                <textarea
-                  className={textareaCls + ' mt-1'}
-                  rows={2}
-                  value={form.appearance.greeting}
-                  onChange={e =>
-                    setForm(f => ({ ...f, appearance: { ...f.appearance, greeting: e.target.value } }))
-                  }
-                />
-              </label>
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-                Cor principal
-                <input
-                  type="color"
-                  className="mt-1 h-10 w-full cursor-pointer rounded border border-[var(--rz-border)]"
-                  value={form.appearance.primaryColor}
-                  onChange={e =>
-                    setForm(f => ({ ...f, appearance: { ...f.appearance, primaryColor: e.target.value } }))
-                  }
-                />
-              </label>
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-                Posição do botão
-                <select
-                  className={inputCls + ' mt-1'}
-                  value={form.appearance.position}
-                  onChange={e =>
-                    setForm(f => ({
-                      ...f,
-                      appearance: { ...f.appearance, position: e.target.value as 'left' | 'right' },
-                    }))
-                  }
-                >
-                  <option value="right">Direita</option>
-                  <option value="left">Esquerda</option>
-                </select>
-              </label>
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
-                Tema do widget
-                <div
-                  className={cn(
-                    'mt-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
-                    'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 text-[var(--rz-text)]',
-                  )}
-                >
-                  {form.appearance.theme === 'dark' ? (
-                    <Moon className="h-4 w-4 shrink-0 text-cyan-400" />
-                  ) : (
-                    <Sun className="h-4 w-4 shrink-0 text-amber-400" />
-                  )}
-                  <span className="font-medium">
-                    {form.appearance.theme === 'dark' ? 'Escuro' : 'Claro'}
-                  </span>
-                </div>
-                <span className="mt-1 block text-[10px] text-[var(--rz-text-muted)]">
-                  Definido pelo modelo aplicado abaixo.
-                </span>
-              </label>
-            </div>
+            <WidgetSectionCard
+              title="Identidade do chat"
+              description="Textos e cor que o visitante vê ao abrir o widget."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                  Título do chat
+                  <input
+                    className={inputCls + ' mt-1'}
+                    value={form.appearance.title}
+                    onChange={e =>
+                      setForm(f => ({ ...f, appearance: { ...f.appearance, title: e.target.value } }))
+                    }
+                  />
+                </label>
+                <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                  Subtítulo
+                  <input
+                    className={inputCls + ' mt-1'}
+                    value={form.appearance.subtitle}
+                    onChange={e =>
+                      setForm(f => ({ ...f, appearance: { ...f.appearance, subtitle: e.target.value } }))
+                    }
+                  />
+                </label>
+                <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
+                  Mensagem inicial
+                  <textarea
+                    className={textareaCls + ' mt-1'}
+                    rows={2}
+                    value={form.appearance.greeting}
+                    onChange={e =>
+                      setForm(f => ({ ...f, appearance: { ...f.appearance, greeting: e.target.value } }))
+                    }
+                  />
+                </label>
+                <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                  Cor principal
+                  <input
+                    type="color"
+                    className="mt-1 h-10 w-full cursor-pointer rounded border border-[var(--rz-border)]"
+                    value={form.appearance.primaryColor}
+                    onChange={e =>
+                      setForm(f => ({ ...f, appearance: { ...f.appearance, primaryColor: e.target.value } }))
+                    }
+                  />
+                </label>
+                {editorMode === 'advanced' && (
+                  <>
+                    <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                      Posição do balão
+                      <select
+                        className={inputCls + ' mt-1'}
+                        value={form.appearance.position}
+                        onChange={e =>
+                          setForm(f => ({
+                            ...f,
+                            appearance: { ...f.appearance, position: e.target.value as 'left' | 'right' },
+                          }))
+                        }
+                      >
+                        <option value="right">Direita</option>
+                        <option value="left">Esquerda</option>
+                      </select>
+                    </label>
+                    <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
+                      Tema do widget
+                      <div
+                        className={cn(
+                          'mt-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
+                          'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 text-[var(--rz-text)]',
+                        )}
+                      >
+                        {form.appearance.theme === 'dark' ? (
+                          <Moon className="h-4 w-4 shrink-0 text-cyan-400" />
+                        ) : (
+                          <Sun className="h-4 w-4 shrink-0 text-amber-400" />
+                        )}
+                        <span className="font-medium">
+                          {form.appearance.theme === 'dark' ? 'Escuro' : 'Claro'}
+                        </span>
+                      </div>
+                      <span className="mt-1 block text-[10px] text-[var(--rz-text-muted)]">
+                        Definido pelo modelo aplicado abaixo.
+                      </span>
+                    </label>
+                  </>
+                )}
+              </div>
+            </WidgetSectionCard>
           </WebChatWidgetEditorSection>
 
           <WebChatWidgetEditorSection
@@ -1287,7 +1421,7 @@ function WidgetEditorCard({
           >
             <WebChatPreviewTemplates
               publicKey={widget.publicKey}
-              selectedTemplateId={selectedTemplateId}
+              selectedTemplateId={activePreviewTemplateId}
               selectedChatBoxModelId={selectedChatBoxModelId}
               userPlan={userPlan}
               onSelectTemplate={template => applyTemplateAppearance(template.appearance, template.id)}
@@ -1300,8 +1434,8 @@ function WidgetEditorCard({
       {editorSection === 'prechat' && (
         <WebChatWidgetEditorSection
           id="webchat-section-prechat"
-          title="Formulário antes do chat"
-          description="Campos que o visitante preenche antes de iniciar a conversa."
+          title="Formulário inicial"
+          description="Dados que o visitante informa antes de iniciar a conversa."
         >
           <WebChatPrechatFieldsEditor
             appearance={form.appearance}
@@ -1324,11 +1458,15 @@ function WidgetEditorCard({
       )}
 
       {editorSection === 'automacao' && (
+        <WebChatWidgetEditorSection
+          id="webchat-section-automacao"
+          title="IA e automações"
+          description="Respostas automáticas, transferência para humanos e saudação proativa."
+        >
         <div className="space-y-4">
-          <WebChatWidgetEditorSection
-            id="webchat-section-ia"
-            title="IA e resposta automática"
-            description="Responde na primeira mensagem do visitante; dados do pré-chat entram no contexto."
+          <WidgetSectionCard
+            title="Resposta automática"
+            description="Use para responder dúvidas simples antes de enviar para um atendente."
           >
             <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
               <input
@@ -1338,27 +1476,54 @@ function WidgetEditorCard({
               />
               Ativar resposta automática
             </label>
+            {aiStatus?.globalModeHint && (
+              <p className="mt-2 text-xs text-[var(--rz-text-muted)] rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface-elevated)] px-3 py-2">
+                {aiStatus.globalModeHint}{' '}
+                <Link to="/platform/inbox/ia" className="text-brand-400 hover:underline">
+                  IA Atendimento
+                </Link>
+              </p>
+            )}
             <label
               className={
                 'mt-3 flex items-center gap-2 text-sm ' +
-                (aiStatus?.available !== false ? 'text-[var(--rz-text)]' : 'text-[var(--rz-text-muted)]')
+                (premiumAiAllowed && aiStatus?.available !== false
+                  ? 'text-[var(--rz-text)]'
+                  : 'text-[var(--rz-text-muted)]')
               }
             >
               <input
                 type="checkbox"
                 checked={form.autoReplyUseAi}
-                disabled={aiStatus?.available === false || !form.autoReplyEnabled}
+                disabled={
+                  !premiumAiAllowed ||
+                  aiStatus?.available === false ||
+                  !form.autoReplyEnabled
+                }
                 onChange={e => patchAutoReply({ autoReplyUseAi: e.target.checked })}
               />
-              Usar IA da empresa
+              Usar IA Premium no widget
             </label>
-            {aiStatus?.available === false && (
+            {!premiumAiAllowed && (
+              <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+                Disponível apenas com modo global{' '}
+                <strong>IA Premium</strong> em{' '}
+                <Link to="/platform/inbox/ia" className="text-brand-400 hover:underline">
+                  IA Atendimento
+                </Link>
+                {aiStatus?.attendanceModeLabel
+                  ? ` (atual: ${aiStatus.attendanceModeLabel})`
+                  : ''}
+                .
+              </p>
+            )}
+            {premiumAiAllowed && aiStatus?.available === false && (
               <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                {aiStatus.reason ?? 'IA indisponível — usa mensagem fixa abaixo.'}
+                {aiStatus.reason ?? 'IA Premium indisponível — usa mensagem fixa abaixo.'}
               </p>
             )}
             <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-              Nome exibido (mensagem fixa / fallback)
+              Nome exibido do assistente
               <input
                 className={inputCls + ' mt-1'}
                 value={form.autoReplySenderName}
@@ -1366,7 +1531,7 @@ function WidgetEditorCard({
               />
             </label>
             <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-              Mensagem fixa (fallback)
+              Mensagem quando a IA não souber responder
               <textarea
                 className={textareaCls + ' mt-1'}
                 rows={2}
@@ -1374,12 +1539,11 @@ function WidgetEditorCard({
                 onChange={e => setForm(f => ({ ...f, autoReplyMessage: e.target.value }))}
               />
             </label>
-          </WebChatWidgetEditorSection>
+          </WidgetSectionCard>
 
-          <WebChatWidgetEditorSection
-            id="webchat-section-transferencia"
-            title="Transferência para humano (IA)"
-            description="Por widget: defina se a IA encaminha na 1ª vez ou tenta ajudar antes. Exige “Usar IA da empresa” ativo."
+          <WidgetSectionCard
+            title="Transferência para humano"
+            description="Define quando a IA deve parar de tentar resolver e encaminhar para a equipe."
           >
             <div
               className={
@@ -1419,7 +1583,7 @@ function WidgetEditorCard({
                 </label>
               ))}
               <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-                Com triagem: escalar após quantos pedidos repetidos?
+                Tentativas antes de encaminhar (triagem)
                 <select
                   className={inputCls + ' mt-1 text-sm w-full max-w-xs'}
                   value={String(form.aiEscalationPolicy?.escalateAfterRepeatedRequests ?? 2)}
@@ -1438,16 +1602,10 @@ function WidgetEditorCard({
                   <option value="5">5 pedidos</option>
                 </select>
               </label>
-              <p className="text-[11px] leading-relaxed text-[var(--rz-text-muted)]">
-                Exemplo comercial imediato: visitante diz “quero falar com o comercial” → vai para a
-                fila. Com triagem: a IA pergunta o assunto e só encaminha depois, conforme as regras
-                acima. O setor padrão do widget (aba Geral) define para onde encaminhar.
-              </p>
             </div>
-          </WebChatWidgetEditorSection>
+          </WidgetSectionCard>
 
-          <WebChatWidgetEditorSection
-            id="webchat-section-proativa"
+          <WidgetSectionCard
             title="Saudação proativa"
             description="Balão amigável após alguns segundos na página — independente do horário comercial."
           >
@@ -1461,6 +1619,22 @@ function WidgetEditorCard({
             </label>
             {form.proactiveGreetingEnabled && (
               <>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Olá! Estou por aqui caso precise de ajuda 😊',
+                    'Oi! Posso te ajudar a escolher o melhor plano?',
+                    'Precisa de ajuda? Fale com nossa equipe agora.',
+                  ].map(suggestion => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className="rounded-full border border-[var(--rz-border)] px-2.5 py-1 text-[10px] text-[var(--rz-text-secondary)] hover:border-brand-500/40"
+                      onClick={() => setForm(f => ({ ...f, proactiveGreetingMessage: suggestion }))}
+                    >
+                      {suggestion.slice(0, 36)}…
+                    </button>
+                  ))}
+                </div>
                 <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
                   Mensagem
                   <textarea
@@ -1471,11 +1645,10 @@ function WidgetEditorCard({
                     onChange={e =>
                       setForm(f => ({ ...f, proactiveGreetingMessage: e.target.value }))
                     }
-                    placeholder="Olá! Estou por aqui caso precise de ajuda 😊"
                   />
                 </label>
                 <label className="mt-3 block text-xs font-medium text-[var(--rz-text-muted)]">
-                  Aguardar antes de enviar (segundos)
+                  Tempo para mostrar a saudação (segundos)
                   <input
                     type="number"
                     min={5}
@@ -1491,88 +1664,30 @@ function WidgetEditorCard({
                     }}
                   />
                 </label>
+                {form.proactiveGreetingMessage && (
+                  <div className="mt-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30 px-3 py-2 text-xs text-[var(--rz-text-secondary)]">
+                    <span className="text-[10px] uppercase text-[var(--rz-text-muted)]">Prévia</span>
+                    <p className="mt-1">{form.proactiveGreetingMessage}</p>
+                  </div>
+                )}
               </>
             )}
-          </WebChatWidgetEditorSection>
+          </WidgetSectionCard>
         </div>
+        </WebChatWidgetEditorSection>
       )}
 
       {editorSection === 'horarios' && (
         <WebChatWidgetEditorSection
           id="webchat-section-horarios"
           title="Horário de atendimento"
-          description="Fora do horário o visitante ainda pode enviar mensagens e recebe aviso automático."
+          description="Quando o widget considera a equipe disponível."
         >
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
-            <input
-              type="checkbox"
-              checked={form.useInboxBusinessHours}
-              onChange={e => setForm(f => ({ ...f, useInboxBusinessHours: e.target.checked }))}
-            />
-            Usar horário da caixa de entrada (WhatsApp)
-          </label>
-          {!form.useInboxBusinessHours && (
-            <div className="mt-3 space-y-3">
-              <label className="flex items-center gap-2 text-sm text-[var(--rz-text)]">
-                <input
-                  type="checkbox"
-                  checked={form.businessHoursEnabled}
-                  onChange={e => setForm(f => ({ ...f, businessHoursEnabled: e.target.checked }))}
-                />
-                Ativar horário comercial neste widget
-              </label>
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-                Fuso horário
-                <input
-                  className={inputCls + ' mt-1'}
-                  value={form.timezone}
-                  onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
-                  placeholder="America/Sao_Paulo"
-                />
-              </label>
-              <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
-                Mensagem fora do horário
-                <textarea
-                  className={textareaCls + ' mt-1'}
-                  rows={2}
-                  value={form.outsideHoursMessage}
-                  onChange={e => setForm(f => ({ ...f, outsideHoursMessage: e.target.value }))}
-                />
-              </label>
-              <div className="space-y-1">
-                {WEEKDAYS.map(day => (
-                  <div
-                    key={day}
-                    className="flex flex-wrap items-center gap-3 border-b border-[var(--rz-border)]/80 py-2 last:border-0"
-                  >
-                    <label className="flex w-28 items-center gap-2 text-sm text-[var(--rz-text)]">
-                      <input
-                        type="checkbox"
-                        checked={form.schedule?.[day]?.enabled ?? false}
-                        onChange={e => patchDay(day, 'enabled', e.target.checked)}
-                      />
-                      {WEEKDAY_LABEL[day]}
-                    </label>
-                    <input
-                      type="time"
-                      className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
-                      value={form.schedule?.[day]?.start ?? '09:00'}
-                      disabled={!form.schedule?.[day]?.enabled}
-                      onChange={e => patchDay(day, 'start', e.target.value)}
-                    />
-                    <span className="text-xs text-[var(--rz-text-muted)]">até</span>
-                    <input
-                      type="time"
-                      className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
-                      value={form.schedule?.[day]?.end ?? '18:00'}
-                      disabled={!form.schedule?.[day]?.enabled}
-                      onChange={e => patchDay(day, 'end', e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <WebChatBusinessHoursEditor
+            form={form as import('../../types/webchatWidgetEditor').WebChatWidgetFormState}
+            editorMode={editorMode}
+            onChange={patch => setForm(f => ({ ...f, ...patch }))}
+          />
         </WebChatWidgetEditorSection>
       )}
 
@@ -1580,48 +1695,26 @@ function WidgetEditorCard({
         <WebChatWidgetEditorSection
           id="webchat-section-instalacao"
           title="Instalação no site"
-          description="Cole antes do fechamento da tag </body> em todas as páginas do site."
+          description="Coloque o chat no ar em poucos minutos."
         >
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(snippet)
-                notifySuccess('Código copiado')
-              }}
-            >
-              <Copy className="h-4 w-4" />
-              Copiar script
-            </Button>
-          </div>
-          <textarea
-            className={textareaCls + ' mt-3 font-mono text-xs bg-[var(--rz-surface-muted)]/40'}
-            readOnly
-            rows={4}
-            value={snippet}
-          />
+          <WebChatInstallSection snippet={snippet} publicKey={widget.publicKey} />
         </WebChatWidgetEditorSection>
       )}
 
-      <div className="sticky bottom-0 z-10 -mx-4 mt-4 border-t border-[var(--rz-border)] bg-[var(--rz-surface)]/95 px-4 py-3 backdrop-blur-sm">
-        <Button type="button" onClick={() => save.mutate()} disabled={save.isPending}>
-          <Save className="h-4 w-4" />
-          Salvar alterações
-        </Button>
-      </div>
-        </div>
-        <div className="order-1 mb-4 xl:order-2 xl:mb-0">
-          <div className="xl:sticky xl:top-28 xl:z-20 xl:max-h-[calc(100vh-7.5rem)]">
-            <WebChatLivePreview
+      <WebChatWidgetSaveBar isDirty={isDirty} saving={save.isPending} onSave={handleSave} />
+
+              </div>
+            </div>
+          </div>
+          <div className="order-1 mb-4 xl:order-2 xl:mb-0">
+            <WebChatWidgetPreviewPanel
               publicKey={widget.publicKey}
-              selectedTemplateId={selectedTemplateId}
+              selectedTemplateId={livePreviewTemplateId}
               reloadKey={previewReloadKey}
+              applying={visualApplying}
             />
           </div>
         </div>
-      </div>
       </div>
     </>
   )

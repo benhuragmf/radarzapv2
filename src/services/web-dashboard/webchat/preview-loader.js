@@ -16,6 +16,7 @@
   }
   var defaultKey = script ? script.getAttribute('data-default-key') || '' : '';
   var key = params.get('key') || defaultKey;
+  var embedMode = params.get('embed') === '1';
   var pageStartedAt = Date.now();
   var apiConfig = null;
   var apiConfigError = '';
@@ -213,12 +214,40 @@
     return;
   }
 
-  createDebugHud();
-  setInterval(updateDebugHud, 500);
-  updateDebugHud();
+  if (embedMode) {
+    document.body.style.margin = '0';
+    document.body.style.minHeight = '100vh';
+    document.body.style.background = '#f8fafc';
+    var headerEl = document.querySelector('header');
+    var mainEl = document.querySelector('main');
+    if (headerEl) headerEl.style.display = 'none';
+    if (mainEl) mainEl.style.display = 'none';
+  } else {
+    createDebugHud();
+    setInterval(updateDebugHud, 500);
+    updateDebugHud();
+  }
+
+  function autoOpenWidgetForEmbed() {
+    if (!embedMode) return;
+    var attempts = 0;
+    var timer = setInterval(function () {
+      attempts += 1;
+      var toggle = document.getElementById('rz-webchat-toggle');
+      var dbg = typeof window.__RZ_WEBCHAT_DEBUG__ === 'function' ? window.__RZ_WEBCHAT_DEBUG__() : null;
+      if (toggle && dbg && dbg.configLoaded && !dbg.chatOpen) {
+        toggle.click();
+        clearInterval(timer);
+        return;
+      }
+      if (attempts >= 60) clearInterval(timer);
+    }, 150);
+  }
 
   if (statusEl) {
-    statusEl.textContent = 'Widget ativo — use o botão 💬 no canto da tela.';
+    statusEl.textContent = embedMode
+      ? ''
+      : 'Widget ativo — use o botão 💬 no canto da tela.';
   }
 
   var keyLabel = document.getElementById('rz-preview-key');
@@ -232,6 +261,9 @@
   widgetScript.setAttribute('data-widget-key', key);
   widgetScript.setAttribute('data-base-url', origin);
   widgetScript.async = true;
+  widgetScript.onload = function () {
+    autoOpenWidgetForEmbed();
+  };
   widgetScript.onerror = function () {
     if (statusEl) {
       statusEl.textContent =

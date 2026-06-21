@@ -102,6 +102,8 @@ Snippet equivalente ao `widget.html`:
 - **Support Lite busca KB** (2.10.96): campo de busca no widget filtra artigos; live preview usa `widget.html` para modelos Chat Box; QA em `docs/QA-WEBCHAT-CHATBOX-MODELS.md`.
 - **Chat Box nas coleções** (2.10.98): modelos free em **Modelos essenciais** e premium na **Coleção Premium** (junto com landings Luxe/Obsidian); uma página sem abas que escondem landings.
 - **Chat Box hierarquia** (2.10.99): **Modelos essenciais** aninhados dentro da seção **Chat Box** (landings + widgets compactos free).
+- **Painel widgets UX** (2.10.100): editor guiado com navegação lateral, modo simples/avançado, visão geral, alterações não salvas, duplicar widget, instalação didática e horários com atalhos.
+- **Fix modelo Chat Box no widget** (2.10.101): `GET …/widgets/:key/config` passa `previewTemplateId` ao `widget.js`; prévia recarrega após salvar visual (sem race com landing).
 - **Coleta de dados visitante** (2.10.41): pré-chat em etapas (nome → WhatsApp → motivo → e-mail opcional); campos `visitorPhone`, `contactReason`, `pageTitle`; contexto na IA; painel “Informações para IA e chatbot”.
 - **Campos configuráveis por empresa** (2.10.42): editor de pré-chat com ativar/obrigatório, campos custom (pedido, NF, etc.), ordem e exemplos rápidos; `visitorIntake` + `prechatFields` no widget.
 - **Modo formulário** (2.10.43): exibir todos os campos na mesma tela (`prechatMode: form`); tipo `textarea` com `maxLength`; preset **Formulário clássico** (Nome + Telefone + Motivo 150 caracteres).
@@ -348,3 +350,37 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 
 - Áudio e outros formatos no widget.
 - Arrastar-e-soltar arquivos no widget.
+
+## Contrato painel ↔ widget (obrigatório para o agente)
+
+Doc de regra Cursor: `.cursor/rules/webchat-widget-config-sync.mdc`
+
+### Regra de ouro
+
+Campos em `WebChatWidget.appearance` usados pelo `widget.js` em runtime **devem** estar em:
+
+1. `WebChatPublicConfig` (`src/types/webchat.ts`)
+2. `WebChatService.getPublicConfig()` (`src/services/webchat/WebChatService.ts`)
+
+O painel grava com `PATCH /api/webchat/widgets/:id`. O visitante lê com `GET /api/webchat/public/widgets/:publicKey/config`.
+
+### `previewTemplateId`
+
+| Valor | Significado |
+|-------|-------------|
+| `classic`, `tech`, `luxe`, `copilot`, … | Modelo **landing** (página `preview-*.html` no painel) |
+| `chatbox-{id}` | Modelo **Chat Box** — `widget.js` ativa `CHATBOX_RUNTIME` |
+
+**Bug histórico (2.10.101):** `previewTemplateId` era salvo no painel mas **não** ia na API pública → landing mudava no preview, chat permanecia clássico.
+
+**Checklist ao adicionar campo de aparência:** Mongo → PATCH painel → `getPublicConfig()` → `widget.js` → preview só após PATCH ok.
+
+### Preview no painel
+
+- `chatbox-*` → iframe `/webchat/widget.html?key=…`
+- Landing → iframe `/webchat/preview-*.html?key=…`
+- Não chamar `bumpPreview` antes do PATCH de visual concluir (evita landing nova + config antiga).
+- **2.10.102:** prévia usa `livePreviewTemplateId` — só atualiza após PATCH de “Aplicar modelo” (antes só funcionava ao clicar Salvar).
+- **Fix “Iniciar conversa”** (2.10.103): overlay da prévia não bloqueia cliques no iframe; CTA Chat Box abre pré-chat/sessão em vez de enviar texto; iframe mais alto para Chat Box.
+- **Fix prévia e sessão local** (2.10.104): prévia interativa `widget.html`; `localhost` liberado em dev com `allowedDomains`; scroll flex no pré-chat; erros de API visíveis no painel do widget.
+- **Fix “Iniciar conversa” + notas** (2.10.105): notas do contato (`Destination.notes`) truncadas ao vincular WebChat (limite 2000); sem `embed=1` na prévia do painel; `embed=1` em URL direta abre o chat automaticamente.

@@ -21,6 +21,10 @@ function hostFromUrl(value?: string | null): string | null {
   }
 }
 
+function isLocalDevHost(host: string): boolean {
+  return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost');
+}
+
 /** Valida origem do embed — lista vazia permite qualquer host. */
 export function isWebChatOriginAllowed(
   allowedDomains: string[],
@@ -30,6 +34,11 @@ export function isWebChatOriginAllowed(
   if (!allowedDomains.length) return true;
   const host = hostFromUrl(origin) ?? hostFromUrl(referer);
   if (!host) return false;
+
+  // Painel e previews locais (npm run dev + dashboard:frontend) não devem quebrar por allowedDomains.
+  if (process.env.NODE_ENV !== 'production' && isLocalDevHost(host)) {
+    return true;
+  }
 
   return allowedDomains.some(raw => {
     const domain = raw.trim().toLowerCase();

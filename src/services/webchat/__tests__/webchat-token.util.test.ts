@@ -26,4 +26,17 @@ describe('webchat-token.util', () => {
     expect(isWebChatOriginAllowed(allowed, 'https://app.loja.com', null)).toBe(true);
     expect(isWebChatOriginAllowed(allowed, 'https://outro.com', null)).toBe(false);
   });
+
+  it('em desenvolvimento libera localhost mesmo com allowedDomains restrito', () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    try {
+      const allowed = ['meusite.com'];
+      expect(isWebChatOriginAllowed(allowed, 'http://localhost:5174', null)).toBe(true);
+      expect(isWebChatOriginAllowed(allowed, 'http://127.0.0.1:3001', null)).toBe(true);
+      expect(isWebChatOriginAllowed(allowed, 'https://outro.com', null)).toBe(false);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
 });
