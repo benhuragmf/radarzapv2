@@ -5,6 +5,8 @@
 **Escopo:** somente leitura — nenhuma implementação de código  
 **Objetivo:** mapear o que já existe antes de evoluir para 4 modos de atendimento + separação modo × provedor
 
+> **Implementação (Fases 1–4 concluídas):** ver [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) · versão atual `2.10.108`
+
 ---
 
 ## Índice
