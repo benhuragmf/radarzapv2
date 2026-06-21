@@ -9,6 +9,7 @@ import { geminiFallbackModelIds } from '@/constants/ai-model-catalog';
 import { getAiPlanLimits } from '@/types/ai-assistant';
 import { AiCredentialVaultService } from './AiCredentialVaultService';
 import { AiUsageMeterService } from './AiUsageMeterService';
+import { aiUsageKindFromProviderLabel } from '@/types/ai-usage-kind';
 
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -165,6 +166,7 @@ export class AiProviderService {
       llmModel: settings.llmModel,
       inputTokens: raw.inputTokens,
       outputTokens: raw.outputTokens,
+      usageKind: aiUsageKindFromProviderLabel(providerLabel),
     });
 
     return {

@@ -146,6 +146,10 @@ interface AiPayload {
     dailyLimit: number
     monthlyLimit: number
     perConversationLimit: number
+    dailyByKind?: {
+      premium_assistant: { calls: number; tokens: number; cost: number }
+      basic_triage: { calls: number; tokens: number; cost: number }
+    }
   }
   apiKeyMasked: string | null
   hasApiKey: boolean
@@ -187,9 +191,27 @@ export default function AiAtendimento() {
   const { data: usageDetail } = useQuery({
     queryKey: ['ai-usage'],
     queryFn: () =>
-      api.get<{ rows: unknown[]; totals: { calls: number; tokens: number; cost: number }; snapshot: unknown }>(
-        '/platform/ai/usage',
-      ),
+      api.get<{
+        rows: Array<{
+          id: string
+          createdAt: string
+          usageKindLabel: string
+          llmModel: string
+          totalTokens: number
+          estimatedCost: number
+        }>
+        totals: {
+          calls: number
+          tokens: number
+          cost: number
+          byKind: {
+            premium_assistant: { calls: number; tokens: number; cost: number }
+            basic_triage: { calls: number; tokens: number; cost: number }
+            unknown: { calls: number; tokens: number; cost: number }
+          }
+        }
+        snapshot: AiPayload['usage']
+      }>('/platform/ai/usage'),
     enabled: canManage && tab === 'logs',
   })
 
@@ -566,6 +588,13 @@ export default function AiAtendimento() {
           <p className="text-xs text-[var(--rz-text-muted)] border-t border-[var(--rz-border)] pt-4">
             Uso hoje: {form.usage.dailyUsed}/{form.usage.dailyLimit} diário ·{' '}
             {form.usage.monthlyUsed}/{form.usage.monthlyLimit} mensal
+            {form.usage.dailyByKind && (
+              <>
+                {' '}
+                · Premium {form.usage.dailyByKind.premium_assistant.calls} · Básica{' '}
+                {form.usage.dailyByKind.basic_triage.calls} (LLM fallback)
+              </>
+            )}
           </p>
         </Card>
       )}
@@ -1433,23 +1462,84 @@ export default function AiAtendimento() {
           <h2 className="text-lg font-medium flex items-center gap-2">
             <BarChart3 className="w-5 h-5" /> Uso e custos estimados
           </h2>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Período padrão: últimos 30 dias. Chamadas LLM classificadas por modo de atendimento.
+          </p>
           {usageDetail && (
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
-                <div className="text-2xl font-semibold">{usageDetail.totals.calls}</div>
-                <div className="text-xs text-[var(--rz-text-muted)]">chamadas (30d)</div>
-              </div>
-              <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
-                <div className="text-2xl font-semibold">{usageDetail.totals.tokens}</div>
-                <div className="text-xs text-[var(--rz-text-muted)]">tokens</div>
-              </div>
-              <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
-                <div className="text-2xl font-semibold">
-                  US$ {usageDetail.totals.cost.toFixed(4)}
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center">
+                <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
+                  <div className="text-2xl font-semibold">{usageDetail.totals.calls}</div>
+                  <div className="text-xs text-[var(--rz-text-muted)]">Total chamadas</div>
                 </div>
-                <div className="text-xs text-[var(--rz-text-muted)]">custo est.</div>
+                <div className="bg-brand-500/10 border border-brand-500/20 rounded-lg p-4">
+                  <div className="text-2xl font-semibold">
+                    {usageDetail.totals.byKind.premium_assistant.calls}
+                  </div>
+                  <div className="text-xs text-[var(--rz-text-muted)]">IA Premium</div>
+                </div>
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                  <div className="text-2xl font-semibold">
+                    {usageDetail.totals.byKind.basic_triage.calls}
+                  </div>
+                  <div className="text-xs text-[var(--rz-text-muted)]">IA Básica (LLM)</div>
+                </div>
+                <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
+                  <div className="text-2xl font-semibold">{usageDetail.totals.tokens}</div>
+                  <div className="text-xs text-[var(--rz-text-muted)]">Tokens</div>
+                </div>
+                <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
+                  <div className="text-2xl font-semibold">
+                    US$ {usageDetail.totals.cost.toFixed(4)}
+                  </div>
+                  <div className="text-xs text-[var(--rz-text-muted)]">Custo est.</div>
+                </div>
               </div>
-            </div>
+
+              {usageDetail.snapshot && (
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Hoje: {usageDetail.snapshot.dailyUsed}/{usageDetail.snapshot.dailyLimit} chamadas
+                  {usageDetail.snapshot.dailyByKind && (
+                    <>
+                      {' '}
+                      (Premium {usageDetail.snapshot.dailyByKind.premium_assistant.calls} · Básica{' '}
+                      {usageDetail.snapshot.dailyByKind.basic_triage.calls})
+                    </>
+                  )}
+                </p>
+              )}
+
+              {usageDetail.rows.length > 0 && (
+                <div className="overflow-x-auto rounded-lg border border-[var(--rz-border)]">
+                  <table className="w-full text-xs">
+                    <thead className="bg-[var(--rz-surface-muted)]/50 text-[var(--rz-text-muted)]">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">Data</th>
+                        <th className="text-left px-3 py-2 font-medium">Modo</th>
+                        <th className="text-left px-3 py-2 font-medium">Modelo</th>
+                        <th className="text-right px-3 py-2 font-medium">Tokens</th>
+                        <th className="text-right px-3 py-2 font-medium">Custo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageDetail.rows.slice(0, 50).map(row => (
+                        <tr key={row.id} className="border-t border-[var(--rz-border)]">
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            {new Date(row.createdAt).toLocaleString('pt-BR')}
+                          </td>
+                          <td className="px-3 py-2">{row.usageKindLabel}</td>
+                          <td className="px-3 py-2 font-mono text-[10px]">{row.llmModel}</td>
+                          <td className="px-3 py-2 text-right">{row.totalTokens}</td>
+                          <td className="px-3 py-2 text-right">
+                            US$ {row.estimatedCost.toFixed(4)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </Card>
       )}

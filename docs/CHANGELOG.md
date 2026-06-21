@@ -6,6 +6,20 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.3] — 2026-06-19
+
+### Adicionado
+
+- **Fase 7:** campo `usageKind` em `AiUsage` — contadores Premium vs IA Básica (LLM fallback).
+- `GET /platform/ai/usage` retorna `totals.byKind` e linhas tipadas.
+- UI Logs: breakdown por modo + tabela de chamadas; Geral mostra uso diário por modo.
+
+### Documentação
+
+- [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-7.md)
+
+---
+
 ## [2.11.2] — 2026-06-19
 
 ### Alterado

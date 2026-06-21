@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.2` (`package.json`) · **Última revisão doc:** 2026-06-19
+**Versão atual:** `2.11.3` (`package.json`) · **Última revisão doc:** 2026-06-19
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -93,6 +93,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.0** | **Baseline modos de atendimento** (Fases 1–4) + protocolo versionamento/docs `.md` — `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `VERSIONAMENTO-E-DOCUMENTACAO.md`, `CHANGELOG.md` |
 | **2.11.1** | Modos Fase 5: IA Básica (`basic_triage`) — classificador local + KB + encaminhamento WA/WebChat — `RADARZAP-ATTENDANCE-MODES-PHASE-5.md` |
 | **2.11.2** | Fase 6: WebChat alinhado ao modo global — IA Premium só com `premium_assistant` — `RADARZAP-ATTENDANCE-MODES-PHASE-6.md` |
+| **2.11.3** | Fase 7: custos/logs LLM por modo (`usageKind` Premium vs Básica) — `RADARZAP-ATTENDANCE-MODES-PHASE-7.md` |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 
@@ -144,6 +145,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `AiConversationState` | `targetTicketRef` | 2.6.4 |
 | `AiSettings` | `attendanceMode` | 2.10.107 |
 | `AiPrompt` | `basicTriageLlmFallbackEnabled` | 2.11.1 |
+| `AiUsage` | `usageKind` | 2.11.3 |
 
 ---
 
