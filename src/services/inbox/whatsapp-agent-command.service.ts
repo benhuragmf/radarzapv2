@@ -10,6 +10,7 @@ import {
 } from '@/utils/whatsapp-agent-command.util';
 import { WebChatService } from '@/services/webchat/WebChatService';
 import { InboxService } from '@/services/inbox/InboxService';
+import { visitorDisplayName } from '@/services/webchat/webchat-inbox-bridge';
 import { createServiceLogger } from '@/utils/logger';
 import {
   resolveAuthorizedWhatsappAgentFromContext,
@@ -91,38 +92,35 @@ async function handleAssumir(
       String(conversation._id),
     );
 
-    await WebChatService.getInstance().convertToTicket(
-      clientId,
-      userId,
-      String(conversation._id),
-    );
-
-    const freshConv = await WebChatConversation.findById(conversation._id).select('ticketRef').lean();
-    const resolvedRef = (freshConv?.ticketRef ?? ticketRef).trim().toUpperCase();
-
-    const ticketDoc = await InboxTicket.findOne({
-      clientId: new mongoose.Types.ObjectId(clientId),
-      ticketRef: resolvedRef,
-    });
-    if (!ticketDoc) {
-      return `Falha ao registrar chamado ${ticketRef}. Tente novamente ou abra pelo painel.`;
+    if (ticket) {
+      ticket.assignedUserId = new mongoose.Types.ObjectId(userId);
+      ticket.status = 'in_progress';
+      await ticket.save();
     }
-
-    ticketDoc.assignedUserId = new mongoose.Types.ObjectId(userId);
-    ticketDoc.status = 'in_progress';
-    await ticketDoc.save();
 
     await activateWhatsappBridge(clientId, String(conversation._id), userId);
 
+    const { contactName } = visitorDisplayName(
+      conversation.visitorName,
+      conversation.visitorEmail,
+      conversation.visitorPhone,
+    );
+    const ref = (conversation.ticketRef ?? ticketRef).trim().toUpperCase();
+    const ticketOpened = Boolean(ticket);
+
     return [
-      `Você assumiu ${ticketRef}.`,
+      `Você assumiu ${ref}.`,
       `Canal: chat do site (bridge WhatsApp ativo)`,
-      `Cliente: ${ticketDoc.contactName}`,
+      `Cliente: ${ticket?.contactName ?? contactName}`,
       '',
       'Responda aqui no WhatsApp — o visitante verá no chat do site.',
       'Vários chamados? Use: TK-XXXX sua mensagem',
       '',
-      `Painel → Inbox → ${ticketRef}`,
+      ticketOpened
+        ? `Chamado formal aberto — token enviado ao abrir no painel. Reenvio: !token ${ref.replace(/^TK-/i, '')}`
+        : 'Chamado formal ainda não aberto — no painel Inbox use *Abrir chamado* para registrar e enviar token ao visitante.',
+      '',
+      `Painel → Inbox → ${ref}`,
     ].join('\n');
   }
 
@@ -173,6 +171,14 @@ async function handleToken(clientId: string, userId: string, ticketRef: string):
       clientId: new mongoose.Types.ObjectId(clientId),
     }));
   if (!conversation) return `Conversa de ${ticketRef} não encontrada.`;
+
+  if (!ticket) {
+    return [
+      `Chamado ${ticketRef} ainda não foi aberto formalmente.`,
+      'No painel: Inbox → conversa do visitante → *Abrir chamado*.',
+      'Depois use !token para reenviar o token ao visitante, se necessário.',
+    ].join('\n');
+  }
 
   try {
     const result = await WebChatService.getInstance().sendTicketTokenToVisitor(

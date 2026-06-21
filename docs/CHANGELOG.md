@@ -6,13 +6,21 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
-## [2.11.6] — 2026-06-19
+## [2.11.7] — 2026-06-19
 
 ### Corrigido
 
-- **WebChat + WhatsApp:** `!assumir` agora notifica o visitante com abertura do chamado e token (antes criava ticket silencioso).
-- Chamados legados sem token recebem notificação ao converter/abrir.
-- Novo comando **`!token TK-XXXX`** — reenvia token de consulta ao visitante no chat do site.
+- **`!assumir`** no WebChat volta a **não abrir chamado** — só assume conversa + bridge WhatsApp.
+- Abertura formal + token ao visitante permanecem só em **Inbox → Abrir chamado** (ou IA quando configurada).
+- **`!token`** exige chamado já aberto no painel.
+
+---
+
+## [2.11.6] — 2026-06-19
+
+### Corrigido (revertido em 2.11.7)
+
+- ~~`!assumir` abria chamado automaticamente~~ — comportamento incorreto para o produto.
 
 ---
 

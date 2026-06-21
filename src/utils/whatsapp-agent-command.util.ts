@@ -44,9 +44,9 @@ export function normalizeCommandTicketRef(raw: string): string {
 export const WHATSAPP_AGENT_COMMAND_HELP = [
   'Comandos RadarZap (atendentes com WhatsApp cadastrado em Equipe):',
   '',
-  '!assumir TK-XXXX — assumir chamado (chat do site ou WhatsApp)',
+  '!assumir TK-XXXX — assumir conversa (chat do site: bridge WA; não abre chamado formal)',
   '!ticket TK-XXXX — resumo do chamado',
-  '!token TK-XXXX — enviar token de consulta ao visitante (chat do site)',
+  '!token TK-XXXX — reenviar token ao visitante (após Abrir chamado no painel)',
   '!encerrarchat TK-XXXX — encerrar atendimento no site (chamado continua no painel)',
   '!encerrar TK-XXXX — arquivar chamado e conversa no sistema',
   '!ajuda — esta mensagem',

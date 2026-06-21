@@ -1344,8 +1344,8 @@ export class WebChatService {
   }
 
   /**
-   * Reenvia (ou gera) token de consulta no chat do visitante.
-   * Útil via `!token TK-…` quando o cliente não recebeu na abertura.
+   * Reenvia token de consulta no chat do visitante (chamado já aberto no painel).
+   * Não abre chamado — use `convertToTicket` / Abrir chamado antes.
    */
   async sendTicketTokenToVisitor(
     clientId: string,
@@ -1365,12 +1365,9 @@ export class WebChatService {
     });
 
     if (!ticket) {
-      const opened = await this.convertToTicket(clientId, userId, conversationId);
-      return {
-        ticketRef: opened.ticketRef,
-        token: '(enviado no chat do visitante)',
-        rotated: false,
-      };
+      throw new Error(
+        'Chamado ainda não aberto. No painel Inbox, use Abrir chamado antes de enviar o token.',
+      );
     }
 
     const ref = ticket.ticketRef;
