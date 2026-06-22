@@ -1,4 +1,4 @@
-# Plano — consulta, atualização e aplicação (origem GG)
+﻿# Plano — consulta, atualização e aplicação (origem GG)
 
 **Versão ref:** `2.11.28` · **Data:** 2026-06-21  
 **Status:** Fase 1 — estabilização (sem go-live)
@@ -13,7 +13,7 @@ Este documento consolida os rascunhos `gg.md`, `gg1.md` e `gg2.md` em entregas o
 
 | Arquivo | Conteúdo | Destino no repo | Escopo |
 |---------|----------|-----------------|--------|
-| `gg.md` | Auditoria técnica + estabilização atendimento | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | **RadarZap v2** |
+| `gg.md` | Auditoria técnica + estabilização atendimento | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | **RadarZap v2** |
 | `gg1.md` | Visão produto / diferenciação vs concorrentes | [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | **RadarZap v2** (Fase D+) |
 | `gg2.md` | Termos/privacidade Discord — RadarGamer v4 | **Fora do escopo** deste repositório | Projeto **RadarGamer** |
 
@@ -63,7 +63,7 @@ Regras do `gg.md` adaptadas:
 
 | Item (gg.md) | Onde aplicar | Doc / código | Status jun/2026 |
 |--------------|--------------|--------------|-----------------|
-| Entrega 2.11.24–28 (presença, supervisor, fallback, sino) | Código + docs | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | ✅ doc completa |
+| Entrega 2.11.24–28 (presença, supervisor, fallback, sino) | Código + docs | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) | ✅ doc completa |
 | WA Inbox × Ticket × CSAT × IA | QA manual **§10** | `QA-FASE1-CHECKLIST.md`, `QA-FASE1-ROTEIRO.md` | 🔴 QA manual por último |
 | Ordem inbound | Testes | `inbound-routing.test.ts`, `csat.util.test.ts` | 🟡 unitários OK; integração falta |
 | Gate automático atendimento | `package.json` scripts | `npm run qa:atendimento:gate` | ✅ 2.11.28 (463 testes + gate) |
@@ -178,7 +178,7 @@ npm run qa:gate
 
 | Documento | Papel |
 |-----------|-------|
-| [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria técnica detalhada (gg.md) |
+| [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria técnica detalhada (gg.md) |
 | [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão comercial (gg1.md) |
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Gate oficial Fase 1 |
 
@@ -191,7 +191,7 @@ Execute **somente após** Fases A/B verdes no gate automático.
 | Ordem | Doc | Escopo |
 |-------|-----|--------|
 | **start** | [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) | Gate automático ✅ + ordem de execução |
-| 0 | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | Spec técnica (consulta durante QA) |
+| 0 | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) | Spec técnica (consulta durante QA) |
 | 1 | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | § A WhatsApp + Partes 3–7 (WebChat, fallback deferido, presença, supervisor, alertas) |
 | 2 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível (§ A–E) |
 | 3 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Token, FAQ, C0/C1 fallback, bridge, IA Básica, presença |

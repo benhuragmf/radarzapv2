@@ -1,8 +1,16 @@
-# RadarZap — Changelog
+﻿# RadarZap — Changelog
 
 Registro append-only de entregas versionadas. Protocolo: [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md).
 
 Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
+
+---
+
+## [2.11.39] — 2026-06-22
+
+### Documentação
+
+- Arquivados em `docs/concluidos/`: `ENTREGA-ATENDIMENTO-2.11.24-28.md`, `ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`; links atualizados em todo o repo.
 
 ---
 
@@ -101,7 +109,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ## [2.11.28] — 2026-06-21
 
-Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md).
+Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md).
 
 ### Adicionado
 
@@ -119,7 +127,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.
 
 ## [2.11.25] — 2026-06-21
 
-Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §3.
+Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §3.
 
 ### Adicionado
 
@@ -132,7 +140,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.
 
 ## [2.11.24] — 2026-06-21
 
-Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §2.
+Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §2.
 
 ### Adicionado
 
@@ -146,7 +154,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.
 
 ### Adicionado / corrigido
 
-- Auditoria completa reescrita: [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) (revisão 2, evidências no código).
+- Auditoria completa reescrita: [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) (revisão 2, evidências no código).
 - Script `npm run qa:atendimento:gate` — jest atendimento crítico + `qa:webchat-wa`.
 - Anti-loop alerta fallback WebChat: ignora telefones que coincidem com sessão Baileys (`filterFallbackAlertPhones`).
 
@@ -165,7 +173,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.
 
 ### Documentação
 
-- Consolidação rascunhos GG → `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`, `ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`, `RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`.
+- Consolidação rascunhos GG → `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`, [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md), `RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`.
 - `TICKET-ATENDIMENTO.md` § mensagens visíveis vs `!nota` interna.
 - `INDICE-DOCUMENTACAO.md` atualizado.
 

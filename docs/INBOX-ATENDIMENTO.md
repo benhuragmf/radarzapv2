@@ -1,4 +1,4 @@
-# Inbox — atendimento WhatsApp (RadarZap)
+﻿# Inbox — atendimento WhatsApp (RadarZap)
 
 Módulo proprietário de triagem, filas e atendimento humano via WhatsApp.
 
@@ -477,7 +477,7 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 
 ## Presença operacional (2.11.25)
 
-Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §3.
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §3.
 
 ### Status
 
@@ -513,7 +513,7 @@ Código: `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts`, `constants/ag
 
 ### Fallback WhatsApp + bridge site (2.10.72–2.11.28)
 
-Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 · [`WEBCHAT.md`](./WEBCHAT.md) § Fallback.
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 · [`WEBCHAT.md`](./WEBCHAT.md) § Fallback.
 
 Quando uma conversa **WebChat** entra na fila (`waiting_human`):
 
@@ -597,7 +597,7 @@ Serviço: `InboxReportsService`.
 
 ## Supervisor (2.11.24)
 
-Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §2.
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §2.
 
 Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
 
@@ -626,7 +626,7 @@ Serviço: `InboxSupervisorDashboardService`. Atualização: WebSocket + refresh 
 
 ## Notificações no painel
 
-Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 · [`BILLING.md`](./BILLING.md) § Alertas.
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 · [`BILLING.md`](./BILLING.md) § Alertas.
 
 - **Balão de eventos** no header: `EventNotificationBell` (à esquerda do indicador de status)
 - Socket `panel:event` via `PanelNotifications` → sala `inbox:{clientId}`

@@ -1,7 +1,7 @@
-# RadarZap v2 — Checklist QA Fase 1 (estabilização)
+﻿# RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
 > **Versão alvo:** `2.11.38` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
-> **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Spec 2.11.24–28:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)  
+> **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Spec 2.11.24–28:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)  
 > **Pré-check:** `npm run qa:prep` + `npm run qa:atendimento:gate` · **Resultado:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
 
 **Execução:** _______________ · **Responsável:** _______________ · **Ambiente:** dev / piloto
@@ -131,9 +131,9 @@
 
 ## Referências
 
-- `ENTREGA-ATENDIMENTO-2.11.24-28.md` — spec técnica + cenários QA
+- [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) — spec técnica + cenários QA
 - `ROADMAP-COMPLETUDE.md` — fases e lacunas
-- `radarzap-inbox-upgrade.md` — escopo visual 2.10.18
+- [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) — escopo visual 2.10.18
 - `INBOX-ATENDIMENTO.md` — CSAT, routing, API
 - `TICKET-ATENDIMENTO.md` — janela 12 h, estados ticket
 - `WEBCHAT.md` — widget, fila, Inbox unificado

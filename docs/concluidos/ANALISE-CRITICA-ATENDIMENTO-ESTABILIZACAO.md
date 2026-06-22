@@ -320,7 +320,7 @@ Eventos bridge gravados: `bridge.started`, `bridge.closed`, `bridge.agent_reply`
 
 - Modo `basic_triage` em `src/types/attendance-mode.ts`
 - Serviço `webchat-basic-triage.service.ts`
-- Doc fase: [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md)
+- Doc fase: [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md)
 
 **Estabilização:** não expandir IA Básica até QA Fase 1 verde. Melhorias = patch isolado + testes.
 

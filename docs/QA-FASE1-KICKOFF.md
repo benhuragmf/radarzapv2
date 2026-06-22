@@ -1,4 +1,4 @@
-# QA Fase 1 — kickoff (gate humano)
+﻿# QA Fase 1 — kickoff (gate humano)
 
 **Versão:** `2.11.38` · **Commit ref:** `e9d794c` · **Data prep:** 2026-06-22
 
@@ -36,7 +36,7 @@ Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar 
 1. `npm run dev` + `npm run dashboard:frontend` (ou stack já rodando)
 2. Sessão WhatsApp conectada em `/sessions`
 3. CSAT habilitado em `/platform/inbox/bot`
-4. Celular **cliente** ≠ número da sessão Baileys ≠ celular bridge (ver O5 em `ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`)
+4. Celular **cliente** ≠ número da sessão Baileys ≠ celular bridge (ver O5 em [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md))
 5. Pelo menos 1 widget WebChat ativo
 6. Membro equipe com `whatsappPhone` cadastrado (para bridge/`!assumir`)
 
@@ -52,6 +52,6 @@ Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar 
 
 ## Referência técnica
 
-- Spec 2.11.24–35: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)
+- Spec 2.11.24–35: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)
 - Webhooks ticket/bridge: [`WEBHOOKS.md`](./WEBHOOKS.md) (2.11.33)
 - Plano estabilização: [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO.md) §10

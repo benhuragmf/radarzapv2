@@ -1,7 +1,7 @@
-# QA manual — WebChat: token, FAQ, fallback WhatsApp e bridge
+﻿# QA manual — WebChat: token, FAQ, fallback WhatsApp e bridge
 
 > **Versão alvo:** `2.11.28` · **Escopo:** Fases A–H (A–F: 2.10.70–75; G–H + C0: 2.11.24–28)  
-> **Spec técnica:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)  
+> **Spec técnica:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)  
 > **Tempo estimado:** 30–45 min · **Ambiente:** dev local com WA conectado
 
 **Execução:** _______________ · **Responsável:** _______________ · **Data:** _______________
@@ -194,7 +194,7 @@
 
 ## Referências
 
-- [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)
+- [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)
 - `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`
 - `docs/WEBCHAT.md` § Consulta token, FAQ, Fallback, Bridge
 - `docs/QA-FASE1-CHECKLIST.md` (gate estabilização geral)

@@ -1,4 +1,4 @@
-# RadarZap — Versionamento e documentação (.md)
+﻿# RadarZap — Versionamento e documentação (.md)
 
 **Versão do protocolo:** 1.0 · **Vigência a partir de:** `2.11.0` (`package.json`) · **Data:** 2026-06-19
 
@@ -52,7 +52,7 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 [ ] docs/MENU-PAGES-REGISTRY.md — se rota/menu/API mudou
 [ ] Doc de feature/fase — se escopo grande (ex.: RADARZAP-*-PHASE-N.md)
 [ ] Doc consolidado do módulo — se existir (ex.: RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
-[ ] Doc ENTREGA — se pacote multi-patch coeso (ex.: ENTREGA-ATENDIMENTO-2.11.24-28.md)
+[ ] Doc ENTREGA — se pacote multi-patch coeso (ex.: `concluidos/ENTREGA-ATENDIMENTO-*.md`); ao fechar ciclo → arquivar em [`concluidos/`](./concluidos/README.md)
 [ ] docs/INDICE-DOCUMENTACAO.md — se novo doc de módulo ou ENTREGA
 [ ] Testes/build passando
 [ ] Commit + push (sem sessions/, .env, credenciais)
@@ -73,7 +73,8 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 | Modos de atendimento | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) |
 | Análise / decisão arquitetural | doc dedicado `docs/ANALISE-*.md` ou seção no consolidado |
 | Fase de feature grande | `docs/RADARZAP-*-PHASE-N.md` + atualizar consolidado; ao concluir → mover para [`concluidos/`](./concluidos/README.md) |
-| **Pacote multi-versão** (várias entregas relacionadas) | [`ENTREGA-ATENDIMENTO-*.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) — referência técnica completa + links nos módulos |
+| **Pacote multi-versão** (várias entregas relacionadas) | [`concluidos/ENTREGA-ATENDIMENTO-*.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) — referência técnica; links nos módulos ativos |
+| Auditoria / análise fechada | [`concluidos/ANALISE-*.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) — doc operacional permanece na raiz (`INBOX-ATENDIMENTO.md`, etc.) |
 | Roadmap / produção | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) |
 
 **Regra:** se não existir doc de módulo, criar **`docs/NOME-MODULO.md`** mínimo (escopo, rotas, modelos, changelog local).
@@ -138,6 +139,8 @@ Documentos-chave do ciclo **Modos de atendimento** (fases arquivadas em [`conclu
 | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado ativo** Fases 1–8 |
 | [`concluidos/ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md) | Análise pré-implementação (arquivo) |
 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-*.md`](./concluidos/README.md) | Docs parciais por fase (arquivo) |
+| [`concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) | Spec estabilização 2.11.24–38 (arquivo) |
+| [`concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria Fase 1 (arquivo) |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Changelog append-only do projeto |
 | [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) | Este protocolo |
 
@@ -157,7 +160,16 @@ Documentos-chave do ciclo **Modos de atendimento** (fases arquivadas em [`conclu
 | 7 Custos/logs por modo | 2.11.3 | ✅ | [`concluidos/PHASE-7`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md) |
 | 8 E2E Playwright | 2.11.4 | ✅ | [`concluidos/PHASE-8`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md) |
 
-**Próxima entrega:** estabilização Fase 1 — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) e [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
+**Próxima entrega:** gate humano Fase 1 — [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) · [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) · [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
+
+### Arquivar em `concluidos/`
+
+Quando um doc de entrega ou auditoria **não é mais editado** (ciclo fechado, substituído por consolidado ativo):
+
+1. `git mv docs/NOME.md docs/concluidos/NOME.md`
+2. Atualizar links em `docs/*.md` → `./concluidos/NOME.md`
+3. Registrar em [`concluidos/README.md`](./concluidos/README.md) e [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
+4. Manter referências nos módulos ativos (`INBOX-ATENDIMENTO.md`, etc.) apontando para o arquivo
 
 ---
 

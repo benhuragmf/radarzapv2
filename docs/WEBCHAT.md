@@ -1,4 +1,4 @@
-# Chat do site (WebChat)
+﻿# Chat do site (WebChat)
 
 Widget embedável para sites externos, com atendimento em tempo real no painel RadarZap.
 
@@ -323,7 +323,7 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 
 ## Fallback WhatsApp offline (2.10.72, deferido 2.11.28)
 
-Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §4.
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §4.
 
 ### Config (Triagem e Bot)
 

@@ -1,10 +1,10 @@
-# RadarZap v2 — registro do sistema
+﻿# RadarZap v2 — registro do sistema
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.38` (`package.json`) · **Última revisão doc:** 2026-06-22
+**Versão atual:** `2.11.39` (`package.json`) · **Última revisão doc:** 2026-06-22
 
-Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
+Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
 ---
 
@@ -105,7 +105,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.4** | Fase 8: E2E Playwright modos de atendimento (mock auth) — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md` |
 | **2.11.3** | Fase 7: custos/logs LLM por modo (`usageKind` Premium vs Básica) — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md` |
 | **2.11.15** | Docs: pasta `concluidos/` — arquivar entregas finalizadas (fases modos, FAQ WA, upgrades UI) |
-| **2.11.16** | Auditoria atendimento revisão 2; `qa:atendimento:gate`; anti-loop alerta fallback WebChat — `ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md` |
+| **2.11.16** | Auditoria atendimento revisão 2; `qa:atendimento:gate`; anti-loop alerta fallback WebChat — [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) |
 | **2.11.17** | Rate limit WA tipado + jitter; `GET /platform/health/atendimento`; `AttendanceEvent` bridge; `PILOT_MODE` — `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md` |
 | **2.11.24** | Supervisão avançada: dashboard equipe/presença/monitor conversa WA+WebChat, métricas 7d — `INBOX-ATENDIMENTO.md` § Supervisor |
 | **2.11.25** | Presença operacional atendentes (`online`/`ausente`/`ocupado`/`offline`/`supervisor_online`); round-robin por disponibilidade — `INBOX-ATENDIMENTO.md` |
@@ -120,6 +120,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.36** | Fix build `DashboardService` campanhas; `QA-FASE1-KICKOFF.md`; gate automático completo |
 | **2.11.37** | Fix E2E Supervisor strict mode; índice QA; `qa-prep` → KICKOFF |
 | **2.11.38** | Fix CI `npm audit` — override `undici@6.27.0` |
+| **2.11.39** | Docs: ENTREGA + ANALISE-CRITICA arquivados em `docs/concluidos/` |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 

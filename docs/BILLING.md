@@ -1,4 +1,4 @@
-# Billing Stripe — RadarZap v2
+﻿# Billing Stripe — RadarZap v2
 
 Assinaturas mensais por **organização** (empresa), padrão inspirado no radargamev4 (fetch + HMAC webhook, sem SDK Stripe).
 
@@ -72,7 +72,7 @@ Referência: [Stripe API keys](https://docs.stripe.com/keys). Checkout **hospeda
 
 ## Alertas no painel (2.11.28)
 
-Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §5.
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §5.
 
 Dono/admin com `billing:view` recebe no **sino vermelho** (urgente + som `urgent`):
 

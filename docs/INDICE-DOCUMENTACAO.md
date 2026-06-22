@@ -1,6 +1,6 @@
-# RadarZap v2 — Índice de documentação
+﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.36` · **Atualizado:** 2026-06-22
+**Versão do produto:** `2.11.39` · **Atualizado:** 2026-06-22
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -15,8 +15,6 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) | Registro vivo espelho do sistema (versionado no git) |
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização, lacunas |
 | [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação (origem GG) |
-| [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria estabilização Fase 1 |
-| [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | **Referência completa** — supervisão, presença, fallback deferido, sino crítico (2.11.24–28) |
 | [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (pós-estabilização) |
 
 ---
@@ -26,7 +24,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | Documento | Descrição |
 |-----------|-----------|
 | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado ativo** — tudo implementado Fases 1–8 |
-| [`concluidos/`](./concluidos/README.md) | Fases parciais, análise prévia e entregas arquivadas ✅ |
+| [`concluidos/`](./concluidos/README.md) | Entregas arquivadas: modos fases 1–8, FAQ WA, upgrade Inbox, **ENTREGA 2.11.24–38**, auditoria estabilização |
 
 ---
 
@@ -89,10 +87,10 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | Robotizado WC | `webchat-robotic-triage.service.ts` | PHASE-4 |
 | IA Básica WC | `webchat-basic-triage.service.ts` | Consolidado modos · fix gate 2.11.28 |
 | Triagem WA | `inbox-triage.ts`, `InboxService` | INBOX-ATENDIMENTO |
-| Presença atendentes | `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §3 |
-| Fallback WA deferido | `webchat-whatsapp-fallback.service.ts`, scan em `WebChatService` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 |
-| Alertas críticos painel | `panel-events.ts`, `panel-critical-alerts.service.ts`, `EventNotificationBell.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 |
-| Supervisão equipe | `inbox-supervisor-dashboard.service.ts`, `InboxSupervisor.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §2 |
+| Presença atendentes | `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §3 |
+| Fallback WA deferido | `webchat-whatsapp-fallback.service.ts`, scan em `WebChatService` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 |
+| Alertas críticos painel | `panel-events.ts`, `panel-critical-alerts.service.ts`, `EventNotificationBell.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 |
+| Supervisão equipe | `inbox-supervisor-dashboard.service.ts`, `InboxSupervisor.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §2 |
 | Rate limit WA | `whatsapp-session-rate-limit.ts`, `WhatsAppSendLimitsPage.tsx` | PLANO § Fase B · `/platform/wa-limits` |
 | Saúde atendimento | `GET /platform/health/atendimento` em `DashboardService.ts` | PLANO § Fase B |
 

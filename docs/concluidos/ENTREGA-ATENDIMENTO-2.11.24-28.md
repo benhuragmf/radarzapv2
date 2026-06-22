@@ -1,9 +1,9 @@
-# Entrega atendimento 2.11.24–2.11.28 — referência completa
+﻿# Entrega atendimento 2.11.24–2.11.28 — referência completa
 
 **Versão produto:** `2.11.28` · **Data doc:** 2026-06-21  
 **Escopo:** supervisão avançada, presença operacional, fallback WhatsApp deferido, notificações críticas no painel, fix IA Básica WebChat.
 
-Documento **técnico e operacional** — cada comportamento, campo, rota, evento e arquivo. Complementa (não substitui) [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) e [`WEBCHAT.md`](./WEBCHAT.md).
+Documento **técnico e operacional** — cada comportamento, campo, rota, evento e arquivo. Complementa (não substitui) [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md) e [`WEBCHAT.md`](../WEBCHAT.md).
 
 ---
 
@@ -521,20 +521,20 @@ Execute **após** `npm run qa:atendimento:gate` verde. Marque `[ ]` → `[x]` s�
 
 | Doc | Escopo |
 |-----|--------|
-| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Partes 3b, 5–7 (fallback deferido, presença, supervisor, alertas) |
-| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | § E + gate |
-| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | § C0–C0c, G, H |
-| [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Registro § E |
-| [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro § G/H |
+| [`QA-FASE1-ROTEIRO.md`](../QA-FASE1-ROTEIRO.md) | Partes 3b, 5–7 (fallback deferido, presença, supervisor, alertas) |
+| [`QA-FASE1-CHECKLIST.md`](../QA-FASE1-CHECKLIST.md) | § E + gate |
+| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](../QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | § C0–C0c, G, H |
+| [`QA-FASE1-RESULTADO-TEMPLATE.md`](../QA-FASE1-RESULTADO-TEMPLATE.md) | Registro § E |
+| [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](../QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro § G/H |
 
 ---
 
 ## Referências cruzadas
 
-- [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md)
-- [`WEBCHAT.md`](./WEBCHAT.md)
-- [`BILLING.md`](./BILLING.md)
-- [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md)
-- [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
-- [`concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md)
-- [`CHANGELOG.md`](./CHANGELOG.md) — entradas 2.11.24–2.11.28
+- [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md)
+- [`WEBCHAT.md`](../WEBCHAT.md)
+- [`BILLING.md`](../BILLING.md)
+- [`EQUIPE-RBAC.md`](../EQUIPE-RBAC.md)
+- [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
+- [`concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md)
+- [`CHANGELOG.md`](../CHANGELOG.md) — entradas 2.11.24–2.11.28

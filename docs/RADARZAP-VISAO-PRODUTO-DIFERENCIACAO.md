@@ -1,4 +1,4 @@
-# RadarZap — Visão de produto e diferenciação
+﻿# RadarZap — Visão de produto e diferenciação
 
 **Origem:** consolidação de `gg1.md`  
 **Versão ref:** `2.11.13` · **Data:** 2026-06-21  
@@ -140,7 +140,7 @@ Pix, WhatsApp, LGPD, consentimento, horário comercial BR, templates locais, sup
 - Painel analytics enterprise
 - Competir feature-a-feature com Zendesk
 
-Priorizar **estabilidade atendimento** ([`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md)).
+Priorizar **estabilidade atendimento** ([`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md)).
 
 ---
 

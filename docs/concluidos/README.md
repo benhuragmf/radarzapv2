@@ -1,8 +1,19 @@
-# Documentação concluída (arquivo)
+﻿# Documentação concluída (arquivo)
 
 Entregas **finalizadas** — implementadas, auditadas ou substituídas por doc consolidado ativo na raiz `docs/`.
 
-**Referência viva:** use os módulos na raiz (`INBOX-ATENDIMENTO.md`, `WEBCHAT.md`, `TICKET-ATENDIMENTO.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`) e pacotes de entrega ativos como [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](../ENTREGA-ATENDIMENTO-2.11.24-28.md).
+**Referência viva:** use os módulos na raiz [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md), [`WEBCHAT.md`](../WEBCHAT.md), [`TICKET-ATENDIMENTO.md`](../TICKET-ATENDIMENTO.md), [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md).
+
+---
+
+## Estabilização atendimento (2.11.16–2.11.38 ✅)
+
+| Documento | Versão | Notas |
+|-----------|--------|-------|
+| [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | 2.11.24–38 | Spec supervisão, presença, fallback, sino, testes gate |
+| [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | 2.11.16+ | Auditoria Fase 1 (gg.md) — Fase A/B automática ✅ |
+
+Doc operacional atual: [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](../PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md), QA em [`QA-FASE1-KICKOFF.md`](../QA-FASE1-KICKOFF.md).
 
 ---
 

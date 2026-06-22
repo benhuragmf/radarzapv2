@@ -1,4 +1,4 @@
-# RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
+﻿# RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
 
 **Versão atual:** `2.11.28` · **Última atualização:** 2026-06-21  
 **Análise prévia:** [`concluidos/ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md)
@@ -15,7 +15,7 @@ Documento consolidado de **tudo que foi implementado** na evolução dos modos d
 | 7 (custos/logs por modo) | 2.11.3 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md) | ✅ |
 | 8 (E2E Playwright) | 2.11.4 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md) | ✅ |
 
-**Entregas atendimento pós-modos:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) — supervisão 2.11.24, presença 2.11.25, fallback deferido + sino crítico + fix IA Básica WC 2.11.28.
+**Entregas atendimento pós-modos:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) — supervisão 2.11.24, presença 2.11.25, fallback deferido + sino crítico + fix IA Básica WC 2.11.28.
 
 ---
 

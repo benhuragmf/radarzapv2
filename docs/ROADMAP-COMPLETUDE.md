@@ -1,4 +1,4 @@
-# RadarZap v2 — completude do sistema e roadmap
+﻿# RadarZap v2 — completude do sistema e roadmap
 
 > **Versão ref:** `2.11.38` · **Última revisão:** 2026-06-22  
 > **Fase atual:** **estabilização do produto** — **não** preparação de produção nem go-live.
@@ -144,14 +144,14 @@ Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 - RBAC, equipe, setores internos, consentimento LGPD base
 - Campanhas, Discord, integrações API, OpenAPI
 - **WebChat** embedável (widget + console painel) — `WEBCHAT.md`
-- **Supervisão, presença operacional, fallback deferido, alertas críticos** (2.11.24–28) — [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)
+- **Supervisão, presença operacional, fallback deferido, alertas críticos** (2.11.24–28) — [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)
 - Docker monolito + `deploy.yml` **documentados** (não validados em servidor)
 
 ---
 
 ## Como usar os documentos
 
-1. **Trabalho diário / bugs / QA** → este arquivo + docs de módulo (`INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`) + [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) para detalhe técnico recente
+1. **Trabalho diário / bugs / QA** → este arquivo + docs de módulo (`INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`) + [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) para detalhe técnico recente
 2. Feature nova → `SISTEMA-REGISTRO.md` + semver `package.json`
 3. **Servidor / VPS / deploy** → `PREPARACAO-PRODUCAO.md` — **consulta antecipada ok; execução só após gate § Estabilização**
 4. **Go-live** → `PRODUCTION.md` — **após** staging + gate §0

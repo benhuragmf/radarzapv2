@@ -1,8 +1,8 @@
-# Registro de páginas do menu — RadarZap v2
+﻿# Registro de páginas do menu — RadarZap v2
 
 Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
-**Entregas atendimento 2.11.24–28 (presença, supervisor, fallback, sino):** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md).
+**Entregas atendimento 2.11.24–28 (presença, supervisor, fallback, sino):** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md).
 
 **Nomes visuais do menu (labels):** ver [`concluidos/menu-renaming-audit.md`](./concluidos/menu-renaming-audit.md) — rotas abaixo permanecem estáveis; labels exibidos vêm de `navConfig.ts` (`PAGE_TITLES`).
 
