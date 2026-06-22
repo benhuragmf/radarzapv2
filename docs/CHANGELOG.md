@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.30] — 2026-06-22
+
+### Adicionado
+
+- Testes integrados `inbox-csat-reply.integration.test.ts` — `tryHandleCsatReply` + ordem CSAT em `handleInboundMessage` (6 casos no gate).
+
+---
+
 ## [2.11.29] — 2026-06-22
 
 ### Adicionado

@@ -437,9 +437,10 @@ PATCH  /api/inbox/settings                 inbox:department:manage
 | `webchat-robotic-triage.service.test.ts` | gate robotic |
 | `panel-events.test.ts` | urgent/ownerOnly sets |
 | `panel-critical-alerts.service.test.ts` | Dedup, cota msg/IA, config fallback/IA |
+| `inbox-csat-reply.integration.test.ts` | CSAT inbound: nota, bypass, ordem antes de nova conversa |
 | `panel-events.test.ts` | Urgent/ownerOnly incl. `webchat:fallback_missed` |
 
-Gate: `npm run qa:atendimento:gate` (470 testes unitários + gate 111+53).
+Gate: `npm run qa:atendimento:gate` (476 testes unitários + gate 117+53).
 
 ---
 
