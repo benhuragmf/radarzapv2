@@ -191,12 +191,45 @@ export class OrganizationService {
     return member?.companyRole ?? null;
   }
 
-  private async findInviteByEmail(email: string): Promise<ICompanyMember | null> {
-    return CompanyMember.findOne({
-      email: email.toLowerCase().trim(),
+  private async findPendingInvitesByEmail(email: string): Promise<ICompanyMember[]> {
+    const normalized = email.toLowerCase().trim();
+    return CompanyMember.find({
+      email: normalized,
       isActive: true,
+      $or: [{ userId: { $exists: false } }, { userId: null }],
       companyRole: { $in: INVITED_MEMBER_ROLES },
     });
+  }
+
+  /** @deprecated use findPendingInvitesByEmail — mantido para compatibilidade interna */
+  private async findInviteByEmail(email: string): Promise<ICompanyMember | null> {
+    const invites = await this.findPendingInvitesByEmail(email);
+    return invites[0] ?? null;
+  }
+
+  /** Vincula todos os convites pendentes do e-mail à conta (multi-empresa). */
+  async linkAllPendingInvitesForUser(user: IUser, email?: string): Promise<number> {
+    const normalized = (email ?? user.email)?.trim().toLowerCase();
+    if (!normalized) return 0;
+
+    const invites = await this.findPendingInvitesByEmail(normalized);
+    if (!invites.length) return 0;
+
+    const userId = user._id as mongoose.Types.ObjectId;
+    for (const invite of invites) {
+      if (invite.userId?.toString() === userId.toString()) continue;
+      invite.userId = userId;
+      if (!invite.email) invite.email = normalized;
+      await invite.save();
+    }
+
+    if (!user.primaryOrganizationId) {
+      user.primaryOrganizationId = invites[0].organizationId;
+      await user.save();
+    }
+
+    await this.cleanupSoloOwnerOrgIfInvitedElsewhere(user);
+    return invites.length;
   }
 
   /** Vincula usuário ao convite e usa a organização do dono (não cria empresa nova). */
@@ -287,7 +320,6 @@ export class OrganizationService {
 
   async getOrCreateForGoogle(profile: GoogleProfile): Promise<{ user: IUser; org: IOrganization }> {
     const email = profile.email?.toLowerCase().trim();
-    const invite = email ? await this.findInviteByEmail(email) : null;
 
     let user = await User.findOne({ googleId: profile.sub });
     if (!user && email) {
@@ -298,15 +330,21 @@ export class OrganizationService {
       this.applyGoogleProfileToUser(user, profile);
       await user.save();
 
-      if (invite) {
-        const org = await this.joinOrganizationViaInvite(user, invite);
-        logger.info('Google login via convite de equipe', {
-          userId: user._id.toString(),
-          email,
-          organizationId: org._id.toString(),
-          role: invite.companyRole,
-        });
-        return { user, org };
+      const linkedInvites = email ? await this.linkAllPendingInvitesForUser(user, email) : 0;
+      if (linkedInvites > 0) {
+        const preferredOrgId = user.primaryOrganizationId;
+        const org = preferredOrgId
+          ? await Organization.findById(preferredOrgId)
+          : null;
+        if (org) {
+          logger.info('Google login — convites de equipe vinculados', {
+            userId: user._id.toString(),
+            email,
+            linkedInvites,
+            organizationId: org._id.toString(),
+          });
+          return { user, org };
+        }
       }
 
       const org = await this.ensureOrganization(user);
@@ -323,15 +361,18 @@ export class OrganizationService {
       plan: 'free',
     });
 
-    if (invite) {
-      const org = await this.joinOrganizationViaInvite(user, invite);
-      logger.info('Novo usuário Google entrou por convite', {
-        userId: userId.toString(),
-        email,
-        organizationId: org._id.toString(),
-        role: invite.companyRole,
-      });
-      return { user, org };
+    const linkedInvites = email ? await this.linkAllPendingInvitesForUser(user, email) : 0;
+    if (linkedInvites > 0) {
+      const org = await Organization.findById(user.primaryOrganizationId);
+      if (org) {
+        logger.info('Novo usuário Google entrou por convite', {
+          userId: userId.toString(),
+          email,
+          linkedInvites,
+          organizationId: org._id.toString(),
+        });
+        return { user, org };
+      }
     }
 
     const org = await Organization.create({
@@ -723,6 +764,7 @@ export class OrganizationService {
     user.email = normalized;
     await user.save();
     await this.syncOwnerMemberEmailForUser(user);
+    await this.linkAllPendingInvitesForUser(user, normalized);
 
     logger.info('E-mail da conta vinculado', { userId, email: normalized });
     return { email: normalized };
@@ -781,6 +823,7 @@ export class OrganizationService {
     this.applyGoogleProfileToUser(user, profile);
     await user.save();
     await this.syncOwnerMemberEmailForUser(user);
+    if (email) await this.linkAllPendingInvitesForUser(user, email);
 
     logger.info('Google vinculado à conta', { userId, email });
     return user;
@@ -817,12 +860,17 @@ export class OrganizationService {
     roleKey: string,
     invitedByUserId: string,
     options?: { extraCapabilities?: Capability[]; deniedCapabilities?: Capability[] },
-  ): Promise<{ member: ICompanyMember; inviteEmail: InviteEmailDeliveryResult }> {
+  ): Promise<{
+    member: ICompanyMember;
+    inviteEmail: InviteEmailDeliveryResult;
+    linkedAccount: boolean;
+  }> {
     const { companyRole: role, customRoleId } = this.parseMemberRoleSelection(roleKey);
     if (customRoleId) {
       await this.assertCustomRoleExists(organizationId, customRoleId);
     }
     const normalized = email.trim().toLowerCase();
+    const orgOid = new mongoose.Types.ObjectId(organizationId);
 
     const org = await Organization.findById(organizationId).select('ownerUserId').lean();
     if (org) {
@@ -840,36 +888,65 @@ export class OrganizationService {
       }
     }
 
-    const existing = await CompanyMember.findOne({ organizationId, email: normalized });
-    if (existing) {
-      if (existing.companyRole === CompanyRole.OWNER) {
+    const registeredUser = await User.findOne({ email: normalized }).select('_id').lean();
+
+    const applyInviteFields = (member: ICompanyMember): void => {
+      member.isActive = true;
+      member.companyRole = role;
+      member.customRoleId = customRoleId;
+      member.extraCapabilities = options?.extraCapabilities ?? [];
+      member.deniedCapabilities = options?.deniedCapabilities ?? [];
+      member.invitedByUserId = new mongoose.Types.ObjectId(invitedByUserId);
+      member.email = normalized;
+      if (registeredUser) {
+        member.userId = registeredUser._id as mongoose.Types.ObjectId;
+      }
+    };
+
+    const existingByEmail = await CompanyMember.findOne({ organizationId: orgOid, email: normalized });
+    if (existingByEmail) {
+      if (existingByEmail.companyRole === CompanyRole.OWNER) {
         throw new Error('Este e-mail pertence ao dono da empresa');
       }
-      if (existing.isActive) {
+      if (existingByEmail.isActive && existingByEmail.userId) {
         throw new Error('Este e-mail já está na equipe');
       }
-      existing.isActive = true;
-      existing.companyRole = role;
-      existing.customRoleId = customRoleId;
-      existing.extraCapabilities = options?.extraCapabilities ?? [];
-      existing.deniedCapabilities = options?.deniedCapabilities ?? [];
-      existing.invitedByUserId = new mongoose.Types.ObjectId(invitedByUserId);
-      const linked = await User.findOne({ email: normalized }).select('_id').lean();
-      if (linked) existing.userId = linked._id as mongoose.Types.ObjectId;
-      const saved = await existing.save();
+      applyInviteFields(existingByEmail);
+      const saved = await existingByEmail.save();
       const inviteEmail = await this.deliverMemberInviteEmail(
         organizationId,
         saved,
         invitedByUserId,
       );
-      return { member: saved, inviteEmail };
+      return { member: saved, inviteEmail, linkedAccount: Boolean(registeredUser) };
     }
 
-    const user = await User.findOne({ email: normalized });
+    if (registeredUser) {
+      const existingByUser = await CompanyMember.findOne({
+        organizationId: orgOid,
+        userId: registeredUser._id,
+      });
+      if (existingByUser) {
+        if (existingByUser.companyRole === CompanyRole.OWNER) {
+          throw new Error('Este e-mail pertence ao dono da empresa');
+        }
+        if (existingByUser.isActive) {
+          throw new Error('Este e-mail já está na equipe');
+        }
+        applyInviteFields(existingByUser);
+        const saved = await existingByUser.save();
+        const inviteEmail = await this.deliverMemberInviteEmail(
+          organizationId,
+          saved,
+          invitedByUserId,
+        );
+        return { member: saved, inviteEmail, linkedAccount: true };
+      }
+    }
+
     try {
-      const created = await CompanyMember.create({
-        organizationId: new mongoose.Types.ObjectId(organizationId),
-        userId: user?._id,
+      const payload: Record<string, unknown> = {
+        organizationId: orgOid,
         email: normalized,
         companyRole: role,
         customRoleId,
@@ -877,17 +954,26 @@ export class OrganizationService {
         deniedCapabilities: options?.deniedCapabilities ?? [],
         invitedByUserId: new mongoose.Types.ObjectId(invitedByUserId),
         isActive: true,
-      });
+      };
+      if (registeredUser) payload.userId = registeredUser._id;
+
+      const created = await CompanyMember.create(payload);
       const inviteEmail = await this.deliverMemberInviteEmail(
         organizationId,
         created,
         invitedByUserId,
       );
-      return { member: created, inviteEmail };
+      return { member: created, inviteEmail, linkedAccount: Boolean(registeredUser) };
     } catch (err) {
       const msg = (err as Error).message ?? '';
-      if (msg.includes('E11000') && msg.includes('email')) {
-        throw new Error('Este e-mail já está cadastrado nesta empresa');
+      if (msg.includes('E11000')) {
+        if (msg.includes('email')) {
+          throw new Error('Este e-mail já está cadastrado nesta empresa');
+        }
+        if (msg.includes('userId')) {
+          throw new Error('Este usuário já faz parte desta empresa');
+        }
+        throw new Error('Este e-mail já está na equipe desta empresa');
       }
       throw err;
     }

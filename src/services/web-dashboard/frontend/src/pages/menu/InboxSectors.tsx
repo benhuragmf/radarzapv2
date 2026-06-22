@@ -84,6 +84,15 @@ export default function InboxSectors() {
     enabled: canManage,
   })
 
+  const linkedTeam = team.filter(t => t.linked && t.userId)
+
+  const sectorStats = useMemo(() => {
+    const active = departments.filter(d => d.isActive).length
+    const publicMenus = departments.filter(d => d.clientVisible !== false).length
+    const internal = departments.filter(d => d.clientVisible === false).length
+    return { total: departments.length, active, publicMenus, internal }
+  }, [departments])
+
   const resetForm = () => {
     setFormName('')
     setFormDesc('')
@@ -158,15 +167,6 @@ export default function InboxSectors() {
       </PlatformPage>
     )
   }
-
-  const linkedTeam = team.filter(t => t.linked && t.userId)
-
-  const sectorStats = useMemo(() => {
-    const active = departments.filter(d => d.isActive).length
-    const publicMenus = departments.filter(d => d.clientVisible !== false).length
-    const internal = departments.filter(d => d.clientVisible === false).length
-    return { total: departments.length, active, publicMenus, internal }
-  }, [departments])
 
   function MemberPicker() {
     if (linkedTeam.length === 0) {

@@ -2,6 +2,7 @@ import mongoose, { Connection } from 'mongoose';
 import { config } from '@/config/environment';
 import { createServiceLogger } from '@/utils/logger';
 import { LogThrottle } from '@/utils/logThrottle';
+import { syncCompanyMemberIndexes } from '@/models/CompanyMember';
 
 /**
  * Singleton Database Manager with automatic reconnection and pooling
@@ -60,7 +61,11 @@ export class DatabaseManager {
       this.isConnecting = false;
 
       this.serviceLogger.info('MongoDB conectado com sucesso');
-      
+
+      await syncCompanyMemberIndexes().catch(err => {
+        this.serviceLogger.warn('CompanyMember index sync skipped', { error: (err as Error).message });
+      });
+
       // Run health check
       await this.healthCheck();
       

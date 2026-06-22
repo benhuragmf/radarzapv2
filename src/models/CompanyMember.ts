@@ -62,8 +62,27 @@ const CompanyMemberSchema = new Schema<ICompanyMember>({
   collection: 'companyMembers',
 });
 
-CompanyMemberSchema.index({ organizationId: 1, userId: 1 }, { unique: true, sparse: true });
+// Só exige unicidade quando userId já foi vinculado — vários convites pendentes (sem userId) por org.
+CompanyMemberSchema.index(
+  { organizationId: 1, userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { userId: { $type: 'objectId' } },
+  },
+);
 CompanyMemberSchema.index({ organizationId: 1, email: 1 }, { unique: true, sparse: true });
+
+/** Troca índice legado (sparse + userId null) pelo partialFilterExpression acima. */
+export async function syncCompanyMemberIndexes(): Promise<void> {
+  if (mongoose.connection.readyState !== 1) return;
+  const col = CompanyMember.collection;
+  try {
+    await col.dropIndex('organizationId_1_userId_1');
+  } catch {
+    // índice antigo pode não existir
+  }
+  await CompanyMember.syncIndexes();
+}
 
 interface ICompanyMemberModel extends Model<ICompanyMember> {
   findActiveByUserId(userId: mongoose.Types.ObjectId | string): Promise<ICompanyMember | null>;

@@ -1,6 +1,6 @@
 # QA Fase 1 — o que é automático vs manual
 
-**Versão:** `2.11.39` · **Atualizado:** 2026-06-22
+**Versão:** `2.11.41` · **Atualizado:** 2026-06-22
 
 Resposta curta: **parte sim pelo navegador (Playwright), mas não substitui o manual com WhatsApp real.** O gate § Estabilização exige validar Baileys + celular cliente — isso não roda no CI hoje.
 
@@ -46,9 +46,10 @@ npm run test:e2e:ui           # modo interativo (ver no navegador)
 | `e2e/inbox-authenticated.spec.ts` | Lista Inbox, fila, Assumir, supervisor métricas |
 | `e2e/atendimento-smoke.spec.ts` | 9 rotas Atendimento redirecionam para login |
 | `e2e/qa-fase1-panel.spec.ts` | § B: tickets, setores, bot, respostas, relatórios, webchat |
+| `e2e/qa-fase1-presence.spec.ts` | Seletor status operacional + PATCH presença |
 | `e2e/attendance-modes.spec.ts` | Página IA Atendimento (4 modos, mock) |
 
-**Total `qa:fase1:e2e`:** 32 testes Chromium (mock API, sem Mongo/Baileys).
+**Total `qa:fase1:e2e`:** 33 testes Chromium (build frontend + preview Vite, mock API, sem Mongo/Baileys).
 
 ## Por que § A WhatsApp não automatiza no navegador
 

@@ -1,6 +1,6 @@
 # QA Fase 1 — checklist rápido (1 página)
 
-**Versão:** `2.11.39` · **Commit:** `5d4d545` · **Gate auto:** ✅ revalidado 2026-06-22
+**Versão:** `2.11.41` · **Commit:** `a3dec54` · **Gate auto:** ✅ revalidado 2026-06-22
 
 Detalhe: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · imprimir: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) · **O que o Playwright cobre:** [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md)
 
@@ -9,8 +9,8 @@ Detalhe: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · imprimir: [`QA-FASE1-
 ## Antes de começar (2 min)
 
 ```bash
-npm run qa:manual:start   # gate + prep
-npm run qa:fase1:e2e      # Playwright (painel mock) — opcional antes do manual
+npm run qa:fase1:all      # Playwright (34) + gate Jest — recomendado antes do manual
+npm run qa:manual:start   # só gate Jest + prep
 ```
 
 - [ ] `dev` + `dashboard:frontend` rodando
@@ -42,7 +42,9 @@ npm run qa:fase1:e2e      # Playwright (painel mock) — opcional antes do manua
 
 ## B — Painel (20 min) — abrir rota, smoke OK?
 
-`/platform/inbox` · `/inbox/tickets` · `/inbox/setores` · `/inbox/bot` · `/inbox/respostas` · `/inbox/supervisor` · `/inbox/ia` · `/inbox/relatorios`
+Rotas cobertas por `npm run qa:fase1:e2e` (mock): tickets, setores, bot, respostas, relatórios, webchat, supervisor, presença.
+
+Manual ao vivo: `/platform/inbox` · demais rotas acima · conferir salvar/editar real.
 
 ---
 

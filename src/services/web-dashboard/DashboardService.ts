@@ -3714,13 +3714,13 @@ export class DashboardService {
         if (selectedRole === CompanyRole.ADMIN && auth.companyRole !== CompanyRole.OWNER) {
           return res.status(403).json({ error: 'Apenas o dono pode convidar administrador' });
         }
-        const { member, inviteEmail } = await OrganizationService.getInstance().inviteMember(
+        const { member, inviteEmail, linkedAccount } = await OrganizationService.getInstance().inviteMember(
           auth.organizationId,
           email.trim(),
           selectedRole,
           auth.userId,
         );
-        res.json({ ...member.toObject(), inviteEmail });
+        res.json({ ...member.toObject(), inviteEmail, linkedAccount });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }

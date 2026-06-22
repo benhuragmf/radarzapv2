@@ -6,6 +6,26 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.42] — 2026-06-22
+
+### Equipe
+
+- Fix convite de membro: índice `companyMembers` permite vários convites pendentes por empresa (partial `userId`).
+- Convite vincula conta existente imediatamente (`linkedAccount`); login Google associa todos os convites pendentes do e-mail (multi-empresa).
+
+---
+
+## [2.11.41] — 2026-06-22
+
+### Testes
+
+- E2E presença operacional: `e2e/qa-fase1-presence.spec.ts` (seletor status + PATCH).
+- Script `npm run qa:fase1:all` (Playwright + gate Jest); `qa:fase1:e2e` faz build do frontend antes do preview.
+- Fix `InboxSectors.tsx`: `useMemo` antes do guard `canManage` (violação Rules of Hooks quebrava página após `auth/me` async).
+- Docs QA: `QA-FASE1-RAPIDO.md`, `QA-FASE1-CHECKLIST.md` atualizados (§ B coberto por E2E mock).
+
+---
+
 ## [2.11.40] — 2026-06-22
 
 ### Testes

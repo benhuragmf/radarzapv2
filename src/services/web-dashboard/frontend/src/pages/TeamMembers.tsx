@@ -39,6 +39,11 @@ interface InviteEmailResult {
   error?: string
 }
 
+interface InviteMemberResponse extends Member {
+  inviteEmail: InviteEmailResult
+  linkedAccount?: boolean
+}
+
 interface TeamRolesResponse {
   presets: RolePreset[]
   permissionGroups: PermissionGroup[]
@@ -96,23 +101,29 @@ export default function TeamMembers() {
 
   const invite = useMutation({
     mutationFn: () =>
-      api.post<Member & { inviteEmail: InviteEmailResult }>('/team/members', { email, roleKey: role }),
+      api.post<InviteMemberResponse>('/team/members', { email, roleKey: role }),
     onSuccess: data => {
       qc.invalidateQueries({ queryKey: ['team-members'] })
       setEmail('')
-      if (data.inviteEmail?.sent) {
+      const target = data.email ?? email
+      if (data.linkedAccount) {
+        setInviteNotice(
+          `${target} já tem conta no RadarZap — adicionada como ${ROLE_LABEL[data.companyRole] ?? 'membro'}. ` +
+            'Ela pode entrar e escolher esta empresa no login ou no menu do painel.',
+        )
+      } else if (data.inviteEmail?.sent) {
         const via =
           data.inviteEmail.transport === 'console'
             ? ' (modo dev — veja o log do servidor)'
             : ''
-        setInviteNotice(`Convite enviado para ${data.email ?? email}${via}`)
+        setInviteNotice(`Convite enviado para ${target}${via}`)
       } else {
         setInviteNotice(
           data.inviteEmail?.error ??
             'Membro adicionado, mas o e-mail não foi enviado. Configure RESEND_API_KEY ou SMTP.',
         )
       }
-      setTimeout(() => setInviteNotice(null), 6000)
+      setTimeout(() => setInviteNotice(null), 8000)
     },
     onError: mutationError,
   })

@@ -16,8 +16,7 @@ const PANEL_ROUTES: Array<{
   {
     path: '/platform/inbox/setores',
     heading: 'Setores de atendimento',
-    content: 'Novo setor',
-    waitApi: '/inbox/departments',
+    content: 'Comercial',
   },
   {
     path: '/platform/inbox/bot',
@@ -48,13 +47,16 @@ test.describe('QA Fase 1 — painel Atendimento (mock API)', () => {
 
   for (const route of PANEL_ROUTES) {
     test(`${route.path} carrega conteúdo principal`, async ({ page }) => {
+      await Promise.all([
+        page.waitForResponse(r => r.url().includes('/auth/me') && r.status() === 200),
+        page.goto(route.path),
+      ]);
       const responseWait = route.waitApi
         ? page.waitForResponse(
             r => r.url().includes(route.waitApi!) && r.status() === 200,
             { timeout: 15_000 },
           )
         : null;
-      await page.goto(route.path);
       if (responseWait) await responseWait;
       await expect(page.getByRole('main').getByRole('heading', { name: route.heading })).toBeVisible({
         timeout: 15_000,
@@ -64,15 +66,6 @@ test.describe('QA Fase 1 — painel Atendimento (mock API)', () => {
       });
     });
   }
-
-  test('/platform/inbox/setores lista departamentos mock', async ({ page }) => {
-    const deptPromise = page.waitForResponse(
-      r => r.url().includes('/inbox/departments') && r.status() === 200,
-    );
-    await page.goto('/platform/inbox/setores');
-    await deptPromise;
-    await expect(page.getByText('Comercial')).toBeVisible({ timeout: 15_000 });
-  });
 
   test('/platform/inbox/tickets exibe métricas e paginação', async ({ page }) => {
     await page.goto('/platform/inbox/tickets');

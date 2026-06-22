@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.11.40",
+  "version": "2.11.42",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -26,7 +26,8 @@
     "qa:atendimento:gate": "jest --testPathPattern=\"inbound-routing|csat\\.util|ticket-reply-window|ticket-public-access|whatsapp-agent|webchat-whatsapp|inbox-csat-gate|inbox-csat-reply|inbox-ticket-inbound|inbox-ticket-audit|inbox-inbound-order|consent-defer|webchat-faq|webchat-safe-url|inbox-agent-presence|panel-critical-alerts|whatsapp-session-rate-limit|whatsapp-human-send|webhook-events|webchat-bridge-webhook|attendance-audit\" && npm run qa:webchat-wa",
     "qa:gate": "npm test && npm run build && npm run build --prefix src/services/web-dashboard/frontend",
     "qa:manual:start": "npm run qa:atendimento:gate",
-    "qa:fase1:e2e": "playwright test e2e/inbox-authenticated.spec.ts e2e/atendimento-smoke.spec.ts e2e/attendance-modes.spec.ts e2e/qa-fase1-panel.spec.ts --project=chromium",
+    "qa:fase1:e2e": "npm run build --prefix src/services/web-dashboard/frontend && playwright test e2e/inbox-authenticated.spec.ts e2e/atendimento-smoke.spec.ts e2e/attendance-modes.spec.ts e2e/qa-fase1-panel.spec.ts e2e/qa-fase1-presence.spec.ts --project=chromium",
+    "qa:fase1:all": "npm run qa:fase1:e2e && npm run qa:manual:start",
     "backfill:webchat-delivered": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/backfill-webchat-inbound-delivered-at.ts",
     "sync:widget-build": "node scripts/sync-widget-build.cjs",
     "typecheck": "tsc --noEmit",

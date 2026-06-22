@@ -1,6 +1,6 @@
 ﻿# RadarZap v2 — completude do sistema e roadmap
 
-> **Versão ref:** `2.11.38` · **Última revisão:** 2026-06-22  
+> **Versão ref:** `2.11.41` · **Última revisão:** 2026-06-22  
 > **Fase atual:** **estabilização do produto** — **não** preparação de produção nem go-live.
 
 | Fase | Documento | Quando |
@@ -47,7 +47,8 @@ Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 - [x] `npm test` + `npm run qa:atendimento:gate` verdes — validado **2026-06-22** (494 testes; gate 135+53; `qa:prep` OK)
 - [x] CI verde em `main` — validado **2026-06-22** (run `27923773714`, `9a5a32f`, 2.11.38)
 - [x] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 + alertas críticos 2.11.28 — helpers + `panel-critical-alerts` no gate
-- [x] `ROADMAP` e changelog alinhados ao estado validado — **2.11.35** (2026-06-22)
+- [x] `ROADMAP` e changelog alinhados ao estado validado — **2.11.41** (2026-06-22)
+- [x] E2E Playwright § B painel + presença (mock) — `npm run qa:fase1:e2e` (33 testes, 2.11.40–41)
 
 ---
 
@@ -88,6 +89,7 @@ Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 | Média | Alertas críticos painel (`PanelCriticalAlertsService`) | ✅ `panel-critical-alerts.service.test.ts` (2.11.29) |
 | Média | E2E rotas Atendimento (smoke login) | ✅ `e2e/atendimento-smoke.spec.ts` |
 | Média | E2E inbox autenticado | ✅ `e2e/inbox-authenticated.spec.ts` (7 testes, mock API) |
+| Média | E2E § B painel + presença | ✅ `qa-fase1-panel` + `qa-fase1-presence` — `npm run qa:fase1:e2e` (33) |
 | Baixa | `npm run lint` no CI | ~7k issues — não bloqueia hoje |
 
 ### C. Ordem de trabalho sugerida
@@ -117,7 +119,7 @@ Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 | 11 | WhatsApp Cloud API | 🟡 stub | POST 503 — Fase 2 (se bloquear release) |
 | 12 | Mobile PWA | ✅ 2.5.1 | |
 | 13 | Testes unitários | ✅ 298 | Não cobrem WA ponta a ponta |
-| 14 | E2E | 🟡 smoke + inbox mock | login/PWA + rotas Atendimento + **Inbox/Supervisor autenticado** (`e2e/inbox-authenticated.spec.ts`, 7 testes) |
+| 14 | E2E | 🟡 smoke + inbox mock + **§ B painel** | login/PWA + Inbox/Supervisor + tickets/setores/bot/webchat (`qa:fase1:e2e`, 33 testes) |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
 | 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) |

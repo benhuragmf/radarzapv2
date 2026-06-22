@@ -19,6 +19,7 @@
 | `npm run qa:gate` (build) | pass (2026-06-22 anterior) |
 | E2E `inbox-authenticated.spec.ts` | pass — 7/7 (2026-06-22 anterior) |
 | `npm run qa:prep` | pass — WA 1 sessão, CSAT 1/3, WebChat 1, Equipe 1 c/ WA |
+| `npm run qa:fase1:e2e` | pass — **33/33** Chromium mock (2.11.41, incl. setores + presença) |
 
 **Checklist rápido:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
 

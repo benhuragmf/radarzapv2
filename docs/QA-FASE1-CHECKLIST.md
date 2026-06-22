@@ -1,6 +1,7 @@
 ﻿# RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
-> **Versão alvo:** `2.11.38` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
+> **Versão alvo:** `2.11.41` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
+> **E2E mock:** `npm run qa:fase1:e2e` (33 testes) · **Tudo:** `npm run qa:fase1:all`  
 > **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Spec 2.11.24–28:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)  
 > **Pré-check:** `npm run qa:prep` + `npm run qa:atendimento:gate` · **Resultado:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
 
@@ -38,16 +39,18 @@
 
 ## B. Painel — upgrade visual Atendimento (2.10.18)
 
+> **Auto (mock):** `qa-fase1-e2e` cobre carregamento das rotas abaixo. Manual valida salvar/editar e dados reais.
+
 | Rota | Verificar | OK? | Notas |
 |------|-----------|-----|-------|
-| `/platform/inbox` | Métricas, filtros (incl. Encerrados), estado vazio, 3 colunas, WA + site | [ ] | |
-| `/platform/inbox/tickets` | Métricas, busca, paginação (15/página), abrir ticket | [ ] | |
-| `/platform/inbox/setores` | Métricas, criar/editar setor público e interno | [ ] | |
-| `/platform/inbox/bot` | Prévia ao vivo, salvar textos, **fallback WhatsApp** | [ ] | 2.10.72 |
-| `/platform/inbox/respostas` | Busca, filtros, prévia `/bd` | [ ] | |
-| `/platform/inbox/supervisor` | Fila, equipe online, reatribuir | [ ] | |
-| `/platform/webchat` | Histórico 3 colunas, aba Widgets, snippet instalação | [x] | 2.10.60 — toolbar chips, seções, preview sticky |
-| `/platform/inbox/ia` | Métricas, abas, salvar configurações | [ ] | |
+| `/platform/inbox` | Métricas, filtros (incl. Encerrados), estado vazio, 3 colunas, WA + site | [ ] | E2E mock parcial |
+| `/platform/inbox/tickets` | Métricas, busca, paginação (15/página), abrir ticket | [ ] | E2E mock ✅ |
+| `/platform/inbox/setores` | Métricas, criar/editar setor público e interno | [ ] | E2E mock ✅ |
+| `/platform/inbox/bot` | Prévia ao vivo, salvar textos, **fallback WhatsApp** | [ ] | E2E mock ✅ · 2.10.72 |
+| `/platform/inbox/respostas` | Busca, filtros, prévia `/bd` | [ ] | E2E mock ✅ |
+| `/platform/inbox/supervisor` | Fila, equipe online, reatribuir | [ ] | E2E mock ✅ |
+| `/platform/webchat` | Histórico 3 colunas, aba Widgets, snippet instalação | [ ] | E2E mock ✅ |
+| `/platform/inbox/ia` | Métricas, abas, salvar configurações | [ ] | E2E mock ✅ (modos) |
 | `/platform/inbox/relatorios` | Período, métricas, tabelas setor/atendente | [ ] | |
 
 ---
