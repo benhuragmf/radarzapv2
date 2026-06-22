@@ -60,7 +60,7 @@ Rotas de sessão (cookie painel), sem capability extra — qualquer membro auten
 
 | Método | Rota | Body / notas |
 |--------|------|--------------|
-| GET | `/auth/me/member-profile` | status completo: verificações, `canEditProfile`, `profileComplete`, `pendingConfirmations` |
+| GET | `/auth/me/member-profile` | status completo — **rota em `/auth/*`, não `/api`** |
 | PATCH | `/auth/me/member-profile` | `{ displayName? }` — só se `allowMembersEditOwnProfile` |
 | POST | `/auth/me/email/request-code` | `{ email? }` — OTP por e-mail; se edição bloqueada, confirma e-mail cadastrado |
 | POST | `/auth/me/email/confirm` | `{ email, code }` |

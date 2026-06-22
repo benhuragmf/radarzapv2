@@ -1,5 +1,9 @@
 const BASE = '/api'
 
+function apiUrl(path: string, useSessionRoot = false): string {
+  return useSessionRoot ? path : `${BASE}${path}`
+}
+
 function parseApiErrorBody(body: string, status: number): string {
   if (status === 413) {
     return 'Arquivo muito grande para enviar. Divida o VCF/CSV ou use menos contatos por vez.'
@@ -21,13 +25,14 @@ function parseApiErrorBody(body: string, status: number): string {
   }
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit & { sessionRoot?: boolean }): Promise<T> {
+  const { sessionRoot, ...fetchOptions } = options ?? {}
   let res: Response
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(apiUrl(path, sessionRoot), {
       credentials: 'include',          // always send session cookie
       headers: { 'Content-Type': 'application/json' },
-      ...options,
+      ...fetchOptions,
     })
   } catch {
     throw new Error(
@@ -47,6 +52,16 @@ export const api = {
   patch:  <T>(path: string, body?: unknown)  => request<T>(path, { method: 'PATCH',  body: JSON.stringify(body) }),
   put:    <T>(path: string, body?: unknown)  => request<T>(path, { method: 'PUT',    body: JSON.stringify(body) }),
   delete: <T>(path: string)                  => request<T>(path, { method: 'DELETE' }),
+}
+
+/** Rotas de sessão montadas em `/auth/*` (não em `/api`). */
+export const sessionApi = {
+  get:    <T>(path: string)                  => request<T>(path, { sessionRoot: true }),
+  post:   <T>(path: string, body?: unknown)  =>
+    request<T>(path, { sessionRoot: true, method: 'POST', body: JSON.stringify(body) }),
+  patch:  <T>(path: string, body?: unknown)  =>
+    request<T>(path, { sessionRoot: true, method: 'PATCH', body: JSON.stringify(body) }),
+  delete: <T>(path: string)                  => request<T>(path, { sessionRoot: true, method: 'DELETE' }),
 }
 
 /** Download binário/texto (ex.: export CSV) com cookie de sessão */

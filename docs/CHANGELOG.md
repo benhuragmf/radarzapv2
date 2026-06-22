@@ -8,6 +8,12 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.51] — 2026-06-22
+
+### Fix — Meu perfil
+
+- **Fix:** `/settings#perfil` travava em "Carregando perfil…" — frontend chamava `/api/auth/me/*` mas rotas estão em `/auth/me/*`; `sessionApi` no painel.
+
 ## [2.11.50] — 2026-06-22
 
 ### Equipe / Perfil — política e confirmações
