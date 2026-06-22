@@ -22,6 +22,7 @@ Documento **técnico e operacional** — cada comportamento, campo, rota, evento
 11. [Testes automatizados](#11-testes-automatizados)
 12. [Configuração no painel](#12-configuração-no-painel)
 13. [Arquivos alterados](#13-arquivos-alterados)
+14. [QA manual — roteiros](#14-qa-manual--roteiros)
 
 ---
 
@@ -500,6 +501,20 @@ Gate: `npm run qa:atendimento:gate` (463 testes unitários + prep).
 | `pages/menu/InboxSupervisor.tsx` | Supervisor |
 | `components/inbox/SupervisorMonitorDrawer.tsx` | Monitor |
 | `pages/menu/InboxBotSettings.tsx` | Config timeouts |
+
+---
+
+## 14. QA manual — roteiros
+
+Execute **após** `npm run qa:atendimento:gate` verde. Marque `[ ]` → `[x]` só após validação humana.
+
+| Doc | Escopo |
+|-----|--------|
+| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Partes 3b, 5–7 (fallback deferido, presença, supervisor, alertas) |
+| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | § E + gate |
+| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | § C0–C0c, G, H |
+| [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Registro § E |
+| [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro § G/H |
 
 ---
 

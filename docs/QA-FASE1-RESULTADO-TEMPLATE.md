@@ -18,6 +18,8 @@
 | WhatsApp (§ A) | /10 | | |
 | Painel (§ B) | /9 | | |
 | WebChat (§ C) | /5 | | |
+| Presença + supervisor + alertas (§ E) | /6 | | |
+| Fallback deferido (Parte 3b) | /4 | | |
 
 **Gate Fase 1 liberado?** sim / não — motivo: _______________
 
@@ -65,6 +67,19 @@
 | 3 Escalação → Inbox | pass / fail | |
 | 4 Anexos | pass / fail | |
 | 5 Finalizar | pass / fail | |
+
+---
+
+## § E — Presença, supervisor, alertas (2.11.24–28)
+
+| # | Resultado | Notas |
+|---|-----------|-------|
+| 1 Status RR | pass / fail | |
+| 2 Auto-ausente | pass / fail | |
+| 3 Supervisor dashboard | pass / fail | |
+| 4 Reassign wc: | pass / fail | |
+| 5 Sino fallback perdido | pass / fail | |
+| 6 Alertas billing/IA | pass / fail | |
 
 ---
 

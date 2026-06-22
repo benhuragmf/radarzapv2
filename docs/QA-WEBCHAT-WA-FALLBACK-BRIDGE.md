@@ -1,6 +1,7 @@
 # QA manual — WebChat: token, FAQ, fallback WhatsApp e bridge
 
-> **Versão alvo:** `2.10.75` · **Escopo:** Fases A–F ([`concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md))  
+> **Versão alvo:** `2.11.28` · **Escopo:** Fases A–H (A–F: 2.10.70–75; G–H + C0: 2.11.24–28)  
+> **Spec técnica:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)  
 > **Tempo estimado:** 30–45 min · **Ambiente:** dev local com WA conectado
 
 **Execução:** _______________ · **Responsável:** _______________ · **Data:** _______________
@@ -41,16 +42,27 @@
 1. **Atendimento → Triagem e Bot** (`/platform/inbox/bot`).
 2. Seção **Chat do site — fallback WhatsApp**:
    - [ ] Ativar fallback
-   - [ ] Número(s) de alerta (seu celular ou grupo `@g.us`)
+   - [ ] **Tempo para aceitar antes do fallback** — ex.: `60` s (padrão 2.11.28; use `30` s para teste rápido)
+   - [ ] Número(s) de alerta (celular pessoal ou grupo `@g.us` — **não** o número da sessão Baileys)
    - [ ] Mensagem ao visitante (texto customizado)
-   - [ ] Timeout presença: `90` s (padrão)
+   - [ ] Timeout presença offline: `90` s (padrão)
+   - [ ] Timeout inatividade painel: `300` s (padrão 2.11.25)
 3. **Salvar**.
 
 | OK? | Notas |
 |-----|-------|
 | [ ] | |
 
-### 0.3 IA — FAQ (opcional, Fase B)
+### 0.3 Presença operacional (2.11.25)
+
+1. Atendente logado: header → status **Online**.
+2. Confirmar heartbeat (indicador ativo após ~30s).
+
+| OK? | Notas |
+|-----|-------|
+| [ ] | |
+
+### 0.4 IA — FAQ (opcional, Fase B)
 
 1. **Atendimento → IA** → aba Base de conhecimento.
 2. Criar artigo com palavra-chave + link `https://…` + **Sugestão rápida** ativa.
@@ -87,14 +99,24 @@
 
 ---
 
-## C. Fallback offline (Fase C)
+## C. Fallback (Fase C — offline + deferido 2.11.28)
+
+### C.0 — Fallback deferido (atendente online, não assume)
 
 | # | Passo | Esperado | OK? |
 |---|-------|----------|-----|
-| C1 | Fechar painel de **todos** os atendentes (ou aguardar ~90s sem heartbeat) | Ninguém online | [ ] |
-| C2 | Visitante: pré-chat → escalar para fila (ou IA escala) | Mensagem fallback no widget | [ ] |
+| C0 | Atendente **Online**; visitante escala para fila | Prioridade no painel; mensagem sistema; **sem** alerta WA na hora | [ ] |
+| C0b | Atendente **não** assume; aguardar `whatsappFallbackAcceptTimeoutSeconds` + scan (~60s) | Mensagem fallback no widget + alerta WA com `TK-…` | [ ] |
+| C0c | Atendente designado abre painel | Sino **vermelho** — *Chat perdido — fallback WhatsApp* | [ ] |
+
+### C.1 — Fallback offline (ninguém online)
+
+| # | Passo | Esperado | OK? |
+|---|-------|----------|-----|
+| C1 | Fechar painel de **todos** os atendentes (ou status Offline / aguardar timeout heartbeat) | Ninguém `availableForQueue` | [ ] |
+| C2 | Visitante: pré-chat → escalar para fila | Após timeout: mensagem fallback no widget | [ ] |
 | C3 | WhatsApp configurado recebe alerta | Texto com `TK-…`, `!assumir`, `!ticket`, `!encerrar` | [ ] |
-| C4 | Reabrir painel atendente | Presença volta (heartbeat) | [ ] |
+| C4 | Reabrir painel atendente → **Online** | Presença volta (heartbeat + status) | [ ] |
 
 ---
 
@@ -129,7 +151,28 @@
 |---|-------|----------|-----|
 | F1 | Conversa WA normal (sem `!`) de cliente | Fluxo Inbox/ticket normal, não consumido como bridge | [ ] |
 | F2 | CSAT após finalizar conversa site | Pesquisa enviada (se CSAT ativo) | [ ] |
-| F3 | `npm test` local | Verde | [ ] |
+| F3 | `npm test` + `npm run qa:atendimento:gate` | Verde | [ ] |
+
+---
+
+## G. IA Básica WebChat (2.11.28)
+
+**Pré-condição:** `/platform/inbox/ia` → modo **IA Básica — Triagem Inteligente** (`basic_triage`).
+
+| # | Passo | Esperado | OK? |
+|---|-------|----------|-----|
+| G1 | Widget novo → 1ª mensagem do visitante | Resposta IA Básica (classificador/KB); **não** menu robotizado 1–4 | [ ] |
+| G2 | Pedir atendente ou palavra que escala | Entra na fila Inbox (`wc:`) | [ ] |
+
+---
+
+## H. Presença + round-robin (2.11.25)
+
+| # | Passo | Esperado | OK? |
+|---|-------|----------|-----|
+| H1 | Atendente **Ocupado**; visitante escala | **Sem** prioridade para este atendente | [ ] |
+| H2 | Atendente **Online**; visitante escala | Prioridade RR (se setor + RR ativo) | [ ] |
+| H3 | Supervisor vê equipe em `/platform/inbox/supervisor` | Status operacional correto | [ ] |
 
 ---
 
@@ -139,9 +182,11 @@
 |------|-----------------|-------------|
 | A Token | [ ] Sim / [ ] Não | |
 | B FAQ | [ ] Sim / [ ] Não | |
-| C Fallback | [ ] Sim / [ ] Não | |
+| C Fallback (C0 + offline) | [ ] Sim / [ ] Não | |
 | D Comandos | [ ] Sim / [ ] Não | |
 | E Bridge | [ ] Sim / [ ] Não | |
+| G IA Básica WC | [ ] Sim / [ ] Não | |
+| H Presença | [ ] Sim / [ ] Não | |
 
 **Aprovado para piloto?** [ ] Sim · [ ] Não — bloqueadores: _______________
 
@@ -149,6 +194,7 @@
 
 ## Referências
 
+- [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)
 - `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`
 - `docs/WEBCHAT.md` § Consulta token, FAQ, Fallback, Bridge
 - `docs/QA-FASE1-CHECKLIST.md` (gate estabilização geral)

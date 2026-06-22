@@ -190,10 +190,12 @@ Execute **somente após** Fases A/B verdes no gate automático.
 
 | Ordem | Doc | Escopo |
 |-------|-----|--------|
-| 1 | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | § A WhatsApp (10 cenários) + § C WebChat |
-| 2 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível |
-| 3 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Bridge + `!nota` + consulta TK+token |
-| 4 | [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro de resultados |
+| 0 | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | Spec técnica (consulta durante QA) |
+| 1 | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | § A WhatsApp + Partes 3–7 (WebChat, fallback deferido, presença, supervisor, alertas) |
+| 2 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível (§ A–E) |
+| 3 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Token, FAQ, C0/C1 fallback, bridge, IA Básica, presença |
+| 4 | [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Registro Fase 1 |
+| 5 | [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro WebChat/WA |
 
 **Gate ROADMAP § Estabilização** só fica 🟢 quando §10 estiver assinado.
 

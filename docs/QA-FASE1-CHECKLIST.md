@@ -1,7 +1,8 @@
 # RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
-> **Versão alvo:** `2.10.60` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
-> **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Pré-check:** `npm run qa:prep` · **Resultado:** copiar [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
+> **Versão alvo:** `2.11.28` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
+> **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Spec 2.11.24–28:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)  
+> **Pré-check:** `npm run qa:prep` + `npm run qa:atendimento:gate` · **Resultado:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
 
 **Execução:** _______________ · **Responsável:** _______________ · **Ambiente:** dev / piloto
 
@@ -9,7 +10,8 @@
 
 ## Pré-requisitos
 
-- [ ] `npm test` verde (377 testes em 2.10.75+)
+- [ ] `npm test` verde (463+ testes em 2.11.28)
+- [ ] `npm run qa:atendimento:gate` verde
 - [ ] `npm run build` + build frontend verdes
 - [ ] `npm run qa:prep` sem bloqueios (WA + CSAT)
 - [ ] Contato de teste (idealmente o que reproduziu bugs anteriores)
@@ -68,9 +70,12 @@
 |---|---------|----------|-----|-------|
 | 6 | Consulta chamado por token no widget | Ref + token → status; token errado genérico | [ ] | Fase A |
 | 7 | FAQ chips + link no widget | Resposta KB + botão https | [ ] | Fase B |
-| 8 | Fallback offline → alerta WA | Mensagem visitante + alerta com `TK-` | [ ] | Fase C |
-| 9 | `!assumir` / `!ticket` / `!encerrar` | Só número cadastrado em Equipe | [ ] | Fase D |
-| 10 | Bridge visitante ↔ WA | Msg site → celular; resposta WA → widget; badge Bridge | [ ] | Fase E |
+| 8 | Fallback offline → alerta WA | Mensagem visitante + alerta com `TK-` | [ ] | Fase C.1 |
+| 9 | Fallback deferido (online, não assume) | Sem alerta imediato; após timeout + sino vermelho | [ ] | C0 2.11.28 |
+| 10 | `!assumir` / `!ticket` / `!encerrar` | Só número cadastrado em Equipe | [ ] | Fase D |
+| 11 | Bridge visitante ↔ WA | Msg site → celular; resposta WA → widget; badge Bridge | [ ] | Fase E |
+| 12 | IA Básica WebChat | 1ª msg ≠ menu robotizado 1–4 | [ ] | G 2.11.28 |
+| 13 | Presença + RR | Ocupado não recebe prioridade; Online sim | [ ] | H 2.11.25 |
 
 ### C.1 Painel widgets (2.10.55–2.10.60)
 
@@ -84,18 +89,34 @@
 
 ---
 
+## E. Presença, supervisor e alertas (2.11.24–28)
+
+> Roteiro: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) Partes 3b, 5–7
+
+| # | Cenário | Esperado | OK? | Notas |
+|---|---------|----------|-----|-------|
+| 1 | Status operacional (Online/Ocupado/Ausente) | RR respeita disponibilidade | [ ] | 2.11.25 |
+| 2 | Auto-ausente por inatividade | Status Ausente + prompt restaurar | [ ] | 2.11.25 |
+| 3 | Supervisor dashboard | Equipe, fila WA+WC, monitor drawer | [ ] | 2.11.24 |
+| 4 | Reassign supervisor (`wc:`) | Conversa reatribuída | [ ] | 2.11.24 |
+| 5 | Sino vermelho fallback perdido | `webchat:fallback_missed` | [ ] | 2.11.28 |
+| 6 | Alertas billing/IA/config | Só `billing:view`; badge vermelho | [ ] | 2.11.28 |
+
+---
+
 ## D. Gate § Estabilização (resumo)
 
 | Item | Status |
 |------|--------|
 | QA WhatsApp (§ A) sem falha crítica | [ ] |
-| QA painel (§ B + C) sem regressão visual/funcional | [~] WebChat § C.1 + rotas B webchat OK 2.10.60; restante § B pendente |
+| QA painel (§ B + C) sem regressão visual/funcional | [ ] |
+| QA 2.11.24–28 (§ E) sem falha crítica | [ ] |
 | Nenhum bug crítico aberto após 1 ciclo completo | [ ] |
-| `npm test` + `npm run build` verdes | [x] validado local 2026-06-18 |
-| CI verde em `main` | [x] validado 2026-06-18 (2.10.19) |
-| Testes helpers 2.8.8–2.8.11 (`csat`, `ticket-reply-window`, `inbound-routing`) | [x] em `npm test` |
-| E2E smoke rotas Atendimento (`atendimento-smoke.spec.ts`) | [x] CI 2.10.19+ |
-| ROADMAP + changelog alinhados | [x] 2.10.19 |
+| `npm test` + `npm run qa:atendimento:gate` verdes | [ ] validar antes do manual |
+| CI verde em `main` | [x] validado 2026-06-21 (2.11.28) |
+| Testes helpers 2.8.8–2.8.11 + presence + fallback | [x] em `qa:atendimento:gate` |
+| E2E smoke rotas Atendimento | [x] CI |
+| ROADMAP + changelog alinhados | [x] 2.11.28 |
 
 ---
 
@@ -109,6 +130,7 @@
 
 ## Referências
 
+- `ENTREGA-ATENDIMENTO-2.11.24-28.md` — spec técnica + cenários QA
 - `ROADMAP-COMPLETUDE.md` — fases e lacunas
 - `radarzap-inbox-upgrade.md` — escopo visual 2.10.18
 - `INBOX-ATENDIMENTO.md` — CSAT, routing, API
