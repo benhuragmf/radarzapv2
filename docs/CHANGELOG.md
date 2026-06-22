@@ -6,6 +6,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.36] — 2026-06-22
+
+### Corrigido
+
+- Build TypeScript: import `CampaignDispatchService` / `CampaignPriority` em `DashboardService.ts`.
+
+### Documentação
+
+- `QA-FASE1-KICKOFF.md` — ponto de partida gate humano; checklist/ROADMAP sincronizados (2.11.35).
+
+---
+
 ## [2.11.35] — 2026-06-22
 
 ### Adicionado

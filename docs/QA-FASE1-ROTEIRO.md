@@ -16,7 +16,18 @@ npm test                     # suite completa (494+ testes)
 2. Sessão WhatsApp **conectada** (`/sessions`)
 3. CSAT **habilitado** (`/platform/inbox/bot` → Pesquisa de satisfação)
 4. Celular de teste como **cliente** (número diferente do atendente)
-5. Anote versão: `package.json` → campo `version`
+5. Anote versão: `package.json` → campo `version` (**2.11.35**)
+
+### Gate automático (já verde em 2026-06-22)
+
+| Item | Status |
+|------|--------|
+| `npm test` (494) | ✅ |
+| `qa:atendimento:gate` (135+53) | ✅ |
+| `qa:prep` | ✅ |
+| Build (`npm run qa:gate`) | ✅ 2026-06-22 |
+
+Kickoff resumido: [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md)
 
 ---
 

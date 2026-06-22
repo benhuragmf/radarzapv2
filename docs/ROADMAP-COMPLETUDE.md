@@ -1,6 +1,6 @@
 # RadarZap v2 — completude do sistema e roadmap
 
-> **Versão ref:** `2.11.28` · **Última revisão:** 2026-06-21  
+> **Versão ref:** `2.11.36` · **Última revisão:** 2026-06-22  
 > **Fase atual:** **estabilização do produto** — **não** preparação de produção nem go-live.
 
 | Fase | Documento | Quando |
@@ -47,7 +47,7 @@ Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 - [x] `npm test` + `npm run qa:atendimento:gate` verdes — validado **2026-06-22** (494 testes; gate 135+53; `qa:prep` OK)
 - [x] CI verde em `main` — validado 2026-06-18 (run 27785738989, 2.10.19)
 - [x] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 + alertas críticos 2.11.28 — helpers + `panel-critical-alerts` no gate
-- [x] `ROADMAP` e changelog alinhados ao estado validado — **2.11.28** (2026-06-21)
+- [x] `ROADMAP` e changelog alinhados ao estado validado — **2.11.35** (2026-06-22)
 
 ---
 
@@ -73,7 +73,7 @@ Executar com `csatEnabled`, sessão WA conectada, contato de teste (idealmente o
 | 9 | IA promete “vou transferir” | Escalona para fila (não fica travado) |
 | 10 | Menu ticket `1`/`2` com inbox ativo | Sem colisão indevida |
 
-Registrar: data, versão (`2.8.11+`), pass/fail, prints.
+Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 
 ### B. Testes automatizados (reforço)
 

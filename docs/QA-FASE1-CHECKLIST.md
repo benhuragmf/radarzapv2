@@ -1,6 +1,6 @@
 # RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
-> **Versão alvo:** `2.11.28` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
+> **Versão alvo:** `2.11.36` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
 > **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Spec 2.11.24–28:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)  
 > **Pré-check:** `npm run qa:prep` + `npm run qa:atendimento:gate` · **Resultado:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
 
@@ -10,10 +10,10 @@
 
 ## Pré-requisitos
 
-- [ ] `npm test` verde (494+ testes em 2.11.35)
-- [ ] `npm run qa:atendimento:gate` verde
-- [ ] `npm run build` + build frontend verdes
-- [ ] `npm run qa:prep` sem bloqueios (WA + CSAT)
+- [x] `npm test` verde (494 testes — validado 2026-06-22)
+- [x] `npm run qa:atendimento:gate` verde (135+53 — validado 2026-06-22)
+- [x] `npm run build` + build frontend verdes (validado 2026-06-22)
+- [x] `npm run qa:prep` sem bloqueios (WA + CSAT — validado 2026-06-22)
 - [ ] Contato de teste (idealmente o que reproduziu bugs anteriores)
 - [ ] Pelo menos 1 widget WebChat ativo (para cenários site)
 
@@ -112,12 +112,12 @@
 | QA painel (§ B + C) sem regressão visual/funcional | [ ] |
 | QA 2.11.24–28 (§ E) sem falha crítica | [ ] |
 | Nenhum bug crítico aberto após 1 ciclo completo | [ ] |
-| `npm test` + `npm run qa:atendimento:gate` verdes | [ ] validar antes do manual |
-| CI verde em `main` | [x] validado 2026-06-21 (2.11.28) |
-| Testes helpers 2.8.8–2.8.11 + presence + fallback | [x] em `qa:atendimento:gate` |
+| `npm test` + `npm run qa:atendimento:gate` verdes | [x] 2026-06-22 (494 + gate 135+53) |
+| CI verde em `main` | [x] push `e9d794c` (2.11.35) |
+| Testes helpers 2.8.8–2.8.11 + presence + fallback + webhooks/audit/ordem | [x] em `qa:atendimento:gate` |
 | E2E smoke rotas Atendimento | [x] CI |
 | E2E Inbox/Supervisor autenticado (mock) | [x] `e2e/inbox-authenticated.spec.ts` |
-| ROADMAP + changelog alinhados | [x] 2.11.28 |
+| ROADMAP + changelog alinhados | [x] 2.11.35 |
 
 ---
 

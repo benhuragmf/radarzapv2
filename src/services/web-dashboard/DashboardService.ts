@@ -37,6 +37,7 @@ import {
   resolveWhatsAppSendPolicy,
 } from '../whatsapp/whatsapp-send-policy.service';
 import { StatusDispatchService } from '../send/StatusDispatchService';
+import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
 import { StatusPost } from '../../models/StatusPost';
 import { parseAndValidateStatusImage } from '../../utils/safe-image-upload';
 import { ConsentService } from '../consent/ConsentService';

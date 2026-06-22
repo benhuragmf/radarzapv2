@@ -190,6 +190,7 @@ Execute **somente após** Fases A/B verdes no gate automático.
 
 | Ordem | Doc | Escopo |
 |-------|-----|--------|
+| **start** | [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) | Gate automático ✅ + ordem de execução |
 | 0 | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | Spec técnica (consulta durante QA) |
 | 1 | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | § A WhatsApp + Partes 3–7 (WebChat, fallback deferido, presença, supervisor, alertas) |
 | 2 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível (§ A–E) |
