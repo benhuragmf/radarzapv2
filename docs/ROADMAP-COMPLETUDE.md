@@ -44,9 +44,9 @@ Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 
 - [ ] Roteiro **QA WhatsApp** — checklist em [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A
 - [ ] Nenhum bug **crítico aberto** em Inbox/Ticket/CSAT/IA por ≥ 1 ciclo completo de teste
-- [x] `npm test` + `npm run qa:atendimento:gate` verdes — validado **2026-06-21** (463 testes; gate 104+53; `qa:prep` OK)
+- [x] `npm test` + `npm run qa:atendimento:gate` verdes — validado **2026-06-22** (470 testes; gate 111+53; `qa:prep` OK)
 - [x] CI verde em `main` — validado 2026-06-18 (run 27785738989, 2.10.19)
-- [ ] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 (helpers + routing — ver § Testes)
+- [x] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 + alertas críticos 2.11.28 — helpers + `panel-critical-alerts` no gate
 - [x] `ROADMAP` e changelog alinhados ao estado validado — **2.11.28** (2026-06-21)
 
 ---
@@ -84,6 +84,7 @@ Registrar: data, versão (`2.8.11+`), pass/fail, prints.
 | Alta | Routing ticket vs inbox | `inbound-routing.test.ts` ✅ |
 | Alta | Paginação `GET /inbox/tickets` (`page`/`limit`) | `ticket-list-query.util.test.ts` ✅ |
 | **Média** | Integração `tryHandleCsatReply` + ordem inbound | **Falta** — `InboxService` ~4k linhas sem teste integrado |
+| Média | Alertas críticos painel (`PanelCriticalAlertsService`) | ✅ `panel-critical-alerts.service.test.ts` (2.11.29) |
 | Média | E2E rotas Atendimento (smoke login) | ✅ `e2e/atendimento-smoke.spec.ts` |
 | Média | E2E inbox autenticado | **Falta** |
 | Baixa | `npm run lint` no CI | ~7k issues — não bloqueia hoje |

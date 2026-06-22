@@ -6,6 +6,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.29] — 2026-06-22
+
+### Adicionado
+
+- Testes `panel-critical-alerts.service.test.ts` — cota mensagens/IA, dedup, config fallback e IA sem chave.
+- Gate `qa:atendimento:gate` inclui `panel-critical-alerts`.
+
+---
+
 ## [2.11.28] — 2026-06-21
 
 Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md).

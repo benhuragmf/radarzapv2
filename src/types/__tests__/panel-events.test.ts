@@ -7,6 +7,7 @@ import {
 describe('panel-events priority', () => {
   it('marks critical operational types as urgent', () => {
     expect(isUrgentPanelEventType('whatsapp:disconnected')).toBe(true);
+    expect(isUrgentPanelEventType('webchat:fallback_missed')).toBe(true);
     expect(isUrgentPanelEventType('ai:quota_exceeded')).toBe(true);
     expect(isUrgentPanelEventType('inbox:new_chat')).toBe(false);
   });

@@ -436,9 +436,10 @@ PATCH  /api/inbox/settings                 inbox:department:manage
 | `webchat-basic-triage.service.test.ts` | gate basic_triage, não atua em outros modos |
 | `webchat-robotic-triage.service.test.ts` | gate robotic |
 | `panel-events.test.ts` | urgent/ownerOnly sets |
-| `WhatsAppService.test.ts` | mock send-policy (2.11.28) |
+| `panel-critical-alerts.service.test.ts` | Dedup, cota msg/IA, config fallback/IA |
+| `panel-events.test.ts` | Urgent/ownerOnly incl. `webchat:fallback_missed` |
 
-Gate: `npm run qa:atendimento:gate` (463 testes unitários + prep).
+Gate: `npm run qa:atendimento:gate` (470 testes unitários + gate 111+53).
 
 ---
 

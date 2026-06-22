@@ -8,7 +8,7 @@
 
 ```bash
 npm run qa:prep              # verifica Mongo, sessão WA e CSAT
-npm run qa:atendimento:gate  # gate automático (463+ testes)
+npm run qa:atendimento:gate  # gate automático (470+ testes)
 npm test                     # suite completa
 ```
 
