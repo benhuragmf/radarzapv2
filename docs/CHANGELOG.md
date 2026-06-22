@@ -8,6 +8,13 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.52] — 2026-06-22
+
+### Fix — OTP WhatsApp perfil
+
+- OTP de confirmação usa `sendOperationalTextMessage` — **não exige** número em Contatos/consentimento.
+- Resolve variantes BR (9º dígito) via `onWhatsApp` antes do envio.
+
 ## [2.11.51] — 2026-06-22
 
 ### Fix — Meu perfil

@@ -221,7 +221,7 @@ async function notifyOwnerVerificationAudit(
     const wa = WhatsAppService.getInstance();
     if (!wa.isClientConnected(organizationId)) return;
 
-    await wa.sendTestMessageFromDashboard(
+    await wa.sendOperationalTextMessage(
       organizationId,
       ownerMember.whatsappPhone!,
       `*RadarZap* — auditoria de cadastro WhatsApp\n\n` +
@@ -283,11 +283,16 @@ async function sendWhatsappVerificationOtp(
         `Válido por 10 minutos. Se não foi você, ignore esta mensagem.`;
 
   try {
-    await wa.sendTestMessageFromDashboard(organizationId, phone, message);
+    await wa.sendOperationalTextMessage(organizationId, phone, message);
   } catch (err) {
     await redis.deleteKey(waOtpKey(organizationId, memberId));
     logger.warn('Falha ao enviar OTP WhatsApp', { memberId, error: (err as Error).message });
-    throw new Error('Não foi possível enviar o código para este número. Verifique o DDI/DDD.');
+    const msg = (err as Error).message;
+    throw new Error(
+      msg.includes('WhatsApp') || msg.includes('DDI')
+        ? msg
+        : 'Não foi possível enviar o código para este número. Verifique o DDI/DDD e se o WhatsApp está conectado.',
+    );
   }
 
   if (initiatedBy === 'admin' && adminUserId) {

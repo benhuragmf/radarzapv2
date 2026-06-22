@@ -61,6 +61,12 @@ import { ConsentStatus } from '@/types/consent';
 import { isPhoneInParticipants, isWaIdentityInParticipants } from '@/utils/group-membership';
 import { downloadProfilePictureFromUrl } from '@/utils/profile-picture-download';
 import {
+  acquireWaSocketLock,
+  releaseWaSocketLock,
+  renewWaSocketLock,
+  waitForWaSocketLock,
+} from '@/utils/wa-session-lock';
+import {
   brazilPhoneLookupVariants,
   resolveLidJidsForPhone,
   userPartFromJid,
@@ -994,6 +1000,66 @@ export class WhatsAppService {
     });
   }
 
+  /**
+   * Texto operacional (OTP equipe, alertas internos) — não exige destino em Contatos nem consentimento.
+   */
+  async sendOperationalTextMessage(
+    clientId: string,
+    destination: string,
+    text: string,
+  ): Promise<{ success: boolean; messageId?: string }> {
+    await this.ensureClientReady(clientId);
+    const socket = this.sessions.get(String(clientId));
+    if (!socket?.user) {
+      throw new Error('WhatsApp não conectado');
+    }
+
+    const trimmed = destination.trim();
+    if (!trimmed) throw new Error('Número obrigatório');
+
+    let resolvedJid: string;
+    if (trimmed.includes('@')) {
+      resolvedJid = trimmed;
+    } else if (trimmed.includes('-')) {
+      resolvedJid = await this.resolveDestinationJid(clientId, socket, trimmed, 'group');
+    } else {
+      const digits = trimmed.replace(/\D/g, '');
+      const variants = brazilPhoneLookupVariants(digits);
+      const lookup = variants.length > 0 ? variants : [digits];
+      let found: string | undefined;
+      try {
+        const results = await socket.onWhatsApp(...lookup);
+        for (const r of results ?? []) {
+          if (r?.exists && r.jid) {
+            found = r.jid;
+            break;
+          }
+        }
+      } catch {
+        /* tenta JID formatado */
+      }
+      if (!found) {
+        resolvedJid = await this.resolveDestinationJid(clientId, socket, trimmed, 'contact');
+        try {
+          const plain = this.plainWhatsAppId(resolvedJid);
+          const [check] = await socket.onWhatsApp(plain);
+          if (check && !check.exists) {
+            throw new Error(
+              'Este número não está no WhatsApp. Confira DDI (55), DDD e o 9 do celular (ex.: 55669984240564).',
+            );
+          }
+        } catch (err) {
+          if ((err as Error).message.includes('não está no WhatsApp')) throw err;
+        }
+      } else {
+        resolvedJid = found;
+      }
+    }
+
+    const result = await socket.sendMessage(resolvedJid, { text });
+    return { success: true, messageId: result?.key?.id ?? undefined };
+  }
+
   /** Envia solicitação de consentimento (somente texto — resposta 1 ou 2) */
   async sendConsentRequest(clientId: string, destination: string): Promise<void> {
     const socket = this.sessions.get(clientId);
@@ -1568,33 +1634,7 @@ export class WhatsAppService {
     destination: string,
     text: string,
   ): Promise<{ success: boolean; messageId?: string }> {
-    await this.ensureClientReady(clientId);
-    const socket = this.sessions.get(String(clientId));
-    if (!socket?.user) {
-      throw new Error('WhatsApp não conectado');
-    }
-
-    const trimmed = destination.trim();
-    let resolvedJid: string;
-    if (trimmed.includes('@')) {
-      resolvedJid = trimmed;
-    } else if (trimmed.includes('-')) {
-      resolvedJid = this.formatJid(trimmed, 'group');
-    } else {
-      resolvedJid = this.formatJid(trimmed, 'contact');
-      try {
-        const plainNumber = resolvedJid.replace('@s.whatsapp.net', '');
-        const [result] = await socket.onWhatsApp(plainNumber);
-        if (result?.exists && result.jid) {
-          resolvedJid = result.jid;
-        }
-      } catch {
-        /* fallback to formatted JID */
-      }
-    }
-
-    const result = await socket.sendMessage(resolvedJid, { text });
-    return { success: true, messageId: result?.key?.id ?? undefined };
+    return this.sendOperationalTextMessage(clientId, destination, text);
   }
 
   /**
@@ -1824,6 +1864,8 @@ export class WhatsAppService {
       clearInterval(interval);
       this.sessionIntervals.delete(clientId);
     }
+
+    await releaseWaSocketLock(clientId);
   }
 
   /** Remove credenciais locais para forçar novo QR */
@@ -2117,13 +2159,13 @@ export class WhatsAppService {
       }
       this.sessionIntervals.clear();
 
-      // Persist session files before closing sockets
+      // Persist session files before closing sockets (mantém credenciais no disco)
       for (const clientId of this.sessions.keys()) {
         await this.saveSessionToDatabase(clientId);
       }
 
-      // Close all sessions
-      await this.closeAllSessions();
+      // Encerra sockets sem logout/cleanup — evita 440 no hot-reload do ts-node-dev
+      await this.closeAllSessionsForShutdown();
 
       this.isInitialized = false;
       this.serviceLogger.info('✅ WhatsApp Service stopped');
@@ -2461,7 +2503,12 @@ export class WhatsAppService {
       return Promise.resolve({ connected: true });
     }
 
-    const promise = this.doCreateWhatsAppSession(clientId);
+    const promise = this.doCreateWhatsAppSession(clientId).catch(async err => {
+      if (!this.sessions.get(clientId)?.user) {
+        await this.abortClientConnection(clientId);
+      }
+      throw err;
+    });
     this.sessionCreatePromises.set(clientId, promise);
     return promise.finally(() => {
       if (this.sessionCreatePromises.get(clientId) === promise) {
@@ -2471,6 +2518,25 @@ export class WhatsAppService {
   }
 
   private async doCreateWhatsAppSession(clientId: string): Promise<{ qrCode?: string; connected: boolean }> {
+    await waitForWaSocketLock(clientId, 20_000);
+    const gotLock = await acquireWaSocketLock(clientId);
+    if (!gotLock) {
+      throw new Error(
+        `Outra instância RadarZap já usa o WhatsApp (${clientId}). Feche o outro terminal ou execute: npm run dev:stop`,
+      );
+    }
+
+    // Garante que não restou socket da tentativa anterior (mesmo processo)
+    const stale = this.sessions.get(clientId);
+    if (stale) {
+      try {
+        stale.end(undefined);
+      } catch {
+        /* ignore */
+      }
+      this.sessions.delete(clientId);
+    }
+
     this.connectingClients.add(clientId);
     const sessionDir = path.join(process.cwd(), 'sessions', clientId);
 
@@ -2592,7 +2658,7 @@ export class WhatsAppService {
             } else {
               resolved = true;
               clearTimeout(timeout);
-              await this.cleanupSession(clientId);
+              await this.abortClientConnection(clientId);
               reject(new Error('WhatsApp logged out'));
             }
           }
@@ -2920,6 +2986,7 @@ export class WhatsAppService {
       try {
         if (this.sessions.has(clientId)) {
           await this.sessionCache.updateWhatsAppActivity(clientId);
+          await renewWaSocketLock(clientId);
         } else {
           // Clear interval if session no longer exists
           clearInterval(keepAliveInterval);
@@ -3652,7 +3719,32 @@ export class WhatsAppService {
   }
 
   /**
-   * Close all sessions
+   * Shutdown graceful — só encerra socket, não apaga credenciais.
+   */
+  private async closeAllSessionsForShutdown(): Promise<void> {
+    for (const timer of this.reconnectTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.reconnectTimers.clear();
+    this.reconnectAttempts.clear();
+
+    const clientIds = new Set<string>([
+      ...this.sessions.keys(),
+      ...this.connectingClients,
+      ...this.reconnectingClients,
+    ]);
+
+    await Promise.allSettled(
+      [...clientIds].map(async clientId => {
+        await this.abortClientConnection(clientId);
+      }),
+    );
+
+    this.serviceLogger.info('All WhatsApp sessions closed for shutdown');
+  }
+
+  /**
+   * Close all sessions (logout explícito — apaga credenciais)
    */
   private async closeAllSessions(): Promise<void> {
     const closePromises = Array.from(this.sessions.keys()).map(async (clientId) => {

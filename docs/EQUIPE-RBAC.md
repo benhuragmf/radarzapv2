@@ -103,7 +103,7 @@ Para atendentes (`ATTENDANT`, `MANAGER`, `CUSTOM`, etc. — exceto `OWNER` e `IN
 | Dado | Como confirma | Exceção |
 |------|----------------|---------|
 | E-mail | Código 6 dígitos por e-mail (Resend/SMTP) | Login **Google** com mesmo e-mail → auto-verificado |
-| WhatsApp | Código 6 dígitos no número via sessão WA da empresa | — |
+| WhatsApp | Código 6 dígitos no número via `sendOperationalTextMessage` (sem cadastro em Contatos) | — |
 
 `profileComplete = false` enquanto houver item em `pendingConfirmations` (`email` e/ou `whatsapp`).
 
