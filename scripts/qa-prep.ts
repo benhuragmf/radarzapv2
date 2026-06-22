@@ -85,7 +85,7 @@ async function main() {
   }
 
   console.log(
-    '\nDocs: docs/QA-FASE1-ROTEIRO.md · docs/QA-FASE1-CHECKLIST.md · docs/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md (fallback/bridge 2.10.75)',
+    '\nDocs: docs/ENTREGA-ATENDIMENTO-2.11.24-28.md (spec) · docs/QA-FASE1-ROTEIRO.md · docs/QA-FASE1-CHECKLIST.md · docs/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md (2.11.28)',
   );
 
   await mongoose.disconnect();
