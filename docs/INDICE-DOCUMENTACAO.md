@@ -65,6 +65,8 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 
 | Documento | Descrição |
 |-----------|-----------|
+| [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) | Mapa automático (Jest/Playwright) vs manual WA |
+| [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) | **Checklist 1 página** — use no manual |
 | [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) | **Start** gate humano Fase 1 (pós gate automático) |
 | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Roteiro passo a passo WhatsApp + WebChat |
 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível § A–E |

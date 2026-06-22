@@ -3,24 +3,24 @@
 > Roteiro: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · Checklist: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)
 
 **Data:** _______________  
-**Versão testada:** `2.11.38`  
-**Commit ref:** `9a5a32f`  
+**Versão testada:** `2.11.39`  
+**Commit ref:** `5d4d545`  
 **Responsável:** _______________  
 **Ambiente:** dev / piloto  
 
 ---
 
-## Gate automático (pré-manual) — ✅ 2026-06-22
+## Gate automático (pré-manual) — ✅ 2026-06-22 (revalidado)
 
 | Check | Resultado |
 |-------|-----------|
-| `npm test` | pass — 494 testes |
-| `npm run qa:atendimento:gate` | pass — 135 + 53 |
-| `npm run qa:gate` (build) | pass |
-| E2E `inbox-authenticated.spec.ts` | pass — 7/7 |
-| `npm run qa:prep` | pass |
+| `npm test` | pass — 494 testes (2026-06-22 anterior) |
+| `npm run qa:atendimento:gate` | pass — 135 + 53 (`2.11.39`) |
+| `npm run qa:gate` (build) | pass (2026-06-22 anterior) |
+| E2E `inbox-authenticated.spec.ts` | pass — 7/7 (2026-06-22 anterior) |
+| `npm run qa:prep` | pass — WA 1 sessão, CSAT 1/3, WebChat 1, Equipe 1 c/ WA |
 
-**`npm run qa:prep` (ambiente):** pass / fail — anotar abaixo se falhou no dia do manual
+**Checklist rápido:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
 
 ---
 

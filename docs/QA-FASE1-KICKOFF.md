@@ -4,6 +4,8 @@
 
 Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar o gate § Estabilização do [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
 
+**Checklist 1 página:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) · **Auto vs manual:** [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) ← use durante o manual
+
 ---
 
 ## Gate automático — já verde
