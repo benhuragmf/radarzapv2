@@ -116,6 +116,7 @@
 | CI verde em `main` | [x] validado 2026-06-21 (2.11.28) |
 | Testes helpers 2.8.8–2.8.11 + presence + fallback | [x] em `qa:atendimento:gate` |
 | E2E smoke rotas Atendimento | [x] CI |
+| E2E Inbox/Supervisor autenticado (mock) | [x] `e2e/inbox-authenticated.spec.ts` |
 | ROADMAP + changelog alinhados | [x] 2.11.28 |
 
 ---

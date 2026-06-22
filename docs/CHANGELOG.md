@@ -6,6 +6,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.32] — 2026-06-22
+
+### Adicionado
+
+- E2E Playwright autenticado (mock API): `e2e/inbox-authenticated.spec.ts` — Inbox (lista, fila, thread, Assumir, banner WebChat) + Supervisor (métricas, abas fila/atendimento).
+- Fixture `e2e/fixtures/mock-inbox-api.ts` — mock `/auth/me` + APIs Inbox/Supervisor/presença.
+
+---
+
 ## [2.11.31] — 2026-06-22
 
 ### Adicionado

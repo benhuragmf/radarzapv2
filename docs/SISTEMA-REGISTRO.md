@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.31` (`package.json`) · **Última revisão doc:** 2026-06-22
+**Versão atual:** `2.11.32` (`package.json`) · **Última revisão doc:** 2026-06-22
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -113,6 +113,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.29** | Testes `panel-critical-alerts.service.test.ts` no gate — dedup, cota msg/IA, config fallback/IA |
 | **2.11.30** | Testes integrados CSAT inbound (`inbox-csat-reply.integration.test.ts`) — ordem antes de nova conversa |
 | **2.11.31** | Testes integrados ticket inbound (`inbox-ticket-inbound.integration.test.ts`) — release/capture/competição |
+| **2.11.32** | E2E Inbox/Supervisor autenticado (mock API) — `inbox-authenticated.spec.ts` |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 
