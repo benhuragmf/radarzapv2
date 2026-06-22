@@ -10,6 +10,8 @@ const INBOX_CAPABILITIES = [
   'inbox:department:manage',
   'inbox:reports:view',
   'inbox:ai:manage',
+  'webchat:view',
+  'webchat:manage',
   'webchat:reply',
 ];
 
@@ -127,6 +129,196 @@ const MOCK_SUPERVISOR_DASHBOARD = {
   queue: [MOCK_INBOX_CONVERSATIONS[0], MOCK_INBOX_CONVERSATIONS[2]],
 };
 
+const MOCK_DEPARTMENTS_FULL = [
+  {
+    _id: 'dept-1',
+    name: 'Comercial',
+    description: 'Vendas',
+    menuKey: '1',
+    clientVisible: true,
+    internalRank: 0,
+    memberUserIds: ['e2e-user'],
+    isActive: true,
+    sortOrder: 1,
+  },
+  {
+    _id: 'dept-2',
+    name: 'Suporte',
+    description: 'Técnico',
+    menuKey: '3',
+    clientVisible: true,
+    internalRank: 0,
+    memberUserIds: [],
+    isActive: true,
+    sortOrder: 2,
+  },
+];
+
+const MOCK_TEAM_MEMBERS = [
+  {
+    memberId: 'mem-e2e',
+    userId: 'e2e-user',
+    email: 'e2e@test.com',
+    companyRole: 'OWNER',
+    displayName: 'E2E User',
+    linked: true,
+  },
+];
+
+const MOCK_TICKET_STATS = {
+  total: 3,
+  open: 1,
+  inProgress: 1,
+  clientReplied: 0,
+  waitingTeam: 0,
+  slaBreached: 0,
+  closed: 1,
+};
+
+const MOCK_TICKETS = {
+  items: [
+    {
+      _id: 'ticket-1',
+      ticketRef: 'TK-E2E-001',
+      ticketStatus: 'in_progress',
+      displayStatusLabel: 'Em andamento',
+      conversationId: 'conv-wa-active-1',
+      contactName: 'João Ativo',
+      contactIdentifier: '5511888776655',
+      departmentName: 'Suporte',
+      assignedUserName: 'E2E User',
+      lastMessageAt: new Date().toISOString(),
+    },
+    {
+      _id: 'ticket-2',
+      ticketRef: 'TK-E2E-002',
+      ticketStatus: 'open',
+      displayStatusLabel: 'Aberto',
+      conversationId: 'conv-wa-queue-1',
+      contactName: 'Maria Cliente',
+      contactIdentifier: '5511999887766',
+      departmentName: 'Comercial',
+      lastMessageAt: new Date(Date.now() - 3600_000).toISOString(),
+    },
+  ],
+  total: 2,
+  page: 1,
+  limit: 15,
+};
+
+const MOCK_INBOX_SETTINGS = {
+  welcomeWithCompany: 'Olá! Bem-vindo à {company}.',
+  welcomeGeneric: 'Olá! Como podemos ajudar?',
+  menuIntro: 'Escolha uma opção:',
+  menuFooter: 'Digite o número do setor.',
+  queueMessage: 'Aguarde na fila {department}.',
+  waitingMessage: 'Posição {waiting}.',
+  outsideHoursMessage: 'Fora do horário.',
+  invalidMenuHint: 'Opção inválida.',
+  resolvedMessage: 'Atendimento encerrado.',
+  transferMessage: 'Transferindo…',
+  businessHoursEnabled: false,
+  timezone: 'America/Sao_Paulo',
+  schedule: {
+    monday: { enabled: true, start: '09:00', end: '18:00' },
+    tuesday: { enabled: true, start: '09:00', end: '18:00' },
+    wednesday: { enabled: true, start: '09:00', end: '18:00' },
+    thursday: { enabled: true, start: '09:00', end: '18:00' },
+    friday: { enabled: true, start: '09:00', end: '18:00' },
+    saturday: { enabled: false, start: '09:00', end: '13:00' },
+    sunday: { enabled: false, start: '09:00', end: '13:00' },
+  },
+  roundRobinEnabled: true,
+  roundRobinPullTimeoutSeconds: 120,
+  alertSoundEnabled: true,
+  alertOnNewChat: true,
+  alertOnNewMessage: true,
+  inactivityAutoCloseEnabled: false,
+  inactivityCloseMinutes: 60,
+  inactivityWarningMinutes: 45,
+  queueSlaAlertMinutes: 15,
+  ticketTeamResponseHours: 4,
+  csatEnabled: true,
+  csatPrompt: 'De 1 a 5, como avalia?',
+  csatThankYou: 'Obrigado!',
+  whatsappFallbackEnabled: true,
+  whatsappFallbackAlertPhones: ['5511999999999'],
+  whatsappFallbackVisitorMessage: 'Encaminhamos para WhatsApp.',
+  whatsappFallbackAcceptTimeoutSeconds: 60,
+  agentPresenceTimeoutSeconds: 90,
+  presenceIdleTimeoutSeconds: 300,
+};
+
+const MOCK_INBOX_REPORT = {
+  period: { from: new Date(Date.now() - 30 * 86400_000).toISOString(), to: new Date().toISOString() },
+  summary: {
+    totalConversations: 42,
+    resolvedCount: 30,
+    inProgressCount: 5,
+    waitingCount: 7,
+    avgQueueTimeSec: 120,
+    avgFirstResponseTimeSec: 45,
+    avgResolutionTimeSec: 600,
+  },
+  byDepartment: [
+    {
+      departmentId: 'dept-1',
+      departmentName: 'Comercial',
+      conversations: 20,
+      avgQueueTimeSec: 90,
+      avgResolutionTimeSec: 500,
+    },
+  ],
+  byAgent: [
+    {
+      userId: 'e2e-user',
+      agentName: 'E2E User',
+      conversations: 15,
+      avgFirstResponseTimeSec: 40,
+      avgResolutionTimeSec: 550,
+    },
+  ],
+};
+
+const MOCK_WEBCHAT_WIDGETS = [
+  {
+    id: 'widget-e2e-1',
+    name: 'Widget E2E',
+    publicKey: 'pk_e2e_test_key',
+    active: true,
+    allowedDomains: ['localhost'],
+    appearance: {
+      primaryColor: '#2563eb',
+      position: 'right' as const,
+      title: 'Suporte',
+      subtitle: 'Online',
+      greeting: 'Olá! Como podemos ajudar?',
+      askName: true,
+      askPhone: false,
+      askEmail: false,
+      prechatMode: 'steps' as const,
+      previewTemplateId: 'chatbox-compact',
+    },
+    defaultDepartmentId: 'dept-1',
+    aiEscalationPolicy: { mode: 'inherit' as const },
+  },
+];
+
+const MOCK_WEBCHAT_CONVERSATIONS = [
+  {
+    id: 'wc-conv-e2e-1',
+    status: 'open' as const,
+    visitorName: 'Visitante E2E',
+    lastMessagePreview: 'Preciso de ajuda',
+    lastMessageAt: new Date().toISOString(),
+    unreadCount: 1,
+    widgetName: 'Widget E2E',
+    queueStatus: 'with_agent' as const,
+    departmentName: 'Comercial',
+    assignedUserName: 'E2E User',
+  },
+];
+
 export interface InboxMockOptions {
   webchatQueueCount?: number;
 }
@@ -152,13 +344,58 @@ export async function setupInboxMocks(
     const path = url.pathname.replace(/^\/api/, '');
 
     if (path === '/inbox/departments') {
+      const list = url.searchParams.get('all') === '1' ? MOCK_DEPARTMENTS_FULL : MOCK_DEPARTMENTS_FULL;
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
-          { _id: 'dept-1', name: 'Comercial', menuKey: '1', clientVisible: true },
-          { _id: 'dept-2', name: 'Suporte', menuKey: '3', clientVisible: true },
-        ]),
+        body: JSON.stringify(list),
+      });
+    }
+
+    if (path === '/inbox/members') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_TEAM_MEMBERS),
+      });
+    }
+
+    if (path === '/inbox/tickets/stats') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_TICKET_STATS),
+      });
+    }
+
+    if (path === '/inbox/tickets') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_TICKETS),
+      });
+    }
+
+    if (path === '/inbox/settings') {
+      if (req.method() === 'PATCH') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(MOCK_INBOX_SETTINGS),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_INBOX_SETTINGS),
+      });
+    }
+
+    if (path === '/inbox/reports' || path.startsWith('/inbox/reports')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_INBOX_REPORT),
       });
     }
 
@@ -166,7 +403,10 @@ export async function setupInboxMocks(
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ _id: 'qr-1', shortcut: '/ola', body: 'Olá!' }]),
+        body: JSON.stringify([
+          { code: 'ola', label: 'Saudação', template: 'Olá [user]!' },
+          { code: 'ag', label: 'Aguarde', template: 'Aguarde um momento, [user].' },
+        ]),
       });
     }
 
@@ -268,25 +508,85 @@ export async function setupInboxMocks(
     }),
   );
 
-  await page.route('**/api/webchat/stats', route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        waitingQueueCount: webchatQueueCount,
-        myWaitingQueueCount: 1,
-        unreadCount: 2,
-      }),
-    }),
-  );
+  await page.route('**/api/webchat/**', async route => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const path = url.pathname.replace(/^\/api/, '');
 
-  await page.route('**/api/webchat/live-visitors', route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ visitors: [], total: 0 }),
-    }),
-  );
+    if (path === '/webchat/stats') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          openCount: 1,
+          waitingQueueCount: webchatQueueCount,
+          myWaitingQueueCount: 1,
+          unreadCount: 2,
+        }),
+      });
+    }
+
+    if (path === '/webchat/live-visitors') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ visitors: [], total: 0 }),
+      });
+    }
+
+    if (path === '/webchat/widgets') {
+      if (req.method() === 'POST') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...MOCK_WEBCHAT_WIDGETS[0], id: 'widget-new' }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_WEBCHAT_WIDGETS),
+      });
+    }
+
+    if (path === '/webchat/conversations' || path.startsWith('/webchat/conversations?')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_WEBCHAT_CONVERSATIONS),
+      });
+    }
+
+    const convDetail = path.match(/^\/webchat\/conversations\/([^/]+)$/);
+    if (convDetail) {
+      const conv = MOCK_WEBCHAT_CONVERSATIONS[0];
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          conversation: conv,
+          messages: [
+            {
+              id: 'wmsg-1',
+              direction: 'inbound',
+              body: conv.lastMessagePreview,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }),
+      });
+    }
+
+    if (req.method() === 'PATCH' && path.startsWith('/webchat/widgets/')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_WEBCHAT_WIDGETS[0]),
+      });
+    }
+
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
 
   await page.route('**/api/contact-groups', route =>
     route.fulfill({

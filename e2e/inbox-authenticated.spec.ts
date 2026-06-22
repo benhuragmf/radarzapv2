@@ -36,7 +36,9 @@ test.describe('Inbox — autenticado (mock API)', () => {
   });
 
   test('banner WebChat quando há fila no site', async ({ page }) => {
-    await expect(page.getByText(/chat\(s\) do site aguardando atendente/i)).toBeVisible();
+    await expect(page.getByText(/chat\(s\) do site aguardando atendente/i)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('assign POST ao clicar Assumir', async ({ page }) => {

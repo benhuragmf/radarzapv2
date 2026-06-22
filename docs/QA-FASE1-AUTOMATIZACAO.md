@@ -21,7 +21,7 @@ Resposta curta: **parte sim pelo navegador (Playwright), mas não substitui o ma
 | Checklist | Automático hoje | Manual obrigatório |
 |-----------|-----------------|-------------------|
 | **§ A WhatsApp (1–10)** | Helpers + integração (`inbox-csat-reply`, `inbox-ticket-inbound`, `inbox-inbound-order`) | **Sim** — enviar/receber no celular |
-| **§ B Painel (rotas)** | Smoke login (`atendimento-smoke.spec.ts`); Inbox/Supervisor mock (`inbox-authenticated.spec.ts`, 7 testes) | Rotas restantes sem mock E2E ainda |
+| **§ B Painel (rotas)** | Smoke login + **8 rotas mock** (`qa-fase1-panel.spec.ts`) | Smoke visual ao vivo no `dev` |
 | **§ C WebChat** | Utils fallback/FAQ/bridge (`qa:webchat-wa`) | Widget real, anexos, token TK, bridge bidirecional |
 | **§ E Presença/supervisor/sino** | `inbox-agent-presence.test.ts`; UI supervisor mock E2E | Heartbeat real, sino após timeout fallback |
 
@@ -45,9 +45,10 @@ npm run test:e2e:ui           # modo interativo (ver no navegador)
 |---------|-----------|
 | `e2e/inbox-authenticated.spec.ts` | Lista Inbox, fila, Assumir, supervisor métricas |
 | `e2e/atendimento-smoke.spec.ts` | 9 rotas Atendimento redirecionam para login |
+| `e2e/qa-fase1-panel.spec.ts` | § B: tickets, setores, bot, respostas, relatórios, webchat |
 | `e2e/attendance-modes.spec.ts` | Página IA Atendimento (4 modos, mock) |
 
----
+**Total `qa:fase1:e2e`:** 32 testes Chromium (mock API, sem Mongo/Baileys).
 
 ## Por que § A WhatsApp não automatiza no navegador
 

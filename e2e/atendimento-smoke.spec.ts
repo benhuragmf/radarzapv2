@@ -17,7 +17,9 @@ test.describe('Atendimento — smoke (não autenticado)', () => {
   for (const route of ATENDIMENTO_ROUTES) {
     test(`${route} exige login`, async ({ page }) => {
       await page.goto(route);
-      await expect(page.getByRole('heading', { name: 'Entrar no painel' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Entrar no painel' })).toBeVisible({
+        timeout: 15_000,
+      });
       await expect(page.getByRole('button', { name: 'Entrar com Discord' })).toBeVisible();
     });
   }

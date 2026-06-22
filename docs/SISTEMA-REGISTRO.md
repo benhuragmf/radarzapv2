@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.39` (`package.json`) · **Última revisão doc:** 2026-06-22
+**Versão atual:** `2.11.40` (`package.json`) · **Última revisão doc:** 2026-06-22
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -121,6 +121,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.37** | Fix E2E Supervisor strict mode; índice QA; `qa-prep` → KICKOFF |
 | **2.11.38** | Fix CI `npm audit` — override `undici@6.27.0` |
 | **2.11.39** | Docs: ENTREGA + ANALISE-CRITICA arquivados em `docs/concluidos/` |
+| **2.11.40** | E2E § B painel Fase 1 (`qa-fase1-panel.spec.ts`, 32 testes `qa:fase1:e2e`) |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 

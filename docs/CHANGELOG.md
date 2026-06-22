@@ -6,6 +6,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.40] — 2026-06-22
+
+### Testes
+
+- E2E Playwright § B painel: `e2e/qa-fase1-panel.spec.ts` (tickets, setores, bot, respostas, relatórios, webchat) — `npm run qa:fase1:e2e` (32 testes).
+- Fix mock `webchat/stats` no fixture E2E (rota única `/api/webchat/**`).
+
+---
+
 ## [2.11.39] — 2026-06-22
 
 ### Documentação
