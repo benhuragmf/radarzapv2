@@ -3,8 +3,8 @@
 > Roteiro: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · Checklist: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)
 
 **Data:** _______________  
-**Versão testada:** `2.11.37`  
-**Commit ref:** `c1bd265`  
+**Versão testada:** `2.11.38`  
+**Commit ref:** `9a5a32f`  
 **Responsável:** _______________  
 **Ambiente:** dev / piloto  
 
