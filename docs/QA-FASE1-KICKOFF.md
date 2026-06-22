@@ -1,6 +1,6 @@
 # QA Fase 1 — kickoff (gate humano)
 
-**Versão:** `2.11.36` · **Commit ref:** `e9d794c` · **Data prep:** 2026-06-22
+**Versão:** `2.11.37` · **Commit ref:** `e9d794c` · **Data prep:** 2026-06-22
 
 Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar o gate § Estabilização do [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
 

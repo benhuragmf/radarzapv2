@@ -60,7 +60,9 @@ test.describe('Supervisor — autenticado (mock API)', () => {
 
   test('exibe métricas e fila ao vivo', async ({ page }) => {
     await expect(page.getByText('Fila ao vivo', { exact: true })).toBeVisible();
-    await expect(page.getByText('Em atendimento', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('main').getByText('Em atendimento', { exact: true }).first(),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: /^Equipe ao vivo/i })).toBeVisible();
     await page.getByRole('button', { name: /^Fila/i }).click();
     await expect(page.getByText('Maria Cliente')).toBeVisible();

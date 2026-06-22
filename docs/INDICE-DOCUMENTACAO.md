@@ -1,6 +1,6 @@
 # RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.28` · **Atualizado:** 2026-06-21
+**Versão do produto:** `2.11.36` · **Atualizado:** 2026-06-22
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -67,6 +67,11 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 
 | Documento | Descrição |
 |-----------|-----------|
+| [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) | **Start** gate humano Fase 1 (pós gate automático) |
+| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Roteiro passo a passo WhatsApp + WebChat |
+| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível § A–E |
+| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Token, FAQ, fallback, bridge |
+| [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Template registro QA |
 | [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md) | Tokens `--rz-*`, componentes |
 | [`docs/audits/`](./audits/) | Auditorias incrementais |
 | [`concluidos/`](./concluidos/README.md) | Entregas concluídas (fases, auditorias, upgrades) |

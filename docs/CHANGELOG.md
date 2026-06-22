@@ -6,6 +6,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.37] — 2026-06-22
+
+### Corrigido
+
+- E2E Supervisor: seletor strict mode para métrica «Em atendimento» (`inbox-authenticated.spec.ts`).
+
+### Documentação
+
+- `INDICE-DOCUMENTACAO.md` § QA; `SISTEMA-REGISTRO.md` 2.11.36; `qa-prep` aponta KICKOFF.
+
+---
+
 ## [2.11.36] — 2026-06-22
 
 ### Corrigido

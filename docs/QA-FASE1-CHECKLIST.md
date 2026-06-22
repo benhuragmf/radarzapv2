@@ -1,6 +1,6 @@
 # RadarZap v2 — Checklist QA Fase 1 (estabilização)
 
-> **Versão alvo:** `2.11.36` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
+> **Versão alvo:** `2.11.37` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
 > **Roteiro detalhado:** [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · **Spec 2.11.24–28:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)  
 > **Pré-check:** `npm run qa:prep` + `npm run qa:atendimento:gate` · **Resultado:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md)
 
