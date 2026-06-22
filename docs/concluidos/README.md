@@ -2,7 +2,7 @@
 
 Entregas **finalizadas** — implementadas, auditadas ou substituídas por doc consolidado ativo na raiz `docs/`.
 
-**Referência viva:** use os módulos na raiz (`INBOX-ATENDIMENTO.md`, `WEBCHAT.md`, `TICKET-ATENDIMENTO.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`).
+**Referência viva:** use os módulos na raiz (`INBOX-ATENDIMENTO.md`, `WEBCHAT.md`, `TICKET-ATENDIMENTO.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`) e pacotes de entrega ativos como [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](../ENTREGA-ATENDIMENTO-2.11.24-28.md).
 
 ---
 

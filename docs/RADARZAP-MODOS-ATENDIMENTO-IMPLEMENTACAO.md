@@ -1,6 +1,6 @@
 # RadarZap — Modos de Atendimento: implementação completa (Fases 1–4)
 
-**Versão atual:** `2.11.4` · **Última atualização:** 2026-06-19  
+**Versão atual:** `2.11.28` · **Última atualização:** 2026-06-21  
 **Análise prévia:** [`concluidos/ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md)
 
 Documento consolidado de **tudo que foi implementado** na evolução dos modos de atendimento. Substitui a leitura fragmentada das fases individuais para quem quer visão única.
@@ -14,6 +14,8 @@ Documento consolidado de **tudo que foi implementado** na evolução dos modos d
 | 6 (WebChat × modo global) | 2.11.2 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md) | ✅ |
 | 7 (custos/logs por modo) | 2.11.3 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md) | ✅ |
 | 8 (E2E Playwright) | 2.11.4 | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md) | ✅ |
+
+**Entregas atendimento pós-modos:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) — supervisão 2.11.24, presença 2.11.25, fallback deferido + sino crítico + fix IA Básica WC 2.11.28.
 
 ---
 
@@ -313,6 +315,8 @@ Configuração bot: `/platform/inbox/bot`, setores `/platform/inbox/setores`.
 | `robotic` | **Menu robotizado** (`WebChatRoboticTriageService`) — sem FAQ/IA |
 | `basic_triage` | **IA Básica** (`WebChatBasicTriageService`) — local-first |
 | `premium_assistant` | FAQ → auto-reply → IA se `autoReplyUseAi` |
+
+> **Fix 2.11.28:** `WebChatBasicTriageService` tem prioridade sobre `WebChatRoboticTriageService` quando `attendanceMode === basic_triage` (evita menu robotizado indevido no widget).
 
 Fluxo robotizado WebChat:
 

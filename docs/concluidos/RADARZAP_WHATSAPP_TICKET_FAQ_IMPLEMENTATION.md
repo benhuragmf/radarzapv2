@@ -25,6 +25,8 @@
 - Escalação WebChat sem atendente online: mensagem ao visitante + alerta WhatsApp interno.
 - Cooldown de 15 min entre alertas por conversa.
 
+> **Addendum 2.11.28:** com atendente **online** na fila, o fallback **não** dispara na escalação imediata. Aguarda `whatsappFallbackAcceptTimeoutSeconds` (padrão 60s) sem aceite no painel; então mensagem ao visitante + alerta WA + evento urgente `webchat:fallback_missed` no sino. Ver [`WEBCHAT.md`](../WEBCHAT.md) § Fallback deferido e [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md).
+
 ### Fase D (2.10.73)
 
 - Comandos via WhatsApp: `!assumir`, `!ticket`, `!encerrar`, `!ajuda`.
@@ -48,7 +50,8 @@
 
 1. **Triagem e Bot** → ativar fallback + números/grupo + mensagem ao visitante.
 2. Sessão WhatsApp conectada em **Sessões**.
-3. Ajustar timeout de presença (30–300s, padrão 90s).
+3. Ajustar timeout de presença (`agentPresenceTimeoutSeconds`, 30–300s, padrão 90s).
+4. *(2.11.28)* Ajustar **tempo para aceitar antes do fallback** (`whatsappFallbackAcceptTimeoutSeconds`, 30–900s, padrão 60s).
 
 ## Testar consulta de ticket
 

@@ -4,6 +4,8 @@
 
 **2026-06-19** (pós-commit `c978e6d` · versão `2.10.86`)
 
+> **Nota código (2026-06-21):** produto em **`2.11.28`** — presença operacional, fallback deferido, alertas críticos painel, rate limit WA e gate `qa:atendimento:gate` verde. Checklists QA manual `[ ]` neste doc **permanecem válidos** até execução humana (§10 do [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](../PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md)).
+
 ## Escopo
 
 Auditoria **incremental** focada nas modificações após a auditoria funcional de WhatsApp/Ticket/FAQ (`2.10.75`), cobrindo:

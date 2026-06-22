@@ -2,6 +2,8 @@
 
 Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
+**Entregas atendimento 2.11.24–28 (presença, supervisor, fallback, sino):** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md).
+
 **Nomes visuais do menu (labels):** ver [`concluidos/menu-renaming-audit.md`](./concluidos/menu-renaming-audit.md) — rotas abaixo permanecem estáveis; labels exibidos vêm de `navConfig.ts` (`PAGE_TITLES`).
 
 ## Plataforma (tenant)
@@ -16,15 +18,16 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/gatilhos` | `menu/PlatformTriggers.tsx` | (link → `/platform/automacoes`) |
 | `/platform/wa-status` | `menu/WaStatus.tsx` | `GET /platform/account-stats`, `GET /logs?tenant=1&service=WhatsAppService` |
 | `/platform/wa-logs` | `menu/WaLogs.tsx` | `GET /logs?tenant=1&service=WhatsAppService` |
+| `/platform/wa-limits` | `menu/WhatsAppSendLimitsPage.tsx` | `GET/PATCH /platform/whatsapp-send-limits` — buckets conversa/marketing/alerta (2.11.17) |
 | `/platform/automacoes` | `PlatformAutomations.tsx` | `GET/POST /platform/automations` |
 | `/platform/inbox` | `menu/Inbox.tsx` | `GET/POST /inbox/*`, `?conv=` deep link |
 | `/platform/inbox/tickets` | `menu/InboxTickets.tsx` | `GET /inbox/tickets?page&limit`, `GET /inbox/tickets/stats` — paginação server-side (2.10.18) |
 | `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref`, `POST …/client-update`, `…/close`, `…/comments`, `PATCH …/status` — regras: `TICKET-ATENDIMENTO.md` |
 | `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
-| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` — CSAT, SLA ticket, **fallback WhatsApp** (`whatsappFallbackAcceptTimeoutSeconds` 2.11.28) + presença (2.11.25) |
+| `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` — CSAT, SLA ticket, fallback WhatsApp, presença; API presença: `GET/PATCH /inbox/presence/*` |
 | `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, KB com keywords/links/sugestão rápida (2.10.71), `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage` |
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
-| `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/dashboard`, `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign` (WA + WebChat) |
+| `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/dashboard`, `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign`, presença equipe |
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |
 | `/platform/webchat` | `menu/WebChat.tsx` | Widgets + histórico · API pública: `POST …/tickets/lookup`, `POST …/tickets/resume` (2.10.70), demais rotas em `WEBCHAT.md` |
 
@@ -64,6 +67,14 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/admin/payments` | `menu/AdminPaymentsPage.tsx` | `GET /billing/admin/orders` |
 | `/admin/settings` | `menu/AdminSettingsPage.tsx` | `GET /services/health` |
 
+## API auxiliar (sem rota dedicada no menu)
+
+| Método | Rota | Cap | Uso |
+|--------|------|-----|-----|
+| GET | `/platform/health/atendimento` | `inbox:view` | Saúde WA, filas, CSAT pendente — 2.11.17 |
+
+---
+
 ## Redirects legados `/em-breve/:slug`
 
 Ver `pages/menu/EmBreveRedirect.tsx` → `SLUG_REDIRECTS`.
@@ -74,11 +85,12 @@ Ver `pages/menu/EmBreveRedirect.tsx` → `SLUG_REDIRECTS`.
 - `src/models/CompanyMember.ts` — `customRoleId`, `extraCapabilities`, `deniedCapabilities`
 - `src/models/Destination.ts` — `consentRenewalApprovals` (0–2)
 - `src/types/org-custom-role.ts` — helpers `custom:uuid`, `defaultOrgCustomRoles()`
-- `src/models/InboxSettings.ts`
+- `src/models/InboxSettings.ts` — `whatsappFallbackAcceptTimeoutSeconds`, `agentPresenceTimeoutSeconds`, `presenceIdleTimeoutSeconds` (2.11.25–2.11.28)
 - `src/models/InboxDepartment.ts` — `clientVisible`, `internalRank`
 - `src/models/InboxConversation.ts`
 - `src/models/InboxMessage.ts`
 - `src/models/InboxTransfer.ts`
 - `src/models/ApiKey.ts`
 - `src/models/WebhookEndpoint.ts`
+- `src/types/panel-events.ts` — eventos urgentes painel (2.11.28)
 - `src/constants/openapi-dashboard.ts`

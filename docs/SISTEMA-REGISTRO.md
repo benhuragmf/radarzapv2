@@ -4,7 +4,7 @@
 
 **Versão atual:** `2.11.28` (`package.json`) · **Última revisão doc:** 2026-06-21
 
-Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
+Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
 ---
 
@@ -106,6 +106,8 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.3** | Fase 7: custos/logs LLM por modo (`usageKind` Premium vs Básica) — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md` |
 | **2.11.15** | Docs: pasta `concluidos/` — arquivar entregas finalizadas (fases modos, FAQ WA, upgrades UI) |
 | **2.11.16** | Auditoria atendimento revisão 2; `qa:atendimento:gate`; anti-loop alerta fallback WebChat — `ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md` |
+| **2.11.17** | Rate limit WA tipado + jitter; `GET /platform/health/atendimento`; `AttendanceEvent` bridge; `PILOT_MODE` — `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md` |
+| **2.11.24** | Supervisão avançada: dashboard equipe/presença/monitor conversa WA+WebChat, métricas 7d — `INBOX-ATENDIMENTO.md` § Supervisor |
 | **2.11.25** | Presença operacional atendentes (`online`/`ausente`/`ocupado`/`offline`/`supervisor_online`); round-robin por disponibilidade — `INBOX-ATENDIMENTO.md` |
 | **2.11.28** | Fallback WA deferido (`whatsappFallbackAcceptTimeoutSeconds`); sino vermelho alertas críticos (`panel-events.ts`, plano/IA/cota/config); fix IA Básica WebChat — `INBOX-ATENDIMENTO.md`, `WEBCHAT.md` |
 
@@ -133,7 +135,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | Módulo | Destaques |
 |--------|-----------|
 | Equipe/RBAC | `customRoles[]`, `roleKey`, preset CUSTOM oculto na UI |
-| Inbox | `clientVisible`, `internalRank`, escalação na transferência |
+| Inbox | `clientVisible`, `internalRank`, escalação na transferência; presença operacional + alertas críticos (2.11.25–2.11.28) |
 | Consentimento | `consentRenewalApprovals` 0–2, `/contact?consent=waiting`, fila `pendingOutboundDeliveries` até aceite `1` |
 | Tickets Inbox | Janela cliente 12h pós-envio equipe; grace 30min; menu follow-up após 2h |
 | Painel | scroll do navegador; `Layout.tsx` `min-h-screen` |
@@ -152,6 +154,9 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `InboxDepartment` | `clientVisible`, `internalRank` | 2.1.0 |
 | `InboxSettings` | `inactivityAutoCloseEnabled`, `inactivityCloseMinutes`, `inactivityWarningMinutes`, `queueSlaAlertMinutes` | 2.2.1 |
 | `InboxSettings` | `ticketTeamResponseHours` | 2.7.0 |
+| `InboxSettings` | `whatsappFallbackEnabled`, `whatsappFallbackAlertPhones`, `whatsappFallbackVisitorMessage`, `agentPresenceTimeoutSeconds` | 2.10.72 |
+| `InboxSettings` | `whatsappFallbackAcceptTimeoutSeconds` | 2.11.28 |
+| `InboxSettings` | `presenceIdleTimeoutSeconds` | 2.11.25 |
 | `InboxConversation` | `lastOutboundAt`, `inactivityWarnedAt`, `queueSlaNotifiedAt` | 2.2.1 |
 | `InboxTicket` | `lastTeamMessageAt` | 2.6.3 |
 | `InboxTicket` | `teamSlaDueAt`, `teamSlaBreachedAt`, `lastStatusChangeAt` | 2.7.0 |

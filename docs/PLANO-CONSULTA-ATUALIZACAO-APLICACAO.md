@@ -1,6 +1,6 @@
 # Plano — consulta, atualização e aplicação (origem GG)
 
-**Versão ref:** `2.11.17` · **Data:** 2026-06-19  
+**Versão ref:** `2.11.28` · **Data:** 2026-06-21  
 **Status:** Fase 1 — estabilização (sem go-live)
 
 Este documento consolida os rascunhos `gg.md`, `gg1.md` e `gg2.md` em entregas oficiais do **RadarZap v2** e define **como consultar, atualizar e aplicar** cada bloco no sistema.
@@ -63,13 +63,18 @@ Regras do `gg.md` adaptadas:
 
 | Item (gg.md) | Onde aplicar | Doc / código | Status jun/2026 |
 |--------------|--------------|--------------|-----------------|
+| Entrega 2.11.24–28 (presença, supervisor, fallback, sino) | Código + docs | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | ✅ doc completa |
 | WA Inbox × Ticket × CSAT × IA | QA manual **§10** | `QA-FASE1-CHECKLIST.md`, `QA-FASE1-ROTEIRO.md` | 🔴 QA manual por último |
 | Ordem inbound | Testes | `inbound-routing.test.ts`, `csat.util.test.ts` | 🟡 unitários OK; integração falta |
-| Gate automático atendimento | `package.json` scripts | `npm run qa:atendimento:gate` | ✅ 2.11.16 |
+| Gate automático atendimento | `package.json` scripts | `npm run qa:atendimento:gate` | ✅ 2.11.28 (463 testes + gate) |
 | WebChat bridge + comandos WA | Código + QA | `webchat-whatsapp-bridge.service.ts` | 🟡 2.11.8–2.11.13; QA §10 |
 | Celular próprio / loop alerta | Análise | §7 em `ANALISE-CRITICA-…` | ✅ anti-loop 2.11.16 |
 | Rate limit 2/min marketing, 10/min conversa | WhatsApp send layer | `whatsapp-session-rate-limit.ts` | ✅ 2.11.17 |
 | Chamado WebChat × cliente × `!nota` | Ticket + bridge | `InboxService`, `TICKET-ATENDIMENTO.md` | ✅ 2.11.10–2.11.13 |
+| Presença operacional + round-robin | Inbox + socket | `inbox-agent-presence.ts`, `INBOX-ATENDIMENTO.md` | ✅ 2.11.25 |
+| Supervisão avançada (dashboard/monitor) | Inbox supervisor | `inbox-supervisor-dashboard.service.ts` | ✅ 2.11.24 |
+| Fallback WA deferido + sino crítico | WebChat + painel | `webchat-whatsapp-fallback.service.ts`, `panel-critical-alerts.service.ts` | ✅ 2.11.28 |
+| Fix IA Básica WebChat (≠ menu robotizado) | WebChat triagem | `webchat-basic-triage.service.ts` | ✅ 2.11.28 |
 
 ### Prioridade 2 — Segurança operacional
 
@@ -93,22 +98,23 @@ Regras do `gg.md` adaptadas:
 
 ## 4. Fases de execução
 
-### Fase A — Gate automático + correções (em andamento)
+### Fase A — Gate automático + correções
 
-1. ✅ `npm run qa:atendimento:gate` (2.11.16)
+1. ✅ `npm run qa:atendimento:gate` (2.11.28 — 463 testes unitários + gate)
 2. ✅ Anti-loop alerta fallback (2.11.16)
 3. ✅ Auditoria rev.2 (`ANALISE-CRITICA-…`)
-4. Corrigir regressões encontradas no gate (patch 2.11.x)
-5. Testes integrados mínimos InboxService (próximo patch)
+4. ✅ Fallback deferido + alertas críticos painel (2.11.28)
+5. ⏳ Testes integrados mínimos InboxService (próximo patch)
 
-### Fase B — Segurança operacional (agora)
+### Fase B — Segurança operacional
 
 1. ✅ Rate limit por sessão WA tipado + jitter (2.11.17)
 2. ✅ Proteção loop número próprio em alertas bridge (2.11.16)
 3. ✅ Audit log append-only bridge (`AttendanceEvent`) (2.11.17)
 4. ✅ `GET /api/platform/health/atendimento` (2.11.17)
-5. ⏳ Webhooks ticket/bridge
-6. ⏳ Audit log eventos ticket (create/close/reply)
+5. ✅ Presença operacional atendentes + round-robin por disponibilidade (2.11.25)
+6. ⏳ Webhooks ticket/bridge
+7. ⏳ Audit log eventos ticket (create/close/reply)
 
 ### Fase C — Piloto seguro
 

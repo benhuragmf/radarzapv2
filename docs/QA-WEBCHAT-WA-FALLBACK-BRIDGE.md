@@ -41,7 +41,6 @@
 1. **Atendimento → Triagem e Bot** (`/platform/inbox/bot`).
 2. Seção **Chat do site — fallback WhatsApp**:
    - [ ] Ativar fallback
-   - [ ] **Tempo para aceitar antes do fallback** (ex.: `60` s — padrão 2.11.28)
    - [ ] Número(s) de alerta (seu celular ou grupo `@g.us`)
    - [ ] Mensagem ao visitante (texto customizado)
    - [ ] Timeout presença: `90` s (padrão)
@@ -88,17 +87,14 @@
 
 ---
 
-## C. Fallback offline (Fase C — atualizado 2.11.28)
+## C. Fallback offline (Fase C)
 
 | # | Passo | Esperado | OK? |
 |---|-------|----------|-----|
-| C0 | Atendente **online**; visitante escala para fila | Prioridade no painel; **não** dispara fallback na hora | [ ] |
-| C0b | Atendente **não** assume; aguardar `whatsappFallbackAcceptTimeoutSeconds` | Mensagem fallback no widget + alerta WA | [ ] |
-| C0c | Atendente designado abre painel depois | Sino **vermelho** — *Chat perdido — fallback WhatsApp* | [ ] |
-| C1 | Fechar painel de **todos** os atendentes (ou aguardar timeout offline) | Ninguém disponível na fila | [ ] |
-| C2 | Visitante: pré-chat → escalar para fila (ou IA escala) | Após timeout sem assign: mensagem fallback no widget | [ ] |
+| C1 | Fechar painel de **todos** os atendentes (ou aguardar ~90s sem heartbeat) | Ninguém online | [ ] |
+| C2 | Visitante: pré-chat → escalar para fila (ou IA escala) | Mensagem fallback no widget | [ ] |
 | C3 | WhatsApp configurado recebe alerta | Texto com `TK-…`, `!assumir`, `!ticket`, `!encerrar` | [ ] |
-| C4 | Reabrir painel atendente | Presença volta (heartbeat + status online) | [ ] |
+| C4 | Reabrir painel atendente | Presença volta (heartbeat) | [ ] |
 
 ---
 
@@ -133,7 +129,7 @@
 |---|-------|----------|-----|
 | F1 | Conversa WA normal (sem `!`) de cliente | Fluxo Inbox/ticket normal, não consumido como bridge | [ ] |
 | F2 | CSAT após finalizar conversa site | Pesquisa enviada (se CSAT ativo) | [ ] |
-| F3 | `npm test` + `npm run qa:atendimento:gate` | Verde (463 testes + gate 2026-06-21) | [x] |
+| F3 | `npm test` local | Verde | [ ] |
 
 ---
 

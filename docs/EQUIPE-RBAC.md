@@ -58,3 +58,21 @@ Ordem: caps do custom role (se houver) + `extraCapabilities` − `deniedCapabili
 
 - `/settings/team` — `TeamMembers.tsx`, `TeamPermissionsEditor.tsx`
 - Layout: scroll do navegador; grid de papéis responsivo (`auto-fill`)
+
+## Presença operacional (Inbox)
+
+Status persistidos por atendente: `online`, `ausente`, `ocupado`, `offline`, `supervisor_online`. Heartbeat no painel + socket; round-robin e fallback WebChat consultam disponibilidade real (não só socket conectado).
+
+**Cap:** `inbox:reply` (atendente altera o próprio status); supervisores veem equipe com `inbox:supervise`.
+
+| Método | Rota | Notas |
+|--------|------|-------|
+| GET | `/inbox/presence/config` | Timeouts (`presenceIdleTimeoutSeconds`, etc.) |
+| GET | `/inbox/presence/me` | Status atual do usuário logado |
+| PATCH | `/inbox/presence/me` | `{ status }` — heartbeat implícito |
+| GET | `/inbox/presence/team` | Lista equipe + status (`inbox:supervise`) |
+| PATCH | `/inbox/presence/:userId` | Supervisor altera status de membro |
+
+Configuração de timeouts: **Triagem e Bot** (`/platform/inbox/bot`) — campos `agentPresenceTimeoutSeconds`, `presenceIdleTimeoutSeconds`, `whatsappFallbackAcceptTimeoutSeconds`.
+
+Código: `src/services/inbox/inbox-agent-presence.ts`, `src/constants/agent-presence.ts`. Doc: [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) § Presença operacional.

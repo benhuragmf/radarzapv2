@@ -8,6 +8,18 @@
 
 **Plano de aplicação:** [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md)
 
+> **Atualização código (2026-06-21):** desde a auditoria **2.11.16**, o repositório entregou **2.11.17–2.11.28** (rate limit WA, saúde atendimento, supervisão, presença operacional, fallback deferido, sino vermelho alertas críticos, fix IA Básica WebChat). Este documento permanece como **snapshot da revisão 2**; lacunas abaixo marcadas 🔴/🟡 devem ser lidas junto com [`CHANGELOG.md`](./CHANGELOG.md) e [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md). **QA manual §10 continua pendente** — não substitui gate automático.
+
+| Entrega | Versão | Impacto na análise |
+|---------|--------|-------------------|
+| Rate limit 2/10/min + jitter | 2.11.17 | Item P1 rate limit — ✅ implementado |
+| `GET /platform/health/atendimento` | 2.11.17 | Observabilidade P2 — ✅ |
+| Supervisão dashboard/monitor | 2.11.24 | Lacuna supervisão — ✅ código |
+| Presença operacional + RR | 2.11.25 | Presença heartbeat-only — ✅ evoluído |
+| Fallback deferido + `webchat:fallback_missed` | 2.11.28 | Fallback imediato com online — ✅ corrigido |
+| Alertas críticos (`billing:*`, `ai:quota_*`, config) | 2.11.28 | Notificações plano/cota — ✅ painel |
+| Testes unitários | 2.11.28 | 463 testes + `qa:atendimento:gate` verde | Gate automático ✅; integração InboxService ⏳ |
+
 ---
 
 ## 1. Resumo executivo

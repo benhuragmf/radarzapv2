@@ -52,6 +52,8 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 [ ] docs/MENU-PAGES-REGISTRY.md — se rota/menu/API mudou
 [ ] Doc de feature/fase — se escopo grande (ex.: RADARZAP-*-PHASE-N.md)
 [ ] Doc consolidado do módulo — se existir (ex.: RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
+[ ] Doc ENTREGA — se pacote multi-patch coeso (ex.: ENTREGA-ATENDIMENTO-2.11.24-28.md)
+[ ] docs/INDICE-DOCUMENTACAO.md — se novo doc de módulo ou ENTREGA
 [ ] Testes/build passando
 [ ] Commit + push (sem sessions/, .env, credenciais)
 ```
@@ -71,6 +73,7 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 | Modos de atendimento | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) |
 | Análise / decisão arquitetural | doc dedicado `docs/ANALISE-*.md` ou seção no consolidado |
 | Fase de feature grande | `docs/RADARZAP-*-PHASE-N.md` + atualizar consolidado; ao concluir → mover para [`concluidos/`](./concluidos/README.md) |
+| **Pacote multi-versão** (várias entregas relacionadas) | [`ENTREGA-ATENDIMENTO-*.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) — referência técnica completa + links nos módulos |
 | Roadmap / produção | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) |
 
 **Regra:** se não existir doc de módulo, criar **`docs/NOME-MODULO.md`** mínimo (escopo, rotas, modelos, changelog local).

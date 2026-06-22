@@ -475,28 +475,63 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 - **Menu 1–4:** exclusivo do atendimento (não é fluxo de opt-in LGPD)
 - **Ticket fechado:** respostas do cliente vão ao `TK-…` se dentro de **12 h** após o último envio da equipe — ver seção [Tickets de acompanhamento](#tickets-de-acompanhamento-atendimento-assíncrono)
 
+## Presença operacional (2.11.25)
+
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §3.
+
+### Status
+
+| Valor | Label | Entra na fila / RR? |
+|-------|-------|---------------------|
+| `online` | Online | Sim |
+| `ausente` | Ausente | Não |
+| `ocupado` | Ocupado / Não receber | Não |
+| `offline` | Offline | Não |
+| `supervisor_online` | Online sem receber atendimento | Não (só quem tem `inbox:supervise`) |
+
+### Mecânica
+
+- **Online efetivo:** heartbeat (`agent:heartbeat` a cada **30s**) atualiza `lastSeen`; válido enquanto `(now - lastSeen) < agentPresenceTimeoutSeconds` (padrão **90s**, 30–300).
+- **Disponível para fila:** `online && status === 'online'` — funções `isAgentAvailableForQueue`, `getAvailableAgentIdsForQueue`.
+- **Inatividade:** sem mouse/teclado por `presenceIdleTimeoutSeconds` (padrão **300s**, 60–3600) → status auto `ausente`; ao voltar à aba, prompt restaura último status manual.
+- **Round-robin:** `suggestRoundRobinAgent` só indica quem está `availableForQueue`.
+
+### API
+
+| Método | Rota | Cap |
+|--------|------|-----|
+| GET | `/inbox/presence/config` | `inbox:reply` |
+| GET/PATCH | `/inbox/presence/me` | `inbox:reply` |
+| GET | `/inbox/presence/team` | `inbox:supervise` |
+| PATCH | `/inbox/presence/:userId` | `inbox:supervise` |
+
+Socket: `agent:presence:changed` → `tenant:{clientId}`.
+
+Código: `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts`, `constants/agent-presence.ts`. UI: `AgentStatusSelector`, `useAgentPresenceHeartbeat`.
+
+---
+
 ### Fallback WhatsApp + bridge site (2.10.72–2.11.28)
+
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 · [`WEBCHAT.md`](./WEBCHAT.md) § Fallback.
 
 Quando uma conversa **WebChat** entra na fila (`waiting_human`):
 
-1. **Triagem e Bot** (`/platform/inbox/bot`) — seção *Chat do site — fallback WhatsApp*: `whatsappFallbackEnabled`, `whatsappFallbackAcceptTimeoutSeconds` (padrão **60s**), números de alerta, mensagem ao visitante, `agentPresenceTimeoutSeconds`.
-2. Round-robin indica atendente (`suggestedUserId`) se houver alguém **online e disponível** (2.11.25+).
-3. **Aguarda aceite** no painel pelo tempo configurado — **não** dispara fallback na hora da escala (2.11.28).
-4. Scan ~60s (`processWebChatFallbackAcceptTimeouts`): se ainda sem assign → `handleWebChatNoAgentOnline` + mensagem sistema ao visitante.
-5. Atendente que perdeu prioridade recebe evento **`webchat:fallback_missed`** (sino **vermelho**, `targetUserId`).
-6. Alerta enviado via `WhatsAppService.sendInternalAlert` (sessão Baileys da empresa).
-7. Atendente autorizado responde `!assumir TK-…` → assume no painel + **bridge** (`whatsappBridgeActive`).
-8. Comandos `!` interceptados antes do fluxo cliente: `!encerrarchat` desativa bridge; `!encerrar` finaliza chamado e conversa.
+1. **Triagem e Bot** — `whatsappFallbackEnabled`, `whatsappFallbackAcceptTimeoutSeconds` (padrão **60s**, 30–900), telefones alerta, mensagem visitante, `agentPresenceTimeoutSeconds`.
+2. Round-robin indica atendente (`suggestedUserId` + `suggestedAt`) se houver alguém **availableForQueue** (2.11.25+).
+3. **Não** chama fallback na escalação — aguarda aceite no painel (2.11.28).
+4. Scan ~60s (`processWebChatFallbackAcceptTimeouts` em `WebChatService`, via `InboxService.processInactivityAndQueueSla`):
+   - Cronômetro: `suggestedAt` se houver indicado; senão `queueEnteredAt`.
+   - Sem `assignedUserId` após timeout → `handleWebChatNoAgentOnline` + mensagem sistema.
+5. Atendente que perdeu prioridade → `webchat:fallback_missed` (sino **vermelho**, `targetUserId`).
+6. Alerta WA via `sendInternalAlert` (`sendKind: alert`); cooldown **15 min**/conversa; anti-loop sessão Baileys.
+7. `!assumir TK-…` → bridge (`whatsappBridgeActive`).
 
-**Presença operacional (2.11.25):** status `online` | `ausente` | `ocupado` | `offline` | `supervisor_online` — seletor no header; heartbeat a cada 30s; inatividade (`presenceIdleTimeoutSeconds`); round-robin/fila só indicam quem está disponível para fila. API: `GET/PATCH /inbox/presence/me`, `GET /inbox/presence/team`, `PATCH /inbox/presence/:userId`.
+**Inbox:** badge **Bridge WA** na lista e cabeçalho.
 
-**Presença técnica:** socket `agent:heartbeat`; timeout offline (`agentPresenceTimeoutSeconds`, padrão 90s) — `inbox-agent-presence.ts`.
+Doc histórica: [`concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md).
 
-**Notificações críticas (2.11.28):** tipos urgentes (badge vermelho + som) em `src/types/panel-events.ts`; scan `PanelCriticalAlertsService` — plano expirando/expirado, cota IA/mensagens, config incompleta; visível ao dono/admin (`billing:view`). Eventos operacionais: `whatsapp:disconnected`, `inbox:queue_sla`, `inbox:ticket_sla`, `webchat:fallback_missed`.
-
-**Inbox:** badge **Bridge WA** na lista e cabeçalho quando bridge ativo.
-
-Doc detalhada: [`concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md), `WEBCHAT.md` § Fallback.
+---
 
 ## Bot configurável (Fase 2)
 
@@ -560,26 +595,58 @@ Métricas por período (`from` / `to` ISO):
 
 Serviço: `InboxReportsService`.
 
-## Supervisor (Fase 4)
+## Supervisor (2.11.24)
+
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §2.
 
 Painel: `/platform/inbox/supervisor` (`inbox:supervise` — OWNER/ADMIN).
 
-- **Equipe ao vivo:** online/offline, atividade (Inbox, supervisão, em conversa, outra área)
-- **Presença:** heartbeat `agent:heartbeat` envia `route` + `viewingConversationId` (Inbox seleciona conversa)
-- **Conversas ativas:** WhatsApp + ChatBox com tempo de atendimento e botão **Monitorar** (drawer somente leitura)
-- **Fila:** triagem + espera com reatribuição (WA e WebChat)
-- **Métricas (7 dias):** tempo médio de atendimento, tempo para puxar da fila, CSAT por atendente
-- API agregada: `GET /inbox/supervisor/dashboard` (`InboxSupervisorDashboardService`)
-- Reatribuir: `POST /inbox/conversations/:id/reassign` — IDs `wc:` incluídos desde **2.11.24**
-- Atualização via WebSocket + refresh manual (15s)
+### Dashboard (`GET /inbox/supervisor/dashboard`)
+
+Payload `SupervisorDashboardPayload` (`src/types/inbox-supervisor.ts`):
+
+| Bloco | Conteúdo |
+|-------|----------|
+| `summary` | Fila, triagem, ativos, online, prioridades, TMA 7d, tempo puxar, CSAT médio |
+| `agents[]` | Equipe: presença operacional, atividade inferida, conversas ativas, métricas individuais 7d |
+| `activeConversations[]` | WA + WebChat em atendimento |
+| `queue[]` | WA + WebChat aguardando (triagem ou fila) |
+
+### Funcionalidades UI
+
+- **Equipe ao vivo:** status operacional + atividade (`offline` / `inbox` / `in_chat` / `supervisor` / `other_page` / `idle`)
+- **Presença:** heartbeat envia `route` + `viewingConversationId` (Inbox com `?conv=`)
+- **Conversas ativas:** tempo de atendimento, bridge WA, botão **Monitorar** (`SupervisorMonitorDrawer` — somente leitura)
+- **Fila:** reatribuição `POST /inbox/conversations/:id/reassign` — IDs `wc:` incluídos
+- **Métricas 7d por agente:** conversas, TMA, tempo para puxar da fila, CSAT
+
+Serviço: `InboxSupervisorDashboardService`. Atualização: WebSocket + refresh manual (15s).
+
+---
 
 ## Notificações no painel
 
-- **Balão de eventos** no header (à esquerda do indicador *online*): `EventNotificationBell`
-- Eventos via Socket.IO `panel:event` (`PanelNotifications`)
-- Tipos: novo chat, nova mensagem, prioridade, prioridade expirada, fila parada, WhatsApp desconectado/reconectado
-- Som configurável em `/platform/inbox/bot` (alertas do painel)
-- Hook: `usePanelSocket` + `EventNotificationContext`
+Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 · [`BILLING.md`](./BILLING.md) § Alertas.
+
+- **Balão de eventos** no header: `EventNotificationBell` (à esquerda do indicador de status)
+- Socket `panel:event` via `PanelNotifications` → sala `inbox:{clientId}`
+- Contexto: `EventNotificationContext` — filtra `targetUserId` e `ownerOnly` (`billing:view`)
+
+### Tipos de evento (`src/types/panel-events.ts`)
+
+| Tipo | Urgente (vermelho) | Quem vê |
+|------|-------------------|---------|
+| `inbox:new_chat`, `inbox:new_message`, `inbox:priority`, `inbox:priority_expired`, `webchat:escalated` | Não | Equipe inbox |
+| `inbox:queue_sla`, `inbox:ticket_sla`, `webchat:fallback_missed`, `whatsapp:disconnected` | **Sim** | Equipe (fallback: só `targetUserId`) |
+| `billing:plan_expiring`, `billing:plan_expired`, `billing:messages_quota_exceeded` | **Sim** | Dono/admin (`billing:view`) |
+| `ai:quota_exceeded`, `ai:quota_low`, `system:critical_config` | **Sim** | Dono/admin (`billing:view`) |
+| `whatsapp:connected` | Não | Equipe |
+
+**Som:** urgentes → `playAlertSound('urgent')`; demais respeitam `alertSoundEnabled`, `alertOnNewChat`, `alertOnNewMessage` em Triagem e Bot.
+
+**Scan alertas conta/config:** `PanelCriticalAlertsService.scanAll()` a cada ~60s (junto com SLA Inbox). Emissão reativa também em expiração plano, bloqueio IA, cota mensagens.
+
+Hook: `usePanelSocket` + `EventNotificationContext`.
 
 ## Estabilidade WhatsApp
 

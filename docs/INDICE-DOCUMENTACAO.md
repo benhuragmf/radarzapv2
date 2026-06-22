@@ -1,6 +1,6 @@
 # RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.16` · **Atualizado:** 2026-06-21
+**Versão do produto:** `2.11.28` · **Atualizado:** 2026-06-21
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -16,6 +16,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização, lacunas |
 | [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação (origem GG) |
 | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria estabilização Fase 1 |
+| [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | **Referência completa** — supervisão, presença, fallback deferido, sino crítico (2.11.24–28) |
 | [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (pós-estabilização) |
 
 ---
@@ -33,7 +34,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem WA, fila, CSAT, IA |
+| [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem WA, fila, CSAT, IA, presença, supervisor, notificações |
 | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados, SLA, menu bot |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, IA, FAQ |
 | [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) | Upgrade visual Inbox 2.10.18 (arquivo) |
@@ -58,7 +59,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md) | Migração v1 → v2 |
 | [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) | Infra/env (referência) |
 | [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
-| [`BILLING.md`](./BILLING.md) | Stripe / planos |
+| [`BILLING.md`](./BILLING.md) | Stripe / planos · alertas críticos `billing:*` no sino (2.11.28) |
 
 ---
 
@@ -80,7 +81,14 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | Settings IA | `src/models/AiSettings.ts`, `AiSettingsService.ts` | PHASE-3, consolidado |
 | UI IA | `frontend/.../AiAtendimento.tsx` | PHASE-1 |
 | Robotizado WC | `webchat-robotic-triage.service.ts` | PHASE-4 |
+| IA Básica WC | `webchat-basic-triage.service.ts` | Consolidado modos · fix gate 2.11.28 |
 | Triagem WA | `inbox-triage.ts`, `InboxService` | INBOX-ATENDIMENTO |
+| Presença atendentes | `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §3 |
+| Fallback WA deferido | `webchat-whatsapp-fallback.service.ts`, scan em `WebChatService` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 |
+| Alertas críticos painel | `panel-events.ts`, `panel-critical-alerts.service.ts`, `EventNotificationBell.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 |
+| Supervisão equipe | `inbox-supervisor-dashboard.service.ts`, `InboxSupervisor.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §2 |
+| Rate limit WA | `whatsapp-session-rate-limit.ts`, `WhatsAppSendLimitsPage.tsx` | PLANO § Fase B · `/platform/wa-limits` |
+| Saúde atendimento | `GET /platform/health/atendimento` em `DashboardService.ts` | PLANO § Fase B |
 
 ---
 

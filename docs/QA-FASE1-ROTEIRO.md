@@ -2,7 +2,7 @@
 
 > **Execute por último** — após Fase B/C do [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) e `npm run qa:atendimento:gate` verde.  
 > Complementa [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) com ordem de execução e mensagens exatas.  
-> **Versão alvo:** `2.11.28`
+> **Versão alvo:** `2.11.17+`
 
 ## Antes de começar
 
@@ -132,19 +132,6 @@ Percorra cada rota logado. Marque no checklist.
 4. No painel: `/platform/inbox?channel=webchat` → **Assumir** e responder
 5. Teste anexo (imagem/PDF) se possível
 6. **Finalizar** e confirme no widget que encerrou
-
----
-
-## Parte 3b — Fallback deferido + sino vermelho (2.11.28)
-
-**Pré-condição:** fallback ativo em Triagem e Bot; timeout **60s** (ou 30s para teste rápido); 1 atendente **online** no painel.
-
-| Quem | Ação | Esperado |
-|------|------|----------|
-| Visitante | Escala para fila (WebChat) | Prioridade para atendente; **sem** fallback imediato |
-| Atendente | **Não** clica Assumir; aguarda timeout | Após ~60s: mensagem fallback no widget + alerta WA |
-| Atendente | Volta ao painel (ou já estava) | Sino **vermelho** — evento *Chat perdido — fallback WhatsApp* |
-| Dono/admin | Plano perto do vencimento ou cota IA esgotada | Sino vermelho com alertas `billing:*` / `ai:quota_*` (só quem tem `billing:view`) |
 
 ---
 

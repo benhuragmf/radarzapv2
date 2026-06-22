@@ -8,27 +8,44 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ## [2.11.28] — 2026-06-21
 
+Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md).
+
 ### Adicionado
 
-- **Fallback WhatsApp deferido:** após escala na fila, aguarda `whatsappFallbackAcceptTimeoutSeconds` (padrão 60s, 30–900) sem aceite no painel → alerta WA + mensagem ao visitante; scan ~60s (`processWebChatFallbackAcceptTimeouts`).
-- **Notificações críticas (sino vermelho):** registro `src/types/panel-events.ts` + `PanelCriticalAlertsService` — plano expirando/expirado, cota IA/mensagens, config incompleta; tipos urgentes incluem `webchat:fallback_missed`, `whatsapp:disconnected`, `inbox:queue_sla`, `inbox:ticket_sla`.
-- Eventos de conta (`billing:*`, `ai:quota_*`, `system:critical_config`) visíveis só para quem tem `billing:view`.
+- **Fallback WhatsApp deferido:** campo `whatsappFallbackAcceptTimeoutSeconds` (30–900s, padrão 60); após escala na fila aguarda aceite no painel; scan ~60s (`processWebChatFallbackAcceptTimeouts`); evento `webchat:fallback_missed` (urgente, `targetUserId`).
+- **Notificações críticas (sino vermelho):** `src/types/panel-events.ts` + `PanelCriticalAlertsService` — plano, cota IA/mensagens, config incompleta; urgentes operacionais: `whatsapp:disconnected`, `inbox:queue_sla`, `inbox:ticket_sla`.
+- Eventos `billing:*`, `ai:quota_*`, `system:critical_config` — `ownerOnly` (`billing:view`).
 
 ### Corrigido
 
-- **WebChat IA Básica:** triagem usa `resolveAttendanceMode` / `basic_triage` — não cai mais no menu robotizado 1–4 na 1ª mensagem.
-- **Fallback com atendente online:** presença por heartbeat (não exige socket); fallback não dispara na escala imediata.
+- **WebChat IA Básica:** `WebChatBasicTriageService` / `isBasicTriageMode` — não cai no menu robotizado na 1ª mensagem.
+- **Fallback com atendente online:** presença por heartbeat (`availableForQueue`); fallback removido de `escalateToQueue` imediato.
 - **Testes:** mock `whatsapp-send-policy` em `WhatsAppService.test.ts`.
 
 ---
 
 ## [2.11.25] — 2026-06-21
 
+Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §3.
+
 ### Adicionado
 
-- **Status operacional de atendentes** no painel: `online`, `ausente`, `ocupado`, `offline`, `supervisor_online` — seletor no header, inatividade automática, round-robin/fila respeitam disponibilidade real.
-- API `GET/PATCH /inbox/presence/me`, `GET /inbox/presence/team`, `PATCH /inbox/presence/:userId`; config `presenceIdleTimeoutSeconds` em Triagem e Bot.
-- Constantes centralizadas em `src/constants/agent-presence.ts`.
+- **Status operacional:** `online`, `ausente`, `ocupado`, `offline`, `supervisor_online` — seletor header, auto-ausente por inatividade, RR/fila por `availableForQueue`.
+- API `GET/PATCH /inbox/presence/me`, `GET /inbox/presence/team`, `PATCH /inbox/presence/:userId`, `GET /inbox/presence/config`.
+- Campo `presenceIdleTimeoutSeconds` (60–3600s, padrão 300); constantes `src/constants/agent-presence.ts`.
+- Frontend: `agentPresenceContext`, `useAgentPresenceHeartbeat`, `AgentStatusSelector`.
+
+---
+
+## [2.11.24] — 2026-06-21
+
+Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) §2.
+
+### Adicionado
+
+- **Supervisão avançada:** `GET /inbox/supervisor/dashboard` — equipe, presença, conversas ativas WA+WebChat, fila unificada, métricas 7d (TMA, puxar fila, CSAT).
+- `InboxSupervisorDashboardService`, tipos `inbox-supervisor.ts`, `SupervisorMonitorDrawer`.
+- Reassign supervisor inclui IDs `wc:`.
 
 ---
 
