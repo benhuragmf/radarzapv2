@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.11.37",
+  "version": "2.11.38",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -113,6 +113,9 @@
     "tsc-alias": "^1.8.17",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.4"
+  },
+  "overrides": {
+    "undici": "6.27.0"
   },
   "engines": {
     "node": ">=18.0.0",

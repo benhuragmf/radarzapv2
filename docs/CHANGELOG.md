@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.38] — 2026-06-22
+
+### Corrigido
+
+- CI: `npm audit` — override `undici@6.27.0` (vulnerabilidade high via `discord.js`).
+
+---
+
 ## [2.11.37] — 2026-06-22
 
 ### Corrigido
