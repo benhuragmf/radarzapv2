@@ -438,9 +438,10 @@ PATCH  /api/inbox/settings                 inbox:department:manage
 | `panel-events.test.ts` | urgent/ownerOnly sets |
 | `panel-critical-alerts.service.test.ts` | Dedup, cota msg/IA, config fallback/IA |
 | `inbox-csat-reply.integration.test.ts` | CSAT inbound: nota, bypass, ordem antes de nova conversa |
+| `inbox-ticket-inbound.integration.test.ts` | Ticket inbound: release, capture 12h, compete fila, CSAT primeiro |
 | `panel-events.test.ts` | Urgent/ownerOnly incl. `webchat:fallback_missed` |
 
-Gate: `npm run qa:atendimento:gate` (476 testes unitários + gate 117+53).
+Gate: `npm run qa:atendimento:gate` (481 testes unitários + gate 122+53).
 
 ---
 

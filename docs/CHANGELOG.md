@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.31] — 2026-06-22
+
+### Adicionado
+
+- Testes integrados `inbox-ticket-inbound.integration.test.ts` — `handleTicketInboundMessage`: novo atendimento, janela 12h, expires inflado, competição fila, CSAT primeiro.
+
+---
+
 ## [2.11.30] — 2026-06-22
 
 ### Adicionado
