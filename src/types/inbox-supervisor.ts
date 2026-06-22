@@ -27,6 +27,10 @@ export type SupervisorActiveConversation = {
   handleTimeSec?: number;
   queueWaitSec?: number;
   ticketRef?: string;
+  /** Último pedido de ajuda via @supervisor no chat interno. */
+  supervisorHelpAt?: string;
+  supervisorHelpPreview?: string;
+  supervisorHelpAuthor?: string;
 };
 
 export type SupervisorAgentRow = {
@@ -67,6 +71,7 @@ export type SupervisorDashboardPayload = {
     avgHandleTimeSec: number | null;
     avgPullTimeSec: number | null;
     avgCsatScore: number | null;
+    helpRequestCount: number;
   };
   agents: SupervisorAgentRow[];
   activeConversations: SupervisorActiveConversation[];

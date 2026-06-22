@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
@@ -11,8 +11,10 @@ import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { SupervisorMonitorDrawer } from '../../components/inbox/SupervisorMonitorDrawer'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
+import { usePanelSocket } from '../../hooks/usePanelSocket'
 import { formatQueueTimer, liveQueueState, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import {
+  AlertTriangle,
   Eye,
   RefreshCw,
   Clock3,
@@ -122,6 +124,9 @@ function ConversationRow({
             {conv.whatsappBridgeActive ? (
               <Badge label="Bridge WA" variant="yellow" />
             ) : null}
+            {conv.supervisorHelpAt ? (
+              <Badge label="Pediu ajuda" variant="yellow" />
+            ) : null}
           </div>
           <p className="text-xs text-[var(--rz-text-muted)] mt-0.5 truncate">
             {conv.contactIdentifier}
@@ -150,6 +155,12 @@ function ConversationRow({
             {conv.lastMessagePreview && (
               <span className="block mt-1 text-[var(--rz-text-muted)] italic truncate">
                 {conv.lastMessagePreview}
+              </span>
+            )}
+            {conv.supervisorHelpPreview && (
+              <span className="block mt-1 text-amber-500/90 truncate">
+                {conv.supervisorHelpAuthor ? `${conv.supervisorHelpAuthor}: ` : ''}
+                {conv.supervisorHelpPreview}
               </span>
             )}
           </p>
@@ -220,6 +231,16 @@ export default function InboxSupervisor() {
 
   useInboxSocket(true)
 
+  const onSupervisorPanelEvent = useCallback(
+    (ev: { type: string }) => {
+      if (ev.type === 'inbox:supervisor_help') {
+        qc.invalidateQueries({ queryKey: ['inbox-supervisor-dashboard'] })
+      }
+    },
+    [qc],
+  )
+  usePanelSocket(true, onSupervisorPanelEvent)
+
   const { data: dashboard, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['inbox-supervisor-dashboard'],
     queryFn: () => api.get<SupervisorDashboardPayload>('/inbox/supervisor/dashboard'),
@@ -235,6 +256,15 @@ export default function InboxSupervisor() {
   const linkedTeam = useMemo(
     () => (dashboard?.agents ?? []).filter(a => a.linked),
     [dashboard?.agents],
+  )
+
+  const helpRequests = useMemo(
+    () =>
+      (dashboard?.activeConversations ?? []).filter(c => c.supervisorHelpAt).sort(
+        (a, b) =>
+          new Date(b.supervisorHelpAt!).getTime() - new Date(a.supervisorHelpAt!).getTime(),
+      ),
+    [dashboard?.activeConversations],
   )
 
   const refresh = () => {
@@ -326,6 +356,39 @@ export default function InboxSupervisor() {
         ]}
       />
 
+      {helpRequests.length > 0 && (
+        <Card className="p-4 mb-6 border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <p className="text-sm font-medium text-amber-400">
+                Pedidos de ajuda ({helpRequests.length})
+              </p>
+              <p className="text-xs text-[var(--rz-text-muted)]">
+                Atendentes mencionaram @supervisor no chat interno.
+              </p>
+              <div className="space-y-2">
+                {helpRequests.map(conv => (
+                  <div
+                    key={conv.id}
+                    className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                  >
+                    <span className="text-[var(--rz-text-secondary)] truncate">
+                      {channelShort(conv.channel)} · {conv.contactName}
+                      {conv.assignedUserName ? ` · ${conv.assignedUserName}` : ''}
+                      {conv.supervisorHelpPreview ? ` — “${conv.supervisorHelpPreview}”` : ''}
+                    </span>
+                    <Button size="sm" variant="secondary" onClick={() => setMonitorId(conv.id)}>
+                      <Eye size={12} /> Monitorar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="flex gap-1 mb-4 overflow-x-auto pb-0.5">
         {(
           [
@@ -414,6 +477,9 @@ export default function InboxSupervisor() {
                       >
                         <span className="text-[var(--rz-text-secondary)] truncate">
                           {channelShort(conv.channel)} · {conv.contactName}
+                          {conv.supervisorHelpAt ? (
+                            <span className="text-amber-500/90"> · pediu ajuda</span>
+                          ) : null}
                           {conv.handleTimeSec != null && (
                             <span className="text-[var(--rz-text-muted)]">
                               {' '}

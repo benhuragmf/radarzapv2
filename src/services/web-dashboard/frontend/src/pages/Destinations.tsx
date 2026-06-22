@@ -132,10 +132,10 @@ export default function Destinations() {
   const waConnected = sessions.some(s => s.status === 'connected')
 
   const syncProfilePhotos = useMutation({
-    mutationFn: (limit: number) =>
+    mutationFn: (payload: { limit: number; force?: boolean }) =>
       api.post<{ updated: number; skipped: number; failed: number }>(
         '/destinations/sync-profile-pictures',
-        { limit },
+        payload,
       ),
     onSuccess: (result) => {
       invalidateContacts()
@@ -603,9 +603,9 @@ export default function Destinations() {
                   variant="ghost"
                   disabled={syncProfilePhotos.isPending}
                   onClick={() => {
-                    syncProfilePhotos.mutate(60, {
+                    syncProfilePhotos.mutate({ limit: 60, force: true }, {
                       onSuccess: (r) => {
-                        notifyError(
+                        notifySuccess(
                           `Fotos WhatsApp: ${r.updated} salva(s), ${r.skipped} sem foto ou ignorada(s), ${r.failed} erro(s).`,
                         )
                       },

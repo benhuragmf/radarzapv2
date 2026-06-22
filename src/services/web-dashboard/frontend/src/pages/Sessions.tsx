@@ -151,7 +151,8 @@ export default function Sessions() {
   })
 
   const connect = useMutation({
-    mutationFn: (id: string) => api.post<ConnectResponse>(`/sessions/${id}/connect`),
+    mutationFn: (id: string) =>
+      api.post<ConnectResponse>(`/sessions/${id}/connect`, { refreshQr: true }),
     onSuccess: (data, id) => applyConnectResult(id, data),
   })
 

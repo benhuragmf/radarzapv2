@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.11.42",
+  "version": "2.11.50",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -8,7 +8,7 @@
     "prebuild": "node scripts/sync-widget-build.cjs",
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
-    "dev": "node -r ./scripts/register-dev-logging.cjs ./node_modules/ts-node-dev/lib/bin.js --respawn --exit-child --transpile-only -r tsconfig-paths/register src/index.ts",
+    "dev": "node -r ./scripts/register-dev-logging.cjs ./node_modules/ts-node-dev/lib/bin.js --respawn --exit-child --transpile-only --debounce 2500 --ignore-watch sessions --ignore-watch data --ignore-watch test-results --ignore-watch .git --ignore-watch mocker -r tsconfig-paths/register src/index.ts",
     "dev:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
     "stripe:webhook": "powershell -ExecutionPolicy Bypass -File scripts/stripe-webhook-dev.ps1",
     "stripe:prices": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/create-stripe-radarzap-prices.ts",

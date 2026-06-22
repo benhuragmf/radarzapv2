@@ -926,6 +926,132 @@ export class DashboardService {
       }
     });
 
+    this.app.get('/auth/me/member-profile', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; organizationId?: string };
+      if (!sess?.userId || !sess.organizationId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      try {
+        const { getMemberProfile } = await import('@/services/organization/member-profile.service');
+        res.json(await getMemberProfile(sess.userId, sess.organizationId));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.post('/auth/me/whatsapp/request-code', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; organizationId?: string };
+      if (!sess?.userId || !sess.organizationId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { phone } = req.body as { phone?: string };
+      if (!phone?.trim()) return res.status(400).json({ error: 'Número obrigatório' });
+      try {
+        const { requestWhatsappVerification } = await import(
+          '@/services/organization/member-profile.service'
+        );
+        res.json(await requestWhatsappVerification(sess.userId, sess.organizationId, phone.trim()));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.post('/auth/me/whatsapp/confirm', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; organizationId?: string };
+      if (!sess?.userId || !sess.organizationId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { phone, code } = req.body as { phone?: string; code?: string };
+      if (!phone?.trim() || !code?.trim()) {
+        return res.status(400).json({ error: 'Número e código obrigatórios' });
+      }
+      try {
+        const { confirmWhatsappVerification } = await import(
+          '@/services/organization/member-profile.service'
+        );
+        res.json(
+          await confirmWhatsappVerification(sess.userId, sess.organizationId, phone.trim(), code.trim()),
+        );
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.delete('/auth/me/whatsapp', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; organizationId?: string };
+      if (!sess?.userId || !sess.organizationId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      try {
+        const { clearMemberWhatsappPhone } = await import(
+          '@/services/organization/member-profile.service'
+        );
+        res.json(await clearMemberWhatsappPhone(sess.userId, sess.organizationId));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.post('/auth/me/email/request-code', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; organizationId?: string };
+      if (!sess?.userId || !sess.organizationId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { email } = req.body as { email?: string };
+      try {
+        const { requestEmailVerification } = await import(
+          '@/services/organization/member-profile.service'
+        );
+        res.json(
+          await requestEmailVerification(sess.userId, sess.organizationId, email?.trim()),
+        );
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.post('/auth/me/email/confirm', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; organizationId?: string };
+      if (!sess?.userId || !sess.organizationId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { email, code } = req.body as { email?: string; code?: string };
+      if (!email?.trim() || !code?.trim()) {
+        return res.status(400).json({ error: 'E-mail e código obrigatórios' });
+      }
+      try {
+        const { confirmEmailVerification } = await import(
+          '@/services/organization/member-profile.service'
+        );
+        res.json(
+          await confirmEmailVerification(
+            sess.userId,
+            sess.organizationId,
+            email.trim(),
+            code.trim(),
+          ),
+        );
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    this.app.patch('/auth/me/member-profile', async (req: Request, res: Response) => {
+      const sess = req.session as { userId?: string; organizationId?: string };
+      if (!sess?.userId || !sess.organizationId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { displayName } = req.body as { displayName?: string | null };
+      try {
+        const { updateMemberProfileSelf } = await import(
+          '@/services/organization/member-profile.service'
+        );
+        res.json(await updateMemberProfileSelf(sess.userId, sess.organizationId, { displayName }));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     this.app.post('/auth/account/delete-organization', async (req: Request, res: Response) => {
       const sess = req.session as {
         userId?: string;
@@ -1008,6 +1134,92 @@ export class DashboardService {
       }
     });
 
+    // ── Notificações do painel (sino — persistidas no Redis) ───────────────
+    r.get('/panel/notifications', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const limit = Math.min(80, Math.max(1, parseInt(String(req.query.limit ?? '50'), 10) || 50));
+        const {
+          listPanelEventsForUser,
+        } = await import('@/services/inbox/panel-notifications-store.service');
+        const hasBillingView = auth.capabilities.includes(Cap.BILLING_VIEW);
+        const events = await listPanelEventsForUser(
+          auth.clientId,
+          auth.userId,
+          hasBillingView,
+          limit,
+        );
+        res.json(events);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/panel/notifications/read-all', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const {
+          listPanelEventsForUser,
+          markAllPanelEventsRead,
+        } = await import('@/services/inbox/panel-notifications-store.service');
+        const hasBillingView = auth.capabilities.includes(Cap.BILLING_VIEW);
+        const events = await listPanelEventsForUser(auth.clientId, auth.userId, hasBillingView, 80);
+        const unreadIds = events.filter(e => !e.read).map(e => e.id);
+        await markAllPanelEventsRead(auth.clientId, auth.userId, unreadIds);
+        res.json({ ok: true, marked: unreadIds.length });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/panel/notifications/:id/read', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { markPanelEventRead } = await import('@/services/inbox/panel-notifications-store.service');
+        await markPanelEventRead(auth.clientId, auth.userId, req.params.id);
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/panel/notifications/ingest', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          id?: string;
+          type?: string;
+          title?: string;
+          body?: string;
+          href?: string;
+          createdAt?: string;
+        };
+        const allowed = new Set(['whatsapp:connected', 'whatsapp:disconnected']);
+        if (!body?.type || !allowed.has(body.type) || !body.id || !body.title) {
+          return res.status(400).json({ error: 'Evento inválido' });
+        }
+        const { persistPanelEvent } = await import('@/services/inbox/panel-notifications-store.service');
+        const {
+          resolvePanelEventUrgency,
+          resolvePanelEventOwnerOnly,
+        } = await import('@/types/panel-events');
+        const event = {
+          id: String(body.id),
+          type: body.type as 'whatsapp:connected' | 'whatsapp:disconnected',
+          title: String(body.title),
+          body: String(body.body ?? ''),
+          href: body.href,
+          createdAt: body.createdAt ?? new Date().toISOString(),
+          urgent: resolvePanelEventUrgency(body.type),
+          ownerOnly: resolvePanelEventOwnerOnly(body.type),
+        };
+        await persistPanelEvent(auth.clientId, event);
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/platform/health/atendimento', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -1075,7 +1287,11 @@ export class DashboardService {
     r.post('/sessions/:id/connect', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), requireSelfOrStaff('id'), async (req, res) => {
       try {
         const wa = WhatsAppService.getInstance();
-        const result = await wa.connectInstance(req.params.id);
+        const body = req.body as { forceQr?: boolean; refreshQr?: boolean };
+        const result = await wa.connectInstance(req.params.id, {
+          forceQr: body?.forceQr === true,
+          refreshQr: body?.refreshQr === true,
+        });
         res.json({ ok: true, ...result });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -2450,7 +2666,7 @@ export class DashboardService {
     r.post('/destinations/sync-profile-pictures', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const body = req.body as { limit?: number; destinationIds?: string[] };
+        const body = req.body as { limit?: number; destinationIds?: string[]; force?: boolean };
         const wa = WhatsAppService.getInstance();
         if (!wa.isClientConnected(auth.clientId)) {
           return res.status(409).json({
@@ -2460,6 +2676,7 @@ export class DashboardService {
         const result = await wa.syncDestinationProfilePictures(auth.clientId, {
           limit: body.limit,
           destinationIds: body.destinationIds,
+          force: body.force === true,
         });
         res.json({ ok: true, ...result });
       } catch (e) {
@@ -3743,10 +3960,9 @@ export class DashboardService {
     r.patch('/team/members/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { role, roleKey, whatsappPhone } = req.body as {
+        const { role, roleKey } = req.body as {
           role?: CompanyRole;
           roleKey?: string;
-          whatsappPhone?: string | null;
         };
         if (!auth.companyRole) {
           return res.status(403).json({ error: 'Sem permissão' });
@@ -3755,13 +3971,108 @@ export class DashboardService {
           auth.organizationId,
           req.params.id,
           auth.companyRole,
-          { roleKey: roleKey ?? role, whatsappPhone },
+          { roleKey: roleKey ?? role },
         );
         res.json(member);
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
     });
+
+    r.patch(
+      '/team/members/:id/profile',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { displayName, email, whatsappPhone } = req.body as {
+            displayName?: string | null;
+            email?: string | null;
+            whatsappPhone?: string | null;
+          };
+          const { updateMemberProfileByAdmin } = await import(
+            '@/services/organization/member-profile.service'
+          );
+          res.json(
+            await updateMemberProfileByAdmin(auth.organizationId, req.params.id, {
+              displayName,
+              email,
+              whatsappPhone,
+            }),
+          );
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/team/members/:id/whatsapp/request-code',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { phone } = req.body as { phone?: string };
+          if (!phone?.trim()) return res.status(400).json({ error: 'Número obrigatório' });
+          const {
+            requestMemberWhatsappVerificationByAdmin,
+          } = await import('@/services/organization/member-profile.service');
+          res.json(
+            await requestMemberWhatsappVerificationByAdmin(
+              auth.organizationId,
+              req.params.id,
+              auth.userId,
+              phone.trim(),
+            ),
+          );
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/team/members/:id/whatsapp/confirm',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { phone, code } = req.body as { phone?: string; code?: string };
+          if (!phone?.trim() || !code?.trim()) {
+            return res.status(400).json({ error: 'Número e código obrigatórios' });
+          }
+          const {
+            confirmMemberWhatsappVerificationByAdmin,
+          } = await import('@/services/organization/member-profile.service');
+          res.json(
+            await confirmMemberWhatsappVerificationByAdmin(
+              auth.organizationId,
+              req.params.id,
+              phone.trim(),
+              code.trim(),
+            ),
+          );
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.delete(
+      '/team/members/:id/whatsapp',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { clearMemberWhatsappPhoneByAdmin } = await import(
+            '@/services/organization/member-profile.service'
+          );
+          res.json(await clearMemberWhatsappPhoneByAdmin(auth.organizationId, req.params.id));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
 
     r.delete('/team/members/:id', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
       try {
@@ -3956,6 +4267,34 @@ export class DashboardService {
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/organization/team-settings', requireCapability(Cap.COMPANY_MEMBERS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { getTeamSettings } = await import('@/services/organization/member-profile.service');
+        res.json(await getTeamSettings(auth.organizationId));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/organization/team-settings', requireCapability(Cap.BILLING_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        if (auth.companyRole !== CompanyRole.OWNER) {
+          return res.status(403).json({ error: 'Apenas o dono pode alterar esta política' });
+        }
+        const { allowMembersEditOwnProfile } = req.body as { allowMembersEditOwnProfile?: boolean };
+        const { updateTeamSettings } = await import('@/services/organization/member-profile.service');
+        res.json(
+          await updateTeamSettings(auth.organizationId, {
+            allowMembersEditOwnProfile,
+          }),
+        );
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 
@@ -5897,7 +6236,7 @@ export class DashboardService {
               status: 'qr-required',
             });
           } else if (payload.event === 'CONNECTION_UPDATE' && tenantRoom) {
-            const data = payload.data as { state?: string };
+            const data = payload.data as { state?: string; statusReason?: number };
             const statusMap: Record<string, string> = {
               open: 'connected',
               connecting: 'connecting',
@@ -5907,8 +6246,9 @@ export class DashboardService {
               event: 'CONNECTION_UPDATE',
               clientId: payload.clientId,
               status: statusMap[data?.state ?? ''] ?? 'disconnected',
+              statusReason: data?.statusReason,
             });
-          } else if (tenantRoom && payload.clientId && payload.status) {
+          } else if (tenantRoom && payload.clientId && payload.status && !payload.event) {
             this.io.to(tenantRoom).emit('session:update', {
               ...payload,
               status: payload.status,

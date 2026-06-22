@@ -8,6 +8,7 @@ import { WebhooksPanel } from '../components/integrations/WebhooksPanel'
 import { ApiDocsPanel } from '../components/integrations/ApiDocsPanel'
 import { RateLimitPanel } from '../components/integrations/RateLimitPanel'
 import { CompanyProfilePanel } from '../components/settings/CompanyProfilePanel'
+import { MyProfilePanel } from '../components/settings/MyProfilePanel'
 import AccountConnectionsPanel from '../components/settings/AccountConnectionsPanel'
 import DeleteOrganizationPanel from '../components/settings/DeleteOrganizationPanel'
 import { isCompanyOwner } from '../lib/auth'
@@ -29,6 +30,8 @@ export default function Settings({ user, onUserUpdate }: Props) {
   const { hash } = useLocation()
   const visibleSections = API_SECTIONS.filter(s => can(user, s.permission))
   const showApiBlock = visibleSections.length > 0
+  const showCompanyProfile = can(user, 'billing:view')
+  const isAttendantOnly = !showCompanyProfile && !showApiBlock
 
   useEffect(() => {
     if (!hash) return
@@ -38,14 +41,30 @@ export default function Settings({ user, onUserUpdate }: Props) {
 
   return (
     <RadarPageShell maxWidth="wide">
-      <PageHeader title="Configurações da empresa" subtitle="Conta, integrações API, equipe e limites." />
+      <PageHeader
+        title={isAttendantOnly ? 'Minha conta' : 'Configurações'}
+        subtitle={
+          isAttendantOnly
+            ? 'Seu perfil, e-mail e WhatsApp pessoal para comandos e alertas.'
+            : 'Conta, integrações API, equipe e limites.'
+        }
+      />
       <div className="space-y-6 w-full max-w-4xl">
-      <section id="empresa">
-        <h2 className="text-lg font-semibold mb-3">Dados da empresa</h2>
+      <section id="perfil">
+        <h2 className="text-lg font-semibold mb-3">Meu perfil</h2>
         <Card>
-          <CompanyProfilePanel user={user} />
+          <MyProfilePanel user={user} />
         </Card>
       </section>
+
+      {showCompanyProfile && (
+        <section id="empresa">
+          <h2 className="text-lg font-semibold mb-3">Dados da empresa</h2>
+          <Card>
+            <CompanyProfilePanel user={user} />
+          </Card>
+        </section>
+      )}
 
       <section id="conta">
         <h2 className="text-lg font-semibold mb-3">Conta vinculada</h2>

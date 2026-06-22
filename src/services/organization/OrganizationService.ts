@@ -742,8 +742,9 @@ export class OrganizationService {
     }
 
     if (patch.whatsappPhone !== undefined) {
-      const raw = patch.whatsappPhone?.trim() ?? '';
-      member.whatsappPhone = raw ? raw.replace(/\D/g, '').slice(0, 20) || undefined : undefined;
+      throw new Error(
+        'WhatsApp só é salvo após verificação por código enviado ao número informado. Use a verificação na equipe ou em Meu perfil.',
+      );
     }
 
     await member.save();
@@ -898,6 +899,7 @@ export class OrganizationService {
       member.deniedCapabilities = options?.deniedCapabilities ?? [];
       member.invitedByUserId = new mongoose.Types.ObjectId(invitedByUserId);
       member.email = normalized;
+      member.emailVerifiedAt = undefined;
       if (registeredUser) {
         member.userId = registeredUser._id as mongoose.Types.ObjectId;
       }

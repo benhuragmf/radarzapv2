@@ -1,9 +1,13 @@
 import mongoose from 'mongoose';
 import { InboxConversation } from '@/models/InboxConversation';
+import { InboxMessage } from '@/models/InboxMessage';
 import { WebChatConversation } from '@/models/WebChatConversation';
+import { WebChatMessage } from '@/models/WebChatMessage';
 import { InboxConversationStatus } from '@/types/inbox';
 import { InboxService } from '@/services/inbox/InboxService';
 import { WebChatService } from '@/services/webchat/WebChatService';
+import { toWebChatInboxId } from '@/services/webchat/webchat-inbox-bridge';
+import { User } from '@/models/User';
 import {
   getAgentPresence,
   resolveAgentActivity,
@@ -37,6 +41,99 @@ function elapsedSec(from?: Date | string): number | undefined {
   if (!from) return undefined;
   const diff = Date.now() - new Date(from).getTime();
   return diff > 0 ? Math.round(diff / 1000) : 0;
+}
+
+type SupervisorHelpInfo = {
+  at: string;
+  preview: string;
+  authorName?: string;
+};
+
+async function loadSupervisorHelpMap(
+  clientOid: mongoose.Types.ObjectId,
+  waIds: mongoose.Types.ObjectId[],
+  wcIds: mongoose.Types.ObjectId[],
+): Promise<Map<string, SupervisorHelpInfo>> {
+  const map = new Map<string, SupervisorHelpInfo>();
+  const waAuthorByConv = new Map<string, string>();
+
+  if (waIds.length) {
+    const msgs = await InboxMessage.find({
+      clientId: clientOid,
+      conversationId: { $in: waIds },
+      direction: 'internal',
+      body: /@supervisor/i,
+    })
+      .sort({ createdAt: -1 })
+      .select('conversationId body createdAt authorUserId')
+      .lean();
+
+    for (const m of msgs) {
+      const id = String(m.conversationId);
+      if (map.has(id)) continue;
+      if (m.authorUserId) waAuthorByConv.set(id, String(m.authorUserId));
+      map.set(id, {
+        at: (m.createdAt ?? new Date()).toISOString(),
+        preview: m.body.slice(0, 120),
+      });
+    }
+  }
+
+  if (wcIds.length) {
+    const msgs = await WebChatMessage.find({
+      clientId: clientOid,
+      conversationId: { $in: wcIds },
+      direction: 'internal',
+      body: /@supervisor/i,
+    })
+      .sort({ createdAt: -1 })
+      .select('conversationId body createdAt senderName')
+      .lean();
+
+    for (const m of msgs) {
+      const id = toWebChatInboxId(String(m.conversationId));
+      if (map.has(id)) continue;
+      map.set(id, {
+        at: (m.createdAt ?? new Date()).toISOString(),
+        preview: m.body.slice(0, 120),
+        authorName: m.senderName?.trim() || undefined,
+      });
+    }
+  }
+
+  const waAuthorIds = [...new Set(waAuthorByConv.values())];
+  if (waAuthorIds.length) {
+    const authors = await User.find({ _id: { $in: waAuthorIds } })
+      .select('displayName email')
+      .lean();
+    const authorMap = new Map(
+      authors.map(a => [
+        String(a._id),
+        a.displayName?.trim() || a.email?.split('@')[0] || 'Equipe',
+      ]),
+    );
+    for (const [convId, authorId] of waAuthorByConv.entries()) {
+      const info = map.get(convId);
+      if (!info) continue;
+      info.authorName = authorMap.get(authorId);
+    }
+  }
+
+  return map;
+}
+
+function applySupervisorHelp(
+  conv: SupervisorActiveConversation,
+  helpMap: Map<string, SupervisorHelpInfo>,
+): SupervisorActiveConversation {
+  const help = helpMap.get(conv.id);
+  if (!help) return conv;
+  return {
+    ...conv,
+    supervisorHelpAt: help.at,
+    supervisorHelpPreview: help.preview,
+    supervisorHelpAuthor: help.authorName,
+  };
 }
 
 export class InboxSupervisorDashboardService {
@@ -100,7 +197,18 @@ export class InboxSupervisorDashboardService {
       .filter(r => r.status === 'waiting_queue' || r.status === 'bot_triage')
       .map(r => this.mapWcRow(r));
 
-    const activeConversations = [...waActiveMapped, ...wcActiveMapped].sort(
+    const helpMap = await loadSupervisorHelpMap(
+      clientOid,
+      waActive.map(r => r._id),
+      wcActiveMapped.map(r => {
+        const raw = r.id.startsWith('wc:') ? r.id.slice(3) : r.id;
+        return new mongoose.Types.ObjectId(raw);
+      }),
+    );
+
+    const activeConversations = [...waActiveMapped, ...wcActiveMapped]
+      .map(c => applySupervisorHelp(c, helpMap))
+      .sort(
       (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
     );
     const queue = [...waQueueMapped, ...wcQueueMapped].sort(
@@ -122,7 +230,7 @@ export class InboxSupervisorDashboardService {
       .map(m => {
         const userId = m.userId!;
         const presence = getAgentPresence(clientId, userId);
-        const actives = activeByAgent.get(userId) ?? [];
+        const actives = (activeByAgent.get(userId) ?? []).map(c => applySupervisorHelp(c, helpMap));
         const { activity, label } = resolveAgentActivity(presence, actives.length);
         const metrics = metricsByAgent.get(userId) ?? {
           periodDays: PERIOD_DAYS,
@@ -167,6 +275,8 @@ export class InboxSupervisorDashboardService {
       a.metrics.avgCsatScore != null && a.metrics.csatCount > 0 ? [a.metrics.avgCsatScore] : [],
     );
 
+    const helpRequestCount = activeConversations.filter(c => c.supervisorHelpAt).length;
+
     return {
       generatedAt: new Date().toISOString(),
       periodDays: PERIOD_DAYS,
@@ -179,6 +289,7 @@ export class InboxSupervisorDashboardService {
         avgHandleTimeSec: avg(allHandle),
         avgPullTimeSec: avg(allPull),
         avgCsatScore: avg(csatScores),
+        helpRequestCount,
       },
       agents,
       activeConversations,

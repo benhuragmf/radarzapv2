@@ -88,6 +88,7 @@ export async function resolveAuthorizedWhatsappAgent(
     isActive: true,
     userId: { $exists: true, $ne: null },
     whatsappPhone: { $exists: true, $nin: [null, ''] },
+    whatsappPhoneVerifiedAt: { $exists: true, $ne: null },
   }).lean();
 
   for (const member of members) {

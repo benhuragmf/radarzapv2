@@ -9,8 +9,14 @@ export interface ICompanyMember extends Document {
   companyRole: CompanyRole;
   /** Papel personalizado da org (quando companyRole = CUSTOM) */
   customRoleId?: string;
+  /** Nome exibido na equipe (pode ser definido pelo admin) */
+  displayName?: string;
   /** WhatsApp pessoal para encaminhamentos internos de tickets */
   whatsappPhone?: string;
+  /** Confirmado pelo próprio membro via OTP no WhatsApp */
+  whatsappPhoneVerifiedAt?: Date;
+  /** E-mail confirmado pelo membro (Google OAuth dispensa OTP) */
+  emailVerifiedAt?: Date;
   /** Permissões extras além do papel base */
   extraCapabilities?: Capability[];
   /** Permissões revogadas em relação ao papel base */
@@ -50,7 +56,10 @@ const CompanyMemberSchema = new Schema<ICompanyMember>({
     index: true,
   },
   customRoleId: { type: String, trim: true, index: true, sparse: true },
+  displayName: { type: String, trim: true, maxlength: 120 },
   whatsappPhone: { type: String, maxlength: 32, trim: true },
+  whatsappPhoneVerifiedAt: { type: Date },
+  emailVerifiedAt: { type: Date },
   extraCapabilities: { type: [String], default: [] },
   deniedCapabilities: { type: [String], default: [] },
   invitedByUserId: { type: Schema.Types.ObjectId, ref: 'User' },

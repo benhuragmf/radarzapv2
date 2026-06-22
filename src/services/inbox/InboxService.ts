@@ -69,6 +69,7 @@ import {
 import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
 import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
 import { emitPanelEvent, PanelEventType } from '@/services/inbox/PanelNotifications';
+import { notifySupervisorInternalChatMention } from '@/services/inbox/inbox-supervisor-notify.service';
 import crypto from 'crypto';
 import {
   getQueuePriorityState,
@@ -2472,12 +2473,22 @@ export class InboxService {
     }
 
     const visibility = await this.departmentVisibility(clientId, userId);
+    const userOid = new mongoose.Types.ObjectId(userId);
     if (visibility.restricted) {
-      if (visibility.departmentIds.length === 0) {
-        return [];
-      }
-      if (!filters.departmentId) {
-        query.departmentId = { $in: visibility.departmentIds };
+      const assignedClause = {
+        $or: [{ assignedUserId: userOid }, { suggestedUserId: userOid }],
+      };
+
+      if (filters.departmentId) {
+        const deptOid = new mongoose.Types.ObjectId(filters.departmentId);
+        const allowedDept = visibility.departmentIds.some(id => id.equals(deptOid));
+        if (!allowedDept) {
+          Object.assign(query, assignedClause);
+        }
+      } else if (visibility.departmentIds.length > 0) {
+        query.$or = [{ departmentId: { $in: visibility.departmentIds } }, assignedClause];
+      } else {
+        Object.assign(query, assignedClause);
       }
     }
 
@@ -4052,6 +4063,15 @@ export class InboxService {
     await conv.save();
     this.notifyMessage(clientId, String(conv._id));
 
+    void notifySupervisorInternalChatMention({
+      clientId,
+      authorUserId: userId,
+      authorName,
+      conversationId: String(conv._id),
+      contactName: conv.contactName,
+      body: raw,
+    }).catch(() => {});
+
     return {
       _id: String(msg._id),
       direction: 'internal' as const,
@@ -4675,6 +4695,14 @@ export class InboxService {
     return conv;
   }
 
+  /** Visibilidade de filas por setor (atendentes só veem setores com atribuição explícita). */
+  async getDepartmentVisibility(
+    clientId: string,
+    userId: string,
+  ): Promise<{ restricted: boolean; departmentIds: mongoose.Types.ObjectId[] }> {
+    return this.departmentVisibility(clientId, userId);
+  }
+
   private async departmentVisibility(
     clientId: string,
     userId: string,
@@ -4692,14 +4720,13 @@ export class InboxService {
     const depts = await InboxDepartment.find({
       clientId: clientOid,
       isActive: true,
-      $or: [{ memberUserIds: userOid }, { memberUserIds: { $size: 0 } }],
-    }).select('_id memberUserIds');
+      memberUserIds: userOid,
+    }).select('_id');
 
-    const allowed = depts
-      .filter(d => d.memberUserIds.length === 0 || d.memberUserIds.some(id => id.equals(userOid)))
-      .map(d => d._id as mongoose.Types.ObjectId);
-
-    return { restricted: true, departmentIds: allowed };
+    return {
+      restricted: true,
+      departmentIds: depts.map(d => d._id as mongoose.Types.ObjectId),
+    };
   }
 
   private async appendSystemMessage(

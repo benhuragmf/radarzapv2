@@ -445,7 +445,13 @@ Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketIn
 | GET | `/inbox/conversations/:id` | `inbox:view` | Detalhe + mensagens |
 | POST | `/inbox/conversations/:id/assign` | `inbox:reply` | Assumir |
 | POST | `/inbox/conversations/:id/reply` | `inbox:reply` | Responder ao cliente (WhatsApp / WebChat) |
-| POST | `/inbox/conversations/:id/internal-chat` | `inbox:reply` ou `inbox:supervise` | **Chat interno** — mensagem na timeline do Inbox, só equipe (supervisor pode enviar sem assumir) |
+| POST | `/inbox/conversations/:id/internal-chat` | `inbox:reply` ou `inbox:supervise` | **Chat interno** — mensagem na timeline do Inbox, só equipe (supervisor pode enviar sem assumir). Menção `@supervisor` alerta supervisores (sino + dashboard). |
+
+### Chat interno e `@supervisor` (2.11.44)
+
+- Aba **Chat interno** no composer do Inbox — mensagens `direction: internal` (WA + WebChat).
+- Texto com `@supervisor` dispara `panel:event` tipo `inbox:supervisor_help` para cada usuário com `inbox:supervise` (exceto o autor).
+- Dashboard `/platform/inbox/supervisor`: card **Pedidos de ajuda**, badge **Pediu ajuda** e prévia na conversa ativa.
 | POST | `/inbox/conversations/:id/transfer` | `inbox:transfer` | Transferir setor |
 | POST | `/inbox/conversations/:id/resolve` | `inbox:reply` | Finalizar |
 | GET | `/inbox/settings` | `inbox:department:manage` | Config do bot |
@@ -636,7 +642,7 @@ Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA
 
 | Tipo | Urgente (vermelho) | Quem vê |
 |------|-------------------|---------|
-| `inbox:new_chat`, `inbox:new_message`, `inbox:priority`, `inbox:priority_expired`, `webchat:escalated` | Não | Equipe inbox |
+| `inbox:new_chat`, `inbox:new_message`, `inbox:priority`, `inbox:priority_expired`, `inbox:supervisor_help`, `webchat:escalated` | Não | Equipe inbox (`supervisor_help`: só `inbox:supervise`, `targetUserId`) |
 | `inbox:queue_sla`, `inbox:ticket_sla`, `webchat:fallback_missed`, `whatsapp:disconnected` | **Sim** | Equipe (fallback: só `targetUserId`) |
 | `billing:plan_expiring`, `billing:plan_expired`, `billing:messages_quota_exceeded` | **Sim** | Dono/admin (`billing:view`) |
 | `ai:quota_exceeded`, `ai:quota_low`, `system:critical_config` | **Sim** | Dono/admin (`billing:view`) |

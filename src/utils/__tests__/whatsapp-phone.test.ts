@@ -8,6 +8,7 @@ import path from 'path';
 import {
   identifierCandidatesFromJids,
   isLikelyPhoneIdentifier,
+  resolveLidJidsForPhone,
   resolvePhoneFromJids,
   wuidToPhone,
 } from '@/utils/whatsapp-phone';
@@ -52,6 +53,28 @@ describe('whatsapp-phone', () => {
       try {
         const phone = resolvePhoneFromJids(clientId, '39488566902931@lid');
         expect(phone).toBe('+5511976904921');
+      } finally {
+        process.chdir(cwd);
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('resolveLidJidsForPhone', () => {
+    it('finds LID from reverse mapping for phone variants', () => {
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wa-session-'));
+      const clientId = 'test-client';
+      const sessionDir = path.join(tmp, 'sessions', clientId);
+      fs.mkdirSync(sessionDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(sessionDir, 'lid-mapping-39488566902931_reverse.json'),
+        JSON.stringify('5511976904921'),
+      );
+
+      const cwd = process.cwd();
+      process.chdir(tmp);
+      try {
+        expect(resolveLidJidsForPhone(clientId, '5511976904921')).toEqual(['39488566902931@lid']);
       } finally {
         process.chdir(cwd);
         fs.rmSync(tmp, { recursive: true, force: true });

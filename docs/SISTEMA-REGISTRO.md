@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.42` (`package.json`) · **Última revisão doc:** 2026-06-22
+**Versão atual:** `2.11.50` (`package.json`) · **Última revisão doc:** 2026-06-22
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -124,6 +124,10 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.40** | E2E § B painel Fase 1 (`qa-fase1-panel.spec.ts`, 32 testes `qa:fase1:e2e`) |
 | **2.11.41** | E2E presença + `qa:fase1:all`; fix Rules of Hooks `InboxSectors`; build antes do E2E (33 testes) |
 | **2.11.42** | Fix convite equipe: índice multi-pendente + vínculo conta existente + login multi-empresa |
+| **2.11.43** | Fix loop WA conectar/desconectar — idempotência, anti-440, reconexão com cooldown; dev: ignore-watch `sessions/` (evita restart loop ts-node-dev) |
+| **2.11.48** | Perfil: OTP WA self-service; atendente sem setor só vê conversas atribuídas |
+| **2.11.49** | Perfil: admin cadastra WA com OTP + auditoria ao dono; APIs `/team/members/:id/whatsapp/*` |
+| **2.11.50** | Perfil: política `allowMembersEditOwnProfile`; confirmação e-mail OTP; Google dispensa e-mail; `EQUIPE-RBAC.md` § Perfil |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 
@@ -148,7 +152,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 
 | Módulo | Destaques |
 |--------|-----------|
-| Equipe/RBAC | `customRoles[]`, `roleKey`, preset CUSTOM oculto na UI |
+| Equipe/RBAC | `customRoles[]`, `roleKey`, preset CUSTOM oculto; **perfil membro** OTP e-mail/WA + política edição (2.11.49–50) — `EQUIPE-RBAC.md` § Perfil |
 | Inbox | `clientVisible`, `internalRank`, escalação na transferência; presença operacional + alertas críticos (2.11.25–2.11.28) |
 | Consentimento | `consentRenewalApprovals` 0–2, `/contact?consent=waiting`, fila `pendingOutboundDeliveries` até aceite `1` |
 | Tickets Inbox | Janela cliente 12h pós-envio equipe; grace 30min; menu follow-up após 2h |
@@ -164,7 +168,10 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | Modelo | Campo | Desde |
 |--------|-------|-------|
 | `Organization` | `customRoles[]` | 2.1.0 |
+| `Organization` | `teamSettings.allowMembersEditOwnProfile` | 2.11.50 |
 | `CompanyMember` | `customRoleId` | 2.1.0 |
+| `CompanyMember` | `displayName`, `emailVerifiedAt` | 2.11.50 |
+| `CompanyMember` | `whatsappPhoneVerifiedAt` | 2.11.49 |
 | `InboxDepartment` | `clientVisible`, `internalRank` | 2.1.0 |
 | `InboxSettings` | `inactivityAutoCloseEnabled`, `inactivityCloseMinutes`, `inactivityWarningMinutes`, `queueSlaAlertMinutes` | 2.2.1 |
 | `InboxSettings` | `ticketTeamResponseHours` | 2.7.0 |

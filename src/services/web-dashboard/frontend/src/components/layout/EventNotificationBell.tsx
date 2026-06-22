@@ -2,31 +2,14 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { useEventNotifications } from '../../context/EventNotificationContext'
-
-const TYPE_LABEL: Record<string, string> = {
-  'inbox:new_chat': 'Novo chat',
-  'inbox:new_message': 'Mensagem',
-  'inbox:priority': 'Prioridade',
-  'inbox:priority_expired': 'Pode puxar',
-  'inbox:queue_sla': 'Fila parada',
-  'inbox:ticket_sla': 'SLA ticket',
-  'webchat:escalated': 'Chat do site',
-  'webchat:fallback_missed': 'Fallback WA',
-  'whatsapp:disconnected': 'WhatsApp',
-  'whatsapp:connected': 'WhatsApp',
-  'billing:plan_expiring': 'Plano',
-  'billing:plan_expired': 'Plano',
-  'billing:messages_quota_exceeded': 'Cota mensagens',
-  'ai:quota_exceeded': 'IA esgotada',
-  'ai:quota_low': 'IA baixa',
-  'system:critical_config': 'Config crítica',
-}
+import { PanelNotificationRow } from './PanelNotificationRow'
 
 export default function EventNotificationBell() {
-  const { events, unreadCount, urgentUnreadCount, markAllRead, markRead, clearAll } =
+  const { events, unreadCount, urgentUnreadCount, markAllRead, markRead } =
     useEventNotifications()
   const [open, setOpen] = useState(false)
   const badgeIsUrgent = urgentUnreadCount > 0
+  const preview = events.slice(0, 8)
 
   return (
     <div className="relative">
@@ -69,52 +52,40 @@ export default function EventNotificationBell() {
                 Eventos
               </span>
               {events.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearAll}
-                  className="text-[10px] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"
+                <Link
+                  to="/dashboard/notificacoes"
+                  onClick={() => setOpen(false)}
+                  className="text-[10px] text-[var(--rz-primary)] hover:underline"
                 >
-                  Limpar
-                </button>
+                  Ver todas
+                </Link>
               )}
             </div>
             {events.length === 0 ? (
               <p className="text-xs text-[var(--rz-text-muted)] p-4 text-center">Nenhum evento recente.</p>
             ) : (
-              events.map(ev => (
-                <Link
-                  key={ev.id}
-                  to={ev.href ?? '/platform/inbox'}
-                  onClick={() => {
-                    markRead(ev.id)
-                    setOpen(false)
-                  }}
-                  className={`block px-3 py-2.5 border-b border-[var(--rz-border)]/80 hover:bg-[var(--rz-surface-muted)] ${
-                    !ev.read
-                      ? ev.urgent
-                        ? 'bg-red-950/35 border-l-2 border-l-red-500'
-                        : 'bg-amber-950/20'
-                      : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span
-                      className={`text-xs font-medium ${
-                        ev.urgent ? 'text-red-300' : 'text-[var(--rz-text-primary)]'
-                      }`}
-                    >
-                      {ev.title}
-                    </span>
-                    <span className="text-[10px] text-[var(--rz-text-muted)] shrink-0">
-                      {TYPE_LABEL[ev.type] ?? ev.type}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[var(--rz-text-muted)] line-clamp-2">{ev.body}</p>
-                  <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">
-                    {new Date(ev.createdAt).toLocaleString('pt-BR')}
-                  </p>
-                </Link>
-              ))
+              <>
+                {preview.map(ev => (
+                  <PanelNotificationRow
+                    key={ev.id}
+                    ev={ev}
+                    compact
+                    onNavigate={() => {
+                      markRead(ev.id)
+                      setOpen(false)
+                    }}
+                  />
+                ))}
+                {events.length > preview.length && (
+                  <Link
+                    to="/dashboard/notificacoes"
+                    onClick={() => setOpen(false)}
+                    className="block px-3 py-2.5 text-center text-xs text-[var(--rz-primary)] hover:bg-[var(--rz-surface-muted)]"
+                  >
+                    Ver todas ({events.length})
+                  </Link>
+                )}
+              </>
             )}
           </div>
         </>

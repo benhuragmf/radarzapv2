@@ -7,3 +7,7 @@ if (!process.env.RADARZAP_KEEP_NODE_ENV) {
 if (!process.env.WHATSAPP_RATE_LIMIT) {
   process.env.WHATSAPP_RATE_LIMIT = '120';
 }
+/** Evita segundo backend se o Cursor abrir outro terminal com npm run dev. */
+if (!process.env.RADARZAP_DEV) {
+  process.env.RADARZAP_DEV = '1';
+}

@@ -21,12 +21,15 @@ interface Member {
   _id: string
   email?: string
   displayEmail?: string
+  displayName?: string
   companyRole: CompanyRole
   customRoleId?: string
   customRoleName?: string
   userId?: string
   linked?: boolean
   whatsappPhone?: string
+  whatsappPhoneVerifiedAt?: string
+  emailVerifiedAt?: string
   effectiveCapabilities?: string[]
   inviteEmailSentAt?: string
   inviteEmailLastError?: string
@@ -92,6 +95,23 @@ export default function TeamMembers() {
     enabled: canManage,
   })
 
+  const { data: teamSettings, refetch: refetchTeamSettings } = useQuery({
+    queryKey: ['team-settings'],
+    queryFn: () =>
+      api.get<{ allowMembersEditOwnProfile: boolean }>('/organization/team-settings'),
+    enabled: isOwner,
+  })
+
+  const updateTeamSettings = useMutation({
+    mutationFn: (allowMembersEditOwnProfile: boolean) =>
+      api.patch('/organization/team-settings', { allowMembersEditOwnProfile }),
+    onSuccess: () => {
+      notifySuccess('Política de perfil atualizada.')
+      void refetchTeamSettings()
+    },
+    onError: mutationError,
+  })
+
   const presets = rolesData?.presets ?? []
   const permissionGroups = rolesData?.permissionGroups ?? []
   const hasDiscordIntegration = rolesData?.hasDiscordIntegration === true
@@ -142,8 +162,8 @@ export default function TeamMembers() {
     onError: mutationError,
   })
 
-  const updateMemberRole = async (id: string, roleKey: string, whatsappPhone?: string) => {
-    await api.patch(`/team/members/${id}`, { roleKey, whatsappPhone: whatsappPhone ?? null })
+  const updateMemberRole = async (id: string, roleKey: string) => {
+    await api.patch(`/team/members/${id}`, { roleKey })
     qc.invalidateQueries({ queryKey: ['team-members'] })
   }
 
@@ -235,6 +255,28 @@ export default function TeamMembers() {
       </p>
 
       <div className="space-y-5">
+      {isOwner && (
+        <Card>
+          <CardTitle className="text-sm">Perfil dos atendentes</CardTitle>
+          <p className="text-xs text-[var(--rz-text-muted)] mt-2 max-w-2xl">
+            Por padrão a empresa cadastra nome, e-mail e WhatsApp e o atendente só <strong>confirma</strong>{' '}
+            com código. Ative abaixo se quiser que editem os próprios dados (sempre com verificação).
+          </p>
+          <label className="mt-4 flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={teamSettings?.allowMembersEditOwnProfile === true}
+              onChange={e => updateTeamSettings.mutate(e.target.checked)}
+              disabled={updateTeamSettings.isPending}
+            />
+            <span className="text-sm text-[var(--rz-text-secondary)]">
+              Permitir que atendentes editem nome, e-mail e WhatsApp em Configurações → Meu perfil
+            </span>
+          </label>
+        </Card>
+      )}
+
       <Card className="border-brand-500/20 bg-brand-500/[0.03]">
         <CardTitle>
           <span className="flex items-center gap-2 text-sm">
@@ -383,11 +425,24 @@ export default function TeamMembers() {
                         {initial}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate text-[var(--rz-text-primary)]">{m.displayEmail ?? m.email ?? '—'}</p>
+                        <p className="text-sm font-medium truncate text-[var(--rz-text-primary)]">
+                          {m.displayName ?? m.displayEmail ?? m.email ?? '—'}
+                        </p>
                         <p className="text-xs text-[var(--rz-text-muted)]">
                           {m.customRoleName ?? ROLE_LABEL[m.companyRole]}
+                          {m.displayName && m.displayEmail && m.displayEmail !== '—' && (
+                            <span className="text-[var(--rz-text-muted)]"> · {m.displayEmail}</span>
+                          )}
+                          {m.emailVerifiedAt ? (
+                            <span className="text-green-500/80"> · e-mail ok</span>
+                          ) : m.email ? (
+                            <span className="text-amber-500/90"> · e-mail pendente</span>
+                          ) : null}
                           {m.whatsappPhone && (
-                            <span className="text-[var(--rz-text-muted)]"> · WA cadastrado</span>
+                            <span className="text-[var(--rz-text-muted)]">
+                              {' '}
+                              · WA {m.whatsappPhoneVerifiedAt ? 'verificado' : 'pendente'}
+                            </span>
                           )}
                           {m.companyRole !== 'OWNER' && m.linked === false && (
                             <span className="text-amber-500/90"> · aguardando login</span>
@@ -465,7 +520,23 @@ export default function TeamMembers() {
           presets={presets}
           isOwner={isOwner}
           onClose={() => setEditingMember(null)}
-          onSave={(newRole, whatsappPhone) => updateMemberRole(editingMember._id, newRole, whatsappPhone)}
+          onSave={newRole => updateMemberRole(editingMember._id, newRole)}
+          onWhatsappUpdated={async () => {
+            const list = await qc.fetchQuery({
+              queryKey: ['team-members'],
+              queryFn: () => api.get<Member[]>('/team/members'),
+            })
+            const fresh = list.find(x => x._id === editingMember._id)
+            if (fresh) setEditingMember(fresh)
+          }}
+          onProfileUpdated={async () => {
+            const list = await qc.fetchQuery({
+              queryKey: ['team-members'],
+              queryFn: () => api.get<Member[]>('/team/members'),
+            })
+            const fresh = list.find(x => x._id === editingMember._id)
+            if (fresh) setEditingMember(fresh)
+          }}
         />
       )}
       </div>

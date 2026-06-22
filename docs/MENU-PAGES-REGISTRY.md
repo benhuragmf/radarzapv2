@@ -45,7 +45,10 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
 | Rota | Componente | API principal |
 |------|------------|---------------|
-| `/settings/team` | `TeamMembers.tsx` — aba **Papéis do sistema** (`RolesSystemPanel`) + aba **Equipe** | `GET /team/roles`, `PATCH/DELETE /team/roles/:role`, `POST/PATCH/DELETE /team/custom-roles[/:id]`, `GET/POST/PATCH/DELETE /team/members` (`roleKey`) — presets em `Organization.roleCapabilities`; papéis nomeados em `Organization.customRoles[]`; preset CUSTOM legado oculto na UI |
+| `/dashboard` | `Dashboard.tsx` | `GET /stats`, `GET /platform/stats` |
+| `/dashboard/notificacoes` | `DashboardNotifications.tsx` | `GET /panel/notifications`, `POST /panel/notifications/read-all` |
+| `/settings#perfil` | `settings/MyProfilePanel.tsx` | `GET /auth/me/member-profile`, `PATCH /auth/me/member-profile`, `POST /auth/me/email/*`, `POST /auth/me/whatsapp/*`, `DELETE /auth/me/whatsapp` — confirmação OTP e-mail/WA; edição condicionada a `teamSettings.allowMembersEditOwnProfile` |
+| `/settings/team` | `TeamMembers.tsx` — aba **Papéis do sistema** (`RolesSystemPanel`) + aba **Equipe** | `GET /team/roles`, `PATCH/DELETE /team/roles/:role`, `POST/PATCH/DELETE /team/custom-roles[/:id]`, `GET/POST/PATCH/DELETE /team/members` (`roleKey`), `PATCH /team/members/:id/profile`, `POST/DELETE /team/members/:id/whatsapp/*`, `GET/PATCH /organization/team-settings` (toggle perfil — dono) |
 | `/contact?consent=waiting` | `Destinations.tsx` (view `waiting`) | `GET /consent/renewals`, `POST /consent/renewals/:id/approve` — perm `consent:approve-renewal` |
 | `/settings/permissions` | `menu/PermissionsPage.tsx` |
 | `/settings/security` | `menu/SecuritySettings.tsx` |

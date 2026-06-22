@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { logout, type AuthUser } from '../../lib/auth'
@@ -84,7 +84,12 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         </div>
 
         {/* User info */}
-        <div className="flex items-center gap-2">
+        <Link
+          to="/settings#perfil"
+          className="flex items-center gap-2 rounded-lg hover:bg-[var(--rz-surface-muted)] px-1.5 py-1 transition-colors"
+          title="Meu perfil"
+          aria-label="Meu perfil"
+        >
           {user.avatar ? (
             <img src={user.avatar} alt={user.username}
               className="w-7 h-7 rounded-full border border-[var(--rz-border)]" />
@@ -94,7 +99,7 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
             </div>
           )}
           <span className="text-sm text-[var(--rz-text-secondary)] hidden sm:block">{user.username}</span>
-        </div>
+        </Link>
 
         <button
           onClick={handleLogout}

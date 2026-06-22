@@ -110,6 +110,7 @@ export function InboxComposer({
       {isInternal && (
         <p className="text-[11px] text-amber-500/90 leading-snug">
           Visível só para atendentes e supervisores — o cliente não recebe esta mensagem.
+          Use <span className="font-mono">@supervisor</span> para alertar a supervisão.
         </p>
       )}
 

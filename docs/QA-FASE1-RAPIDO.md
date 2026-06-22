@@ -1,6 +1,6 @@
 # QA Fase 1 — checklist rápido (1 página)
 
-**Versão:** `2.11.41` · **Commit:** `a3dec54` · **Gate auto:** ✅ revalidado 2026-06-22
+**Versão:** `2.11.50` · **Gate auto:** revalidar após mudanças de perfil/equipe
 
 Detalhe: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · imprimir: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) · **O que o Playwright cobre:** [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md)
 
@@ -17,7 +17,9 @@ npm run qa:manual:start   # só gate Jest + prep
 - [ ] WA conectado em `/sessions`
 - [ ] CSAT ON em `/platform/inbox/bot`
 - [ ] Celular **cliente** ≠ número Baileys ≠ bridge
-- [ ] Widget WebChat ativo + membro com `whatsappPhone` na Equipe
+- [ ] Widget WebChat ativo + membro com `whatsappPhone` **verificado** na Equipe (`whatsappPhoneVerifiedAt`)
+- [ ] Atendente com e-mail confirmado em `/settings#perfil` (ou login Google)
+
 
 **Ambiente hoje:** Mongo ✅ · WA 1 sessão · CSAT 1/3 org · WebChat 1 widget · Fallback ON · Equipe 1 membro c/ WA
 
@@ -63,6 +65,20 @@ Manual ao vivo: `/platform/inbox` · demais rotas acima · conferir salvar/edita
 | 9 | IA Básica WC | 1ª msg ≠ menu 1–4 robotizado |
 
 Roteiro completo: [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md)
+
+---
+
+## D — Perfil equipe (15 min) — desde 2.11.50
+
+Doc: [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md) § Perfil
+
+| # | Faça | Esperado |
+|---|------|----------|
+| 1 | Dono cadastra atendente (nome, e-mail, WA) em Equipe | Dados salvos; status pendente na lista |
+| 2 | Atendente em `/settings#perfil` confirma e-mail (OTP) | `profileComplete` avança; Google dispensa OTP e-mail |
+| 3 | Atendente confirma WhatsApp (OTP no celular) | `whatsappPhoneVerifiedAt`; `!assumir` autorizado |
+| 4 | Toggle **edição bloqueada** (padrão) | Atendente não altera campos; só confirma |
+| 5 | Toggle **edição liberada** | Atendente edita com novo OTP |
 
 ---
 

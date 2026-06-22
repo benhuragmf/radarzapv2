@@ -80,6 +80,33 @@ export function sessionDirForClient(clientId: string): string {
   return path.join(process.cwd(), 'sessions', clientId);
 }
 
+/** LIDs conhecidos na sessão cujo mapeamento reverso aponta para o telefone (Baileys 7). */
+export function resolveLidJidsForPhone(clientId: string, phoneDigits: string): string[] {
+  const variants = new Set(
+    brazilPhoneLookupVariants(phoneDigits.replace(/\D/g, '')).filter(Boolean),
+  );
+  if (variants.size === 0) return [];
+
+  const sessionDir = sessionDirForClient(clientId);
+  if (!fs.existsSync(sessionDir)) return [];
+
+  const lids = new Set<string>();
+  for (const file of fs.readdirSync(sessionDir)) {
+    const match = /^lid-mapping-(\d+)_reverse\.json$/.exec(file);
+    if (!match?.[1]) continue;
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(sessionDir, file), 'utf8'));
+      const mapped = String(typeof raw === 'string' ? raw : raw).replace(/\D/g, '');
+      const mappedVariants = new Set(brazilPhoneLookupVariants(mapped));
+      const hit = [...variants].some(v => mappedVariants.has(v) || mapped === v);
+      if (hit) lids.add(`${match[1]}@lid`);
+    } catch {
+      /* ignore corrupt mapping */
+    }
+  }
+  return [...lids];
+}
+
 /** Resolve telefone a partir do mapeamento Baileys `lid-mapping-{lid}_reverse.json`. */
 export function resolvePhoneFromLidMapping(clientId: string, lidJid: string): string | undefined {
   const lid = userPartFromJid(lidJid).replace(/\D/g, '');

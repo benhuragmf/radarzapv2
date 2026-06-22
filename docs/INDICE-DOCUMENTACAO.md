@@ -1,6 +1,6 @@
 ﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.39` · **Atualizado:** 2026-06-22
+**Versão do produto:** `2.11.50` · **Atualizado:** 2026-06-22
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 

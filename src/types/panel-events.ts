@@ -4,6 +4,7 @@ export type PanelEventType =
   | 'inbox:new_message'
   | 'inbox:priority'
   | 'inbox:priority_expired'
+  | 'inbox:supervisor_help'
   | 'inbox:queue_sla'
   | 'inbox:ticket_sla'
   | 'webchat:escalated'

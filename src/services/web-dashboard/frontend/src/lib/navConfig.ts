@@ -253,7 +253,7 @@ const LEGACY_DISCORD_ROUTES = new Set([
 ])
 
 const PLATFORM_ROUTES = new Set([
-  '/dashboard', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
+  '/dashboard', '/dashboard/notificacoes', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
   '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/gatilhos',
   '/platform/wa-logs', '/platform/wa-stories', '/platform/wa-status', '/platform/wa-limits', '/platform/fila',
   '/integrations/playground',
@@ -384,6 +384,7 @@ export function isNavGroupActive(
 
 export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/dashboard': 'dashboard:view',
+  '/dashboard/notificacoes': 'dashboard:view',
   '/platform': 'dashboard:view',
   '/platform/templates': 'send:templates:manage',
   '/platform/reports': 'platform:reports:view',
@@ -462,6 +463,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
 
 export const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Visão geral',
+  '/dashboard/notificacoes': 'Notificações',
   '/platform': 'Visão geral',
   '/platform/templates': 'Modelos de mensagem',
   '/platform/reports': 'Relatórios',

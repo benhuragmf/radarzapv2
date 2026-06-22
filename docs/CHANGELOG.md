@@ -6,6 +6,79 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.11.50] — 2026-06-22
+
+### Equipe / Perfil — política e confirmações
+
+- Dono define se atendentes **podem editar** dados em Meu perfil (`teamSettings.allowMembersEditOwnProfile`; padrão: bloqueado).
+- Empresa cadastra nome, e-mail e WhatsApp; atendente **sempre confirma** e-mail (OTP) e WhatsApp (OTP), mesmo com edição bloqueada.
+- Login **Google** dispensa confirmação de e-mail (já verificado pelo OAuth).
+- API: `GET/PATCH /organization/team-settings`, `PATCH /team/members/:id/profile`, `POST /auth/me/email/*`.
+
+## [2.11.49] — 2026-06-22
+
+### Equipe / Perfil — verificação WhatsApp
+
+- Dono/admin **pode** cadastrar WhatsApp do membro na equipe, mas o número **só é salvo após OTP** enviado ao próprio número.
+- Membro também confirma em **Meu perfil** com o mesmo fluxo de código de segurança.
+- Quando admin inicia o cadastro, o **dono da empresa** recebe aviso de auditoria no WhatsApp verificado dele.
+- API: `POST /team/members/:id/whatsapp/request-code`, `…/confirm`, `DELETE …/whatsapp`.
+
+## [2.11.48] — 2026-06-22
+
+### Equipe / Perfil / Inbox
+
+- WhatsApp pessoal: só o próprio membro cadastra com **código OTP** enviado no WA da empresa (`/auth/me/whatsapp/*`).
+- Admin não edita mais telefone no modal de papel — `/settings#perfil` + link no header.
+- Atendente sem setor atribuído **não vê** filas abertas — só conversas atribuídas a ele (WA + WebChat).
+
+## [2.11.47] — 2026-06-22
+
+### Painel / Notificações
+
+- Notificações do sino **persistidas no Redis** — sobrevivem ao F5 (últimos 80 eventos / 14 dias).
+- API: `GET /panel/notifications`, `POST …/read`, `POST …/read-all`, `POST …/ingest` (WA client).
+- Página **Ver todas**: `/dashboard/notificacoes` + link no balão do sino.
+
+## [2.11.46] — 2026-06-22
+
+### WhatsApp / Sessões
+
+- **Fix:** erro 440 (conexão substituída) — bloqueia auto-reconnect em loop; exige connect manual.
+- **Fix:** dev lock mata processo órfão no hot-reload (ts-node-dev) antes de restaurar WA — causa raiz do 440 em dev.
+- **Fix:** **Novo QR** usa `refreshQr` (reinicia socket sem apagar credenciais) em vez de `forceQr`.
+
+## [2.11.45] — 2026-06-22
+
+### WhatsApp / Sessões
+
+- **Fix:** deadlock após escanear QR (código 515 `restartRequired`) — `sessionCreatePromises` impedia nova socket.
+- **Fix:** reconexão agendada não bloqueia mais pedido explícito de connect; timers cancelados no `abort`.
+- **Fix:** cooldowns de reconexão excessivos revertidos (2s→30s exponencial); auto-reconnect 60s.
+- **Fix:** botão **Novo QR** envia `forceQr: true` para gerar QR fresco.
+
+## [2.11.44] — 2026-06-22
+
+### Inbox / Supervisão
+
+- Chat interno: menção `@supervisor` dispara notificação no sino (`inbox:supervisor_help`) para quem tem `inbox:supervise`.
+- Dashboard supervisor: card **Pedidos de ajuda**, badge nas conversas ativas e preview da mensagem interna.
+
+---
+
+## [2.11.43] — 2026-06-22
+
+### Estabilidade WhatsApp
+
+- Fix loop conectar/desconectar: `connectInstance` idempotente (não aborta sessão ativa); uma promise por `createWhatsAppSession` (evita erro 440 / ban).
+- Reconexão automática: cooldown 30–120s, máx. 5 tentativas; auto-reconnect a cada 5 min via `restoreSession` (sem `abort`).
+- Eventos painel: remove pub/sub duplicado; alertas WA com debounce 60s; erro 440 orienta reconexão manual.
+- Dev: `ts-node-dev` ignora `sessions/`, `data/`, `test-results/` (Baileys gravava creds e reiniciava o backend em loop).
+
+---
+
 ## [2.11.42] — 2026-06-22
 
 ### Equipe

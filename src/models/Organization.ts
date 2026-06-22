@@ -44,6 +44,11 @@ export interface IOrganization extends Document {
     marketing?: { enabled?: boolean; maxPerMinute?: number };
     alert?: { enabled?: boolean; maxPerMinute?: number };
   };
+  /** Políticas da equipe (perfil, confirmações) */
+  teamSettings?: {
+    /** Se true, atendentes podem editar nome/e-mail/WhatsApp no painel (sempre com OTP) */
+    allowMembersEditOwnProfile?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 
@@ -106,6 +111,12 @@ const OrganizationSchema = new Schema<IOrganization>({
   whatsappSendPolicy: {
     type: Schema.Types.Mixed,
     default: undefined,
+  },
+  teamSettings: {
+    type: {
+      allowMembersEditOwnProfile: { type: Boolean, default: false },
+    },
+    default: () => ({ allowMembersEditOwnProfile: false }),
   },
 }, {
   timestamps: true,

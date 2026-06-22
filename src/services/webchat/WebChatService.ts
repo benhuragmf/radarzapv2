@@ -68,6 +68,7 @@ import { linkWebChatVisitorToDestination, ensureDestinationForWebChatVisitor } f
 import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
+import { notifySupervisorInternalChatMention } from '../inbox/inbox-supervisor-notify.service';
 import { loadInboxSettings } from '../../constants/inbox-triage';
 import { handleWebChatNoAgentOnline, isFallbackAcceptTimeoutElapsed } from './webchat-whatsapp-fallback.service';
 import {
@@ -799,9 +800,27 @@ export class WebChatService {
     if (wcFilter.conversationStatus) query.status = wcFilter.conversationStatus;
     if (wcFilter.queueStatus) query.queueStatus = wcFilter.queueStatus;
 
-    // Chat do site: fila visível para todos os atendentes com Inbox (sem silo por setor).
-    // Filtro por setor só quando o painel pede explicitamente.
-    if (filters.departmentId) {
+    const { InboxService } = await import('@/services/inbox/InboxService');
+    const visibility = await InboxService.getInstance().getDepartmentVisibility(clientId, userId);
+    const userOid = new mongoose.Types.ObjectId(userId);
+
+    if (visibility.restricted) {
+      const assignedClause = {
+        $or: [{ assignedUserId: userOid }, { suggestedUserId: userOid }],
+      };
+      if (filters.departmentId) {
+        const deptOid = new mongoose.Types.ObjectId(filters.departmentId);
+        const allowedDept = visibility.departmentIds.some(id => id.equals(deptOid));
+        query.departmentId = deptOid;
+        if (!allowedDept) {
+          Object.assign(query, assignedClause);
+        }
+      } else if (visibility.departmentIds.length > 0) {
+        query.$or = [{ departmentId: { $in: visibility.departmentIds } }, assignedClause];
+      } else {
+        Object.assign(query, assignedClause);
+      }
+    } else if (filters.departmentId) {
       query.departmentId = new mongoose.Types.ObjectId(filters.departmentId);
     }
 
@@ -2723,6 +2742,20 @@ export class WebChatService {
       senderName: authorName,
       notifyVisitor: false,
     });
+
+    const contactName =
+      conversation.visitorName?.trim() ||
+      conversation.visitorEmail?.trim() ||
+      'Visitante do site';
+
+    void notifySupervisorInternalChatMention({
+      clientId,
+      authorUserId: userId,
+      authorName,
+      conversationId: toWebChatInboxId(String(conversation._id)),
+      contactName,
+      body: raw,
+    }).catch(() => {});
 
     return this.toMessageDto(msg);
   }

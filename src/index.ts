@@ -210,7 +210,16 @@ class Application {
       this.services.set('web-dashboard', dashboard);
       logger.info('✅ Web Dashboard service started');
     } catch (error) {
-      logger.error('❌ Failed to start Web Dashboard service:', error);
+      const err = error as NodeJS.ErrnoException;
+      logger.error('❌ Failed to start Web Dashboard service:', {
+        message: err.message,
+        code: err.code,
+        port: 3001,
+        hint:
+          err.code === 'EADDRINUSE'
+            ? 'Porta 3001 ocupada — execute: npm run dev:stop'
+            : undefined,
+      });
       // Non-fatal — don't throw, dashboard is optional
     }
   }

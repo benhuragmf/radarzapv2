@@ -10,6 +10,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
+import DashboardNotifications from './pages/DashboardNotifications'
 import Sessions from './pages/Sessions'
 import Rules from './pages/Rules'
 import Templates from './pages/Templates'
@@ -152,6 +153,7 @@ export default function App() {
 
           {/* Cliente */}
           <Route path="dashboard" element={<Guard user={user} path="/dashboard"><Dashboard /></Guard>} />
+          <Route path="dashboard/notificacoes" element={<Guard user={user} path="/dashboard/notificacoes"><DashboardNotifications /></Guard>} />
           <Route path="platform/templates" element={<Guard user={user} path="/platform/templates"><PlatformTemplates /></Guard>} />
           <Route path="platform/reports" element={<Guard user={user} path="/platform/reports"><PlatformReports /></Guard>} />
           <Route path="platform/contacts" element={<Guard user={user} path="/platform/contacts"><PlatformContacts /></Guard>} />

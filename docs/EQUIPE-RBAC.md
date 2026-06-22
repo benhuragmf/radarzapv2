@@ -46,7 +46,82 @@ Requer `company:members:manage` (dono ou quem tiver a cap).
 | DELETE | `/team/custom-roles/:id` | falha se membros ainda usam |
 | POST | `/team/members` | `{ email, roleKey }` — envia e-mail de convite |
 | POST | `/team/members/:id/resend-invite` | reenvia e-mail (membro pendente) |
-| PATCH | `/team/members/:id` | `{ roleKey?, whatsappPhone? }` |
+| PATCH | `/team/members/:id` | `{ roleKey? }` — papel apenas; **não** aceita `whatsappPhone` direto |
+| PATCH | `/team/members/:id/profile` | `{ displayName?, email?, whatsappPhone? }` — dados do membro; alterar e-mail/WA **invalida** verificação |
+| POST | `/team/members/:id/whatsapp/request-code` | `{ phone }` — OTP no número; aviso de auditoria ao dono |
+| POST | `/team/members/:id/whatsapp/confirm` | `{ phone, code }` — salva WA verificado |
+| DELETE | `/team/members/:id/whatsapp` | remove WA do membro |
+| GET | `/organization/team-settings` | `{ allowMembersEditOwnProfile }` |
+| PATCH | `/organization/team-settings` | `{ allowMembersEditOwnProfile? }` — **somente OWNER** |
+
+### Perfil do membro (`/auth/me/*`)
+
+Rotas de sessão (cookie painel), sem capability extra — qualquer membro autenticado na org.
+
+| Método | Rota | Body / notas |
+|--------|------|--------------|
+| GET | `/auth/me/member-profile` | status completo: verificações, `canEditProfile`, `profileComplete`, `pendingConfirmations` |
+| PATCH | `/auth/me/member-profile` | `{ displayName? }` — só se `allowMembersEditOwnProfile` |
+| POST | `/auth/me/email/request-code` | `{ email? }` — OTP por e-mail; se edição bloqueada, confirma e-mail cadastrado |
+| POST | `/auth/me/email/confirm` | `{ email, code }` |
+| POST | `/auth/me/whatsapp/request-code` | `{ phone }` — OTP via WA da empresa |
+| POST | `/auth/me/whatsapp/confirm` | `{ phone, code }` |
+| DELETE | `/auth/me/whatsapp` | remove WA — só se edição liberada |
+
+Código: `src/services/organization/member-profile.service.ts`.
+
+## Perfil, confirmações e política da empresa (2.11.49–2.11.50)
+
+### Modelos
+
+| Modelo | Campo | Desde | Uso |
+|--------|-------|-------|-----|
+| `Organization` | `teamSettings.allowMembersEditOwnProfile` | 2.11.50 | `false` (padrão): empresa cadastra; atendente só confirma |
+| `CompanyMember` | `displayName` | 2.11.50 | Nome na equipe (admin ou self-service) |
+| `CompanyMember` | `emailVerifiedAt` | 2.11.50 | E-mail confirmado por OTP |
+| `CompanyMember` | `whatsappPhone` | — | Número pessoal (bridge, `!assumir`, alertas) |
+| `CompanyMember` | `whatsappPhoneVerifiedAt` | 2.11.49 | WA confirmado por OTP no próprio número |
+
+### Dois modos de operação
+
+**Empresa A (padrão)** — `allowMembersEditOwnProfile = false`
+
+1. Dono/admin cadastra em **Equipe → Editar membro**: nome, e-mail, WhatsApp (`PATCH …/profile` ou OTP WA no modal).
+2. Atendente em **Configurações → Meu perfil** (`/settings#perfil`): vê dados em leitura e **confirma** com código.
+3. Não pode alterar número/e-mail/nome sem passar pelo admin.
+
+**Empresa B** — `allowMembersEditOwnProfile = true`
+
+1. Dono ativa o toggle em **Equipe → Perfil dos atendentes**.
+2. Atendente pode editar nome, e-mail e WhatsApp em Meu perfil.
+3. **Toda alteração** exige novo OTP (e-mail ou WhatsApp).
+
+### Confirmações obrigatórias
+
+Para atendentes (`ATTENDANT`, `MANAGER`, `CUSTOM`, etc. — exceto `OWNER` e `INTEGRATION`):
+
+| Dado | Como confirma | Exceção |
+|------|----------------|---------|
+| E-mail | Código 6 dígitos por e-mail (Resend/SMTP) | Login **Google** com mesmo e-mail → auto-verificado |
+| WhatsApp | Código 6 dígitos no número via sessão WA da empresa | — |
+
+`profileComplete = false` enquanto houver item em `pendingConfirmations` (`email` e/ou `whatsapp`).
+
+Comandos WA (`!assumir`, bridge) exigem `whatsappPhoneVerifiedAt` — ver `whatsapp-agent-auth.service.ts`.
+
+### Fluxo OTP WhatsApp (admin)
+
+1. Admin informa número → `POST /team/members/:id/whatsapp/request-code`.
+2. Código vai ao **número informado** (impede número aleatório sem acesso).
+3. Dono recebe **auditoria** no WA verificado dele (se configurado).
+4. Admin confirma com `…/confirm` **ou** o atendente confirma em Meu perfil.
+
+Salvar telefone em `PATCH …/profile` grava número **sem** verificação; o membro deve confirmar depois.
+
+### UI
+
+- `/settings#perfil` — `MyProfilePanel.tsx` (todos os membros; header linka para cá)
+- `/settings/team` — toggle política (dono), lista com status e-mail/WA, modal `TeamMemberRoleModal`
 
 ## Resolução de permissões
 

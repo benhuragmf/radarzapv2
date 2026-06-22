@@ -4,6 +4,7 @@ import {
   resolvePanelEventOwnerOnly,
   resolvePanelEventUrgency,
 } from '@/types/panel-events';
+import { persistPanelEvent } from '@/services/inbox/panel-notifications-store.service';
 
 export type { PanelEventPayload, PanelEventType };
 
@@ -14,11 +15,14 @@ export function setPanelSocketServer(server: SocketIOServer): void {
 }
 
 export function emitPanelEvent(clientId: string, event: PanelEventPayload): void {
-  if (!io) return;
   const normalized: PanelEventPayload = {
     ...event,
     urgent: resolvePanelEventUrgency(event.type, event.urgent),
     ownerOnly: resolvePanelEventOwnerOnly(event.type, event.ownerOnly),
   };
+
+  void persistPanelEvent(clientId, normalized);
+
+  if (!io) return;
   io.to(`inbox:${clientId}`).emit('panel:event', normalized);
 }

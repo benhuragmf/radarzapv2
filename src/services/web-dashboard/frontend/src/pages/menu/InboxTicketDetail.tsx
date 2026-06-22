@@ -78,7 +78,7 @@ export default function InboxTicketDetailPage() {
     [ref, qc],
   )
 
-  usePanelSocket(Boolean(ref), onPanelEvent)
+  usePanelSocket(Boolean(ref), onPanelEvent, { sessionAlerts: false })
 
   const closeMutation = useMutation({
     mutationFn: () => api.post(`/inbox/tickets/${encodeURIComponent(ref)}/close`),

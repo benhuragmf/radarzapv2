@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ChevronDown, RotateCcw, Save, Search, Shield, X } from 'lucide-react'
 import type { CompanyRole } from '../../lib/auth'
+import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { inputCls, selectCls, searchFieldIconCls } from '@/design-system'
@@ -299,14 +300,20 @@ interface MemberRoleModalProps {
   member: {
     _id: string
     displayEmail?: string
+    email?: string
+    displayName?: string
     companyRole: CompanyRole
     customRoleId?: string
     whatsappPhone?: string
+    whatsappPhoneVerifiedAt?: string
+    emailVerifiedAt?: string
   }
   presets: RolePreset[]
   isOwner: boolean
   onClose: () => void
-  onSave: (roleKey: string, whatsappPhone?: string) => Promise<void>
+  onSave: (roleKey: string) => Promise<void>
+  onProfileUpdated?: () => void
+  onWhatsappUpdated?: () => void
 }
 
 export function TeamMemberRoleModal({
@@ -315,21 +322,57 @@ export function TeamMemberRoleModal({
   isOwner,
   onClose,
   onSave,
+  onProfileUpdated,
+  onWhatsappUpdated,
 }: MemberRoleModalProps) {
   const initialRoleKey = member.customRoleId
     ? `custom:${member.customRoleId}`
     : member.companyRole
   const [role, setRole] = useState(initialRoleKey)
-  const [whatsappPhone, setWhatsappPhone] = useState(member.whatsappPhone ?? '')
   const [saving, setSaving] = useState(false)
+  const [profileSaving, setProfileSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState(member.displayName ?? '')
+  const [memberEmail, setMemberEmail] = useState(member.email ?? member.displayEmail ?? '')
+  const [phone, setPhone] = useState(member.whatsappPhone ?? '')
+  const [code, setCode] = useState('')
+  const [waStep, setWaStep] = useState<'idle' | 'code'>('idle')
+  const [waLoading, setWaLoading] = useState(false)
+  const [waInfo, setWaInfo] = useState<string | null>(null)
+  const [waVerifiedAt, setWaVerifiedAt] = useState(member.whatsappPhoneVerifiedAt)
+  const [emailVerifiedAt, setEmailVerifiedAt] = useState(member.emailVerifiedAt)
   const preset = presets.find(p => p.role === role)
+  const waVerified = Boolean(waVerifiedAt)
+  const emailVerified = Boolean(emailVerifiedAt)
+
+  useEffect(() => {
+    setRole(member.customRoleId ? `custom:${member.customRoleId}` : member.companyRole)
+    setDisplayName(member.displayName ?? '')
+    setMemberEmail(member.email ?? member.displayEmail ?? '')
+    setPhone(member.whatsappPhone ?? '')
+    setWaVerifiedAt(member.whatsappPhoneVerifiedAt)
+    setEmailVerifiedAt(member.emailVerifiedAt)
+    setWaStep('idle')
+    setCode('')
+    setWaInfo(null)
+    setError(null)
+  }, [
+    member._id,
+    member.companyRole,
+    member.customRoleId,
+    member.displayName,
+    member.email,
+    member.displayEmail,
+    member.whatsappPhone,
+    member.whatsappPhoneVerifiedAt,
+    member.emailVerifiedAt,
+  ])
 
   const handleSave = async () => {
     setSaving(true)
     setError(null)
     try {
-      await onSave(role, whatsappPhone.trim() || undefined)
+      await onSave(role)
       onClose()
     } catch (e) {
       setError((e as Error).message)
@@ -338,14 +381,132 @@ export function TeamMemberRoleModal({
     }
   }
 
+  const saveProfile = async () => {
+    setProfileSaving(true)
+    setError(null)
+    try {
+      const updated = await api.patch<{
+        emailVerifiedAt?: string
+        whatsappPhoneVerifiedAt?: string
+      }>(`/team/members/${member._id}/profile`, {
+        displayName: displayName.trim() || null,
+        email: memberEmail.trim() || null,
+        whatsappPhone: phone.trim() || null,
+      })
+      setEmailVerifiedAt(updated.emailVerifiedAt)
+      setWaVerifiedAt(updated.whatsappPhoneVerifiedAt)
+      setWaInfo('Dados salvos. O membro deve confirmar e-mail e WhatsApp no painel dele.')
+      onProfileUpdated?.()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  const requestWaCode = async () => {
+    setWaLoading(true)
+    setWaInfo(null)
+    setError(null)
+    try {
+      await api.post(`/team/members/${member._id}/whatsapp/request-code`, { phone: phone.trim() })
+      setWaStep('code')
+      setWaInfo(
+        'Código enviado ao número informado. O titular deve informar o código aqui. O dono da empresa também recebe aviso de auditoria.',
+      )
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setWaLoading(false)
+    }
+  }
+
+  const confirmWaCode = async () => {
+    setWaLoading(true)
+    setError(null)
+    try {
+      const updated = await api.post<{
+        whatsappPhoneVerifiedAt?: string
+      }>(`/team/members/${member._id}/whatsapp/confirm`, {
+        phone: phone.trim(),
+        code: code.trim(),
+      })
+      setWaVerifiedAt(updated.whatsappPhoneVerifiedAt)
+      setWaStep('idle')
+      setCode('')
+      setWaInfo('WhatsApp verificado e salvo.')
+      onWhatsappUpdated?.()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setWaLoading(false)
+    }
+  }
+
+  const removeWa = async () => {
+    if (!window.confirm('Remover WhatsApp verificado deste membro?')) return
+    setWaLoading(true)
+    setError(null)
+    try {
+      await api.delete(`/team/members/${member._id}/whatsapp`)
+      setPhone('')
+      setWaVerifiedAt(undefined)
+      setWaInfo('WhatsApp removido.')
+      onWhatsappUpdated?.()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setWaLoading(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-md border border-[var(--rz-border)] bg-[var(--rz-surface)] rounded-2xl shadow-xl">
+      <div className="w-full max-w-md border border-[var(--rz-border)] bg-[var(--rz-surface)] rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="p-5 border-b border-[var(--rz-border)]">
-          <h3 className="text-base font-semibold text-[var(--rz-text-primary)]">Alterar papel</h3>
+          <h3 className="text-base font-semibold text-[var(--rz-text-primary)]">Editar membro</h3>
           <p className="text-sm text-[var(--rz-text-secondary)] mt-1">{member.displayEmail}</p>
         </div>
-        <div className="p-5 space-y-3">
+        <div className="p-5 space-y-4">
+          <div className="space-y-3 border-b border-[var(--rz-border)] pb-4">
+            <p className="text-sm font-medium text-[var(--rz-text-primary)]">Dados do membro</p>
+            <div>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Nome</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                className={inputCls}
+                maxLength={120}
+                disabled={profileSaving}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">E-mail</label>
+              <input
+                type="email"
+                value={memberEmail}
+                onChange={e => setMemberEmail(e.target.value)}
+                className={inputCls}
+                disabled={profileSaving}
+              />
+              {emailVerified ? (
+                <p className="text-xs text-green-400 mt-1">E-mail confirmado pelo membro</p>
+              ) : (
+                <p className="text-xs text-amber-400 mt-1">Pendente — membro confirma em Meu perfil</p>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={saveProfile}
+              disabled={profileSaving}
+            >
+              {profileSaving ? 'Salvando…' : 'Salvar dados'}
+            </Button>
+          </div>
+
           <div>
             <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Papel</label>
             <select
@@ -364,22 +525,96 @@ export function TeamMemberRoleModal({
             </select>
             {preset && <p className="text-xs text-[var(--rz-text-muted)] mt-1.5">{preset.description}</p>}
           </div>
-          <div>
-            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">
-              WhatsApp pessoal (bridge, comandos e encaminhamentos)
-            </label>
-            <input
-              type="tel"
-              value={whatsappPhone}
-              onChange={e => setWhatsappPhone(e.currentTarget.value)}
-              placeholder="5511999999999"
-              className={inputCls}
-            />
-            <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
-              Recebe alertas de fallback, responde com <code className="text-[var(--rz-text-secondary)]">!assumir</code>,{' '}
-              <code className="text-[var(--rz-text-secondary)]">!ticket</code> e encaminhamentos de chamados.
+
+          <div className="border-t border-[var(--rz-border)] pt-4 space-y-2">
+            <p className="text-sm font-medium text-[var(--rz-text-primary)]">WhatsApp pessoal</p>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              O número só é salvo após confirmação com código enviado ao próprio WhatsApp informado.
+              O dono recebe aviso quando a empresa inicia o cadastro.
             </p>
+            {waVerified ? (
+              <p className="text-xs text-green-400">
+                Verificado
+                {phone.replace(/\D/g, '').length >= 4
+                  ? ` · ***${phone.replace(/\D/g, '').slice(-4)}`
+                  : ''}
+              </p>
+            ) : phone.trim() && member.whatsappPhone ? (
+              <p className="text-xs text-amber-400">Pendente verificação</p>
+            ) : null}
+
+            {waStep === 'idle' ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="5511999999999"
+                  className={inputCls}
+                  disabled={waLoading}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={requestWaCode}
+                    disabled={!phone.trim() || waLoading}
+                  >
+                    {waLoading ? 'Enviando…' : 'Enviar código'}
+                  </Button>
+                  {waVerified && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={removeWa}
+                      disabled={waLoading}
+                    >
+                      Remover
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={code}
+                  onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Código de 6 dígitos"
+                  className={inputCls}
+                  disabled={waLoading}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={confirmWaCode}
+                    disabled={code.length < 6 || waLoading}
+                  >
+                    {waLoading ? 'Confirmando…' : 'Confirmar número'}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setWaStep('idle')}
+                    disabled={waLoading}
+                  >
+                    Voltar
+                  </Button>
+                </div>
+              </div>
+            )}
+            {waInfo && (
+              <p className="text-xs text-[var(--rz-text-muted)] rounded-lg border border-[var(--rz-border)] px-3 py-2">
+                {waInfo}
+              </p>
+            )}
           </div>
+
           {error && (
             <div className="text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-lg px-3 py-2">
               {error}
@@ -392,7 +627,7 @@ export function TeamMemberRoleModal({
           </Button>
           <Button type="button" onClick={handleSave} disabled={saving}>
             {saving ? <Spinner size={14} /> : null}
-            Salvar
+            Salvar papel
           </Button>
         </div>
       </div>

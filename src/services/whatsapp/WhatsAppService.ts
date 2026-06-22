@@ -60,6 +60,11 @@ import {
 import { ConsentStatus } from '@/types/consent';
 import { isPhoneInParticipants, isWaIdentityInParticipants } from '@/utils/group-membership';
 import { downloadProfilePictureFromUrl } from '@/utils/profile-picture-download';
+import {
+  brazilPhoneLookupVariants,
+  resolveLidJidsForPhone,
+  userPartFromJid,
+} from '@/utils/whatsapp-phone';
 import { StatusViewService } from '@/services/send/StatusViewService';
 import mongoose from 'mongoose';
 import fs from 'fs';
@@ -114,6 +119,10 @@ export class WhatsAppService {
   private reconnectingClients = new Set<string>();
   private reconnectAttempts = new Map<string, number>();
   private reconnectTimers = new Map<string, NodeJS.Timeout>();
+  /** Evita createWhatsAppSession paralelo (WhatsApp bane com erro 440) */
+  private sessionCreatePromises = new Map<string, Promise<{ qrCode?: string; connected: boolean }>>();
+  /** Cooldown entre tentativas automáticas de reconexão */
+  private lastReconnectAt = new Map<string, number>();
   /** Desconexão manual (Discord/painel) — não auto-reconectar */
   private manuallyDisconnectedClients = new Set<string>();
   /** Mensagens enviadas (necessário para decifrar votos em enquetes de consentimento) */
@@ -592,18 +601,6 @@ export class WhatsAppService {
       for (const ev of events) {
         await redis.publish(WA_SESSION_CHANNEL, JSON.stringify(ev));
       }
-      // Compat legado para o dashboard
-      await redis.publish(
-        WA_SESSION_CHANNEL,
-        JSON.stringify({
-          clientId,
-          status: data.status,
-          qrCode: data.qrCode,
-          qrCount: data.qrCount,
-          statusReason: data.statusReason,
-          lastActivity: now,
-        }),
-      );
     } catch {
       // pub/sub optional — dashboard still polls /sessions
     }
@@ -685,22 +682,64 @@ export class WhatsAppService {
     return undefined;
   }
 
-  /** Resolve JID real no WhatsApp (número BR, LID, etc.). */
+  /** Candidatos de JID para buscar foto (telefone, LID, variantes BR). */
+  private async resolveProfilePictureJids(
+    clientId: string,
+    socket: WASocket,
+    identifier: string,
+    type: 'contact' | 'group',
+  ): Promise<string[]> {
+    const formatted = this.formatJid(identifier, type);
+    if (type !== 'contact') return [formatted];
+
+    const candidates = new Set<string>();
+    if (identifier.includes('@')) candidates.add(identifier);
+    candidates.add(formatted);
+
+    const plainDigits = this.plainWhatsAppId(formatted);
+    const lookupPhones = brazilPhoneLookupVariants(plainDigits);
+    if (lookupPhones.length === 0 && plainDigits) lookupPhones.push(plainDigits);
+
+    if (lookupPhones.length > 0) {
+      try {
+        const results = await socket.onWhatsApp(...lookupPhones);
+        for (const r of results ?? []) {
+          if (r?.exists && r.jid) candidates.add(r.jid);
+        }
+      } catch {
+        /* fallback nos JIDs formatados abaixo */
+      }
+      for (const phone of lookupPhones) {
+        candidates.add(this.formatJid(phone, 'contact'));
+        for (const lid of resolveLidJidsForPhone(clientId, phone)) {
+          candidates.add(lid);
+        }
+      }
+    }
+
+    const cached = this.waStatusContactJids.get(clientId);
+    if (cached) {
+      const variantSet = new Set(lookupPhones);
+      for (const jid of cached) {
+        const userPart = userPartFromJid(jid).replace(/\D/g, '');
+        if (variantSet.has(userPart) || brazilPhoneLookupVariants(userPart).some(v => variantSet.has(v))) {
+          candidates.add(jid);
+        }
+      }
+    }
+
+    return [...candidates];
+  }
+
+  /** Resolve JID real no WhatsApp (número BR, LID, etc.) — uso em envios/consentimento. */
   private async resolveDestinationJid(
+    clientId: string,
     socket: WASocket,
     identifier: string,
     type: 'contact' | 'group',
   ): Promise<string> {
-    const jid = this.formatJid(identifier, type);
-    if (type !== 'contact') return jid;
-    try {
-      const plainNumber = this.plainWhatsAppId(jid);
-      const [result] = await socket.onWhatsApp(plainNumber);
-      if (result?.exists && result.jid) return result.jid;
-    } catch {
-      /* usa jid formatado */
-    }
-    return jid;
+    const jids = await this.resolveProfilePictureJids(clientId, socket, identifier, type);
+    return jids[0] ?? this.formatJid(identifier, type);
   }
 
   /** Foto de perfil de um contato ou grupo WhatsApp */
@@ -719,8 +758,53 @@ export class WhatsAppService {
     }
     const socket = this.sessions.get(id);
     if (!socket?.user) return undefined;
-    const jid = await this.resolveDestinationJid(socket, identifier, type);
-    return this.fetchProfilePicture(socket, jid);
+    const jids = await this.resolveProfilePictureJids(id, socket, identifier, type);
+    for (const jid of jids) {
+      const url = await this.fetchProfilePicture(socket, jid);
+      if (url) return url;
+    }
+    return undefined;
+  }
+
+  private static readonly PROFILE_PICTURE_NONE_RETRY_MS = 24 * 60 * 60 * 1000;
+
+  private buildProfilePictureSyncQuery(
+    clientOid: mongoose.Types.ObjectId,
+    options: { force?: boolean; maxAgeDays?: number },
+  ): Record<string, unknown> {
+    const base: Record<string, unknown> = {
+      clientId: clientOid,
+      isActive: true,
+    };
+
+    if (options.force) {
+      return {
+        ...base,
+        $or: [
+          { profilePictureMime: { $exists: false } },
+          { profilePictureMime: null },
+          { profilePictureMime: '' },
+          { profilePictureMime: 'none' },
+          { profilePictureMime: { $not: { $regex: /^image\// } } },
+        ],
+      };
+    }
+
+    const maxAgeMs = (options.maxAgeDays ?? 7) * 86_400_000;
+    const cutoff = new Date(Date.now() - maxAgeMs);
+    const noneRetryCutoff = new Date(Date.now() - WhatsAppService.PROFILE_PICTURE_NONE_RETRY_MS);
+
+    return {
+      ...base,
+      $or: [
+        { profilePictureMime: { $exists: false } },
+        { profilePictureMime: null },
+        { profilePictureMime: '' },
+        { profilePictureUpdatedAt: { $lt: cutoff } },
+        { profilePictureUpdatedAt: { $exists: false } },
+        { profilePictureMime: 'none', profilePictureUpdatedAt: { $lt: noneRetryCutoff } },
+      ],
+    };
   }
 
   /**
@@ -728,30 +812,27 @@ export class WhatsAppService {
    */
   async syncDestinationProfilePictures(
     clientId: string,
-    options: { limit?: number; destinationIds?: string[]; maxAgeDays?: number } = {},
+    options: {
+      limit?: number;
+      destinationIds?: string[];
+      maxAgeDays?: number;
+      force?: boolean;
+    } = {},
   ): Promise<{ updated: number; skipped: number; failed: number }> {
     const limit = Math.min(Math.max(options.limit ?? 30, 1), 80);
-    const maxAgeMs = (options.maxAgeDays ?? 7) * 86_400_000;
-    const cutoff = new Date(Date.now() - maxAgeMs);
     const clientOid = new mongoose.Types.ObjectId(clientId);
 
-    const query: Record<string, unknown> = {
-      clientId: clientOid,
-      isActive: true,
-    };
-
+    let query: Record<string, unknown>;
     if (options.destinationIds?.length) {
-      query._id = {
-        $in: options.destinationIds.map(id => new mongoose.Types.ObjectId(id)),
+      query = {
+        clientId: clientOid,
+        isActive: true,
+        _id: {
+          $in: options.destinationIds.map(id => new mongoose.Types.ObjectId(id)),
+        },
       };
     } else {
-      query.$or = [
-        { profilePictureMime: { $exists: false } },
-        { profilePictureMime: null },
-        { profilePictureMime: '' },
-        { profilePictureUpdatedAt: { $lt: cutoff } },
-        { profilePictureUpdatedAt: { $exists: false } },
-      ];
+      query = this.buildProfilePictureSyncQuery(clientOid, options);
     }
 
     const dests = await Destination.find(query).sort({ updatedAt: -1 }).limit(limit).lean();
@@ -761,7 +842,7 @@ export class WhatsAppService {
     let failed = 0;
 
     this.serviceLogger.info(
-      `Sincronizando fotos de perfil: client=${clientId} fila=${dests.length} cadastrados=${totalActive}`,
+      `Sincronizando fotos de perfil: client=${clientId} fila=${dests.length} cadastrados=${totalActive}${options.force ? ' (forçado)' : ''}`,
     );
 
     if (dests.length === 0) {
@@ -770,8 +851,20 @@ export class WhatsAppService {
           'Fotos de perfil: nenhum contato ativo em /contact — sync só roda para destinos cadastrados no RadarZap.',
         );
       } else {
-        this.serviceLogger.debug(
-          'Fotos de perfil: fila vazia — contatos já sincronizados nos últimos 7 dias ou marcados sem foto (none).',
+        const [withImage, markedNone] = await Promise.all([
+          Destination.countDocuments({
+            clientId: clientOid,
+            isActive: true,
+            profilePictureMime: { $regex: /^image\// },
+          }),
+          Destination.countDocuments({
+            clientId: clientOid,
+            isActive: true,
+            profilePictureMime: 'none',
+          }),
+        ]);
+        this.serviceLogger.info(
+          `Fotos de perfil: fila vazia — comImagem=${withImage} marcadosSemFoto=${markedNone} cadastrados=${totalActive}. Use "Forçar fotos agora" em Contatos ou aguarde retry (24h para sem foto).`,
         );
       }
       return { updated, skipped, failed };
@@ -860,6 +953,8 @@ export class WhatsAppService {
       if (
         !this.connectingClients.has(id) &&
         !this.reconnectingClients.has(id) &&
+        !this.sessionCreatePromises.has(id) &&
+        !this.reconnectTimers.has(id) &&
         !this.sessions.has(id) &&
         !this.manuallyDisconnectedClients.has(id)
       ) {
@@ -1595,19 +1690,39 @@ export class WhatsAppService {
   /** Evolution API: connect idempotente — retorna estado + QR sem bloquear até open */
   async connectInstance(
     clientId: string,
-    options?: { discordUserId?: string; channelId?: string; forceQr?: boolean },
+    options?: { discordUserId?: string; channelId?: string; forceQr?: boolean; refreshQr?: boolean },
   ): Promise<{ instance: WaInstanceState; qrcode?: WaQrCodePayload }> {
     this.manuallyDisconnectedClients.delete(clientId);
 
-    const current = await this.getConnectionState(clientId);
-    if (current.instance.state === 'open') {
-      return { instance: current.instance };
+    const liveSocket = this.sessions.get(clientId);
+    if (liveSocket?.user) {
+      return { instance: (await this.getConnectionState(clientId)).instance };
     }
 
-    await this.abortClientConnection(clientId);
+    // Pedido explícito — não deixar reconexão agendada bloquear novo QR
+    this.cancelScheduledReconnect(clientId);
 
-    if (options?.forceQr) {
-      await this.clearCredentials(clientId);
+    const wantsFreshAttempt = options?.forceQr === true || options?.refreshQr === true;
+
+    const inFlight =
+      !wantsFreshAttempt &&
+      (this.connectingClients.has(clientId) ||
+        this.reconnectingClients.has(clientId) ||
+        this.sessionCreatePromises.has(clientId));
+
+    if (inFlight) {
+      const [current, qr] = await Promise.all([
+        this.getConnectionState(clientId),
+        this.getInstanceQrCode(clientId),
+      ]);
+      return { instance: current.instance, qrcode: qr.qrcode };
+    }
+
+    if (wantsFreshAttempt) {
+      await this.abortClientConnection(clientId);
+      if (options?.forceQr) {
+        await this.clearCredentials(clientId);
+      }
     }
 
     let result = await this.startConnectAndWaitForQr(clientId, options);
@@ -1674,8 +1789,21 @@ export class WhatsAppService {
     };
   }
 
+  /** Cancela timer de reconexão automática (pedido explícito de connect / abort) */
+  private cancelScheduledReconnect(clientId: string): void {
+    const timer = this.reconnectTimers.get(clientId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(clientId);
+    }
+    this.reconnectAttempts.delete(clientId);
+    this.lastReconnectAt.delete(clientId);
+  }
+
   /** Encerra sockets/tentativas em andamento sem apagar credenciais */
   private async abortClientConnection(clientId: string): Promise<void> {
+    this.cancelScheduledReconnect(clientId);
+
     const socket = this.sessions.get(clientId);
     if (socket) {
       try {
@@ -1689,6 +1817,7 @@ export class WhatsAppService {
     this.connectingClients.delete(clientId);
     this.reconnectingClients.delete(clientId);
     this.pendingConnections.delete(clientId);
+    this.sessionCreatePromises.delete(clientId);
 
     const interval = this.sessionIntervals.get(clientId);
     if (interval) {
@@ -1713,6 +1842,19 @@ export class WhatsAppService {
     await this.notifySessionUpdate(clientId, {
       status: 'disconnected',
       statusReason,
+      lastActivity: new Date(),
+    });
+  }
+
+  /** Código 440 — outra socket com as mesmas credenciais; não auto-reconectar */
+  private async handleConnectionReplaced(clientId: string): Promise<void> {
+    this.manuallyDisconnectedClients.add(clientId);
+    this.cancelScheduledReconnect(clientId);
+    await this.abortClientConnection(clientId);
+    await this.notifySessionUpdate(clientId, {
+      status: 'disconnected',
+      statusReason: DisconnectReason.connectionReplaced,
+      manualDisconnect: true,
       lastActivity: new Date(),
     });
   }
@@ -2172,6 +2314,10 @@ export class WhatsAppService {
         } catch (error) {
           const msg = (error as Error).message;
           this.serviceLogger.error(`Failed to restore session for client ${clientId}:`, error);
+          if (msg.includes('440') || msg.includes('Connection replaced')) {
+            this.manuallyDisconnectedClients.add(clientId);
+            continue;
+          }
           const sessionDoc = await WhatsAppSession.findOne({ clientId });
           if (sessionDoc && !msg.includes('Session files not found')) {
             await sessionDoc.markAsExpired();
@@ -2204,6 +2350,8 @@ export class WhatsAppService {
         this.sessions.has(clientId) ||
         this.connectingClients.has(clientId) ||
         this.reconnectingClients.has(clientId) ||
+        this.sessionCreatePromises.has(clientId) ||
+        this.reconnectTimers.has(clientId) ||
         this.manuallyDisconnectedClients.has(clientId)
       ) {
         continue;
@@ -2214,12 +2362,20 @@ export class WhatsAppService {
         this.manuallyDisconnectedClients.add(clientId);
         continue;
       }
+      if (cached?.statusReason === DisconnectReason.connectionReplaced) {
+        this.manuallyDisconnectedClients.add(clientId);
+        continue;
+      }
 
       const state = await this.getConnectionState(clientId);
       if (state.instance.state === 'open') continue;
 
+      const lastAt = this.lastReconnectAt.get(clientId) ?? 0;
+      if (Date.now() - lastAt < 60_000) continue;
+
+      this.lastReconnectAt.set(clientId, Date.now());
       this.serviceLogger.info(`Auto-reconnecting WhatsApp session: ${clientId}`);
-      this.connectInstance(clientId).catch(err => {
+      this.restoreSession(clientId).catch(err => {
         this.serviceLogger.warn(`Auto-reconnect failed for ${clientId}: ${(err as Error).message}`);
       });
     }
@@ -2294,9 +2450,27 @@ export class WhatsAppService {
   }
 
   /**
-   * Create new WhatsApp session
+   * Create new WhatsApp session (uma promise por clientId — evita socket duplicado / ban 440)
    */
-  private async createWhatsAppSession(clientId: string): Promise<{ qrCode?: string; connected: boolean }> {
+  private createWhatsAppSession(clientId: string): Promise<{ qrCode?: string; connected: boolean }> {
+    const inflight = this.sessionCreatePromises.get(clientId);
+    if (inflight) return inflight;
+
+    const socket = this.sessions.get(clientId);
+    if (socket?.user) {
+      return Promise.resolve({ connected: true });
+    }
+
+    const promise = this.doCreateWhatsAppSession(clientId);
+    this.sessionCreatePromises.set(clientId, promise);
+    return promise.finally(() => {
+      if (this.sessionCreatePromises.get(clientId) === promise) {
+        this.sessionCreatePromises.delete(clientId);
+      }
+    });
+  }
+
+  private async doCreateWhatsAppSession(clientId: string): Promise<{ qrCode?: string; connected: boolean }> {
     this.connectingClients.add(clientId);
     const sessionDir = path.join(process.cwd(), 'sessions', clientId);
 
@@ -2389,14 +2563,25 @@ export class WhatsAppService {
 
         if (connection === 'close') {
           const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-          const shouldReconnect = statusCode !== DisconnectReason.loggedOut && statusCode !== DisconnectReason.forbidden;
+          const isReplaced = statusCode === DisconnectReason.connectionReplaced;
+          const shouldReconnect =
+            !isReplaced &&
+            statusCode !== DisconnectReason.loggedOut &&
+            statusCode !== DisconnectReason.forbidden;
 
           if (!resolved) {
-            if (shouldReconnect) {
+            if (isReplaced) {
+              await this.handleConnectionReplaced(clientId);
+              resolved = true;
+              clearTimeout(timeout);
+              reject(new Error('Connection replaced (440)'));
+            } else if (shouldReconnect) {
               this.serviceLogger.info(`WhatsApp connection closed (${statusCode}), reconnecting for client: ${clientId}`);
               // For restartRequired (515), create a new socket
               if (statusCode === DisconnectReason.restartRequired) {
                 socket.end(undefined);
+                // Libera promise em flight — sem isso createWhatsAppSession retorna a mesma promise (deadlock pós-QR)
+                this.sessionCreatePromises.delete(clientId);
                 const newResult = await this.createWhatsAppSession(clientId);
                 if (!resolved) {
                   resolved = true;
@@ -2578,7 +2763,7 @@ export class WhatsAppService {
           this.serviceLogger.warn(
             `Client ${clientId}: conexão substituída (440) — pare outras sessões WhatsApp Web`,
           );
-          await this.softDisconnect(clientId, 440);
+          await this.handleConnectionReplaced(clientId);
         } else if (this.reconnectingClients.has(clientId)) {
           /* reconexão já em andamento */
         } else {
@@ -2750,6 +2935,21 @@ export class WhatsAppService {
   }
 
   private scheduleReconnect(clientId: string, statusCode?: number): void {
+    if (statusCode === DisconnectReason.connectionReplaced) {
+      this.serviceLogger.warn(
+        `Client ${clientId}: conexão substituída (440) — auto-reconexão desativada (evita ban)`,
+      );
+      void this.handleConnectionReplaced(clientId);
+      return;
+    }
+
+    const lastAt = this.lastReconnectAt.get(clientId) ?? 0;
+    if (Date.now() - lastAt < 15_000) {
+      this.serviceLogger.info(`Reconnect cooldown active for ${clientId}, skipping`);
+      return;
+    }
+    this.lastReconnectAt.set(clientId, Date.now());
+
     const attempt = (this.reconnectAttempts.get(clientId) ?? 0) + 1;
     if (attempt > 8) {
       this.serviceLogger.warn(`Reconnect abandoned for ${clientId} after ${attempt} attempts`);
@@ -2758,7 +2958,7 @@ export class WhatsAppService {
     }
 
     this.reconnectAttempts.set(clientId, attempt);
-    const delay = Math.min(30_000, 2000 * 2 ** (attempt - 1));
+    const delay = Math.min(30_000, 2_000 * 2 ** (attempt - 1));
     this.serviceLogger.info(
       `Scheduling WhatsApp reconnect #${attempt} for ${clientId} in ${delay}ms (code=${statusCode})`,
     );
