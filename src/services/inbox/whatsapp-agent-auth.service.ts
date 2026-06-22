@@ -116,6 +116,42 @@ export async function resolveAuthorizedWhatsappAgentFromContext(
   return resolveAuthorizedWhatsappAgent(ctx.clientId, senderJidsFromContext(ctx));
 }
 
+/** Atendentes com WhatsApp verificado e permissão de inbox — ordem estável por userId. */
+export async function listVerifiedWhatsappInboxAgents(
+  clientId: string,
+  filterUserIds?: string[],
+): Promise<Array<{ userId: string; displayName: string; whatsappPhone: string }>> {
+  const members = await CompanyMember.find({
+    organizationId: new mongoose.Types.ObjectId(clientId),
+    isActive: true,
+    userId: { $exists: true, $ne: null },
+    whatsappPhone: { $exists: true, $nin: [null, ''] },
+    whatsappPhoneVerifiedAt: { $exists: true, $ne: null },
+  }).lean();
+
+  const filterSet = filterUserIds?.length ? new Set(filterUserIds.map(String)) : null;
+  const out: Array<{ userId: string; displayName: string; whatsappPhone: string }> = [];
+
+  for (const member of members) {
+    if (!member.userId) continue;
+    const userId = String(member.userId);
+    if (filterSet && !filterSet.has(userId)) continue;
+    if (!(await memberHasInboxReply(clientId, member as unknown as ICompanyMember))) continue;
+
+    const user = await User.findById(member.userId).select('displayName email').lean();
+    const displayName =
+      user?.displayName?.trim() || user?.email?.split('@')[0] || 'Atendente';
+    out.push({
+      userId,
+      displayName,
+      whatsappPhone: member.whatsappPhone!.trim(),
+    });
+  }
+
+  out.sort((a, b) => a.userId.localeCompare(b.userId));
+  return out;
+}
+
 export async function sendWhatsappInternalReply(
   clientId: string,
   replyJid: string,

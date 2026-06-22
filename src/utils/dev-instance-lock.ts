@@ -10,7 +10,8 @@ const execFileAsync = promisify(execFile);
 const logger = createServiceLogger('DevInstanceLock');
 const LOCK_KEY = 'radarzap:dev:instance-lock';
 const LOCK_TTL_SEC = 86_400;
-const RESTART_WAIT_MS = 12_000;
+const RESTART_WAIT_MS = 15_000;
+const POST_KILL_SETTLE_MS = 2_500;
 
 type DevLock = {
   pid: number;
@@ -134,18 +135,10 @@ async function freeDevApiPort(apiPort: number, ownerPid: number): Promise<void> 
   }
 }
 
+/** Lock dev é liberado só no GracefulShutdown — handlers aqui causavam 440 no hot-reload. */
 function registerDevLockExitHandlers(): void {
   if (exitHandlersRegistered || !isDevProcess()) return;
   exitHandlersRegistered = true;
-
-  const releaseOnSignal = (signal: string) => {
-    logger.info(`Sinal ${signal} — liberando lock dev`);
-    void releaseDevInstanceLock();
-  };
-
-  process.once('SIGTERM', () => releaseOnSignal('SIGTERM'));
-  process.once('SIGINT', () => releaseOnSignal('SIGINT'));
-  process.once('SIGUSR2', () => releaseOnSignal('SIGUSR2'));
 }
 
 function isSameDevProject(existing: DevLock): boolean {
@@ -194,6 +187,7 @@ export async function acquireDevInstanceLock(apiPort: number): Promise<void> {
           thisPid: process.pid,
         });
         await terminateStaleProcess(existing.pid);
+        await sleep(POST_KILL_SETTLE_MS);
         const goneAfterKill = await waitForPidExit(existing.pid, 8_000);
         if (!goneAfterKill) {
           logger.error(

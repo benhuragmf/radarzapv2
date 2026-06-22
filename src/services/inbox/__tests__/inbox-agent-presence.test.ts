@@ -186,6 +186,16 @@ describe('inbox-agent-presence', () => {
 
   });
 
+  it('ignores auto offline heartbeat while socket is active', () => {
+    agentPresenceConnect(clientId, userA);
+    agentPresenceHeartbeat(clientId, userA, {
+      operationalStatus: 'offline',
+      statusSource: 'auto',
+    });
+    expect(getAgentPresence(clientId, userA).operationalStatus).toBe('online');
+    expect(getAgentPresence(clientId, userA).availableForQueue).toBe(true);
+  });
+
 
 
   it('stores route and viewing conversation on heartbeat', () => {

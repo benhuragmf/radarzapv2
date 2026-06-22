@@ -4,6 +4,7 @@ import {
   getFallbackAcceptWaitStart,
   isFallbackAcceptTimeoutElapsed,
   normalizeWhatsAppAlertDestination,
+  pickNextFallbackAgent,
 } from '@/services/webchat/webchat-whatsapp-fallback.service';
 
 describe('webchat-whatsapp-fallback', () => {
@@ -52,5 +53,18 @@ describe('webchat-whatsapp-fallback', () => {
     const conv = { queueEnteredAt };
     expect(getFallbackAcceptWaitStart(conv)).toEqual(queueEnteredAt);
     expect(isFallbackAcceptTimeoutElapsed(conv, 60, queueEnteredAt.getTime() + 60_000)).toBe(true);
+  });
+
+  it('pickNextFallbackAgent rotates through team without repeating', () => {
+    const agents = [
+      { userId: 'a1', displayName: 'Ana', whatsappPhone: '5511111111111' },
+      { userId: 'a2', displayName: 'Bia', whatsappPhone: '5511222222222' },
+      { userId: 'a3', displayName: 'Caio', whatsappPhone: '5511333333333' },
+    ];
+    expect(pickNextFallbackAgent(agents, [], null)?.userId).toBe('a1');
+    expect(pickNextFallbackAgent(agents, [], 'a1')?.userId).toBe('a2');
+    expect(pickNextFallbackAgent(agents, ['a1'], 'a1')?.userId).toBe('a2');
+    expect(pickNextFallbackAgent(agents, ['a1', 'a2'], 'a2')?.userId).toBe('a3');
+    expect(pickNextFallbackAgent(agents, ['a1', 'a2', 'a3'], 'a3')).toBeNull();
   });
 });

@@ -530,7 +530,7 @@ Quando uma conversa **WebChat** entra na fila (`waiting_human`):
    - Cronômetro: `suggestedAt` se houver indicado; senão `queueEnteredAt`.
    - Sem `assignedUserId` após timeout → `handleWebChatNoAgentOnline` + mensagem sistema.
 5. Atendente que perdeu prioridade → `webchat:fallback_missed` (sino **vermelho**, `targetUserId`).
-6. Alerta WA via `sendInternalAlert` (`sendKind: alert`); cooldown **15 min**/conversa; anti-loop sessão Baileys.
+6. Alerta WA via `sendInternalAlert` (`sendKind: alert`); **rotação 1 atendente/vez** com WA verificado na equipe (2.11.53); cooldown **15 min**/conversa; anti-loop sessão Baileys.
 7. `!assumir TK-…` → bridge (`whatsappBridgeActive`).
 
 **Inbox:** badge **Bridge WA** na lista e cabeçalho.

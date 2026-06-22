@@ -70,7 +70,10 @@ import { WebhookDispatcherService } from '../integrations/WebhookDispatcherServi
 import { emitPanelEvent } from '../inbox/PanelNotifications';
 import { notifySupervisorInternalChatMention } from '../inbox/inbox-supervisor-notify.service';
 import { loadInboxSettings } from '../../constants/inbox-triage';
-import { handleWebChatNoAgentOnline, isFallbackAcceptTimeoutElapsed } from './webchat-whatsapp-fallback.service';
+import {
+  isFallbackAcceptTimeoutElapsed,
+  processFallbackWhatsappRotation,
+} from './webchat-whatsapp-fallback.service';
 import {
   deactivateWhatsappBridge,
   forwardVisitorMessageToWhatsappBridge,
@@ -2466,6 +2469,26 @@ export class WebChatService {
           targetUserId: rr.userId,
           createdAt: new Date().toISOString(),
         });
+      } else if (rr?.kind === 'no_online') {
+        const rotation = await processFallbackWhatsappRotation(clientId, conversation, {
+          immediate: true,
+        });
+        if (rotation.kind === 'sent') {
+          await this.appendMessage(conversation, {
+            direction: 'system',
+            body: `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
+          });
+        }
+      }
+    } else {
+      const rotation = await processFallbackWhatsappRotation(clientId, conversation, {
+        immediate: true,
+      });
+      if (rotation.kind === 'sent') {
+        await this.appendMessage(conversation, {
+          direction: 'system',
+          body: `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
+        });
       }
     }
 
@@ -2505,7 +2528,6 @@ export class WebChatService {
         900,
         Math.max(30, Number(row.whatsappFallbackAcceptTimeoutSeconds) || 60),
       );
-      const cutoff = new Date(nowMs - timeoutSec * 1000);
 
       const candidates = await WebChatConversation.find({
         clientId: row.clientId,
@@ -2513,15 +2535,6 @@ export class WebChatService {
         queueStatus: 'waiting_human',
         assignedUserId: { $in: [null, undefined, ''] },
         whatsappFallbackAlertSentAt: { $exists: false },
-        $or: [
-          { suggestedAt: { $lte: cutoff } },
-          {
-            $and: [
-              { $or: [{ suggestedAt: { $exists: false } }, { suggestedAt: null }] },
-              { queueEnteredAt: { $lte: cutoff } },
-            ],
-          },
-        ],
       })
         .limit(25)
         .exec();
@@ -2535,22 +2548,56 @@ export class WebChatService {
         if (fresh.assignedUserId?.trim()) continue;
         if (fresh.whatsappFallbackAlertSentAt) continue;
 
-        const { visitorMessage } = await handleWebChatNoAgentOnline(clientId, fresh);
-        await this.appendMessage(fresh, { direction: 'system', body: visitorMessage });
+        const rotation = await processFallbackWhatsappRotation(clientId, fresh, {
+          timeoutSeconds: timeoutSec,
+        });
+
+        if (rotation.kind === 'none') continue;
 
         const visitorLabel =
           fresh.visitorName || fresh.visitorEmail || 'Visitante do site';
-        emitPanelEvent(clientId, {
-          id: crypto.randomUUID(),
-          type: 'webchat:fallback_missed',
-          title: 'Chat perdido — fallback WhatsApp',
-          body: `${visitorLabel} · tempo esgotado sem aceite`,
-          href: `/platform/inbox?conv=${toWebChatInboxId(String(fresh._id))}`,
-          conversationId: toWebChatInboxId(String(fresh._id)),
-          targetUserId: fresh.suggestedUserId?.trim() || undefined,
-          urgent: true,
-          createdAt: new Date(nowMs).toISOString(),
-        });
+
+        if (rotation.kind === 'rotated') {
+          await this.appendMessage(fresh, {
+            direction: 'system',
+            body: `${rotation.agentName} foi alertado no WhatsApp — aguardando !assumir.`,
+          });
+          emitPanelEvent(clientId, {
+            id: crypto.randomUUID(),
+            type: 'webchat:fallback_missed',
+            title: 'Chat perdido — próximo atendente',
+            body: `${visitorLabel} · alerta enviado para ${rotation.agentName}`,
+            href: `/platform/inbox?conv=${toWebChatInboxId(String(fresh._id))}`,
+            conversationId: toWebChatInboxId(String(fresh._id)),
+            targetUserId: rotation.fromUserId,
+            urgent: true,
+            createdAt: new Date(nowMs).toISOString(),
+          });
+          continue;
+        }
+
+        if (rotation.kind === 'sent') {
+          await this.appendMessage(fresh, {
+            direction: 'system',
+            body: `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
+          });
+          continue;
+        }
+
+        if (rotation.kind === 'exhausted') {
+          await this.appendMessage(fresh, { direction: 'system', body: rotation.visitorMessage });
+          emitPanelEvent(clientId, {
+            id: crypto.randomUUID(),
+            type: 'webchat:fallback_missed',
+            title: 'Chat perdido — fallback WhatsApp',
+            body: `${visitorLabel} · tempo esgotado sem aceite`,
+            href: `/platform/inbox?conv=${toWebChatInboxId(String(fresh._id))}`,
+            conversationId: toWebChatInboxId(String(fresh._id)),
+            targetUserId: fresh.suggestedUserId?.trim() || undefined,
+            urgent: true,
+            createdAt: new Date(nowMs).toISOString(),
+          });
+        }
       }
     }
   }
@@ -2766,6 +2813,7 @@ export class WebChatService {
     conversationId: string,
     body: string,
     senderName?: string,
+    opts?: { humanDelay?: 'panel' | 'bridge' | 'off' },
   ): Promise<WebChatMessageDto> {
     const raw = body?.trim();
     if (!raw) throw new Error('Mensagem vazia');
@@ -2787,15 +2835,24 @@ export class WebChatService {
 
     await assertWebChatSendAllowed(clientIdStr, convId, 'agent');
 
-    await applyWebChatAgentHumanDelay(clientIdStr, text, typing => {
-      this.emitTypingIndicator({
-        clientId: clientIdStr,
-        conversationId: convId,
-        typing,
-        senderType: 'agent',
-        senderName: agentName,
-      });
-    });
+    const delayMode = opts?.humanDelay ?? 'panel';
+    if (delayMode !== 'off') {
+      await applyWebChatAgentHumanDelay(
+        clientIdStr,
+        text,
+        typing => {
+          this.emitTypingIndicator({
+            clientId: clientIdStr,
+            conversationId: convId,
+            typing,
+            senderType: 'agent',
+            senderName: agentName,
+          });
+        },
+        undefined,
+        delayMode === 'bridge' ? 'bridge' : 'panel',
+      );
+    }
 
     const msg = await this.appendMessage(conversation, {
       direction: 'outbound',
@@ -2849,6 +2906,11 @@ export class WebChatService {
     if (!conversation) throw new Error('Conversa não encontrada');
     if (conversation.status === 'closed') throw new Error('Conversa encerrada');
 
+    const isBridgeAgent =
+      conversation.whatsappBridgeActive &&
+      conversation.whatsappBridgeAgentUserId &&
+      String(conversation.whatsappBridgeAgentUserId) === String(userId);
+
     if (conversation.queueStatus === 'waiting_human') {
       if (
         conversation.suggestedUserId &&
@@ -2856,15 +2918,22 @@ export class WebChatService {
       ) {
         throw new Error('Aceite ou aguarde a prioridade desta conversa antes de responder');
       }
-      throw new Error('Assuma a conversa antes de responder');
+      if (!isBridgeAgent) {
+        throw new Error('Assuma a conversa antes de responder');
+      }
     }
     if (conversation.queueStatus === 'bot') {
-      throw new Error('Assuma a conversa antes de responder');
+      if (!isBridgeAgent) {
+        throw new Error('Assuma a conversa antes de responder');
+      }
     }
     const assignedId = conversation.assignedUserId
       ? String(conversation.assignedUserId)
       : '';
     if (!assignedId || assignedId !== String(userId)) {
+      if (isBridgeAgent) {
+        return conversation;
+      }
       if (assignedId && assignedId !== String(userId)) {
         throw new Error('Conversa em atendimento por outro agente');
       }

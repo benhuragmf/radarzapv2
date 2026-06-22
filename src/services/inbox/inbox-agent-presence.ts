@@ -182,11 +182,16 @@ export function agentPresenceHeartbeat(
     }
     const nextStatus = normalizeStatus(meta.operationalStatus);
     if (nextStatus) {
-      entry.operationalStatus = nextStatus;
       const src = meta.statusSource ?? 'auto';
-      entry.statusSource = src;
-      if (src === 'manual') {
-        entry.lastManualStatus = nextStatus;
+      // Heartbeat inicial do painel envia offline por padrão — não rebaixar socket ativo.
+      const ignoreAutoOffline =
+        nextStatus === 'offline' && src === 'auto' && entry.sockets > 0;
+      if (!ignoreAutoOffline) {
+        entry.operationalStatus = nextStatus;
+        entry.statusSource = src;
+        if (src === 'manual') {
+          entry.lastManualStatus = nextStatus;
+        }
       }
     }
   }

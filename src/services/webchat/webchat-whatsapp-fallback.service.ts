@@ -1,15 +1,23 @@
 import type { IWebChatConversation } from '@/models/WebChatConversation';
 import { WebChatMessage } from '@/models/WebChatMessage';
+import { InboxDepartment } from '@/models/InboxDepartment';
 import { loadInboxSettings } from '@/constants/inbox-triage';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { generateInboxTicketRef } from '@/utils/inbox-ticket-ref';
 import { DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE } from '@/types/inbox-settings';
+import { listVerifiedWhatsappInboxAgents } from '@/services/inbox/whatsapp-agent-auth.service';
 import { createServiceLogger } from '@/utils/logger';
 import mongoose from 'mongoose';
 
 const logger = createServiceLogger('WebChatWhatsAppFallback');
 
 const ALERT_COOLDOWN_MS = 15 * 60 * 1000;
+
+export type FallbackWhatsappRotationResult =
+  | { kind: 'none' }
+  | { kind: 'sent'; userId: string; agentName: string }
+  | { kind: 'rotated'; fromUserId: string; toUserId: string; agentName: string }
+  | { kind: 'exhausted'; visitorMessage: string; alertSent: boolean };
 
 export function getFallbackAcceptWaitStart(conversation: {
   suggestedAt?: Date | null;
@@ -134,10 +142,226 @@ async function lastVisitorMessageBody(conversationId: mongoose.Types.ObjectId): 
   return msg?.body?.trim() || undefined;
 }
 
+async function resolveDepartmentMemberUserIds(
+  clientId: string,
+  departmentId?: mongoose.Types.ObjectId | null,
+): Promise<string[] | undefined> {
+  if (!departmentId) return undefined;
+  const dept = await InboxDepartment.findOne({
+    _id: departmentId,
+    clientId: new mongoose.Types.ObjectId(clientId),
+  })
+    .select('memberUserIds')
+    .lean();
+  if (!dept?.memberUserIds?.length) return undefined;
+  return dept.memberUserIds.map(id => String(id));
+}
+
+export async function listFallbackWhatsappAgents(
+  clientId: string,
+  departmentId?: mongoose.Types.ObjectId | null,
+): Promise<Array<{ userId: string; displayName: string; whatsappPhone: string }>> {
+  const memberFilter = await resolveDepartmentMemberUserIds(clientId, departmentId);
+  return listVerifiedWhatsappInboxAgents(clientId, memberFilter);
+}
+
+export function pickNextFallbackAgent(
+  agents: Array<{ userId: string; displayName: string; whatsappPhone: string }>,
+  triedUserIds: string[],
+  currentUserId?: string | null,
+): { userId: string; displayName: string; whatsappPhone: string } | null {
+  if (!agents.length) return null;
+  const tried = new Set(triedUserIds.map(String));
+  if (currentUserId) tried.add(String(currentUserId));
+
+  const remaining = agents.filter(a => !tried.has(a.userId));
+  if (!remaining.length) return null;
+
+  if (!currentUserId) return remaining[0];
+
+  const currentIdx = agents.findIndex(a => a.userId === String(currentUserId));
+  if (currentIdx < 0) return remaining[0];
+
+  for (let offset = 1; offset <= agents.length; offset += 1) {
+    const candidate = agents[(currentIdx + offset) % agents.length];
+    if (!tried.has(candidate.userId)) return candidate;
+  }
+  return null;
+}
+
+async function buildAlertBodyForConversation(
+  conversation: IWebChatConversation,
+): Promise<string> {
+  const ticketRef = await ensureWebChatTicketRef(conversation);
+  const visitorName =
+    conversation.visitorName?.trim() ||
+    conversation.visitorEmail?.trim() ||
+    'Visitante do site';
+  const initialMessage = await lastVisitorMessageBody(conversation._id as mongoose.Types.ObjectId);
+  return buildWhatsAppFallbackAlertBody({
+    ticketRef,
+    visitorName,
+    visitorPhone: conversation.visitorPhone?.trim(),
+    pageUrl: conversation.pageUrl?.trim(),
+    initialMessage,
+  });
+}
+
+async function sendAlertToAgentPhone(
+  clientId: string,
+  phone: string,
+  alertBody: string,
+): Promise<boolean> {
+  const wa = WhatsAppService.getInstance();
+  const sessionDigits = wa.getConnectedSessionPhoneDigits(clientId);
+  const normalized = normalizeWhatsAppAlertDestination(phone);
+  if (!normalized) return false;
+  const destinations = filterFallbackAlertPhones([normalized], sessionDigits);
+  if (!destinations.length) return false;
+
+  try {
+    const result = await wa.sendInternalAlert(clientId, destinations[0], alertBody);
+    return Boolean(result.success);
+  } catch (err) {
+    logger.warn('WhatsApp fallback alert failed', {
+      clientId,
+      destination: destinations[0].slice(0, 6) + '…',
+      err: (err as Error).message,
+    });
+    return false;
+  }
+}
+
+/** Envia alerta WA para um atendente da equipe (um por vez). */
+export async function sendFallbackAlertToAgent(
+  clientId: string,
+  conversation: IWebChatConversation,
+  agent: { userId: string; whatsappPhone: string },
+): Promise<boolean> {
+  const alertBody = await buildAlertBodyForConversation(conversation);
+  return sendAlertToAgentPhone(clientId, agent.whatsappPhone, alertBody);
+}
+
+/**
+ * Inicia ou avança rotação WA: 1 atendente por vez; se não assumir, próximo.
+ * `immediate` ignora timeout (ex.: ninguém online no painel na escalação).
+ */
+export async function processFallbackWhatsappRotation(
+  clientId: string,
+  conversation: IWebChatConversation,
+  opts?: { immediate?: boolean; timeoutSeconds?: number },
+): Promise<FallbackWhatsappRotationResult> {
+  const settings = await loadInboxSettings(clientId);
+  if (!settings.whatsappFallbackEnabled) return { kind: 'none' };
+
+  if (conversation.whatsappFallbackAlertSentAt) {
+    const age = Date.now() - conversation.whatsappFallbackAlertSentAt.getTime();
+    if (age < ALERT_COOLDOWN_MS) return { kind: 'none' };
+  }
+
+  const timeoutSec = Math.min(
+    900,
+    Math.max(30, opts?.timeoutSeconds ?? settings.whatsappFallbackAcceptTimeoutSeconds ?? 60),
+  );
+  const nowMs = Date.now();
+
+  if (!opts?.immediate && !isFallbackAcceptTimeoutElapsed(conversation, timeoutSec, nowMs)) {
+    return { kind: 'none' };
+  }
+
+  const agents = await listFallbackWhatsappAgents(
+    clientId,
+    conversation.departmentId as mongoose.Types.ObjectId | undefined,
+  );
+  const tried = [...(conversation.whatsappFallbackTriedUserIds ?? [])];
+  const currentSuggested = conversation.suggestedUserId?.trim() || null;
+  const waNotified = conversation.whatsappFallbackWaNotifiedUserId?.trim() || null;
+
+  if (agents.length >= 1) {
+    if (!currentSuggested) {
+      const first = pickNextFallbackAgent(agents, tried, null);
+      if (!first) {
+        return finalizeManualFallbackBroadcast(clientId, conversation, settings);
+      }
+      const sent = await sendFallbackAlertToAgent(clientId, conversation, first);
+      conversation.suggestedUserId = first.userId;
+      conversation.suggestedAt = new Date();
+      conversation.whatsappFallbackWaNotifiedUserId = first.userId;
+      await conversation.save();
+      if (sent) {
+        logger.info('WhatsApp fallback: alert sent to first agent', {
+          clientId,
+          userId: first.userId,
+        });
+      }
+      return { kind: 'sent', userId: first.userId, agentName: first.displayName };
+    }
+
+    if (waNotified !== currentSuggested) {
+      const agent = agents.find(a => a.userId === currentSuggested);
+      if (agent) {
+        const sent = await sendFallbackAlertToAgent(clientId, conversation, agent);
+        conversation.whatsappFallbackWaNotifiedUserId = agent.userId;
+        await conversation.save();
+        if (sent) {
+          logger.info('WhatsApp fallback: alert sent to suggested agent', {
+            clientId,
+            userId: agent.userId,
+          });
+        }
+        return { kind: 'sent', userId: agent.userId, agentName: agent.displayName };
+      }
+    }
+
+    const next = pickNextFallbackAgent(agents, tried, currentSuggested);
+    if (!next) {
+      return finalizeManualFallbackBroadcast(clientId, conversation, settings);
+    }
+
+    const fromUserId = currentSuggested;
+    if (fromUserId && !tried.includes(fromUserId)) {
+      conversation.whatsappFallbackTriedUserIds = [...tried, fromUserId];
+    }
+
+    const sent = await sendFallbackAlertToAgent(clientId, conversation, next);
+    conversation.suggestedUserId = next.userId;
+    conversation.suggestedAt = new Date();
+    conversation.whatsappFallbackWaNotifiedUserId = next.userId;
+    await conversation.save();
+
+    if (sent) {
+      logger.info('WhatsApp fallback: rotated alert to next agent', {
+        clientId,
+        fromUserId,
+        toUserId: next.userId,
+      });
+    }
+    return {
+      kind: 'rotated',
+      fromUserId: fromUserId ?? next.userId,
+      toUserId: next.userId,
+      agentName: next.displayName,
+    };
+  }
+
+  return finalizeManualFallbackBroadcast(clientId, conversation, settings);
+}
+
+async function finalizeManualFallbackBroadcast(
+  clientId: string,
+  conversation: IWebChatConversation,
+  settings: Awaited<ReturnType<typeof loadInboxSettings>>,
+): Promise<FallbackWhatsappRotationResult> {
+  const result = await handleWebChatNoAgentOnline(clientId, conversation, {
+    skipTeamRotation: true,
+  });
+  return { kind: 'exhausted', visitorMessage: result.visitorMessage, alertSent: result.alertSent };
+}
+
 export async function handleWebChatNoAgentOnline(
   clientId: string,
   conversation: IWebChatConversation,
-  opts?: { departmentName?: string },
+  opts?: { departmentName?: string; skipTeamRotation?: boolean },
 ): Promise<{ visitorMessage: string; alertSent: boolean }> {
   const settings = await loadInboxSettings(clientId);
   const defaultMsg = 'Nenhum atendente online no painel — fila aberta para a equipe assumir.';
@@ -197,8 +421,10 @@ export async function handleWebChatNoAgentOnline(
         });
       }
     }
-  } else {
+  } else if (!opts?.skipTeamRotation) {
     logger.info('WhatsApp fallback enabled but no alert phones configured', { clientId });
+  } else {
+    logger.info('WhatsApp fallback: team agents exhausted, no manual phones', { clientId });
   }
 
   conversation.whatsappFallbackAlertSentAt = new Date();

@@ -10,7 +10,7 @@ export class GracefulShutdown {
 
   constructor() {
     if (process.env.npm_lifecycle_event === 'dev' || process.env.RADARZAP_DEV === '1') {
-      this.shutdownTimeout = 5_000;
+      this.shutdownTimeout = 12_000;
     }
     this.setupSignalHandlers();
   }
@@ -75,16 +75,6 @@ export class GracefulShutdown {
 
     this.isShuttingDown = true;
     logger.info('🛑 Initiating graceful shutdown...');
-
-    if (process.env.npm_lifecycle_event === 'dev' || process.env.RADARZAP_DEV === '1') {
-      try {
-        const { releaseDevInstanceLock } = await import('@/utils/dev-instance-lock');
-        await releaseDevInstanceLock();
-        logger.info('Lock dev liberado (fast path restart)');
-      } catch {
-        /* ignore */
-      }
-    }
 
     // Set a timeout to force exit if shutdown takes too long
     const forceExitTimer = setTimeout(() => {

@@ -211,15 +211,23 @@ export async function handleWhatsappBridgeAgentReply(
       String(conversation!._id),
       routing.body,
       agent.displayName,
+      { humanDelay: 'bridge' },
     );
     const ref = conversation!.ticketRef?.trim().toUpperCase();
     if (ref) {
-      await InboxService.getInstance().recordTicketClientVisibleCommentFromBridge(
-        ctx.clientId,
-        agent.userId,
-        ref,
-        routing.body,
-      );
+      void InboxService.getInstance()
+        .recordTicketClientVisibleCommentFromBridge(
+          ctx.clientId,
+          agent.userId,
+          ref,
+          routing.body,
+        )
+        .catch(err => {
+          logger.warn('Bridge ticket comment sync failed', {
+            clientId: ctx.clientId,
+            err: (err as Error).message,
+          });
+        });
     }
     await recordAttendanceEvent({
       clientId: ctx.clientId,

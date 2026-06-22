@@ -30,8 +30,10 @@ export function AgentStatusSelector({ user }: Props) {
     selectableStatuses,
     restorePromptOpen,
     setRestorePromptOpen,
-    actions: { setOperationalStatus, restoreFromAutoAusente, statusPending },
+    actionsRef,
+    statusPending,
   } = useAgentPresenceContext()
+  const { setOperationalStatus, restoreFromAutoAusente } = actionsRef.current
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 

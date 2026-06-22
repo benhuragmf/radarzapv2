@@ -3,7 +3,9 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from 'react'
 import type { AgentOperationalStatus, AgentStatusSource } from '@radarzap-types/agent-presence'
@@ -17,7 +19,7 @@ export type AgentPresenceState = {
   availableForQueue: boolean
 }
 
-type AgentPresenceActions = {
+export type AgentPresenceActions = {
   setOperationalStatus: (status: AgentOperationalStatus, source?: AgentStatusSource) => void
   restoreFromAutoAusente: () => void
   statusPending: boolean
@@ -38,8 +40,9 @@ type AgentPresenceContextValue = {
   setRestorePromptOpen: (open: boolean) => void
   selectableStatuses: AgentOperationalStatus[]
   setSelectableStatuses: (statuses: AgentOperationalStatus[]) => void
-  actions: AgentPresenceActions
-  setActions: (actions: AgentPresenceActions) => void
+  actionsRef: MutableRefObject<AgentPresenceActions>
+  statusPending: boolean
+  setStatusPending: (pending: boolean) => void
 }
 
 const defaultPresence: AgentPresenceState = {
@@ -51,7 +54,7 @@ const defaultPresence: AgentPresenceState = {
   availableForQueue: false,
 }
 
-const noopActions: AgentPresenceActions = {
+export const noopAgentPresenceActions: AgentPresenceActions = {
   setOperationalStatus: () => {},
   restoreFromAutoAusente: () => {},
   statusPending: false,
@@ -61,6 +64,13 @@ const AgentPresenceContext = createContext<AgentPresenceContextValue | null>(nul
 
 function statusesEqual(a: AgentOperationalStatus[], b: AgentOperationalStatus[]): boolean {
   return a.length === b.length && a.every((s, i) => s === b[i])
+}
+
+function presencePatchEqual(
+  prev: AgentPresenceState,
+  patch: Partial<AgentPresenceState>,
+): boolean {
+  return (Object.keys(patch) as (keyof AgentPresenceState)[]).every(k => prev[k] === patch[k])
 }
 
 export function AgentPresenceProvider({ children }: { children: ReactNode }) {
@@ -76,14 +86,18 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
     'ocupado',
     'offline',
   ])
-  const [actions, setActionsState] = useState<AgentPresenceActions>(noopActions)
+  const [statusPending, setStatusPendingState] = useState(false)
+  const actionsRef = useRef<AgentPresenceActions>(noopAgentPresenceActions)
 
   const touchActivity = useCallback(() => {
     setLastActivityAt(Date.now())
   }, [])
 
   const setPresenceLocal = useCallback((patch: Partial<AgentPresenceState>) => {
-    setPresence(prev => ({ ...prev, ...patch }))
+    setPresence(prev => {
+      if (presencePatchEqual(prev, patch)) return prev
+      return { ...prev, ...patch }
+    })
   }, [])
 
   const setIdleTimeoutMs = useCallback((ms: number) => {
@@ -98,17 +112,8 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
     setSelectableStatusesState(prev => (statusesEqual(prev, statuses) ? prev : statuses))
   }, [])
 
-  const setActions = useCallback((next: AgentPresenceActions) => {
-    setActionsState(prev => {
-      if (
-        prev.statusPending === next.statusPending &&
-        prev.setOperationalStatus === next.setOperationalStatus &&
-        prev.restoreFromAutoAusente === next.restoreFromAutoAusente
-      ) {
-        return prev
-      }
-      return next
-    })
+  const setStatusPending = useCallback((pending: boolean) => {
+    setStatusPendingState(prev => (prev === pending ? prev : pending))
   }, [])
 
   const value = useMemo(
@@ -127,8 +132,9 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
       setRestorePromptOpen,
       selectableStatuses,
       setSelectableStatuses,
-      actions,
-      setActions,
+      actionsRef,
+      statusPending,
+      setStatusPending,
     }),
     [
       viewingConversationId,
@@ -143,7 +149,8 @@ export function AgentPresenceProvider({ children }: { children: ReactNode }) {
       restorePromptOpen,
       selectableStatuses,
       setSelectableStatuses,
-      actions,
+      statusPending,
+      setStatusPending,
     ],
   )
 

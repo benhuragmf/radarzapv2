@@ -59,15 +59,42 @@ export async function assertWebChatSendAllowed(
   return resolved;
 }
 
+export type WebChatAgentHumanDelayMode = 'panel' | 'bridge';
+
+/** Bridge WA→site: delay curto — atendente já digitou no WhatsApp. */
+const BRIDGE_RELAY_MIN_MS = 350;
+const BRIDGE_RELAY_MAX_MS = 900;
+const BRIDGE_RELAY_MS_PER_CHAR = 8;
+const BRIDGE_RELAY_JITTER_MS = 150;
+
+export function computeWebChatBridgeRelayTypingMs(
+  text: string,
+  policy: WhatsAppSendPolicySnapshot,
+): number {
+  if (!policy.humanizeEnabled) return 0;
+  const len = (text ?? '').trim().length;
+  const fromChars = len * BRIDGE_RELAY_MS_PER_CHAR;
+  const clamped = Math.max(
+    BRIDGE_RELAY_MIN_MS,
+    Math.min(fromChars, BRIDGE_RELAY_MAX_MS),
+  );
+  const jitter = Math.floor(Math.random() * BRIDGE_RELAY_JITTER_MS);
+  return clamped + jitter;
+}
+
 /** Simula atendente digitando antes de entregar mensagem no widget. */
 export async function applyWebChatAgentHumanDelay(
   clientId: string,
   text: string,
   onTyping: (typing: boolean) => void,
   policy?: WhatsAppSendPolicySnapshot,
+  mode: WebChatAgentHumanDelayMode = 'panel',
 ): Promise<void> {
   const resolved = policy ?? (await resolveWhatsAppSendPolicy(clientId));
-  const ms = computeHumanTypingMs(text, 'conversation', resolved);
+  const ms =
+    mode === 'bridge'
+      ? computeWebChatBridgeRelayTypingMs(text, resolved)
+      : computeHumanTypingMs(text, 'conversation', resolved);
   if (ms <= 0) return;
   if (resolved.composingEnabled) onTyping(true);
   await delay(ms);

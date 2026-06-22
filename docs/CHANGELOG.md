@@ -8,6 +8,44 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.56] — 2026-06-22
+
+### Fix — loop infinito presença no painel
+
+- **Maximum update depth:** callbacks de presença em `actionsRef`; `setPresenceLocal` e sync `/inbox/presence/me` só atualizam quando o valor muda.
+- **Build QA:** `CardTitle` aceita `className` (corrige `TeamMembers` / `qa:fase1:e2e`).
+- **E2E local:** Playwright limita workers paralelos fora do CI (evita timeout no preview :4174).
+
+---
+
+## [2.11.55] — 2026-06-22
+
+### Fix — bridge WA→WebChat com delay curto
+
+- Respostas via bridge WhatsApp usam humanização **reduzida** (~0,35–1,1s) em vez de zero ou o delay do painel (1,5–10s).
+- Painel continua com delay completo para parecer digitação natural no widget.
+
+---
+
+## [2.11.54] — 2026-06-22
+
+### Fix — bridge WA → WebChat instantâneo
+
+- Respostas do atendente via **bridge WhatsApp** (`!assumir`) usam delay curto (~0,35–1,1s) antes de aparecer no widget — não o delay longo do painel (1,5–10s).
+- Sincronização do comentário no ticket roda em background para não bloquear a entrega da mensagem.
+
+---
+
+## [2.11.53] — 2026-06-22
+
+### Fix — presença atendentes + fallback WA rotativo
+
+- **Presença:** heartbeat inicial não rebaixa mais atendentes para `offline` (socket ativo → `online` no supervisor e round-robin).
+- **Fallback WebChat:** alerta WhatsApp **um atendente por vez** (WA verificado na equipe); sem `!assumir` no timeout → próximo; esgotados → telefones manuais em `whatsappFallbackAlertPhones`.
+- Escalação sem ninguém online no painel dispara alerta imediato ao 1º atendente com WA.
+
+---
+
 ## [2.11.52] — 2026-06-22
 
 ### Fix — OTP WhatsApp perfil

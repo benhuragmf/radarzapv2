@@ -4,10 +4,12 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
 function Stop-ListenersOnPort([int]$Port) {
+  $seen = @{}
   $lines = netstat -ano | Select-String ":\s*$Port\s+.*LISTENING"
   foreach ($line in $lines) {
     $targetPid = ($line -split '\s+')[-1]
-    if ($targetPid -match '^\d+$' -and $targetPid -ne '0') {
+    if ($targetPid -match '^\d+$' -and $targetPid -ne '0' -and -not $seen.ContainsKey($targetPid)) {
+      $seen[$targetPid] = $true
       Write-Host "Encerrando PID $targetPid (porta $Port)..."
       taskkill /F /PID $targetPid /T 2>$null | Out-Null
     }
@@ -45,7 +47,7 @@ Get-CimInstance Win32_Process -Filter "name='node.exe'" |
 Start-Sleep -Seconds 1
 
 # taskkill não chama graceful shutdown — libera lock dev no Redis
-Write-Host "Liberando lock dev no Redis..."
+Write-Host "Liberando locks dev e WhatsApp no Redis..."
 node scripts/clear-dev-lock.cjs 2>$null
 
 Write-Host "`nPortas após limpeza:"

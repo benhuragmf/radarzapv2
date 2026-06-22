@@ -7,22 +7,38 @@ const PROXY_ERROR_COOLDOWN_MS = 15_000
 
 let lastProxyWarnAt = 0
 
-/** Suprime stacks repetidos de "http proxy error" do Vite; aviso único a cada 15s. */
+/** Ruído esperado quando o backend reinicia (ts-node-dev) ou Socket.IO reconecta. */
+function isTransientProxyNoise(msg: string): boolean {
+  return (
+    msg.includes('http proxy error') ||
+    msg.includes('ws proxy error') ||
+    msg.includes('ws proxy socket error') ||
+    msg.includes('ECONNREFUSED') ||
+    msg.includes('ECONNRESET') ||
+    msg.includes('ECONNABORTED')
+  )
+}
+
+/** Suprime stacks repetidos do Vite; aviso único a cada 15s só se API realmente offline. */
 const viteLogger = createLogger()
 const viteError = viteLogger.error.bind(viteLogger)
 viteLogger.error = (msg, options) => {
   const text = typeof msg === 'string' ? msg : String(msg)
-  if (text.includes('http proxy error') || text.includes('ECONNREFUSED')) {
+  if (isTransientProxyNoise(text)) {
     return
   }
   viteError(msg, options)
 }
 
 function warnApiOffline(err: unknown): void {
+  const msg = err instanceof Error ? err.message : String(err)
+  // ECONNRESET/ABORTED = backend reiniciou ou WS reconectou — não é "API offline"
+  if (msg.includes('ECONNRESET') || msg.includes('ECONNABORTED')) {
+    return
+  }
   const now = Date.now()
   if (now - lastProxyWarnAt < PROXY_ERROR_COOLDOWN_MS) return
   lastProxyWarnAt = now
-  const msg = err instanceof Error ? err.message : String(err)
   console.warn(
     `\n[vite] API offline — inicie o backend com "npm run dev" (${API_TARGET}).` +
       (msg ? ` (${msg})` : '') +
@@ -85,6 +101,11 @@ export default defineConfig({
       '/socket.io': {
         target: API_TARGET,
         ws: true,
+        configure(proxy) {
+          proxy.on('error', err => {
+            warnApiOffline(err)
+          })
+        },
       },
       '/webchat': createApiProxy(),
     },

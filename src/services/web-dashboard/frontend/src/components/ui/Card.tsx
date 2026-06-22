@@ -14,9 +14,17 @@ export function Card({ children, className = '', ...props }: CardProps) {
   )
 }
 
-export function CardTitle({ children }: { children: ReactNode }) {
+export function CardTitle({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
-    <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-1">{children}</h2>
+    <h2 className={cn('text-sm font-medium text-[var(--rz-text-secondary)] mb-1', className)}>
+      {children}
+    </h2>
   )
 }
 
