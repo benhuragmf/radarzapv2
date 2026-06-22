@@ -10,7 +10,7 @@
 
 ## Pré-requisitos
 
-- [ ] `npm test` verde (481+ testes em 2.11.31)
+- [ ] `npm test` verde (494+ testes em 2.11.35)
 - [ ] `npm run qa:atendimento:gate` verde
 - [ ] `npm run build` + build frontend verdes
 - [ ] `npm run qa:prep` sem bloqueios (WA + CSAT)

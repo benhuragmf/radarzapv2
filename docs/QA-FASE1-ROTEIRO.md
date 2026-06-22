@@ -2,14 +2,14 @@
 
 > **Execute por último** — após Fase B/C do [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) e `npm run qa:atendimento:gate` verde.  
 > Complementa [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) com ordem de execução e mensagens exatas.  
-> **Versão alvo:** `2.11.28` · Detalhe técnico: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)
+> **Versão alvo:** `2.11.35` · Detalhe técnico: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md)
 
 ## Antes de começar
 
 ```bash
 npm run qa:prep              # verifica Mongo, sessão WA e CSAT
-npm run qa:atendimento:gate  # gate automático (481+ testes)
-npm test                     # suite completa
+npm run qa:atendimento:gate  # gate automático (135 testes + qa:webchat-wa)
+npm test                     # suite completa (494+ testes)
 ```
 
 1. Painel aberto (`npm run dev` + `npm run dashboard:frontend`)

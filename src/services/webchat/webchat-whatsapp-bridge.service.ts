@@ -15,6 +15,7 @@ import {
 } from '@/utils/webchat-whatsapp-bridge.util';
 import { createServiceLogger } from '@/utils/logger';
 import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
+import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 
 const logger = createServiceLogger('WebChatWhatsAppBridge');
 
@@ -52,6 +53,13 @@ export async function activateWhatsappBridge(
     actorUserId: agentUserId,
     ticketRef: conversation.ticketRef ?? undefined,
   });
+
+  WebhookDispatcherService.getInstance().emit(clientId, 'webchat.bridge.started', {
+    conversation_id: conversationId,
+    ticket_ref: conversation.ticketRef ?? null,
+    agent_user_id: agentUserId,
+    visitor_name: conversation.visitorName ?? null,
+  });
 }
 
 export async function deactivateWhatsappBridge(
@@ -73,6 +81,10 @@ export async function deactivateWhatsappBridge(
     clientId,
     kind: 'bridge.closed',
     conversationId,
+  });
+
+  WebhookDispatcherService.getInstance().emit(clientId, 'webchat.bridge.closed', {
+    conversation_id: conversationId,
   });
 }
 

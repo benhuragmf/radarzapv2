@@ -6,6 +6,33 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.35] — 2026-06-22
+
+### Adicionado
+
+- Testes integrados `inbox-inbound-order.integration.test.ts` — ordem ticket → consent → inbox (espelho `WhatsAppService`), CSAT antes de ticket/inbox, complemento ticket, consent bloqueia inbox.
+
+---
+
+## [2.11.34] — 2026-06-22
+
+### Adicionado
+
+- Audit log append-only `AttendanceEvent` para ticket: `ticket.created`, `ticket.client_replied`, `ticket.closed` em `InboxService` (meta sem corpo de mensagem).
+- Testes `attendance-audit.service.test.ts` e `inbox-ticket-audit.integration.test.ts` no gate.
+
+---
+
+## [2.11.33] — 2026-06-22
+
+### Adicionado
+
+- Webhooks outbound: `ticket.created`, `ticket.client_replied`, `ticket.closed`, `webchat.bridge.started`, `webchat.bridge.closed` — em `InboxService`, `webchat-whatsapp-bridge.service.ts`, catálogo `WEBHOOK_EVENTS` e UI Webhooks.
+- Testes `webhook-events.test.ts` e `webchat-bridge-webhook.test.ts` no gate `qa:atendimento:gate`.
+- Doc `WEBHOOKS.md` § payloads ticket/bridge.
+
+---
+
 ## [2.11.32] — 2026-06-22
 
 ### Adicionado

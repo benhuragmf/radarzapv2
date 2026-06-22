@@ -92,7 +92,7 @@ O RadarZap v2 tem **superfície ampla implementada** (painel, Inbox, tickets, We
 | # | Item | Ação | Status |
 |---|------|------|--------|
 | B1 | QA manual § A WhatsApp incompleto | `QA-FASE1-CHECKLIST.md` + registrar em `QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md` | 🔴 |
-| B2 | Sem teste integrado ordem inbound em `InboxService` | Adicionar testes mínimos (mock Mongo) — Fase A | 🔴 |
+| B2 | Sem teste integrado ordem inbound em `InboxService` | ✅ `inbox-inbound-order` (2.11.35) | 🟢 |
 | B3 | Gate estabilização ROADMAP não marcado | Repetir QA até verde | 🔴 |
 | B4 | Rate limit 2/min marketing + 10/min conversa + prioridade | Fase B — ver §8 | ⏳ |
 
@@ -128,7 +128,7 @@ O RadarZap v2 tem **superfície ampla implementada** (painel, Inbox, tickets, We
 | O3 | Rate limit WA por tipo (marketing vs conversa) + jitter | B |
 | O4 | Audit log append-only Ticket/Bridge | B |
 | O5 | Documentar operação bridge: celular **pessoal** do atendente, não número da sessão | A/B |
-| O6 | Testes integrados mínimos ordem inbound | A |
+| O6 | Testes integrados mínimos ordem inbound | ✅ 2.11.35 |
 
 ### 6.2 Melhorias futuras (produto — Fase D+)
 
@@ -417,7 +417,7 @@ Refinamentos pós-estabilização (não Fase 5 greenfield)
 | Prioridade | Item | Severidade | Impacto | Ação | Status |
 |------------|------|------------|---------|------|--------|
 | P1 | QA WA Inbox×Ticket×CSAT×IA | Crítica | Alto | Executar checklist | 🔴 |
-| P1 | Testes ordem inbound integrados | Alta | Alto | Mock InboxService | 🔴 |
+| P1 | Testes ordem inbound integrados | Alta | Alto | Mock InboxService | ✅ 2.11.35 |
 | P1 | Rate limit WA 2/10 + jitter | Alta | Alto | Fase B | ⏳ |
 | P1 | Bridge + loop alerta | Alta | Alto | Filtro 2.11.16 + QA | 🟡 |
 | P1 | Chamado WebChat visibilidade | Alta | Médio | 2.11.13 + QA | 🟡 código |

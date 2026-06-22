@@ -27,8 +27,65 @@ Painel: **Configurações → Webhooks** (`/settings#api-webhooks`)
 | `webchat.message.received` | Visitante enviou mensagem no chat do site |
 | `webchat.conversation.escalated` | Conversa WebChat encaminhada para fila humana |
 | `webchat.conversation.closed` | Conversa WebChat encerrada pelo atendente |
+| `ticket.created` | Novo chamado (ticket) aberto no Inbox |
+| `ticket.client_replied` | Cliente respondeu no ticket (mensagem real, não ack) |
+| `ticket.closed` | Chamado encerrado pela equipe |
+| `webchat.bridge.started` | Bridge bidirecional site ↔ WhatsApp ativado (`!assumir`) |
+| `webchat.bridge.closed` | Bridge desativado |
 
-## Payload
+### Payloads ticket / bridge (campo `data`)
+
+**`ticket.created`**
+```json
+{
+  "ticket_ref": "TK-ABC123",
+  "conversation_id": "...",
+  "status": "open",
+  "contact_identifier": "5511999999999",
+  "contact_name": "Maria",
+  "assigned_user_id": null,
+  "opened_by_user_id": "..."
+}
+```
+
+**`ticket.client_replied`**
+```json
+{
+  "ticket_ref": "TK-ABC123",
+  "conversation_id": "...",
+  "contact_identifier": "5511999999999",
+  "body_preview": "Primeiros 500 chars",
+  "media_type": null
+}
+```
+
+**`ticket.closed`**
+```json
+{
+  "ticket_ref": "TK-ABC123",
+  "conversation_id": "...",
+  "closed_at": "2026-06-22T12:00:00.000Z",
+  "closed_by_user_id": "..."
+}
+```
+
+**`webchat.bridge.started`**
+```json
+{
+  "conversation_id": "...",
+  "ticket_ref": "TK-ABC123",
+  "agent_user_id": "...",
+  "visitor_name": "Visitante"
+}
+```
+
+**`webchat.bridge.closed`**
+```json
+{
+  "conversation_id": "..."
+}
+```
+
 
 ```json
 {

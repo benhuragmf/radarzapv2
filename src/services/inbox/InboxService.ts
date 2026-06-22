@@ -38,6 +38,7 @@ import {
 } from '@/types/inbox-quick-replies';
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
+import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
 import { AiConversationService } from '@/services/ai/AiConversationService';
 import { AiBasicTriageService } from '@/services/ai/AiBasicTriageService';
 import { AiConversationState } from '@/models/AiConversationState';
@@ -1429,6 +1430,26 @@ export class InboxService {
     }
     await this.notifyClientRepliedToAssignee(clientId, ticket, displayBody);
     this.notifyTicketUpdated(clientId, ticket.ticketRef);
+
+    if (!isAck) {
+      WebhookDispatcherService.getInstance().emit(clientId, 'ticket.client_replied', {
+        ticket_ref: ticket.ticketRef,
+        conversation_id: String(ticket.conversationId),
+        contact_identifier: ticket.contactIdentifier,
+        body_preview: displayBody.slice(0, 500),
+        media_type: media?.mediaType ?? null,
+      });
+      await recordAttendanceEvent({
+        clientId,
+        kind: 'ticket.client_replied',
+        ticketRef: ticket.ticketRef,
+        conversationId: String(ticket.conversationId),
+        meta: {
+          bodyLength: displayBody.length,
+          media_type: media?.mediaType ?? null,
+        },
+      });
+    }
   }
 
   private graceTimerKey(clientId: string, ticketRef: string): string {
@@ -2655,6 +2676,26 @@ export class InboxService {
         openedByUserId: new mongoose.Types.ObjectId(openedByUserId),
       });
       const access = await ensureInboxTicketPublicAccessToken(ticket);
+      WebhookDispatcherService.getInstance().emit(String(clientOid), 'ticket.created', {
+        ticket_ref: ref,
+        conversation_id: String(conv._id),
+        status: ticket.status,
+        contact_identifier: conv.contactIdentifier,
+        contact_name: conv.contactName,
+        assigned_user_id: conv.assignedUserId ? String(conv.assignedUserId) : null,
+        opened_by_user_id: openedByUserId,
+      });
+      await recordAttendanceEvent({
+        clientId: String(clientOid),
+        kind: 'ticket.created',
+        ticketRef: ref,
+        conversationId: String(conv._id),
+        actorUserId: openedByUserId,
+        meta: {
+          status: ticket.status,
+          contact_identifier: conv.contactIdentifier,
+        },
+      });
       return { ticket, created: true, publicAccessToken: access.token || undefined };
     }
     return { ticket, created: false };
@@ -2958,6 +2999,20 @@ export class InboxService {
     ticket.clientReplyPaused = false;
     ticket.ticketInboundMode = 'ticket';
     await ticket.save();
+
+    WebhookDispatcherService.getInstance().emit(clientId, 'ticket.closed', {
+      ticket_ref: ticket.ticketRef,
+      conversation_id: String(ticket.conversationId),
+      closed_at: ticket.closedAt!.toISOString(),
+      closed_by_user_id: userId,
+    });
+    await recordAttendanceEvent({
+      clientId,
+      kind: 'ticket.closed',
+      ticketRef: ticket.ticketRef,
+      conversationId: String(ticket.conversationId),
+      actorUserId: userId,
+    });
 
     const ctx = await this.loadTicketMessageContext(ticket, clientId);
     const clientMsg = this.buildTicketClosedClientMessage(ticket, ctx);

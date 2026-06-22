@@ -35,6 +35,9 @@ Documento **técnico e operacional** — cada comportamento, campo, rota, evento
 | **2.11.28** | Fallback deferido (`whatsappFallbackAcceptTimeoutSeconds`) | `WEBCHAT.md` § Fallback |
 | **2.11.28** | Sino vermelho — plano, cota IA/mensagens, config, operacional | `BILLING.md` § Alertas |
 | **2.11.28** | `WebChatBasicTriageService` não cai no menu robotizado | `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md` |
+| **2.11.33** | Webhooks outbound ticket/bridge | `WEBHOOKS.md` |
+| **2.11.34** | Audit log `AttendanceEvent` ticket | `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md` § Fase B |
+| **2.11.35** | Testes ordem inbound integrados | `inbox-inbound-order.integration.test.ts` |
 
 ---
 
@@ -439,9 +442,14 @@ PATCH  /api/inbox/settings                 inbox:department:manage
 | `panel-critical-alerts.service.test.ts` | Dedup, cota msg/IA, config fallback/IA |
 | `inbox-csat-reply.integration.test.ts` | CSAT inbound: nota, bypass, ordem antes de nova conversa |
 | `inbox-ticket-inbound.integration.test.ts` | Ticket inbound: release, capture 12h, compete fila, CSAT primeiro |
-| `panel-events.test.ts` | Urgent/ownerOnly incl. `webchat:fallback_missed` |
+| `inbox-inbound-order.integration.test.ts` | Ordem ticket→consent→inbox (espelho WhatsAppService) |
+| `inbox-ticket-audit.integration.test.ts` | Audit log ticket.client_replied |
+| `webhook-events.test.ts` | Catálogo WEBHOOK_EVENTS ticket/bridge |
+| `webchat-bridge-webhook.test.ts` | Emissão webhooks bridge |
+| `attendance-audit.service.test.ts` | Persistência AttendanceEvent |
+| `inbox-authenticated.spec.ts` (E2E) | Inbox/Supervisor mock auth |
 
-Gate: `npm run qa:atendimento:gate` (481 testes unitários + gate 122+53).
+Gate: `npm run qa:atendimento:gate` (494 testes unitários totais; gate **135** + qa:webchat-wa **53**).
 
 ---
 

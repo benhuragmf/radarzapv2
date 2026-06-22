@@ -81,9 +81,9 @@ Regras do `gg.md` adaptadas:
 | Item | Aplicação | Status |
 |------|-----------|--------|
 | Observabilidade “Saúde do Atendimento” | `GET /api/platform/health/atendimento` | ✅ 2.11.17 |
-| Auditoria append-only Ticket/Bridge | `AttendanceEvent` + `attendance-audit.service.ts` | ✅ 2.11.17 (bridge; ticket em patch) |
+| Auditoria append-only Ticket/Bridge | `AttendanceEvent` + `attendance-audit.service.ts` | ✅ 2.11.17 bridge; ✅ 2.11.34 ticket |
 | Modo piloto `PILOT_MODE` | Env + limite campanha | ✅ 2.11.17 |
-| Webhooks ticket/bridge | `WEBHOOKS.md` + dispatcher | ⏳ backlog |
+| Webhooks ticket/bridge | `WEBHOOKS.md` + dispatcher | ✅ 2.11.33 |
 
 ### Prioridade 3 — Produto (Fase D+)
 
@@ -104,7 +104,7 @@ Regras do `gg.md` adaptadas:
 2. ✅ Anti-loop alerta fallback (2.11.16)
 3. ✅ Auditoria rev.2 (`ANALISE-CRITICA-…`)
 4. ✅ Fallback deferido + alertas críticos painel (2.11.28)
-5. ⏳ Testes integrados mínimos InboxService (próximo patch)
+5. ✅ Testes integrados mínimos InboxService — 2.11.30–35 (CSAT, ticket, ordem inbound)
 
 ### Fase B — Segurança operacional
 
@@ -113,8 +113,8 @@ Regras do `gg.md` adaptadas:
 3. ✅ Audit log append-only bridge (`AttendanceEvent`) (2.11.17)
 4. ✅ `GET /api/platform/health/atendimento` (2.11.17)
 5. ✅ Presença operacional atendentes + round-robin por disponibilidade (2.11.25)
-6. ⏳ Webhooks ticket/bridge
-7. ⏳ Audit log eventos ticket (create/close/reply)
+6. ✅ Webhooks ticket/bridge (2.11.33)
+7. ✅ Audit log eventos ticket (create/close/reply) — 2.11.34
 
 ### Fase C — Piloto seguro
 
@@ -167,9 +167,9 @@ npm run qa:gate
 
 ## 8. Próximo passo imediato (implementação)
 
-1. ⏳ Webhooks `ticket.*` / `webchat.bridge.*`
-2. ⏳ Audit log eventos ticket (create/close/client_replied)
-3. ⏳ Testes integrados ordem inbound em `InboxService`
+1. ✅ Webhooks `ticket.*` / `webchat.bridge.*` (2.11.33)
+2. ✅ Audit log eventos ticket (create/close/client_replied) — 2.11.34
+3. ✅ Testes integrados ordem inbound em `InboxService` — 2.11.35
 4. **Depois:** QA manual §10
 
 ---

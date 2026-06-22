@@ -18,9 +18,15 @@ const EVENTS = [
   'inbox.message.received',
   'inbox.conversation.resolved',
   'inbox.conversation.closed',
+  'inbox.csat.rated',
+  'ticket.created',
+  'ticket.client_replied',
+  'ticket.closed',
   'webchat.message.received',
   'webchat.conversation.escalated',
   'webchat.conversation.closed',
+  'webchat.bridge.started',
+  'webchat.bridge.closed',
 ] as const
 
 interface WebhookRow {
