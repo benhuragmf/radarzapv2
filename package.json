@@ -25,6 +25,7 @@
     "qa:webchat-wa:setup": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/qa-webchat-wa-setup.ts",
     "qa:atendimento:gate": "jest --testPathPattern=\"inbound-routing|csat\\.util|ticket-reply-window|ticket-public-access|whatsapp-agent|webchat-whatsapp|inbox-csat-gate|inbox-csat-reply|inbox-ticket-inbound|inbox-ticket-audit|inbox-inbound-order|consent-defer|webchat-faq|webchat-safe-url|inbox-agent-presence|panel-critical-alerts|whatsapp-session-rate-limit|whatsapp-human-send|webhook-events|webchat-bridge-webhook|attendance-audit\" && npm run qa:webchat-wa",
     "qa:gate": "npm test && npm run build && npm run build --prefix src/services/web-dashboard/frontend",
+    "qa:manual:start": "npm run qa:atendimento:gate",
     "backfill:webchat-delivered": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/backfill-webchat-inbound-delivered-at.ts",
     "sync:widget-build": "node scripts/sync-widget-build.cjs",
     "typecheck": "tsc --noEmit",

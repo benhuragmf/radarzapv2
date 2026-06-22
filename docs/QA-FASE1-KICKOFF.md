@@ -44,7 +44,7 @@ Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar 
 
 ## Ao terminar
 
-1. Preencher [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A, B, C, E e § D (gate resumo)
+1. Preencher [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) (ou copiar template) + [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A–E
 2. Se **sem falha crítica**: marcar gate § Estabilização em `ROADMAP-COMPLETUDE.md`
 3. Se **falha crítica**: registrar na tabela “Registro de falhas” do checklist + abrir patch `2.11.x`
 

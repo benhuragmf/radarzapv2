@@ -72,6 +72,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível § A–E |
 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Token, FAQ, fallback, bridge |
 | [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Template registro QA |
+| [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) | Sessão QA atual (gate auto preenchido) |
 | [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md) | Tokens `--rz-*`, componentes |
 | [`docs/audits/`](./audits/) | Auditorias incrementais |
 | [`concluidos/`](./concluidos/README.md) | Entregas concluídas (fases, auditorias, upgrades) |

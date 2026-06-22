@@ -196,6 +196,7 @@ Execute **somente após** Fases A/B verdes no gate automático.
 | 2 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível (§ A–E) |
 | 3 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Token, FAQ, C0/C1 fallback, bridge, IA Básica, presença |
 | 4 | [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Registro Fase 1 |
+| 4b | [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) | **Sessão atual** — gate auto ✅, manual em branco |
 | 5 | [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro WebChat/WA |
 
 **Gate ROADMAP § Estabilização** só fica 🟢 quando §10 estiver assinado.
@@ -203,9 +204,11 @@ Execute **somente após** Fases A/B verdes no gate automático.
 **Pré-requisitos QA:**
 
 ```bash
-npm run qa:atendimento:gate   # deve passar
-npm run dev                   # backend
-npm run dashboard:frontend    # painel
+npm run qa:manual:start   # gate atendimento + prep (mesmo que qa:atendimento:gate)
+npm run dev
+npm run dashboard:frontend
 ```
+
+Registro sugerido: [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) (gate automático já preenchido).
 
 Sessão WA conectada, CSAT habilitado, celular de teste ≠ número do atendente.

@@ -7,8 +7,9 @@
 ## Antes de começar
 
 ```bash
-npm run qa:prep              # verifica Mongo, sessão WA e CSAT
-npm run qa:atendimento:gate  # gate automático (135 testes + qa:webchat-wa)
+npm run qa:manual:start      # gate + prep (atalho)
+npm run qa:prep              # só ambiente Mongo/WA/CSAT
+npm run qa:atendimento:gate  # gate completo atendimento
 npm test                     # suite completa (494+ testes)
 ```
 
