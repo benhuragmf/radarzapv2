@@ -35,6 +35,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem WA, fila, CSAT, IA, presença, supervisor, notificações |
 | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados, SLA, menu bot |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, IA, FAQ |
+| [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulário embed de captura de leads (2.11.57) |
 | [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) | Upgrade visual Inbox 2.10.18 (arquivo) |
 | [`WEBHOOKS.md`](./WEBHOOKS.md) | Webhooks outbound |
 
