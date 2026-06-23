@@ -1,6 +1,6 @@
 # QA Fase 1 — checklist rápido (1 página)
 
-**Versão:** `2.11.58` · **Gate auto:** revalidar após mudanças de perfil/equipe
+**Versão:** `2.11.59` · **Gate auto:** revalidar após mudanças de perfil/equipe
 
 Detalhe: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · imprimir: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) · **O que o Playwright cobre:** [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md)
 
@@ -51,6 +51,12 @@ Manual ao vivo: `/platform/inbox` · demais rotas acima · conferir salvar/edita
 ### B.1 — Leads (10 min)
 
 Doc: [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md)
+
+```bash
+npm run qa:leads:setup   # imprime URL da preview (backend npm run dev ativo)
+```
+
+Abrir a URL `http://localhost:3001/leads/preview.html?key=lfm_…` no browser.
 
 | # | Faça | Esperado |
 |---|------|----------|

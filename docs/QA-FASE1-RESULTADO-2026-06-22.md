@@ -10,18 +10,16 @@
 
 ---
 
-## Gate automático (pré-manual) — ✅ 2026-06-22 (revalidado)
+## Gate automático (pré-manual) — ✅ 2026-06-23 (revalidado)
 
 | Check | Resultado |
 |-------|-----------|
-| `npm test` | pass — 494 testes (2026-06-22 anterior) |
-| `npm run qa:atendimento:gate` | pass — 135 + 53 (`2.11.39`) |
-| `npm run qa:gate` (build) | pass (2026-06-22 anterior) |
-| E2E `inbox-authenticated.spec.ts` | pass — 7/7 (2026-06-22 anterior) |
-| `npm run qa:prep` | pass — WA 1 sessão, CSAT 1/3, WebChat 1, Equipe 1 c/ WA |
-| `npm run qa:fase1:e2e` | pass — **33/33** Chromium mock (2.11.41, incl. setores + presença) |
+| `npm run qa:fase1:all` | pass — **34/34** E2E + **137** gate Jest + **55** webchat-wa (`2.11.58`) |
+| `npm run qa:prep` | pass — WA 1 sessão, CSAT, WebChat, Equipe |
+| Versão testada | `2.11.58` |
+| Commit ref | `da62a04` |
 
-**Checklist rápido:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
+**Checklist rápido:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) · Leads § B.1: `npm run qa:leads:setup`
 
 ---
 
@@ -69,6 +67,18 @@
 | `/platform/webchat` | pass / fail | |
 | `/platform/inbox/ia` | pass / fail | |
 | `/platform/inbox/relatorios` | pass / fail | |
+| `/platform/leads` + preview embed (§ B.1) | pass / fail | |
+
+---
+
+## § B.1 — Leads (embed)
+
+| # | Resultado | Notas |
+|---|-----------|-------|
+| 1 Submit preview / form.js | pass / fail | |
+| 2 Iniciar atendimento → Inbox | pass / fail | |
+| 3 Continuar no Inbox | pass / fail | |
+| 4 Fila capacidade atendente | pass / fail / skip | |
 
 ---
 

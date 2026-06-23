@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.58` (`package.json`) · **Última revisão doc:** 2026-06-22
+**Versão atual:** `2.11.59` (`package.json`) · **Última revisão doc:** 2026-06-23
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -131,6 +131,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.56** | Fix loop presença painel, bridge WebChat, lock WA único |
 | **2.11.57** | Leads: formulário embed + fila por capacidade (`maxConcurrentChatsPerAgent`) — `LEADS-FORMULARIO.md` |
 | **2.11.58** | Lead → Inbox: `POST …/captures/:id/open-inbox`, `inboxConversationId`, botão **Iniciar atendimento** — `LEADS-FORMULARIO.md` |
+| **2.11.59** | QA Leads: preview `/leads/preview.html`, `npm run qa:leads:setup` — `QA-FASE1-RAPIDO.md` § B.1 |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 

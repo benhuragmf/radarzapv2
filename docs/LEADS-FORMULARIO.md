@@ -1,6 +1,6 @@
 # Leads — formulário público
 
-**Versão:** 2.11.58
+**Versão:** 2.11.59
 
 ## Objetivo
 
@@ -54,6 +54,12 @@ Rate limit: mesmo bucket `webchatPublic` (120 POST/min/IP).
 Opcional: `data-container="id-do-div"` para renderizar dentro de um elemento existente.
 
 Chave `lfm_…` gerada ao criar o formulário no painel.
+
+## Preview QA (dev)
+
+- Rota: `GET /leads/preview.html?key=lfm_…` — simula site externo com embed
+- Setup: `npm run qa:leads:setup` (garante formulário ativo + `localhost` em `allowedDomains`)
+- Checklist: `docs/QA-FASE1-RAPIDO.md` § B.1
 
 ## Dados capturados
 

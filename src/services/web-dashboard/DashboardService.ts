@@ -401,6 +401,13 @@ export class DashboardService {
       }
       res.sendFile(path.join(__dirname, 'leads', 'form.js'));
     });
+    this.app.get('/leads/preview.html', (_req, res) => {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      if (config.NODE_ENV !== 'production') {
+        res.setHeader('Cache-Control', 'no-store');
+      }
+      res.sendFile(path.join(__dirname, 'leads', 'preview.html'));
+    });
     this.app.get('/webchat/preview-loader.js', (_req, res) => {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       if (config.NODE_ENV !== 'production') {

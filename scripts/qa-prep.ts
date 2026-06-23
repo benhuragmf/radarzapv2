@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { InboxSettings } from '@/models/InboxSettings';
 import { WhatsAppSession } from '@/models/WhatsAppSession';
 import { WebChatWidget } from '@/models/WebChatWidget';
+import { LeadForm } from '@/models/LeadForm';
 import { CompanyMember } from '@/models/CompanyMember';
 
 const MONGODB_URL =
@@ -31,7 +32,7 @@ async function main() {
     process.exit(1);
   }
 
-  const [activeSessions, csatOrgs, totalSettings, activeWidgets, fallbackOrgs, agentsWithWa] =
+  const [activeSessions, csatOrgs, totalSettings, activeWidgets, fallbackOrgs, agentsWithWa, activeLeadForms] =
     await Promise.all([
     WhatsAppSession.countDocuments({ status: 'active' }),
     InboxSettings.countDocuments({ csatEnabled: true }),
@@ -42,6 +43,7 @@ async function main() {
       isActive: true,
       whatsappPhone: { $exists: true, $nin: [null, ''] },
     }),
+    LeadForm.countDocuments({ active: true }),
   ]);
 
   const checks: Array<{ ok: boolean; label: string; hint?: string; optional?: boolean }> = [
@@ -70,6 +72,12 @@ async function main() {
       ok: agentsWithWa > 0,
       label: `Membros com WhatsApp em Equipe: ${agentsWithWa}`,
       hint: 'Cadastre WhatsApp pessoal em Configurações → Equipe (comandos !assumir)',
+      optional: true,
+    },
+    {
+      ok: activeLeadForms > 0,
+      label: `Formulários Leads ativos: ${activeLeadForms}`,
+      hint: 'Crie em /platform/leads ou rode npm run qa:leads:setup (QA § B.1)',
       optional: true,
     },
   ];

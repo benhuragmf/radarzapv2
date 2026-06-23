@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview — Formulário de Leads · RadarZap</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #f4f4f5;
+      color: #18181b;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    header {
+      margin-bottom: 24px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      font-weight: 600;
+    }
+    header p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #52525b;
+      line-height: 1.5;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .warn {
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      color: #92400e;
+      font-size: 0.875rem;
+      line-height: 1.45;
+    }
+    .warn code {
+      font-size: 0.8rem;
+      background: rgba(0,0,0,.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    ol.steps {
+      margin: 0;
+      padding-left: 1.25rem;
+      font-size: 0.875rem;
+      color: #3f3f46;
+      line-height: 1.6;
+    }
+    ol.steps li { margin-bottom: 6px; }
+    #form-mount {
+      min-height: 120px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Formulário de Leads — preview QA</h1>
+      <p>
+        Simula um site externo com o embed <code>form.js</code>.
+        Use na checklist § B.1 de <code>docs/QA-FASE1-RAPIDO.md</code>.
+      </p>
+    </header>
+
+    <div id="warn" class="warn" hidden></div>
+
+    <div class="card">
+      <ol class="steps">
+        <li>Envie o formulário abaixo com dados de teste.</li>
+        <li>Confira a captura em <strong>/platform/leads</strong>.</li>
+        <li>Clique <strong>Iniciar atendimento</strong> e valide o Inbox.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <div id="form-mount"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var key = params.get('key') || params.get('formKey') || '';
+      var warn = document.getElementById('warn');
+
+      if (!key) {
+        warn.hidden = false;
+        warn.innerHTML =
+          'Chave ausente. Rode <code>npm run qa:leads:setup</code> com o backend ativo ' +
+          'ou abra com <code>?key=lfm_…</code> (copie em /platform/leads → Configurar formulário).';
+        return;
+      }
+
+      var script = document.createElement('script');
+      script.src = '/leads/form.js';
+      script.setAttribute('data-form-key', key);
+      script.setAttribute('data-container', 'form-mount');
+      script.async = true;
+      document.body.appendChild(script);
+    })();
+  </script>
+</body>
+</html>

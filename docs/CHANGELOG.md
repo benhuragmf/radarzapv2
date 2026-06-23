@@ -8,6 +8,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.59] — 2026-06-23
+
+### QA — Preview embed Leads + setup script
+
+- `GET /leads/preview.html?key=lfm_…` — página de teste para QA § B.1.
+- `npm run qa:leads:setup` — garante formulário ativo, `localhost` em `allowedDomains`, imprime URL.
+- `qa:prep` lista formulários Leads ativos.
+
 ## [2.11.58] — 2026-06-22
 
 ### Feat — Lead → Inbox em um clique
