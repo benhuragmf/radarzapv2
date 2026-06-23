@@ -27,6 +27,7 @@ export function createLeadFormPublicRouter(): Router {
           message?: string;
           sourceUrl?: string;
           pageTitle?: string;
+          customFields?: Record<string, string>;
         },
         {
           origin: req.headers.origin,

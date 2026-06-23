@@ -21,6 +21,14 @@ export const LEAD_CAPTURE_STATUS_LABEL: Record<LeadCaptureStatus, string> = {
   lost: 'Perdido',
 };
 
+export interface LeadFormCustomField {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea';
+  required: boolean;
+  placeholder?: string;
+}
+
 export interface LeadFormAppearance {
   title: string;
   description: string;
@@ -31,6 +39,7 @@ export interface LeadFormAppearance {
   requireEmail: boolean;
   askMessage: boolean;
   requireMessage: boolean;
+  customFields?: LeadFormCustomField[];
 }
 
 export const DEFAULT_LEAD_FORM_APPEARANCE: LeadFormAppearance = {
@@ -43,6 +52,7 @@ export const DEFAULT_LEAD_FORM_APPEARANCE: LeadFormAppearance = {
   requireEmail: false,
   askMessage: true,
   requireMessage: false,
+  customFields: [],
 };
 
 export interface LeadFormPublicConfig {
@@ -56,6 +66,7 @@ export interface LeadFormPublicConfig {
   requireEmail: boolean;
   askMessage: boolean;
   requireMessage: boolean;
+  customFields?: LeadFormCustomField[];
   redirectUrl?: string;
 }
 
@@ -72,6 +83,7 @@ export interface LeadCaptureListItem {
   internalNotes?: string;
   destinationId?: string;
   inboxConversationId?: string;
+  metadata?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }

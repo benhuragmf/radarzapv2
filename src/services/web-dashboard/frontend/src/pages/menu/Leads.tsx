@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { can, getMe } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { LeadIntegrationsPanel } from '../../components/leads/LeadIntegrationsPanel'
+import { LeadFormFieldsEditor } from '../../components/leads/LeadFormFieldsEditor'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -17,12 +18,13 @@ import {
   Plug,
   Plus,
   Search,
+  Trash2,
   UserPlus,
 } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
 import { embedScriptSnippet } from '../../lib/leadIntegrationSnippets'
-import type { LeadCaptureListItem, LeadCaptureStatus } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem, LeadCaptureStatus, LeadFormCustomField } from '@radarzap-types/lead-form'
 import { LEAD_CAPTURE_STATUS_LABEL } from '@radarzap-types/lead-form'
 
 type LeadFormRow = {
@@ -41,6 +43,7 @@ type LeadFormRow = {
     requireEmail: boolean
     askMessage: boolean
     requireMessage: boolean
+    customFields?: LeadFormCustomField[]
   }
   redirectUrl?: string
 }
@@ -138,6 +141,16 @@ export default function Leads() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['leads-forms'] })
       notifySuccess('Formulário salvo')
+    },
+    onError: mutationError,
+  })
+
+  const deleteForm = useMutation({
+    mutationFn: (id: string) => api.delete(`/leads/forms/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['leads-forms'] })
+      setEditingFormId(null)
+      notifySuccess('Formulário excluído')
     },
     onError: mutationError,
   })
@@ -316,6 +329,23 @@ export default function Leads() {
                     <Button variant="secondary" size="sm" onClick={() => setTab('integrate')}>
                       Integrar
                     </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="text-red-600 hover:border-red-300"
+                      disabled={deleteForm.isPending}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Excluir o formulário "${form.name}"?\n\nCapturas antigas permanecem no histórico, mas o código embed deixa de funcionar.`,
+                          )
+                        ) {
+                          deleteForm.mutate(form.id)
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} /> Excluir
+                    </Button>
                   </div>
                 </Card>
               ))}
@@ -327,11 +357,21 @@ export default function Leads() {
               form={editingForm}
               onClose={() => setEditingFormId(null)}
               onSave={patch => updateForm.mutate({ id: editingForm.id, ...patch })}
+              onDelete={() => {
+                if (
+                  window.confirm(
+                    `Excluir o formulário "${editingForm.name}"?\n\nCapturas antigas permanecem no histórico.`,
+                  )
+                ) {
+                  deleteForm.mutate(editingForm.id)
+                }
+              }}
               onOpenIntegrate={() => {
                 setEditingFormId(null)
                 setTab('integrate')
               }}
               pending={updateForm.isPending}
+              deleting={deleteForm.isPending}
             />
           )}
         </div>
@@ -391,6 +431,15 @@ function LeadDetail({
             <dd className="whitespace-pre-wrap">{item.message}</dd>
           </div>
         )}
+        {item.metadata &&
+          Object.entries(item.metadata)
+            .filter(([k]) => k !== 'pageTitle')
+            .map(([k, v]) => (
+              <div key={k} className="sm:col-span-2">
+                <dt className="text-[var(--rz-text-muted)]">{k}</dt>
+                <dd className="whitespace-pre-wrap">{v}</dd>
+              </div>
+            ))}
       </dl>
 
       <div className="flex flex-wrap gap-2">
@@ -485,14 +534,18 @@ function FormEditor({
   form,
   onClose,
   onSave,
+  onDelete,
   onOpenIntegrate,
   pending,
+  deleting,
 }: {
   form: LeadFormRow
   onClose: () => void
   onSave: (patch: Partial<LeadFormRow>) => void
+  onDelete: () => void
   onOpenIntegrate: () => void
   pending: boolean
+  deleting: boolean
 }) {
   const [draft, setDraft] = useState(form)
   const snippet = embedScriptSnippet(form.publicKey)
@@ -500,11 +553,30 @@ function FormEditor({
 
   return (
     <Card className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Configurar: {form.name}</h3>
-        <button type="button" className="text-sm text-[var(--rz-text-muted)]" onClick={onClose}>
-          Fechar
-        </button>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold">Configurar formulário</h3>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-sm text-red-600 hover:underline disabled:opacity-50"
+            disabled={deleting || pending}
+            onClick={onDelete}
+          >
+            Excluir
+          </button>
+          <button type="button" className="text-sm text-[var(--rz-text-muted)]" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-[var(--rz-text-muted)]">Nome interno</label>
+        <input
+          className={inputCls + ' mt-1'}
+          value={draft.name}
+          onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+        />
       </div>
 
       <label className="flex items-center gap-2 text-sm">
@@ -571,6 +643,29 @@ function FormEditor({
         onChange={e => setDraft(d => ({ ...d, redirectUrl: e.target.value || undefined }))}
       />
 
+      <LeadFormFieldsEditor
+        value={{
+          askEmail: draft.appearance.askEmail,
+          requireEmail: draft.appearance.requireEmail,
+          askMessage: draft.appearance.askMessage,
+          requireMessage: draft.appearance.requireMessage,
+          customFields: draft.appearance.customFields ?? [],
+        }}
+        onChange={fields =>
+          setDraft(d => ({
+            ...d,
+            appearance: {
+              ...d.appearance,
+              askEmail: fields.askEmail,
+              requireEmail: fields.requireEmail,
+              askMessage: fields.askMessage,
+              requireMessage: fields.requireMessage,
+              customFields: fields.customFields,
+            },
+          }))
+        }
+      />
+
       <div>
         <label className="text-xs text-[var(--rz-text-muted)]">
           Domínios permitidos (um por linha — ex.: meusite.com.br, www.loja.com)
@@ -590,32 +685,6 @@ function FormEditor({
             }))
           }
         />
-      </div>
-
-      <div className="flex flex-wrap gap-4 text-sm">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={draft.appearance.askEmail}
-            onChange={e =>
-              setDraft(d => ({ ...d, appearance: { ...d.appearance, askEmail: e.target.checked } }))
-            }
-          />
-          Campo e-mail
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={draft.appearance.askMessage}
-            onChange={e =>
-              setDraft(d => ({
-                ...d,
-                appearance: { ...d.appearance, askMessage: e.target.checked },
-              }))
-            }
-          />
-          Campo mensagem
-        </label>
       </div>
 
       <div className="rounded-lg border border-[var(--rz-border)] p-3 space-y-2">
@@ -638,7 +707,18 @@ function FormEditor({
         </Button>
       </div>
 
-      <Button disabled={pending} onClick={() => onSave(draft)}>
+      <Button
+        disabled={pending}
+        onClick={() =>
+          onSave({
+            name: draft.name,
+            active: draft.active,
+            allowedDomains: draft.allowedDomains,
+            redirectUrl: draft.redirectUrl,
+            appearance: draft.appearance,
+          })
+        }
+      >
         Salvar formulário
       </Button>
     </Card>

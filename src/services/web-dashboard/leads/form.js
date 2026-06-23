@@ -103,19 +103,19 @@
     var form = el('form', { novalidate: 'novalidate' });
     root.appendChild(form);
 
-    function field(name, label, type, required) {
+    function field(name, label, type, required, placeholder) {
       var wrap = el('div', { className: 'rz-field' });
       wrap.appendChild(el('label', { for: 'rz-' + name, text: label + (required ? ' *' : '') }));
       var input =
         type === 'textarea'
-          ? el('textarea', { id: 'rz-' + name, name: name, rows: '3' })
-          : el('input', { id: 'rz-' + name, name: name, type: type || 'text' });
+          ? el('textarea', { id: 'rz-' + name, name: name, rows: '3', placeholder: placeholder || '' })
+          : el('input', { id: 'rz-' + name, name: name, type: type || 'text', placeholder: placeholder || '' });
       if (required) input.required = true;
       wrap.appendChild(input);
       var err = el('div', { className: 'rz-err', style: 'display:none' });
       wrap.appendChild(err);
       form.appendChild(wrap);
-      return { input: input, err: err };
+      return { input: input, err: err, key: name };
     }
 
     var nameF = field('name', 'Nome', 'text', true);
@@ -123,10 +123,21 @@
     var emailF = config.askEmail ? field('email', 'E-mail', 'email', config.requireEmail) : null;
     var msgF = config.askMessage ? field('message', 'Mensagem', 'textarea', config.requireMessage) : null;
 
+    var customFs = (config.customFields || []).map(function (cf) {
+      return field(
+        cf.id,
+        cf.label,
+        cf.type === 'textarea' ? 'textarea' : 'text',
+        Boolean(cf.required),
+        cf.placeholder,
+      );
+    });
+
     var btn = el('button', { className: 'rz-btn', type: 'submit', text: config.buttonText || 'Enviar' });
     form.appendChild(btn);
 
     function showErr(f, msg) {
+      if (!f) return;
       f.err.textContent = msg;
       f.err.style.display = msg ? 'block' : 'none';
     }
@@ -138,12 +149,16 @@
       showErr(phoneF, '');
       if (emailF) showErr(emailF, '');
       if (msgF) showErr(msgF, '');
+      customFs.forEach(function (f) {
+        showErr(f, '');
+      });
 
       var payload = {
         name: nameF.input.value.trim(),
         phone: phoneF.input.value.trim(),
         sourceUrl: window.location.href,
         pageTitle: document.title,
+        customFields: {},
       };
       if (emailF) payload.email = emailF.input.value.trim();
       if (msgF) payload.message = msgF.input.value.trim();
@@ -163,6 +178,17 @@
       if (msgF && config.requireMessage && !payload.message) {
         showErr(msgF, 'Informe uma mensagem');
         return;
+      }
+
+      for (var i = 0; i < customFs.length; i++) {
+        var cf = customFs[i];
+        var cfg = config.customFields[i];
+        var val = cf.input.value.trim();
+        if (cfg.required && !val) {
+          showErr(cf, 'Campo obrigatório');
+          return;
+        }
+        if (val) payload.customFields[cf.key] = val;
       }
 
       btn.disabled = true;

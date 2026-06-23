@@ -29,6 +29,18 @@ const AppearanceSchema = new Schema<LeadFormAppearance>(
     requireEmail: { type: Boolean, default: DEFAULT_LEAD_FORM_APPEARANCE.requireEmail },
     askMessage: { type: Boolean, default: DEFAULT_LEAD_FORM_APPEARANCE.askMessage },
     requireMessage: { type: Boolean, default: DEFAULT_LEAD_FORM_APPEARANCE.requireMessage },
+    customFields: {
+      type: [
+        {
+          id: { type: String, required: true, maxlength: 40 },
+          label: { type: String, required: true, maxlength: 80 },
+          type: { type: String, enum: ['text', 'textarea'], default: 'text' },
+          required: { type: Boolean, default: false },
+          placeholder: { type: String, maxlength: 120 },
+        },
+      ],
+      default: [],
+    },
   },
   { _id: false },
 );

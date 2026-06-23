@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 import { LeadForm, ILeadForm } from '@/models/LeadForm';
 import { LeadCapture, ILeadCapture } from '@/models/LeadCapture';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
@@ -10,6 +11,7 @@ import type {
   LeadCaptureStatus,
   LeadFormPublicConfig,
   LeadFormAppearance,
+  LeadFormCustomField,
 } from '@/types/lead-form';
 import { DEFAULT_LEAD_FORM_APPEARANCE } from '@/types/lead-form';
 import {
@@ -19,6 +21,49 @@ import {
 } from './lead-form-token.util';
 
 const logger = createServiceLogger('LeadFormService');
+
+const CUSTOM_FIELD_ID_RE = /^cf_[a-f0-9]{8,24}$/;
+
+function normalizeCustomFields(raw: unknown): LeadFormCustomField[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LeadFormCustomField[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Partial<LeadFormCustomField>;
+    const idRaw = typeof row.id === 'string' ? row.id.trim() : '';
+    const id = CUSTOM_FIELD_ID_RE.test(idRaw)
+      ? idRaw
+      : `cf_${crypto.randomBytes(6).toString('hex')}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const label = sanitizeLeadText(row.label, 80);
+    if (!label) continue;
+    out.push({
+      id,
+      label,
+      type: row.type === 'textarea' ? 'textarea' : 'text',
+      required: Boolean(row.required),
+      placeholder: sanitizeLeadText(row.placeholder, 120) || undefined,
+    });
+    if (out.length >= 12) break;
+  }
+  return out;
+}
+
+function parseCustomFieldValues(
+  defs: LeadFormCustomField[],
+  raw: Record<string, unknown> | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const def of defs) {
+    const max = def.type === 'textarea' ? 2000 : 500;
+    const val = sanitizeLeadText(raw?.[def.id], max);
+    if (def.required && !val) throw new Error(`${def.label} é obrigatório`);
+    if (val) out[def.label] = val;
+  }
+  return out;
+}
 
 export class LeadFormService {
   private static instance: LeadFormService;
@@ -80,7 +125,11 @@ export class LeadFormService {
       form.allowedDomains = patch.allowedDomains.map(d => d.trim()).filter(Boolean);
     }
     if (patch.appearance) {
-      form.appearance = { ...form.appearance, ...patch.appearance };
+      const next = { ...form.appearance, ...patch.appearance };
+      if (patch.appearance.customFields !== undefined) {
+        next.customFields = normalizeCustomFields(patch.appearance.customFields);
+      }
+      form.appearance = next;
     }
     if (patch.redirectUrl !== undefined) {
       form.redirectUrl = patch.redirectUrl?.trim() || undefined;
@@ -114,6 +163,7 @@ export class LeadFormService {
       requireEmail: a.requireEmail,
       askMessage: a.askMessage,
       requireMessage: a.requireMessage,
+      customFields: a.customFields ?? [],
       redirectUrl: form.redirectUrl,
     };
   }
@@ -131,6 +181,7 @@ export class LeadFormService {
       message?: string;
       sourceUrl?: string;
       pageTitle?: string;
+      customFields?: Record<string, string>;
     },
     meta: { origin?: string; referer?: string; ipAddress?: string },
   ): Promise<{ success: true; captureId: string; successMessage: string; redirectUrl?: string }> {
@@ -159,10 +210,19 @@ export class LeadFormService {
       throw new Error('E-mail inválido');
     }
 
-    const clientId = form.clientId.toString();
+    const customDefs = appearance.customFields ?? [];
+    const customValues = parseCustomFieldValues(customDefs, body.customFields);
+
+    const metadata: Record<string, string> = { ...customValues };
+    if (pageTitle) metadata.pageTitle = pageTitle;
     const noteParts = [`Lead via formulário "${form.name}"`];
     if (sourceUrl) noteParts.push(`Origem: ${sourceUrl}`);
     if (message) noteParts.push(`Mensagem: ${message}`);
+    for (const [label, val] of Object.entries(customValues)) {
+      noteParts.push(`${label}: ${val}`);
+    }
+
+    const clientId = form.clientId.toString();
 
     const destinationId = await ensureDestinationForWebChatVisitor(clientId, e164, name, {
       email: email || undefined,
@@ -193,7 +253,7 @@ export class LeadFormService {
       status: 'new',
       destinationId,
       ipAddress: meta.ipAddress,
-      metadata: pageTitle ? { pageTitle } : undefined,
+      metadata: Object.keys(metadata).length ? metadata : undefined,
     });
 
     logger.info('Lead capturado via formulário público', {
@@ -346,6 +406,7 @@ export class LeadFormService {
       sourceUrl: capture.sourceUrl,
       status: capture.status,
       internalNotes: capture.internalNotes,
+      metadata: capture.metadata,
       destinationId: capture.destinationId ? String(capture.destinationId) : undefined,
       inboxConversationId: capture.inboxConversationId
         ? String(capture.inboxConversationId)

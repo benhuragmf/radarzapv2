@@ -8,6 +8,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.63] — 2026-06-23
+
+### Feat — Leads: excluir formulário + campos customizados
+
+- Botão **Excluir** no card e no editor (API DELETE já existia).
+- Editor de campos: ativar/desativar e-mail e mensagem (com obrigatório), adicionar/remover campos extras.
+- `customFields` no embed `form.js` e metadados na captura; proxy Vite `/leads`.
+
 ## [2.11.62] — 2026-06-23
 
 ### Feat — Leads: hub de integração no painel
