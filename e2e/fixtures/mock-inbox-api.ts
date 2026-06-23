@@ -356,6 +356,7 @@ const MOCK_LEAD_CAPTURES = {
       email: 'ana@exemplo.com',
       message: 'Quero saber mais sobre o produto',
       sourceUrl: 'https://meusite.com/contato',
+      origin: 'site',
       status: 'new',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -674,6 +675,62 @@ export async function setupInboxMocks(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(MOCK_LEAD_CAPTURES),
+      });
+    }
+
+    if (path === '/leads/stats') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          total: MOCK_LEAD_CAPTURES.total,
+          newToday: 1,
+          inProgress: 0,
+          converted: 0,
+          lost: 0,
+          topOrigin: 'site',
+          topOriginCount: 1,
+          byStatus: { new: 1, in_review: 0, in_progress: 0, qualified: 0, converted: 0, lost: 0, spam: 0 },
+          funnel: [],
+        }),
+      });
+    }
+
+    if (path === '/leads/segments-summary') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
+
+    if (path === '/leads/assignees') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ userId: 'user-e2e', displayName: 'E2E User' }]),
+      });
+    }
+
+    const convertMatch = path.match(/^\/leads\/captures\/([^/]+)\/convert$/);
+    if (convertMatch && req.method() === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...MOCK_LEAD_CAPTURES.items[0], status: 'converted' }),
+      });
+    }
+
+    const addGroupsMatch = path.match(/^\/leads\/captures\/([^/]+)\/add-to-groups$/);
+    if (addGroupsMatch && req.method() === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LEAD_CAPTURES.items[0]),
+      });
+    }
+
+    if (path.startsWith('/leads/forms/') && path.endsWith('/duplicate') && req.method() === 'POST') {
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...MOCK_LEAD_FORMS[0], id: 'form-dup', name: 'Formulário E2E (cópia)' }),
       });
     }
 

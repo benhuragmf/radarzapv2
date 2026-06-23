@@ -5,6 +5,16 @@ function apiUrl(path: string, useSessionRoot = false): string {
 }
 
 function parseApiErrorBody(body: string, status: number): string {
+  if (status === 503) {
+    try {
+      const parsed = JSON.parse(body) as { error?: string; message?: string }
+      if (parsed.error === 'backend_offline') {
+        return 'backend_offline'
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   if (status === 413) {
     return 'Arquivo muito grande para enviar. Divida o VCF/CSV ou use menos contatos por vez.'
   }

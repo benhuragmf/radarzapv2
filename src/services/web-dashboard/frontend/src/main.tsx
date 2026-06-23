@@ -19,7 +19,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <ToastProvider>
           <App />
-          <Toaster richColors closeButton position="bottom-right" />
+          <Toaster richColors closeButton position="bottom-right" visibleToasts={2} />
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>

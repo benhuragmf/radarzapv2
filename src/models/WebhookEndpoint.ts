@@ -19,6 +19,11 @@ export const WEBHOOK_EVENTS = [
   'webchat.conversation.closed',
   'webchat.bridge.started',
   'webchat.bridge.closed',
+  'lead.created',
+  'lead.status_changed',
+  'lead.converted_to_contact',
+  'lead.sent_to_inbox',
+  'lead.added_to_list',
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

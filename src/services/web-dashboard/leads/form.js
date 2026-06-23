@@ -38,6 +38,7 @@
         if (k === 'className') node.className = attrs[k];
         else if (k === 'text') node.textContent = attrs[k];
         else if (k === 'html') node.innerHTML = attrs[k];
+        else if (k === 'value') node.value = attrs[k];
         else node.setAttribute(k, attrs[k]);
       });
     }
@@ -49,38 +50,236 @@
     return node;
   }
 
-  function injectStyles(primary) {
-    if (document.getElementById('rz-lead-form-styles')) return;
-    var color = primary || '#25D366';
+  function resolveTheme(config) {
+    var t = config.theme || 'auto';
+    if (t === 'auto') {
+      try {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch (e) {
+        return 'light';
+      }
+    }
+    return t === 'dark' ? 'dark' : 'light';
+  }
+
+  function maxWidthForSize(size) {
+    if (size === 'compact') return '320px';
+    if (size === 'wide') return '560px';
+    return '420px';
+  }
+
+  function injectStyles(config) {
+    var styleId = 'rz-lead-form-styles-' + (config.publicKey || 'default');
+    var existing = document.getElementById(styleId);
+    if (existing) existing.remove();
+
+    var color = config.primaryColor || '#25D366';
+    var theme = resolveTheme(config);
+    var radius = typeof config.borderRadius === 'number' ? config.borderRadius : 8;
+    var maxW = maxWidthForSize(config.size || 'default');
+    var isDark = theme === 'dark';
+    var text = isDark ? '#f3f4f6' : '#1a1a1a';
+    var muted = isDark ? '#9ca3af' : '#555';
+    var label = isDark ? '#e5e7eb' : '#333';
+    var border = isDark ? '#374151' : '#d1d5db';
+    var inputBg = isDark ? '#111827' : '#fff';
+    var successBg = isDark ? '#064e3b' : '#ecfdf5';
+    var successText = isDark ? '#a7f3d0' : '#065f46';
+    var errBg = isDark ? '#450a0a' : '#fef2f2';
+    var errText = isDark ? '#fecaca' : '#991b1b';
+
     var css =
-      '.rz-lead-form{max-width:420px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a}' +
+      '.rz-lead-form{max-width:' +
+      maxW +
+      ';font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:' +
+      text +
+      '}' +
+      '.rz-lead-form.rz-theme-dark{color:' +
+      text +
+      '}' +
       '.rz-lead-form *{box-sizing:border-box}' +
-      '.rz-lead-form h2{margin:0 0 6px;font-size:1.25rem;font-weight:600}' +
-      '.rz-lead-form p.rz-desc{margin:0 0 16px;font-size:0.875rem;color:#555;line-height:1.45}' +
-      '.rz-lead-form label{display:block;font-size:0.8rem;font-weight:500;margin-bottom:4px;color:#333}' +
+      '.rz-lead-form h2{margin:0 0 6px;font-size:1.25rem;font-weight:600;color:' +
+      text +
+      '}' +
+      '.rz-lead-form p.rz-desc{margin:0 0 16px;font-size:0.875rem;color:' +
+      muted +
+      ';line-height:1.45}' +
+      '.rz-lead-form label{display:block;font-size:0.8rem;font-weight:500;margin-bottom:4px;color:' +
+      label +
+      '}' +
       '.rz-lead-form .rz-field{margin-bottom:12px}' +
-      '.rz-lead-form input,.rz-lead-form textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:0.95rem}' +
-      '.rz-lead-form input:focus,.rz-lead-form textarea:focus{outline:2px solid ' +
+      '.rz-lead-form .rz-check-label{display:flex;align-items:flex-start;gap:8px;font-weight:400;cursor:pointer}' +
+      '.rz-lead-form .rz-check-label input{margin-top:3px;flex-shrink:0}' +
+      '.rz-lead-form input,.rz-lead-form textarea,.rz-lead-form select{width:100%;padding:10px 12px;border:1px solid ' +
+      border +
+      ';border-radius:' +
+      radius +
+      'px;font-size:0.95rem;background:' +
+      inputBg +
+      ';color:' +
+      text +
+      '}' +
+      '.rz-lead-form input:focus,.rz-lead-form textarea:focus,.rz-lead-form select:focus{outline:2px solid ' +
       color +
       '33;border-color:' +
       color +
       '}' +
       '.rz-lead-form textarea{min-height:88px;resize:vertical}' +
       '.rz-lead-form .rz-err{color:#b91c1c;font-size:0.8rem;margin-top:4px}' +
-      '.rz-lead-form .rz-btn{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 16px;border:none;border-radius:8px;font-size:0.95rem;font-weight:600;color:#fff;background:' +
+      '.rz-lead-form .rz-btn{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 16px;border:none;border-radius:' +
+      radius +
+      'px;font-size:0.95rem;font-weight:600;color:#fff;background:' +
       color +
       ';cursor:pointer;margin-top:4px}' +
       '.rz-lead-form .rz-btn:disabled{opacity:0.6;cursor:not-allowed}' +
-      '.rz-lead-form .rz-success{padding:16px;border-radius:8px;background:#ecfdf5;color:#065f46;font-size:0.9rem;line-height:1.45}' +
-      '.rz-lead-form .rz-global-err{margin-bottom:12px;padding:10px;border-radius:8px;background:#fef2f2;color:#991b1b;font-size:0.85rem}';
+      '.rz-lead-form .rz-success{padding:16px;border-radius:' +
+      radius +
+      'px;background:' +
+      successBg +
+      ';color:' +
+      successText +
+      ';font-size:0.9rem;line-height:1.45}' +
+      '.rz-lead-form .rz-global-err{margin-bottom:12px;padding:10px;border-radius:' +
+      radius +
+      'px;background:' +
+      errBg +
+      ';color:' +
+      errText +
+      ';font-size:0.85rem}' +
+      '.rz-lead-form .rz-logo{margin-top:16px;text-align:center;font-size:0.7rem;color:' +
+      muted +
+      '}' +
+      '.rz-lead-form .rz-logo a{color:' +
+      muted +
+      ';text-decoration:none}' +
+      '.rz-lead-form .rz-consent{font-size:0.8rem;line-height:1.4;color:' +
+      label +
+      '}' +
+      '.rz-lead-form .rz-consent a{color:' +
+      color +
+      '}';
+
     var style = document.createElement('style');
-    style.id = 'rz-lead-form-styles';
+    style.id = styleId;
     style.textContent = css;
     document.head.appendChild(style);
+    return theme;
+  }
+
+  function parseUtmFromUrl() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var utm = {
+        source: params.get('utm_source') || undefined,
+        medium: params.get('utm_medium') || undefined,
+        campaign: params.get('utm_campaign') || undefined,
+        term: params.get('utm_term') || undefined,
+        content: params.get('utm_content') || undefined,
+      };
+      if (utm.source || utm.medium || utm.campaign || utm.term || utm.content) return utm;
+    } catch (e) {}
+    return undefined;
+  }
+
+  function buildCustomField(cf, formEl) {
+    if (cf.type === 'hidden') {
+      var hidden = el('input', {
+        type: 'hidden',
+        id: 'rz-' + cf.id,
+        name: cf.id,
+        value: cf.placeholder || (cf.options && cf.options[0]) || '',
+      });
+      formEl.appendChild(hidden);
+      return {
+        key: cf.id,
+        getValue: function () {
+          return hidden.value.trim();
+        },
+        validate: function () {
+          return true;
+        },
+        err: { style: { display: 'none' }, textContent: '' },
+      };
+    }
+
+    var wrap = el('div', { className: 'rz-field' });
+    var err = el('div', { className: 'rz-err', style: 'display:none' });
+    var input;
+
+    if (cf.type === 'select') {
+      wrap.appendChild(el('label', { for: 'rz-' + cf.id, text: cf.label + (cf.required ? ' *' : '') }));
+      input = el('select', { id: 'rz-' + cf.id, name: cf.id });
+      input.appendChild(el('option', { value: '', text: cf.placeholder || 'Selecione…' }));
+      (cf.options || []).forEach(function (opt) {
+        input.appendChild(el('option', { value: opt, text: opt }));
+      });
+      wrap.appendChild(input);
+    } else if (cf.type === 'checkbox') {
+      input = el('input', { type: 'checkbox', id: 'rz-' + cf.id, name: cf.id });
+      var lbl = el('label', { className: 'rz-check-label', for: 'rz-' + cf.id });
+      lbl.appendChild(input);
+      lbl.appendChild(document.createTextNode(' ' + cf.label + (cf.required ? ' *' : '')));
+      wrap.appendChild(lbl);
+    } else {
+      wrap.appendChild(el('label', { for: 'rz-' + cf.id, text: cf.label + (cf.required ? ' *' : '') }));
+      var inputType =
+        cf.type === 'textarea'
+          ? 'textarea'
+          : cf.type === 'email'
+            ? 'email'
+            : cf.type === 'tel'
+              ? 'tel'
+              : 'text';
+      if (inputType === 'textarea') {
+        input = el('textarea', {
+          id: 'rz-' + cf.id,
+          name: cf.id,
+          rows: '3',
+          placeholder: cf.placeholder || '',
+        });
+      } else {
+        input = el('input', {
+          id: 'rz-' + cf.id,
+          name: cf.id,
+          type: inputType,
+          placeholder: cf.placeholder || '',
+        });
+      }
+      if (cf.required && cf.type !== 'checkbox') input.required = true;
+      wrap.appendChild(input);
+    }
+
+    wrap.appendChild(err);
+    formEl.appendChild(wrap);
+
+    return {
+      key: cf.id,
+      cfg: cf,
+      err: err,
+      getValue: function () {
+        if (cf.type === 'checkbox') return input.checked ? 'true' : '';
+        return (input.value || '').trim();
+      },
+      validate: function () {
+        var val = this.getValue();
+        if (cf.required && cf.type === 'checkbox' && !input.checked) {
+          err.textContent = 'Campo obrigatório';
+          err.style.display = 'block';
+          return false;
+        }
+        if (cf.required && cf.type !== 'checkbox' && !val) {
+          err.textContent = 'Campo obrigatório';
+          err.style.display = 'block';
+          return false;
+        }
+        err.style.display = 'none';
+        return true;
+      },
+    };
   }
 
   function mountForm(config) {
-    injectStyles(config.primaryColor);
+    var theme = injectStyles(config);
 
     var containerId = script.getAttribute('data-container');
     var container = containerId ? document.getElementById(containerId) : null;
@@ -89,7 +288,10 @@
       script.parentNode.insertBefore(container, script.nextSibling);
     }
 
-    var root = el('div', { className: 'rz-lead-form' });
+    var root = el('div', {
+      className: 'rz-lead-form' + (theme === 'dark' ? ' rz-theme-dark' : ' rz-theme-light'),
+    });
+    container.innerHTML = '';
     container.appendChild(root);
 
     var globalErr = el('div', { className: 'rz-global-err', style: 'display:none' });
@@ -124,20 +326,50 @@
     var msgF = config.askMessage ? field('message', 'Mensagem', 'textarea', config.requireMessage) : null;
 
     var customFs = (config.customFields || []).map(function (cf) {
-      return field(
-        cf.id,
-        cf.label,
-        cf.type === 'textarea' ? 'textarea' : 'text',
-        Boolean(cf.required),
-        cf.placeholder,
-      );
+      return buildCustomField(cf, form);
     });
+
+    var honeypotWrap = null;
+    if (config.honeypot !== false) {
+      honeypotWrap = el('div', { style: 'position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden' });
+      honeypotWrap.appendChild(el('input', { type: 'text', name: 'rz_hp', tabindex: '-1', autocomplete: 'off' }));
+      form.appendChild(honeypotWrap);
+    }
+
+    var consentInput = null;
+    if (config.requireConsent) {
+      var consentWrap = el('div', { className: 'rz-field' });
+      var consentLabel = config.consentText || 'Concordo em ser contatado.';
+      if (config.consentPolicyUrl) {
+        consentLabel +=
+          ' <a href="' +
+          config.consentPolicyUrl +
+          '" target="_blank" rel="noopener noreferrer">Política de privacidade</a>';
+      }
+      consentWrap.appendChild(
+        el('label', {
+          className: 'rz-consent',
+          html: '<input type="checkbox" id="rz-consent" required /> ' + consentLabel,
+        }),
+      );
+      form.appendChild(consentWrap);
+      consentInput = consentWrap.querySelector('#rz-consent');
+    }
 
     var btn = el('button', { className: 'rz-btn', type: 'submit', text: config.buttonText || 'Enviar' });
     form.appendChild(btn);
 
+    if (config.showLogo) {
+      root.appendChild(
+        el('p', {
+          className: 'rz-logo',
+          html: 'Formulário por <a href="https://radarzap.com.br" target="_blank" rel="noopener">RadarZap</a>',
+        }),
+      );
+    }
+
     function showErr(f, msg) {
-      if (!f) return;
+      if (!f || !f.err) return;
       f.err.textContent = msg;
       f.err.style.display = msg ? 'block' : 'none';
     }
@@ -149,9 +381,12 @@
       showErr(phoneF, '');
       if (emailF) showErr(emailF, '');
       if (msgF) showErr(msgF, '');
+
+      var okCustom = true;
       customFs.forEach(function (f) {
-        showErr(f, '');
+        if (!f.validate()) okCustom = false;
       });
+      if (!okCustom) return;
 
       var payload = {
         name: nameF.input.value.trim(),
@@ -159,6 +394,9 @@
         sourceUrl: window.location.href,
         pageTitle: document.title,
         customFields: {},
+        utm: parseUtmFromUrl(),
+        consent: consentInput ? consentInput.checked : undefined,
+        honeypot: honeypotWrap ? honeypotWrap.querySelector('input').value : undefined,
       };
       if (emailF) payload.email = emailF.input.value.trim();
       if (msgF) payload.message = msgF.input.value.trim();
@@ -180,16 +418,10 @@
         return;
       }
 
-      for (var i = 0; i < customFs.length; i++) {
-        var cf = customFs[i];
-        var cfg = config.customFields[i];
-        var val = cf.input.value.trim();
-        if (cfg.required && !val) {
-          showErr(cf, 'Campo obrigatório');
-          return;
-        }
-        if (val) payload.customFields[cf.key] = val;
-      }
+      customFs.forEach(function (f) {
+        var val = f.getValue();
+        if (val) payload.customFields[f.key] = val;
+      });
 
       btn.disabled = true;
       btn.textContent = 'Enviando…';
@@ -209,11 +441,11 @@
             throw new Error((result.data && result.data.error) || 'Falha ao enviar');
           }
           form.remove();
-          var ok = el('div', {
+          var okBox = el('div', {
             className: 'rz-success',
             text: result.data.successMessage || config.successMessage || 'Enviado com sucesso!',
           });
-          root.appendChild(ok);
+          root.appendChild(okBox);
           if (result.data.redirectUrl) {
             setTimeout(function () {
               window.location.href = result.data.redirectUrl;

@@ -156,11 +156,31 @@ export function LeadFormFieldsEditor({
               <select
                 className={inputCls + ' text-sm'}
                 value={cf.type}
-                onChange={e => updateCustom(index, { type: e.target.value as 'text' | 'textarea' })}
+                onChange={e => updateCustom(index, { type: e.target.value as LeadFormCustomField['type'] })}
               >
                 <option value="text">Texto curto</option>
                 <option value="textarea">Texto longo</option>
+                <option value="email">E-mail</option>
+                <option value="tel">Telefone</option>
+                <option value="select">Seleção</option>
+                <option value="checkbox">Checkbox</option>
+                <option value="hidden">Oculto</option>
               </select>
+              {cf.type === 'select' && (
+                <input
+                  className={inputCls + ' text-sm sm:col-span-2'}
+                  placeholder="Opções separadas por vírgula"
+                  value={(cf.options ?? []).join(', ')}
+                  onChange={e =>
+                    updateCustom(index, {
+                      options: e.target.value
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              )}
               <div className="flex flex-col gap-2 items-end">
                 <label className="flex items-center gap-1 text-xs whitespace-nowrap">
                   <input

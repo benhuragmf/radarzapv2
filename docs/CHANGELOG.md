@@ -8,6 +8,34 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.65] — 2026-06-23
+
+### Feat — Leads: Kanban, embed completo, preview inline, responsável padrão
+
+- **Kanban** na aba Capturas (drag-and-drop de status).
+- **form.js**: select/checkbox/hidden, tema claro/escuro/auto, tamanho compact/padrão/largo, logo RadarZap.
+- **Integrar no site**: pré-visualização iframe inline + alerta de domínios.
+- **Responsável padrão**: seletor de equipe (`GET /leads/assignees`), nome no detalhe do lead.
+- Editor: bloco Aparência; opções de select no editor de campos.
+- E2E `e2e/leads-panel.spec.ts`; mocks ampliados.
+
+### Fix — Notificações painel (offline / mutations)
+
+- Sonner apenas — removido fallback `window.alert()` duplicado.
+- Dedupe de toasts de API offline (5 s); mensagem unificada ao reiniciar o servidor.
+- Kanban: não dispara PATCH se o status já é o mesmo.
+
+## [2.11.64] — 2026-06-23
+
+### Feat — Leads: hub completo captura → qualificação → conversão
+
+- Cards de métricas (`GET /leads/stats`), funil visual, filtros avançados (origem, formulário, lista, período, consentimento).
+- Painel de detalhe com histórico, deduplicação, conversão/vínculo a contato, listas, UTM e badges LGPD.
+- Aba **Listas e segmentos** com atalhos ao módulo Contatos (`GET /leads/segments-summary`).
+- Formulários: destino do lead (status inicial, listas, tags, modo contato), consentimento/honeypot, duplicar, stats por form.
+- API: `POST …/convert`, `…/add-to-groups`, `DELETE …/captures/:id`, webhooks `lead.*`.
+- Status `qualified` e `spam`; embed com UTM, consentimento e honeypot.
+
 ## [2.11.63] — 2026-06-23
 
 ### Feat — Leads: excluir formulário + campos customizados

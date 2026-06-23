@@ -1,34 +1,67 @@
-/** Feedback global — usa toast quando ToastProvider está montado; fallback alert. */
+/** Feedback global — Sonner (sem alert nativo do navegador). */
 
-type Handlers = {
-  success: (msg: string) => void
-  error: (msg: string) => void
-  info: (msg: string) => void
+import { toastError, toastInfo, toastSuccess } from '@/design-system/toast'
+
+export const API_OFFLINE_MESSAGE =
+  'Servidor reiniciando ou offline. Aguarde alguns segundos e tente novamente.'
+
+const OFFLINE_HINTS = [
+  'backend_offline',
+  'api indisponível',
+  'npm run dev',
+  'falha de conexão com a api',
+  'servidor indisponível',
+  'confira se `npm run dev`',
+]
+
+const DEDUPE_MS = 5_000
+const lastShownAt = new Map<string, number>()
+
+function isOfflineError(message: string): boolean {
+  const lower = message.toLowerCase()
+  return OFFLINE_HINTS.some(h => lower.includes(h))
 }
 
-let handlers: Handlers | null = null
-
-export function registerNotifyHandlers(next: Handlers | null): void {
-  handlers = next
+function errorDedupeKey(message: string): string {
+  if (isOfflineError(message)) return 'rz-api-offline'
+  return `rz-err:${message.slice(0, 120)}`
 }
 
-function fallback(msg: string): void {
-  if (typeof window !== 'undefined') window.alert(msg)
+export function humanizeApiError(message: string): string {
+  if (isOfflineError(message)) return API_OFFLINE_MESSAGE
+  return message.trim()
+}
+
+function shouldShow(key: string): boolean {
+  const now = Date.now()
+  const prev = lastShownAt.get(key)
+  if (prev != null && now - prev < DEDUPE_MS) return false
+  lastShownAt.set(key, now)
+  return true
 }
 
 export function notifySuccess(message: string): void {
-  handlers?.success(message) ?? fallback(message)
+  toastSuccess(message)
 }
 
 export function notifyError(message: string): void {
-  handlers?.error(message) ?? fallback(message)
+  const text = humanizeApiError(message)
+  const key = errorDedupeKey(message)
+  if (!shouldShow(key)) return
+  toastError(text, key)
 }
 
 export function notifyInfo(message: string): void {
-  handlers?.info(message) ?? fallback(message)
+  toastInfo(message)
+}
+
+/** @deprecated Mantido só por compatibilidade; notify usa Sonner diretamente. */
+export function registerNotifyHandlers(_next: unknown): void {
+  /* noop */
 }
 
 /** Helper para onError de mutations TanStack Query. */
 export function mutationError(err: unknown): void {
-  notifyError(err instanceof Error ? err.message : String(err))
+  const raw = err instanceof Error ? err.message : String(err)
+  notifyError(raw)
 }

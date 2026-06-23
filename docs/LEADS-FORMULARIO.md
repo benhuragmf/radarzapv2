@@ -1,16 +1,17 @@
 # Leads — formulário público
 
-**Versão:** 2.11.62
+**Versão:** 2.11.64
 
 ## Objetivo
 
-Permitir que a empresa incorpore um **formulário de captura** no site (embed), conecte **WordPress**, **Elementor**, landing pages ou formulários próprios via **API**, e gerencie os contatos no painel.
+Área de **captura, qualificação e conversão** — distinta de Contatos (base consolidada). Reaproveita listas/segmentos, consentimento e Inbox sem duplicar esses módulos.
 
 ## Painel
 
 - Menu: **Contatos → Leads** (`/platform/leads`)
-- Abas: **Capturas** · **Integrar no site** · **Formulários**
-- Permissões: visualizar capturas e códigos de integração `consent:view`; gerenciar formulários `send:destination:manage`
+- Abas: **Capturas** · **Integrar no site** · **Listas e segmentos** · **Formulários**
+- Cards no topo: total, novos hoje, em atendimento, convertidos, perdidos, origem principal
+- Permissões: visualizar `consent:view`; gerenciar formulários/leads `send:destination:manage`; Inbox `inbox:reply`
 
 ## Integrar no site (painel)
 
@@ -34,14 +35,20 @@ Body JSON: `{ name, phone, email?, message?, sourceUrl?, pageTitle? }`
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/leads/forms` | Lista formulários |
+| GET | `/leads/forms` | Lista formulários (com stats capturas) |
 | POST | `/leads/forms` | Cria formulário |
-| PATCH | `/leads/forms/:id` | Configura aparência/domínios |
+| POST | `/leads/forms/:id/duplicate` | Duplica formulário |
+| PATCH | `/leads/forms/:id` | Configura aparência, routing, domínios |
 | DELETE | `/leads/forms/:id` | Remove formulário |
-| GET | `/leads/captures` | Lista leads (`status`, `search`, paginação) |
+| GET | `/leads/stats` | Métricas e funil |
+| GET | `/leads/segments-summary` | Listas com contagem de leads |
+| GET | `/leads/captures` | Lista leads (filtros: status, origem, formId, groupId, período, consentimento) |
 | GET | `/leads/captures/:id` | Detalhe |
-| PATCH | `/leads/captures/:id` | Status / observações internas |
-| POST | `/leads/captures/:id/open-inbox` | Abre ou reutiliza conversa Inbox e atribui ao atendente (`inbox:reply`) |
+| PATCH | `/leads/captures/:id` | Status / observações |
+| POST | `/leads/captures/:id/convert` | Converter ou vincular a contato |
+| POST | `/leads/captures/:id/add-to-groups` | Adicionar a listas |
+| DELETE | `/leads/captures/:id` | Excluir captura |
+| POST | `/leads/captures/:id/open-inbox` | Abre conversa Inbox (`inbox:reply`) |
 
 ## Ação no painel — Iniciar atendimento
 
