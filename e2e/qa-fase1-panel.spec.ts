@@ -38,6 +38,12 @@ const PANEL_ROUTES: Array<{
     heading: 'Chat do Site',
     content: 'Widget E2E',
   },
+  {
+    path: '/platform/leads',
+    heading: 'Leads',
+    content: 'Ana Lead',
+    waitApi: '/leads/captures',
+  },
 ] as const;
 
 test.describe('QA Fase 1 — painel Atendimento (mock API)', () => {

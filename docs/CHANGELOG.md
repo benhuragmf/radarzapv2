@@ -8,6 +8,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.57] — 2026-06-22
+
+### Feat — Formulário público de Leads + fila por capacidade do atendente
+
+- **Leads:** modelos `LeadForm` / `LeadCapture`, API pública `/api/leads/public`, embed `/leads/form.js`, menu **Contatos → Leads** (`/platform/leads`).
+- Captura cria/atualiza `Destination` + segmento Lead (`ContactAutoSegmentService.tagLeadFromForm`).
+- **Fila:** `maxConcurrentChatsPerAgent` (padrão 1), round-robin ignora atendentes no limite (Inbox + WebChat + bridge WA), mensagem com posição na fila, scan `processBusySuggestedPriority`.
+- E2E mock `/platform/leads`; deep link `?search=` no Inbox; ação **Abrir Inbox** no detalhe do lead.
+
+---
+
 ## [2.11.56] — 2026-06-22
 
 ### Fix — loop infinito presença no painel

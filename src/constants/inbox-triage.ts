@@ -100,11 +100,20 @@ export async function parseInboxMenuChoice(
 export async function buildQueueConfirmation(
   clientId: string,
   departmentName: string,
+  position?: number,
 ): Promise<string> {
   const settings = await loadInboxSettings(clientId);
+  let waiting = settings.waitingMessage;
+  if (position != null && position > 0) {
+    if (position > 1 && settings.queuePositionMessage) {
+      waiting = applyTemplate(settings.queuePositionMessage, { position: String(position) });
+    } else if (settings.queueAllBusyMessage) {
+      waiting = settings.queueAllBusyMessage;
+    }
+  }
   return applyTemplate(settings.queueMessage, {
     department: departmentName,
-    waiting: settings.waitingMessage,
+    waiting,
   });
 }
 

@@ -2469,6 +2469,11 @@ export class WebChatService {
           targetUserId: rr.userId,
           createdAt: new Date().toISOString(),
         });
+      } else if (rr?.kind === 'all_busy') {
+        await this.appendMessage(conversation, {
+          direction: 'system',
+          body: 'Nossos atendentes estão em atendimento agora. Você entrou na fila e será chamado assim que possível.',
+        });
       } else if (rr?.kind === 'no_online') {
         const rotation = await processFallbackWhatsappRotation(clientId, conversation, {
           immediate: true,

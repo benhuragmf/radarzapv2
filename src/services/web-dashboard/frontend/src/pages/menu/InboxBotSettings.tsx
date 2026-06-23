@@ -43,6 +43,9 @@ interface InboxSettings {
   schedule: Record<Weekday, DaySchedule>
   roundRobinEnabled: boolean
   roundRobinPullTimeoutSeconds: number
+  maxConcurrentChatsPerAgent: number
+  queuePositionMessage: string
+  queueAllBusyMessage: string
   alertSoundEnabled: boolean
   alertOnNewChat: boolean
   alertOnNewMessage: boolean
@@ -335,6 +338,23 @@ export default function InboxBotSettings() {
               onChange={e => patch('roundRobinPullTimeoutSeconds', Number(e.target.value) || 120)}
             />
           </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-[var(--rz-text-muted)]">
+              Máximo de atendimentos simultâneos por atendente (painel + WebChat + bridge WA)
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              className={inputCls}
+              value={form.maxConcurrentChatsPerAgent ?? 1}
+              disabled={!form.roundRobinEnabled}
+              onChange={e => patch('maxConcurrentChatsPerAgent', Number(e.target.value) || 1)}
+            />
+          </label>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Com limite 1, novos clientes aguardam na fila enquanto o atendente estiver em conversa ativa ou bridge WhatsApp.
+          </p>
         </Card>
 
         <Card className="p-5 space-y-4">

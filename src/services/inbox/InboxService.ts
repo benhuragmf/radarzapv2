@@ -74,6 +74,8 @@ import crypto from 'crypto';
 import {
   getQueuePriorityState,
   isSuggestedUserBusy,
+  isAgentAtCapacity,
+  getQueuePositionForConversation,
 } from '@/services/inbox/inbox-queue-priority';
 import {
   getAgentPresence,
@@ -310,6 +312,9 @@ export class InboxService {
       schedule: InboxWeeklySchedule;
       roundRobinEnabled: boolean;
       roundRobinPullTimeoutSeconds: number;
+      maxConcurrentChatsPerAgent: number;
+      queuePositionMessage: string;
+      queueAllBusyMessage: string;
       alertSoundEnabled: boolean;
       alertOnNewChat: boolean;
       alertOnNewMessage: boolean;
@@ -354,6 +359,18 @@ export class InboxService {
     if (patch.roundRobinPullTimeoutSeconds !== undefined) {
       const sec = Math.min(900, Math.max(30, Number(patch.roundRobinPullTimeoutSeconds) || 120));
       settings.roundRobinPullTimeoutSeconds = sec;
+    }
+    if (patch.maxConcurrentChatsPerAgent !== undefined) {
+      settings.maxConcurrentChatsPerAgent = Math.min(
+        10,
+        Math.max(1, Number(patch.maxConcurrentChatsPerAgent) || 1),
+      );
+    }
+    if (patch.queuePositionMessage !== undefined) {
+      settings.queuePositionMessage = patch.queuePositionMessage.trim();
+    }
+    if (patch.queueAllBusyMessage !== undefined) {
+      settings.queueAllBusyMessage = patch.queueAllBusyMessage.trim();
     }
     if (patch.alertSoundEnabled !== undefined) {
       settings.alertSoundEnabled = Boolean(patch.alertSoundEnabled);
@@ -2313,7 +2330,18 @@ export class InboxService {
     await conversation.save();
     this.notifyConversation(clientId, conversation);
 
-    const confirm = await buildQueueConfirmation(clientId, department.name);
+    const confirm = await buildQueueConfirmation(
+      clientId,
+      department.name,
+      conversation.queueEnteredAt
+        ? await getQueuePositionForConversation(
+            clientId,
+            department._id as mongoose.Types.ObjectId,
+            conversation.queueEnteredAt,
+            String(conversation._id),
+          )
+        : undefined,
+    );
     await this.sendToContact(clientId, dest.identifier, confirm);
     await this.appendSystemMessage(conversation, confirm, undefined, clientId);
     logger.info('Conversa direcionada para fila', {
@@ -2328,10 +2356,11 @@ export class InboxService {
   private async pickNextRoundRobinUser(
     clientId: string,
     department: IInboxDepartment,
-  ): Promise<mongoose.Types.ObjectId | { noOnline: true } | null> {
+  ): Promise<mongoose.Types.ObjectId | { noOnline: true } | { allBusy: true } | null> {
     const settings = await loadInboxSettings(clientId);
     if (!settings.roundRobinEnabled) return null;
 
+    const maxConcurrent = Math.max(1, settings.maxConcurrentChatsPerAgent ?? 1);
     const candidates = await this.resolveRoundRobinCandidates(clientId, department);
     const availableOnly = candidates.filter(c =>
       isAgentAvailableForQueue(clientId, c.toString()),
@@ -2339,13 +2368,23 @@ export class InboxService {
     if (!availableOnly.length) return { noOnline: true };
 
     const lastIdx = department.lastRoundRobinIndex ?? -1;
-    const nextIdx = (lastIdx + 1) % availableOnly.length;
-    const userId = availableOnly[nextIdx];
 
-    department.lastRoundRobinIndex = nextIdx;
-    await department.save();
+    for (let offset = 0; offset < availableOnly.length; offset++) {
+      const nextIdx = (lastIdx + 1 + offset) % availableOnly.length;
+      const userId = availableOnly[nextIdx];
+      const atCapacity = await isAgentAtCapacity(
+        clientId,
+        userId.toString(),
+        maxConcurrent,
+      );
+      if (!atCapacity) {
+        department.lastRoundRobinIndex = nextIdx;
+        await department.save();
+        return userId;
+      }
+    }
 
-    return userId;
+    return { allBusy: true };
   }
 
   /**
@@ -2358,6 +2397,7 @@ export class InboxService {
   ): Promise<
     | { kind: 'suggested'; userId: string; agentName: string }
     | { kind: 'no_online' }
+    | { kind: 'all_busy' }
     | null
   > {
     const department = await InboxDepartment.findOne({
@@ -2369,6 +2409,7 @@ export class InboxService {
     const picked = await this.pickNextRoundRobinUser(clientId, department);
     if (!picked) return null;
     if (typeof picked === 'object' && 'noOnline' in picked) return { kind: 'no_online' };
+    if (typeof picked === 'object' && 'allBusy' in picked) return { kind: 'all_busy' };
 
     const agentName = await this.resolveAgentDisplayName(picked.toString());
     return { kind: 'suggested', userId: picked.toString(), agentName };
@@ -2396,6 +2437,20 @@ export class InboxService {
         { conversationId: String(conversation._id) },
       );
       logger.info('Round-robin: nenhum atendente online — fila aberta', {
+        clientId,
+        conversationId: conversation._id,
+        departmentId: department._id,
+      });
+      return null;
+    }
+    if (typeof picked === 'object' && 'allBusy' in picked) {
+      await this.appendSystemMessage(
+        conversation,
+        'Todos os atendentes online estão em atendimento — aguardando na fila.',
+        undefined,
+        clientId,
+      );
+      logger.info('Round-robin: atendentes ocupados — cliente aguarda na fila', {
         clientId,
         conversationId: conversation._id,
         departmentId: department._id,
@@ -3941,7 +3996,13 @@ export class InboxService {
     if (suggestedId === userId) return;
 
     const settings = await loadInboxSettings(clientId);
-    const busy = await isSuggestedUserBusy(clientId, suggestedId, String(conv._id));
+    const maxConcurrent = Math.max(1, settings.maxConcurrentChatsPerAgent ?? 1);
+    const busy = await isAgentAtCapacity(
+      clientId,
+      suggestedId,
+      maxConcurrent,
+      { inboxConversationId: String(conv._id) },
+    );
     const { pullAllowedByTimeout } = getQueuePriorityState(
       conv.suggestedAt,
       settings.roundRobinPullTimeoutSeconds ?? 120,
@@ -4377,6 +4438,7 @@ export class InboxService {
         }
         await this.processRoundRobinPriorityExpiry(clientId, nowMs);
         await this.processOfflineSuggestedPriority(clientId);
+        await this.processBusySuggestedPriority(clientId);
         await AiConversationService.getInstance().recoverStuckPromisedHandoffs(clientId, this);
         await this.processTicketTeamSla(clientId, row.ticketTeamResponseHours, nowMs);
       }
@@ -4527,6 +4589,61 @@ export class InboxService {
         'inbox:priority_expired',
         'Prioridade expirada — pode puxar',
         `${conv.contactName}: ${agentName} não aceitou a tempo`,
+        { conversationId: String(conv._id) },
+      );
+      this.notifyConversation(clientId, conv);
+    }
+  }
+
+  /** Remove prioridade de atendente que atingiu capacidade — re-sugere ou abre fila. */
+  private async processBusySuggestedPriority(clientId: string): Promise<void> {
+    const settings = await loadInboxSettings(clientId);
+    const maxConcurrent = Math.max(1, settings.maxConcurrentChatsPerAgent ?? 1);
+
+    const convs = await InboxConversation.find({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      status: InboxConversationStatus.WAITING_QUEUE,
+      suggestedUserId: { $exists: true, $ne: null },
+    })
+      .limit(50)
+      .exec();
+
+    for (const conv of convs) {
+      const suggestedId = conv.suggestedUserId?.toString();
+      if (!suggestedId) continue;
+      if (!isAgentAvailableForQueue(clientId, suggestedId)) continue;
+
+      const atCapacity = await isAgentAtCapacity(clientId, suggestedId, maxConcurrent, {
+        inboxConversationId: String(conv._id),
+      });
+      if (!atCapacity) continue;
+
+      const agentName = await this.resolveAgentDisplayName(suggestedId);
+      conv.suggestedUserId = undefined;
+      conv.suggestedAt = undefined;
+      conv.priorityPullNotifiedAt = new Date();
+      await conv.save();
+
+      const department = conv.departmentId
+        ? await InboxDepartment.findById(conv.departmentId)
+        : null;
+
+      await this.appendSystemMessage(
+        conv,
+        `Prioridade de *${agentName}* removida (atendente ocupado) — reencaminhando fila.`,
+        undefined,
+        clientId,
+      );
+
+      if (department) {
+        await this.tryRoundRobinSuggest(clientId, conv, department);
+      }
+
+      await this.pushPanelEvent(
+        clientId,
+        'inbox:priority_expired',
+        'Fila — atendente ocupado',
+        `${conv.contactName}: ${agentName} em atendimento`,
         { conversationId: String(conv._id) },
       );
       this.notifyConversation(clientId, conv);

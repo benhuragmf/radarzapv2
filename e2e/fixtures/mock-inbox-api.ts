@@ -13,6 +13,8 @@ const INBOX_CAPABILITIES = [
   'webchat:view',
   'webchat:manage',
   'webchat:reply',
+  'consent:view',
+  'send:destination:manage',
 ];
 
 export const MOCK_INBOX_USER = {
@@ -230,6 +232,9 @@ const MOCK_INBOX_SETTINGS = {
   },
   roundRobinEnabled: true,
   roundRobinPullTimeoutSeconds: 120,
+  maxConcurrentChatsPerAgent: 1,
+  queuePositionMessage: 'Posição {position} na fila.',
+  queueAllBusyMessage: 'Atendentes ocupados — aguarde na fila.',
   alertSoundEnabled: true,
   alertOnNewChat: true,
   alertOnNewMessage: true,
@@ -318,6 +323,46 @@ const MOCK_WEBCHAT_CONVERSATIONS = [
     assignedUserName: 'E2E User',
   },
 ];
+
+const MOCK_LEAD_FORMS = [
+  {
+    id: 'form-e2e-1',
+    name: 'Formulário E2E',
+    publicKey: 'lfm_e2e_test_key',
+    active: true,
+    allowedDomains: ['localhost'],
+    appearance: {
+      title: 'Fale conosco',
+      description: 'Deixe seus dados',
+      buttonText: 'Enviar',
+      successMessage: 'Obrigado!',
+      primaryColor: '#25D366',
+      askEmail: true,
+      requireEmail: false,
+      askMessage: true,
+      requireMessage: false,
+    },
+  },
+];
+
+const MOCK_LEAD_CAPTURES = {
+  items: [
+    {
+      id: 'lead-e2e-1',
+      formId: 'form-e2e-1',
+      formName: 'Formulário E2E',
+      name: 'Ana Lead',
+      phone: '+5511999887766',
+      email: 'ana@exemplo.com',
+      message: 'Quero saber mais sobre o produto',
+      sourceUrl: 'https://meusite.com/contato',
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ],
+  total: 1,
+};
 
 export interface InboxMockOptions {
   webchatQueueCount?: number;
@@ -595,4 +640,60 @@ export async function setupInboxMocks(
       body: JSON.stringify([]),
     }),
   );
+
+  await page.route('**/api/leads/**', async route => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const path = url.pathname.replace(/^\/api/, '');
+
+    if (path === '/leads/forms') {
+      if (req.method() === 'POST') {
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...MOCK_LEAD_FORMS[0], id: 'form-new' }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LEAD_FORMS),
+      });
+    }
+
+    if (path.startsWith('/leads/forms/') && req.method() === 'PATCH') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LEAD_FORMS[0]),
+      });
+    }
+
+    if (path === '/leads/captures') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LEAD_CAPTURES),
+      });
+    }
+
+    const captureMatch = path.match(/^\/leads\/captures\/([^/]+)$/);
+    if (captureMatch && req.method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LEAD_CAPTURES.items[0]),
+      });
+    }
+
+    if (captureMatch && req.method() === 'PATCH') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...MOCK_LEAD_CAPTURES.items[0], status: 'in_review' }),
+      });
+    }
+
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
 }

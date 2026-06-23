@@ -364,7 +364,9 @@ export default function Inbox() {
     const convParam = searchParams.get('conv')
     const statusParam = searchParams.get('status')
     const channelParam = searchParams.get('channel')
+    const searchParam = searchParams.get('search') ?? searchParams.get('q')
     if (convParam) setSelectedId(convParam)
+    if (searchParam) setSearch(searchParam)
     if (statusParam === 'waiting_queue') {
       setFilterStatus('waiting_queue')
       setMineOnly(false)

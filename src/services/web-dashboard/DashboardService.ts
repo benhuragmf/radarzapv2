@@ -101,6 +101,8 @@ import { setInboxSocketServer } from '../inbox/InboxRealtime';
 import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
+import { createLeadFormPublicRouter } from '../leads/lead-form-public.routes';
+import { LeadFormService } from '../leads/LeadFormService';
 import { WebChatService } from '../webchat/WebChatService';
 import { WebChatSendRateLimitError } from '../webchat/webchat-send-guard.service';
 import { normalizeEscalationPolicy } from '../webchat/webchat-ai-escalation-policy.util';
@@ -371,6 +373,12 @@ export class DashboardService {
       rateLimiters.webchatPublic,
       createWebChatPublicRouter(),
     );
+    this.app.use(
+      '/api/leads/public',
+      cors({ origin: true, methods: ['GET', 'POST', 'OPTIONS'] }),
+      rateLimiters.webchatPublic,
+      createLeadFormPublicRouter(),
+    );
     this.app.get('/webchat/widget.js', (_req, res) => {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       if (config.NODE_ENV !== 'production') {
@@ -381,6 +389,17 @@ export class DashboardService {
         res.setHeader('Cache-Control', 'public, max-age=3600');
       }
       res.sendFile(path.join(__dirname, 'webchat', 'widget.js'));
+    });
+    this.app.get('/leads/form.js', (_req, res) => {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      if (config.NODE_ENV !== 'production') {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
+      res.sendFile(path.join(__dirname, 'leads', 'form.js'));
     });
     this.app.get('/webchat/preview-loader.js', (_req, res) => {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -5547,6 +5566,122 @@ export class DashboardService {
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Leads (formulários públicos) ───────────────────────────────────────
+    const leadSvc = LeadFormService.getInstance();
+
+    r.get('/leads/forms', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const forms = await leadSvc.listForms(auth.clientId);
+        res.json(
+          forms.map(f => ({
+            id: String(f._id),
+            name: f.name,
+            publicKey: f.publicKey,
+            active: f.active,
+            allowedDomains: f.allowedDomains ?? [],
+            appearance: f.appearance,
+            redirectUrl: f.redirectUrl,
+            createdAt: f.createdAt,
+            updatedAt: f.updatedAt,
+          })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/leads/forms', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const form = await leadSvc.createForm(auth.clientId, req.body as { name: string });
+        res.status(201).json({
+          id: String(form._id),
+          name: form.name,
+          publicKey: form.publicKey,
+          active: form.active,
+          appearance: form.appearance,
+        });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/leads/forms/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const form = await leadSvc.updateForm(auth.clientId, req.params.id, req.body);
+        if (!form) return res.status(404).json({ error: 'Formulário não encontrado' });
+        res.json({
+          id: String(form._id),
+          name: form.name,
+          publicKey: form.publicKey,
+          active: form.active,
+          allowedDomains: form.allowedDomains,
+          appearance: form.appearance,
+          redirectUrl: form.redirectUrl,
+        });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/leads/forms/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const ok = await leadSvc.deleteForm(auth.clientId, req.params.id);
+        if (!ok) return res.status(404).json({ error: 'Formulário não encontrado' });
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/leads/captures', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const q = req.query as {
+          status?: string;
+          search?: string;
+          formId?: string;
+          page?: string;
+          limit?: string;
+        };
+        const result = await leadSvc.listCaptures(auth.clientId, {
+          status: q.status as import('@/types/lead-form').LeadCaptureStatus | undefined,
+          search: q.search,
+          formId: q.formId,
+          page: q.page ? Number(q.page) : undefined,
+          limit: q.limit ? Number(q.limit) : undefined,
+        });
+        res.json(result);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/leads/captures/:id', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const item = await leadSvc.getCapture(auth.clientId, req.params.id);
+        if (!item) return res.status(404).json({ error: 'Lead não encontrado' });
+        res.json(item);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/leads/captures/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const item = await leadSvc.updateCapture(auth.clientId, req.params.id, req.body);
+        if (!item) return res.status(404).json({ error: 'Lead não encontrado' });
+        res.json(item);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 

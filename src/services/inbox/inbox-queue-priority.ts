@@ -34,36 +34,34 @@ export async function isSuggestedUserBusy(
   suggestedUserId: string,
   excludeConversationId?: string,
 ): Promise<boolean> {
-  const clientOid = new mongoose.Types.ObjectId(clientId);
-  const filter: Record<string, unknown> = {
-    clientId: clientOid,
-    assignedUserId: new mongoose.Types.ObjectId(suggestedUserId),
-    status: InboxConversationStatus.IN_PROGRESS,
-  };
-  if (excludeConversationId) {
-    filter._id = { $ne: new mongoose.Types.ObjectId(excludeConversationId) };
-  }
-  const count = await InboxConversation.countDocuments(filter);
+  const count = await countAgentActiveChats(clientId, suggestedUserId, {
+    inboxConversationId: excludeConversationId,
+  });
   return count > 0;
 }
 
-/** Atendente com conversa ativa no Inbox ou no chat do site. */
-export async function isAgentBusyWithClients(
+/** Conta atendimentos ativos: Inbox in_progress + WebChat with_agent + bridge WA aberto. */
+export async function countAgentActiveChats(
   clientId: string,
   userId: string,
   exclude?: { inboxConversationId?: string; webChatConversationId?: string },
-): Promise<boolean> {
-  const inboxBusy = await isSuggestedUserBusy(
-    clientId,
-    userId,
-    exclude?.inboxConversationId,
-  );
-  if (inboxBusy) return true;
-
+): Promise<number> {
   const clientOid = new mongoose.Types.ObjectId(clientId);
+  const userOid = userId;
+
+  const inboxFilter: Record<string, unknown> = {
+    clientId: clientOid,
+    assignedUserId: new mongoose.Types.ObjectId(userOid),
+    status: InboxConversationStatus.IN_PROGRESS,
+  };
+  if (exclude?.inboxConversationId) {
+    inboxFilter._id = { $ne: new mongoose.Types.ObjectId(exclude.inboxConversationId) };
+  }
+  const inboxCount = await InboxConversation.countDocuments(inboxFilter);
+
   const wcFilter: Record<string, unknown> = {
     clientId: clientOid,
-    assignedUserId: userId,
+    assignedUserId: userOid,
     queueStatus: 'with_agent',
     status: 'open',
   };
@@ -71,7 +69,67 @@ export async function isAgentBusyWithClients(
     wcFilter._id = { $ne: new mongoose.Types.ObjectId(exclude.webChatConversationId) };
   }
   const wcCount = await WebChatConversation.countDocuments(wcFilter);
-  return wcCount > 0;
+
+  const bridgeFilter: Record<string, unknown> = {
+    clientId: clientOid,
+    whatsappBridgeActive: true,
+    whatsappBridgeAgentUserId: userOid,
+    status: 'open',
+  };
+  if (exclude?.webChatConversationId) {
+    bridgeFilter._id = { $ne: new mongoose.Types.ObjectId(exclude.webChatConversationId) };
+  }
+  const bridgeCount = await WebChatConversation.countDocuments(bridgeFilter);
+
+  return inboxCount + Math.max(wcCount, bridgeCount);
+}
+
+/** Atendente com conversa ativa no Inbox ou no chat do site (incl. bridge WA). */
+export async function isAgentBusyWithClients(
+  clientId: string,
+  userId: string,
+  exclude?: { inboxConversationId?: string; webChatConversationId?: string },
+): Promise<boolean> {
+  const count = await countAgentActiveChats(clientId, userId, exclude);
+  return count > 0;
+}
+
+export async function isAgentAtCapacity(
+  clientId: string,
+  userId: string,
+  maxConcurrent: number,
+  exclude?: { inboxConversationId?: string; webChatConversationId?: string },
+): Promise<boolean> {
+  const limit = Math.max(1, maxConcurrent);
+  const count = await countAgentActiveChats(clientId, userId, exclude);
+  return count >= limit;
+}
+
+/** Posição na fila do setor (1 = primeiro). */
+export async function getQueuePositionForConversation(
+  clientId: string,
+  departmentId: mongoose.Types.ObjectId | string,
+  queueEnteredAt: Date,
+  excludeConversationId?: string,
+): Promise<number> {
+  const clientOid = new mongoose.Types.ObjectId(clientId);
+  const deptOid =
+    typeof departmentId === 'string'
+      ? new mongoose.Types.ObjectId(departmentId)
+      : departmentId;
+
+  const filter: Record<string, unknown> = {
+    clientId: clientOid,
+    departmentId: deptOid,
+    status: InboxConversationStatus.WAITING_QUEUE,
+    queueEnteredAt: { $lt: queueEnteredAt },
+  };
+  if (excludeConversationId) {
+    filter._id = { $ne: new mongoose.Types.ObjectId(excludeConversationId) };
+  }
+
+  const ahead = await InboxConversation.countDocuments(filter);
+  return ahead + 1;
 }
 
 export function formatElapsedTimer(elapsedSec: number): string {

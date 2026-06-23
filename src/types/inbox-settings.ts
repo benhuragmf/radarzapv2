@@ -43,6 +43,10 @@ export const DEFAULT_INBOX_BOT_TEXTS = {
   queueMessage:
     'Você foi direcionado para *{department}*.\n{waiting}',
   waitingMessage: 'Um atendente responderá em breve. Enquanto isso, pode descrever sua solicitação.',
+  queuePositionMessage:
+    'Você está na posição *{position}* da fila. Nossos atendentes estão em atendimento — aguarde um momento, por favor.',
+  queueAllBusyMessage:
+    'Recebemos sua mensagem. No momento nossos atendentes estão ocupados, mas você já está na fila de atendimento. Assim que possível, alguém vai falar com você.',
   outsideHoursMessage:
     'Nosso horário de atendimento é de segunda a sexta, das 9h às 18h. Deixe sua mensagem que retornaremos no próximo horário útil.',
   invalidMenuHint: 'Opção inválida. Responda com {options} ou o nome do setor.',
@@ -73,3 +77,6 @@ export const DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE =
 
 /** Segundos aguardando aceite no painel antes de disparar fallback WhatsApp (30–900). */
 export const DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS = 60;
+
+/** Atendimentos simultâneos por atendente (Inbox + WebChat + bridge WA). */
+export const DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT = 1;

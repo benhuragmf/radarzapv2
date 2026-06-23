@@ -554,6 +554,8 @@ Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`
 | `businessHoursEnabled` + `schedule` + `timezone` | Horário comercial (Intl timezone) |
 | `roundRobinEnabled` | Indica prioridade (não força aceite) |
 | `roundRobinPullTimeoutSeconds` | Segundos até outro atendente poder puxar (padrão 120) |
+| `maxConcurrentChatsPerAgent` | Limite de atendimentos simultâneos (Inbox + WebChat + bridge WA; padrão 1) — 2.11.57 |
+| `queuePositionMessage` / `queueAllBusyMessage` | Mensagens ao cliente na fila (`{position}`) — 2.11.57 |
 | `alertSoundEnabled` | Som no painel para eventos importantes |
 | `alertOnNewChat` | Alerta quando entra conversa nova na fila |
 | `alertOnNewMessage` | Alerta quando chega mensagem em conversa ativa |

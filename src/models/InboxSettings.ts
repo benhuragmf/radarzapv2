@@ -12,6 +12,7 @@ import {
   DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS,
   DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS,
   DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
+  DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT,
 } from '@/types/inbox-settings';
 
 export interface IInboxSettings extends Document {
@@ -22,6 +23,8 @@ export interface IInboxSettings extends Document {
   menuFooter: string;
   queueMessage: string;
   waitingMessage: string;
+  queuePositionMessage: string;
+  queueAllBusyMessage: string;
   outsideHoursMessage: string;
   invalidMenuHint: string;
   resolvedMessage: string;
@@ -32,6 +35,8 @@ export interface IInboxSettings extends Document {
   roundRobinEnabled: boolean;
   /** Segundos até outro atendente poder puxar a conversa */
   roundRobinPullTimeoutSeconds: number;
+  /** Máximo de atendimentos simultâneos por atendente (Inbox + WebChat + bridge). */
+  maxConcurrentChatsPerAgent: number;
   alertSoundEnabled: boolean;
   alertOnNewChat: boolean;
   alertOnNewMessage: boolean;
@@ -76,6 +81,16 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     menuFooter: { type: String, default: DEFAULT_INBOX_BOT_TEXTS.menuFooter, maxlength: 300 },
     queueMessage: { type: String, default: DEFAULT_INBOX_BOT_TEXTS.queueMessage, maxlength: 600 },
     waitingMessage: { type: String, default: DEFAULT_INBOX_BOT_TEXTS.waitingMessage, maxlength: 500 },
+    queuePositionMessage: {
+      type: String,
+      default: DEFAULT_INBOX_BOT_TEXTS.queuePositionMessage,
+      maxlength: 500,
+    },
+    queueAllBusyMessage: {
+      type: String,
+      default: DEFAULT_INBOX_BOT_TEXTS.queueAllBusyMessage,
+      maxlength: 600,
+    },
     outsideHoursMessage: {
       type: String,
       default: DEFAULT_INBOX_BOT_TEXTS.outsideHoursMessage,
@@ -92,6 +107,12 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     },
     roundRobinEnabled: { type: Boolean, default: false },
     roundRobinPullTimeoutSeconds: { type: Number, default: 120, min: 30, max: 900 },
+    maxConcurrentChatsPerAgent: {
+      type: Number,
+      default: DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT,
+      min: 1,
+      max: 10,
+    },
     alertSoundEnabled: { type: Boolean, default: true },
     alertOnNewChat: { type: Boolean, default: true },
     alertOnNewMessage: { type: Boolean, default: false },

@@ -5,7 +5,7 @@ import {
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
   UserCog, Lock, Database, Building2, Circle, Bot, Eye, BarChart3, Ticket, Clock, Sparkles,
-  Inbox, MessageSquareText, PanelTop,
+  Inbox, MessageSquareText, PanelTop, UserPlus,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can } from './auth'
@@ -101,6 +101,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-contatos', 'Contatos'),
   group('grp-contatos', 'Contatos', Users, [
     link('wa-contacts', 'Contatos', Phone, '/contact', 'consent:view'),
+    link('wa-leads', 'Leads', UserPlus, '/platform/leads', 'consent:view'),
     link('wa-segments', 'Listas e segmentos', ListOrdered, '/platform/segmentos', 'send:destination:manage'),
     link('wa-groups', 'Grupos WhatsApp', Users, '/grupos', 'send:destination:manage'),
     link('wa-import', 'Importar / Exportar', Upload, '/platform/contacts', 'send:destination:manage'),
@@ -254,7 +255,7 @@ const LEGACY_DISCORD_ROUTES = new Set([
 
 const PLATFORM_ROUTES = new Set([
   '/dashboard', '/dashboard/notificacoes', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
-  '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/gatilhos',
+  '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/leads', '/platform/gatilhos',
   '/platform/wa-logs', '/platform/wa-stories', '/platform/wa-status', '/platform/wa-limits', '/platform/fila',
   '/integrations/playground',
   '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/send/autoagendamentos', '/platform/automacoes',
@@ -391,6 +392,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/audit': 'platform:audit:view',
   '/platform/campanhas': 'send:test',
   '/platform/segmentos': 'send:destination:manage',
+  '/platform/leads': 'consent:view',
   '/platform/gatilhos': 'send:schedule:manage',
   '/platform/wa-logs': 'logs:view',
   '/platform/wa-stories': 'send:test',
@@ -470,6 +472,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/audit': 'Auditoria',
   '/platform/campanhas': 'Campanhas',
   '/platform/segmentos': 'Listas e segmentos',
+  '/platform/leads': 'Leads',
   '/platform/gatilhos': 'Gatilhos',
   '/platform/wa-logs': 'Logs WhatsApp',
   '/platform/wa-stories': 'Status WhatsApp',
