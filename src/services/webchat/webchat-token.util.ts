@@ -33,7 +33,11 @@ export function isWebChatOriginAllowed(
 ): boolean {
   if (!allowedDomains.length) return true;
   const host = hostFromUrl(origin) ?? hostFromUrl(referer);
-  if (!host) return false;
+  if (!host) {
+    // Embed same-origin (ex.: preview /leads/preview.html) pode omitir Origin e Referer.
+    if (process.env.NODE_ENV !== 'production') return true;
+    return false;
+  }
 
   // Painel e previews locais (npm run dev + dashboard:frontend) não devem quebrar por allowedDomains.
   if (process.env.NODE_ENV !== 'production' && isLocalDevHost(host)) {

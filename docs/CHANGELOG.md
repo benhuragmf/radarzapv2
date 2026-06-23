@@ -8,6 +8,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.61] — 2026-06-23
+
+### Fix — Leads preview "Formulário indisponível"
+
+- GET `/api/leads/public/forms/:key/config` sem checagem de origem (validada no submit).
+- `isWebChatOriginAllowed`: em dev, permite request sem Origin/Referer (preview same-origin).
+- `form.js` exibe mensagem de erro da API.
+
 ## [2.11.60] — 2026-06-23
 
 ### Fix — Preview Leads embed vazio

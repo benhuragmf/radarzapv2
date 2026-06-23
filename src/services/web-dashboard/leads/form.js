@@ -205,8 +205,10 @@
 
   fetch(apiUrl('/forms/' + encodeURIComponent(publicKey) + '/config'))
     .then(function (res) {
-      if (!res.ok) throw new Error('Formulário indisponível');
-      return res.json();
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error((data && data.error) || 'Formulário indisponível');
+        return data;
+      });
     })
     .then(mountForm)
     .catch(function (err) {

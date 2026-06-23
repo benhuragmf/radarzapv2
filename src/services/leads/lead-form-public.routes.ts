@@ -9,7 +9,7 @@ export function createLeadFormPublicRouter(): Router {
     try {
       const form = await svc.getActiveFormByPublicKey(req.params.publicKey);
       if (!form) return res.status(404).json({ error: 'Formulário não encontrado' });
-      svc.assertOrigin(form, req.headers.origin, req.headers.referer);
+      // Config é metadado público (título/cores); origem validada no submit.
       res.json(svc.getPublicConfig(form));
     } catch (e) {
       res.status(403).json({ error: (e as Error).message });

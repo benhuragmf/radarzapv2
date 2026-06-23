@@ -39,4 +39,14 @@ describe('webchat-token.util', () => {
       process.env.NODE_ENV = prev;
     }
   });
+
+  it('em desenvolvimento libera quando Origin/Referer ausentes (preview same-origin)', () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    try {
+      expect(isWebChatOriginAllowed(['meusite.com'], null, null)).toBe(true);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
 });
