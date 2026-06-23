@@ -82,7 +82,10 @@ Chave `lfm_…` gerada ao criar o formulário no painel.
 
 ## Dados capturados
 
-- Nome, telefone (obrigatórios), e-mail e mensagem (configuráveis)
+- Nome, telefone (obrigatórios), e-mail e mensagem (ativáveis/desativáveis no editor)
+- Campos extras customizados (até 12) — rótulo, tipo texto/textarea, obrigatório
+- `metadata` na captura com valores dos campos extras
+- Excluir formulário no painel (capturas históricas permanecem)
 - `sourceUrl`, `pageTitle`, IP (metadados)
 - Status: Novo → Em análise → Em atendimento → Convertido / Perdido
 - Vínculo opcional com `Destination` + segmento **Lead**
