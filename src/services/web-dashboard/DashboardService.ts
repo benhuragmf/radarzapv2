@@ -5738,6 +5738,29 @@ export class DashboardService {
       }
     });
 
+    r.get('/leads/contacts-search', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const q = typeof req.query.q === 'string' ? req.query.q : '';
+        const items = await leadSvc.searchContacts(auth.clientId, q);
+        res.json(items);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/leads/captures/:id/link', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const contactId = typeof req.body?.contactId === 'string' ? req.body.contactId : '';
+        if (!contactId) return res.status(400).json({ error: 'contactId obrigatório' });
+        const item = await leadSvc.linkCaptureToContact(auth.clientId, req.params.id, contactId, auth.userId);
+        res.json(item);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     r.post('/leads/captures/:id/convert', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;

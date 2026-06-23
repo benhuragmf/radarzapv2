@@ -32,6 +32,7 @@ import type {
   LeadCaptureListItem,
   LeadCaptureOrigin,
   LeadCaptureStatus,
+  LeadTemperature,
   LeadFormListItem,
   LeadFormRouting,
   LeadSegmentSummary,
@@ -43,6 +44,7 @@ import {
   LEAD_CAPTURE_ORIGINS,
   LEAD_CAPTURE_STATUS_LABEL,
   LEAD_CAPTURE_STATUS_VARIANT,
+  LEAD_TEMPERATURE_LABEL,
 } from '@radarzap-types/lead-form'
 
 type LeadsTab = 'captures' | 'integrate' | 'forms' | 'segments'
@@ -164,12 +166,22 @@ export default function Leads() {
   })
 
   const updateCapture = useMutation({
-    mutationFn: (payload: { id: string; status?: LeadCaptureStatus; internalNotes?: string }) =>
-      api.patch<LeadCaptureListItem>(`/leads/captures/${payload.id}`, payload),
+    mutationFn: (payload: {
+      id: string
+      status?: LeadCaptureStatus
+      temperature?: LeadTemperature | null
+      internalNotes?: string
+    }) => api.patch<LeadCaptureListItem>(`/leads/captures/${payload.id}`, payload),
     onSuccess: (_data, variables) => {
       invalidateLeads()
       if (variables.status) {
         notifySuccess(`Status: ${LEAD_CAPTURE_STATUS_LABEL[variables.status]}`)
+      } else if (variables.temperature !== undefined) {
+        notifySuccess(
+          variables.temperature
+            ? `Temperatura: ${LEAD_TEMPERATURE_LABEL[variables.temperature]}`
+            : 'Temperatura removida',
+        )
       } else if (variables.internalNotes !== undefined) {
         notifySuccess('Observações salvas')
       }
@@ -177,8 +189,18 @@ export default function Leads() {
     onError: mutationError,
   })
 
+  const linkCapture = useMutation({
+    mutationFn: (payload: { id: string; contactId: string }) =>
+      api.post<LeadCaptureListItem>(`/leads/captures/${payload.id}/link`, { contactId: payload.contactId }),
+    onSuccess: () => {
+      invalidateLeads()
+      notifySuccess('Lead vinculado ao contato')
+    },
+    onError: mutationError,
+  })
+
   const convertCapture = useMutation({
-    mutationFn: (payload: { id: string; contactGroupIds?: string[]; linkExistingId?: string }) =>
+    mutationFn: (payload: { id: string; contactGroupIds?: string[] }) =>
       api.post<LeadCaptureListItem>(`/leads/captures/${payload.id}/convert`, payload),
     onSuccess: () => {
       invalidateLeads()
@@ -538,12 +560,15 @@ export default function Leads() {
                 onUpdate={patch => updateCapture.mutate({ id: selected.id, ...patch })}
                 onOpenInbox={() => openInbox.mutate(selected.id)}
                 onConvert={opts => convertCapture.mutate({ id: selected.id, ...opts })}
+                onLinkContact={contactId => linkCapture.mutate({ id: selected.id, contactId })}
+                onInboxConversationReady={() => invalidateLeads()}
                 onAddToGroups={groupIds => addToGroups.mutate({ id: selected.id, groupIds })}
                 onDelete={() => {
                   if (window.confirm('Excluir este lead permanentemente?')) deleteCapture.mutate(selected.id)
                 }}
                 openingInbox={openInbox.isPending}
                 converting={convertCapture.isPending}
+                linking={linkCapture.isPending}
                 pending={updateCapture.isPending || addToGroups.isPending}
               />
             )}

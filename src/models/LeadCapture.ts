@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import type { LeadFormAppearance, LeadFormRouting, LeadCaptureOrigin, LeadCaptureStatus } from '@/types/lead-form';
+import type { LeadFormAppearance, LeadFormRouting, LeadCaptureOrigin, LeadCaptureStatus, LeadTemperature } from '@/types/lead-form';
 import { DEFAULT_LEAD_FORM_APPEARANCE, DEFAULT_LEAD_FORM_ROUTING } from '@/types/lead-form';
 import type { LeadHistoryEntry, LeadUtm } from '@/types/lead-form';
 
@@ -14,6 +14,7 @@ export interface ILeadCapture extends Document {
   pageTitle?: string;
   origin: LeadCaptureOrigin;
   status: LeadCaptureStatus;
+  temperature?: LeadTemperature;
   internalNotes?: string;
   destinationId?: mongoose.Types.ObjectId;
   inboxConversationId?: mongoose.Types.ObjectId;
@@ -74,6 +75,11 @@ const LeadCaptureSchema = new Schema<ILeadCapture>(
       type: String,
       enum: ['new', 'in_review', 'in_progress', 'qualified', 'converted', 'lost', 'spam'],
       default: 'new',
+      index: true,
+    },
+    temperature: {
+      type: String,
+      enum: ['cold', 'warm', 'hot'],
       index: true,
     },
     internalNotes: { type: String, maxlength: 4000 },

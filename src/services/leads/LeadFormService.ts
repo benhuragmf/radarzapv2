@@ -11,6 +11,8 @@ import type {
   LeadCaptureListItem,
   LeadCaptureOrigin,
   LeadCaptureStatus,
+  LeadTemperature,
+  LeadContactSearchItem,
   LeadDuplicateHint,
   LeadFormListItem,
   LeadFormPublicConfig,
@@ -28,6 +30,7 @@ import {
   LEAD_CAPTURE_ORIGINS,
   LEAD_CAPTURE_STATUS_LABEL,
   LEAD_CAPTURE_STATUSES,
+  LEAD_TEMPERATURE_LABEL,
 } from '@/types/lead-form';
 import {
   assertLeadFormOrigin,
@@ -751,7 +754,7 @@ export class LeadFormService {
   async updateCapture(
     clientId: string,
     captureId: string,
-    patch: { status?: LeadCaptureStatus; internalNotes?: string },
+    patch: { status?: LeadCaptureStatus; temperature?: LeadTemperature | null; internalNotes?: string },
     userId?: string,
   ): Promise<LeadCaptureListItem | null> {
     const capture = await LeadCapture.findOne({
@@ -763,17 +766,106 @@ export class LeadFormService {
     const prevStatus = capture.status;
     if (patch.status && patch.status !== prevStatus) {
       capture.status = patch.status;
-      capture.history = appendLeadHistory(capture.history, 'status_changed', `Status: ${LEAD_CAPTURE_STATUS_LABEL[prevStatus]} → ${LEAD_CAPTURE_STATUS_LABEL[patch.status]}`, { userId });
+      capture.history = appendLeadHistory(
+        capture.history,
+        'status_changed',
+        `${LEAD_CAPTURE_STATUS_LABEL[prevStatus]} → ${LEAD_CAPTURE_STATUS_LABEL[patch.status]}`,
+        { userId },
+      );
       emitLeadWebhook(clientId, 'status_changed', {
         capture_id: captureId,
         from: prevStatus,
         to: patch.status,
       });
     }
+    if (patch.temperature !== undefined) {
+      const prevTemp = capture.temperature;
+      const nextTemp = patch.temperature ?? undefined;
+      if (prevTemp !== nextTemp) {
+        capture.temperature = nextTemp;
+        const prevLabel = prevTemp ? LEAD_TEMPERATURE_LABEL[prevTemp] : '—';
+        const nextLabel = nextTemp ? LEAD_TEMPERATURE_LABEL[nextTemp] : '—';
+        capture.history = appendLeadHistory(
+          capture.history,
+          'temperature_changed',
+          `${prevLabel} → ${nextLabel}`,
+          { userId },
+        );
+      }
+    }
     if (patch.internalNotes !== undefined) {
       capture.internalNotes = sanitizeLeadText(patch.internalNotes, 4000) || undefined;
       capture.history = appendLeadHistory(capture.history, 'note', 'Observação interna atualizada', { userId });
     }
+    await capture.save();
+
+    const form = await LeadForm.findById(capture.formId).select('name');
+    const groups = await ContactGroup.find({ clientId: new mongoose.Types.ObjectId(clientId) }).select('_id name');
+    const groupNameById = new Map(groups.map(g => [String(g._id), g.name]));
+    return this.toListItem(capture, form?.name ?? '—', groupNameById);
+  }
+
+  async searchContacts(clientId: string, q: string, limit = 20): Promise<LeadContactSearchItem[]> {
+    const term = q.trim();
+    if (term.length < 2) return [];
+
+    const { Destination } = await import('@/models/Destination');
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(safe, 'i');
+    const digits = term.replace(/\D/g, '');
+
+    const or: Record<string, unknown>[] = [{ name: re }, { email: re }];
+    if (digits.length >= 4) {
+      or.push({ identifier: { $regex: digits } });
+    }
+
+    const rows = await Destination.find({
+      clientId: clientOid,
+      type: 'contact',
+      isActive: true,
+      $or: or,
+    })
+      .select('name identifier email')
+      .sort({ name: 1 })
+      .limit(Math.min(30, Math.max(1, limit)))
+      .lean();
+
+    return rows.map(d => ({
+      id: String(d._id),
+      name: d.name ?? d.identifier,
+      phone: d.identifier,
+      email: d.email ?? undefined,
+    }));
+  }
+
+  async linkCaptureToContact(
+    clientId: string,
+    captureId: string,
+    contactId: string,
+    userId?: string,
+  ): Promise<LeadCaptureListItem> {
+    const capture = await LeadCapture.findOne({
+      _id: new mongoose.Types.ObjectId(captureId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!capture) throw new Error('Lead não encontrado');
+
+    const { Destination } = await import('@/models/Destination');
+    const existing = await Destination.findOne({
+      _id: new mongoose.Types.ObjectId(contactId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+      type: 'contact',
+    });
+    if (!existing) throw new Error('Contato não encontrado');
+
+    capture.destinationId = existing._id as mongoose.Types.ObjectId;
+    capture.history = appendLeadHistory(
+      capture.history,
+      'linked_contact',
+      `Vinculado ao contato ${existing.name ?? existing.identifier}`,
+      { userId },
+    );
     await capture.save();
 
     const form = await LeadForm.findById(capture.formId).select('name');
@@ -1042,6 +1134,13 @@ export class LeadFormService {
     const groupIds = (capture.contactGroupIds ?? []).map(String);
     const duplicateHints = await this.resolveDuplicateHints(capture);
 
+    let linkedContactName: string | undefined;
+    if (capture.destinationId) {
+      const { Destination } = await import('@/models/Destination');
+      const dest = await Destination.findById(capture.destinationId).select('name identifier').lean();
+      if (dest) linkedContactName = dest.name ?? dest.identifier;
+    }
+
     return {
       id: String(capture._id),
       formId: String(capture.formId),
@@ -1054,12 +1153,14 @@ export class LeadFormService {
       pageTitle: capture.pageTitle,
       origin: capture.origin ?? 'site',
       status: capture.status,
+      temperature: capture.temperature,
       internalNotes: capture.internalNotes,
       metadata: capture.metadata,
       utm: capture.utm,
       consentAccepted: capture.consentAccepted,
       consentAcceptedAt: capture.consentAcceptedAt?.toISOString(),
       destinationId: capture.destinationId ? String(capture.destinationId) : undefined,
+      linkedContactName,
       inboxConversationId: capture.inboxConversationId
         ? String(capture.inboxConversationId)
         : undefined,

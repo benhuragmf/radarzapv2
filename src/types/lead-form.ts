@@ -1,3 +1,22 @@
+export type LeadTemperature = 'cold' | 'warm' | 'hot';
+
+export const LEAD_TEMPERATURES: LeadTemperature[] = ['cold', 'warm', 'hot'];
+
+export const LEAD_TEMPERATURE_LABEL: Record<LeadTemperature, string> = {
+  cold: 'Fria',
+  warm: 'Morna',
+  hot: 'Quente',
+};
+
+export const LEAD_TEMPERATURE_VARIANT: Record<
+  LeadTemperature,
+  'gray' | 'blue' | 'yellow' | 'green' | 'red' | 'purple'
+> = {
+  cold: 'blue',
+  warm: 'yellow',
+  hot: 'red',
+};
+
 export type LeadCaptureStatus =
   | 'new'
   | 'in_review'
@@ -192,6 +211,7 @@ export interface LeadUtm {
 export type LeadHistoryKind =
   | 'captured'
   | 'status_changed'
+  | 'temperature_changed'
   | 'linked_contact'
   | 'converted'
   | 'sent_to_inbox'
@@ -226,8 +246,10 @@ export interface LeadCaptureListItem {
   pageTitle?: string;
   origin: LeadCaptureOrigin;
   status: LeadCaptureStatus;
+  temperature?: LeadTemperature;
   internalNotes?: string;
   destinationId?: string;
+  linkedContactName?: string;
   inboxConversationId?: string;
   contactGroupIds?: string[];
   contactGroupNames?: string[];
@@ -242,6 +264,13 @@ export interface LeadCaptureListItem {
   history?: LeadHistoryEntry[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LeadContactSearchItem {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
 }
 
 export interface LeadStats {

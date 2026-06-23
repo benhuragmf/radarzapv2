@@ -6,6 +6,7 @@ import { Card } from '../ui/Card'
 import {
   AlertTriangle,
   ExternalLink,
+  Link2,
   MessageSquare,
   Phone,
   Search,
@@ -15,23 +16,22 @@ import {
 } from 'lucide-react'
 import { inputCls, textareaCls } from '@/design-system'
 import { notifySuccess } from '../../lib/notify'
-import type { LeadCaptureListItem, LeadCaptureStatus } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem, LeadCaptureStatus, LeadTemperature } from '@radarzap-types/lead-form'
 import {
   LEAD_CAPTURE_ORIGIN_LABEL,
   LEAD_CAPTURE_STATUS_LABEL,
   LEAD_CAPTURE_STATUS_VARIANT,
-  LEAD_CAPTURE_STATUSES,
+  LEAD_TEMPERATURE_LABEL,
+  LEAD_TEMPERATURE_VARIANT,
+  LEAD_TEMPERATURES,
 } from '@radarzap-types/lead-form'
-
-function waLink(phone: string) {
-  const digits = phone.replace(/\D/g, '')
-  if (!digits || phone.startsWith('email:')) return null
-  return `https://wa.me/${digits}`
-}
+import { LeadLinkContactModal } from './LeadLinkContactModal'
+import { LeadWhatsAppPanel } from './LeadWhatsAppPanel'
 
 const HISTORY_LABEL: Record<string, string> = {
   captured: 'Capturado',
   status_changed: 'Status',
+  temperature_changed: 'Temperatura',
   linked_contact: 'Vínculo',
   converted: 'Conversão',
   sent_to_inbox: 'Inbox',
@@ -47,30 +47,39 @@ export function LeadCaptureDetail({
   onUpdate,
   onOpenInbox,
   onConvert,
+  onLinkContact,
+  onInboxConversationReady,
   onAddToGroups,
   onDelete,
   openingInbox,
   converting,
+  linking,
   pending,
 }: {
   item: LeadCaptureListItem
   canManage: boolean
   canReply: boolean
   contactGroups: { id: string; name: string }[]
-  onUpdate: (patch: { status?: LeadCaptureStatus; internalNotes?: string }) => void
+  onUpdate: (patch: { status?: LeadCaptureStatus; temperature?: LeadTemperature | null; internalNotes?: string }) => void
   onOpenInbox: () => void
-  onConvert: (opts: { contactGroupIds?: string[]; linkExistingId?: string }) => void
+  onConvert: (opts: { contactGroupIds?: string[] }) => void
+  onLinkContact: (contactId: string) => void
+  onInboxConversationReady: (conversationId: string) => void
   onAddToGroups: (groupIds: string[]) => void
   onDelete: () => void
   openingInbox: boolean
   converting: boolean
+  linking: boolean
   pending: boolean
 }) {
   const [notes, setNotes] = useState(item.internalNotes ?? '')
   const [selectedGroups, setSelectedGroups] = useState<string[]>(item.contactGroupIds ?? [])
-  const wa = waLink(item.phone)
+  const [linkModalOpen, setLinkModalOpen] = useState(false)
+  const [waPanelOpen, setWaPanelOpen] = useState(false)
+  const hasPhone = !item.phone.startsWith('email:')
 
   return (
+    <>
     <Card className="space-y-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
@@ -85,6 +94,12 @@ export function LeadCaptureDetail({
             label={LEAD_CAPTURE_STATUS_LABEL[item.status]}
             variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]}
           />
+          {item.temperature && (
+            <Badge
+              label={LEAD_TEMPERATURE_LABEL[item.temperature]}
+              variant={LEAD_TEMPERATURE_VARIANT[item.temperature]}
+            />
+          )}
           {item.possibleDuplicate && <Badge label="Possível duplicado" variant="yellow" />}
           {item.consentAccepted === true && <Badge label="Consentimento OK" variant="green" />}
           {item.consentAccepted === false && <Badge label="Sem consentimento" variant="gray" />}
@@ -105,8 +120,8 @@ export function LeadCaptureDetail({
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={converting}
-                  onClick={() => onConvert({ linkExistingId: h.id })}
+                  disabled={linking}
+                  onClick={() => onLinkContact(h.id)}
                 >
                   Vincular
                 </Button>
@@ -161,6 +176,12 @@ export function LeadCaptureDetail({
             </dd>
           </div>
         )}
+        {item.linkedContactName && (
+          <div className="sm:col-span-2">
+            <dt className="text-[var(--rz-text-muted)]">Contato vinculado</dt>
+            <dd className="font-medium">{item.linkedContactName}</dd>
+          </div>
+        )}
         {item.assignedUserName && (
           <div>
             <dt className="text-[var(--rz-text-muted)]">Responsável</dt>
@@ -198,20 +219,20 @@ export function LeadCaptureDetail({
               <UserPlus size={14} /> Iniciar atendimento
             </Button>
           ))}
+        {canManage && (
+          <Button size="sm" variant="secondary" disabled={linking} onClick={() => setLinkModalOpen(true)}>
+            <Link2 size={14} /> {item.destinationId ? 'Alterar vínculo' : 'Vincular contato'}
+          </Button>
+        )}
         {canManage && item.status !== 'converted' && (
           <Button size="sm" variant="secondary" disabled={converting} onClick={() => onConvert({ contactGroupIds: selectedGroups })}>
             <UserCheck size={14} /> Converter em contato
           </Button>
         )}
-        {wa && (
-          <a
-            href={wa}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-[var(--rz-border)]"
-          >
+        {hasPhone && canReply && (
+          <Button size="sm" variant="secondary" onClick={() => setWaPanelOpen(true)}>
             <MessageSquare size={14} /> WhatsApp
-          </a>
+          </Button>
         )}
         <button
           type="button"
@@ -266,16 +287,20 @@ export function LeadCaptureDetail({
       {canManage && (
         <>
           <div>
-            <label className="text-xs text-[var(--rz-text-muted)]">Status</label>
+            <label className="text-xs text-[var(--rz-text-muted)]">Temperatura do lead</label>
             <select
               className={inputCls + ' mt-1'}
-              value={item.status}
+              value={item.temperature ?? ''}
               disabled={pending}
-              onChange={e => onUpdate({ status: e.target.value as LeadCaptureStatus })}
+              onChange={e => {
+                const v = e.target.value
+                onUpdate({ temperature: v ? (v as LeadTemperature) : null })
+              }}
             >
-              {LEAD_CAPTURE_STATUSES.map(s => (
-                <option key={s} value={s}>
-                  {LEAD_CAPTURE_STATUS_LABEL[s]}
+              <option value="">Não definida</option>
+              {LEAD_TEMPERATURES.map(t => (
+                <option key={t} value={t}>
+                  {LEAD_TEMPERATURE_LABEL[t]}
                 </option>
               ))}
             </select>
@@ -307,5 +332,26 @@ export function LeadCaptureDetail({
         </div>
       )}
     </Card>
+
+    <LeadLinkContactModal
+      open={linkModalOpen}
+      leadName={item.name}
+      leadPhone={item.phone}
+      linking={linking}
+      onClose={() => setLinkModalOpen(false)}
+      onLink={contactId => {
+        onLinkContact(contactId)
+        setLinkModalOpen(false)
+      }}
+    />
+
+    <LeadWhatsAppPanel
+      item={item}
+      open={waPanelOpen}
+      canReply={canReply}
+      onClose={() => setWaPanelOpen(false)}
+      onConversationReady={onInboxConversationReady}
+    />
+  </>
   )
 }

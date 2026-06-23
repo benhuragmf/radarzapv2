@@ -8,6 +8,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.11.66] — 2026-06-23
+
+### Feat — Leads: vínculo com contato, WhatsApp inline e temperatura
+
+- **Vincular contato**: modal com busca (`GET /leads/contacts-search`) e vínculo sem converter (`POST …/link`).
+- **WhatsApp**: painel inferior com composer + respostas rápidas; envia via Inbox (abre conversa se necessário).
+- **Temperatura do lead** (Fria / Morna / Quente) substitui o seletor de status duplicado no detalhe; badge no cabeçalho.
+
 ## [2.11.65] — 2026-06-23
 
 ### Feat — Leads: Kanban, embed completo, preview inline, responsável padrão
