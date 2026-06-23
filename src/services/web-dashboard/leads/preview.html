@@ -47,12 +47,18 @@
       color: #92400e;
       font-size: 0.875rem;
       line-height: 1.45;
+      margin-bottom: 20px;
     }
     .warn code {
       font-size: 0.8rem;
       background: rgba(0,0,0,.06);
       padding: 2px 6px;
       border-radius: 4px;
+    }
+    .muted {
+      color: #71717a;
+      font-size: 0.875rem;
+      line-height: 1.45;
     }
     ol.steps {
       margin: 0;
@@ -63,7 +69,7 @@
     }
     ol.steps li { margin-bottom: 6px; }
     #form-mount {
-      min-height: 120px;
+      min-height: 80px;
     }
   </style>
 </head>
@@ -88,30 +94,73 @@
     </div>
 
     <div class="card">
-      <div id="form-mount"></div>
+      <div id="form-mount"><p class="muted">Carregando formulário…</p></div>
     </div>
   </div>
 
   <script>
     (function () {
       var params = new URLSearchParams(location.search);
-      var key = params.get('key') || params.get('formKey') || '';
       var warn = document.getElementById('warn');
+      var mount = document.getElementById('form-mount');
 
-      if (!key) {
+      function showWarn(html) {
         warn.hidden = false;
-        warn.innerHTML =
-          'Chave ausente. Rode <code>npm run qa:leads:setup</code> com o backend ativo ' +
-          'ou abra com <code>?key=lfm_…</code> (copie em /platform/leads → Configurar formulário).';
+        warn.innerHTML = html;
+      }
+
+      function loadForm(key) {
+        if (!key) return;
+        mount.innerHTML = '<p class="muted">Carregando formulário…</p>';
+        if (!params.get('key')) {
+          var u = new URL(location.href);
+          u.searchParams.set('key', key);
+          history.replaceState(null, '', u);
+        }
+        var script = document.createElement('script');
+        script.src = '/leads/form.js?_=' + Date.now();
+        script.setAttribute('data-form-key', key);
+        script.setAttribute('data-container', 'form-mount');
+        script.async = true;
+        script.onerror = function () {
+          mount.innerHTML =
+            '<p style="color:#b91c1c;font-size:0.875rem">Não foi possível carregar form.js — o backend está rodando?</p>';
+        };
+        document.body.appendChild(script);
+      }
+
+      var key = params.get('key') || params.get('formKey') || '';
+
+      if (key) {
+        loadForm(key);
         return;
       }
 
-      var script = document.createElement('script');
-      script.src = '/leads/form.js';
-      script.setAttribute('data-form-key', key);
-      script.setAttribute('data-container', 'form-mount');
-      script.async = true;
-      document.body.appendChild(script);
+      fetch('/api/leads/dev/preview-config')
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) throw new Error(result.data.error || 'Sem formulário ativo');
+          showWarn(
+            'Modo dev: formulário <strong>' +
+              (result.data.name || 'ativo') +
+              '</strong> carregado automaticamente. Chave: <code>' +
+              result.data.publicKey +
+              '</code>'
+          );
+          loadForm(result.data.publicKey);
+        })
+        .catch(function (err) {
+          mount.innerHTML = '';
+          showWarn(
+            (err.message || 'Chave ausente') +
+              '. Rode <code>npm run qa:leads:setup</code> ou abra com <code>?key=lfm_…</code> ' +
+              '(copie em /platform/leads → Configurar formulário).'
+          );
+        });
     })();
   </script>
 </body>

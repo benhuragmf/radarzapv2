@@ -8,6 +8,13 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.60] — 2026-06-23
+
+### Fix — Preview Leads embed vazio
+
+- `form.js`: fallback quando `document.currentScript` é null (script injetado dinamicamente na preview).
+- Preview dev auto-carrega formulário ativo via `GET /api/leads/dev/preview-config` (sem `?key=` na URL).
+
 ## [2.11.59] — 2026-06-23
 
 ### QA — Preview embed Leads + setup script

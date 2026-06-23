@@ -5,8 +5,18 @@
 (function () {
   'use strict';
 
-  var script = document.currentScript;
-  if (!script) return;
+  function resolveScriptEl() {
+    var current = document.currentScript;
+    if (current && current.getAttribute('data-form-key')) return current;
+    return document.querySelector('script[data-form-key][src*="form.js"]:not([data-rz-lead-init])');
+  }
+
+  var script = resolveScriptEl();
+  if (!script) {
+    console.error('[RadarZap Leads] tag script não encontrada (use data-form-key no embed)');
+    return;
+  }
+  script.setAttribute('data-rz-lead-init', '1');
 
   var publicKey = script.getAttribute('data-form-key');
   if (!publicKey) {
@@ -201,5 +211,13 @@
     .then(mountForm)
     .catch(function (err) {
       console.error('[RadarZap Leads]', err.message);
+      var containerId = script.getAttribute('data-container');
+      var container = containerId ? document.getElementById(containerId) : null;
+      if (container) {
+        container.innerHTML =
+          '<p style="color:#b91c1c;font-size:0.875rem;margin:0;line-height:1.45">' +
+          (err.message || 'Formulário indisponível') +
+          '</p>';
+      }
     });
 })();

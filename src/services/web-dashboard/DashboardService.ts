@@ -408,6 +408,26 @@ export class DashboardService {
       }
       res.sendFile(path.join(__dirname, 'leads', 'preview.html'));
     });
+    if (config.NODE_ENV !== 'production') {
+      this.app.get('/api/leads/dev/preview-config', async (_req, res) => {
+        try {
+          const { LeadForm } = await import('@/models/LeadForm');
+          const form = await LeadForm.findOne({ active: true }).sort({ updatedAt: -1 }).lean();
+          if (!form) {
+            return res.status(404).json({
+              error: 'Nenhum formulário ativo — rode npm run qa:leads:setup',
+            });
+          }
+          res.json({
+            publicKey: form.publicKey,
+            name: form.name,
+            previewUrl: `/leads/preview.html?key=${encodeURIComponent(form.publicKey)}`,
+          });
+        } catch (e) {
+          res.status(500).json({ error: (e as Error).message });
+        }
+      });
+    }
     this.app.get('/webchat/preview-loader.js', (_req, res) => {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       if (config.NODE_ENV !== 'production') {
