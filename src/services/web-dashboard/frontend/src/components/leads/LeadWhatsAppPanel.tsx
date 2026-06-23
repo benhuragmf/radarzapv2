@@ -69,7 +69,7 @@ export function LeadWhatsAppPanel({ item, open, onClose, onConversationReady, ca
   const phoneLabel = item.phone.startsWith('email:') ? 'Sem telefone' : item.phone
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-[0_-8px_32px_rgba(0,0,0,0.25)]">
+    <div className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-[0_-8px_32px_rgba(0,0,0,0.25)]">
       <div className="max-w-5xl mx-auto px-4 py-3 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">

@@ -10,6 +10,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.11.67] — 2026-06-23
+
+### UX — Leads: layout CRM com painel lateral
+
+- Aba Capturas: Kanban/lista + detalhe lateral fixo (420px), sem rolagem da página inteira.
+- Painel com abas internas (Resumo, Atendimento, Listas, Histórico), ação primária destacada e menu Mais.
+- Cards e funil compactos; filtros em barra + drawer avançado; preferência Lista/Kanban em localStorage.
+- Mobile: detalhe em drawer full screen; Kanban com scroll interno por coluna.
+
 ## [2.11.66] — 2026-06-23
 
 ### Feat — Leads: vínculo com contato, WhatsApp inline e temperatura

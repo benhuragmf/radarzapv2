@@ -7,8 +7,9 @@ import { PlatformPage } from '../../components/platform/PlatformPage'
 import { LeadIntegrationsPanel } from '../../components/leads/LeadIntegrationsPanel'
 import { LeadFormFieldsEditor } from '../../components/leads/LeadFormFieldsEditor'
 import { LeadStatsCards, LeadFunnelRow } from '../../components/leads/LeadStatsCards'
-import { LeadCaptureDetail } from '../../components/leads/LeadCaptureDetail'
+import { LeadCaptureDetail, LeadDetailEmptyState } from '../../components/leads/LeadCaptureDetail'
 import { LeadKanbanBoard } from '../../components/leads/LeadKanbanBoard'
+import { LeadCapturesToolbar, type CaptureView, type PeriodFilter } from '../../components/leads/LeadCapturesToolbar'
 import { LeadSegmentsTab } from '../../components/leads/LeadSegmentsTab'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -19,14 +20,12 @@ import {
   Eye,
   FileInput,
   List,
-  LayoutGrid,
   Plug,
   Plus,
-  Search,
   Trash2,
 } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
-import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
+import { inputCls, textareaCls, LoadingState, EmptyState } from '@/design-system'
 import { embedScriptSnippet } from '../../lib/leadIntegrationSnippets'
 import type {
   LeadCaptureListItem,
@@ -41,16 +40,24 @@ import type {
 import {
   DEFAULT_LEAD_FORM_ROUTING,
   LEAD_CAPTURE_ORIGIN_LABEL,
-  LEAD_CAPTURE_ORIGINS,
   LEAD_CAPTURE_STATUS_LABEL,
   LEAD_CAPTURE_STATUS_VARIANT,
   LEAD_TEMPERATURE_LABEL,
 } from '@radarzap-types/lead-form'
 
 type LeadsTab = 'captures' | 'integrate' | 'forms' | 'segments'
-type CaptureView = 'list' | 'kanban'
 
-type PeriodFilter = '' | 'today' | '7d' | '30d'
+const CAPTURE_VIEW_KEY = 'rz-leads-capture-view'
+
+function loadCaptureView(): CaptureView {
+  try {
+    const s = localStorage.getItem(CAPTURE_VIEW_KEY)
+    if (s === 'kanban' || s === 'list') return s
+  } catch {
+    /* ignore */
+  }
+  return typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'kanban' : 'list'
+}
 
 function periodToDates(period: PeriodFilter): { from?: string; to?: string } {
   if (!period) return {}
@@ -76,8 +83,18 @@ export default function Leads() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingFormId, setEditingFormId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
-  const [captureView, setCaptureView] = useState<CaptureView>('list')
+  const [captureView, setCaptureView] = useState<CaptureView>(loadCaptureView)
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [editingSection, setEditingSection] = useState<'basic' | 'fields' | 'dest' | 'security' | 'appearance' | null>(null)
+
+  const setCaptureViewPersist = (v: CaptureView) => {
+    setCaptureView(v)
+    try {
+      localStorage.setItem(CAPTURE_VIEW_KEY, v)
+    } catch {
+      /* ignore */
+    }
+  }
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: getMe })
   const canManage = can(me ?? null, 'send:destination:manage')
@@ -331,232 +348,186 @@ export default function Leads() {
       )}
 
       {tab === 'captures' && (
-        <>
-          <div className="flex gap-2 mb-4">
-            <Button
-              size="sm"
-              variant={captureView === 'list' ? 'primary' : 'secondary'}
-              onClick={() => setCaptureView('list')}
-            >
-              Lista
-            </Button>
-            <Button
-              size="sm"
-              variant={captureView === 'kanban' ? 'primary' : 'secondary'}
-              onClick={() => setCaptureView('kanban')}
-            >
-              <LayoutGrid size={14} /> Kanban
-            </Button>
-          </div>
+        <div className="flex flex-col min-h-[calc(100vh-14rem)] max-h-[calc(100vh-8rem)]">
+          <LeadCapturesToolbar
+            search={search}
+            onSearchChange={v => {
+              setSearch(v)
+              setPage(1)
+            }}
+            statusFilter={statusFilter}
+            onStatusFilterChange={v => {
+              setStatusFilter(v)
+              setPage(1)
+            }}
+            originFilter={originFilter}
+            onOriginFilterChange={v => {
+              setOriginFilter(v)
+              setPage(1)
+            }}
+            periodFilter={periodFilter}
+            onPeriodFilterChange={v => {
+              setPeriodFilter(v)
+              setPage(1)
+            }}
+            formFilter={formFilter}
+            onFormFilterChange={v => {
+              setFormFilter(v)
+              setPage(1)
+            }}
+            groupFilter={groupFilter}
+            onGroupFilterChange={v => {
+              setGroupFilter(v)
+              setPage(1)
+            }}
+            consentFilter={consentFilter}
+            onConsentFilterChange={v => {
+              setConsentFilter(v)
+              setPage(1)
+            }}
+            forms={forms}
+            contactGroups={contactGroups}
+            captureView={captureView}
+            onCaptureViewChange={setCaptureViewPersist}
+            total={capturesData?.total}
+            advancedOpen={advancedFiltersOpen}
+            onAdvancedOpenChange={setAdvancedFiltersOpen}
+          />
 
-          {captureView === 'kanban' && capturesData?.items && (
-            <LeadKanbanBoard
-              items={capturesData.items}
-              canManage={canManage}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onStatusChange={(id, status) => {
-                const current = capturesData?.items.find(c => c.id === id)
-                if (current?.status === status) return
-                updateCapture.mutate({ id, status })
-              }}
-            />
-          )}
-
-        <div className="grid lg:grid-cols-5 gap-6">
-          <div className={`lg:col-span-2 space-y-3 ${captureView === 'kanban' ? 'hidden' : ''}`}>
-            <div className="relative">
-              <Search size={16} className={searchFieldIconCls} />
-              <input
-                className={inputCls + ' pl-9'}
-                placeholder="Buscar nome, telefone, e-mail, origem…"
-                value={search}
-                onChange={e => {
-                  setSearch(e.target.value)
-                  setPage(1)
-                }}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                className={inputCls + ' text-sm'}
-                value={statusFilter}
-                onChange={e => {
-                  setStatusFilter(e.target.value as LeadCaptureStatus | '')
-                  setPage(1)
-                }}
-              >
-                <option value="">Todos status</option>
-                {(Object.keys(LEAD_CAPTURE_STATUS_LABEL) as LeadCaptureStatus[]).map(s => (
-                  <option key={s} value={s}>
-                    {LEAD_CAPTURE_STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-              <select
-                className={inputCls + ' text-sm'}
-                value={originFilter}
-                onChange={e => {
-                  setOriginFilter(e.target.value as LeadCaptureOrigin | '')
-                  setPage(1)
-                }}
-              >
-                <option value="">Todas origens</option>
-                {LEAD_CAPTURE_ORIGINS.map(o => (
-                  <option key={o} value={o}>
-                    {LEAD_CAPTURE_ORIGIN_LABEL[o]}
-                  </option>
-                ))}
-              </select>
-              <select
-                className={inputCls + ' text-sm'}
-                value={formFilter}
-                onChange={e => {
-                  setFormFilter(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option value="">Todos formulários</option>
-                {forms.map(f => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className={inputCls + ' text-sm'}
-                value={groupFilter}
-                onChange={e => {
-                  setGroupFilter(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option value="">Todas listas</option>
-                {contactGroups.map(g => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className={inputCls + ' text-sm'}
-                value={periodFilter}
-                onChange={e => {
-                  setPeriodFilter(e.target.value as PeriodFilter)
-                  setPage(1)
-                }}
-              >
-                <option value="">Todo período</option>
-                <option value="today">Hoje</option>
-                <option value="7d">7 dias</option>
-                <option value="30d">30 dias</option>
-              </select>
-              <select
-                className={inputCls + ' text-sm'}
-                value={consentFilter}
-                onChange={e => {
-                  setConsentFilter(e.target.value as '' | 'yes' | 'no')
-                  setPage(1)
-                }}
-              >
-                <option value="">Consentimento</option>
-                <option value="yes">Com consentimento</option>
-                <option value="no">Sem consentimento</option>
-              </select>
-            </div>
-
-            {loadingCaptures ? (
-              <LoadingState rows={5} />
-            ) : !capturesData?.items.length ? (
-              <EmptyState
-                title="Nenhum lead encontrado"
-                description="Ajuste os filtros ou integre um formulário no site."
-                action={
-                  <Button variant="secondary" size="sm" onClick={() => setTab('integrate')}>
-                    <Plug size={14} /> Integrar no site
-                  </Button>
-                }
-              />
-            ) : captureView === 'list' ? (
-              <>
-                <p className="text-xs text-[var(--rz-text-muted)]">
-                  {capturesData.total} lead{capturesData.total !== 1 ? 's' : ''}
-                </p>
-                <ul className="space-y-2">
+          <div className="flex flex-1 min-h-0 rounded-xl border border-[var(--rz-border)] overflow-hidden bg-[var(--rz-surface)]">
+            {/* Área principal — lista ou kanban */}
+            <div className="flex-1 min-w-0 flex flex-col min-h-0">
+              {loadingCaptures ? (
+                <div className="p-4">
+                  <LoadingState rows={5} />
+                </div>
+              ) : !capturesData?.items.length ? (
+                <div className="p-6 flex-1 flex items-center justify-center">
+                  <EmptyState
+                    title="Nenhum lead encontrado"
+                    description="Ajuste os filtros ou integre um formulário no site."
+                    action={
+                      <Button variant="secondary" size="sm" onClick={() => setTab('integrate')}>
+                        <Plug size={14} /> Integrar no site
+                      </Button>
+                    }
+                  />
+                </div>
+              ) : captureView === 'kanban' ? (
+                <div className="flex-1 min-h-0 p-2">
+                  <LeadKanbanBoard
+                    items={capturesData.items}
+                    canManage={canManage}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                    onStatusChange={(id, status) => {
+                      const current = capturesData.items.find(c => c.id === id)
+                      if (current?.status === status) return
+                      updateCapture.mutate({ id, status })
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1.5">
                   {capturesData.items.map(item => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(item.id)}
-                        className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                          selectedId === item.id
-                            ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/5'
-                            : 'border-[var(--rz-border)] hover:border-[var(--rz-primary)]/40'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{item.name}</p>
-                            <p className="text-xs text-[var(--rz-text-muted)] truncate">
-                              {item.phone.startsWith('email:') ? item.email : item.phone}
-                            </p>
-                            <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">
-                              {LEAD_CAPTURE_ORIGIN_LABEL[item.origin]} · {item.formName}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge
-                              label={LEAD_CAPTURE_STATUS_LABEL[item.status]}
-                              variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]}
-                            />
-                            {item.possibleDuplicate && <Badge label="Duplicado?" variant="yellow" />}
-                          </div>
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedId(item.id)}
+                      className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                        selectedId === item.id
+                          ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/5 ring-1 ring-[var(--rz-primary)]/20'
+                          : 'border-[var(--rz-border)] hover:border-[var(--rz-primary)]/40'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{item.name}</p>
+                          <p className="text-[11px] text-[var(--rz-text-muted)] truncate">
+                            {item.phone.startsWith('email:') ? item.email : item.phone}
+                          </p>
+                          <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">
+                            {LEAD_CAPTURE_ORIGIN_LABEL[item.origin]} · {item.formName}
+                          </p>
                         </div>
-                        <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
-                          {new Date(item.createdAt).toLocaleString('pt-BR')}
-                        </p>
-                      </button>
-                    </li>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <Badge
+                            label={LEAD_CAPTURE_STATUS_LABEL[item.status]}
+                            variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]}
+                          />
+                          {item.possibleDuplicate && <Badge label="Dup." variant="yellow" />}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
+                        {new Date(item.createdAt).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </button>
                   ))}
-                </ul>
-                {capturesData.total > 30 && (
-                  <div className="flex gap-2 justify-center pt-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={page <= 1}
-                      onClick={() => setPage(p => p - 1)}
-                    >
-                      Anterior
-                    </Button>
-                    <span className="text-xs self-center text-[var(--rz-text-muted)]">Pág. {page}</span>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={page * 30 >= capturesData.total}
-                      onClick={() => setPage(p => p + 1)}
-                    >
-                      Próxima
-                    </Button>
-                  </div>
-                )}
-              </>
-            ) : null}
+                  {capturesData.total > 30 && (
+                    <div className="flex gap-2 justify-center pt-2 pb-1 sticky bottom-0 bg-[var(--rz-surface)]">
+                      <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                        Anterior
+                      </Button>
+                      <span className="text-xs self-center text-[var(--rz-text-muted)]">Pág. {page}</span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={page * 30 >= capturesData.total}
+                        onClick={() => setPage(p => p + 1)}
+                      >
+                        Próxima
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Painel lateral — desktop */}
+            <aside className="hidden lg:flex w-[min(420px,38vw)] max-w-[460px] shrink-0 border-l border-[var(--rz-border)] flex-col min-h-0">
+              {selected ? (
+                <LeadCaptureDetail
+                  item={selected}
+                  canManage={canManage}
+                  canReply={canReply}
+                  contactGroups={contactGroups}
+                  layout="sidebar"
+                  onClose={() => setSelectedId(null)}
+                  onUpdate={patch => updateCapture.mutate({ id: selected.id, ...patch })}
+                  onOpenInbox={() => openInbox.mutate(selected.id)}
+                  onConvert={opts => convertCapture.mutate({ id: selected.id, ...opts })}
+                  onLinkContact={contactId => linkCapture.mutate({ id: selected.id, contactId })}
+                  onInboxConversationReady={() => invalidateLeads()}
+                  onAddToGroups={groupIds => addToGroups.mutate({ id: selected.id, groupIds })}
+                  onDelete={() => {
+                    if (window.confirm('Excluir este lead permanentemente?')) deleteCapture.mutate(selected.id)
+                  }}
+                  openingInbox={openInbox.isPending}
+                  converting={convertCapture.isPending}
+                  linking={linkCapture.isPending}
+                  pending={updateCapture.isPending || addToGroups.isPending}
+                />
+              ) : (
+                <LeadDetailEmptyState />
+              )}
+            </aside>
           </div>
 
-          <div className={captureView === 'kanban' ? 'lg:col-span-5' : 'lg:col-span-3'}>
-            {!selected ? (
-              <Card>
-                <p className="text-sm text-[var(--rz-text-muted)]">
-                  Selecione um lead para ver detalhes, histórico e ações de conversão.
-                </p>
-              </Card>
-            ) : (
+          {/* Drawer mobile — detalhe full screen */}
+          {selected && (
+            <div className="lg:hidden">
               <LeadCaptureDetail
                 item={selected}
                 canManage={canManage}
                 canReply={canReply}
                 contactGroups={contactGroups}
+                layout="mobile-drawer"
+                onClose={() => setSelectedId(null)}
                 onUpdate={patch => updateCapture.mutate({ id: selected.id, ...patch })}
                 onOpenInbox={() => openInbox.mutate(selected.id)}
                 onConvert={opts => convertCapture.mutate({ id: selected.id, ...opts })}
@@ -571,10 +542,9 @@ export default function Leads() {
                 linking={linkCapture.isPending}
                 pending={updateCapture.isPending || addToGroups.isPending}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        </>
       )}
 
       {tab === 'forms' && canManage && (
