@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { can, getMe } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
+import { LeadIntegrationsPanel } from '../../components/leads/LeadIntegrationsPanel'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -13,12 +14,14 @@ import {
   FileInput,
   MessageSquare,
   Phone,
+  Plug,
   Plus,
   Search,
   UserPlus,
 } from 'lucide-react'
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
+import { embedScriptSnippet } from '../../lib/leadIntegrationSnippets'
 import type { LeadCaptureListItem, LeadCaptureStatus } from '@radarzap-types/lead-form'
 import { LEAD_CAPTURE_STATUS_LABEL } from '@radarzap-types/lead-form'
 
@@ -42,20 +45,17 @@ type LeadFormRow = {
   redirectUrl?: string
 }
 
-function embedSnippet(publicKey: string) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://SEU-PAINEL'
-  return `<script src="${origin}/leads/form.js" data-form-key="${publicKey}" async></script>`
-}
-
 function waLink(phone: string) {
   const digits = phone.replace(/\D/g, '')
   return `https://wa.me/${digits}`
 }
 
+type LeadsTab = 'captures' | 'integrate' | 'forms'
+
 export default function Leads() {
   const qc = useQueryClient()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'captures' | 'forms'>('captures')
+  const [tab, setTab] = useState<LeadsTab>('captures')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeadCaptureStatus | ''>('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -84,7 +84,7 @@ export default function Leads() {
   const { data: forms = [], isLoading: loadingForms } = useQuery<LeadFormRow[]>({
     queryKey: ['leads-forms'],
     queryFn: () => api.get('/leads/forms'),
-    enabled: canManage && tab === 'forms',
+    enabled: canView && (tab === 'forms' || tab === 'integrate'),
   })
 
   const selected = useMemo(
@@ -150,37 +150,40 @@ export default function Leads() {
     )
   }
 
+  const tabBtn = (id: LeadsTab, label: string, icon?: ReactNode) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setTab(id)}
+      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border ${
+        tab === id
+          ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 text-[var(--rz-primary)]'
+          : 'border-[var(--rz-border)] text-[var(--rz-text-secondary)]'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+
   return (
     <PlatformPage
       title="Leads"
-      description="Capturas de formulários embeddados no site da empresa."
+      description="Capture contatos do site, WordPress ou formulários próprios — gerencie e inicie atendimento no Inbox."
     >
       <div className="flex flex-wrap gap-2 mb-6">
-        <button
-          type="button"
-          onClick={() => setTab('captures')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium border ${
-            tab === 'captures'
-              ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 text-[var(--rz-primary)]'
-              : 'border-[var(--rz-border)] text-[var(--rz-text-secondary)]'
-          }`}
-        >
-          Capturas
-        </button>
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setTab('forms')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border ${
-              tab === 'forms'
-                ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 text-[var(--rz-primary)]'
-                : 'border-[var(--rz-border)] text-[var(--rz-text-secondary)]'
-            }`}
-          >
-            Formulários
-          </button>
-        )}
+        {tabBtn('captures', 'Capturas')}
+        {tabBtn('integrate', 'Integrar no site', <Plug size={15} />)}
+        {canManage && tabBtn('forms', 'Formulários')}
       </div>
+
+      {tab === 'integrate' && (
+        loadingForms ? (
+          <LoadingState rows={4} />
+        ) : (
+          <LeadIntegrationsPanel forms={forms} readOnly={!canManage} />
+        )
+      )}
 
       {tab === 'captures' && (
         <div className="grid lg:grid-cols-5 gap-6">
@@ -213,7 +216,12 @@ export default function Leads() {
               <EmptyState
                 icon={UserPlus}
                 title="Nenhum lead ainda"
-                description="Crie um formulário e incorpore no site para começar a capturar."
+                description="Vá em Integrar no site e conecte seu formulário ou WordPress."
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => setTab('integrate')}>
+                    <Plug size={14} /> Ver integrações
+                  </Button>
+                }
               />
             ) : (
               <ul className="space-y-2">
@@ -269,7 +277,10 @@ export default function Leads() {
 
       {tab === 'forms' && canManage && (
         <div className="space-y-6">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setTab('integrate')}>
+              <Plug size={16} /> Ver códigos de integração
+            </Button>
             <Button
               onClick={() => {
                 const name = window.prompt('Nome do formulário', 'Formulário principal')
@@ -287,7 +298,7 @@ export default function Leads() {
             <EmptyState
               icon={FileInput}
               title="Nenhum formulário"
-              description="Crie um formulário para gerar o código de incorporação."
+              description="Crie um formulário para gerar chaves e códigos de integração."
             />
           ) : (
             <div className="grid lg:grid-cols-2 gap-4">
@@ -298,9 +309,14 @@ export default function Leads() {
                     <Badge label={form.active ? 'Ativo' : 'Inativo'} variant={form.active ? 'green' : 'gray'} />
                   </div>
                   <p className="text-xs text-[var(--rz-text-muted)] font-mono">{form.publicKey}</p>
-                  <Button variant="secondary" size="sm" onClick={() => setEditingFormId(form.id)}>
-                    Configurar / código embed
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => setEditingFormId(form.id)}>
+                      Configurar
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setTab('integrate')}>
+                      Integrar
+                    </Button>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -311,6 +327,10 @@ export default function Leads() {
               form={editingForm}
               onClose={() => setEditingFormId(null)}
               onSave={patch => updateForm.mutate({ id: editingForm.id, ...patch })}
+              onOpenIntegrate={() => {
+                setEditingFormId(null)
+                setTab('integrate')
+              }}
               pending={updateForm.isPending}
             />
           )}
@@ -374,8 +394,8 @@ function LeadDetail({
       </dl>
 
       <div className="flex flex-wrap gap-2">
-        {canReply && (
-          item.inboxConversationId ? (
+        {canReply &&
+          (item.inboxConversationId ? (
             <Link
               to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 text-[var(--rz-primary)] hover:bg-[var(--rz-primary)]/15"
@@ -383,15 +403,10 @@ function LeadDetail({
               <MessageSquare size={14} /> Continuar no Inbox
             </Link>
           ) : (
-            <Button
-              size="sm"
-              disabled={openingInbox}
-              onClick={onOpenInbox}
-            >
+            <Button size="sm" disabled={openingInbox} onClick={onOpenInbox}>
               <UserPlus size={14} /> Iniciar atendimento
             </Button>
-          )
-        )}
+          ))}
         <a
           href={waLink(item.phone)}
           target="_blank"
@@ -470,15 +485,18 @@ function FormEditor({
   form,
   onClose,
   onSave,
+  onOpenIntegrate,
   pending,
 }: {
   form: LeadFormRow
   onClose: () => void
   onSave: (patch: Partial<LeadFormRow>) => void
+  onOpenIntegrate: () => void
   pending: boolean
 }) {
   const [draft, setDraft] = useState(form)
-  const snippet = embedSnippet(form.publicKey)
+  const snippet = embedScriptSnippet(form.publicKey)
+  const domainsText = (draft.allowedDomains ?? []).join('\n')
 
   return (
     <Card className="space-y-4">
@@ -546,6 +564,33 @@ function FormEditor({
           }))
         }
       />
+      <input
+        className={inputCls}
+        placeholder="URL após envio (opcional)"
+        value={draft.redirectUrl ?? ''}
+        onChange={e => setDraft(d => ({ ...d, redirectUrl: e.target.value || undefined }))}
+      />
+
+      <div>
+        <label className="text-xs text-[var(--rz-text-muted)]">
+          Domínios permitidos (um por linha — ex.: meusite.com.br, www.loja.com)
+        </label>
+        <textarea
+          className={textareaCls + ' mt-1 font-mono text-xs'}
+          rows={3}
+          placeholder="Vazio = qualquer site"
+          value={domainsText}
+          onChange={e =>
+            setDraft(d => ({
+              ...d,
+              allowedDomains: e.target.value
+                .split(/[\n,;]+/)
+                .map(s => s.trim())
+                .filter(Boolean),
+            }))
+          }
+        />
+      </div>
 
       <div className="flex flex-wrap gap-4 text-sm">
         <label className="flex items-center gap-2">
@@ -573,19 +618,23 @@ function FormEditor({
         </label>
       </div>
 
-      <div>
-        <p className="text-xs text-[var(--rz-text-muted)] mb-2">Código para colar no site</p>
-        <pre className="text-xs p-3 rounded-lg bg-[var(--rz-surface-muted)] overflow-x-auto">{snippet}</pre>
+      <div className="rounded-lg border border-[var(--rz-border)] p-3 space-y-2">
+        <p className="text-xs text-[var(--rz-text-muted)]">
+          Integração completa (WordPress, Elementor, API) na aba{' '}
+          <button type="button" className="text-[var(--rz-primary)] underline" onClick={onOpenIntegrate}>
+            Integrar no site
+          </button>
+        </p>
+        <pre className="text-xs p-2 rounded bg-[var(--rz-surface-muted)] overflow-x-auto">{snippet}</pre>
         <Button
           size="sm"
           variant="secondary"
-          className="mt-2"
           onClick={() => {
             void navigator.clipboard.writeText(snippet)
-            notifySuccess('Código copiado')
+            notifySuccess('Embed copiado')
           }}
         >
-          <ClipboardCopy size={14} /> Copiar embed
+          <ClipboardCopy size={14} /> Copiar embed padrão
         </Button>
       </div>
 

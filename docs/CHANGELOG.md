@@ -8,6 +8,13 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.62] — 2026-06-23
+
+### Feat — Leads: hub de integração no painel
+
+- Aba **Integrar no site** em `/platform/leads`: embed padrão, API/fetch, HTML, WordPress (CF7), Elementor e construtores.
+- Snippets copiáveis por formulário; domínios permitidos no editor; `GET /leads/forms` também com `consent:view`.
+
 ## [2.11.61] — 2026-06-23
 
 ### Fix — Leads preview "Formulário indisponível"

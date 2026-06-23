@@ -5599,7 +5599,7 @@ export class DashboardService {
     // ── Leads (formulários públicos) ───────────────────────────────────────
     const leadSvc = LeadFormService.getInstance();
 
-    r.get('/leads/forms', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.get('/leads/forms', requireAnyCapability(Cap.CONSENT_VIEW, Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const forms = await leadSvc.listForms(auth.clientId);

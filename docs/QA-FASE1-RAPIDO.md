@@ -56,7 +56,7 @@ Doc: [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md)
 npm run qa:leads:setup   # imprime URL da preview (backend npm run dev ativo)
 ```
 
-Abrir **`http://localhost:3001/leads/preview.html`** no browser (em dev a chave é resolvida automaticamente; ou use a URL completa do setup).
+Abrir **`http://localhost:3001/leads/preview.html`** ou use **Contatos → Leads → Integrar no site** no painel.
 
 | # | Faça | Esperado |
 |---|------|----------|

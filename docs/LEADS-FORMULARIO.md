@@ -1,15 +1,34 @@
 # Leads — formulário público
 
-**Versão:** 2.11.59
+**Versão:** 2.11.62
 
 ## Objetivo
 
-Permitir que a empresa incorpore um **formulário de captura** no site (embed), semelhante ao widget WebChat, e gerencie os contatos recebidos no painel.
+Permitir que a empresa incorpore um **formulário de captura** no site (embed), conecte **WordPress**, **Elementor**, landing pages ou formulários próprios via **API**, e gerencie os contatos no painel.
 
 ## Painel
 
 - Menu: **Contatos → Leads** (`/platform/leads`)
-- Permissões: visualizar capturas `consent:view`; gerenciar formulários `send:destination:manage`
+- Abas: **Capturas** · **Integrar no site** · **Formulários**
+- Permissões: visualizar capturas e códigos de integração `consent:view`; gerenciar formulários `send:destination:manage`
+
+## Integrar no site (painel)
+
+A aba **Integrar no site** oferece códigos prontos para copiar:
+
+| Método | Uso |
+|--------|-----|
+| **Formulário RadarZap** | Script `form.js` — padrão recomendado |
+| **API / JavaScript** | `fetch` ou cURL para site customizado |
+| **HTML + formulário** | Formulário seu enviando JSON |
+| **WordPress** | Bloco HTML, Contact Form 7, rodapé global |
+| **Elementor e outros** | Widget HTML + guia para construtores |
+
+Cada formulário tem chave `lfm_…` e endpoint:
+
+`POST /api/leads/public/forms/{publicKey}/submit`
+
+Body JSON: `{ name, phone, email?, message?, sourceUrl?, pageTitle? }`
 
 ## API autenticada (`/api/leads`)
 
