@@ -8,6 +8,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.58] — 2026-06-22
+
+### Feat — Lead → Inbox em um clique
+
+- `POST /api/leads/captures/:id/open-inbox` (`inbox:reply`): cria ou reutiliza conversa, mensagem de sistema com dados do formulário, atribui ao atendente.
+- Campo `inboxConversationId` em `LeadCapture`; botões **Iniciar atendimento** / **Continuar no Inbox** na UI Leads.
+- `InboxService.openConversationFromLead`; E2E mock da rota.
+
 ## [2.11.57] — 2026-06-22
 
 ### Feat — Formulário público de Leads + fila por capacidade do atendente

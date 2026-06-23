@@ -1,6 +1,6 @@
 # Leads — formulário público
 
-**Versão:** 2.11.57
+**Versão:** 2.11.58
 
 ## Objetivo
 
@@ -22,6 +22,17 @@ Permitir que a empresa incorpore um **formulário de captura** no site (embed), 
 | GET | `/leads/captures` | Lista leads (`status`, `search`, paginação) |
 | GET | `/leads/captures/:id` | Detalhe |
 | PATCH | `/leads/captures/:id` | Status / observações internas |
+| POST | `/leads/captures/:id/open-inbox` | Abre ou reutiliza conversa Inbox e atribui ao atendente (`inbox:reply`) |
+
+## Ação no painel — Iniciar atendimento
+
+No detalhe de uma captura, atendentes com `inbox:reply` podem:
+
+1. **Iniciar atendimento** — cria conversa Inbox (ou reutiliza aberta), grava mensagem de sistema com dados do formulário, atribui ao usuário logado e navega para `/platform/inbox?conv=…`.
+2. **Continuar no Inbox** — quando já existe `inboxConversationId` vinculado.
+3. **Buscar no Inbox** — deep link por telefone (`?search=`).
+
+O lead passa para status **Em atendimento** quando aplicável.
 
 ## API pública (`/api/leads/public`)
 
@@ -50,6 +61,7 @@ Chave `lfm_…` gerada ao criar o formulário no painel.
 - `sourceUrl`, `pageTitle`, IP (metadados)
 - Status: Novo → Em análise → Em atendimento → Convertido / Perdido
 - Vínculo opcional com `Destination` + segmento **Lead**
+- `inboxConversationId` — conversa Inbox aberta a partir do lead (2.11.58)
 
 ## Segurança
 

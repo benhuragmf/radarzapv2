@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { can, getMe } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
@@ -54,6 +54,7 @@ function waLink(phone: string) {
 
 export default function Leads() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<'captures' | 'forms'>('captures')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeadCaptureStatus | ''>('')
@@ -63,6 +64,7 @@ export default function Leads() {
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: getMe })
   const canManage = can(me ?? null, 'send:destination:manage')
   const canView = can(me ?? null, 'consent:view')
+  const canReply = can(me ?? null, 'inbox:reply')
 
   const captureQuery = useMemo(() => {
     const p = new URLSearchParams()
@@ -112,6 +114,20 @@ export default function Leads() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['leads-captures'] })
       notifySuccess('Lead atualizado')
+    },
+    onError: mutationError,
+  })
+
+  const openInbox = useMutation({
+    mutationFn: (captureId: string) =>
+      api.post<{ conversationId: string; created: boolean; assigned: boolean }>(
+        `/leads/captures/${captureId}/open-inbox`,
+        {},
+      ),
+    onSuccess: data => {
+      void qc.invalidateQueries({ queryKey: ['leads-captures'] })
+      notifySuccess(data.created ? 'Conversa iniciada no Inbox' : 'Conversa aberta no Inbox')
+      navigate(`/platform/inbox?conv=${encodeURIComponent(data.conversationId)}`)
     },
     onError: mutationError,
   })
@@ -240,7 +256,10 @@ export default function Leads() {
               <LeadDetail
                 item={selected}
                 canManage={canManage}
+                canReply={canReply}
                 onUpdate={(patch) => updateCapture.mutate({ id: selected.id, ...patch })}
+                onOpenInbox={() => openInbox.mutate(selected.id)}
+                openingInbox={openInbox.isPending}
                 pending={updateCapture.isPending}
               />
             )}
@@ -304,12 +323,18 @@ export default function Leads() {
 function LeadDetail({
   item,
   canManage,
+  canReply,
   onUpdate,
+  onOpenInbox,
+  openingInbox,
   pending,
 }: {
   item: LeadCaptureListItem
   canManage: boolean
+  canReply: boolean
   onUpdate: (patch: { status?: LeadCaptureStatus; internalNotes?: string }) => void
+  onOpenInbox: () => void
+  openingInbox: boolean
   pending: boolean
 }) {
   const [notes, setNotes] = useState(item.internalNotes ?? '')
@@ -349,6 +374,24 @@ function LeadDetail({
       </dl>
 
       <div className="flex flex-wrap gap-2">
+        {canReply && (
+          item.inboxConversationId ? (
+            <Link
+              to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`}
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 text-[var(--rz-primary)] hover:bg-[var(--rz-primary)]/15"
+            >
+              <MessageSquare size={14} /> Continuar no Inbox
+            </Link>
+          ) : (
+            <Button
+              size="sm"
+              disabled={openingInbox}
+              onClick={onOpenInbox}
+            >
+              <UserPlus size={14} /> Iniciar atendimento
+            </Button>
+          )
+        )}
         <a
           href={waLink(item.phone)}
           target="_blank"
@@ -379,7 +422,7 @@ function LeadDetail({
           to={`/platform/inbox?search=${encodeURIComponent(item.phone)}`}
           className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-[var(--rz-border)] hover:border-[var(--rz-primary)]"
         >
-          <MessageSquare size={14} /> Abrir Inbox
+          <Search size={14} /> Buscar no Inbox
         </Link>
       </div>
 

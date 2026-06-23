@@ -694,6 +694,19 @@ export async function setupInboxMocks(
       });
     }
 
+    const openInboxMatch = path.match(/^\/leads\/captures\/([^/]+)\/open-inbox$/);
+    if (openInboxMatch && req.method() === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          conversationId: 'conv-lead-e2e',
+          created: true,
+          assigned: true,
+        }),
+      });
+    }
+
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
 }

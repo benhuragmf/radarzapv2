@@ -5685,6 +5685,22 @@ export class DashboardService {
       }
     });
 
+    r.post('/leads/captures/:id/open-inbox', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const result = await leadSvc.openInboxForCapture(auth.clientId, auth.userId, req.params.id);
+        res.json(result);
+      } catch (e) {
+        const msg = (e as Error).message;
+        const status = msg.includes('não encontrado')
+          ? 404
+          : msg.includes('outro agente')
+            ? 409
+            : 400;
+        res.status(status).json({ error: msg });
+      }
+    });
+
     // ── WebChat (chat do site) ─────────────────────────────────────────────
     r.get('/webchat/widgets', requireCapability(Cap.WEBCHAT_MANAGE), async (req, res) => {
       try {

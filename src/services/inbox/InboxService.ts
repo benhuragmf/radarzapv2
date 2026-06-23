@@ -3985,6 +3985,73 @@ export class InboxService {
     return conv.toObject();
   }
 
+  /** Abre ou reutiliza conversa Inbox para lead de formulário e atribui ao atendente. */
+  async openConversationFromLead(
+    clientId: string,
+    userId: string,
+    opts: {
+      destinationId: string;
+      contactName: string;
+      formName: string;
+      message?: string;
+      email?: string;
+      sourceUrl?: string;
+    },
+  ): Promise<{ conversationId: string; created: boolean; assigned: boolean }> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const dest = await Destination.findOne({
+      _id: new mongoose.Types.ObjectId(opts.destinationId),
+      clientId: clientOid,
+      type: 'contact',
+    });
+    if (!dest) throw new Error('Contato não encontrado');
+
+    let conv = await this.findOpenConversation(clientId, dest._id as mongoose.Types.ObjectId);
+    let created = false;
+
+    if (!conv) {
+      conv = await this.createConversation(clientId, dest);
+      created = true;
+
+      const lines = [
+        `📋 Lead capturado via formulário *${opts.formName}*`,
+        opts.message ? `Mensagem: ${opts.message}` : null,
+        opts.email ? `E-mail: ${opts.email}` : null,
+        opts.sourceUrl ? `Origem: ${opts.sourceUrl}` : null,
+      ].filter(Boolean);
+      await this.appendSystemMessage(
+        conv,
+        lines.join('\n'),
+        new mongoose.Types.ObjectId(userId),
+        clientId,
+      );
+      this.notifyConversation(clientId, conv);
+      await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Lead do formulário', dest.name || dest.identifier, {
+        conversationId: String(conv._id),
+      });
+    }
+
+    const alreadyMine =
+      conv.status === InboxConversationStatus.IN_PROGRESS &&
+      conv.assignedUserId?.toString() === userId;
+
+    if (!alreadyMine) {
+      if (
+        conv.status === InboxConversationStatus.IN_PROGRESS &&
+        conv.assignedUserId?.toString() !== userId
+      ) {
+        throw new Error('Conversa em atendimento por outro agente');
+      }
+      await this.assignConversation(clientId, userId, String(conv._id));
+    }
+
+    return {
+      conversationId: String(conv._id),
+      created,
+      assigned: !alreadyMine,
+    };
+  }
+
   private async assertCanTakeQueueConversation(
     clientId: string,
     userId: string,

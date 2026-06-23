@@ -71,6 +71,7 @@ export interface LeadCaptureListItem {
   status: LeadCaptureStatus;
   internalNotes?: string;
   destinationId?: string;
+  inboxConversationId?: string;
   createdAt: string;
   updatedAt: string;
 }

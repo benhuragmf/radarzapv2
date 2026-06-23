@@ -13,6 +13,7 @@ export interface ILeadCapture extends Document {
   status: LeadCaptureStatus;
   internalNotes?: string;
   destinationId?: mongoose.Types.ObjectId;
+  inboxConversationId?: mongoose.Types.ObjectId;
   metadata?: Record<string, string>;
   ipAddress?: string;
   createdAt: Date;
@@ -37,6 +38,7 @@ const LeadCaptureSchema = new Schema<ILeadCapture>(
     },
     internalNotes: { type: String, maxlength: 4000 },
     destinationId: { type: Schema.Types.ObjectId, ref: 'Destination' },
+    inboxConversationId: { type: Schema.Types.ObjectId, ref: 'InboxConversation' },
     metadata: { type: Schema.Types.Mixed },
     ipAddress: { type: String, maxlength: 64 },
   },

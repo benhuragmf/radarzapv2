@@ -282,6 +282,58 @@ export class LeadFormService {
     return this.toListItem(capture, form?.name ?? '—');
   }
 
+  async openInboxForCapture(
+    clientId: string,
+    userId: string,
+    captureId: string,
+  ): Promise<{ conversationId: string; created: boolean; assigned: boolean }> {
+    const capture = await LeadCapture.findOne({
+      _id: new mongoose.Types.ObjectId(captureId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!capture) throw new Error('Lead não encontrado');
+
+    const form = await LeadForm.findById(capture.formId).select('name');
+    const formName = form?.name ?? 'Formulário';
+
+    let destinationId = capture.destinationId;
+    if (!destinationId) {
+      const ensured = await ensureDestinationForWebChatVisitor(
+        clientId,
+        capture.phone,
+        capture.name,
+        { email: capture.email, notes: `Lead via ${formName}` },
+      );
+      if (!ensured) throw new Error('Não foi possível vincular contato ao lead');
+      destinationId = ensured;
+      capture.destinationId = ensured;
+      await capture.save();
+      const { Destination } = await import('@/models/Destination');
+      const dest = await Destination.findById(ensured);
+      if (dest) {
+        await ContactAutoSegmentService.getInstance().tagLeadFromForm(clientId, dest, formName);
+      }
+    }
+
+    const { InboxService } = await import('@/services/inbox/InboxService');
+    const result = await InboxService.getInstance().openConversationFromLead(clientId, userId, {
+      destinationId: String(destinationId),
+      contactName: capture.name,
+      formName,
+      message: capture.message,
+      email: capture.email,
+      sourceUrl: capture.sourceUrl,
+    });
+
+    capture.inboxConversationId = new mongoose.Types.ObjectId(result.conversationId);
+    if (capture.status === 'new' || capture.status === 'in_review') {
+      capture.status = 'in_progress';
+    }
+    await capture.save();
+
+    return result;
+  }
+
   private toListItem(capture: ILeadCapture, formName: string): LeadCaptureListItem {
     return {
       id: String(capture._id),
@@ -295,6 +347,9 @@ export class LeadFormService {
       status: capture.status,
       internalNotes: capture.internalNotes,
       destinationId: capture.destinationId ? String(capture.destinationId) : undefined,
+      inboxConversationId: capture.inboxConversationId
+        ? String(capture.inboxConversationId)
+        : undefined,
       createdAt: capture.createdAt.toISOString(),
       updatedAt: capture.updatedAt.toISOString(),
     };

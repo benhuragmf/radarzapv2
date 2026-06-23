@@ -1,6 +1,6 @@
 # QA Fase 1 — checklist rápido (1 página)
 
-**Versão:** `2.11.50` · **Gate auto:** revalidar após mudanças de perfil/equipe
+**Versão:** `2.11.58` · **Gate auto:** revalidar após mudanças de perfil/equipe
 
 Detalhe: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · imprimir: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) · **O que o Playwright cobre:** [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md)
 
@@ -47,6 +47,17 @@ npm run qa:manual:start   # só gate Jest + prep
 Rotas cobertas por `npm run qa:fase1:e2e` (mock): tickets, setores, bot, respostas, relatórios, webchat, supervisor, presença.
 
 Manual ao vivo: `/platform/inbox` · demais rotas acima · conferir salvar/editar real.
+
+### B.1 — Leads (10 min)
+
+Doc: [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md)
+
+| # | Faça | Esperado |
+|---|------|----------|
+| 1 | Embed `form.js` em página de teste (ou submit via API pública) | Lead aparece em `/platform/leads` |
+| 2 | Selecionar lead → **Iniciar atendimento** | Inbox abre na conversa; msg sistema com dados do form |
+| 3 | Lead já com conversa → **Continuar no Inbox** | Deep link `?conv=` |
+| 4 | 2 atendentes, 1 ocupado no limite (`maxConcurrentChatsPerAgent`) | Round-robin/fila respeita capacidade |
 
 ---
 
