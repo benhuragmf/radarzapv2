@@ -174,8 +174,16 @@ export default function InboxTicketDetailPage() {
       ) : error ? (
         <EmptyState
           icon={Ticket}
-          title="Ticket não encontrado"
-          description="O ticket pode ter sido removido ou você não tem acesso."
+          title={
+            error instanceof Error && error.message.includes('não encontrado')
+              ? 'Ticket não encontrado'
+              : 'Não foi possível abrir o ticket'
+          }
+          description={
+            error instanceof Error
+              ? error.message
+              : 'O ticket pode ter sido removido ou você não tem acesso.'
+          }
           action={
             <Link to="/platform/inbox/tickets" className="text-sm text-[var(--rz-primary)] hover:underline">
               Ver todos os tickets

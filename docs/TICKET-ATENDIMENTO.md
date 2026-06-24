@@ -57,8 +57,21 @@ Use-o para problemas que **não** se resolvem na hora:
 |---|-----------|------------|
 | Papel | Atendimento **principal** — ao vivo | Acompanhamento **assíncrono** |
 | Quando | Triagem, fila, setor, humano em tempo real | Problema demorado, pendente de análise |
-| Referência | Conversa no painel Inbox | `TK-XXXXXX` |
+| Referência | Conversa no painel Inbox | `TK-XXXXXX` (6 caracteres após `TK-`) |
 | Trava o cliente? | **Não** deve travar | **Não** deve travar |
+
+### Referência `TK-…` (formato e ambiguidade — 2.11.86)
+
+| Item | Detalhe |
+|------|---------|
+| Geração | `generateInboxTicketRef()` em `src/utils/inbox-ticket-ref.ts` |
+| Formato | `TK-` + 6 caracteres maiúsculos |
+| Alfabeto (≥ 2.11.86) | `23456789ABCDEFGHJKMNPQRSTUVWXYZ` — **sem** `0`, `O`, `1`, `I`, `L` |
+| Legado (&lt; 2.11.86) | `Date.now().toString(36)` — pode misturar `0` e `O`; confundir ao copiar visualmente |
+| Normalização API | `ticketRef.trim().toUpperCase()` em `getTicketByRef` — **não** corrige `0`↔`O` |
+| Múltiplos por contato | Cada abertura (WebChat, botão 🎫 no Inbox, `!abrir`, IA) pode criar **outro** `TK-…` |
+
+**Painel:** lista em `/platform/inbox/tickets`; detalhe em `/platform/inbox/tickets/:ref`. Chamados `webchat_site` carregam histórico via `WebChatService.getDetailForInbox`.
 
 **Regra de ouro:** o Ticket **não substitui** o Inbox. O Ticket **não pode sequestrar** atendimento novo.
 

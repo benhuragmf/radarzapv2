@@ -266,7 +266,9 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Atendente pode **Converter em chamado** na caixa de entrada (ícone 🎫 no cabeçalho da conversa Site), igual ao WhatsApp.
 - API: `POST /api/inbox/conversations/wc:{id}/ticket` → cria `InboxTicket` com `channel: webchat_site` e `webChatConversationId`.
 - Visitante recebe mensagem de sistema no widget com a referência (`TK-…`).
-- Chamados aparecem em **Atendimento → Chamados**; detalhe carrega histórico do chat do site.
+- Chamados aparecem em **Atendimento → Chamados**; detalhe em `/platform/inbox/tickets/:ref` via `GET /api/inbox/tickets/:ref` → `WebChatService.getDetailForInbox` (histórico do widget + comentários do `InboxTicket`).
+- **Fix 2.11.86:** imports faltantes em `WebChatService.ts` impediam abrir detalhe (lista OK, tela *Ticket não encontrado*). Ver `INBOX-ATENDIMENTO.md` § Lista × detalhe.
+- **Refs `TK-…`:** desde 2.11.86, códigos novos evitam `0`/`O`/`1`/`I`/`L` — use **Abrir** na lista; ver `TICKET-ATENDIMENTO.md` § Referência.
 - **Pendente:** envio de atualização/fechamento de chamado ainda usa fluxo WhatsApp quando aplicável — respostas do visitante no widget ainda não alimentam `clientReplies` do ticket automaticamente.
 
 ## Perfil do visitante no Inbox (2.10.69)

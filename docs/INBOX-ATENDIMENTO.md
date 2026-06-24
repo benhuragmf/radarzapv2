@@ -161,7 +161,7 @@ Espelho detalhado em `AiConversationState` (coleção auxiliar). `conversation.s
 
 Serviços: `AiProviderService`, `AiPromptBuilderService`, `AiEscalationService`, `AiUsageMeterService`, `AiWalletService`.
 
-**Créditos IA, carteira mensal, barra do painel e aprendizagem:** ver **[`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md)** (desde 2.11.84).
+- Doc canônico: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) — inclui § **Como funciona a cobrança (LLM × IA)** com fluxo mermaid.
 
 API painel: `GET/PATCH /api/platform/ai/settings`, `DELETE /api/platform/ai/key`, `POST /api/platform/ai/test`, `GET /api/platform/ai/usage`, `GET /api/platform/ai/balance`, `GET /api/inbox/whatsapp-status`, catálogo de modelos em `src/constants/ai-model-catalog.ts`.
 
@@ -405,6 +405,27 @@ Respostas enriquecidas (2.7.0): `displayStatus`, `displayStatusLabel`, `teamSlaO
 | DELETE | `/inbox/tickets/:ref` | `inbox:reply` | Excluir ticket |
 
 Implementação principal: `src/services/inbox/InboxService.ts` (`handleTicketInboundMessage`, `sendClientUpdate`, `closeTicket`, `sendTicketMessageToClient`).
+
+### Lista × detalhe de chamados (troubleshooting — 2.11.86)
+
+| Sintoma | Causa provável | O que fazer |
+|---------|----------------|-------------|
+| Lista mostra o TK, detalhe diz *não encontrado* | Ref digitada errada (`TK-07WB2F` vs `TK-O7WB2F` — zero × letra O) | Clique **Abrir** na lista; não reescreva o código à mão |
+| Lista OK, detalhe falha só em chamados do **site** | Bug em `WebChatService.getDetailForInbox` (imports/runtime) | Atualize para ≥ 2.11.86; confira log da API |
+| Vários `TK-…` do mesmo cliente | Cada sessão WebChat ou conversa convertida gera um chamado | Normal — feche/arquive os antigos se não forem mais necessários |
+| Atendente vê lista vazia mas admin vê tickets | Filtro por setor (`departmentVisibility`) | Verifique membro do setor em **Setores** |
+
+**Fluxo detalhe (`GET /inbox/tickets/:ref`):**
+
+```txt
+InboxTicket.findOne({ ticketRef })
+  ├─ webChatConversationId? → WebChatService.getDetailForInbox (histórico widget)
+  └─ conversationId?         → InboxService.getConversationDetail (WhatsApp)
+```
+
+**Referência `TK-…`:** gerada por `src/utils/inbox-ticket-ref.ts` (`generateInboxTicketRef`). Desde **2.11.86**, alfabeto sem `0`/`O`/`1`/`I`/`L`. Refs legadas (base36 de timestamp) permanecem no banco — use o link da lista.
+
+**Diagnóstico local:** `npx ts-node -r dotenv/config -r tsconfig-paths/register scripts/inspect-ticket.ts TK-XXXXXX`
 
 **SLA equipe (2.7.0):** `InboxSettings.ticketTeamResponseHours` (default 24, 0 = desligado) — configurável em `/platform/inbox/bot`. Após resposta do cliente no ticket, inicia prazo; limpa quando equipe responde. Monitor no scan SLA → evento `inbox:priority` no painel.
 

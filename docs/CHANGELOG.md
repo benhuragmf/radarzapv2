@@ -22,6 +22,23 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.86] — 2026-06-24
+
+### Fix — detalhe de chamados WebChat no painel
+
+- **Sintoma:** tickets apareciam em **Atendimento → Chamados**, mas ao clicar **Abrir** a tela mostrava *Ticket não encontrado*.
+- **Causa:** `GET /api/inbox/tickets/:ref` para `channel: webchat_site` chama `WebChatService.getDetailForInbox`; faltavam imports em `WebChatService.ts` (`loadInboxSettings`, `departmentBadgeFieldsFrom`, `WebhookDispatcherService`, bridge/fallback/painel) → `ReferenceError` em runtime.
+- **Correção:** imports restaurados; `InboxTicketDetail.tsx` exibe a mensagem real da API (não só *não encontrado*).
+- **Refs `TK-…`:** geração em `generateInboxTicketRef()` passa a usar alfabeto sem `0`/`O`/`1`/`I`/`L` (refs antigas em base36 continuam válidas — copie da lista ou use **Abrir**).
+- **Vários TK do mesmo cliente:** esperado — cada sessão WebChat ou conversa convertida cria um chamado independente.
+- Docs: `INBOX-ATENDIMENTO.md` § Lista × detalhe; `TICKET-ATENDIMENTO.md` § Referência `TK-…`; `WEBCHAT.md` § Chamados.
+
+## [2.11.85] — 2026-06-24
+
+### Docs — cobrança LLM × IA
+
+- [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) § Como funciona a cobrança: guia produto, tabelas LM/IA, exemplos de débito, fluxo mermaid.
+
 ## [2.11.84] — 2026-06-24
 
 ### IA — créditos, carteira mensal e barra do painel

@@ -145,6 +145,25 @@ import {
   toWebChatInboxId,
   visitorDisplayName,
 } from './webchat-inbox-bridge';
+import { loadInboxSettings } from '@/constants/inbox-triage';
+import { departmentBadgeFieldsFrom } from '@/services/inbox/inbox-department-badge.util';
+import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
+import { emitPanelEvent } from '@/services/inbox/PanelNotifications';
+import { isAgentAvailableForQueue } from '@/services/inbox/inbox-agent-presence';
+import { notifySupervisorInternalChatMention } from '@/services/inbox/inbox-supervisor-notify.service';
+import {
+  assertWebChatSendAllowed,
+  applyWebChatAgentHumanDelay,
+  WebChatSendRateLimitError,
+} from './webchat-send-guard.service';
+import {
+  deactivateWhatsappBridge,
+  forwardVisitorMessageToWhatsappBridge,
+} from './webchat-whatsapp-bridge.service';
+import {
+  isFallbackAcceptTimeoutElapsed,
+  processFallbackWhatsappRotation,
+} from './webchat-whatsapp-fallback.service';
 
 export class WebChatService {
   private static instance: WebChatService;

@@ -33,8 +33,8 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | Documento | Descrição |
 |-----------|-----------|
 | [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem WA, fila, CSAT, IA, presença, supervisor, notificações |
-| [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA, carteira mensal, aprendizagem, barra do painel (2.11.84) |
-| [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados, SLA, menu bot |
+| [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA, carteira mensal, aprendizagem, barra do painel; § cobrança LLM×IA + fluxo mermaid (2.11.85) |
+| [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados, SLA, menu bot, formato `TK-…` (2.11.86) |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, IA, FAQ |
 | [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulário embed de captura de leads (2.11.57) |
 | [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) | Upgrade visual Inbox 2.10.18 (arquivo) |
