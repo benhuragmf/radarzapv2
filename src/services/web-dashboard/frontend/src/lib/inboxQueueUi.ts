@@ -13,6 +13,21 @@ export function liveQueueState(
   return { elapsedSec, urgency: Math.min(1, elapsedSec / timeout) }
 }
 
+export function liveTriageWaitState(
+  triageWaitSince: string | undefined,
+  inactivityCloseMinutes = 15,
+  tick = 0,
+): { elapsedSec: number; urgency: number } {
+  void tick
+  if (!triageWaitSince) return { elapsedSec: 0, urgency: 0 }
+  const elapsedSec = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(triageWaitSince).getTime()) / 1000),
+  )
+  const timeoutSec = Math.max(60, (inactivityCloseMinutes > 0 ? inactivityCloseMinutes : 15) * 60)
+  return { elapsedSec, urgency: Math.min(1, elapsedSec / timeoutSec) }
+}
+
 export function formatQueueTimer(elapsedSec: number): string {
   const m = Math.floor(elapsedSec / 60)
   const s = elapsedSec % 60

@@ -35,19 +35,36 @@ function parseApiErrorBody(body: string, status: number): string {
   }
 }
 
-async function request<T>(path: string, options?: RequestInit & { sessionRoot?: boolean }): Promise<T> {
-  const { sessionRoot, ...fetchOptions } = options ?? {}
+async function request<T>(
+  path: string,
+  options?: RequestInit & { sessionRoot?: boolean; timeoutMs?: number },
+): Promise<T> {
+  const { sessionRoot, timeoutMs = 30_000, signal: externalSignal, ...fetchOptions } = options ?? {}
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  const onExternalAbort = () => controller.abort()
+  externalSignal?.addEventListener('abort', onExternalAbort)
+
   let res: Response
   try {
     res = await fetch(apiUrl(path, sessionRoot), {
-      credentials: 'include',          // always send session cookie
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       ...fetchOptions,
     })
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(
+        'Tempo esgotado aguardando a API. Confira se `npm run dev` está rodando e recarregue a página.',
+      )
+    }
     throw new Error(
       'Falha de conexão com a API. Confira se `npm run dev` está rodando e recarregue a página.',
     )
+  } finally {
+    window.clearTimeout(timer)
+    externalSignal?.removeEventListener('abort', onExternalAbort)
   }
   if (!res.ok) {
     const body = await res.text()
@@ -57,11 +74,16 @@ async function request<T>(path: string, options?: RequestInit & { sessionRoot?: 
 }
 
 export const api = {
-  get:    <T>(path: string)                  => request<T>(path),
-  post:   <T>(path: string, body?: unknown)  => request<T>(path, { method: 'POST',   body: JSON.stringify(body) }),
-  patch:  <T>(path: string, body?: unknown)  => request<T>(path, { method: 'PATCH',  body: JSON.stringify(body) }),
-  put:    <T>(path: string, body?: unknown)  => request<T>(path, { method: 'PUT',    body: JSON.stringify(body) }),
-  delete: <T>(path: string)                  => request<T>(path, { method: 'DELETE' }),
+  get:    <T>(path: string, opts?: { timeoutMs?: number }) =>
+    request<T>(path, opts),
+  post:   <T>(path: string, body?: unknown, opts?: { timeoutMs?: number }) =>
+    request<T>(path, { method: 'POST', body: JSON.stringify(body), ...opts }),
+  patch:  <T>(path: string, body?: unknown, opts?: { timeoutMs?: number }) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(body), ...opts }),
+  put:    <T>(path: string, body?: unknown, opts?: { timeoutMs?: number }) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(body), ...opts }),
+  delete: <T>(path: string, opts?: { timeoutMs?: number }) =>
+    request<T>(path, { method: 'DELETE', ...opts }),
 }
 
 /** Rotas de sessão montadas em `/auth/*` (não em `/api`). */

@@ -114,6 +114,7 @@ import {
   agentPresenceConnect,
   agentPresenceDisconnect,
   agentPresenceHeartbeat,
+  getAgentLastManualStatus,
 } from '../inbox/inbox-agent-presence';
 import {
   assertStatusAllowed,
@@ -1742,7 +1743,10 @@ export class DashboardService {
         }
         assertStatusAllowed(status, auth.capabilities);
         const snapshot = setAgentOperationalStatus(auth.clientId, auth.userId, status, 'manual');
-        res.json(snapshot);
+        res.json({
+          ...snapshot,
+          lastManualStatus: getAgentLastManualStatus(auth.clientId, auth.userId),
+        });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }

@@ -174,6 +174,15 @@ Função dedicada em `InboxService` — **independente da IA**. Usada quando:
 
 Fluxo: `parseInboxMenuChoice` → `handleTriageReply` (fila) **ou** envia `buildInboxTriageMenu` **ou** `buildInvalidMenuHint`.
 
+### Triagem — tempo sem atendimento e inatividade (2.11.81)
+
+| Comportamento | Detalhe |
+|---------------|---------|
+| **Cronômetro no Inbox** | Conversas em `bot_triage` sem atendente exibem tempo aguardando humano na **lista** e no **cabeçalho** do chat (cor evolui amarelo → vermelho conforme SLA). |
+| **Encerramento automático** | Reutiliza SLA em **Bot / SLA** (`inactivityAutoCloseEnabled`, aviso `/aus`, encerramento após N min). Vale para **WhatsApp** e **WebChat** na triagem. |
+| **Gatilho** | Após mensagem do bot (menu de setores) sem resposta do cliente; ou conversa parada na triagem sem outbound do bot pelo tempo total configurado. |
+| **API lista** | Campos `triageWaitSince`, `triageElapsedSec`, `triageUrgency` (WA + WebChat unificado). |
+
 ## Tickets de acompanhamento (atendimento assíncrono)
 
 > **Documento canônico:** [TICKET-ATENDIMENTO.md](./TICKET-ATENDIMENTO.md) — conceito, `sair`, roteamento e regra “ticket não sequestra inbox”.

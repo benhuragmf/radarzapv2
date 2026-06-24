@@ -22,6 +22,7 @@ export type AgentPresenceState = {
 export type AgentPresenceActions = {
   setOperationalStatus: (status: AgentOperationalStatus, source?: AgentStatusSource) => void
   restoreFromAutoAusente: () => void
+  dismissRestorePrompt: () => void
   statusPending: boolean
 }
 
@@ -57,6 +58,7 @@ const defaultPresence: AgentPresenceState = {
 export const noopAgentPresenceActions: AgentPresenceActions = {
   setOperationalStatus: () => {},
   restoreFromAutoAusente: () => {},
+  dismissRestorePrompt: () => {},
   statusPending: false,
 }
 

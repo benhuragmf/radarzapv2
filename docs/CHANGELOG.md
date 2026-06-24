@@ -22,6 +22,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.81] — 2026-06-21
+
+### Inbox — triagem
+
+- Cronômetro **sem atendimento humano** na lista e no chat (`bot_triage`, WA + WebChat).
+- Encerramento automático na triagem quando o cliente não interage (mesmo SLA de inatividade do Bot).
+- `triageWaitSince` / `triageElapsedSec` / `triageUrgency` na API unificada.
+
 ## [2.11.80] — 2026-06-21
 
 ### Inbox — badge por setor + fix numeração Menu WhatsApp

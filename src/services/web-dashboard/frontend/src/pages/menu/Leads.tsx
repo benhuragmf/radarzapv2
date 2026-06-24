@@ -301,7 +301,7 @@ export default function Leads() {
 
   const openInbox = useMutation({
     mutationFn: (captureId: string) =>
-      api.post<{ conversationId: string }>(`/leads/captures/${captureId}/open-inbox`, {}),
+      api.post<{ conversationId: string; created?: boolean }>(`/leads/captures/${captureId}/open-inbox`, {}),
     onMutate: captureId => {
       setPendingInboxId(captureId)
     },

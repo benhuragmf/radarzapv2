@@ -29,11 +29,9 @@ export function AgentStatusSelector({ user }: Props) {
     presence,
     selectableStatuses,
     restorePromptOpen,
-    setRestorePromptOpen,
     actionsRef,
     statusPending,
   } = useAgentPresenceContext()
-  const { setOperationalStatus, restoreFromAutoAusente } = actionsRef.current
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -52,14 +50,14 @@ export function AgentStatusSelector({ user }: Props) {
             <button
               type="button"
               className="px-2 py-1 text-xs rounded hover:bg-[var(--rz-surface-muted)]"
-              onClick={() => setRestorePromptOpen(false)}
+              onClick={() => actionsRef.current.dismissRestorePrompt()}
             >
               Continuar ausente
             </button>
             <button
               type="button"
               className="px-2 py-1 text-xs rounded bg-[var(--rz-primary)] text-white"
-              onClick={() => restoreFromAutoAusente()}
+              onClick={() => actionsRef.current.restoreFromAutoAusente()}
               disabled={statusPending}
             >
               Voltar ao status anterior
@@ -95,7 +93,7 @@ export function AgentStatusSelector({ user }: Props) {
                 type="button"
                 disabled={statusPending}
                 onClick={() => {
-                  setOperationalStatus(status, 'manual')
+                  actionsRef.current.setOperationalStatus(status, 'manual')
                   setOpen(false)
                 }}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-[var(--rz-surface-muted)] flex items-center gap-2 ${

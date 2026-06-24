@@ -12,7 +12,7 @@ export type InboxDepartmentBadgeFields = {
 
 /** Rótulo e metadados alinhados à página /platform/inbox/setores. */
 export function departmentBadgeFieldsFrom(
-  dept: Pick<IInboxDepartment, 'name' | 'clientVisible' | 'internalRank' | 'menuKey'>,
+  dept: Pick<IInboxDepartment, 'name' | 'clientVisible' | 'internalRank'> & { menuKey?: string },
 ): InboxDepartmentBadgeFields {
   const internalRank = departmentInternalRank(dept);
   const internalRankLabel = formatInternalRankLabel(internalRank);
@@ -20,7 +20,7 @@ export function departmentBadgeFieldsFrom(
 
   return {
     departmentName: dept.name,
-    departmentMenuKey: isPublic ? dept.menuKey : undefined,
+    departmentMenuKey: isPublic && dept.menuKey ? dept.menuKey : undefined,
     /** Público: nome do setor · Interno: instância (2ª, 3ª…) como em Setores. */
     departmentBadgeLabel: isPublic ? dept.name : internalRankLabel,
     departmentClientVisible: isPublic,

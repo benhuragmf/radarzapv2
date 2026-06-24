@@ -5,10 +5,13 @@ import {
 } from '../inbox/inbox-queue-priority';
 import type { InboxWebChatListRow } from './webchat-inbox-bridge';
 import { webChatInboxIdToMongo } from './webchat-inbox-bridge';
+import { triageWaitElapsedSec, triageWaitUrgency } from '../inbox/inbox-inactivity';
+import { DEFAULT_INBOX_SLA } from '../../types/inbox-settings';
 
 type WebChatRowInput = InboxWebChatListRow & {
   suggestedUserId?: string;
   suggestedAt?: Date | string;
+  createdAt?: string;
 };
 
 export async function enrichWebChatInboxRow(
@@ -17,6 +20,7 @@ export async function enrichWebChatInboxRow(
   clientId: string,
   agentMap: Map<string, string>,
   pullTimeoutSeconds: number,
+  inactivityCloseMinutes = DEFAULT_INBOX_SLA.inactivityCloseMinutes,
 ): Promise<InboxWebChatListRow> {
   const suggestedId = row.suggestedUserId;
   const assignedId = row.assignedUserId;
@@ -49,6 +53,15 @@ export async function enrichWebChatInboxRow(
 
   const priority = getQueuePriorityState(row.suggestedAt, pullTimeoutSeconds);
 
+  const triageWaitSince =
+    status === 'bot_triage' && !assignedId ? row.createdAt : undefined;
+  const triageElapsedSec = triageWaitSince
+    ? triageWaitElapsedSec(triageWaitSince)
+    : 0;
+  const triageUrgency = triageWaitSince
+    ? triageWaitUrgency(triageElapsedSec, inactivityCloseMinutes)
+    : 0;
+
   return {
     ...row,
     suggestedUserId: suggestedId,
@@ -62,5 +75,8 @@ export async function enrichWebChatInboxRow(
     pullTimeoutSeconds,
     queueElapsedSec: suggestedId ? priority.elapsedSec : 0,
     queueUrgency: suggestedId ? priority.urgency : 0,
+    triageWaitSince,
+    triageElapsedSec,
+    triageUrgency,
   };
 }

@@ -66,6 +66,17 @@ import {
 } from './webchat-visitor-intent.util';
 import { linkWebChatVisitorToDestination, ensureDestinationForWebChatVisitor } from './webchat-destination-link.util';
 import type { InboxWeeklySchedule } from '../../types/inbox-settings';
+import { DEFAULT_INBOX_SLA } from '../../types/inbox-settings';
+import {
+  shouldAutoCloseForInactivity,
+  shouldAutoCloseTriageStalled,
+  shouldSendInactivityWarning,
+  shouldSendTriageStallWarning,
+} from '../inbox/inbox-inactivity';
+import {
+  applyQuickReplyTemplate,
+  normalizeQuickReplies,
+} from '../../types/inbox-quick-replies';
 import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '../inbox/PanelNotifications';
 import { notifySupervisorInternalChatMention } from '../inbox/inbox-supervisor-notify.service';
@@ -928,6 +939,8 @@ export class WebChatService {
       ]),
     );
     const pullTimeoutSeconds = inboxSettings.roundRobinPullTimeoutSeconds ?? 120;
+    const inactivityCloseMinutes =
+      inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes;
 
     const baseRows = rows.map(r => {
       const { contactName, contactIdentifier } = visitorDisplayName(
@@ -949,6 +962,7 @@ export class WebChatService {
         assignedUserName: r.assignedUserId ? agentMap.get(r.assignedUserId) : undefined,
         suggestedUserId: r.suggestedUserId,
         suggestedAt: r.suggestedAt ? new Date(r.suggestedAt).toISOString() : undefined,
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : undefined,
         lastMessageAt: (r.lastMessageAt ?? r.updatedAt ?? r.createdAt).toISOString(),
         lastMessagePreview: r.lastMessagePreview,
         unreadCount: r.unreadAgentCount ?? 0,
@@ -964,7 +978,14 @@ export class WebChatService {
 
     return Promise.all(
       baseRows.map(row =>
-        enrichWebChatInboxRow(row, userId, clientId, agentMap, pullTimeoutSeconds),
+        enrichWebChatInboxRow(
+          row,
+          userId,
+          clientId,
+          agentMap,
+          pullTimeoutSeconds,
+          inactivityCloseMinutes,
+        ),
       ),
     );
   }
@@ -1633,19 +1654,26 @@ export class WebChatService {
     const setFields: Record<string, unknown> = {
       lastMessageAt: now,
     };
+    if (data.direction === 'inbound') {
+      setFields.lastInboundAt = now;
+    }
+    if (data.direction === 'outbound') {
+      setFields.lastOutboundAt = now;
+    }
     if (!isInternal) {
       setFields.lastMessagePreview = preview;
     }
     if (currentStatus?.status !== 'closed') {
       setFields.status = 'open';
     }
-    await WebChatConversation.updateOne(
-      { _id: conversation._id },
-      {
-        $set: setFields,
-        ...(unreadDelta ? { $inc: { unreadAgentCount: unreadDelta } } : {}),
-      },
-    );
+    const updateDoc: Record<string, unknown> = {
+      $set: setFields,
+      ...(unreadDelta ? { $inc: { unreadAgentCount: unreadDelta } } : {}),
+    };
+    if (data.direction === 'inbound') {
+      updateDoc.$unset = { inactivityWarnedAt: '' };
+    }
+    await WebChatConversation.updateOne({ _id: conversation._id }, updateDoc);
 
     const clientId = String(conversation.clientId);
     const conversationId = String(conversation._id);
@@ -2670,6 +2698,103 @@ export class WebChatService {
             urgent: true,
             createdAt: new Date(nowMs).toISOString(),
           });
+        }
+      }
+    }
+  }
+
+  /** Encerra triagem WebChat quando o visitante não interage (mesmo SLA do Inbox WhatsApp). */
+  async processWebChatTriageInactivity(): Promise<void> {
+    const rows = await InboxSettings.find({})
+      .select('clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes quickReplies')
+      .lean();
+
+    const nowMs = Date.now();
+    for (const row of rows) {
+      const clientId = String(row.clientId);
+      const enabled = row.inactivityAutoCloseEnabled !== false;
+      const closeMinutes = row.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes;
+      const warningMinutes =
+        row.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes;
+      if (!enabled || closeMinutes <= 0) continue;
+
+      const quickReplies = normalizeQuickReplies(row.quickReplies);
+
+      const convs = await WebChatConversation.find({
+        clientId: row.clientId,
+        status: 'open',
+        queueStatus: 'bot',
+        $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }, { assignedUserId: '' }],
+        whatsappBridgeActive: { $ne: true },
+      })
+        .limit(80)
+        .exec();
+
+      for (const conv of convs) {
+        const ts = {
+          lastInboundAt: conv.lastInboundAt,
+          lastOutboundAt: conv.lastOutboundAt,
+          inactivityWarnedAt: conv.inactivityWarnedAt,
+          createdAt: conv.createdAt,
+        };
+
+        const shouldWarn =
+          shouldSendInactivityWarning(ts, warningMinutes, closeMinutes, nowMs) ||
+          shouldSendTriageStallWarning(ts, warningMinutes, closeMinutes, nowMs);
+
+        if (shouldWarn) {
+          const visitorName = conv.visitorName?.trim() || 'visitante';
+          const warnQr = quickReplies.find(q => q.code === 'aus');
+          const warnBody = warnQr
+            ? applyQuickReplyTemplate(warnQr.template, visitorName)
+            : 'Você está aí?';
+          try {
+            await this.appendMessage(conv, {
+              direction: 'outbound',
+              body: warnBody,
+              senderUserId: WEBCHAT_BOT_SENDER_ID,
+              senderName: 'Assistente',
+            });
+            await WebChatConversation.updateOne(
+              { _id: conv._id },
+              { $set: { inactivityWarnedAt: new Date(nowMs), lastOutboundAt: new Date(nowMs) } },
+            );
+          } catch (err) {
+            this.serviceLogger.warn('Falha ao avisar inatividade WebChat triagem', {
+              clientId,
+              conversationId: String(conv._id),
+              err,
+            });
+          }
+        }
+
+        const shouldClose =
+          shouldAutoCloseForInactivity(ts, closeMinutes, true, nowMs) ||
+          shouldAutoCloseTriageStalled(ts, closeMinutes, true, nowMs);
+
+        if (shouldClose) {
+          const visitorName = conv.visitorName?.trim() || 'visitante';
+          const closeQr = quickReplies.find(q => q.code === 'enc');
+          const closeBody = closeQr
+            ? applyQuickReplyTemplate(closeQr.template, visitorName)
+            : 'Como não houve interação, encerraremos este atendimento.';
+          try {
+            await this.appendMessage(conv, {
+              direction: 'outbound',
+              body: closeBody,
+              senderUserId: WEBCHAT_BOT_SENDER_ID,
+              senderName: 'Assistente',
+            });
+            await this.closeConversation(clientId, String(conv._id), WEBCHAT_BOT_SENDER_ID, {
+              skipSystemMessage: true,
+            });
+          } catch (err) {
+            this.serviceLogger.warn('Falha ao encerrar WebChat triagem por inatividade', {
+              clientId,
+              conversationId: String(conv._id),
+              err,
+            });
+          }
         }
       }
     }

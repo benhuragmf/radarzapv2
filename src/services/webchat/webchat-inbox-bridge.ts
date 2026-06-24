@@ -29,6 +29,10 @@ export type InboxWebChatListRow = {
   pullTimeoutSeconds?: number;
   queueElapsedSec?: number;
   queueUrgency?: number;
+  triageWaitSince?: string;
+  triageElapsedSec?: number;
+  triageUrgency?: number;
+  createdAt?: string;
   lastMessageAt: string;
   lastMessagePreview?: string;
   unreadCount?: number;

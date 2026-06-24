@@ -86,7 +86,11 @@ import {
 import {
   shouldAlertQueueStall,
   shouldAutoCloseForInactivity,
+  shouldAutoCloseTriageStalled,
   shouldSendInactivityWarning,
+  shouldSendTriageStallWarning,
+  triageWaitElapsedSec,
+  triageWaitUrgency,
 } from '@/services/inbox/inbox-inactivity';
 import { parseCsatScore, isCsatIntent, DEFAULT_CSAT_PROMPT, shouldBypassCsatForNewService } from '@/services/inbox/csat.util';
 import {
@@ -593,6 +597,7 @@ export class InboxService {
     clientId: string,
     agentMap: Map<string, string>,
     pullTimeoutSeconds: number,
+    inactivityCloseMinutes = DEFAULT_INBOX_SLA.inactivityCloseMinutes,
   ) {
     const suggestedId = row.suggestedUserId
       ? String(row.suggestedUserId)
@@ -629,6 +634,17 @@ export class InboxService {
       pullTimeoutSeconds,
     );
 
+    const triageWaitSince =
+      status === InboxConversationStatus.BOT_TRIAGE && !assignedId
+        ? (row.createdAt as Date | string | undefined)
+        : undefined;
+    const triageElapsedSec = triageWaitSince
+      ? triageWaitElapsedSec(triageWaitSince)
+      : 0;
+    const triageUrgency = triageWaitSince
+      ? triageWaitUrgency(triageElapsedSec, inactivityCloseMinutes)
+      : 0;
+
     return {
       ...row,
       assignedUserName: assignedId ? agentMap.get(assignedId) : undefined,
@@ -641,13 +657,27 @@ export class InboxService {
       pullTimeoutSeconds,
       queueElapsedSec: suggestedId ? priority.elapsedSec : 0,
       queueUrgency: suggestedId ? priority.urgency : 0,
+      triageWaitSince: triageWaitSince
+        ? new Date(triageWaitSince).toISOString()
+        : undefined,
+      triageElapsedSec,
+      triageUrgency,
+      createdAt: row.createdAt
+        ? new Date(row.createdAt as Date | string).toISOString()
+        : undefined,
     };
+  }
+
+  private async touchClientOutboundPrompt(conversation: IInboxConversation): Promise<void> {
+    conversation.lastOutboundAt = new Date();
+    conversation.inactivityWarnedAt = undefined;
+    await conversation.save();
   }
 
   /** Metadados do setor (público ou interno) para badge na lista do Inbox. */
   private attachDepartmentBadgeMeta<T extends Record<string, unknown>>(
     rows: T[],
-    deptById: Map<string, Pick<IInboxDepartment, 'name' | 'clientVisible' | 'internalRank'>>,
+    deptById: Map<string, Pick<IInboxDepartment, 'name' | 'clientVisible' | 'internalRank' | 'menuKey'>>,
     leadConvSet?: Set<string>,
   ): (T & {
     departmentName?: string
@@ -2100,6 +2130,7 @@ export class InboxService {
       await setContactMenuContext(dest._id as mongoose.Types.ObjectId, 'inbox_triage');
       await this.sendToContact(clientId, dest.identifier, menu);
       await this.appendSystemMessage(conversation, menu);
+      await this.touchClientOutboundPrompt(conversation);
       return;
     }
 
@@ -2396,6 +2427,7 @@ export class InboxService {
       const hint = await buildInvalidMenuHint(clientId);
       await this.sendToContact(clientId, dest.identifier, hint);
       await this.appendSystemMessage(conversation, hint);
+      await this.touchClientOutboundPrompt(conversation);
       return;
     }
 
@@ -2410,6 +2442,7 @@ export class InboxService {
       const hint = await buildInvalidMenuHint(clientId);
       await this.sendToContact(clientId, dest.identifier, hint);
       await this.appendSystemMessage(conversation, hint);
+      await this.touchClientOutboundPrompt(conversation);
       return;
     }
 
@@ -2719,7 +2752,14 @@ export class InboxService {
 
     const enriched = await Promise.all(
       rowsWithDept.map(r =>
-        this.enrichConversationRow(r, userId, clientId, agentMap, pullTimeoutSeconds),
+        this.enrichConversationRow(
+          r,
+          userId,
+          clientId,
+          agentMap,
+          pullTimeoutSeconds,
+          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+        ),
       ),
     );
     return enriched;
@@ -4014,6 +4054,7 @@ export class InboxService {
         clientId,
         agentMap,
         pullTimeoutSeconds,
+        settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
       ),
       this.buildContactContext(clientId, conv.destinationId, conv._id as mongoose.Types.ObjectId),
       Destination.findOne({ _id: conv.destinationId, clientId: conv.clientId })
@@ -4792,6 +4833,7 @@ export class InboxService {
       }
       const { WebChatService } = await import('../webchat/WebChatService');
       await WebChatService.getInstance().processWebChatFallbackAcceptTimeouts();
+      await WebChatService.getInstance().processWebChatTriageInactivity();
       const { PanelCriticalAlertsService } = await import('./panel-critical-alerts.service');
       await PanelCriticalAlertsService.getInstance().scanAll();
     } catch (err) {
@@ -4850,8 +4892,10 @@ export class InboxService {
     if (closeMinutes <= 0) return;
 
     const quickReplies = normalizeQuickReplies(settings.quickReplies);
-    const convs = await InboxConversation.find({
-      clientId: new mongoose.Types.ObjectId(clientId),
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+
+    const inProgressConvs = await InboxConversation.find({
+      clientId: clientOid,
       status: InboxConversationStatus.IN_PROGRESS,
       assignedUserId: { $exists: true, $ne: null },
       lastOutboundAt: { $exists: true },
@@ -4859,24 +4903,36 @@ export class InboxService {
       .limit(80)
       .exec();
 
-    for (const conv of convs) {
+    const triageConvs = await InboxConversation.find({
+      clientId: clientOid,
+      status: InboxConversationStatus.BOT_TRIAGE,
+      $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }],
+    })
+      .limit(80)
+      .exec();
+
+    for (const conv of [...inProgressConvs, ...triageConvs]) {
       if (TERMINAL_STATUSES.has(conv.status)) continue;
 
       const ts = {
         lastInboundAt: conv.lastInboundAt,
         lastOutboundAt: conv.lastOutboundAt,
         inactivityWarnedAt: conv.inactivityWarnedAt,
+        createdAt: conv.createdAt,
       };
 
-      if (
-        shouldSendInactivityWarning(ts, warningMinutes, closeMinutes, nowMs) &&
-        enabled
-      ) {
+      const shouldWarn =
+        enabled &&
+        (shouldSendInactivityWarning(ts, warningMinutes, closeMinutes, nowMs) ||
+          shouldSendTriageStallWarning(ts, warningMinutes, closeMinutes, nowMs));
+
+      if (shouldWarn) {
         const warnBody =
           this.quickReplyBody('aus', quickReplies, conv.contactName) ?? 'Você está aí?';
         try {
           await this.sendToContact(clientId, conv.contactIdentifier, warnBody);
           await this.appendSystemMessage(conv, warnBody, undefined, clientId);
+          conv.lastOutboundAt = new Date();
           conv.inactivityWarnedAt = new Date();
           conv.lastMessageAt = new Date();
           await conv.save();
@@ -4890,7 +4946,11 @@ export class InboxService {
         }
       }
 
-      if (shouldAutoCloseForInactivity(ts, closeMinutes, enabled, nowMs)) {
+      const shouldClose =
+        shouldAutoCloseForInactivity(ts, closeMinutes, enabled, nowMs) ||
+        shouldAutoCloseTriageStalled(ts, closeMinutes, enabled, nowMs);
+
+      if (shouldClose) {
         try {
           await this.closeConversationForInactivity(clientId, conv, { reason: 'auto' });
         } catch (err) {

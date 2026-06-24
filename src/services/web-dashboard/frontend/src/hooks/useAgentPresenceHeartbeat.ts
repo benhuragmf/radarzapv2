@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSocket } from '../lib/socket'
 import { api } from '../lib/api'
 import { useAgentPresenceContext } from '../lib/agentPresenceContext'
+import { toastInfo } from '@/design-system/toast'
 import type { AgentOperationalStatus, AgentStatusSource } from '@radarzap-types/agent-presence'
 
 type PresenceConfigResponse = {
@@ -75,6 +76,7 @@ export function useAgentPresenceHeartbeat(enabled = true) {
   const autoAusenteRef = useRef(false)
   const presenceHydratedRef = useRef(false)
   const lastMePresenceKeyRef = useRef<string | null>(null)
+  const pingPresenceRef = useRef<(() => void) | null>(null)
   const presenceRef = useRef(presence)
   presenceRef.current = presence
   const lastActivityAtRef = useRef(lastActivityAt)
@@ -101,12 +103,16 @@ export function useAgentPresenceHeartbeat(enabled = true) {
     staleTime: 30_000,
   })
 
+  const dismissRestorePrompt = useCallback(() => {
+    autoAusenteRef.current = false
+    setRestorePromptOpen(false)
+  }, [setRestorePromptOpen])
+
   const { mutate: mutateStatus, isPending: statusPending } = useMutation({
     mutationFn: (status: AgentOperationalStatus) =>
-      api.patch<PresenceMeResponse>('/inbox/presence/me', { status }),
+      api.patch<PresenceMeResponse>('/inbox/presence/me', { status }, { timeoutMs: 12_000 }),
     onSuccess: data => {
-      autoAusenteRef.current = false
-      setRestorePromptOpen(false)
+      dismissRestorePrompt()
       lastMePresenceKeyRef.current = mePresenceKey(data)
       setPresenceLocal({
         operationalStatus: data.operationalStatus,
@@ -117,6 +123,12 @@ export function useAgentPresenceHeartbeat(enabled = true) {
         availableForQueue: data.availableForQueue,
       })
       qc.setQueryData(['inbox-presence-me'], data)
+    },
+    onError: () => {
+      toastInfo(
+        'Status atualizado no painel. A API demorou — sincronizando pela conexão em tempo real.',
+        'presence-status-sync-fallback',
+      )
     },
   })
 
@@ -144,13 +156,16 @@ export function useAgentPresenceHeartbeat(enabled = true) {
 
   const setOperationalStatus = useCallback(
     (status: AgentOperationalStatus, source: AgentStatusSource = 'manual') => {
-      setPresenceLocal({
+      const patch: Partial<typeof presence> = {
         operationalStatus: status,
         statusSource: source,
         statusLabel: statusLabelFor(status),
         ...(source === 'manual' ? { lastManualStatus: status } : {}),
-      })
+      }
+      setPresenceLocal(patch)
+      presenceRef.current = { ...presenceRef.current, ...patch }
       if (source === 'manual') {
+        pingPresenceRef.current?.()
         mutateStatusRef.current(status)
       }
     },
@@ -158,14 +173,16 @@ export function useAgentPresenceHeartbeat(enabled = true) {
   )
 
   const restoreFromAutoAusente = useCallback(() => {
+    dismissRestorePrompt()
     const last = presenceRef.current.lastManualStatus
     const target = last === 'ausente' ? 'online' : last
     setOperationalStatus(target, 'manual')
-  }, [setOperationalStatus])
+  }, [dismissRestorePrompt, setOperationalStatus])
 
   actionsRef.current = {
     setOperationalStatus,
     restoreFromAutoAusente,
+    dismissRestorePrompt,
     statusPending,
   }
 
@@ -213,11 +230,14 @@ export function useAgentPresenceHeartbeat(enabled = true) {
       if (idleMs >= idleTimeoutMs && presenceRef.current.operationalStatus === 'online') {
         autoAusenteRef.current = true
         setOperationalStatus('ausente', 'auto')
+        if (document.visibilityState === 'visible') {
+          setRestorePromptOpen(true)
+        }
       }
     }, 15_000)
 
     return () => window.clearInterval(timer)
-  }, [enabled, idleTimeoutMs, setOperationalStatus])
+  }, [enabled, idleTimeoutMs, setOperationalStatus, setRestorePromptOpen])
 
   useEffect(() => {
     if (!enabled) return
@@ -257,11 +277,13 @@ export function useAgentPresenceHeartbeat(enabled = true) {
       socket.emit('agent:heartbeat', payload)
     }
 
+    pingPresenceRef.current = ping
     ping()
     const timer = window.setInterval(ping, heartbeatIntervalMs)
     socket.on('connect', ping)
 
     return () => {
+      pingPresenceRef.current = null
       window.clearInterval(timer)
       socket.off('connect', ping)
     }

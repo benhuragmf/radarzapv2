@@ -363,7 +363,7 @@ export default function InboxBotSettings() {
             <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">SLA — inatividade e fila</h2>
           </div>
           <p className="text-xs text-[var(--rz-text-muted)]">
-            Encerramento automático quando o cliente não responde após mensagem do atendente.
+            Encerramento automático quando o cliente não responde após mensagem do atendente ou do bot na triagem.
             O atendente também pode usar <code className="text-[var(--rz-text-muted)]">/enc</code> para encerrar na hora.
             Templates em Respostas rápidas (<code className="text-[var(--rz-text-muted)]">/aus</code>,{' '}
             <code className="text-[var(--rz-text-muted)]">/enc</code>).

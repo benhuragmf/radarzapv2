@@ -3,7 +3,10 @@ import {
   minutesSinceLastOutbound,
   shouldAlertQueueStall,
   shouldAutoCloseForInactivity,
+  shouldAutoCloseTriageStalled,
   shouldSendInactivityWarning,
+  triageWaitElapsedSec,
+  triageWaitUrgency,
 } from '../inbox-inactivity';
 
 describe('inbox-inactivity', () => {
@@ -43,6 +46,19 @@ describe('inbox-inactivity', () => {
     expect(shouldAutoCloseForInactivity(conv, 15, true, t20.getTime())).toBe(true);
     expect(shouldAutoCloseForInactivity(conv, 15, false, t20.getTime())).toBe(false);
     expect(shouldAutoCloseForInactivity(conv, 0, true, t20.getTime())).toBe(false);
+  });
+
+  it('encerra triagem parada sem outbound do bot', () => {
+    const conv = { createdAt: t0 };
+    expect(shouldAutoCloseTriageStalled(conv, 15, true, t20.getTime())).toBe(true);
+    expect(shouldAutoCloseTriageStalled({ ...conv, lastOutboundAt: t5 }, 15, true, t20.getTime())).toBe(
+      false,
+    );
+  });
+
+  it('calcula urgência da espera na triagem', () => {
+    expect(triageWaitElapsedSec(t0, t5.getTime())).toBe(300);
+    expect(triageWaitUrgency(450, 15)).toBe(0.5);
   });
 
   it('alerta fila parada uma vez por entrada na fila', () => {
