@@ -1,6 +1,6 @@
 # Leads — formulário público
 
-**Versão:** 2.11.73
+**Versão:** 2.11.79
 
 ## Central de Entrada Comercial (2.11.68+)
 
@@ -48,6 +48,24 @@ Toda captura (formulário, WhatsApp, WebChat, manual) emite evento `lead:new_ent
 
 - Modo **Lista**: mesmas ações rápidas do Kanban (Assumir, WhatsApp, Salvar como contato).
 - Ao **encerrar atendimento** no Inbox (`/enc`, inatividade) ou WebChat, lead `in_progress` vinculado → status **Qualificado** automaticamente.
+
+### Classificador e tempo real (2.11.74)
+
+- Intenção comercial: **classificador local** (`classifyLocal`) + frases explícitas — sem LLM; reduz falso positivo financeiro/suporte.
+- Socket `lead:updated` (silencioso) refresca Kanban/lista quando status muda no backend.
+- Lista: link Inbox para conversas WebChat (`wc:{id}`).
+
+### Detalhe e assumir (2.11.75)
+
+- Painel lateral / aba Conversa: **Abrir atendimento** funciona para WebChat (`wc:`).
+- Retomar conversa WA qualificada via **Assumir** → status `in_progress` + refresh em tempo real.
+- Kanban: ícone Inbox no hover quando já há conversa vinculada.
+
+### Abrir atendimento no Inbox (2.11.77)
+
+- Operador clica **Abrir atendimento** → cria conversa **Em atendimento** no Inbox (não fica preso na triagem bot).
+- Contato entra no segmento **Lead** + tag `Lead`; conversa no setor **Comercial** (se existir e o atendente tiver acesso).
+- Mensagem de sistema na timeline: origem da captura, categoria Lead/Comercial.
 
 ## Objetivo
 

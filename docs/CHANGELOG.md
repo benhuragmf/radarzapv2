@@ -22,6 +22,62 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.79] — 2026-06-21
+
+### Inbox — badge Lead/Comercial na lista (correção UX)
+
+- Badge roxo **Comercial** (ou nome do setor) na **lista lateral** e no **header** do chat, ao lado de WhatsApp/Site e status — não na timeline.
+- API `listConversations` / `getConversationDetail`: campos `isLeadEntry` e `leadSectorLabel` (vínculo `LeadCapture.inboxConversationId` ou setor comercial).
+- Removido card visual na mensagem de sistema do chat (2.11.78).
+
+## [2.11.78] — 2026-06-23
+
+### Inbox — card do setor Comercial no chat (Lead) *(substituído por 2.11.79)*
+
+- Mensagem de abertura da Central de Leads renderiza **card visual** (setor, Lead, origem, atendente, motivo).
+- Backend inclui linha `Setor: …` na mensagem de sistema para histórico.
+
+---
+
+## [2.11.77] — 2026-06-23
+
+### Leads — abrir atendimento cria conversa Lead no Inbox
+
+- **Abrir atendimento** na Central de Leads cria conversa `in_progress` (não reutiliza triagem bot ociosa).
+- Setor **Comercial/Lead** + segmento **Lead** + tag no contato; mensagem de sistema com origem da captura.
+- Conversa encerrada vinculada ao lead não bloqueia nova abertura.
+
+---
+
+## [2.11.76] — 2026-06-23
+
+### Leads — fix Abrir atendimento (cria conversa no Inbox)
+
+- Lead com contato vinculado sem conversa: botão **Abrir atendimento** (não "Assumir") — chama `POST /open-inbox` e cria ou reutiliza conversa no Inbox.
+- Kanban, lista e painel lateral alinhados; toast "Conversa aberta no Inbox".
+
+---
+
+## [2.11.75] — 2026-06-23
+
+### Leads — paridade WebChat no detalhe + refresh ao assumir
+
+- Painel lateral e aba **Conversa**: link Inbox para leads WebChat (`wc:`).
+- **Assumir atendimento** em conversa WA existente promove status para `in_progress` e emite refresh.
+- Kanban: atalho **Inbox** no hover quando lead já tem conversa aberta.
+
+---
+
+## [2.11.74] — 2026-06-23
+
+### Leads — classificador comercial + refresh tempo real
+
+- Intenção comercial usa **classificador local** (`classifyLocal`) — evita confundir financeiro/suporte; frases explícitas como fallback.
+- Evento socket silencioso `lead:updated` atualiza Kanban/lista ao mudar status (ex.: encerrar atendimento).
+- Modo Lista: link **Inbox** também para leads WebChat (`wc:`).
+
+---
+
 ## [2.11.73] — 2026-06-23
 
 ### Leads — lista + sync ao encerrar atendimento

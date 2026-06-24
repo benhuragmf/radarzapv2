@@ -77,7 +77,7 @@ export type RecommendedAction = {
   title: string
   description: string
   primaryLabel: string
-  kind: 'assume' | 'inbox' | 'convert' | 'view-contact' | 'link' | 'follow-up'
+  kind: 'open-inbox' | 'inbox' | 'convert' | 'view-contact' | 'link' | 'follow-up'
 }
 
 export function getRecommendedAction(item: LeadCaptureListItem): RecommendedAction {
@@ -121,23 +121,23 @@ export function getRecommendedAction(item: LeadCaptureListItem): RecommendedActi
     return {
       kind: 'follow-up',
       title: 'Em triagem',
-      description: 'Retome o contato ou abra o atendimento.',
-      primaryLabel: 'Assumir atendimento',
+      description: 'Retome o contato ou abra a conversa no Inbox.',
+      primaryLabel: 'Abrir atendimento',
     }
   }
   if (!item.destinationId) {
     return {
-      kind: 'assume',
+      kind: 'open-inbox',
       title: 'Entrada nova',
-      description: `${LEAD_ORIGIN_DISPLAY[item.origin]} · ainda sem atendimento assumido.`,
-      primaryLabel: 'Assumir atendimento',
+      description: `${LEAD_ORIGIN_DISPLAY[item.origin]} · cria a conversa no Inbox ao abrir.`,
+      primaryLabel: 'Abrir atendimento',
     }
   }
   return {
-    kind: 'assume',
+    kind: 'open-inbox',
     title: 'Pronto para atendimento',
-    description: 'Contato vinculado — abra a conversa no Inbox.',
-    primaryLabel: 'Assumir atendimento',
+    description: 'Contato vinculado — cria ou abre a conversa no Inbox.',
+    primaryLabel: 'Abrir atendimento',
   }
 }
 
@@ -168,9 +168,15 @@ export type OperationalStatKey =
   | 'convertedToday'
   | 'unassigned'
 
-export function canQuickAssumeLead(item: LeadCaptureListItem): boolean {
+export function canQuickOpenLeadAtendimento(item: LeadCaptureListItem): boolean {
   if (item.status === 'converted' || item.status === 'lost' || item.status === 'spam') return false
-  return ['new', 'in_review', 'qualified'].includes(item.status)
+  if (item.inboxConversationId || item.webchatConversationId) return false
+  return ['new', 'in_review', 'qualified', 'in_progress'].includes(item.status)
+}
+
+/** @deprecated use canQuickOpenLeadAtendimento */
+export function canQuickAssumeLead(item: LeadCaptureListItem): boolean {
+  return canQuickOpenLeadAtendimento(item)
 }
 
 export function canQuickWhatsAppLead(item: LeadCaptureListItem): boolean {
@@ -180,6 +186,23 @@ export function canQuickWhatsAppLead(item: LeadCaptureListItem): boolean {
 export function canQuickConvertLead(item: LeadCaptureListItem): boolean {
   if (item.status === 'converted' || item.status === 'lost' || item.status === 'spam') return false
   return !item.destinationId
+}
+
+/** Deep link Inbox unificado (WhatsApp ou WebChat). */
+export function leadInboxHref(item: LeadCaptureListItem): string | null {
+  if (item.inboxConversationId) {
+    return `/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`
+  }
+  if (item.webchatConversationId) {
+    return `/platform/inbox?conv=${encodeURIComponent(`wc:${item.webchatConversationId}`)}`
+  }
+  return null
+}
+
+export function canQuickOpenLeadInbox(item: LeadCaptureListItem): boolean {
+  if (!leadInboxHref(item)) return false
+  if (item.status === 'converted' || item.status === 'lost' || item.status === 'spam') return false
+  return !canQuickOpenLeadAtendimento(item)
 }
 
 export function operationalStatCards(stats: LeadStats | undefined) {

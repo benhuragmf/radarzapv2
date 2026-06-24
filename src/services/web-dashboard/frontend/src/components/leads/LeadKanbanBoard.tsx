@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { MessageSquare, UserPlus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ExternalLink, MessageSquare, UserPlus } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import type { LeadCaptureListItem, LeadCaptureStatus } from '@radarzap-types/lead-form'
@@ -7,11 +8,13 @@ import {
   LEAD_KANBAN_COLUMNS,
   LEAD_ORIGIN_DISPLAY,
   LEAD_STATUS_DISPLAY,
-  canQuickAssumeLead,
+  canQuickOpenLeadAtendimento,
   canQuickConvertLead,
+  canQuickOpenLeadInbox,
   canQuickWhatsAppLead,
   formatPhoneDisplay,
   formatRelativeEntry,
+  leadInboxHref,
   leadOriginBadgeVariant,
   priorityLabel,
 } from '../../lib/leadUi'
@@ -93,10 +96,12 @@ export function LeadKanbanBoard({
                 </li>
               ) : (
                 byColumn[col.key].map(item => {
-                  const showAssume = Boolean(canReply && onAssume && canQuickAssumeLead(item))
+                  const showOpen = Boolean(canReply && onAssume && canQuickOpenLeadAtendimento(item))
                   const showWhatsApp = Boolean(canReply && onWhatsApp && canQuickWhatsAppLead(item))
                   const showConvert = Boolean(canManage && onConvert && canQuickConvertLead(item))
-                  const showActions = showAssume || showWhatsApp || showConvert
+                  const showInbox = Boolean(canReply && canQuickOpenLeadInbox(item))
+                  const inboxHref = leadInboxHref(item)
+                  const showActions = showOpen || showWhatsApp || showConvert || showInbox
                   const assuming = assumingId === item.id
                   const converting = convertingId === item.id
                   return (
@@ -147,7 +152,7 @@ export function LeadKanbanBoard({
                       </button>
                       {showActions && (
                         <div className="absolute bottom-1 left-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-                          {showAssume && (
+                          {showOpen && (
                             <Button
                               size="sm"
                               className="h-6 flex-1 px-1 text-[9px] min-w-0"
@@ -157,7 +162,7 @@ export function LeadKanbanBoard({
                                 onAssume?.(item.id)
                               }}
                             >
-                              {assuming ? '…' : 'Assumir'}
+                              {assuming ? '…' : 'Abrir'}
                             </Button>
                           )}
                           {showWhatsApp && (
@@ -188,6 +193,16 @@ export function LeadKanbanBoard({
                             >
                               <UserPlus size={11} />
                             </Button>
+                          )}
+                          {showInbox && inboxHref && (
+                            <Link
+                              to={inboxHref}
+                              title="Abrir Inbox"
+                              className="inline-flex h-6 items-center justify-center px-1.5 rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] hover:bg-[var(--rz-surface-muted)] shrink-0"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <ExternalLink size={11} />
+                            </Link>
                           )}
                         </div>
                       )}

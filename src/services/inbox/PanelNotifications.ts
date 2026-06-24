@@ -26,3 +26,13 @@ export function emitPanelEvent(clientId: string, event: PanelEventPayload): void
   if (!io) return;
   io.to(`inbox:${clientId}`).emit('panel:event', normalized);
 }
+
+/** Socket apenas — não persiste no sino (refresh silencioso de telas). */
+export function emitPanelSocketOnly(clientId: string, event: PanelEventPayload): void {
+  if (!io) return;
+  io.to(`inbox:${clientId}`).emit('panel:event', {
+    ...event,
+    urgent: false,
+    ownerOnly: false,
+  });
+}

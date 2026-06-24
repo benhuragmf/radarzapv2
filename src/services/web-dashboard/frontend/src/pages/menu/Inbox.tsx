@@ -43,6 +43,7 @@ import ContactEditorModal, { type ContactFormData } from '../../components/conta
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
+import { InboxLeadListBadge } from '../../components/inbox/InboxLeadListBadge'
 import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
 import { InboxLiveVisitors } from '../../components/inbox/InboxLiveVisitors'
 import { InboxLiveVisitorsStrip } from '../../components/inbox/InboxLiveVisitorsStrip'
@@ -99,6 +100,8 @@ interface Conversation {
   resolvedAt?: string
   acceptedAt?: string
   whatsappBridgeActive?: boolean
+  isLeadEntry?: boolean
+  leadSectorLabel?: string
 }
 
 interface InboxContactInfo {
@@ -1046,6 +1049,9 @@ export default function Inbox() {
                         <span className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{c.contactName}</span>
                         <div className="flex items-center gap-1 shrink-0">
                           <InboxChannelBadge channel={c.channel} />
+                          {c.isLeadEntry && c.leadSectorLabel && (
+                            <InboxLeadListBadge label={c.leadSectorLabel} />
+                          )}
                           {(c.unreadCount ?? 0) > 0 && (
                             <span className="min-w-[18px] rounded-full bg-brand-500 px-1.5 text-[10px] font-bold text-white text-center">
                               {c.unreadCount}
@@ -1149,8 +1155,14 @@ export default function Inbox() {
                           label={conversationBadge(conv).label}
                           variant={conversationBadge(conv).variant}
                         />
+                        {!isWebChatConv && (
+                          <InboxChannelBadge channel={conv.channel ?? 'whatsapp_qr'} size="md" />
+                        )}
                         {isWebChatConv && (
                           <InboxChannelBadge channel="webchat_site" size="md" />
+                        )}
+                        {conv.isLeadEntry && conv.leadSectorLabel && (
+                          <InboxLeadListBadge label={conv.leadSectorLabel} size="md" />
                         )}
                         {isWebChatConv && conv.whatsappBridgeActive && (
                           <span

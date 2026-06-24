@@ -198,7 +198,7 @@ export default function Leads() {
   }
 
   usePanelSocket(canView && tab === 'captures', ev => {
-    if (ev.type === 'lead:new_entry') {
+    if (ev.type === 'lead:new_entry' || ev.type === 'lead:updated') {
       invalidateLeads()
     }
   })
@@ -307,8 +307,10 @@ export default function Leads() {
     },
     onSuccess: data => {
       invalidateLeads()
-      notifySuccess('Atendimento assumido')
-      navigate(`/platform/inbox?conv=${encodeURIComponent(data.conversationId)}`)
+      void qc.invalidateQueries({ queryKey: ['inbox-conversations'] })
+      void qc.invalidateQueries({ queryKey: ['inbox-conversation', data.conversationId] })
+      notifySuccess(data.created ? 'Conversa criada no Inbox' : 'Conversa aberta no Inbox')
+      navigate(`/platform/inbox?conv=${encodeURIComponent(data.conversationId)}&status=in_progress`)
     },
     onError: mutationError,
     onSettled: () => {

@@ -37,7 +37,7 @@ import {
   generateLeadFormPublicKey,
   sanitizeLeadText,
 } from './lead-form-token.util';
-import { appendLeadHistory, emitLeadWebhook, notifyNewLeadPanelEvent } from './lead-events.util';
+import { appendLeadHistory, emitLeadWebhook, notifyLeadPanelRefresh, notifyNewLeadPanelEvent } from './lead-events.util';
 import { hasCommercialLeadIntent } from './lead-commercial-intent.util';
 
 const logger = createServiceLogger('LeadFormService');
@@ -1231,6 +1231,7 @@ export class LeadFormService {
         from: prevStatus,
         to: patch.status,
       });
+      notifyLeadPanelRefresh(clientId, captureId);
     }
     if (patch.temperature !== undefined) {
       const prevTemp = capture.temperature;
@@ -1393,6 +1394,7 @@ export class LeadFormService {
       capture_id: captureId,
       destination_id: String(destinationId),
     });
+    notifyLeadPanelRefresh(clientId, captureId);
 
     const form = await LeadForm.findById(capture.formId).select('name');
     const groups = await ContactGroup.find({ clientId: new mongoose.Types.ObjectId(clientId) }).select('_id name');
@@ -1476,22 +1478,44 @@ export class LeadFormService {
       }
       if (this.assignCaptureToUser(capture, userId)) changed = true;
       if (changed) await capture.save();
+      if (changed) notifyLeadPanelRefresh(clientId, captureId);
       return { conversationId: `wc:${webchatId}`, created: false, assigned: true };
     }
 
     if (capture.inboxConversationId) {
-      if (this.assignCaptureToUser(capture, userId)) {
-        await capture.save();
+      const { InboxConversation } = await import('@/models/InboxConversation');
+      const { InboxConversationStatus } = await import('@/types/inbox');
+      const linked = await InboxConversation.findById(capture.inboxConversationId).select('status');
+      const terminal = new Set([
+        InboxConversationStatus.CLOSED,
+        InboxConversationStatus.RESOLVED,
+      ]);
+      if (linked && !terminal.has(linked.status)) {
+        let changed = false;
+        if (['new', 'in_review', 'qualified'].includes(capture.status)) {
+          capture.status = 'in_progress';
+          capture.history = appendLeadHistory(
+            capture.history,
+            'sent_to_inbox',
+            'Atendimento retomado a partir do lead',
+            { userId },
+          );
+          changed = true;
+        }
+        if (this.assignCaptureToUser(capture, userId)) changed = true;
+        if (changed) await capture.save();
+        if (changed) notifyLeadPanelRefresh(clientId, captureId);
+        return {
+          conversationId: String(capture.inboxConversationId),
+          created: false,
+          assigned: true,
+        };
       }
-      return {
-        conversationId: String(capture.inboxConversationId),
-        created: false,
-        assigned: true,
-      };
     }
 
-    const form = await LeadForm.findById(capture.formId).select('name');
+    const form = await LeadForm.findById(capture.formId).select('name routing');
     const formName = form?.name ?? 'Formulário';
+    const routing = normalizeRouting(form?.routing);
 
     let destinationId = capture.destinationId;
     if (!destinationId) {
@@ -1515,6 +1539,17 @@ export class LeadFormService {
       }
     }
 
+    const { Destination } = await import('@/models/Destination');
+    const destForTags = await Destination.findById(destinationId);
+    if (destForTags) {
+      await ContactAutoSegmentService.getInstance().tagLeadFromForm(clientId, destForTags, formName);
+      await this.applyDefaultGroupsAndTags(clientId, destForTags, routing);
+      const tags = new Set(destForTags.tags ?? []);
+      tags.add('Lead');
+      destForTags.tags = [...tags];
+      await destForTags.save();
+    }
+
     const { InboxService } = await import('@/services/inbox/InboxService');
     const result = await InboxService.getInstance().openConversationFromLead(clientId, userId, {
       destinationId: String(destinationId),
@@ -1523,6 +1558,9 @@ export class LeadFormService {
       message: capture.message,
       email: capture.email,
       sourceUrl: capture.sourceUrl,
+      captureId,
+      leadOrigin: capture.origin,
+      employeeInitiated: true,
     });
 
     capture.inboxConversationId = new mongoose.Types.ObjectId(result.conversationId);
@@ -1530,13 +1568,19 @@ export class LeadFormService {
       capture.status = 'in_progress';
     }
     this.assignCaptureToUser(capture, userId);
-    capture.history = appendLeadHistory(capture.history, 'sent_to_inbox', 'Enviado para atendimento no Inbox', { userId });
+    capture.history = appendLeadHistory(
+      capture.history,
+      'sent_to_inbox',
+      result.created ? 'Conversa criada no Inbox a partir do lead' : 'Conversa aberta no Inbox a partir do lead',
+      { userId },
+    );
     await capture.save();
 
     emitLeadWebhook(clientId, 'sent_to_inbox', {
       capture_id: captureId,
       conversation_id: result.conversationId,
     });
+    notifyLeadPanelRefresh(clientId, captureId);
 
     return result;
   }
@@ -1577,6 +1621,7 @@ export class LeadFormService {
       from: 'in_progress',
       to: 'qualified',
     });
+    notifyLeadPanelRefresh(clientId, String(capture._id));
   }
 
   async listAssignees(clientId: string): Promise<{ userId: string; displayName: string }[]> {

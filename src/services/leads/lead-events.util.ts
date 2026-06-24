@@ -2,7 +2,7 @@ import type { LeadCaptureOrigin, LeadHistoryEntry, LeadHistoryKind } from '@/typ
 import { LEAD_CAPTURE_ORIGIN_LABEL } from '@/types/lead-form';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import type { WebhookEvent } from '@/models/WebhookEndpoint';
-import { emitPanelEvent } from '@/services/inbox/PanelNotifications';
+import { emitPanelEvent, emitPanelSocketOnly } from '@/services/inbox/PanelNotifications';
 
 export function appendLeadHistory(
   history: LeadHistoryEntry[] | undefined,
@@ -49,6 +49,18 @@ export function notifyNewLeadPanelEvent(
     type: 'lead:new_entry',
     title: 'Nova entrada comercial',
     body: `${capture.name} · ${originLabel}`,
+    href: '/platform/leads',
+    createdAt: new Date().toISOString(),
+  });
+}
+
+/** Refresh silencioso da página Leads (Kanban/lista) via socket. */
+export function notifyLeadPanelRefresh(clientId: string, captureId: string): void {
+  emitPanelSocketOnly(clientId, {
+    id: `lead-upd-${captureId}-${Date.now()}`,
+    type: 'lead:updated',
+    title: '',
+    body: '',
     href: '/platform/leads',
     createdAt: new Date().toISOString(),
   });

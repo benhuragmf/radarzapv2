@@ -13,7 +13,6 @@ import {
   Search,
   Trash2,
   UserCheck,
-  UserPlus,
   X,
 } from 'lucide-react'
 import { inputCls, textareaCls } from '@/design-system'
@@ -27,6 +26,7 @@ import {
   getContactStateLabel,
   getInboxStateLabel,
   getRecommendedAction,
+  leadInboxHref,
   priorityLabel,
 } from '../../lib/leadUi'
 import { LEAD_CAPTURE_STATUS_VARIANT, LEAD_TEMPERATURE_LABEL, LEAD_TEMPERATURE_VARIANT, LEAD_TEMPERATURES } from '@radarzap-types/lead-form'
@@ -113,6 +113,7 @@ export function LeadCaptureDetail({
 
   const contactLine = item.phone.startsWith('email:') ? (item.email ?? '—') : formatPhoneDisplay(item.phone)
   const recommended = useMemo(() => getRecommendedAction(item), [item])
+  const inboxHref = useMemo(() => leadInboxHref(item), [item])
 
   const shellCls =
     layout === 'mobile-drawer'
@@ -180,9 +181,9 @@ export function LeadCaptureDetail({
               <Link2 size={15} /> {recommended.primaryLabel}
             </Button>
           )}
-          {recommended.kind === 'inbox' && item.inboxConversationId && (
+          {recommended.kind === 'inbox' && inboxHref && (
             <Link
-              to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`}
+              to={inboxHref}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--rz-primary)] text-white text-sm font-medium py-2 px-3 hover:opacity-90"
             >
               <MessageSquare size={15} /> {recommended.primaryLabel}
@@ -193,9 +194,9 @@ export function LeadCaptureDetail({
               <UserCheck size={15} /> {recommended.primaryLabel}
             </Button>
           )}
-          {(recommended.kind === 'assume' || recommended.kind === 'follow-up') && canReply && (
+          {(recommended.kind === 'open-inbox' || recommended.kind === 'follow-up') && canReply && (
             <Button className="w-full" disabled={openingInbox} onClick={onOpenInbox}>
-              <UserPlus size={15} /> {recommended.primaryLabel}
+              <MessageSquare size={15} /> {recommended.primaryLabel}
             </Button>
           )}
         </div>
@@ -404,16 +405,16 @@ export function LeadCaptureDetail({
               </div>
               <div className="pt-1 space-y-2">
                 {canReply &&
-                  (item.inboxConversationId ? (
+                  (inboxHref ? (
                     <Link
-                      to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`}
+                      to={inboxHref}
                       className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-primary)] text-[var(--rz-primary)] text-sm py-2"
                     >
                       <MessageSquare size={14} /> Abrir atendimento
                     </Link>
                   ) : (
                     <Button className="w-full" size="sm" disabled={openingInbox} onClick={onOpenInbox}>
-                      Assumir atendimento
+                      Abrir atendimento
                     </Button>
                   ))}
                 {hasPhone && canReply && (

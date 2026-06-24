@@ -94,6 +94,9 @@ import {
   isClosedTicketReplyWindowActive,
 } from '@/services/inbox/ticket-reply-window.util';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
+import { isLeadInboxDepartment } from '@/constants/contact-segments';
+import { LEAD_CAPTURE_ORIGIN_LABEL, type LeadCaptureOrigin } from '@/types/lead-form';
+import { LeadCapture } from '@/models/LeadCapture';
 import { LeadFormService } from '@/services/leads/LeadFormService';
 import {
   departmentInternalRank,
@@ -605,6 +608,45 @@ export class InboxService {
       queueElapsedSec: suggestedId ? priority.elapsedSec : 0,
       queueUrgency: suggestedId ? priority.urgency : 0,
     };
+  }
+
+  /** Flag + rótulo do setor Lead/Comercial para badge na lista do Inbox. */
+  private async attachLeadEntryMeta<T extends Record<string, unknown>>(
+    clientId: string,
+    rows: T[],
+  ): Promise<(T & { isLeadEntry?: boolean; leadSectorLabel?: string })[]> {
+    if (rows.length === 0) return rows;
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const convOids = rows
+      .map(r => r._id)
+      .filter(Boolean)
+      .map(id => new mongoose.Types.ObjectId(String(id)));
+
+    const captures =
+      convOids.length > 0
+        ? await LeadCapture.find({
+            clientId: clientOid,
+            inboxConversationId: { $in: convOids },
+          })
+            .select('inboxConversationId')
+            .lean()
+        : [];
+
+    const leadConvSet = new Set(captures.map(c => String(c.inboxConversationId)));
+
+    return rows.map(row => {
+      const deptName =
+        typeof row.departmentName === 'string' ? row.departmentName.trim() : undefined;
+      const isLeadDept = deptName ? isLeadInboxDepartment(deptName) : false;
+      const hasCapture = leadConvSet.has(String(row._id));
+      const isLeadEntry = hasCapture || isLeadDept;
+      if (!isLeadEntry) return row;
+
+      const leadSectorLabel =
+        isLeadDept && deptName ? deptName : hasCapture ? 'Comercial' : deptName || 'Comercial';
+      return { ...row, isLeadEntry: true, leadSectorLabel };
+    });
   }
 
   private notifyMessage(clientId: string, conversationId: string): void {
@@ -2629,15 +2671,15 @@ export class InboxService {
       ]),
     );
 
+    const rowsWithDept = rows.map(r => ({
+      ...r,
+      departmentName: r.departmentId ? deptMap.get(String(r.departmentId)) : undefined,
+    }));
+    const rowsWithLead = await this.attachLeadEntryMeta(clientId, rowsWithDept);
+
     const enriched = await Promise.all(
-      rows.map(r =>
-        this.enrichConversationRow(
-          { ...r, departmentName: r.departmentId ? deptMap.get(String(r.departmentId)) : undefined },
-          userId,
-          clientId,
-          agentMap,
-          pullTimeoutSeconds,
-        ),
+      rowsWithLead.map(r =>
+        this.enrichConversationRow(r, userId, clientId, agentMap, pullTimeoutSeconds),
       ),
     );
     return enriched;
@@ -3902,9 +3944,18 @@ export class InboxService {
       .limit(20)
       .lean();
 
+    let departmentName: string | undefined;
+    if (conv.departmentId) {
+      const dept = await InboxDepartment.findById(conv.departmentId).select('name').lean();
+      departmentName = dept?.name;
+    }
+    const [convWithLead] = await this.attachLeadEntryMeta(clientId, [
+      { ...(conv.toObject() as Record<string, unknown>), departmentName },
+    ]);
+
     const [conversation, contactContext, destination] = await Promise.all([
       this.enrichConversationRow(
-        conv.toObject() as Record<string, unknown>,
+        convWithLead,
         userId,
         clientId,
         agentMap,
@@ -4033,6 +4084,10 @@ export class InboxService {
       message?: string;
       email?: string;
       sourceUrl?: string;
+      captureId?: string;
+      leadOrigin?: LeadCaptureOrigin;
+      /** Operador abriu pela Central de Leads — cria conversa ativa com setor Lead/Comercial. */
+      employeeInitiated?: boolean;
     },
   ): Promise<{ conversationId: string; created: boolean; assigned: boolean }> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
@@ -4043,29 +4098,74 @@ export class InboxService {
     });
     if (!dest) throw new Error('Contato não encontrado');
 
+    const leadDept = opts.employeeInitiated
+      ? await this.resolveLeadDepartmentForUser(clientId, userId)
+      : null;
+
     let conv = await this.findOpenConversation(clientId, dest._id as mongoose.Types.ObjectId);
     let created = false;
 
+    if (
+      opts.employeeInitiated &&
+      conv &&
+      conv.status === InboxConversationStatus.BOT_TRIAGE &&
+      !conv.assignedUserId
+    ) {
+      await this.closeConversationForInactivity(clientId, conv, {
+        byUserId: userId,
+        reason: 'agent_enc',
+        skipMessage: true,
+      });
+      conv = null;
+    }
+
+    const leadLines = this.buildLeadOpenSystemMessage({
+      ...opts,
+      departmentName: leadDept?.name,
+    });
+
     if (!conv) {
-      conv = await this.createConversation(clientId, dest);
+      conv = opts.employeeInitiated
+        ? await this.createEmployeeLeadConversation(
+            clientId,
+            dest,
+            userId,
+            leadDept?._id as mongoose.Types.ObjectId | undefined,
+          )
+        : await this.createConversation(clientId, dest);
       created = true;
 
-      const lines = [
-        `📋 Lead capturado via formulário *${opts.formName}*`,
-        opts.message ? `Mensagem: ${opts.message}` : null,
-        opts.email ? `E-mail: ${opts.email}` : null,
-        opts.sourceUrl ? `Origem: ${opts.sourceUrl}` : null,
-      ].filter(Boolean);
       await this.appendSystemMessage(
         conv,
-        lines.join('\n'),
+        leadLines,
         new mongoose.Types.ObjectId(userId),
         clientId,
       );
       this.notifyConversation(clientId, conv);
-      await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Lead do formulário', dest.name || dest.identifier, {
-        conversationId: String(conv._id),
-      });
+      await this.pushPanelEvent(
+        clientId,
+        'inbox:new_chat',
+        opts.employeeInitiated ? 'Lead — atendimento aberto' : 'Lead do formulário',
+        dest.name || dest.identifier,
+        { conversationId: String(conv._id) },
+      );
+    } else if (opts.employeeInitiated) {
+      if (leadDept) {
+        conv.departmentId = leadDept._id as mongoose.Types.ObjectId;
+        await ContactAutoSegmentService.getInstance().tagLeadFromInboxDepartment(
+          clientId,
+          dest,
+          leadDept.name,
+        );
+      }
+      await this.appendSystemMessage(
+        conv,
+        leadLines,
+        new mongoose.Types.ObjectId(userId),
+        clientId,
+      );
+      await conv.save();
+      this.notifyConversation(clientId, conv);
     }
 
     const alreadyMine =
@@ -4080,6 +4180,18 @@ export class InboxService {
         throw new Error('Conversa em atendimento por outro agente');
       }
       await this.assignConversation(clientId, userId, String(conv._id));
+    } else if (opts.employeeInitiated && leadDept && !conv.departmentId) {
+      conv.departmentId = leadDept._id as mongoose.Types.ObjectId;
+      await conv.save();
+      this.notifyConversation(clientId, conv);
+    }
+
+    if (opts.employeeInitiated && leadDept) {
+      await ContactAutoSegmentService.getInstance().tagLeadFromInboxDepartment(
+        clientId,
+        dest,
+        leadDept.name,
+      );
     }
 
     return {
@@ -4087,6 +4199,78 @@ export class InboxService {
       created,
       assigned: !alreadyMine,
     };
+  }
+
+  /** Conversa iniciada pelo operador na Central de Leads — já em atendimento humano. */
+  private async createEmployeeLeadConversation(
+    clientId: string,
+    dest: IDestination,
+    userId: string,
+    departmentId?: mongoose.Types.ObjectId,
+  ): Promise<IInboxConversation> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const userOid = new mongoose.Types.ObjectId(userId);
+    const now = new Date();
+    return InboxConversation.create({
+      clientId: clientOid,
+      destinationId: dest._id,
+      contactIdentifier: dest.identifier,
+      contactName: dest.name || dest.identifier,
+      status: InboxConversationStatus.IN_PROGRESS,
+      assignedUserId: userOid,
+      acceptedAt: now,
+      departmentId,
+      channel: 'whatsapp_qr',
+      lastMessageAt: now,
+      lastOutboundAt: now,
+    });
+  }
+
+  private buildLeadOpenSystemMessage(opts: {
+    formName: string;
+    message?: string;
+    email?: string;
+    sourceUrl?: string;
+    captureId?: string;
+    leadOrigin?: LeadCaptureOrigin;
+    employeeInitiated?: boolean;
+    departmentName?: string;
+  }): string {
+    const originLabel = opts.leadOrigin ? LEAD_CAPTURE_ORIGIN_LABEL[opts.leadOrigin] : null;
+    const lines = [
+      opts.employeeInitiated
+        ? '📋 *Central de Leads* — atendimento aberto pelo operador'
+        : `📋 Lead capturado via formulário *${opts.formName}*`,
+      opts.departmentName ? `Setor: ${opts.departmentName}` : null,
+      originLabel ? `Origem: ${originLabel}` : null,
+      opts.captureId ? `Captura: ${opts.captureId}` : null,
+      opts.message ? `Mensagem: ${opts.message}` : null,
+      opts.email ? `E-mail: ${opts.email}` : null,
+      opts.sourceUrl ? `Página: ${opts.sourceUrl}` : null,
+      opts.employeeInitiated ? 'Categoria: Lead / Comercial' : null,
+    ].filter(Boolean);
+    return lines.join('\n');
+  }
+
+  /** Setor comercial/lead que o atendente pode ver (evita bloquear acesso à conversa). */
+  private async resolveLeadDepartmentForUser(
+    clientId: string,
+    userId: string,
+  ): Promise<IInboxDepartment | null> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const depts = await InboxDepartment.find({ clientId: clientOid, isActive: true })
+      .sort({ name: 1 })
+      .exec();
+    const leadDepts = depts.filter(d => isLeadInboxDepartment(d.name));
+    if (!leadDepts.length) return null;
+
+    const visibility = await this.departmentVisibility(clientId, userId);
+    if (!visibility.restricted) return leadDepts[0];
+
+    const allowed = leadDepts.find(d =>
+      visibility.departmentIds.some(id => id.equals(d._id as mongoose.Types.ObjectId)),
+    );
+    return allowed ?? null;
   }
 
   private async assertCanTakeQueueConversation(

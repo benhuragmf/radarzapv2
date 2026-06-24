@@ -6,11 +6,13 @@ import type { LeadCaptureListItem } from '@radarzap-types/lead-form'
 import {
   LEAD_ORIGIN_DISPLAY,
   LEAD_STATUS_DISPLAY,
-  canQuickAssumeLead,
+  canQuickOpenLeadAtendimento,
   canQuickConvertLead,
+  canQuickOpenLeadInbox,
   canQuickWhatsAppLead,
   formatPhoneDisplay,
   formatRelativeEntry,
+  leadInboxHref,
   leadOriginBadgeVariant,
 } from '../../lib/leadUi'
 import { LEAD_CAPTURE_STATUS_VARIANT } from '@radarzap-types/lead-form'
@@ -58,16 +60,11 @@ export function LeadCaptureListTable({
         <tbody>
           {items.map(item => {
             const selected = selectedId === item.id
-            const showAssume = Boolean(canReply && canQuickAssumeLead(item))
+            const showOpen = Boolean(canReply && canQuickOpenLeadAtendimento(item))
             const showWhatsApp = Boolean(canReply && onWhatsApp && canQuickWhatsAppLead(item))
             const showConvert = Boolean(canManage && onConvert && canQuickConvertLead(item))
-            const showInbox =
-              canReply &&
-              item.inboxConversationId &&
-              !showAssume &&
-              item.status !== 'converted' &&
-              item.status !== 'lost' &&
-              item.status !== 'spam'
+            const showInbox = Boolean(canReply && canQuickOpenLeadInbox(item))
+            const inboxHref = leadInboxHref(item)
             const assuming = assumingId === item.id
             const converting = convertingId === item.id
             return (
@@ -108,7 +105,7 @@ export function LeadCaptureListTable({
                 </td>
                 <td className="py-2 px-2 text-right" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-end gap-1 flex-wrap">
-                    {showAssume && (
+                    {showOpen && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -116,7 +113,7 @@ export function LeadCaptureListTable({
                         disabled={assuming}
                         onClick={() => onAssume(item.id)}
                       >
-                        <UserPlus size={11} /> Assumir
+                        <MessageSquare size={11} /> Abrir
                       </Button>
                     )}
                     {showWhatsApp && (
@@ -142,9 +139,9 @@ export function LeadCaptureListTable({
                         <UserPlus size={11} /> Contato
                       </Button>
                     )}
-                    {showInbox && (
+                    {showInbox && inboxHref && (
                       <Link
-                        to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId!)}`}
+                        to={inboxHref}
                         className="inline-flex items-center gap-1 h-7 px-2 text-[10px] rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
                       >
                         <MessageSquare size={11} /> Inbox

@@ -17,7 +17,8 @@ export type PanelEventType =
   | 'ai:quota_exceeded'
   | 'ai:quota_low'
   | 'system:critical_config'
-  | 'lead:new_entry';
+  | 'lead:new_entry'
+  | 'lead:updated';
 
 export interface PanelEventPayload {
   id: string;
