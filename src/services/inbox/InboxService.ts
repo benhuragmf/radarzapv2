@@ -1893,6 +1893,21 @@ export class InboxService {
             error: (err as Error).message,
           });
         });
+    } else if (trimmed) {
+      void LeadFormService.getInstance()
+        .maybeCaptureWhatsAppCommercialIntent(clientId, {
+          destinationId: String(dest._id),
+          conversationId: String(conversation._id),
+          phone: dest.identifier,
+          name: dest.name || dest.identifier,
+          message: displayBody,
+        })
+        .catch(err => {
+          logger.warn('Falha ao capturar lead comercial WhatsApp', {
+            clientId,
+            error: (err as Error).message,
+          });
+        });
     }
 
     if (!openHours) {

@@ -173,6 +173,15 @@ export function canQuickAssumeLead(item: LeadCaptureListItem): boolean {
   return ['new', 'in_review', 'qualified'].includes(item.status)
 }
 
+export function canQuickWhatsAppLead(item: LeadCaptureListItem): boolean {
+  return !item.phone.startsWith('email:')
+}
+
+export function canQuickConvertLead(item: LeadCaptureListItem): boolean {
+  if (item.status === 'converted' || item.status === 'lost' || item.status === 'spam') return false
+  return !item.destinationId
+}
+
 export function operationalStatCards(stats: LeadStats | undefined) {
   if (!stats) return []
   const op = stats.operational

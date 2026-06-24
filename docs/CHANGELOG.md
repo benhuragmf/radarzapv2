@@ -20,6 +20,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.11.72] — 2026-06-23
+
+### Leads — intenção comercial + ações Kanban
+
+- Lead automático por palavras-chave comerciais em conversa WA/WebChat aberta (contato existente).
+- Kanban: WhatsApp inline e Salvar como contato no hover; util `hasCommercialLeadIntent`.
+
 ## [2.11.71] — 2026-06-23
 
 ### Leads — retorno WA/WebChat + Assumir no Kanban

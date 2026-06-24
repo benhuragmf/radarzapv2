@@ -1855,6 +1855,28 @@ export class WebChatService {
       body: text,
     });
 
+    const phone = conversation.visitorPhone?.trim();
+    const destId = conversation.destinationId ? String(conversation.destinationId) : undefined;
+    if (phone && destId) {
+      const { LeadFormService } = await import('../leads/LeadFormService');
+      void LeadFormService.getInstance()
+        .maybeCaptureWebChatCommercialIntent(clientIdStr, {
+          webchatConversationId: convId,
+          phone,
+          name: conversation.visitorName?.trim() || phone,
+          message: text,
+          destinationId: destId,
+          pageUrl: conversation.pageUrl,
+          pageTitle: conversation.pageTitle,
+        })
+        .catch(err => {
+          this.serviceLogger.warn('Falha ao capturar lead comercial WebChat', {
+            clientId: clientIdStr,
+            error: (err as Error).message,
+          });
+        });
+    }
+
     void InboxService.getInstance()
       .syncWebChatVisitorMessageToTicket(clientIdStr, conversation.ticketRef, text)
       .catch(err => {

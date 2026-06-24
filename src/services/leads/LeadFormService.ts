@@ -38,6 +38,7 @@ import {
   sanitizeLeadText,
 } from './lead-form-token.util';
 import { appendLeadHistory, emitLeadWebhook, notifyNewLeadPanelEvent } from './lead-events.util';
+import { hasCommercialLeadIntent } from './lead-commercial-intent.util';
 
 const logger = createServiceLogger('LeadFormService');
 
@@ -1009,6 +1010,97 @@ export class LeadFormService {
           ? new mongoose.Types.ObjectId(opts.destinationId)
           : undefined,
       historyMessage,
+    });
+  }
+
+  /** Contato existente em conversa aberta com intenção comercial explícita. */
+  async maybeCaptureWhatsAppCommercialIntent(
+    clientId: string,
+    opts: {
+      destinationId: string;
+      conversationId: string;
+      phone: string;
+      name: string;
+      message: string;
+    },
+  ): Promise<ILeadCapture | null> {
+    if (!hasCommercialLeadIntent(opts.message)) return null;
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const convOid = new mongoose.Types.ObjectId(opts.conversationId);
+
+    const linkedToConv = await LeadCapture.findOne({
+      clientId: clientOid,
+      inboxConversationId: convOid,
+      status: { $nin: ['lost', 'spam'] },
+    });
+    if (linkedToConv) return null;
+
+    const e164 = normalizeContactPhoneE164(opts.phone) || opts.phone.trim();
+    const openByPhone = await LeadCapture.findOne({
+      clientId: clientOid,
+      phone: e164,
+      status: { $in: OPEN_LEAD_STATUSES },
+    });
+    if (openByPhone) return null;
+
+    return this.tryCreateInboundLead(clientId, {
+      origin: 'whatsapp',
+      formKind: 'whatsapp',
+      phone: opts.phone,
+      name: opts.name,
+      message: opts.message,
+      destinationId: new mongoose.Types.ObjectId(opts.destinationId),
+      inboxConversationId: convOid,
+      historyMessage: 'Intenção comercial via WhatsApp',
+    });
+  }
+
+  /** Visitante conhecido no chat com mensagem de intenção comercial. */
+  async maybeCaptureWebChatCommercialIntent(
+    clientId: string,
+    opts: {
+      webchatConversationId: string;
+      phone: string;
+      name: string;
+      message: string;
+      destinationId?: string;
+      pageUrl?: string;
+      pageTitle?: string;
+    },
+  ): Promise<ILeadCapture | null> {
+    if (!hasCommercialLeadIntent(opts.message)) return null;
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const linkedToConv = await LeadCapture.findOne({
+      clientId: clientOid,
+      'metadata.webchatConversationId': opts.webchatConversationId,
+      status: { $nin: ['lost', 'spam'] },
+    });
+    if (linkedToConv) return null;
+
+    const e164 = normalizeContactPhoneE164(opts.phone) || opts.phone.trim();
+    const openByPhone = await LeadCapture.findOne({
+      clientId: clientOid,
+      phone: e164,
+      status: { $in: OPEN_LEAD_STATUSES },
+    });
+    if (openByPhone) return null;
+
+    return this.tryCreateInboundLead(clientId, {
+      origin: 'webchat',
+      formKind: 'webchat',
+      phone: opts.phone,
+      name: opts.name,
+      message: opts.message,
+      webchatConversationId: opts.webchatConversationId,
+      sourceUrl: opts.pageUrl,
+      pageTitle: opts.pageTitle,
+      destinationId:
+        opts.destinationId && mongoose.Types.ObjectId.isValid(opts.destinationId)
+          ? new mongoose.Types.ObjectId(opts.destinationId)
+          : undefined,
+      historyMessage: 'Intenção comercial via Chat do site',
     });
   }
 

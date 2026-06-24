@@ -1,6 +1,6 @@
 # Leads — formulário público
 
-**Versão:** 2.11.71
+**Versão:** 2.11.72
 
 ## Central de Entrada Comercial (2.11.68+)
 
@@ -37,6 +37,12 @@ Toda captura (formulário, WhatsApp, WebChat, manual) emite evento `lead:new_ent
 - **WebChat:** nova sessão com telefone conhecido também gera lead de retorno.
 - **Assumir atendimento** atribui o lead ao usuário logado (`assignedUserId`).
 - Kanban: botão **Assumir** no hover do card.
+
+### Intenção comercial (2.11.72)
+
+- Contato **existente** em conversa **já aberta** que envia mensagem com intenção comercial (orçamento, plano, comprar, etc.) → gera lead se não houver lead aberto para o telefone.
+- Mesma regra no **WebChat** para visitante já vinculado a contato.
+- Kanban: ações rápidas **WhatsApp** (painel inline) e **Salvar como contato** no hover.
 
 ## Objetivo
 

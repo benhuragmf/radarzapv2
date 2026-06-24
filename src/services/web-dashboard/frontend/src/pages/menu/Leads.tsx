@@ -14,6 +14,7 @@ import { LeadCaptureListTable } from '../../components/leads/LeadCaptureListTabl
 import { LeadCapturesToolbar, type CaptureView, type PeriodFilter } from '../../components/leads/LeadCapturesToolbar'
 import { LeadManualCaptureModal } from '../../components/leads/LeadManualCaptureModal'
 import { LeadStatusReasonModal } from '../../components/leads/LeadStatusReasonModal'
+import { LeadWhatsAppPanel } from '../../components/leads/LeadWhatsAppPanel'
 import type { OperationalStatKey } from '../../lib/leadUi'
 import { LEAD_STATUS_DISPLAY, SITE_FORM_ORIGINS } from '../../lib/leadUi'
 import { LeadSegmentsTab } from '../../components/leads/LeadSegmentsTab'
@@ -84,6 +85,7 @@ export default function Leads() {
   const [originsFilter, setOriginsFilter] = useState('')
   const [openOnlyFilter, setOpenOnlyFilter] = useState(false)
   const [manualCaptureOpen, setManualCaptureOpen] = useState(false)
+  const [whatsappPanelItem, setWhatsappPanelItem] = useState<LeadCaptureListItem | null>(null)
   const [statusReasonModal, setStatusReasonModal] = useState<{
     id: string
     status: 'lost' | 'spam'
@@ -178,6 +180,11 @@ export default function Leads() {
     () => capturesData?.items.find(c => c.id === selectedId) ?? null,
     [capturesData, selectedId],
   )
+
+  const whatsappPanelLive = useMemo(() => {
+    if (!whatsappPanelItem) return null
+    return capturesData?.items.find(c => c.id === whatsappPanelItem.id) ?? whatsappPanelItem
+  }, [whatsappPanelItem, capturesData?.items])
 
   const editingForm = useMemo(
     () => forms.find(f => f.id === editingFormId) ?? null,
@@ -552,7 +559,13 @@ export default function Leads() {
                     selectedId={selectedId}
                     onSelect={setSelectedId}
                     onAssume={id => openInbox.mutate(id)}
+                    onWhatsApp={item => {
+                      setSelectedId(item.id)
+                      setWhatsappPanelItem(item)
+                    }}
+                    onConvert={id => convertCapture.mutate({ id })}
                     assumingId={pendingInboxId}
+                    convertingId={convertCapture.isPending ? convertCapture.variables?.id ?? null : null}
                     onStatusChange={(id, status) => {
                       const current = capturesData.items.find(c => c.id === id)
                       if (!current || current.status === status) return
@@ -652,6 +665,16 @@ export default function Leads() {
             </div>
           )}
         </div>
+      )}
+
+      {whatsappPanelLive && (
+        <LeadWhatsAppPanel
+          item={whatsappPanelLive}
+          open
+          onClose={() => setWhatsappPanelItem(null)}
+          onConversationReady={() => invalidateLeads()}
+          canReply={canReply}
+        />
       )}
 
       {tab === 'forms' && canManage && (
