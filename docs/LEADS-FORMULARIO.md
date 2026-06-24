@@ -1,6 +1,6 @@
 # Leads — formulário público
 
-**Versão:** 2.11.72
+**Versão:** 2.11.73
 
 ## Central de Entrada Comercial (2.11.68+)
 
@@ -43,6 +43,11 @@ Toda captura (formulário, WhatsApp, WebChat, manual) emite evento `lead:new_ent
 - Contato **existente** em conversa **já aberta** que envia mensagem com intenção comercial (orçamento, plano, comprar, etc.) → gera lead se não houver lead aberto para o telefone.
 - Mesma regra no **WebChat** para visitante já vinculado a contato.
 - Kanban: ações rápidas **WhatsApp** (painel inline) e **Salvar como contato** no hover.
+
+### Lista e sync (2.11.73)
+
+- Modo **Lista**: mesmas ações rápidas do Kanban (Assumir, WhatsApp, Salvar como contato).
+- Ao **encerrar atendimento** no Inbox (`/enc`, inatividade) ou WebChat, lead `in_progress` vinculado → status **Qualificado** automaticamente.
 
 ## Objetivo
 

@@ -6,6 +6,9 @@ import type { LeadCaptureListItem } from '@radarzap-types/lead-form'
 import {
   LEAD_ORIGIN_DISPLAY,
   LEAD_STATUS_DISPLAY,
+  canQuickAssumeLead,
+  canQuickConvertLead,
+  canQuickWhatsAppLead,
   formatPhoneDisplay,
   formatRelativeEntry,
   leadOriginBadgeVariant,
@@ -19,7 +22,10 @@ type Props = {
   canReply: boolean
   canManage: boolean
   onAssume: (id: string) => void
+  onWhatsApp?: (item: LeadCaptureListItem) => void
+  onConvert?: (id: string) => void
   assumingId?: string | null
+  convertingId?: string | null
 }
 
 export function LeadCaptureListTable({
@@ -27,8 +33,12 @@ export function LeadCaptureListTable({
   selectedId,
   onSelect,
   canReply,
+  canManage,
   onAssume,
+  onWhatsApp,
+  onConvert,
   assumingId,
+  convertingId,
 }: Props) {
   return (
     <div className="overflow-x-auto">
@@ -48,6 +58,18 @@ export function LeadCaptureListTable({
         <tbody>
           {items.map(item => {
             const selected = selectedId === item.id
+            const showAssume = Boolean(canReply && canQuickAssumeLead(item))
+            const showWhatsApp = Boolean(canReply && onWhatsApp && canQuickWhatsAppLead(item))
+            const showConvert = Boolean(canManage && onConvert && canQuickConvertLead(item))
+            const showInbox =
+              canReply &&
+              item.inboxConversationId &&
+              !showAssume &&
+              item.status !== 'converted' &&
+              item.status !== 'lost' &&
+              item.status !== 'spam'
+            const assuming = assumingId === item.id
+            const converting = convertingId === item.id
             return (
               <tr
                 key={item.id}
@@ -85,21 +107,44 @@ export function LeadCaptureListTable({
                   )}
                 </td>
                 <td className="py-2 px-2 text-right" onClick={e => e.stopPropagation()}>
-                  <div className="flex justify-end gap-1">
-                    {canReply && !item.inboxConversationId && (
+                  <div className="flex justify-end gap-1 flex-wrap">
+                    {showAssume && (
                       <Button
                         size="sm"
                         variant="secondary"
                         className="h-7 px-2 text-[10px]"
-                        disabled={assumingId === item.id}
+                        disabled={assuming}
                         onClick={() => onAssume(item.id)}
                       >
                         <UserPlus size={11} /> Assumir
                       </Button>
                     )}
-                    {canReply && item.inboxConversationId && (
+                    {showWhatsApp && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 px-2 text-[10px]"
+                        title="WhatsApp"
+                        onClick={() => onWhatsApp?.(item)}
+                      >
+                        <MessageSquare size={11} /> WA
+                      </Button>
+                    )}
+                    {showConvert && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 px-2 text-[10px]"
+                        title="Salvar como contato"
+                        disabled={converting}
+                        onClick={() => onConvert?.(item.id)}
+                      >
+                        <UserPlus size={11} /> Contato
+                      </Button>
+                    )}
+                    {showInbox && (
                       <Link
-                        to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`}
+                        to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId!)}`}
                         className="inline-flex items-center gap-1 h-7 px-2 text-[10px] rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
                       >
                         <MessageSquare size={11} /> Inbox

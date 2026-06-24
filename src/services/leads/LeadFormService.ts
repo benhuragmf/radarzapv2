@@ -1541,6 +1541,44 @@ export class LeadFormService {
     return result;
   }
 
+  /** Ao encerrar conversa Inbox/WebChat, promove lead em atendimento para qualificado. */
+  async syncCaptureAfterConversationClosed(
+    clientId: string,
+    opts: { inboxConversationId?: string; webchatConversationId?: string; closedByUserId?: string },
+  ): Promise<void> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const filter: Record<string, unknown> = {
+      clientId: clientOid,
+      status: 'in_progress',
+    };
+
+    if (opts.inboxConversationId && mongoose.Types.ObjectId.isValid(opts.inboxConversationId)) {
+      filter.inboxConversationId = new mongoose.Types.ObjectId(opts.inboxConversationId);
+    } else if (opts.webchatConversationId?.trim()) {
+      filter['metadata.webchatConversationId'] = opts.webchatConversationId.trim();
+    } else {
+      return;
+    }
+
+    const capture = await LeadCapture.findOne(filter);
+    if (!capture) return;
+
+    capture.status = 'qualified';
+    capture.history = appendLeadHistory(
+      capture.history,
+      'status_changed',
+      'Atendimento encerrado — lead marcado como qualificado',
+      { userId: opts.closedByUserId },
+    );
+    await capture.save();
+
+    emitLeadWebhook(clientId, 'status_changed', {
+      capture_id: String(capture._id),
+      from: 'in_progress',
+      to: 'qualified',
+    });
+  }
+
   async listAssignees(clientId: string): Promise<{ userId: string; displayName: string }[]> {
     const { InboxService } = await import('@/services/inbox/InboxService');
     const members = await InboxService.getInstance().listTeamMembersForAssignment(clientId);

@@ -3235,6 +3235,12 @@ export class WebChatService {
       conversationId: convId,
       conversation: conversationDto,
     });
+
+    const { LeadFormService } = await import('@/services/leads/LeadFormService');
+    void LeadFormService.getInstance().syncCaptureAfterConversationClosed(clientId, {
+      webchatConversationId: convId,
+      closedByUserId: _userId,
+    });
   }
 
   async lookupTicketPublic(

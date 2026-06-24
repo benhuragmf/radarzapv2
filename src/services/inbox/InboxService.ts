@@ -4374,6 +4374,12 @@ export class InboxService {
     });
 
     await this.maybeSendCsatSurvey(clientId, conv, settings, opts.byUserId);
+
+    const { LeadFormService } = await import('@/services/leads/LeadFormService');
+    void LeadFormService.getInstance().syncCaptureAfterConversationClosed(clientId, {
+      inboxConversationId: String(conv._id),
+      closedByUserId: opts.byUserId,
+    });
   }
 
   private async maybeSendCsatSurvey(

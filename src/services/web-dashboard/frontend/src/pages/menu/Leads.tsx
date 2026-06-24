@@ -586,7 +586,13 @@ export default function Leads() {
                     canReply={canReply}
                     canManage={canManage}
                     onAssume={id => openInbox.mutate(id)}
+                    onWhatsApp={item => {
+                      setSelectedId(item.id)
+                      setWhatsappPanelItem(item)
+                    }}
+                    onConvert={id => convertCapture.mutate({ id })}
                     assumingId={pendingInboxId}
+                    convertingId={convertCapture.isPending ? convertCapture.variables?.id ?? null : null}
                   />
                   {capturesData.total > 30 && (
                     <div className="flex gap-2 justify-center pt-2 pb-1 sticky bottom-0 bg-[var(--rz-surface)]">

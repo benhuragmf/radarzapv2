@@ -22,6 +22,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.73] — 2026-06-23
+
+### Leads — lista + sync ao encerrar atendimento
+
+- Modo **Lista**: ações rápidas Assumir, WhatsApp e Salvar como contato (paridade com Kanban).
+- Ao encerrar conversa **Inbox** ou **WebChat**, lead `in_progress` vinculado passa automaticamente para **Qualificado**.
+
+---
+
 ## [2.11.72] — 2026-06-23
 
 ### Leads — intenção comercial + ações Kanban
