@@ -57,9 +57,11 @@ function secondsAgo(iso: string): number {
 export function InboxLiveVisitors({
   className,
   canEngage = true,
+  compact = false,
 }: {
   className?: string
   canEngage?: boolean
+  compact?: boolean
 }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -99,17 +101,132 @@ export function InboxLiveVisitors({
   const visitors = data?.visitors ?? []
   const engagingId = engage.isPending ? engage.variables?.presenceId : null
 
+  if (compact && !isLoading && visitors.length === 0) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-between gap-2 rounded-lg border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/30 px-3 py-1.5 text-xs',
+          className,
+        )}
+      >
+        <div className="flex items-center gap-2 text-[var(--rz-text-muted)]">
+          <Globe className="h-3.5 w-3.5 text-brand-400" />
+          <span>
+            Visitantes no site: <strong className="text-[var(--rz-text-secondary)]">0 online</strong>
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  if (compact && !isLoading && visitors.length > 0) {
+    return (
+      <details
+        className={cn(
+          'rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] overflow-hidden group',
+          className,
+        )}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-1.5 text-xs [&::-webkit-details-marker]:hidden">
+          <div className="flex items-center gap-2 text-[var(--rz-text-secondary)]">
+            <Globe className="h-3.5 w-3.5 text-brand-400" />
+            <span>
+              <strong className="text-[var(--rz-text-primary)]">{visitors.length}</strong> visitante(s)
+              no site
+            </span>
+            <Badge variant="green" label="online" />
+          </div>
+          <span className="text-[10px] text-brand-400 group-open:hidden">Expandir tabela</span>
+          <span className="text-[10px] text-[var(--rz-text-muted)] hidden group-open:inline">
+            Recolher
+          </span>
+        </summary>
+        <div className="border-t border-[var(--rz-border)] max-h-[min(220px,28vh)] overflow-auto">
+          <table className="w-full min-w-[640px] text-left text-[11px]">
+            <thead className="sticky top-0 bg-[var(--rz-surface)] text-[var(--rz-text-muted)]">
+              <tr>
+                <th className="px-2 py-1.5 font-medium">Página</th>
+                <th className="px-2 py-1.5 font-medium">Origem</th>
+                <th className="px-2 py-1.5 font-medium">Cidade</th>
+                <th className="px-2 py-1.5 font-medium">Chat</th>
+                <th className="px-2 py-1.5 font-medium">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visitors.map(v => {
+                const ago = secondsAgo(v.lastSeenAt)
+                const convLink = v.conversationId ? inboxWebChatUrl(v.conversationId) : null
+                return (
+                  <tr
+                    key={v.id}
+                    className="border-b border-[var(--rz-border)]/60 last:border-0 hover:bg-[var(--rz-surface-muted)]/30"
+                  >
+                    <td className="px-2 py-1.5">
+                      <div className="font-medium truncate max-w-[140px]">
+                        {v.pageTitle || formatPagePath(v.pageUrl)}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5 text-[var(--rz-text-secondary)]">{v.trafficSource}</td>
+                    <td className="px-2 py-1.5 text-[var(--rz-text-secondary)]">{locationLabel(v)}</td>
+                    <td className="px-2 py-1.5">
+                      {v.chatOpened ? (
+                        <Badge variant="green" label="Aberto" />
+                      ) : (
+                        <span className="text-[var(--rz-text-muted)]">—</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {canEngage ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={convLink ? 'secondary' : 'primary'}
+                          className="h-6 px-2 text-[10px]"
+                          disabled={engagingId === v.id}
+                          onClick={() =>
+                            engage.mutate({
+                              presenceId: v.id,
+                              openOnly: !!convLink,
+                            })
+                          }
+                        >
+                          {engagingId === v.id ? '…' : convLink ? 'Abrir' : 'Chamar'}
+                        </Button>
+                      ) : (
+                        <span className="text-[var(--rz-text-muted)]">—</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    )
+  }
+
   return (
     <section
       className={cn(
-        'rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)] overflow-hidden',
+        'rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] overflow-hidden',
         className,
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--rz-border)] px-4 py-3">
+      <div
+        className={cn(
+          'flex flex-wrap items-center justify-between gap-2 border-b border-[var(--rz-border)]',
+          compact ? 'px-3 py-2' : 'px-4 py-3',
+        )}
+      >
         <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-brand-400" />
-          <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">
+          <Globe className={compact ? 'h-3.5 w-3.5 text-brand-400' : 'h-4 w-4 text-brand-400'} />
+          <h2
+            className={cn(
+              'font-semibold text-[var(--rz-text-primary)]',
+              compact ? 'text-xs' : 'text-sm',
+            )}
+          >
             Visitantes no site agora
           </h2>
           <Badge
@@ -120,19 +237,26 @@ export function InboxLiveVisitors({
             <span className="text-[10px] text-[var(--rz-text-muted)]">atualizando…</span>
           )}
         </div>
-        <p className="text-xs text-[var(--rz-text-muted)]">
-          Use <strong className="font-medium text-[var(--rz-text-secondary)]">Chamar</strong> para
-          abrir o chat no visitante e conversar no Inbox
-        </p>
+        {!compact && (
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Use <strong className="font-medium text-[var(--rz-text-secondary)]">Chamar</strong> para
+            abrir o chat no visitante e conversar no Inbox
+          </p>
+        )}
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-10">
+        <div className={cn('flex justify-center', compact ? 'py-4' : 'py-10')}>
           <Spinner />
         </div>
       ) : visitors.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-[var(--rz-text-muted)]">
-          Nenhum visitante com o widget ativo no momento. Abra o preview do chat do site para testar.
+        <p
+          className={cn(
+            'text-center text-[var(--rz-text-muted)]',
+            compact ? 'px-3 py-3 text-xs' : 'px-4 py-8 text-sm',
+          )}
+        >
+          Nenhum visitante com o widget ativo no momento.
         </p>
       ) : (
         <div className="overflow-x-auto">

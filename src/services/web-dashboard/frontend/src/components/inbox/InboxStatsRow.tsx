@@ -15,14 +15,48 @@ export interface InboxStatItem {
 interface Props {
   items: InboxStatItem[]
   className?: string
+  /** Cards menores — cabeçalho Inbox / IA em 1080p. */
+  compact?: boolean
 }
 
-export function InboxStatsRow({ items, className }: Props) {
+export function InboxStatsRow({ items, className, compact }: Props) {
+  const cols =
+    items.length > 6
+      ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-7'
+      : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+
   return (
-    <div className={cn('grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6', className)}>
+    <div className={cn('grid gap-1.5', cols, className)}>
       {items.map(item => {
         const Icon = item.icon
-        const inner = (
+        const inner = compact ? (
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={cn(
+                'rounded-md p-1 shrink-0',
+                item.alert
+                  ? 'bg-red-500/15 text-red-400'
+                  : 'bg-[var(--rz-surface-muted)]/80 text-[var(--rz-text-muted)]',
+              )}
+            >
+              <Icon size={12} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] uppercase tracking-wide text-[var(--rz-text-muted)] leading-none truncate">
+                {item.label}
+              </p>
+              <p
+                className={cn(
+                  'text-sm font-semibold tabular-nums leading-tight truncate',
+                  item.colorClass ?? 'text-[var(--rz-text-primary)]',
+                )}
+                title={item.description ? `${item.value} — ${item.description}` : String(item.value)}
+              >
+                {item.value}
+              </p>
+            </div>
+          </div>
+        ) : (
           <>
             <div className="flex items-start justify-between gap-2">
               <p className="text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)] leading-tight">
@@ -54,7 +88,8 @@ export function InboxStatsRow({ items, className }: Props) {
         )
 
         const cardCls = cn(
-          'rounded-xl border px-3 py-2.5 transition-colors',
+          'rounded-lg border transition-colors',
+          compact ? 'px-2 py-1.5' : 'rounded-xl px-3 py-2.5',
           item.alert
             ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10'
             : 'border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 hover:bg-[var(--rz-surface-muted)]/60',

@@ -9,7 +9,6 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import {
   Sparkles,
-  ArrowLeft,
   Save,
   Trash2,
   Zap,
@@ -417,21 +416,14 @@ export default function AiAtendimento() {
   return (
     <PlatformPage
       title="IA de Atendimento"
-      description="Configure triagem inteligente, base de conhecimento, skills e regras de transferência para humano."
+      description="Triagem, base de conhecimento, skills e transferência para humano."
+      compact
     >
-      <InboxAtendimentoNav me={me} className="mb-4" />
+      <InboxAtendimentoNav me={me} compact />
 
-      <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
-          <ArrowLeft className="w-4 h-4" /> Voltar à caixa de entrada
-        </Link>
-        <span className="inline-flex items-center gap-2 text-sm text-brand-400">
-          <Sparkles className="w-4 h-4" /> Assistente virtual WhatsApp e site
-        </span>
-      </div>
-
+      <div className="space-y-3">
       <InboxStatsRow
+        compact
         items={[
           {
             label: 'Modo de atendimento',
@@ -496,11 +488,12 @@ export default function AiAtendimento() {
       />
 
       {form.blueprintInfo && (
-        <Card className="p-4 mb-4 border-brand-800/40 bg-brand-950/20">
-          <p className="text-sm text-[var(--rz-text-secondary)]">
-            O <strong>assistente virtual já vem pré-configurado</strong> pela RadarZap — personalidade,
-            triagem, tom de voz e fluxo de atendimento funcionam assim que você ativar a IA. Você só
-            precisa alimentar o conhecimento da <em>sua</em> empresa:{' '}
+        <details className="rounded-lg border border-brand-800/40 bg-brand-950/20 text-xs text-[var(--rz-text-secondary)]">
+          <summary className="cursor-pointer select-none px-3 py-2 text-brand-300/90 font-medium">
+            Assistente pré-configurado pela RadarZap — o que personalizar
+          </summary>
+          <p className="px-3 pb-3 leading-relaxed">
+            Personalidade e fluxo já vêm prontos. Alimente{' '}
             <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('kb')}>
               Base de conhecimento
             </button>
@@ -512,27 +505,27 @@ export default function AiAtendimento() {
             <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('memory')}>
               Memória
             </button>
-            . Opcionalmente ajuste o <strong>nome do assistente</strong> (aba Geral), as{' '}
+            . Opcional: nome (Geral),{' '}
             <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('saudacoes')}>
               saudações
             </button>{' '}
-            e as{' '}
+            e{' '}
             <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('regras')}>
-              regras da empresa
+              regras
             </button>
             .
           </p>
-        </Card>
+        </details>
       )}
 
-      <div className="rounded-xl bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 overflow-hidden">
-        <div className="flex gap-1 p-1 overflow-x-auto scrollbar-thin">
+      <div className="rounded-lg bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 overflow-hidden">
+        <div className="flex gap-0.5 p-0.5 overflow-x-auto scrollbar-thin">
           {TABS.map(t => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`shrink-0 px-2 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap ${
                 tab === t.id
                   ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
                   : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]'
@@ -545,10 +538,10 @@ export default function AiAtendimento() {
       </div>
 
       {tab === 'geral' && (
-        <Card className="p-6 space-y-6">
+        <Card className="p-4 space-y-4">
           <div>
-            <h2 className="text-lg font-medium flex items-center gap-2">
-              <Settings2 className="w-5 h-5" /> Modo de atendimento e provedor
+            <h2 className="text-base font-medium flex items-center gap-2">
+              <Settings2 className="w-4 h-4" /> Modo de atendimento e provedor
             </h2>
             <p className="text-xs text-[var(--rz-text-muted)] mt-1">
               Escolha <strong>como</strong> o atendimento se comporta e, no modo Premium,{' '}
@@ -1715,7 +1708,7 @@ export default function AiAtendimento() {
       )}
 
       {tab !== 'testar' && tab !== 'logs' && (
-        <div className="sticky bottom-4 z-10 flex justify-end">
+        <div className="sticky bottom-2 z-10 flex justify-end pt-1">
           <Button type="button" onClick={handleSave} disabled={save.isPending} className="shadow-lg">
             <Save className="w-4 h-4 mr-2" />
             {save.isPending ? 'Salvando…' : 'Salvar configurações'}

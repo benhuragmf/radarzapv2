@@ -13,9 +13,9 @@ interface AttendanceModePickerProps {
 
 export function AttendanceModePicker({ selected, onSelect }: AttendanceModePickerProps) {
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-medium text-[var(--rz-text-secondary)]">Modo de atendimento</h3>
-      <div className="grid gap-3 md:grid-cols-2">
+    <div className="space-y-2">
+      <h3 className="text-xs font-medium text-[var(--rz-text-secondary)]">Modo de atendimento</h3>
+      <div className="grid gap-2 md:grid-cols-2">
         {ATTENDANCE_MODE_CARDS.map(card => {
           const isSelected = selected === card.id
           const isDisabled = card.comingSoon === true
@@ -26,7 +26,7 @@ export function AttendanceModePicker({ selected, onSelect }: AttendanceModePicke
               data-testid={`attendance-mode-${card.id}`}
               disabled={isDisabled}
               onClick={() => !isDisabled && onSelect(card.id)}
-              className={`relative text-left rounded-xl border p-4 transition-colors ${
+              className={`relative text-left rounded-lg border p-3 transition-colors ${
                 isDisabled
                   ? 'opacity-70 cursor-not-allowed border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40'
                   : isSelected
@@ -90,13 +90,12 @@ export function CredentialSourcePicker({
   radarzapAllowed,
 }: CredentialSourcePickerProps) {
   return (
-    <div className="space-y-3 border-t border-[var(--rz-border)] pt-4">
-      <h3 className="text-sm font-medium text-[var(--rz-text-secondary)]">Provedor da IA</h3>
-      <p className="text-xs text-[var(--rz-text-muted)]">
-        Quem fornece a credencial da IA generativa. Disponível quando o modo{' '}
-        <strong>IA Premium</strong> está selecionado.
+    <div className="space-y-2 border-t border-[var(--rz-border)] pt-3">
+      <h3 className="text-xs font-medium text-[var(--rz-text-secondary)]">Provedor da IA</h3>
+      <p className="text-[11px] text-[var(--rz-text-muted)] leading-snug">
+        Credencial da IA generativa — só no modo <strong>IA Premium</strong>.
       </p>
-      <div className="grid gap-2">
+      <div className="grid gap-1.5">
         {CREDENTIAL_SOURCE_CARDS.map(card => {
           const isNone = card.id === 'none'
           const isRadarzap = card.id === 'radarzap'

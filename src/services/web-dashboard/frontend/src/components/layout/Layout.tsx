@@ -13,6 +13,8 @@ import { WebChatGlobalListener } from '../webchat/WebChatGlobalListener'
 import { AgentPresenceProvider } from '../../lib/agentPresenceContext'
 import { AgentPresenceRuntime } from './AgentPresenceRuntime'
 
+import { cn } from '@/lib/utils'
+
 interface Props {
   user: AuthUser
   onLogout: () => void
@@ -30,6 +32,8 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
     setSidebarOpen(false)
   }, [pathname, hash])
 
+  const inboxViewport = pathname === '/platform/inbox'
+
   return (
     <EventNotificationProvider user={user}>
       <AgentPresenceRuntime user={user} />
@@ -44,7 +48,7 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
               onClick={() => setSidebarOpen(false)}
             />
           )}
-          <div className="flex flex-col lg:flex-row min-h-screen w-full bg-[var(--rz-background)]">
+          <div className="flex flex-col lg:flex-row min-h-[100dvh] max-h-[100dvh] w-full bg-[var(--rz-background)] overflow-hidden">
             <Sidebar
               user={user}
               mode={navMode}
@@ -54,7 +58,7 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
               mobileOpen={sidebarOpen}
               onMobileClose={() => setSidebarOpen(false)}
             />
-            <div className="flex flex-col flex-1 min-w-0">
+            <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
               <div className="sticky top-0 z-30 shrink-0 bg-[var(--rz-surface)]/95 backdrop-blur-sm border-b border-[var(--rz-border)]">
                 <Header
                   user={user}
@@ -63,7 +67,12 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
                   onMenuClick={() => setSidebarOpen(true)}
                 />
               </div>
-              <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <main
+                className={cn(
+                  'flex-1 min-h-0 p-3 sm:p-4 lg:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+                  inboxViewport ? 'flex flex-col overflow-hidden' : 'overflow-y-auto',
+                )}
+              >
                 <Outlet />
               </main>
             </div>

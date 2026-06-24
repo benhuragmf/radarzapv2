@@ -22,6 +22,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.87] — 2026-06-24
+
+### UI — Inbox e IA mais compactos (1080p)
+
+- Layout viewport: `main` flex sem `calc(100dvh)` duplicado — corrige corte do composer/rodapé.
+- Inbox: nav oculta com conversa aberta; visitantes recolhíveis; filtros com wrap; lista e painel direito mais estreitos.
+- IA Atendimento: `PlatformPage`/`PageHeader` compact; stats row horizontal; blueprint em `<details>`.
+- Componentes: `InboxStatsRow`, `InboxAtendimentoNav`, `InboxLiveVisitors` modo compact.
+
 ## [2.11.86] — 2026-06-24
 
 ### Fix — detalhe de chamados WebChat no painel

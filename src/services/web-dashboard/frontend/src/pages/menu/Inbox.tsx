@@ -18,7 +18,6 @@ import {
   Clock,
   Hand,
   Search,
-  Inbox as InboxIcon,
   Users,
   BarChart3,
   Ticket,
@@ -46,7 +45,6 @@ import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
 import { InboxDepartmentBadge } from '../../components/inbox/InboxDepartmentBadge'
 import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
 import { InboxLiveVisitors } from '../../components/inbox/InboxLiveVisitors'
-import { InboxLiveVisitorsStrip } from '../../components/inbox/InboxLiveVisitorsStrip'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../lib/webchatInbox'
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
@@ -831,77 +829,59 @@ export default function Inbox() {
   return (
     <div
       className={cn(
-        'flex flex-col',
+        'flex flex-col flex-1 min-h-0 w-full mx-auto',
         platformPageMaxWidthClass,
-        chatFocus
-          ? 'h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8'
-          : '-mx-1',
       )}
     >
-      {/* Cabeçalho — compacto quando há conversa aberta */}
-      <div className={cn('shrink-0', chatFocus ? 'mb-2' : 'mb-4')}>
+      {/* Cabeçalho — mínimo com conversa aberta (título já está no Header global) */}
+      <div className={cn('shrink-0', chatFocus ? 'mb-1' : 'mb-2 space-y-1.5')}>
         {!chatFocus && (
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
-                <InboxIcon size={22} className="text-brand-400" />
-                Caixa de Entrada
-              </h1>
-              <p className="text-sm text-[var(--rz-text-muted)] mt-1 max-w-xl">
-                Atenda conversas do WhatsApp. Prioridades do round-robin aparecem destacadas — aceite ou puxe quando puder.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 shrink-0">
-              <Link to="/platform/inbox/tickets">
-                <Button size="sm" variant="secondary">
-                  <Ticket size={14} /> Tickets
+          <div className="flex flex-wrap justify-end gap-1.5">
+            <Link to="/platform/inbox/tickets">
+              <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                <Ticket size={13} /> Tickets
+              </Button>
+            </Link>
+            {canSupervise && (
+              <Link to="/platform/inbox/supervisor">
+                <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                  <Users size={13} /> Supervisor
                 </Button>
               </Link>
-              {canSupervise && (
-                <Link to="/platform/inbox/supervisor">
-                  <Button size="sm" variant="secondary">
-                    <Users size={14} /> Supervisor
+            )}
+            {can(me ?? null, 'inbox:reports:view') && (
+              <Link to="/platform/inbox/relatorios">
+                <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                  <BarChart3 size={13} /> Relatórios
+                </Button>
+              </Link>
+            )}
+            {canManageSectors && (
+              <>
+                <Link to="/platform/inbox/bot">
+                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                    <Bot size={13} /> Bot
                   </Button>
                 </Link>
-              )}
-              {can(me ?? null, 'inbox:reports:view') && (
-                <Link to="/platform/inbox/relatorios">
-                  <Button size="sm" variant="secondary">
-                    <BarChart3 size={14} /> Relatórios
+                <Link to="/platform/inbox/respostas">
+                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                    <Zap size={13} /> Respostas
                   </Button>
                 </Link>
-              )}
-              {canManageSectors && (
-                <>
-                  <Link to="/platform/inbox/bot">
-                    <Button size="sm" variant="secondary">
-                      <Bot size={14} /> Bot
-                    </Button>
-                  </Link>
-                  <Link to="/platform/inbox/respostas">
-                    <Button size="sm" variant="secondary">
-                      <Zap size={14} /> Respostas
-                    </Button>
-                  </Link>
-                  <Link to="/platform/inbox/setores">
-                    <Button size="sm" variant="secondary">
-                      <Settings2 size={14} /> Setores
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
+                <Link to="/platform/inbox/setores">
+                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                    <Settings2 size={13} /> Setores
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         )}
 
-        <InboxAtendimentoNav me={me} className={chatFocus ? undefined : 'mt-3'} />
-
-        {chatFocus && canInboxView && (
-          <InboxLiveVisitorsStrip className="mt-2 mb-1" />
-        )}
+        {!chatFocus && <InboxAtendimentoNav me={me} compact />}
 
         {!chatFocus && canInboxView && webchatQueueCount > 0 && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
             <div className="flex items-center gap-2 text-amber-200">
               <Globe size={16} className="shrink-0" />
               <span>
@@ -924,9 +904,9 @@ export default function Inbox() {
 
         {!chatFocus && (
         <>
-        <InboxLiveVisitors className="mt-4" canEngage={canWebChatEngage} />
+        <InboxLiveVisitors compact canEngage={canWebChatEngage} />
         <InboxStatsRow
-          className="mt-4"
+          compact
           items={[
             {
               label: 'Na fila',
@@ -992,16 +972,16 @@ export default function Inbox() {
       <div
         className={cn(
           'flex flex-col lg:flex-row gap-0 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/30 overflow-hidden shadow-xl shadow-black/20',
-          chatFocus ? 'flex-1 min-h-0' : 'min-h-[420px] lg:min-h-[480px]',
+          'flex-1 min-h-0',
         )}
       >
         {/* Lista de conversas */}
         <aside
-          className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 ${
+          className={`w-full lg:w-[300px] xl:w-[320px] shrink-0 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/40 ${
             selectedId ? 'max-lg:hidden' : 'max-lg:flex-1'
           }`}
         >
-          <div className="p-3 space-y-2.5 border-b border-[var(--rz-border)]/80 shrink-0">
+          <div className="p-2 space-y-2 border-b border-[var(--rz-border)]/80 shrink-0">
             <div className="relative">
               <Search size={14} className={searchFieldIconCls} />
               <input
@@ -1013,13 +993,13 @@ export default function Inbox() {
               />
             </div>
 
-            <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin">
+            <div className="flex flex-wrap gap-1 pb-0.5">
               {QUICK_FILTERS.map(f => (
                 <button
                   key={f.id}
                   type="button"
                   onClick={() => applyQuickFilter(f.id)}
-                  className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${
                     activeQuickFilter === f.id
                       ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
                       : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]/60'
@@ -1031,13 +1011,13 @@ export default function Inbox() {
             </div>
 
             {canInboxView && (
-              <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin">
+              <div className="flex flex-wrap gap-1 pb-0.5">
                 {CHANNEL_FILTERS.map(f => (
                   <button
                     key={f.id}
                     type="button"
                     onClick={() => setChannelFilter(f.id)}
-                    className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                    className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${
                       channelFilter === f.id
                         ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
                         : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]/60'
@@ -1126,7 +1106,7 @@ export default function Inbox() {
                     key={c._id}
                     type="button"
                     onClick={() => setSelectedId(c._id)}
-                    className={`w-full text-left px-3 py-3 flex gap-3 border-b border-[var(--rz-border)]/50 hover:bg-[var(--rz-surface-muted)]/40 transition-colors ${borderCls} ${
+                    className={`w-full text-left px-2.5 py-2 flex gap-2 border-b border-[var(--rz-border)]/50 hover:bg-[var(--rz-surface-muted)]/40 transition-colors ${borderCls} ${
                       selected ? 'bg-brand-500/[0.08] border-l-2 border-l-brand-500' : 'border-l-2 border-l-transparent'
                     } ${isClosed ? 'opacity-55 hover:opacity-75' : ''}`}
                   >

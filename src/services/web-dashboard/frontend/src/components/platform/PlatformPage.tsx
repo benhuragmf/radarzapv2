@@ -8,15 +8,17 @@ interface Props {
   phase?: string
   actions?: ReactNode
   children?: ReactNode
+  /** Menos espaçamento vertical — atendimento / IA. */
+  compact?: boolean
 }
 
 /** Páginas da área Plataforma (campanhas, modelos, relatórios tenant) */
-export function PlatformPage({ title, description, phase = 'MVP', actions, children }: Props) {
+export function PlatformPage({ title, description, phase = 'MVP', actions, children, compact }: Props) {
   if (children) {
     return (
-      <RadarPageShell>
-        <PageHeader title={title} subtitle={description} actions={actions} />
-        <div className="space-y-5">{children}</div>
+      <RadarPageShell className={compact ? '!space-y-3' : undefined}>
+        <PageHeader title={title} subtitle={description} actions={actions} compact={compact} />
+        <div className={compact ? 'space-y-3' : 'space-y-5'}>{children}</div>
       </RadarPageShell>
     )
   }

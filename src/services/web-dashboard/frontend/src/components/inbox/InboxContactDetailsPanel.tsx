@@ -180,7 +180,7 @@ export function InboxContactDetailsPanel({
   return (
     <aside
       className={cn(
-        'w-full xl:w-[320px] shrink-0 flex flex-col border-t xl:border-t-0 xl:border-l border-[var(--rz-border)]/80 bg-[var(--rz-surface)]/40 min-h-[200px] xl:min-h-0 xl:max-h-full overflow-hidden',
+        'w-full xl:w-[280px] shrink-0 flex flex-col border-t xl:border-t-0 xl:border-l border-[var(--rz-border)]/80 bg-[var(--rz-surface)]/40 min-h-0 overflow-hidden',
         className,
       )}
     >

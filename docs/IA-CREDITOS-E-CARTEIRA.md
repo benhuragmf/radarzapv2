@@ -1,6 +1,6 @@
 # IA — Créditos, carteira mensal e barra do painel
 
-**Versão:** 2.11.84 · **Atualizado:** 2026-06-24
+**Versão:** 2.11.85 · **Atualizado:** 2026-06-24
 
 Documento canônico do sistema de **créditos IA RadarZap**, **carteira mensal por empresa**, **cota de aprendizagem** e **indicadores na barra superior** do painel.
 
@@ -19,6 +19,98 @@ Relacionado: [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) § IA de triagem, 
 | **~1× / ~2× (UI)** | **Expectativa** de gasto por módulo (Básica vs Premium) — **não** multiplica cobrança. |
 
 **Princípio:** o dono paga pelo que o cliente **realmente consumiu** em LLM RadarZap. Premium **não** é cobrado em dobro automaticamente; o multiplicador 2× é só planejamento na escolha do modo.
+
+---
+
+## Como funciona a cobrança (LLM × IA)
+
+Guia em linguagem de produto. A implementação técnica está nas seções seguintes.
+
+### Resumo
+
+**Créditos IA só são debitados quando o RadarZap usa a chave da plataforma.** O valor é **proporcional ao custo real** de cada resposta do modelo — não há tarifa fixa “por atendimento” nem cobrança automática em dobro no Premium.
+
+### Dois contadores na barra do painel
+
+| Indicador | O que mede | Ao estourar |
+|-----------|------------|-------------|
+| **LM** | Quantas **chamadas** ao LLM no mês (1 resposta = 1 chamada) | Bloqueia novas respostas IA — limite técnico anti-abuso |
+| **IA** | Quanto da **franquia mensal** já foi **gasto** (em créditos) | Bloqueia LLM na chave RadarZap — recarregar, upgrade ou API própria |
+
+Exemplos na barra: `IA 2.1/12000` (créditos usados / franquia) e `LM 12/12000` (chamadas usadas / limite de chamadas).
+
+### Conversão custo → crédito (dinheiro)
+
+Cada chamada LLM com **chave RadarZap**:
+
+1. O modelo responde; o sistema estima o custo em USD (`estimatedCost`).
+2. Converte: **1 crédito ≈ US$ 0,01** de custo de LLM.
+3. Debita da carteira e registra no log (`creditWeight`).
+
+| Custo real da chamada | Créditos debitados |
+|----------------------|-------------------|
+| US$ 0,002 (modelo barato, poucos tokens) | 0,2 crédito |
+| US$ 0,01 | 1 crédito |
+| US$ 0,05 (resposta longa ou modelo caro) | 5 créditos |
+
+Resposta curta gasta pouco; conversa longa ou modelo caro gasta mais. **Não há taxa fixa por atendimento.**
+
+### Franquia mensal (pacote incluído no plano)
+
+| Plano | Créditos IA/mês | Chamadas LM/mês (teto) |
+|-------|-----------------|------------------------|
+| Free | 0 | — |
+| Starter | 400 | 400 |
+| Pro | 2.500 | 2.500 |
+| Enterprise | 12.000 | 12.000 |
+
+**Saldo** = franquia do plano + créditos comprados (`purchasedCredits`, recarga futura) − gasto do mês.
+
+LM e IA usam números parecidos no plano, mas medem coisas diferentes: LM conta **quantidade de chamadas**; IA conta **valor proporcional** gasto nessas chamadas (só na chave RadarZap).
+
+### IA Básica vs IA Premium
+
+Na **cobrança real**, o modo importa pouco. Contam:
+
+- chave RadarZap ou chave própria;
+- modelo escolhido;
+- tokens de entrada e saída.
+
+Os badges **~1×** (Básica) e **~2×** (Premium) no painel são **expectativa de planejamento**:
+
+| Módulo | Badge | Significado |
+|--------|-------|-------------|
+| IA Básica | ~1 crédito/atendimento típico | Triagem local + KB muitas vezes **sem LLM** → 0 crédito |
+| IA Premium | ~2 créditos/atendimento típico | Mais turnos conversacionais com LLM → tende a gastar mais |
+
+**Não há multiplicador 2× no débito.** Premium não é cobrado automaticamente em dobro.
+
+### Quando não debita crédito RadarZap
+
+| Situação | Créditos IA | LM |
+|----------|-------------|-----|
+| **Chave própria** (Provedor → API da empresa) | 0 — empresa paga direto ao provedor | Conta chamadas (limites do plano) |
+| **IA Básica** sem LLM (classificador local, KB) | 0 | 0 |
+| **Fallback LLM da IA Básica** (`radarzap-basic-triage`) | Debita — **sempre** chave RadarZap, mesmo se Premium estiver em chave própria | Conta chamada |
+
+### Fluxo de cada chamada LLM (chave RadarZap)
+
+```mermaid
+flowchart TD
+  A[Mensagem do cliente] --> B{Limite LM do plano?}
+  B -->|Não| C[Bloqueia: limite de chamadas]
+  B -->|Sim| D{Saldo IA suficiente?}
+  D -->|Não| E[Bloqueia: carteira esgotada]
+  D -->|Sim| F[Chama LLM]
+  F --> G[Calcula custo real]
+  G --> H[Debita créditos proporcionais]
+  H --> I[Registra em AiUsage e logs do painel]
+```
+
+**Antes** do LLM: verifica limite de chamadas (LM) + saldo da carteira (reserva ~custo típico do modelo).  
+**Depois** do LLM: debita o valor **real** daquela resposta.
+
+Detalhes de bloqueio, aprendizagem e APIs: seções [Carteira e bloqueio](#carteira-e-bloqueio) e seguintes.
 
 ---
 

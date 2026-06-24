@@ -11,6 +11,7 @@ import {
   PanelTop,
 } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
+import { cn } from '@/lib/utils'
 
 const LINKS = [
   { to: '/platform/inbox', label: 'Caixa de Entrada', icon: Inbox, cap: 'inbox:view' },
@@ -27,9 +28,10 @@ const LINKS = [
 interface Props {
   me: AuthUser | null | undefined
   className?: string
+  compact?: boolean
 }
 
-export function InboxAtendimentoNav({ me, className = '' }: Props) {
+export function InboxAtendimentoNav({ me, className = '', compact = true }: Props) {
   const { pathname } = useLocation()
   const visible = LINKS.filter(l => can(me ?? null, l.cap))
 
@@ -37,10 +39,14 @@ export function InboxAtendimentoNav({ me, className = '' }: Props) {
 
   return (
     <nav
-      className={`rounded-xl bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 overflow-hidden ${className}`}
+      className={cn(
+        'bg-[var(--rz-surface-muted)]/60 border border-[var(--rz-border)]/80 overflow-hidden',
+        compact ? 'rounded-lg' : 'rounded-xl',
+        className,
+      )}
       aria-label="Navegação do módulo de atendimento"
     >
-      <div className="flex gap-1 p-1 overflow-x-auto scrollbar-thin">
+      <div className={cn('flex gap-0.5 overflow-x-auto scrollbar-thin', compact ? 'p-0.5' : 'gap-1 p-1')}>
         {visible.map(({ to, label, icon: Icon }) => {
           const active =
             to === '/platform/inbox'
@@ -50,13 +56,15 @@ export function InboxAtendimentoNav({ me, className = '' }: Props) {
             <Link
               key={to}
               to={to}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 whitespace-nowrap ${
+              className={cn(
+                'inline-flex items-center rounded-md font-medium transition-colors shrink-0 whitespace-nowrap border',
+                compact ? 'gap-1 px-2 py-1 text-[11px]' : 'gap-1.5 px-3 py-1.5 rounded-lg text-xs',
                 active
-                  ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30 shadow-sm shadow-brand-500/10'
-                  : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border border-transparent hover:bg-[var(--rz-surface-muted)]'
-              }`}
+                  ? 'bg-brand-500/15 text-brand-400 border-brand-500/30 shadow-sm shadow-brand-500/10'
+                  : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)] border-transparent hover:bg-[var(--rz-surface-muted)]',
+              )}
             >
-              <Icon size={14} aria-hidden />
+              <Icon size={compact ? 12 : 14} aria-hidden />
               {label}
             </Link>
           )
