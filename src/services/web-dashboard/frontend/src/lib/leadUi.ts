@@ -168,6 +168,11 @@ export type OperationalStatKey =
   | 'convertedToday'
   | 'unassigned'
 
+export function canQuickAssumeLead(item: LeadCaptureListItem): boolean {
+  if (item.status === 'converted' || item.status === 'lost' || item.status === 'spam') return false
+  return ['new', 'in_review', 'qualified'].includes(item.status)
+}
+
 export function operationalStatCards(stats: LeadStats | undefined) {
   if (!stats) return []
   const op = stats.operational

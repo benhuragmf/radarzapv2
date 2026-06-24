@@ -548,8 +548,11 @@ export default function Leads() {
                   <LeadKanbanBoard
                     items={capturesData.items}
                     canManage={canManage}
+                    canReply={canReply}
                     selectedId={selectedId}
                     onSelect={setSelectedId}
+                    onAssume={id => openInbox.mutate(id)}
+                    assumingId={pendingInboxId}
                     onStatusChange={(id, status) => {
                       const current = capturesData.items.find(c => c.id === id)
                       if (!current || current.status === status) return

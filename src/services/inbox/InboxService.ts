@@ -1876,7 +1876,7 @@ export class InboxService {
       whatsappMessageId: normalized.whatsappMessageId ?? media?.whatsappMessageId,
     });
 
-    if (isNewContact) {
+    if (isNewContact || isNew) {
       void LeadFormService.getInstance()
         .maybeCaptureWhatsAppInbound(clientId, {
           destinationId: String(dest._id),
@@ -1884,7 +1884,8 @@ export class InboxService {
           phone: dest.identifier,
           name: dest.name || dest.identifier,
           message: displayBody,
-          isNewContact: true,
+          isNewContact,
+          isNewConversation: isNew,
         })
         .catch(err => {
           logger.warn('Falha ao capturar lead WhatsApp inbound', {

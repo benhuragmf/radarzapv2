@@ -25,7 +25,7 @@ describe('LeadFormService.maybeCaptureWhatsAppInbound', () => {
     jest.clearAllMocks();
   });
 
-  it('não cria lead se contato já existia', async () => {
+  it('não cria lead se contato já existia e conversa já aberta', async () => {
     const result = await svc.maybeCaptureWhatsAppInbound(clientId, {
       destinationId: destId,
       conversationId: convId,
@@ -33,9 +33,31 @@ describe('LeadFormService.maybeCaptureWhatsAppInbound', () => {
       name: 'João',
       message: 'Olá',
       isNewContact: false,
+      isNewConversation: false,
     });
     expect(result).toBeNull();
     expect(LeadCapture.create).not.toHaveBeenCalled();
+  });
+
+  it('cria lead de retorno quando contato existe mas conversa é nova', async () => {
+    (LeadCapture.findOne as jest.Mock).mockResolvedValue(null);
+    const formId = new mongoose.Types.ObjectId();
+    (LeadForm.findOne as jest.Mock).mockResolvedValue({ _id: formId, name: 'Entrada WhatsApp (sistema)' });
+    const created = { _id: new mongoose.Types.ObjectId(), status: 'new' };
+    (LeadCapture.create as jest.Mock).mockResolvedValue(created);
+
+    const result = await svc.maybeCaptureWhatsAppInbound(clientId, {
+      destinationId: destId,
+      conversationId: convId,
+      phone: '+5511999999999',
+      name: 'João',
+      message: 'Quero orçamento de novo',
+      isNewContact: false,
+      isNewConversation: true,
+    });
+
+    expect(result).toBe(created);
+    expect(LeadCapture.create).toHaveBeenCalled();
   });
 
   it('cria lead para primeiro contato WhatsApp', async () => {
@@ -52,6 +74,7 @@ describe('LeadFormService.maybeCaptureWhatsAppInbound', () => {
       name: 'Maria',
       message: 'Quero orçamento',
       isNewContact: true,
+      isNewConversation: true,
     });
 
     expect(result).toBe(created);
@@ -81,6 +104,7 @@ describe('LeadFormService.maybeCaptureWhatsAppInbound', () => {
       phone: '+5511888888888',
       name: 'Pedro',
       isNewContact: true,
+      isNewConversation: true,
     });
 
     expect(result).toBe(existing);

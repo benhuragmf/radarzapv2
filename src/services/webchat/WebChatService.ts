@@ -569,7 +569,7 @@ export class WebChatService {
       }
     }
 
-    if (isNewConversation && applied.visitorPhone?.trim() && !destinationId) {
+    if (isNewConversation && applied.visitorPhone?.trim()) {
       const { LeadFormService } = await import('../leads/LeadFormService');
       const messageParts = [applied.contactReason?.trim(), opts.pageTitle?.trim()].filter(Boolean);
       void LeadFormService.getInstance()
@@ -580,7 +580,9 @@ export class WebChatService {
           message: messageParts.length ? messageParts.join(' · ') : undefined,
           pageUrl: opts.pageUrl,
           pageTitle: opts.pageTitle,
-          hadExistingContact: false,
+          hadExistingContact: Boolean(destinationId),
+          isNewConversation: true,
+          destinationId: destinationId ? String(destinationId) : undefined,
         })
         .catch(err => {
           this.serviceLogger.warn('Falha ao capturar lead WebChat', {

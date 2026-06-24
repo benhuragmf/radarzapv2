@@ -18,6 +18,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.11.71] — 2026-06-23
+
+### Leads — retorno WA/WebChat + Assumir no Kanban
+
+- Lead automático quando cliente existente abre nova conversa WhatsApp ou nova sessão WebChat.
+- Assumir atendimento atribui responsável no lead; botão rápido Assumir no hover do Kanban.
+
 ## [2.11.70] — 2026-06-23
 
 ### Leads — WebChat inbound + notificação painel

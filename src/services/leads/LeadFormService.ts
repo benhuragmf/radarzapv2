@@ -943,7 +943,7 @@ export class LeadFormService {
     return capture;
   }
 
-  /** Primeiro contato WhatsApp (número novo) gera LeadCapture com origem whatsapp. */
+  /** Primeiro contato ou retorno (nova conversa) gera LeadCapture WhatsApp. */
   async maybeCaptureWhatsAppInbound(
     clientId: string,
     opts: {
@@ -953,9 +953,14 @@ export class LeadFormService {
       name: string;
       message?: string;
       isNewContact: boolean;
+      isNewConversation: boolean;
     },
   ): Promise<ILeadCapture | null> {
-    if (!opts.isNewContact) return null;
+    if (!opts.isNewContact && !opts.isNewConversation) return null;
+
+    const historyMessage = opts.isNewContact
+      ? 'Capturado via WhatsApp (primeiro contato)'
+      : 'Retorno via WhatsApp (nova conversa)';
 
     return this.tryCreateInboundLead(clientId, {
       origin: 'whatsapp',
@@ -965,11 +970,11 @@ export class LeadFormService {
       message: opts.message,
       destinationId: new mongoose.Types.ObjectId(opts.destinationId),
       inboxConversationId: new mongoose.Types.ObjectId(opts.conversationId),
-      historyMessage: 'Capturado via WhatsApp (primeiro contato)',
+      historyMessage,
     });
   }
 
-  /** Nova sessão WebChat com telefone desconhecido gera LeadCapture com origem webchat. */
+  /** Nova sessão WebChat gera lead (primeiro contato ou retorno). */
   async maybeCaptureWebChatSession(
     clientId: string,
     opts: {
@@ -980,9 +985,15 @@ export class LeadFormService {
       pageUrl?: string;
       pageTitle?: string;
       hadExistingContact: boolean;
+      isNewConversation: boolean;
+      destinationId?: string;
     },
   ): Promise<ILeadCapture | null> {
-    if (opts.hadExistingContact) return null;
+    if (!opts.isNewConversation) return null;
+
+    const historyMessage = opts.hadExistingContact
+      ? 'Retorno via Chat do site (nova sessão)'
+      : 'Capturado via Chat do site (primeiro contato)';
 
     return this.tryCreateInboundLead(clientId, {
       origin: 'webchat',
@@ -993,7 +1004,11 @@ export class LeadFormService {
       webchatConversationId: opts.webchatConversationId,
       sourceUrl: opts.pageUrl,
       pageTitle: opts.pageTitle,
-      historyMessage: 'Capturado via Chat do site (primeiro contato)',
+      destinationId:
+        opts.destinationId && mongoose.Types.ObjectId.isValid(opts.destinationId)
+          ? new mongoose.Types.ObjectId(opts.destinationId)
+          : undefined,
+      historyMessage,
     });
   }
 
@@ -1356,6 +1371,7 @@ export class LeadFormService {
 
     const webchatId = capture.metadata?.webchatConversationId?.trim();
     if (webchatId) {
+      let changed = false;
       if (['new', 'in_review', 'qualified'].includes(capture.status)) {
         capture.status = 'in_progress';
         capture.history = appendLeadHistory(
@@ -1364,12 +1380,17 @@ export class LeadFormService {
           'Atendimento WebChat aberto a partir do lead',
           { userId },
         );
-        await capture.save();
+        changed = true;
       }
-      return { conversationId: `wc:${webchatId}`, created: false, assigned: false };
+      if (this.assignCaptureToUser(capture, userId)) changed = true;
+      if (changed) await capture.save();
+      return { conversationId: `wc:${webchatId}`, created: false, assigned: true };
     }
 
     if (capture.inboxConversationId) {
+      if (this.assignCaptureToUser(capture, userId)) {
+        await capture.save();
+      }
       return {
         conversationId: String(capture.inboxConversationId),
         created: false,
@@ -1416,6 +1437,7 @@ export class LeadFormService {
     if (['new', 'in_review', 'qualified'].includes(capture.status)) {
       capture.status = 'in_progress';
     }
+    this.assignCaptureToUser(capture, userId);
     capture.history = appendLeadHistory(capture.history, 'sent_to_inbox', 'Enviado para atendimento no Inbox', { userId });
     await capture.save();
 
@@ -1433,6 +1455,13 @@ export class LeadFormService {
     return members
       .filter(m => m.userId && m.linked)
       .map(m => ({ userId: m.userId as string, displayName: m.displayName }));
+  }
+
+  private assignCaptureToUser(capture: ILeadCapture, userId: string): boolean {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) return false;
+    if (capture.assignedUserId?.toString() === userId) return false;
+    capture.assignedUserId = new mongoose.Types.ObjectId(userId);
+    return true;
   }
 
   private async resolveUserNames(userIds: string[]): Promise<Map<string, string>> {

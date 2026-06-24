@@ -1,6 +1,6 @@
 # Leads — formulário público
 
-**Versão:** 2.11.70
+**Versão:** 2.11.71
 
 ## Central de Entrada Comercial (2.11.68+)
 
@@ -30,6 +30,13 @@ Nova sessão no widget com **telefone que não está em Contatos** gera `LeadCap
 ### Notificação no painel (2.11.70)
 
 Toda captura (formulário, WhatsApp, WebChat, manual) emite evento `lead:new_entry` no sino. A página Leads atualiza a lista em tempo real via socket.
+
+### Retorno e triagem (2.11.71)
+
+- **WhatsApp:** contato existente que inicia **nova conversa** (após encerramento anterior) gera lead de retorno; conversa já aberta **não** duplica.
+- **WebChat:** nova sessão com telefone conhecido também gera lead de retorno.
+- **Assumir atendimento** atribui o lead ao usuário logado (`assignedUserId`).
+- Kanban: botão **Assumir** no hover do card.
 
 ## Objetivo
 
