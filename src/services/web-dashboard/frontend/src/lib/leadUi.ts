@@ -97,13 +97,15 @@ export function getRecommendedAction(item: LeadCaptureListItem): RecommendedActi
       primaryLabel: 'Ver contato',
     }
   }
-  if (item.inboxConversationId) {
+  if (item.inboxConversationId || item.webchatConversationId) {
     return {
       kind: 'inbox',
       title: 'Atendimento em andamento',
       description: item.assignedUserName
         ? `Responsável: ${item.assignedUserName}`
-        : 'Existe conversa aberta no Inbox.',
+        : item.webchatConversationId
+          ? 'Conversa aberta no Chat do site.'
+          : 'Existe conversa aberta no Inbox.',
       primaryLabel: 'Abrir atendimento',
     }
   }
@@ -140,10 +142,12 @@ export function getRecommendedAction(item: LeadCaptureListItem): RecommendedActi
 }
 
 export function getInboxStateLabel(item: LeadCaptureListItem): string {
-  if (item.inboxConversationId) {
+  if (item.inboxConversationId || item.webchatConversationId) {
     return item.assignedUserName
       ? `Em atendimento com ${item.assignedUserName}`
-      : 'Atendimento aberto'
+      : item.webchatConversationId
+        ? 'Chat do site aberto'
+        : 'Atendimento aberto'
   }
   if (item.status === 'in_progress') return 'Aguardando atendente'
   return 'Sem atendimento aberto'

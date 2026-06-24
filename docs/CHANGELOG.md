@@ -16,6 +16,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.11.70] — 2026-06-23
+
+### Leads — WebChat inbound + notificação painel
+
+- Nova sessão WebChat (telefone desconhecido) gera lead com origem `webchat` e vínculo `wc:` no Inbox.
+- Evento `lead:new_entry` no sino; página Leads atualiza via socket.
+- E2E Leads alinhado às métricas operacionais.
+
 ## [2.11.69] — 2026-06-23
 
 ### Leads — WhatsApp inbound + captura manual

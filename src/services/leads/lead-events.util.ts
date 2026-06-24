@@ -1,6 +1,8 @@
-import type { LeadHistoryEntry, LeadHistoryKind } from '@/types/lead-form';
+import type { LeadCaptureOrigin, LeadHistoryEntry, LeadHistoryKind } from '@/types/lead-form';
+import { LEAD_CAPTURE_ORIGIN_LABEL } from '@/types/lead-form';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import type { WebhookEvent } from '@/models/WebhookEndpoint';
+import { emitPanelEvent } from '@/services/inbox/PanelNotifications';
 
 export function appendLeadHistory(
   history: LeadHistoryEntry[] | undefined,
@@ -34,4 +36,20 @@ export function emitLeadWebhook(
   const event = LEAD_WEBHOOK_MAP[kind];
   if (!event) return;
   void WebhookDispatcherService.getInstance().emit(clientId, event, data);
+}
+
+/** Sino do painel — nova entrada na Central de Leads. */
+export function notifyNewLeadPanelEvent(
+  clientId: string,
+  capture: { id: string; name: string; origin: LeadCaptureOrigin; phone?: string },
+): void {
+  const originLabel = LEAD_CAPTURE_ORIGIN_LABEL[capture.origin] ?? capture.origin;
+  emitPanelEvent(clientId, {
+    id: `lead-${capture.id}-${Date.now()}`,
+    type: 'lead:new_entry',
+    title: 'Nova entrada comercial',
+    body: `${capture.name} · ${originLabel}`,
+    href: '/platform/leads',
+    createdAt: new Date().toISOString(),
+  });
 }

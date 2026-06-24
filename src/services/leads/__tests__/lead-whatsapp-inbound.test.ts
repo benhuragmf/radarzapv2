@@ -10,6 +10,9 @@ jest.mock('@/services/integrations/WebhookDispatcherService', () => ({
     getInstance: () => ({ emit: jest.fn() }),
   },
 }));
+jest.mock('@/services/inbox/PanelNotifications', () => ({
+  emitPanelEvent: jest.fn(),
+}));
 
 const clientId = new mongoose.Types.ObjectId().toString();
 const destId = new mongoose.Types.ObjectId().toString();

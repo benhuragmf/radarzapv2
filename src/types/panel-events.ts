@@ -16,7 +16,8 @@ export type PanelEventType =
   | 'billing:messages_quota_exceeded'
   | 'ai:quota_exceeded'
   | 'ai:quota_low'
-  | 'system:critical_config';
+  | 'system:critical_config'
+  | 'lead:new_entry';
 
 export interface PanelEventPayload {
   id: string;

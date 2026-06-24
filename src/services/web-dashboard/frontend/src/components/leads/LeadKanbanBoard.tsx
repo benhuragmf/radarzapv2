@@ -106,6 +106,9 @@ export function LeadKanbanBoard({ items, canManage, selectedId, onSelect, onStat
                         )}
                         {item.linkedContactName && <Badge label="Contato" variant="green" />}
                         {item.inboxConversationId && <Badge label="Inbox" variant="blue" />}
+                        {item.webchatConversationId && !item.inboxConversationId && (
+                          <Badge label="Chat site" variant="blue" />
+                        )}
                         {item.possibleDuplicate && <Badge label="Dup." variant="yellow" />}
                       </div>
                     </button>

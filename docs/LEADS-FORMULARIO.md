@@ -1,6 +1,6 @@
 # Leads — formulário público
 
-**Versão:** 2.11.69
+**Versão:** 2.11.70
 
 ## Central de Entrada Comercial (2.11.68+)
 
@@ -22,6 +22,14 @@ Quando um **número novo** envia a primeira mensagem WhatsApp:
 
 - Botão **Capturar lead** na aba Capturas (`POST /leads/captures`).
 - Formulário sistema **Captura manual (sistema)**; origem padrão `manual`.
+
+### WebChat → Lead (2.11.70)
+
+Nova sessão no widget com **telefone que não está em Contatos** gera `LeadCapture` com `origin: webchat`. Vínculo em `metadata.webchatConversationId`. **Assumir atendimento** abre `wc:{id}` no Inbox unificado.
+
+### Notificação no painel (2.11.70)
+
+Toda captura (formulário, WhatsApp, WebChat, manual) emite evento `lead:new_entry` no sino. A página Leads atualiza a lista em tempo real via socket.
 
 ## Objetivo
 
@@ -63,7 +71,8 @@ Body JSON: `{ name, phone, email?, message?, sourceUrl?, pageTitle? }`
 | DELETE | `/leads/forms/:id` | Remove formulário |
 | GET | `/leads/stats` | Métricas e funil |
 | GET | `/leads/segments-summary` | Listas com contagem de leads |
-| GET | `/leads/captures` | Lista leads (filtros: status, origem, formId, groupId, período, consentimento) |
+| GET | `/leads/captures` | Lista leads (filtros: status, `openOnly`, `origins`, origem, formId, responsável…) |
+| POST | `/leads/captures` | Captura manual (2.11.69) |
 | GET | `/leads/captures/:id` | Detalhe |
 | PATCH | `/leads/captures/:id` | Status / observações |
 | POST | `/leads/captures/:id/convert` | Converter ou vincular a contato |

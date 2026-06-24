@@ -692,6 +692,13 @@ export async function setupInboxMocks(
           topOriginCount: 1,
           byStatus: { new: 1, in_review: 0, in_progress: 0, qualified: 0, converted: 0, lost: 0, spam: 0 },
           funnel: [],
+          operational: {
+            newOpen: 1,
+            whatsappWaiting: 0,
+            siteWaiting: 1,
+            convertedToday: 0,
+            unassigned: 1,
+          },
         }),
       });
     }

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { can, getMe } from '../../lib/auth'
+import { usePanelSocket } from '../../hooks/usePanelSocket'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { LeadIntegrationsPanel } from '../../components/leads/LeadIntegrationsPanel'
 import { LeadFormFieldsEditor } from '../../components/leads/LeadFormFieldsEditor'
@@ -188,6 +189,12 @@ export default function Leads() {
     void qc.invalidateQueries({ queryKey: ['leads-stats'] })
     void qc.invalidateQueries({ queryKey: ['leads-segments-summary'] })
   }
+
+  usePanelSocket(canView && tab === 'captures', ev => {
+    if (ev.type === 'lead:new_entry') {
+      invalidateLeads()
+    }
+  })
 
   const createForm = useMutation({
     mutationFn: (name: string) => api.post<LeadFormListItem>('/leads/forms', { name }),

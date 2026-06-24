@@ -37,11 +37,12 @@ import {
   generateLeadFormPublicKey,
   sanitizeLeadText,
 } from './lead-form-token.util';
-import { appendLeadHistory, emitLeadWebhook } from './lead-events.util';
+import { appendLeadHistory, emitLeadWebhook, notifyNewLeadPanelEvent } from './lead-events.util';
 
 const logger = createServiceLogger('LeadFormService');
 
 const SYSTEM_FORM_WHATSAPP_NAME = 'Entrada WhatsApp (sistema)';
+const SYSTEM_FORM_WEBCHAT_NAME = 'Entrada WebChat (sistema)';
 const SYSTEM_FORM_MANUAL_NAME = 'Captura manual (sistema)';
 const OPEN_LEAD_STATUSES: LeadCaptureStatus[] = ['new', 'in_review', 'in_progress', 'qualified'];
 
@@ -548,6 +549,13 @@ export class LeadFormService {
       status: capture.status,
     });
 
+    notifyNewLeadPanelEvent(clientId, {
+      id: String(capture._id),
+      name,
+      origin: leadOrigin,
+      phone: e164,
+    });
+
     return {
       success: true,
       captureId: String(capture._id),
@@ -804,9 +812,17 @@ export class LeadFormService {
     return item;
   }
 
-  private async ensureSystemForm(clientId: string, kind: 'whatsapp' | 'manual'): Promise<ILeadForm> {
+  private async ensureSystemForm(
+    clientId: string,
+    kind: 'whatsapp' | 'manual' | 'webchat',
+  ): Promise<ILeadForm> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
-    const name = kind === 'whatsapp' ? SYSTEM_FORM_WHATSAPP_NAME : SYSTEM_FORM_MANUAL_NAME;
+    const name =
+      kind === 'whatsapp'
+        ? SYSTEM_FORM_WHATSAPP_NAME
+        : kind === 'webchat'
+          ? SYSTEM_FORM_WEBCHAT_NAME
+          : SYSTEM_FORM_MANUAL_NAME;
     let form = await LeadForm.findOne({ clientId: clientOid, name });
     if (!form) {
       form = await LeadForm.create({
@@ -823,6 +839,110 @@ export class LeadFormService {
     return form;
   }
 
+  /** Cria lead operacional (WhatsApp/WebChat) se elegível e ainda não existe aberto. */
+  private async tryCreateInboundLead(
+    clientId: string,
+    opts: {
+      origin: LeadCaptureOrigin;
+      formKind: 'whatsapp' | 'webchat';
+      phone: string;
+      name: string;
+      message?: string;
+      destinationId?: mongoose.Types.ObjectId;
+      inboxConversationId?: mongoose.Types.ObjectId;
+      webchatConversationId?: string;
+      sourceUrl?: string;
+      pageTitle?: string;
+      historyMessage: string;
+    },
+  ): Promise<ILeadCapture | null> {
+    const e164 = normalizeContactPhoneE164(opts.phone) || opts.phone.trim();
+    if (!e164 || e164.startsWith('email:')) return null;
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const orConditions: Record<string, unknown>[] = [{ phone: e164 }];
+    if (opts.destinationId) orConditions.push({ destinationId: opts.destinationId });
+
+    const existingOpen = await LeadCapture.findOne({
+      clientId: clientOid,
+      $or: orConditions,
+      status: { $in: OPEN_LEAD_STATUSES },
+    });
+    if (existingOpen) {
+      let changed = false;
+      if (opts.inboxConversationId && !existingOpen.inboxConversationId) {
+        existingOpen.inboxConversationId = opts.inboxConversationId;
+        changed = true;
+      }
+      if (opts.destinationId && !existingOpen.destinationId) {
+        existingOpen.destinationId = opts.destinationId;
+        changed = true;
+      }
+      if (
+        opts.webchatConversationId &&
+        existingOpen.metadata?.webchatConversationId !== opts.webchatConversationId
+      ) {
+        existingOpen.metadata = {
+          ...(existingOpen.metadata ?? {}),
+          webchatConversationId: opts.webchatConversationId,
+        };
+        changed = true;
+      }
+      if (changed) await existingOpen.save();
+      return existingOpen;
+    }
+
+    const form = await this.ensureSystemForm(clientId, opts.formKind);
+    const captureName = sanitizeLeadText(opts.name, 120) || e164;
+    const message = sanitizeLeadText(opts.message, 2000) || undefined;
+    const metadata: Record<string, string> | undefined = opts.webchatConversationId
+      ? { webchatConversationId: opts.webchatConversationId }
+      : undefined;
+
+    const capture = await LeadCapture.create({
+      clientId: clientOid,
+      formId: form._id,
+      name: captureName,
+      phone: e164,
+      message,
+      sourceUrl: opts.sourceUrl,
+      pageTitle: opts.pageTitle,
+      origin: opts.origin,
+      status: 'new',
+      destinationId: opts.destinationId,
+      inboxConversationId: opts.inboxConversationId,
+      metadata,
+      history: appendLeadHistory(undefined, 'captured', opts.historyMessage),
+    });
+
+    logger.info('Lead capturado operacionalmente', {
+      clientId,
+      captureId: capture._id,
+      origin: opts.origin,
+    });
+
+    emitLeadWebhook(clientId, 'captured', {
+      capture_id: String(capture._id),
+      form_id: String(form._id),
+      form_name: form.name,
+      name: captureName,
+      phone: e164,
+      origin: opts.origin,
+      status: capture.status,
+      inbox_conversation_id: opts.inboxConversationId ? String(opts.inboxConversationId) : undefined,
+      webchat_conversation_id: opts.webchatConversationId,
+    });
+
+    notifyNewLeadPanelEvent(clientId, {
+      id: String(capture._id),
+      name: captureName,
+      origin: opts.origin,
+      phone: e164,
+    });
+
+    return capture;
+  }
+
   /** Primeiro contato WhatsApp (número novo) gera LeadCapture com origem whatsapp. */
   async maybeCaptureWhatsAppInbound(
     clientId: string,
@@ -837,67 +957,44 @@ export class LeadFormService {
   ): Promise<ILeadCapture | null> {
     if (!opts.isNewContact) return null;
 
-    const e164 = normalizeContactPhoneE164(opts.phone) || opts.phone.trim();
-    if (!e164 || e164.startsWith('email:')) return null;
-
-    const clientOid = new mongoose.Types.ObjectId(clientId);
-    const destOid = new mongoose.Types.ObjectId(opts.destinationId);
-    const convOid = new mongoose.Types.ObjectId(opts.conversationId);
-
-    const existingOpen = await LeadCapture.findOne({
-      clientId: clientOid,
-      $or: [{ destinationId: destOid }, { phone: e164 }],
-      status: { $in: OPEN_LEAD_STATUSES },
-    });
-    if (existingOpen) {
-      let changed = false;
-      if (!existingOpen.inboxConversationId) {
-        existingOpen.inboxConversationId = convOid;
-        changed = true;
-      }
-      if (!existingOpen.destinationId) {
-        existingOpen.destinationId = destOid;
-        changed = true;
-      }
-      if (changed) await existingOpen.save();
-      return existingOpen;
-    }
-
-    const form = await this.ensureSystemForm(clientId, 'whatsapp');
-    const captureName = sanitizeLeadText(opts.name, 120) || e164;
-    const message = sanitizeLeadText(opts.message, 2000) || undefined;
-
-    const capture = await LeadCapture.create({
-      clientId: clientOid,
-      formId: form._id,
-      name: captureName,
-      phone: e164,
-      message,
+    return this.tryCreateInboundLead(clientId, {
       origin: 'whatsapp',
-      status: 'new',
-      destinationId: destOid,
-      inboxConversationId: convOid,
-      history: appendLeadHistory(undefined, 'captured', 'Capturado via WhatsApp (primeiro contato)'),
+      formKind: 'whatsapp',
+      phone: opts.phone,
+      name: opts.name,
+      message: opts.message,
+      destinationId: new mongoose.Types.ObjectId(opts.destinationId),
+      inboxConversationId: new mongoose.Types.ObjectId(opts.conversationId),
+      historyMessage: 'Capturado via WhatsApp (primeiro contato)',
     });
+  }
 
-    logger.info('Lead capturado via WhatsApp inbound', {
-      clientId,
-      captureId: capture._id,
-      destinationId: opts.destinationId,
+  /** Nova sessão WebChat com telefone desconhecido gera LeadCapture com origem webchat. */
+  async maybeCaptureWebChatSession(
+    clientId: string,
+    opts: {
+      webchatConversationId: string;
+      phone: string;
+      name: string;
+      message?: string;
+      pageUrl?: string;
+      pageTitle?: string;
+      hadExistingContact: boolean;
+    },
+  ): Promise<ILeadCapture | null> {
+    if (opts.hadExistingContact) return null;
+
+    return this.tryCreateInboundLead(clientId, {
+      origin: 'webchat',
+      formKind: 'webchat',
+      phone: opts.phone,
+      name: opts.name,
+      message: opts.message,
+      webchatConversationId: opts.webchatConversationId,
+      sourceUrl: opts.pageUrl,
+      pageTitle: opts.pageTitle,
+      historyMessage: 'Capturado via Chat do site (primeiro contato)',
     });
-
-    emitLeadWebhook(clientId, 'captured', {
-      capture_id: String(capture._id),
-      form_id: String(form._id),
-      form_name: form.name,
-      name: captureName,
-      phone: e164,
-      origin: 'whatsapp',
-      status: capture.status,
-      inbox_conversation_id: opts.conversationId,
-    });
-
-    return capture;
   }
 
   async createManualCapture(
@@ -969,6 +1066,13 @@ export class LeadFormService {
       email: email || null,
       origin,
       status: capture.status,
+    });
+
+    notifyNewLeadPanelEvent(clientId, {
+      id: String(capture._id),
+      name,
+      origin,
+      phone: e164,
     });
 
     const item = await this.getCapture(clientId, String(capture._id));
@@ -1250,6 +1354,21 @@ export class LeadFormService {
     });
     if (!capture) throw new Error('Lead não encontrado');
 
+    const webchatId = capture.metadata?.webchatConversationId?.trim();
+    if (webchatId) {
+      if (['new', 'in_review', 'qualified'].includes(capture.status)) {
+        capture.status = 'in_progress';
+        capture.history = appendLeadHistory(
+          capture.history,
+          'sent_to_inbox',
+          'Atendimento WebChat aberto a partir do lead',
+          { userId },
+        );
+        await capture.save();
+      }
+      return { conversationId: `wc:${webchatId}`, created: false, assigned: false };
+    }
+
     if (capture.inboxConversationId) {
       return {
         conversationId: String(capture.inboxConversationId),
@@ -1407,6 +1526,7 @@ export class LeadFormService {
       inboxConversationId: capture.inboxConversationId
         ? String(capture.inboxConversationId)
         : undefined,
+      webchatConversationId: capture.metadata?.webchatConversationId?.trim() || undefined,
       contactGroupIds: groupIds.length ? groupIds : undefined,
       contactGroupNames: groupIds.map(id => groupNameById.get(id) ?? id),
       assignedUserId: capture.assignedUserId ? String(capture.assignedUserId) : undefined,

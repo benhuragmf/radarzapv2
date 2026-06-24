@@ -17,6 +17,13 @@ const MOCK_STATS = {
     { status: 'converted', count: 1, label: 'Convertido' },
     { status: 'lost', count: 0, label: 'Perdido' },
   ],
+  operational: {
+    newOpen: 1,
+    whatsappWaiting: 0,
+    siteWaiting: 1,
+    convertedToday: 0,
+    unassigned: 2,
+  },
 };
 
 /** Leads — stats, kanban, integração (mock API). */
@@ -53,15 +60,15 @@ test.describe('Leads — painel expandido (mock)', () => {
 
   test('carrega métricas e aba Capturas', async ({ page }) => {
     await page.goto('/platform/leads');
-    await expect(page.getByText('Total de leads')).toBeVisible();
-    await expect(page.locator('p.text-xl.font-semibold.tabular-nums').first()).toHaveText('3');
+    await expect(page.getByText('Novos')).toBeVisible();
+    await expect(page.getByText('WhatsApp aguardando')).toBeVisible();
     await expect(page.getByText('Ana Lead')).toBeVisible();
   });
 
   test('alterna para Kanban', async ({ page }) => {
     await page.goto('/platform/leads');
     await page.getByRole('button', { name: /Kanban/i }).click();
-    await expect(page.getByText('1 lead(s)')).toBeVisible();
+    await expect(page.getByText(/entrada(s)? comercial(is)?/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /Ana Lead/i })).toBeVisible();
   });
 

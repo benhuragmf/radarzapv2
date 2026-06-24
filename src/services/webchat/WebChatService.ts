@@ -501,6 +501,7 @@ export class WebChatService {
 
     let visitorToken = opts.visitorToken?.trim();
     let conversation: IWebChatConversation | null = null;
+    let isNewConversation = false;
 
     if (visitorToken) {
       conversation = await this.resolveVisitorToken(visitorToken);
@@ -511,6 +512,7 @@ export class WebChatService {
 
     if (!conversation) {
       visitorToken = generateWebChatVisitorToken();
+      isNewConversation = true;
       conversation = await WebChatConversation.create({
         clientId: widget.clientId,
         widgetId: widget._id,
@@ -565,6 +567,27 @@ export class WebChatService {
         Object.assign(conversation, patch);
         await conversation.save();
       }
+    }
+
+    if (isNewConversation && applied.visitorPhone?.trim() && !destinationId) {
+      const { LeadFormService } = await import('../leads/LeadFormService');
+      const messageParts = [applied.contactReason?.trim(), opts.pageTitle?.trim()].filter(Boolean);
+      void LeadFormService.getInstance()
+        .maybeCaptureWebChatSession(String(widget.clientId), {
+          webchatConversationId: String(conversation._id),
+          phone: applied.visitorPhone,
+          name: applied.visitorName?.trim() || applied.visitorPhone,
+          message: messageParts.length ? messageParts.join(' · ') : undefined,
+          pageUrl: opts.pageUrl,
+          pageTitle: opts.pageTitle,
+          hadExistingContact: false,
+        })
+        .catch(err => {
+          this.serviceLogger.warn('Falha ao capturar lead WebChat', {
+            clientId: String(widget.clientId),
+            error: (err as Error).message,
+          });
+        });
     }
 
     const messages = await WebChatMessage.find({ conversationId: conversation._id })

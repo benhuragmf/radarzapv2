@@ -251,6 +251,7 @@ export interface LeadCaptureListItem {
   destinationId?: string;
   linkedContactName?: string;
   inboxConversationId?: string;
+  webchatConversationId?: string;
   contactGroupIds?: string[];
   contactGroupNames?: string[];
   assignedUserId?: string;
