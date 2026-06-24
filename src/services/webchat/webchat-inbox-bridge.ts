@@ -15,6 +15,10 @@ export type InboxWebChatListRow = {
   status: string;
   departmentName?: string;
   departmentId?: string;
+  departmentMenuKey?: string;
+  departmentBadgeLabel?: string;
+  departmentClientVisible?: boolean;
+  departmentInternalRankLabel?: string;
   assignedUserId?: string;
   assignedUserName?: string;
   suggestedUserId?: string;

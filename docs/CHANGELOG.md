@@ -22,6 +22,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.80] — 2026-06-21
+
+### Inbox — badge por setor + fix numeração Menu WhatsApp
+
+- Badge na lista alinhado a **Setores**: nome do setor (público) ou **2ª instância** (interno); tags empilhadas ao lado do status.
+- **Menu 1,2,3…** só para setores **ativos** e públicos; internos usam `i1`; inativos liberam número (`o1`).
+- Reparo automático ao abrir Setores/Inbox; fix `clientOid` duplicado em `listConversations`.
+
+---
+
 ## [2.11.79] — 2026-06-21
 
 ### Inbox — badge Lead/Comercial na lista (correção UX)

@@ -103,6 +103,13 @@ import {
   formatInternalRankLabel,
   INBOX_INTERNAL_RANK_MIN,
 } from '@/types/inbox-department';
+import { departmentBadgeFieldsFrom } from '@/services/inbox/inbox-department-badge.util';
+import {
+  buildRepairedMenuKeyPlan,
+  departmentMenuKeysNeedRepair,
+  nextInternalMenuKeyFrom,
+  nextPublicMenuKeyFrom,
+} from '@/services/inbox/inbox-department-menu-key.util';
 import { createServiceLogger } from '@/utils/logger';
 import {
   ensureInboxTicketPublicAccessToken,
@@ -250,11 +257,38 @@ export class InboxService {
   }
 
   async ensureDepartments(clientId: string) {
+    await this.repairDepartmentMenuKeysIfNeeded(clientId);
     return loadActiveDepartments(clientId);
+  }
+
+  /** Corrige menuKey: internos usam i1,i2…; públicos 1,2,3… sem buracos por setor interno. */
+  async repairDepartmentMenuKeysIfNeeded(clientId: string): Promise<boolean> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const all = await InboxDepartment.find({ clientId: clientOid }).sort({ sortOrder: 1, createdAt: 1 });
+    if (all.length === 0 || !departmentMenuKeysNeedRepair(all)) return false;
+
+    const plan = buildRepairedMenuKeyPlan(all);
+
+    // menuKey maxlength=8 — chaves temporárias curtas (z0, z1…) para não colidir no índice único
+    for (let i = 0; i < all.length; i++) {
+      all[i].menuKey = `z${i}`;
+    }
+    await Promise.all(all.map(d => d.save()));
+
+    for (const dept of all) {
+      const nextKey = plan.get(String(dept._id));
+      if (nextKey) dept.menuKey = nextKey;
+    }
+    await Promise.all(all.map(d => d.save()));
+    logger.info('Menu keys de setores reparados', { clientId, count: all.length });
+    return true;
   }
 
   /** Lista setores para o painel — admins veem todos; atendentes só os permitidos + alvos de transferência. */
   async listDepartmentsForUser(clientId: string, userId: string, opts?: { all?: boolean }) {
+    if (opts?.all) {
+      await this.repairDepartmentMenuKeysIfNeeded(clientId);
+    }
     const depts = await loadActiveDepartments(clientId);
     const visibility = await this.departmentVisibility(clientId, userId);
     const isAdmin = !visibility.restricted;
@@ -610,43 +644,41 @@ export class InboxService {
     };
   }
 
-  /** Flag + rótulo do setor Lead/Comercial para badge na lista do Inbox. */
-  private async attachLeadEntryMeta<T extends Record<string, unknown>>(
-    clientId: string,
+  /** Metadados do setor (público ou interno) para badge na lista do Inbox. */
+  private attachDepartmentBadgeMeta<T extends Record<string, unknown>>(
     rows: T[],
-  ): Promise<(T & { isLeadEntry?: boolean; leadSectorLabel?: string })[]> {
-    if (rows.length === 0) return rows;
-
-    const clientOid = new mongoose.Types.ObjectId(clientId);
-    const convOids = rows
-      .map(r => r._id)
-      .filter(Boolean)
-      .map(id => new mongoose.Types.ObjectId(String(id)));
-
-    const captures =
-      convOids.length > 0
-        ? await LeadCapture.find({
-            clientId: clientOid,
-            inboxConversationId: { $in: convOids },
-          })
-            .select('inboxConversationId')
-            .lean()
-        : [];
-
-    const leadConvSet = new Set(captures.map(c => String(c.inboxConversationId)));
-
+    deptById: Map<string, Pick<IInboxDepartment, 'name' | 'clientVisible' | 'internalRank'>>,
+    leadConvSet?: Set<string>,
+  ): (T & {
+    departmentName?: string
+    departmentBadgeLabel?: string
+    departmentClientVisible?: boolean
+    departmentInternalRank?: number
+    departmentInternalRankLabel?: string
+    isLeadEntry?: boolean
+  })[] {
     return rows.map(row => {
-      const deptName =
-        typeof row.departmentName === 'string' ? row.departmentName.trim() : undefined;
-      const isLeadDept = deptName ? isLeadInboxDepartment(deptName) : false;
-      const hasCapture = leadConvSet.has(String(row._id));
-      const isLeadEntry = hasCapture || isLeadDept;
-      if (!isLeadEntry) return row;
+      const deptId = row.departmentId ? String(row.departmentId) : undefined
+      const dept = deptId ? deptById.get(deptId) : undefined
+      const next = { ...row } as T & {
+        departmentName?: string
+        departmentBadgeLabel?: string
+        departmentClientVisible?: boolean
+        departmentInternalRank?: number
+        departmentInternalRankLabel?: string
+        isLeadEntry?: boolean
+      }
 
-      const leadSectorLabel =
-        isLeadDept && deptName ? deptName : hasCapture ? 'Comercial' : deptName || 'Comercial';
-      return { ...row, isLeadEntry: true, leadSectorLabel };
-    });
+      if (dept) {
+        Object.assign(next, departmentBadgeFieldsFrom(dept));
+      }
+
+      if (leadConvSet?.has(String(row._id))) {
+        next.isLeadEntry = true
+      }
+
+      return next
+    })
   }
 
   private notifyMessage(clientId: string, conversationId: string): void {
@@ -783,22 +815,17 @@ export class InboxService {
   }
 
   private async nextPublicMenuKey(clientOid: mongoose.Types.ObjectId, excludeId?: string): Promise<string> {
-    const depts = await InboxDepartment.find({ clientId: clientOid }).select('menuKey _id').lean();
-    const nums = depts
-      .filter(d => !excludeId || String(d._id) !== excludeId)
-      .map(d => parseInt(d.menuKey, 10))
-      .filter(n => !Number.isNaN(n));
-    return String((nums.length ? Math.max(...nums) : 0) + 1);
+    const depts = await InboxDepartment.find({ clientId: clientOid })
+      .select('menuKey _id clientVisible isActive')
+      .lean();
+    return nextPublicMenuKeyFrom(depts, excludeId);
   }
 
   private async nextInternalMenuKey(clientOid: mongoose.Types.ObjectId, excludeId?: string): Promise<string> {
-    const depts = await InboxDepartment.find({ clientId: clientOid }).select('menuKey _id').lean();
-    const nums = depts
-      .filter(d => !excludeId || String(d._id) !== excludeId)
-      .map(d => /^i(\d+)$/i.exec(d.menuKey)?.[1])
-      .filter(Boolean)
-      .map(n => parseInt(n!, 10));
-    return `i${(nums.length ? Math.max(...nums) : 0) + 1}`;
+    const depts = await InboxDepartment.find({ clientId: clientOid })
+      .select('menuKey _id clientVisible isActive')
+      .lean();
+    return nextInternalMenuKeyFrom(depts, excludeId);
   }
 
   private async assertUserCanAccessDepartment(
@@ -2653,8 +2680,25 @@ export class InboxService {
       .lean();
 
     const deptIds = [...new Set(rows.map(r => r.departmentId?.toString()).filter(Boolean))];
-    const depts = await InboxDepartment.find({ _id: { $in: deptIds } }).lean();
-    const deptMap = new Map(depts.map(d => [String(d._id), d.name]));
+    const depts = await InboxDepartment.find({ _id: { $in: deptIds } })
+      .select('name clientVisible internalRank menuKey')
+      .lean();
+    const deptMap = new Map(depts.map(d => [String(d._id), d]));
+
+    const convOids = rows
+      .map(r => r._id)
+      .filter(Boolean)
+      .map(id => new mongoose.Types.ObjectId(String(id)));
+    const captures =
+      convOids.length > 0
+        ? await LeadCapture.find({
+            clientId: clientOid,
+            inboxConversationId: { $in: convOids },
+          })
+            .select('inboxConversationId')
+            .lean()
+        : [];
+    const leadConvSet = new Set(captures.map(c => String(c.inboxConversationId)));
 
     const agentIds = [
       ...new Set(
@@ -2671,14 +2715,10 @@ export class InboxService {
       ]),
     );
 
-    const rowsWithDept = rows.map(r => ({
-      ...r,
-      departmentName: r.departmentId ? deptMap.get(String(r.departmentId)) : undefined,
-    }));
-    const rowsWithLead = await this.attachLeadEntryMeta(clientId, rowsWithDept);
+    const rowsWithDept = this.attachDepartmentBadgeMeta(rows, deptMap, leadConvSet);
 
     const enriched = await Promise.all(
-      rowsWithLead.map(r =>
+      rowsWithDept.map(r =>
         this.enrichConversationRow(r, userId, clientId, agentMap, pullTimeoutSeconds),
       ),
     );
@@ -3944,18 +3984,32 @@ export class InboxService {
       .limit(20)
       .lean();
 
-    let departmentName: string | undefined;
+    let departmentMeta: Record<string, unknown> = {};
     if (conv.departmentId) {
-      const dept = await InboxDepartment.findById(conv.departmentId).select('name').lean();
-      departmentName = dept?.name;
+      const dept = await InboxDepartment.findById(conv.departmentId)
+        .select('name clientVisible internalRank menuKey')
+        .lean();
+      if (dept) {
+        departmentMeta = departmentBadgeFieldsFrom(dept);
+      }
     }
-    const [convWithLead] = await this.attachLeadEntryMeta(clientId, [
-      { ...(conv.toObject() as Record<string, unknown>), departmentName },
-    ]);
+
+    const leadLinked = await LeadCapture.findOne({
+      clientId: conv.clientId,
+      inboxConversationId: conv._id,
+    })
+      .select('_id')
+      .lean();
+
+    const convWithDept = {
+      ...(conv.toObject() as Record<string, unknown>),
+      ...departmentMeta,
+      ...(leadLinked ? { isLeadEntry: true } : {}),
+    };
 
     const [conversation, contactContext, destination] = await Promise.all([
       this.enrichConversationRow(
-        convWithLead,
+        convWithDept,
         userId,
         clientId,
         agentMap,

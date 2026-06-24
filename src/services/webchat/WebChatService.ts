@@ -70,6 +70,7 @@ import { WebhookDispatcherService } from '../integrations/WebhookDispatcherServi
 import { emitPanelEvent } from '../inbox/PanelNotifications';
 import { notifySupervisorInternalChatMention } from '../inbox/inbox-supervisor-notify.service';
 import { loadInboxSettings } from '../../constants/inbox-triage';
+import { departmentBadgeFieldsFrom } from '../inbox/inbox-department-badge.util';
 import {
   isFallbackAcceptTimeoutElapsed,
   processFallbackWhatsappRotation,
@@ -421,6 +422,16 @@ export class WebChatService {
     if (!deptIds.length) return new Map();
     const depts = await InboxDepartment.find({ _id: { $in: deptIds } }).select('name').lean();
     return new Map(depts.map(d => [String(d._id), d.name]));
+  }
+
+  private async departmentRecordMap(
+    deptIds: mongoose.Types.ObjectId[],
+  ): Promise<Map<string, { name: string; clientVisible?: boolean; internalRank?: number; menuKey?: string }>> {
+    if (!deptIds.length) return new Map();
+    const depts = await InboxDepartment.find({ _id: { $in: deptIds } })
+      .select('name clientVisible internalRank menuKey')
+      .lean();
+    return new Map(depts.map(d => [String(d._id), d]));
   }
 
   private toConversationDto(
@@ -902,9 +913,9 @@ export class WebChatService {
       ),
     ];
 
-    const [widgetNames, deptNames, agents, inboxSettings] = await Promise.all([
+    const [widgetNames, deptRecords, agents, inboxSettings] = await Promise.all([
       this.widgetNameMap(widgetIds),
-      this.departmentNameMap(deptIds),
+      this.departmentRecordMap(deptIds),
       agentIds.length
         ? User.find({ _id: { $in: agentIds } }).select('displayName email').lean()
         : Promise.resolve([]),
@@ -924,14 +935,16 @@ export class WebChatService {
         r.visitorEmail,
         r.visitorPhone,
       );
+      const dept = r.departmentId ? deptRecords.get(String(r.departmentId)) : undefined;
+      const deptBadge = dept ? departmentBadgeFieldsFrom(dept) : {};
       return {
         _id: toWebChatInboxId(String(r._id)),
         channel: 'webchat_site' as const,
         contactName,
         contactIdentifier,
         status: mapWebChatToInboxStatus(r.status, r.queueStatus),
-        departmentName: r.departmentId ? deptNames.get(String(r.departmentId)) : undefined,
         departmentId: r.departmentId ? String(r.departmentId) : undefined,
+        ...deptBadge,
         assignedUserId: r.assignedUserId,
         assignedUserName: r.assignedUserId ? agentMap.get(r.assignedUserId) : undefined,
         suggestedUserId: r.suggestedUserId,
@@ -1017,6 +1030,14 @@ export class WebChatService {
     const inboxSettings = await loadInboxSettings(clientId);
     const pullTimeoutSeconds = inboxSettings.roundRobinPullTimeoutSeconds ?? 120;
 
+    let deptBadge: ReturnType<typeof departmentBadgeFieldsFrom> | Record<string, never> = {};
+    if (convDoc.departmentId) {
+      const dept = await InboxDepartment.findById(convDoc.departmentId)
+        .select('name clientVisible internalRank menuKey')
+        .lean();
+      if (dept) deptBadge = departmentBadgeFieldsFrom(dept);
+    }
+
     const conversation = await enrichWebChatInboxRow(
       {
         _id: toWebChatInboxId(String(convDoc._id)),
@@ -1028,8 +1049,8 @@ export class WebChatService {
         contactReason: convDoc.contactReason,
         visitorIntake: convDoc.visitorIntake as Record<string, string> | undefined,
         status: mapWebChatToInboxStatus(convDoc.status, convDoc.queueStatus),
-        departmentName: detail.conversation.departmentName,
-        departmentId: detail.conversation.departmentId,
+        departmentId: convDoc.departmentId ? String(convDoc.departmentId) : undefined,
+        ...deptBadge,
         assignedUserId: convDoc.assignedUserId,
         assignedUserName,
         suggestedUserId: convDoc.suggestedUserId,

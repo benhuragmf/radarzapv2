@@ -43,7 +43,7 @@ import ContactEditorModal, { type ContactFormData } from '../../components/conta
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
-import { InboxLeadListBadge } from '../../components/inbox/InboxLeadListBadge'
+import { InboxDepartmentBadge } from '../../components/inbox/InboxDepartmentBadge'
 import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
 import { InboxLiveVisitors } from '../../components/inbox/InboxLiveVisitors'
 import { InboxLiveVisitorsStrip } from '../../components/inbox/InboxLiveVisitorsStrip'
@@ -101,7 +101,10 @@ interface Conversation {
   acceptedAt?: string
   whatsappBridgeActive?: boolean
   isLeadEntry?: boolean
-  leadSectorLabel?: string
+  departmentMenuKey?: string
+  departmentBadgeLabel?: string
+  departmentClientVisible?: boolean
+  departmentInternalRankLabel?: string
 }
 
 interface InboxContactInfo {
@@ -1046,35 +1049,45 @@ export default function Inbox() {
                     <ContactAvatar name={c.contactName} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{c.contactName}</span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <InboxChannelBadge channel={c.channel} />
-                          {c.isLeadEntry && c.leadSectorLabel && (
-                            <InboxLeadListBadge label={c.leadSectorLabel} />
-                          )}
-                          {(c.unreadCount ?? 0) > 0 && (
-                            <span className="min-w-[18px] rounded-full bg-brand-500 px-1.5 text-[10px] font-bold text-white text-center">
-                              {c.unreadCount}
-                            </span>
-                          )}
-                          {c.ticketRef && (
-                            <Link
-                              to={`/platform/inbox/tickets/${c.ticketRef}`}
-                              onClick={e => e.stopPropagation()}
-                              className="text-[9px] font-mono text-amber-500/90 bg-amber-500/10 px-1 rounded hover:bg-amber-500/20"
-                            >
-                              {c.ticketRef}
-                            </Link>
-                          )}
-                          {c.whatsappBridgeActive && (
-                            <span
-                              className="inline-flex items-center gap-0.5 text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded"
-                              title="Atendimento espelhado no WhatsApp do atendente"
-                            >
-                              <Smartphone size={10} aria-hidden />
-                              Bridge
-                            </span>
-                          )}
+                        <span className="text-sm font-medium text-[var(--rz-text-primary)] truncate min-w-0 flex-1">
+                          {c.contactName}
+                        </span>
+                        <div className="flex items-start gap-1.5 shrink-0">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <InboxChannelBadge channel={c.channel} />
+                            {c.departmentBadgeLabel && (
+                              <InboxDepartmentBadge
+                                label={c.departmentBadgeLabel}
+                                departmentName={c.departmentName}
+                                menuKey={c.departmentMenuKey}
+                                clientVisible={c.departmentClientVisible}
+                                internalRankLabel={c.departmentInternalRankLabel}
+                              />
+                            )}
+                            {c.ticketRef && (
+                              <Link
+                                to={`/platform/inbox/tickets/${c.ticketRef}`}
+                                onClick={e => e.stopPropagation()}
+                                className="text-[9px] font-mono text-amber-500/90 bg-amber-500/10 px-1 rounded hover:bg-amber-500/20 truncate max-w-[72px]"
+                              >
+                                {c.ticketRef}
+                              </Link>
+                            )}
+                            {c.whatsappBridgeActive && (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded"
+                                title="Atendimento espelhado no WhatsApp do atendente"
+                              >
+                                <Smartphone size={10} aria-hidden />
+                                Bridge
+                              </span>
+                            )}
+                            {(c.unreadCount ?? 0) > 0 && (
+                              <span className="min-w-[18px] rounded-full bg-brand-500 px-1.5 text-[10px] font-bold text-white text-center">
+                                {c.unreadCount}
+                              </span>
+                            )}
+                          </div>
                           <Badge label={badge.label} variant={badge.variant} />
                         </div>
                       </div>
@@ -1161,8 +1174,15 @@ export default function Inbox() {
                         {isWebChatConv && (
                           <InboxChannelBadge channel="webchat_site" size="md" />
                         )}
-                        {conv.isLeadEntry && conv.leadSectorLabel && (
-                          <InboxLeadListBadge label={conv.leadSectorLabel} size="md" />
+                        {conv.departmentBadgeLabel && (
+                          <InboxDepartmentBadge
+                            label={conv.departmentBadgeLabel}
+                            departmentName={conv.departmentName}
+                            menuKey={conv.departmentMenuKey}
+                            clientVisible={conv.departmentClientVisible}
+                            internalRankLabel={conv.departmentInternalRankLabel}
+                            size="md"
+                          />
                         )}
                         {isWebChatConv && conv.whatsappBridgeActive && (
                           <span
