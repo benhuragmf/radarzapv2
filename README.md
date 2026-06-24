@@ -7,7 +7,7 @@ Plataforma SaaS para **envio e automação de mensagens WhatsApp**, com módulo 
 
 Esta pasta é a **versão limpa 2.x** do projeto original (`radarzap`): TypeScript monolítico em dev, painel React, Docker para infra/prod, sem scripts legados de teste/deploy (GCP, Railway, Oracle, `minimal-index`, etc.).
 
-**Versão atual:** `2.11.88` · Changelog técnico: [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md)
+**Versão atual:** `2.11.89` · Changelog técnico: [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md)
 
 ---
 

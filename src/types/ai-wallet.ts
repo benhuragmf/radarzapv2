@@ -1,3 +1,5 @@
+import { PlanConfigService } from '@/services/billing/plan-config';
+
 /** Saldo mensal de créditos IA e cota de aprendizagem por plano. */
 export interface AiWalletPlanLimits {
   /** Créditos IA incluídos no plano (renovam todo mês). */
@@ -7,16 +9,14 @@ export interface AiWalletPlanLimits {
 }
 
 export function getAiWalletPlanLimits(plan: string): AiWalletPlanLimits {
-  switch (plan) {
-    case 'starter':
-      return { monthlyCreditsIncluded: 400, monthlyLearningOps: 30 };
-    case 'pro':
-      return { monthlyCreditsIncluded: 2500, monthlyLearningOps: 120 };
-    case 'enterprise':
-      return { monthlyCreditsIncluded: 12000, monthlyLearningOps: 500 };
-    default:
-      return { monthlyCreditsIncluded: 0, monthlyLearningOps: 0 };
+  const commercial = PlanConfigService.getInstance().getCommercialLimits(plan);
+  if (commercial) {
+    return {
+      monthlyCreditsIncluded: commercial.aiCreditsMonthly,
+      monthlyLearningOps: commercial.monthlyLearningOps,
+    };
   }
+  return { monthlyCreditsIncluded: 0, monthlyLearningOps: 0 };
 }
 
 export interface AiWalletSnapshot {

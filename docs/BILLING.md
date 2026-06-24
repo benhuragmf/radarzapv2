@@ -4,16 +4,19 @@ Assinaturas mensais por **organização** (empresa), padrão inspirado no radarg
 
 ## Planos
 
-Catálogo em `config/plans.json`:
+Catálogo canônico em `config/plans.json` (validado em `plan-config.ts`). Matriz comercial completa: [`docs/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md).
 
 | ID | Nome | Preço | Comprável |
 |----|------|-------|-----------|
+| `trial` | Trial | R$0 (7 dias) | não (TOP 17) |
 | `free` | Free | — | default |
 | `starter` | Starter | R$ 99/mês | sim |
 | `pro` | Pro | R$ 299/mês | sim |
 | `enterprise` | Enterprise | sob consulta | não (contato) |
 
-Limites aplicados em `Organization.limits` ao ativar; expiração volta para `free`.
+Limites operacionais (`messagesPerDay`, destinos WA, templates) aplicados em `Organization.limits` via `User.getPlanLimits` → catálogo. Demais limites (widgets, leads, atendentes) **documentados** — enforcement em TOP 16/17. Expiração volta para `free`.
+
+**Futuro (não nesta versão):** PIX/Mercado Pago/Asaas, recarga avulsa de créditos IA, trial automatizado com cartão.
 
 ## Fluxo
 

@@ -22,6 +22,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.89] — 2026-06-24
+
+### TOP 03 — planos, mensalidades e limites comerciais
+
+- Matriz comercial oficial em `config/plans.json` (trial, free, starter, pro, enterprise).
+- Validador de catálogo e tipos em `plan-config.ts`; limites operacionais via `resolveOperationalLimits`.
+- IA Créditos por plano lidos do catálogo (`ai-wallet.ts`).
+- Testes ampliados em `plan-config.test.ts`.
+- Documento `docs/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`.
+
+---
+
 ## [2.11.88] — 2026-06-24
 
 ### TOP 02 — baseline gates e governança

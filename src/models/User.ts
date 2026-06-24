@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { createServiceLogger } from '@/utils/logger';
+import { resolveOperationalLimits } from '@/services/billing/plan-config';
 import { SystemRole } from '@/auth/rbac/roles';
 
 const logger = createServiceLogger('UserModel');
@@ -202,13 +203,7 @@ UserSchema.methods.getUsagePercentage = function(this: IUser): number {
  * Static Methods
  */
 UserSchema.statics.getPlanLimits = function(plan: string) {
-  switch (plan) {
-    case 'free':       return { messagesPerDay: 10,  groupsMax: 2,  templatesMax: 2  };
-    case 'starter':    return { messagesPerDay: 100, groupsMax: 5,  templatesMax: 5  };
-    case 'pro':        return { messagesPerDay: 500, groupsMax: 15, templatesMax: 10 };
-    case 'enterprise': return { messagesPerDay: -1,  groupsMax: -1, templatesMax: -1 };
-    default:           return { messagesPerDay: 10,  groupsMax: 2,  templatesMax: 2  };
-  }
+  return resolveOperationalLimits(plan);
 };
 
 UserSchema.statics.findByDiscordId = function(discordUserId: string) {

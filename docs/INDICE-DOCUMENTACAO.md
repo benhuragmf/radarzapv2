@@ -1,6 +1,6 @@
 ﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.88` · **Atualizado:** 2026-06-24
+**Versão do produto:** `2.11.89` · **Atualizado:** 2026-06-24
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -59,7 +59,8 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md) | Migração v1 → v2 |
 | [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) | Infra/env (referência) |
 | [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
-| [`BILLING.md`](./BILLING.md) | Stripe / planos · alertas críticos `billing:*` no sino (2.11.28) |
+| [`BILLING.md`](./BILLING.md) | Stripe / planos · alertas críticos `billing:*` no sino (2.11.28) · matriz TOP 03 |
+| [`top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md) | Matriz comercial oficial (TOP 03) |
 
 ---
 
