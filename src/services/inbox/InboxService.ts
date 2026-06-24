@@ -94,6 +94,7 @@ import {
   isClosedTicketReplyWindowActive,
 } from '@/services/inbox/ticket-reply-window.util';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
+import { LeadFormService } from '@/services/leads/LeadFormService';
 import {
   departmentInternalRank,
   formatInternalRankLabel,
@@ -1811,6 +1812,8 @@ export class InboxService {
       typeof payload === 'string' ? { text: payload } : payload;
 
     const consentSvc = ConsentService.getInstance();
+    const existingContact = await consentSvc.findContactDestinationForInbound(clientId, fromJid, altJid);
+    const isNewContact = !existingContact;
     const dest = await consentSvc.findOrCreateContactFromInbound(clientId, fromJid, altJid);
     if (!dest) return;
 
@@ -1872,6 +1875,24 @@ export class InboxService {
       mediaMime: media?.mediaMime,
       whatsappMessageId: normalized.whatsappMessageId ?? media?.whatsappMessageId,
     });
+
+    if (isNewContact) {
+      void LeadFormService.getInstance()
+        .maybeCaptureWhatsAppInbound(clientId, {
+          destinationId: String(dest._id),
+          conversationId: String(conversation._id),
+          phone: dest.identifier,
+          name: dest.name || dest.identifier,
+          message: displayBody,
+          isNewContact: true,
+        })
+        .catch(err => {
+          logger.warn('Falha ao capturar lead WhatsApp inbound', {
+            clientId,
+            error: (err as Error).message,
+          });
+        });
+    }
 
     if (!openHours) {
       const outsideMsg = await buildOutsideHoursMessage(clientId);

@@ -283,6 +283,14 @@ export interface LeadStats {
   topOriginCount: number;
   byStatus: Record<LeadCaptureStatus, number>;
   funnel: { status: LeadCaptureStatus; count: number; label: string }[];
+  /** Métricas operacionais para a central de entradas (2.11.68+) */
+  operational?: {
+    newOpen: number;
+    whatsappWaiting: number;
+    siteWaiting: number;
+    convertedToday: number;
+    unassigned: number;
+  };
 }
 
 export interface LeadFormListItem {

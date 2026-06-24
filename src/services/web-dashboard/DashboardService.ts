@@ -5687,32 +5687,57 @@ export class DashboardService {
           search?: string;
           formId?: string;
           origin?: string;
+          origins?: string;
+          openOnly?: string;
           groupId?: string;
           from?: string;
           to?: string;
           hasConsent?: string;
           hasValidPhone?: string;
           hasValidEmail?: string;
+          assigneeId?: string;
+          unassigned?: string;
           page?: string;
           limit?: string;
         };
+        const { LEAD_CAPTURE_ORIGINS } = await import('@/types/lead-form');
+        const originsParsed = (q.origins ?? '')
+          .split(',')
+          .map(s => s.trim())
+          .filter((o): o is import('@/types/lead-form').LeadCaptureOrigin =>
+            LEAD_CAPTURE_ORIGINS.includes(o as import('@/types/lead-form').LeadCaptureOrigin),
+          );
         const result = await leadSvc.listCaptures(auth.clientId, {
           status: q.status as import('@/types/lead-form').LeadCaptureStatus | undefined,
           search: q.search,
           formId: q.formId,
           origin: q.origin as import('@/types/lead-form').LeadCaptureOrigin | undefined,
+          origins: originsParsed.length ? originsParsed : undefined,
+          openOnly: q.openOnly === 'true' ? true : undefined,
           groupId: q.groupId,
           from: q.from,
           to: q.to,
           hasConsent: q.hasConsent === 'true' ? true : q.hasConsent === 'false' ? false : undefined,
           hasValidPhone: q.hasValidPhone === 'true' ? true : undefined,
           hasValidEmail: q.hasValidEmail === 'true' ? true : undefined,
+          assigneeId: q.assigneeId,
+          unassigned: q.unassigned === 'true' ? true : undefined,
           page: q.page ? Number(q.page) : undefined,
           limit: q.limit ? Number(q.limit) : undefined,
         });
         res.json(result);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/leads/captures', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const item = await leadSvc.createManualCapture(auth.clientId, auth.userId, req.body ?? {});
+        res.status(201).json(item);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
       }
     });
 

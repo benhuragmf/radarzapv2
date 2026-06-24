@@ -41,6 +41,10 @@ import { appendLeadHistory, emitLeadWebhook } from './lead-events.util';
 
 const logger = createServiceLogger('LeadFormService');
 
+const SYSTEM_FORM_WHATSAPP_NAME = 'Entrada WhatsApp (sistema)';
+const SYSTEM_FORM_MANUAL_NAME = 'Captura manual (sistema)';
+const OPEN_LEAD_STATUSES: LeadCaptureStatus[] = ['new', 'in_review', 'in_progress', 'qualified'];
+
 const CUSTOM_FIELD_ID_RE = /^cf_[a-f0-9]{8,24}$/;
 const VALID_FIELD_TYPES = new Set(['text', 'textarea', 'email', 'tel', 'select', 'checkbox', 'hidden']);
 
@@ -612,6 +616,30 @@ export class LeadFormService {
     const topOrigin = originRaw[0]?._id ?? null;
     const topOriginCount = originRaw[0]?.count ?? 0;
 
+    const siteOrigins: LeadCaptureOrigin[] = ['site', 'widget', 'wordpress', 'webchat', 'api'];
+    const [whatsappWaiting, siteWaiting, unassigned, convertedToday] = await Promise.all([
+      LeadCapture.countDocuments({
+        clientId: clientOid,
+        origin: 'whatsapp',
+        status: { $in: ['new', 'in_review'] },
+      }),
+      LeadCapture.countDocuments({
+        clientId: clientOid,
+        origin: { $in: siteOrigins },
+        status: { $in: ['new', 'in_review'] },
+      }),
+      LeadCapture.countDocuments({
+        clientId: clientOid,
+        assignedUserId: { $exists: false },
+        status: { $nin: ['converted', 'lost', 'spam'] },
+      }),
+      LeadCapture.countDocuments({
+        clientId: clientOid,
+        status: 'converted',
+        updatedAt: { $gte: today },
+      }),
+    ]);
+
     return {
       total,
       newToday,
@@ -626,6 +654,13 @@ export class LeadFormService {
         count: byStatus[status],
         label: LEAD_CAPTURE_STATUS_LABEL[status],
       })),
+      operational: {
+        newOpen: byStatus.new + byStatus.in_review,
+        whatsappWaiting,
+        siteWaiting,
+        convertedToday,
+        unassigned,
+      },
     };
   }
 
@@ -660,12 +695,16 @@ export class LeadFormService {
       search?: string;
       formId?: string;
       origin?: LeadCaptureOrigin;
+      origins?: LeadCaptureOrigin[];
+      openOnly?: boolean;
       groupId?: string;
       from?: string;
       to?: string;
       hasConsent?: boolean;
       hasValidPhone?: boolean;
       hasValidEmail?: boolean;
+      assigneeId?: string;
+      unassigned?: boolean;
       page?: number;
       limit?: number;
     },
@@ -673,9 +712,20 @@ export class LeadFormService {
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const filter: Record<string, unknown> = { clientId: clientOid };
 
-    if (opts.status) filter.status = opts.status;
+    if (opts.unassigned) {
+      filter.assignedUserId = { $exists: false };
+      filter.status = { $nin: ['converted', 'lost', 'spam'] };
+    } else if (opts.openOnly) {
+      filter.status = { $in: ['new', 'in_review'] };
+    } else if (opts.status) {
+      filter.status = opts.status;
+    }
     if (opts.formId) filter.formId = new mongoose.Types.ObjectId(opts.formId);
-    if (opts.origin) filter.origin = opts.origin;
+    if (opts.origins?.length) {
+      filter.origin = { $in: opts.origins };
+    } else if (opts.origin) {
+      filter.origin = opts.origin;
+    }
     if (opts.groupId && mongoose.Types.ObjectId.isValid(opts.groupId)) {
       filter.contactGroupIds = new mongoose.Types.ObjectId(opts.groupId);
     }
@@ -689,6 +739,9 @@ export class LeadFormService {
     if (opts.hasConsent === false) filter.consentAccepted = { $ne: true };
     if (opts.hasValidPhone === true) filter.phone = { $not: /^email:/ };
     if (opts.hasValidEmail === true) filter.email = { $exists: true, $nin: [null, ''] };
+    if (!opts.unassigned && opts.assigneeId && mongoose.Types.ObjectId.isValid(opts.assigneeId)) {
+      filter.assignedUserId = new mongoose.Types.ObjectId(opts.assigneeId);
+    }
 
     const search = opts.search?.trim();
     if (search) {
@@ -751,10 +804,187 @@ export class LeadFormService {
     return item;
   }
 
+  private async ensureSystemForm(clientId: string, kind: 'whatsapp' | 'manual'): Promise<ILeadForm> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const name = kind === 'whatsapp' ? SYSTEM_FORM_WHATSAPP_NAME : SYSTEM_FORM_MANUAL_NAME;
+    let form = await LeadForm.findOne({ clientId: clientOid, name });
+    if (!form) {
+      form = await LeadForm.create({
+        clientId: clientOid,
+        name,
+        publicKey: generateLeadFormPublicKey(),
+        active: false,
+        allowedDomains: [],
+        appearance: normalizeAppearance(undefined),
+        routing: normalizeRouting({ initialStatus: 'new', contactMode: 'never' }),
+      });
+      logger.info('Formulário sistema de leads criado', { clientId, kind, formId: form._id });
+    }
+    return form;
+  }
+
+  /** Primeiro contato WhatsApp (número novo) gera LeadCapture com origem whatsapp. */
+  async maybeCaptureWhatsAppInbound(
+    clientId: string,
+    opts: {
+      destinationId: string;
+      conversationId: string;
+      phone: string;
+      name: string;
+      message?: string;
+      isNewContact: boolean;
+    },
+  ): Promise<ILeadCapture | null> {
+    if (!opts.isNewContact) return null;
+
+    const e164 = normalizeContactPhoneE164(opts.phone) || opts.phone.trim();
+    if (!e164 || e164.startsWith('email:')) return null;
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const destOid = new mongoose.Types.ObjectId(opts.destinationId);
+    const convOid = new mongoose.Types.ObjectId(opts.conversationId);
+
+    const existingOpen = await LeadCapture.findOne({
+      clientId: clientOid,
+      $or: [{ destinationId: destOid }, { phone: e164 }],
+      status: { $in: OPEN_LEAD_STATUSES },
+    });
+    if (existingOpen) {
+      let changed = false;
+      if (!existingOpen.inboxConversationId) {
+        existingOpen.inboxConversationId = convOid;
+        changed = true;
+      }
+      if (!existingOpen.destinationId) {
+        existingOpen.destinationId = destOid;
+        changed = true;
+      }
+      if (changed) await existingOpen.save();
+      return existingOpen;
+    }
+
+    const form = await this.ensureSystemForm(clientId, 'whatsapp');
+    const captureName = sanitizeLeadText(opts.name, 120) || e164;
+    const message = sanitizeLeadText(opts.message, 2000) || undefined;
+
+    const capture = await LeadCapture.create({
+      clientId: clientOid,
+      formId: form._id,
+      name: captureName,
+      phone: e164,
+      message,
+      origin: 'whatsapp',
+      status: 'new',
+      destinationId: destOid,
+      inboxConversationId: convOid,
+      history: appendLeadHistory(undefined, 'captured', 'Capturado via WhatsApp (primeiro contato)'),
+    });
+
+    logger.info('Lead capturado via WhatsApp inbound', {
+      clientId,
+      captureId: capture._id,
+      destinationId: opts.destinationId,
+    });
+
+    emitLeadWebhook(clientId, 'captured', {
+      capture_id: String(capture._id),
+      form_id: String(form._id),
+      form_name: form.name,
+      name: captureName,
+      phone: e164,
+      origin: 'whatsapp',
+      status: capture.status,
+      inbox_conversation_id: opts.conversationId,
+    });
+
+    return capture;
+  }
+
+  async createManualCapture(
+    clientId: string,
+    userId: string | undefined,
+    body: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      message?: string;
+      temperature?: LeadTemperature;
+      origin?: LeadCaptureOrigin;
+    },
+  ): Promise<LeadCaptureListItem> {
+    const name = sanitizeLeadText(body.name, 120);
+    if (!name) throw new Error('Nome é obrigatório');
+
+    const phoneRaw = sanitizeLeadText(body.phone, 32);
+    const e164 = phoneRaw ? normalizeContactPhoneE164(phoneRaw) : '';
+    if (!e164) throw new Error('Telefone inválido');
+
+    const email = sanitizeLeadText(body.email, 160).toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('E-mail inválido');
+    }
+
+    const origin =
+      body.origin && LEAD_CAPTURE_ORIGINS.includes(body.origin) ? body.origin : 'manual';
+
+    const form = await this.ensureSystemForm(clientId, 'manual');
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+
+    const { Destination } = await import('@/models/Destination');
+    const dest = await Destination.findByIdentifier(e164, clientOid);
+    const destinationId = dest?._id as mongoose.Types.ObjectId | undefined;
+
+    const message = sanitizeLeadText(body.message, 2000) || undefined;
+    const temperature =
+      body.temperature && ['cold', 'warm', 'hot'].includes(body.temperature)
+        ? body.temperature
+        : undefined;
+
+    const capture = await LeadCapture.create({
+      clientId: clientOid,
+      formId: form._id,
+      name,
+      phone: e164,
+      email: email || undefined,
+      message,
+      origin,
+      status: 'new',
+      temperature,
+      destinationId,
+      assignedUserId:
+        userId && mongoose.Types.ObjectId.isValid(userId)
+          ? new mongoose.Types.ObjectId(userId)
+          : undefined,
+      history: appendLeadHistory(undefined, 'captured', 'Capturado manualmente no painel', {
+        userId,
+      }),
+    });
+
+    emitLeadWebhook(clientId, 'captured', {
+      capture_id: String(capture._id),
+      form_id: String(form._id),
+      form_name: form.name,
+      name,
+      phone: e164,
+      email: email || null,
+      origin,
+      status: capture.status,
+    });
+
+    const item = await this.getCapture(clientId, String(capture._id));
+    if (!item) throw new Error('Falha ao carregar lead criado');
+    return item;
+  }
+
   async updateCapture(
     clientId: string,
     captureId: string,
-    patch: { status?: LeadCaptureStatus; temperature?: LeadTemperature | null; internalNotes?: string },
+    patch: {
+      status?: LeadCaptureStatus;
+      temperature?: LeadTemperature | null;
+      internalNotes?: string;
+      statusReason?: string;
+    },
     userId?: string,
   ): Promise<LeadCaptureListItem | null> {
     const capture = await LeadCapture.findOne({
@@ -772,6 +1002,19 @@ export class LeadFormService {
         `${LEAD_CAPTURE_STATUS_LABEL[prevStatus]} → ${LEAD_CAPTURE_STATUS_LABEL[patch.status]}`,
         { userId },
       );
+      if (
+        (patch.status === 'lost' || patch.status === 'spam') &&
+        patch.statusReason?.trim()
+      ) {
+        const reason = sanitizeLeadText(patch.statusReason, 500);
+        capture.history = appendLeadHistory(
+          capture.history,
+          'note',
+          `Motivo (${LEAD_CAPTURE_STATUS_LABEL[patch.status]}): ${reason}`,
+          { userId },
+        );
+        capture.internalNotes = [capture.internalNotes, reason].filter(Boolean).join('\n');
+      }
       emitLeadWebhook(clientId, 'status_changed', {
         capture_id: captureId,
         from: prevStatus,

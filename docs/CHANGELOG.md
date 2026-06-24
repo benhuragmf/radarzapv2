@@ -12,6 +12,27 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+---
+
+## [2.11.69] — 2026-06-23
+
+### Leads — WhatsApp inbound + captura manual
+
+- Primeiro contato WhatsApp gera `LeadCapture` automaticamente (`maybeCaptureWhatsAppInbound` + hook no Inbox).
+- Botão **Capturar lead** e `POST /leads/captures` para entrada manual.
+- Filtros operacionais: `origins` (multi-origem) e `openOnly` alinhados aos cards de métricas.
+- Kanban: motivo opcional ao marcar Perdido/Spam via drag.
+
+## [2.11.68] — 2026-06-23
+
+### UX — Leads: Central de Entrada Comercial
+
+- Métricas operacionais (Novos, WhatsApp aguardando, Site/Formulários, Sem responsável, etc.) com clique para filtrar.
+- Textos amigáveis, abas Conversa/Contato, bloco "Próxima ação", Kanban com coluna Aguardando e cards informativos.
+- Modo Lista em tabela com ações rápidas; filtro por responsável; stats `operational` na API.
+
 ## [2.11.67] — 2026-06-23
 
 ### UX — Leads: layout CRM com painel lateral

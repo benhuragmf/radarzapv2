@@ -1,6 +1,27 @@
 # Leads — formulário público
 
-**Versão:** 2.11.64
+**Versão:** 2.11.69
+
+## Central de Entrada Comercial (2.11.68+)
+
+A rota `/platform/leads` funciona como **triagem e conversão** — entradas ainda não tratadas. **Contatos** = base consolidada; **Inbox** = conversa/atendimento.
+
+Métricas operacionais (`GET /leads/stats` → `operational`): novos abertos, WhatsApp aguardando, site/formulários, convertidos hoje, sem responsável. Clique nos cards aplica filtros (`openOnly`, `origins`, etc.).
+
+### WhatsApp → Lead (2.11.69)
+
+Quando um **número novo** envia a primeira mensagem WhatsApp:
+
+1. `InboxService.handleInboundMessage` cria contato + conversa (fluxo existente).
+2. `LeadFormService.maybeCaptureWhatsAppInbound` cria `LeadCapture` com `origin: whatsapp`, vincula `destinationId` e `inboxConversationId`.
+3. Usa formulário sistema inativo **Entrada WhatsApp (sistema)** (lazy por organização).
+
+**Não** duplica lead se o telefone já existia em Contatos ou já há lead aberto para o mesmo número. Webhook `lead.created` emitido.
+
+### Captura manual (2.11.69)
+
+- Botão **Capturar lead** na aba Capturas (`POST /leads/captures`).
+- Formulário sistema **Captura manual (sistema)**; origem padrão `manual`.
 
 ## Objetivo
 

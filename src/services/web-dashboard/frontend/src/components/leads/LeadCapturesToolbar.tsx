@@ -1,9 +1,10 @@
-import { Filter, LayoutGrid, List, Search, SlidersHorizontal } from 'lucide-react'
+import { Filter, LayoutGrid, List, Plus, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { DetailsDrawer } from '@/design-system/components/DetailsDrawer'
 import { inputCls, searchFieldIconCls } from '@/design-system'
 import type { LeadCaptureOrigin, LeadCaptureStatus, LeadFormListItem } from '@radarzap-types/lead-form'
-import { LEAD_CAPTURE_ORIGIN_LABEL, LEAD_CAPTURE_ORIGINS, LEAD_CAPTURE_STATUS_LABEL } from '@radarzap-types/lead-form'
+import { LEAD_CAPTURE_ORIGINS, LEAD_CAPTURE_STATUS_LABEL } from '@radarzap-types/lead-form'
+import { LEAD_ORIGIN_DISPLAY, LEAD_STATUS_DISPLAY } from '../../lib/leadUi'
 
 export type CaptureView = 'list' | 'kanban'
 export type PeriodFilter = '' | 'today' | '7d' | '30d'
@@ -17,6 +18,8 @@ type Props = {
   onOriginFilterChange: (v: LeadCaptureOrigin | '') => void
   periodFilter: PeriodFilter
   onPeriodFilterChange: (v: PeriodFilter) => void
+  assigneeFilter: string
+  onAssigneeFilterChange: (v: string) => void
   formFilter: string
   onFormFilterChange: (v: string) => void
   groupFilter: string
@@ -25,11 +28,15 @@ type Props = {
   onConsentFilterChange: (v: '' | 'yes' | 'no') => void
   forms: LeadFormListItem[]
   contactGroups: { id: string; name: string }[]
+  assignees: { userId: string; displayName: string }[]
   captureView: CaptureView
   onCaptureViewChange: (v: CaptureView) => void
   total?: number
   advancedOpen: boolean
   onAdvancedOpenChange: (v: boolean) => void
+  onClearFilters: () => void
+  canManage?: boolean
+  onAddManual?: () => void
 }
 
 export function LeadCapturesToolbar({
@@ -41,6 +48,8 @@ export function LeadCapturesToolbar({
   onOriginFilterChange,
   periodFilter,
   onPeriodFilterChange,
+  assigneeFilter,
+  onAssigneeFilterChange,
   formFilter,
   onFormFilterChange,
   groupFilter,
@@ -49,55 +58,80 @@ export function LeadCapturesToolbar({
   onConsentFilterChange,
   forms,
   contactGroups,
+  assignees,
   captureView,
   onCaptureViewChange,
   total,
   advancedOpen,
   onAdvancedOpenChange,
+  onClearFilters,
+  canManage,
+  onAddManual,
 }: Props) {
   const advancedCount = [formFilter, groupFilter, consentFilter].filter(Boolean).length
+  const hasActiveFilters = Boolean(search || statusFilter || originFilter || periodFilter || assigneeFilter || advancedCount)
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="relative flex-1 min-w-[180px] max-w-md">
-          <Search size={15} className={searchFieldIconCls} />
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        {canManage && onAddManual && (
+          <Button size="sm" className="h-8 px-2.5 text-xs shrink-0" onClick={onAddManual}>
+            <Plus size={14} /> Capturar lead
+          </Button>
+        )}
+
+        <div className="relative flex-1 min-w-[160px] max-w-sm">
+          <Search size={14} className={searchFieldIconCls} />
           <input
-            className={inputCls + ' pl-9 h-9 text-sm'}
-            placeholder="Buscar nome, telefone, e-mail…"
+            className={inputCls + ' pl-8 h-8 text-xs'}
+            placeholder="Buscar lead, telefone ou mensagem…"
             value={search}
             onChange={e => onSearchChange(e.target.value)}
           />
         </div>
 
         <select
-          className={inputCls + ' h-9 text-sm w-auto min-w-[130px]'}
-          value={statusFilter}
-          onChange={e => onStatusFilterChange(e.target.value as LeadCaptureStatus | '')}
-        >
-          <option value="">Status</option>
-          {(Object.keys(LEAD_CAPTURE_STATUS_LABEL) as LeadCaptureStatus[]).map(s => (
-            <option key={s} value={s}>
-              {LEAD_CAPTURE_STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className={inputCls + ' h-9 text-sm w-auto min-w-[120px]'}
+          className={inputCls + ' h-8 text-xs w-auto min-w-[100px] max-w-[120px]'}
           value={originFilter}
           onChange={e => onOriginFilterChange(e.target.value as LeadCaptureOrigin | '')}
         >
           <option value="">Origem</option>
           {LEAD_CAPTURE_ORIGINS.map(o => (
             <option key={o} value={o}>
-              {LEAD_CAPTURE_ORIGIN_LABEL[o]}
+              {LEAD_ORIGIN_DISPLAY[o]}
             </option>
           ))}
         </select>
 
         <select
-          className={inputCls + ' h-9 text-sm w-auto min-w-[110px]'}
+          className={inputCls + ' h-8 text-xs w-auto min-w-[100px] max-w-[120px]'}
+          value={statusFilter}
+          onChange={e => onStatusFilterChange(e.target.value as LeadCaptureStatus | '')}
+        >
+          <option value="">Status</option>
+          {(Object.keys(LEAD_CAPTURE_STATUS_LABEL) as LeadCaptureStatus[]).map(s => (
+            <option key={s} value={s}>
+              {LEAD_STATUS_DISPLAY[s]}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className={inputCls + ' h-8 text-xs w-auto min-w-[110px] max-w-[130px]'}
+          value={assigneeFilter}
+          onChange={e => onAssigneeFilterChange(e.target.value)}
+        >
+          <option value="">Responsável</option>
+          <option value="__unassigned__">Sem responsável</option>
+          {assignees.map(a => (
+            <option key={a.userId} value={a.userId}>
+              {a.displayName}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className={inputCls + ' h-8 text-xs w-auto min-w-[90px]'}
           value={periodFilter}
           onChange={e => onPeriodFilterChange(e.target.value as PeriodFilter)}
         >
@@ -107,53 +141,57 @@ export function LeadCapturesToolbar({
           <option value="30d">30 dias</option>
         </select>
 
-        <Button size="sm" variant="secondary" className="h-9" onClick={() => onAdvancedOpenChange(true)}>
-          <SlidersHorizontal size={14} />
-          Filtros
+        <Button size="sm" variant="secondary" className="h-8 px-2 text-xs" onClick={() => onAdvancedOpenChange(true)}>
+          <SlidersHorizontal size={13} />
+          Mais
           {advancedCount > 0 && (
-            <span className="ml-1 rounded-full bg-[var(--rz-primary)] text-white text-[10px] px-1.5 py-0.5">
-              {advancedCount}
-            </span>
+            <span className="ml-1 rounded-full bg-[var(--rz-primary)] text-white text-[9px] px-1">{advancedCount}</span>
           )}
         </Button>
 
-        <div className="flex rounded-lg border border-[var(--rz-border)] overflow-hidden ml-auto">
+        {hasActiveFilters && (
+          <Button size="sm" variant="secondary" className="h-8 px-2 text-xs" onClick={onClearFilters}>
+            <RotateCcw size={13} /> Limpar
+          </Button>
+        )}
+
+        <div className="flex rounded-md border border-[var(--rz-border)] overflow-hidden ml-auto">
           <button
             type="button"
-            className={`inline-flex items-center gap-1 px-3 h-9 text-xs font-medium ${
+            className={`inline-flex items-center gap-1 px-2.5 h-8 text-[11px] font-medium ${
               captureView === 'list'
                 ? 'bg-[var(--rz-primary)]/15 text-[var(--rz-primary)]'
                 : 'text-[var(--rz-text-secondary)] hover:bg-[var(--rz-surface-muted)]'
             }`}
             onClick={() => onCaptureViewChange('list')}
           >
-            <List size={14} /> Lista
+            <List size={13} /> Lista
           </button>
           <button
             type="button"
-            className={`inline-flex items-center gap-1 px-3 h-9 text-xs font-medium border-l border-[var(--rz-border)] ${
+            className={`inline-flex items-center gap-1 px-2.5 h-8 text-[11px] font-medium border-l border-[var(--rz-border)] ${
               captureView === 'kanban'
                 ? 'bg-[var(--rz-primary)]/15 text-[var(--rz-primary)]'
                 : 'text-[var(--rz-text-secondary)] hover:bg-[var(--rz-surface-muted)]'
             }`}
             onClick={() => onCaptureViewChange('kanban')}
           >
-            <LayoutGrid size={14} /> Kanban
+            <LayoutGrid size={13} /> Kanban
           </button>
         </div>
       </div>
 
       {total != null && (
-        <p className="text-[11px] text-[var(--rz-text-muted)] mb-2 -mt-1">
-          {total} lead{total !== 1 ? 's' : ''} encontrado{total !== 1 ? 's' : ''}
+        <p className="text-[10px] text-[var(--rz-text-muted)] mb-2 -mt-0.5">
+          {total} entrada{total !== 1 ? 's' : ''} comercial{total !== 1 ? 'is' : ''}
         </p>
       )}
 
       <DetailsDrawer
         open={advancedOpen}
         onClose={() => onAdvancedOpenChange(false)}
-        title="Filtros avançados"
-        description="Refine a lista sem ocupar espaço fixo na tela."
+        title="Mais filtros"
+        description="Formulário, listas e consentimento."
         width="md"
         footer={
           <Button size="sm" onClick={() => onAdvancedOpenChange(false)}>
@@ -174,7 +212,7 @@ export function LeadCapturesToolbar({
             </select>
           </div>
           <div>
-            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Lista / segmento</label>
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Lista</label>
             <select className={inputCls + ' text-sm'} value={groupFilter} onChange={e => onGroupFilterChange(e.target.value)}>
               <option value="">Todas</option>
               {contactGroups.map(g => (

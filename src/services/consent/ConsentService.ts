@@ -326,6 +326,15 @@ export class ConsentService {
     );
   }
 
+  /** Verifica se o contato já existia antes do inbound (sem criar). */
+  async findContactDestinationForInbound(
+    clientId: string,
+    fromJid: string,
+    altJid?: string,
+  ): Promise<IDestination | null> {
+    return this.findContactDestination(clientId, fromJid, altJid);
+  }
+
   private async findContactDestination(
     clientId: string,
     fromJid: string,

@@ -6,10 +6,15 @@ import { can, getMe } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { LeadIntegrationsPanel } from '../../components/leads/LeadIntegrationsPanel'
 import { LeadFormFieldsEditor } from '../../components/leads/LeadFormFieldsEditor'
-import { LeadStatsCards, LeadFunnelRow } from '../../components/leads/LeadStatsCards'
+import { LeadStatsCards } from '../../components/leads/LeadStatsCards'
 import { LeadCaptureDetail, LeadDetailEmptyState } from '../../components/leads/LeadCaptureDetail'
 import { LeadKanbanBoard } from '../../components/leads/LeadKanbanBoard'
+import { LeadCaptureListTable } from '../../components/leads/LeadCaptureListTable'
 import { LeadCapturesToolbar, type CaptureView, type PeriodFilter } from '../../components/leads/LeadCapturesToolbar'
+import { LeadManualCaptureModal } from '../../components/leads/LeadManualCaptureModal'
+import { LeadStatusReasonModal } from '../../components/leads/LeadStatusReasonModal'
+import type { OperationalStatKey } from '../../lib/leadUi'
+import { LEAD_STATUS_DISPLAY, SITE_FORM_ORIGINS } from '../../lib/leadUi'
 import { LeadSegmentsTab } from '../../components/leads/LeadSegmentsTab'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -39,9 +44,7 @@ import type {
 } from '@radarzap-types/lead-form'
 import {
   DEFAULT_LEAD_FORM_ROUTING,
-  LEAD_CAPTURE_ORIGIN_LABEL,
   LEAD_CAPTURE_STATUS_LABEL,
-  LEAD_CAPTURE_STATUS_VARIANT,
   LEAD_TEMPERATURE_LABEL,
 } from '@radarzap-types/lead-form'
 
@@ -77,9 +80,20 @@ export default function Leads() {
   const [statusFilter, setStatusFilter] = useState<LeadCaptureStatus | ''>('')
   const [formFilter, setFormFilter] = useState('')
   const [originFilter, setOriginFilter] = useState<LeadCaptureOrigin | ''>('')
+  const [originsFilter, setOriginsFilter] = useState('')
+  const [openOnlyFilter, setOpenOnlyFilter] = useState(false)
+  const [manualCaptureOpen, setManualCaptureOpen] = useState(false)
+  const [statusReasonModal, setStatusReasonModal] = useState<{
+    id: string
+    status: 'lost' | 'spam'
+    name: string
+  } | null>(null)
   const [groupFilter, setGroupFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('')
   const [consentFilter, setConsentFilter] = useState<'' | 'yes' | 'no'>('')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [activeStatKey, setActiveStatKey] = useState<OperationalStatKey | null>(null)
+  const [pendingInboxId, setPendingInboxId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingFormId, setEditingFormId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -106,17 +120,21 @@ export default function Leads() {
     if (search.trim()) p.set('search', search.trim())
     if (statusFilter) p.set('status', statusFilter)
     if (formFilter) p.set('formId', formFilter)
-    if (originFilter) p.set('origin', originFilter)
+    if (originsFilter) p.set('origins', originsFilter)
+    else if (originFilter) p.set('origin', originFilter)
+    if (openOnlyFilter) p.set('openOnly', 'true')
     if (groupFilter) p.set('groupId', groupFilter)
     if (consentFilter === 'yes') p.set('hasConsent', 'true')
     if (consentFilter === 'no') p.set('hasConsent', 'false')
+    if (assigneeFilter === '__unassigned__') p.set('unassigned', 'true')
+    else if (assigneeFilter) p.set('assigneeId', assigneeFilter)
     const dates = periodToDates(periodFilter)
     if (dates.from) p.set('from', dates.from)
     if (dates.to) p.set('to', dates.to)
     p.set('page', String(page))
     p.set('limit', '30')
     return p.toString()
-  }, [search, statusFilter, formFilter, originFilter, groupFilter, periodFilter, consentFilter, page])
+  }, [search, statusFilter, formFilter, originFilter, originsFilter, openOnlyFilter, groupFilter, periodFilter, consentFilter, assigneeFilter, page])
 
   const { data: stats } = useQuery<LeadStats>({
     queryKey: ['leads-stats'],
@@ -146,7 +164,7 @@ export default function Leads() {
   const { data: assignees = [] } = useQuery<{ userId: string; displayName: string }[]>({
     queryKey: ['leads-assignees'],
     queryFn: () => api.get('/leads/assignees'),
-    enabled: canManage && (tab === 'forms' || editingFormId !== null),
+    enabled: canView && (tab === 'forms' || tab === 'captures' || editingFormId !== null),
   })
 
   const { data: contactGroups = [] } = useQuery<{ id: string; name: string }[]>({
@@ -188,20 +206,39 @@ export default function Leads() {
       status?: LeadCaptureStatus
       temperature?: LeadTemperature | null
       internalNotes?: string
+      statusReason?: string
     }) => api.patch<LeadCaptureListItem>(`/leads/captures/${payload.id}`, payload),
     onSuccess: (_data, variables) => {
       invalidateLeads()
       if (variables.status) {
-        notifySuccess(`Status: ${LEAD_CAPTURE_STATUS_LABEL[variables.status]}`)
+        notifySuccess(`Status: ${LEAD_STATUS_DISPLAY[variables.status]}`)
       } else if (variables.temperature !== undefined) {
         notifySuccess(
           variables.temperature
-            ? `Temperatura: ${LEAD_TEMPERATURE_LABEL[variables.temperature]}`
-            : 'Temperatura removida',
+            ? `Prioridade: ${LEAD_TEMPERATURE_LABEL[variables.temperature]}`
+            : 'Prioridade removida',
         )
       } else if (variables.internalNotes !== undefined) {
         notifySuccess('Observações salvas')
       }
+    },
+    onError: mutationError,
+  })
+
+  const createManualCapture = useMutation({
+    mutationFn: (payload: {
+      name: string
+      phone: string
+      email?: string
+      message?: string
+      temperature?: LeadTemperature
+      origin?: LeadCaptureOrigin
+    }) => api.post<LeadCaptureListItem>('/leads/captures', payload),
+    onSuccess: data => {
+      invalidateLeads()
+      setManualCaptureOpen(false)
+      setSelectedId(data.id)
+      notifySuccess('Lead capturado')
     },
     onError: mutationError,
   })
@@ -251,12 +288,18 @@ export default function Leads() {
   const openInbox = useMutation({
     mutationFn: (captureId: string) =>
       api.post<{ conversationId: string }>(`/leads/captures/${captureId}/open-inbox`, {}),
+    onMutate: captureId => {
+      setPendingInboxId(captureId)
+    },
     onSuccess: data => {
       invalidateLeads()
-      notifySuccess('Conversa aberta no Inbox')
+      notifySuccess('Atendimento assumido')
       navigate(`/platform/inbox?conv=${encodeURIComponent(data.conversationId)}`)
     },
     onError: mutationError,
+    onSettled: () => {
+      setPendingInboxId(null)
+    },
   })
 
   const updateForm = useMutation({
@@ -297,6 +340,42 @@ export default function Leads() {
     )
   }
 
+  const clearAllFilters = () => {
+    setSearch('')
+    setStatusFilter('')
+    setFormFilter('')
+    setOriginFilter('')
+    setOriginsFilter('')
+    setOpenOnlyFilter(false)
+    setGroupFilter('')
+    setPeriodFilter('')
+    setConsentFilter('')
+    setAssigneeFilter('')
+    setActiveStatKey(null)
+    setPage(1)
+  }
+
+  const handleOperationalStatClick = (key: OperationalStatKey) => {
+    clearAllFilters()
+    setActiveStatKey(key)
+    if (key === 'whatsappWaiting') {
+      setOriginFilter('whatsapp')
+      setOpenOnlyFilter(true)
+    } else if (key === 'siteWaiting') {
+      setOriginsFilter(SITE_FORM_ORIGINS.join(','))
+      setOpenOnlyFilter(true)
+    } else if (key === 'inProgress') {
+      setStatusFilter('in_progress')
+    } else if (key === 'unassigned') {
+      setAssigneeFilter('__unassigned__')
+    } else if (key === 'convertedToday') {
+      setStatusFilter('converted')
+      setPeriodFilter('today')
+    } else if (key === 'newOpen') {
+      setOpenOnlyFilter(true)
+    }
+  }
+
   const tabBtn = (id: LeadsTab, label: string, icon?: ReactNode) => (
     <button
       key={id}
@@ -316,12 +395,21 @@ export default function Leads() {
   return (
     <PlatformPage
       title="Leads"
-      description="Capture, qualifique e converta contatos vindos do site, WhatsApp, WordPress, landing pages e formulários próprios."
+      description="Central de entradas comerciais: capture, qualifique e converta contatos vindos do site, WhatsApp, chat, landing pages e formulários."
     >
-      <LeadStatsCards stats={stats} />
-      {tab === 'captures' && <LeadFunnelRow stats={stats} />}
+      {tab === 'captures' && (
+        <p className="text-[11px] text-[var(--rz-text-muted)] -mt-2 mb-3 max-w-3xl leading-relaxed">
+          Leads são entradas ainda não tratadas.{' '}
+          <strong className="font-medium text-[var(--rz-text-secondary)]">Contatos</strong> são pessoas já salvas na base.{' '}
+          <strong className="font-medium text-[var(--rz-text-secondary)]">Atendimentos</strong> acontecem no Inbox.
+        </p>
+      )}
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      {tab === 'captures' && (
+        <LeadStatsCards stats={stats} activeKey={activeStatKey} onSelect={handleOperationalStatClick} />
+      )}
+
+      <div className="flex flex-wrap gap-2 mb-4">
         {tabBtn('captures', 'Capturas')}
         {tabBtn('integrate', 'Integrar no site', <Plug size={15} />)}
         {tabBtn('segments', 'Listas e segmentos', <List size={15} />)}
@@ -363,6 +451,9 @@ export default function Leads() {
             originFilter={originFilter}
             onOriginFilterChange={v => {
               setOriginFilter(v)
+              setOriginsFilter('')
+              setOpenOnlyFilter(false)
+              setActiveStatKey(null)
               setPage(1)
             }}
             periodFilter={periodFilter}
@@ -385,6 +476,12 @@ export default function Leads() {
               setConsentFilter(v)
               setPage(1)
             }}
+            assigneeFilter={assigneeFilter}
+            onAssigneeFilterChange={v => {
+              setAssigneeFilter(v)
+              setPage(1)
+            }}
+            assignees={assignees}
             forms={forms}
             contactGroups={contactGroups}
             captureView={captureView}
@@ -392,7 +489,33 @@ export default function Leads() {
             total={capturesData?.total}
             advancedOpen={advancedFiltersOpen}
             onAdvancedOpenChange={setAdvancedFiltersOpen}
+            onClearFilters={clearAllFilters}
+            canManage={canManage}
+            onAddManual={() => setManualCaptureOpen(true)}
           />
+
+          <LeadManualCaptureModal
+            open={manualCaptureOpen}
+            onClose={() => setManualCaptureOpen(false)}
+            onSubmit={payload => createManualCapture.mutate(payload)}
+            submitting={createManualCapture.isPending}
+          />
+
+          {statusReasonModal && (
+            <LeadStatusReasonModal
+              open
+              status={statusReasonModal.status}
+              leadName={statusReasonModal.name}
+              onClose={() => setStatusReasonModal(null)}
+              onConfirm={reason => {
+                updateCapture.mutate(
+                  { id: statusReasonModal.id, status: statusReasonModal.status, statusReason: reason || undefined },
+                  { onSuccess: () => setStatusReasonModal(null) },
+                )
+              }}
+              submitting={updateCapture.isPending}
+            />
+          )}
 
           <div className="flex flex-1 min-h-0 rounded-xl border border-[var(--rz-border)] overflow-hidden bg-[var(--rz-surface)]">
             {/* Área principal — lista ou kanban */}
@@ -422,52 +545,26 @@ export default function Leads() {
                     onSelect={setSelectedId}
                     onStatusChange={(id, status) => {
                       const current = capturesData.items.find(c => c.id === id)
-                      if (current?.status === status) return
+                      if (!current || current.status === status) return
+                      if (status === 'lost' || status === 'spam') {
+                        setStatusReasonModal({ id, status, name: current.name })
+                        return
+                      }
                       updateCapture.mutate({ id, status })
                     }}
                   />
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1.5">
-                  {capturesData.items.map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedId(item.id)}
-                      className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
-                        selectedId === item.id
-                          ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/5 ring-1 ring-[var(--rz-primary)]/20'
-                          : 'border-[var(--rz-border)] hover:border-[var(--rz-primary)]/40'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{item.name}</p>
-                          <p className="text-[11px] text-[var(--rz-text-muted)] truncate">
-                            {item.phone.startsWith('email:') ? item.email : item.phone}
-                          </p>
-                          <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">
-                            {LEAD_CAPTURE_ORIGIN_LABEL[item.origin]} · {item.formName}
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <Badge
-                            label={LEAD_CAPTURE_STATUS_LABEL[item.status]}
-                            variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]}
-                          />
-                          {item.possibleDuplicate && <Badge label="Dup." variant="yellow" />}
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
-                        {new Date(item.createdAt).toLocaleString('pt-BR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </button>
-                  ))}
+                <div className="flex-1 min-h-0 overflow-y-auto p-2">
+                  <LeadCaptureListTable
+                    items={capturesData.items}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                    canReply={canReply}
+                    canManage={canManage}
+                    onAssume={id => openInbox.mutate(id)}
+                    assumingId={pendingInboxId}
+                  />
                   {capturesData.total > 30 && (
                     <div className="flex gap-2 justify-center pt-2 pb-1 sticky bottom-0 bg-[var(--rz-surface)]">
                       <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>

@@ -21,17 +21,19 @@ import { cn } from '@/lib/utils'
 import { notifySuccess } from '../../lib/notify'
 import type { LeadCaptureListItem, LeadCaptureStatus, LeadTemperature } from '@radarzap-types/lead-form'
 import {
-  LEAD_CAPTURE_ORIGIN_LABEL,
-  LEAD_CAPTURE_STATUS_LABEL,
-  LEAD_CAPTURE_STATUS_VARIANT,
-  LEAD_TEMPERATURE_LABEL,
-  LEAD_TEMPERATURE_VARIANT,
-  LEAD_TEMPERATURES,
-} from '@radarzap-types/lead-form'
+  LEAD_ORIGIN_DISPLAY,
+  LEAD_STATUS_DISPLAY,
+  formatPhoneDisplay,
+  getContactStateLabel,
+  getInboxStateLabel,
+  getRecommendedAction,
+  priorityLabel,
+} from '../../lib/leadUi'
+import { LEAD_CAPTURE_STATUS_VARIANT, LEAD_TEMPERATURE_LABEL, LEAD_TEMPERATURE_VARIANT, LEAD_TEMPERATURES } from '@radarzap-types/lead-form'
 import { LeadLinkContactModal } from './LeadLinkContactModal'
 import { LeadWhatsAppPanel } from './LeadWhatsAppPanel'
 
-type DetailTab = 'resumo' | 'atendimento' | 'listas' | 'historico'
+type DetailTab = 'resumo' | 'conversa' | 'contato' | 'listas' | 'historico'
 
 const HISTORY_LABEL: Record<string, string> = {
   captured: 'Capturado',
@@ -51,7 +53,8 @@ function shortDate(iso: string) {
 
 const DETAIL_TABS: { id: DetailTab; label: string }[] = [
   { id: 'resumo', label: 'Resumo' },
-  { id: 'atendimento', label: 'Atendimento' },
+  { id: 'conversa', label: 'Conversa' },
+  { id: 'contato', label: 'Contato' },
   { id: 'listas', label: 'Listas' },
   { id: 'historico', label: 'Histórico' },
 ]
@@ -108,20 +111,8 @@ export function LeadCaptureDetail({
     setMoreOpen(false)
   }, [item.id])
 
-  const contactLine = item.phone.startsWith('email:') ? (item.email ?? '—') : item.phone
-
-  const primaryAction = useMemo(() => {
-    if (item.status === 'converted' && item.destinationId) {
-      return { kind: 'view-contact' as const, label: 'Ver contato' }
-    }
-    if (item.inboxConversationId) {
-      return { kind: 'continue-inbox' as const, label: 'Continuar no Inbox' }
-    }
-    if (item.status === 'qualified') {
-      return { kind: 'convert' as const, label: 'Converter em contato' }
-    }
-    return { kind: 'start-inbox' as const, label: 'Iniciar atendimento' }
-  }, [item])
+  const contactLine = item.phone.startsWith('email:') ? (item.email ?? '—') : formatPhoneDisplay(item.phone)
+  const recommended = useMemo(() => getRecommendedAction(item), [item])
 
   const shellCls =
     layout === 'mobile-drawer'
@@ -138,7 +129,11 @@ export function LeadCaptureDetail({
               <h2 className="text-base font-semibold truncate">{item.name}</h2>
               <p className="text-xs text-[var(--rz-text-muted)] truncate">{contactLine}</p>
               <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">
-                {LEAD_CAPTURE_ORIGIN_LABEL[item.origin]} · {item.formName}
+                Origem: {LEAD_ORIGIN_DISPLAY[item.origin]} · {item.formName}
+              </p>
+              <p className="text-[10px] text-[var(--rz-text-muted)]">
+                Status: {LEAD_STATUS_DISPLAY[item.status]}
+                {item.assignedUserName ? ` · ${item.assignedUserName}` : ' · Sem responsável'}
               </p>
             </div>
             {onClose && (
@@ -153,9 +148,9 @@ export function LeadCaptureDetail({
             )}
           </div>
           <div className="flex flex-wrap gap-1">
-            <Badge label={LEAD_CAPTURE_STATUS_LABEL[item.status]} variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]} />
+            <Badge label={LEAD_STATUS_DISPLAY[item.status]} variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]} />
             {item.temperature && (
-              <Badge label={LEAD_TEMPERATURE_LABEL[item.temperature]} variant={LEAD_TEMPERATURE_VARIANT[item.temperature]} />
+              <Badge label={priorityLabel(item.temperature)} variant={LEAD_TEMPERATURE_VARIANT[item.temperature]} />
             )}
             {item.linkedContactName && <Badge label="Vinculado" variant="green" />}
             {item.possibleDuplicate && <Badge label="Duplicado?" variant="yellow" />}
@@ -163,32 +158,44 @@ export function LeadCaptureDetail({
           </div>
         </div>
 
+        {/* Próxima ação recomendada */}
+        <div className="shrink-0 px-4 py-2 border-b border-[var(--rz-border)] bg-[var(--rz-primary)]/5">
+          <p className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)] mb-0.5">Próxima ação</p>
+          <p className="text-xs font-medium">{recommended.title}</p>
+          <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">{recommended.description}</p>
+        </div>
+
         {/* Ação principal */}
-        <div className="shrink-0 px-4 py-2.5 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30">
-          {primaryAction.kind === 'view-contact' && item.destinationId && (
+        <div className="shrink-0 px-4 py-2 border-b border-[var(--rz-border)]">
+          {(recommended.kind === 'view-contact' || recommended.kind === 'link') && item.destinationId && (
             <Link
               to={`/contact?search=${encodeURIComponent(item.phone)}`}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--rz-primary)] text-white text-sm font-medium py-2 px-3 hover:opacity-90"
             >
-              <ExternalLink size={15} /> {primaryAction.label}
+              <ExternalLink size={15} /> {recommended.primaryLabel}
             </Link>
           )}
-          {primaryAction.kind === 'continue-inbox' && item.inboxConversationId && (
+          {recommended.kind === 'link' && !item.destinationId && canManage && (
+            <Button className="w-full" onClick={() => setLinkModalOpen(true)}>
+              <Link2 size={15} /> {recommended.primaryLabel}
+            </Button>
+          )}
+          {recommended.kind === 'inbox' && item.inboxConversationId && (
             <Link
               to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--rz-primary)] text-white text-sm font-medium py-2 px-3 hover:opacity-90"
             >
-              <MessageSquare size={15} /> {primaryAction.label}
+              <MessageSquare size={15} /> {recommended.primaryLabel}
             </Link>
           )}
-          {primaryAction.kind === 'convert' && canManage && (
+          {recommended.kind === 'convert' && canManage && (
             <Button className="w-full" disabled={converting} onClick={() => onConvert({ contactGroupIds: selectedGroups })}>
-              <UserCheck size={15} /> {primaryAction.label}
+              <UserCheck size={15} /> {recommended.primaryLabel}
             </Button>
           )}
-          {primaryAction.kind === 'start-inbox' && canReply && (
+          {(recommended.kind === 'assume' || recommended.kind === 'follow-up') && canReply && (
             <Button className="w-full" disabled={openingInbox} onClick={onOpenInbox}>
-              <UserPlus size={15} /> {primaryAction.label}
+              <UserPlus size={15} /> {recommended.primaryLabel}
             </Button>
           )}
         </div>
@@ -218,7 +225,7 @@ export function LeadCaptureDetail({
             to={`/platform/inbox?search=${encodeURIComponent(item.phone)}`}
             className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
           >
-            <Search size={12} /> Inbox
+            <Search size={12} /> Procurar
           </Link>
           {canManage && (
             <button
@@ -226,7 +233,7 @@ export function LeadCaptureDetail({
               className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
               onClick={() => setLinkModalOpen(true)}
             >
-              <Link2 size={12} /> {item.destinationId ? 'Vínculo' : 'Vincular'}
+              <Link2 size={12} /> Vincular contato
             </button>
           )}
           {canManage && (
@@ -342,18 +349,8 @@ export function LeadCaptureDetail({
                 </div>
                 {item.pageTitle && (
                   <div className="flex justify-between gap-2">
-                    <dt className="text-[var(--rz-text-muted)]">Página</dt>
+                    <dt className="text-[var(--rz-text-muted)]">Página de origem</dt>
                     <dd className="text-right truncate max-w-[60%]">{item.pageTitle}</dd>
-                  </div>
-                )}
-                {item.sourceUrl && (
-                  <div>
-                    <dt className="text-[var(--rz-text-muted)] mb-0.5">URL</dt>
-                    <dd className="truncate">
-                      <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="text-[var(--rz-primary)] hover:underline text-[11px]">
-                        {item.sourceUrl}
-                      </a>
-                    </dd>
                   </div>
                 )}
                 {item.linkedContactName && (
@@ -366,7 +363,7 @@ export function LeadCaptureDetail({
               {canManage && (
                 <>
                   <div>
-                    <label className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">Temperatura</label>
+                    <label className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">Prioridade</label>
                     <select
                       className={inputCls + ' mt-1 text-sm h-9'}
                       value={item.temperature ?? ''}
@@ -376,7 +373,7 @@ export function LeadCaptureDetail({
                         onUpdate({ temperature: v ? (v as LeadTemperature) : null })
                       }}
                     >
-                      <option value="">Não definida</option>
+                      <option value="">Sem prioridade definida</option>
                       {LEAD_TEMPERATURES.map(t => (
                         <option key={t} value={t}>
                           {LEAD_TEMPERATURE_LABEL[t]}
@@ -399,42 +396,72 @@ export function LeadCaptureDetail({
             </div>
           )}
 
-          {detailTab === 'atendimento' && (
+          {detailTab === 'conversa' && (
             <div className="space-y-3 text-xs">
-              <div className="flex justify-between">
-                <span className="text-[var(--rz-text-muted)]">Status</span>
-                <Badge label={LEAD_CAPTURE_STATUS_LABEL[item.status]} variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]} />
+              <div className="rounded-lg border border-[var(--rz-border)] p-2.5 space-y-1.5">
+                <p className="text-[10px] text-[var(--rz-text-muted)]">Situação do atendimento</p>
+                <p className="font-medium">{getInboxStateLabel(item)}</p>
               </div>
-              {item.assignedUserName && (
-                <div className="flex justify-between">
-                  <span className="text-[var(--rz-text-muted)]">Responsável</span>
-                  <span>{item.assignedUserName}</span>
-                </div>
-              )}
-              {item.linkedContactName && (
-                <div className="flex justify-between">
-                  <span className="text-[var(--rz-text-muted)]">Vínculo</span>
-                  <span className="font-medium">{item.linkedContactName}</span>
-                </div>
-              )}
-              <div className="pt-2 space-y-2">
+              <div className="pt-1 space-y-2">
                 {canReply &&
                   (item.inboxConversationId ? (
                     <Link
                       to={`/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`}
                       className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-primary)] text-[var(--rz-primary)] text-sm py-2"
                     >
-                      <MessageSquare size={14} /> Continuar no Inbox
+                      <MessageSquare size={14} /> Abrir atendimento
                     </Link>
                   ) : (
                     <Button className="w-full" size="sm" disabled={openingInbox} onClick={onOpenInbox}>
-                      Iniciar atendimento no Inbox
+                      Assumir atendimento
                     </Button>
                   ))}
                 {hasPhone && canReply && (
                   <Button className="w-full" size="sm" variant="secondary" onClick={() => setWaPanelOpen(true)}>
                     Enviar WhatsApp
                   </Button>
+                )}
+                <Link
+                  to={`/platform/inbox?search=${encodeURIComponent(item.phone)}`}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-border)] text-sm py-2"
+                >
+                  <Search size={14} /> Procurar conversa
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {detailTab === 'contato' && (
+            <div className="space-y-3 text-xs">
+              <div className="rounded-lg border border-[var(--rz-border)] p-2.5">
+                <p className="text-[10px] text-[var(--rz-text-muted)] mb-1">Situação do contato</p>
+                <p className="font-medium">{getContactStateLabel(item)}</p>
+              </div>
+              {item.possibleDuplicate && (
+                <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-2 text-[11px]">
+                  Contato existente encontrado — vincule para não duplicar a base.
+                </div>
+              )}
+              <div className="space-y-2">
+                {item.destinationId && (
+                  <Link
+                    to={`/contact?search=${encodeURIComponent(item.phone)}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-primary)] text-[var(--rz-primary)] text-sm py-2"
+                  >
+                    <ExternalLink size={14} /> Ver contato
+                  </Link>
+                )}
+                {canManage && (
+                  <>
+                    <Button className="w-full" size="sm" variant="secondary" onClick={() => setLinkModalOpen(true)}>
+                      <Link2 size={14} /> Vincular contato
+                    </Button>
+                    {item.status !== 'converted' && (
+                      <Button className="w-full" size="sm" disabled={converting} onClick={() => onConvert({ contactGroupIds: selectedGroups })}>
+                        <UserCheck size={14} /> Salvar como contato
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
