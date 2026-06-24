@@ -54,6 +54,7 @@ interface InboxSettings {
   inactivityWarningMinutes: number
   inactivityWarningQuickCode?: string
   inactivityCloseQuickCode?: string
+  inactivityCloseGracefulQuickCode?: string
   gracefulCloseQuickCode?: string
   gracefulCloseAfterPromptMinutes?: number
   gracefulCloseDetectPhrases?: boolean

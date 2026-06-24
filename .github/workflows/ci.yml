@@ -57,9 +57,9 @@ jobs:
         working-directory: src/services/web-dashboard/frontend
         run: npm ci
 
-      - name: Vite build (sem tsc estrito)
+      - name: TypeScript build (tsc + vite)
         working-directory: src/services/web-dashboard/frontend
-        run: npx vite build
+        run: npm run build
 
   e2e:
     runs-on: ubuntu-latest
@@ -81,7 +81,7 @@ jobs:
 
       - name: Build frontend (preview)
         working-directory: src/services/web-dashboard/frontend
-        run: npx vite build
+        run: npm run build
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps

@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.86` (`package.json`) · **Última revisão doc:** 2026-06-24
+**Versão atual:** `2.11.88` (`package.json`) · **Última revisão doc:** 2026-06-24
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.11.88** | TOP 02: baseline gates — fix TS `WebChatService`, frontend `InboxBotSettings`, mock CSAT, CI `tsc -b` frontend — `docs/top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md` |
 | **2.11.86** | Fix detalhe chamados WebChat (`WebChatService` imports); refs `TK-…` sem ambiguidade 0/O; erro real no painel — `INBOX-ATENDIMENTO.md` § Lista × detalhe |
 | **2.0.0** | Migração limpa do v1; microserviços; painel `/api`; Baileys; campanhas; consentimento LGPD base |
 | **2.0.x** | Inbox MVP (triagem, filas, bot, round-robin, WS); segmentos automáticos; tickets; mídia; respostas rápidas |

@@ -22,6 +22,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.88] — 2026-06-24
+
+### TOP 02 — baseline gates e governança
+
+- Corrigido baseline TypeScript backend (`WebChatService`: datas ISO, badge setor, tipo `inactivitySla` no detalhe Inbox).
+- Corrigido build frontend estrito (`InboxBotSettings`: campo `inactivityCloseGracefulQuickCode` tipado).
+- Corrigido teste integração CSAT — mock `ConsentService.findContactDestinationForInbound`.
+- CI frontend alinhado: `npm run build` (`tsc -b && vite build`) em vez de só `vite build`.
+- Documento `docs/top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md` e gates oficiais TOP 02/20.
+
+---
+
 ## [2.11.87] — 2026-06-24
 
 ### UI — Inbox e IA mais compactos (1080p)

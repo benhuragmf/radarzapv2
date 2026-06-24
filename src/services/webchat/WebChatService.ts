@@ -145,6 +145,11 @@ import {
   toWebChatInboxId,
   visitorDisplayName,
 } from './webchat-inbox-bridge';
+
+function optionalIsoDate(value?: Date | string | null): string | undefined {
+  if (value == null) return undefined;
+  return value instanceof Date ? value.toISOString() : String(value);
+}
 import { loadInboxSettings } from '@/constants/inbox-triage';
 import { departmentBadgeFieldsFrom } from '@/services/inbox/inbox-department-badge.util';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
@@ -964,7 +969,14 @@ export class WebChatService {
         r.visitorPhone,
       );
       const dept = r.departmentId ? deptRecords.get(String(r.departmentId)) : undefined;
-      const deptBadge = dept ? departmentBadgeFieldsFrom(dept) : {};
+      const deptBadge = dept
+        ? departmentBadgeFieldsFrom({
+            name: dept.name,
+            clientVisible: dept.clientVisible ?? true,
+            internalRank: dept.internalRank,
+            menuKey: dept.menuKey,
+          })
+        : {};
       return {
         _id: toWebChatInboxId(String(r._id)),
         channel: 'webchat_site' as const,
@@ -976,16 +988,16 @@ export class WebChatService {
         assignedUserId: r.assignedUserId,
         assignedUserName: r.assignedUserId ? agentMap.get(r.assignedUserId) : undefined,
         suggestedUserId: r.suggestedUserId,
-        suggestedAt: r.suggestedAt ? new Date(r.suggestedAt).toISOString() : undefined,
-        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : undefined,
+        suggestedAt: optionalIsoDate(r.suggestedAt),
+        createdAt: optionalIsoDate(r.createdAt),
         lastMessageAt: (r.lastMessageAt ?? r.updatedAt ?? r.createdAt).toISOString(),
         lastMessagePreview: r.lastMessagePreview,
         unreadCount: r.unreadAgentCount ?? 0,
-        lastInboundAt: r.lastInboundAt,
-        lastOutboundAt: r.lastOutboundAt,
-        inactivityWarnedAt: r.inactivityWarnedAt,
-        gracefulClosePromptAt: r.gracefulClosePromptAt,
-        gracefulCloseAckAt: r.gracefulCloseAckAt,
+        lastInboundAt: optionalIsoDate(r.lastInboundAt),
+        lastOutboundAt: optionalIsoDate(r.lastOutboundAt),
+        inactivityWarnedAt: optionalIsoDate(r.inactivityWarnedAt),
+        gracefulClosePromptAt: optionalIsoDate(r.gracefulClosePromptAt),
+        gracefulCloseAckAt: optionalIsoDate(r.gracefulCloseAckAt),
         closeGateSource: r.closeGateSource,
         widgetName: widgetNames.get(String(r.widgetId)),
         pageUrl: r.pageUrl,
@@ -1038,6 +1050,19 @@ export class WebChatService {
       contactGroupIds: string[];
     } | null;
     quickReplies: InboxQuickReply[];
+    inactivitySla: {
+      inactivityAutoCloseEnabled: boolean;
+      inactivityCloseMinutes: number;
+      inactivityWarningMinutes: number;
+      inactivityWarningQuickCode: string;
+      inactivityCloseQuickCode: string;
+      gracefulCloseQuickCode: string;
+      gracefulCloseAfterPromptMinutes?: number;
+      gracefulCloseDetectPhrases?: boolean;
+      inactivityCloseGracefulQuickCode: string;
+      closeQuickReplyGateEnabled: boolean;
+      inactivityCloseAfterWarningMinutes: number;
+    };
   } | null> {
     const detail = await this.getConversationForAgent(clientId, conversationId, userId);
     if (!detail) return null;
@@ -1116,11 +1141,11 @@ export class WebChatService {
         lastMessageAt: detail.conversation.lastMessageAt ?? convDoc.createdAt.toISOString(),
         lastMessagePreview: detail.conversation.lastMessagePreview,
         unreadCount: detail.conversation.unreadCount,
-        lastInboundAt: convDoc.lastInboundAt,
-        lastOutboundAt: convDoc.lastOutboundAt,
-        inactivityWarnedAt: convDoc.inactivityWarnedAt,
-        gracefulClosePromptAt: convDoc.gracefulClosePromptAt,
-        gracefulCloseAckAt: convDoc.gracefulCloseAckAt,
+        lastInboundAt: optionalIsoDate(convDoc.lastInboundAt),
+        lastOutboundAt: optionalIsoDate(convDoc.lastOutboundAt),
+        inactivityWarnedAt: optionalIsoDate(convDoc.inactivityWarnedAt),
+        gracefulClosePromptAt: optionalIsoDate(convDoc.gracefulClosePromptAt),
+        gracefulCloseAckAt: optionalIsoDate(convDoc.gracefulCloseAckAt),
         closeGateSource: convDoc.closeGateSource,
         widgetName: detail.conversation.widgetName,
         pageUrl: convDoc.pageUrl,

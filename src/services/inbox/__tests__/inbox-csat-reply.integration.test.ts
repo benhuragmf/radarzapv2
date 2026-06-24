@@ -7,6 +7,7 @@ import type { IDestination } from '@/models/Destination';
 const loadInboxSettingsMock = jest.fn();
 const webhookEmit = jest.fn();
 const findOrCreateContact = jest.fn();
+const findContactDestinationForInbound = jest.fn();
 const shouldDeferToConsentFlow = jest.fn();
 const acceptInboundInitiated = jest.fn();
 
@@ -32,6 +33,8 @@ jest.mock('@/services/consent/ConsentService', () => ({
   ConsentService: {
     getInstance: () => ({
       findOrCreateContactFromInbound: (...args: unknown[]) => findOrCreateContact(...args),
+      findContactDestinationForInbound: (...args: unknown[]) =>
+        findContactDestinationForInbound(...args),
       shouldDeferToConsentFlow: (...args: unknown[]) => shouldDeferToConsentFlow(...args),
       acceptInboundInitiated: (...args: unknown[]) => acceptInboundInitiated(...args),
     }),
@@ -221,6 +224,7 @@ describe('InboxService handleInboundMessage ordem CSAT', () => {
       csatPrompt: 'Nota 1-5?',
     });
     findOrCreateContact.mockResolvedValue(mockDest());
+    findContactDestinationForInbound.mockResolvedValue(mockDest());
     shouldDeferToConsentFlow.mockReturnValue(false);
     acceptInboundInitiated.mockResolvedValue(true);
 
