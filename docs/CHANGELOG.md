@@ -22,6 +22,31 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.84] — 2026-06-24
+
+### IA — créditos, carteira mensal e barra do painel
+
+- Carteira mensal por empresa: franquia do plano + créditos comprados; débito proporcional ao custo real de cada LLM RadarZap (`AI_CREDIT_USD_UNIT`).
+- Cota de **aprendizagem** (skills/memória automáticas) com limite mensal por plano.
+- Barra superior: WhatsApp (todos com `inbox:view`), saldo **IA** e **LM** (`usado/total`) só com `inbox:ai:balance:view`.
+- `GET /api/platform/ai/balance`, `GET /api/inbox/whatsapp-status`.
+- Doc canônico: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md).
+
+## [2.11.83] — 2026-06-21
+
+### Inbox — triagem visível para atendentes (configurável)
+
+- Novo toggle em **Triagem e Bot → Triagem — visibilidade no Inbox** (`attendantTriageVisible`, padrão desligado).
+- Dono/admin liberam conversas em `bot_triage` (antes da escolha do setor) para atendentes dos setores verem e assumirem no painel (WA + WebChat).
+
+## [2.11.82] — 2026-06-21
+
+### Inbox — triagem configurável
+
+- Dono define tempos e mensagens de inatividade na triagem (`triageWarningMinutes`, `triageCloseAfterWarningMinutes`, mensagens custom).
+- Padrão: 2 min → "Você está aí?"; +1 min → "Conversa encerrada por inatividade."
+- UI em `/platform/inbox/bot` — card **Triagem — inatividade do visitante**.
+
 ## [2.11.81] — 2026-06-21
 
 ### Inbox — triagem

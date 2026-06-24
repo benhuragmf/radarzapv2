@@ -4,6 +4,81 @@ export interface InboxQuickReply {
   template: string;
 }
 
+export const DEFAULT_INACTIVITY_WARNING_QUICK_CODE = 'aus';
+export const DEFAULT_INACTIVITY_CLOSE_QUICK_CODE = 'enc';
+export const DEFAULT_GRACEFUL_CLOSE_QUICK_CODE = 'mais';
+export const DEFAULT_INACTIVITY_CLOSE_GRACEFUL_QUICK_CODE = 'enc_ok';
+
+export function normalizeQuickReplyCode(code: string): string {
+  return code.trim().replace(/^\//, '').toLowerCase().replace(/\s+/g, '');
+}
+
+export function resolveInactivityWarningQuickCode(settings?: {
+  inactivityWarningQuickCode?: string | null;
+}): string {
+  const raw = settings?.inactivityWarningQuickCode?.trim();
+  return raw ? normalizeQuickReplyCode(raw) : DEFAULT_INACTIVITY_WARNING_QUICK_CODE;
+}
+
+export function resolveInactivityCloseQuickCode(settings?: {
+  inactivityCloseQuickCode?: string | null;
+}): string {
+  const raw = settings?.inactivityCloseQuickCode?.trim();
+  return raw ? normalizeQuickReplyCode(raw) : DEFAULT_INACTIVITY_CLOSE_QUICK_CODE;
+}
+
+export function resolveGracefulCloseQuickCode(settings?: {
+  gracefulCloseQuickCode?: string | null;
+}): string {
+  const raw = settings?.gracefulCloseQuickCode?.trim();
+  return raw ? normalizeQuickReplyCode(raw) : DEFAULT_GRACEFUL_CLOSE_QUICK_CODE;
+}
+
+export function resolveInactivityCloseGracefulQuickCode(settings?: {
+  inactivityCloseGracefulQuickCode?: string | null;
+}): string {
+  const raw = settings?.inactivityCloseGracefulQuickCode?.trim();
+  return raw
+    ? normalizeQuickReplyCode(raw)
+    : DEFAULT_INACTIVITY_CLOSE_GRACEFUL_QUICK_CODE;
+}
+
+export function isGracefulCloseQuickCode(
+  quickCode: string | null,
+  settings?: { gracefulCloseQuickCode?: string | null },
+): boolean {
+  if (!quickCode) return false;
+  return quickCode.toLowerCase() === resolveGracefulCloseQuickCode(settings);
+}
+
+export function isInactivityWarningQuickCode(
+  quickCode: string | null,
+  settings?: { inactivityWarningQuickCode?: string | null },
+): boolean {
+  if (!quickCode) return false;
+  return quickCode.toLowerCase() === resolveInactivityWarningQuickCode(settings);
+}
+
+export function isInactivityCloseQuickCode(
+  quickCode: string | null,
+  settings?: { inactivityCloseQuickCode?: string | null },
+): boolean {
+  if (!quickCode) return false;
+  return quickCode.toLowerCase() === resolveInactivityCloseQuickCode(settings);
+}
+
+/** Minutos após o aviso (/aus ou código configurado) para liberar o encerramento manual. */
+export function inactivityCloseAfterWarningMinutes(
+  closeMinutes: number,
+  warningMinutes: number,
+): number {
+  if (closeMinutes <= 0) return 0;
+  if (warningMinutes > 0 && warningMinutes < closeMinutes) {
+    return closeMinutes - warningMinutes;
+  }
+  return closeMinutes;
+}
+
 export const DEFAULT_INBOX_QUICK_REPLIES: InboxQuickReply[] = [
   {
     code: 'bd',
@@ -31,10 +106,20 @@ export const DEFAULT_INBOX_QUICK_REPLIES: InboxQuickReply[] = [
     template: 'Você está aí?',
   },
   {
+    code: 'mais',
+    label: 'Mais alguma coisa?',
+    template: 'Posso ajudá-lo(a) em mais alguma coisa?',
+  },
+  {
     code: 'enc',
     label: 'Encerrar por inatividade',
     template:
       'Como não houve interação há mais de 1 min, encerrarei este atendimento.',
+  },
+  {
+    code: 'enc_ok',
+    label: 'Encerrar atendimento',
+    template: 'Perfeito! Fico feliz em ter ajudado. Se precisar, é só chamar. Até logo!',
   },
   {
     code: 'ticket',

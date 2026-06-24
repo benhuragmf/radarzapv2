@@ -58,19 +58,19 @@ export const ATTENDANCE_MODE_CARDS: AttendanceModeCardDef[] = [
     title: 'IA Básica — Triagem Inteligente',
     description:
       'Entende a intenção do cliente e encaminha para o setor correto usando o mínimo possível de IA.',
-    badge: 'Baixo custo',
+    badge: '~1 crédito/atendimento típico',
     badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
     note:
-      'Classificador local + base de conhecimento; LLM opcional só em ambiguidade (configurável em Economia e regras).',
+      'Classificador local + base de conhecimento; LLM opcional só em ambiguidade. Expectativa de ~1 crédito por atendimento com LLM — cobrança real é pelo custo usado.',
   },
   {
     id: 'premium_assistant',
     title: 'IA Premium — Assistente Virtual',
     description:
       'Tenta ajudar o cliente usando base de conhecimento, skills, memória e regras de transferência.',
-    badge: 'Assistente completo',
+    badge: '~2 créditos/atendimento típico',
     badgeClass: 'bg-brand-500/15 text-brand-400 border-brand-500/30',
-    note: 'Representa o comportamento avançado da IA atual quando ativa com credencial configurada.',
+    note: 'Assistente conversacional completo. Expectativa de ~2 créditos por turno típico — cobrança real proporcional ao custo de cada chamada LLM.',
   },
 ];
 
@@ -84,13 +84,14 @@ export const CREDENTIAL_SOURCE_CARDS: CredentialSourceCardDef[] = [
   {
     id: 'radarzap',
     title: 'RadarZap',
-    description: 'Usa a chave interna da plataforma e respeita os limites do plano.',
+    description:
+      'Usa a chave interna da plataforma. Limites em chamadas LLM; créditos gastos refletem o custo real de cada cliente.',
   },
   {
     id: 'company',
     title: 'Chave própria da empresa',
     description:
-      'A empresa usa sua própria API Key. Os custos externos ficam por conta da empresa.',
+      'A empresa usa sua própria API Key. Os custos externos ficam por conta da empresa — não consome créditos RadarZap.',
   },
   {
     id: 'none',

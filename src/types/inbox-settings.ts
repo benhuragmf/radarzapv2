@@ -59,12 +59,39 @@ export const DEFAULT_INBOX_SLA = {
   inactivityAutoCloseEnabled: true,
   /** Minutos sem resposta do cliente após mensagem do atendente (0 = desligado). */
   inactivityCloseMinutes: 15,
-  /** Aviso automático com template `/aus` antes do encerramento (0 = desligado). */
+  /** Aviso automático com resposta rápida de aviso antes do encerramento (0 = desligado). */
   inactivityWarningMinutes: 10,
+  /** Código da resposta rápida de aviso (ex.: aus → /aus). */
+  inactivityWarningQuickCode: 'aus',
+  /** Código da resposta rápida de encerramento (ex.: enc → /enc). */
+  inactivityCloseQuickCode: 'enc',
+  /** Código da pergunta final antes de encerrar (ex.: mais → /mais). */
+  gracefulCloseQuickCode: 'mais',
+  /** Minutos após /mais sem nova dúvida para liberar /enc. */
+  gracefulCloseAfterPromptMinutes: 2,
+  /** Detectar "não/obrigado" do cliente após /mais. */
+  gracefulCloseDetectPhrases: true,
+  /** Template de encerramento cordial (ex.: enc_ok). */
+  inactivityCloseGracefulQuickCode: 'enc_ok',
+  /** Exige /aus ou /mais antes de liberar o atalho de encerramento manual. */
+  closeQuickReplyGateEnabled: true,
   /** Alerta de supervisor quando conversa na fila excede este tempo (0 = desligado). */
   queueSlaAlertMinutes: 30,
   /** Horas para equipe responder após mensagem do cliente no ticket (0 = desligado). */
   ticketTeamResponseHours: 24,
+} as const;
+
+/** SLA de inatividade na triagem (bot aguardando resposta do cliente). */
+export const DEFAULT_INBOX_TRIAGE_INACTIVITY = {
+  /** Atendentes (não dono/admin) veem conversas em triagem antes da escolha do setor. */
+  attendantTriageVisible: false,
+  triageInactivityEnabled: true,
+  /** Minutos após a pergunta do bot sem resposta para enviar o aviso. */
+  triageWarningMinutes: 2,
+  /** Minutos após o aviso para encerrar a conversa. */
+  triageCloseAfterWarningMinutes: 1,
+  triageWarningMessage: 'Você está aí?',
+  triageCloseMessage: 'Conversa encerrada por inatividade.',
 } as const;
 
 export const DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS = 90;

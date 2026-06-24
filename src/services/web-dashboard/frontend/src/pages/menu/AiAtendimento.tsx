@@ -45,6 +45,16 @@ import { inputCls, textareaCls, LoadingState } from '@/design-system'
 
 const textareaClsAi = `${textareaCls} min-h-[120px]`
 
+function usageUnitShort(mode?: 'radarzap_calls' | 'company_calls'): string {
+  return mode === 'company_calls' ? 'chamadas' : 'chamadas LLM'
+}
+
+function formatCredits(n: number): string {
+  if (n <= 0) return '0'
+  if (n < 0.1) return n.toFixed(3)
+  return n.toFixed(2)
+}
+
 type TabId =
   | 'geral'
   | 'saudacoes'
@@ -146,9 +156,31 @@ interface AiPayload {
     dailyLimit: number
     monthlyLimit: number
     perConversationLimit: number
+    meteringMode?: 'radarzap_calls' | 'company_calls'
+    companyCallsToday?: number
+    dailyCreditsSpent?: number
+    monthlyCreditsSpent?: number
+    moduleCreditEstimates?: { basic_triage: number; premium_assistant: number }
     dailyByKind?: {
-      premium_assistant: { calls: number; tokens: number; cost: number }
-      basic_triage: { calls: number; tokens: number; cost: number }
+      premium_assistant: { calls: number; tokens: number; cost: number; credits?: number }
+      basic_triage: { calls: number; tokens: number; cost: number; credits?: number }
+    }
+    dailyCreditsByKind?: {
+      premium_assistant: { calls: number; tokens: number; cost: number; credits?: number }
+      basic_triage: { calls: number; tokens: number; cost: number; credits?: number }
+    }
+    wallet?: {
+      monthlyIncluded: number
+      purchased: number
+      totalAllowance: number
+      usedThisMonth: number
+      balance: number
+      learningUsed: number
+      learningLimit: number
+      learningBalance: number
+      depleted: boolean
+      learningDepleted: boolean
+      actionHint: 'recharge' | 'own_api' | null
     }
   }
   apiKeyMasked: string | null
@@ -196,6 +228,7 @@ export default function AiAtendimento() {
           id: string
           createdAt: string
           usageKindLabel: string
+          creditWeight?: number
           llmModel: string
           totalTokens: number
           estimatedCost: number
@@ -204,10 +237,11 @@ export default function AiAtendimento() {
           calls: number
           tokens: number
           cost: number
+          credits?: number
           byKind: {
-            premium_assistant: { calls: number; tokens: number; cost: number }
-            basic_triage: { calls: number; tokens: number; cost: number }
-            unknown: { calls: number; tokens: number; cost: number }
+            premium_assistant: { calls: number; tokens: number; cost: number; credits?: number }
+            basic_triage: { calls: number; tokens: number; cost: number; credits?: number }
+            unknown: { calls: number; tokens: number; cost: number; credits?: number }
           }
         }
         snapshot: AiPayload['usage']
@@ -413,19 +447,28 @@ export default function AiAtendimento() {
                 : 'Sem IA generativa',
           },
           {
-            label: 'Uso diário',
-            value: `${form.usage.dailyUsed}/${form.usage.dailyLimit}`,
+            label: 'Saldo créditos IA',
+            value: form.usage.wallet
+              ? formatCredits(form.usage.wallet.balance)
+              : '—',
             icon: BarChart3,
-            colorClass: 'text-blue-400',
-            description: 'Chamadas hoje',
-            alert: form.usage.dailyUsed >= form.usage.dailyLimit * 0.9,
+            colorClass: form.usage.wallet?.depleted ? 'text-red-400' : 'text-emerald-400',
+            description: 'Franquia mensal',
+            alert: Boolean(form.usage.wallet?.depleted),
           },
           {
-            label: 'Uso mensal',
+            label: 'Créditos gastos hoje',
+            value: formatCredits(form.usage.dailyCreditsSpent ?? 0),
+            icon: BarChart3,
+            colorClass: 'text-violet-400',
+            description: 'Custo real proporcional',
+          },
+          {
+            label: 'Chamadas no mês',
             value: `${form.usage.monthlyUsed}/${form.usage.monthlyLimit}`,
             icon: BarChart3,
             colorClass: 'text-violet-400',
-            description: 'Chamadas no mês',
+            description: usageUnitShort(form.usage.meteringMode),
           },
           {
             label: 'Skills pendentes',
@@ -539,20 +582,108 @@ export default function AiAtendimento() {
           )}
 
           {attendanceUi.attendanceMode === 'basic_triage' && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
-              IA Básica usa classificador local e base de conhecimento — sem assistente conversacional
-              completo. Encaminha para setores quando a intenção é clara. LLM opcional só em ambiguidade
-              (aba <strong>Economia e regras</strong>).
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-[var(--rz-text-secondary)] space-y-2">
+              <p>
+                IA Básica usa classificador local e base de conhecimento — sem assistente conversacional
+                completo. Encaminha para setores quando a intenção é clara. LLM opcional só em ambiguidade
+                (aba <strong>Economia e regras</strong>).
+              </p>
+              <p className="text-amber-400/90">
+                Expectativa de consumo: <strong>~1 crédito</strong> por atendimento típico com LLM.
+                Triagem local e KB não geram custo. A cobrança real é pelo custo de cada chamada.
+              </p>
             </div>
           )}
 
           {attendanceUi.attendanceMode === 'premium_assistant' && (
-            <div className="rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 text-xs text-[var(--rz-text-secondary)]">
-              No WebChat, marque <strong>Usar IA Premium no widget</strong> em{' '}
-              <Link to="/platform/webchat" className="text-brand-400 hover:underline">
-                WebChat
-              </Link>{' '}
-              (resposta automática). KB, skills e memória abaixo alimentam o assistente Premium.
+            <div className="rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 text-xs text-[var(--rz-text-secondary)] space-y-2">
+              <p>
+                No WebChat, marque <strong>Usar IA Premium no widget</strong> em{' '}
+                <Link to="/platform/webchat" className="text-brand-400 hover:underline">
+                  WebChat
+                </Link>{' '}
+                (resposta automática). KB, skills e memória abaixo alimentam o assistente Premium.
+              </p>
+              {attendanceUi.credentialSource === 'radarzap' && (
+                <p className="text-brand-400/90">
+                  Expectativa de consumo: <strong>~2 créditos</strong> por turno típico de conversa.
+                  Cada chamada LLM debita créditos conforme o custo real — Premium não é cobrado em dobro
+                  automaticamente.
+                </p>
+              )}
+              {attendanceUi.credentialSource === 'company' && (
+                <p className="text-emerald-400/90">
+                  Com chave própria, o limite abaixo conta <strong>chamadas</strong> — não debita créditos
+                  RadarZap.
+                </p>
+              )}
+            </div>
+          )}
+
+          {form.usage.wallet?.depleted && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+              <strong>Saldo de créditos IA esgotado.</strong> Recarregue em{' '}
+              <Link to="/plans" className="underline font-medium">
+                Planos e cobrança
+              </Link>
+              , compre créditos extras ou configure{' '}
+              <button
+                type="button"
+                className="underline font-medium"
+                onClick={() => setTab('geral')}
+              >
+                API própria
+              </button>{' '}
+              na aba Provedor.
+            </div>
+          )}
+
+          {form.usage.meteringMode === 'radarzap_calls' && form.usage.wallet && (
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
+              <h3 className="text-sm font-medium text-blue-300 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" /> Carteira de créditos IA (mensal)
+              </h3>
+              <p className="text-xs text-[var(--rz-text-secondary)]">
+                Cada cliente recebe créditos mensais no plano. O gasto é proporcional ao custo real de
+                cada chamada LLM. Ao esgotar: recarregar, comprar extras ou usar API própria.
+              </p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-center text-xs">
+                <div className="rounded-lg bg-[var(--rz-surface-muted)]/50 p-3">
+                  <div className="text-lg font-semibold">
+                    {formatCredits(form.usage.wallet.balance)}
+                  </div>
+                  <div className="text-[var(--rz-text-muted)]">Saldo disponível</div>
+                </div>
+                <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
+                  <div className="text-lg font-semibold">
+                    {formatCredits(form.usage.wallet.usedThisMonth)} /{' '}
+                    {formatCredits(form.usage.wallet.totalAllowance)}
+                  </div>
+                  <div className="text-[var(--rz-text-muted)]">Gasto / franquia</div>
+                </div>
+                <div className="rounded-lg bg-violet-500/10 border border-violet-500/20 p-3">
+                  <div className="text-lg font-semibold">
+                    {formatCredits(form.usage.wallet.purchased)}
+                  </div>
+                  <div className="text-[var(--rz-text-muted)]">Créditos comprados</div>
+                </div>
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+                  <div className="text-lg font-semibold">
+                    {form.usage.wallet.learningUsed}/{form.usage.wallet.learningLimit}
+                  </div>
+                  <div className="text-[var(--rz-text-muted)]">Aprendizagem (mês)</div>
+                </div>
+              </div>
+              {form.usage.wallet.learningDepleted && (
+                <p className="text-xs text-amber-400">
+                  Cota de aprendizagem (skills/memória automáticas) esgotada neste mês — consome
+                  processamento da plataforma.
+                </p>
+              )}
+              <p className="text-xs text-[var(--rz-text-muted)]">
+                Incluídos no plano: {form.usage.wallet.monthlyIncluded} créditos ·{' '}
+                {form.usage.wallet.learningLimit} ops de aprendizagem/mês
+              </p>
             </div>
           )}
 
@@ -586,15 +717,10 @@ export default function AiAtendimento() {
           )}
 
           <p className="text-xs text-[var(--rz-text-muted)] border-t border-[var(--rz-border)] pt-4">
-            Uso hoje: {form.usage.dailyUsed}/{form.usage.dailyLimit} diário ·{' '}
-            {form.usage.monthlyUsed}/{form.usage.monthlyLimit} mensal
-            {form.usage.dailyByKind && (
-              <>
-                {' '}
-                · Premium {form.usage.dailyByKind.premium_assistant.calls} · Básica{' '}
-                {form.usage.dailyByKind.basic_triage.calls} (LLM fallback)
-              </>
-            )}
+            Chamadas hoje: {form.usage.dailyUsed}/{form.usage.dailyLimit} · Créditos gastos:{' '}
+            {formatCredits(form.usage.dailyCreditsSpent ?? 0)} · Mês: {form.usage.monthlyUsed}/
+            {form.usage.monthlyLimit} chamadas (
+            {formatCredits(form.usage.monthlyCreditsSpent ?? 0)} créditos)
           </p>
         </Card>
       )}
@@ -785,6 +911,13 @@ export default function AiAtendimento() {
               </label>
             ))}
           </div>
+          {form.usage.wallet && (
+            <p className="text-xs text-[var(--rz-text-muted)] rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+              Aprendizagem automática (skills/memória ao escalar) consome processamento e conta na cota
+              mensal: {form.usage.wallet.learningUsed}/{form.usage.wallet.learningLimit} operações neste
+              ciclo.
+            </p>
+          )}
           <div>
             <label className="text-xs text-[var(--rz-text-muted)] block mb-1">
               Regras adicionais da sua empresa (opcional)
@@ -1371,8 +1504,24 @@ export default function AiAtendimento() {
 
       {tab === 'limites' && (
         <Card className="p-6 grid md:grid-cols-3 gap-4">
+          <div className="md:col-span-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/40 p-3 text-xs text-[var(--rz-text-secondary)]">
+            {form.usage.meteringMode === 'company_calls' ? (
+              <p>
+                Com <strong>chave própria</strong>, os limites contam <strong>chamadas LLM</strong>. O
+                custo externo fica com a empresa — sem débito de créditos RadarZap.
+              </p>
+            ) : (
+              <p>
+                Com <strong>RadarZap</strong>, o limite do plano é em <strong>chamadas LLM</strong> (1 por
+                resposta, igual para Básica e Premium). Os <strong>créditos gastos</strong> refletem o
+                custo real de cada chamada — cobrança proporcional ao consumo do cliente.
+              </p>
+            )}
+          </div>
           <div>
-            <label className="text-xs text-[var(--rz-text-muted)]">Limite diário</label>
+            <label className="text-xs text-[var(--rz-text-muted)]">
+              Limite diário (chamadas LLM)
+            </label>
             <input
               type="number"
               className={inputCls}
@@ -1381,7 +1530,9 @@ export default function AiAtendimento() {
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--rz-text-muted)]">Limite mensal</label>
+            <label className="text-xs text-[var(--rz-text-muted)]">
+              Limite mensal (chamadas LLM)
+            </label>
             <input
               type="number"
               className={inputCls}
@@ -1399,7 +1550,9 @@ export default function AiAtendimento() {
             />
           </div>
           <p className="md:col-span-3 text-xs text-[var(--rz-text-muted)]">
-            Plano: máx. RadarZap {form.planLimits.dailyLimit}/dia · {form.planLimits.monthlyLimit}/mês
+            Plano RadarZap: máx. {form.planLimits.dailyLimit} chamadas/dia ·{' '}
+            {form.planLimits.monthlyLimit} chamadas/mês · Créditos gastos hoje:{' '}
+            {formatCredits(form.usage.dailyCreditsSpent ?? 0)}
           </p>
         </Card>
       )}
@@ -1463,14 +1616,21 @@ export default function AiAtendimento() {
             <BarChart3 className="w-5 h-5" /> Uso e custos estimados
           </h2>
           <p className="text-xs text-[var(--rz-text-muted)]">
-            Período padrão: últimos 30 dias. Chamadas LLM classificadas por modo de atendimento.
+            Período padrão: últimos 30 dias. Créditos = custo real proporcional; expectativa Básica ~1 ·
+            Premium ~2 por atendimento típico.
           </p>
           {usageDetail && (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
                 <div className="bg-[var(--rz-surface-muted)]/50 rounded-lg p-4">
                   <div className="text-2xl font-semibold">{usageDetail.totals.calls}</div>
                   <div className="text-xs text-[var(--rz-text-muted)]">Total chamadas</div>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <div className="text-2xl font-semibold">
+                    {formatCredits(usageDetail.totals.credits ?? 0)}
+                  </div>
+                  <div className="text-xs text-[var(--rz-text-muted)]">Créditos (gasto real)</div>
                 </div>
                 <div className="bg-brand-500/10 border border-brand-500/20 rounded-lg p-4">
                   <div className="text-2xl font-semibold">
@@ -1498,14 +1658,8 @@ export default function AiAtendimento() {
 
               {usageDetail.snapshot && (
                 <p className="text-xs text-[var(--rz-text-muted)]">
-                  Hoje: {usageDetail.snapshot.dailyUsed}/{usageDetail.snapshot.dailyLimit} chamadas
-                  {usageDetail.snapshot.dailyByKind && (
-                    <>
-                      {' '}
-                      (Premium {usageDetail.snapshot.dailyByKind.premium_assistant.calls} · Básica{' '}
-                      {usageDetail.snapshot.dailyByKind.basic_triage.calls})
-                    </>
-                  )}
+                  Hoje: {usageDetail.snapshot.dailyUsed}/{usageDetail.snapshot.dailyLimit} chamadas ·{' '}
+                  {formatCredits(usageDetail.snapshot.dailyCreditsSpent ?? 0)} créditos gastos
                 </p>
               )}
 
@@ -1516,6 +1670,7 @@ export default function AiAtendimento() {
                       <tr>
                         <th className="text-left px-3 py-2 font-medium">Data</th>
                         <th className="text-left px-3 py-2 font-medium">Modo</th>
+                        <th className="text-right px-3 py-2 font-medium">Créditos</th>
                         <th className="text-left px-3 py-2 font-medium">Modelo</th>
                         <th className="text-right px-3 py-2 font-medium">Tokens</th>
                         <th className="text-right px-3 py-2 font-medium">Custo</th>
@@ -1528,6 +1683,11 @@ export default function AiAtendimento() {
                             {new Date(row.createdAt).toLocaleString('pt-BR')}
                           </td>
                           <td className="px-3 py-2">{row.usageKindLabel}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {row.creditWeight != null && row.creditWeight > 0
+                              ? formatCredits(row.creditWeight)
+                              : '—'}
+                          </td>
                           <td className="px-3 py-2 font-mono text-[10px]">{row.llmModel}</td>
                           <td className="px-3 py-2 text-right">{row.totalTokens}</td>
                           <td className="px-3 py-2 text-right">

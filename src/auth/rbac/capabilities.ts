@@ -45,6 +45,8 @@ export const Cap = {
   INBOX_REPORTS_VIEW: 'inbox:reports:view',
   INBOX_SUPERVISE: 'inbox:supervise',
   INBOX_AI_MANAGE: 'inbox:ai:manage',
+  /** Saldo IA/LM na barra superior — liberável pelo dono na equipe. */
+  INBOX_AI_BALANCE_VIEW: 'inbox:ai:balance:view',
 
   WEBCHAT_VIEW: 'webchat:view',
   WEBCHAT_REPLY: 'webchat:reply',
@@ -109,6 +111,7 @@ const COMPANY_OWNER_CAPS: Capability[] = [
   Cap.INBOX_REPORTS_VIEW,
   Cap.INBOX_SUPERVISE,
   Cap.INBOX_AI_MANAGE,
+  Cap.INBOX_AI_BALANCE_VIEW,
   Cap.WEBCHAT_VIEW,
   Cap.WEBCHAT_REPLY,
   Cap.WEBCHAT_MANAGE,
@@ -144,6 +147,7 @@ const COMPANY_ADMIN_CAPS: Capability[] = [
   Cap.INBOX_REPORTS_VIEW,
   Cap.INBOX_SUPERVISE,
   Cap.INBOX_AI_MANAGE,
+  Cap.INBOX_AI_BALANCE_VIEW,
   Cap.WEBCHAT_VIEW,
   Cap.WEBCHAT_REPLY,
   Cap.WEBCHAT_MANAGE,
@@ -166,6 +170,7 @@ const COMPANY_MANAGER_CAPS: Capability[] = [
   Cap.INBOX_TRANSFER,
   Cap.INBOX_REPORTS_VIEW,
   Cap.INBOX_SUPERVISE,
+  Cap.INBOX_AI_BALANCE_VIEW,
   Cap.WEBCHAT_VIEW,
   Cap.WEBCHAT_REPLY,
   Cap.WEBCHAT_MANAGE,

@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 import {
   DEFAULT_INBOX_BOT_TEXTS,
   DEFAULT_INBOX_SLA,
+  DEFAULT_INBOX_TRIAGE_INACTIVITY,
   DEFAULT_INBOX_WEEKLY_SCHEDULE,
   InboxWeeklySchedule,
 } from '@/types/inbox-settings';
@@ -43,8 +44,21 @@ export interface IInboxSettings extends Document {
   inactivityAutoCloseEnabled: boolean;
   inactivityCloseMinutes: number;
   inactivityWarningMinutes: number;
+  inactivityWarningQuickCode: string;
+  inactivityCloseQuickCode: string;
+  gracefulCloseQuickCode: string;
+  gracefulCloseAfterPromptMinutes: number;
+  gracefulCloseDetectPhrases: boolean;
+  inactivityCloseGracefulQuickCode: string;
+  closeQuickReplyGateEnabled: boolean;
   queueSlaAlertMinutes: number;
   ticketTeamResponseHours: number;
+  attendantTriageVisible: boolean;
+  triageInactivityEnabled: boolean;
+  triageWarningMinutes: number;
+  triageCloseAfterWarningMinutes: number;
+  triageWarningMessage: string;
+  triageCloseMessage: string;
   csatEnabled: boolean;
   csatPrompt: string;
   csatThankYou: string;
@@ -132,6 +146,40 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       min: 0,
       max: 1440,
     },
+    inactivityWarningQuickCode: {
+      type: String,
+      default: DEFAULT_INBOX_SLA.inactivityWarningQuickCode,
+      maxlength: 32,
+    },
+    inactivityCloseQuickCode: {
+      type: String,
+      default: DEFAULT_INBOX_SLA.inactivityCloseQuickCode,
+      maxlength: 32,
+    },
+    gracefulCloseQuickCode: {
+      type: String,
+      default: DEFAULT_INBOX_SLA.gracefulCloseQuickCode,
+      maxlength: 32,
+    },
+    gracefulCloseAfterPromptMinutes: {
+      type: Number,
+      default: DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+      min: 0,
+      max: 1440,
+    },
+    gracefulCloseDetectPhrases: {
+      type: Boolean,
+      default: DEFAULT_INBOX_SLA.gracefulCloseDetectPhrases,
+    },
+    inactivityCloseGracefulQuickCode: {
+      type: String,
+      default: DEFAULT_INBOX_SLA.inactivityCloseGracefulQuickCode,
+      maxlength: 32,
+    },
+    closeQuickReplyGateEnabled: {
+      type: Boolean,
+      default: DEFAULT_INBOX_SLA.closeQuickReplyGateEnabled,
+    },
     queueSlaAlertMinutes: {
       type: Number,
       default: DEFAULT_INBOX_SLA.queueSlaAlertMinutes,
@@ -143,6 +191,36 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       default: DEFAULT_INBOX_SLA.ticketTeamResponseHours,
       min: 0,
       max: 168,
+    },
+    attendantTriageVisible: {
+      type: Boolean,
+      default: DEFAULT_INBOX_TRIAGE_INACTIVITY.attendantTriageVisible,
+    },
+    triageInactivityEnabled: {
+      type: Boolean,
+      default: DEFAULT_INBOX_TRIAGE_INACTIVITY.triageInactivityEnabled,
+    },
+    triageWarningMinutes: {
+      type: Number,
+      default: DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes,
+      min: 0,
+      max: 1440,
+    },
+    triageCloseAfterWarningMinutes: {
+      type: Number,
+      default: DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
+      min: 0,
+      max: 1440,
+    },
+    triageWarningMessage: {
+      type: String,
+      default: DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMessage,
+      maxlength: 500,
+    },
+    triageCloseMessage: {
+      type: String,
+      default: DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseMessage,
+      maxlength: 500,
     },
     csatEnabled: { type: Boolean, default: false },
     csatPrompt: { type: String, default: DEFAULT_CSAT_PROMPT, maxlength: 500 },

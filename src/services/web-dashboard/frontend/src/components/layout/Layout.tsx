@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
-import ContextBar from './ContextBar'
 import type { AuthUser } from '../../lib/auth'
 import type { Guild } from '../../lib/guild'
 import { getSelectedGuild } from '../../lib/guild'
@@ -63,7 +62,6 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
                   onUserUpdate={onUserUpdate}
                   onMenuClick={() => setSidebarOpen(true)}
                 />
-                <ContextBar user={user} />
               </div>
               <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <Outlet />

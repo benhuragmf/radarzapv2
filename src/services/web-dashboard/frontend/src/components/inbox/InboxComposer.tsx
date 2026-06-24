@@ -19,6 +19,16 @@ interface Props {
   sendDisabled?: boolean
   sending?: boolean
   quickReplies?: QuickReplyItem[]
+  /** Código da resposta rápida de aviso (ex.: aus). */
+  inactivityWarningQuickCode?: string
+  /** Código da pergunta final (ex.: mais). */
+  gracefulCloseQuickCode?: string
+  /** Código da resposta rápida de encerramento (ex.: enc). */
+  inactivityCloseQuickCode?: string
+  /** Libera o chip/menu do atalho de encerramento. */
+  inactivityCloseAllowed?: boolean
+  /** Dono desligou o bloqueio do atalho de encerramento. */
+  closeQuickReplyGateEnabled?: boolean
   onImageAttach?: (file: File) => void
   imageAttachDisabled?: boolean
   imageAttaching?: boolean
@@ -34,6 +44,11 @@ export function InboxComposer({
   sendDisabled,
   sending,
   quickReplies = [],
+  inactivityWarningQuickCode = 'aus',
+  gracefulCloseQuickCode = 'mais',
+  inactivityCloseQuickCode = 'enc',
+  inactivityCloseAllowed = true,
+  closeQuickReplyGateEnabled = true,
   onImageAttach,
   imageAttachDisabled,
   imageAttaching,
@@ -43,6 +58,19 @@ export function InboxComposer({
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const closeCode = inactivityCloseQuickCode.toLowerCase()
+  const warnCode = inactivityWarningQuickCode.toLowerCase()
+  const maisCode = gracefulCloseQuickCode.toLowerCase()
+
+  const isCloseQuickReply = (code: string) => code.toLowerCase() === closeCode
+  const isQuickReplyDisabled = (code: string) =>
+    sendDisabled || (isCloseQuickReply(code) && closeQuickReplyGateEnabled && !inactivityCloseAllowed)
+
+  const closeDisabledTitle =
+    !closeQuickReplyGateEnabled || inactivityCloseAllowed
+      ? undefined
+      : `Use /${warnCode} (inatividade) ou /${maisCode} (pergunta final) e aguarde o tempo do SLA antes de /${closeCode}`
 
   const slashMatches = useMemo(() => {
     const m = value.match(/^\/(\w*)$/i)
@@ -69,12 +97,22 @@ export function InboxComposer({
   }
 
   const applySlash = (code: string) => {
+    if (isQuickReplyDisabled(code)) return
     onChange(`/${code} `)
     textareaRef.current?.focus()
   }
 
   const isInternal = composeMode === 'internal'
-  const canSubmit = Boolean(value.trim()) && !sending && (isInternal ? !internalChatDisabled : !sendDisabled)
+  const closeReplyBlocked =
+    !isInternal &&
+    closeQuickReplyGateEnabled &&
+    value.trim().match(/^\/(\w+)/)?.[1]?.toLowerCase() === closeCode &&
+    !inactivityCloseAllowed
+  const canSubmit =
+    Boolean(value.trim()) &&
+    !sending &&
+    !closeReplyBlocked &&
+    (isInternal ? !internalChatDisabled : !sendDisabled)
 
   return (
     <div className="space-y-2">
@@ -123,8 +161,10 @@ export function InboxComposer({
             <button
               key={q.code}
               type="button"
+              disabled={isQuickReplyDisabled(q.code)}
+              title={isCloseQuickReply(q.code) ? closeDisabledTitle : undefined}
               onClick={() => applySlash(q.code)}
-              className="w-full text-left px-3 py-2 hover:bg-[var(--rz-surface-muted)] border-b border-[var(--rz-border)]/50 last:border-0"
+              className="w-full text-left px-3 py-2 hover:bg-[var(--rz-surface-muted)] border-b border-[var(--rz-border)]/50 last:border-0 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="text-brand-400 font-mono text-xs">/{q.code}</span>
               <span className="text-[var(--rz-text-muted)] text-xs ml-2">{q.label}</span>
@@ -206,10 +246,16 @@ export function InboxComposer({
             <button
               key={q.code}
               type="button"
-              disabled={sendDisabled}
+              disabled={isQuickReplyDisabled(q.code)}
               onClick={() => applySlash(q.code)}
-              className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] hover:text-brand-400 border border-[var(--rz-border)] disabled:opacity-40"
-              title={q.label ? `${q.label} — ${q.template}` : q.template}
+              className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] hover:text-brand-400 border border-[var(--rz-border)] disabled:opacity-40 disabled:cursor-not-allowed"
+              title={
+                isCloseQuickReply(q.code) && !inactivityCloseAllowed
+                  ? closeDisabledTitle
+                  : q.label
+                    ? `${q.label} — ${q.template}`
+                    : q.template
+              }
             >
               /{q.code}
             </button>

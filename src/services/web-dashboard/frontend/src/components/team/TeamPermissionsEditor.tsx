@@ -51,6 +51,8 @@ const CAP_LABELS: Record<string, string> = {
   'inbox:department:manage': 'Setores e triagem',
   'inbox:reports:view': 'Métricas de atendimento',
   'inbox:supervise': 'Supervisão',
+  'inbox:ai:manage': 'Configurar IA de atendimento',
+  'inbox:ai:balance:view': 'Ver saldo IA/LM na barra',
   'queue:view': 'Fila nos relatórios',
   'queue:retry': 'Reprocessar fila',
   'logs:view': 'Logs operacionais',

@@ -8,6 +8,8 @@ export interface IAiUsage extends Document {
   provider: AiProvider | 'radarzap' | 'radarzap-basic-triage' | string;
   /** Modo de atendimento que originou a chamada LLM — desde 2.11.3. */
   usageKind?: AiUsageKind;
+  /** Créditos debitados pelo custo real (USD / AI_CREDIT_USD_UNIT). 0 = chave própria. */
+  creditWeight?: number;
   llmModel: string;
   inputTokens: number;
   outputTokens: number;
@@ -25,6 +27,7 @@ const AiUsageSchema = new Schema<IAiUsage>(
       type: String,
       enum: ['premium_assistant', 'basic_triage', 'unknown'],
     },
+    creditWeight: { type: Number, min: 0, default: 0 },
     llmModel: { type: String, required: true },
     inputTokens: { type: Number, default: 0, min: 0 },
     outputTokens: { type: Number, default: 0, min: 0 },

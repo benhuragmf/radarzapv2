@@ -30,6 +30,37 @@ export const BASIC_TRIAGE_DEFAULT_CONFIDENCE_THRESHOLD = 0.65;
 const GREETING_ONLY =
   /^(oi|ola|olá|hey|hello|bom dia|boa tarde|boa noite|e ai|e aí|opa|salve)[!.?\s]*$/i;
 
+const GREETING_PREFIX = /^(oi|ola|olá|opa|opá|salve|hey|e\s*ai|e\s*aí)\b/i;
+const GREETING_TAIL =
+  /^(bom\s+)?(dia|diua|tarde|noite)\b|^(tudo\s+)?(bem|bom|boa)\b/i;
+
+/** Saudação pura ou cumprimento curto (ex.: "ola bom dia", "oi tudo bem"). */
+function looksLikeGreeting(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 80) return false;
+  if (GREETING_ONLY.test(trimmed)) return true;
+  if (/^bom\s+(dia|tarde|noite)\b/i.test(trimmed)) return true;
+
+  const prefix = trimmed.match(GREETING_PREFIX);
+  if (!prefix) return false;
+
+  const tail = trimmed.slice(prefix[0].length).trim();
+  if (!tail) return true;
+  if (tail.length > 40) return false;
+  if (GREETING_TAIL.test(tail)) return true;
+
+  const words = tail.split(/\s+/).filter(Boolean);
+  if (
+    words.length <= 2 &&
+    !COMMERCIAL.test(trimmed) &&
+    !SUPPORT.test(trimmed) &&
+    !FINANCE.test(trimmed)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 const COMMERCIAL =
   /\b(comercial|vendas?|produto|produtos|promo[cç][aã]o|promo[cç][oõ]es|pre[cç]o|valor|plano|planos|contrat|assinatura|pacote|comprar|or[cç]amento|cota[cç][aã]o|desconto|oferta|catalogo|catálogo)\b/i;
 
@@ -108,7 +139,7 @@ export function classifyLocal(
     return { intent: 'unknown', confidence: 0 };
   }
 
-  if (GREETING_ONLY.test(trimmed)) {
+  if (looksLikeGreeting(trimmed)) {
     return { intent: 'greeting', confidence: 0.95 };
   }
 

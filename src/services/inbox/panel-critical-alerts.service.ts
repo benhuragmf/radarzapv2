@@ -92,7 +92,7 @@ export class PanelCriticalAlertsService {
     this.emit(clientId, {
       type: 'ai:quota_low',
       title: 'Saldo de IA baixo',
-      body: `${used}/${limit} chamadas ${period} usadas — ajuste limites ou faça upgrade.`,
+      body: `${used}/${limit} no limite ${period} — ajuste limites ou faça upgrade.`,
       href: '/platform/inbox/ia',
       dedupKey: `${clientId}:ai:quota_low:${period}:${this.dayKey()}`,
     });
@@ -164,6 +164,25 @@ export class PanelCriticalAlertsService {
       if (!snapshot.allowed) {
         this.notifyAiQuotaExceeded(clientId, snapshot.reason ?? 'Limite de IA atingido');
         return;
+      }
+      if (snapshot.wallet?.depleted) {
+        this.notifyAiQuotaExceeded(
+          clientId,
+          snapshot.reason ?? 'Saldo mensal de créditos IA esgotado',
+        );
+        return;
+      }
+      if (snapshot.wallet && snapshot.wallet.totalAllowance > 0) {
+        const pct = snapshot.wallet.usedThisMonth / snapshot.wallet.totalAllowance;
+        if (pct >= 0.9) {
+          this.notifyAiQuotaLow(
+            clientId,
+            Math.round(snapshot.wallet.usedThisMonth * 100) / 100,
+            snapshot.wallet.totalAllowance,
+            'mensal',
+          );
+          return;
+        }
       }
       if (snapshot.dailyLimit > 0 && snapshot.dailyUsed >= snapshot.dailyLimit * 0.9) {
         this.notifyAiQuotaLow(clientId, snapshot.dailyUsed, snapshot.dailyLimit, 'diário');

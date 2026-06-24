@@ -4,6 +4,8 @@ import { AiSettingsService } from './AiSettingsService';
 import { AiContextService } from './AiContextService';
 import { AiProviderService, type AiChatMessage } from './AiProviderService';
 import { AiUsageMeterService } from './AiUsageMeterService';
+import { estimateTypicalTurnCostUsd } from '@/constants/ai-model-catalog';
+import { aiCreditsFromActualCost } from '@/types/ai-credits';
 import type { AiInboundContext, AiInboundResult } from './AiConversationService';
 import type { InboxService } from '@/services/inbox/InboxService';
 import { InboxConversationStatus } from '@/types/inbox';
@@ -17,11 +19,13 @@ import {
 } from '@/utils/basic-triage-classifier';
 import {
   loadClientVisibleDepartments,
-  buildInboxTriageMenu,
   parseInboxMenuChoice,
 } from '@/constants/inbox-triage';
 import { createServiceLogger } from '@/utils/logger';
 import type { IAiSettings } from '@/models/AiSettings';
+
+const BASIC_MEDIA_PROMPT =
+  'Recebi seu anexo. Descreva em texto como posso ajudar — assim direciono ao setor certo. Se preferir, digite *atendente*.';
 
 const serviceLogger = createServiceLogger('AiBasicTriageService');
 
@@ -80,7 +84,13 @@ export class AiBasicTriageService {
 
     if (!ctx.text.trim()) {
       if (ctx.hasMedia) {
-        return { handled: false, useStandardTriage: true };
+        await inbox.sendAiReply(
+          ctx.clientId,
+          ctx.conversation,
+          ctx.dest.identifier,
+          BASIC_MEDIA_PROMPT,
+        );
+        return { handled: true };
       }
       return { handled: true };
     }
@@ -150,8 +160,8 @@ export class AiBasicTriageService {
       return { handled: true };
     }
 
-    const menu = await buildInboxTriageMenu(ctx.clientId);
-    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, menu);
+    const clarify = buildBasicTriageClarifyReply('unknown');
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, clarify);
     return { handled: true };
   }
 
@@ -171,10 +181,14 @@ export class AiBasicTriageService {
     departments: BasicTriageDepartmentHint[],
   ): Promise<BasicTriageClassification | null> {
     try {
+      const pendingCredits = aiCreditsFromActualCost(
+        estimateTypicalTurnCostUsd(settings.llmModel) * 0.35,
+      );
       const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
         clientId,
         undefined,
         settings,
+        { pendingCalls: 1, pendingCredits, meteringOverride: 'radarzap_calls' },
       );
       if (!usage.allowed) return null;
 

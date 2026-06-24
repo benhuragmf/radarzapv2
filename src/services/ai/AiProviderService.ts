@@ -8,6 +8,8 @@ import {
 import { geminiFallbackModelIds } from '@/constants/ai-model-catalog';
 import { getAiPlanLimits } from '@/types/ai-assistant';
 import { AiCredentialVaultService } from './AiCredentialVaultService';
+import { estimateTypicalTurnCostUsd } from '@/constants/ai-model-catalog';
+import { aiCreditsFromActualCost } from '@/types/ai-credits';
 import { AiUsageMeterService } from './AiUsageMeterService';
 import { aiUsageKindFromProviderLabel } from '@/types/ai-usage-kind';
 
@@ -77,10 +79,15 @@ export class AiProviderService {
     messages: AiChatMessage[],
     conversationId?: string,
   ): Promise<AiCompletionResult> {
+    const pendingCredits =
+      settings.mode === 'radarzap'
+        ? aiCreditsFromActualCost(estimateTypicalTurnCostUsd(settings.llmModel))
+        : 0;
     const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
       clientId,
       conversationId,
       settings,
+      { pendingCalls: 1, pendingCredits },
     );
     if (!usage.allowed) {
       void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
@@ -115,10 +122,14 @@ export class AiProviderService {
     messages: AiChatMessage[],
     conversationId?: string,
   ): Promise<AiCompletionResult> {
+    const pendingCredits = aiCreditsFromActualCost(
+      estimateTypicalTurnCostUsd(settings.llmModel) * 0.35,
+    );
     const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
       clientId,
       conversationId,
       settings,
+      { pendingCalls: 1, pendingCredits, meteringOverride: 'radarzap_calls' },
     );
     if (!usage.allowed) {
       void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {

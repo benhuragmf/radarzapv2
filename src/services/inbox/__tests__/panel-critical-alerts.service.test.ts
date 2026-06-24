@@ -110,8 +110,21 @@ describe('PanelCriticalAlertsService', () => {
       allowed: true,
       dailyLimit: 100,
       dailyUsed: 92,
-      monthlyLimit: 0,
-      monthlyUsed: 0,
+      monthlyLimit: 400,
+      monthlyUsed: 50,
+      wallet: {
+        monthlyIncluded: 400,
+        purchased: 0,
+        totalAllowance: 400,
+        usedThisMonth: 360,
+        balance: 40,
+        learningUsed: 25,
+        learningLimit: 30,
+        learningBalance: 5,
+        depleted: false,
+        learningDepleted: false,
+        actionHint: null,
+      },
     });
 
     const svc = freshService();

@@ -52,8 +52,20 @@ interface InboxSettings {
   inactivityAutoCloseEnabled: boolean
   inactivityCloseMinutes: number
   inactivityWarningMinutes: number
+  inactivityWarningQuickCode?: string
+  inactivityCloseQuickCode?: string
+  gracefulCloseQuickCode?: string
+  gracefulCloseAfterPromptMinutes?: number
+  gracefulCloseDetectPhrases?: boolean
+  closeQuickReplyGateEnabled?: boolean
   queueSlaAlertMinutes: number
   ticketTeamResponseHours: number
+  triageInactivityEnabled: boolean
+  attendantTriageVisible?: boolean
+  triageWarningMinutes: number
+  triageCloseAfterWarningMinutes: number
+  triageWarningMessage: string
+  triageCloseMessage: string
   csatEnabled: boolean
   csatPrompt: string
   csatThankYou: string
@@ -120,7 +132,24 @@ export default function InboxBotSettings() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    if (data) setForm(data)
+    if (data) {
+      setForm({
+        ...data,
+        triageInactivityEnabled: data.triageInactivityEnabled ?? true,
+        triageWarningMinutes: data.triageWarningMinutes ?? 2,
+        triageCloseAfterWarningMinutes: data.triageCloseAfterWarningMinutes ?? 1,
+        triageWarningMessage: data.triageWarningMessage ?? 'Você está aí?',
+        triageCloseMessage: data.triageCloseMessage ?? 'Conversa encerrada por inatividade.',
+        inactivityWarningQuickCode: data.inactivityWarningQuickCode ?? 'aus',
+        inactivityCloseQuickCode: data.inactivityCloseQuickCode ?? 'enc',
+        gracefulCloseQuickCode: data.gracefulCloseQuickCode ?? 'mais',
+        gracefulCloseAfterPromptMinutes: data.gracefulCloseAfterPromptMinutes ?? 2,
+        gracefulCloseDetectPhrases: data.gracefulCloseDetectPhrases ?? true,
+        inactivityCloseGracefulQuickCode: data.inactivityCloseGracefulQuickCode ?? 'enc_ok',
+        closeQuickReplyGateEnabled: data.closeQuickReplyGateEnabled ?? true,
+        attendantTriageVisible: data.attendantTriageVisible ?? false,
+      })
+    }
   }, [data])
 
   const save = useMutation({
@@ -363,10 +392,65 @@ export default function InboxBotSettings() {
             <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">SLA — inatividade e fila</h2>
           </div>
           <p className="text-xs text-[var(--rz-text-muted)]">
-            Encerramento automático quando o cliente não responde após mensagem do atendente ou do bot na triagem.
-            O atendente também pode usar <code className="text-[var(--rz-text-muted)]">/enc</code> para encerrar na hora.
-            Templates em Respostas rápidas (<code className="text-[var(--rz-text-muted)]">/aus</code>,{' '}
-            <code className="text-[var(--rz-text-muted)]">/enc</code>).
+            Quando o cliente para de responder, o atendente envia o atalho de aviso (mensagem em Respostas rápidas).
+            Após o tempo entre aviso e encerramento, libera o atalho de fechamento — sem perguntar ao funcionário.
+            O encerramento automático usa os mesmos tempos e templates.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-xs text-[var(--rz-text-muted)]">Código do aviso (resposta rápida)</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[var(--rz-text-muted)] text-sm">/</span>
+                <input
+                  className={inputCls}
+                  value={form.inactivityWarningQuickCode ?? 'aus'}
+                  onChange={e =>
+                    patch(
+                      'inactivityWarningQuickCode',
+                      e.target.value.replace(/\s/g, '').toLowerCase(),
+                    )
+                  }
+                />
+              </div>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs text-[var(--rz-text-muted)]">Código do encerramento (resposta rápida)</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[var(--rz-text-muted)] text-sm">/</span>
+                <input
+                  className={inputCls}
+                  value={form.inactivityCloseQuickCode ?? 'enc'}
+                  onChange={e =>
+                    patch(
+                      'inactivityCloseQuickCode',
+                      e.target.value.replace(/\s/g, '').toLowerCase(),
+                    )
+                  }
+                />
+              </div>
+            </label>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={form.closeQuickReplyGateEnabled ?? true}
+              onChange={e => patch('closeQuickReplyGateEnabled', e.target.checked)}
+            />
+            Bloquear <code>/{form.inactivityCloseQuickCode ?? 'enc'}</code> até enviar{' '}
+            <code>/{form.inactivityWarningQuickCode ?? 'aus'}</code> ou{' '}
+            <code>/{form.gracefulCloseQuickCode ?? 'mais'}</code> (e cumprir o tempo)
+          </label>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            {form.closeQuickReplyGateEnabled ?? true
+              ? 'O atendente só usa o encerramento após o aviso de inatividade ou a pergunta final.'
+              : `O atalho /${form.inactivityCloseQuickCode ?? 'enc'} fica sempre disponível no chat — sem esperar /${form.inactivityWarningQuickCode ?? 'aus'} ou /${form.gracefulCloseQuickCode ?? 'mais'}.`}
+          </p>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Tempo manual (com bloqueio ativo): após enviar <code>/{form.inactivityWarningQuickCode ?? 'aus'}</code>, aguarde{' '}
+            <strong>
+              {Math.max(0, form.inactivityCloseMinutes - form.inactivityWarningMinutes)} min
+            </strong>{' '}
+            para liberar <code>/{form.inactivityCloseQuickCode ?? 'enc'}</code> (diferença entre os campos abaixo).
           </p>
           <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
             <input
@@ -378,7 +462,7 @@ export default function InboxBotSettings() {
           </label>
           <label className="block space-y-1">
             <span className="text-xs text-[var(--rz-text-muted)]">
-              Aviso automático antes do encerramento (minutos, 0 = desligado)
+              Minutos sem resposta até aviso automático (0 = desligado)
             </span>
             <input
               type="number"
@@ -392,7 +476,7 @@ export default function InboxBotSettings() {
           </label>
           <label className="block space-y-1">
             <span className="text-xs text-[var(--rz-text-muted)]">
-              Encerrar após inatividade (minutos, 0 = desligado)
+              Minutos totais sem resposta até encerramento automático (0 = desligado)
             </span>
             <input
               type="number"
@@ -404,6 +488,70 @@ export default function InboxBotSettings() {
               onChange={e => patch('inactivityCloseMinutes', Number(e.target.value) || 0)}
             />
           </label>
+
+          <div className="border-t border-[var(--rz-border)] pt-4 space-y-3">
+            <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">Encerramento natural</h3>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              Após resolver a dúvida, o atendente envia a pergunta final. O{' '}
+              <code>/{form.inactivityCloseQuickCode ?? 'enc'}</code> libera quando o cliente responder
+              &quot;não/obrigado&quot; ou após o tempo abaixo.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <span className="text-xs text-[var(--rz-text-muted)]">Código da pergunta final</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[var(--rz-text-muted)] text-sm">/</span>
+                  <input
+                    className={inputCls}
+                    value={form.gracefulCloseQuickCode ?? 'mais'}
+                    onChange={e =>
+                      patch('gracefulCloseQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
+                    }
+                  />
+                </div>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs text-[var(--rz-text-muted)]">Template de encerramento cordial</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[var(--rz-text-muted)] text-sm">/</span>
+                  <input
+                    className={inputCls}
+                    value={form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
+                    onChange={e =>
+                      patch(
+                        'inactivityCloseGracefulQuickCode',
+                        e.target.value.replace(/\s/g, '').toLowerCase(),
+                      )
+                    }
+                  />
+                </div>
+              </label>
+            </div>
+            <label className="block space-y-1">
+              <span className="text-xs text-[var(--rz-text-muted)]">
+                Minutos após a pergunta final para liberar /{form.inactivityCloseQuickCode ?? 'enc'}
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={1440}
+                className={inputCls}
+                value={form.gracefulCloseAfterPromptMinutes ?? 2}
+                onChange={e =>
+                  patch('gracefulCloseAfterPromptMinutes', Number(e.target.value) || 0)
+                }
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={form.gracefulCloseDetectPhrases ?? true}
+                onChange={e => patch('gracefulCloseDetectPhrases', e.target.checked)}
+              />
+              Detectar respostas como &quot;não&quot;, &quot;obrigado&quot;, &quot;só isso&quot;
+            </label>
+          </div>
+
           <label className="block space-y-1">
             <span className="text-xs text-[var(--rz-text-muted)]">
               Alerta de fila parada — supervisor (minutos na fila, 0 = desligado)
@@ -428,6 +576,91 @@ export default function InboxBotSettings() {
               className={inputCls}
               value={form.ticketTeamResponseHours}
               onChange={e => patch('ticketTeamResponseHours', Number(e.target.value) || 0)}
+            />
+          </label>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2 text-brand-400">
+            <MessageCircle size={18} />
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Triagem — visibilidade no Inbox</h2>
+          </div>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Por padrão, só dono e administrador veem conversas em triagem (antes da escolha do setor).
+            Atendentes dos setores só veem fila e atendimentos do próprio setor.
+          </p>
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={form.attendantTriageVisible ?? false}
+              onChange={e => patch('attendantTriageVisible', e.target.checked)}
+            />
+            Atendentes podem ver e assumir conversas em triagem
+          </label>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2 text-brand-400">
+            <MessageCircle size={18} />
+            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Triagem — inatividade do visitante</h2>
+          </div>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Durante a triagem (menu de setores / primeira pergunta do bot), se o visitante não responder no prazo,
+            o sistema envia um aviso e depois encerra a conversa. Use <code className="text-[var(--rz-text-muted)]">[user]</code>{' '}
+            ou <code className="text-[var(--rz-text-muted)]">[nome]</code> para o primeiro nome do contato.
+          </p>
+          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={form.triageInactivityEnabled}
+              onChange={e => patch('triageInactivityEnabled', e.target.checked)}
+            />
+            Encerrar triagem automaticamente por inatividade
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-[var(--rz-text-muted)]">
+              Aguardar resposta à primeira pergunta (minutos) — depois envia o aviso
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              className={inputCls}
+              value={form.triageWarningMinutes}
+              disabled={!form.triageInactivityEnabled}
+              onChange={e => patch('triageWarningMinutes', Number(e.target.value) || 0)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de aviso</span>
+            <input
+              className={inputCls}
+              value={form.triageWarningMessage}
+              disabled={!form.triageInactivityEnabled}
+              onChange={e => patch('triageWarningMessage', e.target.value)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-[var(--rz-text-muted)]">
+              Minutos após o aviso para encerrar (0 = desligado)
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              className={inputCls}
+              value={form.triageCloseAfterWarningMinutes}
+              disabled={!form.triageInactivityEnabled}
+              onChange={e => patch('triageCloseAfterWarningMinutes', Number(e.target.value) || 0)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de encerramento</span>
+            <input
+              className={inputCls}
+              value={form.triageCloseMessage}
+              disabled={!form.triageInactivityEnabled}
+              onChange={e => patch('triageCloseMessage', e.target.value)}
             />
           </label>
         </Card>

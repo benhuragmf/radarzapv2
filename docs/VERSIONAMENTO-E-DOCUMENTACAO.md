@@ -68,6 +68,7 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 | Registro vivo do produto | [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) |
 | Rotas/menus/API painel | [`MENU-PAGES-REGISTRY.md`](./MENU-PAGES-REGISTRY.md) |
 | Inbox/triagem/CSAT/IA WA | [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) |
+| Créditos IA / carteira / barra painel | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) |
 | WebChat/widget | [`WEBCHAT.md`](./WEBCHAT.md) |
 | Tickets | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) |
 | Modos de atendimento | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) |

@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import { AiMemory, IAiMemory, AiMemoryStatus } from '@/models/AiMemory';
 import type { IAiConversationState } from '@/models/AiConversationState';
 import { scoreAiTextMatch } from '@/utils/ai-text-match';
+import { AiWalletService } from './AiWalletService';
+import { AiUsageMeterService } from './AiUsageMeterService';
 
 export interface AiMemoryPayload {
   id: string;
@@ -105,6 +107,10 @@ export class AiMemoryService {
     const summary = state.summary?.trim();
     if (!problem && !summary) return null;
 
+    const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(clientId);
+    const learningCheck = AiWalletService.getInstance().canRunLearning(usage.wallet);
+    if (!learningCheck.allowed) return null;
+
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const exists = await AiMemory.findOne({
       clientId: clientOid,
@@ -128,7 +134,7 @@ export class AiMemoryService {
     const content = parts.join('\n').slice(0, 4000);
     if (content.length < 20) return null;
 
-    return AiMemory.create({
+    const memory = await AiMemory.create({
       clientId: clientOid,
       title,
       content,
@@ -137,6 +143,8 @@ export class AiMemoryService {
       source: 'learned',
       sourceConversationId: conversationId,
     });
+    await AiWalletService.getInstance().recordLearningOp(clientId, 'memory');
+    return memory;
   }
 
   async syncPayload(

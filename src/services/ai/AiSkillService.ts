@@ -5,6 +5,8 @@ import {
   AI_AUTO_RESOLVE_MIN_SCORE,
   scoreAiTextMatch,
 } from '@/utils/ai-text-match';
+import { AiWalletService } from './AiWalletService';
+import { AiUsageMeterService } from './AiUsageMeterService';
 
 export interface AiSkillPayload {
   id: string;
@@ -153,6 +155,10 @@ export class AiSkillService {
     const problem = state.collectedProblem?.trim();
     if (!problem || problem.length < 12) return null;
 
+    const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(clientId);
+    const learningCheck = AiWalletService.getInstance().canRunLearning(usage.wallet);
+    if (!learningCheck.allowed) return null;
+
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const exists = await AiSkill.findOne({
       clientId: clientOid,
@@ -168,7 +174,7 @@ export class AiSkillService {
       state.summary?.trim() ||
       'Atendimento encaminhado à equipe com contexto coletado pela IA.';
 
-    return AiSkill.create({
+    const skill = await AiSkill.create({
       clientId: clientOid,
       title,
       triggers: problem.slice(0, 500),
@@ -178,6 +184,8 @@ export class AiSkillService {
       sourceConversationId: conversationId,
       sourceProblem: problem.slice(0, 2000),
     });
+    await AiWalletService.getInstance().recordLearningOp(clientId, 'skill');
+    return skill;
   }
 
   buildApprovedContextBlock(skills: IAiSkill[], query?: string): string {

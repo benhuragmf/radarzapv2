@@ -5,7 +5,6 @@ import { AiPromptBuilderService } from '@/services/ai/AiPromptBuilderService';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
 import type { IWebChatConversation } from '@/models/WebChatConversation';
 import {
-  buildInboxTriageMenu,
   buildInvalidMenuHint,
   buildQueueConfirmation,
   loadClientVisibleDepartments,
@@ -166,8 +165,7 @@ export class WebChatBasicTriageService {
       return { handled: true, replies };
     }
 
-    const menu = await buildInboxTriageMenu(ctx.clientId);
-    replies.push(await ctx.sendBotReply(menu));
+    replies.push(await ctx.sendBotReply(buildBasicTriageClarifyReply('unknown')));
     return { handled: true, replies };
   }
 

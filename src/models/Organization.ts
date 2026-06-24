@@ -49,6 +49,12 @@ export interface IOrganization extends Document {
     /** Se true, atendentes podem editar nome/e-mail/WhatsApp no painel (sempre com OTP) */
     allowMembersEditOwnProfile?: boolean;
   };
+  /** Carteira IA — créditos comprados e uso de aprendizagem no ciclo mensal. */
+  aiWallet?: {
+    purchasedCredits: number;
+    learningOpsUsed: number;
+    periodStart: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 
@@ -117,6 +123,18 @@ const OrganizationSchema = new Schema<IOrganization>({
       allowMembersEditOwnProfile: { type: Boolean, default: false },
     },
     default: () => ({ allowMembersEditOwnProfile: false }),
+  },
+  aiWallet: {
+    type: {
+      purchasedCredits: { type: Number, default: 0, min: 0 },
+      learningOpsUsed: { type: Number, default: 0, min: 0 },
+      periodStart: { type: Date, default: Date.now },
+    },
+    default: () => ({
+      purchasedCredits: 0,
+      learningOpsUsed: 0,
+      periodStart: new Date(),
+    }),
   },
 }, {
   timestamps: true,

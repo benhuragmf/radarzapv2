@@ -16,6 +16,9 @@ describe('basic-triage-classifier', () => {
   it('detecta saudação', () => {
     expect(classifyLocal('oi').intent).toBe('greeting');
     expect(classifyLocal('Bom dia!').confidence).toBeGreaterThan(0.9);
+    expect(classifyLocal('Ola bom diua').intent).toBe('greeting');
+    expect(classifyLocal('oi tudo bem').intent).toBe('greeting');
+    expect(classifyLocal('ola bom dia').intent).toBe('greeting');
   });
 
   it('classifica financeiro', () => {

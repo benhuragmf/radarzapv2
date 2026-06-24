@@ -16,6 +16,8 @@ import { AiPromptBuilderService } from './AiPromptBuilderService';
 import { AiProviderService } from './AiProviderService';
 import { AiEscalationService } from './AiEscalationService';
 import { AiUsageMeterService } from './AiUsageMeterService';
+import { estimateTypicalTurnCostUsd } from '@/constants/ai-model-catalog';
+import { aiCreditsFromActualCost } from '@/types/ai-credits';
 import { AiContextService, type AiContactContext } from './AiContextService';
 import type { IAiPrompt } from '@/models/AiPrompt';
 import { AiAutoResolveService } from './AiAutoResolveService';
@@ -137,10 +139,15 @@ export class AiConversationService {
       return { handled: false, useStandardTriage: true };
     }
 
+    const pendingCredits =
+      settings.mode === 'radarzap'
+        ? aiCreditsFromActualCost(estimateTypicalTurnCostUsd(settings.llmModel))
+        : 0;
     const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
       ctx.clientId,
       String(ctx.conversation._id),
       settings,
+      { pendingCalls: 1, pendingCredits },
     );
     if (!usage.allowed) {
       await this.releaseToStandardTriage(state, usage.reason ?? 'Limite de IA atingido', inbox);

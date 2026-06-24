@@ -7,6 +7,7 @@ import { Wifi, WifiOff, LogOut, Menu, Sun, Moon } from 'lucide-react'
 import OrganizationSwitcher from './OrganizationSwitcher'
 import EventNotificationBell from './EventNotificationBell'
 import { AgentStatusSelector } from './AgentStatusSelector'
+import { HeaderStatusPills } from './HeaderStatusPills'
 import { useTheme } from '../../context/ThemeContext'
 
 interface Props {
@@ -36,7 +37,7 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
 
   return (
     <header className="h-14 bg-[var(--rz-surface)] border-b border-[var(--rz-border)] flex items-center justify-between px-4 sm:px-6 gap-3">
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         {onMenuClick && (
           <button
             type="button"
@@ -47,7 +48,10 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
             <Menu size={20} />
           </button>
         )}
-        <h1 className="font-semibold text-base truncate text-[var(--rz-text-primary)]">{title}</h1>
+        <h1 className="font-semibold text-base truncate text-[var(--rz-text-primary)] shrink-0 max-w-[40vw] sm:max-w-none">
+          {title}
+        </h1>
+        <HeaderStatusPills user={user} />
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">

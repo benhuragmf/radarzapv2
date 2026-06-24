@@ -28,13 +28,21 @@ import {
 import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
 import { User } from '@/models/User';
 import { InboxConversationStatus, InboxMessageMediaType } from '@/types/inbox';
-import { DEFAULT_INBOX_SLA, INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
+import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
 import {
   applyQuickReplyTemplate,
   expandQuickReply,
   normalizeQuickReplies,
   parseQuickReplyCode,
   InboxQuickReply,
+  resolveInactivityWarningQuickCode,
+  resolveInactivityCloseQuickCode,
+  resolveGracefulCloseQuickCode,
+  resolveInactivityCloseGracefulQuickCode,
+  isInactivityWarningQuickCode,
+  isInactivityCloseQuickCode,
+  isGracefulCloseQuickCode,
+  inactivityCloseAfterWarningMinutes,
 } from '@/types/inbox-quick-replies';
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
@@ -87,12 +95,27 @@ import {
   shouldAlertQueueStall,
   shouldAutoCloseForInactivity,
   shouldAutoCloseTriageStalled,
+  shouldCloseTriageInactivity,
   shouldSendInactivityWarning,
+  shouldSendTriageInactivityWarning,
   shouldSendTriageStallWarning,
+  isInactivityCloseQuickReplyAllowed,
+  isCloseQuickReplyAllowed,
+  isGracefulCloseQuickReplyAllowed,
+  triageInactivityTotalMinutes,
   triageWaitElapsedSec,
   triageWaitUrgency,
 } from '@/services/inbox/inbox-inactivity';
 import { parseCsatScore, isCsatIntent, DEFAULT_CSAT_PROMPT, shouldBypassCsatForNewService } from '@/services/inbox/csat.util';
+import {
+  applyInboundCloseGate,
+  applyOutboundCloseGate,
+  clearCloseGateFields,
+} from '@/services/inbox/inbox-graceful-close.util';
+import {
+  applyRestrictedWaListVisibility,
+  isUnassignedTriageBlockedForAttendant,
+} from '@/services/inbox/inbox-department-visibility.util';
 import {
   closedTicketReplyWindowMongoFilter,
   isClosedTicketReplyWindowActive,
@@ -363,8 +386,21 @@ export class InboxService {
       inactivityAutoCloseEnabled: boolean;
       inactivityCloseMinutes: number;
       inactivityWarningMinutes: number;
+      inactivityWarningQuickCode?: string;
+      inactivityCloseQuickCode?: string;
+      gracefulCloseQuickCode?: string;
+      gracefulCloseAfterPromptMinutes?: number;
+      gracefulCloseDetectPhrases?: boolean;
+      inactivityCloseGracefulQuickCode?: string;
+      closeQuickReplyGateEnabled?: boolean;
       queueSlaAlertMinutes: number;
       ticketTeamResponseHours: number;
+      triageInactivityEnabled: boolean;
+      attendantTriageVisible?: boolean;
+      triageWarningMinutes: number;
+      triageCloseAfterWarningMinutes: number;
+      triageWarningMessage: string;
+      triageCloseMessage: string;
       csatEnabled: boolean;
       csatPrompt: string;
       csatThankYou: string;
@@ -438,6 +474,38 @@ export class InboxService {
         Math.max(0, Number(patch.inactivityWarningMinutes) || 0),
       );
     }
+    if (patch.inactivityWarningQuickCode !== undefined) {
+      settings.inactivityWarningQuickCode = resolveInactivityWarningQuickCode({
+        inactivityWarningQuickCode: String(patch.inactivityWarningQuickCode ?? ''),
+      });
+    }
+    if (patch.inactivityCloseQuickCode !== undefined) {
+      settings.inactivityCloseQuickCode = resolveInactivityCloseQuickCode({
+        inactivityCloseQuickCode: String(patch.inactivityCloseQuickCode ?? ''),
+      });
+    }
+    if (patch.gracefulCloseQuickCode !== undefined) {
+      settings.gracefulCloseQuickCode = resolveGracefulCloseQuickCode({
+        gracefulCloseQuickCode: String(patch.gracefulCloseQuickCode ?? ''),
+      });
+    }
+    if (patch.gracefulCloseAfterPromptMinutes !== undefined) {
+      settings.gracefulCloseAfterPromptMinutes = Math.min(
+        1440,
+        Math.max(0, Number(patch.gracefulCloseAfterPromptMinutes) || 0),
+      );
+    }
+    if (patch.gracefulCloseDetectPhrases !== undefined) {
+      settings.gracefulCloseDetectPhrases = Boolean(patch.gracefulCloseDetectPhrases);
+    }
+    if (patch.inactivityCloseGracefulQuickCode !== undefined) {
+      settings.inactivityCloseGracefulQuickCode = resolveInactivityCloseGracefulQuickCode({
+        inactivityCloseGracefulQuickCode: String(patch.inactivityCloseGracefulQuickCode ?? ''),
+      });
+    }
+    if (patch.closeQuickReplyGateEnabled !== undefined) {
+      settings.closeQuickReplyGateEnabled = Boolean(patch.closeQuickReplyGateEnabled);
+    }
     if (patch.queueSlaAlertMinutes !== undefined) {
       settings.queueSlaAlertMinutes = Math.min(
         1440,
@@ -449,6 +517,30 @@ export class InboxService {
         168,
         Math.max(0, Number(patch.ticketTeamResponseHours) || 0),
       );
+    }
+    if (patch.triageInactivityEnabled !== undefined) {
+      settings.triageInactivityEnabled = Boolean(patch.triageInactivityEnabled);
+    }
+    if (patch.attendantTriageVisible !== undefined) {
+      settings.attendantTriageVisible = Boolean(patch.attendantTriageVisible);
+    }
+    if (patch.triageWarningMinutes !== undefined) {
+      settings.triageWarningMinutes = Math.min(
+        1440,
+        Math.max(0, Number(patch.triageWarningMinutes) || 0),
+      );
+    }
+    if (patch.triageCloseAfterWarningMinutes !== undefined) {
+      settings.triageCloseAfterWarningMinutes = Math.min(
+        1440,
+        Math.max(0, Number(patch.triageCloseAfterWarningMinutes) || 0),
+      );
+    }
+    if (patch.triageWarningMessage !== undefined) {
+      settings.triageWarningMessage = patch.triageWarningMessage.trim();
+    }
+    if (patch.triageCloseMessage !== undefined) {
+      settings.triageCloseMessage = patch.triageCloseMessage.trim();
     }
     if (patch.csatEnabled !== undefined) {
       settings.csatEnabled = Boolean(patch.csatEnabled);
@@ -597,7 +689,17 @@ export class InboxService {
     clientId: string,
     agentMap: Map<string, string>,
     pullTimeoutSeconds: number,
-    inactivityCloseMinutes = DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+    triageInactivityTotalMin = triageInactivityTotalMinutes(
+      DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes,
+      DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
+    ),
+    inactivitySla?: {
+      inactivityAutoCloseEnabled: boolean;
+      inactivityCloseMinutes: number;
+      inactivityWarningMinutes: number;
+      gracefulCloseAfterPromptMinutes?: number;
+      closeQuickReplyGateEnabled?: boolean;
+    },
   ) {
     const suggestedId = row.suggestedUserId
       ? String(row.suggestedUserId)
@@ -627,6 +729,8 @@ export class InboxService {
     } else if (status === InboxConversationStatus.WAITING_QUEUE && !assignedId) {
       canAccept = true;
       canPull = true;
+    } else if (status === InboxConversationStatus.BOT_TRIAGE && !assignedId) {
+      canAccept = true;
     }
 
     const priority = getQueuePriorityState(
@@ -642,8 +746,32 @@ export class InboxService {
       ? triageWaitElapsedSec(triageWaitSince)
       : 0;
     const triageUrgency = triageWaitSince
-      ? triageWaitUrgency(triageElapsedSec, inactivityCloseMinutes)
+      ? triageWaitUrgency(triageElapsedSec, triageInactivityTotalMin)
       : 0;
+
+    const encQuickReplyAllowed =
+      status === InboxConversationStatus.IN_PROGRESS && inactivitySla
+        ? isCloseQuickReplyAllowed(
+            {
+              lastInboundAt: row.lastInboundAt as Date | undefined,
+              lastOutboundAt: row.lastOutboundAt as Date | undefined,
+              inactivityWarnedAt: row.inactivityWarnedAt as Date | undefined,
+              gracefulClosePromptAt: row.gracefulClosePromptAt as Date | undefined,
+              gracefulCloseAckAt: row.gracefulCloseAckAt as Date | undefined,
+              closeGateSource: row.closeGateSource as 'inactivity' | 'graceful' | undefined,
+            },
+            {
+              inactivityCloseMinutes:
+                inactivitySla.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+              inactivityWarningMinutes:
+                inactivitySla.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+              gracefulCloseAfterPromptMinutes:
+                inactivitySla.gracefulCloseAfterPromptMinutes ??
+                DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+              closeQuickReplyGateEnabled: inactivitySla.closeQuickReplyGateEnabled,
+            },
+          )
+        : false;
 
     return {
       ...row,
@@ -662,6 +790,21 @@ export class InboxService {
         : undefined,
       triageElapsedSec,
       triageUrgency,
+      triageInactivityTotalMin,
+      encQuickReplyAllowed,
+      inactivityWarnedAt: row.inactivityWarnedAt
+        ? new Date(row.inactivityWarnedAt as Date | string).toISOString()
+        : undefined,
+      gracefulClosePromptAt: row.gracefulClosePromptAt
+        ? new Date(row.gracefulClosePromptAt as Date | string).toISOString()
+        : undefined,
+      gracefulCloseAckAt: row.gracefulCloseAckAt
+        ? new Date(row.gracefulCloseAckAt as Date | string).toISOString()
+        : undefined,
+      closeGateSource: row.closeGateSource as 'inactivity' | 'graceful' | undefined,
+      lastOutboundAt: row.lastOutboundAt
+        ? new Date(row.lastOutboundAt as Date | string).toISOString()
+        : undefined,
       createdAt: row.createdAt
         ? new Date(row.createdAt as Date | string).toISOString()
         : undefined,
@@ -670,7 +813,7 @@ export class InboxService {
 
   private async touchClientOutboundPrompt(conversation: IInboxConversation): Promise<void> {
     conversation.lastOutboundAt = new Date();
-    conversation.inactivityWarnedAt = undefined;
+    clearCloseGateFields(conversation);
     await conversation.save();
   }
 
@@ -2068,8 +2211,8 @@ export class InboxService {
           this,
         );
         if (basicResult.handled) return;
-        if (!basicResult.useStandardTriage) return;
-        forceStandardMenu = true;
+        // IA Básica ativa — não cair no bot robotizado (menu de setores).
+        return;
       }
 
       await this.handleStandardBotTriage(clientId, conversation, dest, trimmed, {
@@ -2179,7 +2322,12 @@ export class InboxService {
     if (waId) markInboundMessageProcessed(cid, conversation.channel, waId);
 
     conversation.lastInboundAt = new Date();
-    conversation.inactivityWarnedAt = undefined;
+    const settings = await loadInboxSettings(cid);
+    applyInboundCloseGate(
+      conversation,
+      body,
+      settings.gracefulCloseDetectPhrases !== false,
+    );
     conversation.lastMessageAt = new Date();
     await conversation.save();
     this.notifyMessage(cid, String(conversation._id));
@@ -2666,25 +2814,12 @@ export class InboxService {
       query.ticketRef = { $exists: true, $nin: [null, ''] };
     }
 
+    const settings = await loadInboxSettings(clientId);
+    const attendantTriageVisible = settings.attendantTriageVisible === true;
+
     const visibility = await this.departmentVisibility(clientId, userId);
     const userOid = new mongoose.Types.ObjectId(userId);
-    if (visibility.restricted) {
-      const assignedClause = {
-        $or: [{ assignedUserId: userOid }, { suggestedUserId: userOid }],
-      };
-
-      if (filters.departmentId) {
-        const deptOid = new mongoose.Types.ObjectId(filters.departmentId);
-        const allowedDept = visibility.departmentIds.some(id => id.equals(deptOid));
-        if (!allowedDept) {
-          Object.assign(query, assignedClause);
-        }
-      } else if (visibility.departmentIds.length > 0) {
-        query.$or = [{ departmentId: { $in: visibility.departmentIds } }, assignedClause];
-      } else {
-        Object.assign(query, assignedClause);
-      }
-    }
+    applyRestrictedWaListVisibility(query, visibility, userOid, filters, { attendantTriageVisible });
 
     const andClauses: Record<string, unknown>[] = [];
     if (filters.mine) {
@@ -2704,8 +2839,19 @@ export class InboxService {
       query.$and = andClauses;
     }
 
-    const settings = await loadInboxSettings(clientId);
     const pullTimeoutSeconds = settings.roundRobinPullTimeoutSeconds ?? 120;
+    const triageTotalMin = triageInactivityTotalMinutes(
+      settings.triageWarningMinutes ?? DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes,
+      settings.triageCloseAfterWarningMinutes ??
+        DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
+    );
+    const inactivitySla = {
+      inactivityAutoCloseEnabled: settings.inactivityAutoCloseEnabled,
+      inactivityCloseMinutes: settings.inactivityCloseMinutes,
+      inactivityWarningMinutes: settings.inactivityWarningMinutes,
+      gracefulCloseAfterPromptMinutes: settings.gracefulCloseAfterPromptMinutes,
+      closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
+    };
 
     const rows = await InboxConversation.find(query)
       .sort({ lastMessageAt: -1 })
@@ -2758,7 +2904,8 @@ export class InboxService {
           clientId,
           agentMap,
           pullTimeoutSeconds,
-          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+          triageTotalMin,
+          inactivitySla,
         ),
       ),
     );
@@ -4054,7 +4201,16 @@ export class InboxService {
         clientId,
         agentMap,
         pullTimeoutSeconds,
-        settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+        triageInactivityTotalMinutes(
+          settings.triageWarningMinutes ?? DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes,
+          settings.triageCloseAfterWarningMinutes ??
+            DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
+        ),
+        {
+          inactivityAutoCloseEnabled: settings.inactivityAutoCloseEnabled,
+          inactivityCloseMinutes: settings.inactivityCloseMinutes,
+          inactivityWarningMinutes: settings.inactivityWarningMinutes,
+        },
       ),
       this.buildContactContext(clientId, conv.destinationId, conv._id as mongoose.Types.ObjectId),
       Destination.findOne({ _id: conv.destinationId, clientId: conv.clientId })
@@ -4073,6 +4229,8 @@ export class InboxService {
         resolvedAt: conv.resolvedAt,
         acceptedAt: conv.acceptedAt,
         lastMessageAt: conv.lastMessageAt,
+        lastInboundAt: conv.lastInboundAt,
+        lastOutboundAt: conv.lastOutboundAt,
       },
       messages,
       transfers,
@@ -4090,6 +4248,22 @@ export class InboxService {
           }
         : null,
       quickReplies,
+      inactivitySla: {
+        inactivityAutoCloseEnabled: settings.inactivityAutoCloseEnabled,
+        inactivityCloseMinutes: settings.inactivityCloseMinutes,
+        inactivityWarningMinutes: settings.inactivityWarningMinutes,
+        inactivityWarningQuickCode: resolveInactivityWarningQuickCode(settings),
+        inactivityCloseQuickCode: resolveInactivityCloseQuickCode(settings),
+        gracefulCloseQuickCode: resolveGracefulCloseQuickCode(settings),
+        gracefulCloseAfterPromptMinutes: settings.gracefulCloseAfterPromptMinutes,
+        gracefulCloseDetectPhrases: settings.gracefulCloseDetectPhrases,
+        inactivityCloseGracefulQuickCode: resolveInactivityCloseGracefulQuickCode(settings),
+        closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled !== false,
+        inactivityCloseAfterWarningMinutes: inactivityCloseAfterWarningMinutes(
+          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+          settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+        ),
+      },
     };
   }
 
@@ -4416,6 +4590,45 @@ export class InboxService {
     const quickReplies = normalizeQuickReplies(settings.quickReplies);
     const quickCode = parseQuickReplyCode(raw);
     const body = expandQuickReply(raw, quickReplies, conv.contactName);
+    const warnCode = resolveInactivityWarningQuickCode(settings);
+    const closeCode = resolveInactivityCloseQuickCode(settings);
+    const maisCode = resolveGracefulCloseQuickCode(settings);
+
+    if (isInactivityCloseQuickCode(quickCode, settings)) {
+      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const encAllowed = isCloseQuickReplyAllowed(
+        {
+          lastInboundAt: conv.lastInboundAt,
+          lastOutboundAt: conv.lastOutboundAt,
+          inactivityWarnedAt: conv.inactivityWarnedAt,
+          gracefulClosePromptAt: conv.gracefulClosePromptAt,
+          gracefulCloseAckAt: conv.gracefulCloseAckAt,
+          closeGateSource: conv.closeGateSource,
+        },
+        {
+          inactivityCloseMinutes:
+            settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+          inactivityWarningMinutes:
+            settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+          gracefulCloseAfterPromptMinutes:
+            settings.gracefulCloseAfterPromptMinutes ??
+            DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+          closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
+        },
+      );
+      if (gateEnabled && !encAllowed) {
+        const afterAus = inactivityCloseAfterWarningMinutes(
+          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+          settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+        );
+        const afterMais =
+          settings.gracefulCloseAfterPromptMinutes ??
+          DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes;
+        throw new Error(
+          `O atalho /${closeCode} só libera após enviar /${warnCode} (${afterAus} min) ou /${maisCode} (${afterMais} min ou resposta do cliente).`,
+        );
+      }
+    }
 
     if (conv.status === InboxConversationStatus.WAITING_QUEUE) {
       if (conv.suggestedUserId && conv.suggestedUserId.toString() !== userId) {
@@ -4452,12 +4665,12 @@ export class InboxService {
     });
     conv.lastMessageAt = new Date();
     conv.lastOutboundAt = new Date();
-    conv.inactivityWarnedAt = undefined;
+    applyOutboundCloseGate(conv, quickCode, settings, warnCode, closeCode, maisCode);
     await conv.save();
     this.notifyMessage(clientId, String(conv._id));
     this.notifyConversation(clientId, conv);
 
-    if (quickCode === 'enc') {
+    if (isInactivityCloseQuickCode(quickCode, settings)) {
       await this.closeConversationForInactivity(clientId, conv, {
         byUserId: userId,
         reason: 'agent_enc',
@@ -4614,6 +4827,7 @@ export class InboxService {
       byUserId?: string;
       reason: 'auto' | 'agent_enc';
       skipMessage?: boolean;
+      closingMessage?: string;
     },
   ): Promise<void> {
     if (TERMINAL_STATUSES.has(conv.status)) return;
@@ -4622,16 +4836,26 @@ export class InboxService {
     const quickReplies = normalizeQuickReplies(settings.quickReplies);
 
     if (!opts.skipMessage) {
+      const closeCode = resolveInactivityCloseQuickCode(settings);
+      const gracefulCloseCode = resolveInactivityCloseGracefulQuickCode(settings);
+      const templateCode =
+        conv.closeGateSource === 'graceful' ? gracefulCloseCode : closeCode;
       const closing =
-        this.quickReplyBody('enc', quickReplies, conv.contactName) ??
+        opts.closingMessage?.trim() ||
+        this.quickReplyBody(templateCode, quickReplies, conv.contactName) ||
+        this.quickReplyBody(closeCode, quickReplies, conv.contactName) ||
         'Como não houve interação, encerraremos este atendimento.';
-      await this.sendToContact(clientId, conv.contactIdentifier, closing);
-      await this.appendSystemMessage(
-        conv,
-        closing,
-        opts.byUserId ? new mongoose.Types.ObjectId(opts.byUserId) : undefined,
-        clientId,
-      );
+      if (opts.reason === 'auto' && !opts.byUserId) {
+        await this.sendAiReply(clientId, conv, conv.contactIdentifier, closing);
+      } else {
+        await this.sendToContact(clientId, conv.contactIdentifier, closing);
+        await this.appendSystemMessage(
+          conv,
+          closing,
+          opts.byUserId ? new mongoose.Types.ObjectId(opts.byUserId) : undefined,
+          clientId,
+        );
+      }
     }
 
     conv.status = InboxConversationStatus.CLOSED;
@@ -4640,7 +4864,7 @@ export class InboxService {
     conv.assignedUserId = undefined;
     conv.suggestedUserId = undefined;
     conv.suggestedAt = undefined;
-    conv.inactivityWarnedAt = undefined;
+    clearCloseGateFields(conv);
     await conv.save();
 
     this.notifyConversation(clientId, conv);
@@ -4801,7 +5025,7 @@ export class InboxService {
     try {
       const rows = await InboxSettings.find({})
         .select(
-          'clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes queueSlaAlertMinutes ticketTeamResponseHours quickReplies',
+          'clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes inactivityWarningQuickCode inactivityCloseQuickCode triageInactivityEnabled triageWarningMinutes triageCloseAfterWarningMinutes triageWarningMessage triageCloseMessage queueSlaAlertMinutes ticketTeamResponseHours quickReplies',
         )
         .lean();
 
@@ -4813,9 +5037,13 @@ export class InboxService {
           row.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes;
         const queueMinutes = row.queueSlaAlertMinutes ?? DEFAULT_INBOX_SLA.queueSlaAlertMinutes;
         const enabled = row.inactivityAutoCloseEnabled !== false;
+        const triageEnabled = row.triageInactivityEnabled !== false;
 
+        if (triageEnabled) {
+          await this.processTriageInactivity(clientId, row, nowMs);
+        }
         if (enabled && closeMinutes > 0) {
-          await this.processClientInactivity(
+          await this.processInProgressInactivity(
             clientId,
             { ...row, inactivityCloseMinutes: closeMinutes, inactivityWarningMinutes: warningMinutes },
             nowMs,
@@ -4876,11 +5104,12 @@ export class InboxService {
     }
   }
 
-  private async processClientInactivity(
+  private async processInProgressInactivity(
     clientId: string,
     settings: {
       inactivityCloseMinutes?: number;
       inactivityWarningMinutes?: number;
+      inactivityWarningQuickCode?: string;
       quickReplies?: InboxQuickReply[];
     },
     nowMs: number,
@@ -4894,7 +5123,7 @@ export class InboxService {
     const quickReplies = normalizeQuickReplies(settings.quickReplies);
     const clientOid = new mongoose.Types.ObjectId(clientId);
 
-    const inProgressConvs = await InboxConversation.find({
+    const convs = await InboxConversation.find({
       clientId: clientOid,
       status: InboxConversationStatus.IN_PROGRESS,
       assignedUserId: { $exists: true, $ne: null },
@@ -4903,40 +5132,26 @@ export class InboxService {
       .limit(80)
       .exec();
 
-    const triageConvs = await InboxConversation.find({
-      clientId: clientOid,
-      status: InboxConversationStatus.BOT_TRIAGE,
-      $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }],
-    })
-      .limit(80)
-      .exec();
-
-    for (const conv of [...inProgressConvs, ...triageConvs]) {
+    for (const conv of convs) {
       if (TERMINAL_STATUSES.has(conv.status)) continue;
 
       const ts = {
         lastInboundAt: conv.lastInboundAt,
         lastOutboundAt: conv.lastOutboundAt,
         inactivityWarnedAt: conv.inactivityWarnedAt,
-        createdAt: conv.createdAt,
       };
 
-      const shouldWarn =
-        enabled &&
-        (shouldSendInactivityWarning(ts, warningMinutes, closeMinutes, nowMs) ||
-          shouldSendTriageStallWarning(ts, warningMinutes, closeMinutes, nowMs));
-
-      if (shouldWarn) {
+      if (
+        shouldSendInactivityWarning(ts, warningMinutes, closeMinutes, nowMs) &&
+        enabled
+      ) {
+        const warnCode = resolveInactivityWarningQuickCode(settings);
         const warnBody =
-          this.quickReplyBody('aus', quickReplies, conv.contactName) ?? 'Você está aí?';
+          this.quickReplyBody(warnCode, quickReplies, conv.contactName) ?? 'Você está aí?';
         try {
-          await this.sendToContact(clientId, conv.contactIdentifier, warnBody);
-          await this.appendSystemMessage(conv, warnBody, undefined, clientId);
-          conv.lastOutboundAt = new Date();
+          await this.sendAiReply(clientId, conv, conv.contactIdentifier, warnBody);
           conv.inactivityWarnedAt = new Date();
-          conv.lastMessageAt = new Date();
           await conv.save();
-          this.notifyMessage(clientId, String(conv._id));
         } catch (err) {
           logger.warn('Falha ao enviar aviso de inatividade', {
             clientId,
@@ -4946,15 +5161,95 @@ export class InboxService {
         }
       }
 
-      const shouldClose =
-        shouldAutoCloseForInactivity(ts, closeMinutes, enabled, nowMs) ||
-        shouldAutoCloseTriageStalled(ts, closeMinutes, enabled, nowMs);
-
-      if (shouldClose) {
+      if (shouldAutoCloseForInactivity(ts, closeMinutes, enabled, nowMs)) {
         try {
           await this.closeConversationForInactivity(clientId, conv, { reason: 'auto' });
         } catch (err) {
           logger.warn('Falha ao encerrar conversa por inatividade', {
+            clientId,
+            conversationId: String(conv._id),
+            err,
+          });
+        }
+      }
+    }
+  }
+
+  private async processTriageInactivity(
+    clientId: string,
+    row: {
+      triageWarningMinutes?: number;
+      triageCloseAfterWarningMinutes?: number;
+      triageWarningMessage?: string;
+      triageCloseMessage?: string;
+    },
+    nowMs: number,
+  ): Promise<void> {
+    const warningMinutes =
+      row.triageWarningMinutes ?? DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes;
+    const closeAfterWarningMinutes =
+      row.triageCloseAfterWarningMinutes ??
+      DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes;
+    const warnTemplate =
+      row.triageWarningMessage?.trim() || DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMessage;
+    const closeTemplate =
+      row.triageCloseMessage?.trim() || DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseMessage;
+
+    const config = {
+      enabled: true,
+      warningMinutes,
+      closeAfterWarningMinutes,
+    };
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const convs = await InboxConversation.find({
+      clientId: clientOid,
+      status: InboxConversationStatus.BOT_TRIAGE,
+      $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }],
+    })
+      .limit(80)
+      .exec();
+
+    for (const conv of convs) {
+      const ts = {
+        lastInboundAt: conv.lastInboundAt,
+        lastOutboundAt: conv.lastOutboundAt,
+        inactivityWarnedAt: conv.inactivityWarnedAt,
+        createdAt: conv.createdAt,
+      };
+
+      const warnBody = applyQuickReplyTemplate(warnTemplate, conv.contactName);
+
+      if (
+        shouldSendTriageInactivityWarning(ts, config, nowMs) ||
+        shouldSendTriageStallWarning(ts, warningMinutes, true, nowMs)
+      ) {
+        try {
+          await this.sendAiReply(clientId, conv, conv.contactIdentifier, warnBody);
+          conv.inactivityWarnedAt = new Date();
+          await conv.save();
+        } catch (err) {
+          logger.warn('Falha ao enviar aviso de inatividade na triagem', {
+            clientId,
+            conversationId: String(conv._id),
+            err,
+          });
+        }
+        continue;
+      }
+
+      const closeBody = applyQuickReplyTemplate(closeTemplate, conv.contactName);
+      if (
+        shouldCloseTriageInactivity(ts, config, nowMs) ||
+        shouldAutoCloseTriageStalled(ts, warningMinutes, true, nowMs)
+      ) {
+        try {
+          await this.closeConversationForInactivity(clientId, conv, {
+            reason: 'auto',
+            closingMessage: closeBody,
+          });
+        } catch (err) {
+          logger.warn('Falha ao encerrar triagem por inatividade', {
             clientId,
             conversationId: String(conv._id),
             err,
@@ -5217,6 +5512,19 @@ export class InboxService {
     ) {
       throw new Error('Sem permissão para este setor');
     }
+
+    const inboxSettings = await loadInboxSettings(clientId);
+    if (
+      isUnassignedTriageBlockedForAttendant(visibility, {
+        attendantTriageVisible: inboxSettings.attendantTriageVisible === true,
+        status: conv.status,
+        assignedUserId: conv.assignedUserId,
+        suggestedUserId: conv.suggestedUserId,
+        departmentId: conv.departmentId,
+      })
+    ) {
+      throw new Error('Triagem restrita — habilite em Triagem e Bot');
+    }
     return conv;
   }
 
@@ -5377,7 +5685,15 @@ export class InboxService {
     contactIdentifier: string,
     text: string,
   ): Promise<void> {
-    await this.sendToContact(clientId, contactIdentifier, text);
+    try {
+      await this.sendToContact(clientId, contactIdentifier, text);
+    } catch (err) {
+      logger.warn('Falha ao enviar mensagem automática do bot ao WhatsApp', {
+        clientId,
+        conversationId: String(conversation._id),
+        err,
+      });
+    }
     await InboxMessage.create({
       clientId: conversation.clientId,
       conversationId: conversation._id,

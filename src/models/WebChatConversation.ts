@@ -28,6 +28,9 @@ export interface IWebChatConversation extends Document {
   /** Última mensagem do bot/atendente — base do SLA de inatividade na triagem. */
   lastOutboundAt?: Date;
   inactivityWarnedAt?: Date;
+  gracefulClosePromptAt?: Date;
+  gracefulCloseAckAt?: Date;
+  closeGateSource?: 'inactivity' | 'graceful';
   unreadAgentCount: number;
   proactiveGreetingSentAt?: Date;
   /** Referência do chamado vinculado (paridade com Inbox WhatsApp) */
@@ -78,6 +81,9 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     lastInboundAt: Date,
     lastOutboundAt: Date,
     inactivityWarnedAt: Date,
+    gracefulClosePromptAt: Date,
+    gracefulCloseAckAt: Date,
+    closeGateSource: { type: String, enum: ['inactivity', 'graceful'] },
     unreadAgentCount: { type: Number, default: 0 },
     proactiveGreetingSentAt: { type: Date },
     ticketRef: { type: String, trim: true, maxlength: 32, index: true },

@@ -71,6 +71,8 @@ export const TENANT_ASSIGNABLE_CAPABILITIES: Capability[] = [
 
   Cap.INBOX_SUPERVISE,
 
+  Cap.INBOX_AI_BALANCE_VIEW,
+
   Cap.WEBCHAT_VIEW,
 
   Cap.WEBCHAT_REPLY,
@@ -264,6 +266,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       Cap.INBOX_DEPARTMENT_MANAGE,
 
       Cap.INBOX_AI_MANAGE,
+
+      Cap.INBOX_AI_BALANCE_VIEW,
 
       Cap.INBOX_SUPERVISE,
 

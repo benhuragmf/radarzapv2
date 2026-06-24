@@ -2,9 +2,9 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.59` (`package.json`) · **Última revisão doc:** 2026-06-23
+**Versão atual:** `2.11.84` (`package.json`) · **Última revisão doc:** 2026-06-24
 
-Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
+Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
 ---
 
@@ -132,6 +132,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.57** | Leads: formulário embed + fila por capacidade (`maxConcurrentChatsPerAgent`) — `LEADS-FORMULARIO.md` |
 | **2.11.58** | Lead → Inbox: `POST …/captures/:id/open-inbox`, `inboxConversationId`, botão **Iniciar atendimento** — `LEADS-FORMULARIO.md` |
 | **2.11.59** | QA Leads: preview `/leads/preview.html`, `npm run qa:leads:setup` — `QA-FASE1-RAPIDO.md` § B.1 |
+| **2.11.84** | IA: créditos proporcionais, carteira mensal, cota aprendizagem, barra `IA`/`LM`/`WA`, `inbox:ai:balance:view` — `IA-CREDITOS-E-CARTEIRA.md` |
 
 **Ao entregar feature nova:** seguir [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) — incrementar `package.json`, `CHANGELOG.md`, esta tabela.
 
@@ -173,6 +174,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 |--------|-------|-------|
 | `Organization` | `customRoles[]` | 2.1.0 |
 | `Organization` | `teamSettings.allowMembersEditOwnProfile` | 2.11.50 |
+| `Organization` | `aiWallet` (`purchasedCredits`, `learningOpsUsed`, `periodStart`) | 2.11.84 |
 | `CompanyMember` | `customRoleId` | 2.1.0 |
 | `CompanyMember` | `displayName`, `emailVerifiedAt` | 2.11.50 |
 | `CompanyMember` | `whatsappPhoneVerifiedAt` | 2.11.49 |
@@ -190,6 +192,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `AiSettings` | `attendanceMode` | 2.10.107 |
 | `AiPrompt` | `basicTriageLlmFallbackEnabled` | 2.11.1 |
 | `AiUsage` | `usageKind` | 2.11.3 |
+| `AiUsage` | `creditWeight` (créditos debitados por chamada) | 2.11.84 |
 
 ---
 

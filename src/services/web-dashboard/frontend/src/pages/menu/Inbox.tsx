@@ -33,7 +33,7 @@ import {
   PanelRight,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
-import { formatQueueTimer, liveQueueState, liveTriageWaitState, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
+import { formatQueueTimer, liveQueueState, liveTriageWaitState, liveCloseQuickReplyAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
@@ -91,6 +91,13 @@ interface Conversation {
   triageWaitSince?: string
   triageElapsedSec?: number
   triageUrgency?: number
+  triageInactivityTotalMin?: number
+  encQuickReplyAllowed?: boolean
+  inactivityWarnedAt?: string
+  gracefulClosePromptAt?: string
+  gracefulCloseAckAt?: string
+  closeGateSource?: 'inactivity' | 'graceful'
+  lastOutboundAt?: string
   lastMessageAt: string
   lastMessagePreview?: string
   unreadCount?: number
@@ -127,6 +134,19 @@ interface ConversationDetail {
   previousConversations?: PreviousConversation[]
   contact?: InboxContactInfo | null
   quickReplies?: QuickReplyItem[]
+  inactivitySla?: {
+    inactivityAutoCloseEnabled?: boolean
+    inactivityCloseMinutes?: number
+    inactivityWarningMinutes?: number
+    inactivityWarningQuickCode?: string
+    inactivityCloseQuickCode?: string
+    gracefulCloseQuickCode?: string
+    gracefulCloseAfterPromptMinutes?: number
+    gracefulCloseDetectPhrases?: boolean
+    inactivityCloseGracefulQuickCode?: string
+    inactivityCloseAfterWarningMinutes?: number
+    closeQuickReplyGateEnabled?: boolean
+  }
 }
 
 /** Perfil editável no Inbox — contato CRM ou dados do visitante WebChat. */
@@ -329,6 +349,7 @@ export default function Inbox() {
   const canManageSectors = can(me ?? null, 'inbox:department:manage')
   const canSupervise = can(me ?? null, 'inbox:supervise')
   const canInboxView = can(me ?? null, 'inbox:view')
+  const canWaSessions = can(me ?? null, 'whatsapp:session:view')
   const canWebChatEngage = can(me ?? null, 'webchat:reply')
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   useInboxSocket(Boolean(me))
@@ -418,13 +439,14 @@ export default function Inbox() {
     refetchInterval: 30_000,
   })
 
-  const { data: sessions = [] } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: () => api.get<Array<{ status: string }>>('/sessions'),
+  const { data: waStatus } = useQuery({
+    queryKey: ['inbox-whatsapp-status'],
+    queryFn: () =>
+      api.get<{ connected: boolean; status: string }>('/inbox/whatsapp-status'),
     enabled: canInboxView,
-    staleTime: 60_000,
+    refetchInterval: 30_000,
   })
-  const waConnected = sessions.some(s => s.status === 'connected')
+  const waConnected = waStatus?.connected === true
 
   const { data: webchatBridge } = useQuery({
     queryKey: ['webchat-stats'],
@@ -478,7 +500,7 @@ export default function Inbox() {
     queryFn: () =>
       api.get<ConversationDetail>(`/inbox/conversations/${selectedId}`),
     enabled: Boolean(selectedId),
-    refetchInterval: hasPriorityQueue ? 10_000 : 30_000,
+    refetchInterval: hasPriorityQueue || hasTriageWait ? 10_000 : 30_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   })
@@ -689,8 +711,43 @@ export default function Inbox() {
 
   const convInTriage = Boolean(conv?.status === 'bot_triage' && !conv?.assignedUserId)
   const convTriageLive = convInTriage
-    ? liveTriageWaitState(conv?.triageWaitSince ?? conv?.createdAt, 15, tick)
+    ? liveTriageWaitState(
+        conv?.triageWaitSince ?? conv?.createdAt,
+        conv?.triageInactivityTotalMin ?? 3,
+        tick,
+      )
     : { elapsedSec: 0, urgency: 0 }
+
+  const closeQuickReplyGateEnabled = detail?.inactivitySla?.closeQuickReplyGateEnabled !== false
+
+  const inactivityCloseAllowed =
+    !closeQuickReplyGateEnabled ||
+    liveCloseQuickReplyAllowed(
+    {
+      inactivityWarnedAt: conv?.inactivityWarnedAt,
+      gracefulClosePromptAt: conv?.gracefulClosePromptAt,
+      gracefulCloseAckAt: conv?.gracefulCloseAckAt,
+    },
+    {
+      inactivityCloseAfterWarningMinutes:
+        detail?.inactivitySla?.inactivityCloseAfterWarningMinutes ??
+        Math.max(
+          0,
+          (detail?.inactivitySla?.inactivityCloseMinutes ?? 15) -
+            (detail?.inactivitySla?.inactivityWarningMinutes ?? 10),
+        ),
+      gracefulCloseAfterPromptMinutes:
+        detail?.inactivitySla?.gracefulCloseAfterPromptMinutes ?? 2,
+    },
+    tick,
+  )
+
+  const gracefulClosePending =
+    closeQuickReplyGateEnabled &&
+    Boolean(conv?.gracefulClosePromptAt) &&
+    !conv?.gracefulCloseAckAt &&
+    !inactivityCloseAllowed &&
+    conv?.status === 'in_progress'
 
   const convLiveCanPull =
     Boolean(conv?.suggestedUserId) &&
@@ -753,7 +810,13 @@ export default function Inbox() {
     hasPriorityQueue ||
     hasTriageWait ||
     Boolean(conv?.status === 'waiting_queue' && conv?.suggestedAt) ||
-    convInTriage
+    convInTriage ||
+    Boolean(
+      closeQuickReplyGateEnabled &&
+        (conv?.inactivityWarnedAt || conv?.gracefulClosePromptAt) &&
+        !inactivityCloseAllowed &&
+        conv?.status === 'in_progress',
+    )
 
   useEffect(() => {
     if (!needsLiveTimer) return
@@ -916,7 +979,7 @@ export default function Inbox() {
               icon: Smartphone,
               colorClass: waConnected ? 'text-emerald-400' : 'text-red-400',
               description: waConnected ? 'Conectado' : 'Desconectado',
-              href: '/sessions',
+              href: canWaSessions ? '/sessions' : undefined,
               alert: !waConnected,
             },
           ]}
@@ -1023,7 +1086,11 @@ export default function Inbox() {
                   ? liveQueueState(c.suggestedAt, c.pullTimeoutSeconds ?? 120, tick)
                   : { elapsedSec: c.queueElapsedSec ?? 0, urgency: c.queueUrgency ?? 0 }
                 const triageLive = inTriage
-                  ? liveTriageWaitState(c.triageWaitSince ?? c.createdAt, 15, tick)
+                  ? liveTriageWaitState(
+                      c.triageWaitSince ?? c.createdAt,
+                      c.triageInactivityTotalMin ?? 3,
+                      tick,
+                    )
                   : null
                 const badge = conversationBadge(c)
                 const hasPriorityTimer =
@@ -1386,7 +1453,7 @@ export default function Inbox() {
                       </span>
                       <span className="text-[var(--rz-text-muted)]">
                         {' '}
-                        · encerra se o cliente não interagir (SLA Bot)
+                        · encerra automaticamente se o visitante não responder (Inbox → Bot)
                       </span>
                     </span>
                   </div>
@@ -1427,10 +1494,22 @@ export default function Inbox() {
                   {composeMode === 'internal' && internalChatBlocked && (
                     <p className="text-xs text-[var(--rz-text-muted)]">{internalChatBlocked}</p>
                   )}
+                  {gracefulClosePending && (
+                    <p className="text-xs text-[var(--rz-text-muted)]">
+                      Pergunta final enviada — <code>/{detail?.inactivitySla?.inactivityCloseQuickCode ?? 'enc'}</code>{' '}
+                      libera após resposta do cliente ou{' '}
+                      {detail?.inactivitySla?.gracefulCloseAfterPromptMinutes ?? 2} min.
+                    </p>
+                  )}
                   <InboxComposer
                     value={reply}
                     onChange={setReply}
                     quickReplies={quickReplies}
+                    inactivityWarningQuickCode={detail?.inactivitySla?.inactivityWarningQuickCode ?? 'aus'}
+                    inactivityCloseQuickCode={detail?.inactivitySla?.inactivityCloseQuickCode ?? 'enc'}
+                    gracefulCloseQuickCode={detail?.inactivitySla?.gracefulCloseQuickCode ?? 'mais'}
+                    inactivityCloseAllowed={inactivityCloseAllowed}
+                    closeQuickReplyGateEnabled={closeQuickReplyGateEnabled}
                     sending={composeMode === 'internal' ? saveInternalChat.isPending : sendReply.isPending}
                     sendDisabled={!canReply}
                     composeMode={composeMode}

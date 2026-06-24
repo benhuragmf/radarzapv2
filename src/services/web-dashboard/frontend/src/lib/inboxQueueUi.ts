@@ -13,6 +13,61 @@ export function liveQueueState(
   return { elapsedSec, urgency: Math.min(1, elapsedSec / timeout) }
 }
 
+export function liveInactivityCloseAllowed(
+  inactivityWarnedAt: string | undefined,
+  closeAfterWarningMinutes: number,
+  tick = 0,
+): boolean {
+  void tick
+  if (!inactivityWarnedAt) return false
+  if (closeAfterWarningMinutes <= 0) return true
+  const elapsedMin = (Date.now() - new Date(inactivityWarnedAt).getTime()) / 60_000
+  return elapsedMin >= closeAfterWarningMinutes
+}
+
+export function liveGracefulCloseAllowed(
+  gracefulClosePromptAt: string | undefined,
+  gracefulCloseAckAt: string | undefined,
+  afterPromptMinutes: number,
+  tick = 0,
+): boolean {
+  void tick
+  if (gracefulCloseAckAt && gracefulClosePromptAt) {
+    return new Date(gracefulCloseAckAt).getTime() >= new Date(gracefulClosePromptAt).getTime()
+  }
+  if (!gracefulClosePromptAt) return false
+  if (afterPromptMinutes <= 0) return true
+  const elapsedMin = (Date.now() - new Date(gracefulClosePromptAt).getTime()) / 60_000
+  return elapsedMin >= afterPromptMinutes
+}
+
+export function liveCloseQuickReplyAllowed(
+  conv: {
+    inactivityWarnedAt?: string
+    gracefulClosePromptAt?: string
+    gracefulCloseAckAt?: string
+  },
+  sla: {
+    inactivityCloseAfterWarningMinutes: number
+    gracefulCloseAfterPromptMinutes: number
+  },
+  tick = 0,
+): boolean {
+  return (
+    liveInactivityCloseAllowed(
+      conv.inactivityWarnedAt,
+      sla.inactivityCloseAfterWarningMinutes,
+      tick,
+    ) ||
+    liveGracefulCloseAllowed(
+      conv.gracefulClosePromptAt,
+      conv.gracefulCloseAckAt,
+      sla.gracefulCloseAfterPromptMinutes,
+      tick,
+    )
+  )
+}
+
 export function liveTriageWaitState(
   triageWaitSince: string | undefined,
   inactivityCloseMinutes = 15,

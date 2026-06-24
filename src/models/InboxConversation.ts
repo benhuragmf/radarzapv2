@@ -24,6 +24,12 @@ export interface IInboxConversation extends Document {
   lastOutboundAt?: Date;
   /** Aviso automático `/aus` já enviado neste ciclo de espera. */
   inactivityWarnedAt?: Date;
+  /** Pergunta final `/mais` enviada neste ciclo. */
+  gracefulClosePromptAt?: Date;
+  /** Cliente confirmou que não precisa de mais nada. */
+  gracefulCloseAckAt?: Date;
+  /** Origem que liberou o encerramento: inatividade ou natural. */
+  closeGateSource?: 'inactivity' | 'graceful';
   queueEnteredAt?: Date;
   /** Alerta de fila parada já emitido para esta entrada na fila. */
   queueSlaNotifiedAt?: Date;
@@ -80,6 +86,9 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     lastInboundAt: Date,
     lastOutboundAt: Date,
     inactivityWarnedAt: Date,
+    gracefulClosePromptAt: Date,
+    gracefulCloseAckAt: Date,
+    closeGateSource: { type: String, enum: ['inactivity', 'graceful'] },
     queueEnteredAt: Date,
     queueSlaNotifiedAt: Date,
     priorityPullNotifiedAt: Date,

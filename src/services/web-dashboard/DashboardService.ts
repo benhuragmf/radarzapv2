@@ -1787,6 +1787,22 @@ export class DashboardService {
       },
     );
 
+    r.get('/inbox/whatsapp-status', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const wa = WhatsAppService.getInstance();
+        const entry = await this.buildTenantSessionEntry(auth, wa);
+        res.json({
+          status: entry.status,
+          connected: entry.status === 'connected',
+          phoneNumber: entry.phoneNumber,
+          profileName: entry.profileName,
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/inbox/conversations', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -2203,6 +2219,25 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         res.json(await aiSettingsSvc.getFullPayload(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/ai/balance', requireCapability(Cap.INBOX_AI_BALANCE_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const snapshot = await aiUsageSvc.getUsageSnapshot(auth.clientId);
+        res.json({
+          wallet: snapshot.wallet,
+          llm: {
+            dailyUsed: snapshot.dailyUsed,
+            dailyLimit: snapshot.dailyLimit,
+            monthlyUsed: snapshot.monthlyUsed,
+            monthlyLimit: snapshot.monthlyLimit,
+            meteringMode: snapshot.meteringMode,
+          },
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

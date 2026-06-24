@@ -1,6 +1,6 @@
 ﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.50` · **Atualizado:** 2026-06-22
+**Versão do produto:** `2.11.84` · **Atualizado:** 2026-06-24
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -33,6 +33,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | Documento | Descrição |
 |-----------|-----------|
 | [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem WA, fila, CSAT, IA, presença, supervisor, notificações |
+| [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA, carteira mensal, aprendizagem, barra do painel (2.11.84) |
 | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados, SLA, menu bot |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, IA, FAQ |
 | [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulário embed de captura de leads (2.11.57) |
@@ -90,6 +91,8 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | Robotizado WC | `webchat-robotic-triage.service.ts` | PHASE-4 |
 | IA Básica WC | `webchat-basic-triage.service.ts` | Consolidado modos · fix gate 2.11.28 |
 | Triagem WA | `inbox-triage.ts`, `InboxService` | INBOX-ATENDIMENTO |
+| Créditos / carteira IA | `AiWalletService.ts`, `ai-credits.ts`, `ai-wallet.ts` | IA-CREDITOS-E-CARTEIRA |
+| Barra status painel | `HeaderStatusPills.tsx` | IA-CREDITOS-E-CARTEIRA § Barra |
 | Presença atendentes | `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §3 |
 | Fallback WA deferido | `webchat-whatsapp-fallback.service.ts`, scan em `WebChatService` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 |
 | Alertas críticos painel | `panel-events.ts`, `panel-critical-alerts.service.ts`, `EventNotificationBell.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 |

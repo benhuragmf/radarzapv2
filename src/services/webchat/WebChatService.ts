@@ -66,42 +66,33 @@ import {
 } from './webchat-visitor-intent.util';
 import { linkWebChatVisitorToDestination, ensureDestinationForWebChatVisitor } from './webchat-destination-link.util';
 import type { InboxWeeklySchedule } from '../../types/inbox-settings';
-import { DEFAULT_INBOX_SLA } from '../../types/inbox-settings';
 import {
-  shouldAutoCloseForInactivity,
   shouldAutoCloseTriageStalled,
-  shouldSendInactivityWarning,
+  shouldCloseTriageInactivity,
+  shouldSendTriageInactivityWarning,
   shouldSendTriageStallWarning,
+  isCloseQuickReplyAllowed,
+  triageInactivityTotalMinutes,
 } from '../inbox/inbox-inactivity';
+import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY } from '../../types/inbox-settings';
 import {
   applyQuickReplyTemplate,
-  normalizeQuickReplies,
-} from '../../types/inbox-quick-replies';
-import { WebhookDispatcherService } from '../integrations/WebhookDispatcherService';
-import { emitPanelEvent } from '../inbox/PanelNotifications';
-import { notifySupervisorInternalChatMention } from '../inbox/inbox-supervisor-notify.service';
-import { loadInboxSettings } from '../../constants/inbox-triage';
-import { departmentBadgeFieldsFrom } from '../inbox/inbox-department-badge.util';
-import {
-  isFallbackAcceptTimeoutElapsed,
-  processFallbackWhatsappRotation,
-} from './webchat-whatsapp-fallback.service';
-import {
-  deactivateWhatsappBridge,
-  forwardVisitorMessageToWhatsappBridge,
-} from './webchat-whatsapp-bridge.service';
-import { isAgentAvailableForQueue } from '../inbox/inbox-agent-presence';
-import {
-  applyWebChatAgentHumanDelay,
-  assertWebChatSendAllowed,
-  WebChatSendRateLimitError,
-} from './webchat-send-guard.service';
-import {
   expandQuickReply,
   normalizeQuickReplies,
   parseQuickReplyCode,
+  resolveInactivityWarningQuickCode,
+  resolveInactivityCloseQuickCode,
+  resolveGracefulCloseQuickCode,
+  resolveInactivityCloseGracefulQuickCode,
+  isInactivityCloseQuickCode,
+  inactivityCloseAfterWarningMinutes,
   type InboxQuickReply,
 } from '../../types/inbox-quick-replies';
+import {
+  applyInboundCloseGate,
+  applyOutboundCloseGate,
+  clearCloseGateFields,
+} from '../inbox/inbox-graceful-close.util';
 import {
   getQueuePriorityState,
   isAgentBusyWithClients,
@@ -850,27 +841,20 @@ export class WebChatService {
     if (wcFilter.conversationStatus) query.status = wcFilter.conversationStatus;
     if (wcFilter.queueStatus) query.queueStatus = wcFilter.queueStatus;
 
+    const inboxSettings = await loadInboxSettings(clientId);
+    const attendantTriageVisible = inboxSettings.attendantTriageVisible === true;
+
     const { InboxService } = await import('@/services/inbox/InboxService');
+    const { applyRestrictedWebChatListVisibility } = await import(
+      '@/services/inbox/inbox-department-visibility.util'
+    );
     const visibility = await InboxService.getInstance().getDepartmentVisibility(clientId, userId);
     const userOid = new mongoose.Types.ObjectId(userId);
 
-    if (visibility.restricted) {
-      const assignedClause = {
-        $or: [{ assignedUserId: userOid }, { suggestedUserId: userOid }],
-      };
-      if (filters.departmentId) {
-        const deptOid = new mongoose.Types.ObjectId(filters.departmentId);
-        const allowedDept = visibility.departmentIds.some(id => id.equals(deptOid));
-        query.departmentId = deptOid;
-        if (!allowedDept) {
-          Object.assign(query, assignedClause);
-        }
-      } else if (visibility.departmentIds.length > 0) {
-        query.$or = [{ departmentId: { $in: visibility.departmentIds } }, assignedClause];
-      } else {
-        Object.assign(query, assignedClause);
-      }
-    } else if (filters.departmentId) {
+    applyRestrictedWebChatListVisibility(query, visibility, userOid, filters, {
+      attendantTriageVisible,
+    });
+    if (!visibility.restricted && filters.departmentId) {
       query.departmentId = new mongoose.Types.ObjectId(filters.departmentId);
     }
 
@@ -924,13 +908,12 @@ export class WebChatService {
       ),
     ];
 
-    const [widgetNames, deptRecords, agents, inboxSettings] = await Promise.all([
+    const [widgetNames, deptRecords, agents] = await Promise.all([
       this.widgetNameMap(widgetIds),
       this.departmentRecordMap(deptIds),
       agentIds.length
         ? User.find({ _id: { $in: agentIds } }).select('displayName email').lean()
         : Promise.resolve([]),
-      loadInboxSettings(clientId),
     ]);
     const agentMap = new Map(
       agents.map(a => [
@@ -939,8 +922,21 @@ export class WebChatService {
       ]),
     );
     const pullTimeoutSeconds = inboxSettings.roundRobinPullTimeoutSeconds ?? 120;
-    const inactivityCloseMinutes =
-      inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes;
+    const triageTotalMin = triageInactivityTotalMinutes(
+      inboxSettings.triageWarningMinutes ?? DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes,
+      inboxSettings.triageCloseAfterWarningMinutes ??
+        DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
+    );
+    const inactivitySla = {
+      inactivityCloseMinutes:
+        inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+      inactivityWarningMinutes:
+        inboxSettings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+      gracefulCloseAfterPromptMinutes:
+        inboxSettings.gracefulCloseAfterPromptMinutes ??
+        DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+      closeQuickReplyGateEnabled: inboxSettings.closeQuickReplyGateEnabled,
+    };
 
     const baseRows = rows.map(r => {
       const { contactName, contactIdentifier } = visitorDisplayName(
@@ -966,6 +962,12 @@ export class WebChatService {
         lastMessageAt: (r.lastMessageAt ?? r.updatedAt ?? r.createdAt).toISOString(),
         lastMessagePreview: r.lastMessagePreview,
         unreadCount: r.unreadAgentCount ?? 0,
+        lastInboundAt: r.lastInboundAt,
+        lastOutboundAt: r.lastOutboundAt,
+        inactivityWarnedAt: r.inactivityWarnedAt,
+        gracefulClosePromptAt: r.gracefulClosePromptAt,
+        gracefulCloseAckAt: r.gracefulCloseAckAt,
+        closeGateSource: r.closeGateSource,
         widgetName: widgetNames.get(String(r.widgetId)),
         pageUrl: r.pageUrl,
         ticketRef: r.ticketRef?.trim() || undefined,
@@ -984,7 +986,8 @@ export class WebChatService {
           clientId,
           agentMap,
           pullTimeoutSeconds,
-          inactivityCloseMinutes,
+          triageTotalMin,
+          inactivitySla,
         ),
       ),
     );
@@ -1026,6 +1029,8 @@ export class WebChatService {
     }).lean();
     if (!convDoc) return null;
 
+    await this.assertWebChatInboxAccess(clientId, userId, convDoc);
+
     const { contactName, contactIdentifier } = visitorDisplayName(
       convDoc.visitorName,
       convDoc.visitorEmail,
@@ -1059,6 +1064,17 @@ export class WebChatService {
       if (dept) deptBadge = departmentBadgeFieldsFrom(dept);
     }
 
+    const inactivitySla = {
+      inactivityCloseMinutes:
+        inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+      inactivityWarningMinutes:
+        inboxSettings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+      gracefulCloseAfterPromptMinutes:
+        inboxSettings.gracefulCloseAfterPromptMinutes ??
+        DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+      closeQuickReplyGateEnabled: inboxSettings.closeQuickReplyGateEnabled,
+    };
+
     const conversation = await enrichWebChatInboxRow(
       {
         _id: toWebChatInboxId(String(convDoc._id)),
@@ -1081,6 +1097,12 @@ export class WebChatService {
         lastMessageAt: detail.conversation.lastMessageAt ?? convDoc.createdAt.toISOString(),
         lastMessagePreview: detail.conversation.lastMessagePreview,
         unreadCount: detail.conversation.unreadCount,
+        lastInboundAt: convDoc.lastInboundAt,
+        lastOutboundAt: convDoc.lastOutboundAt,
+        inactivityWarnedAt: convDoc.inactivityWarnedAt,
+        gracefulClosePromptAt: convDoc.gracefulClosePromptAt,
+        gracefulCloseAckAt: convDoc.gracefulCloseAckAt,
+        closeGateSource: convDoc.closeGateSource,
         widgetName: detail.conversation.widgetName,
         pageUrl: convDoc.pageUrl,
         ticketRef: convDoc.ticketRef?.trim() || undefined,
@@ -1093,6 +1115,12 @@ export class WebChatService {
       clientId,
       agentMap,
       pullTimeoutSeconds,
+      triageInactivityTotalMinutes(
+        inboxSettings.triageWarningMinutes ?? DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes,
+        inboxSettings.triageCloseAfterWarningMinutes ??
+          DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
+      ),
+      inactivitySla,
     );
 
     const destination = convDoc.destinationId
@@ -1136,6 +1164,22 @@ export class WebChatService {
         }
         : visitorContact,
       quickReplies: normalizeQuickReplies(inboxSettings.quickReplies),
+      inactivitySla: {
+        inactivityAutoCloseEnabled: inboxSettings.inactivityAutoCloseEnabled,
+        inactivityCloseMinutes: inboxSettings.inactivityCloseMinutes,
+        inactivityWarningMinutes: inboxSettings.inactivityWarningMinutes,
+        inactivityWarningQuickCode: resolveInactivityWarningQuickCode(inboxSettings),
+        inactivityCloseQuickCode: resolveInactivityCloseQuickCode(inboxSettings),
+        gracefulCloseQuickCode: resolveGracefulCloseQuickCode(inboxSettings),
+        gracefulCloseAfterPromptMinutes: inboxSettings.gracefulCloseAfterPromptMinutes,
+        gracefulCloseDetectPhrases: inboxSettings.gracefulCloseDetectPhrases,
+        inactivityCloseGracefulQuickCode: resolveInactivityCloseGracefulQuickCode(inboxSettings),
+        closeQuickReplyGateEnabled: inboxSettings.closeQuickReplyGateEnabled !== false,
+        inactivityCloseAfterWarningMinutes: inactivityCloseAfterWarningMinutes(
+          inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+          inboxSettings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+        ),
+      },
     };
   }
 
@@ -1671,7 +1715,39 @@ export class WebChatService {
       ...(unreadDelta ? { $inc: { unreadAgentCount: unreadDelta } } : {}),
     };
     if (data.direction === 'inbound') {
-      updateDoc.$unset = { inactivityWarnedAt: '' };
+      const convSnap = await WebChatConversation.findById(conversation._id)
+        .select(
+          'lastOutboundAt inactivityWarnedAt gracefulClosePromptAt gracefulCloseAckAt closeGateSource',
+        )
+        .lean();
+      if (convSnap) {
+        const gate = {
+          lastInboundAt: now,
+          lastOutboundAt: convSnap.lastOutboundAt,
+          inactivityWarnedAt: convSnap.inactivityWarnedAt,
+          gracefulClosePromptAt: convSnap.gracefulClosePromptAt,
+          gracefulCloseAckAt: convSnap.gracefulCloseAckAt,
+          closeGateSource: convSnap.closeGateSource,
+        };
+        const inboxSettings = await loadInboxSettings(String(conversation.clientId));
+        applyInboundCloseGate(
+          gate,
+          data.body,
+          inboxSettings.gracefulCloseDetectPhrases !== false,
+        );
+        if (gate.inactivityWarnedAt) setFields.inactivityWarnedAt = gate.inactivityWarnedAt;
+        if (gate.gracefulClosePromptAt) setFields.gracefulClosePromptAt = gate.gracefulClosePromptAt;
+        if (gate.gracefulCloseAckAt) setFields.gracefulCloseAckAt = gate.gracefulCloseAckAt;
+        if (gate.closeGateSource) setFields.closeGateSource = gate.closeGateSource;
+        const unset: Record<string, ''> = {};
+        if (!gate.inactivityWarnedAt) unset.inactivityWarnedAt = '';
+        if (!gate.gracefulClosePromptAt) unset.gracefulClosePromptAt = '';
+        if (!gate.gracefulCloseAckAt) unset.gracefulCloseAckAt = '';
+        if (!gate.closeGateSource) unset.closeGateSource = '';
+        if (Object.keys(unset).length) {
+          updateDoc.$unset = { ...(updateDoc.$unset as Record<string, ''> | undefined), ...unset };
+        }
+      }
     }
     await WebChatConversation.updateOne({ _id: conversation._id }, updateDoc);
 
@@ -2703,22 +2779,34 @@ export class WebChatService {
     }
   }
 
-  /** Encerra triagem WebChat quando o visitante não interage (mesmo SLA do Inbox WhatsApp). */
+  /** Encerra triagem WebChat quando o visitante não interage (SLA configurável em Inbox → Bot). */
   async processWebChatTriageInactivity(): Promise<void> {
     const rows = await InboxSettings.find({})
-      .select('clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes quickReplies')
+      .select(
+        'clientId triageInactivityEnabled triageWarningMinutes triageCloseAfterWarningMinutes triageWarningMessage triageCloseMessage',
+      )
       .lean();
 
     const nowMs = Date.now();
     for (const row of rows) {
-      const clientId = String(row.clientId);
-      const enabled = row.inactivityAutoCloseEnabled !== false;
-      const closeMinutes = row.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes;
-      const warningMinutes =
-        row.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes;
-      if (!enabled || closeMinutes <= 0) continue;
+      if (row.triageInactivityEnabled === false) continue;
 
-      const quickReplies = normalizeQuickReplies(row.quickReplies);
+      const clientId = String(row.clientId);
+      const warningMinutes =
+        row.triageWarningMinutes ?? DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes;
+      const closeAfterWarningMinutes =
+        row.triageCloseAfterWarningMinutes ??
+        DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes;
+      const warnTemplate =
+        row.triageWarningMessage?.trim() || DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMessage;
+      const closeTemplate =
+        row.triageCloseMessage?.trim() || DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseMessage;
+
+      const config = {
+        enabled: true,
+        warningMinutes,
+        closeAfterWarningMinutes,
+      };
 
       const convs = await WebChatConversation.find({
         clientId: row.clientId,
@@ -2738,16 +2826,14 @@ export class WebChatService {
           createdAt: conv.createdAt,
         };
 
-        const shouldWarn =
-          shouldSendInactivityWarning(ts, warningMinutes, closeMinutes, nowMs) ||
-          shouldSendTriageStallWarning(ts, warningMinutes, closeMinutes, nowMs);
+        const visitorName = conv.visitorName?.trim() || 'visitante';
+        const warnBody = applyQuickReplyTemplate(warnTemplate, visitorName);
+        const closeBody = applyQuickReplyTemplate(closeTemplate, visitorName);
 
-        if (shouldWarn) {
-          const visitorName = conv.visitorName?.trim() || 'visitante';
-          const warnQr = quickReplies.find(q => q.code === 'aus');
-          const warnBody = warnQr
-            ? applyQuickReplyTemplate(warnQr.template, visitorName)
-            : 'Você está aí?';
+        if (
+          shouldSendTriageInactivityWarning(ts, config, nowMs) ||
+          shouldSendTriageStallWarning(ts, warningMinutes, true, nowMs)
+        ) {
           try {
             await this.appendMessage(conv, {
               direction: 'outbound',
@@ -2766,18 +2852,13 @@ export class WebChatService {
               err,
             });
           }
+          continue;
         }
 
-        const shouldClose =
-          shouldAutoCloseForInactivity(ts, closeMinutes, true, nowMs) ||
-          shouldAutoCloseTriageStalled(ts, closeMinutes, true, nowMs);
-
-        if (shouldClose) {
-          const visitorName = conv.visitorName?.trim() || 'visitante';
-          const closeQr = quickReplies.find(q => q.code === 'enc');
-          const closeBody = closeQr
-            ? applyQuickReplyTemplate(closeQr.template, visitorName)
-            : 'Como não houve interação, encerraremos este atendimento.';
+        if (
+          shouldCloseTriageInactivity(ts, config, nowMs) ||
+          shouldAutoCloseTriageStalled(ts, warningMinutes, true, nowMs)
+        ) {
           try {
             await this.appendMessage(conv, {
               direction: 'outbound',
@@ -2811,6 +2892,8 @@ export class WebChatService {
     });
     if (!conversation) throw new Error('Conversa não encontrada');
     if (conversation.status === 'closed') throw new Error('Conversa encerrada');
+
+    await this.assertWebChatInboxAccess(clientId, userId, conversation);
 
     if (
       conversation.queueStatus === 'with_agent' &&
@@ -2916,6 +2999,46 @@ export class WebChatService {
       agentMap,
       inboxSettings.roundRobinPullTimeoutSeconds ?? 120,
     );
+  }
+
+  private async assertWebChatInboxAccess(
+    clientId: string,
+    userId: string,
+    conv: Pick<
+      IWebChatConversation,
+      'status' | 'queueStatus' | 'assignedUserId' | 'suggestedUserId' | 'departmentId'
+    >,
+  ): Promise<void> {
+    const { InboxService } = await import('@/services/inbox/InboxService');
+    const { isUnassignedTriageBlockedForAttendant } = await import(
+      '@/services/inbox/inbox-department-visibility.util'
+    );
+    const visibility = await InboxService.getInstance().getDepartmentVisibility(clientId, userId);
+    if (
+      visibility.restricted &&
+      conv.departmentId &&
+      !visibility.departmentIds.some(id => id.equals(conv.departmentId!))
+    ) {
+      throw new Error('Sem permissão para este setor');
+    }
+    const inboxSettings = await loadInboxSettings(clientId);
+    if (
+      isUnassignedTriageBlockedForAttendant(visibility, {
+        attendantTriageVisible: inboxSettings.attendantTriageVisible === true,
+        status: mapWebChatToInboxStatus(conv.status, conv.queueStatus),
+        assignedUserId: conv.assignedUserId
+          ? new mongoose.Types.ObjectId(String(conv.assignedUserId))
+          : null,
+        suggestedUserId: conv.suggestedUserId
+          ? new mongoose.Types.ObjectId(String(conv.suggestedUserId))
+          : null,
+        departmentId: conv.departmentId
+          ? new mongoose.Types.ObjectId(String(conv.departmentId))
+          : null,
+      })
+    ) {
+      throw new Error('Triagem restrita — habilite em Triagem e Bot');
+    }
   }
 
   private async assertCanTakeWebChatQueue(
@@ -3026,6 +3149,46 @@ export class WebChatService {
     );
     const quickCode = parseQuickReplyCode(raw);
     const text = expandQuickReply(raw, quickReplies, contactName);
+    const warnCode = resolveInactivityWarningQuickCode(settings);
+    const closeCode = resolveInactivityCloseQuickCode(settings);
+    const maisCode = resolveGracefulCloseQuickCode(settings);
+
+    const freshBefore = await WebChatConversation.findById(conversation._id);
+    if (isInactivityCloseQuickCode(quickCode, settings) && freshBefore) {
+      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const encAllowed = isCloseQuickReplyAllowed(
+        {
+          lastInboundAt: freshBefore.lastInboundAt,
+          lastOutboundAt: freshBefore.lastOutboundAt,
+          inactivityWarnedAt: freshBefore.inactivityWarnedAt,
+          gracefulClosePromptAt: freshBefore.gracefulClosePromptAt,
+          gracefulCloseAckAt: freshBefore.gracefulCloseAckAt,
+          closeGateSource: freshBefore.closeGateSource,
+        },
+        {
+          inactivityCloseMinutes:
+            settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+          inactivityWarningMinutes:
+            settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+          gracefulCloseAfterPromptMinutes:
+            settings.gracefulCloseAfterPromptMinutes ??
+            DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+          closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
+        },
+      );
+      if (gateEnabled && !encAllowed) {
+        const afterAus = inactivityCloseAfterWarningMinutes(
+          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
+          settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+        );
+        const afterMais =
+          settings.gracefulCloseAfterPromptMinutes ??
+          DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes;
+        throw new Error(
+          `O atalho /${closeCode} só libera após enviar /${warnCode} (${afterAus} min) ou /${maisCode} (${afterMais} min ou resposta do cliente).`,
+        );
+      }
+    }
 
     const clientIdStr = String(conversation.clientId);
     const convId = String(conversation._id);
@@ -3059,7 +3222,13 @@ export class WebChatService {
       senderName: agentName,
     });
 
-    if (quickCode === 'enc') {
+    const gateDoc = await WebChatConversation.findById(conversation._id);
+    if (gateDoc) {
+      applyOutboundCloseGate(gateDoc, quickCode, settings, warnCode, closeCode, maisCode);
+      await gateDoc.save();
+    }
+
+    if (isInactivityCloseQuickCode(quickCode, settings)) {
       await this.closeConversation(clientId, conversationId, userId, { skipSystemMessage: true });
     }
 
@@ -3342,6 +3511,7 @@ export class WebChatService {
       await deactivateWhatsappBridge(clientId, conversationId);
     }
 
+    clearCloseGateFields(conversation);
     conversation.status = 'closed';
     conversation.assignedUserId = undefined;
     conversation.suggestedUserId = undefined;

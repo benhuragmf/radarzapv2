@@ -159,9 +159,11 @@ Setor: `departmentMenuKey` do JSON da LLM → nome no texto (*setor Comercial*) 
 
 Espelho detalhado em `AiConversationState` (coleção auxiliar). `conversation.status` permanece: `bot_triage` \| `waiting_queue` \| `in_progress` \| `resolved` \| `closed`.
 
-Serviços: `AiProviderService`, `AiPromptBuilderService`, `AiEscalationService`, `AiUsageMeterService`.
+Serviços: `AiProviderService`, `AiPromptBuilderService`, `AiEscalationService`, `AiUsageMeterService`, `AiWalletService`.
 
-API painel: `GET/PATCH /api/platform/ai/settings`, `DELETE /api/platform/ai/key`, `POST /api/platform/ai/test`, `GET /api/platform/ai/usage`, catálogo de modelos em `src/constants/ai-model-catalog.ts`.
+**Créditos IA, carteira mensal, barra do painel e aprendizagem:** ver **[`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md)** (desde 2.11.84).
+
+API painel: `GET/PATCH /api/platform/ai/settings`, `DELETE /api/platform/ai/key`, `POST /api/platform/ai/test`, `GET /api/platform/ai/usage`, `GET /api/platform/ai/balance`, `GET /api/inbox/whatsapp-status`, catálogo de modelos em `src/constants/ai-model-catalog.ts`.
 
 ### Bot fixo (`handleStandardBotTriage`)
 
@@ -174,14 +176,22 @@ Função dedicada em `InboxService` — **independente da IA**. Usada quando:
 
 Fluxo: `parseInboxMenuChoice` → `handleTriageReply` (fila) **ou** envia `buildInboxTriageMenu` **ou** `buildInvalidMenuHint`.
 
-### Triagem — tempo sem atendimento e inatividade (2.11.81)
+### Triagem — tempo sem atendimento e inatividade (2.11.81+)
 
 | Comportamento | Detalhe |
 |---------------|---------|
-| **Cronômetro no Inbox** | Conversas em `bot_triage` sem atendente exibem tempo aguardando humano na **lista** e no **cabeçalho** do chat (cor evolui amarelo → vermelho conforme SLA). |
-| **Encerramento automático** | Reutiliza SLA em **Bot / SLA** (`inactivityAutoCloseEnabled`, aviso `/aus`, encerramento após N min). Vale para **WhatsApp** e **WebChat** na triagem. |
-| **Gatilho** | Após mensagem do bot (menu de setores) sem resposta do cliente; ou conversa parada na triagem sem outbound do bot pelo tempo total configurado. |
-| **API lista** | Campos `triageWaitSince`, `triageElapsedSec`, `triageUrgency` (WA + WebChat unificado). |
+| **Cronômetro no Inbox** | Conversas em `bot_triage` sem atendente exibem tempo aguardando humano na **lista** e no **cabeçalho** do chat. |
+| **Encerramento automático (triagem)** | Configurável em **Inbox → Bot → Triagem — inatividade** (`triageInactivityEnabled`). Padrão: **2 min** sem resposta → aviso customizável; **+1 min** → encerramento com mensagem customizável. |
+| **Atendimento humano** | SLA separado em **Bot → SLA — inatividade** (`/aus`, `/enc`, minutos próprios). |
+| **API lista** | `triageWaitSince`, `triageElapsedSec`, `triageUrgency`, `triageInactivityTotalMin`. |
+
+### Triagem — visibilidade para atendentes (2.11.83)
+
+| Comportamento | Detalhe |
+|---------------|---------|
+| **Padrão** | Só **dono** e **administrador** veem conversas em `bot_triage` sem setor (antes do menu). Atendentes veem apenas setores em que estão cadastrados + conversas atribuídas a eles. |
+| **Liberação** | **Triagem e Bot → Triagem — visibilidade no Inbox** — `attendantTriageVisible` (checkbox). Quando ativo, atendentes dos setores também veem e podem **assumir** triagens WA e WebChat ainda sem `departmentId`. |
+| **Filtro Minhas** | Triagem sem atribuição não aparece com filtro **Minhas** ativo — use **Todos** ou **Triagem**. |
 
 ## Tickets de acompanhamento (atendimento assíncrono)
 

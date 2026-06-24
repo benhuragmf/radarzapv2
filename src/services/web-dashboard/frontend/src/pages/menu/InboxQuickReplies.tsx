@@ -36,7 +36,7 @@ function guessCategory(code: string, label: string): string {
   const l = label.toLowerCase()
   if (['bd', 'bt', 'bom'].some(x => c.includes(x)) || l.includes('bom dia') || l.includes('boa')) return 'saudacao'
   if (c.includes('dados') || l.includes('dados')) return 'dados'
-  if (c.includes('enc') || c.includes('aus') || l.includes('encerr')) return 'encerramento'
+  if (c.includes('enc') || c.includes('aus') || c.includes('mais') || l.includes('encerr')) return 'encerramento'
   if (c.includes('ticket') || l.includes('ticket')) return 'ticket'
   if (c.includes('ag') || l.includes('aguarde')) return 'atendimento'
   return 'outro'
@@ -262,7 +262,9 @@ export default function InboxQuickReplies() {
 
             <p className="text-xs text-[var(--rz-text-muted)] border-t border-[var(--rz-border)] pt-3">
               Placeholders: <strong>[user]</strong> ou <strong>[nome]</strong> — primeiro nome do contato.
-              Códigos <code>/enc</code> e <code>/aus</code> são usados pelo bot de inatividade.
+              Os atalhos de aviso (<code>/aus</code>), pergunta final (<code>/mais</code>) e encerramento
+              (<code>/enc</code>, <code>/enc_ok</code>) usam os códigos configurados em Bot → SLA.
+              O <code>/enc</code> libera após <code>/aus</code> + tempo ou após <code>/mais</code> + resposta do cliente.
             </p>
           </Card>
 

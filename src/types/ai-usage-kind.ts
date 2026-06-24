@@ -41,14 +41,16 @@ export interface AiUsageKindTotals {
   calls: number;
   tokens: number;
   cost: number;
+  /** Créditos RadarZap (ponderados). */
+  credits: number;
 }
 
 export type AiUsageTotalsByKind = Record<AiUsageKind, AiUsageKindTotals>;
 
 export function emptyUsageTotalsByKind(): AiUsageTotalsByKind {
   return {
-    premium_assistant: { calls: 0, tokens: 0, cost: 0 },
-    basic_triage: { calls: 0, tokens: 0, cost: 0 },
-    unknown: { calls: 0, tokens: 0, cost: 0 },
+    premium_assistant: { calls: 0, tokens: 0, cost: 0, credits: 0 },
+    basic_triage: { calls: 0, tokens: 0, cost: 0, credits: 0 },
+    unknown: { calls: 0, tokens: 0, cost: 0, credits: 0 },
   };
 }

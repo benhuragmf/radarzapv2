@@ -119,4 +119,20 @@ describe('WebChatBasicTriageService', () => {
     expect(sendBotReply).toHaveBeenCalledWith(expect.stringContaining('Descreva sua dúvida'));
     expect(sendBotReply).not.toHaveBeenCalledWith('Menu 1-4');
   });
+
+  it('texto vago usa esclarecimento da IA Básica, não menu robotizado', async () => {
+    const sendBotReply = jest.fn(async (body: string) => ({ body }));
+    WebChatMessage.exists.mockResolvedValue({ _id: 'm1' });
+    const result = await svc.handleInbound({
+      clientId,
+      conversation: baseConv as never,
+      text: 'xyz coisa aleatória',
+      messageRows: [],
+      sendBotReply,
+      escalate: async () => {},
+    });
+    expect(result.handled).toBe(true);
+    expect(sendBotReply).toHaveBeenCalledWith(expect.stringContaining('contar um pouco mais'));
+    expect(sendBotReply).not.toHaveBeenCalledWith('Menu 1-4');
+  });
 });

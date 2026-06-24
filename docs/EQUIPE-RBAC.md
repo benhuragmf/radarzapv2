@@ -151,3 +151,25 @@ Status persistidos por atendente: `online`, `ausente`, `ocupado`, `offline`, `su
 Configuração de timeouts: **Triagem e Bot** (`/platform/inbox/bot`) — campos `agentPresenceTimeoutSeconds`, `presenceIdleTimeoutSeconds`, `whatsappFallbackAcceptTimeoutSeconds`.
 
 Código: `src/services/inbox/inbox-agent-presence.ts`, `src/constants/agent-presence.ts`. Doc: [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) § Presença operacional.
+
+## Saldo IA/LM e status WhatsApp na barra (2.11.84)
+
+Doc canônico: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md).
+
+### Capability `inbox:ai:balance:view`
+
+- **Label UI:** *Ver saldo IA/LM na barra*
+- **Grupo:** Gestão Inbox (`inbox_gestao`) — atribuível a papéis custom
+- **Presets com cap:** OWNER, ADMIN, MANAGER
+- **ATTENDANT:** não inclui por padrão — dono pode liberar em Equipe → Permissões
+
+Exibe pills **IA** (`usado/franquia`) e **LM** (`usado/limite`) no header. API: `GET /api/platform/ai/balance`.
+
+### Status WhatsApp sem gestão de sessão
+
+- **Capability:** `inbox:view` (todos os atendentes)
+- **API:** `GET /api/inbox/whatsapp-status` — número, conectado, nome perfil
+- **UI:** pill WhatsApp no header + card On/Off no Inbox (`Inbox.tsx`)
+- **Não** exige `whatsapp:session:view` (rota `/sessions` continua restrita a quem gerencia sessão)
+
+Código: `HeaderStatusPills.tsx`, `capabilities.ts` (`INBOX_AI_BALANCE_VIEW`), `DashboardService.ts`.
