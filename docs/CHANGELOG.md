@@ -22,6 +22,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.96] — 2026-06-24
+
+### TOP 10 — Formulários públicos, embed e captura de leads
+
+- Validação central `lead-form-submit.util.ts`; limite `leadForms` por plano em `createForm`/`duplicateForm`.
+- Submit público: dedupe lead aberto (TOP 09); resposta sem `captureId`; UTM no webhook.
+- Testes `lead-form-*`; documento [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md).
+
+---
+
 ## [2.11.95] — 2026-06-24
 
 ### TOP 09 — Contatos, leads, Kanban e deduplicação

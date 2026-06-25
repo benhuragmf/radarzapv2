@@ -41,6 +41,12 @@ import { appendLeadHistory, emitLeadWebhook, notifyLeadPanelRefresh, notifyNewLe
 import { hasCommercialLeadIntent } from './lead-commercial-intent.util';
 import { OPEN_LEAD_STATUSES } from '@/types/lead-dedupe.util';
 import {
+  buildPublicLeadSubmitResponse,
+  parseLeadFormCustomFieldValues,
+  validateAndParsePublicLeadPayload,
+} from '@/types/lead-form-submit.util';
+import { checkLeadFormPlanLimit } from './lead-form-plan-limit.util';
+import {
   shouldCreateLeadFromWebChatSession,
   shouldCreateLeadFromWhatsAppInbound,
 } from '@/types/lead-inbound.util';
@@ -126,39 +132,6 @@ function normalizeAppearance(raw: Partial<LeadFormAppearance> | undefined): Lead
   };
 }
 
-function parseCustomFieldValues(
-  defs: LeadFormCustomField[],
-  raw: Record<string, unknown> | undefined,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const def of defs) {
-    if (def.type === 'hidden') continue;
-    const max = def.type === 'textarea' ? 2000 : 500;
-    const val = sanitizeLeadText(raw?.[def.id], max);
-    if (def.required && def.type !== 'checkbox' && !val) throw new Error(`${def.label} é obrigatório`);
-    if (def.type === 'checkbox' && def.required && raw?.[def.id] !== true && raw?.[def.id] !== 'true') {
-      throw new Error(`${def.label} é obrigatório`);
-    }
-    if (val || def.type === 'checkbox') {
-      out[def.label] = def.type === 'checkbox' ? (raw?.[def.id] ? 'Sim' : 'Não') : val;
-    }
-  }
-  return out;
-}
-
-function parseUtm(raw: unknown): LeadUtm | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const u = raw as Record<string, unknown>;
-  const utm: LeadUtm = {
-    source: sanitizeLeadText(u.source, 120) || undefined,
-    medium: sanitizeLeadText(u.medium, 120) || undefined,
-    campaign: sanitizeLeadText(u.campaign, 120) || undefined,
-    term: sanitizeLeadText(u.term, 120) || undefined,
-    content: sanitizeLeadText(u.content, 120) || undefined,
-  };
-  return Object.values(utm).some(Boolean) ? utm : undefined;
-}
-
 function detectOrigin(referer?: string, explicit?: string): LeadCaptureOrigin {
   if (explicit && LEAD_CAPTURE_ORIGINS.includes(explicit as LeadCaptureOrigin)) {
     return explicit as LeadCaptureOrigin;
@@ -203,6 +176,17 @@ export class LeadFormService {
     return forms.map(f => this.toFormListItem(f, countMap.get(String(f._id)) ?? 0, count7Map.get(String(f._id)) ?? 0));
   }
 
+  private async assertCanCreateLeadForm(clientId: string): Promise<void> {
+    const { Organization } = await import('@/models/Organization');
+    const org = await Organization.findById(clientId).select('plan').lean();
+    const planId = (org?.plan as string) ?? 'free';
+    const count = await LeadForm.countDocuments({
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    const check = checkLeadFormPlanLimit(count, planId);
+    if (check.ok === false) throw new Error(check.message);
+  }
+
   async createForm(
     clientId: string,
     body: {
@@ -212,6 +196,7 @@ export class LeadFormService {
       allowedDomains?: string[];
     },
   ): Promise<LeadFormListItem> {
+    await this.assertCanCreateLeadForm(clientId);
     const name = sanitizeLeadText(body.name, 120);
     if (!name) throw new Error('Nome do formulário é obrigatório');
 
@@ -233,6 +218,7 @@ export class LeadFormService {
       clientId: new mongoose.Types.ObjectId(clientId),
     });
     if (!form) return null;
+    await this.assertCanCreateLeadForm(clientId);
     const copy = await LeadForm.create({
       clientId: form.clientId,
       name: `${form.name} (cópia)`,
@@ -416,6 +402,24 @@ export class LeadFormService {
     return { possibleDuplicate: hints.length > 0, hints };
   }
 
+  private async findOpenLeadForFormDedupe(
+    clientId: string,
+    phoneE164: string,
+    email?: string,
+  ): Promise<ILeadCapture | null> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const orConditions: Record<string, unknown>[] = [];
+    if (phoneE164) orConditions.push({ phone: phoneE164 });
+    if (email) orConditions.push({ email });
+    if (!orConditions.length) return null;
+
+    return LeadCapture.findOne({
+      clientId: clientOid,
+      $or: orConditions,
+      status: { $in: OPEN_LEAD_STATUSES },
+    }).sort({ updatedAt: -1 });
+  }
+
   async submitPublicLead(
     publicKey: string,
     body: {
@@ -432,7 +436,7 @@ export class LeadFormService {
       honeypot?: string;
     },
     meta: { origin?: string; referer?: string; ipAddress?: string; userAgent?: string },
-  ): Promise<{ success: true; captureId: string; successMessage: string; redirectUrl?: string }> {
+  ): Promise<{ success: true; successMessage: string; redirectUrl?: string }> {
     const form = await this.getActiveFormByPublicKey(publicKey);
     if (!form) throw new Error('Formulário não encontrado ou inativo');
 
@@ -441,41 +445,14 @@ export class LeadFormService {
     const appearance = normalizeAppearance(form.appearance);
     const routing = normalizeRouting(form.routing);
 
-    if (appearance.honeypot && body.honeypot) {
-      throw new Error('Envio rejeitado');
-    }
-
-    if (appearance.requireConsent && !body.consent) {
-      throw new Error('Aceite de consentimento é obrigatório');
-    }
-
-    const name = sanitizeLeadText(body.name, 120);
-    const phoneRaw = sanitizeLeadText(body.phone, 32);
-    const email = sanitizeLeadText(body.email, 160).toLowerCase();
-    const message = sanitizeLeadText(body.message, 2000);
-    const sourceUrl = sanitizeLeadText(body.sourceUrl, 500);
-    const pageTitle = sanitizeLeadText(body.pageTitle, 200);
-
-    if (!name) throw new Error('Nome é obrigatório');
-    if (!phoneRaw && !email) throw new Error('Informe telefone ou e-mail');
-    if (!phoneRaw && appearance.requireEmail && !email) throw new Error('Telefone ou e-mail é obrigatório');
-
-    let e164 = phoneRaw ? normalizeContactPhoneE164(phoneRaw) : '';
-    if (phoneRaw && !e164) throw new Error('Telefone inválido');
-    if (!e164 && email) e164 = `email:${email}`;
-
-    if (appearance.requireEmail && !email) throw new Error('E-mail é obrigatório');
-    if (appearance.requireMessage && !message) throw new Error('Mensagem é obrigatória');
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error('E-mail inválido');
-    }
+    const parsed = validateAndParsePublicLeadPayload(body, appearance);
+    const { name, phoneE164: e164, email, message, sourceUrl, pageTitle, utm } = parsed;
 
     const customDefs = appearance.customFields ?? [];
-    const customValues = parseCustomFieldValues(customDefs, body.customFields);
+    const customValues = parseLeadFormCustomFieldValues(customDefs, body.customFields);
 
     const metadata: Record<string, string> = { ...customValues };
     if (pageTitle) metadata.pageTitle = pageTitle;
-    const utm = parseUtm(body.utm);
 
     const noteParts = [`Lead via formulário "${form.name}"`];
     if (sourceUrl) noteParts.push(`Origem: ${sourceUrl}`);
@@ -510,6 +487,57 @@ export class LeadFormService {
       .filter(id => mongoose.Types.ObjectId.isValid(id))
       .map(id => new mongoose.Types.ObjectId(id));
 
+    const consentAccepted = appearance.requireConsent ? Boolean(body.consent) : body.consent || undefined;
+    const consentAcceptedAt = body.consent ? new Date() : undefined;
+
+    const existingOpen = await this.findOpenLeadForFormDedupe(clientId, e164, email || undefined);
+    if (existingOpen) {
+      existingOpen.name = name;
+      if (message) existingOpen.message = message;
+      if (sourceUrl) existingOpen.sourceUrl = sourceUrl;
+      if (pageTitle) existingOpen.pageTitle = pageTitle;
+      if (utm) existingOpen.utm = utm;
+      if (destinationId && !existingOpen.destinationId) {
+        existingOpen.destinationId = destinationId;
+      }
+      if (groupOids.length && !existingOpen.contactGroupIds?.length) {
+        existingOpen.contactGroupIds = groupOids;
+      }
+      if (Object.keys(metadata).length) {
+        existingOpen.metadata = { ...(existingOpen.metadata ?? {}), ...metadata };
+      }
+      existingOpen.possibleDuplicate = dup.possibleDuplicate;
+      existingOpen.duplicateHintIds = dup.hints.map(h => `${h.kind}:${h.id}`);
+      if (consentAccepted) {
+        existingOpen.consentAccepted = consentAccepted;
+        existingOpen.consentAcceptedAt = consentAcceptedAt;
+      }
+      if (meta.ipAddress) existingOpen.ipAddress = meta.ipAddress;
+      if (meta.userAgent) {
+        existingOpen.userAgent = sanitizeLeadText(meta.userAgent, 300);
+      }
+      existingOpen.history = appendLeadHistory(
+        existingOpen.history,
+        'note',
+        `Nova submissão via formulário "${form.name}"`,
+        { meta: { formId: String(form._id), origin: leadOrigin } },
+      );
+      await existingOpen.save();
+
+      logger.info('Lead atualizado via formulário público (dedupe aberto)', {
+        clientId,
+        formId: form._id,
+        captureId: existingOpen._id,
+      });
+
+      notifyLeadPanelRefresh(clientId, String(existingOpen._id));
+
+      return buildPublicLeadSubmitResponse({
+        successMessage: appearance.successMessage,
+        redirectUrl: form.redirectUrl,
+      });
+    }
+
     const capture = await LeadCapture.create({
       clientId: form.clientId,
       formId: form._id,
@@ -530,8 +558,8 @@ export class LeadFormService {
       userAgent: meta.userAgent ? sanitizeLeadText(meta.userAgent, 300) : undefined,
       metadata: Object.keys(metadata).length ? metadata : undefined,
       utm,
-      consentAccepted: appearance.requireConsent ? Boolean(body.consent) : body.consent || undefined,
-      consentAcceptedAt: body.consent ? new Date() : undefined,
+      consentAccepted,
+      consentAcceptedAt,
       possibleDuplicate: dup.possibleDuplicate,
       duplicateHintIds: dup.hints.map(h => `${h.kind}:${h.id}`),
       history: appendLeadHistory(undefined, 'captured', `Capturado via ${LEAD_CAPTURE_ORIGIN_LABEL[leadOrigin]}`),
@@ -552,6 +580,7 @@ export class LeadFormService {
       email: email || null,
       origin: leadOrigin,
       status: capture.status,
+      utm: utm ?? null,
     });
 
     notifyNewLeadPanelEvent(clientId, {
@@ -561,12 +590,10 @@ export class LeadFormService {
       phone: e164,
     });
 
-    return {
-      success: true,
-      captureId: String(capture._id),
+    return buildPublicLeadSubmitResponse({
       successMessage: appearance.successMessage,
       redirectUrl: form.redirectUrl,
-    };
+    });
   }
 
   private async applyDefaultGroupsAndTags(
