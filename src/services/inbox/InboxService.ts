@@ -3644,6 +3644,14 @@ export class InboxService {
     ticket.clientReplyPaused = false;
     await ticket.save();
 
+    await recordAttendanceEvent({
+      clientId,
+      kind: 'ticket.reopened',
+      ticketRef: ticket.ticketRef,
+      conversationId: ticket.conversationId ? String(ticket.conversationId) : undefined,
+      actorUserId: userId,
+    });
+
     const conv = await InboxConversation.findById(ticket.conversationId);
     if (conv) {
       const agentName = await this.resolveAgentDisplayName(userId);
@@ -3794,11 +3802,13 @@ export class InboxService {
       throw new Error('Ticket fechado — reabra antes de editar');
     }
 
+    let assignedAuditUserId: string | undefined;
     if (patch.assignedUserId !== undefined) {
       if (patch.assignedUserId) {
         await this.resolveMemberUserIds(clientId, [patch.assignedUserId]);
         ticket.assignedUserId = new mongoose.Types.ObjectId(patch.assignedUserId);
         if (ticket.status === 'open') ticket.status = 'in_progress';
+        assignedAuditUserId = patch.assignedUserId;
       } else {
         ticket.assignedUserId = undefined;
       }
@@ -3812,6 +3822,18 @@ export class InboxService {
     }
     ticket.updatedAt = new Date();
     await ticket.save();
+
+    if (assignedAuditUserId) {
+      await recordAttendanceEvent({
+        clientId,
+        kind: 'ticket.assigned',
+        ticketRef: ticket.ticketRef,
+        conversationId: ticket.conversationId ? String(ticket.conversationId) : undefined,
+        actorUserId: userId,
+        meta: { assignedUserId: assignedAuditUserId },
+      });
+    }
+
     return {
       ...ticket.toObject(),
       ...serializeTicketDisplayFields(ticket),

@@ -4,6 +4,8 @@ export type AttendanceEventKind =
   | 'ticket.created'
   | 'ticket.client_replied'
   | 'ticket.closed'
+  | 'ticket.reopened'
+  | 'ticket.assigned'
   | 'bridge.started'
   | 'bridge.closed'
   | 'bridge.agent_reply'

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { InboxConversation } from '@/models/InboxConversation';
+import { InboxTicket } from '@/models/InboxTicket';
 import { InboxService } from '@/services/inbox/InboxService';
 import type { IInboxTicket } from '@/models/InboxTicket';
 
@@ -94,5 +95,32 @@ describe('InboxService ticket audit log', () => {
 
     expect(recordAttendanceEvent).not.toHaveBeenCalled();
     expect(webhookEmit).not.toHaveBeenCalled();
+  });
+
+  it('registra ticket.reopened ao reabrir chamado', async () => {
+    const ticketId = new mongoose.Types.ObjectId();
+    const userId = new mongoose.Types.ObjectId().toString();
+    const ticket = mockTicket({
+      _id: ticketId,
+      status: 'closed',
+      closedAt: new Date(),
+      conversationId: CONV_ID,
+    });
+    (InboxTicket.findOne as jest.Mock).mockResolvedValue(ticket);
+    (InboxConversation.findById as jest.Mock).mockResolvedValue(null);
+    jest.spyOn(svc, 'resolveAgentDisplayName' as keyof InboxService).mockResolvedValue('Agente');
+    jest
+      .spyOn(svc, 'getConversationIfAllowed' as keyof InboxService)
+      .mockResolvedValue({ _id: CONV_ID } as never);
+
+    await svc.reopenTicket(CLIENT_ID, userId, 'TK-AUDIT1');
+
+    expect(recordAttendanceEvent).toHaveBeenCalledWith({
+      clientId: CLIENT_ID,
+      kind: 'ticket.reopened',
+      ticketRef: 'TK-AUDIT1',
+      conversationId: String(CONV_ID),
+      actorUserId: userId,
+    });
   });
 });

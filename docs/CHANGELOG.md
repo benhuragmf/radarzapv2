@@ -22,6 +22,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.94] — 2026-06-24
+
+### TOP 08 — Tickets, chamados, TK e rastreabilidade
+
+- Helpers `ticket-status.util.ts` (estados de produto, `canCustomerReplyToTicket`) e `ticket-sla-priority.util.ts` (metas SLA por prioridade).
+- Auditoria `AttendanceEvent`: `ticket.reopened`, `ticket.assigned`.
+- Testes: status/SLA, notas internas fora da consulta pública, token ≠ TK, reabertura auditada.
+- Documento [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md).
+
+---
+
 ## [2.11.93] — 2026-06-24
 
 ### TOP 07 — Inbox, conversas, fila e transferência

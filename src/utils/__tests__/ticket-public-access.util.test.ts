@@ -37,6 +37,16 @@ describe('ticket-public-access.util', () => {
     expect(verifyTicketPublicAccessToken('ab7k 92qd', hash)).toBe(true);
   });
 
+  it('token público difere do protocolo TK', () => {
+    const { generateInboxTicketRef } = require('../inbox-ticket-ref');
+    for (let i = 0; i < 20; i++) {
+      const ref = generateInboxTicketRef();
+      const token = generateTicketPublicAccessToken();
+      expect(token).not.toBe(ref);
+      expect(token).not.toContain(ref.slice(3));
+    }
+  });
+
   it('builds hint from last 4 chars', () => {
     expect(publicAccessTokenHint('AB7K-92QD')).toBe('92QD');
   });

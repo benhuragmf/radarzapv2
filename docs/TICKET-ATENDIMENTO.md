@@ -2,9 +2,19 @@
 
 Documento de referência do produto: o que é um Ticket, como difere do Inbox, quem cria, janelas de tempo e regras de roteamento no WhatsApp.
 
-**Última revisão:** 2026-06-19 (token público consulta widget 2.10.70)  
-**Implementação:** `src/services/inbox/InboxService.ts`, `src/types/inbox-ticket.ts`, `src/models/InboxTicket.ts`, `src/services/inbox/inbound-routing.ts`, `src/services/inbox/ticket-public-access.service.ts`  
-**Relacionado:** [INBOX-ATENDIMENTO.md](./INBOX-ATENDIMENTO.md) (atendimento ao vivo), [WEBCHAT.md](./WEBCHAT.md) (consulta token widget)
+**Última revisão:** 2026-06-24 (TOP 08 — `2.11.94`)
+**Implementação:** `src/services/inbox/InboxService.ts`, `src/types/inbox-ticket.ts`, `src/types/ticket-status.util.ts`, `src/types/ticket-sla-priority.util.ts`, `src/models/InboxTicket.ts`, `src/services/inbox/inbound-routing.ts`, `src/services/inbox/ticket-public-access.service.ts`
+**Relacionado:** [INBOX-ATENDIMENTO.md](./INBOX-ATENDIMENTO.md) (atendimento ao vivo), [WEBCHAT.md](./WEBCHAT.md) (consulta token widget), [top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md](./top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md)
+
+---
+
+## TOP 08 — estados, SLA e helpers (2.11.94)
+
+- **Estados persistidos:** `open`, `in_progress`, `client_replied`, `closed` — mapeamento para estados de produto em `ticket-status.util.ts` (`pending_team`, `pending_customer`, `expired`, etc.).
+- **Protocolo TK:** `generateInboxTicketRef()` → `TK-XXXXXX` (alfabeto sem 0/O/1/I/L); índice único `{ clientId, ticketRef }`.
+- **SLA operacional:** `teamSlaDueAt` após resposta do cliente — 24h (`DEFAULT_TICKET_TEAM_RESPONSE_HOURS`). Metas comerciais por prioridade documentadas em `ticket-sla-priority.util.ts` (campo `priority` ainda não persistido).
+- **Janela cliente:** 12h pós-fechamento/último envio da equipe — `ticket-reply-window.util.ts`.
+- **Auditoria:** `AttendanceEvent` — `ticket.created`, `ticket.client_replied`, `ticket.closed`, `ticket.reopened`, `ticket.assigned`.
 
 ---
 

@@ -197,6 +197,28 @@ describe('ticket-public-access.service lookup', () => {
     expect(result.recentMessages.some(m => m.body.includes('Token de consulta'))).toBe(true);
   });
 
+  it('does not expose internal notes in public lookup', async () => {
+    const result = await buildTicketPublicLookupResult({
+      ticketRef: 'TK-INT001',
+      status: 'in_progress',
+      channel: 'whatsapp',
+      clientReplies: [{ body: 'Mensagem do cliente', createdAt: new Date() }],
+      internalNotesList: [
+        {
+          body: 'Nota interna confidencial — não deve vazar',
+          createdAt: new Date(),
+          userId: new mongoose.Types.ObjectId(),
+        },
+      ],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Parameters<typeof buildTicketPublicLookupResult>[0]);
+
+    expect(
+      result.recentMessages.some(m => m.body.includes('Nota interna confidencial')),
+    ).toBe(false);
+  });
+
   it('includes ticket follow-up comments in webchat public lookup', async () => {
     const wcId = new mongoose.Types.ObjectId();
     const { WebChatMessage } = await import('@/models/WebChatMessage');
