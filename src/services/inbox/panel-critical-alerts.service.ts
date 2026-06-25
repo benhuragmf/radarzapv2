@@ -9,6 +9,12 @@ import { computeSubscriptionStatus, formatTimeRemaining } from '@/services/billi
 import { emitPanelEvent } from '@/services/inbox/PanelNotifications';
 import type { PanelEventPayload, PanelEventType } from '@/types/panel-events';
 import { createServiceLogger } from '@/utils/logger';
+import {
+  buildAiCreditAlertMessage,
+  resolveAiCreditUsageLevel,
+  shouldEmitAiCreditAlert,
+  type AiCreditUsageLevel,
+} from '@/types/ai-credit-alerts.util';
 
 const logger = createServiceLogger('PanelCriticalAlerts');
 
@@ -20,6 +26,7 @@ type EmitInput = Omit<PanelEventPayload, 'id' | 'createdAt'> & {
 export class PanelCriticalAlertsService {
   private static instance: PanelCriticalAlertsService;
   private readonly dedup = new Map<string, number>();
+  private readonly lastAiCreditLevel = new Map<string, AiCreditUsageLevel>();
 
   static getInstance(): PanelCriticalAlertsService {
     if (!this.instance) this.instance = new PanelCriticalAlertsService();
@@ -163,6 +170,13 @@ export class PanelCriticalAlertsService {
       const snapshot = await AiUsageMeterService.getInstance().getUsageSnapshot(clientId);
       if (!snapshot.allowed) {
         this.notifyAiQuotaExceeded(clientId, snapshot.reason ?? 'Limite de IA atingido');
+        void import('@/types/ai-wallet').then(({ recordAiCreditAttendanceEvent }) =>
+          recordAiCreditAttendanceEvent({
+            clientId,
+            kind: 'ai.credits.blocked',
+            meta: { reason: snapshot.reason },
+          }),
+        );
         return;
       }
       if (snapshot.wallet?.depleted) {
@@ -170,18 +184,40 @@ export class PanelCriticalAlertsService {
           clientId,
           snapshot.reason ?? 'Saldo mensal de créditos IA esgotado',
         );
+        this.lastAiCreditLevel.set(clientId, 'exhausted');
+        void import('@/types/ai-wallet').then(({ recordAiCreditAttendanceEvent }) =>
+          recordAiCreditAttendanceEvent({ clientId, kind: 'ai.credits.exhausted' }),
+        );
         return;
       }
       if (snapshot.wallet && snapshot.wallet.totalAllowance > 0) {
-        const pct = snapshot.wallet.usedThisMonth / snapshot.wallet.totalAllowance;
-        if (pct >= 0.9) {
-          this.notifyAiQuotaLow(
-            clientId,
-            Math.round(snapshot.wallet.usedThisMonth * 100) / 100,
-            snapshot.wallet.totalAllowance,
-            'mensal',
-          );
+        const usage = resolveAiCreditUsageLevel(snapshot.wallet);
+        const prev = this.lastAiCreditLevel.get(clientId) ?? 'ok';
+        if (shouldEmitAiCreditAlert(prev, usage.level)) {
+          this.lastAiCreditLevel.set(clientId, usage.level);
+          const alert = buildAiCreditAlertMessage(usage.level, usage);
+          if (usage.level === 'exhausted') {
+            this.notifyAiQuotaExceeded(clientId, alert.body);
+          } else {
+            this.emit(clientId, {
+              type: usage.level === 'warning_90' ? 'ai:quota_low' : 'ai:quota_low',
+              title: alert.title,
+              body: alert.body,
+              href: '/platform/inbox/ia',
+              dedupKey: `${clientId}:ai:credit_level:${usage.level}:${this.dayKey()}`,
+            });
+            void import('@/types/ai-wallet').then(({ recordAiCreditAttendanceEvent }) =>
+              recordAiCreditAttendanceEvent({
+                clientId,
+                kind: 'ai.credits.low_balance',
+                meta: { level: usage.level, used: usage.used, allowance: usage.allowance },
+              }),
+            );
+          }
           return;
+        }
+        if (usage.level === 'ok') {
+          this.lastAiCreditLevel.set(clientId, 'ok');
         }
       }
       if (snapshot.dailyLimit > 0 && snapshot.dailyUsed >= snapshot.dailyLimit * 0.9) {

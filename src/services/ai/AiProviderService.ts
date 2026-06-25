@@ -12,6 +12,7 @@ import { estimateTypicalTurnCostUsd } from '@/constants/ai-model-catalog';
 import { aiCreditsFromActualCost } from '@/types/ai-credits';
 import { AiUsageMeterService } from './AiUsageMeterService';
 import { aiUsageKindFromProviderLabel } from '@/types/ai-usage-kind';
+import { recordAiCreditAttendanceEvent } from '@/types/ai-wallet';
 
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -90,6 +91,12 @@ export class AiProviderService {
       { pendingCalls: 1, pendingCredits },
     );
     if (!usage.allowed) {
+      void recordAiCreditAttendanceEvent({
+        clientId,
+        kind: 'ai.credits.blocked',
+        conversationId,
+        meta: { reason: usage.reason, stage: 'pre_provider' },
+      });
       void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
         PanelCriticalAlertsService.getInstance().notifyAiQuotaExceeded(
           clientId,
@@ -132,6 +139,12 @@ export class AiProviderService {
       { pendingCalls: 1, pendingCredits, meteringOverride: 'radarzap_calls' },
     );
     if (!usage.allowed) {
+      void recordAiCreditAttendanceEvent({
+        clientId,
+        kind: 'ai.credits.blocked',
+        conversationId,
+        meta: { reason: usage.reason, stage: 'pre_provider' },
+      });
       void import('@/services/inbox/panel-critical-alerts.service').then(({ PanelCriticalAlertsService }) => {
         PanelCriticalAlertsService.getInstance().notifyAiQuotaExceeded(
           clientId,

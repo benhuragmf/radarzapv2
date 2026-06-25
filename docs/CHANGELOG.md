@@ -22,6 +22,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.2] — 2026-06-24
+
+### TOP 16 — IA Créditos, carteira, consumo e fallback
+
+- Helpers `ai-credit-alerts.util.ts`, `ai-credit-packages.util.ts`; `canConsumeAiCredits`, eventos `ai.credits.*`.
+- Gate reforçado WebChat + `AiProviderService`; APIs `credit-packages` e `wallet/purchased` (sem checkout).
+- Doc [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md); §19 doc mestre.
+
+---
+
 ## [2.12.1] — 2026-06-24
 
 ### TOP 15 — IA Premium, base de conhecimento e handoff

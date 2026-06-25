@@ -20,6 +20,7 @@ import {
 } from '@/types/ai-usage-kind';
 import { AiWalletService } from './AiWalletService';
 import type { AiWalletSnapshot } from '@/types/ai-wallet';
+import { buildAiUsageMetadata, recordAiCreditAttendanceEvent } from '@/types/ai-wallet';
 
 export interface AiUsageLimitsSnapshot {
   /** Chamadas LLM RadarZap hoje (1 chamada = 1 unidade no limite do plano). */
@@ -308,6 +309,18 @@ export class AiUsageMeterService {
       totalTokens: total,
       estimatedCost,
     });
+    if (isRadarzapPlatformProvider(params.provider) && creditWeight > 0) {
+      void recordAiCreditAttendanceEvent({
+        clientId: params.clientId,
+        kind: 'ai.credits.consumed',
+        conversationId: params.conversationId,
+        meta: buildAiUsageMetadata({
+          channel: 'unknown',
+          provider: params.provider,
+          usageKind,
+        }),
+      });
+    }
   }
 
   private estimateCost(model: string, input: number, output: number): number {

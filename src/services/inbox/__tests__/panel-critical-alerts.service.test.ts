@@ -32,6 +32,14 @@ jest.mock('@/services/ai/AiSettingsService', () => ({
   },
 }));
 
+jest.mock('@/types/ai-wallet', () => {
+  const actual = jest.requireActual('@/types/ai-wallet');
+  return {
+    ...actual,
+    recordAiCreditAttendanceEvent: jest.fn().mockResolvedValue(undefined),
+  };
+});
+
 const { InboxSettings } = jest.requireMock('@/models/InboxSettings');
 const { AiSettings } = jest.requireMock('@/models/AiSettings');
 
@@ -134,7 +142,7 @@ describe('PanelCriticalAlertsService', () => {
       CLIENT_OID,
       expect.objectContaining({
         type: 'ai:quota_low',
-        title: 'Saldo de IA baixo',
+        title: 'Saldo de IA crítico',
       }),
     );
   });

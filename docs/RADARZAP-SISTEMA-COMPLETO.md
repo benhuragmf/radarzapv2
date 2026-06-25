@@ -1,6 +1,6 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.12.1` · **Atualizado:** 2026-06-24
+**Versão:** `2.12.2` · **Atualizado:** 2026-06-24
 
 Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanecem nos `.md` especializados listados em [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md). Auditoria TOP 01–20: pasta [`top/`](./top/).
 
@@ -251,7 +251,31 @@ Doc detalhada: [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-T
 
 ## 19. IA Créditos e carteira
 
-[`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md). Recarga/billing créditos → TOP 16.
+Proteção **anti-prejuízo** para LLM RadarZap: saldo mensal por plano + `purchasedCredits` − consumo proporcional ao custo real (`AiUsage` / `creditWeight`).
+
+| Plano | Créditos/mês | Aprendizagem/mês |
+|-------|-------------:|-----------------:|
+| Free | 0 | 0 |
+| Trial | 100 | 10 |
+| Starter | 400 | 30 |
+| Pro | 2.500 | 120 |
+| Enterprise | 12.000 | 500 |
+
+**Serviços:** `AiWalletService`, `AiUsageMeterService`, `Organization.aiWallet`.
+
+**Gate:** `canConsumeAiCredits` / `getUsageSnapshot` antes de `AiProviderService.complete`; chave própria (`mode: company`) não debita carteira RadarZap.
+
+**Consome:** IA Básica LLM fallback, IA Premium LLM RadarZap. **Não consome:** robotizado, triagem local, FAQ/auto-resolve local, handoff, bridge.
+
+**Sem crédito:** WebChat → fila + mensagem segura ao cliente; WhatsApp → triagem padrão/fila; painel alerta interno.
+
+**Alertas:** 80% / 90% / 100% — `ai-credit-alerts.util.ts` + `PanelCriticalAlertsService`.
+
+**Pacotes extras:** catálogo `config/plans.json` → `GET /platform/ai/credit-packages`; ajuste manual `POST /platform/ai/wallet/purchased` (RBAC `billing:manage`, sem checkout — TOP 17).
+
+**API saldo:** `GET /platform/ai/balance` (`inbox:ai:balance:view`).
+
+Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md).
 
 ---
 
@@ -310,7 +334,8 @@ Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRO
 | 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 |
 | 14 | IA Básica profunda | TOP 14 | 2.12.0 |
 | 15 | IA Premium / KB / handoff | TOP 15 | 2.12.1 |
-| 16–20 | IA Créditos recarga, billing, go-live | pendente | — |
+| 16 | IA Créditos / carteira / fallback | TOP 16 | 2.12.2 |
+| 17–20 | Billing, auditoria, go-live | pendente | — |
 
 ---
 

@@ -1,6 +1,6 @@
 # IA — Créditos, carteira mensal e barra do painel
 
-**Versão:** 2.11.85 · **Atualizado:** 2026-06-24
+**Versão:** 2.12.2 · **Atualizado:** 2026-06-24
 
 Documento canônico do sistema de **créditos IA RadarZap**, **carteira mensal por empresa**, **cota de aprendizagem** e **indicadores na barra superior** do painel.
 

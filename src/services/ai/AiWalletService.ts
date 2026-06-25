@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 import { Organization } from '@/models/Organization';
 import {
   buildLearningDepletedReason,
-  buildWalletDepletedReason,
   getAiWalletPlanLimits,
+  canConsumeAiCredits,
+  recordAiCreditAttendanceEvent,
   type AiWalletSnapshot,
 } from '@/types/ai-wallet';
 
@@ -40,6 +41,11 @@ export class AiWalletService {
         },
       },
     );
+    void recordAiCreditAttendanceEvent({
+      clientId,
+      kind: 'ai.credits.monthly_reset',
+      meta: { periodStart: monthStart.toISOString() },
+    });
   }
 
   async getSnapshot(clientId: string, creditsUsedThisMonth: number): Promise<AiWalletSnapshot> {
@@ -75,17 +81,7 @@ export class AiWalletService {
     wallet: AiWalletSnapshot,
     pendingCredits: number,
   ): { allowed: boolean; reason?: string } {
-    if (wallet.totalAllowance <= 0 && wallet.usedThisMonth <= 0) {
-      return {
-        allowed: false,
-        reason:
-          'Créditos IA não disponíveis no plano Free. Faça upgrade, compre créditos ou use API própria.',
-      };
-    }
-    if (wallet.balance < pendingCredits) {
-      return { allowed: false, reason: buildWalletDepletedReason(wallet) };
-    }
-    return { allowed: true };
+    return canConsumeAiCredits(wallet, pendingCredits > 0 ? pendingCredits : 0.01);
   }
 
   canRunLearning(wallet: AiWalletSnapshot): { allowed: boolean; reason?: string } {
@@ -110,7 +106,6 @@ export class AiWalletService {
     );
   }
 
-  /** Créditos extras comprados (integração Stripe futura). */
   async addPurchasedCredits(clientId: string, amount: number): Promise<number> {
     if (amount <= 0) throw new Error('Quantidade inválida');
     await this.ensureMonthlyPeriod(clientId);
@@ -119,6 +114,12 @@ export class AiWalletService {
       { $inc: { 'aiWallet.purchasedCredits': amount } },
       { new: true },
     ).select('aiWallet.purchasedCredits');
-    return org?.aiWallet?.purchasedCredits ?? amount;
+    const total = org?.aiWallet?.purchasedCredits ?? amount;
+    void recordAiCreditAttendanceEvent({
+      clientId,
+      kind: 'ai.credits.adjusted',
+      meta: { delta: amount, purchasedTotal: total, source: 'manual_or_pack' },
+    });
+    return total;
   }
 }

@@ -8,6 +8,10 @@ import { AiAutoResolveService } from '@/services/ai/AiAutoResolveService';
 import { PlatformAiBlueprintService } from '@/services/ai/PlatformAiBlueprintService';
 import type { AiContactContext } from '@/services/ai/AiContextService';
 import { AiEscalationService } from '@/services/ai/AiEscalationService';
+import { AiUsageMeterService } from '@/services/ai/AiUsageMeterService';
+import { estimateTypicalTurnCostUsd } from '@/constants/ai-model-catalog';
+import { aiCreditsFromActualCost } from '@/types/ai-credits';
+import { AI_CREDITS_CLIENT_FALLBACK_MESSAGE } from '@/types/ai-wallet';
 import type { WebChatAiEscalationPolicy } from '../../types/webchat';
 import {
   buildWebChatPromptSuffix,
@@ -78,10 +82,30 @@ export class WebChatAiService {
 
     try {
       await AiProviderService.getInstance().resolveApiKey(clientId, settings);
-      return { ...base, available: true };
     } catch (e) {
       return { ...base, available: false, reason: (e as Error).message };
     }
+
+    if (settings.mode === 'radarzap') {
+      const pendingCredits = aiCreditsFromActualCost(
+        estimateTypicalTurnCostUsd(settings.llmModel),
+      );
+      const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
+        clientId,
+        undefined,
+        settings,
+        { pendingCalls: 1, pendingCredits },
+      );
+      if (!usage.allowed) {
+        return {
+          ...base,
+          available: false,
+          reason: usage.reason ?? 'Limite de créditos IA atingido',
+        };
+      }
+    }
+
+    return { ...base, available: true };
   }
 
   async generateVisitorReply(
@@ -99,7 +123,16 @@ export class WebChatAiService {
     },
   ): Promise<{ body: string; senderName: string; shouldEscalate?: boolean } | null> {
     const availability = await this.getAvailability(clientId);
-    if (!availability.available) return null;
+    if (!availability.available) {
+      if (availability.reason?.includes('crédito') || availability.reason?.includes('Saldo')) {
+        return {
+          body: sanitizePremiumAiResponse(AI_CREDITS_CLIENT_FALLBACK_MESSAGE, 'webchat'),
+          senderName: 'Assistente virtual',
+          shouldEscalate: true,
+        };
+      }
+      return null;
+    }
 
     const escalationPolicy = normalizeEscalationPolicy(opts.escalationPolicy);
 

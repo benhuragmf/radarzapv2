@@ -163,6 +163,8 @@ import { registerDashboardQueueRoutes } from './routes/dashboardQueueRoutes';
 import { AiSettingsService } from '../ai/AiSettingsService';
 import { AiProviderService } from '../ai/AiProviderService';
 import { AiUsageMeterService } from '../ai/AiUsageMeterService';
+import { AiWalletService } from '../ai/AiWalletService';
+import { listAiCreditPackCatalog } from '@/types/ai-credit-packages.util';
 import { AiConversationService } from '../ai/AiConversationService';
 import { AiSkillService } from '../ai/AiSkillService';
 import { AiMemoryService } from '../ai/AiMemoryService';
@@ -2243,6 +2245,46 @@ export class DashboardService {
         res.status(500).json({ error: (e as Error).message });
       }
     });
+
+    r.get('/platform/ai/credit-packages', requireCapability(Cap.INBOX_AI_BALANCE_VIEW), async (_req, res) => {
+      try {
+        res.json({
+          packs: listAiCreditPackCatalog(),
+          checkoutEnabled: false,
+          note: 'Compra avulsa via Stripe — TOP 17.',
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post(
+      '/platform/ai/wallet/purchased',
+      requireCapability(Cap.BILLING_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const amount = Math.round(Number(req.body?.amount));
+          if (!Number.isFinite(amount) || amount <= 0) {
+            return res.status(400).json({ error: 'Quantidade inválida' });
+          }
+          const total = await AiWalletService.getInstance().addPurchasedCredits(
+            auth.clientId,
+            amount,
+          );
+          await writeAuditLog({
+            action: 'ai.credits.adjusted',
+            actorUserId: auth.userId,
+            details: { clientId: auth.clientId, amount, purchasedTotal: total },
+            ip: req.ip,
+          });
+          const snapshot = await aiUsageSvc.getUsageSnapshot(auth.clientId);
+          res.json({ purchasedCredits: total, wallet: snapshot.wallet });
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
 
     r.post('/platform/ai/settings', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
       try {
