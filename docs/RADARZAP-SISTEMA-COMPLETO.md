@@ -1,6 +1,6 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.11.99` · **Atualizado:** 2026-06-24
+**Versão:** `2.12.0` · **Atualizado:** 2026-06-24
 
 Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanecem nos `.md` especializados listados em [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md). Auditoria TOP 01–20: pasta [`top/`](./top/).
 
@@ -202,7 +202,23 @@ TOP 13: [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13
 
 ## 17. IA Básica
 
-Classificador local, KB, encaminhamento — Fase 5 modos. Profundidade adicional → TOP 14. Ver [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) § IA.
+TOP 14: [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md).
+
+| Área | Implementação |
+|------|----------------|
+| Conceito | Triagem/roteamento — **não** chat livre |
+| Classificador local | `basic-triage-classifier.ts` — keywords, sem LLM obrigatório |
+| Serviço WA | `AiBasicTriageService.ts` |
+| Serviço WebChat | `webchat-basic-triage.service.ts` |
+| Modos | `basic_triage`, `hybrid` (cadeia básica) |
+| Intenções produto | `basic-triage.util.ts` — sales, support, billing, ticket_status, … |
+| Confiança | alta ≥0.75 roteia; média esclarece; baixa → fila |
+| LLM opcional | `basicTriageLlmFallbackEnabled` + gate créditos |
+| Leads | `hasCommercialLeadIntent` — só intenção comercial (TOP 09) |
+| Bridge | `shouldSkipBasicTriageForBridge` — não reprocessa |
+| Auditoria | `AttendanceEvent` `triage.classified` |
+
+**IA Premium profunda → TOP 15.** Créditos/recarga → TOP 16.
 
 ---
 
@@ -271,7 +287,8 @@ Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRO
 | 11 | WebChat | TOP 11 | 2.11.97 |
 | 12 | WhatsApp profundo | TOP 12 | 2.11.98 |
 | 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 |
-| 14–20 | IA, billing, go-live | pendente | — |
+| 14 | IA Básica profunda | TOP 14 | 2.12.0 |
+| 15–20 | IA Premium, billing, go-live | pendente | — |
 
 ---
 

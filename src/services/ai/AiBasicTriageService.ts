@@ -12,11 +12,18 @@ import { InboxConversationStatus } from '@/types/inbox';
 import { resolveAttendanceMode } from '@/types/attendance-mode';
 import {
   buildBasicTriageClarifyReply,
+  buildBasicTriageTicketStatusReply,
   classifyLocal,
   shouldRouteByClassification,
   type BasicTriageClassification,
   type BasicTriageDepartmentHint,
 } from '@/utils/basic-triage-classifier';
+import {
+  mapBasicIntentToProduct,
+  recordBasicTriageClassificationEvent,
+  resolveBasicTriageAction,
+  TRIAGE_CONFIDENCE_HIGH,
+} from '@/types/basic-triage.util';
 import {
   loadClientVisibleDepartments,
   parseInboxMenuChoice,
@@ -65,8 +72,8 @@ export class AiBasicTriageService {
     const settings = await AiSettingsService.getInstance().getSettingsDoc(ctx.clientId);
     const prompt = await AiPromptBuilderService.getInstance().getOrCreatePrompt(ctx.clientId);
     const routeThreshold = Math.max(
-      settings.transferRules?.lowConfidenceThreshold ?? 0.45,
-      0.65,
+      settings.transferRules?.lowConfidenceThreshold ?? TRIAGE_CONFIDENCE_HIGH,
+      TRIAGE_CONFIDENCE_HIGH,
     );
 
     const departments = await this.loadDepartmentHints(ctx.clientId);
@@ -139,18 +146,59 @@ export class AiBasicTriageService {
       return { handled: true };
     }
 
-    if (shouldRouteByClassification(classification, routeThreshold) && classification.suggestedMenuKey) {
+    const action = resolveBasicTriageAction(classification, { routeThreshold });
+    const productIntent = mapBasicIntentToProduct(classification.intent);
+
+    if (action === 'route' && classification.suggestedMenuKey) {
       await inbox.routeFromTriageChoice(
         ctx.clientId,
         ctx.conversation,
         ctx.dest,
         classification.suggestedMenuKey,
       );
+      await recordBasicTriageClassificationEvent({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        productIntent,
+        confidence: classification.confidence,
+        action: 'route',
+        menuKey: classification.suggestedMenuKey,
+        channel: 'whatsapp',
+      });
       serviceLogger.info('IA Básica encaminhou por classificação', {
         clientId: ctx.clientId,
         intent: classification.intent,
         menuKey: classification.suggestedMenuKey,
         confidence: classification.confidence,
+      });
+      return { handled: true };
+    }
+
+    if (action === 'queue' && classification.suggestedMenuKey) {
+      const queueKey = classification.intent === 'human_request' ? '4' : classification.suggestedMenuKey;
+      await inbox.routeFromTriageChoice(ctx.clientId, ctx.conversation, ctx.dest, queueKey);
+      await recordBasicTriageClassificationEvent({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        productIntent,
+        confidence: classification.confidence,
+        action: 'queue',
+        menuKey: queueKey,
+        channel: 'whatsapp',
+      });
+      return { handled: true };
+    }
+
+    if (classification.intent === 'ticket_status') {
+      const reply = buildBasicTriageTicketStatusReply();
+      await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reply);
+      await recordBasicTriageClassificationEvent({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        productIntent,
+        confidence: classification.confidence,
+        action: 'clarify',
+        channel: 'whatsapp',
       });
       return { handled: true };
     }
@@ -161,6 +209,14 @@ export class AiBasicTriageService {
       }
       const clarify = buildBasicTriageClarifyReply(classification.intent);
       await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, clarify);
+      await recordBasicTriageClassificationEvent({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        productIntent,
+        confidence: classification.confidence,
+        action: 'clarify',
+        channel: 'whatsapp',
+      });
       return { handled: true };
     }
 
@@ -168,8 +224,30 @@ export class AiBasicTriageService {
       return inactive;
     }
 
+    if (action === 'queue') {
+      await inbox.routeFromTriageChoice(ctx.clientId, ctx.conversation, ctx.dest, '4');
+      await recordBasicTriageClassificationEvent({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        productIntent: 'unknown',
+        confidence: classification.confidence,
+        action: 'queue',
+        menuKey: '4',
+        channel: 'whatsapp',
+      });
+      return { handled: true };
+    }
+
     const clarify = buildBasicTriageClarifyReply('unknown');
     await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, clarify);
+    await recordBasicTriageClassificationEvent({
+      clientId: ctx.clientId,
+      conversationId: String(ctx.conversation._id),
+      productIntent: 'unknown',
+      confidence: classification.confidence,
+      action: 'clarify',
+      channel: 'whatsapp',
+    });
     return { handled: true };
   }
 
@@ -242,7 +320,16 @@ export class AiBasicTriageService {
   }
 
   private normalizeIntent(intent: string): BasicTriageClassification['intent'] {
-    const valid = ['commercial', 'finance', 'support', 'general', 'human_request'] as const;
+    const valid = [
+      'commercial',
+      'finance',
+      'support',
+      'general',
+      'human_request',
+      'ticket_status',
+      'complaint',
+      'partnership',
+    ] as const;
     if ((valid as readonly string[]).includes(intent)) {
       return intent as BasicTriageClassification['intent'];
     }

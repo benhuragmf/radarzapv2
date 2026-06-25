@@ -11,6 +11,7 @@ export type AttendanceEventKind =
   | 'bridge.agent_reply'
   | 'bridge.message_forwarded'
   | 'bridge.loop_prevented'
+  | 'triage.classified'
   | 'inbox.queued'
   | 'inbox.assigned'
   | 'inbox.transferred'

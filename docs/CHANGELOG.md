@@ -22,6 +22,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.0] — 2026-06-24
+
+### TOP 14 — IA Básica, triagem e encaminhamento
+
+- Intenções `ticket_status`, `complaint`, `partnership`; threshold roteamento 0.75.
+- Helpers `basic-triage.util.ts` (produto, confiança, ação, anti-bridge, auditoria).
+- Evento `triage.classified`; integração WA + WebChat.
+- Doc [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md).
+
+---
+
 ## [2.11.99] — 2026-06-24
 
 ### TOP 13 — Bridge WebChat ↔ WhatsApp

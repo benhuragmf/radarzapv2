@@ -38,6 +38,8 @@ describe('basic-triage-classifier', () => {
     const r = classifyLocal('meu rastreador não conecta no aplicativo');
     expect(r.intent).toBe('support');
     expect(r.suggestedMenuKey).toBe('3');
+    expect(shouldRouteByClassification(r)).toBe(false);
+    expect(shouldRouteByClassification(r, 0.7)).toBe(true);
   });
 
   it('match por nome de setor', () => {
@@ -46,11 +48,27 @@ describe('basic-triage-classifier', () => {
     expect(r.confidence).toBeGreaterThan(0.8);
   });
 
-  it('pedido de humano não roteia imediatamente se abaixo do threshold custom', () => {
+  it('pedido de humano roteia com threshold padrão', () => {
     const r = classifyLocal('falar com atendente');
     expect(r.intent).toBe('human_request');
-    expect(shouldRouteByClassification(r, 0.9)).toBe(false);
-    expect(shouldRouteByClassification(r, BASIC_TRIAGE_DEFAULT_CONFIDENCE_THRESHOLD)).toBe(true);
+    expect(shouldRouteByClassification(r)).toBe(true);
+  });
+
+  it('classifica ticket_status', () => {
+    const r = classifyLocal('quero ver o status do meu chamado TK-ABC123');
+    expect(r.intent).toBe('ticket_status');
+    expect(shouldRouteByClassification(r)).toBe(false);
+  });
+
+  it('classifica reclamação', () => {
+    const r = classifyLocal('quero fazer uma reclamação sobre o atendimento');
+    expect(r.intent).toBe('complaint');
+    expect(r.confidence).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it('classifica parceria', () => {
+    const r = classifyLocal('tenho interesse em parceria de revenda');
+    expect(r.intent).toBe('partnership');
   });
 
   it('texto vago fica unknown', () => {

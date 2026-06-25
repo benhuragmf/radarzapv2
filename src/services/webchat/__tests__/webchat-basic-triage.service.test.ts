@@ -2,6 +2,10 @@ import { WebChatBasicTriageService } from '../webchat-basic-triage.service';
 
 const getSettingsDoc = jest.fn();
 
+jest.mock('@/services/attendance/attendance-audit.service', () => ({
+  recordAttendanceEvent: jest.fn(),
+}));
+
 jest.mock('@/services/ai/AiSettingsService', () => ({
   AiSettingsService: {
     getInstance: () => ({ getSettingsDoc }),
@@ -120,8 +124,9 @@ describe('WebChatBasicTriageService', () => {
     expect(sendBotReply).not.toHaveBeenCalledWith('Menu 1-4');
   });
 
-  it('texto vago usa esclarecimento da IA Básica, não menu robotizado', async () => {
+  it('texto vago encaminha para fila geral (confiança baixa)', async () => {
     const sendBotReply = jest.fn(async (body: string) => ({ body }));
+    const escalate = jest.fn(async () => {});
     WebChatMessage.exists.mockResolvedValue({ _id: 'm1' });
     const result = await svc.handleInbound({
       clientId,
@@ -129,10 +134,10 @@ describe('WebChatBasicTriageService', () => {
       text: 'xyz coisa aleatória',
       messageRows: [],
       sendBotReply,
-      escalate: async () => {},
+      escalate,
     });
     expect(result.handled).toBe(true);
-    expect(sendBotReply).toHaveBeenCalledWith(expect.stringContaining('contar um pouco mais'));
+    expect(escalate).toHaveBeenCalled();
     expect(sendBotReply).not.toHaveBeenCalledWith('Menu 1-4');
   });
 });

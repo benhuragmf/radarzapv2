@@ -7,6 +7,9 @@ export type BasicTriageIntent =
   | 'support'
   | 'general'
   | 'human_request'
+  | 'ticket_status'
+  | 'complaint'
+  | 'partnership'
   | 'greeting'
   | 'unknown';
 
@@ -22,10 +25,12 @@ export interface BasicTriageClassification {
   confidence: number;
   suggestedMenuKey?: string;
   departmentName?: string;
+  /** Motivo curto para auditoria (sem texto do cliente). */
+  reason?: string;
 }
 
-/** Threshold padrão para encaminhar sem LLM. */
-export const BASIC_TRIAGE_DEFAULT_CONFIDENCE_THRESHOLD = 0.65;
+/** Threshold padrão para encaminhar sem LLM (TOP 14: confiança alta ≥ 0.75). */
+export const BASIC_TRIAGE_DEFAULT_CONFIDENCE_THRESHOLD = 0.75;
 
 const GREETING_ONLY =
   /^(oi|ola|olá|hey|hello|bom dia|boa tarde|boa noite|e ai|e aí|opa|salve)[!.?\s]*$/i;
@@ -73,13 +78,32 @@ const SUPPORT =
 const HUMAN_REQUEST =
   /\b(falar com (?:um )?(?:atendente|humano|pessoa|consultor)|quero (?:um )?atendente|preciso (?:de )?(?:um )?atendente|atendente humano|transfer[eir]|encaminh(?:ar|e)?(?: para)?(?: a)? (?:equipe|setor))\b/i;
 
+const TICKET_STATUS =
+  /\b(tk-?[a-z0-9]{4,12}|status do chamado|andamento do chamado|meu chamado|n[uú]mero do chamado|consultar chamado|protocolo)\b/i;
+
+const COMPLAINT =
+  /\b(reclama[cç][aã]o|reclamar|insatisfeito|p[eé]ssimo|horr[ií]vel|absurdo|procon|n[aã]o aceito isso)\b/i;
+
+const PARTNERSHIP =
+  /\b(parce?ria|revenda|revendedor|representante|white\s*label|afiliado|ser parceiro)\b/i;
+
+export function normalizeTriageText(text: string): string {
+  return normalize(text);
+}
+
 /** Mapeamento intent → menuKey padrão (DEFAULT_INBOX_DEPARTMENTS). */
-const DEFAULT_MENU_BY_INTENT: Record<Exclude<BasicTriageIntent, 'greeting' | 'unknown'>, string> = {
+const DEFAULT_MENU_BY_INTENT: Record<
+  Exclude<BasicTriageIntent, 'greeting' | 'unknown'>,
+  string
+> = {
   commercial: '1',
   finance: '2',
   support: '3',
   general: '4',
   human_request: '4',
+  ticket_status: '3',
+  complaint: '3',
+  partnership: '1',
 };
 
 function normalize(text: string): string {
@@ -151,8 +175,36 @@ export function classifyLocal(
   if (HUMAN_REQUEST.test(trimmed)) {
     return {
       intent: 'human_request',
-      confidence: 0.78,
+      confidence: 0.88,
       suggestedMenuKey: DEFAULT_MENU_BY_INTENT.human_request,
+      reason: 'human_request_keyword',
+    };
+  }
+
+  if (TICKET_STATUS.test(trimmed)) {
+    return {
+      intent: 'ticket_status',
+      confidence: 0.82,
+      suggestedMenuKey: DEFAULT_MENU_BY_INTENT.ticket_status,
+      reason: 'ticket_status_keyword',
+    };
+  }
+
+  if (COMPLAINT.test(trimmed)) {
+    return {
+      intent: 'complaint',
+      confidence: 0.8,
+      suggestedMenuKey: DEFAULT_MENU_BY_INTENT.complaint,
+      reason: 'complaint_keyword',
+    };
+  }
+
+  if (PARTNERSHIP.test(trimmed)) {
+    return {
+      intent: 'partnership',
+      confidence: 0.77,
+      suggestedMenuKey: DEFAULT_MENU_BY_INTENT.partnership,
+      reason: 'partnership_keyword',
     };
   }
 
@@ -207,19 +259,34 @@ export function shouldRouteByClassification(
   if (classification.intent === 'greeting' || classification.intent === 'unknown') {
     return false;
   }
+  if (classification.intent === 'ticket_status') {
+    return false;
+  }
   return classification.confidence >= threshold && Boolean(classification.suggestedMenuKey);
+}
+
+export function buildBasicTriageTicketStatusReply(): string {
+  return [
+    'Para consultar um chamado, use o número *TK-…* e o *token* que você recebeu.',
+    'No chat do site há a opção de consulta; no WhatsApp, nossa equipe pode ajudar após você entrar na fila.',
+    'Digite *atendente* se quiser falar com alguém agora.',
+  ].join('\n');
 }
 
 export function buildBasicTriageClarifyReply(intent: BasicTriageIntent): string {
   switch (intent) {
     case 'commercial':
+    case 'partnership':
       return 'Entendi que pode ser algo comercial. Pode me dizer qual produto ou serviço você tem interesse? Assim encaminho para o setor certo.';
     case 'finance':
       return 'Parece ser uma questão financeira. Pode informar se é sobre boleto, pagamento ou fatura?';
     case 'support':
-      return 'Parece ser suporte técnico. Pode descrever o problema com um pouco mais de detalhe?';
+    case 'complaint':
+      return 'Parece ser suporte ou uma reclamação. Pode descrever o problema com um pouco mais de detalhe?';
     case 'human_request':
       return 'Claro! Pode me adiantar sobre o que você gostaria de tratar? Assim direciono para a equipe certa.';
+    case 'ticket_status':
+      return buildBasicTriageTicketStatusReply();
     default:
       return 'Pode me contar um pouco mais sobre o que você precisa? Assim consigo direcionar seu atendimento.';
   }

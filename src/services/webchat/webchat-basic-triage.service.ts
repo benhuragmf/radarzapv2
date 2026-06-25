@@ -12,9 +12,17 @@ import {
 } from '@/constants/inbox-triage';
 import {
   buildBasicTriageClarifyReply,
+  buildBasicTriageTicketStatusReply,
   classifyLocal,
   shouldRouteByClassification,
 } from '@/utils/basic-triage-classifier';
+import {
+  mapBasicIntentToProduct,
+  recordBasicTriageClassificationEvent,
+  resolveBasicTriageAction,
+  shouldSkipBasicTriageForBridge,
+  TRIAGE_CONFIDENCE_HIGH,
+} from '@/types/basic-triage.util';
 import {
   buildWebChatThreadContext,
   formatWebChatAutoResolveReply,
@@ -78,7 +86,7 @@ export class WebChatBasicTriageService {
     if (conv.status === 'closed') return { handled: false, replies };
     if (conv.queueStatus !== 'bot') return { handled: false, replies };
     if (conv.assignedUserId) return { handled: false, replies };
-    if (conv.whatsappBridgeActive) return { handled: false, replies };
+    if (shouldSkipBasicTriageForBridge(conv)) return { handled: false, replies };
 
     const convOid = conv._id as mongoose.Types.ObjectId;
     const lacksBotReply = await this.conversationLacksBasicBotReply(convOid);
@@ -91,8 +99,8 @@ export class WebChatBasicTriageService {
     }));
 
     const routeThreshold = Math.max(
-      settings.transferRules?.lowConfidenceThreshold ?? 0.45,
-      0.65,
+      settings.transferRules?.lowConfidenceThreshold ?? TRIAGE_CONFIDENCE_HIGH,
+      TRIAGE_CONFIDENCE_HIGH,
     );
     const threadContext = buildWebChatThreadContext(ctx.messageRows);
 
@@ -134,17 +142,41 @@ export class WebChatBasicTriageService {
     }
 
     let classification = classifyLocal(trimmed, deptHints);
+    const action = resolveBasicTriageAction(classification, { routeThreshold });
+    const productIntent = mapBasicIntentToProduct(classification.intent);
+    const convId = String(conv._id);
 
-    if (classification.intent === 'human_request') {
-      const department = departments.find(d => d.menuKey === classification.suggestedMenuKey);
+    const audit = async (act: typeof action, menuKey?: string) => {
+      await recordBasicTriageClassificationEvent({
+        clientId: ctx.clientId,
+        conversationId: convId,
+        productIntent,
+        confidence: classification.confidence,
+        action: act,
+        menuKey,
+        channel: 'webchat',
+      });
+    };
+
+    if (classification.intent === 'human_request' || action === 'queue') {
+      const menuKey =
+        classification.intent === 'human_request' ? '4' : classification.suggestedMenuKey ?? '4';
+      const department = departments.find(d => d.menuKey === menuKey);
       if (department) {
         const confirm = await buildQueueConfirmation(ctx.clientId, department.name);
         await ctx.escalate(String(department._id), confirm);
+        await audit('queue', menuKey);
         return { handled: true, replies };
       }
       if (isHybridMode(settings)) {
         return { handled: false, replies };
       }
+    }
+
+    if (classification.intent === 'ticket_status') {
+      replies.push(await ctx.sendBotReply(buildBasicTriageTicketStatusReply()));
+      await audit('clarify');
+      return { handled: true, replies };
     }
 
     if (classification.intent === 'greeting') {
@@ -157,6 +189,7 @@ export class WebChatBasicTriageService {
     }
 
     if (
+      action === 'route' &&
       shouldRouteByClassification(classification, routeThreshold) &&
       classification.suggestedMenuKey
     ) {
@@ -164,6 +197,7 @@ export class WebChatBasicTriageService {
       if (department) {
         const confirm = await buildQueueConfirmation(ctx.clientId, department.name);
         await ctx.escalate(String(department._id), confirm);
+        await audit('route', classification.suggestedMenuKey);
         return { handled: true, replies };
       }
     }
@@ -173,6 +207,7 @@ export class WebChatBasicTriageService {
         return { handled: false, replies };
       }
       replies.push(await ctx.sendBotReply(buildBasicTriageClarifyReply(classification.intent)));
+      await audit('clarify');
       return { handled: true, replies };
     }
 
@@ -189,6 +224,7 @@ export class WebChatBasicTriageService {
     }
 
     replies.push(await ctx.sendBotReply(buildBasicTriageClarifyReply('unknown')));
+    await audit(action === 'queue' ? 'queue' : 'clarify', action === 'queue' ? '4' : undefined);
     return { handled: true, replies };
   }
 
