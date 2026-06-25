@@ -3,14 +3,18 @@
 **Versão:** `2.12.6` · **Atualizado:** 2026-06-24
 
 > **Este é o documento principal do RadarZap v2.** Leia-o antes de qualquer módulo específico.  
-> Resumo executivo pós-TOP 20: [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · Auditoria TOP 01–21: [`top/`](./top/).
+> Resumo executivo: [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **Fonte oficial pós-TOP 20:** [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · Auditoria TOP 01–21: [`top/`](./top/).
 
 | Campo | Valor |
 |-------|-------|
+| **Versão final** | `2.12.6` |
 | **Status** | `PRONTO PARA QA MANUAL` |
 | **Produção estável** | Não declarada |
 | **Deploy** | Não executado |
-| **Próximo passo** | QA manual A–J (Benhur) + infra (VPS/SSL/env) |
+| **Stripe live** | Não ativado |
+| **Push** | Não realizado (TOP 20/21) |
+| **QA manual A–J** | Pendente (Benhur) |
+| **Próximo passo** | QA manual A–J + infra (VPS/SSL/env) — ver TOP 20 |
 
 ---
 
@@ -185,6 +189,9 @@ TOP 12: [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/R
 | Comandos `!` | `whatsapp-agent-command.service.ts` (equipe autorizada) |
 | Helpers TOP 12 | `whatsapp-session.util.ts` |
 
+**Código:** fechado no TOP 12 (comandos, sessão, rate limit, testes automatizados).  
+**Pendente:** QR real, sessão real, inbound/outbound e comandos em ambiente final — **QA manual TOP 20 bloco D** ([`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md)).
+
 **Cloud API Meta:** stub 503 — não pronto para produção.
 
 ---
@@ -204,7 +211,10 @@ TOP 13: [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13
 | Eventos | `bridge.started/closed/agent_reply/message_forwarded/loop_prevented`, webhooks `webchat.bridge.*` |
 | Inbox | Conversa única `wc:` + `whatsappBridgeActive` badge |
 
-**Não suportado / pendente:** sync bidirecional automático sem `!assumir`; comando `!responder` dedicado (resposta por contexto ativo).
+**Não suportado / pendente (código):** sync bidirecional automático sem `!assumir`; comando `!responder` dedicado (resposta por contexto ativo).
+
+**Código:** fechado no TOP 13 (fallback, `!assumir`, sync, anti-loop, webhooks, testes).  
+**Pendente:** validação real em ambiente final (alerta WA → `!assumir` → resposta no WebChat, sem loop) — **QA manual TOP 20 bloco E**.
 
 ---
 
@@ -452,12 +462,17 @@ Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.
 
 ## 25. Pendências conhecidas
 
-- Estabilidade Baileys em produção (QA manual WA — bloco D).
+Fonte detalhada: [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) § Pendências finais.
+
+- **QA manual A–J** (blocker go-live) — Benhur; template [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md).
+- **WhatsApp em ambiente real:** código fechado TOP 12; **QR, sessão, inbound/outbound e comandos** pendentes no QA manual bloco D.
+- **Bridge em ambiente real:** código fechado TOP 13; **ciclo alerta → `!assumir` → WebChat → encerramento sem loop** pendente no QA manual bloco E.
+- Estabilidade Baileys em produção (pós-QA manual).
 - WhatsApp Cloud API (stub 503).
-- **Bridge em produção:** código fechado no TOP 13; **validação real** (alerta WA → `!assumir` → resposta no WebChat) pendente no QA manual TOP 20 bloco E.
 - Billing enforcement excedentes em runtime (TOP 17 — testes automatizados OK).
 - Gate estabilização Fase 1 em [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
-- Infra go-live: VPS, SSL, CORS, backups — ver TOP 20 e [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md).
+- Infra go-live: VPS, SSL, CORS, backups, env produção — TOP 20 checklists + [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md).
+- Stripe live não ativado até QA bloco I e autorização Benhur.
 
 ---
 

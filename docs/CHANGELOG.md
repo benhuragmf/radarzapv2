@@ -18,7 +18,8 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 ### Organização documental pós-TOP20 (TOP 21 extra)
 
 - Alinhamento versão `2.12.6` em doc mestre, README portal, índice.
-- `docs/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` — mapa de docs e limpeza segura.
+- `docs/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` — mapa de docs; **TOP 20 como fonte oficial** para status e checklists.
+- Revisão: doc mestre §15/16/25 — WhatsApp/Bridge fechados em código; pendente QA real blocos D/E.
 - Sem alteração de código de produto; versão `package.json` mantida em `2.12.6`.
 
 ---

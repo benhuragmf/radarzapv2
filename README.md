@@ -25,10 +25,11 @@ Changelog: [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md)
 
 Leia nesta ordem:
 
-1. [docs/RADARZAP-SISTEMA-COMPLETO.md](docs/RADARZAP-SISTEMA-COMPLETO.md) — **documentação mestre** (stack, módulos, gates, TOPs)
-2. [docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md](docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo pós-TOP 20
-3. [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md) — mapa de todos os `.md`
-4. [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual TOP 20
+1. [docs/RADARZAP-SISTEMA-COMPLETO.md](docs/RADARZAP-SISTEMA-COMPLETO.md) — **documentação mestre**
+2. [docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md](docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo
+3. [docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — status, checklists e go-live
+4. [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md) — mapa de todos os `.md`
+5. [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual TOP 20
 
 ---
 

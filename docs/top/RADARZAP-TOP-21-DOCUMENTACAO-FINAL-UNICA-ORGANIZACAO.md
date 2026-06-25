@@ -1,6 +1,6 @@
 # RadarZap — TOP 21 Extra — Documentação Final Única e Organização Pós-TOP20
 
-**Versão mantida:** `2.12.6` · **Data:** 2026-06-24 · **Branch:** `main` · **Commit base:** `4e42739`
+**Versão mantida:** `2.12.6` · **Data:** 2026-06-24 · **Branch:** `main` · **Commit base:** `3f76361` · **Revisão:** alinhamento fonte TOP 20
 
 ---
 
@@ -8,9 +8,18 @@
 
 Etapa **extra pós-TOP 20** — apenas documentação e organização. Sem código de produto. Sem deploy. Sem push.
 
-**Entregas:** alinhamento versão `2.12.6` no doc mestre; README portal simplificado; índice reorganizado; CHANGELOG limpo; mapa de 78 `.md`; histórico TOP preservado.
+**Fonte oficial para status, checklists, pendências e go-live:** [`RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).
 
-**Status do sistema:** `PRONTO PARA QA MANUAL` (inalterado).
+| Campo (TOP 20) | Valor |
+|----------------|-------|
+| Versão final | `2.12.6` |
+| Status final | `PRONTO PARA QA MANUAL` |
+| Deploy | Não executado |
+| Stripe live | Não ativado |
+| Push | Não realizado |
+| QA manual A–J | Pendente |
+
+**Entregas TOP 21:** doc mestre e índice alinhados ao TOP 20; README portal; mapa de 78 `.md`; histórico TOP preservado.
 
 ---
 
@@ -19,7 +28,7 @@ Etapa **extra pós-TOP 20** — apenas documentação e organização. Sem códi
 | Item | Valor |
 |------|-------|
 | Branch | `main` |
-| Último commit antes | `4e42739` — `chore: sync widget build 2.12.6` |
+| Último commit antes | `3f76361` — `docs(top): documentacao final unica pos top20` |
 | Commits TOP 20 | `2379aa2`, `4e42739` |
 | Working tree | Limpo (exceto untracked locais) |
 | Untracked | `data/`, `mocker/modelochat/` |
@@ -31,7 +40,31 @@ Etapa **extra pós-TOP 20** — apenas documentação e organização. Sem códi
 
 **Executado:** correções de inconsistência, README portal, índice, TOP 21, changelog, sistema-registro.
 
-**Não executado:** código, deploy, push, Stripe live, QA manual, remoção de histórico TOP.
+**Não executado:** código, deploy, push, Stripe live, QA manual Benhur, remoção de histórico TOP.
+
+---
+
+## Fonte oficial TOP 20
+
+O TOP 21 **não redefine** status nem checklists — espelha o [TOP 20](./RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md):
+
+| # | Tópico | Seção TOP 20 |
+|---|--------|--------------|
+| 1 | Status final do sistema | § Status final |
+| 2 | Checklist QA manual Benhur | § Checklist QA manual Benhur |
+| 3 | Checklist VPS/SSL/domínio | § Checklist VPS, SSL e domínio |
+| 4 | Checklist variáveis de ambiente | § Checklist variáveis de ambiente |
+| 5 | Checklist WhatsApp real | § Checklist WhatsApp real |
+| 6 | Checklist WebChat/Bridge real | § Checklist WebChat e Bridge real |
+| 7 | Checklist Stripe/billing | § Checklist Stripe e billing |
+| 8 | Pendências finais | § Pendências finais (P01–P15) |
+| 9 | Riscos finais | § Riscos finais |
+| 10 | Próximos passos pós-TOP20 | § Próximo passo pós-TOP 20 |
+
+**Regra de leitura código vs QA:**
+
+- **WhatsApp** e **Bridge** estão **fechados em código** (TOP 12 e TOP 13).
+- **Pendente** é validação **real** (QR, sessão, bridge sem loop) no QA manual A–J — blocos D e E.
 
 ---
 
@@ -39,7 +72,8 @@ Etapa **extra pós-TOP 20** — apenas documentação e organização. Sem códi
 
 | Documento | Estado antes | Ação TOP 21 |
 |-----------|--------------|-------------|
-| `RADARZAP-SISTEMA-COMPLETO.md` | Topo `2.12.4`; pendência bridge ambígua | Atualizado `2.12.6`, status, bridge QA manual |
+| [`RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) | Fonte oficial TOP 20 | **Referência obrigatória** — status, checklists, pendências |
+| `RADARZAP-SISTEMA-COMPLETO.md` | Topo `2.12.4` (histórico); bridge ambígua | `2.12.6`, status TOP 20, WA/Bridge = QA real |
 | `README.md` | Longo (~800 linhas), técnico | Substituído por portal objetivo |
 | `INDICE-DOCUMENTACAO.md` | TOPs misturados; ref "TOP 11/12" | Reorganizado; TOPs 01–21 em ordem |
 | `RADARZAP-RESULTADO-FINAL-TOP-01-20.md` | OK `2.12.6` | Preservado |
@@ -64,11 +98,12 @@ Etapa **extra pós-TOP 20** — apenas documentação e organização. Sem códi
 
 ## Correções aplicadas
 
-1. `RADARZAP-SISTEMA-COMPLETO.md` — versão, status, doc principal, pendências bridge, TOP 21 na roadmap.
+1. `RADARZAP-SISTEMA-COMPLETO.md` — versão `2.12.6`, status TOP 20 completo, §15/§16/§25 WA e Bridge (código fechado; QA real pendente), link TOP 20.
 2. `README.md` — portal com status, leitura, gates, QA, regras IA.
-3. `INDICE-DOCUMENTACAO.md` — seções mestre / governança / módulos / TOPs / QA / produção / arquivados.
+3. `INDICE-DOCUMENTACAO.md` — seções mestre / governança / módulos / TOPs / QA / produção.
 4. `CHANGELOG.md` — limpeza + subseção TOP 21 em `2.12.6`.
-5. `SISTEMA-REGISTRO.md` — links e linha TOP 21.
+5. `SISTEMA-REGISTRO.md` — links QA + TOP 21.
+6. **Revisão pós-feedback:** TOP 21 alinhado ao TOP 20 como fonte oficial; TOP 20 na lista de docs preservados.
 
 **Versão `package.json`:** mantida em `2.12.6` (sem `2.12.7`).
 
@@ -114,7 +149,63 @@ Preservado sem alteração de status. Link cruzado no índice e README.
 
 ## QA manual TOP 20
 
-`QA-FASE1-RESULTADO-TEMPLATE.md` — § **Resultado QA Manual TOP 20** com blocos A–J em `Pendente`.
+Detalhe completo: TOP 20 § **Checklist QA manual Benhur** (todos os itens blocos A–J = `Pendente`).
+
+Registro: [`QA-FASE1-RESULTADO-TEMPLATE.md`](../QA-FASE1-RESULTADO-TEMPLATE.md) § **Resultado QA Manual TOP 20**.
+
+---
+
+## Checklists espelhados do TOP 20 (resumo)
+
+Todos os itens abaixo estão **Pendente** no TOP 20, salvo onde indicado.
+
+| Checklist | Itens | Onde no TOP 20 |
+|-----------|-------|----------------|
+| QA manual A–J | 50+ itens | § Checklist QA manual Benhur |
+| VPS/SSL/domínio | 14 itens | § Checklist VPS, SSL e domínio |
+| Variáveis de ambiente | 18 vars | § Checklist variáveis de ambiente |
+| WhatsApp real | 10 itens (QR, sessão, comandos) | § Checklist WhatsApp real |
+| WebChat/Bridge real | 12 itens | § Checklist WebChat e Bridge real |
+| Stripe/billing | 10 itens | § Checklist Stripe e billing |
+| Segurança/LGPD | 13 itens | § Checklist segurança, logs e LGPD |
+| Backup | 10 itens | § Checklist backup e recuperação |
+| Monitoramento | 10 itens | § Checklist monitoramento e operação |
+
+---
+
+## Pendências finais (TOP 20)
+
+| ID | Pendência | Bloqueia go-live? |
+|----|-----------|-------------------|
+| P01 | QA manual A–J | Sim |
+| P02 | WhatsApp QR real | Sim |
+| P03 | Bridge real | Sim |
+| P04 | VPS/SSL/domínio | Sim |
+| P05–P08 | Env, Stripe live, backups, CORS | Sim / High |
+| P09–P15 | Trial, LGPD portal, lint, etc. | Não / Medium–Low |
+
+Lista completa: TOP 20 § Pendências finais.
+
+---
+
+## Riscos finais (TOP 20)
+
+| Risco | Severidade |
+|-------|------------|
+| Baileys instável / ban WA | Alta |
+| Bridge loop em prod | Média |
+| Segredo em log runtime | Média (mitigado código) |
+| Stripe misconfig live | Alta |
+| Perda sessão WA sem backup | Alta |
+
+---
+
+## Próximo passo pós-TOP20 (TOP 20)
+
+1. Benhur executa QA manual A–J → `QA-FASE1-RESULTADO-TEMPLATE.md`.
+2. Provisionar infra (`PREPARACAO-PRODUCAO.md`).
+3. Após QA verde → `PRONTO PARA GO-LIVE CONTROLADO`.
+4. Push git quando Benhur autorizar.
 
 ---
 
@@ -157,6 +248,7 @@ Categorias:
 ```txt
 docs/RADARZAP-SISTEMA-COMPLETO.md
 docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md
+docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md
 docs/INDICE-DOCUMENTACAO.md
 docs/CHANGELOG.md
 docs/SISTEMA-REGISTRO.md
@@ -234,7 +326,11 @@ docs/top/
 
 ## Próximo passo recomendado
 
+Conforme **TOP 20** (fonte oficial):
+
 1. **Benhur:** executar QA manual A–J e preencher `QA-FASE1-RESULTADO-TEMPLATE.md`.
 2. Provisionar infra (`PREPARACAO-PRODUCAO.md`).
 3. Após QA verde → reavaliar status para `PRONTO PARA GO-LIVE CONTROLADO`.
 4. Push git quando Benhur autorizar.
+
+Não declarar produção estável sem QA manual verde.
