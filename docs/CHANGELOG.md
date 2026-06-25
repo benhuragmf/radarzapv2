@@ -22,6 +22,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.99] — 2026-06-24
+
+### TOP 13 — Bridge WebChat ↔ WhatsApp
+
+- Helpers `webchat-bridge.util.ts` (anti-loop, idempotência, estados, cross-tenant).
+- Dedupe encaminhamento visitante→WA; bloqueio eco em resposta atendente.
+- Eventos `bridge.message_forwarded`, `bridge.loop_prevented`.
+- Doc [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md).
+
+---
+
 ## [2.11.98] — 2026-06-24
 
 ### TOP 12 — WhatsApp, sessão, QR, reconexão, comandos e documentação consolidada

@@ -27,6 +27,8 @@ describe('webchat-whatsapp-fallback', () => {
     expect(body).toContain('TK-ABC123');
     expect(body).toContain('!assumir ABC123');
     expect(body).toContain('Maria');
+    expect(body).not.toMatch(/wck_/i);
+    expect(body.toLowerCase()).not.toContain('clientid');
   });
 
   it('filterFallbackAlertPhones skips session-own number', () => {

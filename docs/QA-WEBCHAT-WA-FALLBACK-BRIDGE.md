@@ -1,6 +1,6 @@
 ﻿# QA manual — WebChat: token, FAQ, fallback WhatsApp e bridge
 
-> **Versão alvo:** `2.11.28` · **Escopo:** Fases A–H (A–F: 2.10.70–75; G–H + C0: 2.11.24–28)  
+> **Versão alvo:** `2.11.99` (TOP 13) · **Escopo:** Fases A–H (A–F: 2.10.70–75; G–H + C0: 2.11.24–28; bridge consolidada: 2.11.99)
 > **Spec técnica:** [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)  
 > **Tempo estimado:** 30–45 min · **Ambiente:** dev local com WA conectado
 

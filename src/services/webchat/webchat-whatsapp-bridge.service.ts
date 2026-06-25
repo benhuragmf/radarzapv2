@@ -13,6 +13,13 @@ import {
   formatVisitorBridgeMessage,
   parseBridgeReplyRouting,
 } from '@/utils/webchat-whatsapp-bridge.util';
+import {
+  assertBridgeClientMatch,
+  buildBridgeIdempotencyKey,
+  isBridgeLoopRisk,
+  shouldForwardBridgeMessage,
+  shouldProcessBridgeAgentReply,
+} from '@/utils/webchat-bridge.util';
 import { createServiceLogger } from '@/utils/logger';
 import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
@@ -40,6 +47,8 @@ export async function activateWhatsappBridge(
 
   const conversation = await WebChatConversation.findById(conversationId);
   if (!conversation) return;
+
+  assertBridgeClientMatch(clientId, String(conversation.clientId));
 
   await WebChatService.getInstance().appendBridgeSystemMessage(
     conversation,
@@ -111,6 +120,28 @@ export async function forwardVisitorMessageToWhatsappBridge(
 ): Promise<void> {
   if (!conversation.whatsappBridgeActive || !conversation.whatsappBridgeAgentUserId) return;
 
+  const forwardBody = opts?.mediaLabel ?? body.trim();
+  if (!forwardBody) return;
+
+  const dedupeKey = buildBridgeIdempotencyKey(
+    String(conversation.clientId),
+    String(conversation._id),
+    forwardBody,
+  );
+  if (!shouldForwardBridgeMessage(dedupeKey)) {
+    logger.info('bridge:forward_skipped_duplicate', {
+      clientId: String(conversation.clientId),
+      conversationId: String(conversation._id),
+    });
+    await recordAttendanceEvent({
+      clientId: String(conversation.clientId),
+      kind: 'bridge.loop_prevented',
+      conversationId: String(conversation._id),
+      meta: { reason: 'duplicate_forward' },
+    });
+    return;
+  }
+
   const clientId = String(conversation.clientId);
   const destination = await agentWhatsappDestination(
     clientId,
@@ -139,6 +170,14 @@ export async function forwardVisitorMessageToWhatsappBridge(
 
   try {
     await sendWhatsappInternalReply(clientId, destination, text);
+    await recordAttendanceEvent({
+      clientId,
+      kind: 'bridge.message_forwarded',
+      conversationId: String(conversation._id),
+      actorUserId: conversation.whatsappBridgeAgentUserId,
+      ticketRef: conversation.ticketRef ?? undefined,
+      meta: { direction: 'visitor_to_agent' },
+    });
   } catch (err) {
     logger.warn('Failed to forward visitor message to WhatsApp bridge', {
       clientId,
@@ -166,7 +205,17 @@ export async function handleWhatsappBridgeAgentReply(
   ctx: WhatsappSenderContext & { text: string; replyJid: string },
 ): Promise<boolean> {
   const trimmed = ctx.text.trim();
-  if (!trimmed || trimmed.startsWith('!')) return false;
+  if (!shouldProcessBridgeAgentReply(trimmed)) {
+    if (trimmed && isBridgeLoopRisk(trimmed)) {
+      await recordAttendanceEvent({
+        clientId: ctx.clientId,
+        kind: 'bridge.loop_prevented',
+        actorUserId: (await resolveAuthorizedWhatsappAgentFromContext(ctx))?.userId,
+        meta: { reason: 'loop_risk_reply' },
+      });
+    }
+    return false;
+  }
 
   const agent = await resolveAuthorizedWhatsappAgentFromContext(ctx);
   if (!agent) return false;

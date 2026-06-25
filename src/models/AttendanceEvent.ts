@@ -9,6 +9,8 @@ export type AttendanceEventKind =
   | 'bridge.started'
   | 'bridge.closed'
   | 'bridge.agent_reply'
+  | 'bridge.message_forwarded'
+  | 'bridge.loop_prevented'
   | 'inbox.queued'
   | 'inbox.assigned'
   | 'inbox.transferred'

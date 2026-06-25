@@ -1,6 +1,6 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.11.98` · **Atualizado:** 2026-06-24
+**Versão:** `2.11.99` · **Atualizado:** 2026-06-24
 
 Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanecem nos `.md` especializados listados em [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md). Auditoria TOP 01–20: pasta [`top/`](./top/).
 
@@ -183,7 +183,20 @@ TOP 12: [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/R
 
 ## 16. Bridge WebChat ↔ WhatsApp
 
-Parcial hoje (`whatsappBridgeActive`, `!assumir`). **Bridge completa → TOP 13.** Ver [`WEBCHAT.md`](./WEBCHAT.md) § Bridge e [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md).
+TOP 13: [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md). QA manual: [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md).
+
+| Fluxo | Implementação |
+|-------|----------------|
+| Fallback WA (alerta equipe) | `webchat-whatsapp-fallback.service.ts` — rotação, cooldown 15 min |
+| Assumir via `!assumir` | `whatsapp-agent-command.service.ts` → `activateWhatsappBridge` |
+| Sync visitante → WA | `forwardVisitorMessageToWhatsappBridge` (bridge ativa) |
+| Sync atendente WA → WebChat | `handleWhatsappBridgeAgentReply` — roteamento `TK-XXXX texto` |
+| Anti-loop | `filterFallbackAlertPhones`, dedupe forward, `isBridgeLoopRisk` |
+| Helpers TOP 13 | `webchat-bridge.util.ts`, `webchat-whatsapp-bridge.util.ts` |
+| Eventos | `bridge.started/closed/agent_reply/message_forwarded/loop_prevented`, webhooks `webchat.bridge.*` |
+| Inbox | Conversa única `wc:` + `whatsappBridgeActive` badge |
+
+**Não suportado / pendente:** sync bidirecional automático sem `!assumir`; comando `!responder` dedicado (resposta por contexto ativo).
 
 ---
 
@@ -257,7 +270,7 @@ Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRO
 | 10 | Formulários | TOP 10 | 2.11.96 |
 | 11 | WebChat | TOP 11 | 2.11.97 |
 | 12 | WhatsApp profundo | TOP 12 | 2.11.98 |
-| 13 | Bridge WA↔WebChat | pendente | — |
+| 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 |
 | 14–20 | IA, billing, go-live | pendente | — |
 
 ---
