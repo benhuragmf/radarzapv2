@@ -1,8 +1,16 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.12.4` · **Atualizado:** 2026-06-24
+**Versão:** `2.12.6` · **Atualizado:** 2026-06-24
 
-Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanecem nos `.md` especializados listados em [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md). Auditoria TOP 01–20: pasta [`top/`](./top/).
+> **Este é o documento principal do RadarZap v2.** Leia-o antes de qualquer módulo específico.  
+> Resumo executivo pós-TOP 20: [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · Auditoria TOP 01–21: [`top/`](./top/).
+
+| Campo | Valor |
+|-------|-------|
+| **Status** | `PRONTO PARA QA MANUAL` |
+| **Produção estável** | Não declarada |
+| **Deploy** | Não executado |
+| **Próximo passo** | QA manual A–J (Benhur) + infra (VPS/SSL/env) |
 
 ---
 
@@ -10,7 +18,7 @@ Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanece
 
 O RadarZap é uma plataforma SaaS multi-tenant para **atendimento omnicanal** (WhatsApp Baileys, WebChat, formulários de leads), **automação** (campanhas, regras, Discord→WhatsApp opcional), **Inbox** com filas/setores, **tickets** (`TK-…`), **IA** (Básica e Premium), **equipe/RBAC**, **consentimento LGPD** e **API REST** (`/api`, `X-API-Key`).
 
-**Fase atual:** estabilização (Fase 1) — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md). Não declarar produção pronta até gate de estabilização.
+**Fase atual:** estabilização (Fase 1) — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md). Não declarar produção pronta até QA manual TOP 20 e gate de estabilização.
 
 ---
 
@@ -436,6 +444,7 @@ Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.
 | 18 | Auditoria / segurança / LGPD | TOP 18 | 2.12.4 | Concluído |
 | 19 | QA final / regressão | TOP 19 | 2.12.5 | Concluído |
 | 20 | Congelamento / go-live controlado | TOP 20 | 2.12.6 | Concluído — **QA manual pendente** |
+| 21 | Documentação final única (extra) | TOP 21 | 2.12.6 | Concluído — organização pós-TOP20 |
 
 **Próximo passo:** Benhur executa QA manual A–J → infra → go-live controlado.
 
@@ -443,11 +452,12 @@ Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.
 
 ## 25. Pendências conhecidas
 
-- Estabilidade Baileys em produção (QA manual WA).
+- Estabilidade Baileys em produção (QA manual WA — bloco D).
 - WhatsApp Cloud API (stub 503).
-- Bridge completa (TOP 13).
-- Billing enforcement excedentes (TOP 17).
+- **Bridge em produção:** código fechado no TOP 13; **validação real** (alerta WA → `!assumir` → resposta no WebChat) pendente no QA manual TOP 20 bloco E.
+- Billing enforcement excedentes em runtime (TOP 17 — testes automatizados OK).
 - Gate estabilização Fase 1 em [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
+- Infra go-live: VPS, SSL, CORS, backups — ver TOP 20 e [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md).
 
 ---
 

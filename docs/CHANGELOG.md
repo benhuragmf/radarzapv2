@@ -6,22 +6,6 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
----
-
----
-
----
-
----
-
----
-
----
-
----
-
----
-
 ## [2.12.6] — 2026-06-24
 
 ### TOP 20 — Congelamento final e go-live controlado
@@ -30,6 +14,12 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Docs: `docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`, `docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`.
 - Checklists: VPS/SSL/env, Stripe, WhatsApp real, bridge, segurança/LGPD, backup, monitoramento.
 - Deploy não executado; Stripe live não ativado; produção não declarada estável.
+
+### Organização documental pós-TOP20 (TOP 21 extra)
+
+- Alinhamento versão `2.12.6` em doc mestre, README portal, índice.
+- `docs/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` — mapa de docs e limpeza segura.
+- Sem alteração de código de produto; versão `package.json` mantida em `2.12.6`.
 
 ---
 

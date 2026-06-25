@@ -2,7 +2,13 @@
 
 **Versão do produto:** `2.12.6` · **Atualizado:** 2026-06-24
 
-Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md). Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
+### Leitura principal obrigatória
+
+1. [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) — documentação mestre
+2. [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo pós-TOP 20
+3. [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual A–J
+
+Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
 ---
 
@@ -10,7 +16,8 @@ Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) | **Entrada principal** — visão consolidada do sistema (TOP 11/12) |
+| [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) | **Entrada principal** — visão consolidada, módulos, gates, TOPs, agente IA |
+| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | Resultado final TOP 01–20 — leitura rápida |
 
 ---
 
@@ -18,114 +25,110 @@ Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) | **Protocolo** — como versionar e documentar |
-| [`CHANGELOG.md`](./CHANGELOG.md) | Changelog append-only (entregas recentes) |
-| [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) | Registro vivo espelho do sistema (versionado no git) |
-| [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização, lacunas |
-| [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação (origem GG) |
-| [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (pós-estabilização) |
+| [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) | Protocolo de versionamento e documentação |
+| [`CHANGELOG.md`](./CHANGELOG.md) | Changelog append-only |
+| [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) | Registro vivo (espelho versionado) |
+| [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização |
+| [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação |
+| [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação |
 
 ---
 
-## Modos de atendimento (2.11.0)
+## Módulos (referência por domínio)
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado ativo** — tudo implementado Fases 1–8 |
-| [`concluidos/`](./concluidos/README.md) | Entregas arquivadas: modos fases 1–8, FAQ WA, upgrade Inbox, **ENTREGA 2.11.24–38**, auditoria estabilização |
-
----
-
-## Atendimento e canais
-
-| Documento | Descrição |
-|-----------|-----------|
-| [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem WA, fila, CSAT, IA, presença, supervisor, notificações |
-| [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA, carteira mensal, aprendizagem, barra do painel; § cobrança LLM×IA + fluxo mermaid (2.11.85) |
-| [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados, SLA, menu bot, formato `TK-…` (2.11.86) |
-| [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, IA, FAQ |
-| [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulário embed de captura de leads (2.11.57) |
-| [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) | Upgrade visual Inbox 2.10.18 (arquivo) |
+| [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem, fila, CSAT, supervisor |
+| [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados TK, SLA, token público |
+| [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, FAQ |
+| [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulários embed e captura |
+| [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA e carteira |
+| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | Modos de atendimento (consolidado) |
+| [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md) | Papéis e capabilities |
+| [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) | Consentimento LGPD |
+| [`BILLING.md`](./BILLING.md) | Stripe, planos, limites |
 | [`WEBHOOKS.md`](./WEBHOOKS.md) | Webhooks outbound |
-
----
-
-## Painel, API, RBAC
-
-| Documento | Descrição |
-|-----------|-----------|
 | [`MENU-PAGES-REGISTRY.md`](./MENU-PAGES-REGISTRY.md) | Rotas → componentes → API |
-| [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md) | Papéis, capabilities |
-| [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) | Consentimento |
-
----
-
-## Plataforma e migração
-
-| Documento | Descrição |
-|-----------|-----------|
-| [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md) | Migração v1 → v2 |
-| [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) | Infra/env (referência) |
-| [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
-| [`BILLING.md`](./BILLING.md) | Stripe / planos · alertas críticos `billing:*` no sino (2.11.28) · matriz TOP 03 |
-| [`top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md) | Matriz comercial oficial (TOP 03) |
-| [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md) | RBAC, equipe, limites assentos, multiempresa (TOP 04) |
-| [`top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`](./top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md) | Status operacional, presença e fila (TOP 05) |
-| [`top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`](./top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md) | Modos de atendimento unificados + híbrido (TOP 06) |
-| [`top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md) | Inbox, fila, atribuição e transferência (TOP 07) |
-| [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md) | Tickets, TK, token público, SLA e rastreabilidade (TOP 08) |
-| [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md) | Contatos, leads, Kanban e deduplicação (TOP 09) |
-| [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md) | Formulários públicos, embed e captura (TOP 10) |
-| [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md) | WebChat, widget, fallback e visitante (TOP 11) |
-| [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md) | WhatsApp, sessão, QR, reconexão e comandos (TOP 12) |
-| [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md) | Bridge WebChat ↔ WhatsApp (TOP 13) |
-| [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md) | IA Básica, triagem e encaminhamento (TOP 14) |
-| [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md) | IA Premium, KB/FAQ e handoff (TOP 15) |
-| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | **Resultado final** TOP 01–20 — leitura rápida |
-| [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) | Congelamento final e go-live controlado (TOP 20) |
-| [`top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md) | QA final, regressão e checklist pré-go-live (TOP 19) |
-| [`top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) | Auditoria, segurança, LGPD e hardening (TOP 18) |
-| [`top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md) | Billing, assinaturas, limites e bloqueios (TOP 17) |
-| [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md) | IA Créditos, carteira e fallback (TOP 16) |
-
----
-
-## Design e QA
-
-| Documento | Descrição |
-|-----------|-----------|
-| [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) | Mapa automático (Jest/Playwright) vs manual WA |
-| [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) | **Checklist 1 página** — use no manual |
-| [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) | **Start** gate humano Fase 1 (pós gate automático) |
-| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Roteiro passo a passo WhatsApp + WebChat |
-| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível § A–E |
-| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Token, FAQ, fallback, bridge |
-| [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Template registro QA |
-| [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) | Sessão QA atual (gate auto preenchido) |
+| [`MENUS-SISTEMA.md`](./MENUS-SISTEMA.md) | Menus UX do painel |
+| [`CONTATOS-CSV-IMPORTACAO.md`](./CONTATOS-CSV-IMPORTACAO.md) | Import/export contatos |
 | [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md) | Tokens `--rz-*`, componentes |
-| [`docs/audits/`](./audits/) | Auditorias incrementais |
-| [`concluidos/`](./concluidos/README.md) | Entregas concluídas (fases, auditorias, upgrades) |
 
 ---
 
-## Código ↔ documentação
+## TOPs 01–21 (auditoria e fechamento)
 
-| Área | Código principal | Doc |
-|------|------------------|-----|
-| Modos / adapter | `src/types/attendance-mode.ts` | Consolidado modos |
-| Settings IA | `src/models/AiSettings.ts`, `AiSettingsService.ts` | PHASE-3, consolidado |
-| UI IA | `frontend/.../AiAtendimento.tsx` | PHASE-1 |
-| Robotizado WC | `webchat-robotic-triage.service.ts` | PHASE-4 |
-| IA Básica WC | `webchat-basic-triage.service.ts` | Consolidado modos · fix gate 2.11.28 |
-| Triagem WA | `inbox-triage.ts`, `InboxService` | INBOX-ATENDIMENTO |
-| Créditos / carteira IA | `AiWalletService.ts`, `ai-credits.ts`, `ai-wallet.ts` | IA-CREDITOS-E-CARTEIRA |
-| Barra status painel | `HeaderStatusPills.tsx` | IA-CREDITOS-E-CARTEIRA § Barra |
-| Presença atendentes | `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §3 |
-| Fallback WA deferido | `webchat-whatsapp-fallback.service.ts`, scan em `WebChatService` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 |
-| Alertas críticos painel | `panel-events.ts`, `panel-critical-alerts.service.ts`, `EventNotificationBell.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §5 |
-| Supervisão equipe | `inbox-supervisor-dashboard.service.ts`, `InboxSupervisor.tsx` | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §2 |
-| Rate limit WA | `whatsapp-session-rate-limit.ts`, `WhatsAppSendLimitsPage.tsx` | PLANO § Fase B · `/platform/wa-limits` |
-| Saúde atendimento | `GET /platform/health/atendimento` em `DashboardService.ts` | PLANO § Fase B |
+| # | Documento |
+|---|-----------|
+| 01 | [`top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md`](./top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md) |
+| 02 | [`top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md`](./top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md) |
+| 03 | [`top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md) |
+| 04 | [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md) |
+| 05 | [`top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`](./top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md) |
+| 06 | [`top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`](./top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md) |
+| 07 | [`top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md) |
+| 08 | [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md) |
+| 09 | [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md) |
+| 10 | [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md) |
+| 11 | [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md) |
+| 12 | [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md) |
+| 13 | [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md) |
+| 14 | [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md) |
+| 15 | [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md) |
+| 16 | [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md) |
+| 17 | [`top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md) |
+| 18 | [`top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) |
+| 19 | [`top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md) |
+| 20 | [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) |
+| 21 | [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) — extra pós-TOP20 |
+
+---
+
+## QA e testes
+
+| Documento | Descrição |
+|-----------|-----------|
+| [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | **Template** — inclui § QA Manual TOP 20 |
+| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Roteiro passo a passo |
+| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível |
+| [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) | Checklist 1 página |
+| [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) | Start gate humano |
+| [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) | Jest/Playwright vs manual |
+| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Fallback e bridge |
+| [`QA-WEBCHAT-CHATBOX-MODELS.md`](./QA-WEBCHAT-CHATBOX-MODELS.md) | Modelos chat box |
+| [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) | Sessão QA anterior (histórico) |
+
+---
+
+## Produção e migração
+
+| Documento | Descrição |
+|-----------|-----------|
+| [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) | Infra, env, deploy |
+| [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
+| [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md) | Migração v1 → v2 |
+
+---
+
+## Arquivados e auditorias
+
+| Pasta / doc | Descrição |
+|-------------|-----------|
+| [`concluidos/`](./concluidos/README.md) | Entregas e fases arquivadas |
+| [`audits/`](./audits/) | Auditorias incrementais |
+| [`security/`](./security/) | Notas de segurança |
+
+---
+
+## Código ↔ documentação (atalhos)
+
+| Área | Código | Doc |
+|------|--------|-----|
+| Modos | `src/types/attendance-mode.ts` | Modos consolidado |
+| Inbox | `InboxService.ts` | INBOX-ATENDIMENTO |
+| WebChat | `WebChatService.ts` | WEBCHAT |
+| IA créditos | `AiWalletService.ts` | IA-CREDITOS-E-CARTEIRA |
+| Billing | `BillingService.ts` | BILLING |
+| RBAC | `src/auth/rbac/` | EQUIPE-RBAC |
 
 ---
 
