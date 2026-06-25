@@ -22,6 +22,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.1] — 2026-06-24
+
+### TOP 15 — IA Premium, base de conhecimento e handoff
+
+- Helpers `premium-ai.util.ts`: gate central, limites resposta, sanitização, handoff pré-chamada, anti-segredo.
+- Eventos `ai.premium.*` em `AttendanceEvent`; integração `WebChatAiService` + `InboxService.sendAiReply`.
+- Doc [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md); §18 doc mestre.
+
+---
+
 ## [2.12.0] — 2026-06-24
 
 ### TOP 14 — IA Básica, triagem e encaminhamento

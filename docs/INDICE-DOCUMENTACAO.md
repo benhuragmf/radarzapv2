@@ -1,6 +1,6 @@
 ﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.12.0` · **Atualizado:** 2026-06-24
+**Versão do produto:** `2.12.1` · **Atualizado:** 2026-06-24
 
 Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md). Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -80,6 +80,7 @@ Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.
 | [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md) | WhatsApp, sessão, QR, reconexão e comandos (TOP 12) |
 | [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md) | Bridge WebChat ↔ WhatsApp (TOP 13) |
 | [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md) | IA Básica, triagem e encaminhamento (TOP 14) |
+| [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md) | IA Premium, KB/FAQ e handoff (TOP 15) |
 
 ---
 

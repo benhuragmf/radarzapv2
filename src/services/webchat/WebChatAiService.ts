@@ -28,6 +28,12 @@ import {
   webChatPremiumAiAllowed,
   type AttendanceMode,
 } from '@/types/attendance-mode';
+import {
+  buildPremiumAiSafetySuffix,
+  recordPremiumAiAttendanceEvent,
+  sanitizePremiumAiResponse,
+  shouldEscalatePremiumAiBeforeCall,
+} from '@/types/premium-ai.util';
 
 export interface WebChatAiAvailability {
   available: boolean;
@@ -135,6 +141,32 @@ export class WebChatAiService {
     const senderName =
       prompt.agentName?.trim() || blueprint.agentName?.trim() || 'Assistente IA';
 
+    void recordPremiumAiAttendanceEvent({
+      clientId,
+      kind: 'ai.premium.requested',
+      channel: 'webchat',
+      conversationId,
+    });
+
+    const preEscalate = shouldEscalatePremiumAiBeforeCall({ clientText: lastInbound });
+    if (preEscalate.escalate) {
+      void recordPremiumAiAttendanceEvent({
+        clientId,
+        kind: 'ai.premium.escalated',
+        channel: 'webchat',
+        conversationId,
+        reason: preEscalate.reason,
+      });
+      return {
+        body: sanitizePremiumAiResponse(
+          'Vou encaminhar você para um atendente humano continuar o atendimento.',
+          'webchat',
+        ),
+        senderName,
+        shouldEscalate: true,
+      };
+    }
+
     if (
       prompt.autoResolveEnabled &&
       textLooksLikeWebChatInquiry(lastInbound)
@@ -149,8 +181,15 @@ export class WebChatAiService {
           source: auto.source,
           score: auto.score,
         });
+        void recordPremiumAiAttendanceEvent({
+          clientId,
+          kind: 'ai.premium.answered',
+          channel: 'webchat',
+          conversationId,
+          meta: { source: auto.source, grounded: true },
+        });
         return {
-          body: formatWebChatAutoResolveReply(auto.reply),
+          body: sanitizePremiumAiResponse(formatWebChatAutoResolveReply(auto.reply), 'webchat'),
           senderName,
           shouldEscalate: false,
         };
@@ -173,7 +212,8 @@ export class WebChatAiService {
           intakeSummary: opts.intakeSummary,
         },
         escalationPolicy,
-      );
+      ) +
+      buildPremiumAiSafetySuffix('webchat');
 
     const history: AiChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
@@ -201,14 +241,26 @@ export class WebChatAiService {
       });
 
       const esc = AiEscalationService.getInstance();
-      let body = reply;
+      let body = sanitizePremiumAiResponse(reply, 'webchat');
       if (
         !shouldEscalate &&
         esc.aiReplyPromisesTransfer(reply) &&
         shouldRewritePrematureTransfer(lastInbound, escalationPolicy)
       ) {
-        body = rewritePrematureTransferReply(lastInbound, opts.visitorName);
+        body = sanitizePremiumAiResponse(
+          rewritePrematureTransferReply(lastInbound, opts.visitorName),
+          'webchat',
+        );
       }
+
+      void recordPremiumAiAttendanceEvent({
+        clientId,
+        kind: shouldEscalate ? 'ai.premium.escalated' : 'ai.premium.answered',
+        channel: 'webchat',
+        conversationId,
+        reason: shouldEscalate ? 'model_or_policy' : undefined,
+        meta: { provider: true },
+      });
 
       return {
         body,
@@ -222,13 +274,27 @@ export class WebChatAiService {
           webchatInquiry: true,
         });
         if (auto.hit && auto.reply) {
+          void recordPremiumAiAttendanceEvent({
+            clientId,
+            kind: 'ai.premium.answered',
+            channel: 'webchat',
+            conversationId,
+            meta: { source: auto.source, fallbackAfterError: true },
+          });
           return {
-            body: formatWebChatAutoResolveReply(auto.reply),
+            body: sanitizePremiumAiResponse(formatWebChatAutoResolveReply(auto.reply), 'webchat'),
             senderName,
             shouldEscalate: false,
           };
         }
       }
+      void recordPremiumAiAttendanceEvent({
+        clientId,
+        kind: 'ai.premium.provider_error',
+        channel: 'webchat',
+        conversationId,
+        reason: (e as Error).message?.slice(0, 120),
+      });
       this.serviceLogger.warn('Falha ao gerar resposta IA no WebChat', {
         conversationId,
         clientId,

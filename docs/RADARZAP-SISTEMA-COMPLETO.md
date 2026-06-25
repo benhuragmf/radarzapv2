@@ -1,6 +1,6 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.12.0` · **Atualizado:** 2026-06-24
+**Versão:** `2.12.1` · **Atualizado:** 2026-06-24
 
 Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanecem nos `.md` especializados listados em [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md). Auditoria TOP 01–20: pasta [`top/`](./top/).
 
@@ -224,7 +224,28 @@ TOP 14: [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZ
 
 ## 18. IA Premium
 
-Assistente com LLM, créditos, fallback fila. Profundidade/base conhecimento → TOP 15. Ver [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md).
+Assistente **generativo controlado** (`premium_assistant` / etapa Premium do `hybrid`): responde com LLM + base/FAQ/contexto, consome créditos via `AiUsageMeterService`, e transfere para fila humana quando gates falham ou confiança é baixa.
+
+| Módulo | Função |
+|--------|--------|
+| IA Básica (TOP 14) | Classifica e encaminha — não substituída |
+| IA Premium (TOP 15) | Resposta generativa com KB/FAQ + handoff |
+| IA Créditos | Gate de custo — recarga/compra → TOP 16 |
+| Billing | Planos/limites — enforcement → TOP 17 |
+
+**Serviços:** `AiConversationService` (WhatsApp/Inbox), `WebChatAiService` (widget), `AiProviderService`, `AiAutoResolveService` / `AiKnowledgeBaseService` (FAQ/KB), `AiPromptBuilderService`, `AiEscalationService`.
+
+**Gate oficial** (`premium-ai.util.ts` → `evaluatePremiumAiGate`): modo `premium_assistant`/`hybrid`, provider/credencial (`AiProviderService.resolveApiKey`), créditos (`AiUsageMeterService`), não-comando `!`, bridge inativa (`shouldSkipPremiumAiForBridge`), cliente não pediu humano, rate limit OK.
+
+**Limites de resposta:** WebChat 1200 chars, WhatsApp 900, esclarecimento 300 — `sanitizePremiumAiResponse`.
+
+**Handoff:** sem crédito/provider, erro/timeout, baixa confiança, assunto sensível, pedido humano, loop — `AiEscalationService` + fila Inbox/WebChat.
+
+**Auditoria:** `AttendanceEvent` `ai.premium.*` (sem prompt/API key).
+
+**Bridge (TOP 13):** mensagens com `whatsappBridgeActive` não disparam IA Premium no WebChat.
+
+Doc detalhada: [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md). Créditos: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md).
 
 ---
 
@@ -288,7 +309,8 @@ Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRO
 | 12 | WhatsApp profundo | TOP 12 | 2.11.98 |
 | 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 |
 | 14 | IA Básica profunda | TOP 14 | 2.12.0 |
-| 15–20 | IA Premium, billing, go-live | pendente | — |
+| 15 | IA Premium / KB / handoff | TOP 15 | 2.12.1 |
+| 16–20 | IA Créditos recarga, billing, go-live | pendente | — |
 
 ---
 

@@ -52,6 +52,7 @@ import { AiConversationService } from '@/services/ai/AiConversationService';
 import { AiBasicTriageService } from '@/services/ai/AiBasicTriageService';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
 import { resolveAttendanceMode } from '@/types/attendance-mode';
+import { sanitizePremiumAiResponse } from '@/types/premium-ai.util';
 import { AiConversationState } from '@/models/AiConversationState';
 import { AiConversationStatus } from '@/types/ai-assistant';
 import {
@@ -6007,8 +6008,9 @@ export class InboxService {
     contactIdentifier: string,
     text: string,
   ): Promise<void> {
+    const safeText = sanitizePremiumAiResponse(text, 'whatsapp');
     try {
-      await this.sendToContact(clientId, contactIdentifier, text);
+      await this.sendToContact(clientId, contactIdentifier, safeText);
     } catch (err) {
       logger.warn('Falha ao enviar mensagem automática do bot ao WhatsApp', {
         clientId,
@@ -6020,7 +6022,7 @@ export class InboxService {
       clientId: conversation.clientId,
       conversationId: conversation._id,
       direction: 'outbound',
-      body: text,
+      body: safeText,
     });
     conversation.lastMessageAt = new Date();
     conversation.lastOutboundAt = new Date();
