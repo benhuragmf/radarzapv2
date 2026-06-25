@@ -3,7 +3,7 @@ import { InboxDepartment } from '@/models/InboxDepartment';
 import { WebChatMessage } from '@/models/WebChatMessage';
 import type { IWebChatConversation } from '@/models/WebChatConversation';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
-import { resolveAttendanceMode } from '@/types/attendance-mode';
+import { modeUsesRoboticMenu, resolveAttendanceMode } from '@/types/attendance-mode';
 import {
   buildInboxTriageMenu,
   buildInvalidMenuHint,
@@ -39,6 +39,11 @@ export class WebChatRoboticTriageService {
     return resolveAttendanceMode(settings) === 'robotic';
   }
 
+  async usesRoboticMenu(clientId: string): Promise<boolean> {
+    const settings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
+    return modeUsesRoboticMenu(resolveAttendanceMode(settings));
+  }
+
   /** Conversa ainda no bot sem menu de setores enviado pelo assistente robotizado. */
   async conversationLacksRoboticMenu(conversationId: mongoose.Types.ObjectId): Promise<boolean> {
     const sent = await WebChatMessage.exists({
@@ -57,8 +62,11 @@ export class WebChatRoboticTriageService {
     const replies: unknown[] = [];
     const trimmed = ctx.text?.trim() ?? '';
 
-    const isRobotic = await this.isRoboticAttendanceMode(ctx.clientId);
-    if (!isRobotic) {
+    const settings = await AiSettingsService.getInstance().getSettingsDoc(ctx.clientId);
+    const attendanceMode = resolveAttendanceMode(settings);
+    const isRobotic = attendanceMode === 'robotic';
+    const isHybrid = attendanceMode === 'hybrid';
+    if (!isRobotic && !isHybrid) {
       return { handled: false, replies };
     }
 
@@ -96,6 +104,10 @@ export class WebChatRoboticTriageService {
       const menu = await buildInboxTriageMenu(ctx.clientId);
       replies.push(await ctx.sendBotReply(menu));
       return { handled: true, replies };
+    }
+
+    if (isHybrid) {
+      return { handled: false, replies };
     }
 
     const hint = await buildInvalidMenuHint(ctx.clientId);

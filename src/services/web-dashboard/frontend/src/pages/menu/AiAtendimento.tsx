@@ -374,7 +374,7 @@ export default function AiAtendimento() {
 
   const handleAttendanceModeSelect = (mode: AttendanceMode) => {
     let credentialSource = attendanceUi.credentialSource
-    if (mode === 'premium_assistant') {
+    if (mode === 'premium_assistant' || mode === 'hybrid') {
       if (credentialSource === 'none') {
         credentialSource = form?.planLimits.radarzapAllowed ? 'radarzap' : 'company'
       }
@@ -387,15 +387,26 @@ export default function AiAtendimento() {
         'Modo robotizado ativo sem IA generativa. Configure menus em Triagem e Bot.',
       )
     }
+    if (mode === 'hybrid') {
+      notifyInfo(
+        'Modo híbrido: menu, triagem básica e IA Premium opcional com fallback humano.',
+      )
+    }
   }
 
   const handleCredentialSourceSelect = (credentialSource: AiCredentialSource) => {
     if (credentialSource === 'none') return
+    const mode =
+      attendanceUi.attendanceMode === 'hybrid' ? 'hybrid' : 'premium_assistant'
     applyAttendanceSelection({
-      attendanceMode: 'premium_assistant',
+      attendanceMode: mode,
       credentialSource,
     })
   }
+
+  const credentialSourceEnabled =
+    attendanceUi.attendanceMode === 'premium_assistant' ||
+    attendanceUi.attendanceMode === 'hybrid'
 
   const handleSave = () => {
     if (!form) return
@@ -559,7 +570,7 @@ export default function AiAtendimento() {
           <CredentialSourcePicker
             selected={attendanceUi.credentialSource}
             onSelect={handleCredentialSourceSelect}
-            disabled={attendanceUi.attendanceMode !== 'premium_assistant'}
+            disabled={!credentialSourceEnabled}
             radarzapAllowed={form.planLimits.radarzapAllowed}
           />
 
@@ -584,6 +595,22 @@ export default function AiAtendimento() {
               <p className="text-amber-400/90">
                 Expectativa de consumo: <strong>~1 crédito</strong> por atendimento típico com LLM.
                 Triagem local e KB não geram custo. A cobrança real é pelo custo de cada chamada.
+              </p>
+            </div>
+          )}
+
+          {attendanceUi.attendanceMode === 'hybrid' && (
+            <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 text-xs text-[var(--rz-text-secondary)] space-y-2">
+              <p>
+                O modo híbrido usa menu de setores primeiro; mensagens livres passam por triagem básica.
+                Com provedor configurado abaixo, IA Premium pode responder antes de encaminhar para humano.
+              </p>
+              <p>
+                Configure setores em{' '}
+                <Link to="/platform/inbox/bot" className="text-brand-400 hover:underline">
+                  Triagem e Bot
+                </Link>
+                .
               </p>
             </div>
           )}
@@ -691,7 +718,7 @@ export default function AiAtendimento() {
                   value={form.prompt.agentName ?? ''}
                   onChange={e => patchPrompt({ agentName: e.target.value })}
                   placeholder={form.blueprintInfo.defaultAgentName || 'Assistente'}
-                  disabled={attendanceUi.attendanceMode !== 'premium_assistant'}
+                  disabled={!credentialSourceEnabled}
                 />
                 <p className="text-xs text-[var(--rz-text-muted)] mt-1">
                   Usado no modo <strong>IA Premium</strong>. Vazio usa o padrão RadarZap (

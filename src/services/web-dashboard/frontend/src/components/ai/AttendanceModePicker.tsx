@@ -93,7 +93,7 @@ export function CredentialSourcePicker({
     <div className="space-y-2 border-t border-[var(--rz-border)] pt-3">
       <h3 className="text-xs font-medium text-[var(--rz-text-secondary)]">Provedor da IA</h3>
       <p className="text-[11px] text-[var(--rz-text-muted)] leading-snug">
-        Credencial da IA generativa — só no modo <strong>IA Premium</strong>.
+        Credencial da IA generativa — nos modos <strong>IA Premium</strong> e <strong>Híbrido</strong>.
       </p>
       <div className="grid gap-1.5">
         {CREDENTIAL_SOURCE_CARDS.map(card => {

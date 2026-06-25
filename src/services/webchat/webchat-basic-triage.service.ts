@@ -22,7 +22,7 @@ import {
   type WebChatMessageRow,
 } from './webchat-ai-triage.util';
 import { WebChatMessage } from '@/models/WebChatMessage';
-import { isBasicTriageMode } from '@/types/attendance-mode';
+import { isHybridMode, modeUsesBasicTriageChain, resolveAttendanceMode } from '@/types/attendance-mode';
 import { WEBCHAT_BOT_SENDER_ID } from './webchat-bot.util';
 
 export interface WebChatBasicTriageContext {
@@ -52,7 +52,7 @@ export class WebChatBasicTriageService {
 
   async isBasicTriageMode(clientId: string): Promise<boolean> {
     const settings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
-    return isBasicTriageMode(settings);
+    return modeUsesBasicTriageChain(resolveAttendanceMode(settings));
   }
 
   async conversationLacksBasicBotReply(conversationId: mongoose.Types.ObjectId): Promise<boolean> {
@@ -69,7 +69,8 @@ export class WebChatBasicTriageService {
     const trimmed = ctx.text?.trim() ?? '';
 
     const settings = await AiSettingsService.getInstance().getSettingsDoc(ctx.clientId);
-    if (!isBasicTriageMode(settings)) {
+    const attendanceMode = resolveAttendanceMode(settings);
+    if (!modeUsesBasicTriageChain(attendanceMode)) {
       return { handled: false, replies };
     }
 
@@ -134,6 +135,18 @@ export class WebChatBasicTriageService {
 
     let classification = classifyLocal(trimmed, deptHints);
 
+    if (classification.intent === 'human_request') {
+      const department = departments.find(d => d.menuKey === classification.suggestedMenuKey);
+      if (department) {
+        const confirm = await buildQueueConfirmation(ctx.clientId, department.name);
+        await ctx.escalate(String(department._id), confirm);
+        return { handled: true, replies };
+      }
+      if (isHybridMode(settings)) {
+        return { handled: false, replies };
+      }
+    }
+
     if (classification.intent === 'greeting') {
       replies.push(
         await ctx.sendBotReply(
@@ -156,13 +169,23 @@ export class WebChatBasicTriageService {
     }
 
     if (classification.intent !== 'unknown') {
+      if (isHybridMode(settings)) {
+        return { handled: false, replies };
+      }
       replies.push(await ctx.sendBotReply(buildBasicTriageClarifyReply(classification.intent)));
       return { handled: true, replies };
     }
 
     if (lacksBotReply) {
+      if (isHybridMode(settings)) {
+        return { handled: false, replies };
+      }
       replies.push(await ctx.sendBotReply(BASIC_GREETING_FALLBACK));
       return { handled: true, replies };
+    }
+
+    if (isHybridMode(settings)) {
+      return { handled: false, replies };
     }
 
     replies.push(await ctx.sendBotReply(buildBasicTriageClarifyReply('unknown')));

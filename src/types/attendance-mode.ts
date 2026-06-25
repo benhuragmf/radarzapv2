@@ -8,13 +8,15 @@ export type AttendanceMode =
   | 'disabled'
   | 'robotic'
   | 'basic_triage'
-  | 'premium_assistant';
+  | 'premium_assistant'
+  | 'hybrid';
 
 export const ATTENDANCE_MODE_VALUES: readonly AttendanceMode[] = [
   'disabled',
   'robotic',
   'basic_triage',
   'premium_assistant',
+  'hybrid',
 ] as const;
 
 /** Quem fornece/paga a credencial da IA generativa (legado: `AiSettings.mode`). */
@@ -25,8 +27,18 @@ export interface AttendanceUiSelection {
   credentialSource: AiCredentialSource;
 }
 
+export function isAttendanceMode(value: unknown): value is AttendanceMode {
+  return isValidAttendanceMode(value);
+}
+
 export function isValidAttendanceMode(value: unknown): value is AttendanceMode {
   return typeof value === 'string' && (ATTENDANCE_MODE_VALUES as readonly string[]).includes(value);
+}
+
+/** Valor inválido ou ausente → default seguro documentado. */
+export function normalizeAttendanceMode(value: unknown): AttendanceMode {
+  if (isValidAttendanceMode(value)) return value;
+  return 'disabled';
 }
 
 /** Todos os modos selecionáveis desde a Fase 5 (IA Básica). */
@@ -62,6 +74,53 @@ export function resolveAttendanceMode(settings: {
   return inferAttendanceModeFromLegacyMode(settings.mode);
 }
 
+/** Humano/manual — sem robô nem IA. */
+export function isHumanOnlyMode(settings: {
+  mode: AiMode;
+  attendanceMode?: AttendanceMode | null;
+}): boolean {
+  return resolveAttendanceMode(settings) === 'disabled';
+}
+
+export function isHybridMode(settings: {
+  mode: AiMode;
+  attendanceMode?: AttendanceMode | null;
+}): boolean {
+  return resolveAttendanceMode(settings) === 'hybrid';
+}
+
+export function isRoboticMode(settings: {
+  mode: AiMode;
+  attendanceMode?: AttendanceMode | null;
+}): boolean {
+  return resolveAttendanceMode(settings) === 'robotic';
+}
+
+/** Menu numérico de setores (robotizado puro ou primeira etapa do híbrido). */
+export function modeUsesRoboticMenu(mode: AttendanceMode): boolean {
+  return mode === 'robotic' || mode === 'hybrid';
+}
+
+/** Triagem básica (modo dedicado ou etapa do híbrido após menu). */
+export function modeUsesBasicTriageChain(mode: AttendanceMode): boolean {
+  return mode === 'basic_triage' || mode === 'hybrid';
+}
+
+/** IA Premium conversacional (modo dedicado ou etapa opcional do híbrido). */
+export function modeUsesPremiumAiChain(mode: AttendanceMode): boolean {
+  return mode === 'premium_assistant' || mode === 'hybrid';
+}
+
+/** Modo pode consumir créditos IA (básica LLM fallback, premium ou híbrido). */
+export function requiresAiCredits(mode: AttendanceMode): boolean {
+  return mode === 'basic_triage' || mode === 'premium_assistant' || mode === 'hybrid';
+}
+
+/** Modo envolve alguma automação com IA (básica, premium ou híbrido). */
+export function isAiAttendanceMode(mode: AttendanceMode): boolean {
+  return requiresAiCredits(mode);
+}
+
 /** Converte seleção da UI para payload legado (`mode` + `enabled`) — runtime LLM usa isto. */
 export function legacySettingsFromAttendanceSelection(
   selection: AttendanceUiSelection,
@@ -76,11 +135,14 @@ export function legacySettingsFromAttendanceSelection(
     return { mode: 'disabled', enabled: false };
   }
 
-  if (credentialSource === 'radarzap') {
-    return { mode: 'radarzap', enabled: true };
-  }
-  if (credentialSource === 'company') {
-    return { mode: 'company', enabled: true };
+  if (attendanceMode === 'premium_assistant' || attendanceMode === 'hybrid') {
+    if (credentialSource === 'radarzap') {
+      return { mode: 'radarzap', enabled: true };
+    }
+    if (credentialSource === 'company') {
+      return { mode: 'company', enabled: true };
+    }
+    return { mode: 'disabled', enabled: false };
   }
 
   return { mode: 'disabled', enabled: false };
@@ -104,7 +166,7 @@ export function attendanceSelectionFromSettings(settings: {
 }): AttendanceUiSelection {
   const attendanceMode = resolveAttendanceMode(settings);
   let credentialSource = inferCredentialSourceFromLegacyMode(settings.mode);
-  if (attendanceMode !== 'premium_assistant') {
+  if (attendanceMode !== 'premium_assistant' && attendanceMode !== 'hybrid') {
     credentialSource = 'none';
   }
   return { attendanceMode, credentialSource };
@@ -133,17 +195,22 @@ export function syncAttendanceModeFromLegacy(settings: {
 export function attendanceModeLabel(mode: AttendanceMode): string {
   switch (mode) {
     case 'disabled':
-      return 'Desativado';
+      return 'Humano/manual';
     case 'robotic':
       return 'Robotizado';
     case 'basic_triage':
       return 'IA Básica';
     case 'premium_assistant':
       return 'IA Premium';
+    case 'hybrid':
+      return 'Híbrido';
     default:
-      return 'Desativado';
+      return 'Humano/manual';
   }
 }
+
+/** Alias para compatibilidade com código que usa getAttendanceModeLabel. */
+export const getAttendanceModeLabel = attendanceModeLabel;
 
 export function credentialSourceLabel(source: AiCredentialSource): string {
   switch (source) {
@@ -163,7 +230,7 @@ export function isLegacyGenerativeAiActive(settings: { mode: AiMode; enabled?: b
   return settings.mode !== 'disabled' && settings.enabled !== false;
 }
 
-/** Modo IA Básica ativo. */
+/** Modo IA Básica dedicado (não inclui híbrido). */
 export function isBasicTriageMode(settings: {
   mode: AiMode;
   attendanceMode?: AttendanceMode | null;
@@ -171,14 +238,14 @@ export function isBasicTriageMode(settings: {
   return resolveAttendanceMode(settings) === 'basic_triage';
 }
 
-/** LLM deve rodar apenas no modo Premium com credencial ativa. */
+/** LLM deve rodar no modo Premium ou Híbrido com credencial ativa. */
 export function shouldRunGenerativeAi(settings: {
   mode: AiMode;
   enabled?: boolean;
   attendanceMode?: AttendanceMode | null;
 }): boolean {
   const mode = resolveAttendanceMode(settings);
-  if (mode !== 'premium_assistant') return false;
+  if (!modeUsesPremiumAiChain(mode)) return false;
   return isLegacyGenerativeAiActive(settings);
 }
 
@@ -191,7 +258,7 @@ export function webChatPremiumAiAllowed(settings: {
   return shouldRunGenerativeAi(settings);
 }
 
-/** Combina toggle do widget com modo global — evita LLM fora de Premium. */
+/** Combina toggle do widget com modo global — evita LLM fora de Premium/Híbrido. */
 export function effectiveWebChatPremiumAi(
   widgetAutoReplyUseAi: boolean,
   settings: {
@@ -207,13 +274,15 @@ export function effectiveWebChatPremiumAi(
 export function webChatGlobalModeHint(mode: AttendanceMode): string {
   switch (mode) {
     case 'disabled':
-      return 'Modo global Desativado — o chat usa resposta fixa ou FAQ, sem IA Premium.';
+      return 'Modo global Humano/manual — visitante vai direto para a fila humana, sem robô nem IA.';
     case 'robotic':
       return 'Modo global Robotizado — menu de setores no chat (configurado em IA Atendimento).';
     case 'basic_triage':
       return 'Modo global IA Básica — triagem inteligente local no chat (IA Atendimento).';
     case 'premium_assistant':
       return 'Modo global IA Premium — ative abaixo para o assistente conversacional no widget.';
+    case 'hybrid':
+      return 'Modo global Híbrido — menu, triagem básica e IA Premium (se habilitada) com fallback humano.';
     default:
       return '';
   }

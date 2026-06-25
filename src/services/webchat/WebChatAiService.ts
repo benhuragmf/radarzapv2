@@ -64,9 +64,9 @@ export class WebChatAiService {
         ...base,
         available: false,
         reason:
-          attendanceMode === 'premium_assistant'
+          attendanceMode === 'premium_assistant' || attendanceMode === 'hybrid'
             ? 'IA Premium inativa — configure credencial em Inbox → IA Atendimento'
-            : `Modo global: ${attendanceModeLabel(attendanceMode)}. IA Premium conversacional só no modo IA Premium.`,
+            : `Modo global: ${attendanceModeLabel(attendanceMode)}. IA Premium conversacional só nos modos IA Premium ou Híbrido.`,
       };
     }
 

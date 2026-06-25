@@ -50,6 +50,8 @@ import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatc
 import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
 import { AiConversationService } from '@/services/ai/AiConversationService';
 import { AiBasicTriageService } from '@/services/ai/AiBasicTriageService';
+import { AiSettingsService } from '@/services/ai/AiSettingsService';
+import { resolveAttendanceMode } from '@/types/attendance-mode';
 import { AiConversationState } from '@/models/AiConversationState';
 import { AiConversationStatus } from '@/types/ai-assistant';
 import {
@@ -2215,6 +2217,30 @@ export class InboxService {
         conversation.aiFallbackUntil = undefined;
       }
 
+      const aiSettings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
+      const attendanceMode = resolveAttendanceMode(aiSettings);
+
+      if (attendanceMode === 'disabled') {
+        await this.routeHumanOnlyFromBotTriage(clientId, conversation, dest);
+        return;
+      }
+
+      if (attendanceMode === 'robotic') {
+        await this.handleStandardBotTriage(clientId, conversation, dest, trimmed, {
+          isNew,
+          hasMedia: Boolean(media),
+        });
+        return;
+      }
+
+      if (attendanceMode === 'hybrid') {
+        await this.handleHybridBotTriage(clientId, conversation, dest, trimmed, {
+          isNew,
+          hasMedia: Boolean(media),
+        });
+        return;
+      }
+
       let forceStandardMenu = false;
       const aiActive = await AiConversationService.getInstance().isEnabled(clientId);
       const basicActive = await AiBasicTriageService.getInstance().isActive(clientId);
@@ -2269,6 +2295,140 @@ export class InboxService {
         await this.handleTriageReply(clientId, conversation, trimmed, dest);
       }
     }
+  }
+
+  /**
+   * Modo humano/manual — encaminha direto para fila sem robô nem IA.
+   */
+  private async routeHumanOnlyFromBotTriage(
+    clientId: string,
+    conversation: IInboxConversation,
+    dest: IDestination,
+  ): Promise<void> {
+    if (conversation.status !== InboxConversationStatus.BOT_TRIAGE) return;
+
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const department =
+      (conversation.departmentId
+        ? await InboxDepartment.findById(conversation.departmentId)
+        : null) ??
+      (await InboxDepartment.findOne({
+        clientId: clientOid,
+        isActive: true,
+        clientVisible: { $ne: false },
+      }).sort({ order: 1 }));
+
+    if (department) {
+      conversation.departmentId = department._id as mongoose.Types.ObjectId;
+    }
+
+    conversation.assignedUserId = undefined;
+    conversation.suggestedUserId = undefined;
+    conversation.suggestedAt = undefined;
+    conversation.status = InboxConversationStatus.WAITING_QUEUE;
+    conversation.queueEnteredAt = new Date();
+    conversation.queueSlaNotifiedAt = undefined;
+    conversation.priorityPullNotifiedAt = undefined;
+    conversation.lastMessageAt = new Date();
+
+    const suggested = department
+      ? await this.tryRoundRobinSuggest(clientId, conversation, department)
+      : undefined;
+    await conversation.save();
+    this.notifyConversation(clientId, conversation);
+
+    const confirm = department
+      ? await buildQueueConfirmation(
+          clientId,
+          department.name,
+          conversation.queueEnteredAt
+            ? await getQueuePositionForConversation(
+                clientId,
+                department._id as mongoose.Types.ObjectId,
+                conversation.queueEnteredAt,
+                String(conversation._id),
+              )
+            : undefined,
+        )
+      : 'Aguardando atendimento humano. Um especialista responderá em breve.';
+
+    await this.sendToContact(clientId, dest.identifier, confirm);
+    await this.appendSystemMessage(conversation, confirm, undefined, clientId);
+    await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Nova conversa na fila', department?.name ?? 'Geral', {
+      conversationId: String(conversation._id),
+    });
+    logger.info('Modo humano/manual — conversa na fila', {
+      clientId,
+      conversationId: conversation._id,
+      department: department?.name,
+      suggestedUserId: suggested?.toString(),
+    });
+  }
+
+  /**
+   * Modo híbrido — menu robotizado → triagem básica → IA Premium (se ativa) → fila humana.
+   */
+  private async handleHybridBotTriage(
+    clientId: string,
+    conversation: IInboxConversation,
+    dest: IDestination,
+    trimmed: string,
+    opts: { isNew: boolean; hasMedia: boolean },
+  ): Promise<void> {
+    const choice = trimmed ? await parseInboxMenuChoice(clientId, trimmed) : null;
+    if (choice) {
+      await this.handleTriageReply(clientId, conversation, trimmed, dest);
+      return;
+    }
+
+    const lacksMenu = await this.conversationLacksTriageMenu(
+      clientId,
+      conversation._id as mongoose.Types.ObjectId,
+    );
+    const needsMenu = opts.isNew || lacksMenu || (opts.hasMedia && !trimmed);
+
+    if (needsMenu) {
+      const menu = await buildInboxTriageMenu(clientId);
+      await setContactMenuContext(dest._id as mongoose.Types.ObjectId, 'inbox_triage');
+      await this.sendToContact(clientId, dest.identifier, menu);
+      await this.appendSystemMessage(conversation, menu);
+      await this.touchClientOutboundPrompt(conversation);
+      return;
+    }
+
+    if (!trimmed) return;
+
+    const basicResult = await AiBasicTriageService.getInstance().handleInbound(
+      {
+        clientId,
+        conversation,
+        dest,
+        text: trimmed,
+        isNew: opts.isNew,
+        hasMedia: opts.hasMedia,
+      },
+      this,
+    );
+    if (basicResult.handled) return;
+
+    const aiActive = await AiConversationService.getInstance().isEnabled(clientId);
+    if (aiActive) {
+      const aiResult = await AiConversationService.getInstance().handleInbound(
+        {
+          clientId,
+          conversation,
+          dest,
+          text: trimmed,
+          isNew: opts.isNew,
+          hasMedia: opts.hasMedia,
+        },
+        this,
+      );
+      if (aiResult.handled) return;
+      if (!aiResult.useStandardTriage) return;
+    }
+
+    await this.routeHumanOnlyFromBotTriage(clientId, conversation, dest);
   }
 
   /**

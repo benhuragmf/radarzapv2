@@ -125,4 +125,46 @@ describe('WebChatRoboticTriageService', () => {
     expect(result.handled).toBe(true);
     expect(sendBotReply).toHaveBeenCalledWith('OPCAO INVALIDA');
   });
+
+  it('híbrido: texto livre após menu passa para triagem (handled false)', async () => {
+    getSettingsDoc.mockResolvedValue({
+      mode: 'radarzap',
+      enabled: true,
+      attendanceMode: 'hybrid',
+    });
+    (parseInboxMenuChoice as jest.Mock).mockResolvedValue(null);
+    (WebChatMessage.exists as jest.Mock).mockResolvedValue({ _id: 'sent' });
+
+    const result = await svc.handleInbound({
+      clientId,
+      conversation: baseConversation(),
+      text: 'preciso de ajuda com meu pedido',
+      sendBotReply: jest.fn(),
+      escalate: jest.fn(),
+    });
+
+    expect(result.handled).toBe(false);
+  });
+
+  it('híbrido: opção de menu válida escala', async () => {
+    getSettingsDoc.mockResolvedValue({
+      mode: 'disabled',
+      attendanceMode: 'hybrid',
+    });
+    const deptOid = new mongoose.Types.ObjectId();
+    (parseInboxMenuChoice as jest.Mock).mockResolvedValue('2');
+    (InboxDepartment.findOne as jest.Mock).mockResolvedValue({ _id: deptOid, name: 'Suporte' });
+
+    const escalate = jest.fn(async () => undefined);
+    const result = await svc.handleInbound({
+      clientId,
+      conversation: baseConversation(),
+      text: '2',
+      sendBotReply: jest.fn(),
+      escalate,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(escalate).toHaveBeenCalled();
+  });
 });

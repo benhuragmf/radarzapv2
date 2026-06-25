@@ -49,7 +49,8 @@ export class AiBasicTriageService {
 
   async isActive(clientId: string): Promise<boolean> {
     const settings = await AiSettingsService.getInstance().getSettingsDoc(clientId);
-    return resolveAttendanceMode(settings) === 'basic_triage';
+    const mode = resolveAttendanceMode(settings);
+    return mode === 'basic_triage' || mode === 'hybrid';
   }
 
   async handleInbound(ctx: AiInboundContext, inbox: InboxService): Promise<AiInboundResult> {
@@ -155,9 +156,16 @@ export class AiBasicTriageService {
     }
 
     if (classification.intent !== 'unknown') {
+      if (resolveAttendanceMode(settings) === 'hybrid') {
+        return inactive;
+      }
       const clarify = buildBasicTriageClarifyReply(classification.intent);
       await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, clarify);
       return { handled: true };
+    }
+
+    if (resolveAttendanceMode(settings) === 'hybrid') {
+      return inactive;
     }
 
     const clarify = buildBasicTriageClarifyReply('unknown');

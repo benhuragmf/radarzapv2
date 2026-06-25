@@ -391,7 +391,8 @@ export class AiSettingsService {
 
   async isAiActive(clientId: string): Promise<boolean> {
     const settings = await this.getSettingsDoc(clientId);
-    if (resolveAttendanceMode(settings) !== 'premium_assistant') return false;
+    const mode = resolveAttendanceMode(settings);
+    if (mode !== 'premium_assistant' && mode !== 'hybrid') return false;
     return settings.enabled && settings.mode !== 'disabled';
   }
 }

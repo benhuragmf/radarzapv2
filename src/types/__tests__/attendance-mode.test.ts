@@ -1,11 +1,19 @@
 import {
   attendanceSelectionFromSettings,
   attendanceSettingsPatchFromSelection,
+  getAttendanceModeLabel,
   inferAttendanceModeFromLegacyMode,
   inferCredentialSourceFromLegacyMode,
+  isAiAttendanceMode,
   isAttendanceModeSelectable,
+  isHumanOnlyMode,
   isValidAttendanceMode,
   legacySettingsFromAttendanceSelection,
+  modeUsesBasicTriageChain,
+  modeUsesPremiumAiChain,
+  modeUsesRoboticMenu,
+  normalizeAttendanceMode,
+  requiresAiCredits,
   resolveAttendanceMode,
   shouldRunGenerativeAi,
   effectiveWebChatPremiumAi,
@@ -62,6 +70,31 @@ describe('attendance-mode adapter', () => {
     ).toEqual({ attendanceMode: 'basic_triage', mode: 'disabled', enabled: false });
   });
 
+  it('hybrid com credencial radarzap ativa LLM legado', () => {
+    expect(
+      legacySettingsFromAttendanceSelection({
+        attendanceMode: 'hybrid',
+        credentialSource: 'radarzap',
+      }),
+    ).toEqual({ mode: 'radarzap', enabled: true });
+    expect(
+      attendanceSelectionFromSettings({
+        mode: 'radarzap',
+        enabled: true,
+        attendanceMode: 'hybrid',
+      }),
+    ).toEqual({ attendanceMode: 'hybrid', credentialSource: 'radarzap' });
+  });
+
+  it('hybrid sem credencial não ativa LLM', () => {
+    expect(
+      legacySettingsFromAttendanceSelection({
+        attendanceMode: 'hybrid',
+        credentialSource: 'none',
+      }),
+    ).toEqual({ mode: 'disabled', enabled: false });
+  });
+
   it('premium sem credencial cai em disabled', () => {
     expect(
       legacySettingsFromAttendanceSelection({
@@ -75,6 +108,7 @@ describe('attendance-mode adapter', () => {
     expect(isAttendanceModeSelectable('basic_triage')).toBe(true);
     expect(isAttendanceModeSelectable('robotic')).toBe(true);
     expect(isAttendanceModeSelectable('premium_assistant')).toBe(true);
+    expect(isAttendanceModeSelectable('hybrid')).toBe(true);
   });
 
   it('resolveAttendanceMode prioriza campo persistido', () => {
@@ -86,9 +120,33 @@ describe('attendance-mode adapter', () => {
     ).toEqual({ attendanceMode: 'robotic', credentialSource: 'none' });
   });
 
-  it('shouldRunGenerativeAi só no premium com mode ativo', () => {
+  it('normalizeAttendanceMode cai em disabled para valor inválido', () => {
+    expect(normalizeAttendanceMode('invalid')).toBe('disabled');
+    expect(normalizeAttendanceMode(null)).toBe('disabled');
+    expect(normalizeAttendanceMode('hybrid')).toBe('hybrid');
+  });
+
+  it('helpers de cadeia por modo', () => {
+    expect(modeUsesRoboticMenu('robotic')).toBe(true);
+    expect(modeUsesRoboticMenu('hybrid')).toBe(true);
+    expect(modeUsesRoboticMenu('basic_triage')).toBe(false);
+    expect(modeUsesBasicTriageChain('hybrid')).toBe(true);
+    expect(modeUsesBasicTriageChain('robotic')).toBe(false);
+    expect(modeUsesPremiumAiChain('hybrid')).toBe(true);
+    expect(modeUsesPremiumAiChain('basic_triage')).toBe(false);
+    expect(requiresAiCredits('disabled')).toBe(false);
+    expect(requiresAiCredits('robotic')).toBe(false);
+    expect(requiresAiCredits('hybrid')).toBe(true);
+    expect(isAiAttendanceMode('robotic')).toBe(false);
+    expect(isHumanOnlyMode({ mode: 'disabled', attendanceMode: 'disabled' })).toBe(true);
+  });
+
+  it('shouldRunGenerativeAi no premium ou híbrido com mode ativo', () => {
     expect(
       shouldRunGenerativeAi({ mode: 'radarzap', enabled: true, attendanceMode: 'premium_assistant' }),
+    ).toBe(true);
+    expect(
+      shouldRunGenerativeAi({ mode: 'radarzap', enabled: true, attendanceMode: 'hybrid' }),
     ).toBe(true);
     expect(
       shouldRunGenerativeAi({ mode: 'disabled', enabled: false, attendanceMode: 'robotic' }),
@@ -100,17 +158,25 @@ describe('attendance-mode adapter', () => {
 
   it('isValidAttendanceMode valida enum', () => {
     expect(isValidAttendanceMode('robotic')).toBe(true);
+    expect(isValidAttendanceMode('hybrid')).toBe(true);
     expect(isValidAttendanceMode('invalid')).toBe(false);
   });
 
-  it('effectiveWebChatPremiumAi exige modo Premium + toggle widget', () => {
+  it('getAttendanceModeLabel retorna rótulos oficiais', () => {
+    expect(getAttendanceModeLabel('disabled')).toBe('Humano/manual');
+    expect(getAttendanceModeLabel('hybrid')).toBe('Híbrido');
+  });
+
+  it('effectiveWebChatPremiumAi exige modo Premium/Híbrido + toggle widget', () => {
     const premium = { mode: 'radarzap' as const, enabled: true, attendanceMode: 'premium_assistant' as const };
+    const hybrid = { mode: 'radarzap' as const, enabled: true, attendanceMode: 'hybrid' as const };
     expect(effectiveWebChatPremiumAi(true, premium)).toBe(true);
-    expect(effectiveWebChatPremiumAi(false, premium)).toBe(false);
+    expect(effectiveWebChatPremiumAi(true, hybrid)).toBe(true);
     expect(
       effectiveWebChatPremiumAi(true, { mode: 'disabled', enabled: false, attendanceMode: 'basic_triage' }),
     ).toBe(false);
     expect(webChatPremiumAiAllowed(premium)).toBe(true);
+    expect(webChatPremiumAiAllowed(hybrid)).toBe(true);
     expect(webChatPremiumAiAllowed({ mode: 'disabled', attendanceMode: 'robotic' })).toBe(false);
   });
 });

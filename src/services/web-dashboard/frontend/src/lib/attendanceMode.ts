@@ -34,9 +34,9 @@ export interface AttendanceModeCardDef {
 export const ATTENDANCE_MODE_CARDS: AttendanceModeCardDef[] = [
   {
     id: 'disabled',
-    title: 'Desativado',
+    title: 'Humano/manual',
     description:
-      'Apenas humano, fila, respostas rápidas e chamados. Nenhuma IA generativa conversa com o cliente.',
+      'Envia direto para a fila de atendimento humano. Sem robô nem IA generativa.',
     badge: 'Sem IA',
     badgeClass: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30',
     note:
@@ -71,6 +71,17 @@ export const ATTENDANCE_MODE_CARDS: AttendanceModeCardDef[] = [
     badge: '~2 créditos/atendimento típico',
     badgeClass: 'bg-brand-500/15 text-brand-400 border-brand-500/30',
     note: 'Assistente conversacional completo. Expectativa de ~2 créditos por turno típico — cobrança real proporcional ao custo de cada chamada LLM.',
+  },
+  {
+    id: 'hybrid',
+    title: 'Híbrido',
+    description:
+      'Combina menu robotizado, triagem básica e IA Premium (se habilitada) com fallback humano.',
+    badge: 'Menu + triagem + IA',
+    badgeClass: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+    example: 'Menu → intenção → resposta IA → fila humana',
+    note:
+      'Primeiro o menu de setores; mensagens livres passam por triagem básica; com provedor e créditos, IA Premium pode responder antes de encaminhar.',
   },
 ];
 

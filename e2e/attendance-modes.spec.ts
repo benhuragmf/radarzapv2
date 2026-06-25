@@ -10,11 +10,12 @@ test.describe('Modos de atendimento — IA Atendimento (mock auth)', () => {
     await expect(page.getByTestId('attendance-mode-disabled')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('exibe os 4 modos de atendimento', async ({ page }) => {
+  test('exibe os 5 modos de atendimento', async ({ page }) => {
     await expect(page.getByTestId('attendance-mode-disabled')).toBeVisible();
     await expect(page.getByTestId('attendance-mode-robotic')).toBeVisible();
     await expect(page.getByTestId('attendance-mode-basic_triage')).toBeVisible();
     await expect(page.getByTestId('attendance-mode-premium_assistant')).toBeVisible();
+    await expect(page.getByTestId('attendance-mode-hybrid')).toBeVisible();
   });
 
   test('modo Robotizado mostra banner e link Triagem e Bot', async ({ page }) => {

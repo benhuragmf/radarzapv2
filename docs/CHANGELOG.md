@@ -22,6 +22,19 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.92] — 2026-06-24
+
+### TOP 06 — modos de atendimento unificados
+
+- Modos oficiais: `disabled`, `robotic`, `basic_triage`, `premium_assistant`, **`hybrid`**.
+- Tipo central ampliado: `normalizeAttendanceMode`, helpers de cadeia, separação modo/provedor/créditos/fila.
+- WhatsApp: `disabled` → fila humana direta; híbrido `handleHybridBotTriage`.
+- WebChat: `runVisitorAutomationPipeline` com fallback humano.
+- UI: card Híbrido + provedor IA em Premium/Híbrido.
+- Doc: `docs/top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`.
+
+---
+
 ## [2.11.91] — 2026-06-24
 
 ### TOP 05 — status operacional, presença e fila segura

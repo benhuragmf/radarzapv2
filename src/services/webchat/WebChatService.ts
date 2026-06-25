@@ -123,7 +123,7 @@ import {
 } from './webchat-message-receipt.service';
 import { AiKnowledgeBaseService } from '../ai/AiKnowledgeBaseService';
 import { AiSettingsService } from '../ai/AiSettingsService';
-import { effectiveWebChatPremiumAi } from '../../types/attendance-mode';
+import { effectiveWebChatPremiumAi, resolveAttendanceMode } from '../../types/attendance-mode';
 import { AI_AUTO_RESOLVE_MIN_SCORE } from '../../utils/ai-text-match';
 import {
   buildWebChatFaqReplyBody,
@@ -2115,22 +2115,7 @@ export class WebChatService {
       });
       replies.push(this.toMessageDto(systemMsg));
     } else {
-      const roboticReplies = await this.tryRoboticTriage(freshAfterInbound, widget, text);
-      if (roboticReplies !== null) {
-        replies.push(...roboticReplies);
-      } else {
-        const basicReplies = await this.tryBasicTriage(freshAfterInbound, widget, text);
-        if (basicReplies !== null) {
-          replies.push(...basicReplies);
-        } else {
-          const faqReply = await this.tryFaqAutoReply(freshAfterInbound, widget, text);
-          if (faqReply) {
-            replies.push(faqReply);
-          } else {
-            replies.push(...(await this.maybeAutoReply(conversation, widget)));
-          }
-        }
-      }
+      replies.push(...(await this.runVisitorAutomationPipeline(freshAfterInbound, widget, text)));
     }
 
     this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
@@ -2195,17 +2180,9 @@ export class WebChatService {
       });
       replies.push(this.toMessageDto(systemMsg));
     } else {
-      const roboticReplies = await this.tryRoboticTriage(freshAfterInbound ?? conversation, widget, '');
-      if (roboticReplies !== null) {
-        replies.push(...roboticReplies);
-      } else {
-        const basicReplies = await this.tryBasicTriage(freshAfterInbound ?? conversation, widget, '');
-        if (basicReplies !== null) {
-          replies.push(...basicReplies);
-        } else {
-          replies.push(...(await this.maybeAutoReply(conversation, widget)));
-        }
-      }
+      replies.push(
+        ...(await this.runVisitorAutomationPipeline(freshAfterInbound ?? conversation, widget, '')),
+      );
     }
 
     this.emitWebchatWebhook(clientIdStr, 'webchat.message.received', {
@@ -2434,6 +2411,53 @@ export class WebChatService {
    * Menu robotizado WebChat — só quando `AiSettings.attendanceMode === robotic`.
    * Retorna `null` se o fluxo padrão (FAQ / auto-reply / IA) deve continuar.
    */
+  /**
+   * Pipeline unificado por modo: humano → robô/menu → básica → FAQ → premium → fila (híbrido).
+   */
+  private async runVisitorAutomationPipeline(
+    conversation: IWebChatConversation,
+    widget: IWebChatWidget,
+    text: string,
+  ): Promise<WebChatMessageDto[]> {
+    const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    const aiSettings = await AiSettingsService.getInstance().getSettingsDoc(clientIdStr);
+    const mode = resolveAttendanceMode(aiSettings);
+
+    if (mode === 'disabled') {
+      const fresh = await WebChatConversation.findById(conversation._id);
+      if (fresh?.queueStatus === 'bot' && !fresh.assignedUserId) {
+        await this.escalateToQueue(clientIdStr, convId, {
+          reason: 'Aguardando atendimento humano.',
+        });
+      }
+      return [];
+    }
+
+    const roboticReplies = await this.tryRoboticTriage(conversation, widget, text);
+    if (roboticReplies !== null) return roboticReplies;
+
+    const basicReplies = await this.tryBasicTriage(conversation, widget, text);
+    if (basicReplies !== null) return basicReplies;
+
+    const faqReply = await this.tryFaqAutoReply(conversation, widget, text);
+    if (faqReply) return [faqReply];
+
+    const autoReplies = await this.maybeAutoReply(conversation, widget);
+    if (autoReplies.length > 0) return autoReplies;
+
+    if (mode === 'hybrid') {
+      const fresh = await WebChatConversation.findById(conversation._id);
+      if (fresh?.queueStatus === 'bot' && !fresh.assignedUserId) {
+        await this.escalateToQueue(clientIdStr, convId, {
+          reason: 'Encaminhando para atendimento humano.',
+        });
+      }
+    }
+
+    return autoReplies;
+  }
+
   private async tryRoboticTriage(
     conversation: IWebChatConversation,
     widget: IWebChatWidget,
