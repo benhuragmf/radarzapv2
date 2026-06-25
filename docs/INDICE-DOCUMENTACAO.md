@@ -58,6 +58,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 ## TOPs 01–21 (auditoria e fechamento)
 
+> **Regra:** arquivos `docs/top/RADARZAP-TOP-NN-*.md` são histórico de auditoria — **não remover nem mover** sem autorização Benhur. Ver [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) § Preservação.
+
 | # | Documento |
 |---|-----------|
 | 01 | [`top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md`](./top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md) |

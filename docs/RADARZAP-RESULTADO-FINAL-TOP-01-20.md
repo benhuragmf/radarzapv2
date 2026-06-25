@@ -63,7 +63,23 @@ O programa TOP 01–20 fechou o **RadarZap v2** como produto técnico consolidad
 | 19 | QA automatizado e regressão |
 | 20 | Congelamento e go-live controlado |
 
-Docs: `docs/top/RADARZAP-TOP-NN-*.md` (NN = 01–20).
+Docs: `docs/top/RADARZAP-TOP-NN-*.md` (NN = 01–20) — **preservar integralmente** em `docs/top/` (histórico de auditoria). Resumo: [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md).
+
+---
+
+## Histórico de auditoria TOP (preservação)
+
+Os 20 documentos TOP em `docs/top/` são a **prova executada** do fechamento do sistema (diagnóstico → go-live controlado).
+
+| Regra | Detalhe |
+|-------|---------|
+| Local canônico | `docs/top/RADARZAP-TOP-NN-*.md` |
+| Remoção | Proibida sem autorização Benhur |
+| Movimentação | Proibida sem autorização Benhur |
+| Índice | [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) § TOPs 01–21 |
+| Antes de alterar outro `.md` | `grep -R "arquivo.md" docs README.md .cursor` |
+
+TOP 21 (extra) organiza leitura; **não substitui** os TOP 01–20.
 
 ---
 

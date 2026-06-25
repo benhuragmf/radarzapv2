@@ -432,6 +432,8 @@ Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.
 
 ## 24. Roadmap TOP 01–20
 
+> **Preservação:** cada linha abaixo corresponde a um arquivo **imutável** em `docs/top/RADARZAP-TOP-NN-*.md` (auditoria). Não remover nem mover sem autorização Benhur. Índice completo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · regra: [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) § Preservação.
+
 | # | Tema | Doc | Versão ref. | Status |
 |---|------|-----|-------------|--------|
 | 01 | Diagnóstico | `top/RADARZAP-TOP-01-*` | — | Concluído |
@@ -485,3 +487,4 @@ Fonte detalhada: [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`
 5. Não copiar Evolution/Sendfy; não commitar `sessions/`, `.env`, `data/`.
 6. Não declarar produção pronta com bugs abertos em atendimento.
 7. Seguir etapa TOP atual em `docs/top/` quando em fechamento 01–20.
+8. **Nunca** remover nem mover `docs/top/RADARZAP-TOP-NN-*.md` sem autorização Benhur — são histórico de auditoria.

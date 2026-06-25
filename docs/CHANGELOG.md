@@ -20,6 +20,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Alinhamento versão `2.12.6` em doc mestre, README portal, índice.
 - `docs/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` — mapa de docs; **TOP 20 como fonte oficial** para status e checklists.
 - Revisão: doc mestre §15/16/25 — WhatsApp/Bridge fechados em código; pendente QA real blocos D/E.
+- Regra preservação: índice canônico TOP 01–21 em `docs/top/`; não remover histórico auditoria.
 - Sem alteração de código de produto; versão `package.json` mantida em `2.12.6`.
 
 ---

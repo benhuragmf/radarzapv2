@@ -209,6 +209,72 @@ Lista completa: TOP 20 § Pendências finais.
 
 ---
 
+## Regra de preservação dos `.md` executados (TOP 01–20)
+
+### Política obrigatória
+
+Os arquivos em `docs/top/RADARZAP-TOP-NN-*.md` são **histórico de auditoria** e **prova do que foi executado** no fechamento TOP 01–20.
+
+**Nunca remover** nem mover sem **autorização explícita do Benhur**.
+
+O TOP 21 (e qualquer agente/IA) pode apenas:
+
+1. **Manter** em `docs/top/` (local canônico).
+2. **Indexar** em tabela (abaixo e em `INDICE-DOCUMENTACAO.md`).
+3. **Apontar** a partir do índice e do doc mestre.
+4. **Resumir** em `RADARZAP-SISTEMA-COMPLETO.md` §24 e `RADARZAP-RESULTADO-FINAL-TOP-01-20.md`.
+5. **Criar** TOP 21+ como documentação extra — sem substituir nem apagar TOPs anteriores.
+
+### Índice canônico — `docs/top/` (21 arquivos)
+
+| TOP | Arquivo | Ação TOP 21 | Status |
+|-----|---------|-------------|--------|
+| 01 | `RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md` | Preservar em `docs/top/` | ✅ Existe |
+| 02 | `RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md` | Preservar em `docs/top/` | ✅ Existe |
+| 03 | `RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md` | Preservar em `docs/top/` | ✅ Existe |
+| 04 | `RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md` | Preservar em `docs/top/` | ✅ Existe |
+| 05 | `RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md` | Preservar em `docs/top/` | ✅ Existe |
+| 06 | `RADARZAP-TOP-06-MODOS-ATENDIMENTO.md` | Preservar em `docs/top/` | ✅ Existe |
+| 07 | `RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md` | Preservar em `docs/top/` | ✅ Existe |
+| 08 | `RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md` | Preservar em `docs/top/` | ✅ Existe |
+| 09 | `RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md` | Preservar em `docs/top/` | ✅ Existe |
+| 10 | `RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md` | Preservar em `docs/top/` | ✅ Existe |
+| 11 | `RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md` | Preservar em `docs/top/` | ✅ Existe |
+| 12 | `RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md` | Preservar em `docs/top/` | ✅ Existe |
+| 13 | `RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md` | Preservar em `docs/top/` | ✅ Existe |
+| 14 | `RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md` | Preservar em `docs/top/` | ✅ Existe |
+| 15 | `RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md` | Preservar em `docs/top/` | ✅ Existe |
+| 16 | `RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md` | Preservar em `docs/top/` | ✅ Existe |
+| 17 | `RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md` | Preservar em `docs/top/` | ✅ Existe |
+| 18 | `RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md` | Preservar em `docs/top/` | ✅ Existe |
+| 19 | `RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` | Preservar em `docs/top/` | ✅ Existe |
+| 20 | `RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md` | Preservar em `docs/top/` | ✅ Existe |
+| 21 | `RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` | Extra pós-TOP20 | ✅ Este doc |
+
+**Verificação:** 21/21 arquivos presentes em `docs/top/`. Nenhum TOP 01–20 removido ou movido no TOP 21.
+
+### Antes de mover ou remover qualquer `.md`
+
+```bash
+grep -R "NOME_DO_ARQUIVO.md" docs README.md .cursor -n
+```
+
+Se houver referência, **atualizar o link antes** de mover ou remover.
+
+### Documentos fora de `docs/top/` (não-TOP)
+
+Ações permitidas apenas com `grep` prévio e sem tocar nos TOP 01–20:
+
+| Ação | Quando usar |
+|------|-------------|
+| **Preservar** | Doc ativo ou referenciado |
+| **Arquivar em `docs/concluidos/`** | Entrega histórica já consolidada |
+| **Arquivar em `docs/audits/`** | Auditoria pontual |
+| **Revisar depois** | Overlap ou duplicata incerta |
+| **Remover duplicado seguro** | Cópia óbvia, zero referências, sem valor histórico |
+
+---
+
 ## Mapa de documentos preservados
 
 Todos os 78 `.md` em `docs/` **preservados**. Nenhum arquivo removido no TOP 21.
@@ -245,6 +311,20 @@ Categorias:
 
 ## Documentos que não podem ser removidos
 
+### Pasta `docs/top/` — TOP 01 a TOP 21 (inteira)
+
+```txt
+docs/top/RADARZAP-TOP-01-*.md
+docs/top/RADARZAP-TOP-02-*.md
+… (TOP 03–19) …
+docs/top/RADARZAP-TOP-20-*.md
+docs/top/RADARZAP-TOP-21-*.md
+```
+
+Histórico de auditoria TOP 01–20: **não mover, não apagar** sem autorização Benhur.
+
+### Documentação mestre e go-live
+
 ```txt
 docs/RADARZAP-SISTEMA-COMPLETO.md
 docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md
@@ -256,7 +336,6 @@ docs/VERSIONAMENTO-E-DOCUMENTACAO.md
 docs/QA-FASE1-RESULTADO-TEMPLATE.md
 docs/PREPARACAO-PRODUCAO.md
 docs/PRODUCTION.md
-docs/top/
 ```
 
 ---

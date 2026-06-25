@@ -113,6 +113,7 @@ Roteiro passo a passo: [docs/QA-FASE1-ROTEIRO.md](docs/QA-FASE1-ROTEIRO.md)
 - Não commitar `.env`, `.env.local`, `.env.production`
 - Não commitar `data/`, `sessions/`, credenciais
 - Não declarar produção pronta sem QA manual A–J
+- Não apagar `docs/top/` nem `docs/top/RADARZAP-TOP-*.md` (histórico auditoria TOP 01–20)
 - Não misturar RadarZap com RadarGamer / RadarLurk
 - Não apagar `docs/top/` nem histórico TOP
 
