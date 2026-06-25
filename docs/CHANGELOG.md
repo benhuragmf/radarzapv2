@@ -22,6 +22,19 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.93] — 2026-06-24
+
+### TOP 07 — Inbox, conversas, fila e transferência
+
+- Helpers `inbox-conversation-status.util.ts`, `inbox-org-access.util.ts`, `inbox-queue-eligibility.util.ts`.
+- Fila: round-robin via `filterQueueEligibleAgentIds`; assumir valida presença+capacidade.
+- Transferência: bloqueio conversa alheia; audit `inbox.queued|assigned|transferred|reassigned`.
+- Eventos painel `inbox:assigned`, `inbox:transferred`.
+- Anti cross-tenant em `getConversationIfAllowed`.
+- Doc: `docs/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`.
+
+---
+
 ## [2.11.92] — 2026-06-24
 
 ### TOP 06 — modos de atendimento unificados

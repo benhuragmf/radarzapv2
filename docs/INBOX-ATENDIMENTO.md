@@ -5,7 +5,7 @@ Módulo proprietário de triagem, filas e atendimento humano via WhatsApp.
 > **Referências externas** (Izing, Whaticket, Chatwoot, etc.) servem apenas para inspirar fluxos de mercado.  
 > Nenhum código de terceiros é copiado. Contratos, modelos e UI são exclusivos do RadarZap.
 
-**Última revisão:** 2026-06-09 (roteamento ticket/inbox/IA, menu context, dedup, soft delete)
+**Última revisão:** 2026-06-24 (TOP 07 — fila, atribuição, transferência; ver `docs/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`)
 
 ## Fluxo (MVP — Fase 1)
 

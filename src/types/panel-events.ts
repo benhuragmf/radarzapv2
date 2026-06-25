@@ -2,6 +2,8 @@
 export type PanelEventType =
   | 'inbox:new_chat'
   | 'inbox:new_message'
+  | 'inbox:assigned'
+  | 'inbox:transferred'
   | 'inbox:priority'
   | 'inbox:priority_expired'
   | 'inbox:supervisor_help'

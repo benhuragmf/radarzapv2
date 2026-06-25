@@ -94,7 +94,15 @@ import {
   isAgentOnline,
   setAgentPresenceTimeout,
 } from '@/services/inbox/inbox-agent-presence';
-import { resolveMaxConcurrentChatsForPlan } from '@/services/inbox/agent-availability';
+import {
+  canAgentReceiveNewAssignment,
+  resolveMaxConcurrentChatsForPlan,
+} from '@/services/inbox/agent-availability';
+import {
+  assertInboxOrganizationMember,
+  canOverrideAssignedConversation,
+} from '@/services/inbox/inbox-org-access.util';
+import { filterQueueEligibleAgentIds } from '@/services/inbox/inbox-queue-eligibility.util';
 import {
   shouldAlertQueueStall,
   shouldAutoCloseForInactivity,
@@ -906,7 +914,7 @@ export class InboxService {
     type: PanelEventType,
     title: string,
     body: string,
-    opts?: { conversationId?: string; href?: string },
+    opts?: { conversationId?: string; href?: string; targetUserId?: string },
   ): Promise<void> {
     emitPanelEvent(clientId, {
       id: crypto.randomUUID(),
@@ -915,6 +923,7 @@ export class InboxService {
       body,
       href: opts?.href ?? (opts?.conversationId ? `/platform/inbox?conv=${opts.conversationId}` : '/platform/inbox'),
       conversationId: opts?.conversationId,
+      targetUserId: opts?.targetUserId,
       createdAt: new Date().toISOString(),
     });
   }
@@ -2357,6 +2366,16 @@ export class InboxService {
     await this.pushPanelEvent(clientId, 'inbox:new_chat', 'Nova conversa na fila', department?.name ?? 'Geral', {
       conversationId: String(conversation._id),
     });
+    void recordAttendanceEvent({
+      clientId,
+      kind: 'inbox.queued',
+      conversationId: String(conversation._id),
+      meta: {
+        channel: conversation.channel,
+        departmentId: department ? String(department._id) : null,
+        source: 'human_only_mode',
+      },
+    });
     logger.info('Modo humano/manual — conversa na fila', {
       clientId,
       conversationId: conversation._id,
@@ -2829,6 +2848,17 @@ export class InboxService {
     );
     await this.sendToContact(clientId, dest.identifier, confirm);
     await this.appendSystemMessage(conversation, confirm, undefined, clientId);
+    void recordAttendanceEvent({
+      clientId,
+      kind: 'inbox.queued',
+      conversationId: String(conversation._id),
+      meta: {
+        channel: conversation.channel,
+        departmentId: String(department._id),
+        source: 'triage_menu',
+        suggestedUserId: suggested?.toString() ?? null,
+      },
+    });
     logger.info('Conversa direcionada para fila', {
       clientId,
       conversationId: conversation._id,
@@ -2847,9 +2877,10 @@ export class InboxService {
 
     const maxConcurrent = await this.resolveMaxConcurrentForClient(clientId);
     const candidates = await this.resolveRoundRobinCandidates(clientId, department);
-    const availableOnly = candidates.filter(c =>
-      isAgentAvailableForQueue(clientId, c.toString()),
-    );
+    const availableOnly = filterQueueEligibleAgentIds(
+      clientId,
+      candidates.map(c => c.toString()),
+    ).map(id => new mongoose.Types.ObjectId(id));
     if (!availableOnly.length) return { noOnline: true };
 
     const lastIdx = department.lastRoundRobinIndex ?? -1;
@@ -4486,6 +4517,7 @@ export class InboxService {
   }
 
   async assignConversation(clientId: string, userId: string, conversationId: string) {
+    await assertInboxOrganizationMember(clientId, userId);
     const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
     if (TERMINAL_STATUSES.has(conv.status)) {
       throw new Error('Conversa já finalizada');
@@ -4500,6 +4532,15 @@ export class InboxService {
 
     if (conv.status === InboxConversationStatus.WAITING_QUEUE) {
       await this.assertCanTakeQueueConversation(clientId, userId, conv);
+      const maxConcurrent = await this.resolveMaxConcurrentForClient(clientId);
+      const canTake = await canAgentReceiveNewAssignment(clientId, userId, maxConcurrent, {
+        inboxConversationId: String(conv._id),
+      });
+      if (!canTake) {
+        throw new Error(
+          'Indisponível para assumir — verifique status online e limite de atendimentos simultâneos.',
+        );
+      }
     }
 
     const prevAssigned = conv.assignedUserId?.toString();
@@ -4536,6 +4577,22 @@ export class InboxService {
     if (!prevAssigned || prevAssigned !== userId) {
       await this.announceAgentJoin(clientId, conv, userId);
     }
+    void recordAttendanceEvent({
+      clientId,
+      kind: 'inbox.assigned',
+      conversationId: String(conv._id),
+      actorUserId: userId,
+      meta: {
+        channel: conv.channel,
+        departmentId: conv.departmentId ? String(conv.departmentId) : null,
+        wasPull: Boolean(wasPull),
+        previousAssignedUserId: prevAssigned ?? null,
+      },
+    });
+    await this.pushPanelEvent(clientId, 'inbox:assigned', 'Conversa assumida', conv.contactName, {
+      conversationId: String(conv._id),
+      targetUserId: userId,
+    });
     this.notifyConversation(clientId, conv);
     return conv.toObject();
   }
@@ -4943,7 +5000,9 @@ export class InboxService {
     departmentId: string,
     reason?: string,
   ) {
+    const member = await assertInboxOrganizationMember(clientId, userId);
     const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
+    this.assertCanModifyAssignedConversation(conv, userId, member);
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const target = await InboxDepartment.findOne({
       _id: new mongoose.Types.ObjectId(departmentId),
@@ -4976,6 +5035,25 @@ export class InboxService {
 
     await this.tryRoundRobinSuggest(clientId, conv, target);
     await conv.save();
+    void recordAttendanceEvent({
+      clientId,
+      kind: 'inbox.transferred',
+      conversationId: String(conv._id),
+      actorUserId: userId,
+      meta: {
+        fromDepartmentId: fromDept ? String(fromDept) : null,
+        toDepartmentId: String(target._id),
+        reason: reason?.trim() || null,
+        channel: conv.channel,
+      },
+    });
+    await this.pushPanelEvent(
+      clientId,
+      'inbox:transferred',
+      'Conversa transferida',
+      target.name,
+      { conversationId: String(conv._id) },
+    );
     this.notifyConversation(clientId, conv);
 
     if (target.clientVisible !== false) {
@@ -5694,6 +5772,8 @@ export class InboxService {
     userId: string,
     conversationId: string,
   ): Promise<IInboxConversation> {
+    await assertInboxOrganizationMember(clientId, userId);
+
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const conv = await InboxConversation.findOne({
       _id: new mongoose.Types.ObjectId(conversationId),
@@ -5723,6 +5803,17 @@ export class InboxService {
       throw new Error('Triagem restrita — habilite em Triagem e Bot');
     }
     return conv;
+  }
+
+  private assertCanModifyAssignedConversation(
+    conv: IInboxConversation,
+    userId: string,
+    member: { companyRole: CompanyRole },
+  ): void {
+    const assigned = conv.assignedUserId?.toString();
+    if (!assigned || assigned === userId) return;
+    if (canOverrideAssignedConversation(member)) return;
+    throw new Error('Conversa em atendimento por outro agente');
   }
 
   /** Visibilidade de filas por setor (atendentes só veem setores com atribuição explícita). */
@@ -5792,6 +5883,7 @@ export class InboxService {
     mode: 'suggest' | 'assign' = 'suggest',
   ) {
     await this.assertSupervisor(clientId, supervisorUserId);
+    await assertInboxOrganizationMember(clientId, supervisorUserId);
     const conv = await this.getConversationIfAllowed(clientId, supervisorUserId, conversationId);
     if (TERMINAL_STATUSES.has(conv.status)) {
       throw new Error('Conversa já finalizada');
@@ -5836,6 +5928,17 @@ export class InboxService {
     }
 
     this.notifyConversation(clientId, conv);
+    void recordAttendanceEvent({
+      clientId,
+      kind: 'inbox.reassigned',
+      conversationId: String(conv._id),
+      actorUserId: supervisorUserId,
+      meta: {
+        targetUserId,
+        mode,
+        channel: conv.channel,
+      },
+    });
     return conv.toObject();
   }
 

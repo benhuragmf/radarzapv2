@@ -1,4 +1,5 @@
 import {
+  canAgentReceiveNewAssignment,
   canAgentReceiveNewAssignmentByPresence,
   resolveMaxConcurrentChatsForPlan,
   shouldApplyAutoAusente,
@@ -9,6 +10,12 @@ import {
   isAgentAvailableForQueue,
   resetAgentPresenceState,
 } from '../inbox-agent-presence';
+
+jest.mock('../inbox-queue-priority', () => ({
+  isAgentAtCapacity: jest.fn().mockResolvedValue(false),
+}));
+
+import { isAgentAtCapacity } from '../inbox-queue-priority';
 
 describe('agent-availability', () => {
   const clientId = 'org-avail';
@@ -49,5 +56,13 @@ describe('agent-availability', () => {
     expect(shouldApplyAutoAusente('ocupado', 'ausente', 'auto')).toBe(false);
     expect(shouldApplyAutoAusente('supervisor_online', 'ausente', 'auto')).toBe(false);
     expect(shouldApplyAutoAusente('online', 'ausente', 'manual')).toBe(true);
+  });
+
+  it('canAgentReceiveNewAssignment bloqueia quando no limite simultâneo', async () => {
+    (isAgentAtCapacity as jest.Mock).mockResolvedValueOnce(true);
+    agentPresenceSetStatus(clientId, userId, 'online', 'manual');
+
+    const ok = await canAgentReceiveNewAssignment(clientId, userId, 3);
+    expect(ok).toBe(false);
   });
 });

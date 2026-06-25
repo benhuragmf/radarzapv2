@@ -6,7 +6,11 @@ export type AttendanceEventKind =
   | 'ticket.closed'
   | 'bridge.started'
   | 'bridge.closed'
-  | 'bridge.agent_reply';
+  | 'bridge.agent_reply'
+  | 'inbox.queued'
+  | 'inbox.assigned'
+  | 'inbox.transferred'
+  | 'inbox.reassigned';
 
 export interface IAttendanceEvent extends Document {
   clientId: mongoose.Types.ObjectId;

@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.11.92` (`package.json`) · **Última revisão doc:** 2026-06-24
+**Versão atual:** `2.11.93` (`package.json`) · **Última revisão doc:** 2026-06-24
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/`](./concluidos/README.md) (ENTREGA, auditorias, fases) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.11.93** | TOP 07: Inbox fila/atribuição/transferência — `docs/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md` |
 | **2.11.92** | TOP 06: modos atendimento unificados + híbrido mínimo — `docs/top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md` |
 | **2.11.91** | TOP 05: presença/fila — limite simultâneo por plano, supervisor_online no socket, offline risk — `docs/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md` |
 | **2.11.90** | TOP 04: RBAC/equipe — limites assentos por plano, papéis Financeiro/Marketing/Viewer, testes cross-tenant — `docs/top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md` |

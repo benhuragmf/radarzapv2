@@ -1,6 +1,6 @@
 ﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.92` · **Atualizado:** 2026-06-24
+**Versão do produto:** `2.11.93` · **Atualizado:** 2026-06-24
 
 Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -64,6 +64,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md) | RBAC, equipe, limites assentos, multiempresa (TOP 04) |
 | [`top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`](./top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md) | Status operacional, presença e fila (TOP 05) |
 | [`top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`](./top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md) | Modos de atendimento unificados + híbrido (TOP 06) |
+| [`top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md) | Inbox, fila, atribuição e transferência (TOP 07) |
 
 ---
 
