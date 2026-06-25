@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupInboxMocks } from './fixtures/mock-inbox-api';
+import { expectInboxLoaded, setupInboxMocks } from './fixtures/mock-inbox-api';
 
 const INBOX_ROUTE = '/platform/inbox';
 
@@ -7,9 +7,7 @@ test.describe('QA Fase 1 — presença operacional (mock API)', () => {
   test.beforeEach(async ({ page }) => {
     await setupInboxMocks(page);
     await page.goto(INBOX_ROUTE);
-    await expect(page.getByRole('main').getByRole('heading', { name: 'Caixa de Entrada' })).toBeVisible({
-      timeout: 15_000,
-    });
+    await expectInboxLoaded(page);
   });
 
   test('exibe seletor de status no header', async ({ page }) => {

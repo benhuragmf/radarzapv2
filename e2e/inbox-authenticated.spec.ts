@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupInboxMocks } from './fixtures/mock-inbox-api';
+import { expectInboxLoaded, setupInboxMocks } from './fixtures/mock-inbox-api';
 
 const INBOX_ROUTE = '/platform/inbox';
 const SUPERVISOR_ROUTE = '/platform/inbox/supervisor';
@@ -8,9 +8,7 @@ test.describe('Inbox — autenticado (mock API)', () => {
   test.beforeEach(async ({ page }) => {
     await setupInboxMocks(page);
     await page.goto(INBOX_ROUTE);
-    await expect(page.getByRole('main').getByRole('heading', { name: 'Caixa de Entrada' })).toBeVisible({
-      timeout: 15_000,
-    });
+    await expectInboxLoaded(page);
   });
 
   test('exibe lista de conversas e estado vazio', async ({ page }) => {
@@ -74,6 +72,6 @@ test.describe('Supervisor — autenticado (mock API)', () => {
 
   test('link volta para Caixa de Entrada', async ({ page }) => {
     await page.getByRole('link', { name: '← Caixa de Entrada' }).click();
-    await expect(page.getByRole('main').getByRole('heading', { name: 'Caixa de Entrada' })).toBeVisible();
+    await expectInboxLoaded(page);
   });
 });

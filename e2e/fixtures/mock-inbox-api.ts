@@ -1,5 +1,14 @@
 import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { MOCK_AUTH_USER } from './mock-panel-api';
+
+/** Inbox não usa PageHeader — título fica no Header global (fora de main). */
+export async function expectInboxLoaded(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Caixa de Entrada' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('main').getByText('Maria Cliente')).toBeVisible({ timeout: 15_000 });
+}
 
 const INBOX_CAPABILITIES = [
   'dashboard:view',

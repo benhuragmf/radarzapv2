@@ -305,21 +305,63 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 - **Webhooks:** HMAC Stripe + outbound; sem payload bruto em log.
 - **Multi-tenant:** API filtra por `clientId`; RBAC no painel.
 - **LGPD:** consentimento contato/form; export CSV; portal titular pendente go-live.
-- **Pendências:** `auth.login_failed`, purge retenção, QA final → TOP 19.
+- **Pendências:** `auth.login_failed`, purge retenção, QA manual WA → TOP 20.
 
 ---
 
 ## 22. QA, testes e gates obrigatórios
 
-| Comando | Uso |
-|---------|-----|
-| `npm run typecheck` | TypeScript backend |
-| `npm run build` | Build backend |
-| `npm test` | Jest |
-| `npm run qa:atendimento:gate` | Gate atendimento |
-| `npm run qa:fase1:e2e` | Playwright painel |
+**Versão ref.:** `2.12.5` (TOP 19) · Doc completo: [`top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md)
 
-Mapas: [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md), [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md).
+### Gates obrigatórios (CI / pré-merge)
+
+| Comando | Uso | TOP 19 |
+|---------|-----|--------|
+| `npm run typecheck` | TypeScript backend | Verde |
+| `npm run build` | Build backend | Verde |
+| `npm test` | Jest (127 suites, 772 testes) | Verde |
+| `npm run qa:atendimento:gate` | Atendimento + billing/IA/audit + `qa:webchat-wa` | Verde |
+
+### Gates pré-TOP 20
+
+| Comando | Uso | TOP 19 |
+|---------|-----|--------|
+| `npm run qa:fase1:e2e` | Playwright 6 specs (38 testes chromium) | Verde |
+| `npm run qa:fase1:all` | E2E + gate atendimento | Equivalente verde |
+| `npm run qa:gate` | test + build + frontend build | Equivalente verde |
+| `npm run build --prefix src/services/web-dashboard/frontend` | Painel Vite | Verde |
+
+### Scripts auxiliares
+
+`qa:prep`, `qa:webchat-wa:setup`, `qa:leads:setup`, `qa:manual:start` (= atendimento gate), `lint` / `lint:all` (backend).
+
+### Sequência recomendada (evitar paralelo em OneDrive)
+
+```bash
+npm run typecheck
+npm run build
+npm test
+npm run qa:atendimento:gate
+npm run build --prefix src/services/web-dashboard/frontend
+npm run qa:fase1:e2e
+```
+
+### Roteiro manual (TOP 20)
+
+Blocos A–J no doc TOP 19: login, equipe, WebChat, WhatsApp, bridge, tickets, leads, IA, billing, segurança/LGPD. Templates: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md), [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md).
+
+### Critérios TOP 20
+
+- Gate humano WhatsApp (QR, inbound, comandos, bridge) verde.
+- Stripe **test** checkout + webhook; live só após checklist.
+- SSL, CORS, secrets em env — sem commit de credenciais.
+- **Não** marcar produção pronta sem TOP 20.
+
+### Riscos restantes (pós TOP 19)
+
+Baileys real, bridge em prod, Stripe live, ESLint frontend legado (159), Jest open handles, infra backups/SSL.
+
+Mapas legados: [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md), [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md).
 
 ---
 
@@ -349,6 +391,7 @@ Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRO
 | 14 | IA Básica profunda | TOP 14 | 2.12.0 |
 | 15 | IA Premium / KB / handoff | TOP 15 | 2.12.1 |
 | 18 | Auditoria / segurança / LGPD | TOP 18 | 2.12.4 |
+| 19 | QA final / regressão / checklist | TOP 19 | 2.12.5 |
 | 17 | Billing / limites / bloqueios | TOP 17 | 2.12.3 |
 | 16 | IA Créditos / carteira / fallback | TOP 16 | 2.12.2 |
 | 17–20 | Billing, auditoria, go-live | pendente | — |

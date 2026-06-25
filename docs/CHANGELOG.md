@@ -22,6 +22,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.5] — 2026-06-24
+
+### TOP 19 — QA final, regressão e checklist pré-go-live
+
+- Gates obrigatórios verdes: typecheck, build, 772 testes Jest, `qa:atendimento:gate`, E2E 38/38.
+- Doc: `docs/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` — roteiro manual TOP 20, checklist pré-go-live.
+- Fix E2E: seletores Inbox (título no Header) e radio RadarZap (strict mode).
+- Produção não declarada pronta; deploy não executado.
+
+---
+
 ## [2.12.4] — 2026-06-24
 
 ### TOP 18 — Auditoria, segurança, LGPD e hardening

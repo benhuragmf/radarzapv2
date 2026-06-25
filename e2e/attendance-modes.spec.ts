@@ -32,7 +32,7 @@ test.describe('Modos de atendimento — IA Atendimento (mock auth)', () => {
   test('modo IA Premium habilita provedor RadarZap', async ({ page }) => {
     await page.getByTestId('attendance-mode-premium_assistant').click();
     await expect(page.getByText(/Usar IA Premium no widget/)).toBeVisible();
-    const radarzapRadio = page.getByRole('radio', { name: /RadarZap/ });
+    const radarzapRadio = page.getByRole('radio', { name: /^RadarZap\b/ });
     await expect(radarzapRadio).toBeEnabled();
     await expect(radarzapRadio).toBeChecked();
   });
