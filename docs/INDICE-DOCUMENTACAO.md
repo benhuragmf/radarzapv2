@@ -1,8 +1,16 @@
 ﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.11.93` · **Atualizado:** 2026-06-24
+**Versão do produto:** `2.11.98` · **Atualizado:** 2026-06-24
 
-Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
+Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md). Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
+
+---
+
+## Documentação mestre
+
+| Documento | Descrição |
+|-----------|-----------|
+| [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) | **Entrada principal** — visão consolidada do sistema (TOP 11/12) |
 
 ---
 
@@ -69,6 +77,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md) | Contatos, leads, Kanban e deduplicação (TOP 09) |
 | [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md) | Formulários públicos, embed e captura (TOP 10) |
 | [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md) | WebChat, widget, fallback e visitante (TOP 11) |
+| [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md) | WhatsApp, sessão, QR, reconexão e comandos (TOP 12) |
 
 ---
 

@@ -22,6 +22,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.98] — 2026-06-24
+
+### TOP 12 — WhatsApp, sessão, QR, reconexão, comandos e documentação consolidada
+
+- Helpers `whatsapp-session.util.ts` (status produto, RBAC sessão, sanitização outbound, cross-tenant).
+- `isWhatsappTeamCommand` em comandos equipe WA.
+- Documentação mestre [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md).
+- Doc [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md).
+
+---
+
 ## [2.11.97] — 2026-06-24
 
 ### TOP 11 — WebChat, widget, fallback e experiência do visitante

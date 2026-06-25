@@ -43,6 +43,11 @@ export function isWhatsappListOpenCommand(command: WhatsappAgentCommandName): bo
   return LIST_OPEN_ALIASES.has(command);
 }
 
+/** Texto começa com comando de equipe (!assumir, !ticket, …). */
+export function isWhatsappTeamCommand(text: string): boolean {
+  return parseWhatsappAgentCommand(text) !== null;
+}
+
 export function parseWhatsappAgentCommand(
   text: string,
 ): { command: WhatsappAgentCommandName; arg?: string } | null {

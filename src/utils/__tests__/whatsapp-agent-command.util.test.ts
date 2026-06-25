@@ -3,6 +3,7 @@ import {
   parseCommandTicketArg,
   parseWhatsappAgentCommand,
   isPlaceholderTicketOpeningMessage,
+  isWhatsappTeamCommand,
   WHATSAPP_AGENT_COMMAND_HELP,
 } from '@/utils/whatsapp-agent-command.util';
 
@@ -45,6 +46,13 @@ describe('whatsapp-agent-command.util', () => {
     expect(parseWhatsappAgentCommand('!assumir')).toBeNull();
     expect(parseWhatsappAgentCommand('!foo bar')).toBeNull();
     expect(parseWhatsappAgentCommand('ola')).toBeNull();
+  });
+
+  it('isWhatsappTeamCommand detecta comandos de equipe', () => {
+    expect(isWhatsappTeamCommand('!ajuda')).toBe(true);
+    expect(isWhatsappTeamCommand('!nota TK-ABC texto')).toBe(true);
+    expect(isWhatsappTeamCommand('oi')).toBe(false);
+    expect(isWhatsappTeamCommand('!assumir')).toBe(false);
   });
 
   it('normalizes ticket ref', () => {
