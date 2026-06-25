@@ -26,6 +26,13 @@ import {
   formatTimeRemaining,
   isPaidPlanActive,
 } from '@/services/billing/subscription.util';
+import {
+  isBillingInGrace,
+  normalizeBillingStatus,
+  shouldBlockPaidFeatures,
+} from '@/services/billing/billing-state.util';
+import { findAiCreditPackById } from '@/types/ai-credit-packages.util';
+import { AiWalletService } from '@/services/ai/AiWalletService';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('BillingService');
@@ -210,6 +217,117 @@ export class BillingService {
     return { ok: true, mode: 'stripe' as const, planId, url: session.url };
   }
 
+  async createAiCreditPackCheckout(
+    userId: string,
+    organizationId: string,
+    packIdRaw?: string,
+  ) {
+    const packId = String(packIdRaw ?? '').trim();
+    const pack = findAiCreditPackById(packId);
+    if (!pack) throw new BillingHttpError('Pacote de créditos inválido', 400);
+
+    const org = await Organization.findById(organizationId);
+    if (!org) throw new BillingHttpError('Organização não encontrada', 404);
+
+    const secret = stripeSecretKey();
+    const amountCents = pack.priceCents;
+    const currency = pack.currency ?? 'BRL';
+
+    if (!secret) {
+      const order = await BillingOrder.create({
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        userId: new mongoose.Types.ObjectId(userId),
+        status: 'pending',
+        orderKind: 'ai_credit_pack',
+        planId: packId,
+        creditPackId: packId,
+        creditsGranted: pack.credits,
+        amountCents,
+        currency,
+      });
+      return {
+        ok: true,
+        mode: 'manual' as const,
+        packId,
+        orderId: String(order._id),
+        amountCents,
+        currency,
+        credits: pack.credits,
+        message:
+          'Configure STRIPE_SECRET_KEY no .env para checkout Stripe de pacotes IA.',
+      };
+    }
+
+    const webOrigin = config.DASHBOARD.FRONTEND_URL;
+    const params = new URLSearchParams();
+    params.set('mode', 'payment');
+    params.set(
+      'success_url',
+      `${webOrigin}/platform/ai?checkout=success&session_id={CHECKOUT_SESSION_ID}&packId=${encodeURIComponent(packId)}`,
+    );
+    params.set('cancel_url', `${webOrigin}/platform/ai?checkout=cancel`);
+    params.set('client_reference_id', organizationId);
+    params.set('metadata[organizationId]', organizationId);
+    params.set('metadata[userId]', userId);
+    params.set('metadata[orderKind]', 'ai_credit_pack');
+    params.set('metadata[creditPackId]', packId);
+    params.set('metadata[credits]', String(pack.credits));
+    params.set('line_items[0][price_data][currency]', currency.toLowerCase());
+    params.set('line_items[0][price_data][unit_amount]', String(amountCents));
+    params.set(
+      'line_items[0][price_data][product_data][name]',
+      `IA Créditos — ${pack.credits.toLocaleString('pt-BR')} créditos`,
+    );
+    params.set('line_items[0][quantity]', '1');
+
+    const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      let detail = text.slice(0, 300);
+      try {
+        const parsed = JSON.parse(text) as { error?: { message?: string } };
+        if (parsed.error?.message) detail = parsed.error.message;
+      } catch {
+        /* raw */
+      }
+      throw new BillingHttpError(`Stripe: ${detail}`, 400);
+    }
+
+    const session = (await res.json()) as { id: string; url: string };
+    await BillingOrder.create({
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      userId: new mongoose.Types.ObjectId(userId),
+      status: 'pending',
+      orderKind: 'ai_credit_pack',
+      planId: packId,
+      creditPackId: packId,
+      creditsGranted: pack.credits,
+      amountCents,
+      currency,
+      stripeSessionId: session.id,
+    });
+
+    return {
+      ok: true,
+      mode: 'stripe' as const,
+      packId,
+      credits: pack.credits,
+      url: session.url,
+    };
+  }
+
+  isAiCreditPackCheckoutEnabled(): boolean {
+    return Boolean(stripeSecretKey());
+  }
+
   async confirmCheckout(userId: string, organizationId: string, sessionId: string) {
     const secret = stripeSecretKey();
     if (!secret) throw new BillingHttpError('Stripe não configurado', 400);
@@ -238,7 +356,17 @@ export class BillingService {
       throw new BillingHttpError('Pagamento ainda não confirmado', 400);
     }
 
-    const planId = this.assertPurchasable(session.metadata?.planId ?? 'pro');
+    const metadata =
+      session.metadata && typeof session.metadata === 'object' && !Array.isArray(session.metadata)
+        ? (session.metadata as Record<string, unknown>)
+        : {};
+    const orderKind = String(metadata.orderKind ?? 'subscription').trim();
+
+    if (orderKind === 'ai_credit_pack') {
+      return this.confirmAiCreditPackCheckout(organizationId, userId, sessionId, metadata);
+    }
+
+    const planId = this.assertPurchasable(String(metadata.planId ?? 'pro'));
     const existing = await BillingOrder.findOne({
       stripeSessionId: sessionId,
       organizationId,
@@ -280,6 +408,8 @@ export class BillingService {
         return this.onCheckoutSessionExpired(event.data.object);
       case 'invoice.paid':
         return this.onInvoicePaid(event.data.object);
+      case 'invoice.payment_failed':
+        return this.onInvoicePaymentFailed(event.data.object);
       case 'customer.subscription.deleted':
         return this.onCustomerSubscriptionDeleted(event.data.object);
       default:
@@ -294,6 +424,16 @@ export class BillingService {
 
     const planId = org.plan as OrgPlanId;
     const status = computeSubscriptionStatus(planId, org.planExpiresAt);
+    const billingStatus = normalizeBillingStatus({
+      plan: planId,
+      planExpiresAt: org.planExpiresAt,
+      stripeSubscriptionStatus: org.stripeSubscriptionStatus,
+    });
+    const inGrace = isBillingInGrace(
+      billingStatus,
+      org.stripePastDueAt,
+    );
+    const paidFeaturesBlocked = shouldBlockPaidFeatures(billingStatus, { inGrace });
     const remaining = formatTimeRemaining(org.planExpiresAt);
     const catalog = this.planConfig.findPlan(planId);
     const orders = await BillingOrder.find({ organizationId })
@@ -315,6 +455,9 @@ export class BillingService {
       planId,
       planName: this.planConfig.planDisplayName(planId),
       status,
+      billingStatus,
+      inGracePeriod: inGrace,
+      paidFeaturesBlocked,
       plan: planId,
       isActive: planId === 'free' || status === 'active' || status === 'expiring_soon',
       activatedAt: activatedAt?.toISOString() ?? null,
@@ -344,7 +487,9 @@ export class BillingService {
       orders: orders.map(o => ({
         id: String(o._id),
         status: o.status,
+        orderKind: o.orderKind ?? 'subscription',
         planId: o.planId,
+        creditPackId: o.creditPackId ?? null,
         planName: this.planConfig.planDisplayName(o.planId),
         amountCents: o.amountCents,
         currency: o.currency,
@@ -434,12 +579,25 @@ export class BillingService {
     ).trim();
     const userId = String(metadata.userId ?? '').trim();
     const sessionId = String(session.id ?? '').trim();
-    const planId = this.assertPurchasable(String(metadata.planId ?? 'pro'));
-    const stripeSubscriptionId = String(session.subscription ?? '').trim() || undefined;
+    const orderKind = String(metadata.orderKind ?? 'subscription').trim();
 
     if (!organizationId || !userId || !sessionId) {
       throw new BillingHttpError('Sessão Stripe sem organizationId/userId', 400);
     }
+
+    if (orderKind === 'ai_credit_pack') {
+      return this.fulfillAiCreditPackPurchase({
+        organizationId,
+        userId,
+        sessionId,
+        creditPackId: String(metadata.creditPackId ?? '').trim(),
+        credits: Number(metadata.credits ?? 0),
+        source: 'stripe_webhook',
+      });
+    }
+
+    const planId = this.assertPurchasable(String(metadata.planId ?? 'pro'));
+    const stripeSubscriptionId = String(session.subscription ?? '').trim() || undefined;
 
     const org = await Organization.findById(organizationId);
     if (!org) throw new BillingHttpError('Organização não encontrada', 404);
@@ -503,6 +661,117 @@ export class BillingService {
     return this.expiry.expireByStripeSubscriptionId(subscriptionId);
   }
 
+  private async onInvoicePaymentFailed(invoice: Record<string, unknown>) {
+    const subscriptionId = String(invoice.subscription ?? '').trim();
+    if (!subscriptionId) return { ok: true, skipped: 'no_subscription' };
+
+    const org = await Organization.findOne({ stripeSubscriptionId: subscriptionId });
+    if (!org || org.plan === 'free') {
+      return { ok: true, skipped: 'unknown_subscription', subscriptionId };
+    }
+
+    org.stripeSubscriptionStatus = 'past_due';
+    org.stripePastDueAt = org.stripePastDueAt ?? new Date();
+    await org.save();
+
+    logger.info('Pagamento de assinatura falhou — grace period', {
+      organizationId: String(org._id),
+      subscriptionId,
+    });
+
+    return {
+      ok: true,
+      organizationId: String(org._id),
+      billingStatus: 'past_due',
+    };
+  }
+
+  private async confirmAiCreditPackCheckout(
+    organizationId: string,
+    userId: string,
+    sessionId: string,
+    metadata: Record<string, unknown>,
+  ) {
+    const packId = String(metadata.creditPackId ?? '').trim();
+    const credits = Number(metadata.credits ?? 0);
+    return this.fulfillAiCreditPackPurchase({
+      organizationId,
+      userId,
+      sessionId,
+      creditPackId: packId,
+      credits,
+      source: 'stripe_confirm',
+    });
+  }
+
+  private async fulfillAiCreditPackPurchase(input: {
+    organizationId: string;
+    userId: string;
+    sessionId: string;
+    creditPackId: string;
+    credits: number;
+    source: ActivateSource;
+  }) {
+    const pack = findAiCreditPackById(input.creditPackId);
+    const credits = pack?.credits ?? input.credits;
+    if (!input.creditPackId || !Number.isFinite(credits) || credits <= 0) {
+      throw new BillingHttpError('Pacote de créditos inválido na sessão', 400);
+    }
+
+    const existingPaid = await BillingOrder.findOne({
+      stripeSessionId: input.sessionId,
+      organizationId: input.organizationId,
+      orderKind: 'ai_credit_pack',
+      status: 'paid',
+    });
+    if (existingPaid) {
+      const org = await Organization.findById(input.organizationId).select('aiWallet').lean();
+      return {
+        ok: true,
+        organizationId: input.organizationId,
+        packId: input.creditPackId,
+        creditsGranted: existingPaid.creditsGranted ?? credits,
+        purchasedCredits: org?.aiWallet?.purchasedCredits ?? 0,
+        alreadyFulfilled: true,
+      };
+    }
+
+    const now = new Date();
+    await BillingOrder.updateMany(
+      { stripeSessionId: input.sessionId, organizationId: input.organizationId },
+      {
+        status: 'paid',
+        paidAt: now,
+        orderKind: 'ai_credit_pack',
+        creditPackId: input.creditPackId,
+        creditsGranted: credits,
+        planId: input.creditPackId,
+      },
+    );
+
+    const purchasedTotal = await AiWalletService.getInstance().addPurchasedCredits(
+      input.organizationId,
+      credits,
+    );
+
+    logger.info('Pacote IA Créditos creditado', {
+      organizationId: input.organizationId,
+      packId: input.creditPackId,
+      credits,
+      source: input.source,
+      userId: input.userId,
+    });
+
+    return {
+      ok: true,
+      organizationId: input.organizationId,
+      packId: input.creditPackId,
+      creditsGranted: credits,
+      purchasedCredits: purchasedTotal,
+      source: input.source,
+    };
+  }
+
   private async renewOrganizationSubscription(org: IOrganization, source: string) {
     if (org.plan === 'free') {
       return { ok: true, skipped: 'free_plan', organizationId: String(org._id) };
@@ -516,6 +785,8 @@ export class BillingService {
     const expiresAt = addDays(base, 30);
     org.planExpiresAt = expiresAt;
     org.planActivatedAt = org.planActivatedAt ?? now;
+    org.stripeSubscriptionStatus = 'active';
+    org.stripePastDueAt = undefined;
     await org.save();
 
     logger.info('Assinatura renovada', {

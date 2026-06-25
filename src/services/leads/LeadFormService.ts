@@ -888,6 +888,17 @@ export class LeadFormService {
       historyMessage: string;
     },
   ): Promise<ILeadCapture | null> {
+    try {
+      const { assertCanCaptureLead } = await import('@/services/billing/plan-limit-enforcement');
+      await assertCanCaptureLead(clientId);
+    } catch (e) {
+      logger.warn('Lead não capturado — limite do plano', {
+        clientId,
+        reason: (e as Error).message,
+      });
+      return null;
+    }
+
     const e164 = normalizeContactPhoneE164(opts.phone) || opts.phone.trim();
     if (!e164 || e164.startsWith('email:')) return null;
 

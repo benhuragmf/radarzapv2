@@ -1,6 +1,6 @@
 # IA — Créditos, carteira mensal e barra do painel
 
-**Versão:** 2.12.2 · **Atualizado:** 2026-06-24
+**Versão:** 2.12.3 · **Atualizado:** 2026-06-24
 
 Documento canônico do sistema de **créditos IA RadarZap**, **carteira mensal por empresa**, **cota de aprendizagem** e **indicadores na barra superior** do painel.
 
@@ -168,7 +168,7 @@ Não entra no cálculo de débito — apenas orienta o dono na configuração.
 
 ```ts
 {
-  purchasedCredits: number;   // extras comprados (Stripe futuro)
+  purchasedCredits: number;   // extras comprados (Stripe TOP 17 ou ajuste manual)
   learningOpsUsed: number;    // ops de aprendizagem no ciclo
   periodStart: Date;          // início do ciclo mensal
 }
@@ -182,7 +182,7 @@ Não entra no cálculo de débito — apenas orienta o dono na configuração.
 | `canSpendLlmCredits(wallet, pending)` | Bloqueia LLM RadarZap se saldo insuficiente |
 | `canRunLearning(wallet)` | Bloqueia skill/memória aprendida se cota esgotada |
 | `recordLearningOp(clientId, kind)` | +1 op ao propor skill ou memória |
-| `addPurchasedCredits(clientId, amount)` | Recarga manual / futuro checkout |
+| `addPurchasedCredits(clientId, amount)` | Recarga via `POST /billing/checkout/ai-credits` (webhook) ou `POST /platform/ai/wallet/purchased` (manual) |
 
 ### Quando o saldo esgota
 

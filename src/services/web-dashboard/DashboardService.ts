@@ -2248,10 +2248,13 @@ export class DashboardService {
 
     r.get('/platform/ai/credit-packages', requireCapability(Cap.INBOX_AI_BALANCE_VIEW), async (_req, res) => {
       try {
+        const checkoutEnabled = billingSvc.isAiCreditPackCheckoutEnabled();
         res.json({
           packs: listAiCreditPackCatalog(),
-          checkoutEnabled: false,
-          note: 'Compra avulsa via Stripe — TOP 17.',
+          checkoutEnabled,
+          note: checkoutEnabled
+            ? 'Checkout Stripe (modo teste quando STRIPE_SECRET_KEY=sk_test_…).'
+            : 'Configure STRIPE_SECRET_KEY para habilitar checkout de pacotes IA.',
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4273,6 +4276,22 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const { planId } = req.body as { planId?: string };
         const result = await billingSvc.createCheckout(auth.userId, auth.organizationId, planId);
+        res.json(result);
+      } catch (e) {
+        const err = e as BillingHttpError;
+        res.status(err.status ?? 400).json({ error: err.message });
+      }
+    });
+
+    r.post('/billing/checkout/ai-credits', requireCapability(Cap.BILLING_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { packId } = req.body as { packId?: string };
+        const result = await billingSvc.createAiCreditPackCheckout(
+          auth.userId,
+          auth.organizationId,
+          packId,
+        );
         res.json(result);
       } catch (e) {
         const err = e as BillingHttpError;

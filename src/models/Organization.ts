@@ -20,6 +20,9 @@ export interface IOrganization extends Document {
   planActivatedAt?: Date;
   planExpiresAt?: Date;
   stripeSubscriptionId?: string;
+  /** Espelho opcional do status Stripe (past_due, unpaid, …). */
+  stripeSubscriptionStatus?: string;
+  stripePastDueAt?: Date;
   linkedGuildIds: string[];
   /** Permissões por papel definidas pelo dono (sobrescreve presets globais) */
   roleCapabilities?: Partial<Record<string, string[]>>;
@@ -96,6 +99,8 @@ const OrganizationSchema = new Schema<IOrganization>({
   planActivatedAt: Date,
   planExpiresAt: { type: Date, index: true },
   stripeSubscriptionId: { type: String, index: true, sparse: true },
+  stripeSubscriptionStatus: { type: String, maxlength: 32 },
+  stripePastDueAt: Date,
   linkedGuildIds: { type: [String], default: [], index: true },
   roleCapabilities: { type: Schema.Types.Mixed, default: {} },
   customRoles: {

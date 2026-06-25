@@ -147,6 +147,9 @@ export async function importCanonicalContacts(
         continue;
       }
 
+      const { assertCanCreateContact } = await import('@/services/billing/plan-limit-enforcement');
+      await assertCanCreateContact(clientId);
+
       const dest = await Destination.createDestination(
         clientOid,
         'contact',
@@ -163,6 +166,9 @@ export async function importCanonicalContacts(
       const msg = (err as Error).message;
       if (msg.includes('already exists')) {
         report.ignorados++;
+      } else if (msg.includes('Limite de contatos')) {
+        report.erros.push({ linha: row.lineNumber, motivo: msg });
+        break;
       } else {
         report.erros.push({ linha: row.lineNumber, motivo: msg });
       }

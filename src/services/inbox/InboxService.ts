@@ -3265,6 +3265,9 @@ export class InboxService {
 
     let ticket = await InboxTicket.findOne({ clientId: clientOid, ticketRef: ref });
     if (!ticket) {
+      const { assertCanCreateTicket } = await import('@/services/billing/plan-limit-enforcement');
+      await assertCanCreateTicket(String(clientOid));
+
       ticket = await InboxTicket.create({
         clientId: clientOid,
         ticketRef: ref,

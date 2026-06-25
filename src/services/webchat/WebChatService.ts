@@ -191,6 +191,11 @@ export class WebChatService {
     clientId: string,
     data: { name: string; allowedDomains?: string[]; appearance?: Partial<WebChatWidgetAppearance> },
   ): Promise<IWebChatWidget> {
+    const { assertCanCreateWebchatWidget } = await import(
+      '@/services/billing/plan-limit-enforcement'
+    );
+    await assertCanCreateWebchatWidget(clientId);
+
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const doc = await WebChatWidget.create({
       clientId: clientOid,

@@ -13,6 +13,9 @@ jest.mock('@/services/integrations/WebhookDispatcherService', () => ({
 jest.mock('@/services/inbox/PanelNotifications', () => ({
   emitPanelEvent: jest.fn(),
 }));
+jest.mock('@/services/billing/plan-limit-enforcement', () => ({
+  assertCanCaptureLead: jest.fn().mockResolvedValue(undefined),
+}));
 
 const clientId = new mongoose.Types.ObjectId().toString();
 const destId = new mongoose.Types.ObjectId().toString();

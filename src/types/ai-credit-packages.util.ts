@@ -5,7 +5,7 @@ export interface AiCreditPackCatalogItem {
   credits: number;
   priceCents: number;
   currency: string;
-  /** `documented_future` até TOP 17 integrar cobrança. */
+  /** `documented_future` no catálogo; checkout Stripe quando STRIPE_SECRET_KEY configurada (TOP 17). */
   status: string;
   priceLabel: string;
 }

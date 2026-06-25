@@ -22,6 +22,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.3] — 2026-06-24
+
+### TOP 17 — Billing, assinaturas, limites e bloqueios
+
+- Helpers `billing-state.util.ts`, `plan-limit.util.ts`, `plan-limit-enforcement.ts`.
+- Checkout Stripe pacotes IA (`POST /billing/checkout/ai-credits`); webhook idempotente → `purchasedCredits`.
+- Enforcement: `webchatWidgets`, `leadsPerMonth`, `contacts`, `ticketsPerMonth`.
+- `invoice.payment_failed` → `past_due` + grace 3 dias documentado.
+- Doc: `docs/top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`.
+
+---
+
 ## [2.12.2] — 2026-06-24
 
 ### TOP 16 — IA Créditos, carteira, consumo e fallback

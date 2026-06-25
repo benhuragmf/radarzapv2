@@ -1,6 +1,6 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.12.2` · **Atualizado:** 2026-06-24
+**Versão:** `2.12.3` · **Atualizado:** 2026-06-24
 
 Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanecem nos `.md` especializados listados em [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md). Auditoria TOP 01–20: pasta [`top/`](./top/).
 
@@ -281,7 +281,15 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 
 ## 20. Billing, assinaturas e bloqueios
 
-[`BILLING.md`](./BILLING.md). Checkout Stripe, planos, alertas críticos no painel. Bloqueios por excedente → TOP 17.
+[`BILLING.md`](./BILLING.md) · [`top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md).
+
+- **Catálogo:** `config/plans.json` (TOP 03) — Trial/Free/Starter R$99/Pro R$299/Enterprise.
+- **Stripe:** checkout assinatura (`starter`/`pro`) + pacotes IA (`pack_1k`/`pack_5k`/`pack_15k`); modo teste com `sk_test_…`.
+- **Webhooks:** HMAC `STRIPE_WEBHOOK_SECRET`; eventos assinatura + `invoice.payment_failed` (grace 3d).
+- **Status:** `billing-state.util.ts` — `active`, `past_due`, `unpaid`, `canceled`, etc.
+- **Limites backend:** equipe (TOP 04), formulários, widgets WebChat, leads/mês, contatos, tickets/mês, IA créditos (TOP 16).
+- **RBAC:** `BILLING_MANAGE`; cross-tenant bloqueado.
+- **Pendências:** trial runtime na org, gateway BR, Customer Portal, alguns limites (`whatsappDestinations`, `conversationsPerMonth`). Auditoria billing → TOP 18.
 
 ---
 
@@ -334,6 +342,7 @@ Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRO
 | 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 |
 | 14 | IA Básica profunda | TOP 14 | 2.12.0 |
 | 15 | IA Premium / KB / handoff | TOP 15 | 2.12.1 |
+| 17 | Billing / limites / bloqueios | TOP 17 | 2.12.3 |
 | 16 | IA Créditos / carteira / fallback | TOP 16 | 2.12.2 |
 | 17–20 | Billing, auditoria, go-live | pendente | — |
 
