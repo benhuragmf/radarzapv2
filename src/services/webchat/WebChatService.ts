@@ -124,6 +124,12 @@ import {
 import { AiKnowledgeBaseService } from '../ai/AiKnowledgeBaseService';
 import { AiSettingsService } from '../ai/AiSettingsService';
 import { effectiveWebChatPremiumAi, resolveAttendanceMode } from '../../types/attendance-mode';
+import {
+  assertWebChatVisitorMessage,
+  resolveWebChatEscalationSystemMessage,
+  shouldEscalateWebChatOnPremiumAiFailure,
+  WEBCHAT_QUEUE_WAITING_VISITOR_MESSAGE,
+} from '../../types/webchat-public.util';
 import { AI_AUTO_RESOLVE_MIN_SCORE } from '../../utils/ai-text-match';
 import {
   buildWebChatFaqReplyBody,
@@ -1991,8 +1997,7 @@ export class WebChatService {
     origin?: string | null,
     referer?: string | null,
   ): Promise<WebChatVisitorSendResult> {
-    const text = body?.trim();
-    if (!text) throw new Error('Mensagem vazia');
+    const text = assertWebChatVisitorMessage(body);
 
     const conversation = await this.resolveVisitorToken(visitorToken);
     if (!conversation) throw new Error('Sessão inválida ou encerrada');
@@ -2428,7 +2433,7 @@ export class WebChatService {
       const fresh = await WebChatConversation.findById(conversation._id);
       if (fresh?.queueStatus === 'bot' && !fresh.assignedUserId) {
         await this.escalateToQueue(clientIdStr, convId, {
-          reason: 'Aguardando atendimento humano.',
+          reason: WEBCHAT_QUEUE_WAITING_VISITOR_MESSAGE,
         });
       }
       return [];
@@ -2620,6 +2625,15 @@ export class WebChatService {
         body = ai.body;
         senderName = ai.senderName;
         shouldEscalate = Boolean(ai.shouldEscalate);
+      } else if (shouldEscalateWebChatOnPremiumAiFailure(usePremiumAi, false)) {
+        this.serviceLogger.warn('WebChat IA indisponível — escalando para fila humana', {
+          conversationId: String(conversation._id),
+          clientId: String(conversation.clientId),
+        });
+        shouldEscalate = true;
+        body =
+          (widget.autoReplyMessage ?? DEFAULT_AUTO_REPLY_MESSAGE).trim() ||
+          WEBCHAT_QUEUE_WAITING_VISITOR_MESSAGE;
       } else {
         this.serviceLogger.warn('WebChat IA indisponível — usando mensagem fixa', {
           conversationId: String(conversation._id),
@@ -2676,11 +2690,10 @@ export class WebChatService {
       ? await InboxDepartment.findById(departmentOid).select('name').lean()
       : null;
 
-    const systemBody =
-      opts.reason?.trim() ||
-      (dept?.name
-        ? `Encaminhamos você para o setor ${dept.name}. Um atendente responderá em breve.`
-        : 'Encaminhamos você para a fila de atendimento. Um especialista responderá em breve.');
+    const systemBody = resolveWebChatEscalationSystemMessage({
+      reason: opts.reason,
+      departmentName: dept?.name,
+    });
 
     await this.appendMessage(conversation, {
       direction: 'system',

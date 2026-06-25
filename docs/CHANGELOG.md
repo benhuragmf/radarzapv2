@@ -22,6 +22,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.97] — 2026-06-24
+
+### TOP 11 — WebChat, widget, fallback e experiência do visitante
+
+- Helpers `webchat-public.util.ts` (sanitização, fila, gate IA Premium, assinatura config).
+- Widget: `outsideHoursMessage`, mensagem oficial de fila, sync expandida no refresh.
+- IA Premium indisponível escala para fila humana; mensagens de escalação unificadas.
+- Testes `webchat-public.util`, `webchat-public-security`; doc [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md).
+
+---
+
 ## [2.11.96] — 2026-06-24
 
 ### TOP 10 — Formulários públicos, embed e captura de leads

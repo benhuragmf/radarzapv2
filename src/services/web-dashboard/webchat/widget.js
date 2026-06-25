@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.11.96';
+  var WIDGET_BUILD = '2.11.97';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -2456,6 +2456,15 @@
       cfg.position || '',
       cfg.prechatMode || 'steps',
       cfg.previewTemplateId || '',
+      cfg.greeting || '',
+      JSON.stringify(cfg.prechatFields || []),
+      cfg.proactiveGreetingEnabled ? '1' : '0',
+      cfg.proactiveGreetingMessage || '',
+      cfg.ticketLookupEnabled === false ? '0' : '1',
+      cfg.faqInChatEnabled === false ? '0' : '1',
+      cfg.faqCatalogAvailable ? '1' : '0',
+      cfg.businessHoursEnabled ? '1' : '0',
+      cfg.outsideHoursMessage || '',
     ].join('|');
   }
 
@@ -3638,9 +3647,15 @@
           t.offlineText +
           ';line-height:1.4;">' +
           '<strong>Fora do horário</strong>' +
-          (state.config.scheduleSummary
-            ? '<div style="margin-top:4px;opacity:.85;">' + escHtml(state.config.scheduleSummary) + '</div>'
-            : '') +
+          (state.config.outsideHoursMessage
+            ? '<div style="margin-top:4px;opacity:.9;">' +
+              escHtml(state.config.outsideHoursMessage) +
+              '</div>'
+            : state.config.scheduleSummary
+              ? '<div style="margin-top:4px;opacity:.85;">' +
+                escHtml(state.config.scheduleSummary) +
+                '</div>'
+              : '') +
           '</div>'
         : '';
 
@@ -3662,6 +3677,7 @@
           t.queueWaitText +
           ';line-height:1.4;">' +
           '<strong>Aguardando atendente</strong>' +
+          '<div style="margin-top:4px;opacity:.9;">Você está na fila de atendimento. Assim que um atendente estiver disponível, ele continuará por aqui.</div>' +
           (state.departmentName
             ? '<div style="margin-top:4px;opacity:.9;">Setor: ' + escHtml(state.departmentName) + '</div>'
             : '') +
