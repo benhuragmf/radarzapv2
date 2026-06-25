@@ -8,15 +8,17 @@ A rota `/platform/leads` funciona como **triagem e conversão** — entradas ain
 
 Métricas operacionais (`GET /leads/stats` → `operational`): novos abertos, WhatsApp aguardando, site/formulários, convertidos hoje, sem responsável. Clique nos cards aplica filtros (`openOnly`, `origins`, etc.).
 
-### WhatsApp → Lead (2.11.69)
+### WhatsApp → Lead (2.11.69, ajuste TOP 09 / 2.11.95)
 
-Quando um **número novo** envia a primeira mensagem WhatsApp:
+Quando um **número novo** envia a primeira mensagem WhatsApp **com intenção comercial** (orçamento, plano, cotação, etc. — classificador local):
 
 1. `InboxService.handleInboundMessage` cria contato + conversa (fluxo existente).
 2. `LeadFormService.maybeCaptureWhatsAppInbound` cria `LeadCapture` com `origin: whatsapp`, vincula `destinationId` e `inboxConversationId`.
 3. Usa formulário sistema inativo **Entrada WhatsApp (sistema)** (lazy por organização).
 
-**Não** duplica lead se o telefone já existia em Contatos ou já há lead aberto para o mesmo número. Webhook `lead.created` emitido.
+**Saudação genérica (`oi`, `bom dia`) não cria lead** — apenas contato + Inbox. Retorno (nova conversa após encerramento) ainda gera lead. Webhook `lead.created` quando aplicável.
+
+**Não** duplica lead se o telefone já existia em Contatos ou já há lead aberto para o mesmo número.
 
 ### Captura manual (2.11.69)
 
@@ -76,7 +78,7 @@ Toda captura (formulário, WhatsApp, WebChat, manual) emite evento `lead:new_ent
 - Menu: **Contatos → Leads** (`/platform/leads`)
 - Abas: **Capturas** · **Integrar no site** · **Listas e segmentos** · **Formulários**
 - Cards no topo: total, novos hoje, em atendimento, convertidos, perdidos, origem principal
-- Permissões: visualizar `consent:view`; gerenciar formulários/leads `send:destination:manage`; Inbox `inbox:reply`
+- Permissões: visualizar `leads:view` (fallback `consent:view`); gerenciar `leads:manage` (fallback `send:destination:manage`); Kanban `leads:kanban:manage`; Inbox `inbox:reply`
 
 ## Integrar no site (painel)
 

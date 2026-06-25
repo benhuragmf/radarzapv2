@@ -34,6 +34,19 @@ describe('LeadFormService.maybeCaptureWebChatSession', () => {
     expect(result).toBeNull();
   });
 
+  it('não cria lead para pré-chat genérico sem intenção comercial', async () => {
+    const result = await svc.maybeCaptureWebChatSession(clientId, {
+      webchatConversationId: new mongoose.Types.ObjectId().toString(),
+      phone: '+5511999999999',
+      name: 'Visitante',
+      message: 'Oi',
+      hadExistingContact: false,
+      isNewConversation: true,
+    });
+    expect(result).toBeNull();
+    expect(LeadCapture.create).not.toHaveBeenCalled();
+  });
+
   it('cria lead de retorno para contato existente em nova sessão', async () => {
     (LeadCapture.findOne as jest.Mock).mockResolvedValue(null);
     const formId = new mongoose.Types.ObjectId();

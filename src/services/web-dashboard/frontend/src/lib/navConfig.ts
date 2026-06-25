@@ -8,7 +8,7 @@ import {
   Inbox, MessageSquareText, PanelTop, UserPlus,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
-import { can } from './auth'
+import { can, canAny } from './auth'
 
 export type NavLink = {
   kind: 'link'
@@ -287,6 +287,9 @@ export function userHasAdminMode(user: AuthUser): boolean {
 }
 
 function linkAllowed(entry: NavLink, user: AuthUser | null): boolean {
+  if (entry.id === 'wa-leads') {
+    return canAny(user, 'leads:view', 'consent:view')
+  }
   return !entry.permission || can(user, entry.permission)
 }
 
@@ -392,7 +395,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/audit': 'platform:audit:view',
   '/platform/campanhas': 'send:test',
   '/platform/segmentos': 'send:destination:manage',
-  '/platform/leads': 'consent:view',
+  '/platform/leads': 'leads:view',
   '/platform/gatilhos': 'send:schedule:manage',
   '/platform/wa-logs': 'logs:view',
   '/platform/wa-stories': 'send:test',

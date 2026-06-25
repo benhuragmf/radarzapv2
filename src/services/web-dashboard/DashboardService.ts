@@ -5638,8 +5638,15 @@ export class DashboardService {
 
     // ── Leads (formulários públicos) ───────────────────────────────────────
     const leadSvc = LeadFormService.getInstance();
+    const requireLeadsView = requireAnyCapability(Cap.LEADS_VIEW, Cap.CONSENT_VIEW);
+    const requireLeadsManage = requireAnyCapability(Cap.LEADS_MANAGE, Cap.SEND_DESTINATION_MANAGE);
+    const requireLeadsKanban = requireAnyCapability(
+      Cap.LEADS_KANBAN_MANAGE,
+      Cap.LEADS_MANAGE,
+      Cap.SEND_DESTINATION_MANAGE,
+    );
 
-    r.get('/leads/forms', requireAnyCapability(Cap.CONSENT_VIEW, Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.get('/leads/forms', requireAnyCapability(Cap.LEADS_VIEW, Cap.CONSENT_VIEW, Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const forms = await leadSvc.listForms(auth.clientId);
@@ -5649,7 +5656,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/leads/assignees', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.get('/leads/assignees', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         res.json(await leadSvc.listAssignees(auth.clientId));
@@ -5658,7 +5665,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/leads/stats', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+    r.get('/leads/stats', requireLeadsView, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         res.json(await leadSvc.getStats(auth.clientId));
@@ -5667,7 +5674,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/leads/segments-summary', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+    r.get('/leads/segments-summary', requireLeadsView, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         res.json(await leadSvc.getSegmentSummary(auth.clientId));
@@ -5676,7 +5683,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/leads/forms', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.post('/leads/forms', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const form = await leadSvc.createForm(auth.clientId, req.body as { name: string });
@@ -5686,7 +5693,7 @@ export class DashboardService {
       }
     });
 
-    r.patch('/leads/forms/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.patch('/leads/forms/:id', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const form = await leadSvc.updateForm(auth.clientId, req.params.id, req.body);
@@ -5697,7 +5704,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/leads/forms/:id/duplicate', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.post('/leads/forms/:id/duplicate', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const form = await leadSvc.duplicateForm(auth.clientId, req.params.id);
@@ -5708,7 +5715,7 @@ export class DashboardService {
       }
     });
 
-    r.delete('/leads/forms/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.delete('/leads/forms/:id', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const ok = await leadSvc.deleteForm(auth.clientId, req.params.id);
@@ -5719,7 +5726,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/leads/captures', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+    r.get('/leads/captures', requireLeadsView, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const q = req.query as {
@@ -5771,7 +5778,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/leads/captures', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.post('/leads/captures', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const item = await leadSvc.createManualCapture(auth.clientId, auth.userId, req.body ?? {});
@@ -5781,7 +5788,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/leads/captures/:id', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+    r.get('/leads/captures/:id', requireLeadsView, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const item = await leadSvc.getCapture(auth.clientId, req.params.id);
@@ -5792,7 +5799,7 @@ export class DashboardService {
       }
     });
 
-    r.patch('/leads/captures/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.patch('/leads/captures/:id', requireLeadsKanban, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const item = await leadSvc.updateCapture(auth.clientId, req.params.id, req.body, auth.userId);
@@ -5803,7 +5810,7 @@ export class DashboardService {
       }
     });
 
-    r.get('/leads/contacts-search', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+    r.get('/leads/contacts-search', requireLeadsView, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const q = typeof req.query.q === 'string' ? req.query.q : '';
@@ -5814,7 +5821,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/leads/captures/:id/link', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.post('/leads/captures/:id/link', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const contactId = typeof req.body?.contactId === 'string' ? req.body.contactId : '';
@@ -5826,7 +5833,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/leads/captures/:id/convert', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.post('/leads/captures/:id/convert', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const item = await leadSvc.convertCapture(auth.clientId, req.params.id, req.body ?? {}, auth.userId);
@@ -5836,7 +5843,7 @@ export class DashboardService {
       }
     });
 
-    r.post('/leads/captures/:id/add-to-groups', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.post('/leads/captures/:id/add-to-groups', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const groupIds = Array.isArray(req.body?.groupIds) ? req.body.groupIds : [];
@@ -5848,7 +5855,7 @@ export class DashboardService {
       }
     });
 
-    r.delete('/leads/captures/:id', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+    r.delete('/leads/captures/:id', requireLeadsManage, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const ok = await leadSvc.deleteCapture(auth.clientId, req.params.id);

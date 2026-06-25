@@ -34,11 +34,11 @@ export type KanbanColumnDef = {
 }
 
 export const LEAD_KANBAN_COLUMNS: KanbanColumnDef[] = [
-  { key: 'new', label: 'Novo', emptyLabel: 'Nenhum lead novo', statuses: ['new'] },
-  { key: 'waiting', label: 'Aguardando', emptyLabel: 'Ninguém aguardando', statuses: ['in_review'] },
+  { key: 'new', label: 'Novo lead', emptyLabel: 'Nenhum lead novo', statuses: ['new'] },
+  { key: 'waiting', label: 'Tentando contato', emptyLabel: 'Ninguém aguardando', statuses: ['in_review'] },
   { key: 'in_progress', label: 'Em atendimento', emptyLabel: 'Nenhum em atendimento', statuses: ['in_progress'] },
   { key: 'qualified', label: 'Qualificado', emptyLabel: 'Nenhum qualificado', statuses: ['qualified'] },
-  { key: 'converted', label: 'Convertido', emptyLabel: 'Nenhum convertido', statuses: ['converted'] },
+  { key: 'converted', label: 'Fechado / Ganho', emptyLabel: 'Nenhum convertido', statuses: ['converted'] },
   { key: 'lost', label: 'Perdido', emptyLabel: 'Nenhum perdido', statuses: ['lost', 'spam'] },
 ]
 

@@ -22,6 +22,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.95] — 2026-06-24
+
+### TOP 09 — Contatos, leads, Kanban e deduplicação
+
+- Helpers `lead-stage.util.ts`, `lead-dedupe.util.ts`, `lead-inbound.util.ts` (funil oficial, dedupe, regras inbound).
+- Capabilities `leads:view|manage|kanban:manage|export` e `contacts:view|manage`; API `/leads/*` com fallback legado.
+- WhatsApp/WebChat genérico não cria lead automático (exige intenção comercial no 1º contato).
+- Kanban: rótulos alinhados ao funil TOP 09.
+- Documento [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md).
+
+---
+
 ## [2.11.94] — 2026-06-24
 
 ### TOP 08 — Tickets, chamados, TK e rastreabilidade

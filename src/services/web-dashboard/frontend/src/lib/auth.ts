@@ -134,6 +134,10 @@ export function can(user: AuthUser | null, permission: string, guildId?: string)
   return true
 }
 
+export function canAny(user: AuthUser | null, ...permissions: string[]): boolean {
+  return permissions.some(p => can(user, p))
+}
+
 export function hasRole(user: AuthUser | null, role: UserRole): boolean {
   if (!user) return false
   if (user.primaryRole === 'SYSTEM_ADMIN') return true

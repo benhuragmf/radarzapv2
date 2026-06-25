@@ -59,6 +59,18 @@ export const TENANT_ASSIGNABLE_CAPABILITIES: Capability[] = [
 
   Cap.SEND_DESTINATION_VIEW,
 
+  Cap.CONTACTS_VIEW,
+
+  Cap.CONTACTS_MANAGE,
+
+  Cap.LEADS_VIEW,
+
+  Cap.LEADS_MANAGE,
+
+  Cap.LEADS_KANBAN_MANAGE,
+
+  Cap.LEADS_EXPORT,
+
   Cap.INBOX_VIEW,
 
   Cap.INBOX_REPLY,
@@ -199,9 +211,35 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
 
       Cap.CONSENT_VIEW,
 
+      Cap.CONTACTS_VIEW,
+
+      Cap.CONTACTS_MANAGE,
+
       Cap.SEND_DESTINATION_VIEW,
 
       Cap.SEND_DESTINATION_MANAGE,
+
+    ],
+
+  },
+
+  {
+
+    id: 'leads',
+
+    label: 'Leads',
+
+    description: 'Central comercial, Kanban e capturas',
+
+    capabilities: [
+
+      Cap.LEADS_VIEW,
+
+      Cap.LEADS_MANAGE,
+
+      Cap.LEADS_KANBAN_MANAGE,
+
+      Cap.LEADS_EXPORT,
 
     ],
 

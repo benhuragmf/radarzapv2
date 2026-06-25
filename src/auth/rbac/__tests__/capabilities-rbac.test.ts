@@ -62,6 +62,10 @@ describe('capabilities RBAC — papéis custom oficiais (TOP 04)', () => {
     Cap.DASHBOARD_VIEW,
     Cap.ACCOUNT_SETTINGS,
     Cap.CONSENT_VIEW,
+    Cap.CONTACTS_VIEW,
+    Cap.LEADS_VIEW,
+    Cap.LEADS_MANAGE,
+    Cap.LEADS_KANBAN_MANAGE,
     Cap.SEND_DESTINATION_VIEW,
     Cap.INBOX_VIEW,
     Cap.PLATFORM_REPORTS_VIEW,
@@ -84,10 +88,28 @@ describe('capabilities RBAC — papéis custom oficiais (TOP 04)', () => {
 
   it('Marketing vê leads/contatos, sem billing', () => {
     const caps = resolveMemberCapabilities(CompanyRole.CUSTOM, [], [], undefined, marketingCaps);
+    expect(caps).toContain(Cap.LEADS_VIEW);
+    expect(caps).toContain(Cap.LEADS_MANAGE);
     expect(caps).toContain(Cap.CONSENT_VIEW);
     expect(caps).toContain(Cap.INBOX_VIEW);
     expect(caps).not.toContain(Cap.BILLING_VIEW);
     expect(caps).not.toContain(Cap.INBOX_REPLY);
+  });
+
+  it('Financeiro não gerencia leads', () => {
+    const caps = resolveMemberCapabilities(CompanyRole.CUSTOM, [], [], undefined, financeCaps);
+    expect(caps).not.toContain(Cap.LEADS_VIEW);
+    expect(caps).not.toContain(Cap.LEADS_MANAGE);
+  });
+
+  it('OWNER possui capabilities de leads', () => {
+    expect(hasCap(CompanyRole.OWNER, Cap.LEADS_MANAGE)).toBe(true);
+    expect(hasCap(CompanyRole.OWNER, Cap.LEADS_KANBAN_MANAGE)).toBe(true);
+  });
+
+  it('ATTENDANT vê leads sem gerenciar Kanban', () => {
+    expect(hasCap(CompanyRole.ATTENDANT, Cap.LEADS_VIEW)).toBe(true);
+    expect(hasCap(CompanyRole.ATTENDANT, Cap.LEADS_MANAGE)).toBe(false);
   });
 
   it('Viewer só consulta, sem editar atendimento', () => {

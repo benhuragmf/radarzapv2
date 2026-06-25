@@ -66,6 +66,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`](./top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md) | Modos de atendimento unificados + híbrido (TOP 06) |
 | [`top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md) | Inbox, fila, atribuição e transferência (TOP 07) |
 | [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md) | Tickets, TK, token público, SLA e rastreabilidade (TOP 08) |
+| [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md) | Contatos, leads, Kanban e deduplicação (TOP 09) |
 
 ---
 

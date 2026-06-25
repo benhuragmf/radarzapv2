@@ -39,6 +39,20 @@ describe('LeadFormService.maybeCaptureWhatsAppInbound', () => {
     expect(LeadCapture.create).not.toHaveBeenCalled();
   });
 
+  it('não cria lead para saudação genérica no primeiro contato', async () => {
+    const result = await svc.maybeCaptureWhatsAppInbound(clientId, {
+      destinationId: destId,
+      conversationId: convId,
+      phone: '+5511999999999',
+      name: 'João',
+      message: 'Oi',
+      isNewContact: true,
+      isNewConversation: true,
+    });
+    expect(result).toBeNull();
+    expect(LeadCapture.create).not.toHaveBeenCalled();
+  });
+
   it('cria lead de retorno quando contato existe mas conversa é nova', async () => {
     (LeadCapture.findOne as jest.Mock).mockResolvedValue(null);
     const formId = new mongoose.Types.ObjectId();
@@ -103,6 +117,7 @@ describe('LeadFormService.maybeCaptureWhatsAppInbound', () => {
       conversationId: convId,
       phone: '+5511888888888',
       name: 'Pedro',
+      message: 'Quero orçamento',
       isNewContact: true,
       isNewConversation: true,
     });

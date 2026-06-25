@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { can, getMe } from '../../lib/auth'
+import { can, canAny, getMe } from '../../lib/auth'
 import { usePanelSocket } from '../../hooks/usePanelSocket'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { LeadIntegrationsPanel } from '../../components/leads/LeadIntegrationsPanel'
@@ -114,8 +114,8 @@ export default function Leads() {
   }
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: getMe })
-  const canManage = can(me ?? null, 'send:destination:manage')
-  const canView = can(me ?? null, 'consent:view')
+  const canManage = canAny(me ?? null, 'leads:manage', 'send:destination:manage')
+  const canView = canAny(me ?? null, 'leads:view', 'consent:view')
   const canReply = can(me ?? null, 'inbox:reply')
 
   const captureQuery = useMemo(() => {

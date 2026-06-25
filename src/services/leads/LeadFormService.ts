@@ -39,13 +39,17 @@ import {
 } from './lead-form-token.util';
 import { appendLeadHistory, emitLeadWebhook, notifyLeadPanelRefresh, notifyNewLeadPanelEvent } from './lead-events.util';
 import { hasCommercialLeadIntent } from './lead-commercial-intent.util';
+import { OPEN_LEAD_STATUSES } from '@/types/lead-dedupe.util';
+import {
+  shouldCreateLeadFromWebChatSession,
+  shouldCreateLeadFromWhatsAppInbound,
+} from '@/types/lead-inbound.util';
 
 const logger = createServiceLogger('LeadFormService');
 
 const SYSTEM_FORM_WHATSAPP_NAME = 'Entrada WhatsApp (sistema)';
 const SYSTEM_FORM_WEBCHAT_NAME = 'Entrada WebChat (sistema)';
 const SYSTEM_FORM_MANUAL_NAME = 'Captura manual (sistema)';
-const OPEN_LEAD_STATUSES: LeadCaptureStatus[] = ['new', 'in_review', 'in_progress', 'qualified'];
 
 const CUSTOM_FIELD_ID_RE = /^cf_[a-f0-9]{8,24}$/;
 const VALID_FIELD_TYPES = new Set(['text', 'textarea', 'email', 'tel', 'select', 'checkbox', 'hidden']);
@@ -957,7 +961,7 @@ export class LeadFormService {
       isNewConversation: boolean;
     },
   ): Promise<ILeadCapture | null> {
-    if (!opts.isNewContact && !opts.isNewConversation) return null;
+    if (!shouldCreateLeadFromWhatsAppInbound(opts)) return null;
 
     const historyMessage = opts.isNewContact
       ? 'Capturado via WhatsApp (primeiro contato)'
@@ -990,7 +994,7 @@ export class LeadFormService {
       destinationId?: string;
     },
   ): Promise<ILeadCapture | null> {
-    if (!opts.isNewConversation) return null;
+    if (!shouldCreateLeadFromWebChatSession(opts)) return null;
 
     const historyMessage = opts.hadExistingContact
       ? 'Retorno via Chat do site (nova sessão)'
