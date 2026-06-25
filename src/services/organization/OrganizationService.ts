@@ -27,6 +27,8 @@ import {
   buildTeamInviteEmail,
   resolveInviteRoleLabel,
 } from '@/services/email/team-invite-email';
+import { assertCanAssignTeamRole } from '@/services/team/team-plan-limits';
+import { writeAuditLog } from '@/models/AuditLog';
 
 const logger = createServiceLogger('OrganizationService');
 
@@ -721,8 +723,27 @@ export class OrganizationService {
       if (parsed.customRoleId) {
         await this.assertCustomRoleExists(organizationId, parsed.customRoleId);
       }
+      await assertCanAssignTeamRole(organizationId, {
+        companyRole: parsed.companyRole,
+        customRoleId: parsed.customRoleId,
+        excludeMemberId: member._id.toString(),
+        addsUserSeat: true,
+      });
+      const previousRoleKey =
+        member.companyRole === CompanyRole.CUSTOM && member.customRoleId
+          ? customRoleKey(member.customRoleId)
+          : member.companyRole;
       member.companyRole = parsed.companyRole;
       member.customRoleId = parsed.customRoleId;
+      await writeAuditLog({
+        action: 'team:member:role_change',
+        details: {
+          organizationId,
+          memberId: member._id.toString(),
+          fromRoleKey: previousRoleKey,
+          toRoleKey: patch.roleKey,
+        },
+      });
     } else if (patch.companyRole !== undefined) {
       if (!INVITEABLE_ROLES.includes(patch.companyRole)) {
         throw new Error('Papel inválido');
@@ -913,6 +934,13 @@ export class OrganizationService {
       if (existingByEmail.isActive && existingByEmail.userId) {
         throw new Error('Este e-mail já está na equipe');
       }
+      const addsSeat = !existingByEmail.isActive;
+      await assertCanAssignTeamRole(organizationId, {
+        companyRole: role,
+        customRoleId,
+        excludeMemberId: addsSeat ? undefined : existingByEmail._id.toString(),
+        addsUserSeat: addsSeat,
+      });
       applyInviteFields(existingByEmail);
       const saved = await existingByEmail.save();
       const inviteEmail = await this.deliverMemberInviteEmail(
@@ -920,6 +948,17 @@ export class OrganizationService {
         saved,
         invitedByUserId,
       );
+      await writeAuditLog({
+        action: 'team:member:invite',
+        actorUserId: invitedByUserId,
+        details: {
+          organizationId,
+          memberId: saved._id.toString(),
+          email: normalized,
+          roleKey,
+          reactivated: true,
+        },
+      });
       return { member: saved, inviteEmail, linkedAccount: Boolean(registeredUser) };
     }
 
@@ -935,6 +974,11 @@ export class OrganizationService {
         if (existingByUser.isActive) {
           throw new Error('Este e-mail já está na equipe');
         }
+        await assertCanAssignTeamRole(organizationId, {
+          companyRole: role,
+          customRoleId,
+          addsUserSeat: true,
+        });
         applyInviteFields(existingByUser);
         const saved = await existingByUser.save();
         const inviteEmail = await this.deliverMemberInviteEmail(
@@ -942,11 +986,26 @@ export class OrganizationService {
           saved,
           invitedByUserId,
         );
+        await writeAuditLog({
+          action: 'team:member:invite',
+          actorUserId: invitedByUserId,
+          details: {
+            organizationId,
+            memberId: saved._id.toString(),
+            email: normalized,
+            roleKey,
+            reactivated: true,
+          },
+        });
         return { member: saved, inviteEmail, linkedAccount: true };
       }
     }
 
     try {
+      await assertCanAssignTeamRole(organizationId, {
+        companyRole: role,
+        customRoleId,
+      });
       const payload: Record<string, unknown> = {
         organizationId: orgOid,
         email: normalized,
@@ -965,6 +1024,16 @@ export class OrganizationService {
         created,
         invitedByUserId,
       );
+      await writeAuditLog({
+        action: 'team:member:invite',
+        actorUserId: invitedByUserId,
+        details: {
+          organizationId,
+          memberId: created._id.toString(),
+          email: normalized,
+          roleKey,
+        },
+      });
       return { member: created, inviteEmail, linkedAccount: Boolean(registeredUser) };
     } catch (err) {
       const msg = (err as Error).message ?? '';
@@ -1084,5 +1153,13 @@ export class OrganizationService {
     }
     member.isActive = false;
     await member.save();
+    await writeAuditLog({
+      action: 'team:member:remove',
+      details: {
+        organizationId,
+        memberId: member._id.toString(),
+        companyRole: member.companyRole,
+      },
+    });
   }
 }

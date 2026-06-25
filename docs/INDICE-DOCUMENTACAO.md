@@ -61,6 +61,7 @@ Mapa de referência rápida. Novas entregas devem atualizar este índice ([`VERS
 | [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
 | [`BILLING.md`](./BILLING.md) | Stripe / planos · alertas críticos `billing:*` no sino (2.11.28) · matriz TOP 03 |
 | [`top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md) | Matriz comercial oficial (TOP 03) |
+| [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md) | RBAC, equipe, limites assentos, multiempresa (TOP 04) |
 
 ---
 

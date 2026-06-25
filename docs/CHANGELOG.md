@@ -22,6 +22,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.90] — 2026-06-24
+
+### TOP 04 — RBAC, permissões, equipe e segurança multiempresa
+
+- Matriz oficial de cargos/permissões documentada em `docs/top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`.
+- Limites de equipe por plano (`includedUsers`, `includedAgents`, `includedSupervisors`) no convite e troca de cargo — `team-plan-limits.ts`.
+- Papéis custom sugeridos: Financeiro, Marketing/Leads, Somente leitura (`defaultOrgCustomRoles`).
+- Auditoria `AuditLog` em convite, alteração de cargo e remoção de membro.
+- Testes: `capabilities-rbac`, `team-plan-limits`, `organization-team-cross-tenant`.
+
+---
+
 ## [2.11.89] — 2026-06-24
 
 ### TOP 03 — planos, mensalidades e limites comerciais

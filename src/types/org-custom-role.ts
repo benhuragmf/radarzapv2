@@ -38,5 +38,43 @@ export function defaultOrgCustomRoles(): OrgCustomRole[] {
         Cap.INBOX_TRANSFER,
       ],
     },
+    {
+      id: 'role-finance',
+      name: 'Financeiro',
+      description:
+        'Plano, faturas, consumo e créditos IA — sem acesso a conversas de atendimento.',
+      capabilities: [
+        Cap.DASHBOARD_VIEW,
+        Cap.ACCOUNT_SETTINGS,
+        Cap.BILLING_VIEW,
+        Cap.INBOX_AI_BALANCE_VIEW,
+        Cap.PLATFORM_REPORTS_VIEW,
+      ],
+    },
+    {
+      id: 'role-marketing',
+      name: 'Marketing / Leads',
+      description:
+        'Leads, contatos e formulários — visualiza conversas vinculadas sem responder por padrão.',
+      capabilities: [
+        Cap.DASHBOARD_VIEW,
+        Cap.ACCOUNT_SETTINGS,
+        Cap.CONSENT_VIEW,
+        Cap.SEND_DESTINATION_VIEW,
+        Cap.INBOX_VIEW,
+        Cap.PLATFORM_REPORTS_VIEW,
+      ],
+    },
+    {
+      id: 'role-viewer',
+      name: 'Somente leitura',
+      description: 'Consulta painéis e relatórios autorizados — sem alterar dados nem atender.',
+      capabilities: [
+        Cap.DASHBOARD_VIEW,
+        Cap.CONSENT_VIEW,
+        Cap.INBOX_REPORTS_VIEW,
+        Cap.PLATFORM_REPORTS_VIEW,
+      ],
+    },
   ];
 }

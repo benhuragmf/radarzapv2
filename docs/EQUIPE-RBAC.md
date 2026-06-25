@@ -25,7 +25,7 @@ Armazenados em `Organization.customRoles[]`:
 
 - Chave API/UI: `custom:{id}` — helpers em `src/types/org-custom-role.ts`
 - Membro vinculado: `CompanyMember.companyRole = CUSTOM` + `customRoleId`
-- Default na criação da org: **Atendente 2ª instância** (`defaultOrgCustomRoles()`)
+- Default na criação da org: **Atendente 2ª instância**, **Financeiro**, **Marketing / Leads**, **Somente leitura** (`defaultOrgCustomRoles()` — desde 2.11.90)
 - Criar/editar/excluir: `/settings/team` → **Papéis do sistema** → **+ Novo papel**
 
 ## Override por empresa
@@ -151,6 +151,18 @@ Status persistidos por atendente: `online`, `ausente`, `ocupado`, `offline`, `su
 Configuração de timeouts: **Triagem e Bot** (`/platform/inbox/bot`) — campos `agentPresenceTimeoutSeconds`, `presenceIdleTimeoutSeconds`, `whatsappFallbackAcceptTimeoutSeconds`.
 
 Código: `src/services/inbox/inbox-agent-presence.ts`, `src/constants/agent-presence.ts`. Doc: [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) § Presença operacional.
+
+## Limites de equipe por plano (2.11.90 — TOP 04)
+
+Fonte: `config/plans.json` (`includedUsers`, `includedAgents`, `includedSupervisors`).
+
+- **Enforcement:** convite e troca de cargo — `src/services/team/team-plan-limits.ts`.
+- **OWNER** não conta no limite de usuários; membros legados acima do limite não são removidos.
+- Doc: [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md).
+
+### Auditoria equipe (2.11.90)
+
+`AuditLog`: `team:member:invite`, `team:member:role_change`, `team:member:remove`.
 
 ## Saldo IA/LM e status WhatsApp na barra (2.11.84)
 
