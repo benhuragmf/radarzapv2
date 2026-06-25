@@ -1,6 +1,6 @@
 ﻿# RadarZap v2 — Índice de documentação
 
-**Versão do produto:** `2.12.5` · **Atualizado:** 2026-06-24
+**Versão do produto:** `2.12.6` · **Atualizado:** 2026-06-24
 
 Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md). Novas entregas devem atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -81,6 +81,8 @@ Mapa de referência rápida. **Leitura principal:** [`RADARZAP-SISTEMA-COMPLETO.
 | [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md) | Bridge WebChat ↔ WhatsApp (TOP 13) |
 | [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md) | IA Básica, triagem e encaminhamento (TOP 14) |
 | [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md) | IA Premium, KB/FAQ e handoff (TOP 15) |
+| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | **Resultado final** TOP 01–20 — leitura rápida |
+| [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) | Congelamento final e go-live controlado (TOP 20) |
 | [`top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md) | QA final, regressão e checklist pré-go-live (TOP 19) |
 | [`top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) | Auditoria, segurança, LGPD e hardening (TOP 18) |
 | [`top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md) | Billing, assinaturas, limites e bloqueios (TOP 17) |

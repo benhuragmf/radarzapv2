@@ -367,34 +367,77 @@ Mapas legados: [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md), [`QA-
 
 ## 23. Deploy, produção e checklist final
 
-Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.md`](./PRODUCTION.md).
+**Versão ref.:** `2.12.6` (TOP 20) · **Status:** `PRONTO PARA QA MANUAL`
+
+### Gates finais (TOP 20)
+
+| Gate | Status |
+|------|--------|
+| `npm run typecheck` | Verde |
+| `npm run build` | Verde |
+| `npm test` (772) | Verde |
+| `npm run qa:atendimento:gate` | Verde |
+| `npm run qa:fase1:e2e` (38) | Verde |
+| Frontend build | Verde |
+
+### Documentos TOP 20
+
+| Doc | Conteúdo |
+|-----|----------|
+| [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) | Congelamento, checklists produção, QA manual A–J |
+| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | Leitura rápida pós 20 TOPs |
+| [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | § Resultado QA Manual TOP 20 |
+
+### Checklists preparados
+
+- VPS, SSL, domínio, CORS, reverse proxy
+- Variáveis de ambiente (sem valores no git)
+- Mongo, Redis, filas, storage, backup
+- Stripe test/live, webhooks, trial
+- WhatsApp QR real, comandos, rate limit
+- WebChat embed, bridge, anti-loop
+- IA, créditos, alertas
+- Segurança, logs, LGPD
+- Monitoramento e operação
+
+### Riscos e pendências
+
+Blockers go-live: QA manual A–J, WhatsApp real, bridge real, VPS/SSL/env, backups.  
+Não críticos: lint frontend, Jest handles, portal LGPD, Customer Portal.
+
+### Execução deploy
+
+Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.md`](./PRODUCTION.md).  
+**Deploy não executado no TOP 20.** Stripe live não ativado.
 
 ---
 
 ## 24. Roadmap TOP 01–20
 
-| # | Tema | Doc | Versão ref. |
-|---|------|-----|-------------|
-| 01 | Diagnóstico | `top/RADARZAP-TOP-01-*` | — |
-| 02 | Baseline gates | TOP 02 | 2.11.88 |
-| 03 | Planos/limites | TOP 03 | 2.11.89 |
-| 04 | RBAC | TOP 04 | 2.11.90 |
-| 05 | Presença/fila | TOP 05 | 2.11.91 |
-| 06 | Modos atendimento | TOP 06 | 2.11.92 |
-| 07 | Inbox | TOP 07 | 2.11.93 |
-| 08 | Tickets TK | TOP 08 | 2.11.94 |
-| 09 | Contatos/leads | TOP 09 | 2.11.95 |
-| 10 | Formulários | TOP 10 | 2.11.96 |
-| 11 | WebChat | TOP 11 | 2.11.97 |
-| 12 | WhatsApp profundo | TOP 12 | 2.11.98 |
-| 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 |
-| 14 | IA Básica profunda | TOP 14 | 2.12.0 |
-| 15 | IA Premium / KB / handoff | TOP 15 | 2.12.1 |
-| 18 | Auditoria / segurança / LGPD | TOP 18 | 2.12.4 |
-| 19 | QA final / regressão / checklist | TOP 19 | 2.12.5 |
-| 17 | Billing / limites / bloqueios | TOP 17 | 2.12.3 |
-| 16 | IA Créditos / carteira / fallback | TOP 16 | 2.12.2 |
-| 17–20 | Billing, auditoria, go-live | pendente | — |
+| # | Tema | Doc | Versão ref. | Status |
+|---|------|-----|-------------|--------|
+| 01 | Diagnóstico | `top/RADARZAP-TOP-01-*` | — | Concluído |
+| 02 | Baseline gates | TOP 02 | 2.11.88 | Concluído |
+| 03 | Planos/limites | TOP 03 | 2.11.89 | Concluído |
+| 04 | RBAC | TOP 04 | 2.11.90 | Concluído |
+| 05 | Presença/fila | TOP 05 | 2.11.91 | Concluído |
+| 06 | Modos atendimento | TOP 06 | 2.11.92 | Concluído |
+| 07 | Inbox | TOP 07 | 2.11.93 | Concluído |
+| 08 | Tickets TK | TOP 08 | 2.11.94 | Concluído |
+| 09 | Contatos/leads | TOP 09 | 2.11.95 | Concluído |
+| 10 | Formulários | TOP 10 | 2.11.96 | Concluído |
+| 11 | WebChat | TOP 11 | 2.11.97 | Concluído |
+| 12 | WhatsApp profundo | TOP 12 | 2.11.98 | Concluído |
+| 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 | Concluído |
+| 14 | IA Básica profunda | TOP 14 | 2.12.0 | Concluído |
+| 15 | IA Premium / KB / handoff | TOP 15 | 2.12.1 | Concluído |
+| 16 | IA Créditos / carteira | TOP 16 | 2.12.2 | Concluído |
+| 17 | Billing / limites | TOP 17 | 2.12.3 | Concluído |
+| 18 | Auditoria / segurança / LGPD | TOP 18 | 2.12.4 | Concluído |
+| 19 | QA final / regressão | TOP 19 | 2.12.5 | Concluído |
+| 20 | Congelamento / go-live controlado | TOP 20 | 2.12.6 | Concluído — **QA manual pendente** |
+
+**Próximo passo:** Benhur executa QA manual A–J → infra → go-live controlado.
 
 ---
 

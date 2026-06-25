@@ -99,3 +99,25 @@
 - [ ] Bugs críticos corrigidos e re-testados
 - [ ] `QA-FASE1-CHECKLIST.md` atualizado
 - [ ] `ROADMAP-COMPLETUDE.md` gate marcado se tudo passou
+
+---
+
+## Resultado QA Manual TOP 20
+
+> Preencher após executar blocos A–J do [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).  
+> Versão alvo: `2.12.6`+ · Responsável: Benhur · Data: _______________
+
+| Bloco | Status | Evidência | Observação |
+|-------|--------|-----------|------------|
+| A — Login e Dashboard | Pendente | | |
+| B — Equipe e Status | Pendente | | |
+| C — WebChat | Pendente | | |
+| D — WhatsApp | Pendente | | |
+| E — Bridge | Pendente | | |
+| F — Tickets | Pendente | | |
+| G — Leads e Formulários | Pendente | | |
+| H — IA | Pendente | | |
+| I — Billing | Pendente | | |
+| J — Segurança/LGPD | Pendente | | |
+
+**Status final pós-manual:** `PRONTO PARA QA MANUAL` / `PRONTO PARA GO-LIVE CONTROLADO` / `BLOQUEADO` — _______________

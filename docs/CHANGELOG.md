@@ -22,6 +22,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.6] — 2026-06-24
+
+### TOP 20 — Congelamento final e go-live controlado
+
+- Status: `PRONTO PARA QA MANUAL` — gates automatizados verdes; QA manual A–J pendente Benhur.
+- Docs: `docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`, `docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`.
+- Checklists: VPS/SSL/env, Stripe, WhatsApp real, bridge, segurança/LGPD, backup, monitoramento.
+- Deploy não executado; Stripe live não ativado; produção não declarada estável.
+
+---
+
 ## [2.12.5] — 2026-06-24
 
 ### TOP 19 — QA final, regressão e checklist pré-go-live
