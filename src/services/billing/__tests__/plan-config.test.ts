@@ -54,8 +54,17 @@ describe('plan-config', () => {
       expect(plan.limits.leadForms).toBeGreaterThan(0);
       expect(plan.limits.aiCreditsMonthly).toBeGreaterThanOrEqual(0);
       expect(plan.limits.historyRetentionDays).toBeGreaterThan(0);
+      expect(plan.limits.maxConcurrentChatsPerAgent).toBeGreaterThan(0);
       expect(plan.currency).toBe('BRL');
     }
+  });
+
+  it('limites simultâneos por plano (TOP 05)', () => {
+    const svc = PlanConfigService.getInstance();
+    expect(svc.getCommercialLimits('free')?.maxConcurrentChatsPerAgent).toBe(1);
+    expect(svc.getCommercialLimits('starter')?.maxConcurrentChatsPerAgent).toBe(3);
+    expect(svc.getCommercialLimits('pro')?.maxConcurrentChatsPerAgent).toBe(5);
+    expect(svc.getCommercialLimits('enterprise')?.maxConcurrentChatsPerAgent).toBe(10);
   });
 
   it('IA Créditos por plano batem com matriz TOP 03', () => {

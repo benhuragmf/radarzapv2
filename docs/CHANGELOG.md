@@ -22,6 +22,19 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.11.91] — 2026-06-24
+
+### TOP 05 — status operacional, presença e fila segura
+
+- Helper `agent-availability.ts`; regra central somente `online` na fila.
+- `supervisor_online` validado no socket heartbeat; mensagem de erro oficial.
+- Limite simultâneo por plano em `config/plans.json` (`maxConcurrentChatsPerAgent`).
+- Alerta `inbox:agent_offline_risk` ao desconectar com chats ativos.
+- Testes: `agent-availability`, `inbox-agent-presence-api`, plan-config.
+- Documento `docs/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`.
+
+---
+
 ## [2.11.90] — 2026-06-24
 
 ### TOP 04 — RBAC, permissões, equipe e segurança multiempresa

@@ -24,6 +24,7 @@ export interface PlanCommercialLimits {
   aiCreditsMonthly: number;
   monthlyLearningOps: number;
   historyRetentionDays: number;
+  maxConcurrentChatsPerAgent: number;
 }
 
 export interface PlanCommercialFeatures {
@@ -133,6 +134,7 @@ const REQUIRED_LIMIT_KEYS: (keyof PlanCommercialLimits)[] = [
   'aiCreditsMonthly',
   'monthlyLearningOps',
   'historyRetentionDays',
+  'maxConcurrentChatsPerAgent',
 ];
 
 function normalizeEntry(raw: PlansDocument['plans'][number]): PlanCatalogEntry {

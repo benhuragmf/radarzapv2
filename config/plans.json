@@ -33,7 +33,8 @@
         "templatesMax": 2,
         "aiCreditsMonthly": 100,
         "monthlyLearningOps": 10,
-        "historyRetentionDays": 15
+        "historyRetentionDays": 15,
+        "maxConcurrentChatsPerAgent": 1
       },
       "features": {
         "webchat": true,
@@ -89,7 +90,8 @@
         "templatesMax": 2,
         "aiCreditsMonthly": 0,
         "monthlyLearningOps": 0,
-        "historyRetentionDays": 7
+        "historyRetentionDays": 7,
+        "maxConcurrentChatsPerAgent": 1
       },
       "features": {
         "webchat": true,
@@ -146,7 +148,8 @@
         "templatesMax": 5,
         "aiCreditsMonthly": 400,
         "monthlyLearningOps": 30,
-        "historyRetentionDays": 90
+        "historyRetentionDays": 90,
+        "maxConcurrentChatsPerAgent": 3
       },
       "features": {
         "webchat": true,
@@ -203,7 +206,8 @@
         "templatesMax": 10,
         "aiCreditsMonthly": 2500,
         "monthlyLearningOps": 120,
-        "historyRetentionDays": 180
+        "historyRetentionDays": 180,
+        "maxConcurrentChatsPerAgent": 5
       },
       "features": {
         "webchat": true,
@@ -259,7 +263,8 @@
         "templatesMax": -1,
         "aiCreditsMonthly": 12000,
         "monthlyLearningOps": 500,
-        "historyRetentionDays": 365
+        "historyRetentionDays": 365,
+        "maxConcurrentChatsPerAgent": 10
       },
       "features": {
         "webchat": true,

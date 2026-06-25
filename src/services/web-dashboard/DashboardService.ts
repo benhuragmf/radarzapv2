@@ -118,6 +118,7 @@ import {
 } from '../inbox/inbox-agent-presence';
 import {
   assertStatusAllowed,
+  filterHeartbeatOperationalStatus,
   getMyPresenceSnapshot,
   getPresenceConfigForClient,
   listTeamPresence,
@@ -6220,6 +6221,7 @@ export class DashboardService {
     setWebChatSocketServer(this.io);
     setAgentPresenceSocketServer(this.io);
     const orgSvc = OrganizationService.getInstance();
+    const inboxSvc = InboxService.getInstance();
 
     this.io.on('connection', async socket => {
       logger.debug(`Dashboard client connected: ${socket.id}`);
@@ -6239,6 +6241,19 @@ export class DashboardService {
             socket.data.tenantClientId = clientId;
             socket.data.panelUserId = sess.userId;
             agentPresenceConnect(clientId, sess.userId);
+
+            const panelUser = await User.findById(sess.userId);
+            if (panelUser) {
+              const ctx = await buildAuthContext({
+                user: panelUser,
+                userId: sess.userId,
+                discordUserId: panelUser.discordUserId,
+                username: panelUser.displayName ?? panelUser.email ?? 'Usuário',
+                avatar: null,
+                sessionOrganizationId: sess.organizationId,
+              });
+              socket.data.panelCapabilities = ctx.capabilities;
+            }
           }
         } catch (err) {
           logger.debug('Socket inbox room skip', { err: (err as Error).message });
@@ -6255,11 +6270,16 @@ export class DashboardService {
         }) => {
         const clientId = socket.data.inboxClientId as string | undefined;
         const userId = socket.data.panelUserId as string | undefined;
+        const capabilities = (socket.data.panelCapabilities as string[] | undefined) ?? [];
         if (clientId && userId) {
+          const operationalStatus = filterHeartbeatOperationalStatus(
+            raw?.operationalStatus,
+            capabilities,
+          );
           agentPresenceHeartbeat(clientId, userId, {
             route: raw?.route,
             viewingConversationId: raw?.viewingConversationId,
-            operationalStatus: raw?.operationalStatus,
+            operationalStatus,
             statusSource: raw?.statusSource,
           });
         }
@@ -6271,6 +6291,7 @@ export class DashboardService {
         const userId = socket.data.panelUserId as string | undefined;
         if (clientId && userId) {
           agentPresenceDisconnect(clientId, userId);
+          void inboxSvc.notifyAgentWentOffline(clientId, userId).catch(() => undefined);
         }
         logger.debug(`Dashboard client disconnected: ${socket.id}`);
       });

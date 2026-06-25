@@ -5,6 +5,7 @@ export type PanelEventType =
   | 'inbox:priority'
   | 'inbox:priority_expired'
   | 'inbox:supervisor_help'
+  | 'inbox:agent_offline_risk'
   | 'inbox:queue_sla'
   | 'inbox:ticket_sla'
   | 'webchat:escalated'
@@ -40,6 +41,7 @@ export interface PanelEventPayload {
 export const URGENT_PANEL_EVENT_TYPES: ReadonlySet<string> = new Set([
   'whatsapp:disconnected',
   'inbox:queue_sla',
+  'inbox:agent_offline_risk',
   'inbox:ticket_sla',
   'webchat:fallback_missed',
   'billing:plan_expiring',

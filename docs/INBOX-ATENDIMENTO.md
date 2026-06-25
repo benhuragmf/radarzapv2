@@ -541,6 +541,9 @@ Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA
 - **Disponível para fila:** `online && status === 'online'` — funções `isAgentAvailableForQueue`, `getAvailableAgentIdsForQueue`.
 - **Inatividade:** sem mouse/teclado por `presenceIdleTimeoutSeconds` (padrão **300s**, 60–3600) → status auto `ausente`; ao voltar à aba, prompt restaura último status manual.
 - **Round-robin:** `suggestRoundRobinAgent` só indica quem está `availableForQueue`.
+- **Limite simultâneo (2.11.91):** `maxConcurrentChatsPerAgent` no catálogo por plano + teto em `InboxSettings`; helper `resolveMaxConcurrentChatsForPlan` — ver `docs/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`.
+- **Offline com chat ativo:** evento `inbox:agent_offline_risk` no sino (sem encerrar conversa).
+- **Socket:** heartbeat valida `supervisor_online` com capabilities do usuário (`filterHeartbeatOperationalStatus`).
 
 ### API
 

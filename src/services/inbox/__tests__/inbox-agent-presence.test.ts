@@ -136,16 +136,11 @@ describe('inbox-agent-presence', () => {
 
 
 
-  it('falls back to all when none available', () => {
-
+  it('returns empty when none available for queue', () => {
     const candidates = [{ toString: () => userA }, { toString: () => userB }];
-
     const picked = preferOnlineCandidates(clientId, candidates);
-
-    expect(picked).toHaveLength(2);
-
+    expect(picked).toHaveLength(0);
     expect(getAvailableAgentIdsForQueue(clientId)).toEqual([]);
-
   });
 
 
@@ -194,6 +189,18 @@ describe('inbox-agent-presence', () => {
     });
     expect(getAgentPresence(clientId, userA).operationalStatus).toBe('online');
     expect(getAgentPresence(clientId, userA).availableForQueue).toBe(true);
+  });
+
+
+
+  it('ignores auto ausente heartbeat while ocupado', () => {
+    agentPresenceConnect(clientId, userA);
+    agentPresenceSetStatus(clientId, userA, 'ocupado', 'manual');
+    agentPresenceHeartbeat(clientId, userA, {
+      operationalStatus: 'ausente',
+      statusSource: 'auto',
+    });
+    expect(getAgentPresence(clientId, userA).operationalStatus).toBe('ocupado');
   });
 
 

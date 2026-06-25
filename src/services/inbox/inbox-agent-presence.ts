@@ -1,5 +1,6 @@
 import type { AgentOperationalStatus, AgentStatusSource } from '@/types/agent-presence';
 import { isQueueEligibleStatus, operationalStatusLabel } from '@/types/agent-presence';
+import { shouldApplyAutoAusente } from '@/services/inbox/agent-availability';
 import type { SupervisorAgentActivity } from '@/types/inbox-supervisor';
 
 /** Presença em tempo real — painel com socket + heartbeat (por tenant). */
@@ -186,7 +187,9 @@ export function agentPresenceHeartbeat(
       // Heartbeat inicial do painel envia offline por padrão — não rebaixar socket ativo.
       const ignoreAutoOffline =
         nextStatus === 'offline' && src === 'auto' && entry.sockets > 0;
-      if (!ignoreAutoOffline) {
+      const ignoreAutoAusente =
+        !shouldApplyAutoAusente(entry.operationalStatus, nextStatus, src);
+      if (!ignoreAutoOffline && !ignoreAutoAusente) {
         entry.operationalStatus = nextStatus;
         entry.statusSource = src;
         if (src === 'manual') {
@@ -289,13 +292,12 @@ export function resolveAgentActivity(
   return { activity: 'idle', label: presence.statusLabel };
 }
 
-/** Prefer online; mantém ordem round-robin nos que estão no painel. */
+/** Prefer online; retorna vazio se ninguém elegível — nunca distribuir para indisponível. */
 export function preferOnlineCandidates(
   clientId: string,
   candidates: { toString(): string }[],
 ): { toString(): string }[] {
-  const available = candidates.filter(c => isAgentAvailableForQueue(clientId, c.toString()));
-  return available.length > 0 ? available : candidates;
+  return candidates.filter(c => isAgentAvailableForQueue(clientId, c.toString()));
 }
 
 /** Testes — limpa estado in-memory. */

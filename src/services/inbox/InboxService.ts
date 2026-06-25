@@ -26,6 +26,7 @@ import {
   parseInboxMenuChoice,
 } from '@/constants/inbox-triage';
 import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
+import { Organization } from '@/models/Organization';
 import { User } from '@/models/User';
 import { InboxConversationStatus, InboxMessageMediaType } from '@/types/inbox';
 import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
@@ -91,6 +92,7 @@ import {
   isAgentOnline,
   setAgentPresenceTimeout,
 } from '@/services/inbox/inbox-agent-presence';
+import { resolveMaxConcurrentChatsForPlan } from '@/services/inbox/agent-availability';
 import {
   shouldAlertQueueStall,
   shouldAutoCloseForInactivity,
@@ -227,6 +229,41 @@ export class InboxService {
   static getInstance(): InboxService {
     if (!InboxService.instance) InboxService.instance = new InboxService();
     return InboxService.instance;
+  }
+
+  private async resolveMaxConcurrentForClient(clientId: string): Promise<number> {
+    const [settings, org] = await Promise.all([
+      loadInboxSettings(clientId),
+      Organization.findById(clientId).select('plan').lean(),
+    ]);
+    return resolveMaxConcurrentChatsForPlan(
+      (org?.plan as string | undefined) ?? 'free',
+      settings.maxConcurrentChatsPerAgent,
+    );
+  }
+
+  /** Alerta supervisão quando atendente desconecta com conversas ativas (TOP 05). */
+  async notifyAgentWentOffline(clientId: string, userId: string): Promise<void> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const active = await InboxConversation.find({
+      clientId: clientOid,
+      assignedUserId: new mongoose.Types.ObjectId(userId),
+      status: InboxConversationStatus.IN_PROGRESS,
+    })
+      .limit(25)
+      .lean();
+    if (!active.length) return;
+
+    const agentName = await this.resolveAgentDisplayName(userId);
+    for (const conv of active) {
+      await this.pushPanelEvent(
+        clientId,
+        'inbox:agent_offline_risk',
+        'Atendente offline — atenção',
+        `${conv.contactName ?? 'Cliente'}: ${agentName} ficou offline com atendimento em andamento`,
+        { conversationId: String(conv._id) },
+      );
+    }
   }
 
   async setConversationAiStatus(
@@ -439,9 +476,10 @@ export class InboxService {
       settings.roundRobinPullTimeoutSeconds = sec;
     }
     if (patch.maxConcurrentChatsPerAgent !== undefined) {
-      settings.maxConcurrentChatsPerAgent = Math.min(
-        10,
-        Math.max(1, Number(patch.maxConcurrentChatsPerAgent) || 1),
+      const org = await Organization.findById(clientId).select('plan').lean();
+      settings.maxConcurrentChatsPerAgent = resolveMaxConcurrentChatsForPlan(
+        (org?.plan as string | undefined) ?? 'free',
+        Number(patch.maxConcurrentChatsPerAgent) || 1,
       );
     }
     if (patch.queuePositionMessage !== undefined) {
@@ -2647,7 +2685,7 @@ export class InboxService {
     const settings = await loadInboxSettings(clientId);
     if (!settings.roundRobinEnabled) return null;
 
-    const maxConcurrent = Math.max(1, settings.maxConcurrentChatsPerAgent ?? 1);
+    const maxConcurrent = await this.resolveMaxConcurrentForClient(clientId);
     const candidates = await this.resolveRoundRobinCandidates(clientId, department);
     const availableOnly = candidates.filter(c =>
       isAgentAvailableForQueue(clientId, c.toString()),
@@ -4553,7 +4591,7 @@ export class InboxService {
     if (suggestedId === userId) return;
 
     const settings = await loadInboxSettings(clientId);
-    const maxConcurrent = Math.max(1, settings.maxConcurrentChatsPerAgent ?? 1);
+    const maxConcurrent = await this.resolveMaxConcurrentForClient(clientId);
     const busy = await isAgentAtCapacity(
       clientId,
       suggestedId,
@@ -5300,8 +5338,7 @@ export class InboxService {
 
   /** Remove prioridade de atendente que atingiu capacidade — re-sugere ou abre fila. */
   private async processBusySuggestedPriority(clientId: string): Promise<void> {
-    const settings = await loadInboxSettings(clientId);
-    const maxConcurrent = Math.max(1, settings.maxConcurrentChatsPerAgent ?? 1);
+    const maxConcurrent = await this.resolveMaxConcurrentForClient(clientId);
 
     const convs = await InboxConversation.find({
       clientId: new mongoose.Types.ObjectId(clientId),

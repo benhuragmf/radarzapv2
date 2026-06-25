@@ -64,7 +64,24 @@ export function assertStatusAllowed(
 ): void {
   const allowed = selectableStatusesForCapabilities(capabilities);
   if (!allowed.includes(status)) {
+    if (status === 'supervisor_online') {
+      throw new Error('Este status é exclusivo para supervisores e administradores.');
+    }
     throw new Error('Status não permitido para seu perfil');
+  }
+}
+
+/** Filtra status do heartbeat — backend é barreira real contra perfil sem supervisão. */
+export function filterHeartbeatOperationalStatus(
+  status: AgentOperationalStatus | undefined,
+  capabilities: string[],
+): AgentOperationalStatus | undefined {
+  if (!status) return undefined;
+  try {
+    assertStatusAllowed(status, capabilities);
+    return status;
+  } catch {
+    return undefined;
   }
 }
 
