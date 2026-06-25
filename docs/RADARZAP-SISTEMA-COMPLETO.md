@@ -1,6 +1,6 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.12.3` · **Atualizado:** 2026-06-24
+**Versão:** `2.12.4` · **Atualizado:** 2026-06-24
 
 Documentação mestre consolidada do RadarZap v2. Detalhes por módulo permanecem nos `.md` especializados listados em [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md). Auditoria TOP 01–20: pasta [`top/`](./top/).
 
@@ -295,11 +295,17 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 
 ## 21. Logs, auditoria, segurança e LGPD
 
-- Consentimento: [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md).
-- Webhooks HMAC: [`WEBHOOKS.md`](./WEBHOOKS.md).
-- `AttendanceEvent` para auditoria atendimento.
-- Multi-tenant: toda API filtra por `clientId`/organização.
-- QR/credenciais WA: nunca em logs (`isWhatsappQrLogSafe`).
+[`top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) · [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) · [`WEBHOOKS.md`](./WEBHOOKS.md).
+
+- **Mascaramento:** `src/utils/mask-secret.util.ts` — Stripe, wck/lfm, QR, ticket token, cookie/auth.
+- **Auditoria:** `AttendanceEvent` (atendimento) + `AuditLog` (admin); meta redactada antes de persistir.
+- **Eventos TOP 18:** `ticket.public_lookup_failed`, `form.blocked`, `billing.checkout.completed`, `billing.invoice.failed`, `billing.ai_credit_pack.purchased`, `billing.limit.blocked`.
+- **Logs:** Pino com redact paths; `logAudit`/`logError` redactam contexto.
+- **Rate limit:** WebChat/lead público, auth, ticket lookup/resend, WA sessão.
+- **Webhooks:** HMAC Stripe + outbound; sem payload bruto em log.
+- **Multi-tenant:** API filtra por `clientId`; RBAC no painel.
+- **LGPD:** consentimento contato/form; export CSV; portal titular pendente go-live.
+- **Pendências:** `auth.login_failed`, purge retenção, QA final → TOP 19.
 
 ---
 
@@ -342,6 +348,7 @@ Referência (executar após Fase 1): [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRO
 | 13 | Bridge WA↔WebChat | TOP 13 | 2.11.99 |
 | 14 | IA Básica profunda | TOP 14 | 2.12.0 |
 | 15 | IA Premium / KB / handoff | TOP 15 | 2.12.1 |
+| 18 | Auditoria / segurança / LGPD | TOP 18 | 2.12.4 |
 | 17 | Billing / limites / bloqueios | TOP 17 | 2.12.3 |
 | 16 | IA Créditos / carteira / fallback | TOP 16 | 2.12.2 |
 | 17–20 | Billing, auditoria, go-live | pendente | — |

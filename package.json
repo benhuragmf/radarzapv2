@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.12.3",
+  "version": "2.12.4",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -24,7 +24,7 @@
     "qa:webchat-wa": "jest --testPathPattern=\"ticket-public|webchat-whatsapp|whatsapp-agent|webchat-safe-url|inbox-agent-presence|webchat-faq\" && npm run qa:prep",
     "qa:webchat-wa:setup": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/qa-webchat-wa-setup.ts",
     "qa:leads:setup": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/qa-leads-form-setup.ts",
-    "qa:atendimento:gate": "jest --testPathPattern=\"inbound-routing|csat\\.util|ticket-reply-window|ticket-public-access|whatsapp-agent|webchat-whatsapp|inbox-csat-gate|inbox-csat-reply|inbox-ticket-inbound|inbox-ticket-audit|inbox-inbound-order|consent-defer|webchat-faq|webchat-safe-url|inbox-agent-presence|panel-critical-alerts|whatsapp-session-rate-limit|whatsapp-human-send|webhook-events|webchat-bridge-webhook|attendance-audit|premium-ai\\.util|basic-triage\\.util|ai-credit-alerts|ai-credit-packages|ai-wallet|ai-credits|billing-state|plan-limit\" && npm run qa:webchat-wa",
+    "qa:atendimento:gate": "jest --testPathPattern=\"inbound-routing|csat\\.util|ticket-reply-window|ticket-public-access|whatsapp-agent|webchat-whatsapp|inbox-csat-gate|inbox-csat-reply|inbox-ticket-inbound|inbox-ticket-audit|inbox-inbound-order|consent-defer|webchat-faq|webchat-safe-url|inbox-agent-presence|panel-critical-alerts|whatsapp-session-rate-limit|whatsapp-human-send|webhook-events|webchat-bridge-webhook|attendance-audit|premium-ai\\.util|basic-triage\\.util|ai-credit-alerts|ai-credit-packages|ai-wallet|ai-credits|billing-state|plan-limit|mask-secret\" && npm run qa:webchat-wa",
     "qa:gate": "npm test && npm run build && npm run build --prefix src/services/web-dashboard/frontend",
     "qa:manual:start": "npm run qa:atendimento:gate",
     "qa:fase1:e2e": "npm run build --prefix src/services/web-dashboard/frontend && playwright test e2e/inbox-authenticated.spec.ts e2e/atendimento-smoke.spec.ts e2e/attendance-modes.spec.ts e2e/qa-fase1-panel.spec.ts e2e/qa-fase1-presence.spec.ts e2e/leads-panel.spec.ts --project=chromium",

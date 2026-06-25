@@ -22,6 +22,17 @@ async function resolveOrgPlanId(clientId: string): Promise<string> {
   return org?.plan ?? 'free';
 }
 
+function throwPlanLimitError(clientId: string, resource: string, message: string): never {
+  void import('@/services/billing/billing-audit.util').then(({ recordBillingAttendanceEvent }) =>
+    recordBillingAttendanceEvent({
+      clientId,
+      kind: 'billing.limit.blocked',
+      meta: { resource },
+    }),
+  );
+  throw new PlanLimitError(message);
+}
+
 export async function assertCanCreateWebchatWidget(clientId: string): Promise<void> {
   const planId = await resolveOrgPlanId(clientId);
   const clientOid = new mongoose.Types.ObjectId(clientId);
@@ -32,7 +43,7 @@ export async function assertCanCreateWebchatWidget(clientId: string): Promise<vo
     'webchatWidgets',
     PLAN_LIMIT_MESSAGES.webchatWidgets,
   );
-  if (check.ok === false) throw new PlanLimitError(check.message);
+  if (check.ok === false) throwPlanLimitError(clientId, 'webchatWidgets', check.message);
 }
 
 export async function assertCanCaptureLead(clientId: string): Promise<void> {
@@ -48,7 +59,7 @@ export async function assertCanCaptureLead(clientId: string): Promise<void> {
     'leadsPerMonth',
     PLAN_LIMIT_MESSAGES.leadsPerMonth,
   );
-  if (check.ok === false) throw new PlanLimitError(check.message);
+  if (check.ok === false) throwPlanLimitError(clientId, 'leadsPerMonth', check.message);
 }
 
 export async function assertCanCreateContact(clientId: string): Promise<void> {
@@ -61,7 +72,7 @@ export async function assertCanCreateContact(clientId: string): Promise<void> {
     'contacts',
     PLAN_LIMIT_MESSAGES.contacts,
   );
-  if (check.ok === false) throw new PlanLimitError(check.message);
+  if (check.ok === false) throwPlanLimitError(clientId, 'contacts', check.message);
 }
 
 export async function assertCanCreateTicket(clientId: string): Promise<void> {
@@ -77,5 +88,5 @@ export async function assertCanCreateTicket(clientId: string): Promise<void> {
     'ticketsPerMonth',
     PLAN_LIMIT_MESSAGES.ticketsPerMonth,
   );
-  if (check.ok === false) throw new PlanLimitError(check.message);
+  if (check.ok === false) throwPlanLimitError(clientId, 'ticketsPerMonth', check.message);
 }

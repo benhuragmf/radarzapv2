@@ -33,6 +33,7 @@ import {
 } from '@/services/billing/billing-state.util';
 import { findAiCreditPackById } from '@/types/ai-credit-packages.util';
 import { AiWalletService } from '@/services/ai/AiWalletService';
+import { recordBillingAttendanceEvent } from '@/services/billing/billing-audit.util';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('BillingService');
@@ -552,6 +553,12 @@ export class BillingService {
     }
 
     logger.info('Plano ativado', { organizationId, planId, source, userId });
+    void recordBillingAttendanceEvent({
+      clientId: organizationId,
+      kind: 'billing.checkout.completed',
+      actorUserId: userId,
+      meta: { planId, source },
+    });
 
     return {
       ok: true,
@@ -678,6 +685,11 @@ export class BillingService {
       organizationId: String(org._id),
       subscriptionId,
     });
+    void recordBillingAttendanceEvent({
+      clientId: String(org._id),
+      kind: 'billing.invoice.failed',
+      meta: { subscriptionId },
+    });
 
     return {
       ok: true,
@@ -760,6 +772,12 @@ export class BillingService {
       credits,
       source: input.source,
       userId: input.userId,
+    });
+    void recordBillingAttendanceEvent({
+      clientId: input.organizationId,
+      kind: 'billing.ai_credit_pack.purchased',
+      actorUserId: input.userId,
+      meta: { packId: input.creditPackId, credits, source: input.source },
     });
 
     return {

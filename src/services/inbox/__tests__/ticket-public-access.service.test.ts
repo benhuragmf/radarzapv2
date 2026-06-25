@@ -43,6 +43,11 @@ jest.mock('@/models/WebChatConversation', () => ({
 jest.mock('@/models/WebChatMessage', () => ({
   WebChatMessage: { find: jest.fn().mockReturnValue({ sort: () => ({ limit: () => ({ lean: async () => [] }) }) }) },
 }));
+jest.mock('@/services/attendance/attendance-audit.service', () => ({
+  recordAttendanceEvent: jest.fn().mockResolvedValue(undefined),
+}));
+
+import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
 
 describe('ticket-public-access.service lookup', () => {
   const clientId = new mongoose.Types.ObjectId().toString();
@@ -80,6 +85,15 @@ describe('ticket-public-access.service lookup', () => {
         remoteIp: '1.2.3.4',
       }),
     ).rejects.toThrow(/Não encontramos/);
+
+    expect(recordAttendanceEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'ticket.public_lookup_failed',
+        meta: expect.objectContaining({ reason: 'invalid_token' }),
+      }),
+    );
+    const auditMeta = (recordAttendanceEvent as jest.Mock).mock.calls[0][0].meta;
+    expect(JSON.stringify(auditMeta)).not.toContain('WRONG-TOK1');
 
     mockFindOneTicket(null);
 

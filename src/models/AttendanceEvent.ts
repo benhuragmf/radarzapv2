@@ -6,6 +6,7 @@ export type AttendanceEventKind =
   | 'ticket.closed'
   | 'ticket.reopened'
   | 'ticket.assigned'
+  | 'ticket.public_lookup_failed'
   | 'bridge.started'
   | 'bridge.closed'
   | 'bridge.agent_reply'
@@ -27,7 +28,12 @@ export type AttendanceEventKind =
   | 'inbox.queued'
   | 'inbox.assigned'
   | 'inbox.transferred'
-  | 'inbox.reassigned';
+  | 'inbox.reassigned'
+  | 'form.blocked'
+  | 'billing.checkout.completed'
+  | 'billing.invoice.failed'
+  | 'billing.ai_credit_pack.purchased'
+  | 'billing.limit.blocked';
 
 export interface IAttendanceEvent extends Document {
   clientId: mongoose.Types.ObjectId;

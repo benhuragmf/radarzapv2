@@ -42,6 +42,25 @@ describe('recordAttendanceEvent', () => {
     expect(String(call.actorUserId)).toBe(actorUserId);
   });
 
+  it('redact meta sensível antes de persistir', async () => {
+    const clientId = new mongoose.Types.ObjectId().toString();
+
+    await recordAttendanceEvent({
+      clientId,
+      kind: 'billing.checkout.completed',
+      meta: {
+        stripeSecret: 'sk_test_1234567890abcdef',
+        accessToken: 'abcdefghijklmnopqrstuvwxyz1234567890ABCD',
+        planId: 'pro',
+      },
+    });
+
+    const call = AttendanceEventMock.create.mock.calls.at(-1)?.[0];
+    expect(call.meta.stripeSecret).not.toContain('1234567890');
+    expect(String(call.meta.accessToken)).not.toContain('abcdefghijklmnopqrstuvwxyz');
+    expect(call.meta.planId).toBe('pro');
+  });
+
   it('não propaga erro de persistência', async () => {
     AttendanceEventMock.create.mockRejectedValueOnce(new Error('db down'));
 

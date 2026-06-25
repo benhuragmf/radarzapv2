@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { redactSensitiveMeta } from '@/utils/mask-secret.util';
 
 export interface IAuditLog extends Document {
   action: string;
@@ -41,5 +42,6 @@ export async function writeAuditLog(entry: {
     ...entry,
     actorUserId: entry.actorUserId ? new mongoose.Types.ObjectId(entry.actorUserId) : undefined,
     targetUserId: entry.targetUserId ? new mongoose.Types.ObjectId(entry.targetUserId) : undefined,
+    details: entry.details ? redactSensitiveMeta(entry.details) : undefined,
   });
 }

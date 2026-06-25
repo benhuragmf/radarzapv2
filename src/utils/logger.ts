@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { config } from '../config/environment';
 import { sanitizeLogText } from './sanitizeLogText';
+import { redactSensitiveMeta } from './mask-secret.util';
 
 const isJest = Boolean(process.env.JEST_WORKER_ID);
 const usePretty = config.LOGGING.FORMAT === 'pretty' && config.NODE_ENV !== 'test' && !isJest;
@@ -45,6 +46,18 @@ const loggerConfig: pino.LoggerOptions = {
       'phoneNumber',
       'identifier',
       'ciphertext',
+      'qrCode',
+      'qrCodeRaw',
+      'qr',
+      'stripeSecret',
+      'stripeWebhookSecret',
+      'STRIPE_SECRET_KEY',
+      'STRIPE_WEBHOOK_SECRET',
+      'publicAccessToken',
+      'headers.authorization',
+      'headers.cookie',
+      'req.headers.authorization',
+      'req.headers.cookie',
     ],
     censor: '[REDACTED]',
   },
@@ -134,7 +147,7 @@ export function logError(error: Error, context?: Record<string, unknown>) {
         message: error.message,
         stack: error.stack,
       },
-      ...context,
+      ...(context ? redactSensitiveMeta(context) : {}),
     },
     'Error occurred',
   );
@@ -168,7 +181,7 @@ export function logAudit(event: string, userId?: string, details?: Record<string
       event,
       userId,
       timestamp: new Date().toISOString(),
-      ...details,
+      ...(details ? redactSensitiveMeta(details) : {}),
     },
     `Audit: ${event}`,
   );
@@ -215,7 +228,7 @@ export function logBusinessEvent(event: string, data: Record<string, unknown>) {
     {
       businessEvent: true,
       event,
-      ...data,
+      ...redactSensitiveMeta(data),
     },
     `Business Event: ${event}`,
   );

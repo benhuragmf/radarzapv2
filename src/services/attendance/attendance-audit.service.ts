@@ -3,6 +3,7 @@ import {
   AttendanceEvent,
   AttendanceEventKind,
 } from '@/models/AttendanceEvent';
+import { redactSensitiveMeta } from '@/utils/mask-secret.util';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('AttendanceAudit');
@@ -16,6 +17,7 @@ export async function recordAttendanceEvent(input: {
   meta?: Record<string, unknown>;
 }): Promise<void> {
   try {
+    const safeMeta = input.meta ? redactSensitiveMeta(input.meta) : undefined;
     await AttendanceEvent.create({
       clientId: new mongoose.Types.ObjectId(input.clientId),
       kind: input.kind,
@@ -26,7 +28,7 @@ export async function recordAttendanceEvent(input: {
       actorUserId: input.actorUserId
         ? new mongoose.Types.ObjectId(input.actorUserId)
         : undefined,
-      meta: input.meta,
+      meta: safeMeta,
     });
   } catch (err) {
     logger.warn('Failed to record attendance event', {

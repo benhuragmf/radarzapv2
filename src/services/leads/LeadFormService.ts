@@ -440,6 +440,46 @@ export class LeadFormService {
     const form = await this.getActiveFormByPublicKey(publicKey);
     if (!form) throw new Error('Formulário não encontrado ou inativo');
 
+    const clientId = form.clientId.toString();
+
+    try {
+      return await this.submitPublicLeadInner(form, body, meta, clientId);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.includes('rejeitado') || msg.includes('Origem') || msg.includes('autorizada')) {
+        const { recordAttendanceEvent } = await import(
+          '@/services/attendance/attendance-audit.service'
+        );
+        void recordAttendanceEvent({
+          clientId,
+          kind: 'form.blocked',
+          meta: {
+            reason: msg.includes('rejeitado') ? 'honeypot' : 'origin_denied',
+          },
+        });
+      }
+      throw e;
+    }
+  }
+
+  private async submitPublicLeadInner(
+    form: ILeadForm,
+    body: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      message?: string;
+      sourceUrl?: string;
+      pageTitle?: string;
+      customFields?: Record<string, string>;
+      utm?: LeadUtm;
+      consent?: boolean;
+      origin?: string;
+      honeypot?: string;
+    },
+    meta: { origin?: string; referer?: string; ipAddress?: string; userAgent?: string },
+    clientId: string,
+  ): Promise<{ success: true; successMessage: string; redirectUrl?: string }> {
     this.assertOrigin(form, meta.origin, meta.referer);
 
     const appearance = normalizeAppearance(form.appearance);
@@ -461,7 +501,6 @@ export class LeadFormService {
       noteParts.push(`${label}: ${val}`);
     }
 
-    const clientId = form.clientId.toString();
     const leadOrigin = detectOrigin(meta.referer, body.origin);
 
     let destinationId: mongoose.Types.ObjectId | undefined;

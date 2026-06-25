@@ -22,6 +22,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.4] — 2026-06-24
+
+### TOP 18 — Auditoria, segurança, LGPD e hardening
+
+- `mask-secret.util.ts`; redact em `AttendanceEvent`, `AuditLog`, logger.
+- Eventos: `ticket.public_lookup_failed`, `form.blocked`, `billing.*`.
+- Doc: `docs/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`.
+
+---
+
 ## [2.12.3] — 2026-06-24
 
 ### TOP 17 — Billing, assinaturas, limites e bloqueios

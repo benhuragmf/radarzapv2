@@ -38,6 +38,7 @@ import {
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { EmailService } from '@/services/email/EmailService';
 import { createServiceLogger } from '@/utils/logger';
+import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
 
 const logger = createServiceLogger('TicketPublicAccess');
 
@@ -62,6 +63,23 @@ export interface TicketPublicLookupResult {
 
 const LOOKUP_FAIL_MSG =
   'Não encontramos um chamado com esses dados. Verifique o número e o token e tente novamente.';
+
+function auditPublicLookupFailed(
+  clientId: string,
+  ticketRef: string | undefined,
+  reason: string,
+  remoteIp?: string,
+): void {
+  void recordAttendanceEvent({
+    clientId,
+    kind: 'ticket.public_lookup_failed',
+    ticketRef: ticketRef ? normalizeTicketRefForLookup(ticketRef) ?? undefined : undefined,
+    meta: {
+      reason,
+      remoteIp: remoteIp ? `${remoteIp.slice(0, 12)}…` : undefined,
+    },
+  });
+}
 
 export const TICKET_TOKEN_RESEND_SUCCESS_MSG =
   'Se a verificação foi concluída, você receberá o novo token em instantes (WhatsApp ou e-mail).';
@@ -329,12 +347,14 @@ export async function lookupTicketByPublicAccess(opts: {
 
   if (isTicketLookupRateLimited(opts.clientId, opts.remoteIp)) {
     logger.warn('ticket lookup rate limited', { clientId: opts.clientId });
+    auditPublicLookupFailed(opts.clientId, opts.ticketRef, 'rate_limited', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
   }
 
   const normalizedRef = normalizeTicketRefForLookup(opts.ticketRef);
   if (!normalizedRef) {
     recordTicketLookupFailure(opts.clientId, opts.remoteIp);
+    auditPublicLookupFailed(opts.clientId, opts.ticketRef, 'invalid_ref', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
   }
 
@@ -346,11 +366,13 @@ export async function lookupTicketByPublicAccess(opts: {
 
   if (!ticket?.publicAccessTokenHash) {
     recordTicketLookupFailure(opts.clientId, opts.remoteIp);
+    auditPublicLookupFailed(opts.clientId, normalizedRef, 'not_found', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
   }
 
   if (!verifyTicketPublicAccessToken(opts.accessToken, ticket.publicAccessTokenHash)) {
     recordTicketLookupFailure(opts.clientId, opts.remoteIp);
+    auditPublicLookupFailed(opts.clientId, normalizedRef, 'invalid_token', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
   }
 
