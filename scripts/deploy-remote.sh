@@ -9,9 +9,9 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 export RADARZAP_IMAGE="$IMAGE"
 
 echo "[deploy] Imagem: $RADARZAP_IMAGE"
-docker pull "$RADARZAP_IMAGE"
-docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
-docker compose -f "$COMPOSE_FILE" ps
+${DOCKER_CMD:-docker} pull "$RADARZAP_IMAGE" 2>/dev/null || true
+${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" up -d --remove-orphans
+${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" ps
 
 echo "[deploy] Health check..."
 for i in $(seq 1 30); do
@@ -23,5 +23,5 @@ for i in $(seq 1 30); do
 done
 
 echo "[deploy] AVISO: health não respondeu em 60s — verifique logs"
-docker compose -f "$COMPOSE_FILE" logs --tail=40 app
+${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" logs --tail=40 app
 exit 1

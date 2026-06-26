@@ -20,9 +20,7 @@ if [[ ! -f /swapfile ]]; then
 fi
 
 DOCKER="docker"
-if ! docker info >/dev/null 2>&1; then
-  DOCKER="sudo docker"
-fi
+if ! command -v docker >/dev/null 2>&1; then
   echo "[bootstrap] Instalando Docker..."
   sudo apt-get update -qq
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
@@ -32,7 +30,11 @@ fi
   echo "[bootstrap] Docker instalado — pode ser necessário relogar para grupo docker"
 fi
 
-if ! docker compose version >/dev/null 2>&1; then
+if ! docker info >/dev/null 2>&1; then
+  DOCKER="sudo docker"
+fi
+
+if ! $DOCKER compose version >/dev/null 2>&1; then
   echo "[bootstrap] docker compose plugin ausente — reinstale Docker CE recente"
   exit 1
 fi
@@ -107,10 +109,9 @@ echo "[bootstrap] Build imagem monolito (pode levar vários minutos em 2GB RAM).
 $DOCKER build -f docker/Dockerfile.monolith -t radarzap:production .
 
 export RADARZAP_IMAGE=radarzap:production
-# deploy-remote usa docker compose — garantir sudo se necessário
+export DOCKER_CMD="$DOCKER"
 if [[ "$DOCKER" == "sudo docker" ]]; then
-  export COMPOSE_CMD="sudo docker compose"
-  sudo -E bash -c "export RADARZAP_IMAGE=$RADARZAP_IMAGE MONGO_PASSWORD='$MONGO_PASSWORD'; bash scripts/deploy-remote.sh '$RADARZAP_IMAGE'"
+  sudo -E bash -c "export RADARZAP_IMAGE=$RADARZAP_IMAGE MONGO_PASSWORD='$MONGO_PASSWORD' DOCKER_CMD='sudo docker'; bash scripts/deploy-remote.sh '$RADARZAP_IMAGE'"
 else
   bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
 fi
