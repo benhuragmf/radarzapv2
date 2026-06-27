@@ -27,10 +27,11 @@ const rateLimitConfigs = {
     }
   },
   
-  // Authentication endpoints
+  // Authentication endpoints — OAuth redireciona várias vezes; sucesso não deve consumir cota
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: devRelax ? 200 : 10,
+    max: devRelax ? 200 : 30,
+    skipSuccessfulRequests: true,
     message: {
       error: 'Too many authentication attempts',
       code: 'AUTH_RATE_LIMIT_EXCEEDED',
@@ -93,6 +94,7 @@ const createRateLimiter = (configKey: keyof typeof rateLimitConfigs) => {
     windowMs: config.windowMs,
     max: config.max,
     message: config.message,
+    skipSuccessfulRequests: 'skipSuccessfulRequests' in config ? config.skipSuccessfulRequests : false,
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     
