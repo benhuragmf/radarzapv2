@@ -9,7 +9,6 @@ DOCKER_BIN="${DOCKER_BIN:-docker}"
 if [[ "${USE_SUDO_DOCKER:-}" == "1" ]] || ! docker info >/dev/null 2>&1; then
   DOCKER_BIN="sudo docker"
 fi
-COMPOSE="$DOCKER_BIN compose"
 
 # Carrega secrets via --env-file (evita bash source quebrar em MAIL_FROM com <>)
 ENV_FILE="${ENV_FILE:-.env}"
@@ -24,15 +23,22 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 export RADARZAP_IMAGE="$IMAGE"
-ENV_PREFIX="RADARZAP_IMAGE=$RADARZAP_IMAGE"
-if [[ -n "${MONGO_PASSWORD:-}" ]]; then
-  ENV_PREFIX="$ENV_PREFIX MONGO_PASSWORD=$MONGO_PASSWORD"
-fi
 
 echo "[deploy] Imagem: $RADARZAP_IMAGE"
 $DOCKER_BIN pull "$RADARZAP_IMAGE" 2>/dev/null || true
-env $ENV_PREFIX $COMPOSE "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" up -d --remove-orphans
-env $ENV_PREFIX $COMPOSE "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" ps
+
+run_compose() {
+  local extra=(RADARZAP_IMAGE="$RADARZAP_IMAGE")
+  [[ -n "${MONGO_PASSWORD:-}" ]] && extra+=(MONGO_PASSWORD="$MONGO_PASSWORD")
+  if [[ "$DOCKER_BIN" == "sudo docker" ]]; then
+    sudo env "${extra[@]}" docker compose "$@"
+  else
+    env "${extra[@]}" docker compose "$@"
+  fi
+}
+
+run_compose "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" up -d --remove-orphans
+run_compose "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" ps
 
 echo "[deploy] Health check..."
 for i in $(seq 1 30); do
@@ -44,5 +50,5 @@ for i in $(seq 1 30); do
 done
 
 echo "[deploy] AVISO: health não respondeu em 60s — verifique logs"
-  $DOCKER_BIN compose "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" logs --tail=40 app
+run_compose "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" logs --tail=40 app
 exit 1
