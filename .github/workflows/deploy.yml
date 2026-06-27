@@ -1,19 +1,27 @@
+# Build na nuvem (GHCR) + deploy no VPS via SSH (~3–5 min no servidor).
+# Gatilhos: push na main (código), tag v*, ou manual (Actions → Deploy).
 name: Deploy
 
 on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'mocker/**'
+      - 'data/**'
+      - '.cursor/**'
   workflow_dispatch:
     inputs:
       target:
         description: Ambiente de destino
         required: true
-        default: staging
+        default: production
         type: choice
         options:
           - staging
           - production
-  push:
-    tags:
-      - 'v*'
 
 concurrency:
   group: deploy-${{ github.event.inputs.target || 'production' }}
@@ -25,8 +33,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,21 +65,29 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.target || 'production' }}
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy via SSH
+      - name: Deploy via SSH (pull GHCR + compose)
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          REPO_OWNER: ${{ github.repository_owner }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: GHCR_PAT,DEPLOY_PATH,IMAGE,REPO_OWNER
           script_stop: true
           script: |
             set -euo pipefail
-            cd "${{ secrets.DEPLOY_PATH }}"
-            export RADARZAP_IMAGE="ghcr.io/${{ github.repository }}:${{ github.sha }}"
-            export MONGO_PASSWORD="${{ secrets.MONGO_PASSWORD }}"
+            cd "$DEPLOY_PATH"
+            export USE_SUDO_DOCKER=1
+            export ENV_FILE=.env
+            if [ -n "${GHCR_PAT:-}" ]; then
+              echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
+            fi
+            export RADARZAP_IMAGE="$IMAGE"
             bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
