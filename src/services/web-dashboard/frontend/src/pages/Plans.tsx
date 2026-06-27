@@ -14,7 +14,10 @@ import { RadarPageShell, PageHeader, LoadingState } from '@/design-system'
 
 interface UserData {
   _id: string
-  discordUserId: string
+  discordUserId: string | null
+  email?: string | null
+  displayName: string
+  organizationName?: string | null
   plan: 'free' | 'starter' | 'pro' | 'enterprise'
   limits: { messagesPerDay: number; groupsMax: number; templatesMax: number }
   usage: { messagesUsed: number; lastReset: string }
@@ -334,9 +337,14 @@ export default function Plans({ user, admin }: Props) {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-sm font-mono">{u.discordUserId}</span>
+                      <span className="font-medium text-sm truncate">{u.displayName}</span>
                       <Badge label={u.plan} variant={planVariant[u.plan] ?? 'gray'} />
                     </div>
+                    {(u.organizationName || u.discordUserId || u.email) && (
+                      <p className="text-xs text-[var(--rz-text-muted)] truncate mb-1">
+                        {[u.organizationName, u.discordUserId, u.email].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                     {usageBar(u.usage.messagesUsed, u.limits.messagesPerDay)}
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">

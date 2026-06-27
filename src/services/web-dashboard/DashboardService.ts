@@ -211,6 +211,22 @@ export class DashboardService {
     return discordUserId;
   }
 
+  private async resolveUserDisplayName(user: {
+    displayName?: string | null;
+    discordUserId?: string | null;
+    email?: string | null;
+  }): Promise<string> {
+    const stored = user.displayName?.trim();
+    if (stored) return stored;
+    const discordId = user.discordUserId?.trim();
+    if (discordId && discordId !== 'system') {
+      return this.resolveDiscordDisplayName(discordId);
+    }
+    const email = user.email?.trim();
+    if (email) return email.split('@')[0] || email;
+    return 'Sem nome';
+  }
+
   private constructor(port = 3001) {
     this.port = port;
     this.app = express();
@@ -4500,15 +4516,37 @@ export class DashboardService {
     // ── Users / Plans (admin) ──────────────────────────────────────────────
     r.get('/users', requireCapability(Cap.SYSTEM_USERS_VIEW), async (_req, res) => {
       try {
-        const users = await User.find().sort({ createdAt: -1 }).lean();
-        res.json(users.map(u => ({
-          _id:          (u._id as any).toString(),
-          discordUserId: u.discordUserId,
-          plan:          u.plan,
-          limits:        u.limits,
-          usage:         u.usage,
-          createdAt:     u.createdAt,
-        })));
+        const users = await User.find({ discordUserId: { $ne: 'system' } })
+          .sort({ createdAt: -1 })
+          .lean();
+
+        const orgIds = users
+          .map(u => u.primaryOrganizationId)
+          .filter(Boolean) as mongoose.Types.ObjectId[];
+        const orgs = orgIds.length
+          ? await Organization.find({ _id: { $in: orgIds } }).select('name').lean()
+          : [];
+        const orgMap = new Map(orgs.map(o => [String(o._id), o.name]));
+
+        const payload = await Promise.all(
+          users.map(async (u) => {
+            const id = (u._id as mongoose.Types.ObjectId).toString();
+            const orgId = u.primaryOrganizationId ? String(u.primaryOrganizationId) : null;
+            return {
+              _id: id,
+              discordUserId: u.discordUserId ?? null,
+              email: u.email ?? null,
+              displayName: await this.resolveUserDisplayName(u),
+              organizationName: orgId ? orgMap.get(orgId) ?? null : null,
+              plan: u.plan,
+              limits: u.limits,
+              usage: u.usage,
+              createdAt: u.createdAt,
+            };
+          }),
+        );
+
+        res.json(payload);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
