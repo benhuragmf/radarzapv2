@@ -6,6 +6,12 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.25] — 2026-06-27
+
+### Deploy — fix build Docker do frontend
+
+- `Dockerfile.monolith`: copia `package.json` da raiz para `/repo/` — `vite.config` lê versão na build da imagem GHCR.
+
 ## [2.12.24] — 2026-06-27
 
 ### Painel — versão no rodapé da sidebar

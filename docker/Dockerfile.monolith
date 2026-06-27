@@ -7,6 +7,8 @@ COPY src/services/web-dashboard/frontend/package*.json ./
 RUN npm ci
 # Tipos compartilhados (@radarzap-types/* → ../../../types/*)
 COPY src/types /repo/src/types
+# Versão do app (vite.config lê /repo/package.json)
+COPY package.json /repo/package.json
 COPY src/services/web-dashboard/frontend/ ./
 RUN npm run build
 
