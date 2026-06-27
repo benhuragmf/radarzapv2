@@ -25,7 +25,10 @@ fi
 export RADARZAP_IMAGE="$IMAGE"
 
 echo "[deploy] Imagem: $RADARZAP_IMAGE"
-$DOCKER_BIN pull "$RADARZAP_IMAGE" 2>/dev/null || true
+$DOCKER_BIN pull "$RADARZAP_IMAGE" || {
+  echo "[deploy] ERRO: falha ao baixar $RADARZAP_IMAGE"
+  exit 1
+}
 
 run_compose() {
   local extra=(RADARZAP_IMAGE="$RADARZAP_IMAGE")

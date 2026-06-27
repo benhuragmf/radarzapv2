@@ -49,8 +49,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=,format=long
+            type=raw,value=latest
 
       - uses: docker/build-push-action@v6
         with:
@@ -73,7 +73,7 @@ jobs:
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          IMAGE: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          IMAGE: ghcr.io/${{ github.repository }}:latest
           REPO_OWNER: ${{ github.repository_owner }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
