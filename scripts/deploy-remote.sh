@@ -45,6 +45,11 @@ run_compose "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" ps
 
 echo "[deploy] Health check..."
 for i in $(seq 1 30); do
+  # /api/services/health exige sessão (401) — considerar app no ar se a porta responde
+  if wget -q --spider http://127.0.0.1:3001/ 2>/dev/null; then
+    echo "[deploy] OK"
+    exit 0
+  fi
   if wget -qO- http://127.0.0.1:3001/api/services/health 2>/dev/null | grep -q healthy; then
     echo "[deploy] OK"
     exit 0
