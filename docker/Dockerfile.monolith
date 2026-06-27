@@ -2,9 +2,11 @@
 # Build: docker build -f docker/Dockerfile.monolith -t radarzap:latest .
 
 FROM node:20-alpine AS frontend-builder
-WORKDIR /frontend
+WORKDIR /repo/src/services/web-dashboard/frontend
 COPY src/services/web-dashboard/frontend/package*.json ./
 RUN npm ci
+# Tipos compartilhados (@radarzap-types/* → ../../../types/*)
+COPY src/types /repo/src/types
 COPY src/services/web-dashboard/frontend/ ./
 RUN npm run build
 
@@ -26,7 +28,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=backend-builder /app/dist ./dist
 COPY --from=backend-builder /app/config ./config
-COPY --from=frontend-builder /frontend/../public ./dist/services/web-dashboard/public
+COPY --from=frontend-builder /repo/src/services/web-dashboard/public ./dist/services/web-dashboard/public
 
 RUN mkdir -p sessions media logs \
   && addgroup -g 1001 -S radarzap \
