@@ -214,9 +214,6 @@ export default function InboxSectors() {
       <InboxAtendimentoNav me={me} className="mb-4" />
 
       <div className="flex flex-wrap gap-2 mb-4">
-        <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">← Caixa de Entrada</Button>
-        </Link>
         <Link to="/platform/inbox/bot">
           <Button size="sm" variant="secondary">
             <Bot size={14} /> Bot e horários

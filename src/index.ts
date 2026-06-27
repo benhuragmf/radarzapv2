@@ -79,12 +79,25 @@ class Application {
   /**
    * Initialize core infrastructure (database, redis)
    */
+  private async waitForMongoReady(dbManager: DatabaseManager, timeoutMs = 45_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!dbManager.isConnected() && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    if (!dbManager.isConnected()) {
+      throw new Error(
+        'MongoDB indisponível após aguardar reconexão — execute: docker compose up -d mongodb redis',
+      );
+    }
+  }
+
   private async initializeInfrastructure(): Promise<void> {
     logger.info('Inicializando infraestrutura...');
 
     // Initialize database
     const dbManager = DatabaseManager.getInstance();
     await dbManager.connect();
+    await this.waitForMongoReady(dbManager);
     logger.info('Banco de dados OK');
 
     // Initialize Redis

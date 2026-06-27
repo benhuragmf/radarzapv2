@@ -3,20 +3,39 @@ import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Card } from '../ui/Card'
 import { WhatsAppPreviewBubble } from '../platform/WhatsAppPreviewBubble'
-import { formatDuration, campaignDelayOptionLabel, snapCampaignDelayMs } from '../../lib/limits'
+import { inputCls } from '@/design-system'
+import {
+  formatDuration,
+  campaignDelayOptionLabel,
+  campaignDelayJitterHint,
+  snapCampaignDelayMs,
+} from '../../lib/limits'
+
+type Priority = 'high' | 'medium' | 'low'
+
+const labelCls = 'text-xs text-[var(--rz-text-muted)] mb-1 block'
 
 interface Props {
   selectedTotal: number
   selectedContacts: number
   selectedGroups: number
   scheduleMode: boolean
+  onScheduleModeChange: (scheduled: boolean) => void
   sendAtLocal: string
+  onSendAtLocalChange: (value: string) => void
+  minSendAtLocal: string
+  priority: Priority
+  onPriorityChange: (priority: Priority) => void
   delayMs: number
-  minDelay: number
+  onDelayMsChange: (ms: number) => void
+  delayOptions: number[]
   durationEst: number
   delayConfig?: import('../../lib/limits').CampaignDelaysUiConfig
   acceptWhatsAppRisk: boolean
   riskAcknowledged: boolean
+  marketingPerMinute?: number | null
+  humanizeEnabled?: boolean
+  policyJitterHint?: string | null
   billingLine?: string
   previewText: string
   showPreview: boolean
@@ -32,13 +51,22 @@ export function SendCampaignSummary({
   selectedContacts,
   selectedGroups,
   scheduleMode,
+  onScheduleModeChange,
   sendAtLocal,
+  onSendAtLocalChange,
+  minSendAtLocal,
+  priority,
+  onPriorityChange,
   delayMs,
-  minDelay,
+  onDelayMsChange,
+  delayOptions,
   durationEst,
   delayConfig,
   acceptWhatsAppRisk,
   riskAcknowledged,
+  marketingPerMinute,
+  humanizeEnabled,
+  policyJitterHint,
   billingLine,
   previewText,
   showPreview,
@@ -49,8 +77,95 @@ export function SendCampaignSummary({
   result,
 }: Props) {
   return (
-    <div className="space-y-4">
-      <Card className="sticky top-4 space-y-4">
+    <aside className="w-full xl:w-[min(100%,380px)] xl:shrink-0 xl:sticky xl:top-4 xl:self-start">
+      <div className="space-y-4 xl:max-h-[calc(100dvh-6.5rem)] xl:overflow-y-auto">
+      <Card className="space-y-4">
+        <h2 className="text-sm font-medium text-[var(--rz-text-secondary)]">Quando enviar</h2>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onScheduleModeChange(false)}
+            className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors ${
+              !scheduleMode
+                ? 'border-brand-500 bg-brand-600/20 text-white'
+                : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
+            }`}
+          >
+            <Send size={14} className="inline mr-1.5" />
+            Enviar agora
+          </button>
+          <button
+            type="button"
+            onClick={() => onScheduleModeChange(true)}
+            className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors ${
+              scheduleMode
+                ? 'border-brand-500 bg-brand-600/20 text-white'
+                : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
+            }`}
+          >
+            <Calendar size={14} className="inline mr-1.5" />
+            Agendar
+          </button>
+        </div>
+
+        {scheduleMode && (
+          <div>
+            <label className={labelCls}>Data e horário</label>
+            <input
+              type="datetime-local"
+              value={sendAtLocal}
+              min={minSendAtLocal}
+              onChange={e => onSendAtLocalChange(e.target.value)}
+              className={inputCls}
+            />
+            <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
+              Data e hora devem ser no futuro.
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label className={labelCls}>Prioridade na fila</label>
+          <select
+            value={priority}
+            onChange={e => onPriorityChange(e.target.value as Priority)}
+            className={inputCls}
+          >
+            <option value="high">Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={labelCls}>
+            {acceptWhatsAppRisk ? 'Intervalo entre destinos' : 'Intervalo entre destinos (modo protegido)'}
+          </label>
+          <select
+            value={delayMs}
+            onChange={e => onDelayMsChange(Number(e.target.value))}
+            className={inputCls}
+          >
+            {delayOptions.map(ms => (
+              <option key={ms} value={ms}>
+                {campaignDelayOptionLabel(ms, acceptWhatsAppRisk, delayConfig)}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-[var(--rz-text-muted)] mt-1 leading-relaxed">
+            {acceptWhatsAppRisk
+              ? 'Modo sem proteção — ignora fila humanizada e limites por minuto. Risco alto de banimento.'
+              : `Modo protegido: 1 mensagem por vez, respeitando marketing${
+                  marketingPerMinute != null ? ` (${marketingPerMinute} msg/min)` : ''
+                }${humanizeEnabled ? ' + digitação simulada' : ''}. ${
+                  campaignDelayJitterHint(delayMs, delayConfig) ?? policyJitterHint ?? ''
+                }`}
+          </p>
+        </div>
+      </Card>
+
+      <Card className="space-y-4">
         <div>
           <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Resumo</h2>
           <div className="grid grid-cols-3 gap-2 mb-4">
@@ -78,6 +193,10 @@ export function SendCampaignSummary({
             <li>
               <strong className="text-[var(--rz-text-muted)]">Modo:</strong>{' '}
               {scheduleMode ? `Agendado (${sendAtLocal.replace('T', ' ')})` : 'Imediato'}
+            </li>
+            <li>
+              <strong className="text-[var(--rz-text-muted)]">Prioridade:</strong>{' '}
+              {priority === 'high' ? 'Alta' : priority === 'medium' ? 'Média' : 'Baixa'}
             </li>
             <li>
               <strong className="text-[var(--rz-text-muted)]">Intervalo:</strong>{' '}
@@ -169,6 +288,7 @@ export function SendCampaignSummary({
         <p>• Grupos WA: importe pela sessão conectada antes de enviar.</p>
         <p>• Velocidade real = lotes da campanha + limites em Limites de envio.</p>
       </Card>
-    </div>
+      </div>
+    </aside>
   )
 }

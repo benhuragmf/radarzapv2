@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.30] — 2026-06-27
+
+### Painel — `/send` sidebar + Inbox nav
+
+- **`/send`:** controles “Quando enviar” (imediato/agendar, prioridade, intervalo) e resumo na coluna direita sticky com scroll interno.
+- **Inbox:** removido link duplicado “← Caixa de Entrada” fora do `InboxAtendimentoNav` (Respostas, Setores, Relatórios, Supervisor, Bot).
+- **Dev:** `MONGODB_URL` com `127.0.0.1` documentado no `.env.example`; startup aguarda Mongo (`waitForMongoReady`).
+
 ## [2.12.29] — 2026-06-27
 
 ### Painel — padrão Salvar + toast de configuração

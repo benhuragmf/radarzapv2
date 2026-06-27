@@ -15,7 +15,6 @@ import {
   CAMPAIGN_SAFE_DEFAULT_DELAY_MS,
   CAMPAIGN_RISK_DEFAULT_DELAY_MS,
   campaignDelayOptionLabel,
-  campaignDelayJitterHint,
   snapCampaignDelayMs,
 } from '../lib/limits'
 import {
@@ -289,9 +288,6 @@ export default function SendNow() {
   const delayOptions = acceptWhatsAppRisk
     ? (sendPolicy?.riskDelayOptionsMs ?? [...ALLOWED_RISK_CAMPAIGN_DELAYS_MS])
     : (sendPolicy?.protectedDelayOptionsMs ?? [...ALLOWED_SAFE_CAMPAIGN_DELAYS_MS])
-  const minDelay = acceptWhatsAppRisk
-    ? WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS
-    : WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS
 
   const { data: platformTemplates = [] } = useQuery<PlatformTemplateOption[]>({
     queryKey: ['platform-templates-send'],
@@ -897,8 +893,8 @@ export default function SendNow() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          <div className="xl:col-span-8 space-y-4">
+      <div className="flex flex-col xl:flex-row gap-6 xl:items-start">
+          <div className="flex-1 min-w-0 space-y-4">
             <Card>
               <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">1. Destinatários</h2>
               <div className="flex flex-wrap gap-2 mb-3">
@@ -1380,93 +1376,8 @@ export default function SendNow() {
             </Card>
 
             <Card>
-              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">3. Quando e como enviar</h2>
+              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">3. Proteção e opções</h2>
               <div className="space-y-4">
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setScheduleMode(false)}
-                    className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors ${
-                      !scheduleMode
-                        ? 'border-brand-500 bg-brand-600/20 text-white'
-                        : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
-                    }`}
-                  >
-                    <Send size={14} className="inline mr-1.5" />
-                    Enviar agora
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScheduleMode(true)}
-                    className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors ${
-                      scheduleMode
-                        ? 'border-brand-500 bg-brand-600/20 text-white'
-                        : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
-                    }`}
-                  >
-                    <Calendar size={14} className="inline mr-1.5" />
-                    Agendar
-                  </button>
-                </div>
-
-                {scheduleMode && (
-                  <div>
-                    <label className={labelCls}>Data e horário</label>
-                    <input
-                      type="datetime-local"
-                      value={sendAtLocal}
-                      min={minSendAtLocal}
-                      onChange={e =>
-                        setSendAtLocal(clampDatetimeLocal(e.target.value, minSendAtLocal))
-                      }
-                      className={inputCls}
-                    />
-                    <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
-                      Data e hora devem ser no futuro.
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>Prioridade na fila</label>
-                    <select
-                      value={priority}
-                      onChange={e => setPriority(e.target.value as Priority)}
-                      className={inputCls}
-                    >
-                      <option value="high">Alta</option>
-                      <option value="medium">Média</option>
-                      <option value="low">Baixa</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>
-                      {acceptWhatsAppRisk ? 'Intervalo entre destinos' : 'Intervalo entre destinos (modo protegido)'}
-                    </label>
-                    <select
-                      value={delayBetweenMs}
-                      onChange={e => setDelayBetweenMs(Number(e.target.value))}
-                      className={inputCls}
-                    >
-                      {delayOptions.map(ms => (
-                        <option key={ms} value={ms}>
-                          {campaignDelayOptionLabel(ms, acceptWhatsAppRisk, delayConfig)}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
-                      {acceptWhatsAppRisk
-                        ? 'Modo sem proteção — ignora fila humanizada e limites por minuto. Risco alto de banimento.'
-                        : `Modo protegido: 1 mensagem por vez, respeitando marketing${
-                            marketingPerMinute != null ? ` (${marketingPerMinute} msg/min)` : ''
-                          }${
-                            sendPolicy?.effective.humanizeEnabled ? ' + digitação simulada' : ''
-                          }. ${campaignDelayJitterHint(delayBetweenMs, delayConfig) ?? sendPolicy?.delayJitterHint ?? ''}`}
-                    </p>
-                  </div>
-                </div>
-
                 {sendPolicy && (
                   <Card className="border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/25 p-3 space-y-1.5 text-[11px]">
                     <p className="font-medium text-[var(--rz-text-secondary)]">
@@ -1592,19 +1503,27 @@ export default function SendNow() {
             </Card>
           </div>
 
-          <div className="xl:col-span-4">
-            <SendCampaignSummary
+          <SendCampaignSummary
               selectedTotal={selectionStats.total}
               selectedContacts={selectionStats.contacts}
               selectedGroups={selectionStats.groups}
               scheduleMode={scheduleMode}
+              onScheduleModeChange={setScheduleMode}
               sendAtLocal={sendAtLocal}
+              onSendAtLocalChange={v => setSendAtLocal(clampDatetimeLocal(v, minSendAtLocal))}
+              minSendAtLocal={minSendAtLocal}
+              priority={priority}
+              onPriorityChange={setPriority}
               delayMs={delayBetweenMs}
-              minDelay={minDelay}
+              onDelayMsChange={setDelayBetweenMs}
+              delayOptions={delayOptions}
               durationEst={durationEst}
               delayConfig={delayConfig}
               acceptWhatsAppRisk={acceptWhatsAppRisk}
               riskAcknowledged={riskAcknowledged}
+              marketingPerMinute={marketingPerMinute}
+              humanizeEnabled={sendPolicy?.effective.humanizeEnabled}
+              policyJitterHint={sendPolicy?.delayJitterHint}
               billingLine={
                 billing && !isUnlimited(billing.limits.messagesPerDay)
                   ? `${billing.usage.messagesUsed}/${billing.limits.messagesPerDay} usadas`
@@ -1621,7 +1540,6 @@ export default function SendNow() {
               }}
               result={result}
             />
-          </div>
         </div>
       </div>
     </RadarPageShell>

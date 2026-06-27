@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { ArrowLeft, Zap, Plus, Trash2, Search, MessageSquare } from 'lucide-react'
+import { Zap, Plus, Trash2, Search, MessageSquare } from 'lucide-react'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { notifyConfigSaved, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, searchFieldIconCls, ConfigSaveFooter } from '@/design-system'
@@ -137,12 +136,7 @@ export default function InboxQuickReplies() {
       title="Respostas rápidas"
       description="Atalhos digitados no chat ajudam o atendente a responder mais rápido com mensagens padronizadas e precisas."
     >
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link to="/platform/inbox" className="inline-flex items-center gap-1 text-sm text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]">
-          <ArrowLeft size={14} /> Caixa de Entrada
-        </Link>
-        <InboxAtendimentoNav me={me} className="flex-1 min-w-0" />
-      </div>
+      <InboxAtendimentoNav me={me} className="mb-4" />
 
       {isLoading ? (
         <LoadingState rows={3} className="pt-4" />

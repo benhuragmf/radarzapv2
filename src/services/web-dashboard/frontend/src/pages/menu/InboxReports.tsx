@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { getMe, type AuthUser } from '../../lib/auth'
@@ -82,9 +81,6 @@ export default function InboxReports() {
       <InboxAtendimentoNav me={me} className="mb-4" />
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">← Caixa de Entrada</Button>
-        </Link>
         <select
           value={days}
           onChange={e => setDays(Number(e.currentTarget.value))}

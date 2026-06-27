@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { getMe, type AuthUser } from '../../lib/auth'
@@ -327,9 +327,6 @@ export default function InboxSupervisor() {
       <InboxAtendimentoNav me={me} className="mb-4" />
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">← Caixa de Entrada</Button>
-        </Link>
         <Button size="sm" variant="secondary" onClick={refresh} disabled={isFetching}>
           <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Atualizar
         </Button>

@@ -319,9 +319,6 @@ export default function InboxBotSettings() {
             <MessageCircle size={14} /> Chat do site
           </Button>
         </Link>
-        <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">Caixa de entrada</Button>
-        </Link>
       </div>
 
       <div
