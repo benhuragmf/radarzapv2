@@ -88,10 +88,16 @@ import {
 } from '../destinations/destination-classification.service';
 import {
   CONTACT_KINDS,
+  CONTACT_ORIGINS,
   CONTACT_TEMPERATURES,
+  COMMERCIAL_STATUSES,
+  PHONE_QUALITIES,
   SEND_PERMISSIONS,
   type ContactKind,
+  type ContactOrigin,
+  type CommercialStatus,
   type ContactTemperature,
+  type PhoneQuality,
   type SendPermission,
 } from '@/types/contact-classification';
 import {
@@ -3326,13 +3332,46 @@ export class DashboardService {
         if (notes !== undefined) dest.notes = notes.trim() || undefined;
         if (organization !== undefined) dest.organization = organization.trim() || undefined;
 
-        if (contactKind !== undefined) dest.contactKind = contactKind === null ? undefined : contactKind || undefined;
-        if (contactOrigin !== undefined) dest.contactOrigin = contactOrigin === null ? undefined : contactOrigin || undefined;
-        if (commercialStatus !== undefined) {
-          dest.commercialStatus = commercialStatus === null ? undefined : commercialStatus || undefined;
+        if (contactKind !== undefined) {
+          dest.contactKind =
+            contactKind === null || contactKind === ''
+              ? undefined
+              : (CONTACT_KINDS as readonly string[]).includes(contactKind)
+                ? (contactKind as ContactKind)
+                : dest.contactKind;
         }
-        if (temperature !== undefined) dest.temperature = temperature === null ? undefined : temperature || undefined;
-        if (phoneQuality !== undefined) dest.phoneQuality = phoneQuality || undefined;
+        if (contactOrigin !== undefined) {
+          dest.contactOrigin =
+            contactOrigin === null || contactOrigin === ''
+              ? undefined
+              : (CONTACT_ORIGINS as readonly string[]).includes(contactOrigin)
+                ? (contactOrigin as ContactOrigin)
+                : dest.contactOrigin;
+        }
+        if (commercialStatus !== undefined) {
+          dest.commercialStatus =
+            commercialStatus === null || commercialStatus === ''
+              ? undefined
+              : (COMMERCIAL_STATUSES as readonly string[]).includes(commercialStatus)
+                ? (commercialStatus as CommercialStatus)
+                : dest.commercialStatus;
+        }
+        if (temperature !== undefined) {
+          dest.temperature =
+            temperature === null || temperature === ''
+              ? undefined
+              : (CONTACT_TEMPERATURES as readonly string[]).includes(temperature)
+                ? (temperature as ContactTemperature)
+                : dest.temperature;
+        }
+        if (phoneQuality !== undefined) {
+          dest.phoneQuality =
+            phoneQuality === null || phoneQuality === ''
+              ? undefined
+              : (PHONE_QUALITIES as readonly string[]).includes(phoneQuality)
+                ? (phoneQuality as PhoneQuality)
+                : dest.phoneQuality;
+        }
 
         if (contactGroupIds !== undefined) {
           if (!Array.isArray(contactGroupIds)) {

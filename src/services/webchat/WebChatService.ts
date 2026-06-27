@@ -1220,6 +1220,23 @@ export class WebChatService {
       ? null
       : this.buildVisitorProfileContact(convDoc);
 
+    const contact = destination
+      ? {
+          _id: String(destination._id),
+          name: destination.name,
+          email: destination.email ?? '',
+          notes: destination.notes ?? '',
+          organization: destination.organization ?? '',
+          identifier: destination.identifier,
+          contactGroupIds: (destination.contactGroupIds ?? []).map(String),
+          tags: destination.tags ?? [],
+          lastMessageSent: destination.lastMessageSent,
+          classification: classificationCtx
+            ? classifyDestination(destination, classificationCtx)
+            : undefined,
+        }
+      : visitorContact;
+
     return {
       conversation: { ...conversation, createdAt: convDoc.createdAt.toISOString(), ticketRef: convDoc.ticketRef?.trim() || undefined },
       messages: detail.messages.map(m => ({
@@ -1236,22 +1253,7 @@ export class WebChatService {
         readAt: m.readAt,
       })),
       transfers: [],
-      contact: destination
-        ? {
-            _id: String(destination._id),
-            name: destination.name,
-            email: destination.email ?? '',
-            notes: destination.notes ?? '',
-            organization: destination.organization ?? '',
-            identifier: destination.identifier,
-            contactGroupIds: (destination.contactGroupIds ?? []).map(String),
-            tags: destination.tags ?? [],
-            lastMessageSent: destination.lastMessageSent,
-            classification: classificationCtx
-              ? classifyDestination(destination as IDestination, classificationCtx)
-              : undefined,
-          }
-        : visitorContact,
+      contact,
       quickReplies: normalizeQuickReplies(inboxSettings.quickReplies),
       inactivitySla: {
         inactivityAutoCloseEnabled: inboxSettings.inactivityAutoCloseEnabled,
@@ -1425,7 +1427,7 @@ export class WebChatService {
             contactGroupIds: (dest.contactGroupIds ?? []).map(String),
             tags: dest.tags ?? [],
             lastMessageSent: dest.lastMessageSent,
-            classification: classifyDestination(dest as IDestination, classificationCtx),
+            classification: classifyDestination(dest, classificationCtx),
           },
         };
       }

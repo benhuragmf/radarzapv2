@@ -33,7 +33,7 @@ export type CampaignClassificationContext = {
 };
 
 export function destinationToClassificationInput(
-  dest: IDestination | DestinationClassificationInput,
+  dest: IDestination | DestinationClassificationInput | Record<string, unknown>,
 ): DestinationClassificationInput {
   const d = dest as DestinationClassificationInput & {
     consent?: { granted?: boolean; source?: string };
@@ -105,7 +105,7 @@ export async function loadCampaignClassificationContext(
 }
 
 export function classifyDestination(
-  dest: IDestination | DestinationClassificationInput,
+  dest: IDestination | DestinationClassificationInput | Record<string, unknown>,
   ctx: CampaignClassificationContext,
 ): ContactClassification {
   const input = destinationToClassificationInput(dest);
@@ -238,7 +238,8 @@ export async function syncDestinationClassificationFromLead(
   await dest.save();
 }
 
-export async function enrichDestinationsWithClassification(  destinations: Array<DestinationClassificationInput & { clientId?: unknown }>,
+export async function enrichDestinationsWithClassification(
+  destinations: Array<DestinationClassificationInput & { clientId?: unknown } | Record<string, unknown>>,
 ): Promise<EnrichedDestination[]> {
   const contactIds = destinations
     .filter(d => d.type === 'contact')
@@ -273,15 +274,20 @@ export async function enrichDestinationsWithClassification(  destinations: Array
     }
   }
 
-  const duplicateIds = findDuplicateDestinationIds(destinations);
+  const duplicateIds = findDuplicateDestinationIds(
+    destinations.map(d => destinationToClassificationInput(d)),
+  );
 
-  return destinations.map(d => ({
-    ...d,
-    classification: buildContactClassification(d, {
-      lead: leadByDest.get(String(d._id)),
-      duplicateIds,
-    }),
-  }));
+  return destinations.map(d => {
+    const input = destinationToClassificationInput(d);
+    return {
+      ...input,
+      classification: buildContactClassification(input, {
+        lead: leadByDest.get(String(input._id)),
+        duplicateIds,
+      }),
+    };
+  });
 }
 
 export type SmartSegmentPresetId =

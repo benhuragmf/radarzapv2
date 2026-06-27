@@ -3153,10 +3153,13 @@ export class InboxService {
     );
     return attachClassificationToConversationRows(
       clientId,
-      enriched.map(r => ({
-        ...r,
-        destinationId: r.destinationId ? String(r.destinationId) : undefined,
-      })),
+      enriched.map(r => {
+        const raw = r as Record<string, unknown>;
+        return {
+          ...r,
+          destinationId: raw.destinationId ? String(raw.destinationId) : undefined,
+        };
+      }),
     );
   }
 
@@ -4527,7 +4530,7 @@ export class InboxService {
             tags: destination.tags ?? [],
             lastMessageSent: destination.lastMessageSent,
             classification: classificationCtx
-              ? classifyDestination(destination as IDestination, classificationCtx)
+              ? classifyDestination(destination, classificationCtx)
               : undefined,
           }
         : null,

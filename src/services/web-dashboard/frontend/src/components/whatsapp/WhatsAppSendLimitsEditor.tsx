@@ -355,9 +355,9 @@ export function WhatsAppSendLimitsEditor({ mode, initial, saving, onSave }: Prop
                   <span className="text-[var(--rz-text-muted)]">Opção {i + 1} (s)</span>
                   <input
                     type="number"
-                    min={state.campaignDelays.riskMinSec}
+                    min={state.campaignDelays!.riskMinSec}
                     max={29}
-                    value={state.campaignDelays.riskDelaysSec[i]}
+                    value={state.campaignDelays!.riskDelaysSec[i]}
                     onChange={e => {
                       const v = Number(e.target.value)
                       setState(s => {
