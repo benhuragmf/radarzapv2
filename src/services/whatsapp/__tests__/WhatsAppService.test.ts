@@ -201,7 +201,8 @@ describe('WhatsAppService', () => {
         identifier,
         name,
         isActive: true,
-        hasValidConsent: jest.fn().mockReturnValue(true)
+        hasValidConsent: jest.fn().mockReturnValue(true),
+        save: jest.fn().mockResolvedValue(undefined),
       };
       (Destination.createDestination as jest.Mock).mockResolvedValue(mockDestination);
 

@@ -7,11 +7,14 @@ const IV_LEN = 16;
 
 function resolveKey(): Buffer {
   const raw = process.env.SESSION_ENCRYPTION_KEY?.trim() || '';
-  if (raw.length >= 32) return Buffer.from(raw.slice(0, 32), 'utf8');
+  if (raw.length >= 32) {
+    const key = Buffer.from(raw.slice(0, 32), 'utf8');
+    if (key.length === 32) return key;
+  }
   if (config.NODE_ENV === 'production') {
     throw new Error('SESSION_ENCRYPTION_KEY is required for field encryption in production');
   }
-  return Buffer.from('dev-only-field-encryption-key!!', 'utf8');
+  return crypto.createHash('sha256').update('radarzap-dev-field-encryption-v1').digest();
 }
 
 /** Criptografa texto sensível para persistência (webhook secret, backup). */

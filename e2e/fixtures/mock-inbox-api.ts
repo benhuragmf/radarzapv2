@@ -10,6 +10,12 @@ export async function expectInboxLoaded(page: Page): Promise<void> {
   await expect(page.getByRole('main').getByText('Maria Cliente')).toBeVisible({ timeout: 15_000 });
 }
 
+/** Leads — aguarda auth + capturas mockadas. */
+export async function expectLeadsLoaded(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Leads' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Ana Lead')).toBeVisible({ timeout: 15_000 });
+}
+
 const INBOX_CAPABILITIES = [
   'dashboard:view',
   'inbox:view',
@@ -23,6 +29,7 @@ const INBOX_CAPABILITIES = [
   'webchat:manage',
   'webchat:reply',
   'consent:view',
+  'leads:view',
   'send:destination:manage',
 ];
 
@@ -374,6 +381,17 @@ const MOCK_LEAD_CAPTURES = {
   total: 1,
 };
 
+const MOCK_LEAD_CLASSIFICATION_STATS = {
+  totalLeads: 1,
+  linkedLeads: 0,
+  unlinkedLeads: 1,
+  withOptIn: 0,
+  pendingConsent: 0,
+  blockedCampaign: 0,
+  hotWarm: 0,
+  byKind: { lead: 1 },
+};
+
 export interface InboxMockOptions {
   webchatQueueCount?: number;
 }
@@ -679,11 +697,19 @@ export async function setupInboxMocks(
       });
     }
 
-    if (path === '/leads/captures') {
+    if (path === '/leads/captures' && req.method() === 'GET') {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(MOCK_LEAD_CAPTURES),
+      });
+    }
+
+    if (path === '/leads/classification-stats') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LEAD_CLASSIFICATION_STATS),
       });
     }
 
@@ -713,7 +739,13 @@ export async function setupInboxMocks(
     }
 
     if (path === '/leads/segments-summary') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { id: 'grp-1', name: 'Lead', leadCount: 2, convertedCount: 1, conversionRate: 50 },
+        ]),
+      });
     }
 
     if (path === '/leads/assignees') {
