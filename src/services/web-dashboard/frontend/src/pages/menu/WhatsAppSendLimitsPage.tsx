@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { api } from '../../lib/api'
+import { notifyConfigSaved, mutationError } from '../../lib/notify'
 import { RadarPageShell, PageHeader, LoadingState } from '@/design-system'
 import {
   WhatsAppSendLimitsEditor,
@@ -23,10 +23,10 @@ export default function WhatsAppSendLimitsPage() {
     mutationFn: (body: Record<string, unknown>) =>
       api.patch<PolicyResponse>('/platform/whatsapp-send-limits', body),
     onSuccess: () => {
-      toast.success('Limites de envio salvos')
+      notifyConfigSaved()
       qc.invalidateQueries({ queryKey: ['platform-whatsapp-send-limits'] })
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: mutationError,
   })
 
   const initial: WhatsAppLimitsFormState | null = data

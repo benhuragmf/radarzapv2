@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card } from '../ui/Card'
-import { Button } from '../ui/Button'
+import { ConfigSaveFooter } from '@/design-system'
 
 export type KindKey = 'conversation' | 'marketing' | 'alert'
 
@@ -383,9 +383,7 @@ export function WhatsAppSendLimitsEditor({ mode, initial, saving, onSave }: Prop
         </Card>
       )}
 
-      <Button onClick={() => onSave(state)} disabled={saving}>
-        {saving ? 'Salvando…' : 'Salvar limites'}
-      </Button>
+      <ConfigSaveFooter onSave={() => onSave(state)} saving={saving} />
     </div>
   )
 }

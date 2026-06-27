@@ -40,6 +40,13 @@ function shouldShow(key: string): boolean {
   return true
 }
 
+/** Mensagem padrão após salvar formulários de configuração no painel. */
+export const CONFIG_SAVED_MESSAGE = 'Configurações salvas'
+
+export function notifyConfigSaved(message: string = CONFIG_SAVED_MESSAGE): void {
+  notifySuccess(message)
+}
+
 export function notifySuccess(message: string): void {
   toastSuccess(message)
 }

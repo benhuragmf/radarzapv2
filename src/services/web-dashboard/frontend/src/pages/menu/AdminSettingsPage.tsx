@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { api } from '../../lib/api'
+import { notifyConfigSaved, mutationError } from '../../lib/notify'
 import { RadarPageShell, PageHeader, LoadingState } from '@/design-system'
 import {
   WhatsAppSendLimitsEditor,
@@ -30,11 +30,11 @@ export default function AdminSettingsPage() {
     mutationFn: (body: Record<string, unknown>) =>
       api.patch<SystemPolicyResponse>('/admin/whatsapp-send-policy', body),
     onSuccess: () => {
-      toast.success('Política global de envio WA salva')
+      notifyConfigSaved()
       qc.invalidateQueries({ queryKey: ['admin-whatsapp-send-policy'] })
       qc.invalidateQueries({ queryKey: ['campaigns-send-policy'] })
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: mutationError,
   })
 
   const initial: WhatsAppLimitsFormState | null = data

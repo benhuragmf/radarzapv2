@@ -9,7 +9,6 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import {
   Sparkles,
-  Save,
   Trash2,
   Zap,
   BookOpen,
@@ -39,8 +38,8 @@ import {
   type AttendanceUiSelection,
   type AiCredentialSource,
 } from '../../lib/attendanceMode'
-import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
-import { inputCls, textareaCls, LoadingState } from '@/design-system'
+import { notifyError, notifySuccess, notifyInfo, notifyConfigSaved, mutationError } from '../../lib/notify'
+import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
 
 const textareaClsAi = `${textareaCls} min-h-[120px]`
 
@@ -271,7 +270,7 @@ export default function AiAtendimento() {
       setAttendanceUi(attendanceSelectionFromSettings(res.settings))
       qc.setQueryData(['ai-settings'], res)
       setApiKeyInput('')
-      notifySuccess('Configurações salvas')
+      notifyConfigSaved()
     },
     onError: mutationError,
   })
@@ -1735,12 +1734,7 @@ export default function AiAtendimento() {
       )}
 
       {tab !== 'testar' && tab !== 'logs' && (
-        <div className="sticky bottom-2 z-10 flex justify-end pt-1">
-          <Button type="button" onClick={handleSave} disabled={save.isPending} className="shadow-lg">
-            <Save className="w-4 h-4 mr-2" />
-            {save.isPending ? 'Salvando…' : 'Salvar configurações'}
-          </Button>
-        </div>
+        <ConfigSaveFooter onSave={handleSave} saving={save.isPending} />
       )}
       </div>
     </PlatformPage>

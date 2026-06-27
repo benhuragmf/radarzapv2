@@ -6,6 +6,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.29] — 2026-06-27
+
+### Painel — padrão Salvar + toast de configuração
+
+- **`ConfigSaveFooter`** (`@/design-system`) — botão inferior direito igual IA de Atendimento.
+- **`notifyConfigSaved()`** — toast Sonner “Configurações salvas” (referência `/platform/inbox/ia`).
+- Padronizado em: Triagem e Bot, IA, Respostas rápidas, WebChat, limites WA tenant/admin.
+- Doc: [`docs/design-system/CONFIG-SAVE-FEEDBACK.md`](./design-system/CONFIG-SAVE-FEEDBACK.md).
+
 ## [2.12.28] — 2026-06-27
 
 ### Painel — Triagem e Bot: barra Salvar padronizada

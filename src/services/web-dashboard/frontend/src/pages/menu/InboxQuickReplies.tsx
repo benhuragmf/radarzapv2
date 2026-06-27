@@ -6,10 +6,10 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { ArrowLeft, Save, Zap, Plus, Trash2, Search, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Zap, Plus, Trash2, Search, MessageSquare } from 'lucide-react'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
-import { mutationError } from '../../lib/notify'
-import { inputCls, textareaCls, LoadingState, searchFieldIconCls } from '@/design-system'
+import { notifyConfigSaved, mutationError } from '../../lib/notify'
+import { inputCls, textareaCls, LoadingState, searchFieldIconCls, ConfigSaveFooter } from '@/design-system'
 
 interface QuickReply {
   code: string
@@ -76,7 +76,6 @@ export default function InboxQuickReplies() {
   })
 
   const [rows, setRows] = useState<QuickReplyRow[]>([])
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     if (data) setRows(data.map(r => newRow(r)))
@@ -108,8 +107,7 @@ export default function InboxQuickReplies() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-quick-replies'] })
       qc.invalidateQueries({ queryKey: ['inbox-conversation'] })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      notifyConfigSaved()
     },
     onError: mutationError,
   })
@@ -188,13 +186,6 @@ export default function InboxQuickReplies() {
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" onClick={addRow}>
                   <Plus size={14} /> Adicionar
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => save.mutate(rows)}
-                  disabled={save.isPending || rows.length === 0}
-                >
-                  <Save size={14} /> {saved ? 'Salvo!' : 'Salvar'}
                 </Button>
               </div>
             </div>
@@ -296,6 +287,14 @@ export default function InboxQuickReplies() {
             </Card>
           </aside>
         </div>
+      )}
+
+      {!isLoading && (
+        <ConfigSaveFooter
+          onSave={() => save.mutate(rows)}
+          saving={save.isPending}
+          disabled={rows.length === 0}
+        />
       )}
     </PlatformPage>
   )

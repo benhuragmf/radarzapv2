@@ -7,7 +7,7 @@ import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Globe, MessageSquare, Plus, Inbox as InboxIcon, Search, PanelRight, ArrowLeft, LayoutGrid, Moon, Sun } from 'lucide-react'
-import { notifySuccess, mutationError } from '../../lib/notify'
+import { notifySuccess, notifyConfigSaved, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, EmptyState, searchFieldIconCls } from '@/design-system'
 import { cn } from '@/lib/utils'
 import { inboxWebChatUrl, webChatMediaSrc } from '../../lib/webchatInbox'
@@ -1027,7 +1027,7 @@ function WidgetEditorCard({
       if (tplId) setLivePreviewTemplateId(tplId)
       bumpPreview()
       setBaselineDelayDraft(delayDraft)
-      notifySuccess('Widget atualizado')
+      notifyConfigSaved()
     },
     onError: err => {
       if (err instanceof Error && validateWidgetForm(form, delayDraft).includes(err.message)) {
@@ -1071,7 +1071,7 @@ function WidgetEditorCard({
       onSuccess: updated => {
         mergeWidgetAppearanceInCache(updated)
         bumpPreview()
-        notifySuccess('Formulário do visitante salvo')
+        notifyConfigSaved()
       },
     })
   }
@@ -1081,10 +1081,7 @@ function WidgetEditorCard({
     form.appearance.previewTemplateId ?? selectedTemplateId ?? null
   const previewUrl = webChatPreviewUrl('/webchat/widget.html', widget.publicKey)
 
-  const persistVisualAppearance = (
-    appearance: WebChatWidgetRow['appearance'],
-    options?: { successMessage?: string },
-  ) => {
+  const persistVisualAppearance = (appearance: WebChatWidgetRow['appearance']) => {
     setVisualApplying(true)
     persistAppearancePatch.mutate(visualAppearancePatch(appearance), {
       onSuccess: updated => {
@@ -1098,7 +1095,7 @@ function WidgetEditorCard({
           setLivePreviewTemplateId(tplId)
         }
         bumpPreview()
-        notifySuccess(options?.successMessage ?? 'Visual do widget salvo no servidor')
+        notifyConfigSaved()
       },
       onSettled: () => setVisualApplying(false),
     })
@@ -1112,7 +1109,7 @@ function WidgetEditorCard({
     })
     setForm(f => ({ ...f, appearance: nextAppearance }))
     setSelectedTemplateId(templateId)
-    persistVisualAppearance(nextAppearance, { successMessage: 'Modelo aplicado' })
+    persistVisualAppearance(nextAppearance)
   }
 
   const applyChatBoxModel = (model: ChatBoxModel) => {
@@ -1132,7 +1129,7 @@ function WidgetEditorCard({
       api.patch(`/webchat/widgets/${widget.id}`, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
-      notifySuccess('Configuração de IA salva no widget')
+      notifyConfigSaved()
     },
     onError: mutationError,
   })
@@ -1153,7 +1150,7 @@ function WidgetEditorCard({
       api.patch(`/webchat/widgets/${widget.id}`, { aiEscalationPolicy: policy }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['webchat-widgets'] })
-      notifySuccess('Regras de transferência salvas')
+      notifyConfigSaved()
     },
     onError: mutationError,
   })

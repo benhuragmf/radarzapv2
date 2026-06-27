@@ -19,7 +19,8 @@ import {
   Zap,
   Star,
 } from 'lucide-react'
-import { inputCls, textareaCls, LoadingState, SaveBar } from '@/design-system'
+import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
+import { notifyConfigSaved, mutationError } from '../../lib/notify'
 import { cn } from '@/lib/utils'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxBotFlowPreview } from '../../components/inbox/InboxBotFlowPreview'
@@ -211,7 +212,6 @@ export default function InboxBotSettings() {
   })
 
   const [form, setForm] = useState<InboxSettings | null>(null)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     if (data) {
@@ -238,9 +238,9 @@ export default function InboxBotSettings() {
     mutationFn: (payload: Partial<InboxSettings>) => api.patch('/inbox/settings', payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-settings'] })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      notifyConfigSaved()
     },
+    onError: mutationError,
   })
 
   if (!canManage) {
@@ -284,14 +284,6 @@ export default function InboxBotSettings() {
   }
 
   const handleSave = () => save.mutate(form)
-
-  const saveHint = saved ? (
-    <span className="text-brand-400">Configurações salvas com sucesso!</span>
-  ) : save.isError ? (
-    <span className="text-red-400">{(save.error as Error).message}</span>
-  ) : (
-    'Salve para aplicar as alterações em todas as abas.'
-  )
 
   const departmentOptions =
     departments
@@ -1118,12 +1110,7 @@ export default function InboxBotSettings() {
         </aside>
       </div>
 
-      <SaveBar
-        onSave={handleSave}
-        saving={save.isPending}
-        saveLabel="Salvar configurações"
-        hint={saveHint}
-      />
+      <ConfigSaveFooter onSave={handleSave} saving={save.isPending} />
     </PlatformPage>
   )
 }
