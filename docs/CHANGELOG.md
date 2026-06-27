@@ -6,6 +6,12 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.31] — 2026-06-27
+
+### Painel — `/sessions` mobile
+
+- Card de conexão: identidade e ações em linhas separadas; telefone sem quebra; botões Reiniciar/Desconectar responsivos; QR `max-w-full`.
+
 ## [2.12.30] — 2026-06-27
 
 ### Painel — `/send` sidebar + Inbox nav

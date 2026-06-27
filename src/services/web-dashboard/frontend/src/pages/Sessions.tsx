@@ -193,8 +193,8 @@ export default function Sessions() {
         />
       )}
 
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-[var(--rz-text-muted)]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-[var(--rz-text-muted)] min-w-0">
           {hasConnected
             ? 'WhatsApp conectado. Use Reiniciar ou Desconectar no card abaixo.'
             : (
@@ -238,7 +238,7 @@ export default function Sessions() {
 
         return (
           <Card key={s.clientId}>
-            <div className="flex items-start justify-between gap-4">
+            <div className="space-y-4">
               <div className="flex items-start gap-3 min-w-0">
                 {isConnected ? (
                   <WaAvatar url={s.profilePictureUrl} name={s.profileName} />
@@ -248,7 +248,7 @@ export default function Sessions() {
                   </div>
                 )}
 
-                <div className="min-w-0 space-y-1">
+                <div className="min-w-0 flex-1 space-y-1">
                   {isConnected ? (
                     <>
                       <p className="text-sm font-medium truncate">
@@ -256,12 +256,12 @@ export default function Sessions() {
                           (s.phoneNumber ? formatPhone(s.phoneNumber) : 'WhatsApp')}
                       </p>
                       {s.phoneNumber && s.profileName && (
-                        <p className="text-xs text-green-400/90 font-mono">
+                        <p className="text-xs text-green-400/90 font-mono truncate whitespace-nowrap">
                           {formatPhone(s.phoneNumber)}
                         </p>
                       )}
                       <p className="text-xs text-[var(--rz-text-muted)]">
-                        Conectado · {s.lastActivity ? new Date(s.lastActivity).toLocaleString('pt-BR') : '—'}
+                        {s.lastActivity ? new Date(s.lastActivity).toLocaleString('pt-BR') : '—'}
                       </p>
                     </>
                   ) : (
@@ -275,7 +275,7 @@ export default function Sessions() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 {statusBadge(s.status)}
 
                 {isPending && (
@@ -295,6 +295,7 @@ export default function Sessions() {
                       size="sm" variant="secondary"
                       onClick={() => restart.mutate(s.clientId)}
                       disabled={restart.isPending}
+                      className="flex-1 sm:flex-none"
                     >
                       <RefreshCw size={12} />
                       Reiniciar
@@ -303,6 +304,7 @@ export default function Sessions() {
                       size="sm" variant="danger"
                       onClick={() => logout.mutate(s.clientId)}
                       disabled={logout.isPending}
+                      className="flex-1 sm:flex-none"
                     >
                       <Power size={12} />
                       Desconectar
@@ -315,7 +317,7 @@ export default function Sessions() {
             {qr && isPending && (
               <div className="mt-4 flex flex-col items-center gap-2 p-4 bg-[var(--rz-surface)]/50 rounded-lg border border-yellow-500/20">
                 <p className="text-sm text-yellow-400 font-medium">Escaneie com WhatsApp → Aparelhos conectados</p>
-                <img src={qr} alt="QR Code WhatsApp" className="w-72 h-72 sm:w-80 sm:h-80 rz-qr-frame" />
+                <img src={qr} alt="QR Code WhatsApp" className="w-full max-w-72 sm:max-w-80 aspect-square rz-qr-frame" />
                 <p className="text-xs text-[var(--rz-text-muted)]">
                   {s.qrCount ? `QR #${s.qrCount} · ` : ''}
                   O QR expira em ~2 minutos. Clique Novo QR se expirar.
