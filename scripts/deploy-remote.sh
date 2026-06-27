@@ -6,11 +6,15 @@ set -euo pipefail
 IMAGE="${1:?informe a imagem (ex.: ghcr.io/owner/radarzap:sha)}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 
-# Carrega secrets do .env no servidor (não sobrescrever com env vazio do SSH)
-if [[ -f .env ]]; then
+# Carrega secrets via --env-file (evita bash source quebrar em MAIL_FROM com <>)
+ENV_FILE="${ENV_FILE:-.env}"
+COMPOSE_ENV=()
+if [[ -f "$ENV_FILE" ]]; then
+  COMPOSE_ENV=(--env-file "$ENV_FILE")
+  # export para app env_file + interpolação ${MONGO_PASSWORD}
   set -a
   # shellcheck disable=SC1091
-  source .env
+  source "$ENV_FILE" 2>/dev/null || true
   set +a
 fi
 
@@ -23,8 +27,8 @@ fi
 
 echo "[deploy] Imagem: $RADARZAP_IMAGE"
 ${DOCKER_CMD:-docker} pull "$RADARZAP_IMAGE" 2>/dev/null || true
-env $ENV_PREFIX $COMPOSE -f "$COMPOSE_FILE" up -d --remove-orphans
-env $ENV_PREFIX $COMPOSE -f "$COMPOSE_FILE" ps
+env $ENV_PREFIX $COMPOSE "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" up -d --remove-orphans
+env $ENV_PREFIX $COMPOSE "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" ps
 
 echo "[deploy] Health check..."
 for i in $(seq 1 30); do

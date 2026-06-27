@@ -94,7 +94,7 @@ GOOGLE_CLIENT_SECRET=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 RESEND_API_KEY=
-MAIL_FROM=RadarZap <noreply@radarzap.local>
+MAIL_FROM="RadarZap <noreply@radarzap.local>"
 RADARZAP_SYSTEM_ADMIN_DISCORD_IDS=
 EOF
   chmod 600 .env
