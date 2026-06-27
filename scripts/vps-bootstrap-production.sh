@@ -65,6 +65,7 @@ if [[ ! -f .env ]]; then
   JWT_SECRET="$(openssl rand -hex 32)"
   SESSION_SECRET="$(openssl rand -hex 32)"
   SESSION_ENC="$(openssl rand -hex 32)"
+  OTP_PEPPER="$(openssl rand -hex 32)"
   cat > .env <<EOF
 NODE_ENV=production
 MONGO_PASSWORD=${MONGO_PW}
@@ -80,6 +81,7 @@ API_HOST=0.0.0.0
 FRONTEND_URL=${PUBLIC_URL}
 CORS_ORIGIN=${PUBLIC_URL}
 COOKIE_SECURE=false
+TICKET_OTP_PEPPER=${OTP_PEPPER}
 LOG_LEVEL=info
 LOG_FORMAT=json
 WHATSAPP_HEADLESS=true
