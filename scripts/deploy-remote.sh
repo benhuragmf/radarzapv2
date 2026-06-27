@@ -5,6 +5,11 @@ set -euo pipefail
 
 IMAGE="${1:?informe a imagem (ex.: ghcr.io/owner/radarzap:sha)}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
+DOCKER_BIN="${DOCKER_BIN:-docker}"
+if [[ "${USE_SUDO_DOCKER:-}" == "1" ]] || ! docker info >/dev/null 2>&1; then
+  DOCKER_BIN="sudo docker"
+fi
+COMPOSE="$DOCKER_BIN compose"
 
 # Carrega secrets via --env-file (evita bash source quebrar em MAIL_FROM com <>)
 ENV_FILE="${ENV_FILE:-.env}"
@@ -19,14 +24,13 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 export RADARZAP_IMAGE="$IMAGE"
-COMPOSE="${DOCKER_CMD:-docker} compose"
 ENV_PREFIX="RADARZAP_IMAGE=$RADARZAP_IMAGE"
 if [[ -n "${MONGO_PASSWORD:-}" ]]; then
   ENV_PREFIX="$ENV_PREFIX MONGO_PASSWORD=$MONGO_PASSWORD"
 fi
 
 echo "[deploy] Imagem: $RADARZAP_IMAGE"
-${DOCKER_CMD:-docker} pull "$RADARZAP_IMAGE" 2>/dev/null || true
+$DOCKER_BIN pull "$RADARZAP_IMAGE" 2>/dev/null || true
 env $ENV_PREFIX $COMPOSE "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" up -d --remove-orphans
 env $ENV_PREFIX $COMPOSE "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" ps
 
@@ -40,5 +44,5 @@ for i in $(seq 1 30); do
 done
 
 echo "[deploy] AVISO: health não respondeu em 60s — verifique logs"
-  ${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" logs --tail=40 app
+  $DOCKER_BIN compose "${COMPOSE_ENV[@]}" -f "$COMPOSE_FILE" logs --tail=40 app
 exit 1

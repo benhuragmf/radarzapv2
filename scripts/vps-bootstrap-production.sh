@@ -109,12 +109,9 @@ echo "[bootstrap] Build imagem monolito (pode levar vários minutos em 2GB RAM).
 $DOCKER build -f docker/Dockerfile.monolith -t radarzap:production .
 
 export RADARZAP_IMAGE=radarzap:production
-export DOCKER_CMD="$DOCKER"
-if [[ "$DOCKER" == "sudo docker" ]]; then
-  sudo -E bash -c "export RADARZAP_IMAGE=$RADARZAP_IMAGE MONGO_PASSWORD='$MONGO_PASSWORD' DOCKER_CMD='sudo docker'; bash scripts/deploy-remote.sh '$RADARZAP_IMAGE'"
-else
-  bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
-fi
+export RADARZAP_IMAGE=radarzap:production
+export USE_SUDO_DOCKER=1
+bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
 
 echo ""
 echo "=============================================="
