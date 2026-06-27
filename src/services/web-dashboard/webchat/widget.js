@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.12.6';
+  var WIDGET_BUILD = '2.12.23';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;

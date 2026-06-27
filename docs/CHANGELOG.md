@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.23] — 2026-06-27
+
+### QA — gate automatizado pós-deploy
+
+- **`npm run qa:release-gate`:** Jest campanha/limites, build backend+frontend, E2E limites (`/admin/settings`, `/platform/wa-limits`, `/send`), `qa:atendimento:gate`, E2E Fase 1 (38 testes); smoke opcional com `RADARZAP_PUBLIC_URL`.
+- **`npm run qa:campaign-limits`** / **`qa:campaign-limits:e2e`** / **`qa:campaign-limits:gate`:** atalhos focados em campanha.
+- E2E: `e2e/qa-campaign-limits.spec.ts`, fixture `mock-campaign-limits-api.ts`; relatório JSON em `docs/qa-results/`.
+
 ## [2.12.22] — 2026-06-27
 
 ### Admin — intervalos de campanha editáveis
