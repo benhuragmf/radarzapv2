@@ -84,6 +84,7 @@ jobs:
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
+            git fetch origin main -q && git reset --hard origin/main -q
             export USE_SUDO_DOCKER=1
             export ENV_FILE=.env
             if [ -n "${GHCR_PAT:-}" ]; then
