@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.27] — 2026-06-27
+
+### Painel — Triagem e Bot reorganizado
+
+- **`/platform/inbox/bot`:** 4 abas (Mensagens, Horário, Fila e equipe, Qualidade) em vez de scroll único.
+- Pills de variáveis clicáveis; barra **Salvar** fixa no topo e rodapé.
+- Atalhos para Setores, Respostas rápidas, IA e WebChat.
+- Campos expostos: `queuePositionMessage`, `queueAllBusyMessage`.
+- SLA/atalhos colapsáveis em **Avançado**; presença e fallback WebChat em cards separados.
+
 ## [2.12.26] — 2026-06-27
 
 ### Inbox — atalhos `/enc_ok`, `/mais` e `/enc`

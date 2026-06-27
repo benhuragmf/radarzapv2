@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
@@ -6,7 +6,20 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Bot, Clock, Users, ArrowLeft, Save, Bell, MessageCircle } from 'lucide-react'
+import {
+  Bot,
+  Clock,
+  Users,
+  ArrowLeft,
+  Save,
+  Bell,
+  MessageCircle,
+  Sparkles,
+  ChevronDown,
+  ExternalLink,
+  Zap,
+  Star,
+} from 'lucide-react'
 import { inputCls, textareaCls, LoadingState } from '@/design-system'
 import { cn } from '@/lib/utils'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
@@ -20,6 +33,8 @@ type Weekday =
   | 'friday'
   | 'saturday'
   | 'sunday'
+
+type BotTab = 'messages' | 'schedule' | 'queue' | 'quality'
 
 interface DaySchedule {
   enabled: boolean
@@ -98,6 +113,15 @@ const WEEKDAYS: Weekday[] = [
   'sunday',
 ]
 
+const BOT_TABS: Array<{ id: BotTab; label: string; icon: typeof Bot }> = [
+  { id: 'messages', label: 'Mensagens', icon: Bot },
+  { id: 'schedule', label: 'Horário', icon: Clock },
+  { id: 'queue', label: 'Fila e equipe', icon: Users },
+  { id: 'quality', label: 'Qualidade', icon: Star },
+]
+
+const TEMPLATE_VARS = ['{company}', '{department}', '{waiting}', '{options}'] as const
+
 function CharCount({ value, max }: { value: string; max: number }) {
   return (
     <span className={cn('tabular-nums', value.length > max ? 'text-red-400' : 'text-[var(--rz-text-muted)]')}>
@@ -106,8 +130,95 @@ function CharCount({ value, max }: { value: string; max: number }) {
   )
 }
 
+function VariablePills({
+  focusedField,
+  onInsert,
+}: {
+  focusedField: keyof InboxSettings | null
+  onInsert: (token: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs text-[var(--rz-text-muted)]">Variáveis:</span>
+      {TEMPLATE_VARS.map(v => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onInsert(v)}
+          className={cn(
+            'rounded-full border px-2 py-0.5 text-xs font-mono transition-colors',
+            focusedField
+              ? 'border-brand-500/40 bg-brand-500/10 text-brand-300 hover:bg-brand-500/20'
+              : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-brand-500/30',
+          )}
+          title={focusedField ? 'Inserir no campo selecionado' : 'Clique em um campo de texto primeiro'}
+        >
+          {v}
+        </button>
+      ))}
+      {!focusedField && (
+        <span className="text-[10px] text-[var(--rz-text-muted)]">Clique em um campo para inserir</span>
+      )}
+    </div>
+  )
+}
+
+function SaveBar({
+  onSave,
+  isPending,
+  saved,
+  error,
+  className,
+}: {
+  onSave: () => void
+  isPending: boolean
+  saved: boolean
+  error: Error | null
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-3 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/95 p-3 shadow-lg backdrop-blur',
+        className,
+      )}
+    >
+      <Button onClick={onSave} disabled={isPending}>
+        <Save size={14} /> {isPending ? 'Salvando…' : 'Salvar configurações'}
+      </Button>
+      {saved && <span className="text-sm text-brand-400">Configurações salvas com sucesso!</span>}
+      {error && <span className="text-sm text-red-400">{error.message}</span>}
+    </div>
+  )
+}
+
+function FieldFocusWrap({
+  children,
+  field,
+  activeField,
+  onFocus,
+}: {
+  children: ReactNode
+  field: keyof InboxSettings
+  activeField: keyof InboxSettings | null
+  onFocus: (field: keyof InboxSettings) => void
+}) {
+  return (
+    <div
+      onFocusCapture={() => onFocus(field)}
+      className={cn(activeField === field && 'rounded-lg ring-1 ring-brand-500/30')}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function InboxBotSettings() {
   const qc = useQueryClient()
+  const [tab, setTab] = useState<BotTab>('messages')
+  const [focusedField, setFocusedField] = useState<keyof InboxSettings | null>(null)
+  const [slaAdvancedOpen, setSlaAdvancedOpen] = useState(false)
+
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],
     queryFn: getMe,
@@ -196,693 +307,845 @@ export default function InboxBotSettings() {
     )
   }
 
+  const insertVariable = (token: string) => {
+    if (!focusedField || typeof form[focusedField] !== 'string') return
+    const current = form[focusedField] as string
+    patch(focusedField, (current + token) as InboxSettings[typeof focusedField])
+  }
+
+  const handleSave = () => save.mutate(form)
+
+  const saveBarProps = {
+    onSave: handleSave,
+    isPending: save.isPending,
+    saved,
+    error: save.isError ? (save.error as Error) : null,
+  }
+
+  const departmentOptions =
+    departments
+      .filter(d => d.clientVisible !== false && d.isActive !== false)
+      .slice(0, 6)
+      .map(d => `${d.menuKey} — ${d.name}`) || undefined
+
   return (
     <PlatformPage
       title="Triagem e Bot"
-      description="Personalize o menu automático, horário comercial e distribuição de conversas."
+      description="Configure mensagens, horário, fila e qualidade do atendimento automático."
     >
       <InboxAtendimentoNav me={me} className="mb-4" />
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="mb-4 flex flex-wrap gap-2">
         <Link to="/platform/inbox/setores">
           <Button size="sm" variant="secondary">
             <ArrowLeft size={14} /> Setores
           </Button>
         </Link>
-        <Link to="/platform/inbox">
-          <Button size="sm" variant="secondary">Abrir caixa de entrada</Button>
+        <Link to="/platform/inbox/respostas">
+          <Button size="sm" variant="secondary">
+            <Zap size={14} /> Respostas rápidas
+          </Button>
         </Link>
+        <Link to="/platform/inbox/ia">
+          <Button size="sm" variant="secondary">
+            <Sparkles size={14} /> IA de atendimento
+          </Button>
+        </Link>
+        <Link to="/platform/webchat">
+          <Button size="sm" variant="secondary">
+            <MessageCircle size={14} /> Chat do site
+          </Button>
+        </Link>
+        <Link to="/platform/inbox">
+          <Button size="sm" variant="secondary">Caixa de entrada</Button>
+        </Link>
+      </div>
+
+      <SaveBar {...saveBarProps} className="mb-4 sticky top-16 z-20" />
+
+      <div
+        className="mb-4 inline-flex w-full max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/50 p-1"
+        role="tablist"
+        aria-label="Configurações do bot"
+      >
+        {BOT_TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
+              tab === id
+                ? 'border border-brand-500/30 bg-brand-500/15 text-brand-300'
+                : 'border border-transparent text-[var(--rz-text-muted)] hover:bg-[var(--rz-surface-muted)]',
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-brand-400">
-            <Bot size={18} />
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Mensagens do menu</h2>
-          </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Variáveis: <code className="text-[var(--rz-text-muted)]">{'{company}'}</code>,{' '}
-            <code className="text-[var(--rz-text-muted)]">{'{department}'}</code>,{' '}
-            <code className="text-[var(--rz-text-muted)]">{'{waiting}'}</code>,{' '}
-            <code className="text-[var(--rz-text-muted)]">{'{options}'}</code>
-          </p>
+          {tab === 'messages' && (
+            <>
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2 text-brand-400">
+                  <Bot size={18} />
+                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Mensagens ao cliente</h2>
+                </div>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Textos enviados no WhatsApp durante triagem, menu e fila.{' '}
+                  <Link to="/platform/inbox/setores" className="text-[var(--rz-accent)] hover:underline">
+                    Configure os setores do menu
+                  </Link>
+                  .
+                </p>
+                <VariablePills focusedField={focusedField} onInsert={insertVariable} />
 
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)] flex justify-between">
-              <span>Boas-vindas (com nome da empresa)</span>
-              <CharCount value={form.welcomeWithCompany} max={500} />
-            </span>
-            <textarea
-              className={textareaCls}
-              value={form.welcomeWithCompany}
-              onChange={e => patch('welcomeWithCompany', e.target.value)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Boas-vindas (sem empresa)</span>
-            <textarea className={textareaCls} value={form.welcomeGeneric} onChange={e => patch('welcomeGeneric', e.target.value)} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Texto antes das opções do menu</span>
-            <input className={inputCls} value={form.menuIntro} onChange={e => patch('menuIntro', e.target.value)} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Rodapé do menu</span>
-            <input className={inputCls} value={form.menuFooter} onChange={e => patch('menuFooter', e.target.value)} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Confirmação na fila</span>
-            <textarea className={textareaCls} value={form.queueMessage} onChange={e => patch('queueMessage', e.target.value)} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de espera (substitui {'{waiting}'})</span>
-            <textarea className={textareaCls} value={form.waitingMessage} onChange={e => patch('waitingMessage', e.target.value)} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Opção inválida no menu</span>
-            <input className={inputCls} value={form.invalidMenuHint} onChange={e => patch('invalidMenuHint', e.target.value)} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem ao finalizar</span>
-            <textarea className={textareaCls} value={form.resolvedMessage} onChange={e => patch('resolvedMessage', e.target.value)} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem ao transferir</span>
-            <textarea className={textareaCls} value={form.transferMessage} onChange={e => patch('transferMessage', e.target.value)} />
-          </label>
-        </Card>
+                <div className="space-y-3 border-b border-[var(--rz-border)] pb-4">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--rz-text-muted)]">Boas-vindas</h3>
+                  <FieldFocusWrap field="welcomeWithCompany" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="flex justify-between text-xs text-[var(--rz-text-muted)]">
+                        <span>Com nome da empresa</span>
+                        <CharCount value={form.welcomeWithCompany} max={500} />
+                      </span>
+                      <textarea
+                        className={textareaCls}
+                        value={form.welcomeWithCompany}
+                        onChange={e => patch('welcomeWithCompany', e.target.value)}
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                  <FieldFocusWrap field="welcomeGeneric" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Sem nome da empresa</span>
+                      <textarea
+                        className={textareaCls}
+                        value={form.welcomeGeneric}
+                        onChange={e => patch('welcomeGeneric', e.target.value)}
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                </div>
 
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-brand-400">
-            <Clock size={18} />
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Horário comercial</h2>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.businessHoursEnabled}
-              onChange={e => patch('businessHoursEnabled', e.target.checked)}
-            />
-            Ativar horário comercial (fora do horário envia mensagem automática)
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Fuso horário</span>
-            <input
-              className={inputCls}
-              value={form.timezone}
-              onChange={e => patch('timezone', e.target.value)}
-              placeholder="America/Sao_Paulo"
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem fora do horário</span>
-            <textarea
-              className={textareaCls}
-              value={form.outsideHoursMessage}
-              onChange={e => patch('outsideHoursMessage', e.target.value)}
-            />
-          </label>
-          <div className="space-y-2">
-            {WEEKDAYS.map(day => (
-              <div
-                key={day}
-                className="flex flex-wrap items-center gap-3 py-2 border-b border-[var(--rz-border)]/80 last:border-0"
-              >
-                <label className="flex items-center gap-2 w-28 text-sm text-[var(--rz-text-secondary)]">
+                <div className="space-y-3 border-b border-[var(--rz-border)] pb-4">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--rz-text-muted)]">Menu de setores</h3>
+                  <FieldFocusWrap field="menuIntro" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Texto antes das opções</span>
+                      <input className={inputCls} value={form.menuIntro} onChange={e => patch('menuIntro', e.target.value)} />
+                    </label>
+                  </FieldFocusWrap>
+                  <FieldFocusWrap field="menuFooter" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Rodapé do menu</span>
+                      <input className={inputCls} value={form.menuFooter} onChange={e => patch('menuFooter', e.target.value)} />
+                    </label>
+                  </FieldFocusWrap>
+                  <FieldFocusWrap field="invalidMenuHint" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Opção inválida</span>
+                      <input
+                        className={inputCls}
+                        value={form.invalidMenuHint}
+                        onChange={e => patch('invalidMenuHint', e.target.value)}
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                </div>
+
+                <div className="space-y-3 border-b border-[var(--rz-border)] pb-4">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--rz-text-muted)]">Fila de espera</h3>
+                  <FieldFocusWrap field="queueMessage" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Confirmação ao entrar na fila</span>
+                      <textarea className={textareaCls} value={form.queueMessage} onChange={e => patch('queueMessage', e.target.value)} />
+                    </label>
+                  </FieldFocusWrap>
+                  <FieldFocusWrap field="waitingMessage" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de espera (substitui {'{waiting}'})</span>
+                      <textarea
+                        className={textareaCls}
+                        value={form.waitingMessage}
+                        onChange={e => patch('waitingMessage', e.target.value)}
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                  <FieldFocusWrap field="queuePositionMessage" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Posição na fila</span>
+                      <textarea
+                        className={textareaCls}
+                        value={form.queuePositionMessage}
+                        onChange={e => patch('queuePositionMessage', e.target.value)}
+                        placeholder="Ex.: Você é o {position}º da fila…"
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                  <FieldFocusWrap field="queueAllBusyMessage" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Todos os atendentes ocupados</span>
+                      <textarea
+                        className={textareaCls}
+                        value={form.queueAllBusyMessage}
+                        onChange={e => patch('queueAllBusyMessage', e.target.value)}
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--rz-text-muted)]">Encerramento e transferência</h3>
+                  <FieldFocusWrap field="resolvedMessage" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Ao finalizar atendimento</span>
+                      <textarea
+                        className={textareaCls}
+                        value={form.resolvedMessage}
+                        onChange={e => patch('resolvedMessage', e.target.value)}
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                  <FieldFocusWrap field="transferMessage" activeField={focusedField} onFocus={setFocusedField}>
+                    <label className="block space-y-1">
+                      <span className="text-xs text-[var(--rz-text-muted)]">Ao transferir setor</span>
+                      <textarea
+                        className={textareaCls}
+                        value={form.transferMessage}
+                        onChange={e => patch('transferMessage', e.target.value)}
+                      />
+                    </label>
+                  </FieldFocusWrap>
+                </div>
+              </Card>
+            </>
+          )}
+
+          {tab === 'schedule' && (
+            <Card className="space-y-4 p-5">
+              <div className="flex items-center gap-2 text-brand-400">
+                <Clock size={18} />
+                <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Horário comercial</h2>
+              </div>
+              <p className="text-xs text-[var(--rz-text-muted)]">
+                Fora do expediente o bot envia a mensagem automática abaixo. O{' '}
+                <Link to="/platform/webchat" className="text-[var(--rz-accent)] hover:underline">
+                  Chat do site
+                </Link>{' '}
+                pode herdar este horário ou usar um próprio.
+              </p>
+              <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={form.businessHoursEnabled}
+                  onChange={e => patch('businessHoursEnabled', e.target.checked)}
+                />
+                Ativar horário comercial
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs text-[var(--rz-text-muted)]">Fuso horário</span>
+                <input
+                  className={inputCls}
+                  value={form.timezone}
+                  onChange={e => patch('timezone', e.target.value)}
+                  placeholder="America/Sao_Paulo"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs text-[var(--rz-text-muted)]">Mensagem fora do horário</span>
+                <textarea
+                  className={textareaCls}
+                  value={form.outsideHoursMessage}
+                  onChange={e => patch('outsideHoursMessage', e.target.value)}
+                />
+              </label>
+              <div className="space-y-2">
+                {WEEKDAYS.map(day => (
+                  <div
+                    key={day}
+                    className="flex flex-wrap items-center gap-3 border-b border-[var(--rz-border)]/80 py-2 last:border-0"
+                  >
+                    <label className="flex w-28 items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                      <input
+                        type="checkbox"
+                        checked={form.schedule[day]?.enabled ?? false}
+                        onChange={e => patchDay(day, 'enabled', e.target.checked)}
+                      />
+                      {WEEKDAY_LABEL[day]}
+                    </label>
+                    <input
+                      type="time"
+                      className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
+                      value={form.schedule[day]?.start ?? '09:00'}
+                      disabled={!form.schedule[day]?.enabled}
+                      onChange={e => patchDay(day, 'start', e.target.value)}
+                    />
+                    <span className="text-xs text-[var(--rz-text-muted)]">até</span>
+                    <input
+                      type="time"
+                      className={cn(inputCls, 'w-auto px-2 py-1 text-xs')}
+                      value={form.schedule[day]?.end ?? '18:00'}
+                      disabled={!form.schedule[day]?.enabled}
+                      onChange={e => patchDay(day, 'end', e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {tab === 'queue' && (
+            <>
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2 text-brand-400">
+                  <Users size={18} />
+                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Distribuição na fila</h2>
+                </div>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  O cliente escolhe o setor no menu WhatsApp. Com round-robin, o sistema indica o próximo atendente
+                  disponível na fila.
+                </p>
+                <label className="flex items-start gap-3 rounded-lg border border-[var(--rz-border)] p-3 has-[:checked]:border-brand-500/40 has-[:checked]:bg-brand-500/5">
                   <input
                     type="checkbox"
-                    checked={form.schedule[day]?.enabled ?? false}
-                    onChange={e => patchDay(day, 'enabled', e.target.checked)}
+                    className="mt-0.5"
+                    checked={form.roundRobinEnabled}
+                    onChange={e => patch('roundRobinEnabled', e.target.checked)}
                   />
-                  {WEEKDAY_LABEL[day]}
+                  <div>
+                    <span className="text-sm font-medium text-[var(--rz-text-primary)]">Round-robin</span>
+                    <p className="mt-0.5 text-xs text-[var(--rz-text-muted)]">
+                      Indica prioridade ao entrar na fila — borda amarela e cronômetro no painel. Outro atendente pode
+                      puxar após o tempo configurado.
+                    </p>
+                  </div>
                 </label>
-                <input
-                  type="time"
-                  className={cn(inputCls, 'text-xs py-1 px-2 w-auto')}
-                  value={form.schedule[day]?.start ?? '09:00'}
-                  disabled={!form.schedule[day]?.enabled}
-                  onChange={e => patchDay(day, 'start', e.target.value)}
-                />
-                <span className="text-xs text-[var(--rz-text-muted)]">até</span>
-                <input
-                  type="time"
-                  className={cn(inputCls, 'text-xs py-1 px-2 w-auto')}
-                  value={form.schedule[day]?.end ?? '18:00'}
-                  disabled={!form.schedule[day]?.enabled}
-                  onChange={e => patchDay(day, 'end', e.target.value)}
-                />
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-brand-400">
-            <Users size={18} />
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Distribuição automática</h2>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.roundRobinEnabled}
-              onChange={e => patch('roundRobinEnabled', e.target.checked)}
-            />
-            Round-robin — indicar prioridade ao entrar na fila (aceite voluntário)
-          </label>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            O sistema marca o próximo atendente com borda amarela e cronômetro. Ele aceita quando puder.
-            Outro pode puxar se o indicado estiver ocupado ou após o tempo abaixo.
-          </p>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              Tempo de prioridade antes de liberar para outro puxar (segundos)
-            </span>
-            <input
-              type="number"
-              min={30}
-              max={900}
-              className={inputCls}
-              value={form.roundRobinPullTimeoutSeconds}
-              disabled={!form.roundRobinEnabled}
-              onChange={e => patch('roundRobinPullTimeoutSeconds', Number(e.target.value) || 120)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              Máximo de atendimentos simultâneos por atendente (painel + WebChat + bridge WA)
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              className={inputCls}
-              value={form.maxConcurrentChatsPerAgent ?? 1}
-              disabled={!form.roundRobinEnabled}
-              onChange={e => patch('maxConcurrentChatsPerAgent', Number(e.target.value) || 1)}
-            />
-          </label>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Com limite 1, novos clientes aguardam na fila enquanto o atendente estiver em conversa ativa ou bridge WhatsApp.
-          </p>
-        </Card>
-
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-brand-400">
-            <Clock size={18} />
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">SLA — inatividade e fila</h2>
-          </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Quando o cliente para de responder, o atendente envia o atalho de aviso (mensagem em Respostas rápidas).
-            Após o tempo entre aviso e encerramento, libera o atalho de fechamento — sem perguntar ao funcionário.
-            O encerramento automático usa os mesmos tempos e templates.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1">
-              <span className="text-xs text-[var(--rz-text-muted)]">Código do aviso (resposta rápida)</span>
-              <div className="flex items-center gap-1">
-                <span className="text-[var(--rz-text-muted)] text-sm">/</span>
-                <input
-                  className={inputCls}
-                  value={form.inactivityWarningQuickCode ?? 'aus'}
-                  onChange={e =>
-                    patch(
-                      'inactivityWarningQuickCode',
-                      e.target.value.replace(/\s/g, '').toLowerCase(),
-                    )
-                  }
-                />
-              </div>
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs text-[var(--rz-text-muted)]">Código do encerramento (resposta rápida)</span>
-              <div className="flex items-center gap-1">
-                <span className="text-[var(--rz-text-muted)] text-sm">/</span>
-                <input
-                  className={inputCls}
-                  value={form.inactivityCloseQuickCode ?? 'enc'}
-                  onChange={e =>
-                    patch(
-                      'inactivityCloseQuickCode',
-                      e.target.value.replace(/\s/g, '').toLowerCase(),
-                    )
-                  }
-                />
-              </div>
-            </label>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.closeQuickReplyGateEnabled ?? true}
-              onChange={e => patch('closeQuickReplyGateEnabled', e.target.checked)}
-            />
-            Bloquear <code>/{form.inactivityCloseQuickCode ?? 'enc'}</code> até enviar{' '}
-            <code>/{form.inactivityWarningQuickCode ?? 'aus'}</code> (e cumprir o tempo) e{' '}
-            <code>/{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}</code> até enviar{' '}
-            <code>/{form.gracefulCloseQuickCode ?? 'mais'}</code> (e cumprir o tempo)
-          </label>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            {form.closeQuickReplyGateEnabled ?? true
-              ? 'Dois caminhos independentes: inatividade (/aus → /enc) e encerramento natural (/mais → /enc_ok).'
-              : `Os atalhos /${form.inactivityCloseQuickCode ?? 'enc'} e /${form.inactivityCloseGracefulQuickCode ?? 'enc_ok'} ficam sempre disponíveis — sem esperar /${form.inactivityWarningQuickCode ?? 'aus'} ou /${form.gracefulCloseQuickCode ?? 'mais'}.`}
-          </p>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Tempo manual (com bloqueio ativo): após enviar <code>/{form.inactivityWarningQuickCode ?? 'aus'}</code>, aguarde{' '}
-            <strong>
-              {Math.max(0, form.inactivityCloseMinutes - form.inactivityWarningMinutes)} min
-            </strong>{' '}
-            para liberar <code>/{form.inactivityCloseQuickCode ?? 'enc'}</code> (diferença entre os campos abaixo).
-          </p>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.inactivityAutoCloseEnabled}
-              onChange={e => patch('inactivityAutoCloseEnabled', e.target.checked)}
-            />
-            Encerrar automaticamente por inatividade do cliente
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              Minutos sem resposta até aviso automático (0 = desligado)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={1440}
-              className={inputCls}
-              value={form.inactivityWarningMinutes}
-              disabled={!form.inactivityAutoCloseEnabled}
-              onChange={e => patch('inactivityWarningMinutes', Number(e.target.value) || 0)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              Minutos totais sem resposta até encerramento automático (0 = desligado)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={1440}
-              className={inputCls}
-              value={form.inactivityCloseMinutes}
-              disabled={!form.inactivityAutoCloseEnabled}
-              onChange={e => patch('inactivityCloseMinutes', Number(e.target.value) || 0)}
-            />
-          </label>
-
-          <div className="border-t border-[var(--rz-border)] pt-4 space-y-3">
-            <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">Encerramento natural</h3>
-            <p className="text-xs text-[var(--rz-text-muted)]">
-              Após resolver a dúvida, o atendente envia a pergunta final (
-              <code>/{form.gracefulCloseQuickCode ?? 'mais'}</code>). O{' '}
-              <code>/{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}</code> libera quando o cliente responder
-              &quot;não/obrigado&quot; ou após o tempo abaixo.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-1">
-                <span className="text-xs text-[var(--rz-text-muted)]">Código da pergunta final</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[var(--rz-text-muted)] text-sm">/</span>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Tempo de prioridade antes de liberar para outro (segundos)
+                  </span>
                   <input
+                    type="number"
+                    min={30}
+                    max={900}
                     className={inputCls}
-                    value={form.gracefulCloseQuickCode ?? 'mais'}
-                    onChange={e =>
-                      patch('gracefulCloseQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
-                    }
+                    value={form.roundRobinPullTimeoutSeconds}
+                    disabled={!form.roundRobinEnabled}
+                    onChange={e => patch('roundRobinPullTimeoutSeconds', Number(e.target.value) || 120)}
                   />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Máximo de atendimentos simultâneos por atendente
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    className={inputCls}
+                    value={form.maxConcurrentChatsPerAgent ?? 1}
+                    disabled={!form.roundRobinEnabled}
+                    onChange={e => patch('maxConcurrentChatsPerAgent', Number(e.target.value) || 1)}
+                  />
+                </label>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2 text-brand-400">
+                  <MessageCircle size={18} />
+                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Triagem no Inbox</h2>
                 </div>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs text-[var(--rz-text-muted)]">Template de encerramento cordial</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[var(--rz-text-muted)] text-sm">/</span>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Por padrão, só dono e administrador veem conversas em triagem (antes da escolha do setor).
+                </p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.attendantTriageVisible ?? false}
+                    onChange={e => patch('attendantTriageVisible', e.target.checked)}
+                  />
+                  Atendentes podem ver e assumir conversas em triagem
+                </label>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2 text-brand-400">
+                  <MessageCircle size={18} />
+                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Inatividade na triagem</h2>
+                </div>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Durante o menu de setores, se o visitante não responder, o sistema avisa e encerra. Use{' '}
+                  <code className="text-[var(--rz-text-muted)]">[user]</code> ou{' '}
+                  <code className="text-[var(--rz-text-muted)]">[nome]</code> para o primeiro nome.
+                </p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.triageInactivityEnabled}
+                    onChange={e => patch('triageInactivityEnabled', e.target.checked)}
+                  />
+                  Encerrar triagem automaticamente por inatividade
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Minutos até enviar aviso</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1440}
+                    className={inputCls}
+                    value={form.triageWarningMinutes}
+                    disabled={!form.triageInactivityEnabled}
+                    onChange={e => patch('triageWarningMinutes', Number(e.target.value) || 0)}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de aviso</span>
                   <input
                     className={inputCls}
-                    value={form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
+                    value={form.triageWarningMessage}
+                    disabled={!form.triageInactivityEnabled}
+                    onChange={e => patch('triageWarningMessage', e.target.value)}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Minutos após aviso para encerrar (0 = desligado)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1440}
+                    className={inputCls}
+                    value={form.triageCloseAfterWarningMinutes}
+                    disabled={!form.triageInactivityEnabled}
+                    onChange={e => patch('triageCloseAfterWarningMinutes', Number(e.target.value) || 0)}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de encerramento</span>
+                  <input
+                    className={inputCls}
+                    value={form.triageCloseMessage}
+                    disabled={!form.triageInactivityEnabled}
+                    onChange={e => patch('triageCloseMessage', e.target.value)}
+                  />
+                </label>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2 text-brand-400">
+                  <Bell size={18} />
+                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Alertas operacionais</h2>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Alerta de fila parada — supervisor (minutos, 0 = desligado)
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1440}
+                    className={inputCls}
+                    value={form.queueSlaAlertMinutes}
+                    onChange={e => patch('queueSlaAlertMinutes', Number(e.target.value) || 0)}
+                  />
+                </label>
+                <p className="text-xs text-[var(--rz-text-muted)]">Sons no painel do atendente:</p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.alertSoundEnabled}
+                    onChange={e => patch('alertSoundEnabled', e.target.checked)}
+                  />
+                  Sons de alerta ativados
+                </label>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.alertOnNewChat}
+                    onChange={e => patch('alertOnNewChat', e.target.checked)}
+                    disabled={!form.alertSoundEnabled}
+                  />
+                  Novo chat / prioridade na fila
+                </label>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.alertOnNewMessage}
+                    onChange={e => patch('alertOnNewMessage', e.target.checked)}
+                    disabled={!form.alertSoundEnabled}
+                  />
+                  Cada nova mensagem do cliente
+                </label>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--rz-text-primary)]">
+                    <Users size={18} className="text-brand-400" />
+                    Presença dos atendentes
+                  </h2>
+                  <Link to="/settings/team" className="text-xs text-[var(--rz-accent)] hover:underline">
+                    Equipe
+                  </Link>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Timeout de presença (segundos, 30–300)</span>
+                  <input
+                    type="number"
+                    min={30}
+                    max={300}
+                    className={inputCls}
+                    value={form.agentPresenceTimeoutSeconds}
+                    onChange={e => patch('agentPresenceTimeoutSeconds', Number(e.target.value))}
+                  />
+                  <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
+                    Sem heartbeat do painel, o atendente deixa de contar como online.
+                  </p>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Inatividade antes de marcar ausente (60–3600 s)</span>
+                  <input
+                    type="number"
+                    min={60}
+                    max={3600}
+                    className={inputCls}
+                    value={form.presenceIdleTimeoutSeconds}
+                    onChange={e => patch('presenceIdleTimeoutSeconds', Number(e.target.value))}
+                  />
+                </label>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 font-semibold text-[var(--rz-text-primary)]">
+                    <MessageCircle className="h-5 w-5" /> Fallback WhatsApp (WebChat)
+                  </h2>
+                  <Link
+                    to="/platform/webchat"
+                    className="inline-flex items-center gap-1 text-xs text-[var(--rz-accent)] hover:underline"
+                  >
+                    Chat do site <ExternalLink size={12} />
+                  </Link>
+                </div>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Quando um chat do site não for aceito no prazo, avisa números WhatsApp e exibe mensagem ao visitante.
+                </p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.whatsappFallbackEnabled}
+                    onChange={e => patch('whatsappFallbackEnabled', e.target.checked)}
+                  />
+                  Ativar fallback após tempo sem aceite
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Tempo para aceitar (segundos, 30–900)</span>
+                  <input
+                    type="number"
+                    min={30}
+                    max={900}
+                    className={inputCls}
+                    value={form.whatsappFallbackAcceptTimeoutSeconds ?? 60}
+                    onChange={e => patch('whatsappFallbackAcceptTimeoutSeconds', Number(e.target.value))}
+                    disabled={!form.whatsappFallbackEnabled}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Números ou grupos para alerta (um por linha)</span>
+                  <textarea
+                    className={textareaCls}
+                    rows={3}
+                    value={(form.whatsappFallbackAlertPhones ?? []).join('\n')}
                     onChange={e =>
                       patch(
-                        'inactivityCloseGracefulQuickCode',
-                        e.target.value.replace(/\s/g, '').toLowerCase(),
+                        'whatsappFallbackAlertPhones',
+                        e.target.value
+                          .split('\n')
+                          .map(s => s.trim())
+                          .filter(Boolean),
                       )
                     }
+                    placeholder={'5511999999999\n120363012345678901@g.us'}
+                    disabled={!form.whatsappFallbackEnabled}
                   />
-                </div>
-              </label>
-            </div>
-            <label className="block space-y-1">
-              <span className="text-xs text-[var(--rz-text-muted)]">
-                Minutos após a pergunta final para liberar /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={1440}
-                className={inputCls}
-                value={form.gracefulCloseAfterPromptMinutes ?? 2}
-                onChange={e =>
-                  patch('gracefulCloseAfterPromptMinutes', Number(e.target.value) || 0)
-                }
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-              <input
-                type="checkbox"
-                checked={form.gracefulCloseDetectPhrases ?? true}
-                onChange={e => patch('gracefulCloseDetectPhrases', e.target.checked)}
-              />
-              Detectar respostas como &quot;não&quot;, &quot;obrigado&quot;, &quot;só isso&quot;
-            </label>
-          </div>
-
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              Alerta de fila parada — supervisor (minutos na fila, 0 = desligado)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={1440}
-              className={inputCls}
-              value={form.queueSlaAlertMinutes}
-              onChange={e => patch('queueSlaAlertMinutes', Number(e.target.value) || 0)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              SLA ticket — prazo equipe responder após mensagem do cliente (horas, 0 = desligado)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={168}
-              className={inputCls}
-              value={form.ticketTeamResponseHours}
-              onChange={e => patch('ticketTeamResponseHours', Number(e.target.value) || 0)}
-            />
-          </label>
-        </Card>
-
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-brand-400">
-            <MessageCircle size={18} />
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Triagem — visibilidade no Inbox</h2>
-          </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Por padrão, só dono e administrador veem conversas em triagem (antes da escolha do setor).
-            Atendentes dos setores só veem fila e atendimentos do próprio setor.
-          </p>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.attendantTriageVisible ?? false}
-              onChange={e => patch('attendantTriageVisible', e.target.checked)}
-            />
-            Atendentes podem ver e assumir conversas em triagem
-          </label>
-        </Card>
-
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-brand-400">
-            <MessageCircle size={18} />
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Triagem — inatividade do visitante</h2>
-          </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Durante a triagem (menu de setores / primeira pergunta do bot), se o visitante não responder no prazo,
-            o sistema envia um aviso e depois encerra a conversa. Use <code className="text-[var(--rz-text-muted)]">[user]</code>{' '}
-            ou <code className="text-[var(--rz-text-muted)]">[nome]</code> para o primeiro nome do contato.
-          </p>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.triageInactivityEnabled}
-              onChange={e => patch('triageInactivityEnabled', e.target.checked)}
-            />
-            Encerrar triagem automaticamente por inatividade
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              Aguardar resposta à primeira pergunta (minutos) — depois envia o aviso
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={1440}
-              className={inputCls}
-              value={form.triageWarningMinutes}
-              disabled={!form.triageInactivityEnabled}
-              onChange={e => patch('triageWarningMinutes', Number(e.target.value) || 0)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de aviso</span>
-            <input
-              className={inputCls}
-              value={form.triageWarningMessage}
-              disabled={!form.triageInactivityEnabled}
-              onChange={e => patch('triageWarningMessage', e.target.value)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">
-              Minutos após o aviso para encerrar (0 = desligado)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={1440}
-              className={inputCls}
-              value={form.triageCloseAfterWarningMinutes}
-              disabled={!form.triageInactivityEnabled}
-              onChange={e => patch('triageCloseAfterWarningMinutes', Number(e.target.value) || 0)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de encerramento</span>
-            <input
-              className={inputCls}
-              value={form.triageCloseMessage}
-              disabled={!form.triageInactivityEnabled}
-              onChange={e => patch('triageCloseMessage', e.target.value)}
-            />
-          </label>
-        </Card>
-
-        <Card className="p-5 space-y-4">
-          <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">CSAT — satisfação pós-atendimento</h2>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Após encerrar a conversa (<code className="text-[var(--rz-text-muted)]">/enc</code> ou inatividade), o
-            cliente recebe pedido de nota de 1 a 5.
-          </p>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.csatEnabled}
-              onChange={e => patch('csatEnabled', e.target.checked)}
-            />
-            Ativar pesquisa CSAT
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Mensagem da pesquisa</span>
-            <textarea
-              className={textareaCls}
-              value={form.csatPrompt}
-              disabled={!form.csatEnabled}
-              onChange={e => patch('csatPrompt', e.target.value)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs text-[var(--rz-text-muted)]">Agradecimento após nota</span>
-            <input
-              className={inputCls}
-              value={form.csatThankYou}
-              disabled={!form.csatEnabled}
-              onChange={e => patch('csatThankYou', e.target.value)}
-            />
-          </label>
-        </Card>
-
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-brand-400">
-            <Bell size={18} />
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Alertas no painel</h2>
-          </div>
-          <p className="text-xs text-[var(--rz-text-muted)]">
-            Balão de eventos no topo (à esquerda do status online) + som opcional.
-          </p>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.alertSoundEnabled}
-              onChange={e => patch('alertSoundEnabled', e.target.checked)}
-            />
-            Sons de alerta ativados
-          </label>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.alertOnNewChat}
-              onChange={e => patch('alertOnNewChat', e.target.checked)}
-              disabled={!form.alertSoundEnabled}
-            />
-            Alertar em novo chat / prioridade na fila
-          </label>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.alertOnNewMessage}
-              onChange={e => patch('alertOnNewMessage', e.target.checked)}
-              disabled={!form.alertSoundEnabled}
-            />
-            Alertar em cada nova mensagem do cliente (pode ser frequente)
-          </label>
-        </Card>
-
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
-            <MessageCircle className="w-5 h-5" /> Chat do site — fallback WhatsApp
-          </h2>
-          <p className="text-sm text-[var(--rz-text-muted)]">
-            Quando um chat do site entrar na fila e o atendente designado não aceitar dentro do prazo
-            configurado, o sistema avisa números/grupos WhatsApp autorizados e exibe uma mensagem ao
-            visitante.
-          </p>
-          <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={form.whatsappFallbackEnabled}
-              onChange={e => patch('whatsappFallbackEnabled', e.target.checked)}
-            />
-            Ativar fallback WhatsApp após tempo sem aceite no painel
-          </label>
-          <div>
-            <label className="text-xs text-[var(--rz-text-muted)]">
-              Tempo para aceitar antes do fallback (segundos, 30–900)
-            </label>
-            <input
-              type="number"
-              min={30}
-              max={900}
-              className={inputCls}
-              value={form.whatsappFallbackAcceptTimeoutSeconds ?? 60}
-              onChange={e => patch('whatsappFallbackAcceptTimeoutSeconds', Number(e.target.value))}
-              disabled={!form.whatsappFallbackEnabled}
-            />
-            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-              Ex.: 60 = 1 minuto. Se o atendente com prioridade não assumir no painel, o chat vai para
-              o WhatsApp e ele recebe alerta vermelho no sino.
-            </p>
-          </div>
-          <div>
-            <label className="text-xs text-[var(--rz-text-muted)]">
-              Números ou grupos para alerta (um por linha)
-            </label>
-            <textarea
-              className={textareaCls}
-              rows={3}
-              value={(form.whatsappFallbackAlertPhones ?? []).join('\n')}
-              onChange={e =>
-                patch(
-                  'whatsappFallbackAlertPhones',
-                  e.target.value
-                    .split('\n')
-                    .map(s => s.trim())
-                    .filter(Boolean),
-                )
-              }
-              placeholder={'5511999999999\n120363012345678901@g.us'}
-              disabled={!form.whatsappFallbackEnabled}
-            />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs text-[var(--rz-text-muted)] mb-1">
-              <label>Mensagem exibida ao visitante no chat</label>
-              <CharCount value={form.whatsappFallbackVisitorMessage} max={800} />
-            </div>
-            <textarea
-              className={textareaCls}
-              rows={3}
-              value={form.whatsappFallbackVisitorMessage}
-              onChange={e => patch('whatsappFallbackVisitorMessage', e.target.value)}
-              disabled={!form.whatsappFallbackEnabled}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-[var(--rz-text-muted)]">
-              Timeout de presença do atendente (segundos, 30–300)
-            </label>
-            <input
-              type="number"
-              min={30}
-              max={300}
-              className={inputCls}
-              value={form.agentPresenceTimeoutSeconds}
-              onChange={e => patch('agentPresenceTimeoutSeconds', Number(e.target.value))}
-            />
-            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-              Sem heartbeat do painel por este tempo, o atendente deixa de contar como online.
-            </p>
-          </div>
-          <div>
-            <label className="text-xs text-[var(--rz-text-muted)]">
-              Inatividade antes de marcar ausente (segundos, 60–3600)
-            </label>
-            <input
-              type="number"
-              min={60}
-              max={3600}
-              className={inputCls}
-              value={form.presenceIdleTimeoutSeconds}
-              onChange={e => patch('presenceIdleTimeoutSeconds', Number(e.target.value))}
-            />
-            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-              Tempo sem mouse/teclado/foco no painel antes de marcar o atendente como Ausente automaticamente (padrão 300s = 5 min).
-            </p>
-            <p className="text-xs text-[var(--rz-text-muted)] mt-2">
-              Atendentes autorizados respondem alertas com{' '}
-              <code className="text-[var(--rz-text-secondary)]">!assumir TK-…</code>,{' '}
-              <code className="text-[var(--rz-text-secondary)]">!abrir TK-… motivo</code>,{' '}
-              <code className="text-[var(--rz-text-secondary)]">!abertos</code>,{' '}
-              <code className="text-[var(--rz-text-secondary)]">!encerrarchat TK-…</code> (só chat WA),{' '}
-              <code className="text-[var(--rz-text-secondary)]">!encerrar TK-…</code> (finalizar chamado). Cadastre o WhatsApp
-              pessoal em{' '}
-              <Link to="/settings/team" className="text-[var(--rz-accent)] hover:underline">
-                Equipe
-              </Link>
-              .
-            </p>
-          </div>
-        </Card>
-
-        <div className="flex items-center gap-3 sticky bottom-4 z-10 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/95 backdrop-blur p-3 shadow-lg">
-          <Button onClick={() => save.mutate(form)} disabled={save.isPending}>
-            <Save size={14} /> {save.isPending ? 'Salvando…' : 'Salvar configurações'}
-          </Button>
-          {saved && <span className="text-sm text-brand-400">Configurações salvas com sucesso!</span>}
-          {save.isError && (
-            <span className="text-sm text-red-400">{(save.error as Error).message}</span>
+                </label>
+                <label className="block space-y-1">
+                  <span className="flex justify-between text-xs text-[var(--rz-text-muted)]">
+                    <span>Mensagem ao visitante no chat</span>
+                    <CharCount value={form.whatsappFallbackVisitorMessage} max={800} />
+                  </span>
+                  <textarea
+                    className={textareaCls}
+                    rows={3}
+                    value={form.whatsappFallbackVisitorMessage}
+                    onChange={e => patch('whatsappFallbackVisitorMessage', e.target.value)}
+                    disabled={!form.whatsappFallbackEnabled}
+                  />
+                </label>
+              </Card>
+            </>
           )}
-        </div>
+
+          {tab === 'quality' && (
+            <>
+              <Card className="space-y-4 p-5">
+                <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">CSAT — satisfação pós-atendimento</h2>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Após encerrar a conversa, o cliente recebe pedido de nota de 1 a 5.
+                </p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.csatEnabled}
+                    onChange={e => patch('csatEnabled', e.target.checked)}
+                  />
+                  Ativar pesquisa CSAT
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Mensagem da pesquisa</span>
+                  <textarea
+                    className={textareaCls}
+                    value={form.csatPrompt}
+                    disabled={!form.csatEnabled}
+                    onChange={e => patch('csatPrompt', e.target.value)}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Agradecimento após nota</span>
+                  <input
+                    className={inputCls}
+                    value={form.csatThankYou}
+                    disabled={!form.csatEnabled}
+                    onChange={e => patch('csatThankYou', e.target.value)}
+                  />
+                </label>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2 text-brand-400">
+                  <Clock size={18} />
+                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Inatividade do cliente</h2>
+                </div>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Encerramento automático quando o cliente para de responder durante o atendimento humano.
+                </p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.inactivityAutoCloseEnabled}
+                    onChange={e => patch('inactivityAutoCloseEnabled', e.target.checked)}
+                  />
+                  Encerrar automaticamente por inatividade
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Minutos até aviso automático (0 = desligado)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1440}
+                    className={inputCls}
+                    value={form.inactivityWarningMinutes}
+                    disabled={!form.inactivityAutoCloseEnabled}
+                    onChange={e => patch('inactivityWarningMinutes', Number(e.target.value) || 0)}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Minutos totais até encerramento (0 = desligado)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1440}
+                    className={inputCls}
+                    value={form.inactivityCloseMinutes}
+                    disabled={!form.inactivityAutoCloseEnabled}
+                    onChange={e => patch('inactivityCloseMinutes', Number(e.target.value) || 0)}
+                  />
+                </label>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <button
+                  type="button"
+                  onClick={() => setSlaAdvancedOpen(v => !v)}
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                >
+                  <div>
+                    <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Atalhos e encerramento cordial</h2>
+                    <p className="mt-0.5 text-xs text-[var(--rz-text-muted)]">
+                      Códigos de resposta rápida — configure os textos em{' '}
+                      <Link
+                        to="/platform/inbox/respostas"
+                        className="text-[var(--rz-accent)] hover:underline"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        Respostas rápidas
+                      </Link>
+                    </p>
+                  </div>
+                  <ChevronDown
+                    size={18}
+                    className={cn('shrink-0 text-[var(--rz-text-muted)] transition-transform', slaAdvancedOpen && 'rotate-180')}
+                  />
+                </button>
+
+                {slaAdvancedOpen && (
+                  <div className="space-y-4 border-t border-[var(--rz-border)] pt-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block space-y-1">
+                        <span className="text-xs text-[var(--rz-text-muted)]">Código do aviso (inatividade)</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-[var(--rz-text-muted)]">/</span>
+                          <input
+                            className={inputCls}
+                            value={form.inactivityWarningQuickCode ?? 'aus'}
+                            onChange={e =>
+                              patch('inactivityWarningQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
+                            }
+                          />
+                        </div>
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-xs text-[var(--rz-text-muted)]">Código do encerramento (inatividade)</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-[var(--rz-text-muted)]">/</span>
+                          <input
+                            className={inputCls}
+                            value={form.inactivityCloseQuickCode ?? 'enc'}
+                            onChange={e =>
+                              patch('inactivityCloseQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
+                            }
+                          />
+                        </div>
+                      </label>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                      <input
+                        type="checkbox"
+                        checked={form.closeQuickReplyGateEnabled ?? true}
+                        onChange={e => patch('closeQuickReplyGateEnabled', e.target.checked)}
+                      />
+                      Bloquear atalhos até cumprir sequência e tempo
+                    </label>
+                    <p className="text-xs text-[var(--rz-text-muted)]">
+                      Dois caminhos: inatividade (/{form.inactivityWarningQuickCode ?? 'aus'} → /{form.inactivityCloseQuickCode ?? 'enc'}) e
+                      encerramento natural (/{form.gracefulCloseQuickCode ?? 'mais'} → /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}).
+                    </p>
+
+                    <div className="space-y-3 rounded-lg border border-[var(--rz-border)] p-3">
+                      <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">Encerramento natural</h3>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block space-y-1">
+                          <span className="text-xs text-[var(--rz-text-muted)]">Pergunta final</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-[var(--rz-text-muted)]">/</span>
+                            <input
+                              className={inputCls}
+                              value={form.gracefulCloseQuickCode ?? 'mais'}
+                              onChange={e =>
+                                patch('gracefulCloseQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
+                              }
+                            />
+                          </div>
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs text-[var(--rz-text-muted)]">Despedida cordial</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-[var(--rz-text-muted)]">/</span>
+                            <input
+                              className={inputCls}
+                              value={form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
+                              onChange={e =>
+                                patch(
+                                  'inactivityCloseGracefulQuickCode',
+                                  e.target.value.replace(/\s/g, '').toLowerCase(),
+                                )
+                              }
+                            />
+                          </div>
+                        </label>
+                      </div>
+                      <label className="block space-y-1">
+                        <span className="text-xs text-[var(--rz-text-muted)]">
+                          Minutos após pergunta final para liberar /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={1440}
+                          className={inputCls}
+                          value={form.gracefulCloseAfterPromptMinutes ?? 2}
+                          onChange={e => patch('gracefulCloseAfterPromptMinutes', Number(e.target.value) || 0)}
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                        <input
+                          type="checkbox"
+                          checked={form.gracefulCloseDetectPhrases ?? true}
+                          onChange={e => patch('gracefulCloseDetectPhrases', e.target.checked)}
+                        />
+                        Detectar &quot;não&quot;, &quot;obrigado&quot;, &quot;só isso&quot;
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">SLA de chamados (TK)</h2>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Prazo para a equipe responder após mensagem do cliente em um chamado.{' '}
+                  <Link to="/platform/inbox/tickets" className="text-[var(--rz-accent)] hover:underline">
+                    Ver chamados
+                  </Link>
+                </p>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">Horas para resposta (0 = desligado)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={168}
+                    className={inputCls}
+                    value={form.ticketTeamResponseHours}
+                    onChange={e => patch('ticketTeamResponseHours', Number(e.target.value) || 0)}
+                  />
+                </label>
+              </Card>
+            </>
+          )}
+
+          <SaveBar {...saveBarProps} className="sticky bottom-4 z-10" />
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-          <Card className="p-4 space-y-3">
-            <h2 className="font-semibold text-sm text-[var(--rz-text-primary)]">Prévia do fluxo</h2>
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <Card className="space-y-3 p-4">
+            <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Prévia do fluxo</h2>
             <p className="text-xs text-[var(--rz-text-muted)]">
-              Atualiza conforme você edita as mensagens do menu.
+              {tab === 'messages'
+                ? 'Atualiza conforme você edita as mensagens.'
+                : tab === 'schedule'
+                  ? 'Horário comercial afeta quando o bot responde automaticamente.'
+                  : 'Use a aba Mensagens para ver a prévia do menu WhatsApp.'}
             </p>
-            <InboxBotFlowPreview
-              welcomeText={form.welcomeWithCompany}
-              menuIntro={form.menuIntro}
-              menuFooter={form.menuFooter}
-              queueMessage={form.queueMessage}
-              departmentOptions={
-                departments
-                  .filter(d => d.clientVisible !== false && d.isActive !== false)
-                  .slice(0, 6)
-                  .map(d => `${d.menuKey} — ${d.name}`) || undefined
-              }
-            />
+            {(tab === 'messages' || tab === 'schedule') && (
+              <InboxBotFlowPreview
+                welcomeText={form.welcomeWithCompany}
+                menuIntro={form.menuIntro}
+                menuFooter={form.menuFooter}
+                queueMessage={form.queueMessage}
+                departmentOptions={departmentOptions}
+              />
+            )}
+            {tab === 'schedule' && form.businessHoursEnabled && (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                Fora do horário: {form.outsideHoursMessage.slice(0, 120)}
+                {form.outsideHoursMessage.length > 120 ? '…' : ''}
+              </p>
+            )}
           </Card>
         </aside>
       </div>

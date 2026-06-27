@@ -21,7 +21,7 @@ const PANEL_ROUTES: Array<{
   {
     path: '/platform/inbox/bot',
     heading: 'Triagem e Bot',
-    content: 'CSAT — satisfação pós-atendimento',
+    content: 'Mensagens ao cliente',
   },
   {
     path: '/platform/inbox/respostas',
