@@ -6,6 +6,12 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.24] — 2026-06-27
+
+### Painel — versão no rodapé da sidebar
+
+- Rodapé exibe `(vX.Y.Z)` lido do `package.json` na build (antes hardcoded `v2.0`).
+
 ## [2.12.23] — 2026-06-27
 
 ### QA — gate automatizado pós-deploy

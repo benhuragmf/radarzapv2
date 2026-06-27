@@ -1,6 +1,11 @@
 import path from 'path'
+import { readFileSync } from 'node:fs'
 import { createLogger, defineConfig, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
+
+const radarzapVersion = JSON.parse(
+  readFileSync(path.resolve(__dirname, '../../../../package.json'), 'utf8'),
+).version as string
 
 const API_TARGET = 'http://localhost:3001'
 const PROXY_ERROR_COOLDOWN_MS = 15_000
@@ -70,6 +75,9 @@ function createApiProxy(): ProxyOptions {
 
 export default defineConfig({
   customLogger: viteLogger,
+  define: {
+    'import.meta.env.VITE_RADARZAP_VERSION': JSON.stringify(radarzapVersion),
+  },
   plugins: [react()],
   resolve: {
     alias: {
