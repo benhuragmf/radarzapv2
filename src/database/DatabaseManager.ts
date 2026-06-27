@@ -3,6 +3,7 @@ import { config } from '@/config/environment';
 import { createServiceLogger } from '@/utils/logger';
 import { LogThrottle } from '@/utils/logThrottle';
 import { syncCompanyMemberIndexes } from '@/models/CompanyMember';
+import { syncInboxMessageIndexes } from '@/models/InboxMessage';
 
 /**
  * Singleton Database Manager with automatic reconnection and pooling
@@ -64,6 +65,9 @@ export class DatabaseManager {
 
       await syncCompanyMemberIndexes().catch(err => {
         this.serviceLogger.warn('CompanyMember index sync skipped', { error: (err as Error).message });
+      });
+      await syncInboxMessageIndexes().catch(err => {
+        this.serviceLogger.warn('InboxMessage index sync skipped', { error: (err as Error).message });
       });
 
       // Run health check

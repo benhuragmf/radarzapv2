@@ -45,7 +45,24 @@ const InboxMessageSchema = new Schema<IInboxMessage>(
 InboxMessageSchema.index({ conversationId: 1, createdAt: 1 });
 InboxMessageSchema.index(
   { clientId: 1, whatsappMessageId: 1 },
-  { unique: true, sparse: true },
+  {
+    unique: true,
+    partialFilterExpression: {
+      whatsappMessageId: { $type: 'string', $gt: '' },
+    },
+  },
 );
 
 export const InboxMessage = mongoose.model<IInboxMessage>('InboxMessage', InboxMessageSchema);
+
+/** Troca índice legado (unique sem partial) que colidia em whatsappMessageId null. */
+export async function syncInboxMessageIndexes(): Promise<void> {
+  if (mongoose.connection.readyState !== 1) return;
+  const col = InboxMessage.collection;
+  try {
+    await col.dropIndex('clientId_1_whatsappMessageId_1');
+  } catch {
+    // índice antigo pode não existir
+  }
+  await InboxMessage.syncIndexes();
+}

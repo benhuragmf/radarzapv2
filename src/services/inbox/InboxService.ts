@@ -2520,14 +2520,14 @@ export class InboxService {
 
     try {
       await InboxMessage.create({
-      clientId: conversation.clientId,
-      conversationId: conversation._id,
-      direction: 'inbound',
-      body,
-      mediaType: opts?.mediaType,
-      mediaUrl: opts?.mediaUrl,
-      mediaMime: opts?.mediaMime,
-      whatsappMessageId: opts?.whatsappMessageId,
+        clientId: conversation.clientId,
+        conversationId: conversation._id,
+        direction: 'inbound',
+        body,
+        mediaType: opts?.mediaType,
+        mediaUrl: opts?.mediaUrl,
+        mediaMime: opts?.mediaMime,
+        ...(waId?.trim() ? { whatsappMessageId: waId.trim() } : {}),
       });
     } catch (e) {
       if ((e as { code?: number }).code === 11000 && waId) {
@@ -4328,7 +4328,7 @@ export class InboxService {
       direction: 'outbound',
       body,
       authorUserId: new mongoose.Types.ObjectId(userId),
-      whatsappMessageId: result.messageId,
+      ...(result.messageId?.trim() ? { whatsappMessageId: result.messageId.trim() } : {}),
     });
     conv.lastMessageAt = new Date();
     await conv.save();
@@ -4942,7 +4942,7 @@ export class InboxService {
       direction: 'outbound',
       body,
       authorUserId: new mongoose.Types.ObjectId(userId),
-      whatsappMessageId: result.messageId,
+      ...(result.messageId?.trim() ? { whatsappMessageId: result.messageId.trim() } : {}),
     });
     conv.lastMessageAt = new Date();
     conv.lastOutboundAt = new Date();

@@ -64,10 +64,18 @@ export class AiProviderService {
   ): Promise<{ ok: boolean; message: string; model: string }> {
     try {
       const apiKey = overrideKey?.trim() || (await this.resolveApiKey(clientId, settings));
-      const result = await this.callProvider(settings.provider, settings.llmModel, apiKey, [
-        { role: 'system', content: 'Responda apenas: OK' },
-        { role: 'user', content: 'ping' },
-      ], 0.1, 16);
+      const result = await this.callProvider(
+        settings.provider,
+        settings.llmModel,
+        apiKey,
+        [
+          { role: 'system', content: 'Responda apenas: OK' },
+          { role: 'user', content: 'ping' },
+        ],
+        0.1,
+        16,
+        { jsonObject: false },
+      );
       return { ok: true, message: result.text.slice(0, 120) || 'Conexão OK', model: settings.llmModel };
     } catch (e) {
       return { ok: false, message: (e as Error).message, model: settings.llmModel };
@@ -204,6 +212,7 @@ export class AiProviderService {
       ],
       0.1,
       16,
+      { jsonObject: false },
     );
     return { text: result.text };
   }
@@ -257,9 +266,10 @@ export class AiProviderService {
     messages: AiChatMessage[],
     temperature: number,
     maxTokens: number,
+    opts?: { jsonObject?: boolean },
   ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
     if (provider === 'gemini') return this.callGemini(model, apiKey, messages, temperature, maxTokens);
-    return this.callOpenAi(model, apiKey, messages, temperature, maxTokens);
+    return this.callOpenAi(model, apiKey, messages, temperature, maxTokens, opts?.jsonObject !== false);
   }
 
   private async callOpenAi(
@@ -268,20 +278,24 @@ export class AiProviderService {
     messages: AiChatMessage[],
     temperature: number,
     maxTokens: number,
+    useJsonObject = true,
   ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+    const payload: Record<string, unknown> = {
+      model,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    };
+    if (useJsonObject) {
+      payload.response_format = { type: 'json_object' };
+    }
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature,
-        max_tokens: maxTokens,
-        response_format: { type: 'json_object' },
-      }),
+      body: JSON.stringify(payload),
     });
     const data = (await res.json()) as {
       error?: { message?: string };
