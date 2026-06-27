@@ -6,6 +6,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.7] — 2026-06-26
+
+### Admin — IA da plataforma (credenciais + relatório)
+
+- Nova página `/admin/ai-platform`: chaves OpenAI/Gemini criptografadas, modelo padrão RadarZap, teste de conexão.
+- API: `GET/PATCH /admin/ai-platform/credentials`, `DELETE …/keys/:target`, `POST …/test`, `GET /admin/ai-platform/usage`.
+- Runtime `mode: radarzap` usa credenciais do painel (prioridade) ou `.env`; modelo global da plataforma.
+- Relatório agregado de consumo LLM RadarZap por cliente e últimas chamadas.
+
+---
+
 ## [2.12.6] — 2026-06-24
 
 ### TOP 20 — Congelamento final e go-live controlado

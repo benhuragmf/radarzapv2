@@ -169,6 +169,7 @@ import { AiConversationService } from '../ai/AiConversationService';
 import { AiSkillService } from '../ai/AiSkillService';
 import { AiMemoryService } from '../ai/AiMemoryService';
 import { PlatformAiBlueprintService } from '../ai/PlatformAiBlueprintService';
+import { PlatformAiCredentialsService } from '../ai/PlatformAiCredentialsService';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -5539,6 +5540,81 @@ export class DashboardService {
         res.json(PlatformAiBlueprintService.getInstance().toPayload(doc));
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/ai-platform/credentials', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (_req, res) => {
+      try {
+        const doc = await PlatformAiCredentialsService.getInstance().getGlobal();
+        const payload = await PlatformAiCredentialsService.getInstance().toPayload(doc);
+        res.json(payload);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/admin/ai-platform/credentials', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const payload = await PlatformAiCredentialsService.getInstance().updateGlobal(
+          req.body as Record<string, unknown>,
+          auth.userId,
+        );
+        res.json(payload);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete(
+      '/admin/ai-platform/credentials/keys/:target',
+      requireCapability(Cap.SYSTEM_SETTINGS_MANAGE),
+      async (req, res) => {
+        try {
+          const target = req.params.target;
+          if (target !== 'openai' && target !== 'gemini') {
+            return res.status(400).json({ error: 'target deve ser openai ou gemini' });
+          }
+          const payload = await PlatformAiCredentialsService.getInstance().removeKey(target);
+          res.json(payload);
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post('/admin/ai-platform/credentials/test', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
+      try {
+        const body = req.body as {
+          provider?: 'openai' | 'gemini';
+          llmModel?: string;
+          apiKey?: string;
+        };
+        const result = await PlatformAiCredentialsService.getInstance().testConnection(body);
+        res.json(result);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/ai-platform/usage', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
+      try {
+        const { from, to, limit } = req.query as { from?: string; to?: string; limit?: string };
+        const toDate = to ? new Date(to) : new Date();
+        const fromDate = from
+          ? new Date(from)
+          : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const usage = await aiUsageSvc.listPlatformUsage({
+          from: fromDate,
+          to: toDate,
+          limit: limit ? Number(limit) : 200,
+        });
+        res.json({
+          ...usage,
+          period: { from: fromDate.toISOString(), to: toDate.toISOString() },
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
       }
     });
 

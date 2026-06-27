@@ -70,6 +70,8 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/admin/api` | `menu/AdminApiPage.tsx` | `GET /admin/integrations-overview` |
 | `/admin/payments` | `menu/AdminPaymentsPage.tsx` | `GET /billing/admin/orders` |
 | `/admin/settings` | `menu/AdminSettingsPage.tsx` | `GET /services/health` |
+| `/admin/ai-blueprint` | `admin/AdminAiBlueprint.tsx` | `GET/PATCH /admin/ai-blueprint`, `POST …/reset` |
+| `/admin/ai-platform` | `admin/AdminAiPlatform.tsx` | `GET/PATCH /admin/ai-platform/credentials`, `DELETE …/keys/:target`, `POST …/test`, `GET /admin/ai-platform/usage` |
 
 ## API auxiliar (sem rota dedicada no menu)
 

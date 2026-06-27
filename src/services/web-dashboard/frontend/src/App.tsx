@@ -31,6 +31,7 @@ import TeamMembers from './pages/TeamMembers'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminClients from './pages/admin/AdminClients'
 import AdminAiBlueprint from './pages/admin/AdminAiBlueprint'
+import AdminAiPlatform from './pages/admin/AdminAiPlatform'
 import PlatformTemplates from './pages/platform/PlatformTemplates'
 import PlatformReports from './pages/platform/PlatformReports'
 import PlatformContacts from './pages/platform/PlatformContacts'
@@ -239,6 +240,7 @@ export default function App() {
           <Route path="admin/api" element={<Guard user={user} path="/admin/api"><AdminApiPage /></Guard>} />
           <Route path="admin/settings" element={<Guard user={user} path="/admin/settings"><AdminSettingsPage /></Guard>} />
           <Route path="admin/ai-blueprint" element={<Guard user={user} path="/admin/ai-blueprint"><AdminAiBlueprint /></Guard>} />
+          <Route path="admin/ai-platform" element={<Guard user={user} path="/admin/ai-platform"><AdminAiPlatform /></Guard>} />
           <Route path="admin/permissions" element={<Guard user={user} path="/admin/permissions"><AdminPermissionsPage /></Guard>} />
           <Route path="admin/security" element={<Guard user={user} path="/admin/security"><AdminSecurityPage /></Guard>} />
           <Route path="admin/backup" element={<Guard user={user} path="/admin/backup"><AdminBackupPage /></Guard>} />

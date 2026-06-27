@@ -13,6 +13,7 @@ import { aiCreditsFromActualCost } from '@/types/ai-credits';
 import { AiUsageMeterService } from './AiUsageMeterService';
 import { aiUsageKindFromProviderLabel } from '@/types/ai-usage-kind';
 import { recordAiCreditAttendanceEvent } from '@/types/ai-wallet';
+import { PlatformAiCredentialsService } from './PlatformAiCredentialsService';
 
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -47,9 +48,8 @@ export class AiProviderService {
       if (!plan.radarzapAllowed) {
         throw new Error('IA RadarZap não disponível no plano atual');
       }
-      const key = process.env.RADARZAP_AI_OPENAI_KEY?.trim() || process.env.OPENAI_API_KEY?.trim();
-      if (!key) throw new Error('Chave interna RadarZap não configurada no servidor');
-      return key;
+      const runtime = await PlatformAiCredentialsService.getInstance().resolveForRuntime();
+      return runtime.apiKey;
     }
     const doc = await AiSettings.findOne({ clientId }).select('+encryptedApiKey');
     const key = this.vault.decryptApiKey(doc?.encryptedApiKey);
@@ -80,9 +80,14 @@ export class AiProviderService {
     messages: AiChatMessage[],
     conversationId?: string,
   ): Promise<AiCompletionResult> {
+    const platformRuntime =
+      settings.mode === 'radarzap'
+        ? await PlatformAiCredentialsService.getInstance().resolveForRuntime()
+        : null;
+    const effectiveModel = platformRuntime?.llmModel ?? settings.llmModel;
     const pendingCredits =
       settings.mode === 'radarzap'
-        ? aiCreditsFromActualCost(estimateTypicalTurnCostUsd(settings.llmModel))
+        ? aiCreditsFromActualCost(estimateTypicalTurnCostUsd(effectiveModel))
         : 0;
     const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
       clientId,
@@ -108,6 +113,8 @@ export class AiProviderService {
 
     const apiKey = await this.resolveApiKey(clientId, settings);
     const maxTokens = Math.max(settings.maxTokens, MIN_AI_MAX_TOKENS);
+    const llmProvider = platformRuntime?.provider ?? settings.provider;
+    const llmModel = platformRuntime?.llmModel ?? settings.llmModel;
     return this.completeWithKey(
       clientId,
       settings,
@@ -117,6 +124,8 @@ export class AiProviderService {
       settings.mode === 'radarzap' ? 'radarzap' : settings.provider,
       settings.temperature,
       maxTokens,
+      llmProvider,
+      llmModel,
     );
   }
 
@@ -129,8 +138,9 @@ export class AiProviderService {
     messages: AiChatMessage[],
     conversationId?: string,
   ): Promise<AiCompletionResult> {
+    const platformRuntime = await PlatformAiCredentialsService.getInstance().resolveForRuntime();
     const pendingCredits = aiCreditsFromActualCost(
-      estimateTypicalTurnCostUsd(settings.llmModel) * 0.35,
+      estimateTypicalTurnCostUsd(platformRuntime.llmModel) * 0.35,
     );
     const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
       clientId,
@@ -154,7 +164,7 @@ export class AiProviderService {
       throw new Error(usage.reason ?? 'Limite de IA atingido');
     }
 
-    const apiKey = await this.resolveRadarzapPlatformKey(clientId);
+    const apiKey = platformRuntime.apiKey;
     return this.completeWithKey(
       clientId,
       settings,
@@ -164,6 +174,8 @@ export class AiProviderService {
       'radarzap-basic-triage',
       0.2,
       Math.min(Math.max(settings.maxTokens, MIN_AI_MAX_TOKENS), 256),
+      platformRuntime.provider,
+      platformRuntime.llmModel,
     );
   }
 
@@ -173,9 +185,27 @@ export class AiProviderService {
     if (!plan.radarzapAllowed) {
       throw new Error('IA RadarZap não disponível no plano atual');
     }
-    const key = process.env.RADARZAP_AI_OPENAI_KEY?.trim() || process.env.OPENAI_API_KEY?.trim();
-    if (!key) throw new Error('Chave interna RadarZap não configurada no servidor');
-    return key;
+    const runtime = await PlatformAiCredentialsService.getInstance().resolveForRuntime();
+    return runtime.apiKey;
+  }
+
+  async pingProvider(
+    provider: AiProvider,
+    model: string,
+    apiKey: string,
+  ): Promise<{ text: string }> {
+    const result = await this.callProvider(
+      provider,
+      model,
+      apiKey,
+      [
+        { role: 'system', content: 'Responda apenas: OK' },
+        { role: 'user', content: 'ping' },
+      ],
+      0.1,
+      16,
+    );
+    return { text: result.text };
   }
 
   private async completeWithKey(
@@ -187,10 +217,12 @@ export class AiProviderService {
     providerLabel: string,
     temperature: number,
     maxTokens: number,
+    llmProvider: AiProvider = settings.provider,
+    llmModel: string = settings.llmModel,
   ): Promise<AiCompletionResult> {
     const raw = await this.callProvider(
-      settings.provider,
-      settings.llmModel,
+      llmProvider,
+      llmModel,
       apiKey,
       messages,
       temperature,
@@ -203,7 +235,7 @@ export class AiProviderService {
       clientId,
       conversationId,
       provider: providerLabel,
-      llmModel: settings.llmModel,
+      llmModel,
       inputTokens: raw.inputTokens,
       outputTokens: raw.outputTokens,
       usageKind: aiUsageKindFromProviderLabel(providerLabel),
@@ -214,7 +246,7 @@ export class AiProviderService {
       inputTokens: raw.inputTokens,
       outputTokens: raw.outputTokens,
       provider: providerLabel,
-      model: settings.llmModel,
+      model: llmModel,
     };
   }
 

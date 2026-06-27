@@ -70,6 +70,23 @@ export interface AiUsageListResult {
   };
 }
 
+export interface PlatformAiUsageByClientRow {
+  clientId: string;
+  clientName: string;
+  plan: string;
+  calls: number;
+  tokens: number;
+  cost: number;
+  credits: number;
+}
+
+export interface PlatformAiUsageListResult extends AiUsageListResult {
+  byClient: PlatformAiUsageByClientRow[];
+  rows: Array<AiUsageRowDto & { clientId: string; clientName: string }>;
+}
+
+const RADARZAP_PLATFORM_PROVIDERS = ['radarzap', 'radarzap-basic-triage'] as const;
+
 export class AiUsageMeterService {
   private static instance: AiUsageMeterService;
 
@@ -517,6 +534,161 @@ export class AiUsageMeterService {
 
     return {
       rows,
+      totals: {
+        calls: totalsBase.calls ?? 0,
+        tokens: totalsBase.tokens ?? 0,
+        cost: totalsBase.cost ?? 0,
+        credits: totalsBase.credits ?? 0,
+        byKind,
+      },
+    };
+  }
+
+  async listPlatformUsage(
+    opts?: { from?: Date; to?: Date; limit?: number },
+  ): Promise<PlatformAiUsageListResult> {
+    const filter: Record<string, unknown> = {
+      provider: { $in: [...RADARZAP_PLATFORM_PROVIDERS] },
+    };
+    if (opts?.from || opts?.to) {
+      filter.createdAt = {};
+      if (opts.from) (filter.createdAt as Record<string, Date>).$gte = opts.from;
+      if (opts.to) (filter.createdAt as Record<string, Date>).$lte = opts.to;
+    }
+    const limit = Math.min(opts?.limit ?? 200, 500);
+
+    const creditExpr = {
+      $cond: [
+        { $in: ['$provider', [...RADARZAP_PLATFORM_PROVIDERS]] },
+        {
+          $ifNull: [
+            '$creditWeight',
+            { $round: [{ $divide: ['$estimatedCost', AI_CREDIT_USD_UNIT] }, 2] },
+          ],
+        },
+        0,
+      ],
+    };
+
+    const byClientAgg = await AiUsage.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$clientId',
+          calls: { $sum: 1 },
+          tokens: { $sum: '$totalTokens' },
+          cost: { $sum: '$estimatedCost' },
+          credits: { $sum: creditExpr },
+        },
+      },
+      { $sort: { credits: -1 } },
+      { $limit: 50 },
+    ]);
+
+    const rawRows = await AiUsage.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
+
+    const allClientIds = [
+      ...new Set([
+        ...rawRows.map(r => String(r.clientId)),
+        ...byClientAgg.map(r => String(r._id)),
+      ]),
+    ];
+    const orgs = await Organization.find({ _id: { $in: allClientIds } })
+      .select('name plan')
+      .lean();
+    const orgById = new Map(orgs.map(o => [String(o._id), o]));
+
+    const rows = rawRows.map(r => {
+      const org = orgById.get(String(r.clientId));
+      const mapped = this.mapRow({
+        _id: r._id as mongoose.Types.ObjectId,
+        provider: String(r.provider),
+        usageKind: r.usageKind as AiUsageKind | undefined,
+        creditWeight: r.creditWeight,
+        llmModel: r.llmModel,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        totalTokens: r.totalTokens,
+        estimatedCost: r.estimatedCost,
+        createdAt: r.createdAt,
+        conversationId: r.conversationId as mongoose.Types.ObjectId | undefined,
+      });
+      return {
+        ...mapped,
+        clientId: String(r.clientId),
+        clientName: org?.name ?? String(r.clientId).slice(-8),
+      };
+    });
+
+    const agg = await AiUsage.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          calls: { $sum: 1 },
+          tokens: { $sum: '$totalTokens' },
+          cost: { $sum: '$estimatedCost' },
+          credits: { $sum: creditExpr },
+        },
+      },
+    ]);
+
+    const kindAgg = await AiUsage.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          resolvedKind: {
+            $ifNull: [
+              '$usageKind',
+              {
+                $cond: [
+                  { $eq: ['$provider', 'radarzap-basic-triage'] },
+                  'basic_triage',
+                  'premium_assistant',
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$resolvedKind',
+          calls: { $sum: 1 },
+          tokens: { $sum: '$totalTokens' },
+          cost: { $sum: '$estimatedCost' },
+          credits: { $sum: creditExpr },
+        },
+      },
+    ]);
+
+    const byClient: PlatformAiUsageByClientRow[] = byClientAgg.map(row => {
+      const org = orgById.get(String(row._id));
+      return {
+        clientId: String(row._id),
+        clientName: org?.name ?? String(row._id).slice(-8),
+        plan: org?.plan ?? 'unknown',
+        calls: row.calls as number,
+        tokens: row.tokens as number,
+        cost: row.cost as number,
+        credits: row.credits as number,
+      };
+    });
+
+    const totalsBase = agg[0] ?? { calls: 0, tokens: 0, cost: 0, credits: 0 };
+    const byKind = this.mergeKindTotals(
+      kindAgg.map(k => ({
+        _id: String(k._id) as AiUsageKind,
+        calls: k.calls as number,
+        tokens: k.tokens as number,
+        cost: k.cost as number,
+        credits: k.credits as number,
+      })),
+    );
+
+    return {
+      rows,
+      byClient,
       totals: {
         calls: totalsBase.calls ?? 0,
         tokens: totalsBase.tokens ?? 0,
