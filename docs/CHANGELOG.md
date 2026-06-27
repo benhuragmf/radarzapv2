@@ -6,6 +6,90 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.19] — 2026-06-27
+
+### Classificação — Pacote J (Supervisor filtro + atalhos Inbox nos relatórios)
+
+- **`GET /inbox/supervisor/dashboard?class=`** — filtra conversas ativas e fila por classificação CRM (paridade com Inbox).
+- **Supervisor UI:** chips de classificação + URL `?class=`.
+- **Relatórios:** breakdowns e segmentos dinâmicos com atalho **Inbox** além de **Contatos**.
+
+## [2.12.18] — 2026-06-27
+
+### Classificação — Pacote I (filtro Inbox server-side)
+
+- **`GET /inbox/conversations?class=`** — filtra conversas WA + WebChat por classificação do contato CRM vinculado (`destinationId` ∈ IDs que batem com o preset).
+- **Inbox UI:** chips de classificação na barra lateral da lista; URL `?class=opt_in|pending|hot|blocked|lead|client|prospect`.
+- Paridade com `/contact?class=` e `findDestinationIdsMatchingClassification`.
+
+## [2.12.17] — 2026-06-27
+
+### Classificação — Pacote H (Supervisor + consolidação)
+
+- **Supervisor:** badges de classificação CRM nas conversas ativas e na fila (`GET /inbox/supervisor/dashboard` → `contactClassification`).
+- **Plataforma:** atalhos em `/platform` para segmentos e contatos opt-in (`/contact?class=opt_in`).
+- **Docs:** `SISTEMA-REGISTRO.md`, regra do agente, `INBOX-ATENDIMENTO.md` § Classificação CRM; `CONTATOS-CLASSIFICACAO.md` atualizado.
+
+## [2.12.16] — 2026-06-27
+
+### Classificação — Pacote G (Inbox lista + doc + testes)
+
+- **Inbox:** badges de classificação na lista de conversas quando o contato CRM está vinculado (WA + WebChat).
+- **API:** `attachClassificationToConversationRows` em `GET /inbox/conversations` (lista unificada).
+- **Doc:** `docs/CONTATOS-CLASSIFICACAO.md` — mapa completo do módulo e APIs.
+- **Testes:** filtros `?class=`, CSV de stats (`destination-classification.filters.test.ts`).
+
+## [2.12.15] — 2026-06-27
+
+### Classificação — Pacote F (filtro server-side + export CSV)
+
+- **`GET /destinations?class=`** — filtra contatos por classificação no servidor (opt_in, pending, hot, blocked, lead, client, prospect…).
+- **`GET /destinations/classification-stats/export-csv`** — resumo agregado em CSV.
+- **`GET /destinations/classification-export-csv`** — lista de contatos com colunas de classificação; aceita `?class=` opcional.
+- **`/contact`:** chips usam stats da API; lista reflete filtro server-side; botão exportar CSV quando filtro ativo.
+- **`/platform/reports`:** botões CSV resumo e CSV contatos.
+
+## [2.12.14] — 2026-06-27
+
+### Classificação — Pacote E (relatórios)
+
+- **`GET /destinations/classification-stats`:** totais por tipo, permissão, origem, temperatura, funil, qualidade de telefone; segmentos dinâmicos e pendências de backfill.
+- **`/platform/reports`:** seção **Classificação de contatos** com KPIs, breakdowns clicáveis (atalho para `/contact?class=…`) e ação de backfill em lote.
+
+## [2.12.13] — 2026-06-27
+
+### Classificação — Pacote D (Contatos + WebChat Inbox)
+
+- **`/contact`:** faixa de filtros rápidos por classificação (opt-in, pendente, quente/morno, bloqueio campanha, lead/cliente/prospect); URL `?class=opt_in` etc.
+- **WebChat Inbox:** `getDetailForInbox` retorna `classification`, tags e `lastMessageSent` do contato CRM vinculado; card no painel lateral.
+- **`PATCH /inbox/conversations/:id/visitor-profile`:** persiste tipo, origem, funil e temperatura no contato vinculado; editor do Inbox envia os campos.
+
+## [2.12.12] — 2026-06-27
+
+### Classificação — Pacote C (Leads × CRM)
+
+- **Leads:** faixa de estatísticas CRM (opt-in, pendente, quentes/mornos, bloqueio campanha, sem contato).
+- **API:** `GET /leads/classification-stats`; filtros em `GET /leads/captures` (`classificationKind`, `classificationOptInOnly`, `classificationPendingOnly`, `classificationHotOnly`, `classificationBlockedOnly`, `unlinkedOnly`).
+- **UI:** badges na lista e Kanban; coluna Classificação; card na aba Contato do detalhe; filtros avançados no drawer.
+- **OpenAPI:** schemas `LeadClassificationStats`, `LeadCaptureWithClassification` e rotas de leads documentadas.
+
+## [2.12.11] — 2026-06-27
+
+### Classificação — Pacote B (automações + OpenAPI)
+
+- **Automações:** filtros por segmento dinâmico, tipo (lead/cliente/prospect), opt-in, temperatura e bloqueio de campanha; bloqueio `assertCampaignSendAllowed` em todos os envios automáticos.
+- **Modelo** `BirthdayAutomationRule`: `destinationSmartSegmentId`, `destinationFilterKinds`, `destinationFilterPermissions`, `destinationFilterTemperatures`, `destinationCampaignSelectableOnly`.
+- **OpenAPI:** schemas `ContactClassification`, `SmartSegmentPreset`, rotas de classificação e PATCH automações documentados.
+
+## [2.12.10] — 2026-06-27
+
+### Classificação de contatos — Pacote A (segmentos + backfill)
+
+- **`/platform/segmentos`:** aba **Segmentos dinâmicos** com 5 presets (opt-in, clientes ativos, leads quentes, pendente, bloqueados), lista de membros com badges e atalho **Usar no envio**.
+- **API:** `GET /destinations/smart-segments/:presetId/members`, `GET /destinations/classification-backfill-status`, `POST /destinations/backfill-classification`.
+- **Backfill:** grava tipo, origem, funil e temperatura em contatos antigos sem campos persistidos (lote de 500).
+- **`/send`:** aceita navegação vinda de segmentos dinâmicos (`smartSegmentId` + aba Segmentos).
+
 ## [2.12.9] — 2026-06-27
 
 ### Conta — remover e-mail ao desvincular Google

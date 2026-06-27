@@ -17,6 +17,7 @@ import type {
   SupervisorAgentRow,
   SupervisorDashboardPayload,
 } from '@/types/inbox-supervisor';
+import { attachClassificationToConversationRows } from '@/services/destinations/destination-classification.service';
 
 const PERIOD_DAYS = 7;
 
@@ -146,30 +147,50 @@ export class InboxSupervisorDashboardService {
     return InboxSupervisorDashboardService.instance;
   }
 
-  async buildDashboard(clientId: string, supervisorUserId: string): Promise<SupervisorDashboardPayload> {
+  async buildDashboard(
+    clientId: string,
+    supervisorUserId: string,
+    options?: { destinationIds?: mongoose.Types.ObjectId[] },
+  ): Promise<SupervisorDashboardPayload> {
     const inbox = InboxService.getInstance();
     await inbox.listSupervisorQueue(clientId, supervisorUserId);
 
     const periodFrom = new Date(Date.now() - PERIOD_DAYS * 24 * 60 * 60 * 1000);
     const clientOid = new mongoose.Types.ObjectId(clientId);
+    const destIds = options?.destinationIds;
+    const skipConversations = destIds !== undefined && destIds.length === 0;
+    const destClause =
+      destIds && destIds.length > 0 ? { destinationId: { $in: destIds } } : {};
 
     const [team, waActive, waQueue, wcRows, metricsRows, wcMetricsRows] = await Promise.all([
       inbox.listTeamMembersForAssignment(clientId),
-      InboxConversation.find({
-        clientId: clientOid,
-        status: InboxConversationStatus.IN_PROGRESS,
-      })
-        .sort({ lastMessageAt: -1 })
-        .limit(200)
-        .lean(),
-      InboxConversation.find({
-        clientId: clientOid,
-        status: { $in: [InboxConversationStatus.WAITING_QUEUE, InboxConversationStatus.BOT_TRIAGE] },
-      })
-        .sort({ lastMessageAt: -1 })
-        .limit(200)
-        .lean(),
-      WebChatService.getInstance().listForInbox(clientId, supervisorUserId, {}),
+      skipConversations
+        ? Promise.resolve([])
+        : InboxConversation.find({
+            clientId: clientOid,
+            status: InboxConversationStatus.IN_PROGRESS,
+            ...destClause,
+          })
+            .sort({ lastMessageAt: -1 })
+            .limit(200)
+            .lean(),
+      skipConversations
+        ? Promise.resolve([])
+        : InboxConversation.find({
+            clientId: clientOid,
+            status: {
+              $in: [InboxConversationStatus.WAITING_QUEUE, InboxConversationStatus.BOT_TRIAGE],
+            },
+            ...destClause,
+          })
+            .sort({ lastMessageAt: -1 })
+            .limit(200)
+            .lean(),
+      skipConversations
+        ? Promise.resolve([])
+        : WebChatService.getInstance().listForInbox(clientId, supervisorUserId, {
+            destinationIds: destIds,
+          }),
       InboxConversation.find({
         clientId: clientOid,
         updatedAt: { $gte: periodFrom },
@@ -206,14 +227,16 @@ export class InboxSupervisorDashboardService {
       }),
     );
 
-    const activeConversations = [...waActiveMapped, ...wcActiveMapped]
+    const activeConversations = (
+      await this.enrichSupervisorConversations(clientId, [...waActiveMapped, ...wcActiveMapped])
+    )
       .map(c => applySupervisorHelp(c, helpMap))
       .sort(
-      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
-    );
-    const queue = [...waQueueMapped, ...wcQueueMapped].sort(
-      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
-    );
+        (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
+      );
+    const queue = (
+      await this.enrichSupervisorConversations(clientId, [...waQueueMapped, ...wcQueueMapped])
+    ).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
 
     const activeByAgent = new Map<string, SupervisorActiveConversation[]>();
     for (const conv of activeConversations) {
@@ -391,9 +414,32 @@ export class InboxSupervisorDashboardService {
     return out;
   }
 
+  private async enrichSupervisorConversations(
+    clientId: string,
+    rows: Array<SupervisorActiveConversation & { destinationId?: string }>,
+  ): Promise<SupervisorActiveConversation[]> {
+    if (!rows.length) return [];
+    const enriched = await attachClassificationToConversationRows(
+      clientId,
+      rows.map(r => ({
+        id: r.id,
+        destinationId: r.destinationId,
+        contactClassification: r.contactClassification,
+      })),
+    );
+    const classById = new Map(
+      enriched.map(e => [e.id, e.contactClassification] as const),
+    );
+    return rows.map(({ destinationId: _dest, ...r }) => ({
+      ...r,
+      contactClassification: r.contactClassification ?? classById.get(r.id),
+    }));
+  }
+
   private mapWaRows(
     rows: Array<{
       _id: mongoose.Types.ObjectId;
+      destinationId?: mongoose.Types.ObjectId;
       contactName: string;
       contactIdentifier: string;
       status: string;
@@ -415,6 +461,7 @@ export class InboxSupervisorDashboardService {
       const status = forceStatus ?? r.status;
       return {
         id: String(r._id),
+        destinationId: r.destinationId ? String(r.destinationId) : undefined,
         channel: (r.channel as SupervisorActiveConversation['channel']) ?? 'whatsapp_qr',
         contactName: r.contactName,
         contactIdentifier: r.contactIdentifier,
@@ -433,6 +480,8 @@ export class InboxSupervisorDashboardService {
 
   private mapWcRow(r: {
     _id: string;
+    destinationId?: string;
+    contactClassification?: SupervisorActiveConversation['contactClassification'];
     contactName: string;
     contactIdentifier: string;
     status: string;
@@ -447,9 +496,11 @@ export class InboxSupervisorDashboardService {
     lastMessageAt: string;
     lastMessagePreview?: string;
     ticketRef?: string;
-  }): SupervisorActiveConversation {
+  }): SupervisorActiveConversation & { destinationId?: string } {
     return {
       id: r._id,
+      destinationId: r.destinationId,
+      contactClassification: r.contactClassification,
       channel: 'webchat_site',
       contactName: r.contactName,
       contactIdentifier: r.contactIdentifier,

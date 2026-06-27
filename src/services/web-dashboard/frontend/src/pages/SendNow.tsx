@@ -16,8 +16,6 @@ import {
   effectiveSafeBatchSize,
 } from '../lib/limits'
 import {
-  ConsentDot,
-  CONSENT_STATUS_META,
   canSelectForSend,
   effectiveConsentStatus,
   type ConsentStatus,
@@ -29,24 +27,33 @@ import { Spinner } from '../components/ui/Spinner'
 import { Badge } from '../components/ui/Badge'
 import {
   Send,
-  CheckCircle,
-  XCircle,
   Smartphone,
   AlertCircle,
   Calendar,
   Clock,
-  Users,
-  Hash,
   Search,
   Plus,
   RefreshCw,
   ShieldAlert,
   FileText,
   Eye,
+  History,
+  ListOrdered,
+  Filter,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
+import type { WhatsAppLimitsFormState } from '../components/whatsapp/WhatsAppSendLimitsEditor'
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
 import { WhatsAppTextEditor } from '../components/whatsapp/WhatsAppTextEditor'
-import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
+import { SendCampaignSummary } from '../components/send/SendCampaignSummary'
+import { SendRecipientsTable } from '../components/send/SendRecipientsTable'
+import type { ContactClassificationView } from '../lib/contactClassificationUi'
+import {
+  isSmartSegmentPresetId,
+  matchesSmartSegmentPreset,
+} from '../lib/contactClassificationUi'
+import { mutationError } from '../lib/notify'
 import { RadarPageShell, PageHeader, inputCls, searchFieldIconCls } from '@/design-system'
 import {
   clampDatetimeLocal,
@@ -63,6 +70,44 @@ interface Destination {
   consentStatus?: ConsentStatus
   consent?: { granted?: boolean }
   pendingOutboundCount?: number
+  tags?: string[]
+  lastMessageSent?: string
+  classification?: ContactClassificationView
+}
+
+type SendAudienceMode = 'recommended' | 'leads_opt_in' | 'clients_active' | 'all' | 'review_blocked'
+
+function isDestinationCampaignSelectable(d: Destination): boolean {
+  if (d.type === 'group') return true
+  if (d.classification) return d.classification.campaignSelectable
+  const st = effectiveConsentStatus(d.consentStatus, d.consent?.granted)
+  return canSelectForSend(st, d.pendingOutboundCount ?? 0)
+}
+
+function matchesAudience(d: Destination, mode: SendAudienceMode): boolean {
+  if (d.type === 'group') {
+    return mode === 'all' || mode === 'recommended'
+  }
+  const c = d.classification
+  if (!c) return mode === 'all' || mode === 'recommended'
+  switch (mode) {
+    case 'recommended':
+      return c.campaignSelectable
+    case 'leads_opt_in':
+      return c.kind === 'lead' && c.permission === 'opt_in_accepted'
+    case 'clients_active':
+      return (
+        c.kind === 'client' &&
+        c.permission === 'opt_in_accepted' &&
+        c.commercialStatus !== 'inactive' &&
+        c.commercialStatus !== 'lost'
+      )
+    case 'review_blocked':
+      return !c.campaignSelectable
+    case 'all':
+    default:
+      return true
+  }
 }
 
 interface ContactGroupOption {
@@ -83,6 +128,32 @@ interface WAGroup {
   id: string
   name: string
   participantsCount: number
+}
+
+type DestinationScope = 'contacts' | 'lists' | 'segments' | 'whatsapp_groups' | 'both'
+
+interface LeadSegmentSummary {
+  id: string
+  name: string
+  leadCount: number
+}
+
+interface SmartSegmentPreset {
+  id: string
+  label: string
+  description: string
+  count: number
+}
+
+function destinationMatchesSegmentFilter(
+  d: Destination,
+  segmentId: string | null,
+): boolean {
+  if (!segmentId) return true
+  if (isSmartSegmentPresetId(segmentId)) {
+    return d.type === 'contact' && matchesSmartSegmentPreset(d.classification, segmentId)
+  }
+  return (d.contactGroupIds ?? []).some(gid => String(gid) === segmentId)
 }
 
 type Priority = 'high' | 'medium' | 'low'
@@ -117,9 +188,12 @@ function defaultScheduleLocal(): string {
 export default function SendNow() {
   const qc = useQueryClient()
   const location = useLocation()
-  const preselectedFromContacts = (
-    location.state as { preselectedDestinationIds?: string[] } | null
-  )?.preselectedDestinationIds
+  const navState = location.state as {
+    preselectedDestinationIds?: string[]
+    smartSegmentId?: string
+    destinationScope?: DestinationScope
+  } | null
+  const preselectedFromContacts = navState?.preselectedDestinationIds
 
   const [title, setTitle] = useState('')
   const [messageMode, setMessageMode] = useState<MessageMode>('plain')
@@ -130,9 +204,12 @@ export default function SendNow() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
-  const [destinationScope, setDestinationScope] = useState<
-    'contacts' | 'whatsapp_groups' | 'both'
-  >('both')
+  const [destinationScope, setDestinationScope] = useState<DestinationScope>(
+    navState?.destinationScope === 'segments' ? 'segments' : 'contacts',
+  )
+  const [selectedListId, setSelectedListId] = useState<string | null>(
+    navState?.smartSegmentId ?? null,
+  )
   const [contactGroupFilter, setContactGroupFilter] = useState<string>('all')
   const [priority, setPriority] = useState<Priority>('medium')
   const [delayBetweenMs, setDelayBetweenMs] = useState<number>(MIN_DELAY_MS)
@@ -144,6 +221,9 @@ export default function SendNow() {
   const [acceptWhatsAppRisk, setAcceptWhatsAppRisk] = useState(false)
   const [riskAcknowledged, setRiskAcknowledged] = useState(false)
   const [showGroups, setShowGroups] = useState(false)
+  const [onlySendable, setOnlySendable] = useState(true)
+  const [audienceMode, setAudienceMode] = useState<SendAudienceMode>('recommended')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   const { data: billing } = useQuery<BillingMe>({
     queryKey: ['billing-me'],
@@ -211,6 +291,12 @@ export default function SendNow() {
     queryFn: () => api.get('/destinations'),
   })
 
+  const { data: waSendPolicy } = useQuery<WhatsAppLimitsFormState>({
+    queryKey: ['platform-whatsapp-send-limits'],
+    queryFn: () => api.get('/platform/whatsapp-send-limits'),
+    staleTime: 60_000,
+  })
+
   useEffect(() => {
     if (!preselectedFromContacts?.length || destinations.length === 0) return
     const valid = preselectedFromContacts.filter(id =>
@@ -226,6 +312,68 @@ export default function SendNow() {
     queryKey: ['contact-groups'],
     queryFn: () => api.get('/contact-groups'),
   })
+
+  const { data: leadSegments = [] } = useQuery<LeadSegmentSummary[]>({
+    queryKey: ['leads-segments-summary'],
+    queryFn: () => api.get('/leads/segments-summary'),
+    retry: false,
+  })
+
+  const { data: smartSegments = [] } = useQuery<SmartSegmentPreset[]>({
+    queryKey: ['destinations-smart-segments'],
+    queryFn: () => api.get('/destinations/smart-segments'),
+  })
+
+  const segmentPickerItems = useMemo(() => {
+    const smart = smartSegments.map(s => ({
+      id: s.id,
+      name: s.label,
+      count: s.count,
+      hint: 'contatos',
+      description: s.description,
+    }))
+    const leads = leadSegments.map(s => ({
+      id: s.id,
+      name: s.name,
+      count: s.leadCount,
+      hint: 'leads',
+      description: undefined as string | undefined,
+    }))
+    if (smart.length > 0 || leads.length > 0) {
+      return [...smart, ...leads]
+    }
+    return contactGroups.map(g => ({
+      id: g._id,
+      name: g.name,
+      count: g.memberCount,
+      hint: 'membros',
+      description: undefined as string | undefined,
+    }))
+  }, [smartSegments, leadSegments, contactGroups])
+
+  useEffect(() => {
+    if (destinationScope === 'lists' && !selectedListId && contactGroups[0]) {
+      setSelectedListId(contactGroups[0]._id)
+    }
+    if (destinationScope === 'segments' && !selectedListId && segmentPickerItems[0]) {
+      setSelectedListId(segmentPickerItems[0].id)
+    }
+  }, [destinationScope, selectedListId, contactGroups, segmentPickerItems])
+
+  const groupNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const g of contactGroups) m.set(g._id, g.name)
+    return m
+  }, [contactGroups])
+
+  const contactGroupIdsByDest = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const d of destinations) {
+      if (d.type !== 'contact') continue
+      m.set(d._id, (d.contactGroupIds ?? []).map(String))
+    }
+    return m
+  }, [destinations])
 
   const { data: sessions = [] } = useQuery<Session[]>({
     queryKey: ['sessions'],
@@ -324,10 +472,24 @@ export default function SendNow() {
 
   const filteredDest = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const listFilter =
+      destinationScope === 'lists' || destinationScope === 'segments' ? selectedListId : null
     return destinations.filter(d => {
       if (destinationScope === 'contacts' && d.type !== 'contact') return false
+      if (destinationScope === 'lists' && d.type !== 'contact') return false
+      if (destinationScope === 'segments' && d.type !== 'contact') return false
       if (destinationScope === 'whatsapp_groups' && d.type !== 'group') return false
-      if (contactGroupFilter !== 'all') {
+      if (listFilter) {
+        if (destinationScope === 'segments') {
+          if (!destinationMatchesSegmentFilter(d, listFilter)) return false
+        } else {
+          const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === listFilter)
+          if (!inGroup) return false
+        }
+      }
+      if (onlySendable && d.type === 'contact' && !isDestinationCampaignSelectable(d)) return false
+      if (d.type === 'contact' && !matchesAudience(d, audienceMode)) return false
+      if (contactGroupFilter !== 'all' && !listFilter) {
         if (d.type === 'group') return false
         const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === contactGroupFilter)
         if (!inGroup) return false
@@ -338,7 +500,83 @@ export default function SendNow() {
         d.identifier.toLowerCase().includes(q)
       )
     })
-  }, [destinations, search, destinationScope, contactGroupFilter])
+  }, [destinations, search, destinationScope, contactGroupFilter, onlySendable, selectedListId, audienceMode])
+
+  const selectionStats = useMemo(() => {
+    let contacts = 0
+    let groups = 0
+    for (const id of selectedIds) {
+      const d = destinations.find(x => x._id === id)
+      if (d?.type === 'group') groups += 1
+      else if (d) contacts += 1
+    }
+    return { contacts, groups, total: selectedIds.size }
+  }, [selectedIds, destinations])
+
+  const marketingPerMinute = useMemo(() => {
+    if (!waSendPolicy || waSendPolicy.limitsDisabled) return null
+    if (waSendPolicy.marketing?.enabled === false) return null
+    return waSendPolicy.marketing?.maxPerMinute ?? 2
+  }, [waSendPolicy])
+
+  const sendableInScopeCount = useMemo(() => {
+    const listFilter =
+      destinationScope === 'lists' || destinationScope === 'segments' ? selectedListId : null
+    let n = 0
+    for (const d of destinations) {
+      if (destinationScope === 'contacts' && d.type !== 'contact') continue
+      if (destinationScope === 'lists' && d.type !== 'contact') continue
+      if (destinationScope === 'segments' && d.type !== 'contact') continue
+      if (destinationScope === 'whatsapp_groups' && d.type !== 'group') continue
+      if (listFilter) {
+        if (destinationScope === 'segments') {
+          if (!destinationMatchesSegmentFilter(d, listFilter)) continue
+        } else {
+          const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === listFilter)
+          if (!inGroup) continue
+        }
+      }
+      if (contactGroupFilter !== 'all' && !listFilter && d.type === 'contact') {
+        const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === contactGroupFilter)
+        if (!inGroup) continue
+      }
+      if (d.type === 'contact') {
+        if (!isDestinationCampaignSelectable(d)) continue
+      }
+      n += 1
+    }
+    return n
+  }, [destinations, destinationScope, contactGroupFilter, selectedListId])
+
+  const sidebarPreviewText =
+    messageMode === 'platform_template' ? previewText : message
+
+  const submitBlockers = useMemo(() => {
+    const blockers: string[] = []
+    if (selectedIds.size === 0) blockers.push('Selecione ao menos um destinatário')
+    if (!canSubmitMessage) blockers.push('Escreva a mensagem ou escolha um modelo')
+    if (messageTooLong) blockers.push('Mensagem acima do limite permitido')
+    if (!scheduleMode && !connected) {
+      blockers.push('WhatsApp desconectado — conecte em Sessões ou use Agendar')
+    }
+    if (acceptWhatsAppRisk && !riskAcknowledged) {
+      blockers.push('Confirme que aceita o risco de banimento')
+    }
+    if (groupMembershipError) blockers.push(groupMembershipError)
+    if (hasSelectedGroup && validatingGroups) blockers.push('Aguarde a validação do grupo')
+    return blockers
+  }, [
+    selectedIds.size,
+    canSubmitMessage,
+    messageTooLong,
+    scheduleMode,
+    connected,
+    acceptWhatsAppRisk,
+    riskAcknowledged,
+    groupMembershipError,
+    hasSelectedGroup,
+    validatingGroups,
+  ])
 
   const selectContactGroup = () => {
     if (contactGroupFilter === 'all') return
@@ -349,21 +587,8 @@ export default function SendNow() {
         if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) break
         const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === contactGroupFilter)
         if (!inGroup) continue
-        const st = effectiveConsentStatus(d.consentStatus, d.consent?.granted)
-        if (!canSelectForSend(st, d.pendingOutboundCount ?? 0)) continue
+        if (!isDestinationCampaignSelectable(d)) continue
         if (hasSelectedGroup && contactsNotInGroupIds.has(d._id)) continue
-        next.add(d._id)
-      }
-      return next
-    })
-  }
-
-  const selectAllWaGroups = () => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      for (const d of filteredDest) {
-        if (d.type !== 'group') continue
-        if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) break
         next.add(d._id)
       }
       return next
@@ -373,8 +598,7 @@ export default function SendNow() {
   const toggleDest = (id: string) => {
     const dest = destinations.find(d => d._id === id)
     if (dest?.type === 'contact') {
-      const st = effectiveConsentStatus(dest.consentStatus, dest.consent?.granted)
-      if (!canSelectForSend(st, dest.pendingOutboundCount ?? 0)) return
+      if (!isDestinationCampaignSelectable(dest)) return
       if (hasSelectedGroup && contactsNotInGroupIds.has(id)) return
     }
     setSelectedIds(prev => {
@@ -395,14 +619,64 @@ export default function SendNow() {
       for (const d of filteredDest) {
         if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) break
         if (d.type === 'contact') {
-          const st = effectiveConsentStatus(d.consentStatus, d.consent?.granted)
-          if (!canSelectForSend(st, d.pendingOutboundCount ?? 0)) continue
+          if (!isDestinationCampaignSelectable(d)) continue
           if (hasSelectedGroup && contactsNotInGroupIds.has(d._id)) continue
         }
         next.add(d._id)
       }
       return next
     })
+  }
+
+  const selectAllInScope = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      const listFilter =
+        destinationScope === 'lists' || destinationScope === 'segments' ? selectedListId : null
+      for (const d of destinations) {
+        if (next.size >= WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN) break
+        if (destinationScope === 'contacts' && d.type !== 'contact') continue
+        if (destinationScope === 'lists' && d.type !== 'contact') continue
+        if (destinationScope === 'segments' && d.type !== 'contact') continue
+        if (destinationScope === 'whatsapp_groups' && d.type !== 'group') continue
+        if (listFilter) {
+          if (destinationScope === 'segments') {
+            if (!destinationMatchesSegmentFilter(d, listFilter)) continue
+          } else {
+            const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === listFilter)
+            if (!inGroup) continue
+          }
+        }
+        if (contactGroupFilter !== 'all' && !listFilter && d.type === 'contact') {
+          const inGroup = (d.contactGroupIds ?? []).some(gid => String(gid) === contactGroupFilter)
+          if (!inGroup) continue
+        }
+        if (d.type === 'contact') {
+          if (!isDestinationCampaignSelectable(d)) continue
+          if (hasSelectedGroup && contactsNotInGroupIds.has(d._id)) continue
+        }
+        next.add(d._id)
+      }
+      return next
+    })
+  }
+
+  const handleScopeChange = (scope: DestinationScope) => {
+    setDestinationScope(scope)
+    if (scope === 'lists') {
+      const first = contactGroups[0]
+      setSelectedListId(first?._id ?? null)
+      setContactGroupFilter('all')
+      return
+    }
+    if (scope === 'segments') {
+      const first = segmentPickerItems[0]
+      setSelectedListId(first?.id ?? null)
+      setContactGroupFilter('all')
+      return
+    }
+    setSelectedListId(null)
+    if (scope === 'whatsapp_groups') setContactGroupFilter('all')
   }
 
   const handleRiskToggle = (enabled: boolean) => {
@@ -468,8 +742,31 @@ export default function SendNow() {
 
   return (
     <RadarPageShell maxWidth="wide">
-      <PageHeader title="Enviar agora" subtitle="Campanha manual para contatos ou grupos com preview WhatsApp." />
-      <div className="max-w-4xl space-y-4">
+      <PageHeader
+        title="Enviar agora"
+        subtitle="Campanha manual para contatos ou grupos com preview WhatsApp."
+        actions={
+          <>
+            <Link to="/send/historico">
+              <Button variant="ghost" size="sm">
+                <History size={14} /> Histórico
+              </Button>
+            </Link>
+            <Link to="/send/agendamentos">
+              <Button variant="ghost" size="sm">
+                <Calendar size={14} /> Agendamentos
+              </Button>
+            </Link>
+            <Link to="/platform/fila">
+              <Button variant="ghost" size="sm">
+                <ListOrdered size={14} /> Fila
+              </Button>
+            </Link>
+          </>
+        }
+      />
+
+      <div className="space-y-4">
       {!connected && (
         <Card className="flex items-start gap-3 border-amber-800/50 bg-amber-950/20">
           <AlertCircle size={18} className="text-amber-400 shrink-0 mt-0.5" />
@@ -487,32 +784,49 @@ export default function SendNow() {
       )}
 
       {connected && (
-        <div className="flex items-center gap-2 text-xs text-[var(--rz-text-muted)]">
-          <Smartphone size={14} className="text-brand-500" />
-          Sessão ativa:{' '}
-          <Badge
-            label={formatWaSessionLabel({
-              phoneNumber: connected.phoneNumber,
-              profileName: connected.profileName,
-            })}
-            variant="green"
-          />
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-2 text-[var(--rz-text-muted)]">
+            <Smartphone size={14} className="text-brand-500" />
+            Sessão ativa:{' '}
+            <Badge
+              label={formatWaSessionLabel({
+                phoneNumber: connected.phoneNumber,
+                profileName: connected.profileName,
+              })}
+              variant="green"
+            />
+            {isBusiness && (
+              <Badge label="Business" variant="blue" />
+            )}
+          </div>
+          {billing && (
+            <>
+              <span className="text-[var(--rz-border)] hidden sm:inline">|</span>
+              <span className="text-[var(--rz-text-muted)]">
+                Plano <span className="text-white capitalize font-medium">{billing.plan}</span>
+                {' · '}
+                {billing.usage.messagesUsed}
+                {!isUnlimited(billing.limits.messagesPerDay) && (
+                  <>/{billing.limits.messagesPerDay}</>
+                )}{' '}
+                msgs hoje
+              </span>
+              <span className="text-[var(--rz-text-muted)]">
+                · {destinations.length}
+                {!isUnlimited(billing.limits.groupsMax) && `/${billing.limits.groupsMax}`} destinos
+              </span>
+            </>
+          )}
         </div>
       )}
 
-      {billing && (
+      {!connected && billing && (
         <Card className="border-[var(--rz-border)] bg-[var(--rz-surface)]/50 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="text-[var(--rz-text-muted)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--rz-text-muted)]">
+            <span>
               Plano <span className="text-white capitalize font-medium">{billing.plan}</span>
-              {' · '}
-              Destinos cadastrados:{' '}
-              <span className="text-white">{destinations.length}</span>
-              {!isUnlimited(billing.limits.groupsMax) && (
-                <span className="text-[var(--rz-text-muted)]"> / {billing.limits.groupsMax}</span>
-              )}
-            </div>
-            <div className="text-[var(--rz-text-muted)]">
+            </span>
+            <span>
               Mensagens hoje:{' '}
               <span className={remainingToday === 0 ? 'text-amber-400' : 'text-brand-400'}>
                 {billing.usage.messagesUsed}
@@ -520,38 +834,35 @@ export default function SendNow() {
                   <> / {billing.limits.messagesPerDay}</>
                 )}
               </span>
-              {isUnlimited(billing.limits.messagesPerDay) && (
-                <span className="text-[var(--rz-text-muted)]"> (ilimitado)</span>
-              )}
-            </div>
+            </span>
           </div>
-          {remainingToday === 0 && !isUnlimited(billing.limits.messagesPerDay) && (
-            <p className="text-[11px] text-amber-500/90 mt-2">
-              Limite diário atingido. Aguarde a renovação ou faça upgrade em Planos.
-            </p>
-          )}
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          <div className="lg:col-span-3 space-y-4">
+      {remainingToday === 0 && billing && !isUnlimited(billing.limits.messagesPerDay) && (
+        <p className="text-[11px] text-amber-500/90 px-1">
+          Limite diário atingido. Aguarde a renovação ou faça upgrade em Planos.
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          <div className="xl:col-span-8 space-y-4">
             <Card>
               <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">1. Destinatários</h2>
               <div className="flex flex-wrap gap-2 mb-3">
                 {(
                   [
                     ['contacts', 'Contatos'],
+                    ['lists', 'Listas'],
+                    ['segments', 'Segmentos'],
                     ['whatsapp_groups', 'Grupos WA'],
-                    ['both', 'Ambos'],
+                    ['both', 'Todos'],
                   ] as const
                 ).map(([scope, label]) => (
                   <button
                     key={scope}
                     type="button"
-                    onClick={() => {
-                      setDestinationScope(scope)
-                      if (scope === 'whatsapp_groups') setContactGroupFilter('all')
-                    }}
+                    onClick={() => handleScopeChange(scope)}
                     className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
                       destinationScope === scope
                         ? 'border-brand-500 bg-brand-950/40 text-brand-200'
@@ -562,53 +873,212 @@ export default function SendNow() {
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-2 mb-3">
-                <div className="relative flex-1 min-w-[140px]">
-                  <Search size={14} className={searchFieldIconCls} />
-                  <input
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Buscar nome ou número..."
-                    className={`${inputCls} pl-9`}
-                  />
+
+              {destinationScope === 'lists' && (
+                <div className="mb-3">
+                  {contactGroups.length === 0 ? (
+                    <p className="text-xs text-[var(--rz-text-muted)]">
+                      Nenhuma lista criada.{' '}
+                      <Link to="/platform/segmentos" className="text-brand-400 hover:underline">
+                        Criar em Listas e segmentos
+                      </Link>
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {contactGroups.map(g => (
+                        <button
+                          key={g._id}
+                          type="button"
+                          onClick={() => setSelectedListId(g._id)}
+                          className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
+                            selectedListId === g._id
+                              ? 'border-brand-500 bg-brand-950/40 text-brand-200'
+                              : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
+                          }`}
+                        >
+                          {g.name} ({g.memberCount})
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {destinationScope !== 'whatsapp_groups' && (
-                  <select
-                    value={contactGroupFilter}
-                    onChange={e => setContactGroupFilter(e.target.value)}
-                    className="bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-3 py-2 text-sm text-[var(--rz-text-primary)] max-w-[180px]"
-                    title="Filtrar por grupo de contatos"
-                  >
-                    <option value="all">Grupo contato: todos</option>
-                    {contactGroups.map(g => (
-                      <option key={g._id} value={g._id}>
-                        {g.name} ({g.memberCount})
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {contactGroupFilter !== 'all' && destinationScope !== 'whatsapp_groups' && (
-                  <Button variant="ghost" size="sm" onClick={selectContactGroup}>
-                    Marcar grupo
-                  </Button>
-                )}
-                {destinationScope !== 'contacts' && (
-                  <Button variant="ghost" size="sm" onClick={selectAllWaGroups}>
-                    Marcar grupos WA
-                  </Button>
-                )}
-                <Button variant="ghost" size="sm" onClick={selectAllFiltered}>
-                  Marcar visíveis
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                  Limpar
-                </Button>
+              )}
+
+              {destinationScope === 'segments' && (
+                <div className="mb-3">
+                  {segmentPickerItems.length === 0 ? (
+                    <p className="text-xs text-[var(--rz-text-muted)]">
+                      Nenhum segmento com membros.{' '}
+                      <Link to="/platform/segmentos?tab=smart" className="text-brand-400 hover:underline">
+                        Ver segmentos dinâmicos
+                      </Link>
+                      {' · '}
+                      <Link to="/platform/segmentos" className="text-brand-400 hover:underline">
+                        Gerenciar listas
+                      </Link>
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {segmentPickerItems.map(s => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          title={s.description}
+                          onClick={() => setSelectedListId(s.id)}
+                          className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
+                            selectedListId === s.id
+                              ? 'border-brand-500 bg-brand-950/40 text-brand-200'
+                              : 'border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-[var(--rz-border)]'
+                          }`}
+                        >
+                          {s.name} ({s.count} {s.hint})
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="mb-3 p-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/25">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--rz-text-muted)] mb-2">
+                  Público da campanha
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      ['recommended', 'Opt-in aceito'],
+                      ['leads_opt_in', 'Leads opt-in'],
+                      ['clients_active', 'Clientes ativos'],
+                      ['all', 'Ver todos'],
+                      ['review_blocked', 'Bloqueados'],
+                    ] as const
+                  ).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setAudienceMode(mode)
+                        if (mode === 'recommended') setOnlySendable(true)
+                        if (mode === 'all' || mode === 'review_blocked') setOnlySendable(false)
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
+                        audienceMode === mode
+                          ? 'border-brand-500 bg-brand-950/40 text-brand-200'
+                          : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-[var(--rz-text-muted)] mt-2 leading-relaxed">
+                  Não pode enviar: opt-out, bloqueado, sem consentimento, telefone inválido/duplicado,
+                  interno ou parceiro. O motivo aparece na coluna <strong className="text-[var(--rz-text-secondary)]">Risco</strong>.
+                </p>
               </div>
 
+              <div className="relative mb-3">
+                <Search size={14} className={searchFieldIconCls} />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar nome ou número..."
+                  className={`${inputCls} pl-9 w-full`}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={selectAllInScope}
+                  disabled={sendableInScopeCount === 0}
+                >
+                  Selecionar todos aceitos ({sendableInScopeCount})
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={selectedIds.size === 0}
+                >
+                  Limpar
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(v => !v)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs border border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]"
+                >
+                  {showAdvancedFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  Filtros
+                  {(contactGroupFilter !== 'all' || !onlySendable) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-400" />
+                  )}
+                </button>
+              </div>
+
+              {showAdvancedFilters && (
+                <div className="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30">
+                  {destinationScope !== 'whatsapp_groups' &&
+                    destinationScope !== 'lists' &&
+                    destinationScope !== 'segments' && (
+                    <select
+                      value={contactGroupFilter}
+                      onChange={e => setContactGroupFilter(e.target.value)}
+                      className="bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-3 py-2 text-sm text-[var(--rz-text-primary)] min-w-[160px]"
+                      title="Filtrar por grupo de contatos"
+                    >
+                      <option value="all">Grupo de contatos: todos</option>
+                      {contactGroups.map(g => (
+                        <option key={g._id} value={g._id}>
+                          {g.name} ({g.memberCount})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {destinationScope !== 'whatsapp_groups' && (
+                    <button
+                      type="button"
+                      onClick={() => setOnlySendable(v => !v)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                        onlySendable
+                          ? 'border-brand-500/60 bg-brand-950/30 text-brand-200'
+                          : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
+                      }`}
+                      title="Ocultar contatos sem consentimento para envio"
+                    >
+                      <Filter size={12} />
+                      Só enviáveis na lista
+                    </button>
+                  )}
+                  {filteredDest.length > 0 && filteredDest.length < sendableInScopeCount && (
+                    <Button variant="ghost" size="sm" onClick={selectAllFiltered}>
+                      Marcar {filteredDest.length} da busca
+                    </Button>
+                  )}
+                  {contactGroupFilter !== 'all' && destinationScope !== 'whatsapp_groups' && (
+                    <Button variant="ghost" size="sm" onClick={selectContactGroup}>
+                      Marcar grupo inteiro
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <p className="text-xs text-[var(--rz-text-muted)] mb-2">
-                {selectedIds.size} selecionado(s)
+                <span className="text-[var(--rz-text-secondary)] font-medium">
+                  {selectionStats.total} selecionado(s)
+                </span>
+                {selectionStats.total > 0 && (
+                  <span>
+                    {' '}
+                    · {selectionStats.contacts} contato(s) · {selectionStats.groups} grupo(s)
+                  </span>
+                )}
+                {filteredDest.length !== sendableInScopeCount && search.trim() && (
+                  <span> · {filteredDest.length} na busca</span>
+                )}
                 {selectedIds.size > safeBatch && !acceptWhatsAppRisk && (
-                  <span className="text-brand-400/90"> · fila segura ({batchCount} lotes)</span>
+                  <span className="text-brand-400/90"> · fila em {batchCount} lote(s)</span>
                 )}
               </p>
               {planQuotaExceeded && billing && (
@@ -624,81 +1094,56 @@ export default function SendNow() {
                 </p>
               )}
 
-              <div className="max-h-52 overflow-y-auto space-y-1 border border-[var(--rz-border)] rounded-lg p-2">
-                {filteredDest.length === 0 ? (
-                  <p className="text-xs text-[var(--rz-text-muted)] text-center py-4">
+              <div className="mb-2">
+                {(destinationScope === 'lists' || destinationScope === 'segments') &&
+                !selectedListId ? (
+                  <p className="text-xs text-[var(--rz-text-muted)] text-center py-6 border border-[var(--rz-border)] rounded-lg">
+                    Escolha uma {destinationScope === 'lists' ? 'lista' : 'segmento'} acima.
+                  </p>
+                ) : filteredDest.length === 0 ? (
+                  <p className="text-xs text-[var(--rz-text-muted)] text-center py-6 border border-[var(--rz-border)] rounded-lg">
                     Nenhum destino.{' '}
                     <Link to="/contact" className="text-brand-400 hover:underline">
                       Cadastrar destinos
                     </Link>
                   </p>
                 ) : (
-                  filteredDest.map(d => {
-                    const consentSt =
-                      d.type === 'contact'
-                        ? effectiveConsentStatus(d.consentStatus, d.consent?.granted)
-                        : null
-                    const blocked = consentSt != null && !canSelectForSend(consentSt, d.pendingOutboundCount ?? 0)
-                    const contactNotInGroup =
-                      hasSelectedGroup &&
-                      d.type === 'contact' &&
-                      contactsNotInGroupIds.has(d._id)
-                    const groupNotInGroup =
-                      d.type === 'group' &&
-                      selectedIds.has(d._id) &&
-                      !validatingGroups &&
-                      selectedGroupIdsWithError.has(d._id)
-                    const groupValidating =
-                      d.type === 'group' && selectedIds.has(d._id) && validatingGroups
-                    const blockedForGroup = contactNotInGroup && selectedIds.has(d._id)
-                    return (
-                    <label
-                      key={d._id}
-                      className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-colors ${
-                        blocked || blockedForGroup
-                          ? 'opacity-50 cursor-not-allowed'
-                          : selectedIds.has(d._id)
-                            ? groupNotInGroup
-                              ? 'bg-red-950/20 border border-red-800/40 cursor-pointer'
-                              : 'bg-brand-600/15 border border-brand-600/30 cursor-pointer'
-                            : 'hover:bg-[var(--rz-surface-muted)] cursor-pointer'
-                      }`}
-                      style={
-                        consentSt
-                          ? { borderLeft: `3px solid ${CONSENT_STATUS_META[consentSt].borderColor}` }
-                          : undefined
+                  <SendRecipientsTable
+                    rows={filteredDest}
+                    selectedIds={selectedIds}
+                    groupNameById={groupNameById}
+                    contactGroupIdsByDest={contactGroupIdsByDest}
+                    onToggle={toggleDest}
+                    isBlocked={d => {
+                      if (d.type === 'contact') {
+                        if (!isDestinationCampaignSelectable(d as Destination)) return true
+                        if (hasSelectedGroup && contactsNotInGroupIds.has(d._id)) return true
                       }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(d._id)}
-                        disabled={blocked || blockedForGroup}
-                        onChange={() => toggleDest(d._id)}
-                        className="rounded border-[var(--rz-border)]"
-                      />
-                      {consentSt && <ConsentDot status={consentSt} />}
-                      {d.type === 'group' ? (
-                        <Hash size={14} className="text-brand-500 shrink-0" />
-                      ) : (
-                        <Users size={14} className="text-blue-400 shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{d.name}</p>
-                        <p className="text-[11px] text-[var(--rz-text-muted)] font-mono truncate">{d.identifier}</p>
-                        {groupValidating && (
-                          <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">Verificando grupo…</p>
-                        )}
-                        {groupNotInGroup && (
-                          <p className="text-[10px] text-red-400 mt-0.5">{GROUP_INLINE_ERROR}</p>
-                        )}
-                        {contactNotInGroup && (
-                          <p className="text-[10px] text-red-400 mt-0.5">{GROUP_INLINE_ERROR}</p>
-                        )}
-                      </div>
-                      <Badge label={d.type === 'group' ? 'grupo' : 'contato'} variant={d.type === 'group' ? 'green' : 'blue'} />
-                    </label>
-                    )
-                  })
+                      return false
+                    }}
+                    rowError={d => {
+                      if (
+                        d.type === 'group' &&
+                        selectedIds.has(d._id) &&
+                        !validatingGroups &&
+                        selectedGroupIdsWithError.has(d._id)
+                      ) {
+                        return GROUP_INLINE_ERROR
+                      }
+                      if (
+                        hasSelectedGroup &&
+                        d.type === 'contact' &&
+                        contactsNotInGroupIds.has(d._id) &&
+                        selectedIds.has(d._id)
+                      ) {
+                        return GROUP_INLINE_ERROR
+                      }
+                      if (d.type === 'group' && selectedIds.has(d._id) && validatingGroups) {
+                        return 'Verificando grupo…'
+                      }
+                      return null
+                    }}
+                  />
                 )}
               </div>
 
@@ -956,8 +1401,14 @@ export default function SendNow() {
                     </select>
                     <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
                       {acceptWhatsAppRisk
-                        ? 'Modo sem proteção — intervalos menores aumentam risco de banimento.'
-                        : `Modo protegido: lotes de ${safeBatch} msg/min com pausa de 1 min${isBusiness ? ' (WhatsApp Business — limite dobrado)' : ''}.`}
+                        ? 'Modo sem proteção — ignora fila humanizada e limites por minuto.'
+                        : `Modo protegido: lotes de até ${safeBatch} destinos com pausa de 1 min entre lotes${isBusiness ? ' (Business)' : ''}${
+                            marketingPerMinute != null
+                              ? `; cada mensagem respeita marketing ${marketingPerMinute}/min`
+                              : waSendPolicy?.limitsDisabled
+                                ? ' (limites/min desativados na empresa)'
+                                : ''
+                          }.`}
                     </p>
                   </div>
                 </div>
@@ -975,8 +1426,16 @@ export default function SendNow() {
                         </p>
                         <p className="text-xs text-[var(--rz-text-muted)] mt-1 leading-relaxed">
                           {acceptWhatsAppRisk
-                            ? 'Proteção DESATIVADA. Envios mais rápidos podem fazer o WhatsApp banir ou suspender sua conta permanentemente.'
-                            : 'Ativa por padrão. Envios grandes vão para fila automática (~20 msg/min) até entregar todos os destinos.'}
+                            ? 'Proteção DESATIVADA. Envios ignoram a fila humanizada e os limites por minuto — risco alto de banimento.'
+                            : `Ativa por padrão. Duas camadas: (1) campanha em lotes de ~${safeBatch} com pausa de 1 min; (2) fila humanizada de marketing${
+                                marketingPerMinute != null ? ` (${marketingPerMinute} msg/min)` : ''
+                              } com digitação simulada. Ajuste em `}
+                          {!acceptWhatsAppRisk && (
+                            <Link to="/platform/wa-limits" className="text-brand-400 hover:underline">
+                              Limites de envio
+                            </Link>
+                          )}
+                          {!acceptWhatsAppRisk && '.'}
                         </p>
                       </div>
                       <label className="flex items-start gap-2 text-sm cursor-pointer">
@@ -1035,96 +1494,34 @@ export default function SendNow() {
             </Card>
           </div>
 
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="sticky top-4">
-              <h2 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Resumo</h2>
-              <ul className="text-xs text-[var(--rz-text-muted)] space-y-2 mb-4">
-                <li>
-                  <strong className="text-[var(--rz-text-muted)]">Destinos:</strong>{' '}
-                  {selectedIds.size || '—'}
-                </li>
-                <li>
-                  <strong className="text-[var(--rz-text-muted)]">Modo:</strong>{' '}
-                  {scheduleMode ? `Agendado (${sendAtLocal})` : 'Imediato'}
-                </li>
-                <li>
-                  <strong className="text-[var(--rz-text-muted)]">Intervalo:</strong>{' '}
-                  {Math.max(minDelay, delayBetweenMs) / 1000}s
-                  {selectedIds.size > 1 && (
-                    <span className="text-[var(--rz-text-muted)]"> · {formatDuration(durationEst)} total</span>
-                  )}
-                </li>
-                <li>
-                  <strong className="text-[var(--rz-text-muted)]">Proteção:</strong>{' '}
-                  {acceptWhatsAppRisk && riskAcknowledged ? (
-                    <span className="text-red-400">desativada (risco aceito)</span>
-                  ) : (
-                    <span className="text-brand-400">ativa — fila segura</span>
-                  )}
-                </li>
-                {billing && !isUnlimited(billing.limits.messagesPerDay) && (
-                  <li>
-                    <strong className="text-[var(--rz-text-muted)]">Plano hoje:</strong>{' '}
-                    {billing.usage.messagesUsed}/{billing.limits.messagesPerDay} usadas
-                  </li>
-                )}
-              </ul>
-
-              <Button
-                onClick={() => {
-                  setResult(null)
-                  submit.mutate()
-                }}
-                disabled={
-                  !canSubmitMessage ||
-                  selectedIds.size === 0 ||
-                  messageTooLong ||
-                  submit.isPending ||
-                  (!scheduleMode && !connected) ||
-                  (acceptWhatsAppRisk && !riskAcknowledged) ||
-                  Boolean(groupMembershipError) ||
-                  (hasSelectedGroup && validatingGroups)
-                }
-                className="w-full justify-center"
-              >
-                {submit.isPending ? <Spinner size={14} /> : scheduleMode ? <Calendar size={14} /> : <Send size={14} />}
-                {submit.isPending
-                  ? 'Processando...'
-                  : scheduleMode
-                    ? 'Agendar envio'
-                    : `Enviar para ${selectedIds.size} destino(s)`}
-              </Button>
-
-              {!scheduleMode && !connected && (
-                <p className="text-[11px] text-amber-500/90 mt-2 text-center">
-                  Conecte o WhatsApp para envio imediato
-                </p>
-              )}
-            </Card>
-
-            {result && (
-              <Card
-                className={`flex items-start gap-3 ${result.success ? 'border-green-800' : 'border-red-800'}`}
-              >
-                {result.success ? (
-                  <CheckCircle size={18} className="text-green-400 shrink-0" />
-                ) : (
-                  <XCircle size={18} className="text-red-400 shrink-0" />
-                )}
-                <p className="text-sm">{result.message}</p>
-              </Card>
-            )}
-
-            <Card className="text-xs text-[var(--rz-text-muted)] space-y-1">
-              <p className="flex items-center gap-1.5 text-[var(--rz-text-muted)]">
-                <Clock size={12} /> Dicas
-              </p>
-              <p>• Contatos em Destinos → Contatos; grupos só por importação em Grupos.</p>
-              <p>• Modo protegido: fila automática (~{safeBatch} msg/min{isBusiness ? ', Business' : ''}) entrega todos os destinos.</p>
-              <p>• Contatos com borda colorida: amarelo=aguardando aceite, verde=aceito, vermelho=recusou.</p>
-              <p>• Desativar proteção só se você aceitar o risco de perder a conta WhatsApp.</p>
-              <p>• Regras automáticas do Discord ficam na aba Discord → Regras.</p>
-            </Card>
+          <div className="xl:col-span-4">
+            <SendCampaignSummary
+              selectedTotal={selectionStats.total}
+              selectedContacts={selectionStats.contacts}
+              selectedGroups={selectionStats.groups}
+              scheduleMode={scheduleMode}
+              sendAtLocal={sendAtLocal}
+              delayMs={delayBetweenMs}
+              minDelay={minDelay}
+              durationEst={durationEst}
+              acceptWhatsAppRisk={acceptWhatsAppRisk}
+              riskAcknowledged={riskAcknowledged}
+              billingLine={
+                billing && !isUnlimited(billing.limits.messagesPerDay)
+                  ? `${billing.usage.messagesUsed}/${billing.limits.messagesPerDay} usadas`
+                  : undefined
+              }
+              previewText={sidebarPreviewText}
+              showPreview={messageMode === 'plain' || messageMode === 'platform_template'}
+              blockers={submitBlockers}
+              canSubmit={submitBlockers.length === 0}
+              isPending={submit.isPending}
+              onSubmit={() => {
+                setResult(null)
+                submit.mutate()
+              }}
+              result={result}
+            />
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { inputCls, searchFieldIconCls } from '@/design-system'
 import type { LeadCaptureOrigin, LeadCaptureStatus, LeadFormListItem } from '@radarzap-types/lead-form'
 import { LEAD_CAPTURE_ORIGINS, LEAD_CAPTURE_STATUS_LABEL } from '@radarzap-types/lead-form'
 import { LEAD_ORIGIN_DISPLAY, LEAD_STATUS_DISPLAY } from '../../lib/leadUi'
+import { CONTACT_KIND_LABELS, type ContactKind } from '../../lib/contactClassificationUi'
 
 export type CaptureView = 'list' | 'kanban'
 export type PeriodFilter = '' | 'today' | '7d' | '30d'
@@ -35,6 +36,18 @@ type Props = {
   advancedOpen: boolean
   onAdvancedOpenChange: (v: boolean) => void
   onClearFilters: () => void
+  classificationKindFilter: ContactKind | ''
+  onClassificationKindFilterChange: (v: ContactKind | '') => void
+  classificationOptInOnly: boolean
+  onClassificationOptInOnlyChange: (v: boolean) => void
+  classificationPendingOnly: boolean
+  onClassificationPendingOnlyChange: (v: boolean) => void
+  classificationHotOnly: boolean
+  onClassificationHotOnlyChange: (v: boolean) => void
+  classificationBlockedOnly: boolean
+  onClassificationBlockedOnlyChange: (v: boolean) => void
+  unlinkedOnly: boolean
+  onUnlinkedOnlyChange: (v: boolean) => void
   canManage?: boolean
   onAddManual?: () => void
 }
@@ -65,11 +78,34 @@ export function LeadCapturesToolbar({
   advancedOpen,
   onAdvancedOpenChange,
   onClearFilters,
+  classificationKindFilter,
+  onClassificationKindFilterChange,
+  classificationOptInOnly,
+  onClassificationOptInOnlyChange,
+  classificationPendingOnly,
+  onClassificationPendingOnlyChange,
+  classificationHotOnly,
+  onClassificationHotOnlyChange,
+  classificationBlockedOnly,
+  onClassificationBlockedOnlyChange,
+  unlinkedOnly,
+  onUnlinkedOnlyChange,
   canManage,
   onAddManual,
 }: Props) {
-  const advancedCount = [formFilter, groupFilter, consentFilter].filter(Boolean).length
-  const hasActiveFilters = Boolean(search || statusFilter || originFilter || periodFilter || assigneeFilter || advancedCount)
+  const classificationCount = [
+    classificationKindFilter,
+    classificationOptInOnly,
+    classificationPendingOnly,
+    classificationHotOnly,
+    classificationBlockedOnly,
+    unlinkedOnly,
+  ].filter(Boolean).length
+  const advancedCount =
+    [formFilter, groupFilter, consentFilter].filter(Boolean).length + (classificationCount > 0 ? 1 : 0)
+  const hasActiveFilters = Boolean(
+    search || statusFilter || originFilter || periodFilter || assigneeFilter || advancedCount,
+  )
 
   return (
     <>
@@ -191,7 +227,7 @@ export function LeadCapturesToolbar({
         open={advancedOpen}
         onClose={() => onAdvancedOpenChange(false)}
         title="Mais filtros"
-        description="Formulário, listas e consentimento."
+        description="Formulário, listas, consentimento e classificação CRM."
         width="md"
         footer={
           <Button size="sm" onClick={() => onAdvancedOpenChange(false)}>
@@ -234,7 +270,80 @@ export function LeadCapturesToolbar({
               <option value="no">Sem consentimento</option>
             </select>
           </div>
-          {(formFilter || groupFilter || consentFilter) && (
+
+          <div className="border-t border-[var(--rz-border)] pt-3">
+            <p className="text-xs font-medium text-[var(--rz-text-secondary)] mb-2">Classificação CRM</p>
+            <p className="text-[10px] text-[var(--rz-text-muted)] mb-3 leading-relaxed">
+              Filtros aplicados ao contato vinculado. Leads sem CRM só aparecem em &quot;Sem contato CRM&quot;.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Tipo no CRM</label>
+                <select
+                  className={inputCls + ' text-sm'}
+                  value={classificationKindFilter}
+                  onChange={e => onClassificationKindFilterChange(e.target.value as ContactKind | '')}
+                >
+                  <option value="">Qualquer</option>
+                  {(Object.keys(CONTACT_KIND_LABELS) as ContactKind[]).map(k => (
+                    <option key={k} value={k}>
+                      {CONTACT_KIND_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={classificationOptInOnly}
+                  onChange={e => onClassificationOptInOnlyChange(e.target.checked)}
+                />
+                Somente opt-in aceito
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={classificationPendingOnly}
+                  onChange={e => onClassificationPendingOnlyChange(e.target.checked)}
+                />
+                Opt-in pendente
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={classificationHotOnly}
+                  onChange={e => onClassificationHotOnlyChange(e.target.checked)}
+                />
+                Quentes ou mornos
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={classificationBlockedOnly}
+                  onChange={e => onClassificationBlockedOnlyChange(e.target.checked)}
+                />
+                Bloqueados para campanha
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={unlinkedOnly}
+                  onChange={e => onUnlinkedOnlyChange(e.target.checked)}
+                />
+                Sem contato no CRM
+              </label>
+            </div>
+          </div>
+
+          {(formFilter ||
+            groupFilter ||
+            consentFilter ||
+            classificationKindFilter ||
+            classificationOptInOnly ||
+            classificationPendingOnly ||
+            classificationHotOnly ||
+            classificationBlockedOnly ||
+            unlinkedOnly) && (
             <Button
               size="sm"
               variant="secondary"
@@ -242,6 +351,12 @@ export function LeadCapturesToolbar({
                 onFormFilterChange('')
                 onGroupFilterChange('')
                 onConsentFilterChange('')
+                onClassificationKindFilterChange('')
+                onClassificationOptInOnlyChange(false)
+                onClassificationPendingOnlyChange(false)
+                onClassificationHotOnlyChange(false)
+                onClassificationBlockedOnlyChange(false)
+                onUnlinkedOnlyChange(false)
               }}
             >
               <Filter size={14} /> Limpar filtros avançados

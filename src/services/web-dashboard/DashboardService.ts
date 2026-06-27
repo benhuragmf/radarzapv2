@@ -69,6 +69,28 @@ import { normalizeContactPhoneE164 } from '../../utils/contact-csv-import';
 import { parseTicketListQuery } from '../../utils/ticket-list-query.util';
 import { exportContactsCsv } from '../destinations/contactCsvExportService';
 import {
+  backfillStoredClassification,
+  countClassificationBackfillPending,
+  enrichDestinationsWithClassification,
+  exportClassificationStatsCsv,
+  exportContactsClassificationCsv,
+  getDestinationClassificationStats,
+  classFilterToDestinationQuery,
+  findDestinationIdsMatchingClassification,
+  isSmartSegmentPresetId,
+  listSmartSegmentMembers,
+  listSmartSegmentPresets,
+  parseDestinationClassFilter,
+} from '../destinations/destination-classification.service';
+import {
+  CONTACT_KINDS,
+  CONTACT_TEMPERATURES,
+  SEND_PERMISSIONS,
+  type ContactKind,
+  type ContactTemperature,
+  type SendPermission,
+} from '@/types/contact-classification';
+import {
   PlatformTemplate,
   extractTemplateVariables,
   type PlatformTemplateCategory,
@@ -1897,16 +1919,29 @@ export class DashboardService {
     r.get('/inbox/conversations', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { status, departmentId, mine, hasTicket, search, channel } = req.query as {
+        const { status, departmentId, mine, hasTicket, search, channel, class: classRaw } = req.query as {
           status?: string;
           departmentId?: string;
           mine?: string;
           hasTicket?: string;
           search?: string;
           channel?: string;
+          class?: string;
         };
         const channelMode = channel === 'webchat' || channel === 'all' ? channel : 'whatsapp';
         const canInboxWebChat = auth.capabilities.includes(Cap.INBOX_VIEW);
+
+        const classFilter = parseDestinationClassFilter(classRaw);
+        let destinationIds: mongoose.Types.ObjectId[] | undefined;
+        if (classFilter) {
+          destinationIds = await findDestinationIdsMatchingClassification(
+            auth.clientId,
+            classFilterToDestinationQuery(classFilter),
+          );
+          if (destinationIds.length === 0) {
+            return res.json([]);
+          }
+        }
 
         const filters = {
           status,
@@ -1919,6 +1954,7 @@ export class DashboardService {
                 ? false
                 : undefined,
           search,
+          destinationIds,
         };
 
         let whatsappRows: Array<Record<string, unknown>> = [];
@@ -2195,13 +2231,17 @@ export class DashboardService {
           if (!isWebChatInboxId(req.params.id)) {
             return res.status(400).json({ error: 'Disponível apenas para conversas do chat do site' });
           }
-          const { name, identifier, email, organization, notes, contactGroupIds } = req.body as {
+          const { name, identifier, email, organization, notes, contactGroupIds, contactKind, contactOrigin, commercialStatus, temperature } = req.body as {
             name?: string;
             identifier?: string;
             email?: string;
             organization?: string;
             notes?: string;
             contactGroupIds?: string[];
+            contactKind?: string | null;
+            contactOrigin?: string | null;
+            commercialStatus?: string | null;
+            temperature?: string | null;
           };
           if (!name?.trim()) {
             return res.status(400).json({ error: 'name é obrigatório' });
@@ -2217,6 +2257,10 @@ export class DashboardService {
               organization,
               notes,
               contactGroupIds,
+              contactKind: contactKind as import('@/types/contact-classification').ContactKind | null | undefined,
+              contactOrigin: contactOrigin as import('@/types/contact-classification').ContactOrigin | null | undefined,
+              commercialStatus: commercialStatus as import('@/types/contact-classification').CommercialStatus | null | undefined,
+              temperature: temperature as import('@/types/contact-classification').ContactTemperature | null | undefined,
             },
           );
           res.json(result);
@@ -2564,9 +2608,18 @@ export class DashboardService {
     r.get('/inbox/supervisor/dashboard', requireCapability(Cap.INBOX_SUPERVISE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
+        const classFilter = parseDestinationClassFilter(req.query.class as string | undefined);
+        let destinationIds: mongoose.Types.ObjectId[] | undefined;
+        if (classFilter) {
+          destinationIds = await findDestinationIdsMatchingClassification(
+            auth.clientId,
+            classFilterToDestinationQuery(classFilter),
+          );
+        }
         const payload = await InboxSupervisorDashboardService.getInstance().buildDashboard(
           auth.clientId,
           auth.userId,
+          { destinationIds },
         );
         res.json(payload);
       } catch (e) {
@@ -2829,22 +2882,131 @@ export class DashboardService {
     r.get('/destinations', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const destinations = await Destination.find({
-          clientId: auth.clientId,
-        })
+        const classFilter = parseDestinationClassFilter(req.query.class as string | undefined);
+        let findFilter: Record<string, unknown> = { clientId: auth.clientId };
+        if (classFilter) {
+          const ids = await findDestinationIdsMatchingClassification(
+            auth.clientId,
+            classFilterToDestinationQuery(classFilter),
+          );
+          findFilter = {
+            clientId: auth.clientId,
+            $or: [{ type: 'group' }, { type: 'contact', _id: { $in: ids } }],
+          };
+        }
+        const destinations = await Destination.find(findFilter)
           .select('-profilePictureData')
           .lean();
+        const enriched = await enrichDestinationsWithClassification(destinations);
         res.json(
-          destinations.map(d => ({
+          enriched.map(d => ({
             ...d,
             consentStatus:
               d.consentStatus ??
-              (d.consent?.granted ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING),
+              ((d.consent as { granted?: boolean } | undefined)?.granted
+                ? ConsentStatus.ACCEPTED
+                : ConsentStatus.PENDING),
             hasProfilePicture: Boolean(
-              d.profilePictureMime?.startsWith('image/'),
+              (d as { profilePictureMime?: string }).profilePictureMime?.startsWith('image/'),
             ),
           })),
         );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/smart-segments', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await listSmartSegmentPresets(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/classification-stats', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await getDestinationClassificationStats(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/classification-stats/export-csv', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { csv, filename } = await exportClassificationStatsCsv(auth.clientId);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/classification-export-csv', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const classFilter = parseDestinationClassFilter(req.query.class as string | undefined);
+        const { csv, filename, count } = await exportContactsClassificationCsv(
+          auth.clientId,
+          classFilter,
+        );
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('X-Export-Count', String(count));
+        res.send(csv);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/smart-segments/:presetId/members', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const presetId = req.params.presetId;
+        if (!isSmartSegmentPresetId(presetId)) {
+          return res.status(400).json({ error: 'Segmento inteligente inválido' });
+        }
+        const limit = Number(req.query.limit) || 500;
+        const members = await listSmartSegmentMembers(auth.clientId, presetId, { limit });
+        res.json(
+          members.map(m => ({
+            _id: m._id,
+            name: m.name,
+            identifier: m.identifier,
+            email: (m as { email?: string }).email,
+            consentStatus: m.consentStatus,
+            tags: m.tags,
+            classification: m.classification,
+          })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/classification-backfill-status', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const pending = await countClassificationBackfillPending(auth.clientId);
+        res.json({ pending });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/destinations/backfill-classification', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = (req.body ?? {}) as { limit?: number; dryRun?: boolean };
+        const result = await backfillStoredClassification(auth.clientId, {
+          limit: body.limit,
+          dryRun: body.dryRun === true,
+        });
+        res.json({ ok: true, ...result });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -3138,12 +3300,17 @@ export class DashboardService {
         });
         if (!dest) return res.status(404).json({ error: 'Destino não encontrado' });
 
-        const { name, contactGroupIds, email, notes, organization } = req.body as {
+        const { name, contactGroupIds, email, notes, organization, contactKind, contactOrigin, commercialStatus, temperature, phoneQuality } = req.body as {
           name?: string;
           contactGroupIds?: string[];
           email?: string;
           notes?: string;
           organization?: string;
+          contactKind?: string;
+          contactOrigin?: string;
+          commercialStatus?: string;
+          temperature?: string;
+          phoneQuality?: string;
         };
 
         if (name !== undefined) {
@@ -3154,6 +3321,14 @@ export class DashboardService {
         if (email !== undefined) dest.email = email.trim() || undefined;
         if (notes !== undefined) dest.notes = notes.trim() || undefined;
         if (organization !== undefined) dest.organization = organization.trim() || undefined;
+
+        if (contactKind !== undefined) dest.contactKind = contactKind === null ? undefined : contactKind || undefined;
+        if (contactOrigin !== undefined) dest.contactOrigin = contactOrigin === null ? undefined : contactOrigin || undefined;
+        if (commercialStatus !== undefined) {
+          dest.commercialStatus = commercialStatus === null ? undefined : commercialStatus || undefined;
+        }
+        if (temperature !== undefined) dest.temperature = temperature === null ? undefined : temperature || undefined;
+        if (phoneQuality !== undefined) dest.phoneQuality = phoneQuality || undefined;
 
         if (contactGroupIds !== undefined) {
           if (!Array.isArray(contactGroupIds)) {
@@ -3183,7 +3358,7 @@ export class DashboardService {
 
     r.post('/destinations', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
       try {
-        const { type, identifier, name, contactGroupIds, email, organization, notes } = req.body;
+        const { type, identifier, name, contactGroupIds, email, organization, notes, contactKind, contactOrigin, commercialStatus, temperature } = req.body;
         if (!type || !identifier || !name) return res.status(400).json({ error: 'type, identifier and name are required' });
         const auth = (req as DashboardRequest).auth!;
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
@@ -3214,6 +3389,15 @@ export class DashboardService {
         );
 
         if (type === 'contact') {
+          const { setContactClassificationFields } = await import(
+            '../destinations/destination-classification.service'
+          );
+          setContactClassificationFields(dest, {
+            contactKind: contactKind || 'prospect',
+            contactOrigin: contactOrigin || 'manual',
+            commercialStatus: commercialStatus || 'new',
+            temperature: temperature || undefined,
+          });
           if (email !== undefined && String(email).trim()) {
             dest.email = String(email).trim();
           }
@@ -4686,10 +4870,31 @@ export class DashboardService {
           messageMode?: string;
           customMessage?: string;
           destinationFilterTags?: string[];
+          destinationSmartSegmentId?: string | null;
+          destinationFilterKinds?: string[];
+          destinationFilterPermissions?: string[];
+          destinationFilterTemperatures?: string[];
+          destinationCampaignSelectableOnly?: boolean;
           mensagemExtra?: string;
         };
         const validationErr = validateAutomationPayload(body);
         if (validationErr) return res.status(400).json({ error: validationErr });
+        if (
+          body.destinationSmartSegmentId &&
+          !isSmartSegmentPresetId(body.destinationSmartSegmentId)
+        ) {
+          return res.status(400).json({ error: 'destinationSmartSegmentId inválido' });
+        }
+        const filterKinds = (body.destinationFilterKinds ?? []).filter((k): k is ContactKind =>
+          (CONTACT_KINDS as readonly string[]).includes(k),
+        );
+        const filterPermissions = (body.destinationFilterPermissions ?? []).filter(
+          (k): k is SendPermission => (SEND_PERMISSIONS as readonly string[]).includes(k),
+        );
+        const filterTemperatures = (body.destinationFilterTemperatures ?? []).filter(
+          (k): k is ContactTemperature =>
+            (CONTACT_TEMPERATURES as readonly string[]).includes(k),
+        );
         const doc = await BirthdayAutomationRule.create({
           organizationId: new mongoose.Types.ObjectId(auth.clientId),
           name: body.name?.trim() || 'Automação',
@@ -4711,6 +4916,12 @@ export class DashboardService {
           messageMode: body.messageMode ?? 'platform_template',
           customMessage: body.customMessage?.trim(),
           destinationFilterTags: body.destinationFilterTags?.filter(Boolean),
+          destinationSmartSegmentId: body.destinationSmartSegmentId?.trim() || undefined,
+          destinationFilterKinds: filterKinds.length ? filterKinds : undefined,
+          destinationFilterPermissions: filterPermissions.length ? filterPermissions : undefined,
+          destinationFilterTemperatures: filterTemperatures.length ? filterTemperatures : undefined,
+          destinationCampaignSelectableOnly:
+            body.destinationCampaignSelectableOnly === true ? true : undefined,
           mensagemExtra: body.mensagemExtra?.trim(),
         });
         if (doc.active) {
@@ -4781,6 +4992,37 @@ export class DashboardService {
         if (body.customMessage !== undefined) doc.customMessage = String(body.customMessage).trim();
         if (body.destinationFilterTags !== undefined) {
           doc.destinationFilterTags = (body.destinationFilterTags as string[]).filter(Boolean);
+        }
+        if (body.destinationSmartSegmentId !== undefined) {
+          const raw = body.destinationSmartSegmentId;
+          if (raw && typeof raw === 'string' && !isSmartSegmentPresetId(raw)) {
+            return res.status(400).json({ error: 'destinationSmartSegmentId inválido' });
+          }
+          doc.destinationSmartSegmentId =
+            raw === null || raw === '' ? undefined : String(raw).trim() || undefined;
+        }
+        if (body.destinationFilterKinds !== undefined) {
+          const kinds = (body.destinationFilterKinds as string[]).filter((k): k is ContactKind =>
+            (CONTACT_KINDS as readonly string[]).includes(k),
+          );
+          doc.destinationFilterKinds = kinds.length ? kinds : undefined;
+        }
+        if (body.destinationFilterPermissions !== undefined) {
+          const perms = (body.destinationFilterPermissions as string[]).filter(
+            (k): k is SendPermission => (SEND_PERMISSIONS as readonly string[]).includes(k),
+          );
+          doc.destinationFilterPermissions = perms.length ? perms : undefined;
+        }
+        if (body.destinationFilterTemperatures !== undefined) {
+          const temps = (body.destinationFilterTemperatures as string[]).filter(
+            (k): k is ContactTemperature =>
+              (CONTACT_TEMPERATURES as readonly string[]).includes(k),
+          );
+          doc.destinationFilterTemperatures = temps.length ? temps : undefined;
+        }
+        if (body.destinationCampaignSelectableOnly !== undefined) {
+          doc.destinationCampaignSelectableOnly =
+            body.destinationCampaignSelectableOnly === true ? true : undefined;
         }
         if (body.mensagemExtra !== undefined) doc.mensagemExtra = String(body.mensagemExtra).trim();
         await doc.save();
@@ -5920,6 +6162,15 @@ export class DashboardService {
       }
     });
 
+    r.get('/leads/classification-stats', requireLeadsView, async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await leadSvc.getLeadClassificationStats(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/leads/segments-summary', requireLeadsView, async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -5990,10 +6241,22 @@ export class DashboardService {
           hasValidEmail?: string;
           assigneeId?: string;
           unassigned?: string;
+          classificationKind?: string;
+          classificationOptInOnly?: string;
+          classificationPendingOnly?: string;
+          classificationHotOnly?: string;
+          classificationBlockedOnly?: string;
+          unlinkedOnly?: string;
           page?: string;
           limit?: string;
         };
         const { LEAD_CAPTURE_ORIGINS } = await import('@/types/lead-form');
+        const { CONTACT_KINDS } = await import('@/types/contact-classification');
+        const kindRaw = q.classificationKind?.trim();
+        const classificationKind =
+          kindRaw && (CONTACT_KINDS as readonly string[]).includes(kindRaw)
+            ? (kindRaw as import('@/types/contact-classification').ContactKind)
+            : undefined;
         const originsParsed = (q.origins ?? '')
           .split(',')
           .map(s => s.trim())
@@ -6015,6 +6278,12 @@ export class DashboardService {
           hasValidEmail: q.hasValidEmail === 'true' ? true : undefined,
           assigneeId: q.assigneeId,
           unassigned: q.unassigned === 'true' ? true : undefined,
+          classificationKind,
+          classificationOptInOnly: q.classificationOptInOnly === 'true' ? true : undefined,
+          classificationPendingOnly: q.classificationPendingOnly === 'true' ? true : undefined,
+          classificationHotOnly: q.classificationHotOnly === 'true' ? true : undefined,
+          classificationBlockedOnly: q.classificationBlockedOnly === 'true' ? true : undefined,
+          unlinkedOnly: q.unlinkedOnly === 'true' ? true : undefined,
           page: q.page ? Number(q.page) : undefined,
           limit: q.limit ? Number(q.limit) : undefined,
         });

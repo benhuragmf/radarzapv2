@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { getMe, type AuthUser } from '../../lib/auth'
@@ -29,6 +29,13 @@ import {
 } from 'lucide-react'
 import { mutationError } from '../../lib/notify'
 import { LoadingState, EmptyState } from '@/design-system'
+import { ContactClassificationBadges } from '../../components/contacts/ContactClassificationBadges'
+import type { ContactClassificationView } from '../../lib/contactClassificationUi'
+import {
+  InboxContactClassFilter,
+  parseInboxClassFilter,
+} from '../../components/inbox/InboxContactClassFilter'
+import type { ContactClassificationFilterKey } from '../../components/contacts/ContactClassificationFilterBar'
 import type {
   SupervisorActiveConversation,
   SupervisorAgentActivity,
@@ -127,6 +134,12 @@ function ConversationRow({
             {conv.supervisorHelpAt ? (
               <Badge label="Pediu ajuda" variant="yellow" />
             ) : null}
+            {conv.contactClassification ? (
+              <ContactClassificationBadges
+                classification={conv.contactClassification as ContactClassificationView}
+                compact
+              />
+            ) : null}
           </div>
           <p className="text-xs text-[var(--rz-text-muted)] mt-0.5 truncate">
             {conv.contactIdentifier}
@@ -216,6 +229,19 @@ function ConversationRow({
 
 export default function InboxSupervisor() {
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const classFilter = useMemo(
+    () => parseInboxClassFilter(searchParams.get('class')),
+    [searchParams],
+  )
+
+  const setClassFilter = (key: ContactClassificationFilterKey | null) => {
+    const next = new URLSearchParams(searchParams)
+    if (key) next.set('class', key)
+    else next.delete('class')
+    setSearchParams(next, { replace: true })
+  }
+
   const [tick, setTick] = useState(0)
   const [lastRefresh, setLastRefresh] = useState(Date.now())
   const [reassignFor, setReassignFor] = useState<string | null>(null)
@@ -241,9 +267,15 @@ export default function InboxSupervisor() {
   )
   usePanelSocket(true, onSupervisorPanelEvent)
 
+  const supervisorParams = new URLSearchParams()
+  if (classFilter) supervisorParams.set('class', classFilter)
+
   const { data: dashboard, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['inbox-supervisor-dashboard'],
-    queryFn: () => api.get<SupervisorDashboardPayload>('/inbox/supervisor/dashboard'),
+    queryKey: ['inbox-supervisor-dashboard', classFilter],
+    queryFn: () =>
+      api.get<SupervisorDashboardPayload>(
+        `/inbox/supervisor/dashboard${supervisorParams.size ? `?${supervisorParams}` : ''}`,
+      ),
     refetchInterval: 15_000,
   })
 
@@ -388,6 +420,10 @@ export default function InboxSupervisor() {
           </div>
         </Card>
       )}
+
+      <div className="mb-4">
+        <InboxContactClassFilter activeKey={classFilter} onSelect={setClassFilter} />
+      </div>
 
       <div className="flex gap-1 mb-4 overflow-x-auto pb-0.5">
         {(

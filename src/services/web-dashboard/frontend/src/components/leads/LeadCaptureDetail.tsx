@@ -32,6 +32,8 @@ import {
 import { LEAD_CAPTURE_STATUS_VARIANT, LEAD_TEMPERATURE_LABEL, LEAD_TEMPERATURE_VARIANT, LEAD_TEMPERATURES } from '@radarzap-types/lead-form'
 import { LeadLinkContactModal } from './LeadLinkContactModal'
 import { LeadWhatsAppPanel } from './LeadWhatsAppPanel'
+import { ContactClassificationCard } from '../contacts/ContactClassificationCard'
+import type { ContactClassificationView } from '../../lib/contactClassificationUi'
 
 type DetailTab = 'resumo' | 'conversa' | 'contato' | 'listas' | 'historico'
 
@@ -438,6 +440,12 @@ export function LeadCaptureDetail({
                 <p className="text-[10px] text-[var(--rz-text-muted)] mb-1">Situação do contato</p>
                 <p className="font-medium">{getContactStateLabel(item)}</p>
               </div>
+              {item.classification && (
+                <ContactClassificationCard
+                  classification={item.classification as ContactClassificationView}
+                  compact
+                />
+              )}
               {item.possibleDuplicate && (
                 <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-2 text-[11px]">
                   Contato existente encontrado — vincule para não duplicar a base.

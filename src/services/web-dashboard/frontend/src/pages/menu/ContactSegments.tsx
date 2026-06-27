@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
@@ -17,7 +17,11 @@ import {
   Upload,
   Users,
   X,
+  Sparkles,
 } from 'lucide-react'
+import { SmartSegmentsSection } from '../../components/contacts/SmartSegmentsSection'
+
+type PageTab = 'lists' | 'smart'
 
 interface GroupRow {
   _id: string
@@ -36,8 +40,13 @@ interface MemberRow {
 }
 
 export default function ContactSegments() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const pageTab = (searchParams.get('tab') === 'smart' ? 'smart' : 'lists') as PageTab
+  const smartPresetFromUrl = searchParams.get('preset')
+
   const qc = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedSmartId, setSelectedSmartId] = useState<string | null>(smartPresetFromUrl)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -129,11 +138,61 @@ export default function ContactSegments() {
 
   const otherGroups = groups.filter(g => g._id !== selectedId)
 
+  const setPageTab = (tab: PageTab) => {
+    const next = new URLSearchParams(searchParams)
+    if (tab === 'smart') next.set('tab', 'smart')
+    else next.delete('tab')
+    setSearchParams(next, { replace: true })
+  }
+
+  const handleSelectSmartPreset = (id: string | null) => {
+    setSelectedSmartId(id)
+    const next = new URLSearchParams(searchParams)
+    next.set('tab', 'smart')
+    if (id) next.set('preset', id)
+    else next.delete('preset')
+    setSearchParams(next, { replace: true })
+  }
+
   return (
     <PlatformPage
       title="Segmentos / Listas"
-      description="Crie listas de contatos, copie membros entre segmentos e exporte CSV para campanhas e automações."
+      description="Listas fixas para campanhas manuais e segmentos dinâmicos por classificação (opt-in, funil, temperatura)."
     >
+      <div className="flex flex-wrap gap-1.5 mb-4 p-1 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/25 w-fit">
+        <button
+          type="button"
+          onClick={() => setPageTab('lists')}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            pageTab === 'lists'
+              ? 'bg-brand-950/50 text-brand-200 border border-brand-800/50'
+              : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]'
+          }`}
+        >
+          <ListOrdered size={13} className="inline mr-1.5 -mt-0.5" />
+          Listas fixas
+        </button>
+        <button
+          type="button"
+          onClick={() => setPageTab('smart')}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            pageTab === 'smart'
+              ? 'bg-brand-950/50 text-brand-200 border border-brand-800/50'
+              : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]'
+          }`}
+        >
+          <Sparkles size={13} className="inline mr-1.5 -mt-0.5" />
+          Segmentos dinâmicos
+        </button>
+      </div>
+
+      {pageTab === 'smart' ? (
+        <SmartSegmentsSection
+          selectedPresetId={selectedSmartId}
+          onSelectPreset={handleSelectSmartPreset}
+        />
+      ) : (
+        <>
       <div className="flex flex-wrap gap-2 mb-4">
         <Button size="sm" onClick={() => setCreating(true)}>
           <Plus size={14} /> Novo segmento
@@ -391,6 +450,8 @@ export default function ContactSegments() {
             )}
           </div>
         </div>
+      )}
+        </>
       )}
     </PlatformPage>
   )

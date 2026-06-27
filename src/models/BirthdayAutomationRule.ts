@@ -4,6 +4,16 @@ import type {
   PlatformAutomationMessageMode,
   PlatformAutomationTriggerType,
 } from '@/constants/platform-automation-triggers';
+import type {
+  ContactKind,
+  ContactTemperature,
+  SendPermission,
+} from '@/types/contact-classification';
+import {
+  CONTACT_KINDS,
+  CONTACT_TEMPERATURES,
+  SEND_PERMISSIONS,
+} from '@/types/contact-classification';
 
 /** @deprecated use PlatformAutomationTriggerType */
 export type BirthdayTriggerType = PlatformAutomationTriggerType;
@@ -40,6 +50,16 @@ export interface IBirthdayAutomationRule extends Document {
   customMessage?: string;
   /** Tags do contato — vazio = todos (legado) */
   destinationFilterTags?: string[];
+  /** Preset de segmento dinâmico (classificação) */
+  destinationSmartSegmentId?: string;
+  /** Filtros por tipo de contato */
+  destinationFilterKinds?: ContactKind[];
+  /** Filtros por permissão LGPD / opt-in */
+  destinationFilterPermissions?: SendPermission[];
+  /** Filtros por temperatura comercial */
+  destinationFilterTemperatures?: ContactTemperature[];
+  /** Excluir contatos bloqueados para campanha */
+  destinationCampaignSelectableOnly?: boolean;
   mensagemExtra?: string;
   /** Chave da última ocorrência enfileirada (rec:YYYY-MM-DD ou once:ISO-minuto) */
   lastRunDate?: string;
@@ -145,6 +165,30 @@ const BirthdayAutomationRuleSchema = new Schema<IBirthdayAutomationRule>(
     },
     destinationFilterTags: {
       type: [String],
+      default: undefined,
+    },
+    destinationSmartSegmentId: {
+      type: String,
+      trim: true,
+      maxlength: 40,
+    },
+    destinationFilterKinds: {
+      type: [String],
+      enum: CONTACT_KINDS,
+      default: undefined,
+    },
+    destinationFilterPermissions: {
+      type: [String],
+      enum: SEND_PERMISSIONS,
+      default: undefined,
+    },
+    destinationFilterTemperatures: {
+      type: [String],
+      enum: CONTACT_TEMPERATURES,
+      default: undefined,
+    },
+    destinationCampaignSelectableOnly: {
+      type: Boolean,
       default: undefined,
     },
     mensagemExtra: {

@@ -24,6 +24,10 @@ import {
 import { validateOptionalCampaignSendAt } from '@/utils/schedule-time';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import type { WebhookEvent } from '@/models/WebhookEndpoint';
+import {
+  assertCampaignSendAllowed,
+  loadCampaignClassificationContext,
+} from '@/services/destinations/destination-classification.service';
 
 const logger = createServiceLogger('CampaignDispatchService');
 
@@ -295,6 +299,8 @@ export class CampaignDispatchService {
 
     await msg.markAsProcessing();
 
+    const classificationCtx = await loadCampaignClassificationContext(clientId);
+
     let sentThisBatch = 0;
 
     for (let i = sentIndex; i < msg.destinations.length; i++) {
@@ -340,6 +346,8 @@ export class CampaignDispatchService {
           if (destDoc) {
             const consentErr = ConsentService.getInstance().assertCanSend(destDoc);
             if (consentErr) throw new Error(consentErr);
+            const classErr = assertCampaignSendAllowed(destDoc, classificationCtx);
+            if (classErr) throw new Error(classErr);
           }
         }
 

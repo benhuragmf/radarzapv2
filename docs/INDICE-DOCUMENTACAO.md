@@ -32,6 +32,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização |
 | [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação |
 | [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação |
+| [`referencias/REFERENCIAS-MERCADO-UPGRADES.md`](./referencias/REFERENCIAS-MERCADO-UPGRADES.md) | Referências mercado (Conecta360, Nextiva, RadarLeads, VoxCRM) — inspiração upgrades |
+| [`RADARZAP-PLANO-UPGRADES.md`](./RADARZAP-PLANO-UPGRADES.md) | **Plano 21 upgrades** — principais, intermediários, baixa, opcionais (checklists completos) |
 
 ---
 
@@ -52,6 +54,7 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`MENU-PAGES-REGISTRY.md`](./MENU-PAGES-REGISTRY.md) | Rotas → componentes → API |
 | [`MENUS-SISTEMA.md`](./MENUS-SISTEMA.md) | Menus UX do painel |
 | [`CONTATOS-CSV-IMPORTACAO.md`](./CONTATOS-CSV-IMPORTACAO.md) | Import/export contatos |
+| [`CONTATOS-CLASSIFICACAO.md`](./CONTATOS-CLASSIFICACAO.md) | Classificação CRM (tipo, LGPD, funil, campanhas) |
 | [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md) | Tokens `--rz-*`, componentes |
 
 ---

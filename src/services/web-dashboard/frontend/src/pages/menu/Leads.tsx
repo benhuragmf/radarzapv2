@@ -12,6 +12,7 @@ import { LeadCaptureDetail, LeadDetailEmptyState } from '../../components/leads/
 import { LeadKanbanBoard } from '../../components/leads/LeadKanbanBoard'
 import { LeadCaptureListTable } from '../../components/leads/LeadCaptureListTable'
 import { LeadCapturesToolbar, type CaptureView, type PeriodFilter } from '../../components/leads/LeadCapturesToolbar'
+import { LeadClassificationStatsRow } from '../../components/leads/LeadClassificationStatsRow'
 import { LeadManualCaptureModal } from '../../components/leads/LeadManualCaptureModal'
 import { LeadStatusReasonModal } from '../../components/leads/LeadStatusReasonModal'
 import { LeadWhatsAppPanel } from '../../components/leads/LeadWhatsAppPanel'
@@ -43,7 +44,9 @@ import type {
   LeadFormRouting,
   LeadSegmentSummary,
   LeadStats,
+  LeadClassificationStats,
 } from '@radarzap-types/lead-form'
+import type { ContactKind } from '../../lib/contactClassificationUi'
 import {
   DEFAULT_LEAD_FORM_ROUTING,
   LEAD_CAPTURE_STATUS_LABEL,
@@ -51,6 +54,7 @@ import {
 } from '@radarzap-types/lead-form'
 
 type LeadsTab = 'captures' | 'integrate' | 'forms' | 'segments'
+type ClassificationStatKey = 'opt_in' | 'pending' | 'hot' | 'blocked' | 'unlinked'
 
 const CAPTURE_VIEW_KEY = 'rz-leads-capture-view'
 
@@ -96,6 +100,14 @@ export default function Leads() {
   const [consentFilter, setConsentFilter] = useState<'' | 'yes' | 'no'>('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
   const [activeStatKey, setActiveStatKey] = useState<OperationalStatKey | null>(null)
+  const [activeClassificationStatKey, setActiveClassificationStatKey] =
+    useState<ClassificationStatKey | null>(null)
+  const [classificationKindFilter, setClassificationKindFilter] = useState<ContactKind | ''>('')
+  const [classificationOptInOnly, setClassificationOptInOnly] = useState(false)
+  const [classificationPendingOnly, setClassificationPendingOnly] = useState(false)
+  const [classificationHotOnly, setClassificationHotOnly] = useState(false)
+  const [classificationBlockedOnly, setClassificationBlockedOnly] = useState(false)
+  const [unlinkedOnly, setUnlinkedOnly] = useState(false)
   const [pendingInboxId, setPendingInboxId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingFormId, setEditingFormId] = useState<string | null>(null)
@@ -134,15 +146,45 @@ export default function Leads() {
     const dates = periodToDates(periodFilter)
     if (dates.from) p.set('from', dates.from)
     if (dates.to) p.set('to', dates.to)
+    if (classificationKindFilter) p.set('classificationKind', classificationKindFilter)
+    if (classificationOptInOnly) p.set('classificationOptInOnly', 'true')
+    if (classificationPendingOnly) p.set('classificationPendingOnly', 'true')
+    if (classificationHotOnly) p.set('classificationHotOnly', 'true')
+    if (classificationBlockedOnly) p.set('classificationBlockedOnly', 'true')
+    if (unlinkedOnly) p.set('unlinkedOnly', 'true')
     p.set('page', String(page))
     p.set('limit', '30')
     return p.toString()
-  }, [search, statusFilter, formFilter, originFilter, originsFilter, openOnlyFilter, groupFilter, periodFilter, consentFilter, assigneeFilter, page])
+  }, [
+    search,
+    statusFilter,
+    formFilter,
+    originFilter,
+    originsFilter,
+    openOnlyFilter,
+    groupFilter,
+    periodFilter,
+    consentFilter,
+    assigneeFilter,
+    classificationKindFilter,
+    classificationOptInOnly,
+    classificationPendingOnly,
+    classificationHotOnly,
+    classificationBlockedOnly,
+    unlinkedOnly,
+    page,
+  ])
 
   const { data: stats } = useQuery<LeadStats>({
     queryKey: ['leads-stats'],
     queryFn: () => api.get('/leads/stats'),
     enabled: canView,
+  })
+
+  const { data: classificationStats } = useQuery<LeadClassificationStats>({
+    queryKey: ['leads-classification-stats'],
+    queryFn: () => api.get('/leads/classification-stats'),
+    enabled: canView && tab === 'captures',
   })
 
   const { data: capturesData, isLoading: loadingCaptures } = useQuery({
@@ -194,6 +236,7 @@ export default function Leads() {
   const invalidateLeads = () => {
     void qc.invalidateQueries({ queryKey: ['leads-captures'] })
     void qc.invalidateQueries({ queryKey: ['leads-stats'] })
+    void qc.invalidateQueries({ queryKey: ['leads-classification-stats'] })
     void qc.invalidateQueries({ queryKey: ['leads-segments-summary'] })
   }
 
@@ -356,6 +399,16 @@ export default function Leads() {
     )
   }
 
+  const clearClassificationFilters = () => {
+    setClassificationKindFilter('')
+    setClassificationOptInOnly(false)
+    setClassificationPendingOnly(false)
+    setClassificationHotOnly(false)
+    setClassificationBlockedOnly(false)
+    setUnlinkedOnly(false)
+    setActiveClassificationStatKey(null)
+  }
+
   const clearAllFilters = () => {
     setSearch('')
     setStatusFilter('')
@@ -368,7 +421,18 @@ export default function Leads() {
     setConsentFilter('')
     setAssigneeFilter('')
     setActiveStatKey(null)
+    clearClassificationFilters()
     setPage(1)
+  }
+
+  const handleClassificationStatClick = (key: ClassificationStatKey) => {
+    clearAllFilters()
+    setActiveClassificationStatKey(key)
+    if (key === 'opt_in') setClassificationOptInOnly(true)
+    else if (key === 'pending') setClassificationPendingOnly(true)
+    else if (key === 'hot') setClassificationHotOnly(true)
+    else if (key === 'blocked') setClassificationBlockedOnly(true)
+    else if (key === 'unlinked') setUnlinkedOnly(true)
   }
 
   const handleOperationalStatClick = (key: OperationalStatKey) => {
@@ -423,6 +487,14 @@ export default function Leads() {
 
       {tab === 'captures' && (
         <LeadStatsCards stats={stats} activeKey={activeStatKey} onSelect={handleOperationalStatClick} />
+      )}
+
+      {tab === 'captures' && (
+        <LeadClassificationStatsRow
+          stats={classificationStats}
+          activeKey={activeClassificationStatKey}
+          onSelect={handleClassificationStatClick}
+        />
       )}
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -506,6 +578,77 @@ export default function Leads() {
             advancedOpen={advancedFiltersOpen}
             onAdvancedOpenChange={setAdvancedFiltersOpen}
             onClearFilters={clearAllFilters}
+            classificationKindFilter={classificationKindFilter}
+            onClassificationKindFilterChange={v => {
+              setClassificationKindFilter(v)
+              setActiveClassificationStatKey(null)
+              setClassificationOptInOnly(false)
+              setClassificationPendingOnly(false)
+              setClassificationHotOnly(false)
+              setClassificationBlockedOnly(false)
+              setUnlinkedOnly(false)
+              setPage(1)
+            }}
+            classificationOptInOnly={classificationOptInOnly}
+            onClassificationOptInOnlyChange={v => {
+              setClassificationOptInOnly(v)
+              setActiveClassificationStatKey(v ? 'opt_in' : null)
+              if (v) {
+                setClassificationPendingOnly(false)
+                setClassificationHotOnly(false)
+                setClassificationBlockedOnly(false)
+                setUnlinkedOnly(false)
+              }
+              setPage(1)
+            }}
+            classificationPendingOnly={classificationPendingOnly}
+            onClassificationPendingOnlyChange={v => {
+              setClassificationPendingOnly(v)
+              setActiveClassificationStatKey(v ? 'pending' : null)
+              if (v) {
+                setClassificationOptInOnly(false)
+                setClassificationHotOnly(false)
+                setClassificationBlockedOnly(false)
+                setUnlinkedOnly(false)
+              }
+              setPage(1)
+            }}
+            classificationHotOnly={classificationHotOnly}
+            onClassificationHotOnlyChange={v => {
+              setClassificationHotOnly(v)
+              setActiveClassificationStatKey(v ? 'hot' : null)
+              if (v) {
+                setClassificationOptInOnly(false)
+                setClassificationPendingOnly(false)
+                setClassificationBlockedOnly(false)
+                setUnlinkedOnly(false)
+              }
+              setPage(1)
+            }}
+            classificationBlockedOnly={classificationBlockedOnly}
+            onClassificationBlockedOnlyChange={v => {
+              setClassificationBlockedOnly(v)
+              setActiveClassificationStatKey(v ? 'blocked' : null)
+              if (v) {
+                setClassificationOptInOnly(false)
+                setClassificationPendingOnly(false)
+                setClassificationHotOnly(false)
+                setUnlinkedOnly(false)
+              }
+              setPage(1)
+            }}
+            unlinkedOnly={unlinkedOnly}
+            onUnlinkedOnlyChange={v => {
+              setUnlinkedOnly(v)
+              setActiveClassificationStatKey(v ? 'unlinked' : null)
+              if (v) {
+                setClassificationOptInOnly(false)
+                setClassificationPendingOnly(false)
+                setClassificationHotOnly(false)
+                setClassificationBlockedOnly(false)
+              }
+              setPage(1)
+            }}
             canManage={canManage}
             onAddManual={() => setManualCaptureOpen(true)}
           />

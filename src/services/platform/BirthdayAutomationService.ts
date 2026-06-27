@@ -19,6 +19,15 @@ import {
 } from '@/utils/automation-schedule';
 import { QUEUED_RUN_PREFIX } from '@/constants/automation-scheduler';
 import {
+  assertCampaignSendAllowed,
+  automationFilterFromRule,
+  classifyDestination,
+  hasAutomationClassificationFilter,
+  loadCampaignClassificationContext,
+  matchesAutomationClassificationFilter,
+  type CampaignClassificationContext,
+} from '@/services/destinations/destination-classification.service';
+import {
   buildSendAtToday,
   contactBirthdayMatchesToday,
   contactBirthdayDayOfMonth,
@@ -280,6 +289,7 @@ export class BirthdayAutomationService {
 
     const contacts = await Destination.find(query);
     const consentSvc = ConsentService.getInstance();
+    const ctx = await loadCampaignClassificationContext(clientId);
     const toSend: IDestination[] = [];
 
     for (const dest of contacts) {
@@ -297,10 +307,14 @@ export class BirthdayAutomationService {
         }
       }
 
-      if (!this.matchesContactFilters(rule, dest)) continue;
+      if (!this.matchesContactFilters(rule, dest, ctx)) continue;
 
       const consentErr = consentSvc.assertCanSend(dest);
       if (consentErr) continue;
+
+      const campaignBlock = assertCampaignSendAllowed(dest, ctx);
+      if (campaignBlock) continue;
+
       toSend.push(dest);
     }
 
@@ -409,7 +423,11 @@ export class BirthdayAutomationService {
     return count;
   }
 
-  private matchesContactFilters(rule: IBirthdayAutomationRule, dest: IDestination): boolean {
+  private matchesContactFilters(
+    rule: IBirthdayAutomationRule,
+    dest: IDestination,
+    ctx: CampaignClassificationContext,
+  ): boolean {
     if (rule.contactGroupIds?.length) {
       const allowed = new Set(rule.contactGroupIds.map(id => id.toString()));
       const inGroup = (dest.contactGroupIds ?? []).some(gid => allowed.has(gid.toString()));
@@ -420,6 +438,14 @@ export class BirthdayAutomationService {
       const tags = dest.tags ?? [];
       const hasTag = rule.destinationFilterTags.some(t => tags.includes(t));
       if (!hasTag) return false;
+    }
+
+    const classFilter = automationFilterFromRule(rule);
+    if (hasAutomationClassificationFilter(classFilter)) {
+      const classification = classifyDestination(dest, ctx);
+      if (!matchesAutomationClassificationFilter(classification, classFilter)) {
+        return false;
+      }
     }
 
     return true;

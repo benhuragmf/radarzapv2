@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { api } from '../../lib/api'
 import {
   LayoutDashboard, FileText, Activity, Phone, MessageSquare,
-  Smartphone, Clock, Hash,
+  Smartphone, Clock, Hash, Users, Filter,
 } from 'lucide-react'
 import { MetricCard, LoadingState } from '@/design-system'
 
@@ -28,8 +28,10 @@ const WA_LABEL: Record<string, string> = {
 const LINKS = [
   { to: '/dashboard', label: 'Dashboard operacional', icon: LayoutDashboard, hint: 'Gráfico de mensagens em tempo real' },
   { to: '/platform/templates', label: 'Modelos de mensagem', icon: FileText, hint: 'Aniversário, informativos, campanhas' },
-  { to: '/platform/reports', label: 'Relatórios', icon: Activity, hint: 'Logs e fila do seu tenant' },
+  { to: '/platform/reports', label: 'Relatórios', icon: Activity, hint: 'Logs, fila e classificação de contatos (KPIs + CSV)' },
   { to: '/platform/contacts', label: 'Contatos', icon: Phone, hint: 'Import/export CSV' },
+  { to: '/platform/segmentos', label: 'Segmentos', icon: Users, hint: 'Listas fixas e segmentos dinâmicos por classificação' },
+  { to: '/contact?class=opt_in', label: 'Contatos opt-in', icon: Filter, hint: 'Filtro rápido — elegíveis para campanha' },
 ] as const
 
 export default function PlatformOverview() {

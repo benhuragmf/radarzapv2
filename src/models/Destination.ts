@@ -4,6 +4,13 @@ import { ConsentStatus } from '@/types/consent';
 import { canSendToContact, canSendPendingAttempt } from '@/types/consent';
 import { CONTACT_PHONE_TYPES, type ContactPhoneType } from '@/types/contact-fields';
 import type { InboxMenuContext } from '@/types/inbox-menu-context';
+import type {
+  CommercialStatus,
+  ContactKind,
+  ContactOrigin,
+  ContactTemperature,
+  PhoneQuality,
+} from '@/types/contact-classification';
 
 const logger = createServiceLogger('DestinationModel');
 
@@ -59,6 +66,16 @@ export interface IDestination extends Document {
   profilePictureData?: Buffer;
   profilePictureMime?: string;
   profilePictureUpdatedAt?: Date;
+  /** Tipo principal: lead, cliente, prospect, etc. */
+  contactKind?: ContactKind;
+  /** Origem do cadastro */
+  contactOrigin?: ContactOrigin;
+  /** Status comercial / funil */
+  commercialStatus?: CommercialStatus;
+  /** Temperatura comercial */
+  temperature?: ContactTemperature;
+  /** Qualidade do número (override manual; senão inferido) */
+  phoneQuality?: PhoneQuality;
   createdAt: Date;
   
   // Instance methods
@@ -272,6 +289,38 @@ const DestinationSchema = new Schema<IDestination>({
       values: CONTACT_PHONE_TYPES,
       message: 'Tipo de telefone inválido',
     },
+  },
+
+  contactKind: {
+    type: String,
+    enum: ['lead', 'client', 'prospect', 'partner', 'internal', 'blocked'],
+  },
+  contactOrigin: {
+    type: String,
+    enum: ['whatsapp', 'webchat', 'form', 'manual', 'csv', 'wa_group', 'api', 'campaign'],
+  },
+  commercialStatus: {
+    type: String,
+    enum: [
+      'new',
+      'in_service',
+      'waiting_client',
+      'waiting_agent',
+      'qualified',
+      'opportunity',
+      'converted',
+      'after_sale',
+      'inactive',
+      'lost',
+    ],
+  },
+  temperature: {
+    type: String,
+    enum: ['cold', 'warm', 'hot', 'vip', 'risk'],
+  },
+  phoneQuality: {
+    type: String,
+    enum: ['verified', 'attention', 'invalid', 'no_whatsapp', 'duplicate', 'incomplete', 'international', 'suspicious'],
   },
 }, {
   timestamps: true,

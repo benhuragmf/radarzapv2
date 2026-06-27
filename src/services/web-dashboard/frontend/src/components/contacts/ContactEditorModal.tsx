@@ -8,6 +8,18 @@ import { detectCountryFromE164, hasContactPhoneNationalDigits } from '../../lib/
 import ContactPhoneInput from './ContactPhoneInput'
 import CountryFlag from './CountryFlag'
 import type { ContactGroupItem } from './ContactGroupsSidebar'
+import type {
+  CommercialStatus,
+  ContactKind,
+  ContactOrigin,
+  ContactTemperature,
+} from '../../lib/contactClassificationUi'
+import {
+  COMMERCIAL_STATUS_LABELS,
+  CONTACT_KIND_LABELS,
+  CONTACT_ORIGIN_LABELS,
+  TEMPERATURE_LABELS,
+} from '../../lib/contactClassificationUi'
 
 export interface ContactFormData {
   identifier: string
@@ -16,6 +28,10 @@ export interface ContactFormData {
   organization: string
   notes: string
   contactGroupIds: string[]
+  contactKind?: ContactKind | ''
+  contactOrigin?: ContactOrigin | ''
+  commercialStatus?: CommercialStatus | ''
+  temperature?: ContactTemperature | ''
 }
 
 interface Props {
@@ -172,6 +188,74 @@ export default function ContactEditorModal({
                 placeholder="opcional"
                 className={`${textareaCls} resize-none`}
               />
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--rz-border)] pt-3">
+            <p className="text-xs font-medium text-[var(--rz-text-secondary)] mb-2">Classificação</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Tipo</label>
+                <select
+                  value={form.contactKind ?? ''}
+                  onChange={e => set('contactKind', e.target.value as ContactFormData['contactKind'])}
+                  className={inputCls}
+                >
+                  <option value="">Automático</option>
+                  {(Object.keys(CONTACT_KIND_LABELS) as ContactKind[]).map(k => (
+                    <option key={k} value={k}>
+                      {CONTACT_KIND_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Origem</label>
+                <select
+                  value={form.contactOrigin ?? ''}
+                  onChange={e => set('contactOrigin', e.target.value as ContactFormData['contactOrigin'])}
+                  className={inputCls}
+                >
+                  <option value="">Automático</option>
+                  {(Object.keys(CONTACT_ORIGIN_LABELS) as ContactOrigin[]).map(k => (
+                    <option key={k} value={k}>
+                      {CONTACT_ORIGIN_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Status comercial</label>
+                <select
+                  value={form.commercialStatus ?? ''}
+                  onChange={e =>
+                    set('commercialStatus', e.target.value as ContactFormData['commercialStatus'])
+                  }
+                  className={inputCls}
+                >
+                  <option value="">Automático</option>
+                  {(Object.keys(COMMERCIAL_STATUS_LABELS) as CommercialStatus[]).map(k => (
+                    <option key={k} value={k}>
+                      {COMMERCIAL_STATUS_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Temperatura</label>
+                <select
+                  value={form.temperature ?? ''}
+                  onChange={e => set('temperature', e.target.value as ContactFormData['temperature'])}
+                  className={inputCls}
+                >
+                  <option value="">Automático</option>
+                  {(Object.keys(TEMPERATURE_LABELS) as ContactTemperature[]).map(k => (
+                    <option key={k} value={k}>
+                      {TEMPERATURE_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

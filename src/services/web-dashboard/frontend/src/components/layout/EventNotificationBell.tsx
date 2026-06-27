@@ -42,11 +42,11 @@ export default function EventNotificationBell() {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 cursor-default"
+            className="fixed inset-0 z-[55] cursor-default bg-black/40 sm:bg-transparent"
             aria-label="Fechar"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-full mt-1 z-50 w-80 max-h-96 overflow-y-auto bg-[var(--rz-surface)] border border-[var(--rz-border)] rounded-xl shadow-xl">
+          <div className="fixed left-3 right-3 top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-[60] max-h-[min(24rem,calc(100dvh-4.5rem-env(safe-area-inset-bottom,0px)))] overflow-y-auto bg-[var(--rz-surface)] border border-[var(--rz-border)] rounded-xl shadow-xl sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:w-80 sm:max-h-96">
             <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--rz-border)]">
               <span className="text-xs font-semibold text-[var(--rz-text-muted)] uppercase tracking-wider">
                 Eventos

@@ -4081,6 +4081,18 @@ export class WhatsAppService {
         ipAddress
       );
 
+      if (type === 'contact') {
+        const { setContactClassificationFields } = await import(
+          '@/services/destinations/destination-classification.service'
+        );
+        setContactClassificationFields(
+          destination,
+          { contactKind: 'prospect', contactOrigin: 'whatsapp', commercialStatus: 'new' },
+          { onlyIfEmpty: true },
+        );
+        await destination.save();
+      }
+
       this.serviceLogger.info(`New destination added and validated`, {
         clientId,
         destinationId: destination._id,

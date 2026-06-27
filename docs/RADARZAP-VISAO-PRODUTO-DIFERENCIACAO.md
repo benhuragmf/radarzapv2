@@ -18,6 +18,10 @@ Alternativa comercial:
 
 Diferencial vs concorrentes globais (Intercom, Zendesk, Tidio): **simplicidade, preço acessível, foco PME Brasil, WhatsApp nativo, LGPD, linguagem local**.
 
+**Referências de mercado (inspiração interna, sem cópia):** [`referencias/REFERENCIAS-MERCADO-UPGRADES.md`](./referencias/REFERENCIAS-MERCADO-UPGRADES.md) — Conecta360, Nextiva, RadarLeads, VoxCRM.
+
+**Plano de execução:** [`RADARZAP-PLANO-UPGRADES.md`](./RADARZAP-PLANO-UPGRADES.md) — 21 épicos priorizados com checklists completos.
+
 ---
 
 ## 2. Princípio central

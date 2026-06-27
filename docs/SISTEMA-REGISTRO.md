@@ -2,9 +2,9 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.12.6` (`package.json`) · **Última revisão doc:** 2026-06-24
+**Versão atual:** `2.12.19` (`package.json`) · **Última revisão doc:** 2026-06-27
 
-Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Resultado TOP 01–20:** [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
+Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Resultado TOP 01–20:** [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
 ---
 
@@ -12,6 +12,19 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.12.19** | Classificação Pacote J: Supervisor `?class=` + atalhos Inbox nos relatórios |
+| **2.12.18** | Classificação Pacote I: filtro `?class=` no Inbox (server-side WA + WebChat) |
+| **2.12.17** | Classificação Pacote H: badges Supervisor, atalhos `/platform`, consolidação doc — `CONTATOS-CLASSIFICACAO.md`, `INBOX-ATENDIMENTO.md` |
+| **2.12.16** | Classificação Pacote G: badges Inbox lista, doc módulo, testes filtros/CSV |
+| **2.12.15** | Classificação Pacote F: `GET /destinations?class=`, export CSV contatos/stats |
+| **2.12.14** | Classificação Pacote E: KPIs em `/platform/reports` |
+| **2.12.13** | Classificação Pacote D: filtros `/contact?class=`, card WebChat Inbox |
+| **2.12.12** | Classificação Pacote C: Leads stats/filtros/badges |
+| **2.12.11** | Classificação Pacote B: automações + OpenAPI + bloqueio envio |
+| **2.12.10** | Classificação Pacote A: segmentos dinâmicos + backfill |
+| **2.12.9** | Conta: remover e-mail ao desvincular Google |
+| **2.12.8** | Conta: desvincular Google (`DELETE /auth/account/google`) |
+| **2.12.7** | Admin IA plataforma: credenciais criptografadas + relatório uso — `/admin/ai-platform` |
 | **2.12.6** | TOP 20: congelamento/go-live controlado + TOP 21 extra: doc final única — `RADARZAP-RESULTADO-FINAL-TOP-01-20.md`, `top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` |
 | **2.12.5** | TOP 19: QA final, regressão, checklist pré-go-live — `docs/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` |
 | **2.12.4** | TOP 18: auditoria/segurança/LGPD/hardening — `docs/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md` |
@@ -208,6 +221,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `InboxTicket` | `lastTeamMessageAt` | 2.6.3 |
 | `InboxTicket` | `teamSlaDueAt`, `teamSlaBreachedAt`, `lastStatusChangeAt` | 2.7.0 |
 | `Destination` | `pendingTicketMenuChoices[]`, `pendingTicketTargetRef` | 2.7.0 |
+| `Destination` | `contactKind`, `contactOrigin`, `commercialStatus`, `temperature` | 2.12.10 |
 | `AiConversationState` | `targetTicketRef` | 2.6.4 |
 | `AiSettings` | `attendanceMode` | 2.10.107 |
 | `AiPrompt` | `basicTriageLlmFallbackEnabled` | 2.11.1 |

@@ -20,6 +20,8 @@ import { LoadingState } from '@/design-system'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { textareaCls } from '@/design-system'
 import { cn } from '@/lib/utils'
+import type { ContactClassificationView } from '../../lib/contactClassificationUi'
+import { ContactClassificationCard } from '../contacts/ContactClassificationCard'
 import type { ContactStats, PreviousConversation } from './InboxContactSidebar'
 import type { InboxTicketInternalNote } from '../../lib/inboxTicket'
 
@@ -30,6 +32,10 @@ export interface InboxContactDetailsContact {
   notes: string
   organization: string
   identifier: string
+  contactGroupIds?: string[]
+  tags?: string[]
+  lastMessageSent?: string
+  classification?: ContactClassificationView
 }
 
 export interface InboxContactDetailsConversation {
@@ -93,6 +99,7 @@ interface Props {
   showAssume?: boolean
   onSaveInternalNote?: (body: string) => Promise<unknown>
   savingNote?: boolean
+  listLabels?: string[]
   className?: string
 }
 
@@ -136,6 +143,7 @@ export function InboxContactDetailsPanel({
   showAssume,
   onSaveInternalNote,
   savingNote,
+  listLabels,
   className,
 }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -258,6 +266,16 @@ export function InboxContactDetailsPanel({
               value={contactStats ? String(contactStats.totalConversations) : undefined}
             />
           </div>
+
+          {contact?.classification && (
+            <ContactClassificationCard
+              classification={contact.classification}
+              tags={contact.tags}
+              listLabels={listLabels}
+              lastMessageSent={contact.lastMessageSent}
+              compact
+            />
+          )}
 
           {onEditContact && (
             <Button size="sm" variant="secondary" className="w-full mt-3" onClick={onEditContact}>

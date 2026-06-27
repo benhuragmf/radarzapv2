@@ -13,6 +13,7 @@ import {
 } from '@/utils/contact-vcf-import';
 import { brazilPhoneLookupVariants as waVariants } from '@/utils/whatsapp-phone';
 import { createServiceLogger } from '@/utils/logger';
+import { setContactClassificationFields } from '@/services/destinations/destination-classification.service';
 
 const logger = createServiceLogger('ContactCsvImport');
 
@@ -159,6 +160,11 @@ export async function importCanonicalContacts(
         ipAddress,
       );
       applyOptionalFields(dest, row);
+      setContactClassificationFields(dest, {
+        contactKind: 'prospect',
+        contactOrigin: 'csv',
+        commercialStatus: 'new',
+      });
       await dest.save();
       await applySegmentMembership(dest, clientOid, row, segmentOpts);
       report.criados++;

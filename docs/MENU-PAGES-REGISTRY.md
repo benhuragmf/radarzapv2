@@ -11,7 +11,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | Rota | Componente | API principal |
 |------|------------|---------------|
 | `/platform` | `PlatformOverview.tsx` | `GET /platform/stats` |
-| `/platform/reports` | `PlatformReports.tsx` | `GET /logs?tenant=1`, `GET /queue` |
+| `/platform/reports` | `PlatformReports.tsx` | `GET /destinations/classification-stats`, `GET /destinations/classification-stats/export-csv`, `GET /destinations/classification-export-csv`, `GET /logs?tenant=1`, `GET /queue` |
 | `/platform/audit` | `menu/PlatformAudit.tsx` | `GET /integrations/audit-summary` |
 | `/platform/campanhas` | `menu/PlatformCampaigns.tsx` | `GET /campaigns` |
 | `/platform/segmentos` | `menu/ContactSegments.tsx` | `GET /contact-groups` |

@@ -667,11 +667,23 @@ Payload `SupervisorDashboardPayload` (`src/types/inbox-supervisor.ts`):
 
 - **Equipe ao vivo:** status operacional + atividade (`offline` / `inbox` / `in_chat` / `supervisor` / `other_page` / `idle`)
 - **Presença:** heartbeat envia `route` + `viewingConversationId` (Inbox com `?conv=`)
-- **Conversas ativas:** tempo de atendimento, bridge WA, botão **Monitorar** (`SupervisorMonitorDrawer` — somente leitura)
+- **Conversas ativas:** tempo de atendimento, bridge WA, **badges de classificação CRM** (quando há contato vinculado), botão **Monitorar** (`SupervisorMonitorDrawer` — somente leitura)
 - **Fila:** reatribuição `POST /inbox/conversations/:id/reassign` — IDs `wc:` incluídos
 - **Métricas 7d por agente:** conversas, TMA, tempo para puxar da fila, CSAT
 
 Serviço: `InboxSupervisorDashboardService`. Atualização: WebSocket + refresh manual (15s).
+
+### Classificação CRM no Inbox (2.12.16+)
+
+Doc completa: [`CONTATOS-CLASSIFICACAO.md`](./CONTATOS-CLASSIFICACAO.md).
+
+| Onde | Comportamento |
+|------|----------------|
+| **Lista** (`GET /inbox/conversations`) | `contactClassification` quando `destinationId` está vinculado — badges compactos na linha; filtro `?class=` no servidor (2.12.18) |
+| **Detalhe** (painel lateral) | Card de classificação + edição via `PATCH /destinations/:id` ou `PATCH …/visitor-profile` (WebChat) |
+| **Supervisor** (`GET /inbox/supervisor/dashboard`) | Mesmos badges em `activeConversations[]` e `queue[]`; filtro `?class=` (2.12.17 badges, 2.12.19 filtro) |
+
+Serviço: `attachClassificationToConversationRows` em `destination-classification.service.ts`.
 
 ---
 

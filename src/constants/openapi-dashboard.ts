@@ -27,6 +27,155 @@ export const OPENAPI_DASHBOARD = {
         name: 'connect.sid',
       },
     },
+    schemas: {
+      ContactKind: {
+        type: 'string',
+        enum: ['lead', 'client', 'prospect', 'partner', 'internal', 'blocked'],
+      },
+      ContactOrigin: {
+        type: 'string',
+        enum: ['whatsapp', 'webchat', 'form', 'manual', 'csv', 'wa_group', 'api', 'campaign'],
+      },
+      SendPermission: {
+        type: 'string',
+        enum: ['opt_in_accepted', 'pending', 'no_consent', 'opt_out', 'blocked'],
+      },
+      CommercialStatus: {
+        type: 'string',
+        enum: [
+          'new',
+          'in_service',
+          'waiting_client',
+          'waiting_agent',
+          'qualified',
+          'opportunity',
+          'converted',
+          'after_sale',
+          'inactive',
+          'lost',
+        ],
+      },
+      ContactTemperature: {
+        type: 'string',
+        enum: ['cold', 'warm', 'hot', 'vip', 'risk'],
+      },
+      ContactClassification: {
+        type: 'object',
+        description: 'Classificação inferida + campos persistidos do contato',
+        properties: {
+          kind: { $ref: '#/components/schemas/ContactKind' },
+          origin: { $ref: '#/components/schemas/ContactOrigin' },
+          permission: { $ref: '#/components/schemas/SendPermission' },
+          commercialStatus: { $ref: '#/components/schemas/CommercialStatus' },
+          temperature: { $ref: '#/components/schemas/ContactTemperature' },
+          phoneQuality: { type: 'string' },
+          sendBlockReason: { type: 'string', nullable: true },
+          campaignSelectable: { type: 'boolean' },
+        },
+      },
+      SmartSegmentPreset: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            enum: [
+              'opt_in_leads',
+              'active_clients',
+              'hot_leads',
+              'pending_consent',
+              'blocked_send',
+            ],
+          },
+          label: { type: 'string' },
+          description: { type: 'string' },
+          count: { type: 'integer' },
+        },
+      },
+      DestinationWithClassification: {
+        type: 'object',
+        description: 'Contato ou grupo com classification em GET /destinations',
+        properties: {
+          _id: { type: 'string' },
+          type: { type: 'string', enum: ['contact', 'group'] },
+          name: { type: 'string' },
+          identifier: { type: 'string' },
+          contactKind: { $ref: '#/components/schemas/ContactKind' },
+          contactOrigin: { $ref: '#/components/schemas/ContactOrigin' },
+          commercialStatus: { $ref: '#/components/schemas/CommercialStatus' },
+          temperature: { $ref: '#/components/schemas/ContactTemperature' },
+          classification: { $ref: '#/components/schemas/ContactClassification' },
+        },
+      },
+      AutomationClassificationFilter: {
+        type: 'object',
+        description: 'Filtros opcionais em POST/PATCH /platform/automations',
+        properties: {
+          destinationSmartSegmentId: {
+            type: 'string',
+            enum: [
+              'opt_in_leads',
+              'active_clients',
+              'hot_leads',
+              'pending_consent',
+              'blocked_send',
+            ],
+          },
+          destinationFilterKinds: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/ContactKind' },
+          },
+          destinationFilterPermissions: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/SendPermission' },
+          },
+          destinationFilterTemperatures: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/ContactTemperature' },
+          },
+          destinationCampaignSelectableOnly: { type: 'boolean' },
+        },
+      },
+      LeadClassificationStats: {
+        type: 'object',
+        properties: {
+          totalLeads: { type: 'integer' },
+          linkedLeads: { type: 'integer' },
+          unlinkedLeads: { type: 'integer' },
+          withOptIn: { type: 'integer' },
+          pendingConsent: { type: 'integer' },
+          blockedCampaign: { type: 'integer' },
+          hotWarm: { type: 'integer' },
+          byKind: { type: 'object', additionalProperties: { type: 'integer' } },
+        },
+      },
+      LeadCaptureWithClassification: {
+        type: 'object',
+        description: 'Lead com classificação do contato CRM vinculado (quando destinationId existe)',
+        properties: {
+          id: { type: 'string' },
+          classification: { $ref: '#/components/schemas/ContactClassification' },
+        },
+      },
+      DestinationClassificationStats: {
+        type: 'object',
+        properties: {
+          totalContacts: { type: 'integer' },
+          campaignSelectable: { type: 'integer' },
+          campaignBlocked: { type: 'integer' },
+          backfillPending: { type: 'integer' },
+          smartSegments: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/SmartSegmentPreset' },
+          },
+          byKind: { type: 'object', additionalProperties: { type: 'integer' } },
+          byPermission: { type: 'object', additionalProperties: { type: 'integer' } },
+          byOrigin: { type: 'object', additionalProperties: { type: 'integer' } },
+          byTemperature: { type: 'object', additionalProperties: { type: 'integer' } },
+          byCommercialStatus: { type: 'object', additionalProperties: { type: 'integer' } },
+          byPhoneQuality: { type: 'object', additionalProperties: { type: 'integer' } },
+        },
+      },
+    },
   },
   paths: {
     '/campaigns': {
@@ -37,16 +186,194 @@ export const OPENAPI_DASHBOARD = {
       post: { summary: 'Validar destinos antes do envio', tags: ['Mensagens'] },
     },
     '/destinations': {
-      get: { summary: 'Listar contatos e grupos WA', tags: ['Contatos'] },
-      post: { summary: 'Criar destino', tags: ['Contatos'] },
+      get: {
+        summary: 'Listar contatos e grupos WA',
+        description:
+          'Cada contato inclui `classification`. Query opcional `class` (opt_in, pending, hot, blocked, lead, client, prospect) filtra contatos no servidor.',
+        tags: ['Contatos'],
+        parameters: [
+          {
+            name: 'class',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: [
+                'opt_in',
+                'pending',
+                'hot',
+                'blocked',
+                'lead',
+                'client',
+                'prospect',
+                'partner',
+                'internal',
+                'blocked',
+              ],
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Lista de destinos',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/DestinationWithClassification' },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: 'Criar destino',
+        description: 'Aceita contactKind, contactOrigin, commercialStatus, temperature opcionais.',
+        tags: ['Contatos'],
+      },
+    },
+    '/destinations/{id}': {
+      patch: {
+        summary: 'Atualizar contato (incl. classificação)',
+        tags: ['Contatos'],
+      },
+    },
+    '/destinations/smart-segments': {
+      get: {
+        summary: 'Segmentos dinâmicos por classificação',
+        tags: ['Contatos'],
+        responses: {
+          '200': {
+            description: 'Presets com contagem',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/SmartSegmentPreset' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/destinations/smart-segments/{presetId}/members': {
+      get: {
+        summary: 'Membros de um segmento dinâmico',
+        tags: ['Contatos'],
+      },
+    },
+    '/destinations/classification-stats': {
+      get: {
+        summary: 'Estatísticas agregadas de classificação CRM',
+        description: 'Totais por dimensão, segmentos dinâmicos e pendências de backfill.',
+        tags: ['Contatos'],
+        responses: {
+          '200': {
+            description: 'Relatório agregado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/DestinationClassificationStats' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/destinations/classification-stats/export-csv': {
+      get: { summary: 'Exportar resumo de classificação em CSV', tags: ['Contatos'] },
+    },
+    '/destinations/classification-export-csv': {
+      get: {
+        summary: 'Exportar contatos com colunas de classificação',
+        description: 'Query opcional `class` para exportar subconjunto.',
+        tags: ['Contatos'],
+        parameters: [{ name: 'class', in: 'query', schema: { type: 'string' } }],
+      },
+    },
+    '/destinations/classification-backfill-status': {
+      get: {
+        summary: 'Contatos pendentes de backfill de classificação',
+        tags: ['Contatos'],
+      },
+    },
+    '/destinations/backfill-classification': {
+      post: {
+        summary: 'Persistir classificação inferida em contatos antigos',
+        tags: ['Contatos'],
+      },
     },
     '/contact-groups': {
       get: { summary: 'Listar grupos de contato', tags: ['Contatos'] },
       post: { summary: 'Criar grupo de contato', tags: ['Contatos'] },
     },
+    '/leads/classification-stats': {
+      get: {
+        summary: 'Estatísticas de classificação CRM nos leads',
+        description:
+          'Contagens de opt-in, pendências, quentes/mornos, bloqueio de campanha e leads sem contato CRM.',
+        tags: ['Leads'],
+        responses: {
+          '200': {
+            description: 'Totais agregados',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/LeadClassificationStats' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/leads/captures': {
+      get: {
+        summary: 'Listar capturas de lead',
+        description:
+          'Cada item pode incluir `classification` do contato vinculado. Filtros: classificationKind, classificationOptInOnly, classificationPendingOnly, classificationHotOnly, classificationBlockedOnly, unlinkedOnly.',
+        tags: ['Leads'],
+        parameters: [
+          { name: 'classificationKind', in: 'query', schema: { $ref: '#/components/schemas/ContactKind' } },
+          { name: 'classificationOptInOnly', in: 'query', schema: { type: 'boolean' } },
+          { name: 'classificationPendingOnly', in: 'query', schema: { type: 'boolean' } },
+          { name: 'classificationHotOnly', in: 'query', schema: { type: 'boolean' } },
+          { name: 'classificationBlockedOnly', in: 'query', schema: { type: 'boolean' } },
+          { name: 'unlinkedOnly', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Lista paginada',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    total: { type: 'integer' },
+                    items: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/LeadCaptureWithClassification' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     '/platform/automations': {
       get: { summary: 'Listar automações', tags: ['Automações'] },
-      post: { summary: 'Criar automação', tags: ['Automações'] },
+      post: {
+        summary: 'Criar automação',
+        description:
+          'Suporta filtros por listas (contactGroupIds), segmento dinâmico (destinationSmartSegmentId) e classificação (destinationFilterKinds, destinationFilterPermissions, destinationCampaignSelectableOnly).',
+        tags: ['Automações'],
+      },
+    },
+    '/platform/automations/{id}': {
+      patch: {
+        summary: 'Atualizar automação (incl. filtros de classificação)',
+        tags: ['Automações'],
+      },
     },
     '/sessions': {
       get: { summary: 'Status das sessões WhatsApp', tags: ['WhatsApp'] },

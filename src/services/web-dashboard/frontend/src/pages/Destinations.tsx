@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, downloadFile } from '../lib/api'
 import { getMe, can, type AuthUser } from '../lib/auth'
 import { useGuild } from '../lib/guildContext'
 import { DiscordPage } from '../components/discord/DiscordPage'
@@ -11,6 +11,10 @@ import { isUnlimited } from '../lib/limits'
 import ContactGroupsSidebar, { type ContactGroupItem } from '../components/contacts/ContactGroupsSidebar'
 import ContactEditorModal, { type ContactFormData } from '../components/contacts/ContactEditorModal'
 import ContactGroupsAssignModal from '../components/contacts/ContactGroupsAssignModal'
+import {
+  ContactClassificationFilterBar,
+  type ContactClassificationFilterKey,
+} from '../components/contacts/ContactClassificationFilterBar'
 import { effectiveConsentStatus, type ConsentStatus } from '../lib/consentUi'
 import {
   Phone,
@@ -30,6 +34,7 @@ import {
   Trash2,
   FolderMinus,
   CheckSquare,
+  Download,
 } from 'lucide-react'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../lib/notify'
 import {
@@ -47,6 +52,16 @@ import {
   searchFieldIconCls,
 } from '@/design-system'
 
+const CLASSIFICATION_FILTER_KEYS: ContactClassificationFilterKey[] = [
+  'opt_in',
+  'pending',
+  'hot',
+  'blocked',
+  'lead',
+  'client',
+  'prospect',
+]
+
 export default function Destinations() {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -59,6 +74,11 @@ export default function Destinations() {
     | 'refused'
     | 'blocked'
     | null
+  const classParam = searchParams.get('class')
+  const classificationFilter: ContactClassificationFilterKey | null =
+    classParam && CLASSIFICATION_FILTER_KEYS.includes(classParam as ContactClassificationFilterKey)
+      ? (classParam as ContactClassificationFilterKey)
+      : null
   const isWaitingView = consentFilter === 'waiting'
   const isDiscord = pathname.startsWith('/discord/contact')
   const basePath = isDiscord ? '/discord/contact' : '/contact'
@@ -80,6 +100,10 @@ export default function Destinations() {
     organization: '',
     notes: '',
     contactGroupIds: groupIds,
+    contactKind: '',
+    contactOrigin: '',
+    commercialStatus: '',
+    temperature: '',
   })
 
   const contactToForm = (d: Destination): ContactFormData => ({
@@ -89,6 +113,10 @@ export default function Destinations() {
     organization: d.organization ?? '',
     notes: d.notes ?? '',
     contactGroupIds: (d.contactGroupIds ?? []).map(String),
+    contactKind: (d.contactKind ?? d.classification?.kind ?? '') as ContactFormData['contactKind'],
+    contactOrigin: (d.contactOrigin ?? d.classification?.origin ?? '') as ContactFormData['contactOrigin'],
+    commercialStatus: (d.commercialStatus ?? d.classification?.commercialStatus ?? '') as ContactFormData['commercialStatus'],
+    temperature: (d.temperature ?? d.classification?.temperature ?? '') as ContactFormData['temperature'],
   })
 
   const openCreateEditor = () => {
@@ -117,9 +145,27 @@ export default function Destinations() {
   const canApproveRenewal = can(me ?? null, 'consent:approve-renewal')
 
   const { data: destinations = [], isLoading } = useQuery<Destination[]>({
-    queryKey: ['destinations'],
-    queryFn: () => api.get('/destinations'),
+    queryKey: ['destinations', classificationFilter ?? 'all'],
+    queryFn: () =>
+      api.get(
+        classificationFilter
+          ? `/destinations?class=${encodeURIComponent(classificationFilter)}`
+          : '/destinations',
+      ),
     refetchInterval: 30_000,
+  })
+
+  const { data: classificationStats } = useQuery<{
+    totalContacts: number
+    campaignBlocked: number
+    byKind: Record<string, number>
+    byPermission: Record<string, number>
+    byTemperature: Record<string, number>
+  }>({
+    queryKey: ['destinations-classification-stats'],
+    queryFn: () => api.get('/destinations/classification-stats'),
+    enabled: !isDiscord,
+    refetchInterval: 60_000,
   })
 
   const { data: sessions = [] } = useQuery<Array<{ status: string }>>({
@@ -155,8 +201,9 @@ export default function Destinations() {
   })
 
   const invalidateContacts = () => {
-    qc.invalidateQueries({ queryKey: ['destinations'] })
-    qc.invalidateQueries({ queryKey: ['contact-groups'] })
+    void qc.invalidateQueries({ queryKey: ['destinations'] })
+    void qc.invalidateQueries({ queryKey: ['destinations-classification-stats'] })
+    void qc.invalidateQueries({ queryKey: ['contact-groups'] })
   }
 
   const { data: billing } = useQuery<{
@@ -182,6 +229,8 @@ export default function Destinations() {
         organization: data.organization || undefined,
         notes: data.notes || undefined,
         contactGroupIds: data.contactGroupIds,
+        contactKind: data.contactKind || undefined,
+        contactOrigin: data.contactOrigin || undefined,
       }),
     onSuccess: (_created, variables) => {
       invalidateContacts()
@@ -206,6 +255,10 @@ export default function Destinations() {
         organization: data.organization || undefined,
         notes: data.notes || undefined,
         contactGroupIds: data.contactGroupIds,
+        contactKind: data.contactKind || null,
+        contactOrigin: data.contactOrigin || null,
+        commercialStatus: data.commercialStatus || null,
+        temperature: data.temperature || null,
       }),
     onSuccess: (_res, { data }) => {
       invalidateContacts()
@@ -320,6 +373,14 @@ export default function Destinations() {
     enabled: Boolean(historyDestId),
   })
 
+  const setClassificationFilter = (key: ContactClassificationFilterKey | null) => {
+    const p = new URLSearchParams(searchParams)
+    if (key) p.set('class', key)
+    else p.delete('class')
+    const qs = p.toString()
+    navigate({ pathname: basePath, search: qs ? `?${qs}` : '' })
+  }
+
   function matchesConsentFilter(d: Destination): boolean {
     if (isWaitingView) return false
     if (!consentFilter) return true
@@ -370,6 +431,22 @@ export default function Destinations() {
         ),
     [allContacts, q, consentFilter, selectedGroupId],
   )
+
+  const classificationFilterSummary = useMemo(() => {
+    if (!classificationStats) return undefined
+    const hotWarm =
+      (classificationStats.byTemperature?.hot ?? 0) + (classificationStats.byTemperature?.warm ?? 0)
+    return {
+      total: classificationStats.totalContacts,
+      optIn: classificationStats.byPermission?.opt_in_accepted ?? 0,
+      pending: classificationStats.byPermission?.pending ?? 0,
+      hotWarm,
+      blocked: classificationStats.campaignBlocked,
+      byKind: classificationStats.byKind ?? {},
+    }
+  }, [classificationStats])
+
+  const totalContactsForMetrics = classificationStats?.totalContacts ?? allContacts.length
 
   const groupNameById = useMemo(
     () => new Map(contactGroups.map(g => [g._id, g.name])),
@@ -511,7 +588,7 @@ export default function Destinations() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl">
-        <MetricCard title="Contatos" value={allContacts.length} icon={Phone} />
+        <MetricCard title="Contatos" value={totalContactsForMetrics} icon={Phone} />
         <MetricCard title="Grupos de contato" value={contactGroups.length} icon={Users} />
         <MetricCard
           title="Total cadastrado"
@@ -537,10 +614,38 @@ export default function Destinations() {
         </p>
       )}
 
+      {!isDiscord && !isWaitingView && classificationFilterSummary && (
+        <ContactClassificationFilterBar
+          summary={classificationFilterSummary}
+          activeKey={classificationFilter}
+          onSelect={setClassificationFilter}
+        />
+      )}
+
+      {!isDiscord && classificationFilter && (
+        <p className="text-xs text-[var(--rz-text-muted)] flex flex-wrap items-center gap-2 -mt-1">
+          <span>
+            Exibindo contatos filtrados por classificação ({contacts.length} nesta página).
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() =>
+              void downloadFile(
+                `/destinations/classification-export-csv?class=${encodeURIComponent(classificationFilter)}`,
+              ).catch(notifyError)
+            }
+          >
+            <Download size={12} /> Exportar CSV
+          </Button>
+        </p>
+      )}
+
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         <ContactGroupsSidebar
           groups={contactGroups}
-          totalContacts={allContacts.length}
+          totalContacts={totalContactsForMetrics}
           selectedGroupId={selectedGroupId}
           onSelectGroup={setSelectedGroupId}
           canManage={canManage}

@@ -1,9 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../../lib/api'
 import { logout, type AuthUser } from '../../lib/auth'
 import { pageTitleFor } from '../../lib/navConfig'
-import { Wifi, WifiOff, LogOut, Menu, Sun, Moon } from 'lucide-react'
+import { LogOut, Menu, Sun, Moon } from 'lucide-react'
 import OrganizationSwitcher from './OrganizationSwitcher'
 import EventNotificationBell from './EventNotificationBell'
 import { AgentStatusSelector } from './AgentStatusSelector'
@@ -21,14 +19,6 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
   const { pathname, hash, search } = useLocation()
   const { theme, toggleTheme } = useTheme()
   const title = pageTitleFor(pathname, hash, search)
-
-  const { data } = useQuery({
-    queryKey: ['health'],
-    queryFn: () => api.get<{ healthy: boolean }>('/services/health'),
-    refetchInterval: 15_000,
-  })
-
-  const healthy = (data as any)?.healthy ?? null
 
   const handleLogout = async () => {
     await logout()
@@ -54,7 +44,7 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         <HeaderStatusPills user={user} />
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
 
         <EventNotificationBell />
@@ -70,22 +60,6 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         >
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
-
-        <div className="flex items-center gap-1.5 text-sm">
-          {healthy === null ? (
-            <span className="text-[var(--rz-text-muted)] text-xs">verificando...</span>
-          ) : healthy ? (
-            <>
-              <Wifi size={13} className="text-brand-500" />
-              <span className="text-brand-500 text-xs">online</span>
-            </>
-          ) : (
-            <>
-              <WifiOff size={13} className="text-[var(--rz-danger-text)]" />
-              <span className="text-[var(--rz-danger-text)] text-xs">offline</span>
-            </>
-          )}
-        </div>
 
         {/* User info */}
         <Link

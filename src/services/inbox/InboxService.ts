@@ -48,6 +48,11 @@ import {
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
+import {
+  attachClassificationToConversationRows,
+  classifyDestination,
+  loadCampaignClassificationContext,
+} from '@/services/destinations/destination-classification.service';
 import { AiConversationService } from '@/services/ai/AiConversationService';
 import { AiBasicTriageService } from '@/services/ai/AiBasicTriageService';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
@@ -3026,8 +3031,12 @@ export class InboxService {
       mine?: boolean;
       hasTicket?: boolean;
       search?: string;
+      destinationIds?: mongoose.Types.ObjectId[];
     },
   ) {
+    if (filters.destinationIds !== undefined && filters.destinationIds.length === 0) {
+      return [];
+    }
     const clientOid = new mongoose.Types.ObjectId(clientId);
     await this.ensureDepartments(clientId);
 
@@ -3042,6 +3051,9 @@ export class InboxService {
     }
     if (filters.hasTicket) {
       query.ticketRef = { $exists: true, $nin: [null, ''] };
+    }
+    if (filters.destinationIds?.length) {
+      query.destinationId = { $in: filters.destinationIds };
     }
 
     const settings = await loadInboxSettings(clientId);
@@ -3139,7 +3151,13 @@ export class InboxService {
         ),
       ),
     );
-    return enriched;
+    return attachClassificationToConversationRows(
+      clientId,
+      enriched.map(r => ({
+        ...r,
+        destinationId: r.destinationId ? String(r.destinationId) : undefined,
+      })),
+    );
   }
 
   private generateTicketRef(): string {
@@ -4469,9 +4487,15 @@ export class InboxService {
       ),
       this.buildContactContext(clientId, conv.destinationId, conv._id as mongoose.Types.ObjectId),
       Destination.findOne({ _id: conv.destinationId, clientId: conv.clientId })
-        .select('name email notes organization identifier contactGroupIds')
+        .select(
+          'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type',
+        )
         .lean(),
     ]);
+
+    const classificationCtx = destination
+      ? await loadCampaignClassificationContext(clientId)
+      : null;
 
     const quickReplies = normalizeQuickReplies(settings.quickReplies);
 
@@ -4500,6 +4524,11 @@ export class InboxService {
             organization: destination.organization ?? '',
             identifier: destination.identifier,
             contactGroupIds: (destination.contactGroupIds ?? []).map(String),
+            tags: destination.tags ?? [],
+            lastMessageSent: destination.lastMessageSent,
+            classification: classificationCtx
+              ? classifyDestination(destination as IDestination, classificationCtx)
+              : undefined,
           }
         : null,
       quickReplies,

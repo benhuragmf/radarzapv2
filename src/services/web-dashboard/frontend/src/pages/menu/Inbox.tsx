@@ -39,12 +39,19 @@ import { InboxComposer, type QuickReplyItem } from '../../components/inbox/Inbox
 import { InboxContactDetailsPanel } from '../../components/inbox/InboxContactDetailsPanel'
 import type { ContactStats, PreviousConversation } from '../../components/inbox/InboxContactSidebar'
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
+import { ContactClassificationBadges } from '../../components/contacts/ContactClassificationBadges'
+import type { ContactClassificationView } from '../../lib/contactClassificationUi'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
 import { InboxDepartmentBadge } from '../../components/inbox/InboxDepartmentBadge'
 import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
 import { InboxLiveVisitors } from '../../components/inbox/InboxLiveVisitors'
+import {
+  InboxContactClassFilter,
+  parseInboxClassFilter,
+} from '../../components/inbox/InboxContactClassFilter'
+import type { ContactClassificationFilterKey } from '../../components/contacts/ContactClassificationFilterBar'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { isWebChatInboxId, webChatInboxIdToMongo, webChatMediaSrc } from '../../lib/webchatInbox'
 import { readWebChatAttachmentFile } from '../../lib/webchatAttachment'
@@ -113,6 +120,7 @@ interface Conversation {
   departmentBadgeLabel?: string
   departmentClientVisible?: boolean
   departmentInternalRankLabel?: string
+  contactClassification?: ContactClassificationView
 }
 
 interface InboxContactInfo {
@@ -123,6 +131,9 @@ interface InboxContactInfo {
   organization: string
   identifier: string
   contactGroupIds: string[]
+  tags?: string[]
+  lastMessageSent?: string
+  classification?: ContactClassificationView
 }
 
 interface ConversationDetail {
@@ -338,7 +349,7 @@ function ContactAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
 
 export default function Inbox() {
   const qc = useQueryClient()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],
@@ -370,6 +381,18 @@ export default function Inbox() {
   const visitorTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const agentTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const agentTypingActiveRef = useRef(false)
+
+  const classFilter = useMemo(
+    () => parseInboxClassFilter(searchParams.get('class')),
+    [searchParams],
+  )
+
+  const setClassFilter = (key: ContactClassificationFilterKey | null) => {
+    const next = new URLSearchParams(searchParams)
+    if (key) next.set('class', key)
+    else next.delete('class')
+    setSearchParams(next, { replace: true })
+  }
 
   const activeQuickFilter: QuickFilter = useMemo(() => {
     if (hasTicketOnly) return 'tickets'
@@ -430,9 +453,10 @@ export default function Inbox() {
   if (mineOnly) listParams.set('mine', '1')
   if (hasTicketOnly) listParams.set('hasTicket', '1')
   if (canInboxView) listParams.set('channel', channelFilter)
+  if (classFilter) listParams.set('class', classFilter)
 
   const { data: conversations = [], isLoading: loadingList } = useQuery({
-    queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly, hasTicketOnly, channelFilter],
+    queryKey: ['inbox-conversations', filterStatus, filterDept, mineOnly, hasTicketOnly, channelFilter, classFilter],
     queryFn: () => api.get<Conversation[]>(`/inbox/conversations?${listParams}`),
     refetchInterval: 30_000,
   })
@@ -518,8 +542,15 @@ export default function Inbox() {
   const { data: contactGroups = [] } = useQuery({
     queryKey: ['contact-groups'],
     queryFn: () => api.get<{ _id: string; name: string }[]>('/contact-groups'),
-    enabled: showContactEditor && Boolean(profileContact),
+    enabled: Boolean(profileContact?.contactGroupIds?.length) || showContactEditor,
   })
+
+  const contactListLabels = useMemo(() => {
+    const ids = profileContact?.contactGroupIds ?? []
+    return ids
+      .map(id => contactGroups.find(g => g._id === id)?.name)
+      .filter((n): n is string => Boolean(n))
+  }, [profileContact?.contactGroupIds, contactGroups])
 
   const messages = detail?.messages ?? []
 
@@ -1029,6 +1060,8 @@ export default function Inbox() {
               </div>
             )}
 
+            <InboxContactClassFilter activeKey={classFilter} onSelect={setClassFilter} />
+
             <select
               value={filterDept}
               onChange={e => setFilterDept(e.currentTarget.value)}
@@ -1045,6 +1078,7 @@ export default function Inbox() {
 
           <div className="px-3 py-2 text-[11px] text-[var(--rz-text-muted)] border-b border-[var(--rz-border)]/60 shrink-0">
             {filteredConversations.length} conversa(s)
+            {classFilter && <span> · filtro CRM ativo</span>}
             {search && filteredConversations.length !== conversations.length && (
               <span className="text-[var(--rz-text-muted)]"> · filtrado de {conversations.length}</span>
             )}
@@ -1160,6 +1194,11 @@ export default function Inbox() {
                           ? c.contactIdentifier
                           : formatContactIdentifier(c.contactIdentifier, c.contactName)}
                       </p>
+                      {c.contactClassification && (
+                        <div className="mt-1">
+                          <ContactClassificationBadges classification={c.contactClassification} compact />
+                        </div>
+                      )}
                       <div className="flex items-center justify-between gap-2 mt-1">
                         <p className="text-[11px] text-[var(--rz-text-muted)] truncate">{subtitle || '—'}</p>
                         {c.suggestedUserId && c.status === 'waiting_queue' ? (
@@ -1604,6 +1643,7 @@ export default function Inbox() {
               conv.ticketRef ? body => saveTicketInternalNote.mutateAsync(body) : undefined
             }
             savingNote={saveTicketInternalNote.isPending}
+            listLabels={contactListLabels}
           />
         )}
         </div>
@@ -1621,6 +1661,10 @@ export default function Inbox() {
             organization: profileContact.organization,
             notes: profileContact.notes,
             contactGroupIds: profileContact.contactGroupIds,
+            contactKind: (detail?.contact?.classification?.kind ?? '') as ContactFormData['contactKind'],
+            contactOrigin: (detail?.contact?.classification?.origin ?? '') as ContactFormData['contactOrigin'],
+            commercialStatus: (detail?.contact?.classification?.commercialStatus ?? '') as ContactFormData['commercialStatus'],
+            temperature: (detail?.contact?.classification?.temperature ?? '') as ContactFormData['temperature'],
           }}
           groups={contactGroups.map(g => ({ _id: g._id, name: g.name, memberCount: 0 }))}
           onClose={() => setShowContactEditor(false)}
@@ -1635,6 +1679,10 @@ export default function Inbox() {
                   organization: data.organization.trim() || undefined,
                   notes: data.notes.trim() || undefined,
                   contactGroupIds: data.contactGroupIds,
+                  contactKind: data.contactKind || null,
+                  contactOrigin: data.contactOrigin || null,
+                  commercialStatus: data.commercialStatus || null,
+                  temperature: data.temperature || null,
                 },
               )
             } else {
@@ -1644,6 +1692,10 @@ export default function Inbox() {
                 organization: data.organization.trim() || undefined,
                 notes: data.notes.trim() || undefined,
                 contactGroupIds: data.contactGroupIds,
+                contactKind: data.contactKind || null,
+                contactOrigin: data.contactOrigin || null,
+                commercialStatus: data.commercialStatus || null,
+                temperature: data.temperature || null,
               })
             }
             invalidate()

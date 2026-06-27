@@ -32,6 +32,11 @@ import {
 import { usePlatformMessagePreview } from '../../lib/usePlatformMessagePreview'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { inputCls, LoadingState } from '@/design-system'
+import type { ContactKind } from '../../lib/contactClassificationUi'
+import {
+  CONTACT_KIND_LABELS,
+  TEMPERATURE_LABELS,
+} from '../../lib/contactClassificationUi'
 import {
   currentTimeHHmm,
   minDatetimeLocalFromNow,
@@ -61,8 +66,52 @@ interface AutomationRule {
   messageMode?: MessageMode
   customMessage?: string
   destinationFilterTags?: string[]
+  destinationSmartSegmentId?: string
+  destinationFilterKinds?: ContactKind[]
+  destinationFilterPermissions?: string[]
+  destinationFilterTemperatures?: string[]
+  destinationCampaignSelectableOnly?: boolean
   mensagemExtra?: string
   lastRunDate?: string
+}
+
+interface SmartSegmentPreset {
+  id: string
+  label: string
+  description: string
+  count: number
+}
+
+const SMART_SEGMENT_LABELS: Record<string, string> = {
+  opt_in_leads: 'Leads com opt-in',
+  active_clients: 'Clientes ativos',
+  hot_leads: 'Leads quentes/mornos',
+  pending_consent: 'Opt-in pendente',
+  blocked_send: 'Bloqueados p/ campanha',
+}
+
+const KIND_FILTER_OPTIONS: ContactKind[] = ['lead', 'client', 'prospect']
+
+function describeClassificationAudience(r: AutomationRule): string | null {
+  const parts: string[] = []
+  if (r.destinationSmartSegmentId) {
+    parts.push(SMART_SEGMENT_LABELS[r.destinationSmartSegmentId] ?? r.destinationSmartSegmentId)
+  }
+  if (r.destinationFilterKinds?.length) {
+    parts.push(r.destinationFilterKinds.map(k => CONTACT_KIND_LABELS[k]).join(', '))
+  }
+  if (r.destinationFilterPermissions?.includes('opt_in_accepted')) {
+    parts.push('opt-in aceito')
+  }
+  if (r.destinationFilterTemperatures?.length) {
+    parts.push(
+      r.destinationFilterTemperatures.map(t => TEMPERATURE_LABELS[t as keyof typeof TEMPERATURE_LABELS]).join(', '),
+    )
+  }
+  if (r.destinationCampaignSelectableOnly) {
+    parts.push('só elegíveis p/ campanha')
+  }
+  return parts.length ? parts.join(' · ') : null
 }
 
 interface ContactGroupOption {
@@ -146,6 +195,11 @@ const DEFAULT_FORM = {
   messageMode: 'platform_template' as MessageMode,
   customMessage: '',
   destinationFilterTags: '',
+  destinationSmartSegmentId: '',
+  destinationFilterKinds: [] as ContactKind[],
+  destinationFilterOptInOnly: false,
+  destinationFilterHotOnly: false,
+  destinationCampaignSelectableOnly: true,
   mensagemExtra: '',
 }
 
@@ -174,6 +228,11 @@ export default function PlatformAutomations() {
   const { data: contactGroups = [] } = useQuery<ContactGroupOption[]>({
     queryKey: ['contact-groups'],
     queryFn: () => api.get('/contact-groups'),
+  })
+
+  const { data: smartSegments = [] } = useQuery<SmartSegmentPreset[]>({
+    queryKey: ['destinations-smart-segments'],
+    queryFn: () => api.get('/destinations/smart-segments'),
   })
 
   const { data: destinations = [] } = useQuery<DestinationOption[]>({
@@ -281,6 +340,21 @@ export default function PlatformAutomations() {
         messageMode: form.messageMode,
         customMessage: form.messageMode === 'plain' ? form.customMessage.trim() : undefined,
         destinationFilterTags: tags.length ? tags : undefined,
+        destinationSmartSegmentId: form.destinationSmartSegmentId.trim() || undefined,
+        destinationFilterKinds: form.destinationSmartSegmentId
+          ? undefined
+          : form.destinationFilterKinds.length
+            ? form.destinationFilterKinds
+            : undefined,
+        destinationFilterPermissions:
+          !form.destinationSmartSegmentId && form.destinationFilterOptInOnly
+            ? ['opt_in_accepted']
+            : undefined,
+        destinationFilterTemperatures:
+          !form.destinationSmartSegmentId && form.destinationFilterHotOnly
+            ? ['hot', 'warm']
+            : undefined,
+        destinationCampaignSelectableOnly: form.destinationCampaignSelectableOnly || undefined,
         mensagemExtra: form.mensagemExtra || undefined,
       }
       if (form.triggerType === 'once_at') {
@@ -352,6 +426,13 @@ export default function PlatformAutomations() {
       messageMode: r.messageMode ?? 'platform_template',
       customMessage: r.customMessage ?? '',
       destinationFilterTags: (r.destinationFilterTags ?? []).join('; '),
+      destinationSmartSegmentId: r.destinationSmartSegmentId ?? '',
+      destinationFilterKinds: (r.destinationFilterKinds ?? []) as ContactKind[],
+      destinationFilterOptInOnly: (r.destinationFilterPermissions ?? []).includes('opt_in_accepted'),
+      destinationFilterHotOnly: (r.destinationFilterTemperatures ?? []).some(t =>
+        ['hot', 'warm'].includes(t),
+      ),
+      destinationCampaignSelectableOnly: r.destinationCampaignSelectableOnly !== false,
       mensagemExtra: r.mensagemExtra ?? '',
     })
     setShowForm(true)
@@ -714,11 +795,135 @@ export default function PlatformAutomations() {
                 )}
                 {contactGroups.length === 0 && (
                   <p className="text-xs text-[var(--rz-text-muted)]">
-                    <Link to="/contact" className="text-brand-400 hover:underline">
-                      Criar segmentos em Contatos
+                    <Link to="/platform/segmentos" className="text-brand-400 hover:underline">
+                      Criar listas e segmentos
                     </Link>
                   </p>
                 )}
+              </div>
+            )}
+
+            {showContactPicker && (
+              <div className="mb-3 rounded-lg border border-[var(--rz-border)] p-3 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-[var(--rz-text-secondary)]">
+                    Classificação (opcional)
+                  </p>
+                  <Link
+                    to="/platform/segmentos?tab=smart"
+                    className="text-[11px] text-brand-400 hover:underline"
+                  >
+                    Ver segmentos dinâmicos
+                  </Link>
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-[var(--rz-text-muted)] block mb-1">
+                    Segmento dinâmico
+                  </label>
+                  <select
+                    value={form.destinationSmartSegmentId}
+                    onChange={e =>
+                      setForm(f => ({
+                        ...f,
+                        destinationSmartSegmentId: e.target.value,
+                        ...(e.target.value
+                          ? {
+                              destinationFilterKinds: [],
+                              destinationFilterOptInOnly: false,
+                              destinationFilterHotOnly: false,
+                            }
+                          : {}),
+                      }))
+                    }
+                    className={inputCls}
+                  >
+                    <option value="">Nenhum — usar filtros abaixo</option>
+                    {smartSegments.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.label} ({s.count})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {!form.destinationSmartSegmentId && (
+                  <>
+                    <div>
+                      <p className="text-[11px] text-[var(--rz-text-muted)] mb-1.5">Tipo de contato</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {KIND_FILTER_OPTIONS.map(kind => {
+                          const on = form.destinationFilterKinds.includes(kind)
+                          return (
+                            <button
+                              key={kind}
+                              type="button"
+                              onClick={() =>
+                                setForm(f => ({
+                                  ...f,
+                                  destinationFilterKinds: on
+                                    ? f.destinationFilterKinds.filter(k => k !== kind)
+                                    : [...f.destinationFilterKinds, kind],
+                                }))
+                              }
+                              className={`px-2 py-1 rounded-md text-xs border transition-colors ${
+                                on
+                                  ? 'border-brand-500 bg-brand-950/40 text-brand-200'
+                                  : 'border-[var(--rz-border)] text-[var(--rz-text-muted)]'
+                              }`}
+                            >
+                              {CONTACT_KIND_LABELS[kind]}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2 text-xs text-[var(--rz-text-muted)]">
+                        <input
+                          type="checkbox"
+                          checked={form.destinationFilterOptInOnly}
+                          onChange={e =>
+                            setForm(f => ({ ...f, destinationFilterOptInOnly: e.target.checked }))
+                          }
+                          className="rounded border-[var(--rz-border)]"
+                        />
+                        Apenas opt-in aceito
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-[var(--rz-text-muted)]">
+                        <input
+                          type="checkbox"
+                          checked={form.destinationFilterHotOnly}
+                          onChange={e =>
+                            setForm(f => ({ ...f, destinationFilterHotOnly: e.target.checked }))
+                          }
+                          className="rounded border-[var(--rz-border)]"
+                        />
+                        Leads quentes ou mornos
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                <label className="flex items-center gap-2 text-xs text-[var(--rz-text-muted)]">
+                  <input
+                    type="checkbox"
+                    checked={form.destinationCampaignSelectableOnly}
+                    onChange={e =>
+                      setForm(f => ({
+                        ...f,
+                        destinationCampaignSelectableOnly: e.target.checked,
+                      }))
+                    }
+                    className="rounded border-[var(--rz-border)]"
+                  />
+                  Excluir bloqueados para campanha (opt-out, duplicado, interno…)
+                </label>
+                <p className="text-[10px] text-[var(--rz-text-muted)] leading-relaxed">
+                  Automações sempre respeitam consentimento LGPD. Com esta opção, contatos não
+                  elegíveis em /send também são ignorados.
+                </p>
               </div>
             )}
 
@@ -991,6 +1196,11 @@ export default function PlatformAutomations() {
                     : ` · ${r.sendTime}`}
                   {r.lastRunDate && ` · enfileirado ${r.lastRunDate.replace(/^rec:|^once:/, '')}`}
                 </p>
+                {describeClassificationAudience(r) && (
+                  <p className="text-[11px] text-brand-400/90 mt-1">
+                    Público: {describeClassificationAudience(r)}
+                  </p>
+                )}
               </div>
               <div className="flex gap-1">
                 <button

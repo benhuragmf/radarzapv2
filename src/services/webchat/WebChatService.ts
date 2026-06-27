@@ -65,6 +65,19 @@ import {
   WEBCHAT_DEESCALATE_REPLY,
 } from './webchat-visitor-intent.util';
 import { linkWebChatVisitorToDestination, ensureDestinationForWebChatVisitor } from './webchat-destination-link.util';
+import {
+  applyContactClassificationPatch,
+  attachClassificationToConversationRows,
+  classifyDestination,
+  loadCampaignClassificationContext,
+} from '../destinations/destination-classification.service';
+import type { IDestination } from '../../models/Destination';
+import type {
+  CommercialStatus,
+  ContactKind,
+  ContactOrigin,
+  ContactTemperature,
+} from '../../types/contact-classification';
 import type { InboxWeeklySchedule } from '../../types/inbox-settings';
 import {
   shouldAutoCloseTriageStalled,
@@ -867,8 +880,12 @@ export class WebChatService {
       mine?: boolean;
       search?: string;
       hasTicket?: boolean;
+      destinationIds?: mongoose.Types.ObjectId[];
     } = {},
   ): Promise<InboxWebChatListRow[]> {
+    if (filters.destinationIds !== undefined && filters.destinationIds.length === 0) {
+      return [];
+    }
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const wcFilter = inboxStatusToWebChatFilter(filters.status);
     const query: Record<string, unknown> = { clientId: clientOid };
@@ -907,6 +924,10 @@ export class WebChatService {
 
     if (filters.hasTicket === true) {
       query.ticketRef = { $exists: true, $nin: [null, ''] };
+    }
+
+    if (filters.destinationIds?.length) {
+      query.destinationId = { $in: filters.destinationIds };
     }
 
     const q = filters.search?.trim();
@@ -1014,13 +1035,14 @@ export class WebChatService {
         pageUrl: r.pageUrl,
         ticketRef: r.ticketRef?.trim() || undefined,
         whatsappBridgeActive: Boolean(r.whatsappBridgeActive),
+        destinationId: r.destinationId ? String(r.destinationId) : undefined,
         priorityForMe: false,
         canAccept: false,
         canPull: false,
       };
     });
 
-    return Promise.all(
+    const enriched = await Promise.all(
       baseRows.map(row =>
         enrichWebChatInboxRow(
           row,
@@ -1033,6 +1055,7 @@ export class WebChatService {
         ),
       ),
     );
+    return attachClassificationToConversationRows(clientId, enriched);
   }
 
   async getDetailForInbox(
@@ -1180,11 +1203,17 @@ export class WebChatService {
 
     const destination = convDoc.destinationId
       ? await Destination.findOne({
-        _id: convDoc.destinationId,
-        clientId: new mongoose.Types.ObjectId(clientId),
-      })
-        .select('name email notes organization identifier contactGroupIds')
-        .lean()
+          _id: convDoc.destinationId,
+          clientId: new mongoose.Types.ObjectId(clientId),
+        })
+          .select(
+            'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type',
+          )
+          .lean()
+      : null;
+
+    const classificationCtx = destination
+      ? await loadCampaignClassificationContext(clientId)
       : null;
 
     const visitorContact = destination
@@ -1209,14 +1238,19 @@ export class WebChatService {
       transfers: [],
       contact: destination
         ? {
-          _id: String(destination._id),
-          name: destination.name,
-          email: destination.email ?? '',
-          notes: destination.notes ?? '',
-          organization: destination.organization ?? '',
-          identifier: destination.identifier,
-          contactGroupIds: (destination.contactGroupIds ?? []).map(String),
-        }
+            _id: String(destination._id),
+            name: destination.name,
+            email: destination.email ?? '',
+            notes: destination.notes ?? '',
+            organization: destination.organization ?? '',
+            identifier: destination.identifier,
+            contactGroupIds: (destination.contactGroupIds ?? []).map(String),
+            tags: destination.tags ?? [],
+            lastMessageSent: destination.lastMessageSent,
+            classification: classificationCtx
+              ? classifyDestination(destination as IDestination, classificationCtx)
+              : undefined,
+          }
         : visitorContact,
       quickReplies: normalizeQuickReplies(inboxSettings.quickReplies),
       inactivitySla: {
@@ -1276,6 +1310,10 @@ export class WebChatService {
       organization?: string;
       notes?: string;
       contactGroupIds?: string[];
+      contactKind?: ContactKind | null;
+      contactOrigin?: ContactOrigin | null;
+      commercialStatus?: CommercialStatus | null;
+      temperature?: ContactTemperature | null;
     },
   ) {
     const conversation = await WebChatConversation.findOne({
@@ -1321,6 +1359,12 @@ export class WebChatService {
           .filter(id => validIds.has(String(id)))
           .map(id => new mongoose.Types.ObjectId(id));
       }
+      applyContactClassificationPatch(dest, {
+        contactKind: data.contactKind,
+        contactOrigin: data.contactOrigin,
+        commercialStatus: data.commercialStatus,
+        temperature: data.temperature,
+      });
       await dest.save();
     } else if (phoneInput) {
       const ensured = await ensureDestinationForWebChatVisitor(clientId, phoneInput, name, {
@@ -1350,6 +1394,12 @@ export class WebChatService {
             .filter(id => validIds.has(String(id)))
             .map(id => new mongoose.Types.ObjectId(id));
         }
+        applyContactClassificationPatch(dest, {
+          contactKind: data.contactKind,
+          contactOrigin: data.contactOrigin,
+          commercialStatus: data.commercialStatus,
+          temperature: data.temperature,
+        });
         await dest.save();
       }
     }
@@ -1358,9 +1408,12 @@ export class WebChatService {
 
     if (destinationId) {
       const dest = await Destination.findById(destinationId)
-        .select('name email notes organization identifier contactGroupIds')
+        .select(
+          'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type',
+        )
         .lean();
       if (dest) {
+        const classificationCtx = await loadCampaignClassificationContext(clientId);
         return {
           contact: {
             _id: String(dest._id),
@@ -1370,6 +1423,9 @@ export class WebChatService {
             organization: dest.organization ?? '',
             identifier: dest.identifier,
             contactGroupIds: (dest.contactGroupIds ?? []).map(String),
+            tags: dest.tags ?? [],
+            lastMessageSent: dest.lastMessageSent,
+            classification: classifyDestination(dest as IDestination, classificationCtx),
           },
         };
       }

@@ -159,6 +159,14 @@ export async function ensureDestinationForWebChatVisitor(
     'manual',
     '127.0.0.1',
   );
+  const { setContactClassificationFields } = await import(
+    '@/services/destinations/destination-classification.service'
+  );
+  setContactClassificationFields(
+    dest,
+    { contactKind: 'lead', contactOrigin: 'webchat', commercialStatus: 'new' },
+    { onlyIfEmpty: true },
+  );
   if (opts?.email?.trim()) dest.email = opts.email.trim().toLowerCase();
   if (opts?.organization?.trim()) dest.organization = opts.organization.trim();
   if (opts?.notes?.trim()) dest.notes = opts.notes.trim();

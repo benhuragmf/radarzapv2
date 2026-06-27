@@ -16,6 +16,7 @@ import {
   leadOriginBadgeVariant,
 } from '../../lib/leadUi'
 import { LEAD_CAPTURE_STATUS_VARIANT } from '@radarzap-types/lead-form'
+import { LeadClassificationBadges } from './LeadClassificationBadges'
 
 type Props = {
   items: LeadCaptureListItem[]
@@ -54,6 +55,7 @@ export function LeadCaptureListTable({
             <th className="text-left py-2 px-2 font-medium hidden lg:table-cell">Responsável</th>
             <th className="text-left py-2 px-2 font-medium">Entrada</th>
             <th className="text-left py-2 px-2 font-medium hidden xl:table-cell">Contato</th>
+            <th className="text-left py-2 px-2 font-medium hidden 2xl:table-cell">Classificação</th>
             <th className="text-right py-2 px-2 font-medium">Ação</th>
           </tr>
         </thead>
@@ -102,6 +104,9 @@ export function LeadCaptureListTable({
                   ) : (
                     <span className="text-[var(--rz-text-muted)]">—</span>
                   )}
+                </td>
+                <td className="py-2 px-2 hidden 2xl:table-cell">
+                  <LeadClassificationBadges classification={item.classification} />
                 </td>
                 <td className="py-2 px-2 text-right" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-end gap-1 flex-wrap">

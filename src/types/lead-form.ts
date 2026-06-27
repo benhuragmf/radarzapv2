@@ -234,6 +234,29 @@ export interface LeadDuplicateHint {
   email?: string;
 }
 
+/** Classificação do contato CRM vinculado ao lead (quando há destinationId). */
+export interface LeadContactClassification {
+  kind: string;
+  origin: string;
+  permission: string;
+  commercialStatus: string;
+  temperature: string;
+  phoneQuality?: string;
+  sendBlockReason?: string;
+  campaignSelectable: boolean;
+}
+
+export interface LeadClassificationStats {
+  totalLeads: number;
+  linkedLeads: number;
+  unlinkedLeads: number;
+  withOptIn: number;
+  pendingConsent: number;
+  blockedCampaign: number;
+  hotWarm: number;
+  byKind: Record<string, number>;
+}
+
 export interface LeadCaptureListItem {
   id: string;
   formId: string;
@@ -263,6 +286,7 @@ export interface LeadCaptureListItem {
   possibleDuplicate?: boolean;
   duplicateHints?: LeadDuplicateHint[];
   history?: LeadHistoryEntry[];
+  classification?: LeadContactClassification;
   createdAt: string;
   updatedAt: string;
 }

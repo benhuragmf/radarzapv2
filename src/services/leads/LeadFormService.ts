@@ -5,6 +5,13 @@ import { LeadCapture, ILeadCapture } from '@/models/LeadCapture';
 import { ContactGroup } from '@/models/ContactGroup';
 import { ContactAutoSegmentService } from '@/services/contacts/ContactAutoSegmentService';
 import { ensureDestinationForWebChatVisitor } from '@/services/webchat/webchat-destination-link.util';
+import {
+  classifyDestination,
+  findDestinationIdsMatchingClassification,
+  loadCampaignClassificationContext,
+  syncDestinationClassificationFromLead,
+} from '@/services/destinations/destination-classification.service';
+import type { ContactKind } from '@/types/contact-classification';
 import { normalizeContactPhoneE164 } from '@/utils/contact-csv-import';
 import { createServiceLogger } from '@/utils/logger';
 import type {
@@ -21,6 +28,7 @@ import type {
   LeadFormRouting,
   LeadSegmentSummary,
   LeadStats,
+  LeadClassificationStats,
   LeadUtm,
 } from '@/types/lead-form';
 import {
@@ -516,6 +524,10 @@ export class LeadFormService {
         if (dest) {
           await ContactAutoSegmentService.getInstance().tagLeadFromForm(clientId, dest, form.name);
           await this.applyDefaultGroupsAndTags(clientId, dest, routing);
+          await syncDestinationClassificationFromLead(ensured, {
+            origin: leadOrigin,
+            status: routing.initialStatus ?? 'new',
+          }, 'lead');
         }
       }
     }
@@ -603,6 +615,13 @@ export class LeadFormService {
       duplicateHintIds: dup.hints.map(h => `${h.kind}:${h.id}`),
       history: appendLeadHistory(undefined, 'captured', `Capturado via ${LEAD_CAPTURE_ORIGIN_LABEL[leadOrigin]}`),
     });
+
+    if (destinationId) {
+      await syncDestinationClassificationFromLead(destinationId, {
+        origin: leadOrigin,
+        status: capture.status,
+      }, capture.status === 'converted' ? 'converted' : 'lead');
+    }
 
     logger.info('Lead capturado via formulário público', {
       clientId,
@@ -767,6 +786,69 @@ export class LeadFormService {
     return summaries.sort((a, b) => b.leadCount - a.leadCount);
   }
 
+  async getLeadClassificationStats(clientId: string): Promise<LeadClassificationStats> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const [totalLeads, linked] = await Promise.all([
+      LeadCapture.countDocuments({ clientId: clientOid }),
+      LeadCapture.find({
+        clientId: clientOid,
+        destinationId: { $exists: true, $ne: null },
+      })
+        .select('destinationId')
+        .lean(),
+    ]);
+
+    const byKind: Record<string, number> = {
+      lead: 0,
+      client: 0,
+      prospect: 0,
+      partner: 0,
+      internal: 0,
+      blocked: 0,
+    };
+    let withOptIn = 0;
+    let pendingConsent = 0;
+    let blockedCampaign = 0;
+    let hotWarm = 0;
+
+    if (linked.length > 0) {
+      const destIds = [...new Set(linked.map(l => String(l.destinationId)))];
+      const { Destination } = await import('@/models/Destination');
+      const destinations = await Destination.find({
+        _id: { $in: destIds },
+        clientId: clientOid,
+        type: 'contact',
+      })
+        .select('-profilePictureData')
+        .lean();
+      const ctx = await loadCampaignClassificationContext(clientId);
+      const classByDest = new Map(
+        destinations.map(d => [String(d._id), classifyDestination(d, ctx)]),
+      );
+
+      for (const row of linked) {
+        const c = classByDest.get(String(row.destinationId));
+        if (!c) continue;
+        byKind[c.kind] = (byKind[c.kind] ?? 0) + 1;
+        if (c.permission === 'opt_in_accepted') withOptIn += 1;
+        if (c.permission === 'pending') pendingConsent += 1;
+        if (!c.campaignSelectable) blockedCampaign += 1;
+        if (c.temperature === 'hot' || c.temperature === 'warm') hotWarm += 1;
+      }
+    }
+
+    return {
+      totalLeads,
+      linkedLeads: linked.length,
+      unlinkedLeads: Math.max(0, totalLeads - linked.length),
+      withOptIn,
+      pendingConsent,
+      blockedCampaign,
+      hotWarm,
+      byKind,
+    };
+  }
+
   async listCaptures(
     clientId: string,
     opts: {
@@ -784,12 +866,41 @@ export class LeadFormService {
       hasValidEmail?: boolean;
       assigneeId?: string;
       unassigned?: boolean;
+      classificationKind?: ContactKind;
+      classificationOptInOnly?: boolean;
+      classificationPendingOnly?: boolean;
+      classificationHotOnly?: boolean;
+      classificationBlockedOnly?: boolean;
+      unlinkedOnly?: boolean;
       page?: number;
       limit?: number;
     },
   ): Promise<{ items: LeadCaptureListItem[]; total: number }> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const filter: Record<string, unknown> = { clientId: clientOid };
+
+    if (opts.unlinkedOnly) {
+      filter.destinationId = { $exists: false };
+    } else if (
+      opts.classificationKind ||
+      opts.classificationOptInOnly ||
+      opts.classificationPendingOnly ||
+      opts.classificationHotOnly ||
+      opts.classificationBlockedOnly
+    ) {
+      const destIds = await findDestinationIdsMatchingClassification(clientId, {
+        kinds: opts.classificationKind ? [opts.classificationKind] : undefined,
+        permission: opts.classificationOptInOnly
+          ? 'opt_in_accepted'
+          : opts.classificationPendingOnly
+            ? 'pending'
+            : undefined,
+        temperatures: opts.classificationHotOnly ? ['hot', 'warm'] : undefined,
+        campaignBlockedOnly: opts.classificationBlockedOnly ? true : undefined,
+      });
+      if (!destIds.length) return { items: [], total: 0 };
+      filter.destinationId = { $in: destIds };
+    }
 
     if (opts.unassigned) {
       filter.assignedUserId = { $exists: false };
@@ -860,6 +971,8 @@ export class LeadFormService {
       if (uid && userNames.has(uid)) items[i].assignedUserName = userNames.get(uid);
     }
 
+    await this.enrichListItemsWithClassification(clientId, items, captures);
+
     return { items, total };
   }
 
@@ -880,6 +993,7 @@ export class LeadFormService {
       const names = await this.resolveUserNames([String(capture.assignedUserId)]);
       item.assignedUserName = names.get(String(capture.assignedUserId));
     }
+    await this.enrichListItemsWithClassification(clientId, [item], [capture]);
     return item;
   }
 
@@ -1451,6 +1565,12 @@ export class LeadFormService {
     capture.destinationId = destinationId;
     capture.status = 'converted';
 
+    await syncDestinationClassificationFromLead(destinationId, {
+      origin: capture.origin,
+      status: 'converted',
+      temperature: capture.temperature,
+    }, 'converted');
+
     if (opts.contactGroupIds?.length) {
       const dest = await Destination.findById(destinationId);
       if (dest) {
@@ -1771,6 +1891,36 @@ export class LeadFormService {
       }
     }
     return hints;
+  }
+
+  private async enrichListItemsWithClassification(
+    clientId: string,
+    items: LeadCaptureListItem[],
+    captures: ILeadCapture[],
+  ): Promise<void> {
+    const destIds = captures
+      .map(c => (c.destinationId ? String(c.destinationId) : ''))
+      .filter(Boolean);
+    if (!destIds.length) return;
+
+    const { Destination } = await import('@/models/Destination');
+    const destinations = await Destination.find({
+      _id: { $in: destIds },
+      clientId: new mongoose.Types.ObjectId(clientId),
+      type: 'contact',
+    })
+      .select('-profilePictureData')
+      .lean();
+    const destMap = new Map(destinations.map(d => [String(d._id), d]));
+    const ctx = await loadCampaignClassificationContext(clientId);
+
+    for (let i = 0; i < items.length; i++) {
+      const destId = captures[i].destinationId ? String(captures[i].destinationId) : undefined;
+      if (!destId) continue;
+      const dest = destMap.get(destId);
+      if (!dest) continue;
+      items[i].classification = classifyDestination(dest, ctx);
+    }
   }
 
   private async toListItem(

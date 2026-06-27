@@ -1,4 +1,5 @@
 import type { AgentOperationalStatus } from './agent-presence';
+import type { ContactClassification } from './contact-classification';
 
 export type SupervisorAgentActivity =
   | 'offline'
@@ -31,6 +32,8 @@ export type SupervisorActiveConversation = {
   supervisorHelpAt?: string;
   supervisorHelpPreview?: string;
   supervisorHelpAuthor?: string;
+  /** Classificação CRM do contato vinculado (quando há `destinationId`). */
+  contactClassification?: ContactClassification;
 };
 
 export type SupervisorAgentRow = {

@@ -19,6 +19,7 @@ import {
   priorityLabel,
 } from '../../lib/leadUi'
 import { LEAD_TEMPERATURE_VARIANT } from '@radarzap-types/lead-form'
+import { LeadClassificationBadges } from './LeadClassificationBadges'
 
 type Props = {
   items: LeadCaptureListItem[]
@@ -148,6 +149,7 @@ export function LeadKanbanBoard({
                             <Badge label="Chat site" variant="blue" />
                           )}
                           {item.possibleDuplicate && <Badge label="Dup." variant="yellow" />}
+                          <LeadClassificationBadges classification={item.classification} />
                         </div>
                       </button>
                       {showActions && (

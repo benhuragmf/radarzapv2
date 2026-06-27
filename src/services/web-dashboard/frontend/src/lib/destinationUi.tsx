@@ -19,7 +19,9 @@ import {
 } from './consentUi'
 import { formatContactIdentifier } from './destinationFormat'
 import { ContactAvatar } from '../components/contacts/ContactAvatar'
+import { ContactClassificationBadges } from '../components/contacts/ContactClassificationBadges'
 import { ContactExtraMeta } from './contactMetaUi'
+import type { ContactClassificationView } from './contactClassificationUi'
 
 export interface Destination {
   _id: string
@@ -41,6 +43,11 @@ export interface Destination {
   phoneType?: string
   hasProfilePicture?: boolean
   profilePictureUpdatedAt?: string
+  classification?: ContactClassificationView
+  contactKind?: string
+  contactOrigin?: string
+  commercialStatus?: string
+  temperature?: string
 }
 
 export { inputCls, selectCls, textareaCls } from '@/design-system/formClasses'
@@ -210,6 +217,9 @@ export function DestinationRow({
             <p className="text-xs text-[var(--rz-text-muted)] font-mono mt-0.5 truncate">
               {d.type === 'contact' ? formatContactIdentifier(d.identifier, d.name) : d.identifier}
             </p>
+            {d.type === 'contact' && d.classification && (
+              <ContactClassificationBadges classification={d.classification} compact />
+            )}
             {d.type === 'contact' && (
               <ContactExtraMeta
                 c={{
