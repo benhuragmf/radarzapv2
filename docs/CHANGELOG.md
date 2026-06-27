@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.9] — 2026-06-27
+
+### Conta — remover e-mail ao desvincular Google
+
+- Desvincular Google também limpa o e-mail da conta e da equipe.
+- `DELETE /auth/account/email` e botão **Remover e-mail** quando Google já foi desvinculado.
+- Fix UI: e-mail não aparece mais como “vinculado” ao Google sem OAuth ativo.
+
+---
+
 ## [2.12.8] — 2026-06-27
 
 ### Conta — desvincular Google

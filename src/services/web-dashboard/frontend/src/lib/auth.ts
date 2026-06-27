@@ -92,6 +92,18 @@ export async function unlinkGoogleAccount(): Promise<AuthUser> {
   return res.json()
 }
 
+export async function removeAccountEmail(): Promise<AuthUser> {
+  const res = await fetch('/auth/account/email', {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as { error?: string }).error ?? 'Falha ao remover e-mail')
+  }
+  return res.json()
+}
+
 export function linkDiscordAccount() {
   window.location.href = '/auth/discord/link'
 }

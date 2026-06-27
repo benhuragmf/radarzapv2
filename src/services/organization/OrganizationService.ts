@@ -851,28 +851,52 @@ export class OrganizationService {
     return user;
   }
 
-  async unlinkGoogleFromUser(userId: string): Promise<IUser> {
-    const user = await User.findById(userId);
-    if (!user) throw new Error('Usuário não encontrado');
-    if (!user.googleId) throw new Error('Conta Google não está vinculada');
-    if (!user.discordUserId) {
-      throw new Error(
-        'Vincule o Discord antes de remover o Google — você precisa de ao menos um jeito de entrar no painel',
-      );
-    }
-
+  private async clearAccountEmailForUser(user: IUser): Promise<void> {
     const email = user.email?.trim().toLowerCase();
-    await User.updateOne(
-      { _id: userId },
-      { $unset: { googleId: '' }, $pull: { authProviders: 'google' } },
-    );
+    await User.updateOne({ _id: user._id }, { $unset: { email: '' } });
 
     if (email) {
       await CompanyMember.updateMany(
         { userId: user._id, email, isActive: true },
-        { $unset: { emailVerifiedAt: '' } },
+        { $unset: { email: '', emailVerifiedAt: '' } },
       );
     }
+  }
+
+  private assertAlternateLoginMethod(user: IUser): void {
+    if (!user.discordUserId) {
+      throw new Error(
+        'Vincule o Discord antes de remover o Google ou o e-mail — você precisa de ao menos um jeito de entrar no painel',
+      );
+    }
+  }
+
+  async removeAccountEmail(userId: string): Promise<IUser> {
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+    if (!user.email) throw new Error('Nenhum e-mail cadastrado na conta');
+    this.assertAlternateLoginMethod(user);
+
+    await this.clearAccountEmailForUser(user);
+
+    const updated = await User.findById(userId);
+    if (!updated) throw new Error('Usuário não encontrado');
+
+    logger.info('E-mail removido da conta', { userId });
+    return updated;
+  }
+
+  async unlinkGoogleFromUser(userId: string): Promise<IUser> {
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+    if (!user.googleId) throw new Error('Conta Google não está vinculada');
+    this.assertAlternateLoginMethod(user);
+
+    await User.updateOne(
+      { _id: userId },
+      { $unset: { googleId: '' }, $pull: { authProviders: 'google' } },
+    );
+    await this.clearAccountEmailForUser(user);
 
     const updated = await User.findById(userId);
     if (!updated) throw new Error('Usuário não encontrado');

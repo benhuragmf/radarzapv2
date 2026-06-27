@@ -3,7 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle2, Mail } from 'lucide-react'
 import type { AuthUser } from '../../lib/auth'
-import { getMe, linkDiscordAccount, linkGoogleAccount, unlinkGoogleAccount } from '../../lib/auth'
+import {
+  getMe,
+  linkDiscordAccount,
+  linkGoogleAccount,
+  removeAccountEmail,
+  unlinkGoogleAccount,
+} from '../../lib/auth'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { inputCls } from '@/design-system'
@@ -44,7 +50,7 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
   const [manualEmail, setManualEmail] = useState('')
   const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  const google = user.connections?.google ?? { linked: Boolean(user.email), email: user.email }
+  const google = user.connections?.google ?? { linked: false, email: user.email }
   const discord = user.connections?.discord ?? {
     linked: Boolean(user.discordId),
     username: user.discordId ? user.username : null,
@@ -89,16 +95,30 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
     onError: (err: Error) => setBanner({ type: 'err', text: err.message }),
   })
 
+  const refreshAccount = async (updated: AuthUser) => {
+    await qc.invalidateQueries({ queryKey: ['auth-me'] })
+    await qc.invalidateQueries({ queryKey: ['member-profile'] })
+    await qc.invalidateQueries({ queryKey: ['team-members'] })
+    if (onUserUpdate) onUserUpdate(updated)
+  }
+
   const unlinkGoogle = useMutation({
     mutationFn: unlinkGoogleAccount,
     onSuccess: async updated => {
       setBanner({
         type: 'ok',
-        text: 'Google desvinculado. Você ainda pode entrar com Discord.',
+        text: 'Google e e-mail removidos da conta. Você ainda pode entrar com Discord.',
       })
-      await qc.invalidateQueries({ queryKey: ['auth-me'] })
-      await qc.invalidateQueries({ queryKey: ['member-profile'] })
-      if (onUserUpdate) onUserUpdate(updated)
+      await refreshAccount(updated)
+    },
+    onError: (err: Error) => setBanner({ type: 'err', text: err.message }),
+  })
+
+  const removeEmail = useMutation({
+    mutationFn: removeAccountEmail,
+    onSuccess: async updated => {
+      setBanner({ type: 'ok', text: 'E-mail removido da conta.' })
+      await refreshAccount(updated)
     },
     onError: (err: Error) => setBanner({ type: 'err', text: err.message }),
   })
@@ -106,7 +126,7 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
   const handleUnlinkGoogle = () => {
     if (
       !window.confirm(
-        'Remover o vínculo com Google? Você continuará entrando com Discord. O e-mail cadastrado permanece na conta.',
+        'Remover o vínculo com Google e o e-mail desta conta? Você continuará entrando com Discord.',
       )
     ) {
       return
@@ -114,7 +134,19 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
     unlinkGoogle.mutate()
   }
 
+  const handleRemoveEmail = () => {
+    if (
+      !window.confirm(
+        'Remover o e-mail cadastrado? Você continuará entrando com Discord.',
+      )
+    ) {
+      return
+    }
+    removeEmail.mutate()
+  }
+
   const canUnlinkGoogle = google.linked && discord.linked
+  const canRemoveEmail = Boolean(user.email) && !google.linked && discord.linked
 
   return (
     <div className="space-y-4">
@@ -147,9 +179,9 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
                 <p className="text-xs text-brand-400 flex items-center gap-1 truncate">
                   <CheckCircle2 size={12} /> Vinculado · {google.email}
                 </p>
-              ) : user.email ? (
-                <p className="text-xs text-amber-400/90 truncate">
-                  E-mail cadastrado · {user.email} — vincule Google para entrar com Gmail
+              ) : google.linked ? (
+                <p className="text-xs text-brand-400 flex items-center gap-1 truncate">
+                  <CheckCircle2 size={12} /> Vinculado
                 </p>
               ) : (
                 <p className="text-xs text-[var(--rz-text-muted)]">Não vinculado</p>
@@ -205,24 +237,48 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
       </div>
 
       {!google.linked && (
-        <div className="pt-2 border-t border-[var(--rz-border)]">
-          <p className="text-xs text-[var(--rz-text-muted)] mb-2">
-            Ou informe seu e-mail manualmente (recomendado vincular pelo Google acima):
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="email"
-              value={manualEmail}
-              onChange={e => setManualEmail(e.target.value)}
-              placeholder="seu@gmail.com"
-              className={inputCls}
-            />
-            <Button
-              disabled={!manualEmail.trim() || saveManualEmail.isPending}
-              onClick={() => saveManualEmail.mutate()}
-            >
-              {saveManualEmail.isPending ? <Spinner size={12} /> : <Mail size={12} />} Salvar e-mail
-            </Button>
+        <div className="pt-2 border-t border-[var(--rz-border)] space-y-3">
+          {user.email ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/60">
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--rz-text-muted)]">E-mail cadastrado</p>
+                <p className="text-sm text-[var(--rz-text-primary)] truncate">{user.email}</p>
+              </div>
+              {canRemoveEmail && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={removeEmail.isPending}
+                  onClick={handleRemoveEmail}
+                >
+                  {removeEmail.isPending ? <Spinner size={12} /> : null}
+                  Remover e-mail
+                </Button>
+              )}
+            </div>
+          ) : null}
+          <div>
+            <p className="text-xs text-[var(--rz-text-muted)] mb-2">
+              {user.email
+                ? 'Trocar e-mail manualmente (ou vincule pelo Google acima):'
+                : 'Informe seu e-mail manualmente (recomendado vincular pelo Google acima):'}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="email"
+                value={manualEmail}
+                onChange={e => setManualEmail(e.target.value)}
+                placeholder="seu@gmail.com"
+                className={inputCls}
+              />
+              <Button
+                disabled={!manualEmail.trim() || saveManualEmail.isPending}
+                onClick={() => saveManualEmail.mutate()}
+              >
+                {saveManualEmail.isPending ? <Spinner size={12} /> : <Mail size={12} />} Salvar e-mail
+              </Button>
+            </div>
           </div>
         </div>
       )}
