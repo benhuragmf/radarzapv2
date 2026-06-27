@@ -6,6 +6,14 @@ set -euo pipefail
 IMAGE="${1:?informe a imagem (ex.: ghcr.io/owner/radarzap:sha)}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 
+# Carrega secrets do .env no servidor (não sobrescrever com env vazio do SSH)
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 export RADARZAP_IMAGE="$IMAGE"
 COMPOSE="${DOCKER_CMD:-docker} compose"
 ENV_PREFIX="RADARZAP_IMAGE=$RADARZAP_IMAGE"
