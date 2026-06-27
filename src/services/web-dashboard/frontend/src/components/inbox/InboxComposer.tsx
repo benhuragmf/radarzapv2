@@ -23,10 +23,14 @@ interface Props {
   inactivityWarningQuickCode?: string
   /** Código da pergunta final (ex.: mais). */
   gracefulCloseQuickCode?: string
-  /** Código da resposta rápida de encerramento (ex.: enc). */
+  /** Código da resposta rápida de encerramento por inatividade (ex.: enc). */
   inactivityCloseQuickCode?: string
-  /** Libera o chip/menu do atalho de encerramento. */
+  /** Código do encerramento natural cordial (ex.: enc_ok). */
+  inactivityCloseGracefulQuickCode?: string
+  /** Libera o chip/menu do atalho /enc (inatividade). */
   inactivityCloseAllowed?: boolean
+  /** Libera o chip/menu do atalho /enc_ok (encerramento natural). */
+  encOkCloseAllowed?: boolean
   /** Dono desligou o bloqueio do atalho de encerramento. */
   closeQuickReplyGateEnabled?: boolean
   onImageAttach?: (file: File) => void
@@ -47,7 +51,9 @@ export function InboxComposer({
   inactivityWarningQuickCode = 'aus',
   gracefulCloseQuickCode = 'mais',
   inactivityCloseQuickCode = 'enc',
+  inactivityCloseGracefulQuickCode = 'enc_ok',
   inactivityCloseAllowed = true,
+  encOkCloseAllowed = true,
   closeQuickReplyGateEnabled = true,
   onImageAttach,
   imageAttachDisabled,
@@ -60,17 +66,31 @@ export function InboxComposer({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const closeCode = inactivityCloseQuickCode.toLowerCase()
+  const encOkCode = inactivityCloseGracefulQuickCode.toLowerCase()
   const warnCode = inactivityWarningQuickCode.toLowerCase()
   const maisCode = gracefulCloseQuickCode.toLowerCase()
 
-  const isCloseQuickReply = (code: string) => code.toLowerCase() === closeCode
-  const isQuickReplyDisabled = (code: string) =>
-    sendDisabled || (isCloseQuickReply(code) && closeQuickReplyGateEnabled && !inactivityCloseAllowed)
+  const isInactivityCloseQuickReply = (code: string) => code.toLowerCase() === closeCode
+  const isEncOkCloseQuickReply = (code: string) => code.toLowerCase() === encOkCode
 
-  const closeDisabledTitle =
-    !closeQuickReplyGateEnabled || inactivityCloseAllowed
-      ? undefined
-      : `Use /${warnCode} (inatividade) ou /${maisCode} (pergunta final) e aguarde o tempo do SLA antes de /${closeCode}`
+  const isQuickReplyDisabled = (code: string) => {
+    if (sendDisabled) return true
+    if (!closeQuickReplyGateEnabled) return false
+    if (isInactivityCloseQuickReply(code)) return !inactivityCloseAllowed
+    if (isEncOkCloseQuickReply(code)) return !encOkCloseAllowed
+    return false
+  }
+
+  const closeDisabledTitle = (code: string) => {
+    if (!closeQuickReplyGateEnabled) return undefined
+    if (isInactivityCloseQuickReply(code) && !inactivityCloseAllowed) {
+      return `Use /${warnCode} (inatividade) e aguarde o tempo do SLA antes de /${closeCode}`
+    }
+    if (isEncOkCloseQuickReply(code) && !encOkCloseAllowed) {
+      return `Use /${maisCode} (pergunta final) e aguarde resposta do cliente ou o tempo do SLA antes de /${encOkCode}`
+    }
+    return undefined
+  }
 
   const slashMatches = useMemo(() => {
     const m = value.match(/^\/(\w*)$/i)
@@ -103,15 +123,22 @@ export function InboxComposer({
   }
 
   const isInternal = composeMode === 'internal'
+  const typedQuickCode = value.trim().match(/^\/(\w+)/)?.[1]?.toLowerCase()
   const closeReplyBlocked =
     !isInternal &&
     closeQuickReplyGateEnabled &&
-    value.trim().match(/^\/(\w+)/)?.[1]?.toLowerCase() === closeCode &&
+    typedQuickCode === closeCode &&
     !inactivityCloseAllowed
+  const encOkReplyBlocked =
+    !isInternal &&
+    closeQuickReplyGateEnabled &&
+    typedQuickCode === encOkCode &&
+    !encOkCloseAllowed
   const canSubmit =
     Boolean(value.trim()) &&
     !sending &&
     !closeReplyBlocked &&
+    !encOkReplyBlocked &&
     (isInternal ? !internalChatDisabled : !sendDisabled)
 
   return (
@@ -162,7 +189,7 @@ export function InboxComposer({
               key={q.code}
               type="button"
               disabled={isQuickReplyDisabled(q.code)}
-              title={isCloseQuickReply(q.code) ? closeDisabledTitle : undefined}
+              title={closeDisabledTitle(q.code) ?? undefined}
               onClick={() => applySlash(q.code)}
               className="w-full text-left px-3 py-2 hover:bg-[var(--rz-surface-muted)] border-b border-[var(--rz-border)]/50 last:border-0 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -250,11 +277,8 @@ export function InboxComposer({
               onClick={() => applySlash(q.code)}
               className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)] hover:text-brand-400 border border-[var(--rz-border)] disabled:opacity-40 disabled:cursor-not-allowed"
               title={
-                isCloseQuickReply(q.code) && !inactivityCloseAllowed
-                  ? closeDisabledTitle
-                  : q.label
-                    ? `${q.label} — ${q.template}`
-                    : q.template
+                closeDisabledTitle(q.code) ??
+                (q.label ? `${q.label} — ${q.template}` : q.template)
               }
             >
               /{q.code}

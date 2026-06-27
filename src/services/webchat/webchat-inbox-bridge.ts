@@ -34,6 +34,7 @@ export type InboxWebChatListRow = {
   triageUrgency?: number;
   triageInactivityTotalMin?: number;
   encQuickReplyAllowed?: boolean;
+  encOkQuickReplyAllowed?: boolean;
   inactivityWarnedAt?: string;
   gracefulClosePromptAt?: string;
   gracefulCloseAckAt?: string;

@@ -42,6 +42,7 @@ import {
   resolveInactivityCloseGracefulQuickCode,
   isInactivityWarningQuickCode,
   isInactivityCloseQuickCode,
+  isInactivityCloseGracefulQuickCode,
   isGracefulCloseQuickCode,
   inactivityCloseAfterWarningMinutes,
 } from '@/types/inbox-quick-replies';
@@ -118,7 +119,8 @@ import {
   shouldSendTriageInactivityWarning,
   shouldSendTriageStallWarning,
   isInactivityCloseQuickReplyAllowed,
-  isCloseQuickReplyAllowed,
+  isEncInactivityCloseQuickReplyAllowed,
+  isEncOkCloseQuickReplyAllowed,
   isGracefulCloseQuickReplyAllowed,
   triageInactivityTotalMinutes,
   triageWaitElapsedSec,
@@ -805,7 +807,7 @@ export class InboxService {
 
     const encQuickReplyAllowed =
       status === InboxConversationStatus.IN_PROGRESS && inactivitySla
-        ? isCloseQuickReplyAllowed(
+        ? isEncInactivityCloseQuickReplyAllowed(
             {
               lastInboundAt: row.lastInboundAt as Date | undefined,
               lastOutboundAt: row.lastOutboundAt as Date | undefined,
@@ -819,10 +821,25 @@ export class InboxService {
                 inactivitySla.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
               inactivityWarningMinutes:
                 inactivitySla.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+            },
+          )
+        : false;
+
+    const encOkQuickReplyAllowed =
+      status === InboxConversationStatus.IN_PROGRESS && inactivitySla
+        ? isEncOkCloseQuickReplyAllowed(
+            {
+              lastInboundAt: row.lastInboundAt as Date | undefined,
+              lastOutboundAt: row.lastOutboundAt as Date | undefined,
+              inactivityWarnedAt: row.inactivityWarnedAt as Date | undefined,
+              gracefulClosePromptAt: row.gracefulClosePromptAt as Date | undefined,
+              gracefulCloseAckAt: row.gracefulCloseAckAt as Date | undefined,
+              closeGateSource: row.closeGateSource as 'inactivity' | 'graceful' | undefined,
+            },
+            {
               gracefulCloseAfterPromptMinutes:
                 inactivitySla.gracefulCloseAfterPromptMinutes ??
                 DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
-              closeQuickReplyGateEnabled: inactivitySla.closeQuickReplyGateEnabled,
             },
           )
         : false;
@@ -846,6 +863,7 @@ export class InboxService {
       triageUrgency,
       triageInactivityTotalMin,
       encQuickReplyAllowed,
+      encOkQuickReplyAllowed,
       inactivityWarnedAt: row.inactivityWarnedAt
         ? new Date(row.inactivityWarnedAt as Date | string).toISOString()
         : undefined,
@@ -4906,10 +4924,11 @@ export class InboxService {
     const warnCode = resolveInactivityWarningQuickCode(settings);
     const closeCode = resolveInactivityCloseQuickCode(settings);
     const maisCode = resolveGracefulCloseQuickCode(settings);
+    const encOkCode = resolveInactivityCloseGracefulQuickCode(settings);
 
     if (isInactivityCloseQuickCode(quickCode, settings)) {
       const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
-      const encAllowed = isCloseQuickReplyAllowed(
+      const encAllowed = isEncInactivityCloseQuickReplyAllowed(
         {
           lastInboundAt: conv.lastInboundAt,
           lastOutboundAt: conv.lastOutboundAt,
@@ -4923,10 +4942,6 @@ export class InboxService {
             settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           inactivityWarningMinutes:
             settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
-          gracefulCloseAfterPromptMinutes:
-            settings.gracefulCloseAfterPromptMinutes ??
-            DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
-          closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
         },
       );
       if (gateEnabled && !encAllowed) {
@@ -4934,11 +4949,35 @@ export class InboxService {
           settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
         );
+        throw new Error(
+          `O atalho /${closeCode} só libera após enviar /${warnCode} e aguardar ${afterAus} min.`,
+        );
+      }
+    }
+
+    if (isInactivityCloseGracefulQuickCode(quickCode, settings)) {
+      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const encOkAllowed = isEncOkCloseQuickReplyAllowed(
+        {
+          lastInboundAt: conv.lastInboundAt,
+          lastOutboundAt: conv.lastOutboundAt,
+          inactivityWarnedAt: conv.inactivityWarnedAt,
+          gracefulClosePromptAt: conv.gracefulClosePromptAt,
+          gracefulCloseAckAt: conv.gracefulCloseAckAt,
+          closeGateSource: conv.closeGateSource,
+        },
+        {
+          gracefulCloseAfterPromptMinutes:
+            settings.gracefulCloseAfterPromptMinutes ??
+            DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+        },
+      );
+      if (gateEnabled && !encOkAllowed) {
         const afterMais =
           settings.gracefulCloseAfterPromptMinutes ??
           DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes;
         throw new Error(
-          `O atalho /${closeCode} só libera após enviar /${warnCode} (${afterAus} min) ou /${maisCode} (${afterMais} min ou resposta do cliente).`,
+          `O atalho /${encOkCode} só libera após enviar /${maisCode} (${afterMais} min ou resposta do cliente).`,
         );
       }
     }
@@ -4978,12 +5017,15 @@ export class InboxService {
     });
     conv.lastMessageAt = new Date();
     conv.lastOutboundAt = new Date();
-    applyOutboundCloseGate(conv, quickCode, settings, warnCode, closeCode, maisCode);
+    applyOutboundCloseGate(conv, quickCode, settings, warnCode, closeCode, maisCode, encOkCode);
     await conv.save();
     this.notifyMessage(clientId, String(conv._id));
     this.notifyConversation(clientId, conv);
 
-    if (isInactivityCloseQuickCode(quickCode, settings)) {
+    if (
+      isInactivityCloseQuickCode(quickCode, settings) ||
+      isInactivityCloseGracefulQuickCode(quickCode, settings)
+    ) {
       await this.closeConversationForInactivity(clientId, conv, {
         byUserId: userId,
         reason: 'agent_enc',

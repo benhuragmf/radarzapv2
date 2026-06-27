@@ -32,7 +32,7 @@ import {
   PanelRight,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
-import { formatQueueTimer, liveQueueState, liveTriageWaitState, liveCloseQuickReplyAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
+import { formatQueueTimer, liveQueueState, liveTriageWaitState, liveInactivityCloseAllowed, liveGracefulCloseAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
@@ -98,6 +98,7 @@ interface Conversation {
   triageUrgency?: number
   triageInactivityTotalMin?: number
   encQuickReplyAllowed?: boolean
+  encOkQuickReplyAllowed?: boolean
   inactivityWarnedAt?: string
   gracefulClosePromptAt?: string
   gracefulCloseAckAt?: string
@@ -749,33 +750,32 @@ export default function Inbox() {
 
   const closeQuickReplyGateEnabled = detail?.inactivitySla?.closeQuickReplyGateEnabled !== false
 
+  const inactivityCloseAfterWarningMinutes =
+    detail?.inactivitySla?.inactivityCloseAfterWarningMinutes ??
+    Math.max(
+      0,
+      (detail?.inactivitySla?.inactivityCloseMinutes ?? 15) -
+        (detail?.inactivitySla?.inactivityWarningMinutes ?? 10),
+    )
+
   const inactivityCloseAllowed =
     !closeQuickReplyGateEnabled ||
-    liveCloseQuickReplyAllowed(
-    {
-      inactivityWarnedAt: conv?.inactivityWarnedAt,
-      gracefulClosePromptAt: conv?.gracefulClosePromptAt,
-      gracefulCloseAckAt: conv?.gracefulCloseAckAt,
-    },
-    {
-      inactivityCloseAfterWarningMinutes:
-        detail?.inactivitySla?.inactivityCloseAfterWarningMinutes ??
-        Math.max(
-          0,
-          (detail?.inactivitySla?.inactivityCloseMinutes ?? 15) -
-            (detail?.inactivitySla?.inactivityWarningMinutes ?? 10),
-        ),
-      gracefulCloseAfterPromptMinutes:
-        detail?.inactivitySla?.gracefulCloseAfterPromptMinutes ?? 2,
-    },
-    tick,
-  )
+    liveInactivityCloseAllowed(conv?.inactivityWarnedAt, inactivityCloseAfterWarningMinutes, tick)
+
+  const encOkCloseAllowed =
+    !closeQuickReplyGateEnabled ||
+    liveGracefulCloseAllowed(
+      conv?.gracefulClosePromptAt,
+      conv?.gracefulCloseAckAt,
+      detail?.inactivitySla?.gracefulCloseAfterPromptMinutes ?? 2,
+      tick,
+    )
 
   const gracefulClosePending =
     closeQuickReplyGateEnabled &&
     Boolean(conv?.gracefulClosePromptAt) &&
     !conv?.gracefulCloseAckAt &&
-    !inactivityCloseAllowed &&
+    !encOkCloseAllowed &&
     conv?.status === 'in_progress'
 
   const convLiveCanPull =
@@ -1515,7 +1515,8 @@ export default function Inbox() {
                   )}
                   {gracefulClosePending && (
                     <p className="text-xs text-[var(--rz-text-muted)]">
-                      Pergunta final enviada — <code>/{detail?.inactivitySla?.inactivityCloseQuickCode ?? 'enc'}</code>{' '}
+                      Pergunta final enviada —{' '}
+                      <code>/{detail?.inactivitySla?.inactivityCloseGracefulQuickCode ?? 'enc_ok'}</code>{' '}
                       libera após resposta do cliente ou{' '}
                       {detail?.inactivitySla?.gracefulCloseAfterPromptMinutes ?? 2} min.
                     </p>
@@ -1526,8 +1527,12 @@ export default function Inbox() {
                     quickReplies={quickReplies}
                     inactivityWarningQuickCode={detail?.inactivitySla?.inactivityWarningQuickCode ?? 'aus'}
                     inactivityCloseQuickCode={detail?.inactivitySla?.inactivityCloseQuickCode ?? 'enc'}
+                    inactivityCloseGracefulQuickCode={
+                      detail?.inactivitySla?.inactivityCloseGracefulQuickCode ?? 'enc_ok'
+                    }
                     gracefulCloseQuickCode={detail?.inactivitySla?.gracefulCloseQuickCode ?? 'mais'}
                     inactivityCloseAllowed={inactivityCloseAllowed}
+                    encOkCloseAllowed={encOkCloseAllowed}
                     closeQuickReplyGateEnabled={closeQuickReplyGateEnabled}
                     sending={composeMode === 'internal' ? saveInternalChat.isPending : sendReply.isPending}
                     sendDisabled={!canReply}

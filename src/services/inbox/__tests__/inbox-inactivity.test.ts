@@ -9,6 +9,8 @@ import {
   shouldSendTriageInactivityWarning,
   isInactivityCloseQuickReplyAllowed,
   isGracefulCloseQuickReplyAllowed,
+  isEncInactivityCloseQuickReplyAllowed,
+  isEncOkCloseQuickReplyAllowed,
   isCloseQuickReplyAllowed,
   triageInactivityTotalMinutes,
   triageWaitElapsedSec,
@@ -135,6 +137,39 @@ describe('inbox-inactivity', () => {
     expect(
       isGracefulCloseQuickReplyAllowed(prompted, { gracefulCloseAfterPromptMinutes: 2 }, t5.getTime()),
     ).toBe(true);
+  });
+
+  it('não libera /enc logo após /mais quando timeout é 0 — exige ack do cliente', () => {
+    const prompted = {
+      lastOutboundAt: t0,
+      lastInboundAt: new Date('2026-06-05T11:55:00Z'),
+      gracefulClosePromptAt: t0,
+    };
+    expect(
+      isGracefulCloseQuickReplyAllowed(prompted, { gracefulCloseAfterPromptMinutes: 0 }, t0.getTime()),
+    ).toBe(false);
+  });
+
+  it('caminhos enc e enc_ok são independentes', () => {
+    const slaInactivity = { inactivityCloseMinutes: 15, inactivityWarningMinutes: 10 };
+    const slaGraceful = { gracefulCloseAfterPromptMinutes: 2 };
+    const t6 = new Date('2026-06-05T12:06:00Z');
+
+    const afterAus = {
+      lastOutboundAt: t0,
+      lastInboundAt: new Date('2026-06-05T11:55:00Z'),
+      inactivityWarnedAt: t0,
+    };
+    expect(isEncInactivityCloseQuickReplyAllowed(afterAus, slaInactivity, t6.getTime())).toBe(true);
+    expect(isEncOkCloseQuickReplyAllowed(afterAus, slaGraceful, t6.getTime())).toBe(false);
+
+    const afterMais = {
+      lastOutboundAt: t0,
+      lastInboundAt: new Date('2026-06-05T11:55:00Z'),
+      gracefulClosePromptAt: t0,
+    };
+    expect(isEncOkCloseQuickReplyAllowed(afterMais, slaGraceful, t5.getTime())).toBe(true);
+    expect(isEncInactivityCloseQuickReplyAllowed(afterMais, slaInactivity, t5.getTime())).toBe(false);
   });
 
   it('libera encerramento imediato quando bloqueio está desligado', () => {

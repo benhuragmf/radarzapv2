@@ -36,7 +36,7 @@ export function liveGracefulCloseAllowed(
     return new Date(gracefulCloseAckAt).getTime() >= new Date(gracefulClosePromptAt).getTime()
   }
   if (!gracefulClosePromptAt) return false
-  if (afterPromptMinutes <= 0) return true
+  if (afterPromptMinutes <= 0) return false
   const elapsedMin = (Date.now() - new Date(gracefulClosePromptAt).getTime()) / 60_000
   return elapsedMin >= afterPromptMinutes
 }

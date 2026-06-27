@@ -84,7 +84,8 @@ import {
   shouldCloseTriageInactivity,
   shouldSendTriageInactivityWarning,
   shouldSendTriageStallWarning,
-  isCloseQuickReplyAllowed,
+  isEncInactivityCloseQuickReplyAllowed,
+  isEncOkCloseQuickReplyAllowed,
   triageInactivityTotalMinutes,
 } from '../inbox/inbox-inactivity';
 import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY } from '../../types/inbox-settings';
@@ -98,6 +99,7 @@ import {
   resolveGracefulCloseQuickCode,
   resolveInactivityCloseGracefulQuickCode,
   isInactivityCloseQuickCode,
+  isInactivityCloseGracefulQuickCode,
   inactivityCloseAfterWarningMinutes,
   type InboxQuickReply,
 } from '../../types/inbox-quick-replies';
@@ -3296,11 +3298,12 @@ export class WebChatService {
     const warnCode = resolveInactivityWarningQuickCode(settings);
     const closeCode = resolveInactivityCloseQuickCode(settings);
     const maisCode = resolveGracefulCloseQuickCode(settings);
+    const encOkCode = resolveInactivityCloseGracefulQuickCode(settings);
 
     const freshBefore = await WebChatConversation.findById(conversation._id);
     if (isInactivityCloseQuickCode(quickCode, settings) && freshBefore) {
       const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
-      const encAllowed = isCloseQuickReplyAllowed(
+      const encAllowed = isEncInactivityCloseQuickReplyAllowed(
         {
           lastInboundAt: freshBefore.lastInboundAt,
           lastOutboundAt: freshBefore.lastOutboundAt,
@@ -3314,10 +3317,6 @@ export class WebChatService {
             settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           inactivityWarningMinutes:
             settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
-          gracefulCloseAfterPromptMinutes:
-            settings.gracefulCloseAfterPromptMinutes ??
-            DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
-          closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
         },
       );
       if (gateEnabled && !encAllowed) {
@@ -3325,11 +3324,35 @@ export class WebChatService {
           settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
         );
+        throw new Error(
+          `O atalho /${closeCode} só libera após enviar /${warnCode} e aguardar ${afterAus} min.`,
+        );
+      }
+    }
+
+    if (isInactivityCloseGracefulQuickCode(quickCode, settings) && freshBefore) {
+      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const encOkAllowed = isEncOkCloseQuickReplyAllowed(
+        {
+          lastInboundAt: freshBefore.lastInboundAt,
+          lastOutboundAt: freshBefore.lastOutboundAt,
+          inactivityWarnedAt: freshBefore.inactivityWarnedAt,
+          gracefulClosePromptAt: freshBefore.gracefulClosePromptAt,
+          gracefulCloseAckAt: freshBefore.gracefulCloseAckAt,
+          closeGateSource: freshBefore.closeGateSource,
+        },
+        {
+          gracefulCloseAfterPromptMinutes:
+            settings.gracefulCloseAfterPromptMinutes ??
+            DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
+        },
+      );
+      if (gateEnabled && !encOkAllowed) {
         const afterMais =
           settings.gracefulCloseAfterPromptMinutes ??
           DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes;
         throw new Error(
-          `O atalho /${closeCode} só libera após enviar /${warnCode} (${afterAus} min) ou /${maisCode} (${afterMais} min ou resposta do cliente).`,
+          `O atalho /${encOkCode} só libera após enviar /${maisCode} (${afterMais} min ou resposta do cliente).`,
         );
       }
     }
@@ -3368,11 +3391,14 @@ export class WebChatService {
 
     const gateDoc = await WebChatConversation.findById(conversation._id);
     if (gateDoc) {
-      applyOutboundCloseGate(gateDoc, quickCode, settings, warnCode, closeCode, maisCode);
+      applyOutboundCloseGate(gateDoc, quickCode, settings, warnCode, closeCode, maisCode, encOkCode);
       await gateDoc.save();
     }
 
-    if (isInactivityCloseQuickCode(quickCode, settings)) {
+    if (
+      isInactivityCloseQuickCode(quickCode, settings) ||
+      isInactivityCloseGracefulQuickCode(quickCode, settings)
+    ) {
       await this.closeConversation(clientId, conversationId, userId, { skipSystemMessage: true });
     }
 

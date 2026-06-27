@@ -67,6 +67,14 @@ export function isInactivityCloseQuickCode(
   return quickCode.toLowerCase() === resolveInactivityCloseQuickCode(settings);
 }
 
+export function isInactivityCloseGracefulQuickCode(
+  quickCode: string | null,
+  settings?: { inactivityCloseGracefulQuickCode?: string | null },
+): boolean {
+  if (!quickCode) return false;
+  return quickCode.toLowerCase() === resolveInactivityCloseGracefulQuickCode(settings);
+}
+
 /** Minutos após o aviso (/aus ou código configurado) para liberar o encerramento manual. */
 export function inactivityCloseAfterWarningMinutes(
   closeMinutes: number,

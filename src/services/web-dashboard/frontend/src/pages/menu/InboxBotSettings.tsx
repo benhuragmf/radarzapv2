@@ -438,13 +438,14 @@ export default function InboxBotSettings() {
               onChange={e => patch('closeQuickReplyGateEnabled', e.target.checked)}
             />
             Bloquear <code>/{form.inactivityCloseQuickCode ?? 'enc'}</code> até enviar{' '}
-            <code>/{form.inactivityWarningQuickCode ?? 'aus'}</code> ou{' '}
+            <code>/{form.inactivityWarningQuickCode ?? 'aus'}</code> (e cumprir o tempo) e{' '}
+            <code>/{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}</code> até enviar{' '}
             <code>/{form.gracefulCloseQuickCode ?? 'mais'}</code> (e cumprir o tempo)
           </label>
           <p className="text-xs text-[var(--rz-text-muted)]">
             {form.closeQuickReplyGateEnabled ?? true
-              ? 'O atendente só usa o encerramento após o aviso de inatividade ou a pergunta final.'
-              : `O atalho /${form.inactivityCloseQuickCode ?? 'enc'} fica sempre disponível no chat — sem esperar /${form.inactivityWarningQuickCode ?? 'aus'} ou /${form.gracefulCloseQuickCode ?? 'mais'}.`}
+              ? 'Dois caminhos independentes: inatividade (/aus → /enc) e encerramento natural (/mais → /enc_ok).'
+              : `Os atalhos /${form.inactivityCloseQuickCode ?? 'enc'} e /${form.inactivityCloseGracefulQuickCode ?? 'enc_ok'} ficam sempre disponíveis — sem esperar /${form.inactivityWarningQuickCode ?? 'aus'} ou /${form.gracefulCloseQuickCode ?? 'mais'}.`}
           </p>
           <p className="text-xs text-[var(--rz-text-muted)]">
             Tempo manual (com bloqueio ativo): após enviar <code>/{form.inactivityWarningQuickCode ?? 'aus'}</code>, aguarde{' '}
@@ -493,8 +494,9 @@ export default function InboxBotSettings() {
           <div className="border-t border-[var(--rz-border)] pt-4 space-y-3">
             <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">Encerramento natural</h3>
             <p className="text-xs text-[var(--rz-text-muted)]">
-              Após resolver a dúvida, o atendente envia a pergunta final. O{' '}
-              <code>/{form.inactivityCloseQuickCode ?? 'enc'}</code> libera quando o cliente responder
+              Após resolver a dúvida, o atendente envia a pergunta final (
+              <code>/{form.gracefulCloseQuickCode ?? 'mais'}</code>). O{' '}
+              <code>/{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}</code> libera quando o cliente responder
               &quot;não/obrigado&quot; ou após o tempo abaixo.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -530,7 +532,7 @@ export default function InboxBotSettings() {
             </div>
             <label className="block space-y-1">
               <span className="text-xs text-[var(--rz-text-muted)]">
-                Minutos após a pergunta final para liberar /{form.inactivityCloseQuickCode ?? 'enc'}
+                Minutos após a pergunta final para liberar /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
               </span>
               <input
                 type="number"

@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.26] — 2026-06-27
+
+### Inbox — atalhos `/enc_ok`, `/mais` e `/enc`
+
+- **Dois caminhos independentes (configuráveis em Bot → SLA):** `/aus` → `/enc` (inatividade) e `/mais` → `/enc_ok` (encerramento natural).
+- **`/enc_ok`:** envia despedida cordial e **encerra** a conversa (WA + WebChat).
+- **`/mais`:** libera só `/enc_ok` — não `/enc` — após resposta do cliente ou tempo configurado.
+- **`/enc_ok`** não apaga mais o estado do gate aberto por `/mais`.
+- Painel: composer bloqueia `/enc` e `/enc_ok` separadamente conforme o caminho cumprido.
+
 ## [2.12.25] — 2026-06-27
 
 ### Deploy — fix build Docker do frontend

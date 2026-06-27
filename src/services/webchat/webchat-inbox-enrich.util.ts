@@ -7,7 +7,8 @@ import type { InboxWebChatListRow } from './webchat-inbox-bridge';
 import { webChatInboxIdToMongo } from './webchat-inbox-bridge';
 import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY } from '../../types/inbox-settings';
 import {
-  isCloseQuickReplyAllowed,
+  isEncInactivityCloseQuickReplyAllowed,
+  isEncOkCloseQuickReplyAllowed,
   triageWaitElapsedSec,
   triageWaitUrgency,
   triageInactivityTotalMinutes,
@@ -93,7 +94,7 @@ export async function enrichWebChatInboxRow(
 
   const encQuickReplyAllowed =
     status === 'in_progress'
-      ? isCloseQuickReplyAllowed(
+      ? isEncInactivityCloseQuickReplyAllowed(
           {
             lastInboundAt: row.lastInboundAt ? new Date(row.lastInboundAt) : undefined,
             lastOutboundAt: row.lastOutboundAt ? new Date(row.lastOutboundAt) : undefined,
@@ -106,7 +107,31 @@ export async function enrichWebChatInboxRow(
               : undefined,
             closeGateSource: row.closeGateSource,
           },
-          sla,
+          {
+            inactivityCloseMinutes: sla.inactivityCloseMinutes,
+            inactivityWarningMinutes: sla.inactivityWarningMinutes,
+          },
+        )
+      : false;
+
+  const encOkQuickReplyAllowed =
+    status === 'in_progress'
+      ? isEncOkCloseQuickReplyAllowed(
+          {
+            lastInboundAt: row.lastInboundAt ? new Date(row.lastInboundAt) : undefined,
+            lastOutboundAt: row.lastOutboundAt ? new Date(row.lastOutboundAt) : undefined,
+            inactivityWarnedAt: row.inactivityWarnedAt ? new Date(row.inactivityWarnedAt) : undefined,
+            gracefulClosePromptAt: row.gracefulClosePromptAt
+              ? new Date(row.gracefulClosePromptAt)
+              : undefined,
+            gracefulCloseAckAt: row.gracefulCloseAckAt
+              ? new Date(row.gracefulCloseAckAt)
+              : undefined,
+            closeGateSource: row.closeGateSource,
+          },
+          {
+            gracefulCloseAfterPromptMinutes: sla.gracefulCloseAfterPromptMinutes,
+          },
         )
       : false;
 
@@ -128,6 +153,7 @@ export async function enrichWebChatInboxRow(
     triageUrgency,
     triageInactivityTotalMin,
     encQuickReplyAllowed,
+    encOkQuickReplyAllowed,
     inactivityWarnedAt: row.inactivityWarnedAt
       ? new Date(row.inactivityWarnedAt).toISOString()
       : undefined,

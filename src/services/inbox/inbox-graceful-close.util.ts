@@ -77,6 +77,7 @@ export function applyOutboundCloseGate(
   warnCode: string,
   closeCode: string,
   maisCode: string,
+  encOkCode: string,
 ): void {
   if (quickCode === warnCode) {
     conv.inactivityWarnedAt = new Date();
@@ -93,6 +94,10 @@ export function applyOutboundCloseGate(
     return;
   }
   if (quickCode === closeCode) return;
+  if (quickCode === encOkCode) {
+    conv.closeGateSource = 'graceful';
+    return;
+  }
   conv.inactivityWarnedAt = undefined;
   conv.gracefulClosePromptAt = undefined;
   conv.gracefulCloseAckAt = undefined;

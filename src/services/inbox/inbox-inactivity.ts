@@ -204,12 +204,33 @@ export function isGracefulCloseQuickReplyAllowed(
   if (!isWaitingForClientReply(conv)) return false;
 
   const afterMin = settings.gracefulCloseAfterPromptMinutes;
-  if (afterMin <= 0) return true;
+  if (afterMin <= 0) return false;
   const elapsed = minutesSinceDate(conv.gracefulClosePromptAt, nowMs);
   return elapsed !== null && elapsed >= afterMin;
 }
 
-/** Libera /enc por inatividade (/aus) ou encerramento natural (/mais). */
+/** Libera /enc (inatividade) — só após /aus + tempo do SLA. */
+export function isEncInactivityCloseQuickReplyAllowed(
+  conv: InactivityConversationTimestamps,
+  settings: {
+    inactivityCloseMinutes: number;
+    inactivityWarningMinutes: number;
+  },
+  nowMs = Date.now(),
+): boolean {
+  return isInactivityCloseQuickReplyAllowed(conv, settings, nowMs);
+}
+
+/** Libera /enc_ok (encerramento natural) — só após /mais + ack ou tempo do SLA. */
+export function isEncOkCloseQuickReplyAllowed(
+  conv: InactivityConversationTimestamps,
+  settings: { gracefulCloseAfterPromptMinutes: number },
+  nowMs = Date.now(),
+): boolean {
+  return isGracefulCloseQuickReplyAllowed(conv, settings, nowMs);
+}
+
+/** @deprecated use isEncInactivityCloseQuickReplyAllowed ou isEncOkCloseQuickReplyAllowed */
 export function isCloseQuickReplyAllowed(
   conv: InactivityConversationTimestamps,
   settings: {
@@ -222,8 +243,8 @@ export function isCloseQuickReplyAllowed(
 ): boolean {
   if (settings.closeQuickReplyGateEnabled === false) return true;
   return (
-    isInactivityCloseQuickReplyAllowed(conv, settings, nowMs) ||
-    isGracefulCloseQuickReplyAllowed(conv, settings, nowMs)
+    isEncInactivityCloseQuickReplyAllowed(conv, settings, nowMs) ||
+    isEncOkCloseQuickReplyAllowed(conv, settings, nowMs)
   );
 }
 

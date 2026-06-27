@@ -63,9 +63,19 @@ describe('inbox-graceful-close', () => {
 
   it('define gate ao enviar /mais', () => {
     const conv: CloseGateTimestamps = {};
-    applyOutboundCloseGate(conv, 'mais', {}, 'aus', 'enc', 'mais');
+    applyOutboundCloseGate(conv, 'mais', {}, 'aus', 'enc', 'mais', 'enc_ok');
     expect(conv.gracefulClosePromptAt).toBeTruthy();
     expect(conv.closeGateSource).toBe('graceful');
     expect(conv.inactivityWarnedAt).toBeUndefined();
+  });
+
+  it('enc_ok marca encerramento cordial sem limpar /mais', () => {
+    const conv: CloseGateTimestamps = {
+      gracefulClosePromptAt: new Date(),
+      closeGateSource: 'graceful',
+    };
+    applyOutboundCloseGate(conv, 'enc_ok', {}, 'aus', 'enc', 'mais', 'enc_ok');
+    expect(conv.closeGateSource).toBe('graceful');
+    expect(conv.gracefulClosePromptAt).toBeTruthy();
   });
 });
