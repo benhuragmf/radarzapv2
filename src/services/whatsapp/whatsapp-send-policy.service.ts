@@ -9,6 +9,17 @@ import {
   type WhatsAppSendPolicySnapshot,
 } from '@/types/whatsapp-send-policy';
 import type { WhatsAppSendKind } from '@/utils/whatsapp-session-rate-limit';
+import {
+  normalizeCampaignDelaysConfig,
+  type CampaignDelaysConfig,
+} from '@/utils/campaign-inter-destination-delay.util';
+
+export async function getCampaignDelaysConfig(): Promise<CampaignDelaysConfig> {
+  const doc = await getOrCreateSystemWhatsAppPolicy();
+  return normalizeCampaignDelaysConfig(
+    doc.campaignDelays as CampaignDelaysConfig | undefined,
+  );
+}
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
@@ -91,6 +102,7 @@ export async function patchSystemWhatsAppPolicy(body: Partial<{
   composingEnabled: boolean;
   defaults: Partial<Record<WhatsAppSendKind, Partial<WhatsAppKindLimitConfig>>>;
   caps: Partial<Record<WhatsAppSendKind, number>>;
+  campaignDelays: Partial<CampaignDelaysConfig>;
 }>): Promise<{ policy: SystemWhatsAppPolicyDoc }> {
   const doc = await getOrCreateSystemWhatsAppPolicy();
   if (typeof body.humanizeEnabled === 'boolean') doc.humanizeEnabled = body.humanizeEnabled;
@@ -107,6 +119,19 @@ export async function patchSystemWhatsAppPolicy(body: Partial<{
         doc.defaults[kind].maxPerMinute = clamp(patch.maxPerMinute, 1, doc.caps[kind]);
       }
     }
+  }
+
+  if (body.campaignDelays) {
+    const current = normalizeCampaignDelaysConfig(
+      doc.campaignDelays as CampaignDelaysConfig | undefined,
+    );
+    doc.campaignDelays = normalizeCampaignDelaysConfig({
+      ...current,
+      ...body.campaignDelays,
+      protectedTiers: body.campaignDelays.protectedTiers ?? current.protectedTiers,
+      riskDelaysSec: body.campaignDelays.riskDelaysSec ?? current.riskDelaysSec,
+    }) as CampaignDelaysConfig;
+    doc.markModified('campaignDelays');
   }
 
   await doc.save();
@@ -153,6 +178,9 @@ export async function getSystemWhatsAppPolicyForAdmin(): Promise<{
       composingEnabled: doc.composingEnabled,
       defaults: doc.defaults,
       caps: doc.caps,
+      campaignDelays: normalizeCampaignDelaysConfig(
+        doc.campaignDelays as CampaignDelaysConfig | undefined,
+      ),
     },
   };
 }

@@ -38,6 +38,10 @@ import {
 } from '../whatsapp/whatsapp-send-policy.service';
 import { StatusDispatchService } from '../send/StatusDispatchService';
 import { CampaignDispatchService, type CampaignPriority } from '../send/CampaignDispatchService';
+import {
+  buildCampaignSendPolicy,
+  clampCampaignDelayMs,
+} from '../send/campaign-send-policy.service';
 import { StatusPost } from '../../models/StatusPost';
 import { parseAndValidateStatusImage } from '../../utils/safe-image-upload';
 import { ConsentService } from '../consent/ConsentService';
@@ -5208,6 +5212,15 @@ export class DashboardService {
       }
     });
 
+    r.get('/campaigns/send-policy', requireCapability(Cap.SEND_TEST), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await buildCampaignSendPolicy(auth.clientId, auth.companyRole ?? null));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.post('/campaigns', requireCapability(Cap.SEND_TEST), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -5248,6 +5261,18 @@ export class DashboardService {
         }
 
         const acceptRisk = body.acceptWhatsAppRisk === true;
+        const sendPolicy = await buildCampaignSendPolicy(auth.clientId, auth.companyRole ?? null);
+        if (acceptRisk && !sendPolicy.canDisableProtection) {
+          return res.status(403).json({
+            error:
+              'Seu perfil não pode desativar a proteção anti-ban. O dono da empresa precisa liberar em Limites de envio.',
+          });
+        }
+        const effectiveDelayMs = clampCampaignDelayMs(
+          body.delayBetweenMs,
+          acceptRisk,
+          sendPolicy,
+        );
 
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
         const destDocs = await Destination.find({
@@ -5337,7 +5362,7 @@ export class DashboardService {
           })),
           sendAt,
           priority: body.priority,
-          delayBetweenMs: normalizeDelayBetweenMs(body.delayBetweenMs, acceptRisk),
+          delayBetweenMs: effectiveDelayMs,
           requireConnected: body.requireConnected,
           acceptWhatsAppRisk: acceptRisk,
           messageMode: usePlatformTemplate ? 'platform_template' : 'plain',
@@ -5363,7 +5388,7 @@ export class DashboardService {
           const done = vars.sentCount ?? vars.sentIndex ?? 0;
           resultMessage = acceptRisk
             ? `Enviando ${done}/${destDocs.length}… restante continua na fila.`
-            : `Fila segura: ${done}/${destDocs.length} enviados — lotes de ~${WHATSAPP_LIMITS.SAFE_BATCH_SIZE}/min até concluir.`;
+            : `Fila segura: ${done}/${destDocs.length} enviados — 1 destino por ciclo até concluir.`;
         } else if (msg.lastError) {
           resultMessage = msg.lastError;
         } else {
@@ -5950,7 +5975,15 @@ export class DashboardService {
     r.get('/platform/whatsapp-send-limits', requireCapability(Cap.WHATSAPP_SESSION_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        res.json(await resolveWhatsAppSendPolicy(auth.clientId));
+        const [policy, org] = await Promise.all([
+          resolveWhatsAppSendPolicy(auth.clientId),
+          Organization.findById(auth.clientId).select('whatsappSendPolicy').lean(),
+        ]);
+        res.json({
+          ...policy,
+          allowMembersDisableCampaignProtection:
+            org?.whatsappSendPolicy?.allowMembersDisableCampaignProtection === true,
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

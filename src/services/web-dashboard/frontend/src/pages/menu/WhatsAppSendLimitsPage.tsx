@@ -9,6 +9,7 @@ import {
 
 type PolicyResponse = WhatsAppLimitsFormState & {
   caps: Record<'conversation' | 'marketing' | 'alert', number>
+  allowMembersDisableCampaignProtection?: boolean
 }
 
 export default function WhatsAppSendLimitsPage() {
@@ -33,6 +34,7 @@ export default function WhatsAppSendLimitsPage() {
         humanizeEnabled: data.humanizeEnabled,
         composingEnabled: data.composingEnabled,
         limitsDisabled: data.limitsDisabled,
+        allowMembersDisableCampaignProtection: data.allowMembersDisableCampaignProtection,
         caps: data.caps,
         conversation: data.conversation,
         marketing: data.marketing,
@@ -43,6 +45,7 @@ export default function WhatsAppSendLimitsPage() {
   const handleSave = (state: WhatsAppLimitsFormState) => {
     save.mutate({
       limitsDisabled: state.limitsDisabled,
+      allowMembersDisableCampaignProtection: state.allowMembersDisableCampaignProtection,
       humanizeEnabled: state.humanizeEnabled,
       composingEnabled: state.composingEnabled,
       conversation: state.conversation,

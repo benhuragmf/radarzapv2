@@ -1,11 +1,20 @@
 import { config } from './environment';
+import {
+  CAMPAIGN_RISK_DELAY_MS,
+  CAMPAIGN_SAFE_DELAY_MS,
+  CAMPAIGN_RISK_DEFAULT_DELAY_MS,
+  CAMPAIGN_SAFE_DEFAULT_DELAY_MS,
+  averageCampaignDelayMs,
+  snapCampaignDelayMs,
+} from '@/utils/campaign-inter-destination-delay.util';
+import { DEFAULT_CAMPAIGN_DELAYS, type CampaignDelaysConfig } from '@/types/whatsapp-send-policy';
 
 /** Limites técnicos do WhatsApp Web + política do RadarZap. */
 export const WHATSAPP_LIMITS = {
-  /** Intervalo mínimo seguro entre destinos (modo protegido). */
-  MIN_DELAY_BETWEEN_MS: 3000,
+  /** Intervalo mínimo seguro entre destinos (modo protegido) — tier Mínimo. */
+  MIN_DELAY_BETWEEN_MS: 30_000,
   /** Intervalo mínimo se o usuário aceitar risco de banimento. */
-  RISK_MIN_DELAY_BETWEEN_MS: 1000,
+  RISK_MIN_DELAY_BETWEEN_MS: 3_000,
   MAX_MESSAGE_LENGTH: 4096,
   /** Legenda de imagem no WhatsApp (~1024); margem para não cortar link/rodapé. */
   MAX_IMAGE_CAPTION_LENGTH: 900,
@@ -38,19 +47,18 @@ export function remainingDailyMessages(
   return Math.max(0, limits.messagesPerDay - usage.messagesUsed);
 }
 
-export function normalizeDelayBetweenMs(ms?: number, acceptWhatsAppRisk = false): number {
-  const min = acceptWhatsAppRisk
-    ? WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS
-    : WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS;
-  const n = Number(ms);
-  if (!Number.isFinite(n) || n < min) return min;
-  return n;
+export function normalizeDelayBetweenMs(
+  ms?: number,
+  acceptWhatsAppRisk = false,
+  config: CampaignDelaysConfig = DEFAULT_CAMPAIGN_DELAYS,
+): number {
+  return snapCampaignDelayMs(ms, acceptWhatsAppRisk, config);
 }
 
-export function getDispatchBatchSize(acceptWhatsAppRisk: boolean, isWhatsAppBusiness = false): number {
+export function getDispatchBatchSize(acceptWhatsAppRisk: boolean, _isWhatsAppBusiness = false): number {
   if (acceptWhatsAppRisk) return WHATSAPP_LIMITS.MAX_DESTINATIONS_PER_CAMPAIGN;
-  const base = WHATSAPP_LIMITS.SAFE_BATCH_SIZE;
-  return isWhatsAppBusiness ? base * 2 : base;
+  /** Modo protegido: 1 destino por ciclo — respeita delay + rate limit por mensagem. */
+  return 1;
 }
 
 export function getEffectiveMessagesPerMinute(isWhatsAppBusiness = false): number {
@@ -112,29 +120,22 @@ export function validateDestinationAdd(
   return { ok: true };
 }
 
-/** Estima duração total considerando lotes seguros do WhatsApp. */
+/** Estima duração total — jitter médio + teto marketing/min quando protegido. */
 export function estimateCampaignDurationMs(
   destinationCount: number,
   delayBetweenMs: number,
   acceptWhatsAppRisk = false,
+  marketingMaxPerMinute?: number | null,
+  config: CampaignDelaysConfig = DEFAULT_CAMPAIGN_DELAYS,
 ): number {
   if (destinationCount <= 1) return 0;
-  const delay = normalizeDelayBetweenMs(delayBetweenMs, acceptWhatsAppRisk);
+  const base = normalizeDelayBetweenMs(delayBetweenMs, acceptWhatsAppRisk, config);
+  const avgDelay = averageCampaignDelayMs(base, acceptWhatsAppRisk, config);
+  let total = (destinationCount - 1) * avgDelay;
 
-  if (acceptWhatsAppRisk) {
-    return (destinationCount - 1) * delay;
-  }
-
-  const batchSize = WHATSAPP_LIMITS.SAFE_BATCH_SIZE;
-  const cooldown = WHATSAPP_LIMITS.SAFE_BATCH_COOLDOWN_MS;
-  let total = 0;
-  let remaining = destinationCount;
-
-  while (remaining > 0) {
-    const batch = Math.min(batchSize, remaining);
-    if (batch > 1) total += (batch - 1) * delay;
-    remaining -= batch;
-    if (remaining > 0) total += cooldown;
+  if (!acceptWhatsAppRisk && marketingMaxPerMinute && marketingMaxPerMinute > 0) {
+    const rateFloor = ((destinationCount - 1) / marketingMaxPerMinute) * 60_000;
+    total = Math.max(total, rateFloor);
   }
 
   return total;
@@ -145,8 +146,18 @@ export function estimateBatchCount(
   acceptWhatsAppRisk: boolean,
 ): number {
   if (acceptWhatsAppRisk || destinationCount <= 1) return 1;
-  return Math.ceil(destinationCount / WHATSAPP_LIMITS.SAFE_BATCH_SIZE);
+  return destinationCount;
 }
+
+export const ALLOWED_SAFE_CAMPAIGN_DELAYS_MS = CAMPAIGN_SAFE_DELAY_MS;
+export const ALLOWED_RISK_CAMPAIGN_DELAYS_MS = CAMPAIGN_RISK_DELAY_MS;
+
+export {
+  CAMPAIGN_SAFE_DEFAULT_DELAY_MS,
+  CAMPAIGN_RISK_DEFAULT_DELAY_MS,
+  campaignDelayOptionLabel,
+  campaignDelayJitterHint,
+} from '@/utils/campaign-inter-destination-delay.util';
 
 /** Próximo reset diário do plano (para pausar fila sem falhar). */
 export function nextPlanResetDate(lastReset?: Date | string): Date {
@@ -159,6 +170,3 @@ export function nextPlanResetDate(lastReset?: Date | string): Date {
   }
   return next;
 }
-
-export const ALLOWED_SAFE_CAMPAIGN_DELAYS_MS = [3000, 5000, 10000, 30000] as const;
-export const ALLOWED_RISK_CAMPAIGN_DELAYS_MS = [1000, 2000, 3000, 5000] as const;

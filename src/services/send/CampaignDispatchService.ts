@@ -21,6 +21,8 @@ import {
   validateCampaignCreate,
   WHATSAPP_LIMITS,
 } from '@/config/limits';
+import { computeJitteredCampaignDelayMs } from '@/utils/campaign-inter-destination-delay.util';
+import { getCampaignDelaysConfig } from '@/services/whatsapp/whatsapp-send-policy.service';
 import { validateOptionalCampaignSendAt } from '@/utils/schedule-time';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import type { WebhookEvent } from '@/models/WebhookEndpoint';
@@ -125,6 +127,7 @@ export class CampaignDispatchService {
 
     const acceptRisk = input.acceptWhatsAppRisk === true;
     const isBusiness = await this.isWhatsAppBusiness(input.clientId);
+    const campaignDelays = await getCampaignDelaysConfig();
 
     const sendAtCheck = validateOptionalCampaignSendAt(input.sendAt);
     if (sendAtCheck.ok === false) throw new Error(sendAtCheck.error);
@@ -178,7 +181,7 @@ export class CampaignDispatchService {
         template: messageMode === 'platform_template' ? 'platform-send' : 'manual-send',
         variables: {
           title: input.title,
-          delayBetweenMs: normalizeDelayBetweenMs(input.delayBetweenMs, acceptRisk),
+          delayBetweenMs: normalizeDelayBetweenMs(input.delayBetweenMs, acceptRisk, campaignDelays),
           requireConnected: input.requireConnected !== false,
           priority: input.priority ?? 'medium',
           acceptWhatsAppRisk: acceptRisk,
@@ -276,7 +279,8 @@ export class CampaignDispatchService {
     const wa = WhatsAppService.getInstance();
     const acceptRisk = vars.acceptWhatsAppRisk === true;
     const requireConnected = vars.requireConnected !== false;
-    const delayBetweenMs = normalizeDelayBetweenMs(vars.delayBetweenMs, acceptRisk);
+    const campaignDelays = await getCampaignDelaysConfig();
+    const delayBetweenMs = normalizeDelayBetweenMs(vars.delayBetweenMs, acceptRisk, campaignDelays);
     const isBusiness = await this.isWhatsAppBusiness(clientId);
     const batchSize = getDispatchBatchSize(acceptRisk, isBusiness);
     let sentIndex = Number(vars.sentIndex) || 0;
@@ -304,7 +308,8 @@ export class CampaignDispatchService {
     let sentThisBatch = 0;
 
     for (let i = sentIndex; i < msg.destinations.length; i++) {
-      if (sentThisBatch >= batchSize) break;
+      if (acceptRisk && sentThisBatch >= batchSize) break;
+      if (!acceptRisk && sentThisBatch >= 1) break;
 
       const org = await Organization.findById(clientId);
       if (org && !org.canSendMessage()) {
@@ -336,7 +341,7 @@ export class CampaignDispatchService {
 
       const dest = msg.destinations[i];
       try {
-        if (i > sentIndex) await delay(delayBetweenMs);
+        if (acceptRisk && i > sentIndex) await delay(delayBetweenMs);
 
         if (dest.type === 'contact') {
           const destDoc = await Destination.findByIdentifier(
@@ -360,6 +365,7 @@ export class CampaignDispatchService {
           msg.content.image,
           {
             skipRateLimit: acceptRisk,
+            skipQueue: true,
             consentOrigin: 'campaign',
             sendKind: 'marketing',
           },
@@ -406,12 +412,13 @@ export class CampaignDispatchService {
     }
 
     msg.status = 'pending';
-    msg.scheduledFor = new Date(
-      Date.now() + (acceptRisk ? delayBetweenMs : WHATSAPP_LIMITS.SAFE_BATCH_COOLDOWN_MS),
-    );
+    const nextDelayMs = acceptRisk
+      ? delayBetweenMs
+      : computeJitteredCampaignDelayMs(delayBetweenMs, false, campaignDelays);
+    msg.scheduledFor = new Date(Date.now() + nextDelayMs);
     msg.lastError = acceptRisk
-      ? undefined
-      : `Fila: ${sentIndex}/${msg.destinations.length} enviados — próximo lote em ~1 min`;
+      ? `Enviando ${sentIndex}/${msg.destinations.length}…`
+      : `Fila segura: ${sentIndex}/${msg.destinations.length} — próximo em ~${Math.ceil(nextDelayMs / 1000)}s (varia por destino)`;
     await msg.save();
   }
 

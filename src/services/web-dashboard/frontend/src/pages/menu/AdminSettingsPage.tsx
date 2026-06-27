@@ -15,6 +15,7 @@ interface SystemPolicyResponse {
       ? Record<'conversation' | 'marketing' | 'alert', { enabled: boolean; maxPerMinute: number }>
       : never
     caps: Record<'conversation' | 'marketing' | 'alert', number>
+    campaignDelays: NonNullable<WhatsAppLimitsFormState['campaignDelays']>
   }
 }
 
@@ -31,6 +32,7 @@ export default function AdminSettingsPage() {
     onSuccess: () => {
       toast.success('Política global de envio WA salva')
       qc.invalidateQueries({ queryKey: ['admin-whatsapp-send-policy'] })
+      qc.invalidateQueries({ queryKey: ['campaigns-send-policy'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -43,6 +45,14 @@ export default function AdminSettingsPage() {
         conversation: data.policy.defaults.conversation,
         marketing: data.policy.defaults.marketing,
         alert: data.policy.defaults.alert,
+        campaignDelays: {
+          ...data.policy.campaignDelays,
+          riskDelaysSec: [
+            data.policy.campaignDelays.riskDelaysSec[0] ?? 3,
+            data.policy.campaignDelays.riskDelaysSec[1] ?? 10,
+            data.policy.campaignDelays.riskDelaysSec[2] ?? 20,
+          ],
+        },
       }
     : null
 
@@ -56,6 +66,7 @@ export default function AdminSettingsPage() {
         marketing: state.marketing,
         alert: state.alert,
       },
+      campaignDelays: state.campaignDelays,
     })
   }
 

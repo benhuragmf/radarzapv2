@@ -6,6 +6,31 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.22] — 2026-06-27
+
+### Admin — intervalos de campanha editáveis
+
+- **`/admin/settings`:** seção *Intervalos de campanha (Enviar agora)* — tiers protegidos (base + jitter), padrão, modo risco (3/10/20s).
+- Persistido em `SystemWhatsAppPolicy.campaignDelays`; `/send` e dispatch usam a config do admin.
+
+## [2.12.21] — 2026-06-27
+
+### Envio — intervalos reais 30/40/60s com jitter
+
+- **Modo protegido:** tiers Mínimo (30–39s), Normal (40–59s), Ótimo (60–80s) — delay aleatório entre envios.
+- **1 destino por ciclo** — respeita marketing msg/min em toda a campanha (ex.: 1000 contatos a 2/min).
+- **Modo risco:** 3s, 10s, 20s (antes de 30s) — mínimo 3s para não travar o sistema.
+- Dispatch síncrono (`skipQueue`) + rate limit ativo no modo protegido.
+
+## [2.12.20] — 2026-06-27
+
+### Envio — limites reais admin → empresa no /send
+
+- **`GET /campaigns/send-policy`:** hierarquia admin/empresa/efetivo para quem usa Enviar agora (`send:test`).
+- **`/send`:** card com limites reais; intervalo no modo protegido ≥ cadência marketing (ex.: 10/min → mín. 6s, sem opção enganosa de 5s).
+- **Dono:** checkbox em Limites de envio para liberar equipe desativar proteção anti-ban.
+- **Atendentes:** checkbox de risco só aparece se o dono liberou; backend valida em `POST /campaigns`.
+
 ## [2.12.19] — 2026-06-27
 
 ### Classificação — Pacote J (Supervisor filtro + atalhos Inbox nos relatórios)

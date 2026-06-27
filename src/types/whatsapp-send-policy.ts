@@ -21,11 +21,60 @@ export interface WhatsAppSendPolicySnapshot {
   alert: WhatsAppKindLimitConfig;
 }
 
+export interface CampaignProtectedTier {
+  id: 'minimum' | 'normal' | 'optimal';
+  label: string;
+  baseSec: number;
+  jitterMinSec: number;
+  jitterMaxSec: number;
+  enabled: boolean;
+}
+
+export interface CampaignDelaysConfig {
+  protectedTiers: CampaignProtectedTier[];
+  protectedDefaultTierId: CampaignProtectedTier['id'];
+  riskDelaysSec: number[];
+  riskMinSec: number;
+}
+
+export const DEFAULT_CAMPAIGN_DELAYS: CampaignDelaysConfig = {
+  protectedTiers: [
+    {
+      id: 'minimum',
+      label: 'Mínimo',
+      baseSec: 30,
+      jitterMinSec: 30,
+      jitterMaxSec: 39,
+      enabled: true,
+    },
+    {
+      id: 'normal',
+      label: 'Normal',
+      baseSec: 40,
+      jitterMinSec: 40,
+      jitterMaxSec: 59,
+      enabled: true,
+    },
+    {
+      id: 'optimal',
+      label: 'Ótimo',
+      baseSec: 60,
+      jitterMinSec: 60,
+      jitterMaxSec: 80,
+      enabled: true,
+    },
+  ],
+  protectedDefaultTierId: 'normal',
+  riskDelaysSec: [3, 10, 20],
+  riskMinSec: 3,
+};
+
 export interface SystemWhatsAppPolicyDoc {
   humanizeEnabled: boolean;
   composingEnabled: boolean;
   defaults: Record<WhatsAppSendKind, WhatsAppKindLimitConfig>;
   caps: Record<WhatsAppSendKind, number>;
+  campaignDelays?: CampaignDelaysConfig;
 }
 
 export interface OrgWhatsAppSendPolicyOverride {
@@ -33,6 +82,8 @@ export interface OrgWhatsAppSendPolicyOverride {
   limitsDisabled?: boolean;
   humanizeEnabled?: boolean;
   composingEnabled?: boolean;
+  /** Dono libera checkbox "desativar proteção" para atendentes no /send */
+  allowMembersDisableCampaignProtection?: boolean;
   conversation?: Partial<WhatsAppKindLimitConfig>;
   marketing?: Partial<WhatsAppKindLimitConfig>;
   alert?: Partial<WhatsAppKindLimitConfig>;
@@ -51,6 +102,7 @@ export const DEFAULT_SYSTEM_WHATSAPP_POLICY: SystemWhatsAppPolicyDoc = {
     marketing: 10,
     alert: 60,
   },
+  campaignDelays: DEFAULT_CAMPAIGN_DELAYS,
 };
 
 export const FALLBACK_WHEN_LIMITS_DISABLED: Record<WhatsAppSendKind, number> = {

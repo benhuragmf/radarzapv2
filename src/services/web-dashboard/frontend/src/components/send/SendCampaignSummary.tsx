@@ -3,7 +3,7 @@ import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { Card } from '../ui/Card'
 import { WhatsAppPreviewBubble } from '../platform/WhatsAppPreviewBubble'
-import { formatDuration } from '../../lib/limits'
+import { formatDuration, campaignDelayOptionLabel, snapCampaignDelayMs } from '../../lib/limits'
 
 interface Props {
   selectedTotal: number
@@ -14,6 +14,7 @@ interface Props {
   delayMs: number
   minDelay: number
   durationEst: number
+  delayConfig?: import('../../lib/limits').CampaignDelaysUiConfig
   acceptWhatsAppRisk: boolean
   riskAcknowledged: boolean
   billingLine?: string
@@ -35,6 +36,7 @@ export function SendCampaignSummary({
   delayMs,
   minDelay,
   durationEst,
+  delayConfig,
   acceptWhatsAppRisk,
   riskAcknowledged,
   billingLine,
@@ -79,7 +81,11 @@ export function SendCampaignSummary({
             </li>
             <li>
               <strong className="text-[var(--rz-text-muted)]">Intervalo:</strong>{' '}
-              {Math.max(minDelay, delayMs) / 1000}s
+              {campaignDelayOptionLabel(
+                snapCampaignDelayMs(delayMs, acceptWhatsAppRisk, delayConfig),
+                acceptWhatsAppRisk,
+                delayConfig,
+              )}
               {selectedTotal > 1 && (
                 <span className="text-[var(--rz-text-muted)]"> · {formatDuration(durationEst)} total</span>
               )}

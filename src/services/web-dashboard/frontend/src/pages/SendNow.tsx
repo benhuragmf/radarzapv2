@@ -8,12 +8,15 @@ import {
   ALLOWED_SAFE_CAMPAIGN_DELAYS_MS,
   ALLOWED_RISK_CAMPAIGN_DELAYS_MS,
   estimateCampaignDurationMs,
-  estimateBatchCount,
   formatDuration,
   isUnlimited,
   exceedsPlanQuota,
   remainingDailyMessages,
-  effectiveSafeBatchSize,
+  CAMPAIGN_SAFE_DEFAULT_DELAY_MS,
+  CAMPAIGN_RISK_DEFAULT_DELAY_MS,
+  campaignDelayOptionLabel,
+  campaignDelayJitterHint,
+  snapCampaignDelayMs,
 } from '../lib/limits'
 import {
   canSelectForSend,
@@ -43,7 +46,40 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
-import type { WhatsAppLimitsFormState } from '../components/whatsapp/WhatsAppSendLimitsEditor'
+interface CampaignSendPolicyPayload {
+  canDisableProtection: boolean
+  isOwner: boolean
+  allowMembersDisableCampaignProtection: boolean
+  system: {
+    marketingDefaultMaxPerMinute: number
+    marketingCapMaxPerMinute: number
+    humanizeEnabled: boolean
+    composingEnabled: boolean
+  }
+  org: {
+    marketingMaxPerMinute: number
+    marketingEnabled: boolean
+    limitsDisabled: boolean
+    humanizeEnabled: boolean
+    composingEnabled: boolean
+  }
+  effective: {
+    marketingMaxPerMinute: number | null
+    marketingMinIntervalMs: number
+    marketingMinIntervalSec: number
+    humanizeEnabled: boolean
+    composingEnabled: boolean
+    protectedMode: boolean
+    avgDelayMs: number
+    avgDelaySec: number
+  }
+  protectedDelayOptionsMs: number[]
+  riskDelayOptionsMs: number[]
+  delayJitterHint: string | null
+  campaignDelays: import('../lib/limits').CampaignDelaysUiConfig
+  defaultProtectedDelayMs: number
+  defaultRiskDelayMs: number
+}
 import { WhatsAppPreviewBubble } from '../components/platform/WhatsAppPreviewBubble'
 import { WhatsAppTextEditor } from '../components/whatsapp/WhatsAppTextEditor'
 import { SendCampaignSummary } from '../components/send/SendCampaignSummary'
@@ -166,7 +202,7 @@ interface PlatformTemplateOption {
   platformKind?: string
 }
 
-const MIN_DELAY_MS = WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS
+const DEFAULT_SAFE_DELAY_MS = CAMPAIGN_SAFE_DEFAULT_DELAY_MS
 
 interface BillingMe {
   plan: string
@@ -212,7 +248,7 @@ export default function SendNow() {
   )
   const [contactGroupFilter, setContactGroupFilter] = useState<string>('all')
   const [priority, setPriority] = useState<Priority>('medium')
-  const [delayBetweenMs, setDelayBetweenMs] = useState<number>(MIN_DELAY_MS)
+  const [delayBetweenMs, setDelayBetweenMs] = useState<number>(DEFAULT_SAFE_DELAY_MS)
   const [requireConnected, setRequireConnected] = useState(true)
   const [scheduleMode, setScheduleMode] = useState(false)
   const [sendAtLocal, setSendAtLocal] = useState(defaultScheduleLocal)
@@ -243,9 +279,16 @@ export default function SendNow() {
     messageMode === 'platform_template'
       ? !!platformTemplateName
       : !!message.trim()
+
+  const { data: sendPolicy } = useQuery<CampaignSendPolicyPayload>({
+    queryKey: ['campaigns-send-policy'],
+    queryFn: () => api.get('/campaigns/send-policy'),
+    staleTime: 60_000,
+  })
+
   const delayOptions = acceptWhatsAppRisk
-    ? ALLOWED_RISK_CAMPAIGN_DELAYS_MS
-    : ALLOWED_SAFE_CAMPAIGN_DELAYS_MS
+    ? (sendPolicy?.riskDelayOptionsMs ?? [...ALLOWED_RISK_CAMPAIGN_DELAYS_MS])
+    : (sendPolicy?.protectedDelayOptionsMs ?? [...ALLOWED_SAFE_CAMPAIGN_DELAYS_MS])
   const minDelay = acceptWhatsAppRisk
     ? WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS
     : WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS
@@ -289,12 +332,6 @@ export default function SendNow() {
   const { data: destinations = [] } = useQuery<Destination[]>({
     queryKey: ['destinations'],
     queryFn: () => api.get('/destinations'),
-  })
-
-  const { data: waSendPolicy } = useQuery<WhatsAppLimitsFormState>({
-    queryKey: ['platform-whatsapp-send-limits'],
-    queryFn: () => api.get('/platform/whatsapp-send-limits'),
-    staleTime: 60_000,
   })
 
   useEffect(() => {
@@ -383,7 +420,7 @@ export default function SendNow() {
 
   const connected = sessions.find(s => s.status === 'connected')
   const isBusiness = connected?.waAccountType === 'business'
-  const safeBatch = effectiveSafeBatchSize(isBusiness)
+  const marketingPerMinute = sendPolicy?.effective.marketingMaxPerMinute ?? null
 
   const hasSelectedGroup = useMemo(
     () => destinations.some(d => selectedIds.has(d._id) && d.type === 'group'),
@@ -453,15 +490,15 @@ export default function SendNow() {
     }
   }, [qc])
 
+  const delayConfig = sendPolicy?.campaignDelays
+
   const durationEst = estimateCampaignDurationMs(
     selectedIds.size,
     delayBetweenMs,
     acceptWhatsAppRisk,
-    isBusiness,
+    marketingPerMinute,
+    delayConfig,
   )
-  const batchCount = estimateBatchCount(selectedIds.size, acceptWhatsAppRisk, isBusiness)
-  const usesSafeQueue =
-    !acceptWhatsAppRisk && selectedIds.size > safeBatch
 
   const { data: waGroups = [], isLoading: loadingGroups, refetch: refetchGroups } = useQuery<WAGroup[]>({
     queryKey: ['wa-groups', connected?.clientId],
@@ -513,11 +550,28 @@ export default function SendNow() {
     return { contacts, groups, total: selectedIds.size }
   }, [selectedIds, destinations])
 
-  const marketingPerMinute = useMemo(() => {
-    if (!waSendPolicy || waSendPolicy.limitsDisabled) return null
-    if (waSendPolicy.marketing?.enabled === false) return null
-    return waSendPolicy.marketing?.maxPerMinute ?? 2
-  }, [waSendPolicy])
+  useEffect(() => {
+    if (!sendPolicy) return
+    if (!sendPolicy.canDisableProtection && acceptWhatsAppRisk) {
+      setAcceptWhatsAppRisk(false)
+      setRiskAcknowledged(false)
+    }
+  }, [sendPolicy, acceptWhatsAppRisk])
+
+  useEffect(() => {
+    if (!sendPolicy) return
+    const opts = acceptWhatsAppRisk
+      ? sendPolicy.riskDelayOptionsMs
+      : sendPolicy.protectedDelayOptionsMs
+    if (!opts.length) return
+    setDelayBetweenMs(prev => {
+      if (opts.includes(prev)) return prev
+      if (acceptWhatsAppRisk) {
+        return sendPolicy.defaultRiskDelayMs ?? opts[0] ?? CAMPAIGN_RISK_DEFAULT_DELAY_MS
+      }
+      return sendPolicy.defaultProtectedDelayMs ?? opts[1] ?? opts[0] ?? CAMPAIGN_SAFE_DEFAULT_DELAY_MS
+    })
+  }, [sendPolicy, acceptWhatsAppRisk])
 
   const sendableInScopeCount = useMemo(() => {
     const listFilter =
@@ -683,11 +737,9 @@ export default function SendNow() {
     setAcceptWhatsAppRisk(enabled)
     if (!enabled) {
       setRiskAcknowledged(false)
-      if (delayBetweenMs < WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS) {
-        setDelayBetweenMs(WHATSAPP_LIMITS.MIN_DELAY_BETWEEN_MS)
-      }
-    } else if (delayBetweenMs < WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS) {
-      setDelayBetweenMs(WHATSAPP_LIMITS.RISK_MIN_DELAY_BETWEEN_MS)
+      setDelayBetweenMs(sendPolicy?.defaultProtectedDelayMs ?? CAMPAIGN_SAFE_DEFAULT_DELAY_MS)
+    } else {
+      setDelayBetweenMs(sendPolicy?.defaultRiskDelayMs ?? CAMPAIGN_RISK_DEFAULT_DELAY_MS)
     }
   }
 
@@ -713,7 +765,7 @@ export default function SendNow() {
             : message.trim(),
         destinationIds: Array.from(selectedIds),
         priority,
-        delayBetweenMs: Math.max(minDelay, delayBetweenMs),
+        delayBetweenMs: snapCampaignDelayMs(delayBetweenMs, acceptWhatsAppRisk, delayConfig),
         requireConnected,
         acceptWhatsAppRisk: acceptWhatsAppRisk && riskAcknowledged,
         messageMode,
@@ -1077,8 +1129,11 @@ export default function SendNow() {
                 {filteredDest.length !== sendableInScopeCount && search.trim() && (
                   <span> · {filteredDest.length} na busca</span>
                 )}
-                {selectedIds.size > safeBatch && !acceptWhatsAppRisk && (
-                  <span className="text-brand-400/90"> · fila em {batchCount} lote(s)</span>
+                {selectedIds.size > 1 && !acceptWhatsAppRisk && (
+                  <span className="text-brand-400/90">
+                    {' '}
+                    · 1 destino por vez · ~{formatDuration(durationEst)} para concluir
+                  </span>
                 )}
               </p>
               {planQuotaExceeded && billing && (
@@ -1386,7 +1441,9 @@ export default function SendNow() {
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Intervalo entre destinos</label>
+                    <label className={labelCls}>
+                      {acceptWhatsAppRisk ? 'Intervalo entre destinos' : 'Intervalo entre destinos (modo protegido)'}
+                    </label>
                     <select
                       value={delayBetweenMs}
                       onChange={e => setDelayBetweenMs(Number(e.target.value))}
@@ -1394,24 +1451,58 @@ export default function SendNow() {
                     >
                       {delayOptions.map(ms => (
                         <option key={ms} value={ms}>
-                          {ms / 1000} segundos
-                          {ms === minDelay ? ' (mínimo)' : ''}
+                          {campaignDelayOptionLabel(ms, acceptWhatsAppRisk, delayConfig)}
                         </option>
                       ))}
                     </select>
                     <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
                       {acceptWhatsAppRisk
-                        ? 'Modo sem proteção — ignora fila humanizada e limites por minuto.'
-                        : `Modo protegido: lotes de até ${safeBatch} destinos com pausa de 1 min entre lotes${isBusiness ? ' (Business)' : ''}${
-                            marketingPerMinute != null
-                              ? `; cada mensagem respeita marketing ${marketingPerMinute}/min`
-                              : waSendPolicy?.limitsDisabled
-                                ? ' (limites/min desativados na empresa)'
-                                : ''
-                          }.`}
+                        ? 'Modo sem proteção — ignora fila humanizada e limites por minuto. Risco alto de banimento.'
+                        : `Modo protegido: 1 mensagem por vez, respeitando marketing${
+                            marketingPerMinute != null ? ` (${marketingPerMinute} msg/min)` : ''
+                          }${
+                            sendPolicy?.effective.humanizeEnabled ? ' + digitação simulada' : ''
+                          }. ${campaignDelayJitterHint(delayBetweenMs, delayConfig) ?? sendPolicy?.delayJitterHint ?? ''}`}
                     </p>
                   </div>
                 </div>
+
+                {sendPolicy && (
+                  <Card className="border border-[var(--rz-border)]/80 bg-[var(--rz-surface-muted)]/25 p-3 space-y-1.5 text-[11px]">
+                    <p className="font-medium text-[var(--rz-text-secondary)]">
+                      Hierarquia de limites (admin → empresa → envio)
+                    </p>
+                    <ul className="text-[var(--rz-text-muted)] space-y-1">
+                      <li>
+                        <strong className="text-[var(--rz-text-muted)]">Admin:</strong> teto marketing{' '}
+                        {sendPolicy.system.marketingCapMaxPerMinute}/min · padrão{' '}
+                        {sendPolicy.system.marketingDefaultMaxPerMinute}/min
+                      </li>
+                      <li>
+                        <strong className="text-[var(--rz-text-muted)]">Empresa:</strong>{' '}
+                        {sendPolicy.org.limitsDisabled
+                          ? 'limites por minuto desativados na org'
+                          : `marketing ${sendPolicy.org.marketingMaxPerMinute}/min`}
+                        {sendPolicy.org.humanizeEnabled ? ' · humanizado' : ''}
+                      </li>
+                      <li>
+                        <strong className="text-[var(--rz-text-muted)]">Efetivo agora:</strong>{' '}
+                        {marketingPerMinute != null
+                          ? `${marketingPerMinute} msg/min · 1 destino/ciclo · jitter no intervalo`
+                          : 'sem teto por minuto (limites desativados)'}
+                      </li>
+                    </ul>
+                    {!sendPolicy.canDisableProtection && (
+                      <p className="text-[10px] text-amber-500/90">
+                        Proteção anti-ban obrigatória para seu perfil. O dono pode liberar desativação em{' '}
+                        <Link to="/platform/wa-limits" className="text-brand-400 hover:underline">
+                          Limites de envio
+                        </Link>
+                        .
+                      </p>
+                    )}
+                  </Card>
+                )}
 
                 <Card className={`border ${acceptWhatsAppRisk ? 'border-red-800/60 bg-red-950/20' : 'border-[var(--rz-border)] bg-[var(--rz-surface)]/40'}`}>
                   <div className="flex items-start gap-3">
@@ -1427,29 +1518,36 @@ export default function SendNow() {
                         <p className="text-xs text-[var(--rz-text-muted)] mt-1 leading-relaxed">
                           {acceptWhatsAppRisk
                             ? 'Proteção DESATIVADA. Envios ignoram a fila humanizada e os limites por minuto — risco alto de banimento.'
-                            : `Ativa por padrão. Duas camadas: (1) campanha em lotes de ~${safeBatch} com pausa de 1 min; (2) fila humanizada de marketing${
+                            : `Ativa por padrão. Uma mensagem por vez com intervalo variável (${
+                                campaignDelayOptionLabel(delayBetweenMs, false, delayConfig).split('—')[0]?.trim() ??
+                                `${delayBetweenMs / 1000}s`
+                              }) e teto marketing${
                                 marketingPerMinute != null ? ` (${marketingPerMinute} msg/min)` : ''
-                              } com digitação simulada. Ajuste em `}
+                              }${
+                                sendPolicy?.effective.humanizeEnabled ? ' com digitação simulada' : ''
+                              }. Ajuste em `}
                           {!acceptWhatsAppRisk && (
                             <Link to="/platform/wa-limits" className="text-brand-400 hover:underline">
                               Limites de envio
                             </Link>
                           )}
-                          {!acceptWhatsAppRisk && '.'}
+                          {!acceptWhatsAppRisk && ' (empresa) ou admin em Configurações.'}
                         </p>
                       </div>
-                      <label className="flex items-start gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={acceptWhatsAppRisk}
-                          onChange={e => handleRiskToggle(e.target.checked)}
-                          className="mt-0.5 rounded border-[var(--rz-border)]"
-                        />
-                        <span className={acceptWhatsAppRisk ? 'text-red-300' : 'text-[var(--rz-text-muted)]'}>
-                          Desativar proteção e aceitar risco de banimento da conta WhatsApp
-                        </span>
-                      </label>
-                      {acceptWhatsAppRisk && (
+                      {sendPolicy?.canDisableProtection ? (
+                        <label className="flex items-start gap-2 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={acceptWhatsAppRisk}
+                            onChange={e => handleRiskToggle(e.target.checked)}
+                            className="mt-0.5 rounded border-[var(--rz-border)]"
+                          />
+                          <span className={acceptWhatsAppRisk ? 'text-red-300' : 'text-[var(--rz-text-muted)]'}>
+                            Desativar proteção e aceitar risco de banimento da conta WhatsApp
+                          </span>
+                        </label>
+                      ) : null}
+                      {acceptWhatsAppRisk && sendPolicy?.canDisableProtection && (
                         <label className="flex items-start gap-2 text-xs text-red-200/90 cursor-pointer pl-6 border-l-2 border-red-800">
                           <input
                             type="checkbox"
@@ -1468,7 +1566,7 @@ export default function SendNow() {
                   </div>
                 </Card>
 
-                {usesSafeQueue && (
+                {selectedIds.size > 1 && !acceptWhatsAppRisk && (
                   <p className="text-xs text-brand-400/90 flex items-start gap-1.5">
                     <Clock size={12} className="shrink-0 mt-0.5" />
                     {selectedIds.size} destinos serão entregues em fila segura (~
@@ -1504,6 +1602,7 @@ export default function SendNow() {
               delayMs={delayBetweenMs}
               minDelay={minDelay}
               durationEst={durationEst}
+              delayConfig={delayConfig}
               acceptWhatsAppRisk={acceptWhatsAppRisk}
               riskAcknowledged={riskAcknowledged}
               billingLine={

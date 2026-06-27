@@ -43,6 +43,7 @@ export interface IOrganization extends Document {
     limitsDisabled?: boolean;
     humanizeEnabled?: boolean;
     composingEnabled?: boolean;
+    allowMembersDisableCampaignProtection?: boolean;
     conversation?: { enabled?: boolean; maxPerMinute?: number };
     marketing?: { enabled?: boolean; maxPerMinute?: number };
     alert?: { enabled?: boolean; maxPerMinute?: number };
