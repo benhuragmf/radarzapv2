@@ -828,7 +828,7 @@ function FormEditor({
   pending: boolean
   deleting: boolean
 }) {
-  const [draft, setDraft] = useState(form)
+  const [draft, setDraft] = useState<LeadFormListItem>(form)
   const [section, setSection] = useState<'basic' | 'fields' | 'dest' | 'security' | 'appearance'>(
     initialSection ?? 'basic',
   )
