@@ -6,6 +6,12 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.28] — 2026-06-27
+
+### Painel — Triagem e Bot: barra Salvar padronizada
+
+- **`/platform/inbox/bot`:** uma única barra inferior (`SaveBar` do design system); removidas barras duplicadas no topo e no meio do formulário.
+
 ## [2.12.27] — 2026-06-27
 
 ### Painel — Triagem e Bot reorganizado

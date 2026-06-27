@@ -11,7 +11,6 @@ import {
   Clock,
   Users,
   ArrowLeft,
-  Save,
   Bell,
   MessageCircle,
   Sparkles,
@@ -20,7 +19,7 @@ import {
   Zap,
   Star,
 } from 'lucide-react'
-import { inputCls, textareaCls, LoadingState } from '@/design-system'
+import { inputCls, textareaCls, LoadingState, SaveBar } from '@/design-system'
 import { cn } from '@/lib/utils'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxBotFlowPreview } from '../../components/inbox/InboxBotFlowPreview'
@@ -163,35 +162,6 @@ function VariablePills({
   )
 }
 
-function SaveBar({
-  onSave,
-  isPending,
-  saved,
-  error,
-  className,
-}: {
-  onSave: () => void
-  isPending: boolean
-  saved: boolean
-  error: Error | null
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        'flex flex-wrap items-center gap-3 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/95 p-3 shadow-lg backdrop-blur',
-        className,
-      )}
-    >
-      <Button onClick={onSave} disabled={isPending}>
-        <Save size={14} /> {isPending ? 'Salvando…' : 'Salvar configurações'}
-      </Button>
-      {saved && <span className="text-sm text-brand-400">Configurações salvas com sucesso!</span>}
-      {error && <span className="text-sm text-red-400">{error.message}</span>}
-    </div>
-  )
-}
-
 function FieldFocusWrap({
   children,
   field,
@@ -315,12 +285,13 @@ export default function InboxBotSettings() {
 
   const handleSave = () => save.mutate(form)
 
-  const saveBarProps = {
-    onSave: handleSave,
-    isPending: save.isPending,
-    saved,
-    error: save.isError ? (save.error as Error) : null,
-  }
+  const saveHint = saved ? (
+    <span className="text-brand-400">Configurações salvas com sucesso!</span>
+  ) : save.isError ? (
+    <span className="text-red-400">{(save.error as Error).message}</span>
+  ) : (
+    'Salve para aplicar as alterações em todas as abas.'
+  )
 
   const departmentOptions =
     departments
@@ -360,8 +331,6 @@ export default function InboxBotSettings() {
           <Button size="sm" variant="secondary">Caixa de entrada</Button>
         </Link>
       </div>
-
-      <SaveBar {...saveBarProps} className="mb-4 sticky top-16 z-20" />
 
       <div
         className="mb-4 inline-flex w-full max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/50 p-1"
@@ -1118,7 +1087,6 @@ export default function InboxBotSettings() {
             </>
           )}
 
-          <SaveBar {...saveBarProps} className="sticky bottom-4 z-10" />
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -1149,6 +1117,13 @@ export default function InboxBotSettings() {
           </Card>
         </aside>
       </div>
+
+      <SaveBar
+        onSave={handleSave}
+        saving={save.isPending}
+        saveLabel="Salvar configurações"
+        hint={saveHint}
+      />
     </PlatformPage>
   )
 }
