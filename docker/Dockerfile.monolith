@@ -13,7 +13,8 @@ RUN npm run build
 FROM node:20-alpine AS backend-builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# redis-memory-server (dev) tenta compilar Redis no postinstall — desnecessário no build de prod
+RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY config ./config
 COPY src ./src
@@ -25,7 +26,7 @@ ENV NODE_ENV=production
 RUN apk add --no-cache wget
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY --from=backend-builder /app/dist ./dist
 COPY --from=backend-builder /app/config ./config
 COPY --from=frontend-builder /repo/src/services/web-dashboard/public ./dist/services/web-dashboard/public
