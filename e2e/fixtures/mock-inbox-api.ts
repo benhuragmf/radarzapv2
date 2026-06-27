@@ -12,8 +12,8 @@ export async function expectInboxLoaded(page: Page): Promise<void> {
 
 /** Leads — aguarda auth + capturas mockadas. */
 export async function expectLeadsLoaded(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { name: 'Leads' })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('Ana Lead')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('main').getByRole('heading', { name: 'Leads' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('main').getByText('Ana Lead')).toBeVisible({ timeout: 15_000 });
 }
 
 const INBOX_CAPABILITIES = [
