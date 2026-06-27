@@ -80,6 +80,18 @@ export function linkGoogleAccount() {
   window.location.href = '/auth/google/link'
 }
 
+export async function unlinkGoogleAccount(): Promise<AuthUser> {
+  const res = await fetch('/auth/account/google', {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as { error?: string }).error ?? 'Falha ao desvincular Google')
+  }
+  return res.json()
+}
+
 export function linkDiscordAccount() {
   window.location.href = '/auth/discord/link'
 }

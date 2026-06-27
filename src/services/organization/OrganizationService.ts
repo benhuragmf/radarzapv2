@@ -851,6 +851,39 @@ export class OrganizationService {
     return user;
   }
 
+  async unlinkGoogleFromUser(userId: string): Promise<IUser> {
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+    if (!user.googleId) throw new Error('Conta Google não está vinculada');
+    if (!user.discordUserId) {
+      throw new Error(
+        'Vincule o Discord antes de remover o Google — você precisa de ao menos um jeito de entrar no painel',
+      );
+    }
+
+    const email = user.email?.trim().toLowerCase();
+    await User.updateOne(
+      { _id: userId },
+      { $unset: { googleId: '' }, $pull: { authProviders: 'google' } },
+    );
+
+    if (email) {
+      await CompanyMember.updateMany(
+        { userId: user._id, email, isActive: true },
+        { $unset: { emailVerifiedAt: '' } },
+      );
+    }
+
+    const updated = await User.findById(userId);
+    if (!updated) throw new Error('Usuário não encontrado');
+
+    logger.info('Google desvinculado da conta', {
+      userId,
+      discordUserId: updated.discordUserId,
+    });
+    return updated;
+  }
+
   async linkDiscordToUser(
     userId: string,
     discordUser: { id: string; username?: string; global_name?: string | null; avatar?: string | null },

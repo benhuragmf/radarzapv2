@@ -6,6 +6,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.8] — 2026-06-27
+
+### Conta — desvincular Google
+
+- `DELETE /auth/account/google` — remove vínculo OAuth Google quando Discord também está vinculado.
+- UI em Configurações → Conta vinculada: botão **Desvincular** no card Google.
+
+---
+
 ## [2.12.7] — 2026-06-26
 
 ### Admin — IA da plataforma (credenciais + relatório)

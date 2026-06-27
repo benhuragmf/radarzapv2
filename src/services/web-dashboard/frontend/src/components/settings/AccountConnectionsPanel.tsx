@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle2, Mail } from 'lucide-react'
 import type { AuthUser } from '../../lib/auth'
-import { getMe, linkDiscordAccount, linkGoogleAccount } from '../../lib/auth'
+import { getMe, linkDiscordAccount, linkGoogleAccount, unlinkGoogleAccount } from '../../lib/auth'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { inputCls } from '@/design-system'
@@ -89,6 +89,33 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
     onError: (err: Error) => setBanner({ type: 'err', text: err.message }),
   })
 
+  const unlinkGoogle = useMutation({
+    mutationFn: unlinkGoogleAccount,
+    onSuccess: async updated => {
+      setBanner({
+        type: 'ok',
+        text: 'Google desvinculado. Você ainda pode entrar com Discord.',
+      })
+      await qc.invalidateQueries({ queryKey: ['auth-me'] })
+      await qc.invalidateQueries({ queryKey: ['member-profile'] })
+      if (onUserUpdate) onUserUpdate(updated)
+    },
+    onError: (err: Error) => setBanner({ type: 'err', text: err.message }),
+  })
+
+  const handleUnlinkGoogle = () => {
+    if (
+      !window.confirm(
+        'Remover o vínculo com Google? Você continuará entrando com Discord. O e-mail cadastrado permanece na conta.',
+      )
+    ) {
+      return
+    }
+    unlinkGoogle.mutate()
+  }
+
+  const canUnlinkGoogle = google.linked && discord.linked
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-[var(--rz-text-secondary)] leading-relaxed">
@@ -129,11 +156,28 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
               )}
             </div>
           </div>
-          {!google.linked && (
-            <Button type="button" variant="secondary" onClick={linkGoogleAccount}>
-              Vincular Google
-            </Button>
-          )}
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {!google.linked ? (
+              <Button type="button" variant="secondary" onClick={linkGoogleAccount}>
+                Vincular Google
+              </Button>
+            ) : canUnlinkGoogle ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={unlinkGoogle.isPending}
+                onClick={handleUnlinkGoogle}
+              >
+                {unlinkGoogle.isPending ? <Spinner size={12} /> : null}
+                Desvincular
+              </Button>
+            ) : (
+              <p className="text-[10px] text-[var(--rz-text-muted)] text-right max-w-[140px] leading-snug">
+                Vincule o Discord para poder remover o Google
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]">

@@ -993,6 +993,42 @@ export class DashboardService {
       }
     });
 
+    this.app.delete('/auth/account/google', async (req: Request, res: Response) => {
+      const sess = req.session as {
+        userId?: string;
+        discordId?: string;
+        username?: string;
+        avatar?: string | null;
+        authProvider?: 'google' | 'discord';
+        email?: string;
+        organizationId?: string;
+      };
+      if (!sess?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      try {
+        const updated = await orgSvc.unlinkGoogleFromUser(sess.userId);
+        if (sess.authProvider === 'google') {
+          sess.authProvider = 'discord';
+        }
+        await this.saveSession(req);
+
+        const ctx = await buildAuthContext({
+          user: updated,
+          userId: sess.userId,
+          discordUserId: sess.discordId ?? updated.discordUserId,
+          username: sess.username ?? updated.displayName ?? updated.email ?? 'Usuário',
+          avatar: sess.avatar ?? null,
+          authProvider: sess.authProvider,
+          email: sess.email ?? updated.email,
+          sessionOrganizationId: sess.organizationId,
+        });
+        res.json(authContextToJson(ctx));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     this.app.get('/auth/me/member-profile', async (req: Request, res: Response) => {
       const sess = req.session as { userId?: string; organizationId?: string };
       if (!sess?.userId || !sess.organizationId) {
