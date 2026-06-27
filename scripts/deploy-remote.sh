@@ -7,11 +7,16 @@ IMAGE="${1:?informe a imagem (ex.: ghcr.io/owner/radarzap:sha)}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 
 export RADARZAP_IMAGE="$IMAGE"
+COMPOSE="${DOCKER_CMD:-docker} compose"
+ENV_PREFIX="RADARZAP_IMAGE=$RADARZAP_IMAGE"
+if [[ -n "${MONGO_PASSWORD:-}" ]]; then
+  ENV_PREFIX="$ENV_PREFIX MONGO_PASSWORD=$MONGO_PASSWORD"
+fi
 
 echo "[deploy] Imagem: $RADARZAP_IMAGE"
 ${DOCKER_CMD:-docker} pull "$RADARZAP_IMAGE" 2>/dev/null || true
-${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" up -d --remove-orphans
-${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" ps
+env $ENV_PREFIX $COMPOSE -f "$COMPOSE_FILE" up -d --remove-orphans
+env $ENV_PREFIX $COMPOSE -f "$COMPOSE_FILE" ps
 
 echo "[deploy] Health check..."
 for i in $(seq 1 30); do
@@ -23,5 +28,5 @@ for i in $(seq 1 30); do
 done
 
 echo "[deploy] AVISO: health não respondeu em 60s — verifique logs"
-${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" logs --tail=40 app
+  ${DOCKER_CMD:-docker} compose -f "$COMPOSE_FILE" logs --tail=40 app
 exit 1
