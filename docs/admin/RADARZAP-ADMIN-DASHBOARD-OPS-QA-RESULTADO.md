@@ -1,23 +1,98 @@
 # RadarZap — Admin Dashboard Ops — QA Resultado
 
-**Última atualização:** 2026-06-27 (reconciliação Etapas 8–9)  
-**Versão testada:** `2.12.44`  
+**Última atualização:** 2026-06-28 (Etapa 10)  
+**Versão testada:** `2.12.45`  
 **Branch:** `develop`  
-**Commit:** reconciliação local (pós `30a3372`)
+**Commit base Etapas 8–9:** `0366c5e` · **Etapa 10:** commit local pendente
 
 ---
 
 ## Status final
 
 ```txt
-APROVADO COM RESSALVAS — Etapas 8–9 implementadas com evidência (commit reconciliação)
+APROVADO COM RESSALVAS — gates verdes; QA VPS browser + Bloco E browser pendentes Benhur
 ```
 
-**Bloco E (Etapa 7):** estender trial ✅ · cancelar trial ✅ · **alterar plano browser ⏳ pendente**
-
-**Release módulo:** `PRONTO PARA QA MANUAL`  
+**Bloco E:** alterar plano — ✅ local Mongo (`qa:admin-ops:bloco-e:local`) · ⏳ browser VPS Benhur  
+**Release módulo:** `PRONTO PARA QA MANUAL VPS`  
 **Produção / go-live TOP20 A–J:** **NÃO** declarado  
 **Push/deploy:** **NÃO** executado (aguarda autorização Benhur)
+
+---
+
+## Etapa 10 — QA Manual VPS + Bloco E
+
+### Ambiente
+
+- **URL local gates:** `localhost:5173` (Playwright) + Mongo local
+- **URL VPS:** ⏳ Benhur — produção ainda `2.12.42` até push
+- **Data:** 2026-06-28
+- **Versão:** `2.12.45`
+- **Branch:** `develop`
+- **Commit Etapas 8–9:** `0366c5e` / `979c2d2`
+- **Usuários testados:** E2E mock `SYSTEM_ADMIN` + `SYSTEM_MODERATOR`; Bloco E local actor `SYSTEM_ADMIN` Mongo
+
+### QA rota a rota
+
+| Rota | Automação | VPS browser |
+|------|-----------|-------------|
+| `/admin` | ✅ E2E redirect | ⏳ Benhur |
+| `/admin/dashboard` | ✅ E2E cards/abas | ⏳ Benhur |
+| `/admin/dashboard?tab=tenants` | ✅ E2E tabela Empresas | ⏳ Benhur |
+| `/admin/dashboard?tab=infra` | ✅ E2E | ⏳ Benhur |
+| `/admin/dashboard?tab=security` | ✅ E2E feed | ⏳ Benhur |
+| `/admin/clients` | ✅ E2E Usuários + guia | ⏳ Benhur |
+| `/admin/moderation` | ✅ E2E sem tabela plano | ⏳ Benhur |
+| `/admin/payments` | — | ⏳ Benhur |
+| `/admin/audit` | — | ⏳ Benhur |
+| `/admin/security` | — | ⏳ Benhur |
+| `/admin/monitoring` | ✅ E2E Ops + banner | ⏳ Benhur |
+| `/admin/errors` | ✅ E2E feed sanitizado | ⏳ Benhur |
+| `/admin/servers` | ✅ E2E enriquecido | ⏳ Benhur |
+
+### Bloco E — Alterar plano
+
+| Campo | Valor |
+|-------|-------|
+| Organização de teste | Kiro System (`6a2770e3edb88c1ee1cf567d`) |
+| Plano antes | `pro` |
+| Plano depois (teste) | `starter` |
+| Plano final (revert) | `pro` |
+| AuditLog | ✅ `admin.plan.changed` — id `6a417069fd43c2b656456201` |
+| Stripe | ✅ nenhuma chamada |
+| Browser VPS | ⏳ pendente Benhur |
+| Evidências | [`admin-ops-bloco-e-local-2026-06-28.json`](../qa-results/admin-ops-bloco-e-local-2026-06-28.json) |
+| **Resultado local** | **PASS** |
+
+E2E modal: motivo obrigatório, botão habilitado após ≥ 5 chars — ✅
+
+### SYSTEM_MODERATOR
+
+- E2E: aba Empresas sem ações mutação — ✅
+- VPS endpoint `PATCH …/plan` → 403 — ⏳ Benhur (manual)
+
+### Anti-segredo
+
+- `qa:admin-ops:local` (Etapa 7): ✅
+- E2E malicious payloads: ✅
+- Bloco E JSON/script: ✅ sem secrets
+
+### Gates Etapa 10
+
+| Gate | Resultado |
+|------|-----------|
+| typecheck | ✅ |
+| build backend | ✅ |
+| admin-ops tests | ✅ 65/65 |
+| frontend build | ✅ |
+| E2E admin-dashboard | ✅ 54/54 |
+| qa:admin-ops:bloco-e:local | ✅ |
+
+### Status final Etapa 10
+
+**APROVADO COM RESSALVAS** — automatizado verde; validação VPS/browser Bloco E aguarda Benhur antes de push `main`.
+
+Doc: [`RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md)
 
 ---
 
@@ -54,7 +129,7 @@ Evidência browser (`SYSTEM_ADMIN` / skulksgamer):
 | `npm run build` | ✅ | Backend |
 | `npm test -- admin-ops` | ✅ | **65/65** |
 | `npm run build --prefix …/frontend` | ✅ | Vite |
-| `npx playwright test e2e/admin-dashboard.spec.ts` | ✅ | **50/50** (Etapas 8–9) |
+| `npx playwright test e2e/admin-dashboard.spec.ts` | ✅ | **54/54** (Etapas 8–10) |
 | `npm run qa:admin-ops:local` | ✅ | Mongo real — ver JSON abaixo |
 | `npm run qa:atendimento:gate` | ⏭ | Não executado (escopo Admin Ops) |
 
@@ -91,7 +166,7 @@ GET http://localhost:3001/api/admin/ops/summary
 | **B** Visão geral | 7 | ✅ | E2E cards, TOP20, refresh |
 | **C** Infra | 8 | ✅ | summary local: version 2.12.41, mongo/redis/queues |
 | **D** Empresas | 10 | ✅ | 4 orgs, filtros, paginação, WA Conectado/Sem sessão |
-| **E** Trial/plano | 11 | ✅ Quase completo | Estender (Kiro) + cancelar (Anthony→Free); alterar plano pendente |
+| **E** Trial/plano | 11 | ✅ Quase completo | Estender + cancelar (Etapa 7); alterar plano ✅ local + E2E modal; browser VPS ⏳ |
 | **F** Atendimento | 6 | ✅ | summary operations.* populado |
 | **G** Billing | 6 | ✅ | stripeMode=test; sem sk_ na resposta |
 | **H** IA | 5 | ✅ | créditos/chamadas no summary |
@@ -130,8 +205,8 @@ Checklist completo: [`RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md`](./RADARZAP-
 
 ## Riscos restantes
 
-1. Bloco E — mutações trial/plano no browser com org de teste (Benhur).
-2. Push `develop` pendente autorização.
+1. QA manual VPS rota a rota + Bloco E browser (Benhur).
+2. Push `develop` → `main` pendente autorização.
 3. TOP 20 QA A–J global ainda pendente para go-live.
 4. Override plano manual vs Stripe.
 

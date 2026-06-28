@@ -3,8 +3,8 @@
 > **Correção de sequência:** este arquivo foi gerado como “entregue” antes de existir commit correspondente (HEAD estava em `2.12.42`). A auditoria real está em [`RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md). Status abaixo reflete implementação **após** gates e commit de reconciliação.
 
 **Data:** 2026-06-27  
-**Versão:** `2.12.44`  
-**Status:** **IMPLEMENTADA COM EVIDÊNCIA** (commit reconciliação)
+**Versão:** `2.12.45`  
+**Status:** **Gates Etapa 10 verdes** — QA VPS browser pendente Benhur
 
 ---
 
@@ -68,11 +68,11 @@ Moderador (`SYSTEM_MODERATOR`) tem `dashboard:global` mas **não** `system:plans
 
 ---
 
-## Pendências (Etapa 10+)
+## Pendências (Etapa 11+)
 
 - [ ] Hub link aba IA em `ai-blueprint` / `ai-platform`
-- [ ] QA manual VPS todas as rotas (checklist abaixo)
-- [ ] Bloco E: alterar plano no browser + AuditLog
+- [ ] QA manual VPS todas as rotas (checklist — Benhur)
+- [ ] Bloco E: alterar plano no **browser VPS** + AuditLog (local ✅ Etapa 10)
 - [ ] Unificar `GET /admin/organizations` legado (moderação removida — API pode deprecar doc)
 
 ---

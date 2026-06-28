@@ -144,6 +144,22 @@ test.describe('Admin Dashboard Ops', () => {
     await expect(page.getByTestId('admin-ops-modal-submit')).toBeEnabled();
   });
 
+  test('alterar plano abre modal e exige motivo', async ({ page }) => {
+    await page.goto('/admin/dashboard?tab=tenants');
+    await expect(page.getByTestId('admin-ops-orgs-table')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('admin-ops-action-plan').first().click();
+    await expect(page.getByTestId('admin-ops-modal-plan')).toBeVisible();
+    await expect(page.getByTestId('admin-ops-plan-submit')).toBeDisabled();
+    await page.getByTestId('admin-ops-plan-reason').fill('QA alteração plano Admin Ops');
+    await expect(page.getByTestId('admin-ops-plan-submit')).toBeEnabled();
+  });
+
+  test('?tab=tenants abre aba Empresas direto', async ({ page }) => {
+    await page.goto('/admin/dashboard?tab=tenants');
+    await expect(page.getByTestId('admin-ops-orgs-table')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Empresas por plano e status')).toBeVisible();
+  });
+
   test('moderator sem plans:manage não vê ações', async ({ page }) => {
     await page.route('**/auth/me', route =>
       route.fulfill({

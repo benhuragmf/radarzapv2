@@ -1,10 +1,10 @@
 # RadarZap — Admin Dashboard Ops
 
-**Versão:** `2.12.44` · **Atualizado:** 2026-06-27 · **Etapas 8–9:** reconciliadas com evidência git
+**Versão:** `2.12.45` · **Atualizado:** 2026-06-28 · **Etapas 8–10:** gates verdes; VPS browser pendente
 
 Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATOR`).
 
-**Status release:** `PRONTO PARA QA MANUAL` — produção estável **não** declarada · **Deploy/push:** não executados (Etapas 8–9 commit local; remoto ainda `2.12.42` até push autorizado).
+**Status release:** `PRONTO PARA QA MANUAL VPS` — produção estável **não** declarada · **Deploy/push:** não executados (remoto ainda `2.12.42` até push autorizado).
 
 ---
 
@@ -20,6 +20,7 @@ Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATO
 | [Etapa 7 — QA manual](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | Gate local Mongo + commit |
 | [Etapa 8 — Consolidação](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | Legado monitoring/errors/servers |
 | [Etapa 9 — Auditoria rotas](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | Usuários×Empresas, moderação |
+| [Etapa 10 — QA VPS + push prep](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md) | Bloco E local, gates, checklist VPS |
 | [Verificação real 8–9](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | Reconciliação docs × git |
 | [Inventário `/admin/*`](./RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | 19 rotas |
 | [**API (OpenAPI espelho)**](./RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | Contrato REST completo |
@@ -43,8 +44,9 @@ OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops*
 | 7 | QA manual local, gate Mongo, commit seguro | 2.12.42 |
 | 8 | Consolidação admin legado (redirect, deep links, páginas enriquecidas) | 2.12.43 |
 | 9 | Auditoria rota a rota (Usuários/Empresas, moderação, hubs) | 2.12.44 |
+| 10 | QA VPS prep, Bloco E local, E2E plano, gates finais | 2.12.45 |
 
-**Ressalva Etapa 7 (Bloco E):** alterar plano no browser — ⏳ pendente Benhur (estender/cancelar trial ✅).
+**Bloco E:** alterar plano — ✅ local Mongo + E2E modal · ⏳ browser VPS Benhur (estender/cancelar trial ✅ Etapa 7).
 
 ---
 

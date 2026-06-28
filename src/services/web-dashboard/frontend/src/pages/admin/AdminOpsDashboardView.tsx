@@ -63,7 +63,7 @@ const QUICK_LINKS: Array<{ key: keyof AdminOpsSummary['links']; label: string }>
   { key: 'monitoring', label: 'Monitoramento (detalhe)' },
   { key: 'errors', label: 'Erros (detalhe)' },
   { key: 'servers', label: 'Servidores (detalhe)' },
-  { key: 'clients', label: 'Clientes' },
+  { key: 'clients', label: 'Usuários' },
   { key: 'payments', label: 'Pagamentos' },
   { key: 'queue', label: 'Filas' },
   { key: 'aiPlatform', label: 'IA Plataforma' },

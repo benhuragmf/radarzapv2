@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.45] — 2026-06-28
+
+### Admin — Etapa 10 QA VPS prep + Bloco E local
+
+- **Bloco E:** script `qa:admin-ops:bloco-e:local` — alterar plano + `AuditLog` + revert (Mongo local, sem Stripe).
+- **E2E:** +3 cenários — modal alterar plano, `?tab=tenants`, quick link Usuários.
+- **Fix:** quick link dashboard Clientes → Usuários; `data-testid` modal plano.
+- **Gates:** typecheck, build, admin-ops 65/65, E2E 54/54.
+- **QA VPS browser:** pendente Benhur; push não autorizado.
+
 ## [2.12.44] — 2026-06-27
 
 ### Admin — reconciliação Etapas 8–9 (auditoria real)

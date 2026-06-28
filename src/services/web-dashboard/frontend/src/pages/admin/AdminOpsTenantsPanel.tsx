@@ -547,6 +547,7 @@ export default function AdminOpsTenantsPanel({ tenants }: Props) {
                 value={reason}
                 onChange={e => setReason(e.target.value)}
                 rows={3}
+                data-testid="admin-ops-plan-reason"
                 className="mt-1 w-full rounded-lg border border-[var(--rz-border)] px-3 py-1.5"
               />
             </label>
@@ -556,6 +557,7 @@ export default function AdminOpsTenantsPanel({ tenants }: Props) {
               type="button"
               disabled={isSubmitting || reason.trim().length < 5}
               onClick={submitPlan}
+              data-testid="admin-ops-plan-submit"
               className="rounded-lg bg-[var(--rz-primary)] px-4 py-2 text-sm text-white disabled:opacity-50"
             >
               Salvar plano
