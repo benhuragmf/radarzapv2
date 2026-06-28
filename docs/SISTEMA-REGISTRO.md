@@ -52,7 +52,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.12.9** | Conta: remover e-mail ao desvincular Google |
 | **2.12.8** | Conta: desvincular Google (`DELETE /auth/account/google`) |
 | **2.12.7** | Admin IA plataforma: credenciais criptografadas + relatório uso — `/admin/ai-platform` |
-| **2.12.6** | TOP 20: congelamento/go-live controlado + TOP 21 extra: doc final única — `RADARZAP-RESULTADO-FINAL-TOP-01-20.md`, `top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` |
+| **2.12.6** | TOP 20: congelamento/go-live controlado + TOP 21 extra: doc final única — `RADARZAP-RESULTADO-FINAL-TOP-01-20.md`, `concluidos/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` |
 | **2.12.5** | TOP 19: QA final, regressão, checklist pré-go-live — `docs/concluidos/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` |
 | **2.12.4** | TOP 18: auditoria/segurança/LGPD/hardening — `docs/concluidos/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md` |
 | **2.12.3** | TOP 17: billing/assinaturas/limites/bloqueios — `docs/concluidos/top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md` |

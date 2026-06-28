@@ -4,7 +4,7 @@ Assinaturas mensais por **organização** (empresa), padrão inspirado no radarg
 
 ## Planos
 
-Catálogo canônico em `config/plans.json` (validado em `plan-config.ts`). Matriz comercial completa: [`docs/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md).
+Catálogo canônico em `config/plans.json` (validado em `plan-config.ts`). Matriz comercial completa: [`docs/concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md).
 
 | ID | Nome | Preço | Comprável |
 |----|------|-------|-----------|
