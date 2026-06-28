@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import AdminOpsHubLink from '../admin/AdminOpsHubLink'
 import { Card } from '../../components/ui/Card'
 import { api } from '../../lib/api'
 import { RadarPageShell, PageHeader, LoadingState, MetricCard } from '@/design-system'
@@ -21,6 +22,8 @@ export default function AdminApiPage() {
   return (
     <RadarPageShell>
       <PageHeader title="API global" subtitle="Visão administrativa das integrações em todo o RadarZap." />
+
+      <AdminOpsHubLink tab="overview" label="Resumo operacional consolidado:" />
 
       {isLoading ? (
         <LoadingState rows={3} className="pt-4" />

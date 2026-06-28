@@ -322,7 +322,7 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 - **Rate limit:** WebChat/lead público, auth, ticket lookup/resend, WA sessão.
 - **Webhooks:** HMAC Stripe + outbound; sem payload bruto em log.
 - **Multi-tenant:** API filtra por `clientId`; RBAC no painel.
-- **Admin ops (2.12.37–2.12.41):** `GET /api/admin/ops/summary`, orgs, security-events; UI `/admin/dashboard` (8 abas). Docs: `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`, API em `RADARZAP-ADMIN-DASHBOARD-OPS-API.md`, OpenAPI tag **Admin Ops**.
+- **Admin ops (2.12.37–2.12.44):** `GET /api/admin/ops/summary`, orgs, security-events; UI `/admin/dashboard` (8 abas); consolidação legado (Etapas 8–9). Docs: `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`, verificação `ETAPA-8-9-VERIFICACAO-REAL.md`.
 - **LGPD:** consentimento contato/form; export CSV; portal titular pendente go-live.
 - **Pendências:** `auth.login_failed`, purge retenção, QA manual WA → TOP 20.
 

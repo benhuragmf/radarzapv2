@@ -254,4 +254,46 @@ export async function setupAdminDashboardMocks(
       body: JSON.stringify(MOCK_ADMIN_OPS_SECURITY_EVENTS),
     });
   });
+
+  await page.route('**/api/admin/monitoring**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        health: { mongodb: true, redis: true },
+        stats: { waiting: 3, active: 1, failed: 0 },
+        timestamp: new Date().toISOString(),
+      }),
+    }),
+  );
+
+  await page.route('**/api/admin/servers-summary**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        whatsappSessions: 9,
+        connectedSessions: 6,
+        discordGuilds: 2,
+        activeChannels: 5,
+      }),
+    }),
+  );
+
+  await page.route('**/api/users**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          _id: 'user-1',
+          discordUserId: '123',
+          email: 'demo@example.com',
+          displayName: 'Demo User',
+          organizationName: 'Empresa Trial Demo',
+          plan: 'starter',
+        },
+      ]),
+    }),
+  );
 }

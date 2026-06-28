@@ -1,10 +1,10 @@
 # RadarZap — Admin Dashboard Ops
 
-**Versão:** `2.12.42` · **Atualizado:** 2026-06-28 · **Etapa 7:** QA manual ✅ (com ressalvas)
+**Versão:** `2.12.44` · **Atualizado:** 2026-06-27 · **Etapas 8–9:** reconciliadas com evidência git
 
 Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATOR`).
 
-**Status release:** `PRONTO PARA QA MANUAL` — produção estável **não** declarada · **Deploy/push:** não executados.
+**Status release:** `PRONTO PARA QA MANUAL` — produção estável **não** declarada · **Deploy/push:** não executados (Etapas 8–9 commit local; remoto ainda `2.12.42` até push autorizado).
 
 ---
 
@@ -18,9 +18,13 @@ Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATO
 | [Etapa 5 — Segurança](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md) | Feed eventos críticos |
 | [Etapa 6 — Fechamento](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md) | QA, OpenAPI, consolidação |
 | [Etapa 7 — QA manual](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | Gate local Mongo + commit |
+| [Etapa 8 — Consolidação](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | Legado monitoring/errors/servers |
+| [Etapa 9 — Auditoria rotas](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | Usuários×Empresas, moderação |
+| [Verificação real 8–9](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | Reconciliação docs × git |
+| [Inventário `/admin/*`](./RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | 19 rotas |
 | [**API (OpenAPI espelho)**](./RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | Contrato REST completo |
 | [QA Checklist manual](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | Roteiro Benhur |
-| [QA Resultado gates](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | Automação 65+18 testes |
+| [QA Resultado gates](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | Automação 65+50 testes |
 
 OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops**).
 
@@ -37,6 +41,10 @@ OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops*
 | 5 | `GET /api/admin/ops/security-events` + feed UI | 2.12.40 |
 | 6 | API docs, OpenAPI, QA checklist, anti-segredo | 2.12.41 |
 | 7 | QA manual local, gate Mongo, commit seguro | 2.12.42 |
+| 8 | Consolidação admin legado (redirect, deep links, páginas enriquecidas) | 2.12.43 |
+| 9 | Auditoria rota a rota (Usuários/Empresas, moderação, hubs) | 2.12.44 |
+
+**Ressalva Etapa 7 (Bloco E):** alterar plano no browser — ⏳ pendente Benhur (estender/cancelar trial ✅).
 
 ---
 
@@ -59,8 +67,13 @@ Detalhes: [`RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](./RADARZAP-ADMIN-DASHBOARD-OPS
 
 | Rota | Componentes |
 |------|-------------|
-| `/admin/dashboard` | `AdminDashboard.tsx` → `AdminOpsDashboardView.tsx` |
-| Aba Empresas | `AdminOpsTenantsPanel.tsx` |
+| `/admin` | redirect → `/admin/dashboard` |
+| `/admin/dashboard` | `AdminDashboard.tsx` → `AdminOpsDashboardView.tsx` (`?tab=` deep link) |
+| `/admin/monitoring` | `AdminMonitoring.tsx` + `AdminOpsInfraPanel` |
+| `/admin/errors` | `AdminErrors.tsx` + feed Segurança |
+| `/admin/servers` | `AdminServers.tsx` + `AdminOpsServersPanel` |
+| `/admin/clients` | `AdminClients.tsx` — **Usuários** (contas) |
+| Aba Empresas | `AdminOpsTenantsPanel.tsx` (`?tab=tenants`) |
 | Aba Segurança | `AdminOpsSecurityPanel.tsx` |
 
 Abas: Visão geral · Infra · Empresas · Atendimento · Billing · IA · Segurança · Go-live.

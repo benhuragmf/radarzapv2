@@ -3,7 +3,9 @@
 **Data:** 2026-06-28  
 **Versão:** `2.12.42`  
 **Branch:** `develop`  
-**Status:** ✅ **APROVADO PARA COMMIT** (Bloco E: estender + cancelar trial validados por Benhur)
+**Status:** ✅ **APROVADO COM RESSALVAS** — Bloco E: estender + cancelar trial ✅; **alterar plano browser ⏳ pendente**
+
+> Etapas 8–9 foram reconciliadas em 2026-06-27 — ver [`RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md). Não confundir conclusão Etapa 7 com entrega 8–9 no remoto até push.
 
 ---
 

@@ -140,12 +140,18 @@ function AlertsList({ alerts }: { alerts: AdminOpsSummary['alerts'] }) {
 interface Props {
   security: AdminOpsSummary['security']
   alerts: AdminOpsSummary['alerts']
+  /** Pré-seleciona filtro de nível (ex.: página /admin/errors). */
+  initialLevelFilter?: '' | AdminOpsSecurityEventLevel
 }
 
-export default function AdminOpsSecurityPanel({ security, alerts }: Props) {
+export default function AdminOpsSecurityPanel({
+  security,
+  alerts,
+  initialLevelFilter = '',
+}: Props) {
   const queryClient = useQueryClient()
   const [windowPreset, setWindowPreset] = useState<WindowPreset>('24h')
-  const [levelFilter, setLevelFilter] = useState<'' | AdminOpsSecurityEventLevel>('')
+  const [levelFilter, setLevelFilter] = useState<'' | AdminOpsSecurityEventLevel>(initialLevelFilter)
   const [sourceFilter, setSourceFilter] = useState<'' | AdminOpsSecurityEventSource>('')
   const [kindFilter, setKindFilter] = useState('')
 

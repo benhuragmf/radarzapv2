@@ -1,22 +1,23 @@
 # RadarZap — Admin Dashboard Ops — QA Resultado
 
-**Última atualização:** 2026-06-28 (Etapa 7)  
-**Versão testada:** `2.12.42`  
+**Última atualização:** 2026-06-27 (reconciliação Etapas 8–9)  
+**Versão testada:** `2.12.44`  
 **Branch:** `develop`  
-**Commit:** `4b862e5` (local) · push pendente
+**Commit:** reconciliação local (pós `30a3372`)
 
 ---
 
-## Status final (Etapa 7)
+## Status final
 
 ```txt
-APROVADO PARA COMMIT
+APROVADO COM RESSALVAS — Etapas 8–9 implementadas com evidência (commit reconciliação)
 ```
 
-**Atualização 2026-06-28 (Benhur):** Bloco E validado no browser — **estender trial** (Kiro System) e **cancelar trial** (Anthony Monteiro → Free) com toasts de sucesso. **Alterar plano** ainda sem evidência nesta sessão.
+**Bloco E (Etapa 7):** estender trial ✅ · cancelar trial ✅ · **alterar plano browser ⏳ pendente**
 
 **Release módulo:** `PRONTO PARA QA MANUAL`  
-**Produção / go-live TOP20 A–J:** **NÃO** declarado
+**Produção / go-live TOP20 A–J:** **NÃO** declarado  
+**Push/deploy:** **NÃO** executado (aguarda autorização Benhur)
 
 ---
 
@@ -53,7 +54,7 @@ Evidência browser (`SYSTEM_ADMIN` / skulksgamer):
 | `npm run build` | ✅ | Backend |
 | `npm test -- admin-ops` | ✅ | **65/65** |
 | `npm run build --prefix …/frontend` | ✅ | Vite |
-| `npx playwright test e2e/admin-dashboard.spec.ts` | ✅ | **18/18** |
+| `npx playwright test e2e/admin-dashboard.spec.ts` | ✅ | **50/50** (Etapas 8–9) |
 | `npm run qa:admin-ops:local` | ✅ | Mongo real — ver JSON abaixo |
 | `npm run qa:atendimento:gate` | ⏭ | Não executado (escopo Admin Ops) |
 

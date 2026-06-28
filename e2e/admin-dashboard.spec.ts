@@ -28,7 +28,7 @@ test.describe('Admin Dashboard Ops', () => {
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole('tab', { name: 'Infra' }).click();
-    await expect(page.getByText('Infraestrutura detalhada')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Infraestrutura detalhada' })).toBeVisible();
 
     await page.getByRole('tab', { name: 'Empresas' }).click();
     await expect(page.getByTestId('admin-ops-tenants')).toBeVisible({ timeout: 15_000 });
@@ -274,5 +274,65 @@ test.describe('Admin Dashboard Ops', () => {
     const before = calls;
     await page.getByTestId('admin-ops-security-refresh').click();
     await expect.poll(() => calls).toBeGreaterThan(before);
+  });
+
+  test('/admin redireciona para dashboard', async ({ page }) => {
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/\/admin\/dashboard/, { timeout: 15_000 });
+  });
+
+  test('?tab=infra abre aba Infra diretamente', async ({ page }) => {
+    await page.goto('/admin/dashboard?tab=infra');
+    await expect(page.getByRole('heading', { name: 'Infraestrutura detalhada' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole('heading', { name: 'Sistema' })).toBeVisible();
+  });
+
+  test('/admin/monitoring enriquecido com Ops + banner', async ({ page }) => {
+    await page.goto('/admin/monitoring');
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Monitoramento' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('admin-ops-legacy-banner')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Infraestrutura (Ops global)' })).toBeVisible();
+  });
+
+  test('/admin/errors usa feed sanitizado com filtro error', async ({ page }) => {
+    await page.goto('/admin/errors');
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Erros do sistema' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('admin-ops-legacy-banner')).toBeVisible();
+    await expect(page.getByTestId('admin-ops-security-feed')).toBeVisible();
+  });
+
+  test('/admin/servers enriquecido com Ops global', async ({ page }) => {
+    await page.goto('/admin/servers');
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Servidores' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('admin-ops-legacy-banner')).toBeVisible();
+    await expect(page.getByTestId('admin-ops-servers-panel')).toBeVisible();
+    await expect(page.getByText('WA conectadas')).toBeVisible();
+  });
+
+  test('/admin/clients — Usuários com guia empresas', async ({ page }) => {
+    await page.goto('/admin/clients');
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Usuários' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('admin-users-vs-orgs-guide')).toBeVisible();
+    await expect(page.getByTestId('admin-ops-legacy-banner')).toBeVisible();
+  });
+
+  test('/admin/moderation — LGPD sem tabela de planos', async ({ page }) => {
+    await page.goto('/admin/moderation');
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Moderação' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('admin-mod-blocked')).toBeVisible();
+    await expect(page.getByTestId('admin-mod-refused')).toBeVisible();
+    await expect(page.locator('table')).toHaveCount(0);
   });
 });

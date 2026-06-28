@@ -59,6 +59,10 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | **API** — contrato REST Admin Ops |
 | [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | **QA manual** — checklist Benhur |
 | [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | **Etapa 7** — QA manual e commit (`2.12.42`) |
+| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | **Etapa 8** — consolidação admin legado (`2.12.43`) |
+| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | **Etapa 9** — auditoria rota a rota (`2.12.44`) |
+| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | **Verificação** — reconciliação docs × código × git |
+| [`admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md`](./admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | Inventário 19 rotas `/admin/*` |
 | [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | **QA gates** — resultado automatizado + Etapa 7 |
 | [`concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md`](./concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Entrega Etapas 1–3 (referência) |
 | [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Diagnóstico Etapa 1 `/admin/dashboard` |

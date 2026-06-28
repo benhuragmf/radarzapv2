@@ -1,62 +1,58 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
-import { api } from '../../lib/api'
-import { Shield, UserX, Ban } from 'lucide-react'
-import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
-import { RadarPageShell, PageHeader, LoadingState, selectCls } from '@/design-system'
-
-interface AdminOrg {
-  _id: string
-  name?: string
-  plan?: string
-  planExpiresAt?: string
-  createdAt?: string
-}
-
-const PLANS = ['free', 'starter', 'pro', 'enterprise'] as const
+import { Shield, UserX, Ban, Building2 } from 'lucide-react'
+import AdminOpsHubLink from '../admin/AdminOpsHubLink'
+import { useAdminOpsSummary } from '../admin/useAdminOpsSummary'
+import { adminDashboardTabUrl } from '../admin/adminOpsTabs'
+import { formatOpsNumber } from '@radarzap-types/admin-ops-summary.util'
+import { RadarPageShell, PageHeader, MetricCard } from '@/design-system'
 
 export default function AdminModeration() {
-  const qc = useQueryClient()
-
-  const { data: orgs = [], isLoading } = useQuery<AdminOrg[]>({
-    queryKey: ['admin-organizations'],
-    queryFn: () => api.get('/admin/organizations'),
-  })
-
-  const setPlan = useMutation({
-    mutationFn: ({ id, plan }: { id: string; plan: string }) =>
-      api.patch(`/admin/organizations/${id}/plan`, { plan }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-organizations'] }),
-    onError: mutationError,
-  })
+  const ops = useAdminOpsSummary()
 
   return (
     <RadarPageShell maxWidth="wide">
       <PageHeader
         title="Moderação"
-        subtitle="Empresas cadastradas, planos e atalhos para consentimento."
+        subtitle="Consentimento LGPD, bloqueios manuais e atalhos operacionais — sem duplicar gestão de planos."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card className="flex gap-3">
+      <AdminOpsHubLink
+        tab="tenants"
+        label="Alterar plano, trial ou billing de empresas:"
+      />
+
+      {ops.data ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <MetricCard
+            title="Organizações"
+            value={formatOpsNumber(ops.data.tenants.totalOrganizations)}
+            icon={Building2}
+          />
+          <MetricCard title="Em trial" value={formatOpsNumber(ops.data.tenants.trialingOrganizations)} />
+          <MetricCard title="Past due" value={formatOpsNumber(ops.data.tenants.pastDueOrganizations)} />
+          <MetricCard title="Expiradas" value={formatOpsNumber(ops.data.tenants.expiredOrganizations)} />
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2 mb-4">
+        <Card className="flex gap-3" data-testid="admin-mod-blocked">
           <UserX size={20} className="text-amber-400 shrink-0" />
           <div>
             <p className="text-sm font-medium text-[var(--rz-text-primary)]">Bloqueio manual</p>
             <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-              <Link to="/contact?consent=blocked" className="text-brand-400 hover:underline">
+              <Link to="/contact?consent=blocked" className="text-[var(--rz-primary)] hover:underline">
                 Contatos → Bloqueados
               </Link>
             </p>
           </div>
         </Card>
-        <Card className="flex gap-3">
+        <Card className="flex gap-3" data-testid="admin-mod-refused">
           <Ban size={20} className="text-red-400 shrink-0" />
           <div>
             <p className="text-sm font-medium text-[var(--rz-text-primary)]">Consentimento recusado</p>
             <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-              <Link to="/contact?consent=refused" className="text-brand-400 hover:underline">
+              <Link to="/contact?consent=refused" className="text-[var(--rz-primary)] hover:underline">
                 Contatos → Recusados
               </Link>
             </p>
@@ -64,59 +60,29 @@ export default function AdminModeration() {
         </Card>
       </div>
 
-      {isLoading ? (
-        <LoadingState rows={5} className="pt-4" />
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-[var(--rz-border)]">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-[var(--rz-surface)]/80 text-[var(--rz-text-muted)] text-xs uppercase">
-              <tr>
-                <th className="px-3 py-2">Empresa</th>
-                <th className="px-3 py-2">Plano</th>
-                <th className="px-3 py-2">Expira</th>
-                <th className="px-3 py-2">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orgs.map(o => (
-                <tr key={o._id} className="border-t border-[var(--rz-border)]/80">
-                  <td className="px-3 py-2 text-[var(--rz-text-primary)]">{o.name ?? o._id}</td>
-                  <td className="px-3 py-2 capitalize">{o.plan ?? 'free'}</td>
-                  <td className="px-3 py-2 text-[var(--rz-text-muted)] text-xs">
-                    {o.planExpiresAt
-                      ? new Date(o.planExpiresAt).toLocaleDateString('pt-BR')
-                      : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      className={`${selectCls} text-xs py-1`}
-                      value={o.plan ?? 'free'}
-                      disabled={setPlan.isPending}
-                      onChange={e => setPlan.mutate({ id: o._id, plan: e.target.value })}
-                    >
-                      {PLANS.map(p => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <p className="text-xs text-[var(--rz-text-muted)]">
-        <Link to="/admin/payments" className="text-brand-400 hover:underline">
-          Pagamentos Stripe
-        </Link>
-        {' · '}
-        <Link to="/admin/monitoring" className="text-brand-400 hover:underline">
-          Monitoramento
-        </Link>
-      </p>
+      <Card className="text-sm text-[var(--rz-text-secondary)] space-y-2">
+        <p className="flex items-center gap-2 text-[var(--rz-text-primary)]">
+          <Shield size={14} /> Atalhos
+        </p>
+        <ul className="list-disc list-inside space-y-1 text-xs">
+          <li>
+            <Link to={adminDashboardTabUrl('tenants')} className="text-[var(--rz-primary)] hover:underline">
+              Empresas no dashboard
+            </Link>
+            {' — planos, trial, auditoria'}
+          </li>
+          <li>
+            <Link to="/admin/payments" className="text-[var(--rz-primary)] hover:underline">
+              Pagamentos Stripe
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/dashboard?tab=security" className="text-[var(--rz-primary)] hover:underline">
+              Eventos de segurança
+            </Link>
+          </li>
+        </ul>
+      </Card>
     </RadarPageShell>
   )
 }

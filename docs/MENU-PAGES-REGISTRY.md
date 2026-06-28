@@ -59,13 +59,14 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
 | Rota | Componente | API |
 |------|------------|-----|
-| `/admin/dashboard` | `admin/AdminDashboard.tsx` | `GET /admin/ops/summary`, `GET /admin/ops/organizations`, `GET /admin/ops/security-events`, mutações plano/trial |
+| `/admin` | redirect | — | Redireciona para `/admin/dashboard` |
+| `/admin/dashboard` | `admin/AdminDashboard.tsx` | `GET /admin/ops/summary`, `GET /admin/ops/organizations`, `GET /admin/ops/security-events`, mutações plano/trial; `?tab=` deep link |
 | `/admin/queue` | `Queue.tsx` | `GET /queue` |
 | `/admin/logs` | `Logs.tsx` | `GET /logs` |
-| `/admin/monitoring` | `menu/AdminMonitoring.tsx` | `GET /admin/monitoring` |
-| `/admin/errors` | `menu/AdminErrors.tsx` | `GET /admin/errors` |
-| `/admin/clients` | `admin/AdminClients.tsx` | `GET /users` |
-| `/admin/servers` | `menu/AdminServers.tsx` | `GET /admin/servers-summary` |
+| `/admin/monitoring` | `admin/AdminMonitoring.tsx` | `GET /admin/ops/summary`, `GET /admin/monitoring` |
+| `/admin/errors` | `admin/AdminErrors.tsx` | `GET /admin/ops/summary`, `GET /admin/ops/security-events`, fallback `GET /admin/errors` |
+| `/admin/clients` | `admin/AdminClients.tsx` | `GET /users`; guia → `?tab=tenants` |
+| `/admin/servers` | `admin/AdminServers.tsx` | `GET /admin/ops/summary`, `GET /admin/servers-summary` |
 | `/admin/audit` | `menu/AdminAuditPage.tsx` | `GET /admin/audit-logs` |
 | `/admin/moderation` | `menu/AdminModeration.tsx` | `GET /admin/organizations`, `PATCH /admin/organizations/:id/plan` |
 | `/admin/api` | `menu/AdminApiPage.tsx` | `GET /admin/integrations-overview` |

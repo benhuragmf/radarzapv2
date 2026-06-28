@@ -225,6 +225,7 @@ export default function App() {
           <Route path="em-breve/:slug" element={<Guard user={user} path="/em-breve"><EmBreveRedirect /></Guard>} />
 
           {/* Admin interno */}
+          <Route path="admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="admin/dashboard" element={<Guard user={user} path="/admin/dashboard"><AdminDashboard /></Guard>} />
           <Route path="admin/clients" element={<Guard user={user} path="/admin/clients"><AdminClients /></Guard>} />
           <Route path="admin/servers" element={<Guard user={user} path="/admin/servers"><AdminServers /></Guard>} />

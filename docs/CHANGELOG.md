@@ -6,6 +6,33 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.44] — 2026-06-27
+
+### Admin — reconciliação Etapas 8–9 (auditoria real)
+
+- **Verificação:** `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md` — docs estavam adiantados vs git (`2.12.42`); código existia só local.
+- **Etapa 8 (2.12.43):** consolidação legado — redirect, deep links, monitoring/errors/servers enriquecidos.
+- **Etapa 9 (2.12.44):** auditoria rotas — Usuários/Empresas, moderação sem duplicação plano, hub links.
+- **Gates:** typecheck, build, admin-ops 65/65, E2E 50/50.
+- **Bloco E:** alterar plano browser — ainda pendente.
+
+## [2.12.43] — 2026-06-27
+
+- **Matriz:** `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md` — checklist 19 rotas.
+- **Usuários × Empresas:** menu **Empresas** (`?tab=tenants`) + **Usuários** (`/admin/clients`); guia anti-confusão.
+- **Moderação:** removida tabela duplicada de planos; foco LGPD + hub Empresas.
+- **Hub links:** pagamentos, API, auditoria, segurança → abas dashboard (`AdminOpsHubLink`).
+
+## [2.12.43] — 2026-06-27
+
+### Admin — consolidação páginas legado (Etapa 8)
+
+- **Inventário:** `docs/admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md` — mapa completo `/admin/*`.
+- **Legado enriquecido:** `/admin/monitoring`, `/admin/errors`, `/admin/servers` consomem Ops summary + banner deep link.
+- **Navegação:** redirect `/admin` → `/admin/dashboard`; `?tab=` para abas diretas.
+- **Shared UI:** `AdminOpsInfraPanel`, `AdminOpsServersPanel`, `useAdminOpsSummary`.
+- **E2E:** +5 cenários admin-dashboard (redirect, deep link, páginas legado).
+
 ## [2.12.42] — 2026-06-28
 
 ### Admin — ops QA manual e gate local (Etapa 7)

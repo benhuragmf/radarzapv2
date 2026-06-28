@@ -1,6 +1,9 @@
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { api } from '../../lib/api'
+import AdminOpsHubLink from '../admin/AdminOpsHubLink'
+import { adminDashboardTabUrl } from '../admin/adminOpsTabs'
 import { RadarPageShell, PageHeader, LoadingState, EmptyState } from '@/design-system'
 
 interface AuditRow {
@@ -22,6 +25,19 @@ export default function AdminAuditPage() {
   return (
     <RadarPageShell maxWidth="wide">
       <PageHeader title="Auditoria" subtitle="Ações administrativas registradas no sistema." />
+
+      <AdminOpsHubLink
+        tab="security"
+        label="Eventos operacionais recentes (Attendance, Audit, SystemLog):"
+      />
+
+      <Card className="mb-4 text-xs text-[var(--rz-text-muted)]">
+        Esta página lista <code>AuditLog</code> staff. Para feed unificado sanitizado, use{' '}
+        <Link to={adminDashboardTabUrl('security')} className="text-[var(--rz-primary)] hover:underline">
+          Segurança no dashboard
+        </Link>
+        .
+      </Card>
 
       {isLoading ? (
         <LoadingState rows={5} className="pt-4" />

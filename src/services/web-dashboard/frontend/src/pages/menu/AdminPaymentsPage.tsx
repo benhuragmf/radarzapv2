@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import AdminOpsHubLink from '../admin/AdminOpsHubLink'
 import { api } from '../../lib/api'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -66,6 +67,8 @@ export default function AdminPaymentsPage() {
           </Button>
         }
       />
+
+      <AdminOpsHubLink tab="billing" label="KPIs de billing e Stripe no dashboard:" />
 
       <Card className="text-xs text-[var(--rz-text-muted)] space-y-1">
         <p>

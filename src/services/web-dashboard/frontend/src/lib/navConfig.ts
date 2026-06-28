@@ -177,7 +177,8 @@ export const ADMIN_RADARZAP_NAV: NavEntry[] = [
 
   section('sec-admin-gestao', 'Clientes e planos'),
   group('grp-gestao', 'Clientes e planos', Users, [
-    link('admin-clients', 'Clientes', Users, '/admin/clients', 'system:users:view'),
+    link('admin-tenants', 'Empresas', Building2, '/admin/dashboard?tab=tenants', 'dashboard:global'),
+    link('admin-clients', 'Usuários', Users, '/admin/clients', 'system:users:view'),
     link('admin-servers', 'Servidores', Server, '/admin/servers', 'system:servers:view'),
     link('admin-plans', 'Planos', Crown, '/admin/plans', 'system:plans:manage'),
     link('admin-payments', 'Pagamentos', CreditCard, '/admin/payments', 'system:payments:view'),
@@ -209,7 +210,8 @@ export const MODERATOR_ADMIN_NAV: NavEntry[] = [
   ]),
   section('sec-admin-gestao', 'Clientes e planos'),
   group('grp-mod-gestao', 'Clientes e planos', Users, [
-    link('mod-clients', 'Clientes', Users, '/admin/clients', 'system:users:view'),
+    link('mod-tenants', 'Empresas', Building2, '/admin/dashboard?tab=tenants', 'dashboard:global'),
+    link('mod-clients', 'Usuários', Users, '/admin/clients', 'system:users:view'),
     link('mod-servers', 'Servidores', Server, '/admin/servers', 'system:servers:view'),
   ]),
 ]
@@ -528,7 +530,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/settings/security': 'Segurança',
   '/settings/backup': 'Backup',
   '/admin/dashboard': 'Dashboard global',
-  '/admin/clients': 'Clientes',
+  '/admin/clients': 'Usuários',
   '/admin/servers': 'Servidores',
   '/admin/sessions': 'Sessões WhatsApp',
   '/admin/queue': 'Fila global',

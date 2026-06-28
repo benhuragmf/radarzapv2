@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   Activity,
   Building2,
@@ -33,6 +33,8 @@ import {
 import { Card } from '../../components/ui/Card'
 import AdminOpsTenantsPanel from './AdminOpsTenantsPanel'
 import AdminOpsSecurityPanel from './AdminOpsSecurityPanel'
+import AdminOpsInfraPanel from './AdminOpsInfraPanel'
+import { type AdminOpsTab } from './adminOpsTabs'
 import {
   EmptyState,
   ErrorState,
@@ -44,15 +46,7 @@ import {
   StatusBadge,
 } from '@/design-system'
 
-export type AdminOpsTab =
-  | 'overview'
-  | 'infra'
-  | 'tenants'
-  | 'atendimento'
-  | 'billing'
-  | 'ai'
-  | 'security'
-  | 'golive'
+export type { AdminOpsTab } from './adminOpsTabs'
 
 const TABS: Array<{ id: AdminOpsTab; label: string }> = [
   { id: 'overview', label: 'Visão geral' },
@@ -66,11 +60,11 @@ const TABS: Array<{ id: AdminOpsTab; label: string }> = [
 ]
 
 const QUICK_LINKS: Array<{ key: keyof AdminOpsSummary['links']; label: string }> = [
-  { key: 'monitoring', label: 'Monitoramento legado' },
+  { key: 'monitoring', label: 'Monitoramento (detalhe)' },
+  { key: 'errors', label: 'Erros (detalhe)' },
+  { key: 'servers', label: 'Servidores (detalhe)' },
   { key: 'clients', label: 'Clientes' },
   { key: 'payments', label: 'Pagamentos' },
-  { key: 'servers', label: 'Servidores' },
-  { key: 'errors', label: 'Erros' },
   { key: 'queue', label: 'Filas' },
   { key: 'aiPlatform', label: 'IA Plataforma' },
 ]
@@ -82,6 +76,7 @@ interface Props {
   isFetching: boolean
   onRefresh: () => void
   onRetry: () => void
+  initialTab?: AdminOpsTab
 }
 
 function StatRow({ label, value }: { label: string; value: string | number }) {
@@ -139,8 +134,13 @@ export default function AdminOpsDashboardView({
   isFetching,
   onRefresh,
   onRetry,
+  initialTab,
 }: Props) {
-  const [tab, setTab] = useState<AdminOpsTab>('overview')
+  const [tab, setTab] = useState<AdminOpsTab>(initialTab ?? 'overview')
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab)
+  }, [initialTab])
 
   const overall = useMemo(
     () => (data ? deriveOverallStatus(data.alerts) : 'ok'),
@@ -353,36 +353,9 @@ export default function AdminOpsDashboardView({
       )}
 
       {tab === 'infra' && (
-        <SectionCard title="Infraestrutura detalhada" className="mt-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-xs font-semibold text-[var(--rz-text-muted)] mb-2">Sistema</h3>
-              <StatRow label="Versão" value={data.system.version} />
-              <StatRow label="Ambiente" value={data.system.nodeEnv} />
-              <StatRow label="Uptime" value={formatOpsUptime(data.system.uptimeSeconds)} />
-              <StatRow label="Node" value={data.system.nodeVersion} />
-              <StatRow label="Heap usado" value={`${data.system.memoryMb.heapUsed} MB`} />
-              <StatRow label="Heap total" value={`${data.system.memoryMb.heapTotal} MB`} />
-              <StatRow label="RSS" value={`${data.system.memoryMb.rss} MB`} />
-              {data.system.cpu ? (
-                <>
-                  <StatRow label="Load 1m" value={data.system.cpu.load1?.toFixed(2) ?? '—'} />
-                  <StatRow label="CPUs" value={data.system.cpu.cpuCount ?? '—'} />
-                </>
-              ) : null}
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold text-[var(--rz-text-muted)] mb-2">Serviços</h3>
-              <StatRow label="Mongo" value={`${serviceStatusLabel(data.services.mongo.status)}${data.services.mongo.latencyMs != null ? ` (${data.services.mongo.latencyMs} ms)` : ''}`} />
-              <StatRow label="Redis" value={`${serviceStatusLabel(data.services.redis.status)}${data.services.redis.latencyMs != null ? ` (${data.services.redis.latencyMs} ms)` : ''}`} />
-              <StatRow label="Filas — waiting" value={formatOpsNumber(data.services.queues.waiting)} />
-              <StatRow label="Filas — active" value={formatOpsNumber(data.services.queues.active)} />
-              <StatRow label="Filas — failed" value={formatOpsNumber(data.services.queues.failed)} />
-              <StatRow label="Filas — delayed" value={formatOpsNumber(data.services.queues.delayed)} />
-              <StatRow label="Filas — paused" value={formatOpsNumber(data.services.queues.paused)} />
-            </div>
-          </div>
-        </SectionCard>
+        <div className="mt-4">
+          <AdminOpsInfraPanel data={data} title="Infraestrutura detalhada" />
+        </div>
       )}
 
       {tab === 'tenants' && <AdminOpsTenantsPanel tenants={data.tenants} />}
