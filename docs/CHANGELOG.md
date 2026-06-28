@@ -6,6 +6,13 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.36] — 2026-06-27
+
+### Deploy — assets estáticos webchat/leads no dist
+
+- **Fix ENOENT produção:** `npm run build` copia `webchat/*.{html,js}` e `leads/*.{html,js}` para `dist/services/web-dashboard/` (`copy-dashboard-static.cjs`).
+- Corrige `/webchat/widget.html`, previews e `/leads/preview.html` no Docker/VPS.
+
 ## [2.12.35] — 2026-06-27
 
 ### Inbox — assumir manualmente (WebChat + WhatsApp)

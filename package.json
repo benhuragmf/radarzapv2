@@ -1,12 +1,12 @@
 {
   "name": "radarzap",
-  "version": "2.12.35",
+  "version": "2.12.36",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
   "scripts": {
     "prebuild": "node scripts/sync-widget-build.cjs",
-    "build": "tsc && tsc-alias",
+    "build": "tsc && tsc-alias && node scripts/copy-dashboard-static.cjs",
     "start": "node dist/index.js",
     "dev": "node -r ./scripts/register-dev-logging.cjs ./node_modules/ts-node-dev/lib/bin.js --respawn --exit-child --transpile-only --debounce 2500 --ignore-watch sessions --ignore-watch data --ignore-watch test-results --ignore-watch .git --ignore-watch mocker -r tsconfig-paths/register src/index.ts",
     "dev:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
