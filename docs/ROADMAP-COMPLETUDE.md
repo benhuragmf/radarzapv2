@@ -1,12 +1,12 @@
 ﻿# RadarZap v2 — completude do sistema e roadmap
 
-> **Versão ref:** `2.11.41` · **Última revisão:** 2026-06-22  
-> **Fase atual:** **estabilização do produto** — **não** preparação de produção nem go-live.
+> **Versão ref:** `2.12.63` · **Última revisão:** 2026-06-28  
+> **Fase atual:** **estabilização (Fase 1)** — gate humano QA manual pendente; **não** go-live declarado.
 
 | Fase | Documento | Quando |
 |------|-----------|--------|
-| **1 — Agora** | Este arquivo + `INBOX-ATENDIMENTO.md` / `TICKET-ATENDIMENTO.md` | Bugs, QA manual, testes de fluxo |
-| 2 — Produto | § Lacunas produto abaixo | Cloud API, compliance avançado (se bloquear release) |
+| **1 — Agora** | Este arquivo + [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) | QA manual + parar regressões |
+| 2 — Produto | § Lacunas produto abaixo | Cloud API, compliance avançado |
 | 3 — Servidor | `PREPARACAO-PRODUCAO.md` | **Só após gate § Estabilização** |
 | 4 — Go-live | `PRODUCTION.md` | Staging validado + gate §0 |
 
@@ -14,10 +14,11 @@
 
 ## Resumo executivo (honesto)
 
-O RadarZap v2 tem **ampla superfície implementada** (painel, inbox, tickets, IA, campanhas, billing teste, API, webhooks).  
-Porém o **núcleo de atendimento WhatsApp** (Inbox × Ticket × CSAT × IA) passou por **cinco correções críticas em sequência** (2.8.7–2.8.11) após bugs em uso real.
+O RadarZap v2 tem **ampla superfície implementada** (painel, inbox, tickets, IA, campanhas, billing, API, webhooks, Admin Ops, LGPD portal, bridge dedup, infra degraded boot — até **2.12.63**).
 
-**Conclusão:** sistema **utilizável em dev/piloto interno**, **não estável o suficiente** para VPS, staging ou checklist de `PREPARACAO-PRODUCAO.md`.
+Correções críticas Inbox × Ticket × CSAT × IA (2.8.7–2.8.11) foram seguidas por **gates automatizados verdes** (integração Jest, E2E 80/80, `qa:atendimento:gate` revalidado 2026-06-28).
+
+**Conclusão:** código e CI **prontos para QA manual final**; **não** declarar produção estável até Benhur executar § A–J ([`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md)).
 
 ---
 
@@ -42,13 +43,13 @@ Porém o **núcleo de atendimento WhatsApp** (Inbox × Ticket × CSAT × IA) pas
 
 Marcar **todos** antes de abrir `PREPARACAO-PRODUCAO.md` para execução:
 
-- [ ] Roteiro **QA WhatsApp** — checklist em [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A
-- [ ] Nenhum bug **crítico aberto** em Inbox/Ticket/CSAT/IA por ≥ 1 ciclo completo de teste
-- [x] `npm test` + `npm run qa:atendimento:gate` verdes — validado **2026-06-22** (494 testes; gate 135+53; `qa:prep` OK)
-- [x] CI verde em `main` — validado **2026-06-22** (run `27923773714`, `9a5a32f`, 2.11.38)
-- [x] Testes cobrindo fluxos que quebraram em 2.8.8–2.8.11 + alertas críticos 2.11.28 — helpers + `panel-critical-alerts` no gate
-- [x] `ROADMAP` e changelog alinhados ao estado validado — **2.11.41** (2026-06-22)
-- [x] E2E Playwright § B painel + presença (mock) — `npm run qa:fase1:e2e` (33 testes, 2.11.40–41)
+- [ ] Roteiro **QA WhatsApp** — checklist em [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A — **humano** ([`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md))
+- [ ] Nenhum bug **crítico aberto** em Inbox/Ticket/CSAT/IA por ≥ 1 ciclo completo de teste manual
+- [x] `npm test` + `npm run qa:atendimento:gate` verdes — revalidado **2026-06-28** @ `2.12.63`
+- [x] CI verde em `main` — E2E **80/80** + build + audit (2026-06-27)
+- [x] Testes cobrindo fluxos 2.8.8–2.8.11 + alertas + bridge + LGPD + admin ops (2.11.28–2.12.63)
+- [x] `ROADMAP` e changelog alinhados — **2.12.63** (2026-06-28)
+- [x] E2E Playwright § B painel + presença + inbox autenticado — `npm run qa:fase1:e2e` / CI E2E
 
 ---
 
@@ -110,16 +111,16 @@ Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 | 2 | Deploy / CI (código) | ✅ 2.5.1 | Scripts existem; **não executado em VPS** |
 | 3 | Convite equipe | ✅ 2.2.2 | Validar e-mail em staging (Fase 3) |
 | 4 | Billing Stripe teste | ✅ 2.4.0 | Live = Fase 3 |
-| 5 | Admin operacional | ✅ 2.5.0 | |
+| 5 | Admin operacional | ✅ **2.12.63** | Dashboard Ops 8 abas, LGPD portal, auditoria horizontal |
 | 6 | Backup tenant | ✅ 2.5.0 | |
-| 7 | **Inbox SLA + CSAT** | 🟡 **2.8.11** | MVP em 2.5.0; **bugs críticos até 2.8.11** — validar QA |
-| 8 | **Ticket + Inbox routing** | 🟡 **2.8.9–2.8.10** | Janela 12 h corrigida — validar QA |
-| 9 | **IA triagem + escalação** | 🟡 **2.8.7** | Fix recente — validar QA |
-| 10 | **Estabilidade geral atendimento** | 🔴 **Fase 1** | Bloqueia preparação prod |
-| 11 | WhatsApp Cloud API | 🟡 stub | POST 503 — Fase 2 (se bloquear release) |
+| 7 | **Inbox SLA + CSAT** | 🟡 **2.8.11+** | Fixes + testes integrados ✅ — **validar QA manual** |
+| 8 | **Ticket + Inbox routing** | 🟡 **2.8.9–2.10** | Janela 12 h + integração Jest ✅ — **validar QA manual** |
+| 9 | **IA triagem + escalação** | 🟡 **2.8.7+** | Fix + gate ✅ — **validar QA manual** |
+| 10 | **Estabilidade geral atendimento** | 🟡 **Fase 1** | Automatizado ✅; **QA humano pendente** — gate |
+| 11 | WhatsApp Cloud API | 🟡 stub | POST 503 — Fase 2 |
 | 12 | Mobile PWA | ✅ 2.5.1 | |
-| 13 | Testes unitários | ✅ 298 | Não cobrem WA ponta a ponta |
-| 14 | E2E | 🟡 smoke + inbox mock + **§ B painel** | login/PWA + Inbox/Supervisor + tickets/setores/bot/webchat (`qa:fase1:e2e`, 33 testes) |
+| 13 | Testes unitários + gate | ✅ | `qa:atendimento:gate` @ 2.12.63 |
+| 14 | E2E | ✅ | CI 80/80 — inbox, campanha, fase1 panel |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
 | 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) |

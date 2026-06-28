@@ -195,7 +195,7 @@ Execute **somente após** Fases A/B verdes no gate automático.
 | 1 | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | § A WhatsApp + Partes 3–7 (WebChat, fallback deferido, presença, supervisor, alertas) |
 | 2 | [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível (§ A–E) |
 | 3 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Token, FAQ, C0/C1 fallback, bridge, IA Básica, presença |
-| 4 | [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | Registro Fase 1 |
+| 4 | [`QA-FASE1-RESULTADO-TEMPLATE.md`](../QA-FASE1-RESULTADO-TEMPLATE.md) | Registro Fase 1 |
 | 4b | [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) | **Sessão atual** — gate auto ✅, manual em branco |
 | 5 | [`QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md`](./QA-WEBCHAT-WA-RESULTADO-TEMPLATE.md) | Registro WebChat/WA |
 

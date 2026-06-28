@@ -13,9 +13,9 @@ Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATO
 | Doc | Conteúdo |
 |-----|----------|
 | [**API (OpenAPI espelho)**](./RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | Contrato REST completo |
-| [Entrega Etapas 1–3](../concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Handoff inicial |
-| [Entrega auditoria 2.12.47–63](../concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | Pacote horizontal + backlog |
-| [QA manual pós-auditoria](../concluidos/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) | Checklist VPS (último passo) |
+| [Entrega Etapas 1–3](../ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Handoff inicial |
+| [Entrega auditoria 2.12.47–63](../ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | Pacote horizontal + backlog |
+| [QA manual pós-auditoria](./RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) | Checklist VPS (último passo) |
 
 OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops**).
 
@@ -23,23 +23,23 @@ OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops*
 
 ## Série arquivada (Etapas 1–10)
 
-Toda a série de entrega está em [`docs/concluidos/admin/`](../concluidos/admin/):
+Série de entrega nesta pasta (`docs/concluidos/admin/`):
 
 | Doc | Conteúdo |
 |-----|----------|
-| [Diagnóstico (Etapa 1)](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Lacunas e plano inicial |
-| [Etapa 3 — Frontend](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md) | 8 abas, cards, alertas |
-| [Etapa 4 — Empresas](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md) | Listagem + trial/plano |
-| [Etapa 5 — Segurança](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md) | Feed eventos críticos |
-| [Etapa 6 — Fechamento](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md) | QA, OpenAPI, consolidação |
-| [Etapa 7 — QA manual](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | Gate local Mongo |
-| [Etapa 8 — Consolidação](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | Legado monitoring/errors/servers |
-| [Etapa 9 — Auditoria rotas](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | Usuários×Empresas, moderação |
-| [Etapa 10 — QA VPS](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md) | Bloco E local, gates |
-| [Verificação real 8–9](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | Reconciliação docs × git |
-| [Inventário `/admin/*`](../concluidos/admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | 19 rotas |
-| [QA Checklist](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | Roteiro Benhur |
-| [QA Resultado gates](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | Automação + Etapas 7–10 |
+| [Diagnóstico (Etapa 1)](./RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Lacunas e plano inicial |
+| [Etapa 3 — Frontend](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md) | 8 abas, cards, alertas |
+| [Etapa 4 — Empresas](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md) | Listagem + trial/plano |
+| [Etapa 5 — Segurança](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md) | Feed eventos críticos |
+| [Etapa 6 — Fechamento](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md) | QA, OpenAPI, consolidação |
+| [Etapa 7 — QA manual](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | Gate local Mongo |
+| [Etapa 8 — Consolidação](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | Legado monitoring/errors/servers |
+| [Etapa 9 — Auditoria rotas](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | Usuários×Empresas, moderação |
+| [Etapa 10 — QA VPS](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md) | Bloco E local, gates |
+| [Verificação real 8–9](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | Reconciliação docs × git |
+| [Inventário `/admin/*`](./RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | 19 rotas |
+| [QA Checklist](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | Roteiro Benhur |
+| [QA Resultado gates](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | Automação + Etapas 7–10 |
 
 ---
 
@@ -123,7 +123,7 @@ Abas: Visão geral · Infra · Empresas · Atendimento · Billing · IA · Segur
 
 ## Próximo passo
 
-1. Benhur: QA manual VPS — [`RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](../concluidos/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md)
+1. Benhur: QA manual VPS — [`RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](./RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md)
 2. Gate Fase 1 atendimento — [`ROADMAP-COMPLETUDE.md`](../ROADMAP-COMPLETUDE.md)
 
 ---

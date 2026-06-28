@@ -430,7 +430,7 @@ Métricas de atendimento existem e estão maduras **por empresa**; falta camada 
 ### Documentação lida / referenciada
 
 - `docs/RADARZAP-SISTEMA-COMPLETO.md` (estrutura geral)
-- `docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`
+- `docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`
 - `docs/concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`
 - `docs/SISTEMA-REGISTRO.md`
 - `docs/INDICE-DOCUMENTACAO.md`

@@ -125,7 +125,7 @@ Código + testes automatizados verdes; validar em ambiente real:
 
 ## QA manual necessário
 
-Blocos **A–J** (TOP 19/20). Template: [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md).
+Blocos **A–J** (TOP 19/20). Template: [`QA-FASE1-RESULTADO-TEMPLATE.md`](../QA-FASE1-RESULTADO-TEMPLATE.md).
 
 Prioridade: **D** (WhatsApp), **E** (Bridge), **F** (Tickets), **I** (Billing test).
 

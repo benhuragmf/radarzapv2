@@ -114,7 +114,7 @@ Doc: [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md) § Perfil
 
 ## Fechar
 
-1. Anotar P/F em [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md)
+1. Anotar P/F em [`QA-FASE1-RESULTADO-2026-06-22.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-22.md)
 2. **Sem falha crítica?** → marcar gate em `ROADMAP-COMPLETUDE.md`
 3. **Falhou?** → descrever cenário # + print → patch `2.11.x`
 

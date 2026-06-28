@@ -456,7 +456,7 @@ Atualizados: `RADARZAP-SISTEMA-COMPLETO.md` §23–24, `README.md`, `CHANGELOG.m
 ## Arquivos alterados
 
 - `docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md` (novo)
-- `docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md` (novo)
+- `docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md` (novo)
 - `docs/QA-FASE1-RESULTADO-TEMPLATE.md` (§ TOP 20)
 - `docs/RADARZAP-SISTEMA-COMPLETO.md`, `README.md`, `CHANGELOG.md`, `SISTEMA-REGISTRO.md`, `INDICE-DOCUMENTACAO.md`
 - `package.json`, `.cursor/rules/radarzap-v2-system-registry.mdc`

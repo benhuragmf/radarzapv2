@@ -3,7 +3,7 @@
 **Versão produto:** `2.12.38` · **Data doc:** 2026-06-27  
 **Escopo:** Etapas 1–3 — diagnóstico, backend agregador seguro, frontend dashboard operacional completo em `/admin/dashboard`.
 
-Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). Complementa [`RADARZAP-ADMIN-DASHBOARD-OPS.md`](../admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) (doc de módulo ativo).
+Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). Complementa [`RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) (doc de módulo arquivado).
 
 **Status release:** `PRONTO PARA QA MANUAL` — produção estável **não** declarada · deploy **não** executado · Stripe live **não** ativar.
 
@@ -36,7 +36,7 @@ Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). C
 | Etapa | Doc |
 |-------|-----|
 | 1 — Diagnóstico | [`RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) |
-| 2–3 — Implementação | [`RADARZAP-ADMIN-DASHBOARD-OPS.md`](../admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) |
+| 2–3 — Implementação | [`RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) |
 | Changelog | [`CHANGELOG.md`](../CHANGELOG.md) § 2.12.37–2.12.38 |
 
 ---
@@ -55,7 +55,7 @@ Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). C
 
 ### Saída
 
-Relatório completo em `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` com proposta de Etapas 2–6.
+Relatório completo em `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` com proposta de Etapas 2–6.
 
 ---
 
@@ -278,8 +278,8 @@ npx playwright test e2e/admin-dashboard.spec.ts
 
 | Arquivo | Papel |
 |---------|-------|
-| `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` | Etapa 1 |
-| `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` | Módulo ativo |
+| `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` | Etapa 1 |
+| `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` | Módulo arquivado |
 | `docs/concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md` | Este doc (handoff) |
 | `docs/CHANGELOG.md` | 2.12.37–2.12.38 |
 | `docs/SISTEMA-REGISTRO.md` | Registro versão |

@@ -9,7 +9,7 @@
 
 Permitir que o cliente traga contatos de **Google Contacts / Android**, **Apple Contacts / iOS** (ou exportações compatíveis) e de planilhas genéricas, normalizando para o modelo canônico do RadarZap e exportando de volta em perfis compatíveis com cada ecossistema.
 
-**Estado do código (jun/2026):** `POST /api/destinations/import-csv` (JSON `{ content | csv, format?: 'auto'|'csv'|'vcf', dryRun }`); detecção automática de VCF (`BEGIN:VCARD`); `GET /api/destinations/export-csv?profile=...` com BOM UTF-8; parsers em `contact-csv-import.ts` / `contact-vcf-import.ts`. `multipart` ainda pendente.
+**Estado do código (jun/2026):** `POST /api/destinations/import-csv` (JSON `{ content | csv, format?: 'auto'|'csv'|'vcf', dryRun }`); detecção automática de VCF (`BEGIN:VCARD`); `GET /api/destinations/export-csv?profile=...` com BOM UTF-8; parsers em `contact-csv-import.ts` / `contact-vcf-import.ts`. Upload **`multipart`** — backlog (não bloqueia gate Fase 1); ver [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md).
 
 ---
 

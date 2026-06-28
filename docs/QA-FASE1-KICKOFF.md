@@ -1,22 +1,20 @@
 ﻿# QA Fase 1 — kickoff (gate humano)
 
-**Versão:** `2.11.38` · **Commit ref:** `e9d794c` · **Data prep:** 2026-06-22
+**Versão:** `2.12.63` · **Data prep:** 2026-06-28
 
 Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar o gate § Estabilização do [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
 
-**Checklist 1 página:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) · **Auto vs manual:** [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) ← use durante o manual
+**Lista única do que falta:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Checklist 1 página:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) · **Auto vs manual:** [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md)
 
 ---
 
-## Gate automático — já verde
+## Gate automático — ✅ verde (2026-06-28)
 
 | Comando | Resultado |
 |---------|-----------|
-| `npm test` | 494 testes |
-| `npm run qa:atendimento:gate` | 135 + 53 `qa:webchat-wa` |
-| `npm run qa:prep` | Mongo, WA, CSAT, WebChat, fallback OK |
-
-| `npm run qa:gate` | ✅ test + build backend + frontend |
+| `npm run qa:atendimento:gate` | ✅ revalidado @ `2.12.63` |
+| `npm run qa:prep` | ✅ Mongo, WA, CSAT, WebChat, fallback, equipe, leads |
+| `npm run qa:gate` / CI E2E | ✅ build + E2E 80/80 (2026-06-27) |
 
 ---
 
@@ -46,7 +44,7 @@ Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar 
 
 ## Ao terminar
 
-1. Preencher [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) (ou copiar template) + [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A–E
+1. Preencher [`QA-FASE1-RESULTADO-2026-06-22.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-22.md) (ou copiar template) + [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) § A–E
 2. Se **sem falha crítica**: marcar gate § Estabilização em `ROADMAP-COMPLETUDE.md`
 3. Se **falha crítica**: registrar na tabela “Registro de falhas” do checklist + abrir patch `2.11.x`
 
@@ -56,4 +54,4 @@ Fase A/B automática **concluída**. Este doc é o ponto de partida para fechar 
 
 - Spec 2.11.24–35: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)
 - Webhooks ticket/bridge: [`WEBHOOKS.md`](./WEBHOOKS.md) (2.11.33)
-- Plano estabilização: [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO.md) §10
+- Plano estabilização: [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) §10

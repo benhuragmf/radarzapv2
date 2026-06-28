@@ -87,7 +87,7 @@ npx playwright test e2e/cross-tenant-isolation.spec.ts --project=chromium
 
 ## Referências
 
-- [`docs/operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](../operacao/RUNBOOK-SPOF-MONGO-REDIS.md)
+- [`docs/concluidos/operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](./operacao/RUNBOOK-SPOF-MONGO-REDIS.md)
 - [`docs/CHANGELOG.md`](../CHANGELOG.md) — entradas 2.12.47–2.12.63
 - [`admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](./admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) — checklist QA manual (último passo)
 - [`docs/CONSENTIMENTO-LGPD.md`](../CONSENTIMENTO-LGPD.md) § Portal LGPD

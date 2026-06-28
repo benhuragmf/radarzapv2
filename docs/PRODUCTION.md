@@ -3,13 +3,13 @@
 > **Fase 4** — só após estabilização (Fase 1), produto aceito e staging validado.  
 > Conteúdo completo: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) · Fase atual: [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md)
 
-**Versão ref:** `2.8.11` · **Última revisão:** 2026-06-17
+**Versão ref:** `2.12.63` · **Última revisão:** 2026-06-28
 
 ---
 
 ## ⚠️ Não use este arquivo ainda
 
-O sistema **não está na fase de go-live**. Trabalho atual: **estabilização** — QA WhatsApp + correções Inbox/Ticket/CSAT/IA.
+Gate Fase 1 **não fechado** — QA manual humano pendente ([`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md)). Automatizado ✅; go-live **não** declarado.
 
 ---
 

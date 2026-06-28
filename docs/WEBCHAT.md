@@ -279,7 +279,8 @@ Configurável em **Configurações → Webhooks** — ver `WEBHOOKS.md`.
 - Chamados aparecem em **Atendimento → Chamados**; detalhe em `/platform/inbox/tickets/:ref` via `GET /api/inbox/tickets/:ref` → `WebChatService.getDetailForInbox` (histórico do widget + comentários do `InboxTicket`).
 - **Fix 2.11.86:** imports faltantes em `WebChatService.ts` impediam abrir detalhe (lista OK, tela *Ticket não encontrado*). Ver `INBOX-ATENDIMENTO.md` § Lista × detalhe.
 - **Refs `TK-…`:** desde 2.11.86, códigos novos evitam `0`/`O`/`1`/`I`/`L` — use **Abrir** na lista; ver `TICKET-ATENDIMENTO.md` § Referência.
-- **Pendente:** envio de atualização/fechamento de chamado ainda usa fluxo WhatsApp quando aplicável — respostas do visitante no widget ainda não alimentam `clientReplies` do ticket automaticamente.
+- **Sync ticket (2.12.x):** mensagens do visitante no widget alimentam `clientReplies` do chamado aberto via `InboxService.syncWebChatVisitorMessageToTicket` (chamado de `WebChatService.sendVisitorMessage` quando `conversation.ticketRef` está definido).
+- **Atualização/fechamento de chamado:** notificações ao cliente podem ainda usar fluxo WhatsApp quando bridge WA está ativo — ver [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md).
 
 ## Perfil do visitante no Inbox (2.10.69)
 

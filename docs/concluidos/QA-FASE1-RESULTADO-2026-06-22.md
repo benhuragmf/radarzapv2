@@ -1,6 +1,6 @@
 # RadarZap v2 — Resultado QA Fase 1
 
-> Roteiro: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · Checklist: [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md)
+> Roteiro: [`QA-FASE1-ROTEIRO.md`](../QA-FASE1-ROTEIRO.md) · Checklist: [`QA-FASE1-CHECKLIST.md`](../QA-FASE1-CHECKLIST.md) · Pendências: [`PENDENCIAS-HUMANAS-FASE1.md`](../PENDENCIAS-HUMANAS-FASE1.md)
 
 **Data:** _______________  
 **Versão testada:** `2.11.39`  
@@ -19,7 +19,15 @@
 | Versão testada | `2.11.58` |
 | Commit ref | `da62a04` |
 
-**Checklist rápido:** [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) · Leads § B.1: `npm run qa:leads:setup`
+**Checklist rápido:** [`QA-FASE1-RAPIDO.md`](../QA-FASE1-RAPIDO.md) · Leads § B.1: `npm run qa:leads:setup`
+
+### Revalidação 2026-06-28 @ `2.12.63`
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run qa:atendimento:gate` | ✅ pass |
+| `npm run qa:prep` | ✅ pass |
+| Manual § A–J | ⏳ pendente Benhur |
 
 ---
 

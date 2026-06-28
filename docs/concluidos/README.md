@@ -2,18 +2,24 @@
 
 Entregas **finalizadas** — implementadas, auditadas ou substituídas por doc consolidado ativo na raiz `docs/`.
 
-**Referência viva:** [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md), [`WEBCHAT.md`](../WEBCHAT.md), [`TICKET-ATENDIMENTO.md`](../TICKET-ATENDIMENTO.md), [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md), [`admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](../admin/RADARZAP-ADMIN-DASHBOARD-OPS.md).
+**Referência viva:** [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md), [`WEBCHAT.md`](../WEBCHAT.md), [`TICKET-ATENDIMENTO.md`](../TICKET-ATENDIMENTO.md), [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md).
+
+Redirects legados: [`admin/README.md`](../admin/README.md), [`audits/README.md`](../audits/README.md), [`operacao/README.md`](../operacao/README.md), [`top/README.md`](../top/README.md).
 
 ---
 
-## Estabilização atendimento (2.11.16–2.11.38 ✅)
+## Estabilização e visão produto (2.11.14+ ✅)
 
 | Documento | Versão | Notas |
 |-----------|--------|-------|
+| [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | 2.11.14+ | Plano GG → doc → aplicação |
+| [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | 2.11.14+ | Visão comercial / diferenciação |
 | [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./ENTREGA-ATENDIMENTO-2.11.24-28.md) | 2.11.24–38 | Spec supervisão, presença, fallback, sino, testes gate |
 | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | 2.11.16+ | Auditoria Fase 1 (gg.md) — Fase A/B automática ✅ |
+| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | 2.12.6 | Resumo executivo TOP 01–20 |
+| [`QA-FASE1-RESULTADO-2026-06-22.md`](./QA-FASE1-RESULTADO-2026-06-22.md) | — | Sessão QA anterior (histórico) |
 
-Doc operacional: [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](../PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
+Doc operacional ativo: [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](../PENDENCIAS-HUMANAS-FASE1.md) · QA template: [`QA-FASE1-RESULTADO-TEMPLATE.md`](../QA-FASE1-RESULTADO-TEMPLATE.md).
 
 ---
 
@@ -37,7 +43,7 @@ Doc operacional: [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md), [`PLANO-CONS
 
 ## Admin Dashboard Ops (2.12.37–2.12.63 ✅)
 
-**Doc operacional ativo:** [`../admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](../admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) · **API:** [`../admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](../admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md)
+**Hub:** [`admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) · **API:** [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md)
 
 | Documento | Versão | Notas |
 |-----------|--------|-------|
@@ -59,13 +65,14 @@ Doc operacional: [`INBOX-ATENDIMENTO.md`](../INBOX-ATENDIMENTO.md), [`PLANO-CONS
 
 ---
 
-## Auditoria horizontal segurança/estabilidade (2.12.47–2.12.63 ✅)
+## Auditorias (2.10.87+ / 2.12.47–63 ✅)
 
 | Documento | Versão | Notas |
 |-----------|--------|-------|
+| [`RADARZAP_AUDITORIA_INCREMENTAL.md`](./RADARZAP_AUDITORIA_INCREMENTAL.md) | 2.10.87+ | Auditoria incremental pós-hardening |
 | [`ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md`](./ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | 2.12.47–63 | Pacote AH + backlog 2.12.60–63 |
 | [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | — | Achados originais + status pós-correção |
-| [`../operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](../operacao/RUNBOOK-SPOF-MONGO-REDIS.md) | 2.12.56 | Runbook SPOF Mongo/Redis |
+| [`operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](./operacao/RUNBOOK-SPOF-MONGO-REDIS.md) | 2.12.56 | Runbook SPOF Mongo/Redis |
 
 Backlog técnico ✅ · QA manual VPS browser ⏳
 
@@ -79,8 +86,6 @@ Backlog técnico ✅ · QA manual VPS browser ⏳
 |---|-----------|
 | 01–20 | [`RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md`](./top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md) … [`RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) |
 | 21 | [`RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) |
-
-Doc operacional ativo: módulos na raiz `docs/` (`INBOX-ATENDIMENTO.md`, `WEBCHAT.md`, etc.).
 
 ---
 

@@ -11,11 +11,11 @@ Plataforma SaaS para **atendimento omnicanal** (WhatsApp, WebChat, leads), **Inb
 
 | Campo | Valor |
 |-------|-------|
-| **Versão** | `2.12.6` |
-| **Status** | `PRONTO PARA QA MANUAL` |
-| **Produção** | Não declarada pronta |
-| **Deploy** | Não executado |
-| **Próximo passo** | QA manual A–J (Benhur) + infra VPS/SSL/env |
+| **Versão** | `2.12.64` |
+| **Status** | `PRONTO PARA QA MANUAL` (gate automático ✅) |
+| **Produção estável** | Não declarada |
+| **Deploy CI/VPS** | Pipeline ativo; QA humano Fase 1 pendente |
+| **Próximo passo** | [`PENDENCIAS-HUMANAS-FASE1.md`](docs/PENDENCIAS-HUMANAS-FASE1.md) — QA manual A–J + Admin Bloco E VPS |
 
 Changelog: [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md)
 
@@ -26,10 +26,11 @@ Changelog: [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md)
 Leia nesta ordem:
 
 1. [docs/RADARZAP-SISTEMA-COMPLETO.md](docs/RADARZAP-SISTEMA-COMPLETO.md) — **documentação mestre**
-2. [docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md](docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo
-3. [docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — status, checklists e go-live
+2. [docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md](docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo
+3. [docs/concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — status, checklists e go-live
 4. [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md) — mapa de todos os `.md`
-5. [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual TOP 20
+5. [docs/PENDENCIAS-HUMANAS-FASE1.md](docs/PENDENCIAS-HUMANAS-FASE1.md) — **o que falta fechar (só humano)**
+6. [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual TOP 20
 
 ---
 

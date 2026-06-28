@@ -48,7 +48,7 @@ Helpers: `src/utils/ticket-public-access.util.ts`, `ticket-public-access.service
 
 Chamado **fechado** não aceita novas mensagens ao cliente. Consulta TK+token mostra histórico; **Continuar atendimento** só com conversa + chamado abertos.
 
-Ver também: [`WEBCHAT.md`](./WEBCHAT.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
+Ver também: [`WEBCHAT.md`](./WEBCHAT.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
 
 ---
 

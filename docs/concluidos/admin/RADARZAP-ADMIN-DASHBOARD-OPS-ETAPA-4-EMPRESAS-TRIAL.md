@@ -183,7 +183,7 @@ Endpoint legado `PATCH /api/admin/organizations/:id/plan` **mantido**.
 | Arquivo | Papel |
 |---------|-------|
 | `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md` | **Este doc** |
-| `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` | Módulo ativo |
+| `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` | Módulo arquivado |
 | `docs/CHANGELOG.md` | § 2.12.39 |
 | `docs/SISTEMA-REGISTRO.md` | Registro |
 

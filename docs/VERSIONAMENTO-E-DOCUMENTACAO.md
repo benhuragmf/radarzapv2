@@ -161,7 +161,7 @@ Documentos-chave do ciclo **Modos de atendimento** (fases arquivadas em [`conclu
 | 7 Custos/logs por modo | 2.11.3 | ✅ | [`concluidos/PHASE-7`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md) |
 | 8 E2E Playwright | 2.11.4 | ✅ | [`concluidos/PHASE-8`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md) |
 
-**Próxima entrega:** gate humano Fase 1 — [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) · [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) · [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
+**Próxima entrega:** gate humano Fase 1 — [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) · [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) · [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
 
 ### Arquivar em `concluidos/`
 

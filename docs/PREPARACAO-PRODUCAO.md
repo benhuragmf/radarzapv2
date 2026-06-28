@@ -1,10 +1,10 @@
 # RadarZap v2 — preparação para produção
 
 > **Referência de servidor e deploy** — infra, env, segurança, staging, go-live, smoke e rollback.  
-> **⚠️ Fase atual do projeto (2.8.11): estabilização do produto** — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Gate Estabilização.  
-> **Não execute** checklist de VPS/deploy até o produto passar no QA WhatsApp e no gate da Fase 1.
+> **⚠️ Fase atual do projeto (`2.12.63`): estabilização** — gate automático ✅; QA manual humano pendente — ver [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) e [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Gate Estabilização.  
+> **Não execute** checklist de VPS/deploy até o gate § Estabilização estar marcado.
 
-**Versão ref:** `2.8.11` · **Última revisão:** 2026-06-17
+**Versão ref:** `2.12.63` · **Última revisão:** 2026-06-28
 
 ---
 

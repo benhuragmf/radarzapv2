@@ -6,6 +6,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.64] — 2026-06-28
+
+### Docs — consolidação pendências Fase 1
+
+- **`PENDENCIAS-HUMANAS-FASE1.md`** — fonte única do que falta (QA manual + Admin Bloco E VPS).
+- Arquivamento concluído: entregas em `docs/concluidos/`; redirects `admin/`, `audits/`, `operacao/`, `top/`.
+- **`ROADMAP-COMPLETUDE.md`**, **`RADARZAP-SISTEMA-COMPLETO.md`**, **`WEBCHAT.md`** — alinhados @ `2.12.63` (gate auto ✅; sync WebChat→ticket documentado).
+- **`qa:atendimento:gate`** revalidado 2026-06-28.
+
+---
+
 ## [2.12.63] — 2026-06-28
 
 ### Portal LGPD — AH-D04 export/delete titular

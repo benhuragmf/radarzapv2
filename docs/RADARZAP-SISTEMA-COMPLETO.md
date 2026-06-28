@@ -1,20 +1,20 @@
 # RadarZap — Documentação Completa do Sistema
 
-**Versão:** `2.12.6` · **Atualizado:** 2026-06-24
+**Versão:** `2.12.64` · **Atualizado:** 2026-06-28
 
 > **Este é o documento principal do RadarZap v2.** Leia-o antes de qualquer módulo específico.  
-> Resumo executivo: [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **Fonte oficial pós-TOP 20:** [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · Auditoria TOP 01–21: [`top/`](./concluidos/top/).
+> Resumo executivo: [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **Fonte oficial pós-TOP 20:** [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md)
 
 | Campo | Valor |
 |-------|-------|
-| **Versão final** | `2.12.6` |
+| **Versão final** | `2.12.64` |
 | **Status** | `PRONTO PARA QA MANUAL` |
+| **Gate automático** | ✅ `qa:atendimento:gate` @ 2026-06-28 |
 | **Produção estável** | Não declarada |
-| **Deploy** | Não executado |
+| **Deploy CI/VPS** | Pipeline ativo (`main` → Docker); go-live não declarado |
 | **Stripe live** | Não ativado |
-| **Push** | Não realizado (TOP 20/21) |
-| **QA manual A–J** | Pendente (Benhur) |
-| **Próximo passo** | QA manual A–J + infra (VPS/SSL/env) — ver TOP 20 |
+| **QA manual A–J** | Pendente (Benhur) — ver [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) |
+| **Próximo passo** | QA manual § A–J + Admin Bloco E VPS |
 
 ---
 
@@ -322,7 +322,7 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 - **Rate limit:** WebChat/lead público, auth, ticket lookup/resend, WA sessão.
 - **Webhooks:** HMAC Stripe + outbound; sem payload bruto em log.
 - **Multi-tenant:** API filtra por `clientId`; RBAC no painel.
-- **Admin ops (2.12.37–2.12.63):** `GET /api/admin/ops/summary`, orgs, security-events; UI `/admin/dashboard` (8 abas); portal LGPD; bridge dedup. **Auditoria horizontal:** [`concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md). Docs: [`admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md), série arquivada em [`concluidos/admin/`](./concluidos/admin/).
+- **Admin ops (2.12.37–2.12.63):** `GET /api/admin/ops/summary`, orgs, security-events; UI `/admin/dashboard` (8 abas); portal LGPD; bridge dedup. **Auditoria horizontal:** [`concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md). Docs: [`concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md), série arquivada em [`concluidos/admin/`](./concluidos/admin/).
 - **LGPD:** consentimento contato/form; export CSV; portal titular pendente go-live.
 - **Pendências:** `auth.login_failed`, purge retenção, QA manual WA → TOP 20.
 
@@ -404,7 +404,7 @@ Mapas legados: [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md), [`QA-
 | Doc | Conteúdo |
 |-----|----------|
 | [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) | Congelamento, checklists produção, QA manual A–J |
-| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | Leitura rápida pós 20 TOPs |
+| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | Leitura rápida pós 20 TOPs |
 | [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | § Resultado QA Manual TOP 20 |
 
 ### Checklists preparados

@@ -249,7 +249,7 @@ Reutilizados de `@/design-system`:
 
 | Arquivo | Papel |
 |---------|-------|
-| `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` | Módulo ativo |
+| `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` | Módulo arquivado |
 | `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md` | Este doc |
 | `docs/CHANGELOG.md` | § 2.12.38 |
 | `docs/SISTEMA-REGISTRO.md` | Linha 2.12.38 |

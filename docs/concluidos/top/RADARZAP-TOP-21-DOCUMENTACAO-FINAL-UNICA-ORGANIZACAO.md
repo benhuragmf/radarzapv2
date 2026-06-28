@@ -116,7 +116,7 @@ O TOP 21 **não redefine** status nem checklists — espelha o [TOP 20](./RADARZ
 | Papel | Arquivo |
 |-------|---------|
 | **Mestre (leia primeiro)** | `docs/RADARZAP-SISTEMA-COMPLETO.md` |
-| **Resumo executivo** | `docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md` |
+| **Resumo executivo** | `docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md` |
 | **Mapa** | `docs/INDICE-DOCUMENTACAO.md` |
 | **Porta de entrada repo** | `README.md` |
 
@@ -329,7 +329,7 @@ Histórico de auditoria TOP 01–20: **não mover, não apagar** sem autorizaç�
 
 ```txt
 docs/RADARZAP-SISTEMA-COMPLETO.md
-docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md
+docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md
 docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md
 docs/INDICE-DOCUMENTACAO.md
 docs/CHANGELOG.md
