@@ -2275,6 +2275,14 @@ export class WebChatService {
     this.assertOrigin(widget, origin, referer);
 
     const clientIdStr = String(conversation.clientId);
+    const convId = String(conversation._id);
+    try {
+      await assertWebChatSendAllowed(clientIdStr, convId, 'visitor');
+    } catch (err) {
+      if (err instanceof WebChatSendRateLimitError) throw err;
+      throw err;
+    }
+
     const mediaUrl = saveWebChatMedia(clientIdStr, parsed.data, parsed.ext);
 
     const msg = await this.appendMessage(conversation, {

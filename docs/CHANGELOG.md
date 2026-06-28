@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.46] — 2026-06-28
+
+### Auditoria horizontal — segurança, dados e estabilidade
+
+- **Relatório:** `docs/audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md` — escopo transversal (RBAC, multi-tenant, billing, IA, WA/WebChat, Admin Ops, escalabilidade).
+- **Hardening:** rate limit anexo WebChat público (`assertWebChatSendAllowed`); validação origem GET config leads.
+- **Achados críticos documentados:** `/api/stats` global para tenant; boot hard dependency Redis/Mongo.
+- **Gates:** build, admin-ops 65/65, E2E admin 27/27, qa:atendimento 235/235.
+- **Status:** AUDITORIA CONCLUÍDA — não declarado go-live.
+
 ## [2.12.45] — 2026-06-28
 
 ### Admin — Etapa 10 QA VPS prep + Bloco E local

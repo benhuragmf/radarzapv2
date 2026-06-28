@@ -137,7 +137,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | Pasta / doc | Descrição |
 |-------------|-----------|
 | [`concluidos/`](./concluidos/README.md) | Entregas e fases arquivadas |
-| [`audits/`](./audits/) | Auditorias incrementais |
+| [`audits/`](./audits/) | Auditorias incrementais e horizontal |
+| [`audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal 2.12.46** — segurança, multi-tenant, estabilidade |
 | [`security/`](./security/) | Notas de segurança |
 
 ---
