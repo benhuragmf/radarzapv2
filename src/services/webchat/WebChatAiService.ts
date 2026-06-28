@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { createServiceLogger } from '@/utils/logger';
 import { WebChatMessage } from '@/models/WebChatMessage';
+import { Organization } from '@/models/Organization';
 import { AiProviderService, type AiChatMessage } from '@/services/ai/AiProviderService';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
 import { AiPromptBuilderService } from '@/services/ai/AiPromptBuilderService';
@@ -34,6 +35,9 @@ import {
 } from '@/types/attendance-mode';
 import {
   buildPremiumAiSafetySuffix,
+  buildPremiumAiUngroundedReply,
+  guardPremiumAiFactualReply,
+  isKbRequiredFactualInquiry,
   recordPremiumAiAttendanceEvent,
   sanitizePremiumAiResponse,
   shouldEscalatePremiumAiBeforeCall,
@@ -229,6 +233,36 @@ export class WebChatAiService {
       }
     }
 
+    if (isKbRequiredFactualInquiry(lastInbound, threadContext)) {
+      const grounded = await AiAutoResolveService.getInstance().tryResolve(clientId, lastInbound, {
+        threadContext,
+        groundedOnly: true,
+      });
+      if (grounded.hit && grounded.reply) {
+        void recordPremiumAiAttendanceEvent({
+          clientId,
+          kind: 'ai.premium.answered',
+          channel: 'webchat',
+          conversationId,
+          meta: { source: grounded.source, grounded: true },
+        });
+        return {
+          body: sanitizePremiumAiResponse(formatWebChatAutoResolveReply(grounded.reply), 'webchat'),
+          senderName,
+          shouldEscalate: false,
+        };
+      }
+      const org = await Organization.findById(clientId).select('name').lean();
+      return {
+        body: sanitizePremiumAiResponse(
+          buildPremiumAiUngroundedReply(org?.name),
+          'webchat',
+        ),
+        senderName,
+        shouldEscalate: false,
+      };
+    }
+
     const systemPrompt =
       (await AiPromptBuilderService.getInstance().buildSystemPrompt(clientId, {
         contactContext,
@@ -265,16 +299,23 @@ export class WebChatAiService {
       const reply = result.structured.reply?.trim();
       if (!reply || provider.isUnusableClientReply(result.structured)) return null;
 
+      const factualGuard = guardPremiumAiFactualReply({
+        reply,
+        systemPrompt,
+        companyName: (await Organization.findById(clientId).select('name').lean())?.name,
+      });
+      const replyForClient = factualGuard.blocked ? factualGuard.reply : reply;
+
       const shouldEscalate = resolveWebChatShouldEscalate({
         clientText: lastInbound,
         modelWantsEscalate: Boolean(result.structured.shouldEscalate),
-        modelReply: reply,
+        modelReply: replyForClient,
         messages: messageRows,
         policy: escalationPolicy,
       });
 
       const esc = AiEscalationService.getInstance();
-      let body = sanitizePremiumAiResponse(reply, 'webchat');
+      let body = sanitizePremiumAiResponse(replyForClient, 'webchat');
       if (
         !shouldEscalate &&
         esc.aiReplyPromisesTransfer(reply) &&

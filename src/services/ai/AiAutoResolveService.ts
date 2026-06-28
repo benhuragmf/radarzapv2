@@ -62,9 +62,18 @@ export class AiAutoResolveService {
   async tryResolve(
     clientId: string,
     problemText: string,
-    opts?: { threadContext?: string; ticketAssist?: boolean; webchatInquiry?: boolean },
+    opts?: {
+      threadContext?: string;
+      ticketAssist?: boolean;
+      webchatInquiry?: boolean;
+      /** Só KB/memória — bloqueia LLM se não houver match (preço/plano). */
+      groundedOnly?: boolean;
+    },
   ): Promise<AiAutoResolveResult> {
     const query = problemText.trim();
+    if (opts?.groundedOnly) {
+      return this.tryResolveGroundedOnly(clientId, query, opts.threadContext);
+    }
     if (!opts?.ticketAssist) {
       const allowed = opts?.webchatInquiry
         ? this.shouldAttemptWebChatInquiry(query, opts?.threadContext)
@@ -118,6 +127,50 @@ export class AiAutoResolveService {
 
     const kbSvc = AiKnowledgeBaseService.getInstance();
     const kbMatch = await kbSvc.findBestMatch(clientId, query);
+    if (kbMatch) {
+      return {
+        hit: true,
+        reply: this.formatReply(kbMatch.row.content, kbMatch.row.title),
+        source: 'knowledge_base',
+        sourceId: String(kbMatch.row._id),
+        sourceTitle: kbMatch.row.title,
+        score: kbMatch.score,
+      };
+    }
+
+    return { hit: false };
+  }
+
+  /** KB + memória aprovada — sem skills; usado antes do LLM em dúvidas comerciais. */
+  private async tryResolveGroundedOnly(
+    clientId: string,
+    query: string,
+    threadContext?: string,
+  ): Promise<AiAutoResolveResult> {
+    const combined = [threadContext, query].filter(Boolean).join(' ').trim();
+    if (!combined) return { hit: false };
+
+    const memorySvc = AiMemoryService.getInstance();
+    const memories = await memorySvc.listApproved(clientId);
+    let bestMem: { memory: (typeof memories)[0]; score: number } | null = null;
+    for (const memory of memories) {
+      const score = scoreAiTextMatch(combined, memory.title, `${memory.tags} ${memory.content}`);
+      if (score < AI_AUTO_RESOLVE_MIN_SCORE) continue;
+      if (!bestMem || score > bestMem.score) bestMem = { memory, score };
+    }
+    if (bestMem) {
+      return {
+        hit: true,
+        reply: this.formatReply(bestMem.memory.content, bestMem.memory.title),
+        source: 'memory',
+        sourceId: String(bestMem.memory._id),
+        sourceTitle: bestMem.memory.title,
+        score: bestMem.score,
+      };
+    }
+
+    const kbSvc = AiKnowledgeBaseService.getInstance();
+    const kbMatch = await kbSvc.findBestMatch(clientId, combined);
     if (kbMatch) {
       return {
         hit: true,

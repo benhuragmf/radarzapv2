@@ -2,12 +2,14 @@
 
 > Roteiro: [`QA-FASE1-ROTEIRO.md`](../QA-FASE1-ROTEIRO.md) · Checklist: [`QA-FASE1-CHECKLIST.md`](../QA-FASE1-CHECKLIST.md) · Pendências: [`PENDENCIAS-HUMANAS-FASE1.md`](../PENDENCIAS-HUMANAS-FASE1.md)
 
-**Data:** 2026-06-28  
-**Versão testada:** `2.12.64`  
-**Commit ref:** `ed005d1`  
+**Data:** 2026-06-28 (continuação)  
+**Versão testada:** `2.12.65`  
+**Commit ref:** `28e2d6c` · Deploy main ✅  
 **Responsável:** Benhur  
-**Ambiente:** dev local  
+**Ambiente:** **produção VPS** (local `dev:stop` — não rodar paralelo)  
 **`npm run qa:prep`:** pass ✅ (2026-06-28 — WA 1, CSAT 1/3, WebChat 1, fallback ON, equipe 3 c/ WA, leads 1)
+
+**Pré-requisito desta sessão:** só **uma** instância no mesmo WA (VPS). Tentativas anteriores com local+prod aberto geraram **mensagem duplicada** — inválidas para § A.
 
 ---
 
@@ -41,7 +43,7 @@
 
 | # | Resultado | Notas |
 |---|-----------|-------|
-| 1 Triagem → humano | **fail** | Rodapé LGPD `optOutPendingHint` ativo; resposta **"Sim"** na triagem cancelou inscrição enquanto bot pedia e-mail. Fix `2.12.65`: defer consent em atendimento + remover `sim`/`ok` de confirm opt-out. **Re-testar após deploy local.** |
+| 1 Triagem → humano | **pass parcial** | Triagem OK (nome/e-mail, `Sim` sem LGPD, 1 msg/turno). IA escalou p/ fila **Comercial**. **Obs:** LLM inventou planos de internet (50/100/200 Mbps) — não está na KB do repo; alucinação. Falta **Assumir** + humano responder p/ pass completo. |
 | 2 Finalizar + CSAT | pass / fail | |
 | 3 `avaliar` | pass / fail | |
 | 4 Nota CSAT | pass / fail | |
@@ -103,6 +105,13 @@
 - **Causa:** `CONSENT_OPT_OUT_CONFIRM_KEYWORDS` incluía `sim`/`ok`; `optOutConfirmPendingAt` stale + consent processado antes do Inbox sem defer para triagem ativa.
 - **Correção:** `2.12.65` — `hasActiveClientAtendimentoContext`, defer em `handleAcceptedInbound`, limpar pending stale em `acceptInboundInitiated`, keywords explícitas só (`sair`, `confirmo`, etc.).
 - **Evidência:** screenshots sessão QA 2026-06-28 (Carolina / +556684240564).
+
+### § A.1 — IA inventou planos de internet (2026-06-28, re-test prod)
+
+- **Sintoma:** Cliente perguntou planos → IA listou Plano Básico 50 Mbps R$ 99,90 etc. Empresa (Radar Gamer) **não vende internet residencial**.
+- **Origem:** **não** há esse texto no código nem em seeds do repo. Resposta gerada pelo **LLM (IA Premium)** ao interpretar “planos” + “internet” — **alucinação**, apesar do blueprint dizer “não invente preço” e KB vazia receber aviso explícito no prompt.
+- **Ação produto (pós-gate):** cadastrar KB real (planos VIP/sala de jogos) em `/platform/inbox/ia`; fix **`2.12.66`**: sem KB → “não tenho informações confirmadas” (não chama LLM para plano/preço).
+- **QA § A.1:** triagem/fila OK; marcar **pass completo** só após atendente **Assumir** e responder.
 
 ---
 

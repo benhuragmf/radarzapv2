@@ -26,6 +26,12 @@ import { AiMemoryService } from './AiMemoryService';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
 import { AiTicketAssistService } from './AiTicketAssistService';
 import type { InboxService } from '@/services/inbox/InboxService';
+import { Organization } from '@/models/Organization';
+import {
+  buildPremiumAiUngroundedReply,
+  guardPremiumAiFactualReply,
+  isKbRequiredFactualInquiry,
+} from '@/types/premium-ai.util';
 import { listClientFacingTickets } from '@/services/inbox/client-ticket-list';
 import {
   classifyTicketClientIntent,
@@ -415,6 +421,62 @@ export class AiConversationService {
       ? await inbox.getTicketBriefForAssist(ctx.clientId, state.targetTicketRef)
       : undefined;
 
+    const threadContextForKb = [state.collectedProblem, state.summary, ctx.text]
+      .filter(Boolean)
+      .join(' ');
+    if (isKbRequiredFactualInquiry(ctx.text, threadContextForKb)) {
+      const grounded = await autoResolveSvc.tryResolve(ctx.clientId, ctx.text, {
+        threadContext: threadContextForKb,
+        groundedOnly: true,
+      });
+      if (grounded.hit && grounded.reply) {
+        this.mergeCollected(state, {}, ctx.text);
+        state.collectedProblem = ctx.text.trim();
+        state.aiTurnCount += 1;
+        state.confidence = 0.85;
+        state.summary = `Resolvido via ${grounded.source}: ${grounded.sourceTitle ?? ''}`.trim();
+        const autoReply = `${grounded.reply}\n\nIsso respondeu sua dúvida? Se precisar de um atendente, digite *atendente*.`;
+        await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, autoReply);
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        logger.info('IA respondeu via KB (sem LLM) — dúvida factual', {
+          clientId: ctx.clientId,
+          source: grounded.source,
+        });
+        return { handled: true };
+      }
+
+      const org = await Organization.findById(ctx.clientId).select('name').lean();
+      const safeReply = buildPremiumAiUngroundedReply(org?.name);
+      if (this.textLooksLikeProblemDescription(ctx.text)) {
+        state.collectedProblem = ctx.text.trim();
+      }
+      state.aiTurnCount += 1;
+      state.confidence = 0.2;
+      state.summary = 'Dúvida factual sem artigo na base de conhecimento';
+      await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, safeReply);
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      logger.info('IA bloqueou LLM — dúvida factual sem KB', {
+        clientId: ctx.clientId,
+        conversationId: ctx.conversation._id,
+        text: ctx.text.slice(0, 80),
+      });
+      return { handled: true };
+    }
+
     const systemPrompt = await AiPromptBuilderService.getInstance().buildSystemPrompt(
       ctx.clientId,
       {
@@ -534,6 +596,23 @@ export class AiConversationService {
     state.aiTurnCount += 1;
     if (structured.internalSummary) state.summary = structured.internalSummary;
     if (structured.departmentMenuKey) state.suggestedDepartmentMenuKey = structured.departmentMenuKey;
+
+    const orgForGuard = await Organization.findById(ctx.clientId).select('name').lean();
+    const factualGuard = guardPremiumAiFactualReply({
+      reply: structured.reply,
+      systemPrompt,
+      companyName: orgForGuard?.name,
+    });
+    if (factualGuard.blocked) {
+      structured.reply = factualGuard.reply;
+      structured.confidence = Math.min(structured.confidence ?? 0.5, 0.35);
+      structured.shouldEscalate = false;
+      logger.warn('IA substituiu resposta factual inventada (sem KB)', {
+        clientId: ctx.clientId,
+        conversationId: ctx.conversation._id,
+        reason: factualGuard.reason,
+      });
+    }
 
     let escalation = escSvc.check({
       clientText: ctx.text,

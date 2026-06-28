@@ -1,10 +1,14 @@
 import {
   buildPremiumAiSafetySuffix,
+  buildPremiumAiUngroundedReply,
   clientRequestedPremiumHumanHandoff,
   evaluatePremiumAiGate,
+  guardPremiumAiFactualReply,
+  isKbRequiredFactualInquiry,
   isPremiumAiKnowledgeGrounded,
   isPremiumAiResponseUnsafe,
   isPremiumAiSensitiveIntent,
+  looksLikeInventedFactualReply,
   PREMIUM_AI_RESPONSE_LIMIT_WEBCHAT,
   PREMIUM_AI_RESPONSE_LIMIT_WHATSAPP,
   resolvePremiumAiResponseLimit,
@@ -197,6 +201,39 @@ describe('premium-ai.util', () => {
     it('remove controle e limita tamanho', () => {
       expect(sanitizePremiumAiPromptInput('  Olá\x00  ')).toBe('Olá');
       expect(sanitizePremiumAiPromptInput('x'.repeat(9000), 100).length).toBe(100);
+    });
+  });
+
+  describe('grounding factual (anti-alucinação)', () => {
+    it('detecta pergunta comercial que exige KB', () => {
+      expect(isKbRequiredFactualInquiry('quero saber sobre planos')).toBe(true);
+      expect(isKbRequiredFactualInquiry('Internet', 'planos')).toBe(true);
+      expect(isKbRequiredFactualInquiry('oi tudo bem')).toBe(false);
+    });
+
+    it('detecta resposta inventada com preço/plano', () => {
+      expect(
+        looksLikeInventedFactualReply(
+          '1. **Plano Básico**: 50 Mbps - R$ 99,90/mês',
+        ),
+      ).toBe(true);
+      expect(looksLikeInventedFactualReply('Posso ajudar em mais alguma coisa?')).toBe(false);
+    });
+
+    it('substitui resposta inventada quando KB vazia', () => {
+      const emptyPrompt = 'KNOWLEDGE\n(Base de conhecimento do cliente vazia — não invente)';
+      const r = guardPremiumAiFactualReply({
+        reply: 'Plano 100 Mbps por R$ 129/mês',
+        systemPrompt: emptyPrompt,
+        companyName: 'Radar Gamer',
+      });
+      expect(r.blocked).toBe(true);
+      expect(r.reply).toContain('Não tenho informações confirmadas');
+    });
+
+    it('buildPremiumAiUngroundedReply não promete catálogo', () => {
+      expect(buildPremiumAiUngroundedReply('Acme')).toContain('Acme');
+      expect(buildPremiumAiUngroundedReply('Acme')).not.toContain('R$');
     });
   });
 });

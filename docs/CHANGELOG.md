@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.66] — 2026-06-28
+
+### Fix — IA Premium não inventa planos/preços sem KB
+
+- Dúvidas comerciais (planos, preços, internet, etc.): busca KB/memória **antes** do LLM; sem match → resposta “não tenho informações confirmadas”.
+- Pós-LLM: heurística bloqueia catálogo inventado (R$, Mbps, listas numeradas) quando KB vazia.
+- WebChat: mesmo guard. Testes em `premium-ai.util.test.ts`.
+
+---
+
 ## [2.12.65] — 2026-06-28
 
 ### Fix — LGPD opt-out × triagem IA (QA Fase 1 § A.1)
