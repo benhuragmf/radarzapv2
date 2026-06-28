@@ -3,7 +3,7 @@
 **Versão:** `2.12.6` · **Atualizado:** 2026-06-24
 
 > **Este é o documento principal do RadarZap v2.** Leia-o antes de qualquer módulo específico.  
-> Resumo executivo: [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **Fonte oficial pós-TOP 20:** [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · Auditoria TOP 01–21: [`top/`](./top/).
+> Resumo executivo: [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **Fonte oficial pós-TOP 20:** [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · Auditoria TOP 01–21: [`top/`](./concluidos/top/).
 
 | Campo | Valor |
 |-------|-------|
@@ -70,7 +70,7 @@ Frontend isolado: `cd src/services/web-dashboard/frontend && npm run dev`.
 | `src/auth/rbac/` | Papéis e capabilities |
 | `src/types/` | Tipos e helpers compartilhados |
 | `docs/` | Documentação (este arquivo = entrada principal) |
-| `docs/top/` | Auditoria TOP 01–20 |
+| `docs/concluidos/top/` | Auditoria TOP 01–20 |
 
 ---
 
@@ -88,7 +88,7 @@ Ao entregar feature: incrementar versão, atualizar changelog/registro, docs de 
 
 ## 6. Planos, limites e billing
 
-Matriz oficial TOP 03: [`top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md).
+Matriz oficial TOP 03: [`top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md).
 
 Campos relevantes: `messagesPerDay`, `whatsappDestinations`, `webchatWidgets`, `aiCreditsMonthly`, assentos equipe.
 
@@ -98,7 +98,7 @@ Billing Stripe documentado em [`BILLING.md`](./BILLING.md). Enforcement completo
 
 ## 7. RBAC, cargos e permissões
 
-Documento: [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md). Auditoria TOP 04: [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md).
+Documento: [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md). Auditoria TOP 04: [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./concluidos/top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md).
 
 - Presets: OWNER, ADMIN, MANAGER, ATTENDANT, INTEGRATION.
 - Papéis custom por organização (`customRoles[]`).
@@ -108,7 +108,7 @@ Documento: [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md). Auditoria TOP 04: [`top/RADARZA
 
 ## 8. Equipe, status, presença e fila
 
-TOP 05: [`top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`](./top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md).
+TOP 05: [`top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`](./concluidos/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md).
 
 - Round-robin e fila só para atendentes `online`.
 - `supervisor_online`, `ocupado`, `ausente`, `offline` não recebem atribuição automática.
@@ -118,7 +118,7 @@ TOP 05: [`top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`](./top/RADARZAP-TOP-05-ST
 
 ## 9. Modos de atendimento
 
-Consolidado: [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md). TOP 06: [`top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`](./top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md).
+Consolidado: [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md). TOP 06: [`top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`](./concluidos/top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md).
 
 Modos: `disabled`, `robotic`, `basic_triage`, `premium_assistant`, `hybrid`.
 
@@ -128,7 +128,7 @@ Aplicam-se a WhatsApp e WebChat conforme pipeline inbound de cada canal.
 
 ## 10. Inbox, conversas, fila e transferência
 
-[`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md). TOP 07: [`top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md).
+[`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md). TOP 07: [`top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./concluidos/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md).
 
 - Lista unificada WA + WebChat (`wc:` prefix).
 - Setores públicos/internos (`internalRank`).
@@ -138,7 +138,7 @@ Aplicam-se a WhatsApp e WebChat conforme pipeline inbound de cada canal.
 
 ## 11. Tickets, chamados e protocolo TK
 
-[`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md). TOP 08: [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md).
+[`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md). TOP 08: [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./concluidos/top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md).
 
 - Formato `TK-…` + token público.
 - Janela 12h retorno cliente; notas internas (`!nota`) não vão ao cliente.
@@ -148,7 +148,7 @@ Aplicam-se a WhatsApp e WebChat conforme pipeline inbound de cada canal.
 
 ## 12. Contatos, Leads, Kanban e deduplicação
 
-[`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md). TOP 09: [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md).
+[`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md). TOP 09: [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./concluidos/top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md).
 
 - Todo inbound WA cria/atualiza contato (`Destination`).
 - Lead só com intenção comercial; `oi` genérico não cria lead.
@@ -158,7 +158,7 @@ Aplicam-se a WhatsApp e WebChat conforme pipeline inbound de cada canal.
 
 ## 13. Formulários públicos e embed
 
-TOP 10: [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md).
+TOP 10: [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./concluidos/top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md).
 
 - `form.js`, `/api/leads/public`.
 - Independente do canal WhatsApp.
@@ -167,7 +167,7 @@ TOP 10: [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./to
 
 ## 14. WebChat e widget
 
-[`WEBCHAT.md`](./WEBCHAT.md). TOP 11: [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md).
+[`WEBCHAT.md`](./WEBCHAT.md). TOP 11: [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./concluidos/top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md).
 
 - Widget `widget.js`, API `/api/webchat/public`.
 - Pré-chat, FAQ, fila, modos IA, fallback WA deferido no widget.
@@ -176,7 +176,7 @@ TOP 10: [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./to
 
 ## 15. WhatsApp
 
-TOP 12: [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md).
+TOP 12: [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./concluidos/top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md).
 
 | Área | Implementação |
 |------|----------------|
@@ -190,7 +190,7 @@ TOP 12: [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/R
 | Helpers TOP 12 | `whatsapp-session.util.ts` |
 
 **Código:** fechado no TOP 12 (comandos, sessão, rate limit, testes automatizados).  
-**Pendente:** QR real, sessão real, inbound/outbound e comandos em ambiente final — **QA manual TOP 20 bloco D** ([`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md)).
+**Pendente:** QR real, sessão real, inbound/outbound e comandos em ambiente final — **QA manual TOP 20 bloco D** ([`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md)).
 
 **Cloud API Meta:** stub 503 — não pronto para produção.
 
@@ -198,7 +198,7 @@ TOP 12: [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/R
 
 ## 16. Bridge WebChat ↔ WhatsApp
 
-TOP 13: [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md). QA manual: [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md).
+TOP 13: [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./concluidos/top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md). QA manual: [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md).
 
 | Fluxo | Implementação |
 |-------|----------------|
@@ -220,7 +220,7 @@ TOP 13: [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13
 
 ## 17. IA Básica
 
-TOP 14: [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md).
+TOP 14: [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./concluidos/top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md).
 
 | Área | Implementação |
 |------|----------------|
@@ -263,7 +263,7 @@ Assistente **generativo controlado** (`premium_assistant` / etapa Premium do `hy
 
 **Bridge (TOP 13):** mensagens com `whatsappBridgeActive` não disparam IA Premium no WebChat.
 
-Doc detalhada: [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md). Créditos: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md).
+Doc detalhada: [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./concluidos/top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md). Créditos: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md).
 
 ---
 
@@ -293,13 +293,13 @@ Proteção **anti-prejuízo** para LLM RadarZap: saldo mensal por plano + `purch
 
 **API saldo:** `GET /platform/ai/balance` (`inbox:ai:balance:view`).
 
-Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md).
+Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./concluidos/top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md).
 
 ---
 
 ## 20. Billing, assinaturas e bloqueios
 
-[`BILLING.md`](./BILLING.md) · [`top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md).
+[`BILLING.md`](./BILLING.md) · [`top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./concluidos/top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md).
 
 - **Catálogo:** `config/plans.json` (TOP 03) — Trial/Free/Starter R$99/Pro R$299/Enterprise.
 - **Stripe:** checkout assinatura (`starter`/`pro`) + pacotes IA (`pack_1k`/`pack_5k`/`pack_15k`); modo teste com `sk_test_…`.
@@ -313,7 +313,7 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 
 ## 21. Logs, auditoria, segurança e LGPD
 
-[`top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) · [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) · [`WEBHOOKS.md`](./WEBHOOKS.md).
+[`top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./concluidos/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) · [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) · [`WEBHOOKS.md`](./WEBHOOKS.md).
 
 - **Mascaramento:** `src/utils/mask-secret.util.ts` — Stripe, wck/lfm, QR, ticket token, cookie/auth.
 - **Auditoria:** `AttendanceEvent` (atendimento) + `AuditLog` (admin); meta redactada antes de persistir.
@@ -330,7 +330,7 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 
 ## 22. QA, testes e gates obrigatórios
 
-**Versão ref.:** `2.12.5` (TOP 19) · Doc completo: [`top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md)
+**Versão ref.:** `2.12.5` (TOP 19) · Doc completo: [`top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./concluidos/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md)
 
 ### Gates obrigatórios (CI / pré-merge)
 
@@ -403,7 +403,7 @@ Mapas legados: [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md), [`QA-
 
 | Doc | Conteúdo |
 |-----|----------|
-| [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) | Congelamento, checklists produção, QA manual A–J |
+| [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) | Congelamento, checklists produção, QA manual A–J |
 | [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | Leitura rápida pós 20 TOPs |
 | [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | § Resultado QA Manual TOP 20 |
 
@@ -433,7 +433,7 @@ Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.
 
 ## 24. Roadmap TOP 01–20
 
-> **Preservação:** cada linha abaixo corresponde a um arquivo **imutável** em `docs/top/RADARZAP-TOP-NN-*.md` (auditoria). Não remover nem mover sem autorização Benhur. Índice completo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · regra: [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) § Preservação.
+> **Preservação:** arquivos em `docs/concluidos/top/RADARZAP-TOP-NN-*.md` (auditoria). Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · [`concluidos/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./concluidos/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md).
 
 | # | Tema | Doc | Versão ref. | Status |
 |---|------|-----|-------------|--------|
@@ -465,7 +465,7 @@ Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.
 
 ## 25. Pendências conhecidas
 
-Fonte detalhada: [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) § Pendências finais.
+Fonte detalhada: [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) § Pendências finais.
 
 - **QA manual A–J** (blocker go-live) — Benhur; template [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md).
 - **WhatsApp em ambiente real:** código fechado TOP 12; **QR, sessão, inbound/outbound e comandos** pendentes no QA manual bloco D.
@@ -487,5 +487,5 @@ Fonte detalhada: [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`
 4. Incrementar `package.json`, `CHANGELOG.md`, `SISTEMA-REGISTRO.md`.
 5. Não copiar Evolution/Sendfy; não commitar `sessions/`, `.env`, `data/`.
 6. Não declarar produção pronta com bugs abertos em atendimento.
-7. Seguir etapa TOP atual em `docs/top/` quando em fechamento 01–20.
-8. **Nunca** remover nem mover `docs/top/RADARZAP-TOP-NN-*.md` sem autorização Benhur — são histórico de auditoria.
+7. Consultar histórico TOP em `docs/concluidos/top/` quando necessário.
+8. Redirect legado: `docs/top/README.md` aponta para o arquivo.

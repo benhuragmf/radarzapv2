@@ -158,7 +158,7 @@ Fonte: `config/plans.json` (`includedUsers`, `includedAgents`, `includedSupervis
 
 - **Enforcement:** convite e troca de cargo — `src/services/team/team-plan-limits.ts`.
 - **OWNER** não conta no limite de usuários; membros legados acima do limite não são removidos.
-- Doc: [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md).
+- Doc: [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./concluidos/top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md).
 
 ### Auditoria equipe (2.11.90)
 

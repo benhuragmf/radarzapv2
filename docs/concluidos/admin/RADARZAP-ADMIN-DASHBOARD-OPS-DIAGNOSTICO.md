@@ -431,7 +431,7 @@ Métricas de atendimento existem e estão maduras **por empresa**; falta camada 
 
 - `docs/RADARZAP-SISTEMA-COMPLETO.md` (estrutura geral)
 - `docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`
-- `docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`
+- `docs/concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`
 - `docs/SISTEMA-REGISTRO.md`
 - `docs/INDICE-DOCUMENTACAO.md`
 - `docs/BILLING.md`
@@ -439,7 +439,7 @@ Métricas de atendimento existem e estão maduras **por empresa**; falta camada 
 - `docs/INBOX-ATENDIMENTO.md` (supervisor tenant)
 - `docs/WEBCHAT.md`
 - `docs/EQUIPE-RBAC.md`
-- `docs/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md` (mascaramento)
+- `docs/concluidos/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md` (mascaramento)
 
 ---
 

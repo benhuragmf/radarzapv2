@@ -104,7 +104,7 @@
 
 ## Resultado QA Manual TOP 20
 
-> Preencher após executar blocos A–J do [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).  
+> Preencher após executar blocos A–J do [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).  
 > Versão alvo: `2.12.6`+ · Responsável: Benhur · Data: _______________
 
 | Bloco | Status | Evidência | Observação |

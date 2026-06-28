@@ -71,6 +71,19 @@ Backlog técnico ✅ · QA manual VPS browser ⏳
 
 ---
 
+## TOP 01–21 (auditoria e fechamento) ✅
+
+**Local:** [`top/`](./top/) — 21 arquivos · redirect: [`../top/README.md`](../top/README.md)
+
+| # | Documento |
+|---|-----------|
+| 01–20 | [`RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md`](./top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md) … [`RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) |
+| 21 | [`RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) |
+
+Doc operacional ativo: módulos na raiz `docs/` (`INBOX-ATENDIMENTO.md`, `WEBCHAT.md`, etc.).
+
+---
+
 ## UI e menus
 
 | Documento | Versão |

@@ -1,5 +1,7 @@
 # RadarZap — TOP 21 Extra — Documentação Final Única e Organização Pós-TOP20
 
+> **Addendum 2026-06-28:** série TOP 01–21 **arquivada** nesta pasta (`docs/concluidos/top/`). Redirect legado: [`docs/top/README.md`](../../top/README.md).
+
 **Versão mantida:** `2.12.6` · **Data:** 2026-06-24 · **Branch:** `main` · **Commit base:** `3f76361` · **Revisão:** alinhamento fonte TOP 20
 
 ---

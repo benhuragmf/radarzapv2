@@ -63,17 +63,17 @@ O programa TOP 01–20 fechou o **RadarZap v2** como produto técnico consolidad
 | 19 | QA automatizado e regressão |
 | 20 | Congelamento e go-live controlado |
 
-Docs: `docs/top/RADARZAP-TOP-NN-*.md` (NN = 01–20) — **preservar integralmente** em `docs/top/` (histórico de auditoria). Resumo: [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md).
+Docs: `docs/concluidos/top/RADARZAP-TOP-NN-*.md` (NN = 01–20) — **preservar integralmente** em `docs/concluidos/top/` (histórico de auditoria). Resumo: [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./concluidos/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md).
 
 ---
 
 ## Histórico de auditoria TOP (preservação)
 
-Os 20 documentos TOP em `docs/top/` são a **prova executada** do fechamento do sistema (diagnóstico → go-live controlado).
+Os 20 documentos TOP em `docs/concluidos/top/` são a **prova executada** do fechamento do sistema (diagnóstico → go-live controlado).
 
 | Regra | Detalhe |
 |-------|---------|
-| Local canônico | `docs/top/RADARZAP-TOP-NN-*.md` |
+| Local canônico | `docs/concluidos/top/RADARZAP-TOP-NN-*.md` |
 | Remoção | Proibida sem autorização Benhur |
 | Movimentação | Proibida sem autorização Benhur |
 | Índice | [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) § TOPs 01–21 |
@@ -186,4 +186,4 @@ Referência: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md), [`PRODUCTION.
 | **Código** | Apenas bug/blocker até primeiro go-live |
 | **Docs** | Atualizar `QA-FASE1-RESULTADO-*.md` e gate em `ROADMAP-COMPLETUDE.md` |
 
-**Leitura rápida complementar:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md)
+**Leitura rápida complementar:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md)
