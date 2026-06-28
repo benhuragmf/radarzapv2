@@ -3,15 +3,23 @@
 **Data:** 2026-06-28  
 **Versão:** `2.12.42`  
 **Branch:** `develop`  
-**Status:** ✅ **APROVADO COM RESSALVAS** para commit
+**Status:** ✅ **APROVADO PARA COMMIT** (Bloco E: estender + cancelar trial validados por Benhur)
 
 ---
 
 ## Resumo
 
-Etapa 7 executou QA local automatizado + validação contra Mongo real, gates finais e preparação de commit seguro. **Mutações trial/plano no browser (Bloco E)** ficam como ressalva para Benhur confirmar com login `SYSTEM_ADMIN`.
+Etapa 7 executou QA local automatizado + validação contra Mongo real. **Benhur validou no browser:** estender trial (Kiro System) e cancelar trial (Anthony Monteiro → Free).
 
 ---
+
+## Evidência Benhur (browser)
+
+- **Usuário:** skulksgamer (`SYSTEM_ADMIN`)
+- **Rota:** `/admin/dashboard` → aba **Empresas**
+- **Estender trial:** toast **"Trial estendido com sucesso"** — org **Kiro System** (Starter, Ativa, expira 08/07/2026)
+- **Cancelar trial:** toast **"Trial cancelado — empresa em Free"** — org **Anthony Monteiro** (Pro/Trialing → **Free**, status Free, sem expiração)
+- **Listagem:** 4 empresas; paginação "Página 1 de 1 · 4 empresas"; botões Estender / Plano / Cancelar trial
 
 ## QA executado
 
@@ -34,8 +42,8 @@ Evidência JSON: [`docs/qa-results/admin-ops-local-2026-06-28.json`](../qa-resul
 | A Acesso/RBAC | ✅ Parcial | E2E + unit; login browser Benhur pendente |
 | B Visão geral | ✅ E2E | Cards, alertas, refresh |
 | C Infra | ✅ Local QA | summary real Mongo |
-| D Empresas | ✅ Local QA | 4 orgs, sem secrets |
-| E Trial/plano | ⏳ Ressalva | **Não mutou org** — Benhur validar modal + audit |
+| D Empresas | ✅ | 4 orgs, paginação, filtros, WA |
+| E Trial/plano | ✅ Quase completo | Estender + cancelar OK; alterar plano pendente |
 | F Atendimento | ✅ Local QA | métricas summary |
 | G Billing | ✅ Local QA | stripeMode=test, sem key |
 | H IA | ✅ E2E + summary | optional metrics OK |
@@ -47,7 +55,7 @@ Evidência JSON: [`docs/qa-results/admin-ops-local-2026-06-28.json`](../qa-resul
 ## Status final
 
 ```txt
-APROVADO COM RESSALVAS PARA COMMIT
+APROVADO PARA COMMIT
 Release: PRONTO PARA QA MANUAL (módulo Admin Ops)
 Produção / go-live: NÃO DECLARADO
 Push: PENDENTE autorização Benhur
@@ -59,9 +67,7 @@ Stripe live: NÃO ATIVADO
 
 ## Commit
 
-Mensagem: `test(admin): qa manual dashboard ops (v2.12.42)`
-
-Inclui Etapas 4–7 (código + docs) acumuladas desde `7f712eb`.
+Feito: `4b862e5` — `test(admin): qa manual dashboard ops (v2.12.42)`
 
 ---
 

@@ -3,17 +3,17 @@
 **Última atualização:** 2026-06-28 (Etapa 7)  
 **Versão testada:** `2.12.42`  
 **Branch:** `develop`  
-**Commit base remoto:** `7f712eb` → commit local Etapas 4–7 pendente push
+**Commit:** `4b862e5` (local) · push pendente
 
 ---
 
 ## Status final (Etapa 7)
 
 ```txt
-APROVADO COM RESSALVAS PARA COMMIT
+APROVADO PARA COMMIT
 ```
 
-**Ressalvas:** Bloco E (estender trial / alterar plano / cancelar trial com `SYSTEM_ADMIN` no browser) — validação manual Benhur pendente. Demais blocos cobertos por automação + Mongo local.
+**Atualização 2026-06-28 (Benhur):** Bloco E validado no browser — **estender trial** (Kiro System) e **cancelar trial** (Anthony Monteiro → Free) com toasts de sucesso. **Alterar plano** ainda sem evidência nesta sessão.
 
 **Release módulo:** `PRONTO PARA QA MANUAL`  
 **Produção / go-live TOP20 A–J:** **NÃO** declarado
@@ -26,9 +26,22 @@ APROVADO COM RESSALVAS PARA COMMIT
 
 Gates automatizados documentados; QA manual Benhur pendente.
 
-### Etapa 7 — 2026-06-28
+### Etapa 7 — 2026-06-28 (continuação Benhur)
 
-QA local executado pelo agente + script `qa:admin-ops:local` contra Mongo dev.
+Evidência browser (`SYSTEM_ADMIN` / skulksgamer):
+
+| Item | Resultado |
+|------|-----------|
+| Aba Empresas | 4 orgs listadas (Kiro System, Anthony Monteiro, Benhur Monteiro, Radar Gamer LTDA) |
+| Cards agregados | Total 4, Starter 1, Pro 1, Enterprise 2, Pagas 4, Trialing 2 |
+| Ações visíveis | Estender · Plano · Cancelar trial |
+| **Estender trial** | ✅ Toast **"Trial estendido com sucesso"** (org Kiro System, Starter, expira 08/07/2026) |
+| **Cancelar trial** | ✅ Toast **"Trial cancelado — empresa em Free"** (org **Anthony Monteiro**: Pro/Trialing → **Free/Free**, expira —) |
+| Paginação | ✅ "Página 1 de 1 · 4 empresas" |
+| Alterar plano | ⏳ não evidenciado nesta sessão |
+| Segredos no DOM | ✅ nenhum visível na tela |
+
+**Nota:** rodapé sidebar ainda mostra `v2.12.40` — reiniciar `dashboard:frontend` para refletir `2.12.42` do `package.json`.
 
 ---
 
@@ -76,8 +89,8 @@ GET http://localhost:3001/api/admin/ops/summary
 | **A** Acesso/RBAC | 7 | ✅ Parcial | E2E tenant bloqueado; moderator read-only; 401 sem sessão |
 | **B** Visão geral | 7 | ✅ | E2E cards, TOP20, refresh |
 | **C** Infra | 8 | ✅ | summary local: version 2.12.41, mongo/redis/queues |
-| **D** Empresas | 10 | ✅ | 4 orgs listadas; assertSafeOrganizationRow |
-| **E** Trial/plano | 11 | ⏳ Ressalva | E2E modal motivo; **mutação real não executada** |
+| **D** Empresas | 10 | ✅ | 4 orgs, filtros, paginação, WA Conectado/Sem sessão |
+| **E** Trial/plano | 11 | ✅ Quase completo | Estender (Kiro) + cancelar (Anthony→Free); alterar plano pendente |
 | **F** Atendimento | 6 | ✅ | summary operations.* populado |
 | **G** Billing | 6 | ✅ | stripeMode=test; sem sk_ na resposta |
 | **H** IA | 5 | ✅ | créditos/chamadas no summary |
