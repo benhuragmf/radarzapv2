@@ -113,5 +113,5 @@ Aguardar até `Banco de dados OK` e `Redis OK` nos logs.
 
 - `src/index.ts` — `initializeInfrastructure`, `waitForMongoReady`
 - `src/services/infra/infra-health.service.ts` — AH-S04
-- `docs/audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md` — AH-S01
+- `docs/concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md` — AH-S01
 - `docs/ROADMAP-COMPLETUDE.md` — gate estabilização

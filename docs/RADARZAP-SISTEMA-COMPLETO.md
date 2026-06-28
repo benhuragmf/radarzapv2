@@ -322,7 +322,7 @@ Doc: [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md), [`top/RADARZAP-
 - **Rate limit:** WebChat/lead público, auth, ticket lookup/resend, WA sessão.
 - **Webhooks:** HMAC Stripe + outbound; sem payload bruto em log.
 - **Multi-tenant:** API filtra por `clientId`; RBAC no painel.
-- **Admin ops (2.12.37–2.12.46):** `GET /api/admin/ops/summary`, orgs, security-events; UI `/admin/dashboard` (8 abas); consolidação legado (Etapas 8–9); Etapa 10 Bloco E local + prep push. **Auditoria horizontal 2.12.46:** [`audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md). Docs: `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`, `ETAPA-10-QA-VPS-PUSH.md`.
+- **Admin ops (2.12.37–2.12.63):** `GET /api/admin/ops/summary`, orgs, security-events; UI `/admin/dashboard` (8 abas); portal LGPD; bridge dedup. **Auditoria horizontal:** [`concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md). Docs: [`admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md), série arquivada em [`concluidos/admin/`](./concluidos/admin/).
 - **LGPD:** consentimento contato/form; export CSV; portal titular pendente go-live.
 - **Pendências:** `auth.login_failed`, purge retenção, QA manual WA → TOP 20.
 

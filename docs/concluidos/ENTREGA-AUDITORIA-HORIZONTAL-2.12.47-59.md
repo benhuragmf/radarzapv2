@@ -6,7 +6,7 @@
 
 ## Escopo
 
-Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](../audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) — etapas 1–14 + backlog pós-auditoria 2.12.60–63.
+Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) — etapas 1–14 + backlog pós-auditoria 2.12.60–63.
 
 **Não declarar:** produção / go-live (gate Fase 1 ainda aberto).
 
@@ -89,5 +89,5 @@ npx playwright test e2e/cross-tenant-isolation.spec.ts --project=chromium
 
 - [`docs/operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](../operacao/RUNBOOK-SPOF-MONGO-REDIS.md)
 - [`docs/CHANGELOG.md`](../CHANGELOG.md) — entradas 2.12.47–2.12.63
-- [`docs/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](../admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) — checklist QA manual (último passo)
+- [`admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](./admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) — checklist QA manual (último passo)
 - [`docs/CONSENTIMENTO-LGPD.md`](../CONSENTIMENTO-LGPD.md) § Portal LGPD

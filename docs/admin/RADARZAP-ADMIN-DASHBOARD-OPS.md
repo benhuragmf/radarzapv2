@@ -1,37 +1,49 @@
 # RadarZap — Admin Dashboard Ops
 
-**Versão:** `2.12.45` · **Atualizado:** 2026-06-28 · **Etapas 8–10:** gates verdes; VPS browser pendente
+**Versão:** `2.12.63` · **Atualizado:** 2026-06-28 · **Status:** implementação concluída — QA manual VPS pendente
 
 Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATOR`).
 
-**Status release:** `PRONTO PARA QA MANUAL VPS` — produção estável **não** declarada · **Deploy/push:** não executados (remoto ainda `2.12.42` até push autorizado).
+**Deploy:** `main` @ `db077e0` · CI verde · **Não declarar** go-live (gate Fase 1 aberto).
 
 ---
 
-## Documentação da série
+## Documentação ativa
 
 | Doc | Conteúdo |
 |-----|----------|
-| [Diagnóstico (Etapa 1)](./RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Lacunas e plano inicial |
-| [Etapa 3 — Frontend](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md) | 8 abas, cards, alertas |
-| [Etapa 4 — Empresas](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md) | Listagem + trial/plano |
-| [Etapa 5 — Segurança](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md) | Feed eventos críticos |
-| [Etapa 6 — Fechamento](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md) | QA, OpenAPI, consolidação |
-| [Etapa 7 — QA manual](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | Gate local Mongo + commit |
-| [Etapa 8 — Consolidação](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | Legado monitoring/errors/servers |
-| [Etapa 9 — Auditoria rotas](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | Usuários×Empresas, moderação |
-| [Etapa 10 — QA VPS + push prep](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md) | Bloco E local, gates, checklist VPS |
-| [Verificação real 8–9](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | Reconciliação docs × git |
-| [Inventário `/admin/*`](./RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | 19 rotas |
 | [**API (OpenAPI espelho)**](./RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | Contrato REST completo |
-| [QA Checklist manual](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | Roteiro Benhur |
-| [QA Resultado gates](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | Automação 65+50 testes |
+| [Entrega Etapas 1–3](../concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Handoff inicial |
+| [Entrega auditoria 2.12.47–63](../concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | Pacote horizontal + backlog |
+| [QA manual pós-auditoria](../concluidos/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) | Checklist VPS (último passo) |
 
 OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops**).
 
 ---
 
-## Resumo Etapas 1–6
+## Série arquivada (Etapas 1–10)
+
+Toda a série de entrega está em [`docs/concluidos/admin/`](../concluidos/admin/):
+
+| Doc | Conteúdo |
+|-----|----------|
+| [Diagnóstico (Etapa 1)](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Lacunas e plano inicial |
+| [Etapa 3 — Frontend](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md) | 8 abas, cards, alertas |
+| [Etapa 4 — Empresas](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md) | Listagem + trial/plano |
+| [Etapa 5 — Segurança](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md) | Feed eventos críticos |
+| [Etapa 6 — Fechamento](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md) | QA, OpenAPI, consolidação |
+| [Etapa 7 — QA manual](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | Gate local Mongo |
+| [Etapa 8 — Consolidação](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | Legado monitoring/errors/servers |
+| [Etapa 9 — Auditoria rotas](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | Usuários×Empresas, moderação |
+| [Etapa 10 — QA VPS](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md) | Bloco E local, gates |
+| [Verificação real 8–9](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | Reconciliação docs × git |
+| [Inventário `/admin/*`](../concluidos/admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | 19 rotas |
+| [QA Checklist](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | Roteiro Benhur |
+| [QA Resultado gates](../concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | Automação + Etapas 7–10 |
+
+---
+
+## Resumo Etapas 1–10 + pós-auditoria
 
 | Etapa | Entrega | Versão |
 |-------|---------|--------|
@@ -40,13 +52,14 @@ OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops*
 | 3 | UI `/admin/dashboard` 8 abas | 2.12.38 |
 | 4 | Orgs paginadas + trial/plano + audit | 2.12.39 |
 | 5 | `GET /api/admin/ops/security-events` + feed UI | 2.12.40 |
-| 6 | API docs, OpenAPI, QA checklist, anti-segredo | 2.12.41 |
-| 7 | QA manual local, gate Mongo, commit seguro | 2.12.42 |
-| 8 | Consolidação admin legado (redirect, deep links, páginas enriquecidas) | 2.12.43 |
-| 9 | Auditoria rota a rota (Usuários/Empresas, moderação, hubs) | 2.12.44 |
-| 10 | QA VPS prep, Bloco E local, E2E plano, gates finais | 2.12.45 |
+| 6 | API docs, OpenAPI, QA checklist | 2.12.41 |
+| 7 | QA manual local, gate Mongo | 2.12.42 |
+| 8 | Consolidação admin legado | 2.12.43 |
+| 9 | Auditoria rota a rota | 2.12.44–63 |
+| 10 | QA VPS prep, Bloco E local, E2E | 2.12.45 |
+| + | Hub IA, bridge dedup, boot degradado, portal LGPD | 2.12.60–63 |
 
-**Bloco E:** alterar plano — ✅ local Mongo + E2E modal · ⏳ browser VPS Benhur (estender/cancelar trial ✅ Etapa 7).
+**Bloco E browser:** alterar plano no VPS + `AuditLog` — pendente Benhur (local Mongo ✅).
 
 ---
 
@@ -59,6 +72,7 @@ PATCH /api/admin/ops/organizations/:id/plan
 POST /api/admin/ops/organizations/:id/trial/extend
 POST /api/admin/ops/organizations/:id/trial/cancel
 GET  /api/admin/ops/security-events
+GET  /api/admin/ops/infra-health
 ```
 
 Detalhes: [`RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-API.md).
@@ -94,7 +108,6 @@ Abas: Visão geral · Infra · Empresas · Atendimento · Billing · IA · Segur
 | `SYSTEM_ADMIN` | ✅ | ✅ |
 | `SYSTEM_MODERATOR` | ✅ | ❌ (read-only UI) |
 | Owner/Admin/Manager/Atendente tenant | ❌ | ❌ |
-| Sem sessão | ❌ | ❌ |
 
 ---
 
@@ -102,38 +115,16 @@ Abas: Visão geral · Infra · Empresas · Atendimento · Billing · IA · Segur
 
 **Sanitização:** `sanitizeOpsDisplayText` (UI) · `sanitizeAdminOpsSecurityEventText` (eventos).
 
-**Nunca exposto:** Stripe keys, webhook secrets, IA keys, JWT, sessionData, QR, tokens, meta/payload bruto, `stripeSubscriptionId`, e-mail owner em massa.
+**Nunca exposto:** Stripe keys, webhook secrets, IA keys, JWT, sessionData, QR, tokens, meta/payload bruto.
 
-**Testes anti-segredo:** `admin-ops-anti-secret.test.ts` + E2E DOM malicioso.
-
----
-
-## Testes automatizados
-
-| Suite | Qtd |
-|-------|-----|
-| `npm test -- admin-ops` | 65 |
-| `e2e/admin-dashboard.spec.ts` | 18 |
-
-Arquivos: `admin-ops-summary*.test.ts`, `admin-ops-organizations.service.test.ts`, `admin-ops-security-events.service.test.ts`, `admin-ops-anti-secret.test.ts`.
+**Testes:** `admin-ops-anti-secret.test.ts` + E2E DOM malicioso + `e2e/admin-dashboard.spec.ts`.
 
 ---
 
-## Riscos restantes
+## Próximo passo
 
-- QA manual checklist **não preenchido** (Benhur)
-- Override plano manual vs Stripe real
-- Scan org billing / security-events in-memory em escala
-- Working tree Etapas 4–6 **sem commit** no remoto
-
----
-
-## Próximos passos
-
-1. Benhur: Bloco E no browser (`SYSTEM_ADMIN`) — trial/plano em org de teste
-2. Autorizar **push** `develop` após revisão
-3. TOP 20 QA A–J global antes de go-live
-4. Gráficos históricos (backlog)
+1. Benhur: QA manual VPS — [`RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](../concluidos/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md)
+2. Gate Fase 1 atendimento — [`ROADMAP-COMPLETUDE.md`](../ROADMAP-COMPLETUDE.md)
 
 ---
 
@@ -141,8 +132,8 @@ Arquivos: `admin-ops-summary*.test.ts`, `admin-ops-organizations.service.test.ts
 
 | Camada | Arquivos |
 |--------|----------|
-| Types | `admin-ops-summary.ts`, `admin-ops-organizations.ts`, `admin-ops-security-events.ts`, `admin-ops-summary.util.ts` |
-| Services | `admin-ops-summary.service.ts`, `admin-ops-organizations.service.ts`, `admin-ops-security-events.service.ts`, `admin-ops-alerts.util.ts` |
+| Types | `admin-ops-summary.ts`, `admin-ops-organizations.ts`, `admin-ops-security-events.ts` |
+| Services | `admin-ops-summary.service.ts`, `admin-ops-organizations.service.ts`, `admin-ops-security-events.service.ts` |
 | Routes | `DashboardService.ts` |
-| Frontend | `AdminDashboard.tsx`, `AdminOpsDashboardView.tsx`, `AdminOpsTenantsPanel.tsx`, `AdminOpsSecurityPanel.tsx` |
+| Frontend | `AdminDashboard.tsx`, `AdminOpsDashboardView.tsx`, `AdminOpsTenantsPanel.tsx` |
 | OpenAPI | `openapi-dashboard.ts` |

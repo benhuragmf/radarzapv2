@@ -61,7 +61,7 @@ APROVADO COM RESSALVAS — gates verdes; QA VPS browser + Bloco E browser penden
 | AuditLog | ✅ `admin.plan.changed` — id `6a417069fd43c2b656456201` |
 | Stripe | ✅ nenhuma chamada |
 | Browser VPS | ⏳ pendente Benhur |
-| Evidências | [`admin-ops-bloco-e-local-2026-06-28.json`](../qa-results/admin-ops-bloco-e-local-2026-06-28.json) |
+| Evidências | [`admin-ops-bloco-e-local-2026-06-28.json`](../../qa-results/admin-ops-bloco-e-local-2026-06-28.json) |
 | **Resultado local** | **PASS** |
 
 E2E modal: motivo obrigatório, botão habilitado após ≥ 5 chars — ✅
@@ -135,7 +135,7 @@ Evidência browser (`SYSTEM_ADMIN` / skulksgamer):
 
 ### Evidência Mongo local
 
-Arquivo: [`docs/qa-results/admin-ops-local-2026-06-28.json`](../qa-results/admin-ops-local-2026-06-28.json)
+Arquivo: [`docs/qa-results/admin-ops-local-2026-06-28.json`](../../qa-results/admin-ops-local-2026-06-28.json)
 
 ```json
 {

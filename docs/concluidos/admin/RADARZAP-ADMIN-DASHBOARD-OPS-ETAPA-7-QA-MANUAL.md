@@ -33,7 +33,7 @@ Etapa 7 executou QA local automatizado + validação contra Mongo real. **Benhur
 | E2E UI mock | Playwright 18 cenários | **18/18** ✅ |
 | Build | backend + frontend | ✅ |
 
-Evidência JSON: [`docs/qa-results/admin-ops-local-2026-06-28.json`](../qa-results/admin-ops-local-2026-06-28.json)
+Evidência JSON: [`docs/qa-results/admin-ops-local-2026-06-28.json`](../../qa-results/admin-ops-local-2026-06-28.json)
 
 ---
 

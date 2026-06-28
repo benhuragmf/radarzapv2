@@ -25,7 +25,7 @@ Validar rotas admin em ambiente real (VPS/staging), fechar **Bloco E** (alterar 
 | `npm run qa:admin-ops:bloco-e:local` | ✅ — ver JSON |
 | `npm run qa:atendimento:gate` | ⏭ não executado (escopo Admin Ops) |
 
-Evidência Bloco E local: [`docs/qa-results/admin-ops-bloco-e-local-2026-06-28.json`](../qa-results/admin-ops-bloco-e-local-2026-06-28.json)
+Evidência Bloco E local: [`docs/qa-results/admin-ops-bloco-e-local-2026-06-28.json`](../../qa-results/admin-ops-bloco-e-local-2026-06-28.json)
 
 ---
 

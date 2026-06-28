@@ -27,7 +27,7 @@ Ref: [`RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md`](./RADARZAP-ADMI
 
 ## Bloco B — Portal LGPD (2.12.63)
 
-Ref: [`CONSENTIMENTO-LGPD.md`](../CONSENTIMENTO-LGPD.md) § Portal LGPD
+Ref: [`CONSENTIMENTO-LGPD.md`](../../CONSENTIMENTO-LGPD.md) § Portal LGPD
 
 | # | Passo | Verificar | OK |
 |---|-------|-----------|-----|
@@ -91,7 +91,7 @@ npx playwright test e2e/admin-dashboard.spec.ts --project=chromium
 | Ambiente | local / VPS |
 | Versão deployada | `2.12.63` (`main` @ `db077e0`) |
 | Blocos A–D | ☐ todos OK / ☐ ressalvas |
-| Evidência | Preencher [`docs/qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json`](../qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json) → renomear com data |
+| Evidência | Preencher [`docs/qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json`](../../qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json) → renomear com data |
 
 ---
 

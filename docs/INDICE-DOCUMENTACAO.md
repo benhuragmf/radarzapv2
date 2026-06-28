@@ -51,22 +51,11 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md) | Papéis e capabilities |
 | [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) | Consentimento LGPD |
 | [`BILLING.md`](./BILLING.md) | Stripe, planos, limites |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) | Dashboard ops global — `GET /api/admin/ops/summary` |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md) | **Etapa 3** — frontend dashboard ops (`2.12.38`) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md) | **Etapa 4** — empresas, trial e plano (`2.12.39`) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md) | **Etapa 5** — feed eventos críticos segurança (`2.12.40`) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md) | **Etapa 6** — QA final e fechamento (`2.12.41`) |
+| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) | Dashboard ops global — doc operacional ativo |
 | [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | **API** — contrato REST Admin Ops |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | **QA manual** — checklist Benhur |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | **Etapa 7** — QA manual e commit (`2.12.42`) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-CONSOLIDACAO-ADMIN.md) | **Etapa 8** — consolidação admin legado (`2.12.43`) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md) | **Etapa 9** — auditoria rota a rota (`2.12.44`) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md) | **Verificação** — reconciliação docs × código × git |
-| [`admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md`](./admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md) | Inventário 19 rotas `/admin/*` |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-10-QA-VPS-PUSH.md) | **Etapa 10** — QA VPS + Bloco E + prep push (`2.12.45`) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | **QA gates** — resultado automatizado + Etapas 7–10 |
-| [`concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md`](./concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Entrega Etapas 1–3 (referência) |
-| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Diagnóstico Etapa 1 `/admin/dashboard` |
+| [`concluidos/admin/`](./concluidos/admin/) | **Arquivo** — Etapas 1–10, QA, inventário, pós-auditoria |
+| [`concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md`](./concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Entrega Etapas 1–3 |
+| [`concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md`](./concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | Entrega auditoria 2.12.47–63 |
 | [`WEBHOOKS.md`](./WEBHOOKS.md) | Webhooks outbound |
 | [`MENU-PAGES-REGISTRY.md`](./MENU-PAGES-REGISTRY.md) | Rotas → componentes → API |
 | [`MENUS-SISTEMA.md`](./MENUS-SISTEMA.md) | Menus UX do painel |
@@ -136,9 +125,9 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 | Pasta / doc | Descrição |
 |-------------|-----------|
-| [`concluidos/`](./concluidos/README.md) | Entregas e fases arquivadas |
-| [`audits/`](./audits/) | Auditorias incrementais e horizontal |
-| [`audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal** — correções 2.12.47–2.12.59; QA manual pendente |
+| [`concluidos/`](./concluidos/README.md) | Entregas e fases arquivadas (admin, auditoria horizontal, modos, etc.) |
+| [`concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal** — achados + status 2.12.47–63 |
+| [`audits/`](./audits/) | Auditorias incrementais |
 | [`operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](./operacao/RUNBOOK-SPOF-MONGO-REDIS.md) | Runbook SPOF Mongo/Redis (AH-S01) |
 | [`security/`](./security/) | Notas de segurança |
 
