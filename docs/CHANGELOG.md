@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.38] — 2026-06-27
+
+### Admin — dashboard ops frontend completo
+
+- **`/admin/dashboard`:** migra para `GET /api/admin/ops/summary` — abas Visão geral, Infra, Empresas, Atendimento, Billing, IA, Segurança, Go-live.
+- **UX:** loading/error/refresh 30s, badges versão/env/status, alertas TOP20, links rápidos, sanitização de conteúdo sensível.
+- **Testes:** `admin-ops-summary.util`, E2E `e2e/admin-dashboard.spec.ts`.
+
 ## [2.12.37] — 2026-06-27
 
 ### Admin — ops summary backend (dashboard global)

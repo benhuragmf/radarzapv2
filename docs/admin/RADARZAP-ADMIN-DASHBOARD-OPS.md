@@ -1,6 +1,6 @@
 # RadarZap — Admin Dashboard Ops
 
-**Versão:** `2.12.37` · **Atualizado:** 2026-06-27
+**Versão:** `2.12.38` · **Atualizado:** 2026-06-27
 
 Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATOR`). Diagnóstico inicial: [`RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md).
 
@@ -14,9 +14,33 @@ Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATO
 |--------|--------|
 | **Etapa 1** | Diagnóstico `/admin/dashboard` concluído |
 | **Etapa 2** | Backend `GET /api/admin/ops/summary` (agregador seguro) |
-| **Etapa 3** | Frontend dashboard ops (pendente) |
+| **Etapa 3** | Frontend `/admin/dashboard` — abas ops completas (`AdminOpsDashboardView.tsx`) ✅ |
 
-O painel `/admin/dashboard` continua usando `GET /admin/monitoring` até a Etapa 3 migrar para o novo endpoint.
+O painel `/admin/dashboard` consome **`GET /api/admin/ops/summary`**. Link legado para `/admin/monitoring` permanece nos atalhos.
+
+---
+
+## Frontend (Etapa 3)
+
+| Item | Valor |
+|------|-------|
+| **Rota** | `/admin/dashboard` |
+| **Componentes** | `AdminDashboard.tsx` (query) + `AdminOpsDashboardView.tsx` (UI) |
+| **API** | `GET /admin/ops/summary` — refetch 30s; botão **Atualizar** → `?refresh=1` |
+| **Abas** | Visão geral, Infra, Empresas, Atendimento, Billing, IA, Segurança, Go-live |
+| **Estados** | Loading, error com retry, empty fallback |
+| **Segurança UI** | `sanitizeOpsDisplayText` — omite padrões sensíveis em alertas |
+| **E2E** | `e2e/admin-dashboard.spec.ts` |
+
+### Cards principais (visão geral)
+
+Status geral, Empresas, WhatsApp, Atendimento, Leads, IA Créditos + linha infra (Sistema, Memória, Mongo, Redis, Filas, Billing).
+
+### Pendente (etapa futura)
+
+- Listagem/ações trial por empresa
+- Gráficos históricos
+- Ações administrativas (liberar plano, etc.)
 
 ---
 
@@ -122,10 +146,9 @@ Gerados por `buildAdminOpsAlerts()`:
 
 ## Próximas etapas
 
-1. **Etapa 3** — Evoluir `AdminDashboard.tsx` para consumir `/admin/ops/summary`
-2. Error state + cards por seção + links
-3. Opcional: OpenAPI + teste E2E admin mock auth
-4. QA manual bloco admin no roteiro Fase 1
+1. **Etapa 4** — Listagem empresas + ações trial/plano no dashboard
+2. OpenAPI documentação do summary
+3. QA manual bloco admin no roteiro Fase 1
 
 ---
 
@@ -134,6 +157,9 @@ Gerados por `buildAdminOpsAlerts()`:
 | Arquivo | Papel |
 |---------|-------|
 | `src/types/admin-ops-summary.ts` | Contrato TypeScript |
+| `src/types/admin-ops-summary.util.ts` | Formatadores e sanitização |
 | `src/services/web-dashboard/admin-ops-summary.service.ts` | Agregador |
 | `src/services/web-dashboard/admin-ops-alerts.util.ts` | Alertas |
-| `src/services/web-dashboard/__tests__/admin-ops-*.test.ts` | Testes |
+| `frontend/.../AdminDashboard.tsx` | Query React |
+| `frontend/.../AdminOpsDashboardView.tsx` | UI abas |
+| `e2e/admin-dashboard.spec.ts` | E2E mock auth |

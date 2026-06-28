@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.12.37",
+  "version": "2.12.38",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",

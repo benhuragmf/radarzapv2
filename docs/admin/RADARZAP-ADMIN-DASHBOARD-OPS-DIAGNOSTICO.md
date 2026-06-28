@@ -2,7 +2,7 @@
 
 **Etapa:** 1 — somente leitura (sem implementação)  
 **Data:** 2026-06-27  
-**Versão do código analisado:** `2.12.37` (`package.json`) — Etapa 2 implementada (`GET /api/admin/ops/summary`)  
+**Versão do código analisado:** `2.12.38` — Etapas 2–3: backend + frontend ops summary
 **Status documental TOP 20:** `PRONTO PARA QA MANUAL` (congelamento em `2.12.6`) — **produção estável não declarada**
 
 > **Nota de versão:** o brief desta auditoria cita `2.12.6` (TOP 20). O repositório local está em `2.12.36` (`develop`, commit `e870632`) com correções pós-congelamento (Inbox, fallback WebChat, assets estáticos). O diagnóstico reflete o **código atual**, não apenas o snapshot TOP 20.
