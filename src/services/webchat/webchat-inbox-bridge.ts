@@ -53,6 +53,15 @@ export type InboxWebChatListRow = {
   ticketRef?: string;
   /** Bridge WhatsApp ativo (atendente responde pelo celular) */
   whatsappBridgeActive?: boolean;
+  whatsappFallbackEnabled?: boolean;
+  whatsappFallbackPhase?: 'panel' | 'wa_assumir' | 'no_agent';
+  whatsappFallbackRemainingSec?: number;
+  whatsappFallbackTimeoutSec?: number;
+  whatsappFallbackAcceptTimeoutSec?: number;
+  whatsappFallbackNoAgentTimeoutSec?: number;
+  whatsappFallbackWaAlertSent?: boolean;
+  whatsappFallbackPriorityStartedAt?: string;
+  whatsappFallbackWaNotifiedAt?: string;
   priorityForMe?: boolean;
   canAccept?: boolean;
   canPull?: boolean;

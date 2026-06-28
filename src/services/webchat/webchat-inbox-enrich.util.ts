@@ -16,11 +16,16 @@ import {
   triageInactivityTotalMinutes,
 } from '../inbox/inbox-inactivity';
 
+import { getFallbackCountdownState } from './webchat-fallback-timing.util';
+
 type WebChatRowInput = InboxWebChatListRow & {
   suggestedUserId?: string;
   suggestedAt?: Date | string;
   queueEnteredAt?: Date | string;
   acceptedAt?: Date | string;
+  whatsappFallbackPriorityStartedAt?: Date | string;
+  whatsappFallbackWaNotifiedAt?: Date | string;
+  whatsappFallbackWaNotifiedUserId?: string;
   createdAt?: string;
   lastInboundAt?: Date | string;
   lastOutboundAt?: Date | string;
@@ -37,6 +42,12 @@ type InactivitySla = {
   closeQuickReplyGateEnabled?: boolean;
 };
 
+type FallbackEnrichSettings = {
+  whatsappFallbackEnabled: boolean;
+  whatsappFallbackAcceptTimeoutSeconds?: number;
+  whatsappFallbackNoAgentTimeoutSeconds?: number;
+};
+
 export async function enrichWebChatInboxRow(
   row: WebChatRowInput,
   userId: string,
@@ -48,6 +59,7 @@ export async function enrichWebChatInboxRow(
     DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
   ),
   inactivitySla?: InactivitySla,
+  fallbackSettings?: FallbackEnrichSettings,
 ): Promise<InboxWebChatListRow> {
   const suggestedId = row.suggestedUserId;
   const assignedId = row.assignedUserId;
@@ -144,6 +156,27 @@ export async function enrichWebChatInboxRow(
         )
       : false;
 
+  const fallbackCountdown =
+    status === 'waiting_queue' && fallbackSettings?.whatsappFallbackEnabled
+      ? getFallbackCountdownState(
+          clientId,
+          {
+            suggestedUserId: suggestedId,
+            suggestedAt: row.suggestedAt ? new Date(row.suggestedAt) : undefined,
+            queueEnteredAt: row.queueEnteredAt ? new Date(row.queueEnteredAt) : undefined,
+            whatsappFallbackPriorityStartedAt: row.whatsappFallbackPriorityStartedAt
+              ? new Date(row.whatsappFallbackPriorityStartedAt)
+              : undefined,
+            whatsappFallbackWaNotifiedAt: row.whatsappFallbackWaNotifiedAt
+              ? new Date(row.whatsappFallbackWaNotifiedAt)
+              : undefined,
+            whatsappFallbackWaNotifiedUserId: row.whatsappFallbackWaNotifiedUserId,
+          },
+          fallbackSettings,
+          true,
+        )
+      : null;
+
   return {
     ...row,
     suggestedUserId: suggestedId,
@@ -180,6 +213,21 @@ export async function enrichWebChatInboxRow(
     closeGateSource: row.closeGateSource,
     lastOutboundAt: row.lastOutboundAt
       ? new Date(row.lastOutboundAt).toISOString()
+      : undefined,
+    whatsappFallbackEnabled: fallbackSettings?.whatsappFallbackEnabled ?? false,
+    whatsappFallbackPhase: fallbackCountdown?.phase,
+    whatsappFallbackRemainingSec: fallbackCountdown?.remainingSec,
+    whatsappFallbackTimeoutSec: fallbackCountdown?.timeoutSec,
+    whatsappFallbackAcceptTimeoutSec:
+      fallbackSettings?.whatsappFallbackAcceptTimeoutSeconds ?? 120,
+    whatsappFallbackNoAgentTimeoutSec:
+      fallbackSettings?.whatsappFallbackNoAgentTimeoutSeconds ?? 0,
+    whatsappFallbackWaAlertSent: fallbackCountdown?.waAlertSent ?? false,
+    whatsappFallbackPriorityStartedAt: row.whatsappFallbackPriorityStartedAt
+      ? new Date(row.whatsappFallbackPriorityStartedAt).toISOString()
+      : undefined,
+    whatsappFallbackWaNotifiedAt: row.whatsappFallbackWaNotifiedAt
+      ? new Date(row.whatsappFallbackWaNotifiedAt).toISOString()
       : undefined,
   };
 }

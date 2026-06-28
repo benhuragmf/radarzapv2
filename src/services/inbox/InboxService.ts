@@ -104,7 +104,9 @@ import {
   setAgentPresenceTimeout,
 } from '@/services/inbox/inbox-agent-presence';
 import {
+  canAgentManuallyAssumeConversation,
   canAgentReceiveNewAssignment,
+  formatManualAssumeBlockMessage,
   resolveMaxConcurrentChatsForPlan,
 } from '@/services/inbox/agent-availability';
 import {
@@ -4648,13 +4650,11 @@ export class InboxService {
     if (conv.status === InboxConversationStatus.WAITING_QUEUE) {
       await this.assertCanTakeQueueConversation(clientId, userId, conv);
       const maxConcurrent = await this.resolveMaxConcurrentForClient(clientId);
-      const canTake = await canAgentReceiveNewAssignment(clientId, userId, maxConcurrent, {
+      const canTake = await canAgentManuallyAssumeConversation(clientId, userId, maxConcurrent, {
         inboxConversationId: String(conv._id),
       });
-      if (!canTake) {
-        throw new Error(
-          'Indisponível para assumir — verifique status online e limite de atendimentos simultâneos.',
-        );
+      if (canTake.ok === false) {
+        throw new Error(formatManualAssumeBlockMessage(canTake.reason, maxConcurrent));
       }
     }
 

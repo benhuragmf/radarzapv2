@@ -10,6 +10,7 @@ import { createServiceLogger } from '@/utils/logger';
 import mongoose from 'mongoose';
 import {
   isFallbackAcceptTimeoutElapsed,
+  isFallbackWaAssumirTimeoutElapsed,
   resolveFallbackAcceptTimeoutSeconds,
   resolveFallbackWaitMode,
   shouldRetryFallbackAfterCooldown,
@@ -21,7 +22,9 @@ const EXHAUSTED_ALERT_COOLDOWN_MS = 15 * 60 * 1000;
 
 export {
   isFallbackAcceptTimeoutElapsed,
+  isFallbackWaAssumirTimeoutElapsed,
   getFallbackAcceptWaitStart,
+  getFallbackCountdownState,
   resolveFallbackWaitMode,
   resolveFallbackAcceptTimeoutSeconds,
 } from './webchat-fallback-timing.util';
@@ -256,6 +259,7 @@ export async function processFallbackWhatsappRotation(
   if (exhaustedCooldown && conversation.whatsappFallbackAlertSentAt) {
     conversation.whatsappFallbackTriedUserIds = [];
     conversation.whatsappFallbackWaNotifiedUserId = undefined;
+    conversation.whatsappFallbackWaNotifiedAt = undefined;
     conversation.whatsappFallbackAlertSentAt = undefined;
   }
 
@@ -294,6 +298,7 @@ export async function processFallbackWhatsappRotation(
         conversation.whatsappFallbackPriorityStartedAt = new Date();
       }
       conversation.whatsappFallbackWaNotifiedUserId = first.userId;
+      conversation.whatsappFallbackWaNotifiedAt = new Date();
       await conversation.save();
       if (sent) {
         logger.info('WhatsApp fallback: alert sent to first agent', {
@@ -304,11 +309,20 @@ export async function processFallbackWhatsappRotation(
       return { kind: 'sent', userId: first.userId, agentName: first.displayName };
     }
 
+    if (waNotified === currentSuggested) {
+      if (
+        !isFallbackWaAssumirTimeoutElapsed(clientId, conversation, settings, nowMs)
+      ) {
+        return { kind: 'none' };
+      }
+    }
+
     if (waNotified !== currentSuggested) {
       const agent = agents.find(a => a.userId === currentSuggested);
       if (agent) {
         const sent = await sendFallbackAlertToAgent(clientId, conversation, agent);
         conversation.whatsappFallbackWaNotifiedUserId = agent.userId;
+        conversation.whatsappFallbackWaNotifiedAt = new Date();
         await conversation.save();
         if (sent) {
           logger.info('WhatsApp fallback: alert sent to suggested agent', {
@@ -337,6 +351,7 @@ export async function processFallbackWhatsappRotation(
       conversation.whatsappFallbackPriorityStartedAt = new Date();
     }
     conversation.whatsappFallbackWaNotifiedUserId = next.userId;
+    conversation.whatsappFallbackWaNotifiedAt = new Date();
     await conversation.save();
 
     if (sent) {
@@ -437,8 +452,14 @@ export async function handleWebChatNoAgentOnline(
     logger.info('WhatsApp fallback: team agents exhausted, no manual phones', { clientId });
   }
 
-  conversation.whatsappFallbackAlertSentAt = new Date();
-  await conversation.save();
+  if (alertSent) {
+    conversation.whatsappFallbackAlertSentAt = new Date();
+    await conversation.save();
+  } else if (opts?.skipTeamRotation && phones.length === 0) {
+    // Equipe esgotada e sem telefones manuais — evita scan infinito sem bloquear retry de alerta falho.
+    conversation.whatsappFallbackAlertSentAt = new Date();
+    await conversation.save();
+  }
 
   return { visitorMessage, alertSent };
 }

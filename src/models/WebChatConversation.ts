@@ -44,6 +44,10 @@ export interface IWebChatConversation extends Document {
   whatsappFallbackTriedUserIds?: string[];
   /** Último atendente que recebeu alerta WA nesta conversa */
   whatsappFallbackWaNotifiedUserId?: string;
+  /** Quando o alerta WA foi enviado ao atendente atual (base da rotação) */
+  whatsappFallbackWaNotifiedAt?: Date;
+  /** Visitante já recebeu a mensagem configurada de fallback */
+  whatsappFallbackVisitorNotifiedAt?: Date;
   /** Bridge bidirecional site ↔ WhatsApp do atendente (Fase E) */
   whatsappBridgeActive?: boolean;
   whatsappBridgeAgentUserId?: string;
@@ -95,6 +99,8 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     whatsappFallbackAlertSentAt: { type: Date },
     whatsappFallbackTriedUserIds: { type: [String], default: undefined },
     whatsappFallbackWaNotifiedUserId: { type: String, index: true },
+    whatsappFallbackWaNotifiedAt: { type: Date },
+    whatsappFallbackVisitorNotifiedAt: { type: Date },
     whatsappBridgeActive: { type: Boolean, default: false, index: true },
     whatsappBridgeAgentUserId: { type: String, index: true },
     whatsappBridgeActivatedAt: { type: Date },

@@ -1,6 +1,8 @@
 import {
   getFallbackAcceptWaitStart,
+  getFallbackCountdownState,
   isFallbackAcceptTimeoutElapsed,
+  isFallbackWaAssumirTimeoutElapsed,
   resolveFallbackAcceptTimeoutSeconds,
   resolveFallbackWaitMode,
   shouldRetryFallbackAfterCooldown,
@@ -69,5 +71,55 @@ describe('webchat-fallback-timing', () => {
     expect(shouldRetryFallbackAfterCooldown(sentAt, cooldownMs, sentAt.getTime() + cooldownMs)).toBe(
       true,
     );
+  });
+
+  it('wa assumir timeout waits full accept window after WA alert', () => {
+    const waNotifiedAt = new Date('2026-06-21T12:00:00Z');
+    const conv = {
+      suggestedUserId: 'agent-1',
+      whatsappFallbackWaNotifiedUserId: 'agent-1',
+      whatsappFallbackWaNotifiedAt: waNotifiedAt,
+    };
+    expect(
+      isFallbackWaAssumirTimeoutElapsed(clientId, conv, settings, waNotifiedAt.getTime() + 119_000),
+    ).toBe(false);
+    expect(
+      isFallbackWaAssumirTimeoutElapsed(clientId, conv, settings, waNotifiedAt.getTime() + 120_000),
+    ).toBe(true);
+  });
+
+  it('getFallbackCountdownState returns panel phase before WA alert', () => {
+    const priorityStartedAt = new Date('2026-06-21T12:00:00Z');
+    const state = getFallbackCountdownState(
+      clientId,
+      {
+        suggestedUserId: 'agent-1',
+        whatsappFallbackPriorityStartedAt: priorityStartedAt,
+      },
+      settings,
+      true,
+      priorityStartedAt.getTime() + 30_000,
+    );
+    expect(state?.phase).toBe('panel');
+    expect(state?.remainingSec).toBe(90);
+    expect(state?.waAlertSent).toBe(false);
+  });
+
+  it('getFallbackCountdownState returns wa_assumir after alert', () => {
+    const waNotifiedAt = new Date('2026-06-21T12:00:00Z');
+    const state = getFallbackCountdownState(
+      clientId,
+      {
+        suggestedUserId: 'agent-1',
+        whatsappFallbackWaNotifiedUserId: 'agent-1',
+        whatsappFallbackWaNotifiedAt: waNotifiedAt,
+      },
+      settings,
+      true,
+      waNotifiedAt.getTime() + 60_000,
+    );
+    expect(state?.phase).toBe('wa_assumir');
+    expect(state?.remainingSec).toBe(60);
+    expect(state?.waAlertSent).toBe(true);
   });
 });

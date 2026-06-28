@@ -6,6 +6,7 @@ import { User } from '../../models/User';
 import { CompanyMember } from '../../models/CompanyMember';
 import { ContactGroup } from '../../models/ContactGroup';
 import { Destination } from '../../models/Destination';
+import { Organization } from '../../models/Organization';
 import { WebChatConversation, type IWebChatConversation } from '../../models/WebChatConversation';
 import { WebChatMessage, type IWebChatMessage } from '../../models/WebChatMessage';
 import {
@@ -176,6 +177,11 @@ import { departmentBadgeFieldsFrom } from '@/services/inbox/inbox-department-bad
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import { emitPanelEvent } from '@/services/inbox/PanelNotifications';
 import { isAgentAvailableForQueue } from '@/services/inbox/inbox-agent-presence';
+import {
+  canAgentManuallyAssumeConversation,
+  formatManualAssumeBlockMessage,
+  resolveMaxConcurrentChatsForPlan,
+} from '@/services/inbox/agent-availability';
 import { notifySupervisorInternalChatMention } from '@/services/inbox/inbox-supervisor-notify.service';
 import {
   assertWebChatSendAllowed,
@@ -198,6 +204,7 @@ import {
 } from './webchat-fallback-timing.util';
 import {
   DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE,
+  DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
 } from '@/types/inbox-settings';
 
 const FALLBACK_EXHAUSTED_COOLDOWN_MS = 15 * 60 * 1000;
@@ -1006,6 +1013,11 @@ export class WebChatService {
         DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
       closeQuickReplyGateEnabled: inboxSettings.closeQuickReplyGateEnabled,
     };
+    const fallbackSettings = {
+      whatsappFallbackEnabled: Boolean(inboxSettings.whatsappFallbackEnabled),
+      whatsappFallbackAcceptTimeoutSeconds: inboxSettings.whatsappFallbackAcceptTimeoutSeconds,
+      whatsappFallbackNoAgentTimeoutSeconds: inboxSettings.whatsappFallbackNoAgentTimeoutSeconds,
+    };
 
     const baseRows = rows.map(r => {
       const { contactName, contactIdentifier } = visitorDisplayName(
@@ -1037,6 +1049,9 @@ export class WebChatService {
         suggestedAt: optionalIsoDate(r.suggestedAt),
         queueEnteredAt: optionalIsoDate(r.queueEnteredAt),
         acceptedAt: optionalIsoDate(r.acceptedAt),
+        whatsappFallbackPriorityStartedAt: optionalIsoDate(r.whatsappFallbackPriorityStartedAt),
+        whatsappFallbackWaNotifiedAt: optionalIsoDate(r.whatsappFallbackWaNotifiedAt),
+        whatsappFallbackWaNotifiedUserId: r.whatsappFallbackWaNotifiedUserId,
         createdAt: optionalIsoDate(r.createdAt),
         visitorPhone: r.visitorPhone,
         contactReason: r.contactReason,
@@ -1071,6 +1086,7 @@ export class WebChatService {
           pullTimeoutSeconds,
           triageTotalMin,
           inactivitySla,
+          fallbackSettings,
         ),
       ),
     );
@@ -1172,6 +1188,11 @@ export class WebChatService {
         DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
       closeQuickReplyGateEnabled: inboxSettings.closeQuickReplyGateEnabled,
     };
+    const fallbackSettings = {
+      whatsappFallbackEnabled: Boolean(inboxSettings.whatsappFallbackEnabled),
+      whatsappFallbackAcceptTimeoutSeconds: inboxSettings.whatsappFallbackAcceptTimeoutSeconds,
+      whatsappFallbackNoAgentTimeoutSeconds: inboxSettings.whatsappFallbackNoAgentTimeoutSeconds,
+    };
 
     const conversation = await enrichWebChatInboxRow(
       {
@@ -1198,6 +1219,13 @@ export class WebChatService {
         acceptedAt: convDoc.acceptedAt
           ? new Date(convDoc.acceptedAt).toISOString()
           : undefined,
+        whatsappFallbackPriorityStartedAt: convDoc.whatsappFallbackPriorityStartedAt
+          ? new Date(convDoc.whatsappFallbackPriorityStartedAt).toISOString()
+          : undefined,
+        whatsappFallbackWaNotifiedAt: convDoc.whatsappFallbackWaNotifiedAt
+          ? new Date(convDoc.whatsappFallbackWaNotifiedAt).toISOString()
+          : undefined,
+        whatsappFallbackWaNotifiedUserId: convDoc.whatsappFallbackWaNotifiedUserId,
         lastMessageAt: detail.conversation.lastMessageAt ?? convDoc.createdAt.toISOString(),
         lastMessagePreview: detail.conversation.lastMessagePreview,
         unreadCount: detail.conversation.unreadCount,
@@ -1225,6 +1253,7 @@ export class WebChatService {
           DEFAULT_INBOX_TRIAGE_INACTIVITY.triageCloseAfterWarningMinutes,
       ),
       inactivitySla,
+      fallbackSettings,
     );
 
     const destination = convDoc.destinationId
@@ -2750,6 +2779,26 @@ export class WebChatService {
     return replies;
   }
 
+  private async maybeNotifyVisitorFallbackMessage(
+    conversation: IWebChatConversation,
+    settings: Awaited<ReturnType<typeof loadInboxSettings>>,
+  ): Promise<boolean> {
+    if (conversation.whatsappFallbackVisitorNotifiedAt) return false;
+    const body =
+      settings.whatsappFallbackVisitorMessage?.trim() ||
+      DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE;
+    await this.appendMessage(conversation, {
+      direction: 'outbound',
+      body,
+      senderUserId: WEBCHAT_BOT_SENDER_ID,
+      senderName: 'Assistente',
+      notifyVisitor: true,
+    });
+    conversation.whatsappFallbackVisitorNotifiedAt = new Date();
+    await conversation.save();
+    return true;
+  }
+
   private async appendFallbackRotationMessages(
     clientId: string,
     conversation: IWebChatConversation,
@@ -2758,8 +2807,13 @@ export class WebChatService {
   ): Promise<void> {
     if (rotation.kind === 'none') return;
 
+    const settings = await loadInboxSettings(clientId);
     const visitorLabel =
       conversation.visitorName || conversation.visitorEmail || 'Visitante do site';
+
+    if (rotation.kind === 'sent' || rotation.kind === 'rotated') {
+      await this.maybeNotifyVisitorFallbackMessage(conversation, settings);
+    }
 
     if (rotation.kind === 'rotated') {
       await this.appendMessage(conversation, {
@@ -2789,7 +2843,11 @@ export class WebChatService {
     }
 
     if (rotation.kind === 'exhausted') {
-      await this.appendMessage(conversation, { direction: 'system', body: rotation.visitorMessage });
+      await this.maybeNotifyVisitorFallbackMessage(conversation, settings);
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: 'Equipe notificada — aguardando retorno pelo WhatsApp.',
+      });
       emitPanelEvent(clientId, {
         id: crypto.randomUUID(),
         type: 'webchat:fallback_missed',
@@ -2855,6 +2913,8 @@ export class WebChatService {
     conversation.suggestedAt = undefined;
     conversation.whatsappFallbackTriedUserIds = undefined;
     conversation.whatsappFallbackWaNotifiedUserId = undefined;
+    conversation.whatsappFallbackWaNotifiedAt = undefined;
+    conversation.whatsappFallbackVisitorNotifiedAt = undefined;
     conversation.whatsappFallbackAlertSentAt = undefined;
     conversation.whatsappFallbackPriorityStartedAt = undefined;
     if (departmentOid) conversation.departmentId = departmentOid;
@@ -3201,6 +3261,20 @@ export class WebChatService {
 
     if (conversation.queueStatus === 'waiting_human') {
       await this.assertCanTakeWebChatQueue(clientId, userId, conversation);
+      const [inboxSettings, org] = await Promise.all([
+        loadInboxSettings(clientId),
+        Organization.findById(clientId).select('plan').lean(),
+      ]);
+      const maxConcurrent = resolveMaxConcurrentChatsForPlan(
+        (org?.plan as string | undefined) ?? 'free',
+        inboxSettings.maxConcurrentChatsPerAgent,
+      );
+      const canTake = await canAgentManuallyAssumeConversation(clientId, userId, maxConcurrent, {
+        webChatConversationId: String(conversation._id),
+      });
+      if (canTake.ok === false) {
+        throw new Error(formatManualAssumeBlockMessage(canTake.reason, maxConcurrent));
+      }
     }
 
     const pulledFrom = conversation.suggestedUserId;

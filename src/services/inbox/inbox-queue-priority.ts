@@ -84,29 +84,20 @@ export async function countAgentActiveChats(
   }
   const inboxCount = await InboxConversation.countDocuments(inboxFilter);
 
-  const wcFilter: Record<string, unknown> = {
+  const wcActiveFilter: Record<string, unknown> = {
     clientId: clientOid,
-    assignedUserId: userOid,
-    queueStatus: 'with_agent',
     status: 'open',
+    $or: [
+      { assignedUserId: userOid, queueStatus: 'with_agent' },
+      { whatsappBridgeActive: true, whatsappBridgeAgentUserId: userOid },
+    ],
   };
   if (exclude?.webChatConversationId) {
-    wcFilter._id = { $ne: new mongoose.Types.ObjectId(exclude.webChatConversationId) };
+    wcActiveFilter._id = { $ne: new mongoose.Types.ObjectId(exclude.webChatConversationId) };
   }
-  const wcCount = await WebChatConversation.countDocuments(wcFilter);
+  const wcActiveCount = await WebChatConversation.countDocuments(wcActiveFilter);
 
-  const bridgeFilter: Record<string, unknown> = {
-    clientId: clientOid,
-    whatsappBridgeActive: true,
-    whatsappBridgeAgentUserId: userOid,
-    status: 'open',
-  };
-  if (exclude?.webChatConversationId) {
-    bridgeFilter._id = { $ne: new mongoose.Types.ObjectId(exclude.webChatConversationId) };
-  }
-  const bridgeCount = await WebChatConversation.countDocuments(bridgeFilter);
-
-  return inboxCount + Math.max(wcCount, bridgeCount);
+  return inboxCount + wcActiveCount;
 }
 
 /** Atendente com conversa ativa no Inbox ou no chat do site (incl. bridge WA). */

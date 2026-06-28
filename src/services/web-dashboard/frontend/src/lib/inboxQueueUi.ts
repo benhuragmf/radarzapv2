@@ -113,6 +113,119 @@ export function formatQueueTimer(elapsedSec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+type FallbackLiveConv = {
+  whatsappFallbackEnabled?: boolean
+  whatsappFallbackWaAlertSent?: boolean
+  whatsappFallbackAcceptTimeoutSec?: number
+  whatsappFallbackNoAgentTimeoutSec?: number
+  queueEnteredAt?: string
+  suggestedAt?: string
+  suggestedUserId?: string
+  suggestedUserOnline?: boolean
+  whatsappFallbackPriorityStartedAt?: string
+  whatsappFallbackWaNotifiedAt?: string
+}
+
+function clampSec(min: number, max: number, value: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function resolveFallbackMode(conv: FallbackLiveConv): 'panel' | 'no_agent' {
+  if (!conv.suggestedUserId) return 'no_agent'
+  if (conv.suggestedUserOnline === false) return 'no_agent'
+  return 'panel'
+}
+
+/** Countdown ao vivo do fallback WhatsApp (WebChat na fila). */
+export function liveFallbackCountdown(
+  conv: FallbackLiveConv,
+  tick = 0,
+): {
+  phase: 'panel' | 'wa_assumir' | 'no_agent'
+  remainingSec: number
+  timeoutSec: number
+  urgency: number
+  label: string
+} | null {
+  void tick
+  if (!conv.whatsappFallbackEnabled) return null
+
+  const acceptSec = clampSec(
+    30,
+    900,
+    conv.whatsappFallbackAcceptTimeoutSec ?? 120,
+  )
+  const noAgentSec = clampSec(0, 120, conv.whatsappFallbackNoAgentTimeoutSec ?? 0)
+  const nowMs = Date.now()
+
+  const waAlertSent = Boolean(conv.whatsappFallbackWaAlertSent)
+  if (waAlertSent) {
+    const startIso =
+      conv.whatsappFallbackWaNotifiedAt ??
+      conv.suggestedAt ??
+      conv.whatsappFallbackPriorityStartedAt
+    if (!startIso) return null
+    const elapsedSec = Math.max(0, Math.floor((nowMs - new Date(startIso).getTime()) / 1000))
+    const remainingSec = Math.max(0, acceptSec - elapsedSec)
+    const urgency = acceptSec > 0 ? Math.min(1, elapsedSec / acceptSec) : 1
+    return {
+      phase: 'wa_assumir',
+      remainingSec,
+      timeoutSec: acceptSec,
+      urgency,
+      label:
+        remainingSec > 0
+          ? `WhatsApp enviado · !assumir em ${formatQueueTimer(remainingSec)}`
+          : 'WhatsApp enviado · rotacionando atendente…',
+    }
+  }
+
+  const mode = resolveFallbackMode(conv)
+  if (mode === 'panel') {
+    const startIso =
+      conv.whatsappFallbackPriorityStartedAt ?? conv.suggestedAt ?? conv.queueEnteredAt
+    if (!startIso) return null
+    const elapsedSec = Math.max(0, Math.floor((nowMs - new Date(startIso).getTime()) / 1000))
+    const remainingSec = Math.max(0, acceptSec - elapsedSec)
+    const urgency = acceptSec > 0 ? Math.min(1, elapsedSec / acceptSec) : 1
+    return {
+      phase: 'panel',
+      remainingSec,
+      timeoutSec: acceptSec,
+      urgency,
+      label:
+        remainingSec > 0
+          ? `Fallback WhatsApp em ${formatQueueTimer(remainingSec)}`
+          : 'Enviando alerta WhatsApp…',
+    }
+  }
+
+  const startIso = conv.queueEnteredAt
+  if (!startIso) return null
+  const elapsedSec = Math.max(0, Math.floor((nowMs - new Date(startIso).getTime()) / 1000))
+  if (noAgentSec <= 0) {
+    return {
+      phase: 'no_agent',
+      remainingSec: 0,
+      timeoutSec: 0,
+      urgency: 1,
+      label: 'Fallback WhatsApp imediato',
+    }
+  }
+  const remainingSec = Math.max(0, noAgentSec - elapsedSec)
+  const urgency = noAgentSec > 0 ? Math.min(1, elapsedSec / noAgentSec) : 1
+  return {
+    phase: 'no_agent',
+    remainingSec,
+    timeoutSec: noAgentSec,
+    urgency,
+    label:
+      remainingSec > 0
+        ? `Fallback WhatsApp em ${formatQueueTimer(remainingSec)}`
+        : 'Enviando alerta WhatsApp…',
+  }
+}
+
 /** Cor do cronômetro: amarelo → âmbar → laranja → vermelho */
 export function queueUrgencyTimerClass(urgency: number): string {
   if (urgency >= 0.85) return 'text-red-400'

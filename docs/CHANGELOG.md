@@ -6,6 +6,23 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.35] — 2026-06-27
+
+### Inbox — assumir manualmente (WebChat + WhatsApp)
+
+- **Assumir/Aceitar/Puxar:** permite ação manual se conectado ao painel, mesmo com status Ausente/Ocupado/Supervisor; bloqueia só offline real ou limite simultâneo.
+- **Capacidade WebChat:** contagem unificada (`with_agent` ou bridge) sem duplicar conversa; checagem também em `WebChatService.assignConversation`.
+- **Mensagens:** erro específico para offline vs limite de atendimentos.
+
+## [2.12.34] — 2026-06-27
+
+### WebChat — fallback WhatsApp: correções de fluxo + countdown Inbox
+
+- **Rotação WA:** aguarda timeout configurado (`whatsappFallbackAcceptTimeoutSeconds`) após alerta antes de rotacionar — campo `whatsappFallbackWaNotifiedAt`.
+- **Cooldown:** `whatsappFallbackAlertSentAt` só quando alerta manual enviado com sucesso (ou equipe esgotada sem telefones); falha de envio não bloqueia 15 min.
+- **Visitante:** mensagem configurada de fallback no chat na 1ª alerta WA (`whatsappFallbackVisitorNotifiedAt`).
+- **Inbox:** banner/lista com countdown “Fallback WhatsApp em M:SS” / “WhatsApp enviado · !assumir em M:SS”.
+
 ## [2.12.33] — 2026-06-27
 
 ### Inbox — nome WebChat, cronômetros fila/atendimento, presença persistente

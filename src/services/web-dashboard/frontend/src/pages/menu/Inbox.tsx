@@ -32,7 +32,7 @@ import {
   PanelRight,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
-import { formatQueueTimer, liveQueueState, liveQueueWaitState, liveHandleTimeSec, liveTriageWaitState, liveInactivityCloseAllowed, liveGracefulCloseAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
+import { formatQueueTimer, liveQueueState, liveQueueWaitState, liveHandleTimeSec, liveFallbackCountdown, liveTriageWaitState, liveInactivityCloseAllowed, liveGracefulCloseAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
@@ -118,6 +118,12 @@ interface Conversation {
   resolvedAt?: string
   acceptedAt?: string
   whatsappBridgeActive?: boolean
+  whatsappFallbackEnabled?: boolean
+  whatsappFallbackWaAlertSent?: boolean
+  whatsappFallbackAcceptTimeoutSec?: number
+  whatsappFallbackNoAgentTimeoutSec?: number
+  whatsappFallbackPriorityStartedAt?: string
+  whatsappFallbackWaNotifiedAt?: string
   isLeadEntry?: boolean
   departmentMenuKey?: string
   departmentBadgeLabel?: string
@@ -754,6 +760,11 @@ export default function Inbox() {
       ? liveHandleTimeSec(conv.acceptedAt, tick)
       : 0
 
+  const convFallbackLive =
+    isWebChatConv && conv?.status === 'waiting_queue'
+      ? liveFallbackCountdown(conv, tick)
+      : null
+
   const convInTriage = Boolean(conv?.status === 'bot_triage' && !conv?.assignedUserId)
   const convTriageLive = convInTriage
     ? liveTriageWaitState(
@@ -1129,6 +1140,10 @@ export default function Inbox() {
                       tick,
                     )
                   : null
+                const fallbackLive =
+                  c.channel === 'webchat_site' && c.status === 'waiting_queue'
+                    ? liveFallbackCountdown(c, tick)
+                    : null
                 const badge = conversationBadge(c)
                 const hasPriorityTimer =
                   Boolean(c.suggestedUserId) && c.status === 'waiting_queue' && Boolean(c.suggestedAt)
@@ -1221,6 +1236,12 @@ export default function Inbox() {
                         <div className="mt-1">
                           <ContactClassificationBadges classification={c.contactClassification} compact />
                         </div>
+                      )}
+                      {fallbackLive && (
+                        <p className="text-[10px] text-sky-400/90 truncate mt-0.5 flex items-center gap-1">
+                          <Smartphone size={10} aria-hidden />
+                          {fallbackLive.label}
+                        </p>
                       )}
                       <div className="flex items-center justify-between gap-2 mt-1">
                         <p className="text-[11px] text-[var(--rz-text-muted)] truncate">{subtitle || '—'}</p>
@@ -1449,6 +1470,20 @@ export default function Inbox() {
                   </div>
                 </div>
 
+                {conv.status === 'waiting_queue' && convFallbackLive && (
+                  <div className={queueUrgencyPanelClass(convFallbackLive.urgency)}>
+                    <Smartphone size={14} className={`shrink-0 ${queueUrgencyTimerClass(convFallbackLive.urgency)}`} />
+                    <span>
+                      {convFallbackLive.label}
+                      {convFallbackLive.phase === 'panel' && conv.suggestedUserId && (
+                        <span className="text-[var(--rz-text-muted)]">
+                          {' '}
+                          · aceite no painel ou alerta WA
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
                 {conv.status === 'waiting_queue' && !conv.suggestedUserId && (conv.queueEnteredAt || convLive.elapsedSec > 0) && (
                   <div className={queueUrgencyPanelClass(convLive.urgency)}>
                     <Clock size={14} className={`shrink-0 ${queueUrgencyTimerClass(convLive.urgency)}`} />
