@@ -175,6 +175,85 @@ export const OPENAPI_DASHBOARD = {
           byPhoneQuality: { type: 'object', additionalProperties: { type: 'integer' } },
         },
       },
+      AdminOpsSummary: {
+        type: 'object',
+        description:
+          'Agregador ops global. Campos omitidos: Stripe keys, sessionData, QR, tokens, meta bruto, e-mail owner, job.data.',
+        properties: {
+          generatedAt: { type: 'string', format: 'date-time' },
+          system: { type: 'object' },
+          services: { type: 'object' },
+          tenants: { type: 'object' },
+          operations: { type: 'object' },
+          ai: { type: 'object' },
+          billing: {
+            type: 'object',
+            properties: {
+              stripeMode: { type: 'string', enum: ['off', 'test', 'live', 'unknown'] },
+            },
+          },
+          security: { type: 'object' },
+          alerts: { type: 'array', items: { type: 'object' } },
+          links: { type: 'object' },
+        },
+      },
+      AdminOpsOrganizationRow: {
+        type: 'object',
+        description: 'Row pública — sem owner, e-mail, stripeSubscriptionId, sessionData.',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          plan: { type: 'string', enum: ['free', 'starter', 'pro', 'enterprise'] },
+          billingStatus: { type: 'string' },
+          planExpiresAt: { type: 'string', format: 'date-time', nullable: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          stripeModeHint: { type: 'string', enum: ['none', 'test', 'live'] },
+          waConnected: { type: 'boolean' },
+          membersCount: { type: 'integer' },
+        },
+      },
+      AdminOpsOrganizationsPage: {
+        type: 'object',
+        properties: {
+          items: { type: 'array', items: { $ref: '#/components/schemas/AdminOpsOrganizationRow' } },
+          page: { type: 'integer' },
+          limit: { type: 'integer' },
+          total: { type: 'integer' },
+          totalPages: { type: 'integer' },
+          generatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      AdminOpsSecurityEventRow: {
+        type: 'object',
+        description: 'Evento sanitizado — sem meta, payload, details ou tokens.',
+        properties: {
+          id: { type: 'string' },
+          source: { type: 'string' },
+          level: { type: 'string', enum: ['info', 'warning', 'critical', 'error'] },
+          kind: { type: 'string' },
+          title: { type: 'string' },
+          message: { type: 'string' },
+          organizationId: { type: 'string' },
+          organizationName: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      AdminOpsSecurityEventsPage: {
+        type: 'object',
+        properties: {
+          items: { type: 'array', items: { $ref: '#/components/schemas/AdminOpsSecurityEventRow' } },
+          limit: { type: 'integer' },
+          total: { type: 'integer' },
+          generatedAt: { type: 'string', format: 'date-time' },
+          window: {
+            type: 'object',
+            properties: {
+              from: { type: 'string', format: 'date-time' },
+              to: { type: 'string', format: 'date-time' },
+            },
+          },
+        },
+      },
     },
   },
   paths: {
@@ -446,10 +525,122 @@ export const OPENAPI_DASHBOARD = {
       patch: { summary: 'Atualizar configurações (csatEnabled, csatPrompt, csatThankYou)', tags: ['Inbox'] },
     },
     '/admin/organizations': {
-      get: { summary: 'Listar organizações (admin)', tags: ['Admin'] },
+      get: { summary: 'Listar organizações (admin legado)', tags: ['Admin'] },
     },
     '/admin/organizations/{id}/plan': {
-      patch: { summary: 'Alterar plano de uma organização (admin)', tags: ['Admin'] },
+      patch: { summary: 'Alterar plano de uma organização (admin legado)', tags: ['Admin'] },
+    },
+    '/admin/ops/summary': {
+      get: {
+        summary: 'Agregador operacional global (staff) — métricas cross-tenant sanitizadas',
+        description:
+          'Capability: dashboard:global. Query opcional refresh=1 ignora cache Redis (30s). Não expõe secrets, sessionData, QR ou meta bruto.',
+        tags: ['Admin Ops'],
+        parameters: [
+          { name: 'refresh', in: 'query', schema: { type: 'string', enum: ['1'] }, required: false },
+        ],
+        responses: {
+          '200': { description: 'AdminOpsSummary', content: { 'application/json': { schema: { $ref: '#/components/schemas/AdminOpsSummary' } } } },
+          '403': { description: 'Sem dashboard:global' },
+        },
+      },
+    },
+    '/admin/ops/organizations': {
+      get: {
+        summary: 'Listagem paginada de organizações (staff)',
+        description: 'Capability: dashboard:global. Filtros: page, limit (max 100), plan, status, search, sort.',
+        tags: ['Admin Ops'],
+        responses: {
+          '200': { description: 'AdminOpsOrganizationsPage', content: { 'application/json': { schema: { $ref: '#/components/schemas/AdminOpsOrganizationsPage' } } } },
+        },
+      },
+    },
+    '/admin/ops/organizations/{id}/plan': {
+      patch: {
+        summary: 'Alterar plano manual (staff)',
+        description: 'Capability: system:plans:manage. Body: plan, expiresAt?, reason (5–300 chars). Audit admin.plan.changed.',
+        tags: ['Admin Ops'],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['plan', 'reason'],
+                properties: {
+                  plan: { type: 'string', enum: ['free', 'starter', 'pro', 'enterprise'] },
+                  expiresAt: { type: 'string', format: 'date-time', nullable: true },
+                  reason: { type: 'string', minLength: 5, maxLength: 300 },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Organização atualizada' }, '403': { description: 'Sem system:plans:manage' } },
+      },
+    },
+    '/admin/ops/organizations/{id}/trial/extend': {
+      post: {
+        summary: 'Estender trial manual',
+        description: 'Capability: system:plans:manage. Body: days (1–90), reason, plan?. Audit admin.trial.extended.',
+        tags: ['Admin Ops'],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['days', 'reason'],
+                properties: {
+                  days: { type: 'integer', minimum: 1, maximum: 90 },
+                  reason: { type: 'string', minLength: 5, maxLength: 300 },
+                  plan: { type: 'string', enum: ['starter', 'pro', 'enterprise'] },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Trial estendido' } },
+      },
+    },
+    '/admin/ops/organizations/{id}/trial/cancel': {
+      post: {
+        summary: 'Cancelar trial / downgrade free',
+        description: 'Capability: system:plans:manage. Body: reason. Audit admin.trial.cancelled.',
+        tags: ['Admin Ops'],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['reason'],
+                properties: { reason: { type: 'string', minLength: 5, maxLength: 300 } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Trial cancelado' } },
+      },
+    },
+    '/admin/ops/security-events': {
+      get: {
+        summary: 'Feed global de eventos críticos sanitizados',
+        description:
+          'Capability: dashboard:global. Fontes: AttendanceEvent, SystemLog (warn/error), AuditLog. Query: limit (max 100), kind, level, source, from, to (ISO). Sem meta/payload/tokens.',
+        tags: ['Admin Ops'],
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 25, maximum: 100 } },
+          { name: 'kind', in: 'query', schema: { type: 'string' } },
+          { name: 'level', in: 'query', schema: { type: 'string', enum: ['info', 'warning', 'critical', 'error'] } },
+          { name: 'source', in: 'query', schema: { type: 'string' } },
+          { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          '200': { description: 'AdminOpsSecurityEventsPage', content: { 'application/json': { schema: { $ref: '#/components/schemas/AdminOpsSecurityEventsPage' } } } },
+        },
+      },
     },
     '/admin/integrations-overview': {
       get: { summary: 'Métricas globais de integrações e billing', tags: ['Admin'] },

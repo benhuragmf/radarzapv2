@@ -1,165 +1,133 @@
 # RadarZap — Admin Dashboard Ops
 
-**Versão:** `2.12.38` · **Atualizado:** 2026-06-27
+**Versão:** `2.12.42` · **Atualizado:** 2026-06-28 · **Etapa 7:** QA manual ✅ (com ressalvas)
 
-Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATOR`). Diagnóstico inicial: [`RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md).
+Visão operacional global para staff RadarZap (`SYSTEM_ADMIN` / `SYSTEM_MODERATOR`).
 
-**Status release:** `PRONTO PARA QA MANUAL` — produção estável **não** declarada.
-
----
-
-## Visão geral
-
-| Camada | Estado |
-|--------|--------|
-| **Etapa 1** | Diagnóstico `/admin/dashboard` concluído |
-| **Etapa 2** | Backend `GET /api/admin/ops/summary` (agregador seguro) |
-| **Etapa 3** | Frontend `/admin/dashboard` — abas ops completas (`AdminOpsDashboardView.tsx`) ✅ |
-
-O painel `/admin/dashboard` consome **`GET /api/admin/ops/summary`**. Link legado para `/admin/monitoring` permanece nos atalhos.
+**Status release:** `PRONTO PARA QA MANUAL` — produção estável **não** declarada · **Deploy/push:** não executados.
 
 ---
 
-## Frontend (Etapa 3)
+## Documentação da série
 
-| Item | Valor |
-|------|-------|
-| **Rota** | `/admin/dashboard` |
-| **Componentes** | `AdminDashboard.tsx` (query) + `AdminOpsDashboardView.tsx` (UI) |
-| **API** | `GET /admin/ops/summary` — refetch 30s; botão **Atualizar** → `?refresh=1` |
-| **Abas** | Visão geral, Infra, Empresas, Atendimento, Billing, IA, Segurança, Go-live |
-| **Estados** | Loading, error com retry, empty fallback |
-| **Segurança UI** | `sanitizeOpsDisplayText` — omite padrões sensíveis em alertas |
-| **E2E** | `e2e/admin-dashboard.spec.ts` |
+| Doc | Conteúdo |
+|-----|----------|
+| [Diagnóstico (Etapa 1)](./RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Lacunas e plano inicial |
+| [Etapa 3 — Frontend](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-3-FRONTEND-DASHBOARD.md) | 8 abas, cards, alertas |
+| [Etapa 4 — Empresas](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-4-EMPRESAS-TRIAL.md) | Listagem + trial/plano |
+| [Etapa 5 — Segurança](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-5-EVENTOS-SEGURANCA.md) | Feed eventos críticos |
+| [Etapa 6 — Fechamento](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-6-QA-FECHAMENTO.md) | QA, OpenAPI, consolidação |
+| [Etapa 7 — QA manual](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-7-QA-MANUAL.md) | Gate local Mongo + commit |
+| [**API (OpenAPI espelho)**](./RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | Contrato REST completo |
+| [QA Checklist manual](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-CHECKLIST.md) | Roteiro Benhur |
+| [QA Resultado gates](./RADARZAP-ADMIN-DASHBOARD-OPS-QA-RESULTADO.md) | Automação 65+18 testes |
 
-### Cards principais (visão geral)
-
-Status geral, Empresas, WhatsApp, Atendimento, Leads, IA Créditos + linha infra (Sistema, Memória, Mongo, Redis, Filas, Billing).
-
-### Pendente (etapa futura)
-
-- Listagem/ações trial por empresa
-- Gráficos históricos
-- Ações administrativas (liberar plano, etc.)
+OpenAPI machine-readable: `src/constants/openapi-dashboard.ts` (tag **Admin Ops**).
 
 ---
 
-## Endpoint backend
+## Resumo Etapas 1–6
+
+| Etapa | Entrega | Versão |
+|-------|---------|--------|
+| 1 | Diagnóstico `/admin/dashboard` | — |
+| 2 | `GET /api/admin/ops/summary` | 2.12.37 |
+| 3 | UI `/admin/dashboard` 8 abas | 2.12.38 |
+| 4 | Orgs paginadas + trial/plano + audit | 2.12.39 |
+| 5 | `GET /api/admin/ops/security-events` + feed UI | 2.12.40 |
+| 6 | API docs, OpenAPI, QA checklist, anti-segredo | 2.12.41 |
+| 7 | QA manual local, gate Mongo, commit seguro | 2.12.42 |
+
+---
+
+## Endpoints finais
 
 ```http
-GET /api/admin/ops/summary
-GET /api/admin/ops/summary?refresh=1
+GET  /api/admin/ops/summary[?refresh=1]
+GET  /api/admin/ops/organizations
+PATCH /api/admin/ops/organizations/:id/plan
+POST /api/admin/ops/organizations/:id/trial/extend
+POST /api/admin/ops/organizations/:id/trial/cancel
+GET  /api/admin/ops/security-events
 ```
 
-| Item | Valor |
-|------|-------|
-| **Capability** | `dashboard:global` (`Cap.DASHBOARD_GLOBAL`) |
-| **Implementação** | `admin-ops-summary.service.ts` |
-| **Rota** | `DashboardService.ts` |
-| **Cache** | Redis TTL 30s (`radarzap:admin:ops:summary:v1`); `?refresh=1` ignora cache |
-| **Tipo** | `AdminOpsSummary` em `src/types/admin-ops-summary.ts` |
-
-### Blocos da resposta
-
-- `system` — versão app, `NODE_ENV`, uptime, memória Node, load CPU
-- `services` — Mongo, Redis, filas BullMQ (contagens globais)
-- `tenants` — organizações por plano e status billing normalizado
-- `operations` — WhatsApp, WebChat, Inbox, tickets, leads
-- `ai` — créditos consumidos no mês, chamadas premium/básica, orgs com alertas de crédito
-- `billing` — modo Stripe (`off|test|live|unknown`), pedidos, past_due
-- `security` — contagens 24h (erros, lookup ticket, form blocked, billing limit)
-- `alerts` — alertas operacionais sanitizados
-- `links` — atalhos para páginas admin existentes
+Detalhes: [`RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-API.md).
 
 ---
 
-## RBAC
+## Frontend
 
-| Papel | Acesso |
-|-------|--------|
-| `SYSTEM_ADMIN` | Sim |
-| `SYSTEM_MODERATOR` | Sim (possui `dashboard:global`) |
-| Owner/Admin/Manager/Atendente tenant | Não |
-| Sem sessão | 401/403 (middleware padrão) |
+| Rota | Componentes |
+|------|-------------|
+| `/admin/dashboard` | `AdminDashboard.tsx` → `AdminOpsDashboardView.tsx` |
+| Aba Empresas | `AdminOpsTenantsPanel.tsx` |
+| Aba Segurança | `AdminOpsSecurityPanel.tsx` |
 
-**Correção vs diagnóstico:** o novo endpoint usa **`dashboard:global`**, alinhado à rota `/admin/dashboard`. `/admin/monitoring` permanece com `logs:global`.
-
-Não aceita `clientId` do cliente para filtrar — métricas são **cross-tenant** apenas para staff.
+Abas: Visão geral · Infra · Empresas · Atendimento · Billing · IA · Segurança · Go-live.
 
 ---
 
-## Métricas disponíveis
+## Matriz RBAC Admin Ops
 
-| Domínio | Métricas |
-|---------|----------|
-| Sistema | versão, env, uptime, RAM heap, loadavg |
-| Infra | Mongo/Redis ping + latência, filas waiting/active/failed/delayed |
-| Tenants | totais por plano, paid, expired, past_due, trialing |
-| WA | connected / inactive / expired |
-| WebChat | widgets, conversas abertas, fila, bridges |
-| Inbox | abertas, fila, em atendimento, resolvidas hoje |
-| Tickets | open, in_progress, client_replied, fechados no mês |
-| Leads | forms ativos, leads hoje/mês |
-| IA | `creditWeight` mês, calls por `usageKind`, orgs com eventos low/exhausted |
-| Billing | stripe mode, pedidos pending/paid, invoice failed, past_due count |
-| Security | erros SystemLog 24h + AttendanceEvent kinds críticos |
+| Recurso | Capability |
+|---------|------------|
+| UI + summary + orgs list + security-events | `dashboard:global` |
+| PATCH plan / POST trial | `system:plans:manage` |
+
+| Papel | Dashboard | Mutações plano/trial |
+|-------|-----------|----------------------|
+| `SYSTEM_ADMIN` | ✅ | ✅ |
+| `SYSTEM_MODERATOR` | ✅ | ❌ (read-only UI) |
+| Owner/Admin/Manager/Atendente tenant | ❌ | ❌ |
+| Sem sessão | ❌ | ❌ |
 
 ---
 
-## Métricas não expostas por segurança
+## Segurança
 
-- Chaves Stripe, OpenAI, Gemini, webhook secret, JWT, encryption keys
-- `WhatsAppSession.sessionData`, QR, credenciais
-- Tokens públicos de ticket, cookies, Authorization
-- Payload de jobs BullMQ (`job.data`)
-- `meta` completo de `AuditLog` / `AttendanceEvent`
-- Hostname do servidor
-- Disco (não implementado nesta etapa)
+**Sanitização:** `sanitizeOpsDisplayText` (UI) · `sanitizeAdminOpsSecurityEventText` (eventos).
+
+**Nunca exposto:** Stripe keys, webhook secrets, IA keys, JWT, sessionData, QR, tokens, meta/payload bruto, `stripeSubscriptionId`, e-mail owner em massa.
+
+**Testes anti-segredo:** `admin-ops-anti-secret.test.ts` + E2E DOM malicioso.
 
 ---
 
-## Alertas
+## Testes automatizados
 
-Gerados por `buildAdminOpsAlerts()`:
+| Suite | Qtd |
+|-------|-----|
+| `npm test -- admin-ops` | 65 |
+| `e2e/admin-dashboard.spec.ts` | 18 |
 
-1. Mongo down/degraded
-2. Redis down/degraded
-3. Filas com `failed > 0`
-4. WA desconectado > conectado (quando há sessões)
-5. Organizações `past_due`
-6. Orgs sem crédito IA (eventos `ai.credits.exhausted`)
-7. Stripe `off` em `NODE_ENV=production`
-8. Stripe `live` (info — revisar QA)
-9. Erros sistema 24h > 0
-10. QA manual TOP 20 pendente (fixo documental)
+Arquivos: `admin-ops-summary*.test.ts`, `admin-ops-organizations.service.test.ts`, `admin-ops-security-events.service.test.ts`, `admin-ops-anti-secret.test.ts`.
 
 ---
 
-## Performance e cache
+## Riscos restantes
 
-- Queries preferem `countDocuments` e `$aggregate` simples
-- Cache Redis 30s; fallback direto se Redis indisponível
-- Org billing: scan lean de `Organization` (campos mínimos) — monitorar volume em produção
-- `organizationsWithLowCredits` / `WithoutCredits`: distinct `clientId` em `AttendanceEvent` (evita scan wallet completo)
-
----
-
-## Próximas etapas
-
-1. **Etapa 4** — Listagem empresas + ações trial/plano no dashboard
-2. OpenAPI documentação do summary
-3. QA manual bloco admin no roteiro Fase 1
+- QA manual checklist **não preenchido** (Benhur)
+- Override plano manual vs Stripe real
+- Scan org billing / security-events in-memory em escala
+- Working tree Etapas 4–6 **sem commit** no remoto
 
 ---
 
-## Arquivos
+## Próximos passos
 
-| Arquivo | Papel |
-|---------|-------|
-| `src/types/admin-ops-summary.ts` | Contrato TypeScript |
-| `src/types/admin-ops-summary.util.ts` | Formatadores e sanitização |
-| `src/services/web-dashboard/admin-ops-summary.service.ts` | Agregador |
-| `src/services/web-dashboard/admin-ops-alerts.util.ts` | Alertas |
-| `frontend/.../AdminDashboard.tsx` | Query React |
-| `frontend/.../AdminOpsDashboardView.tsx` | UI abas |
-| `e2e/admin-dashboard.spec.ts` | E2E mock auth |
+1. Benhur: Bloco E no browser (`SYSTEM_ADMIN`) — trial/plano em org de teste
+2. Autorizar **push** `develop` após revisão
+3. TOP 20 QA A–J global antes de go-live
+4. Gráficos históricos (backlog)
+
+---
+
+## Arquivos principais
+
+| Camada | Arquivos |
+|--------|----------|
+| Types | `admin-ops-summary.ts`, `admin-ops-organizations.ts`, `admin-ops-security-events.ts`, `admin-ops-summary.util.ts` |
+| Services | `admin-ops-summary.service.ts`, `admin-ops-organizations.service.ts`, `admin-ops-security-events.service.ts`, `admin-ops-alerts.util.ts` |
+| Routes | `DashboardService.ts` |
+| Frontend | `AdminDashboard.tsx`, `AdminOpsDashboardView.tsx`, `AdminOpsTenantsPanel.tsx`, `AdminOpsSecurityPanel.tsx` |
+| OpenAPI | `openapi-dashboard.ts` |

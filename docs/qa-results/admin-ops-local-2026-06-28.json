@@ -1,0 +1,15 @@
+{
+  "gate": "qa:admin-ops:local",
+  "startedAt": "2026-06-28T17:39:36.444Z",
+  "finishedAt": "2026-06-28T17:39:36.601Z",
+  "version": "2.12.41",
+  "branch": "develop",
+  "environment": "local",
+  "mongo": "connected",
+  "stripeMode": "test",
+  "tenants": 4,
+  "organizationsSample": 4,
+  "securityEventsSample": 1,
+  "antiSecret": "pass",
+  "status": "APPROVED_FOR_COMMIT"
+}

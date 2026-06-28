@@ -1,9 +1,12 @@
 import type { Page } from '@playwright/test';
 import { MOCK_AUTH_USER } from './mock-panel-api';
 import type { AdminOpsSummary } from '../../src/types/admin-ops-summary';
+import type { AdminOpsOrganizationsPage } from '../../src/types/admin-ops-organizations';
+import type { AdminOpsSecurityEventsPage } from '../../src/types/admin-ops-security-events';
 
 export const ADMIN_OPS_CAPABILITIES = [
   'dashboard:global',
+  'system:plans:manage',
   'logs:global',
   'system:users:view',
   'system:servers:view',
@@ -114,6 +117,97 @@ export const MOCK_ADMIN_OPS_SUMMARY_MALICIOUS: AdminOpsSummary = {
   ],
 };
 
+export const MOCK_ADMIN_OPS_ORGANIZATIONS: AdminOpsOrganizationsPage = {
+  generatedAt: new Date().toISOString(),
+  page: 1,
+  limit: 25,
+  total: 2,
+  totalPages: 1,
+  items: [
+    {
+      id: 'org-trial-1',
+      name: 'Empresa Trial Demo',
+      plan: 'starter',
+      billingStatus: 'trialing',
+      planExpiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+      createdAt: '2026-01-15T12:00:00.000Z',
+      stripeModeHint: 'test',
+      waConnected: true,
+      membersCount: 3,
+    },
+    {
+      id: 'org-free-2',
+      name: 'Empresa Free Demo',
+      plan: 'free',
+      billingStatus: 'free',
+      planExpiresAt: null,
+      createdAt: '2026-02-01T12:00:00.000Z',
+      stripeModeHint: 'test',
+      waConnected: false,
+      membersCount: 1,
+    },
+  ],
+};
+
+export const MOCK_ADMIN_OPS_ORGS_MALICIOUS: AdminOpsOrganizationsPage = {
+  ...MOCK_ADMIN_OPS_ORGANIZATIONS,
+  items: [
+    {
+      ...MOCK_ADMIN_OPS_ORGANIZATIONS.items[0],
+      name: 'Evil sk_test_leak whsec_abc sessionData stripeSubscriptionId',
+    },
+  ],
+};
+
+export const MOCK_ADMIN_OPS_SECURITY_EVENTS: AdminOpsSecurityEventsPage = {
+  generatedAt: new Date().toISOString(),
+  limit: 25,
+  total: 2,
+  window: {
+    from: new Date(Date.now() - 86400000).toISOString(),
+    to: new Date().toISOString(),
+  },
+  items: [
+    {
+      id: 'att:1',
+      source: 'billing',
+      level: 'critical',
+      kind: 'billing.invoice.failed',
+      title: 'Fatura falhou',
+      message: 'Organização sem pagamento',
+      organizationId: 'org-trial-1',
+      organizationName: 'Empresa Trial Demo',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'sys:2',
+      source: 'system',
+      level: 'warning',
+      kind: 'system.warn',
+      title: 'WebhookDispatcher',
+      message: 'Entrega webhook falhou',
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+    },
+  ],
+};
+
+export const MOCK_ADMIN_OPS_SECURITY_MALICIOUS: AdminOpsSecurityEventsPage = {
+  ...MOCK_ADMIN_OPS_SECURITY_EVENTS,
+  items: [
+    {
+      id: 'evil:1',
+      source: 'system',
+      level: 'critical',
+      kind: 'evil.leak',
+      title: 'STRIPE_SECRET_KEY sk_test_leak',
+      message: 'sessionData whsec_abc Authorization Cookie publicAccessToken',
+      organizationName: 'Evil org sk_live_abc',
+      createdAt: new Date().toISOString(),
+    },
+  ],
+  total: 1,
+};
+
 export async function setupAdminDashboardMocks(
   page: Page,
   opts?: { summary?: AdminOpsSummary; fail?: boolean },
@@ -136,6 +230,28 @@ export async function setupAdminDashboardMocks(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(summary),
+    });
+  });
+
+  await page.route('**/api/admin/ops/organizations**', route => {
+    if (opts?.fail) {
+      return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"fail"}' });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_ADMIN_OPS_ORGANIZATIONS),
+    });
+  });
+
+  await page.route('**/api/admin/ops/security-events**', route => {
+    if (opts?.fail) {
+      return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"fail"}' });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_ADMIN_OPS_SECURITY_EVENTS),
     });
   });
 }

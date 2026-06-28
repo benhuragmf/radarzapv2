@@ -59,6 +59,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 
 | Rota | Componente | API |
 |------|------------|-----|
+| `/admin/dashboard` | `admin/AdminDashboard.tsx` | `GET /admin/ops/summary`, `GET /admin/ops/organizations`, `GET /admin/ops/security-events`, mutações plano/trial |
 | `/admin/queue` | `Queue.tsx` | `GET /queue` |
 | `/admin/logs` | `Logs.tsx` | `GET /logs` |
 | `/admin/monitoring` | `menu/AdminMonitoring.tsx` | `GET /admin/monitoring` |

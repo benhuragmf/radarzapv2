@@ -469,3 +469,15 @@ export async function getAdminOpsSummary(opts?: { refresh?: boolean }): Promise<
 
   return summary;
 }
+
+/** Invalida cache Redis do summary ops (após mutações admin). */
+export async function invalidateAdminOpsSummaryCache(): Promise<void> {
+  try {
+    const redis = RedisManager.getInstance();
+    if (redis.isConnected()) {
+      await redis.del(CACHE_KEY);
+    }
+  } catch {
+    // não falha mutação por indisponibilidade de cache
+  }
+}

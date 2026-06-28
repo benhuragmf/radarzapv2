@@ -6,6 +6,42 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.42] — 2026-06-28
+
+### Admin — ops QA manual e gate local (Etapa 7)
+
+- **QA:** script `qa:admin-ops:local` valida summary/orgs/security-events contra Mongo real + anti-segredo.
+- **Evidência:** `docs/qa-results/admin-ops-local-2026-06-28.json`, doc Etapa 7.
+- **Status:** APROVADO COM RESSALVAS para commit; mutações trial/plano no browser pendente Benhur.
+- **Commit:** Etapas 4–7 acumuladas (sem push).
+
+## [2.12.41] — 2026-06-27
+
+### Admin — ops QA final e fechamento (Etapa 6)
+
+- **Docs:** API admin ops, checklist QA manual, resultado gates, doc Etapa 6.
+- **OpenAPI:** endpoints `/admin/ops/*` em `openapi-dashboard.ts` (tag Admin Ops).
+- **Segurança:** teste `admin-ops-anti-secret.test.ts`; reforço padrões Bearer/Authorization/Cookie.
+- **Status:** módulo fechado tecnicamente; QA manual Benhur pendente.
+
+## [2.12.40] — 2026-06-27
+
+### Admin — ops feed eventos críticos (Etapa 5)
+
+- **API:** `GET /api/admin/ops/security-events` — AttendanceEvent + SystemLog + AuditLog sanitizados.
+- **UI:** aba Segurança com feed global, filtros (nível, fonte, kind, janela 24h/7d), refresh.
+- **Segurança:** sem meta/payload/tokens; `sanitizeAdminOpsSecurityEventText` + render seguro.
+- **Testes:** `admin-ops-security-events.service.test.ts`, E2E admin-dashboard (+6 cenários).
+
+## [2.12.39] — 2026-06-27
+
+### Admin — ops listagem empresas + trial/plano (Etapa 4)
+
+- **API:** `GET /api/admin/ops/organizations` (paginação, filtros) + `PATCH …/plan`, `POST …/trial/extend`, `POST …/trial/cancel`.
+- **RBAC:** listagem `dashboard:global`; mutações `system:plans:manage`; audit `admin.plan.changed`, `admin.trial.*`.
+- **UI:** aba Empresas com tabela, filtros, modais e invalidação do summary.
+- **Testes:** `admin-ops-organizations.service.test.ts`, E2E admin-dashboard (24 cenários).
+
 ## [2.12.38] — 2026-06-27
 
 ### Admin — dashboard ops frontend completo

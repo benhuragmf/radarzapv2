@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.12.38` (`package.json`) · **Última revisão doc:** 2026-06-27
+**Versão atual:** `2.12.42` (`package.json`) · **Última revisão doc:** 2026-06-28
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Resultado TOP 01–20:** [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,10 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.12.42** | Admin Ops Etapa 7: QA manual local, gate Mongo, commit seguro |
+| **2.12.41** | Admin Ops Etapa 6: QA final, API docs, OpenAPI, anti-segredo |
+| **2.12.40** | Admin Ops Etapa 5: feed global eventos críticos aba Segurança |
+| **2.12.39** | Admin Ops Etapa 4: listagem empresas + ações trial/plano |
 | **2.12.38** | Admin Ops: frontend `/admin/dashboard` com abas e summary global |
 | **2.12.37** | Admin Ops: `GET /api/admin/ops/summary` — agregador dashboard global seguro |
 | **2.12.19** | Classificação Pacote J: Supervisor `?class=` + atalhos Inbox nos relatórios |

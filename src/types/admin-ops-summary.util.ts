@@ -20,8 +20,9 @@ const SENSITIVE_PATTERNS = [
   /whsec_/i,
   /sessionData/i,
   /publicAccessToken/i,
-  /\bAuthorization\b/i,
-  /\bCookie\b/i,
+  /Bearer/i,
+  /Authorization/i,
+  /Cookie/i,
 ];
 
 export function formatOpsNumber(value: number | undefined | null): string {

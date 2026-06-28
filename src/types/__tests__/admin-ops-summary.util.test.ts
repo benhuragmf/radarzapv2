@@ -31,6 +31,8 @@ describe('admin-ops-summary.util', () => {
   it('detecta conteúdo sensível', () => {
     expect(containsSensitiveOpsContent('sk_test_abc123')).toBe(true);
     expect(containsSensitiveOpsContent('sessionData encrypted')).toBe(true);
+    expect(containsSensitiveOpsContent('Bearer token')).toBe(true);
+    expect(containsSensitiveOpsContent('Authorization header')).toBe(true);
     expect(containsSensitiveOpsContent('42 empresas')).toBe(false);
   });
 });

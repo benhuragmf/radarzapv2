@@ -193,6 +193,14 @@ import { productionSafeError } from '../../middleware/production-safe-error';
 import { sanitizeInput } from '../../middleware/validation';
 import { registerDashboardQueueRoutes } from './routes/dashboardQueueRoutes';
 import { getAdminOpsSummary } from './admin-ops-summary.service';
+import {
+  cancelAdminOpsOrganizationTrial,
+  changeAdminOpsOrganizationPlan,
+  extendAdminOpsOrganizationTrial,
+  listAdminOpsOrganizations,
+} from './admin-ops-organizations.service';
+import { listAdminOpsSecurityEvents } from './admin-ops-security-events.service';
+import type { BillingProductStatus } from '@/services/billing/billing-state.util';
 import { AiSettingsService } from '../ai/AiSettingsService';
 import { AiProviderService } from '../ai/AiProviderService';
 import { AiUsageMeterService } from '../ai/AiUsageMeterService';
@@ -6055,6 +6063,113 @@ export class DashboardService {
       try {
         const refresh = String((req.query as { refresh?: string }).refresh ?? '') === '1';
         res.json(await getAdminOpsSummary({ refresh }));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/ops/organizations', requireCapability(Cap.DASHBOARD_GLOBAL), async (req, res) => {
+      try {
+        const q = req.query as Record<string, string | undefined>;
+        res.json(
+          await listAdminOpsOrganizations({
+            page: q.page,
+            limit: q.limit,
+            plan: q.plan as 'free' | 'starter' | 'pro' | 'enterprise' | undefined,
+            status: q.status as BillingProductStatus | undefined,
+            search: q.search,
+            sort: q.sort as 'createdAt' | 'name' | 'planExpiresAt' | undefined,
+          }),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch(
+      '/admin/ops/organizations/:id/plan',
+      requireCapability(Cap.SYSTEM_PLANS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const body = req.body as {
+            plan?: string;
+            expiresAt?: string | null;
+            reason?: string;
+          };
+          const result = await changeAdminOpsOrganizationPlan(req.params.id, {
+            plan: body.plan as 'free' | 'starter' | 'pro' | 'enterprise',
+            expiresAt: body.expiresAt,
+            reason: body.reason ?? '',
+            actorUserId: auth.userId,
+            ip: req.ip,
+          });
+          res.json(result);
+        } catch (e) {
+          const msg = (e as Error).message;
+          const status = msg.includes('não encontrada') ? 404 : 400;
+          res.status(status).json({ error: msg });
+        }
+      },
+    );
+
+    r.post(
+      '/admin/ops/organizations/:id/trial/extend',
+      requireCapability(Cap.SYSTEM_PLANS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const body = req.body as { days?: number; reason?: string; plan?: string };
+          const result = await extendAdminOpsOrganizationTrial(req.params.id, {
+            days: Number(body.days),
+            reason: body.reason ?? '',
+            plan: body.plan as 'starter' | 'pro' | 'enterprise' | undefined,
+            actorUserId: auth.userId,
+            ip: req.ip,
+          });
+          res.json(result);
+        } catch (e) {
+          const msg = (e as Error).message;
+          const status = msg.includes('não encontrada') ? 404 : 400;
+          res.status(status).json({ error: msg });
+        }
+      },
+    );
+
+    r.post(
+      '/admin/ops/organizations/:id/trial/cancel',
+      requireCapability(Cap.SYSTEM_PLANS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const body = req.body as { reason?: string };
+          const result = await cancelAdminOpsOrganizationTrial(req.params.id, {
+            reason: body.reason ?? '',
+            actorUserId: auth.userId,
+            ip: req.ip,
+          });
+          res.json(result);
+        } catch (e) {
+          const msg = (e as Error).message;
+          const status = msg.includes('não encontrada') ? 404 : 400;
+          res.status(status).json({ error: msg });
+        }
+      },
+    );
+
+    r.get('/admin/ops/security-events', requireCapability(Cap.DASHBOARD_GLOBAL), async (req, res) => {
+      try {
+        const q = req.query as Record<string, string | undefined>;
+        res.json(
+          await listAdminOpsSecurityEvents({
+            limit: q.limit,
+            kind: q.kind,
+            level: q.level,
+            source: q.source,
+            from: q.from,
+            to: q.to,
+          }),
+        );
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

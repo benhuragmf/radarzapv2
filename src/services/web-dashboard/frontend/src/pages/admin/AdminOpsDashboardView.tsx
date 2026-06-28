@@ -31,6 +31,8 @@ import {
   sortAlertsBySeverity,
 } from '@radarzap-types/admin-ops-summary.util'
 import { Card } from '../../components/ui/Card'
+import AdminOpsTenantsPanel from './AdminOpsTenantsPanel'
+import AdminOpsSecurityPanel from './AdminOpsSecurityPanel'
 import {
   EmptyState,
   ErrorState,
@@ -383,26 +385,7 @@ export default function AdminOpsDashboardView({
         </SectionCard>
       )}
 
-      {tab === 'tenants' && (
-        <div data-testid="admin-ops-tenants" className="mt-4">
-        <SectionCard title="Empresas por plano e status">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <MetricCard title="Total" value={formatOpsNumber(data.tenants.totalOrganizations)} icon={Building2} />
-            <MetricCard title="Free" value={formatOpsNumber(data.tenants.freeOrganizations)} />
-            <MetricCard title="Starter" value={formatOpsNumber(data.tenants.starterOrganizations)} />
-            <MetricCard title="Pro" value={formatOpsNumber(data.tenants.proOrganizations)} />
-            <MetricCard title="Enterprise" value={formatOpsNumber(data.tenants.enterpriseOrganizations)} />
-            <MetricCard title="Pagas (ativas)" value={formatOpsNumber(data.tenants.paidOrganizations)} />
-            <MetricCard title="Trialing" value={formatOpsNumber(data.tenants.trialingOrganizations)} />
-            <MetricCard title="Expiradas/canceladas" value={formatOpsNumber(data.tenants.expiredOrganizations)} />
-            <MetricCard title="Past due" value={formatOpsNumber(data.tenants.pastDueOrganizations)} status={data.tenants.pastDueOrganizations > 0 ? { status: 'warning', text: 'Atenção' } : undefined} />
-          </div>
-          <p className="mt-4 text-xs text-[var(--rz-text-muted)]">
-            Listagem individual e ações de trial/plano ficam para etapa futura.
-          </p>
-        </SectionCard>
-        </div>
-      )}
+      {tab === 'tenants' && <AdminOpsTenantsPanel tenants={data.tenants} />}
 
       {tab === 'atendimento' && (
         <div data-testid="admin-ops-atendimento" className="grid lg:grid-cols-2 gap-4 mt-4">
@@ -476,19 +459,8 @@ export default function AdminOpsDashboardView({
         </div>
       )}
 
-      {tab === 'security' && (
-        <div data-testid="admin-ops-security" className="grid lg:grid-cols-2 gap-4 mt-4">
-          <SectionCard title="Segurança (24h / mês)">
-            <StatRow label="Erros sistema (24h)" value={formatOpsNumber(data.security.errorsLast24h)} />
-            <StatRow label="Lookup ticket inválido" value={formatOpsNumber(data.security.invalidTicketLookupsLast24h)} />
-            <StatRow label="Form blocked" value={formatOpsNumber(data.security.formBlocksLast24h)} />
-            <StatRow label="Billing limit blocked" value={formatOpsNumber(data.security.billingLimitBlocksLast24h)} />
-            <StatRow label="Webhook failures" value={formatOpsNumber(data.security.webhookFailuresLast24h)} />
-          </SectionCard>
-          <SectionCard title="Alertas">
-            <AlertsList alerts={data.alerts} />
-          </SectionCard>
-        </div>
+      {tab === 'security' && data && (
+        <AdminOpsSecurityPanel security={data.security} alerts={data.alerts} />
       )}
 
       {tab === 'golive' && (
