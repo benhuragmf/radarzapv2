@@ -65,8 +65,19 @@ Ref: [`CONSENTIMENTO-LGPD.md`](../CONSENTIMENTO-LGPD.md) § Portal LGPD
 ```bash
 npm run pre-push:gate
 npm test -- --testPathPattern="lgpd-portal|bridge-forward|infra-boot"
-npx playwright test e2e/cross-tenant-isolation.spec.ts --project=chromium
+npx playwright test e2e/cross-tenant-isolation.spec.ts e2e/lgpd-portal.spec.ts --project=chromium
+npx playwright test e2e/admin-dashboard.spec.ts --project=chromium
 ```
+
+### Evidência deploy 2026-06-28
+
+| Item | Status |
+|------|--------|
+| GitHub **Deploy** `main` @ `b4bfb24` | ✅ success (~3m31s) |
+| GitHub **CI** | verificar run mais recente em `main` |
+| Unit 2.12.60–63 | ✅ 14/14 (lgpd, bridge, infra-boot, infra-health) |
+| E2E LGPD mock | ✅ `e2e/lgpd-portal.spec.ts` |
+| E2E Admin hub IA | ✅ testes ai-blueprint / ai-platform em `admin-dashboard.spec.ts` |
 
 ---
 

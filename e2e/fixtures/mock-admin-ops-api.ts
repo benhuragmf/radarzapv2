@@ -298,4 +298,49 @@ export async function setupAdminDashboardMocks(
       ]),
     }),
   );
+
+  const blueprintPayload = {
+    agentName: 'RadarZap',
+    identity: 'E2E',
+    soul: '',
+    agents: '',
+    tools: '',
+    memoryGuide: '',
+    skillsGuide: '',
+    knowledgeGuide: '',
+    finalRules: '',
+    greetingKnown: '',
+    greetingUnknown: '',
+    version: 1,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await page.route('**/api/admin/ai-blueprint**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(blueprintPayload),
+    }),
+  );
+
+  await page.route('**/api/admin/ai-platform/credentials**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'openai',
+        llmModel: 'gpt-4o-mini',
+        hasOpenAiKey: true,
+        hasGeminiKey: false,
+        openAiKeyMasked: 'sk-…xxxx',
+        geminiKeyMasked: null,
+        activeKeySource: 'env',
+        envFallbackAvailable: true,
+        modelCatalog: [],
+        modelCatalogs: { openai: [], gemini: [] },
+        version: 1,
+        updatedAt: new Date().toISOString(),
+      }),
+    }),
+  );
 }

@@ -351,4 +351,20 @@ test.describe('Admin Dashboard Ops', () => {
     await expect(page.getByTestId('admin-mod-refused')).toBeVisible();
     await expect(page.locator('table')).toHaveCount(0);
   });
+
+  test('/admin/ai-blueprint — banner hub aba IA', async ({ page }) => {
+    await page.goto('/admin/ai-blueprint');
+    await expect(
+      page.getByRole('main').getByRole('heading', { name: /Modelo global de IA/i }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('admin-ops-legacy-banner')).toBeVisible();
+  });
+
+  test('/admin/ai-platform — banner hub aba IA', async ({ page }) => {
+    await page.goto('/admin/ai-platform');
+    await expect(
+      page.getByRole('main').getByRole('heading', { name: /IA da plataforma \(RadarZap\)/i }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('admin-ops-legacy-banner')).toBeVisible();
+  });
 });
