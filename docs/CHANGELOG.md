@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.67] — 2026-06-28
+
+### Feat — Fallback WhatsApp na fila nativa (Inbox WA)
+
+- Mesma config em `/platform/inbox/bot` (**Fallback WhatsApp (fila)**) passa a valer para **WhatsApp + WebChat**.
+- Scan ~60s: `processInboxWhatsAppFallbackAcceptTimeouts` — rotação de alerta WA, broadcast para números configurados, `!assumir TK-…` via ticketRef na conversa.
+- Painel: countdown de fallback na lista Inbox; eventos `inbox:fallback_alert` / `inbox:fallback_missed`.
+
+---
+
 ## [2.12.66] — 2026-06-28
 
 ### Fix — IA Premium não inventa planos/preços sem KB

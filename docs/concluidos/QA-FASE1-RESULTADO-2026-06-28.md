@@ -3,8 +3,8 @@
 > Roteiro: [`QA-FASE1-ROTEIRO.md`](../QA-FASE1-ROTEIRO.md) · Checklist: [`QA-FASE1-CHECKLIST.md`](../QA-FASE1-CHECKLIST.md) · Pendências: [`PENDENCIAS-HUMANAS-FASE1.md`](../PENDENCIAS-HUMANAS-FASE1.md)
 
 **Data:** 2026-06-28 (continuação)  
-**Versão testada:** `2.12.65`  
-**Commit ref:** `28e2d6c` · Deploy main ✅  
+**Versão testada:** `2.12.65` (§ A em andamento) · **Pendente deploy:** `2.12.67` (fallback fila WA nativa)  
+**Commit ref:** `28e2d6c` · Deploy main ✅ (2.12.65)  
 **Responsável:** Benhur  
 **Ambiente:** **produção VPS** (local `dev:stop` — não rodar paralelo)  
 **`npm run qa:prep`:** pass ✅ (2026-06-28 — WA 1, CSAT 1/3, WebChat 1, fallback ON, equipe 3 c/ WA, leads 1)
@@ -43,7 +43,8 @@
 
 | # | Resultado | Notas |
 |---|-----------|-------|
-| 1 Triagem → humano | **pass parcial** | Triagem OK (nome/e-mail, `Sim` sem LGPD, 1 msg/turno). IA escalou p/ fila **Comercial**. **Obs:** LLM inventou planos de internet (50/100/200 Mbps) — não está na KB do repo; alucinação. Falta **Assumir** + humano responder p/ pass completo. |
+| 1 Triagem → humano | **pass parcial** | Triagem OK (nome/e-mail, `Sim` sem LGPD pós-2.12.65, 1 msg/turno). IA escalou p/ fila **Comercial**. **Obs pré-2.12.66:** LLM inventou planos internet — fix deployado. Falta **Assumir** + humano responder p/ pass completo. |
+| 1b Fallback fila WA nativa | **⏳ agendado** | Ver § Agendado abaixo — requer **2.12.67** na VPS. Incidente Carolina (11+ min na fila, offline, sem alerta WA) era **gap de produto** (fallback só WebChat até 2.12.66). |
 | 2 Finalizar + CSAT | pass / fail | |
 | 3 `avaliar` | pass / fail | |
 | 4 Nota CSAT | pass / fail | |
@@ -92,7 +93,7 @@
 | 2 Auto-ausente | pass / fail | |
 | 3 Supervisor dashboard | pass / fail | |
 | 4 Reassign wc: | pass / fail | |
-| 5 Sino fallback perdido | pass / fail | |
+| 5 Sino fallback perdido | pass / fail | WebChat: `webchat:fallback_missed` · WA nativo: `inbox:fallback_*` (2.12.67) |
 | 6 Alertas billing/IA | pass / fail | |
 
 ---
@@ -112,6 +113,33 @@
 - **Origem:** **não** há esse texto no código nem em seeds do repo. Resposta gerada pelo **LLM (IA Premium)** ao interpretar “planos” + “internet” — **alucinação**, apesar do blueprint dizer “não invente preço” e KB vazia receber aviso explícito no prompt.
 - **Ação produto (pós-gate):** cadastrar KB real (planos VIP/sala de jogos) em `/platform/inbox/ia`; fix **`2.12.66`**: sem KB → “não tenho informações confirmadas” (não chama LLM para plano/preço).
 - **QA § A.1:** triagem/fila OK; marcar **pass completo** só após atendente **Assumir** e responder.
+
+### § A.1 — Fila WA sem alerta fallback (2026-06-28, pré-2.12.67)
+
+- **Sintoma:** Carolina na fila WhatsApp **Comercial** 11+ min; atendente online → offline; config fallback ativa (`+5566996819456`) — **nenhum alerta WA**.
+- **Causa:** config *Fallback WhatsApp* aplicava **somente WebChat** (`wc:`), não fila nativa `waiting_queue`.
+- **Correção código:** `2.12.67` — `processInboxWhatsAppFallbackAcceptTimeouts` + painel *Fallback WhatsApp (fila)* para WA + site.
+- **QA:** **agendado pós-deploy** — cenário § Agendado abaixo (não bloqueia continuar § A.2–10 hoje).
+
+---
+
+## ⏳ Agendado — agente / Benhur (pós-deploy `2.12.67`)
+
+> **Pré-requisito:** `main` na VPS com **2.12.67**+ · só **uma** instância WA (sem `npm run dev` local).  
+> Roteiro: [`QA-FASE1-ROTEIRO.md`](../QA-FASE1-ROTEIRO.md) **Parte 3c**.
+
+| Passo | Quem | Ação | Esperado |
+|-------|------|------|----------|
+| 1 | Dono | `/platform/inbox/bot` — fallback **ON**, 60s c/ online, 10s sem online, número alerta ≠ sessão Baileys | Config salva |
+| 2 | Cliente | WhatsApp → triagem/IA → **Falar com atendente** → fila setor | Status *Na fila* no painel |
+| 3 | Atendente | **Online**, **não** Assumir; aguardar 60s + ~60s scan | Alerta WA `TK-…` + `!assumir …` no celular configurado |
+| 4 | Atendente | Repetir: online → **Offline** antes do aceite; aguardar 10s + scan | Novo alerta WA (fila aberta / sem indicado) |
+| 5 | Atendente | Responder `!assumir TK-…` no WhatsApp **ou** Assumir no painel | Conversa *Em atendimento*; cliente recebe msg fallback (se configurada) |
+| 6 | Atendente | Conferir sino | `inbox:fallback_alert` / `inbox:fallback_missed` (vermelho) |
+
+**Registrar aqui:** pass / fail + horário + screenshot alerta WA → atualizar linha **§ A.1b** acima.
+
+**Próximo na fila QA (hoje, sem esperar 2.12.67):** concluir § A.1 (**Assumir** Carolina ou novo contato) → § A.2 Finalizar + CSAT.
 
 ---
 

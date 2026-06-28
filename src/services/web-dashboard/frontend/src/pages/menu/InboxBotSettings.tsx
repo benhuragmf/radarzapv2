@@ -784,7 +784,7 @@ export default function InboxBotSettings() {
               <Card className="space-y-4 p-5">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="flex items-center gap-2 font-semibold text-[var(--rz-text-primary)]">
-                    <MessageCircle className="h-5 w-5" /> Fallback WhatsApp (WebChat)
+                    <MessageCircle className="h-5 w-5" /> Fallback WhatsApp (fila)
                   </h2>
                   <Link
                     to="/platform/webchat"
@@ -794,8 +794,10 @@ export default function InboxBotSettings() {
                   </Link>
                 </div>
                 <p className="text-xs text-[var(--rz-text-muted)]">
-                  Com atendente online indicado, aguarda mais tempo antes do alerta no WhatsApp. Sem ninguém
-                  disponível na fila, o alerta pode ser imediato (se ativado abaixo).
+                  Alerta a equipe no WhatsApp quando a fila estoura o tempo sem aceite — vale para
+                  conversas do <strong>WhatsApp</strong> e do <strong>chat do site</strong>. Com
+                  atendente online indicado, aguarda mais tempo; sem ninguém disponível, o alerta
+                  pode ser imediato (se ativado abaixo).
                 </p>
                 <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
                   <input
@@ -803,7 +805,7 @@ export default function InboxBotSettings() {
                     checked={form.whatsappFallbackEnabled}
                     onChange={e => patch('whatsappFallbackEnabled', e.target.checked)}
                   />
-                  Ativar fallback WhatsApp para chats do site na fila
+                  Ativar fallback WhatsApp para filas (WhatsApp + site)
                 </label>
                 <label className="block space-y-1">
                   <span className="text-xs text-[var(--rz-text-muted)]">
@@ -835,7 +837,7 @@ export default function InboxBotSettings() {
                 </label>
                 <label className="block space-y-1">
                   <span className="text-xs text-[var(--rz-text-muted)]">
-                    Tempo máximo na fila antes de encerrar o chat (minutos, 0 = desligado)
+                    Tempo máximo na fila do site antes de encerrar o chat (minutos, 0 = desligado)
                   </span>
                   <input
                     type="number"
@@ -881,7 +883,7 @@ export default function InboxBotSettings() {
                 </label>
                 <label className="block space-y-1">
                   <span className="flex justify-between text-xs text-[var(--rz-text-muted)]">
-                    <span>Mensagem ao visitante no chat</span>
+                    <span>Mensagem ao cliente (WhatsApp ou visitante no site)</span>
                     <CharCount value={form.whatsappFallbackVisitorMessage} max={800} />
                   </span>
                   <textarea

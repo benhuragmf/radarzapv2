@@ -1,6 +1,6 @@
 # Pendências humanas — Fase 1 (única fonte ativa)
 
-**Versão produto:** `2.12.63` · **Atualizado:** 2026-06-28
+**Versão produto:** `2.12.67` (código local) · **VPS QA:** `2.12.65` até deploy · **Atualizado:** 2026-06-28
 
 Este doc lista **somente** o que **não pode** ser fechado por código ou CI — requer browser/celular real (Benhur).  
 Tudo que já está verde automaticamente está em § Gate automático abaixo.
@@ -33,6 +33,7 @@ Tudo que já está verde automaticamente está em § Gate automático abaixo.
 | 4 | Presença, supervisor, alertas § E | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) Partes 5–7 | Benhur |
 | 5 | Registrar resultado | Copiar [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) → `docs/concluidos/QA-FASE1-RESULTADO-YYYY-MM-DD.md` | Benhur |
 | 6 | Marcar gate § Estabilização | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) — só após § A–E sem falha crítica | Benhur |
+| **7** | **Fallback fila WA nativa** (2.12.67) | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) **Parte 3c** · registro [`concluidos/QA-FASE1-RESULTADO-2026-06-28.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-28.md) § Agendado | Benhur · **após deploy 2.12.67** |
 
 Checklist 1 página: [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
 

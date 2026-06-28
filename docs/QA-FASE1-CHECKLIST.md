@@ -102,7 +102,8 @@
 | 2 | Auto-ausente por inatividade | Status Ausente + prompt restaurar | [ ] | 2.11.25 |
 | 3 | Supervisor dashboard | Equipe, fila WA+WC, monitor drawer | [ ] | 2.11.24 |
 | 4 | Reassign supervisor (`wc:`) | Conversa reatribuída | [ ] | 2.11.24 |
-| 5 | Sino vermelho fallback perdido | `webchat:fallback_missed` | [ ] | 2.11.28 |
+| 5 | Sino vermelho fallback perdido | WebChat: `webchat:fallback_missed` · WA: `inbox:fallback_*` (2.12.67) | [ ] | 2.11.28 · **3c agendado** |
+| 5b | Fallback fila WA nativa (timeout → alerta) | Alerta `TK-…` no celular; `!assumir` funciona | [ ] | **2.12.67** · pós-deploy · [`QA-FASE1-ROTEIRO`](./QA-FASE1-ROTEIRO.md) Parte 3c |
 | 6 | Alertas billing/IA/config | Só `billing:view`; badge vermelho | [ ] | 2.11.28 |
 
 ---

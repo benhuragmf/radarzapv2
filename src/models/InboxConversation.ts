@@ -44,6 +44,15 @@ export interface IInboxConversation extends Document {
   resolvedAt?: Date;
   /** Referência exibida ao converter em ticket */
   ticketRef?: string;
+  /** Fallback WA fila — início do cronômetro com indicado (não reinicia ao rotacionar). */
+  whatsappFallbackPriorityStartedAt?: Date;
+  /** Fallback WA fila — broadcast manual esgotado ou equipe rotacionada. */
+  whatsappFallbackAlertSentAt?: Date;
+  whatsappFallbackTriedUserIds?: string[];
+  whatsappFallbackWaNotifiedUserId?: string;
+  whatsappFallbackWaNotifiedAt?: Date;
+  /** Cliente já recebeu mensagem de fallback na fila WA. */
+  whatsappFallbackClientNotifiedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -99,6 +108,12 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     acceptedAt: Date,
     resolvedAt: Date,
     ticketRef: { type: String, maxlength: 32, index: true },
+    whatsappFallbackPriorityStartedAt: { type: Date },
+    whatsappFallbackAlertSentAt: { type: Date },
+    whatsappFallbackTriedUserIds: { type: [String], default: undefined },
+    whatsappFallbackWaNotifiedUserId: { type: String, index: true },
+    whatsappFallbackWaNotifiedAt: { type: Date },
+    whatsappFallbackClientNotifiedAt: { type: Date },
   },
   { timestamps: true, collection: 'inboxConversations' },
 );

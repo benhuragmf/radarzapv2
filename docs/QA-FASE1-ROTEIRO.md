@@ -163,6 +163,24 @@ Roteiro estendido token/FAQ/fallback/bridge: [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`
 
 ---
 
+## Parte 3c — Fallback fila **WhatsApp nativa** (2.12.67)
+
+> **Agendado** — executar **após deploy** `2.12.67` na VPS. Registro: [`concluidos/QA-FASE1-RESULTADO-2026-06-28.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-28.md) § Agendado.
+
+**Pré-condição:** mesma config em `/platform/inbox/bot` (*Fallback WhatsApp (fila)* — vale WA + site); `whatsappFallbackAcceptTimeoutSeconds` = **60**; `whatsappFallbackNoAgentTimeoutSeconds` = **10**; número alerta ≠ sessão Baileys; **sem** `npm run dev` local.
+
+| Quem | Ação | Esperado |
+|------|------|----------|
+| Cliente (WA) | Triagem/IA → pedir humano → entra fila setor | Painel: *Na fila* · timer subindo |
+| Atendente | **Online**, **não** Assumir; aguarda 60s + ~60s scan | WhatsApp alerta `TK-…` + `!assumir …` |
+| Atendente | Cenário B: online → **Offline** com cliente ainda na fila; aguarda 10s + scan | Alerta WA (modo sem atendente disponível) |
+| Atendente | `!assumir TK-…` no celular **ou** Assumir no Inbox | Status *Em atendimento* |
+| Atendente | Conferir sino | `inbox:fallback_alert` / `inbox:fallback_missed` (urgente) |
+
+**Nota:** Antes de 2.12.67 este cenário **não existia** — incidente QA Carolina (fila WA 11+ min sem alerta) era limitação de escopo, não bug de config.
+
+---
+
 ## Parte 4 — Fila e limites WhatsApp (anti-ban)
 
 **Automatizado:** `npm run qa:atendimento:gate` (inclui `whatsapp-session-rate-limit` + `whatsapp-human-send`).

@@ -130,6 +130,20 @@ import {
   triageWaitElapsedSec,
   triageWaitUrgency,
 } from '@/services/inbox/inbox-inactivity';
+import {
+  getFallbackCountdownState,
+  isFallbackAcceptTimeoutElapsed,
+  resolveFallbackAcceptTimeoutSeconds,
+  resolveFallbackWaitMode,
+  shouldRetryFallbackAfterCooldown,
+} from '@/services/webchat/webchat-fallback-timing.util';
+import {
+  INBOX_FALLBACK_EXHAUSTED_COOLDOWN_MS,
+  processInboxFallbackWhatsappRotation,
+  resetInboxQueueFallbackState,
+  inboxConvToFallbackTiming,
+  type InboxFallbackWhatsappRotationResult,
+} from '@/services/inbox/inbox-whatsapp-fallback.service';
 import { parseCsatScore, isCsatIntent, DEFAULT_CSAT_PROMPT, shouldBypassCsatForNewService } from '@/services/inbox/csat.util';
 import {
   applyInboundCloseGate,
@@ -778,6 +792,11 @@ export class InboxService {
       gracefulCloseAfterPromptMinutes?: number;
       closeQuickReplyGateEnabled?: boolean;
     },
+    fallbackSettings?: {
+      whatsappFallbackEnabled: boolean;
+      whatsappFallbackAcceptTimeoutSeconds?: number;
+      whatsappFallbackNoAgentTimeoutSeconds?: number;
+    },
   ) {
     const suggestedId = row.suggestedUserId
       ? String(row.suggestedUserId)
@@ -878,6 +897,36 @@ export class InboxService {
           )
         : false;
 
+    const fallbackCountdown =
+      status === InboxConversationStatus.WAITING_QUEUE && fallbackSettings?.whatsappFallbackEnabled
+        ? getFallbackCountdownState(
+            clientId,
+            {
+              suggestedUserId: suggestedId,
+              suggestedAt: row.suggestedAt ? new Date(row.suggestedAt as Date | string) : null,
+              queueEnteredAt: row.queueEnteredAt
+                ? new Date(row.queueEnteredAt as Date | string)
+                : null,
+              whatsappFallbackPriorityStartedAt: row.whatsappFallbackPriorityStartedAt
+                ? new Date(row.whatsappFallbackPriorityStartedAt as Date | string)
+                : null,
+              whatsappFallbackWaNotifiedAt: row.whatsappFallbackWaNotifiedAt
+                ? new Date(row.whatsappFallbackWaNotifiedAt as Date | string)
+                : null,
+              whatsappFallbackWaNotifiedUserId: row.whatsappFallbackWaNotifiedUserId as
+                | string
+                | undefined,
+            },
+            {
+              whatsappFallbackAcceptTimeoutSeconds:
+                fallbackSettings.whatsappFallbackAcceptTimeoutSeconds,
+              whatsappFallbackNoAgentTimeoutSeconds:
+                fallbackSettings.whatsappFallbackNoAgentTimeoutSeconds,
+            },
+            fallbackSettings.whatsappFallbackEnabled,
+          )
+        : null;
+
     return {
       ...row,
       assignedUserName: assignedId ? agentMap.get(assignedId) : undefined,
@@ -920,6 +969,21 @@ export class InboxService {
         : undefined,
       createdAt: row.createdAt
         ? new Date(row.createdAt as Date | string).toISOString()
+        : undefined,
+      whatsappFallbackEnabled: fallbackSettings?.whatsappFallbackEnabled ?? false,
+      whatsappFallbackPhase: fallbackCountdown?.phase,
+      whatsappFallbackRemainingSec: fallbackCountdown?.remainingSec,
+      whatsappFallbackTimeoutSec: fallbackCountdown?.timeoutSec,
+      whatsappFallbackAcceptTimeoutSec:
+        fallbackSettings?.whatsappFallbackAcceptTimeoutSeconds ?? 120,
+      whatsappFallbackNoAgentTimeoutSec:
+        fallbackSettings?.whatsappFallbackNoAgentTimeoutSeconds ?? 0,
+      whatsappFallbackWaAlertSent: fallbackCountdown?.waAlertSent ?? false,
+      whatsappFallbackPriorityStartedAt: row.whatsappFallbackPriorityStartedAt
+        ? new Date(row.whatsappFallbackPriorityStartedAt as Date | string).toISOString()
+        : undefined,
+      whatsappFallbackWaNotifiedAt: row.whatsappFallbackWaNotifiedAt
+        ? new Date(row.whatsappFallbackWaNotifiedAt as Date | string).toISOString()
         : undefined,
     };
   }
@@ -2427,6 +2491,7 @@ export class InboxService {
     conversation.queueEnteredAt = new Date();
     conversation.queueSlaNotifiedAt = undefined;
     conversation.priorityPullNotifiedAt = undefined;
+    resetInboxQueueFallbackState(conversation);
     conversation.lastMessageAt = new Date();
 
     const suggested = department
@@ -2434,6 +2499,9 @@ export class InboxService {
       : undefined;
     await conversation.save();
     this.notifyConversation(clientId, conversation);
+    if (!suggested) {
+      await this.maybeTriggerInboxQueueFallback(clientId, conversation);
+    }
 
     const confirm = department
       ? await buildQueueConfirmation(
@@ -2914,6 +2982,7 @@ export class InboxService {
     conversation.queueEnteredAt = new Date();
     conversation.queueSlaNotifiedAt = undefined;
     conversation.priorityPullNotifiedAt = undefined;
+    resetInboxQueueFallbackState(conversation);
     conversation.lastMessageAt = new Date();
 
     const suggested = await this.tryRoundRobinSuggest(clientId, conversation, department);
@@ -2922,6 +2991,9 @@ export class InboxService {
     });
     await conversation.save();
     this.notifyConversation(clientId, conversation);
+    if (!suggested) {
+      await this.maybeTriggerInboxQueueFallback(clientId, conversation);
+    }
 
     const confirm = await buildQueueConfirmation(
       clientId,
@@ -3069,6 +3141,9 @@ export class InboxService {
     conversation.suggestedAt = new Date();
     conversation.assignedUserId = undefined;
     conversation.priorityPullNotifiedAt = undefined;
+    if (!conversation.whatsappFallbackPriorityStartedAt) {
+      conversation.whatsappFallbackPriorityStartedAt = new Date();
+    }
 
     const agentName = await this.resolveAgentDisplayName(userId.toString());
     await this.appendSystemMessage(
@@ -3177,6 +3252,11 @@ export class InboxService {
       gracefulCloseAfterPromptMinutes: settings.gracefulCloseAfterPromptMinutes,
       closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
     };
+    const fallbackSettings = {
+      whatsappFallbackEnabled: Boolean(settings.whatsappFallbackEnabled),
+      whatsappFallbackAcceptTimeoutSeconds: settings.whatsappFallbackAcceptTimeoutSeconds,
+      whatsappFallbackNoAgentTimeoutSeconds: settings.whatsappFallbackNoAgentTimeoutSeconds,
+    };
 
     const rows = await InboxConversation.find(query)
       .sort({ lastMessageAt: -1 })
@@ -3231,6 +3311,7 @@ export class InboxService {
           pullTimeoutSeconds,
           triageTotalMin,
           inactivitySla,
+          fallbackSettings,
         ),
       ),
     );
@@ -4570,6 +4651,11 @@ export class InboxService {
           inactivityCloseMinutes: settings.inactivityCloseMinutes,
           inactivityWarningMinutes: settings.inactivityWarningMinutes,
         },
+        {
+          whatsappFallbackEnabled: Boolean(settings.whatsappFallbackEnabled),
+          whatsappFallbackAcceptTimeoutSeconds: settings.whatsappFallbackAcceptTimeoutSeconds,
+          whatsappFallbackNoAgentTimeoutSeconds: settings.whatsappFallbackNoAgentTimeoutSeconds,
+        },
       ),
       this.buildContactContext(clientId, conv.destinationId, conv._id as mongoose.Types.ObjectId),
       Destination.findOne({ _id: conv.destinationId, clientId: conv.clientId })
@@ -4688,6 +4774,7 @@ export class InboxService {
 
     conv.suggestedUserId = undefined;
     conv.suggestedAt = undefined;
+    resetInboxQueueFallbackState(conv);
     conv.assignedUserId = new mongoose.Types.ObjectId(userId);
     conv.acceptedAt = new Date();
     conv.status = InboxConversationStatus.IN_PROGRESS;
@@ -5194,10 +5281,14 @@ export class InboxService {
     conv.queueEnteredAt = new Date();
     conv.queueSlaNotifiedAt = undefined;
     conv.priorityPullNotifiedAt = undefined;
+    resetInboxQueueFallbackState(conv);
     conv.lastMessageAt = new Date();
 
-    await this.tryRoundRobinSuggest(clientId, conv, target);
+    const suggestedTransfer = await this.tryRoundRobinSuggest(clientId, conv, target);
     await conv.save();
+    if (!suggestedTransfer) {
+      await this.maybeTriggerInboxQueueFallback(clientId, conv);
+    }
     void recordAttendanceEvent({
       clientId,
       kind: 'inbox.transferred',
@@ -5495,6 +5586,7 @@ export class InboxService {
         await this.processRoundRobinPriorityExpiry(clientId, nowMs);
         await this.processOfflineSuggestedPriority(clientId);
         await this.processBusySuggestedPriority(clientId);
+        await this.processInboxWhatsAppFallbackAcceptTimeouts();
         await AiConversationService.getInstance().recoverStuckPromisedHandoffs(clientId, this);
         await this.processTicketTeamSla(clientId, row.ticketTeamResponseHours, nowMs);
       }
@@ -5826,6 +5918,185 @@ export class InboxService {
         { conversationId: String(conv._id) },
       );
       this.notifyConversation(clientId, conv);
+    }
+  }
+
+  /** Sem atendente online na escalação — alerta WA imediato se timeout = 0. */
+  private async maybeTriggerInboxQueueFallback(
+    clientId: string,
+    conversation: IInboxConversation,
+  ): Promise<void> {
+    const settings = await loadInboxSettings(clientId);
+    if (!settings.whatsappFallbackEnabled) return;
+    if (conversation.status !== InboxConversationStatus.WAITING_QUEUE) return;
+    if (conversation.assignedUserId) return;
+
+    const timingConv = inboxConvToFallbackTiming(conversation);
+    const mode = resolveFallbackWaitMode(clientId, timingConv);
+    if (mode !== 'no_agent_available') return;
+
+    const noAgentSec = resolveFallbackAcceptTimeoutSeconds(settings, mode);
+    if (noAgentSec > 0) return;
+
+    const rotation = await processInboxFallbackWhatsappRotation(clientId, conversation, {
+      immediate: true,
+    });
+    await this.applyInboxFallbackRotation(clientId, conversation, rotation);
+  }
+
+  private async maybeNotifyInboxFallbackClientMessage(
+    clientId: string,
+    conversation: IInboxConversation,
+    settings: Awaited<ReturnType<typeof loadInboxSettings>>,
+  ): Promise<boolean> {
+    if (conversation.whatsappFallbackClientNotifiedAt) return false;
+    const body =
+      settings.whatsappFallbackVisitorMessage?.trim() ||
+      'No momento nossos atendentes estão indisponíveis — a equipe foi alertada no WhatsApp e responderá em breve.';
+    await this.sendToContact(clientId, conversation.contactIdentifier, body);
+    await this.appendSystemMessage(conversation, body, undefined, clientId);
+    conversation.whatsappFallbackClientNotifiedAt = new Date();
+    await conversation.save();
+    return true;
+  }
+
+  private async applyInboxFallbackRotation(
+    clientId: string,
+    conversation: IInboxConversation,
+    rotation: InboxFallbackWhatsappRotationResult,
+  ): Promise<void> {
+    if (rotation.kind === 'none') return;
+
+    const settings = await loadInboxSettings(clientId);
+    const nowMs = Date.now();
+    const contactLabel = conversation.contactName?.trim() || 'Cliente';
+
+    if (rotation.kind === 'sent' || rotation.kind === 'rotated') {
+      await this.maybeNotifyInboxFallbackClientMessage(clientId, conversation, settings);
+    }
+
+    if (rotation.kind === 'rotated') {
+      await this.appendSystemMessage(
+        conversation,
+        `${rotation.agentName} foi alertado no WhatsApp — aguardando !assumir.`,
+        undefined,
+        clientId,
+      );
+      emitPanelEvent(clientId, {
+        id: crypto.randomUUID(),
+        type: 'inbox:fallback_missed',
+        title: 'Fila WA — próximo atendente',
+        body: `${contactLabel} · alerta para ${rotation.agentName}`,
+        href: `/platform/inbox?conv=${String(conversation._id)}`,
+        conversationId: String(conversation._id),
+        targetUserId: rotation.fromUserId,
+        urgent: true,
+        createdAt: new Date(nowMs).toISOString(),
+      });
+      this.notifyConversation(clientId, conversation);
+      return;
+    }
+
+    if (rotation.kind === 'sent') {
+      await this.appendSystemMessage(
+        conversation,
+        `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
+        undefined,
+        clientId,
+      );
+      emitPanelEvent(clientId, {
+        id: crypto.randomUUID(),
+        type: 'inbox:fallback_alert',
+        title: 'Fila WA — alerta WhatsApp',
+        body: `${contactLabel} · ${rotation.agentName}`,
+        href: `/platform/inbox?conv=${String(conversation._id)}`,
+        conversationId: String(conversation._id),
+        targetUserId: rotation.userId,
+        urgent: true,
+        createdAt: new Date(nowMs).toISOString(),
+      });
+      this.notifyConversation(clientId, conversation);
+      return;
+    }
+
+    if (rotation.kind === 'exhausted') {
+      if (rotation.alertSent) {
+        await this.maybeNotifyInboxFallbackClientMessage(clientId, conversation, settings);
+      }
+      await this.appendSystemMessage(
+        conversation,
+        rotation.clientMessage,
+        undefined,
+        clientId,
+      );
+      emitPanelEvent(clientId, {
+        id: crypto.randomUUID(),
+        type: 'inbox:fallback_missed',
+        title: 'Fila WA — equipe alertada',
+        body: `${contactLabel} · ${rotation.alertSent ? 'alerta enviado' : 'sem telefones de alerta'}`,
+        href: `/platform/inbox?conv=${String(conversation._id)}`,
+        conversationId: String(conversation._id),
+        urgent: true,
+        createdAt: new Date(nowMs).toISOString(),
+      });
+      this.notifyConversation(clientId, conversation);
+    }
+  }
+
+  /** Scan periódico: timeout na fila WhatsApp nativa → alerta WA para equipe. */
+  async processInboxWhatsAppFallbackAcceptTimeouts(): Promise<void> {
+    const rows = await InboxSettings.find({ whatsappFallbackEnabled: true })
+      .select(
+        'clientId whatsappFallbackAcceptTimeoutSeconds whatsappFallbackNoAgentTimeoutSeconds',
+      )
+      .lean();
+
+    const nowMs = Date.now();
+    const cooldownCutoff = new Date(nowMs - INBOX_FALLBACK_EXHAUSTED_COOLDOWN_MS);
+
+    for (const row of rows) {
+      const clientId = String(row.clientId);
+      const timingSettings = {
+        whatsappFallbackAcceptTimeoutSeconds: row.whatsappFallbackAcceptTimeoutSeconds,
+        whatsappFallbackNoAgentTimeoutSeconds: row.whatsappFallbackNoAgentTimeoutSeconds,
+      };
+
+      const candidates = await InboxConversation.find({
+        clientId: row.clientId,
+        status: InboxConversationStatus.WAITING_QUEUE,
+        assignedUserId: { $in: [null, undefined] },
+        $or: [
+          { whatsappFallbackAlertSentAt: { $exists: false } },
+          { whatsappFallbackAlertSentAt: null },
+          { whatsappFallbackAlertSentAt: { $lte: cooldownCutoff } },
+        ],
+      })
+        .limit(25)
+        .exec();
+
+      for (const conv of candidates) {
+        const timingConv = inboxConvToFallbackTiming(conv);
+        if (!isFallbackAcceptTimeoutElapsed(clientId, timingConv, timingSettings, nowMs)) {
+          continue;
+        }
+
+        const fresh = await InboxConversation.findById(conv._id);
+        if (!fresh) continue;
+        if (fresh.status !== InboxConversationStatus.WAITING_QUEUE) continue;
+        if (fresh.assignedUserId) continue;
+
+        const rotation = await processInboxFallbackWhatsappRotation(clientId, fresh, {
+          allowRetry: shouldRetryFallbackAfterCooldown(
+            fresh.whatsappFallbackAlertSentAt,
+            INBOX_FALLBACK_EXHAUSTED_COOLDOWN_MS,
+            nowMs,
+          ),
+        });
+
+        if (rotation.kind === 'none') continue;
+
+        await this.applyInboxFallbackRotation(clientId, fresh, rotation);
+      }
     }
   }
 
@@ -6211,6 +6482,7 @@ export class InboxService {
     conversation.queueEnteredAt = new Date();
     conversation.queueSlaNotifiedAt = undefined;
     conversation.priorityPullNotifiedAt = undefined;
+    resetInboxQueueFallbackState(conversation);
     conversation.lastMessageAt = new Date();
 
     const suggested = await this.tryRoundRobinSuggest(clientId, conversation, department);
@@ -6219,6 +6491,9 @@ export class InboxService {
     });
     await conversation.save();
     this.notifyConversation(clientId, conversation);
+    if (!suggested) {
+      await this.maybeTriggerInboxQueueFallback(clientId, conversation);
+    }
 
     if (opts.internalNote) {
       await this.appendSystemMessage(

@@ -10,6 +10,8 @@ export type PanelEventType =
   | 'inbox:agent_offline_risk'
   | 'inbox:queue_sla'
   | 'inbox:ticket_sla'
+  | 'inbox:fallback_alert'
+  | 'inbox:fallback_missed'
   | 'webchat:escalated'
   | 'webchat:fallback_missed'
   | 'whatsapp:disconnected'
@@ -45,6 +47,7 @@ export const URGENT_PANEL_EVENT_TYPES: ReadonlySet<string> = new Set([
   'inbox:queue_sla',
   'inbox:agent_offline_risk',
   'inbox:ticket_sla',
+  'inbox:fallback_missed',
   'webchat:fallback_missed',
   'billing:plan_expiring',
   'billing:plan_expired',

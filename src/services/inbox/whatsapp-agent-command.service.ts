@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import { InboxTicket, IInboxTicket } from '@/models/InboxTicket';
+import { InboxConversation, IInboxConversation } from '@/models/InboxConversation';
+import { InboxConversationStatus } from '@/types/inbox';
 import { User } from '@/models/User';
 import { WebChatConversation, IWebChatConversation } from '@/models/WebChatConversation';
 import { INBOX_TICKET_STATUS_LABEL, ticketIsActive } from '@/types/inbox-ticket';
@@ -36,7 +38,11 @@ async function replyCommand(clientId: string, replyJid: string, body: string): P
 async function findTicketByRef(
   clientId: string,
   ticketRef: string,
-): Promise<{ ticket: IInboxTicket | null; webChat: IWebChatConversation | null }> {
+): Promise<{
+  ticket: IInboxTicket | null;
+  webChat: IWebChatConversation | null;
+  inboxConv: IInboxConversation | null;
+}> {
   const clientOid = new mongoose.Types.ObjectId(clientId);
   const ticket = await InboxTicket.findOne({ clientId: clientOid, ticketRef });
   if (ticket) {
@@ -47,7 +53,14 @@ async function findTicketByRef(
         clientId: clientOid,
       });
     }
-    return { ticket, webChat };
+    let inboxConv: IInboxConversation | null = null;
+    if (ticket.conversationId) {
+      inboxConv = await InboxConversation.findOne({
+        _id: ticket.conversationId,
+        clientId: clientOid,
+      });
+    }
+    return { ticket, webChat, inboxConv };
   }
 
   const webChat = await WebChatConversation.findOne({
@@ -55,7 +68,22 @@ async function findTicketByRef(
     ticketRef,
     status: 'open',
   });
-  return { ticket: null, webChat };
+  if (webChat) {
+    return { ticket: null, webChat, inboxConv: null };
+  }
+
+  const inboxConv = await InboxConversation.findOne({
+    clientId: clientOid,
+    ticketRef,
+    status: {
+      $in: [
+        InboxConversationStatus.WAITING_QUEUE,
+        InboxConversationStatus.IN_PROGRESS,
+        InboxConversationStatus.BOT_TRIAGE,
+      ],
+    },
+  });
+  return { ticket: null, webChat: null, inboxConv };
 }
 
 async function applyTicketOpeningContext(
@@ -245,7 +273,7 @@ async function handleAssumir(
   userId: string,
   ticketRef: string,
 ): Promise<string> {
-  const { ticket, webChat } = await findTicketByRef(clientId, ticketRef);
+  const { ticket, webChat, inboxConv: inboxFromRef } = await findTicketByRef(clientId, ticketRef);
 
   if (webChat || ticket?.webChatConversationId) {
     const conversation =
@@ -335,6 +363,39 @@ async function handleAssumir(
       `Cliente: ${ticket.contactName}`,
       '',
       `Painel → Inbox → ${ticketRef}`,
+    ].join('\n');
+  }
+
+  const inboxConv = inboxFromRef;
+  if (inboxConv) {
+    if (
+      inboxConv.status === InboxConversationStatus.IN_PROGRESS &&
+      inboxConv.assignedUserId &&
+      String(inboxConv.assignedUserId) !== userId
+    ) {
+      const other = await User.findById(inboxConv.assignedUserId)
+        .select('displayName email')
+        .lean();
+      const otherName =
+        other?.displayName?.trim() || other?.email?.split('@')[0] || 'outro atendente';
+      return `Conversa ${ticketRef} já está com ${otherName}.`;
+    }
+
+    await InboxService.getInstance().assignConversation(
+      clientId,
+      userId,
+      String(inboxConv._id),
+    );
+
+    const ref = (inboxConv.ticketRef ?? ticketRef).trim().toUpperCase();
+    return [
+      `Você assumiu ${ref}.`,
+      `Canal: WhatsApp (fila Inbox)`,
+      `Cliente: ${inboxConv.contactName}`,
+      '',
+      'Responda aqui no WhatsApp ou no painel Inbox.',
+      '',
+      `Painel → Inbox → ${ref}`,
     ].join('\n');
   }
 
