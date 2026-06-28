@@ -13,6 +13,30 @@ export function liveQueueState(
   return { elapsedSec, urgency: Math.min(1, elapsedSec / timeout) }
 }
 
+/** Fila aberta (sem indicado) usa queueEnteredAt; com indicado usa suggestedAt. */
+export function liveQueueWaitState(
+  queueEnteredAt: string | undefined,
+  suggestedAt: string | undefined,
+  pullTimeoutSeconds: number,
+  tick = 0,
+): { elapsedSec: number; urgency: number } {
+  void tick
+  if (suggestedAt) return liveQueueState(suggestedAt, pullTimeoutSeconds, tick)
+  if (!queueEnteredAt) return { elapsedSec: 0, urgency: 0 }
+  const elapsedSec = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(queueEnteredAt).getTime()) / 1000),
+  )
+  const timeout = Math.max(120, (pullTimeoutSeconds || 120) * 2)
+  return { elapsedSec, urgency: Math.min(1, elapsedSec / timeout) }
+}
+
+export function liveHandleTimeSec(acceptedAt: string | undefined, tick = 0): number {
+  void tick
+  if (!acceptedAt) return 0
+  return Math.max(0, Math.floor((Date.now() - new Date(acceptedAt).getTime()) / 1000))
+}
+
 export function liveInactivityCloseAllowed(
   inactivityWarnedAt: string | undefined,
   closeAfterWarningMinutes: number,

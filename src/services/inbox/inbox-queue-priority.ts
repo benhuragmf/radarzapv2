@@ -29,6 +29,31 @@ export function getQueuePriorityState(
   };
 }
 
+/** Tempo na fila — prioridade usa suggestedAt; fila aberta usa queueEnteredAt. */
+export function getQueueWaitState(
+  queueEnteredAt: Date | string | undefined,
+  suggestedAt: Date | string | undefined,
+  timeoutSeconds: number,
+): QueuePriorityState {
+  if (suggestedAt) return getQueuePriorityState(suggestedAt, timeoutSeconds);
+  if (!queueEnteredAt) return { elapsedSec: 0, urgency: 0, pullAllowedByTimeout: true };
+  const elapsedSec = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(queueEnteredAt).getTime()) / 1000),
+  );
+  const safeTimeout = Math.max(120, timeoutSeconds * 2);
+  return {
+    elapsedSec,
+    urgency: Math.min(1, elapsedSec / safeTimeout),
+    pullAllowedByTimeout: true,
+  };
+}
+
+export function elapsedSecSince(at: Date | string | undefined): number {
+  if (!at) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 1000));
+}
+
 export async function isSuggestedUserBusy(
   clientId: string,
   suggestedUserId: string,

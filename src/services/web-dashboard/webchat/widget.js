@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.12.32';
+  var WIDGET_BUILD = '2.12.33';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -2218,6 +2218,13 @@
   }
 
   function syncLegacyFromIntake() {
+    var fields = activePrechatFields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      if ((f.preset === 'name' || f.id === 'name') && state.visitorIntake[f.id]) {
+        state.visitorName = state.visitorIntake[f.id];
+      }
+    }
     if (state.visitorIntake.name) state.visitorName = state.visitorIntake.name;
     if (state.visitorIntake.email) state.visitorEmail = state.visitorIntake.email;
   }

@@ -2,6 +2,10 @@ import type { AgentOperationalStatus, AgentStatusSource } from '@/types/agent-pr
 import { isQueueEligibleStatus, operationalStatusLabel } from '@/types/agent-presence';
 import { shouldApplyAutoAusente } from '@/services/inbox/agent-availability';
 import type { SupervisorAgentActivity } from '@/types/inbox-supervisor';
+import {
+  loadPersistedAgentOperationalStatus,
+  persistAgentOperationalStatus,
+} from '@/services/inbox/inbox-agent-presence-persist';
 
 /** Presença em tempo real — painel com socket + heartbeat (por tenant). */
 export type AgentPresenceMeta = {
@@ -112,13 +116,22 @@ export function agentPresenceConnect(clientId: string, userId: string): void {
   }
   const prev = users.get(userId);
   const entry = prev ?? defaultEntry();
-  entry.sockets += 1;
-  touchEntry(entry);
-  if (!prev || entry.operationalStatus === 'offline') {
+  if (!prev) {
     entry.operationalStatus = 'online';
     entry.statusSource = 'auto';
   }
+  entry.sockets += 1;
+  touchEntry(entry);
   users.set(userId, entry);
+
+  void loadPersistedAgentOperationalStatus(clientId, userId).then(persisted => {
+    if (!persisted?.operationalStatus || persisted.operationalStatus === 'offline') {
+      return;
+    }
+    entry.operationalStatus = persisted.operationalStatus;
+    entry.statusSource = persisted.statusSource ?? 'manual';
+    entry.lastManualStatus = persisted.lastManualStatus ?? persisted.operationalStatus;
+  });
 }
 
 export function agentPresenceDisconnect(clientId: string, userId: string): void {
@@ -156,6 +169,11 @@ export function agentPresenceSetStatus(
   entry.statusSource = source;
   if (source === 'manual') {
     entry.lastManualStatus = status;
+    void persistAgentOperationalStatus(clientId, userId, {
+      operationalStatus: status,
+      lastManualStatus: status,
+      statusSource: source,
+    });
   }
   users.set(userId, entry);
   return getAgentPresence(clientId, userId);
@@ -254,7 +272,32 @@ export function getAgentLastManualStatus(
   userId: string,
 ): AgentOperationalStatus {
   const entry = onlineByClient.get(clientId)?.get(userId);
-  return entry?.lastManualStatus ?? 'online';
+  if (entry?.lastManualStatus) return entry.lastManualStatus;
+  return 'online';
+}
+
+/** Restaura status manual persistido (ex.: após F5) antes do primeiro heartbeat. */
+export async function hydrateAgentPresenceFromPersist(
+  clientId: string,
+  userId: string,
+): Promise<AgentPresenceSnapshot | null> {
+  const persisted = await loadPersistedAgentOperationalStatus(clientId, userId);
+  if (!persisted?.operationalStatus || persisted.operationalStatus === 'offline') {
+    return null;
+  }
+  let users = onlineByClient.get(clientId);
+  if (!users) {
+    users = new Map();
+    onlineByClient.set(clientId, users);
+  }
+  const entry = users.get(userId) ?? defaultEntry();
+  entry.operationalStatus = persisted.operationalStatus;
+  entry.statusSource = persisted.statusSource ?? 'manual';
+  entry.lastManualStatus = persisted.lastManualStatus ?? persisted.operationalStatus;
+  entry.sockets = Math.max(entry.sockets, 1);
+  touchEntry(entry);
+  users.set(userId, entry);
+  return getAgentPresence(clientId, userId);
 }
 
 export function resolveAgentActivity(

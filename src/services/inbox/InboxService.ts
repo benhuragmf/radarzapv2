@@ -91,6 +91,8 @@ import { notifySupervisorInternalChatMention } from '@/services/inbox/inbox-supe
 import crypto from 'crypto';
 import {
   getQueuePriorityState,
+  getQueueWaitState,
+  elapsedSecSince,
   isSuggestedUserBusy,
   isAgentAtCapacity,
   getQueuePositionForConversation,
@@ -811,6 +813,18 @@ export class InboxService {
       row.suggestedAt as Date | string | undefined,
       pullTimeoutSeconds,
     );
+    const queueWait = getQueueWaitState(
+      row.queueEnteredAt as Date | string | undefined,
+      row.suggestedAt as Date | string | undefined,
+      pullTimeoutSeconds,
+    );
+    const handleTimeSec =
+      status === InboxConversationStatus.IN_PROGRESS
+        ? elapsedSecSince(
+            (row.acceptedAt as Date | string | undefined) ??
+              (row.lastOutboundAt as Date | string | undefined),
+          )
+        : undefined;
 
     const triageWaitSince =
       status === InboxConversationStatus.BOT_TRIAGE && !assignedId
@@ -872,8 +886,15 @@ export class InboxService {
       canPull,
       suggestedUserBusy,
       pullTimeoutSeconds,
-      queueElapsedSec: suggestedId ? priority.elapsedSec : 0,
-      queueUrgency: suggestedId ? priority.urgency : 0,
+      queueEnteredAt: row.queueEnteredAt
+        ? new Date(row.queueEnteredAt as Date | string).toISOString()
+        : undefined,
+      queueElapsedSec: queueWait.elapsedSec,
+      queueUrgency: suggestedId ? priority.urgency : queueWait.urgency,
+      handleTimeSec,
+      acceptedAt: row.acceptedAt
+        ? new Date(row.acceptedAt as Date | string).toISOString()
+        : undefined,
       triageWaitSince: triageWaitSince
         ? new Date(triageWaitSince).toISOString()
         : undefined,

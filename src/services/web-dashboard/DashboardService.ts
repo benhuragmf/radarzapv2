@@ -1850,7 +1850,7 @@ export class DashboardService {
     r.get('/inbox/presence/me', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        res.json(getMyPresenceSnapshot(auth.clientId, auth.userId));
+        res.json(await getMyPresenceSnapshot(auth.clientId, auth.userId));
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

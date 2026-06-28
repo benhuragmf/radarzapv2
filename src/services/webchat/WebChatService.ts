@@ -1012,6 +1012,7 @@ export class WebChatService {
         r.visitorName,
         r.visitorEmail,
         r.visitorPhone,
+        r.visitorIntake as Record<string, string> | undefined,
       );
       const dept = r.departmentId ? deptRecords.get(String(r.departmentId)) : undefined;
       const deptBadge = dept
@@ -1034,7 +1035,12 @@ export class WebChatService {
         assignedUserName: r.assignedUserId ? agentMap.get(r.assignedUserId) : undefined,
         suggestedUserId: r.suggestedUserId,
         suggestedAt: optionalIsoDate(r.suggestedAt),
+        queueEnteredAt: optionalIsoDate(r.queueEnteredAt),
+        acceptedAt: optionalIsoDate(r.acceptedAt),
         createdAt: optionalIsoDate(r.createdAt),
+        visitorPhone: r.visitorPhone,
+        contactReason: r.contactReason,
+        visitorIntake: r.visitorIntake as Record<string, string> | undefined,
         lastMessageAt: (r.lastMessageAt ?? r.updatedAt ?? r.createdAt).toISOString(),
         lastMessagePreview: r.lastMessagePreview,
         unreadCount: r.unreadAgentCount ?? 0,
@@ -1126,6 +1132,7 @@ export class WebChatService {
       convDoc.visitorName,
       convDoc.visitorEmail,
       convDoc.visitorPhone,
+      convDoc.visitorIntake as Record<string, string> | undefined,
     );
     let assignedUserName: string | undefined;
     if (convDoc.assignedUserId) {
@@ -1184,6 +1191,12 @@ export class WebChatService {
         suggestedUserId: convDoc.suggestedUserId,
         suggestedAt: convDoc.suggestedAt
           ? new Date(convDoc.suggestedAt).toISOString()
+          : undefined,
+        queueEnteredAt: convDoc.queueEnteredAt
+          ? new Date(convDoc.queueEnteredAt).toISOString()
+          : undefined,
+        acceptedAt: convDoc.acceptedAt
+          ? new Date(convDoc.acceptedAt).toISOString()
           : undefined,
         lastMessageAt: detail.conversation.lastMessageAt ?? convDoc.createdAt.toISOString(),
         lastMessagePreview: detail.conversation.lastMessagePreview,
@@ -3197,6 +3210,9 @@ export class WebChatService {
     conversation.suggestedAt = undefined;
     conversation.assignedUserId = userId;
     conversation.queueStatus = 'with_agent';
+    if (!conversation.acceptedAt) {
+      conversation.acceptedAt = new Date();
+    }
     conversation.lastMessageAt = new Date();
     await conversation.save();
 
@@ -4025,6 +4041,9 @@ export class WebChatService {
       conversation.suggestedAt = undefined;
       conversation.whatsappFallbackPriorityStartedAt = undefined;
       conversation.queueStatus = 'with_agent';
+      if (!conversation.acceptedAt) {
+        conversation.acceptedAt = new Date();
+      }
       conversation.lastMessageAt = new Date();
       await conversation.save();
       await this.appendMessage(conversation, {

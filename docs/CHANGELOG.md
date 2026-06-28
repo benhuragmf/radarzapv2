@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.33] — 2026-06-27
+
+### Inbox — nome WebChat, cronômetros fila/atendimento, presença persistente
+
+- **Nome visitante:** resolve campo pré-chat com `preset: name` (ex. `qual_seu_nome`); ignora label "Qual seu nome" como nome exibido.
+- **Cronômetros:** espera na fila desde `queueEnteredAt` (ou `suggestedAt` com indicado); tempo de atendimento desde `acceptedAt` após assumir — lista e header do Inbox.
+- **Presença:** status manual (ausente/ocupado) persistido no Redis; restaurado após F5 via `GET /inbox/presence/me` + hidratação no connect.
+
 ## [2.12.32] — 2026-06-27
 
 ### WebChat — fallback WhatsApp timing dual + encerramento por fila

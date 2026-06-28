@@ -1,6 +1,8 @@
 import { isAgentAvailableForQueue } from '../inbox/inbox-agent-presence';
 import {
   getQueuePriorityState,
+  getQueueWaitState,
+  elapsedSecSince,
   isAgentBusyWithClients,
 } from '../inbox/inbox-queue-priority';
 import type { InboxWebChatListRow } from './webchat-inbox-bridge';
@@ -17,6 +19,8 @@ import {
 type WebChatRowInput = InboxWebChatListRow & {
   suggestedUserId?: string;
   suggestedAt?: Date | string;
+  queueEnteredAt?: Date | string;
+  acceptedAt?: Date | string;
   createdAt?: string;
   lastInboundAt?: Date | string;
   lastOutboundAt?: Date | string;
@@ -75,6 +79,11 @@ export async function enrichWebChatInboxRow(
   }
 
   const priority = getQueuePriorityState(row.suggestedAt, pullTimeoutSeconds);
+  const queueWait = getQueueWaitState(row.queueEnteredAt, row.suggestedAt, pullTimeoutSeconds);
+  const handleTimeSec =
+    status === 'in_progress'
+      ? elapsedSecSince(row.acceptedAt ?? row.lastOutboundAt)
+      : undefined;
 
   const triageWaitSince =
     status === 'bot_triage' && !assignedId ? row.createdAt : undefined;
@@ -146,8 +155,13 @@ export async function enrichWebChatInboxRow(
     canPull,
     suggestedUserBusy,
     pullTimeoutSeconds,
-    queueElapsedSec: suggestedId ? priority.elapsedSec : 0,
-    queueUrgency: suggestedId ? priority.urgency : 0,
+    queueEnteredAt: row.queueEnteredAt
+      ? new Date(row.queueEnteredAt).toISOString()
+      : undefined,
+    queueElapsedSec: queueWait.elapsedSec,
+    queueUrgency: suggestedId ? priority.urgency : queueWait.urgency,
+    handleTimeSec,
+    acceptedAt: row.acceptedAt ? new Date(row.acceptedAt).toISOString() : undefined,
     triageWaitSince,
     triageElapsedSec,
     triageUrgency,

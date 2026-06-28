@@ -9,6 +9,7 @@ import {
   getAgentLastManualStatus,
   getAgentPresence,
   getAllAgentPresence,
+  hydrateAgentPresenceFromPersist,
   type AgentPresenceSnapshot,
 } from '@/services/inbox/inbox-agent-presence';
 import { loadInboxSettings } from '@/constants/inbox-triage';
@@ -96,12 +97,17 @@ export function setAgentOperationalStatus(
   return snapshot;
 }
 
-export function getMyPresenceSnapshot(
+export async function getMyPresenceSnapshot(
   clientId: string,
   userId: string,
-): AgentPresenceSnapshot & { lastManualStatus: AgentOperationalStatus } {
+): Promise<AgentPresenceSnapshot & { lastManualStatus: AgentOperationalStatus }> {
+  let snapshot = getAgentPresence(clientId, userId);
+  if (!snapshot.online || snapshot.operationalStatus === 'offline') {
+    const hydrated = await hydrateAgentPresenceFromPersist(clientId, userId);
+    if (hydrated) snapshot = hydrated;
+  }
   return {
-    ...getAgentPresence(clientId, userId),
+    ...snapshot,
     lastManualStatus: getAgentLastManualStatus(clientId, userId),
   };
 }

@@ -19,6 +19,7 @@ export interface IWebChatConversation extends Document {
   suggestedUserId?: string;
   suggestedAt?: Date;
   assignedUserId?: string;
+  acceptedAt?: Date;
   pageUrl?: string;
   pageTitle?: string;
   userAgent?: string;
@@ -75,6 +76,7 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     suggestedUserId: { type: String, index: true },
     suggestedAt: { type: Date },
     assignedUserId: { type: String, index: true },
+    acceptedAt: { type: Date },
     pageUrl: { type: String, maxlength: 2000 },
     pageTitle: { type: String, maxlength: 500 },
     userAgent: { type: String, maxlength: 500 },

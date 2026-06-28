@@ -1,5 +1,6 @@
 import type { WebChatConversationStatus, WebChatQueueStatus } from '../../types/webchat';
 import type { InboxChannel } from '../../types/inbox';
+import { resolveVisitorNameFromIntake } from '@/utils/webchat-prechat-fields.util';
 
 export const WEBCHAT_INBOX_ID_PREFIX = 'wc:';
 
@@ -29,6 +30,9 @@ export type InboxWebChatListRow = {
   pullTimeoutSeconds?: number;
   queueElapsedSec?: number;
   queueUrgency?: number;
+  queueEnteredAt?: string;
+  handleTimeSec?: number;
+  acceptedAt?: string;
   triageWaitSince?: string;
   triageElapsedSec?: number;
   triageUrgency?: number;
@@ -92,9 +96,14 @@ export function visitorDisplayName(
   visitorName?: string,
   visitorEmail?: string,
   visitorPhone?: string,
+  visitorIntake?: Record<string, string>,
 ): { contactName: string; contactIdentifier: string } {
-  const name =
+  const resolved =
+    resolveVisitorNameFromIntake(visitorName, visitorIntake, null) ||
     visitorName?.trim() ||
+    undefined;
+  const name =
+    resolved ||
     visitorEmail?.trim() ||
     visitorPhone?.trim() ||
     'Visitante do site';

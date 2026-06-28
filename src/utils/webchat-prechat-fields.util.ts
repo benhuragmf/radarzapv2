@@ -224,6 +224,64 @@ export type VisitorIntakePatch = {
   visitorIntake: Record<string, string>;
 };
 
+const PLACEHOLDER_NAME_PATTERNS = [
+  /^qual\s+(e\s+)?o?\s*seu\s+nome/i,
+  /^seu\s+nome/i,
+  /^nome\s+completo/i,
+  /^informe\s+seu\s+nome/i,
+];
+
+function isPlaceholderVisitorName(
+  value: string | undefined,
+  fields: WebChatPrechatField[],
+): boolean {
+  const trimmed = value?.trim();
+  if (!trimmed) return true;
+  const lower = trimmed.toLowerCase();
+  if (PLACEHOLDER_NAME_PATTERNS.some(rx => rx.test(trimmed))) return true;
+  return fields.some(f => f.label.trim().toLowerCase() === lower);
+}
+
+/** Resolve nome real a partir de intake — suporta campo custom (ex.: id qual_seu_nome). */
+export function resolveVisitorNameFromIntake(
+  visitorName: string | undefined,
+  visitorIntake: Record<string, string | undefined> | undefined,
+  appearance?: Partial<WebChatWidgetAppearance> | null,
+): string | undefined {
+  const fields = resolvePrechatFields(appearance);
+  const candidates: Array<string | undefined> = [];
+
+  if (visitorName?.trim()) candidates.push(visitorName.trim());
+  if (visitorIntake?.name?.trim()) candidates.push(visitorIntake.name.trim());
+
+  const nameField = fields.find(f => f.preset === 'name' || f.id === 'name');
+  if (nameField && visitorIntake?.[nameField.id]?.trim()) {
+    candidates.push(visitorIntake[nameField.id]!.trim());
+  }
+
+  for (const field of fields) {
+    if (field.preset === 'name' && visitorIntake?.[field.id]?.trim()) {
+      candidates.push(visitorIntake[field.id]!.trim());
+    }
+  }
+
+  for (const field of fields) {
+    if (field.type !== 'text' && field.type !== 'textarea') continue;
+    if (field.preset === 'phone' || field.preset === 'email' || field.id === 'phone' || field.id === 'email') {
+      continue;
+    }
+    const val = visitorIntake?.[field.id]?.trim();
+    if (val && val.length >= 2 && !val.includes('@')) {
+      candidates.push(val);
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (!isPlaceholderVisitorName(candidate, fields)) return candidate;
+  }
+  return undefined;
+}
+
 export function applyVisitorIntake(
   intake: Record<string, string | undefined>,
   appearance?: Partial<WebChatWidgetAppearance> | null,
@@ -236,8 +294,10 @@ export function applyVisitorIntake(
     if (raw?.trim()) visitorIntake[field.id] = raw.trim();
   }
 
+  const resolvedName = resolveVisitorNameFromIntake(undefined, visitorIntake, appearance);
+
   return {
-    visitorName: visitorIntake.name,
+    visitorName: resolvedName,
     visitorEmail: visitorIntake.email,
     visitorPhone: visitorIntake.phone,
     contactReason: visitorIntake.contact_reason,

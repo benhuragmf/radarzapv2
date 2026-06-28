@@ -32,7 +32,7 @@ import {
   PanelRight,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
-import { formatQueueTimer, liveQueueState, liveTriageWaitState, liveInactivityCloseAllowed, liveGracefulCloseAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
+import { formatQueueTimer, liveQueueState, liveQueueWaitState, liveHandleTimeSec, liveTriageWaitState, liveInactivityCloseAllowed, liveGracefulCloseAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
@@ -93,6 +93,8 @@ interface Conversation {
   pullTimeoutSeconds?: number
   queueElapsedSec?: number
   queueUrgency?: number
+  queueEnteredAt?: string
+  handleTimeSec?: number
   triageWaitSince?: string
   triageElapsedSec?: number
   triageUrgency?: number
@@ -514,6 +516,9 @@ export default function Inbox() {
   const hasPriorityQueue = conversations.some(
     c => c.status === 'waiting_queue' && c.suggestedAt,
   )
+  const hasQueueWait = conversations.some(
+    c => c.status === 'waiting_queue' && (c.queueEnteredAt || c.suggestedAt),
+  )
   const hasTriageWait = conversations.some(
     c => c.status === 'bot_triage' && !c.assignedUserId,
   )
@@ -523,7 +528,7 @@ export default function Inbox() {
     queryFn: () =>
       api.get<ConversationDetail>(`/inbox/conversations/${selectedId}`),
     enabled: Boolean(selectedId),
-    refetchInterval: hasPriorityQueue || hasTriageWait ? 10_000 : 30_000,
+    refetchInterval: hasPriorityQueue || hasTriageWait || hasQueueWait ? 10_000 : 30_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   })
@@ -735,9 +740,19 @@ export default function Inbox() {
     }
   }, [isWebChatConv, selectedId])
 
-  const convLive = conv?.suggestedAt
-    ? liveQueueState(conv.suggestedAt, conv.pullTimeoutSeconds ?? 120, tick)
+  const convLive = conv?.status === 'waiting_queue'
+    ? liveQueueWaitState(
+        conv.queueEnteredAt,
+        conv.suggestedAt,
+        conv.pullTimeoutSeconds ?? 120,
+        tick,
+      )
     : { elapsedSec: 0, urgency: 0 }
+
+  const convHandleSec =
+    conv?.status === 'in_progress'
+      ? liveHandleTimeSec(conv.acceptedAt, tick)
+      : 0
 
   const convInTriage = Boolean(conv?.status === 'bot_triage' && !conv?.assignedUserId)
   const convTriageLive = convInTriage
@@ -837,8 +852,10 @@ export default function Inbox() {
 
   const needsLiveTimer =
     hasPriorityQueue ||
+    hasQueueWait ||
     hasTriageWait ||
-    Boolean(conv?.status === 'waiting_queue' && conv?.suggestedAt) ||
+    Boolean(conv?.status === 'waiting_queue' && (conv?.queueEnteredAt || conv?.suggestedAt)) ||
+    Boolean(conv?.status === 'in_progress' && conv?.acceptedAt) ||
     convInTriage ||
     Boolean(
       closeQuickReplyGateEnabled &&
@@ -1096,9 +1113,15 @@ export default function Inbox() {
             ) : (
               filteredConversations.map(c => {
                 const inTriage = c.status === 'bot_triage' && !c.assignedUserId
-                const live = c.suggestedAt
-                  ? liveQueueState(c.suggestedAt, c.pullTimeoutSeconds ?? 120, tick)
-                  : { elapsedSec: c.queueElapsedSec ?? 0, urgency: c.queueUrgency ?? 0 }
+                const live =
+                  c.status === 'waiting_queue'
+                    ? liveQueueWaitState(
+                        c.queueEnteredAt,
+                        c.suggestedAt,
+                        c.pullTimeoutSeconds ?? 120,
+                        tick,
+                      )
+                    : { elapsedSec: c.queueElapsedSec ?? 0, urgency: c.queueUrgency ?? 0 }
                 const triageLive = inTriage
                   ? liveTriageWaitState(
                       c.triageWaitSince ?? c.createdAt,
@@ -1201,7 +1224,7 @@ export default function Inbox() {
                       )}
                       <div className="flex items-center justify-between gap-2 mt-1">
                         <p className="text-[11px] text-[var(--rz-text-muted)] truncate">{subtitle || '—'}</p>
-                        {c.suggestedUserId && c.status === 'waiting_queue' ? (
+                        {c.status === 'waiting_queue' && (c.queueEnteredAt || c.suggestedAt) ? (
                           <span className={`flex items-center gap-0.5 text-[10px] shrink-0 font-mono tabular-nums ${timerCls}`}>
                             <Clock size={10} />
                             {formatQueueTimer(live.elapsedSec)}
@@ -1426,6 +1449,17 @@ export default function Inbox() {
                   </div>
                 </div>
 
+                {conv.status === 'waiting_queue' && !conv.suggestedUserId && (conv.queueEnteredAt || convLive.elapsedSec > 0) && (
+                  <div className={queueUrgencyPanelClass(convLive.urgency)}>
+                    <Clock size={14} className={`shrink-0 ${queueUrgencyTimerClass(convLive.urgency)}`} />
+                    <span>
+                      Na fila aguardando atendente ·{' '}
+                      <span className={`font-mono ${queueUrgencyTimerClass(convLive.urgency)}`}>
+                        {formatQueueTimer(convLive.elapsedSec)}
+                      </span>
+                    </span>
+                  </div>
+                )}
                 {conv.suggestedUserId && conv.status === 'waiting_queue' && (
                   <div className={queueUrgencyPanelClass(convLive.urgency)}>
                     <Clock size={14} className={`shrink-0 ${queueUrgencyTimerClass(convLive.urgency)}`} />
@@ -1460,6 +1494,15 @@ export default function Inbox() {
                         )}
                       </span>
                     )}
+                  </div>
+                )}
+                {conv.status === 'in_progress' && convHandleSec > 0 && (
+                  <div className="flex items-center gap-2 px-4 py-2 text-xs border-b border-emerald-500/20 bg-emerald-500/5 text-emerald-300/90">
+                    <Clock size={14} className="shrink-0" />
+                    <span>
+                      Em atendimento ·{' '}
+                      <span className="font-mono tabular-nums">{formatQueueTimer(convHandleSec)}</span>
+                    </span>
                   </div>
                 )}
                 {convInTriage && (

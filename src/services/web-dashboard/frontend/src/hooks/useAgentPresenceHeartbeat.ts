@@ -244,16 +244,16 @@ export function useAgentPresenceHeartbeat(enabled = true) {
 
     const socket = getSocket()
     const ensureConnectedPresence = () => {
+      if (!presenceHydratedRef.current) return
       const p = presenceRef.current
-      if (p.operationalStatus !== 'offline' || p.statusSource === 'manual') return
-      const target = p.lastManualStatus === 'offline' ? 'offline' : 'online'
-      if (target === 'offline') return
+      if (p.operationalStatus !== 'offline') return
+      if (p.statusSource === 'manual' || p.lastManualStatus !== 'online') return
       setPresenceLocal({
-        operationalStatus: target,
+        operationalStatus: 'online',
         statusSource: 'auto',
-        statusLabel: statusLabelFor(target),
+        statusLabel: statusLabelFor('online'),
         online: true,
-        availableForQueue: target === 'online',
+        availableForQueue: true,
       })
     }
     const ping = () => {
