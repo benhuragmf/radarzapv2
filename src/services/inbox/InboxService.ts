@@ -1284,6 +1284,30 @@ export class InboxService {
     return this.isWithinPostAckReplyWindow(ticket);
   }
 
+  /**
+   * Inbox, IA ou ticket ativo — consentimento LGPD não deve capturar respostas naturais
+   * (ex.: "sim" na confirmação de nome durante triagem).
+   */
+  async hasActiveClientAtendimentoContext(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+  ): Promise<boolean> {
+    if (await this.hasActiveClientTicketContext(clientId, destinationId)) return true;
+    if (await this.inboxTriageContextActive(clientId, destinationId)) return true;
+    if (await this.contactHasActiveAiTriage(clientId, destinationId)) return true;
+    const active = await InboxConversation.exists({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      destinationId,
+      status: {
+        $in: [
+          InboxConversationStatus.IN_PROGRESS,
+          InboxConversationStatus.WAITING_QUEUE,
+        ],
+      },
+    });
+    return Boolean(active);
+  }
+
   /** Processa resposta do cliente no contexto de ticket (antes do consent, evita "sair" = opt-out). */
   async handleTicketInboundMessage(
     clientId: string,

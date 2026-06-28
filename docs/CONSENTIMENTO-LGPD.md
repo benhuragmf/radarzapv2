@@ -29,6 +29,13 @@ Quando o contato ainda não aceitou (`consentStatus` pendente), o `WhatsAppServi
 
 **Ordem no inbound:** consentimento → ticket fechado (se aplicável) → Inbox ao vivo. Resposta `1` em ticket fechado **não** é aceite LGPD — ver `INBOX-ATENDIMENTO.md` (tickets assíncronos).
 
+## Opt-out (`sair`) × atendimento ativo (2.12.65)
+
+- Prompt **1/2** continua só para **outbound**; quem **inicia** contato vai direto ao Inbox (`acceptInboundInitiated`).
+- Durante triagem IA, fila, ticket ou conversa ativa, opt-out **não captura** respostas naturais (`sim`, nome, e-mail).
+- Confirmação de cancelamento: keywords explícitas (`sair`, `confirmo`, …) — não `sim`/`ok`.
+- `optOutConfirmPendingAt` obsoleto é limpo ao retomar contato inbound ou ao detectar atendimento ativo (`InboxService.hasActiveClientAtendimentoContext`).
+
 ## API
 
 | Método | Rota | Cap |

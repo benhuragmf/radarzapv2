@@ -64,7 +64,7 @@ export function parseOptOutReply(text: string): boolean {
 }
 
 export const CONSENT_OPT_OUT_CONFIRM_KEYWORDS = [
-  'sair', 'sim', 'confirmo', 'confirmar', 'cancelar', 'ok', 'quero sair', 'nao quero', 'não quero',
+  'sair', 'confirmo', 'confirmar', 'cancelar', 'quero sair', 'nao quero', 'não quero',
 ];
 
 /** Voltar a receber — só após cancelamento confirmado (status recusado) */

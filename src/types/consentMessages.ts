@@ -59,7 +59,7 @@ _Obrigado pela resposta._`,
 
 Confirma que *não* deseja mais receber mensagens de ${plain}?
 
-• *Confirmar cancelamento:* responda *sair* ou *sim*
+• *Confirmar cancelamento:* responda *sair* ou *confirmo*
 • *Manter inscrição:* responda *não* ou *continuar*`,
 
     optOutConfirmed: `${title}
@@ -82,7 +82,7 @@ Você voltou a receber mensagens de ${plain}.
 _Para cancelar novamente, envie *sair*._`,
 
     optOutPendingHint: `${title}
-Para confirmar o cancelamento: *sair* ou *sim*.
+Para confirmar o cancelamento: *sair* ou *confirmo*.
 Para manter a inscrição: *não* ou *continuar*.`,
   };
 }

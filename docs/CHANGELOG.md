@@ -1,8 +1,19 @@
-﻿# RadarZap — Changelog
+# RadarZap — Changelog
 
 Registro append-only de entregas versionadas. Protocolo: [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md).
 
 Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
+
+---
+
+## [2.12.65] — 2026-06-28
+
+### Fix — LGPD opt-out × triagem IA (QA Fase 1 § A.1)
+
+- **`ConsentService`:** defer fluxo opt-out enquanto atendimento ativo (triagem, IA, fila, ticket); limpar `optOutConfirmPendingAt` stale ao reiniciar contato `ACCEPTED`.
+- **`InboxService`:** `hasActiveClientAtendimentoContext()` — ticket + triagem + IA + conversa in_progress/waiting_queue.
+- **`consent.ts`:** remover `sim`/`ok` de `CONSENT_OPT_OUT_CONFIRM_KEYWORDS`; limpar pending stale; textos LGPD sem `sim`.
+- Testes: `consent-reply.test.ts` — opt-out confirm.
 
 ---
 

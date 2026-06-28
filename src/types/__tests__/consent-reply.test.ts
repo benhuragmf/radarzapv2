@@ -2,6 +2,7 @@ import {
   ConsentStatus,
   canReplyToConsentPrompt,
   parseConsentReply,
+  parseOptOutConfirm,
 } from '@/types/consent';
 
 describe('consent reply parsing', () => {
@@ -24,5 +25,12 @@ describe('consent reply parsing', () => {
   it('canReplyToConsentPrompt só em PENDING', () => {
     expect(canReplyToConsentPrompt(ConsentStatus.PENDING)).toBe(true);
     expect(canReplyToConsentPrompt(ConsentStatus.ACCEPTED)).toBe(false);
+  });
+
+  it('opt-out confirm não usa sim/ok (evita colisão com triagem IA)', () => {
+    expect(parseOptOutConfirm('sim')).toBe(false);
+    expect(parseOptOutConfirm('ok')).toBe(false);
+    expect(parseOptOutConfirm('sair')).toBe(true);
+    expect(parseOptOutConfirm('confirmo')).toBe(true);
   });
 });

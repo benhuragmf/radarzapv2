@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.12.64` (`package.json`) · **Última revisão doc:** 2026-06-28
+**Versão atual:** `2.12.65` (`package.json`) · **Última revisão doc:** 2026-06-28
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.12.65** | Fix LGPD opt-out × triagem IA — defer atendimento, keywords sem sim/ok |
 | **2.12.64** | Docs: `PENDENCIAS-HUMANAS-FASE1.md`, arquivamento `concluidos/`, ROADMAP/WEBCHAT alinhados |
 | **2.12.63** | AH-D04 portal LGPD tenant — export JSON + anonimização + eventos |
 | **2.12.62** | AH-S01 degraded boot dev (Redis opcional); health `degraded` |

@@ -437,7 +437,13 @@ export class ConsentService {
    */
   async acceptInboundInitiated(clientId: string, dest: IDestination): Promise<boolean> {
     const prev = dest.consentStatus ?? ConsentStatus.PENDING;
-    if (prev === ConsentStatus.ACCEPTED) return true;
+    if (prev === ConsentStatus.ACCEPTED) {
+      if (dest.optOutConfirmPendingAt) {
+        dest.optOutConfirmPendingAt = undefined;
+        await dest.save();
+      }
+      return true;
+    }
     if (prev === ConsentStatus.MANUALLY_BLOCKED || prev === ConsentStatus.REFUSED_THREE) {
       return false;
     }
@@ -479,7 +485,31 @@ export class ConsentService {
     wa: WhatsAppService,
   ): Promise<boolean> {
     const msgs = await this.getMessages(clientId);
-    const pending = !!dest.optOutConfirmPendingAt;
+    const destId = dest._id as mongoose.Types.ObjectId;
+    const { InboxService } = await import('@/services/inbox/InboxService');
+    const inAtendimento = await InboxService.getInstance().hasActiveClientAtendimentoContext(
+      clientId,
+      destId,
+    );
+    if (inAtendimento) {
+      if (dest.optOutConfirmPendingAt) {
+        dest.optOutConfirmPendingAt = undefined;
+        await dest.save();
+      }
+      return false;
+    }
+
+    let pending = !!dest.optOutConfirmPendingAt;
+    if (
+      pending &&
+      !parseOptOutConfirm(text) &&
+      !parseOptOutAbort(text) &&
+      !parseResubscribeReply(text)
+    ) {
+      dest.optOutConfirmPendingAt = undefined;
+      await dest.save();
+      pending = false;
+    }
 
     if (pending) {
       if (parseOptOutAbort(text)) {
@@ -533,13 +563,6 @@ export class ConsentService {
     }
 
     if (parseOptOutRequest(text)) {
-      const { InboxService } = await import('@/services/inbox/InboxService');
-      const inTicketContext = await InboxService.getInstance().hasActiveClientTicketContext(
-        clientId,
-        dest._id as mongoose.Types.ObjectId,
-      );
-      if (inTicketContext) return false;
-
       dest.optOutConfirmPendingAt = new Date();
       await dest.save();
       await wa.sendManualMessage(
