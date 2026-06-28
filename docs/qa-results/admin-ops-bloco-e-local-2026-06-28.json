@@ -1,11 +1,11 @@
 {
-  "finishedAt": "2026-06-28T19:05:13.565Z",
+  "finishedAt": "2026-06-28T19:14:19.883Z",
   "organizationId": "6a2770e3edb88c1ee1cf567d",
   "organizationName": "Kiro System",
   "planBefore": "pro",
   "planChangedTo": "starter",
   "planRevertedTo": "pro",
-  "auditLogId": "6a417069fd43c2b656456201",
+  "auditLogId": "6a41728b700ef8750eb7396c",
   "auditAction": "admin.plan.changed",
   "summaryVersion": "2.12.45",
   "status": "BLOCO_E_LOCAL_PASS",
