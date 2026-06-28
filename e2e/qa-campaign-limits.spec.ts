@@ -37,7 +37,7 @@ test.describe('QA — limites de campanha v2.12.22 (mock API)', () => {
     await page.goto('/send');
     await policyReady;
     await expect(page.getByRole('main').getByRole('heading', { name: 'Enviar agora' })).toBeVisible({ timeout: 15_000 });
-    await page.getByText('3. Quando e como enviar').scrollIntoViewIfNeeded();
+    await page.getByText('3. Proteção e opções').scrollIntoViewIfNeeded();
     await expect(page.getByText('Hierarquia de limites (admin → empresa → envio)')).toBeVisible({
       timeout: 15_000,
     });

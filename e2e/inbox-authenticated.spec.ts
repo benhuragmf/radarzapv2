@@ -71,7 +71,10 @@ test.describe('Supervisor — autenticado (mock API)', () => {
   });
 
   test('link volta para Caixa de Entrada', async ({ page }) => {
-    await page.getByRole('link', { name: '← Caixa de Entrada' }).click();
+    await page
+      .getByRole('navigation', { name: 'Navegação do módulo de atendimento' })
+      .getByRole('link', { name: 'Caixa de Entrada' })
+      .click();
     await expectInboxLoaded(page);
   });
 });

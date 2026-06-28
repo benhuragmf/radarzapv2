@@ -74,7 +74,7 @@ npx playwright test e2e/admin-dashboard.spec.ts --project=chromium
 | Item | Status |
 |------|--------|
 | GitHub **Deploy** `main` @ `b4bfb24` | ✅ success (~3m31s) |
-| GitHub **CI** | verificar run mais recente em `main` |
+| GitHub **CI** `main` @ `b4bfb24` | ❌ 2 E2E flaky (supervisor nav + SendNow título) — fix em `develop` |
 | Unit 2.12.60–63 | ✅ 14/14 (lgpd, bridge, infra-boot, infra-health) |
 | E2E LGPD mock | ✅ `e2e/lgpd-portal.spec.ts` |
 | E2E Admin hub IA | ✅ testes ai-blueprint / ai-platform em `admin-dashboard.spec.ts` |
