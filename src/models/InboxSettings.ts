@@ -54,6 +54,7 @@ export interface IInboxSettings extends Document {
   gracefulCloseDetectPhrases: boolean;
   inactivityCloseGracefulQuickCode: string;
   closeQuickReplyGateEnabled: boolean;
+  gracefulCloseQuickReplyGateEnabled: boolean;
   queueSlaAlertMinutes: number;
   ticketTeamResponseHours: number;
   attendantTriageVisible: boolean;
@@ -187,6 +188,10 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     closeQuickReplyGateEnabled: {
       type: Boolean,
       default: DEFAULT_INBOX_SLA.closeQuickReplyGateEnabled,
+    },
+    gracefulCloseQuickReplyGateEnabled: {
+      type: Boolean,
+      default: DEFAULT_INBOX_SLA.gracefulCloseQuickReplyGateEnabled,
     },
     queueSlaAlertMinutes: {
       type: Number,

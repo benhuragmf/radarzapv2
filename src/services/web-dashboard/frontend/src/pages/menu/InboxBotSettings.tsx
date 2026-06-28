@@ -74,6 +74,7 @@ interface InboxSettings {
   gracefulCloseAfterPromptMinutes?: number
   gracefulCloseDetectPhrases?: boolean
   closeQuickReplyGateEnabled?: boolean
+  gracefulCloseQuickReplyGateEnabled?: boolean
   queueSlaAlertMinutes: number
   ticketTeamResponseHours: number
   triageInactivityEnabled: boolean
@@ -191,7 +192,18 @@ export default function InboxBotSettings() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<BotTab>('messages')
   const [focusedField, setFocusedField] = useState<keyof InboxSettings | null>(null)
-  const [slaAdvancedOpen, setSlaAdvancedOpen] = useState(false)
+  const [slaAdvancedOpen, setSlaAdvancedOpen] = useState(true)
+
+  useEffect(() => {
+    const raw = window.location.hash.replace(/^#/, '').toLowerCase()
+    if (raw === 'quality' || raw === 'qualidade' || raw === 'sla' || raw === 'atalhos') {
+      setTab('quality')
+    }
+    if (raw === 'sla' || raw === 'atalhos' || raw === 'aus' || raw === 'enc') {
+      setTab('quality')
+      setSlaAdvancedOpen(true)
+    }
+  }, [])
 
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],
@@ -232,6 +244,8 @@ export default function InboxBotSettings() {
         gracefulCloseDetectPhrases: data.gracefulCloseDetectPhrases ?? true,
         inactivityCloseGracefulQuickCode: data.inactivityCloseGracefulQuickCode ?? 'enc_ok',
         closeQuickReplyGateEnabled: data.closeQuickReplyGateEnabled ?? true,
+        gracefulCloseQuickReplyGateEnabled:
+          data.gracefulCloseQuickReplyGateEnabled ?? data.closeQuickReplyGateEnabled ?? true,
         attendantTriageVisible: data.attendantTriageVisible ?? false,
       })
     }
@@ -900,6 +914,35 @@ export default function InboxBotSettings() {
 
           {tab === 'quality' && (
             <>
+              <Card className="space-y-3 p-5 border-brand-500/25 bg-brand-500/5">
+                <h2 className="text-sm font-semibold text-[var(--rz-text-primary)] flex items-center gap-2">
+                  <Zap size={16} className="text-brand-400" />
+                  Atalhos /aus, /enc no chat (Inbox)
+                </h2>
+                <p className="text-xs text-[var(--rz-text-muted)] leading-relaxed">
+                  Os botões <span className="font-mono text-brand-300">/aus</span>,{' '}
+                  <span className="font-mono text-brand-300">/enc</span>,{' '}
+                  <span className="font-mono text-brand-300">/mais</span> aparecem{' '}
+                  <strong>dentro da conversa</strong> em{' '}
+                  <Link to="/platform/inbox" className="text-[var(--rz-accent)] hover:underline">
+                    Inbox
+                  </Link>{' '}
+                  (abaixo da caixa de mensagem), não nesta página.
+                </p>
+                <ul className="text-xs text-[var(--rz-text-muted)] space-y-1 list-disc pl-4">
+                  <li>
+                    <strong>Texto</strong> de cada atalho →{' '}
+                    <Link to="/platform/inbox/respostas" className="text-[var(--rz-accent)] hover:underline">
+                      Respostas rápidas
+                    </Link>
+                  </li>
+                  <li>
+                    <strong>Códigos</strong> (/aus, /enc…) e <strong>tempos</strong> → cards abaixo nesta aba
+                    Qualidade
+                  </li>
+                </ul>
+              </Card>
+
               <Card className="space-y-4 p-5">
                 <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">CSAT — satisfação pós-atendimento</h2>
                 <p className="text-xs text-[var(--rz-text-muted)]">
@@ -940,6 +983,8 @@ export default function InboxBotSettings() {
                 </div>
                 <p className="text-xs text-[var(--rz-text-muted)]">
                   Encerramento automático quando o cliente para de responder durante o atendimento humano.
+                  Também define quanto tempo esperar entre <span className="font-mono">/aus</span> e{' '}
+                  <span className="font-mono">/enc</span> quando você usa os atalhos no Inbox.
                 </p>
                 <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
                   <input
@@ -950,7 +995,10 @@ export default function InboxBotSettings() {
                   Encerrar automaticamente por inatividade
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-xs text-[var(--rz-text-muted)]">Minutos até aviso automático (0 = desligado)</span>
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Minutos até aviso automático do bot (0 = desligado) — equivalente ao /{' '}
+                    {form.inactivityWarningQuickCode ?? 'aus'}
+                  </span>
                   <input
                     type="number"
                     min={0}
@@ -962,7 +1010,10 @@ export default function InboxBotSettings() {
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-xs text-[var(--rz-text-muted)]">Minutos totais até encerramento (0 = desligado)</span>
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Minutos totais até encerramento automático (0 = desligado) — equivalente ao /{' '}
+                    {form.inactivityCloseQuickCode ?? 'enc'}
+                  </span>
                   <input
                     type="number"
                     min={0}
@@ -973,6 +1024,24 @@ export default function InboxBotSettings() {
                     onChange={e => patch('inactivityCloseMinutes', Number(e.target.value) || 0)}
                   />
                 </label>
+                {form.inactivityAutoCloseEnabled && (
+                  <p className="rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/60 px-3 py-2 text-xs text-[var(--rz-text-secondary)]">
+                    Após enviar{' '}
+                    <span className="font-mono text-brand-300">/{form.inactivityWarningQuickCode ?? 'aus'}</span>{' '}
+                    manualmente no Inbox, o{' '}
+                    <span className="font-mono text-brand-300">/{form.inactivityCloseQuickCode ?? 'enc'}</span>{' '}
+                    libera em{' '}
+                    <strong>
+                      {Math.max(
+                        0,
+                        (form.inactivityCloseMinutes ?? 0) - (form.inactivityWarningMinutes ?? 0),
+                      )}{' '}
+                      min
+                    </strong>{' '}
+                    (total − aviso). Para liberar na hora, desmarque o bloqueio de inatividade na seção
+                    abaixo.
+                  </p>
+                )}
               </Card>
 
               <Card className="space-y-4 p-5">
@@ -982,9 +1051,11 @@ export default function InboxBotSettings() {
                   className="flex w-full items-center justify-between gap-2 text-left"
                 >
                   <div>
-                    <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Atalhos e encerramento cordial</h2>
+                    <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">
+                      Atalhos e bloqueio (/aus · /mais)
+                    </h2>
                     <p className="mt-0.5 text-xs text-[var(--rz-text-muted)]">
-                      Códigos de resposta rápida — configure os textos em{' '}
+                      Códigos dos atalhos (não confundir com o texto enviado ao cliente). Textos em{' '}
                       <Link
                         to="/platform/inbox/respostas"
                         className="text-[var(--rz-accent)] hover:underline"
@@ -992,6 +1063,15 @@ export default function InboxBotSettings() {
                       >
                         Respostas rápidas
                       </Link>
+                      . Uso no chat:{' '}
+                      <Link
+                        to="/platform/inbox"
+                        className="text-[var(--rz-accent)] hover:underline"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        Inbox → conversa aberta
+                      </Link>
+                      .
                     </p>
                   </div>
                   <ChevronDown
@@ -1036,12 +1116,9 @@ export default function InboxBotSettings() {
                         checked={form.closeQuickReplyGateEnabled ?? true}
                         onChange={e => patch('closeQuickReplyGateEnabled', e.target.checked)}
                       />
-                      Bloquear atalhos até cumprir sequência e tempo
+                      Bloquear /{form.inactivityCloseQuickCode ?? 'enc'} até /{form.inactivityWarningQuickCode ?? 'aus'}{' '}
+                      + tempo (inatividade)
                     </label>
-                    <p className="text-xs text-[var(--rz-text-muted)]">
-                      Dois caminhos: inatividade (/{form.inactivityWarningQuickCode ?? 'aus'} → /{form.inactivityCloseQuickCode ?? 'enc'}) e
-                      encerramento natural (/{form.gracefulCloseQuickCode ?? 'mais'} → /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}).
-                    </p>
 
                     <div className="space-y-3 rounded-lg border border-[var(--rz-border)] p-3">
                       <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">Encerramento natural</h3>
@@ -1078,7 +1155,7 @@ export default function InboxBotSettings() {
                       </div>
                       <label className="block space-y-1">
                         <span className="text-xs text-[var(--rz-text-muted)]">
-                          Minutos após pergunta final para liberar /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
+                          Minutos após /{form.gracefulCloseQuickCode ?? 'mais'} para liberar /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}
                         </span>
                         <input
                           type="number"
@@ -1089,6 +1166,20 @@ export default function InboxBotSettings() {
                           onChange={e => patch('gracefulCloseAfterPromptMinutes', Number(e.target.value) || 0)}
                         />
                       </label>
+                      <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                        <input
+                          type="checkbox"
+                          checked={form.gracefulCloseQuickReplyGateEnabled ?? true}
+                          onChange={e => patch('gracefulCloseQuickReplyGateEnabled', e.target.checked)}
+                        />
+                        Bloquear /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'} até /{form.gracefulCloseQuickCode ?? 'mais'}{' '}
+                        + tempo ou resposta do cliente
+                      </label>
+                      <p className="text-xs text-[var(--rz-text-muted)]">
+                        Fluxo: envie /{form.gracefulCloseQuickCode ?? 'mais'} → aguarde o cliente responder (ou{' '}
+                        {form.gracefulCloseAfterPromptMinutes ?? 2} min) → /{form.inactivityCloseGracefulQuickCode ?? 'enc_ok'}{' '}
+                        libera no Inbox.
+                      </p>
                       <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
                         <input
                           type="checkbox"

@@ -164,6 +164,7 @@ interface ConversationDetail {
     inactivityCloseGracefulQuickCode?: string
     inactivityCloseAfterWarningMinutes?: number
     closeQuickReplyGateEnabled?: boolean
+    gracefulCloseQuickReplyGateEnabled?: boolean
   }
 }
 
@@ -774,7 +775,11 @@ export default function Inbox() {
       )
     : { elapsedSec: 0, urgency: 0 }
 
-  const closeQuickReplyGateEnabled = detail?.inactivitySla?.closeQuickReplyGateEnabled !== false
+  const inactivityCloseGateEnabled = detail?.inactivitySla?.closeQuickReplyGateEnabled !== false
+  const gracefulCloseGateEnabled =
+    detail?.inactivitySla?.gracefulCloseQuickReplyGateEnabled !== undefined
+      ? detail.inactivitySla.gracefulCloseQuickReplyGateEnabled !== false
+      : detail?.inactivitySla?.closeQuickReplyGateEnabled !== false
 
   const inactivityCloseAfterWarningMinutes =
     detail?.inactivitySla?.inactivityCloseAfterWarningMinutes ??
@@ -785,11 +790,11 @@ export default function Inbox() {
     )
 
   const inactivityCloseAllowed =
-    !closeQuickReplyGateEnabled ||
+    !inactivityCloseGateEnabled ||
     liveInactivityCloseAllowed(conv?.inactivityWarnedAt, inactivityCloseAfterWarningMinutes, tick)
 
   const encOkCloseAllowed =
-    !closeQuickReplyGateEnabled ||
+    !gracefulCloseGateEnabled ||
     liveGracefulCloseAllowed(
       conv?.gracefulClosePromptAt,
       conv?.gracefulCloseAckAt,
@@ -798,7 +803,7 @@ export default function Inbox() {
     )
 
   const gracefulClosePending =
-    closeQuickReplyGateEnabled &&
+    gracefulCloseGateEnabled &&
     Boolean(conv?.gracefulClosePromptAt) &&
     !conv?.gracefulCloseAckAt &&
     !encOkCloseAllowed &&
@@ -869,10 +874,13 @@ export default function Inbox() {
     Boolean(conv?.status === 'in_progress' && conv?.acceptedAt) ||
     convInTriage ||
     Boolean(
-      closeQuickReplyGateEnabled &&
-        (conv?.inactivityWarnedAt || conv?.gracefulClosePromptAt) &&
-        !inactivityCloseAllowed &&
-        conv?.status === 'in_progress',
+      conv?.status === 'in_progress' &&
+        ((inactivityCloseGateEnabled &&
+          conv?.inactivityWarnedAt &&
+          !inactivityCloseAllowed) ||
+          (gracefulCloseGateEnabled &&
+            conv?.gracefulClosePromptAt &&
+            !encOkCloseAllowed)),
     )
 
   useEffect(() => {
@@ -1611,7 +1619,8 @@ export default function Inbox() {
                     gracefulCloseQuickCode={detail?.inactivitySla?.gracefulCloseQuickCode ?? 'mais'}
                     inactivityCloseAllowed={inactivityCloseAllowed}
                     encOkCloseAllowed={encOkCloseAllowed}
-                    closeQuickReplyGateEnabled={closeQuickReplyGateEnabled}
+                    inactivityCloseGateEnabled={inactivityCloseGateEnabled}
+                    gracefulCloseGateEnabled={gracefulCloseGateEnabled}
                     sending={composeMode === 'internal' ? saveInternalChat.isPending : sendReply.isPending}
                     sendDisabled={!canReply}
                     composeMode={composeMode}

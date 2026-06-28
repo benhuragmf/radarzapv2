@@ -73,8 +73,10 @@ export const DEFAULT_INBOX_SLA = {
   gracefulCloseDetectPhrases: true,
   /** Template de encerramento cordial (ex.: enc_ok). */
   inactivityCloseGracefulQuickCode: 'enc_ok',
-  /** Exige /aus ou /mais antes de liberar o atalho de encerramento manual. */
+  /** Exige /aus antes de liberar o atalho /enc (inatividade). */
   closeQuickReplyGateEnabled: true,
+  /** Exige /mais antes de liberar o atalho /enc_ok (encerramento natural). */
+  gracefulCloseQuickReplyGateEnabled: true,
   /** Alerta de supervisor quando conversa na fila excede este tempo (0 = desligado). */
   queueSlaAlertMinutes: 30,
   /** Horas para equipe responder após mensagem do cliente no ticket (0 = desligado). */
@@ -116,3 +118,20 @@ export const DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE =
 
 /** Atendimentos simultâneos por atendente (Inbox + WebChat + bridge WA). */
 export const DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT = 1;
+
+/** Legado: se só existir closeQuickReplyGateEnabled, encerramento natural herda o mesmo valor. */
+export function resolveGracefulCloseQuickReplyGateEnabled(settings: {
+  gracefulCloseQuickReplyGateEnabled?: boolean;
+  closeQuickReplyGateEnabled?: boolean;
+}): boolean {
+  if (settings.gracefulCloseQuickReplyGateEnabled !== undefined) {
+    return settings.gracefulCloseQuickReplyGateEnabled !== false;
+  }
+  return settings.closeQuickReplyGateEnabled !== false;
+}
+
+export function resolveInactivityCloseQuickReplyGateEnabled(settings: {
+  closeQuickReplyGateEnabled?: boolean;
+}): boolean {
+  return settings.closeQuickReplyGateEnabled !== false;
+}

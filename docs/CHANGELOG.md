@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.68] — 2026-06-28
+
+### Feat — Gate de atalhos separado: inatividade vs encerramento natural
+
+- `gracefulCloseQuickReplyGateEnabled`: bloqueio independente de `/enc_ok` até `/mais` + tempo ou resposta do cliente.
+- `closeQuickReplyGateEnabled` continua só para `/enc` após `/aus` + tempo.
+- Bot → Qualidade: dois checkboxes + UX dos atalhos; Inbox e WebChat validam gates separados.
+
+---
+
 ## [2.12.67] — 2026-06-28
 
 ### Feat — Fallback WhatsApp na fila nativa (Inbox WA)

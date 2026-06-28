@@ -89,7 +89,7 @@ import {
   isEncOkCloseQuickReplyAllowed,
   triageInactivityTotalMinutes,
 } from '../inbox/inbox-inactivity';
-import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY } from '../../types/inbox-settings';
+import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, resolveGracefulCloseQuickReplyGateEnabled, resolveInactivityCloseQuickReplyGateEnabled } from '../../types/inbox-settings';
 import {
   applyQuickReplyTemplate,
   expandQuickReply,
@@ -1130,6 +1130,7 @@ export class WebChatService {
       gracefulCloseDetectPhrases?: boolean;
       inactivityCloseGracefulQuickCode: string;
       closeQuickReplyGateEnabled: boolean;
+      gracefulCloseQuickReplyGateEnabled: boolean;
       inactivityCloseAfterWarningMinutes: number;
     };
   } | null> {
@@ -1320,7 +1321,8 @@ export class WebChatService {
         gracefulCloseAfterPromptMinutes: inboxSettings.gracefulCloseAfterPromptMinutes,
         gracefulCloseDetectPhrases: inboxSettings.gracefulCloseDetectPhrases,
         inactivityCloseGracefulQuickCode: resolveInactivityCloseGracefulQuickCode(inboxSettings),
-        closeQuickReplyGateEnabled: inboxSettings.closeQuickReplyGateEnabled !== false,
+        closeQuickReplyGateEnabled: resolveInactivityCloseQuickReplyGateEnabled(inboxSettings),
+        gracefulCloseQuickReplyGateEnabled: resolveGracefulCloseQuickReplyGateEnabled(inboxSettings),
         inactivityCloseAfterWarningMinutes: inactivityCloseAfterWarningMinutes(
           inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           inboxSettings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
@@ -3503,7 +3505,7 @@ export class WebChatService {
 
     const freshBefore = await WebChatConversation.findById(conversation._id);
     if (isInactivityCloseQuickCode(quickCode, settings) && freshBefore) {
-      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const inactivityGateEnabled = resolveInactivityCloseQuickReplyGateEnabled(settings);
       const encAllowed = isEncInactivityCloseQuickReplyAllowed(
         {
           lastInboundAt: freshBefore.lastInboundAt,
@@ -3520,7 +3522,7 @@ export class WebChatService {
             settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
         },
       );
-      if (gateEnabled && !encAllowed) {
+      if (inactivityGateEnabled && !encAllowed) {
         const afterAus = inactivityCloseAfterWarningMinutes(
           settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
@@ -3532,7 +3534,7 @@ export class WebChatService {
     }
 
     if (isInactivityCloseGracefulQuickCode(quickCode, settings) && freshBefore) {
-      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const gracefulGateEnabled = resolveGracefulCloseQuickReplyGateEnabled(settings);
       const encOkAllowed = isEncOkCloseQuickReplyAllowed(
         {
           lastInboundAt: freshBefore.lastInboundAt,
@@ -3548,7 +3550,7 @@ export class WebChatService {
             DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
         },
       );
-      if (gateEnabled && !encOkAllowed) {
+      if (gracefulGateEnabled && !encOkAllowed) {
         const afterMais =
           settings.gracefulCloseAfterPromptMinutes ??
           DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes;

@@ -29,7 +29,7 @@ import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
 import { Organization } from '@/models/Organization';
 import { User } from '@/models/User';
 import { InboxConversationStatus, InboxMessageMediaType } from '@/types/inbox';
-import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, INBOX_WEEKDAYS, InboxWeeklySchedule } from '@/types/inbox-settings';
+import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, INBOX_WEEKDAYS, InboxWeeklySchedule, resolveGracefulCloseQuickReplyGateEnabled, resolveInactivityCloseQuickReplyGateEnabled } from '@/types/inbox-settings';
 import {
   applyQuickReplyTemplate,
   expandQuickReply,
@@ -466,6 +466,7 @@ export class InboxService {
       gracefulCloseDetectPhrases?: boolean;
       inactivityCloseGracefulQuickCode?: string;
       closeQuickReplyGateEnabled?: boolean;
+      gracefulCloseQuickReplyGateEnabled?: boolean;
       queueSlaAlertMinutes: number;
       ticketTeamResponseHours: number;
       triageInactivityEnabled: boolean;
@@ -582,6 +583,9 @@ export class InboxService {
     }
     if (patch.closeQuickReplyGateEnabled !== undefined) {
       settings.closeQuickReplyGateEnabled = Boolean(patch.closeQuickReplyGateEnabled);
+    }
+    if (patch.gracefulCloseQuickReplyGateEnabled !== undefined) {
+      settings.gracefulCloseQuickReplyGateEnabled = Boolean(patch.gracefulCloseQuickReplyGateEnabled);
     }
     if (patch.queueSlaAlertMinutes !== undefined) {
       settings.queueSlaAlertMinutes = Math.min(
@@ -3251,6 +3255,7 @@ export class InboxService {
       inactivityWarningMinutes: settings.inactivityWarningMinutes,
       gracefulCloseAfterPromptMinutes: settings.gracefulCloseAfterPromptMinutes,
       closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
+      gracefulCloseQuickReplyGateEnabled: settings.gracefulCloseQuickReplyGateEnabled,
     };
     const fallbackSettings = {
       whatsappFallbackEnabled: Boolean(settings.whatsappFallbackEnabled),
@@ -4714,7 +4719,8 @@ export class InboxService {
         gracefulCloseAfterPromptMinutes: settings.gracefulCloseAfterPromptMinutes,
         gracefulCloseDetectPhrases: settings.gracefulCloseDetectPhrases,
         inactivityCloseGracefulQuickCode: resolveInactivityCloseGracefulQuickCode(settings),
-        closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled !== false,
+        closeQuickReplyGateEnabled: resolveInactivityCloseQuickReplyGateEnabled(settings),
+        gracefulCloseQuickReplyGateEnabled: resolveGracefulCloseQuickReplyGateEnabled(settings),
         inactivityCloseAfterWarningMinutes: inactivityCloseAfterWarningMinutes(
           settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
@@ -5077,7 +5083,7 @@ export class InboxService {
     const encOkCode = resolveInactivityCloseGracefulQuickCode(settings);
 
     if (isInactivityCloseQuickCode(quickCode, settings)) {
-      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const inactivityGateEnabled = resolveInactivityCloseQuickReplyGateEnabled(settings);
       const encAllowed = isEncInactivityCloseQuickReplyAllowed(
         {
           lastInboundAt: conv.lastInboundAt,
@@ -5094,7 +5100,7 @@ export class InboxService {
             settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
         },
       );
-      if (gateEnabled && !encAllowed) {
+      if (inactivityGateEnabled && !encAllowed) {
         const afterAus = inactivityCloseAfterWarningMinutes(
           settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
           settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
@@ -5106,7 +5112,7 @@ export class InboxService {
     }
 
     if (isInactivityCloseGracefulQuickCode(quickCode, settings)) {
-      const gateEnabled = settings.closeQuickReplyGateEnabled !== false;
+      const gracefulGateEnabled = resolveGracefulCloseQuickReplyGateEnabled(settings);
       const encOkAllowed = isEncOkCloseQuickReplyAllowed(
         {
           lastInboundAt: conv.lastInboundAt,
@@ -5122,7 +5128,7 @@ export class InboxService {
             DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
         },
       );
-      if (gateEnabled && !encOkAllowed) {
+      if (gracefulGateEnabled && !encOkAllowed) {
         const afterMais =
           settings.gracefulCloseAfterPromptMinutes ??
           DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes;

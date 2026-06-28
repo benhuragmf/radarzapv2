@@ -31,8 +31,10 @@ interface Props {
   inactivityCloseAllowed?: boolean
   /** Libera o chip/menu do atalho /enc_ok (encerramento natural). */
   encOkCloseAllowed?: boolean
-  /** Dono desligou o bloqueio do atalho de encerramento. */
-  closeQuickReplyGateEnabled?: boolean
+  /** Bloqueia /enc até /aus + tempo. */
+  inactivityCloseGateEnabled?: boolean
+  /** Bloqueia /enc_ok até /mais + tempo ou resposta do cliente. */
+  gracefulCloseGateEnabled?: boolean
   onImageAttach?: (file: File) => void
   imageAttachDisabled?: boolean
   imageAttaching?: boolean
@@ -54,7 +56,8 @@ export function InboxComposer({
   inactivityCloseGracefulQuickCode = 'enc_ok',
   inactivityCloseAllowed = true,
   encOkCloseAllowed = true,
-  closeQuickReplyGateEnabled = true,
+  inactivityCloseGateEnabled = true,
+  gracefulCloseGateEnabled = true,
   onImageAttach,
   imageAttachDisabled,
   imageAttaching,
@@ -75,18 +78,20 @@ export function InboxComposer({
 
   const isQuickReplyDisabled = (code: string) => {
     if (sendDisabled) return true
-    if (!closeQuickReplyGateEnabled) return false
-    if (isInactivityCloseQuickReply(code)) return !inactivityCloseAllowed
-    if (isEncOkCloseQuickReply(code)) return !encOkCloseAllowed
+    if (isInactivityCloseQuickReply(code)) {
+      return inactivityCloseGateEnabled && !inactivityCloseAllowed
+    }
+    if (isEncOkCloseQuickReply(code)) {
+      return gracefulCloseGateEnabled && !encOkCloseAllowed
+    }
     return false
   }
 
   const closeDisabledTitle = (code: string) => {
-    if (!closeQuickReplyGateEnabled) return undefined
-    if (isInactivityCloseQuickReply(code) && !inactivityCloseAllowed) {
+    if (isInactivityCloseQuickReply(code) && inactivityCloseGateEnabled && !inactivityCloseAllowed) {
       return `Use /${warnCode} (inatividade) e aguarde o tempo do SLA antes de /${closeCode}`
     }
-    if (isEncOkCloseQuickReply(code) && !encOkCloseAllowed) {
+    if (isEncOkCloseQuickReply(code) && gracefulCloseGateEnabled && !encOkCloseAllowed) {
       return `Use /${maisCode} (pergunta final) e aguarde resposta do cliente ou o tempo do SLA antes de /${encOkCode}`
     }
     return undefined
@@ -126,12 +131,12 @@ export function InboxComposer({
   const typedQuickCode = value.trim().match(/^\/(\w+)/)?.[1]?.toLowerCase()
   const closeReplyBlocked =
     !isInternal &&
-    closeQuickReplyGateEnabled &&
+    inactivityCloseGateEnabled &&
     typedQuickCode === closeCode &&
     !inactivityCloseAllowed
   const encOkReplyBlocked =
     !isInternal &&
-    closeQuickReplyGateEnabled &&
+    gracefulCloseGateEnabled &&
     typedQuickCode === encOkCode &&
     !encOkCloseAllowed
   const canSubmit =
