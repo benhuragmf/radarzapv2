@@ -1,15 +1,25 @@
 import { DatabaseManager } from '@/database/DatabaseManager';
 import { RedisManager } from '@/cache/RedisManager';
 import { QueueManager } from '@/cache/QueueManager';
+import { getInfraRuntimeState } from '../infra-runtime-state';
 import { buildInfraHealthSnapshot, toPublicLivenessHealth } from '../infra-health.service';
 
 jest.mock('@/database/DatabaseManager');
 jest.mock('@/cache/RedisManager');
 jest.mock('@/cache/QueueManager');
+jest.mock('../infra-runtime-state');
 
 describe('buildInfraHealthSnapshot', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getInfraRuntimeState as jest.Mock).mockReturnValue({
+      bootedAt: '2026-06-28T00:00:00.000Z',
+      mongodbReady: true,
+      redisReady: true,
+      queuesReady: true,
+      degraded: false,
+      degradedReasons: [],
+    });
     (DatabaseManager.getInstance as jest.Mock).mockReturnValue({
       healthCheck: jest.fn().mockResolvedValue(true),
     });
@@ -45,8 +55,18 @@ describe('buildInfraHealthSnapshot', () => {
     (RedisManager.getInstance as jest.Mock).mockReturnValue({
       healthCheck: jest.fn().mockResolvedValue(false),
     });
+    (getInfraRuntimeState as jest.Mock).mockReturnValue({
+      bootedAt: '2026-06-28T00:00:00.000Z',
+      mongodbReady: true,
+      redisReady: false,
+      queuesReady: false,
+      degraded: true,
+      degradedReasons: ['redis_unavailable_at_boot'],
+    });
     const snap = await buildInfraHealthSnapshot();
     expect(snap.healthy).toBe(false);
+    expect(snap.degraded).toBe(true);
+    expect(snap.degradedReasons).toContain('redis_unavailable_at_boot');
     expect(snap.dependencies.redis.ok).toBe(false);
   });
 
@@ -69,5 +89,21 @@ describe('toPublicLivenessHealth (AH-R07)', () => {
     expect(pub.version).toBe(snap.version);
     expect(pub).not.toHaveProperty('nodeEnv');
     expect(pub).not.toHaveProperty('dependencies');
+  });
+
+  it('expõe degraded no liveness quando boot degradado', async () => {
+    (RedisManager.getInstance as jest.Mock).mockReturnValue({
+      healthCheck: jest.fn().mockResolvedValue(false),
+    });
+    (getInfraRuntimeState as jest.Mock).mockReturnValue({
+      bootedAt: '2026-06-28T00:00:00.000Z',
+      mongodbReady: true,
+      redisReady: false,
+      queuesReady: false,
+      degraded: true,
+      degradedReasons: ['redis_unavailable_at_boot'],
+    });
+    const snap = await buildInfraHealthSnapshot();
+    expect(toPublicLivenessHealth(snap).degraded).toBe(true);
   });
 });

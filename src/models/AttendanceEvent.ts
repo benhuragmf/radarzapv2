@@ -33,7 +33,10 @@ export type AttendanceEventKind =
   | 'billing.checkout.completed'
   | 'billing.invoice.failed'
   | 'billing.ai_credit_pack.purchased'
-  | 'billing.limit.blocked';
+  | 'billing.limit.blocked'
+  | 'lgpd.export_requested'
+  | 'lgpd.delete_requested'
+  | 'lgpd.anonymized';
 
 export interface IAttendanceEvent extends Document {
   clientId: mongoose.Types.ObjectId;

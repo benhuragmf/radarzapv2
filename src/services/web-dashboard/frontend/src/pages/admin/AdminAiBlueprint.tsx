@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Save, RotateCcw, Sparkles, Info } from 'lucide-react'
 import { RadarPageShell, PageHeader, LoadingState, inputCls, textareaCls } from '@/design-system'
 import { BLUEPRINT_ADMIN_TAB_HELP } from '../../lib/blueprintAdminHelp'
+import AdminOpsHubLink from './AdminOpsHubLink'
 
 type BlueprintTab =
   | 'identity'
@@ -137,6 +138,11 @@ export default function AdminAiBlueprint() {
             </Button>
           </div>
         }
+      />
+
+      <AdminOpsHubLink
+        tab="ai"
+        label="KPIs de consumo IA plataforma (7d) e alertas de cota:"
       />
 
       <Card className="p-4 space-y-3">

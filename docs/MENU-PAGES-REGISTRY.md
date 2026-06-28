@@ -31,6 +31,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |
 | `/platform/webchat` | `menu/WebChat.tsx` | Widgets + histórico · API pública: `POST …/tickets/lookup`, `POST …/tickets/resume` (2.10.70), demais rotas em `WEBCHAT.md` |
 | `/platform/leads` | `menu/Leads.tsx` | Capturas + aba **Integrar no site** (embed, API, WordPress, Elementor) · API: `/api/leads/*` · pública `POST …/public/forms/:key/submit` · ver `LEADS-FORMULARIO.md` |
+| `/platform/lgpd` | `menu/LgpdPortal.tsx` | `GET /lgpd/lookup`, `GET /lgpd/destinations/:id/export`, `POST /lgpd/destinations/:id/anonymize`, `GET /lgpd/events` · ver `CONSENTIMENTO-LGPD.md` § Portal LGPD (2.12.63) |
 
 ## Integrações API
 

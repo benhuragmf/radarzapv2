@@ -21,6 +21,7 @@ import {
 } from '@/design-system'
 import { AiModelPicker } from '../../components/ai/AiModelPicker'
 import { Link } from 'react-router-dom'
+import AdminOpsHubLink from './AdminOpsHubLink'
 
 type AdminTab = 'credentials' | 'usage'
 
@@ -215,6 +216,11 @@ export default function AdminAiPlatform() {
             </Button>
           ) : null
         }
+      />
+
+      <AdminOpsHubLink
+        tab="ai"
+        label="Visão consolidada de IA no dashboard Ops:"
       />
 
       <div className="flex flex-wrap gap-2 border-b border-[var(--rz-border)] pb-2">

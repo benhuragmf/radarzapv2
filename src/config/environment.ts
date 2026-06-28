@@ -151,6 +151,12 @@ export interface AppConfig {
     /** true = allowedDomains vazio aceita qualquer origem (default só dev) */
     ALLOW_OPEN_ORIGIN: boolean;
   };
+
+  /** Boot / dependências core — AH-S01 */
+  INFRA: {
+    /** true = permite subir sem Redis (filas/rate limit degradados); prod proibido via validateConfig */
+    DEGRADED_BOOT: boolean;
+  };
 }
 
 /**
@@ -353,6 +359,10 @@ export const config: AppConfig = {
       process.env.NODE_ENV !== 'production',
     ),
   },
+
+  INFRA: {
+    DEGRADED_BOOT: parseBoolean(process.env.INFRA_DEGRADED_BOOT, false),
+  },
 };
 
 /**
@@ -435,6 +445,10 @@ export function validateConfig(): void {
 
     if (process.env.ALLOW_DEV_API_KEY_BYPASS === 'true') {
       errors.push('ALLOW_DEV_API_KEY_BYPASS must not be true in production');
+    }
+
+    if (config.INFRA.DEGRADED_BOOT) {
+      errors.push('INFRA_DEGRADED_BOOT must not be true in production');
     }
 
     const otpPepper = process.env.TICKET_OTP_PEPPER?.trim();

@@ -2,6 +2,7 @@ import { DatabaseManager } from '@/database/DatabaseManager';
 import { RedisManager } from '@/cache/RedisManager';
 import { QueueManager } from '@/cache/QueueManager';
 import { config } from '@/config/environment';
+import { getInfraRuntimeState } from './infra-runtime-state';
 
 export interface InfraDependencyHealth {
   ok: boolean;
@@ -10,6 +11,8 @@ export interface InfraDependencyHealth {
 
 export interface InfraHealthSnapshot {
   healthy: boolean;
+  degraded: boolean;
+  degradedReasons: string[];
   uptime: number;
   version: string;
   nodeEnv: string;
@@ -24,18 +27,21 @@ export interface InfraHealthSnapshot {
 /** Resposta mínima para liveness público (AH-R07) — sem latências nem nodeEnv. */
 export interface PublicLivenessHealth {
   healthy: boolean;
+  degraded?: boolean;
   uptime: number;
   version: string;
   checkedAt: string;
 }
 
 export function toPublicLivenessHealth(snapshot: InfraHealthSnapshot): PublicLivenessHealth {
-  return {
+  const pub: PublicLivenessHealth = {
     healthy: snapshot.healthy,
     uptime: snapshot.uptime,
     version: snapshot.version,
     checkedAt: snapshot.checkedAt,
   };
+  if (snapshot.degraded) pub.degraded = true;
+  return pub;
 }
 
 async function timedCheck(check: () => Promise<boolean>): Promise<InfraDependencyHealth> {
@@ -60,9 +66,12 @@ export async function buildInfraHealthSnapshot(): Promise<InfraHealthSnapshot> {
   ]);
 
   const healthy = mongodb.ok && redis.ok;
+  const runtime = getInfraRuntimeState();
 
   return {
     healthy,
+    degraded: runtime.degraded || (!redis.ok && runtime.mongodbReady),
+    degradedReasons: runtime.degradedReasons,
     uptime: process.uptime(),
     version: process.env.npm_package_version ?? '0.0.0',
     nodeEnv: config.NODE_ENV,

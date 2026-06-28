@@ -1,6 +1,6 @@
 # Entrega — Auditoria horizontal (2.12.47–2.12.59)
 
-**Data:** 2026-06-28 · **Branch:** `develop` · **Status:** correções código concluídas — **sem push/deploy**
+**Data:** 2026-06-28 · **Branch:** `develop` / `main` · **Status:** correções código concluídas — **push `main` 8c9f789 (deploy automático)**
 
 ---
 
@@ -8,9 +8,18 @@
 
 Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](../audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) — etapas 1–14.
 
-**Não declarar:** produção / go-live / VPS deploy.
+**Não declarar:** produção / go-live (gate Fase 1 ainda aberto).
 
 ---
+
+## Deploy
+
+| Item | Status |
+|------|--------|
+| Commit | `8c9f789` — `fix(security): auditoria horizontal 2.12.47-59` |
+| `develop` | ✅ pushed |
+| `main` | ✅ fast-forward merge + push |
+| `npm run pre-push:gate` | ✅ verde antes do merge |
 
 ## Versões e achados
 
@@ -32,13 +41,25 @@ Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABI
 
 ---
 
+## Ordem de execução (pós 2.12.59)
+
+| # | Item | Status |
+|---|------|--------|
+| 1 | Admin Ops hub IA + depreciação orgs | ✅ 2.12.60 |
+| 2 | AH-M05 bridge dedup Redis | ✅ 2.12.61 |
+| 3 | AH-S01 degraded mode (código) | ✅ 2.12.62 |
+| 4 | AH-D04 portal LGPD (TOP 18) | ✅ 2.12.63 |
+| 5 | **QA manual VPS Etapa 10 + Bloco E** | ⏳ **último** |
+
+---
+
 ## Pendências (humano / pós Fase 1)
 
-- QA manual VPS Etapa 10 + Bloco E browser
-- `npm run pre-push:gate` antes de merge `main`
-- AH-D04 portal LGPD (TOP 18)
-- AH-M05 bridge dedup Redis multi-réplica
-- AH-S01 degraded mode (código)
+- ~~QA manual VPS Etapa 10 + Bloco E browser~~ → **último passo** (após backlog técnico)
+- ~~`npm run pre-push:gate` antes de merge `main`~~ ✅ 2026-06-28
+- ~~AH-D04 portal LGPD (TOP 18)~~ ✅ 2.12.63
+- ~~AH-M05 bridge dedup Redis multi-réplica~~ ✅ 2.12.61
+- ~~AH-S01 degraded mode (código)~~ ✅ 2.12.62
 
 ---
 

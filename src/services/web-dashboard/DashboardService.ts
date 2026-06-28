@@ -32,6 +32,12 @@ import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQ
 import { buildAttendanceHealth } from '../attendance/attendance-health.service';
 import { buildInfraHealthSnapshot, toPublicLivenessHealth } from '../infra/infra-health.service';
 import {
+  anonymizeTitularContact,
+  buildTitularExportPackage,
+  listRecentLgpdPortalEvents,
+  lookupLgpdDestinationsByPhone,
+} from '../lgpd/lgpd-portal.service';
+import {
   getSystemWhatsAppPolicyForAdmin,
   patchOrgWhatsAppSendPolicy,
   patchSystemWhatsAppPolicy,
@@ -4066,6 +4072,71 @@ export class DashboardService {
       }
     });
 
+    // ── Portal LGPD titular (AH-D04) ───────────────────────────────────────
+    r.get('/lgpd/lookup', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const phone = String(req.query.phone ?? '').trim();
+        if (!phone) return res.status(400).json({ error: 'Informe ?phone=' });
+        const items = await lookupLgpdDestinationsByPhone(auth.clientId, phone);
+        res.json({ items });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/lgpd/destinations/:id/export', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const payload = await buildTitularExportPackage(
+          auth.clientId,
+          req.params.id,
+          auth.userId,
+        );
+        const stamp = new Date().toISOString().slice(0, 10);
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="lgpd-export-${req.params.id.slice(-8)}-${stamp}.json"`,
+        );
+        res.send(JSON.stringify(payload, null, 2));
+      } catch (e) {
+        const msg = (e as Error).message;
+        res.status(msg.includes('não encontrado') ? 404 : 400).json({ error: msg });
+      }
+    });
+
+    r.post('/lgpd/destinations/:id/anonymize', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as { reason?: string; confirm?: string };
+        if (body.confirm !== 'ANONIMIZAR') {
+          return res.status(400).json({ error: 'Confirme com { "confirm": "ANONIMIZAR" }' });
+        }
+        const result = await anonymizeTitularContact({
+          clientId: auth.clientId,
+          destinationId: req.params.id,
+          actorUserId: auth.userId,
+          reason: body.reason,
+        });
+        res.json(result);
+      } catch (e) {
+        const msg = (e as Error).message;
+        res.status(msg.includes('não encontrado') ? 404 : 400).json({ error: msg });
+      }
+    });
+
+    r.get('/lgpd/events', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const limit = Math.min(Number(req.query.limit) || 30, 100);
+        const events = await listRecentLgpdPortalEvents(auth.clientId, limit);
+        res.json({ events });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     /** @deprecated AH-R08 — use POST /destinations/:id/consent/block (não é rota admin global). */
     r.post('/admin/destinations/:id/block', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
       try {
@@ -6251,6 +6322,9 @@ export class DashboardService {
 
     r.get('/admin/organizations', requireCapability(Cap.SYSTEM_MODERATION), async (_req, res) => {
       try {
+        res.setHeader('Deprecation', 'true');
+        res.setHeader('Link', '</api/admin/ops/organizations>; rel="successor-version"');
+        res.setHeader('X-RadarZap-Deprecated-Successor', '/admin/ops/organizations');
         const orgs = await Organization.find({})
           .select('name plan planExpiresAt createdAt limits')
           .sort({ createdAt: -1 })

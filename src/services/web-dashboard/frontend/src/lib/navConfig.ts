@@ -122,6 +122,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
     link('consent-blocked', 'Bloqueados', Ban, '/contact', 'consent:view', false, {
       search: '?consent=blocked',
     }),
+    link('consent-lgpd-portal', 'Portal LGPD', Shield, '/platform/lgpd', 'consent:view'),
   ], 'consent:view'),
 
   section('sec-auto', 'Automações'),
@@ -258,7 +259,7 @@ const LEGACY_DISCORD_ROUTES = new Set([
 
 const PLATFORM_ROUTES = new Set([
   '/dashboard', '/dashboard/notificacoes', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
-  '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/leads', '/platform/gatilhos',
+  '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/leads', '/platform/lgpd', '/platform/gatilhos',
   '/platform/wa-logs', '/platform/wa-stories', '/platform/wa-status', '/platform/wa-limits', '/platform/fila',
   '/integrations/playground',
   '/sessions', '/contact', '/destinations', '/grupos', '/send', '/send/agendamentos', '/send/autoagendamentos', '/platform/automacoes',
@@ -399,6 +400,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/campanhas': 'send:test',
   '/platform/segmentos': 'send:destination:manage',
   '/platform/leads': 'leads:view',
+  '/platform/lgpd': 'consent:view',
   '/platform/gatilhos': 'send:schedule:manage',
   '/platform/wa-logs': 'logs:view',
   '/platform/wa-stories': 'send:test',
@@ -480,6 +482,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/campanhas': 'Campanhas',
   '/platform/segmentos': 'Listas e segmentos',
   '/platform/leads': 'Leads',
+  '/platform/lgpd': 'Portal LGPD',
   '/platform/gatilhos': 'Gatilhos',
   '/platform/wa-logs': 'Logs WhatsApp',
   '/platform/wa-stories': 'Status WhatsApp',

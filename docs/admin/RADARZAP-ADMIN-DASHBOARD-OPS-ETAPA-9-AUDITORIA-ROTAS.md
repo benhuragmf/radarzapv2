@@ -34,8 +34,8 @@ Checklist **completo** de cada rota `/admin/*`: conteúdo útil, duplicação co
 | `/admin/api` | ✅ Chaves/webhooks | Parcial overview | Hub link overview | ✅ |
 | `/admin/audit` | ✅ AuditLog staff | Parcial feed Segurança | Hub + nota diferença | ✅ |
 | `/admin/settings` | ✅ Limites WA global | Não | Manter | — |
-| `/admin/ai-blueprint` | ✅ Config IA | Parcial aba IA | Manter (config) | ⏳ link futuro |
-| `/admin/ai-platform` | ✅ Credenciais IA | Parcial aba IA | Manter (config) | ⏳ link futuro |
+| `/admin/ai-blueprint` | ✅ Config IA | Parcial aba IA | Manter (config) | ✅ hub link aba IA |
+| `/admin/ai-platform` | ✅ Credenciais IA | Parcial aba IA | Manter (config) | ✅ hub link aba IA |
 | `/admin/permissions` | ✅ Matriz caps | Não | Manter | — |
 | `/admin/security` | 🟡 Checklist estático | Parcial aba Segurança | Hub + links | ✅ |
 | `/admin/backup` | ✅ Backup | Não | Manter | — |
@@ -70,10 +70,10 @@ Moderador (`SYSTEM_MODERATOR`) tem `dashboard:global` mas **não** `system:plans
 
 ## Pendências (Etapa 11+)
 
-- [ ] Hub link aba IA em `ai-blueprint` / `ai-platform`
-- [ ] QA manual VPS todas as rotas (checklist — Benhur)
-- [ ] Bloco E: alterar plano no **browser VPS** + AuditLog (local ✅ Etapa 10)
-- [ ] Unificar `GET /admin/organizations` legado (moderação removida — API pode deprecar doc)
+- [x] Hub link aba IA em `ai-blueprint` / `ai-platform` — ✅ 2.12.60
+- [ ] QA manual VPS todas as rotas (checklist — Benhur) — **deixar por último**
+- [ ] Bloco E: alterar plano no **browser VPS** + AuditLog — **deixar por último**
+- [x] Deprecar `GET /admin/organizations` legado — headers + sucessora Ops — ✅ 2.12.60
 
 ---
 

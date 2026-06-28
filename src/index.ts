@@ -24,6 +24,13 @@ import { APIGateway } from '@/services/api-gateway/APIGateway';
 import { DashboardService } from '@/services/web-dashboard/DashboardService';
 import { GracefulShutdown } from '@/utils/GracefulShutdown';
 import { acquireDevInstanceLock, releaseDevInstanceLock } from '@/utils/dev-instance-lock';
+import { isDegradedBootAllowed, probeRedisReachable } from '@/services/infra/infra-boot.util';
+import {
+  finalizeInfraBoot,
+  isDegradedBoot,
+  markInfraRuntime,
+  resetInfraRuntimeState,
+} from '@/services/infra/infra-runtime-state';
 
 const logger = createServiceLogger('MainApp');
 
@@ -62,6 +69,11 @@ class Application {
       this.setupGracefulShutdown();
 
       logger.info('Aplicacao iniciada com sucesso');
+      if (isDegradedBoot()) {
+        logger.warn(
+          'Modo degradado ativo — Redis/filas indisponíveis; ver GET /api/services/health e runbook SPOF',
+        );
+      }
 
     } catch (error) {
       const dup =
@@ -93,28 +105,65 @@ class Application {
 
   private async initializeInfrastructure(): Promise<void> {
     logger.info('Inicializando infraestrutura...');
+    resetInfraRuntimeState();
+    const allowDegraded = isDegradedBootAllowed();
 
-    // Initialize database
     const dbManager = DatabaseManager.getInstance();
     await dbManager.connect();
     await this.waitForMongoReady(dbManager);
+    if (!dbManager.isConnected()) {
+      throw new Error(
+        'MongoDB indisponível após aguardar reconexão — execute: docker compose up -d mongodb redis',
+      );
+    }
+    markInfraRuntime({ mongodbReady: true });
     logger.info('Banco de dados OK');
 
-    // Initialize Redis
     const redisManager = RedisManager.getInstance();
-    await redisManager.connect();
-    logger.info('Redis OK');
+    let redisReady = false;
+
+    if (await probeRedisReachable()) {
+      try {
+        await redisManager.connect();
+        redisReady = redisManager.isConnected();
+      } catch (error) {
+        logger.warn('Redis probe OK mas connect falhou:', error);
+      }
+    } else {
+      logger.warn('Redis indisponível no boot (probe falhou)');
+    }
+
+    if (!redisReady) {
+      if (!allowDegraded) {
+        throw new Error(
+          'Redis obrigatório no boot — execute: docker compose up -d redis ou habilite INFRA_DEGRADED_BOOT só em dev',
+        );
+      }
+      markInfraRuntime({
+        redisReady: false,
+        queuesReady: false,
+        degraded: true,
+        degradedReasons: ['redis_unavailable_at_boot'],
+      });
+      logger.warn('Modo degradado: Redis indisponível — filas BullMQ e webhooks outbound não iniciados');
+    } else {
+      markInfraRuntime({ redisReady: true });
+      logger.info('Redis OK');
+
+      await QueueManager.getInstance().initialize();
+      logger.info('Filas Bull OK');
+      markInfraRuntime({ queuesReady: true });
+
+      await WebhookDispatcherService.getInstance().initialize();
+      logger.info('Webhooks outbound OK');
+    }
 
     await acquireDevInstanceLock(config.DASHBOARD.PORT);
 
-    await QueueManager.getInstance().initialize();
-    logger.info('Filas Bull OK');
-
-    await WebhookDispatcherService.getInstance().initialize();
-    logger.info('Webhooks outbound OK');
-
     BillingService.getInstance().initialize();
     logger.info('Billing Stripe OK');
+
+    finalizeInfraBoot();
   }
 
   /**

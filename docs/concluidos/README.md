@@ -62,7 +62,7 @@ Doc operacional ativo: [`../admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](../admin/RAD
 | [`../audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](../audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | — | Achados originais + status pós-correção |
 | [`../operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](../operacao/RUNBOOK-SPOF-MONGO-REDIS.md) | 2.12.56 | Runbook SPOF Mongo/Redis |
 
-Backlog baixo: AH-D04 (portal LGPD), AH-M05 (bridge dedup Redis multi-réplica), AH-S01 (degraded mode código).
+Backlog técnico concluído (2.12.60–63). QA manual VPS **por último**.
 
 ---
 

@@ -6,6 +6,46 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.63] — 2026-06-28
+
+### Portal LGPD — AH-D04 export/delete titular
+
+- API `/lgpd/*`: lookup por telefone, export JSON, anonimização com confirmação, feed de eventos.
+- Painel `/platform/lgpd` no menu Consentimento.
+- Eventos `lgpd.export_requested`, `lgpd.delete_requested`, `lgpd.anonymized`.
+
+---
+
+## [2.12.62] — 2026-06-28
+
+### Infra — AH-S01 degraded boot (dev)
+
+- **`probeRedisReachable` + `infra-runtime-state`:** boot em dev sem Redis (Mongo obrigatório).
+- Filas BullMQ e webhooks outbound só iniciam com Redis OK.
+- Health público/staff expõe `degraded` + `degradedReasons`.
+- Prod: Redis obrigatório; `INFRA_DEGRADED_BOOT` bloqueado em `validateConfig`.
+
+---
+
+## [2.12.61] — 2026-06-28
+
+### Bridge — AH-M05 dedup Redis multi-réplica
+
+- **`acquireBridgeForwardDedup`:** Redis `SET NX` + TTL 8s; fallback in-memory se Redis indisponível.
+- **Docs:** WEBCHAT.md, auditoria horizontal — QA manual explicitamente **por último**.
+
+---
+
+## [2.12.60] — 2026-06-28
+
+### Admin Ops — hub IA + depreciação orgs legado
+
+- **Etapa 9:** `AdminOpsHubLink` em `/admin/ai-blueprint` e `/admin/ai-platform` (aba IA do dashboard Ops).
+- **`GET /admin/organizations`:** headers `Deprecation` + sucessora `/admin/ops/organizations` (corpo inalterado).
+- **Docs:** entrega auditoria horizontal atualizada pós-deploy `main`; Etapa 9 pendências parciais.
+
+---
+
 ## [2.12.59] — 2026-06-28
 
 ### Encerramento auditoria horizontal — AH-R08 + AH-D03 + doc final

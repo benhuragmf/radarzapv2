@@ -39,6 +39,19 @@ Quando o contato ainda não aceitou (`consentStatus` pendente), o `WhatsAppServi
 | POST | `/destinations/:id/consent/clear-refusal` | `consent:clear-refusal` |
 | POST | `/destinations/:id/consent/block` | `consent:manual-block` |
 
+## Portal LGPD titular (2.12.63 — AH-D04)
+
+| Método | Rota | Cap |
+|--------|------|-----|
+| GET | `/lgpd/lookup?phone=` | `consent:view` |
+| GET | `/lgpd/destinations/:id/export` | `consent:view` — JSON titular + histórico consentimento |
+| POST | `/lgpd/destinations/:id/anonymize` | `consent:manual-block` — body `{ "confirm": "ANONIMIZAR", "reason?" }` |
+| GET | `/lgpd/events` | `consent:view` — feed `lgpd.*` em `AttendanceEvent` |
+
+Painel: **Consentimento → Portal LGPD** (`/platform/lgpd`).
+
+Eventos: `lgpd.export_requested`, `lgpd.delete_requested`, `lgpd.anonymized` + `AuditLog` `lgpd.export` / `lgpd.anonymize`.
+
 ## Painel
 
 | Rota | UI |

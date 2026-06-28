@@ -17,9 +17,9 @@ import {
   assertBridgeClientMatch,
   buildBridgeIdempotencyKey,
   isBridgeLoopRisk,
-  shouldForwardBridgeMessage,
   shouldProcessBridgeAgentReply,
 } from '@/utils/webchat-bridge.util';
+import { acquireBridgeForwardDedup } from '@/services/webchat/bridge-forward-dedup.service';
 import { createServiceLogger } from '@/utils/logger';
 import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
@@ -128,7 +128,7 @@ export async function forwardVisitorMessageToWhatsappBridge(
     String(conversation._id),
     forwardBody,
   );
-  if (!shouldForwardBridgeMessage(dedupeKey)) {
+  if (!(await acquireBridgeForwardDedup(dedupeKey))) {
     logger.info('bridge:forward_skipped_duplicate', {
       clientId: String(conversation.clientId),
       conversationId: String(conversation._id),

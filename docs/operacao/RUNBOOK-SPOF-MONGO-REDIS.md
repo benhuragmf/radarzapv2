@@ -14,7 +14,14 @@ O RadarZap v2 trata **MongoDB** e **Redis** como dependências **hard** no boot 
 | **MongoDB** | Sessões painel, orgs, inbox, tickets, WebChat, billing, audit |
 | **Redis** | Sessões express, rate limit, presença, filas BullMQ, OTP, bridge dedup |
 
-**Modo degradado em código:** não implementado (decisão consciente Fase 1). Mitigação = monitoramento + runbook abaixo.
+**Modo degradado em código:** ✅ **2.12.62** — dev permite boot sem Redis (Mongo obrigatório); prod continua exigindo Redis (`validateConfig` bloqueia `INFRA_DEGRADED_BOOT`).
+
+| Modo | Mongo down | Redis down |
+|------|------------|------------|
+| **production** | `exit(1)` | `exit(1)` |
+| **development** | `exit(1)` | boot degradado — filas/webhooks não iniciam; `healthy: false` + `degraded: true` no health |
+
+Env opcional: `INFRA_DEGRADED_BOOT=true` (somente não-prod ou validação falha em prod).
 
 ---
 
@@ -94,10 +101,10 @@ Aguardar até `Banco de dados OK` e `Redis OK` nos logs.
 
 ---
 
-## Roadmap (pós Fase 1 — não implementar agora)
+## Roadmap (pós Fase 1)
 
 - Readiness vs liveness separados (K8s/Docker)
-- Degraded mode: painel read-only sem filas
+- ~~Degraded mode: painel read-only sem filas~~ — parcial ✅ 2.12.62 (dev, Redis opcional no boot)
 - Redis Sentinel / Mongo replica set (multi-node)
 
 ---
