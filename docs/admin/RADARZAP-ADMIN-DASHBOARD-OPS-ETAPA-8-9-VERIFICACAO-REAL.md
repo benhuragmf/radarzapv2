@@ -136,7 +136,7 @@ Após gates + commit:     IMPLEMENTADA COM EVIDÊNCIA
 2. Cabeçalhos Etapa 8/9 corrigidos (aviso de sequência + status pós-evidência).
 3. Gates executados (ver abaixo).
 4. Docs principais atualizados (`RADARZAP-ADMIN-DASHBOARD-OPS.md`, índice, registro, QA).
-5. Commit único reconciliando código + docs (**sem push**).
+5. Commit único reconciliando código + docs (**sem push**): `0366c5e` — `feat(admin): consolidate legacy admin ops routes (v2.12.44)`.
 
 ---
 
