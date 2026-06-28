@@ -69,15 +69,17 @@ npx playwright test e2e/cross-tenant-isolation.spec.ts e2e/lgpd-portal.spec.ts -
 npx playwright test e2e/admin-dashboard.spec.ts --project=chromium
 ```
 
-### Evidência deploy 2026-06-28
+### Evidência deploy / CI 2026-06-28
 
 | Item | Status |
 |------|--------|
-| GitHub **Deploy** `main` @ `b4bfb24` | ✅ success (~3m31s) |
-| GitHub **CI** `main` @ `b4bfb24` | ❌ 2 E2E flaky (supervisor nav + SendNow título) — fix em `develop` |
+| GitHub **Deploy** `main` @ `b4bfb24` (app 2.12.63) | ✅ success (~3m31s) |
+| GitHub **Deploy** `main` @ `db077e0` (E2E only) | ✅ success (~56s) |
+| GitHub **CI** `main` @ `b4bfb24` | ❌ 2 E2E desatualizados — corrigido em `db077e0` |
+| GitHub **CI** `main` @ `db077e0` | ✅ success — E2E 80/80 + test + audit ([run 28336722683](https://github.com/benhuragmf/radarzapv2/actions/runs/28336722683)) |
 | Unit 2.12.60–63 | ✅ 14/14 (lgpd, bridge, infra-boot, infra-health) |
-| E2E LGPD mock | ✅ `e2e/lgpd-portal.spec.ts` |
-| E2E Admin hub IA | ✅ testes ai-blueprint / ai-platform em `admin-dashboard.spec.ts` |
+| E2E LGPD mock | ✅ `e2e/lgpd-portal.spec.ts` (3/3 local) |
+| E2E Admin hub IA | ✅ ai-blueprint / ai-platform em `admin-dashboard.spec.ts` |
 
 ---
 
@@ -87,9 +89,9 @@ npx playwright test e2e/admin-dashboard.spec.ts --project=chromium
 |-------|-------|
 | Data execução | |
 | Ambiente | local / VPS |
-| Versão deployada | |
+| Versão deployada | `2.12.63` (`main` @ `db077e0`) |
 | Blocos A–D | ☐ todos OK / ☐ ressalvas |
-| Evidência | screenshot / JSON em `docs/qa-results/` |
+| Evidência | Preencher [`docs/qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json`](../qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json) → renomear com data |
 
 ---
 

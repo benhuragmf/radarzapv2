@@ -1,0 +1,50 @@
+{
+  "schema": "radarzap-qa-manual-v1",
+  "version": "2.12.63",
+  "mainCommit": "db077e0",
+  "environment": "vps",
+  "executedAt": null,
+  "executor": "Benhur",
+  "overallStatus": "PENDING",
+  "blocks": {
+    "A_adminOps": {
+      "A1_menu_empresas_usuarios": false,
+      "A2_clients_usuarios_banner": false,
+      "A3_dashboard_tenants_trial_plano": false,
+      "A4_moderation_sem_tabela_plano": false,
+      "A5_ai_blueprint_hub": false,
+      "A6_ai_platform_hub": false,
+      "A7_bloco_e_alterar_plano_auditlog": false,
+      "A8_moderador_readonly": false
+    },
+    "B_lgpdPortal": {
+      "B1_menu_portal_lgpd": false,
+      "B2_busca_telefone": false,
+      "B3_export_json": false,
+      "B4_feed_exportacao": false,
+      "B5_anonimizar_contato_teste": false,
+      "B6_rebusca_anonimizado": false,
+      "B7_evento_lgpd_anonymized": false
+    },
+    "C_infraHealth": {
+      "C1_public_health": false,
+      "C2_admin_infra_health": false,
+      "C3_degraded_boot_opcional": false
+    },
+    "D_bridgeDedup": {
+      "D1_forward_uma_vez": false,
+      "D2_sem_duplicata_retry": false
+    }
+  },
+  "blocoE": {
+    "organizationId": null,
+    "organizationName": null,
+    "planBefore": null,
+    "planChangedTo": null,
+    "auditLogId": null,
+    "auditAction": "admin.plan.changed",
+    "note": "Preencher após alterar plano no browser VPS como SYSTEM_ADMIN"
+  },
+  "notes": "",
+  "screenshots": []
+}

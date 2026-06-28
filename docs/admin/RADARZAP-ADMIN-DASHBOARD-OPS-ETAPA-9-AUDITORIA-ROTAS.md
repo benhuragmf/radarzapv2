@@ -2,9 +2,9 @@
 
 > **Correção de sequência:** este arquivo foi gerado como “entregue” antes de existir commit correspondente (HEAD estava em `2.12.42`). A auditoria real está em [`RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md`](./RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md). Status abaixo reflete implementação **após** gates e commit de reconciliação.
 
-**Data:** 2026-06-27  
-**Versão:** `2.12.45`  
-**Status:** **Gates Etapa 10 verdes** — QA VPS browser pendente Benhur
+**Data:** 2026-06-28  
+**Versão:** `2.12.63`  
+**Status:** **Gates automatizados verdes** — QA VPS browser + Bloco E pendente Benhur
 
 ---
 

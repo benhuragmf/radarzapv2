@@ -1,12 +1,12 @@
-# Entrega — Auditoria horizontal (2.12.47–2.12.59)
+# Entrega — Auditoria horizontal (2.12.47–2.12.63)
 
-**Data:** 2026-06-28 · **Branch:** `develop` / `main` · **Status:** correções código concluídas — **push `main` 8c9f789 (deploy automático)**
+**Data:** 2026-06-28 · **Branch:** `develop` / `main` @ `db077e0` · **Status:** backlog técnico concluído — **QA manual VPS pendente**
 
 ---
 
 ## Escopo
 
-Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](../audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) — etapas 1–14.
+Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](../audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) — etapas 1–14 + backlog pós-auditoria 2.12.60–63.
 
 **Não declarar:** produção / go-live (gate Fase 1 ainda aberto).
 
@@ -16,10 +16,14 @@ Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABI
 
 | Item | Status |
 |------|--------|
-| Commit | `8c9f789` — `fix(security): auditoria horizontal 2.12.47-59` |
-| `develop` | ✅ pushed |
-| `main` | ✅ fast-forward merge + push |
-| `npm run pre-push:gate` | ✅ verde antes do merge |
+| Commit auditoria | `8c9f789` — `fix(security): auditoria horizontal 2.12.47-59` |
+| Commit backlog | `b4bfb24` — `feat: backlog pos-auditoria 2.12.60-63` |
+| Commit E2E/CI | `db077e0` — `fix(e2e): alinhar supervisor nav e titulo SendNow` |
+| `main` HEAD | `db077e0` |
+| Deploy VPS @ `b4bfb24` | ✅ success (~3m31s) |
+| Deploy VPS @ `db077e0` | ✅ success (~56s, só testes — sem mudança app) |
+| CI @ `db077e0` | ✅ success — E2E 80/80 + test + audit ([run 28336722683](https://github.com/benhuragmf/radarzapv2/actions/runs/28336722683)) |
+| `npm run pre-push:gate` | ✅ verde antes de `b4bfb24` |
 
 ## Versões e achados
 
@@ -38,6 +42,15 @@ Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABI
 | 2.12.57 | AH-B02/M04/S05 | Dev billing flag; testes cross-tenant; doc bridge dedup |
 | 2.12.58 | AH-R07 | Health público mínimo + `/admin/ops/infra-health` |
 | 2.12.59 | AH-R08/D03 | Rota consent depreciada; política audit IA; encerramento doc |
+
+### Backlog pós-auditoria (2.12.60–63)
+
+| Versão | IDs | Resumo |
+|--------|-----|--------|
+| 2.12.60 | Admin Ops | Hub IA em `ai-blueprint`/`ai-platform`; depreciação `GET /admin/organizations` |
+| 2.12.61 | AH-M05 | Bridge forward dedup Redis SET NX + fallback in-memory |
+| 2.12.62 | AH-S01 | Boot degradado dev (Mongo obrigatório, Redis opcional); health `degraded` |
+| 2.12.63 | AH-D04 | Portal LGPD tenant `/platform/lgpd` + API `/lgpd/*` + eventos `lgpd.*` |
 
 ---
 
@@ -75,4 +88,6 @@ npx playwright test e2e/cross-tenant-isolation.spec.ts --project=chromium
 ## Referências
 
 - [`docs/operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](../operacao/RUNBOOK-SPOF-MONGO-REDIS.md)
-- [`docs/CHANGELOG.md`](../CHANGELOG.md) — entradas 2.12.47–2.12.59
+- [`docs/CHANGELOG.md`](../CHANGELOG.md) — entradas 2.12.47–2.12.63
+- [`docs/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](../admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) — checklist QA manual (último passo)
+- [`docs/CONSENTIMENTO-LGPD.md`](../CONSENTIMENTO-LGPD.md) § Portal LGPD
