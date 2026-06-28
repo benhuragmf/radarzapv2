@@ -30,6 +30,26 @@ describe('billing-state.util', () => {
     ).toBe('active');
   });
 
+  it('mapeia manual do Stripe enquanto vigente', () => {
+    expect(
+      normalizeBillingStatus({
+        plan: 'pro',
+        planExpiresAt: new Date(Date.now() + 86400000),
+        stripeSubscriptionStatus: 'manual',
+      }),
+    ).toBe('manual');
+  });
+
+  it('manual expirado vira canceled', () => {
+    expect(
+      normalizeBillingStatus({
+        plan: 'pro',
+        planExpiresAt: new Date(Date.now() - 86400000),
+        stripeSubscriptionStatus: 'manual',
+      }),
+    ).toBe('canceled');
+  });
+
   it('grace period de 3 dias em past_due', () => {
     const pastDueSince = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     expect(

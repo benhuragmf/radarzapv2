@@ -181,10 +181,10 @@ export function getWidgetSectionStatuses(
       hint: 'Copie o script no site',
     },
     avancado: {
-      kind: form.allowedDomains.length ? 'complete' : 'optional',
+      kind: form.allowedDomains.length ? 'complete' : 'attention',
       hint: form.allowedDomains.length
         ? `${form.allowedDomains.length} domínio(s)`
-        : 'Qualquer domínio',
+        : 'Bloqueado em prod.',
     },
   }
 }

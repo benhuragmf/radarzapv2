@@ -1266,7 +1266,7 @@ function WidgetEditorCard({
           <div className="space-y-4">
             <WidgetSectionCard
               title="Sites onde este widget pode aparecer"
-              description="Deixe vazio para permitir qualquer domínio. Recomendado informar os domínios reais antes de ir para produção."
+              description="Informe os domínios autorizados. Em produção, lista vazia bloqueia o embed até configurar ao menos um domínio."
             >
               <textarea
                 className={textareaCls + ' font-mono text-xs'}
@@ -1283,6 +1283,11 @@ function WidgetEditorCard({
                 }
                 placeholder={'meusite.com.br\nwww.meusite.com.br\nloja.meusite.com.br'}
               />
+              {!form.allowedDomains.length && (
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                  Nenhum domínio configurado — em produção o widget não carregará em sites externos.
+                </p>
+              )}
             </WidgetSectionCard>
             {canPickDepartment && (
               <WidgetSectionCard

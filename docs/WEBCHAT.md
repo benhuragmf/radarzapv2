@@ -377,6 +377,13 @@ Heartbeat 30s; status operacional no header; RR/fallback usam `availableForQueue
 - `!encerrar` — finaliza chamado e conversa; desativa bridge.
 - **Operacional (2.11.16):** cadastre em *Telefones de alerta* o **celular pessoal** do atendente (`CompanyMember.whatsappPhone`), não o número da sessão Baileys conectada — o sistema ignora alertas cujo destino coincide com a sessão (`filterFallbackAlertPhones`) para evitar loop.
 
+#### Anti-loop dedup (AH-S05 / 2.12.57)
+
+- Encaminhamento visitante → WhatsApp usa `shouldForwardBridgeMessage` (`src/utils/webchat-bridge.util.ts`) com **Map in-process** e janela **8s** (`BRIDGE_FORWARD_DEDUP_MS`).
+- **Monólito / VPS única:** comportamento correto — evita eco e retries duplicados.
+- **Multi-réplica (futuro):** dedup **não** coordena entre instâncias; risco de duplicata ou loop em cluster — migrar para Redis com TTL (ver AH-M05 no doc de auditoria horizontal).
+- Evento de auditoria: `bridge.loop_prevented` em `AttendanceEvent` quando duplicata bloqueada.
+
 ## Atendimento só no Inbox (2.10.7)
 
 - **`/platform/webchat`** virou **histórico + status + widgets** (somente leitura das mensagens).

@@ -28,8 +28,12 @@ export interface AdminOpsSecurityEventRow {
 
 export interface AdminOpsSecurityEventsPage {
   items: AdminOpsSecurityEventRow[];
+  page: number;
   limit: number;
   total: number;
+  totalPages: number;
+  /** true quando alguma fonte atingiu o cap de fetch — total pode ser parcial */
+  truncated?: boolean;
   generatedAt: string;
   window: {
     from: string;
@@ -38,6 +42,7 @@ export interface AdminOpsSecurityEventsPage {
 }
 
 export type ListAdminOpsSecurityEventsParams = {
+  page?: unknown;
   limit?: unknown;
   kind?: unknown;
   level?: unknown;

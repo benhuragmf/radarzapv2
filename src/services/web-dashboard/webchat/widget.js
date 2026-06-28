@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.12.46';
+  var WIDGET_BUILD = '2.12.59';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -1296,6 +1296,7 @@
     messages: [],
     open: false,
     socket: null,
+    socketPresenceAuth: null,
     sending: false,
     started: false,
     prechatError: '',
@@ -1855,9 +1856,9 @@
   }
 
   function sendPresencePing() {
-    if (!state.config) return;
+    if (!state.config) return Promise.resolve();
     var engagement = presenceEngagementFlags();
-    apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/presence', {
+    return apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/presence', {
       method: 'POST',
       body: JSON.stringify({
         presenceId: ensurePresenceId(),
@@ -1870,9 +1871,13 @@
         notificationDismissed: isProactiveDismissCooldownActive(),
         visitorToken: state.visitorToken,
       }),
-    }).catch(function () {
-      /* ignore */
-    });
+    })
+      .then(function (data) {
+        if (data && data.socketAuth) state.socketPresenceAuth = data.socketAuth;
+      })
+      .catch(function () {
+        /* ignore */
+      });
   }
 
   function pollPendingEngage() {
@@ -1896,8 +1901,9 @@
 
   function startPresenceHeartbeat() {
     if (state.presenceTimer) return;
-    connectSocket();
-    sendPresencePing();
+    sendPresencePing().finally(function () {
+      connectSocket();
+    });
     pollPendingEngage();
     state.presenceTimer = setInterval(function () {
       sendPresencePing();
@@ -4462,7 +4468,11 @@
         state.socket.disconnect();
         state.socket = null;
       }
-      var auth = { webchatPresenceId: ensurePresenceId() };
+      var auth = {
+        webchatPresenceId: ensurePresenceId(),
+        webchatPublicKey: widgetKey,
+      };
+      if (state.socketPresenceAuth) auth.webchatPresenceAuth = state.socketPresenceAuth;
       if (state.visitorToken && !opts.presenceOnly) {
         auth.webchatVisitorToken = state.visitorToken;
       }

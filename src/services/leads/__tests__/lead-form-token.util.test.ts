@@ -5,6 +5,12 @@ import {
 } from '@/services/leads/lead-form-token.util';
 import { isWebChatOriginAllowed } from '@/services/webchat/webchat-token.util';
 
+jest.mock('@/config/environment', () => ({
+  config: {
+    PUBLIC_EMBED: { ALLOW_OPEN_ORIGIN: true },
+  },
+}));
+
 describe('lead-form-token.util', () => {
   it('generateLeadFormPublicKey usa prefixo lfm_', () => {
     expect(generateLeadFormPublicKey()).toMatch(/^lfm_[a-f0-9]{32}$/);

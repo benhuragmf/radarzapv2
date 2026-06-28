@@ -30,6 +30,7 @@ import { RedisManager } from '../../cache/RedisManager';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue, ContactGroup } from '../../models';
 import { buildAttendanceHealth } from '../attendance/attendance-health.service';
+import { buildInfraHealthSnapshot, toPublicLivenessHealth } from '../infra/infra-health.service';
 import {
   getSystemWhatsAppPolicyForAdmin,
   patchOrgWhatsAppSendPolicy,
@@ -136,6 +137,10 @@ import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { createLeadFormPublicRouter } from '../leads/lead-form-public.routes';
 import { LeadFormService } from '../leads/LeadFormService';
 import { WebChatService } from '../webchat/WebChatService';
+import { WebChatWidget } from '../../models/WebChatWidget';
+import { isWebChatOriginAllowed } from '../webchat/webchat-token.util';
+import { verifyWebChatPresenceSocketAuth } from '../webchat/webchat-presence-auth.util';
+import { isSocketIoOriginAllowed } from '../webchat/webchat-socket-origin.util';
 import { WebChatSendRateLimitError } from '../webchat/webchat-send-guard.service';
 import { normalizeEscalationPolicy } from '../webchat/webchat-ai-escalation-policy.util';
 import type { WebChatAiEscalationPolicy } from '../../types/webchat';
@@ -273,22 +278,15 @@ export class DashboardService {
     this.port = port;
     this.app = express();
     this.server = createServer(this.app);
-    const allowedSocketOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5174',
-      config.DASHBOARD.FRONTEND_URL,
-      config.CORS_ORIGIN,
-    ].filter(Boolean);
     this.io = new SocketIOServer(this.server, {
       cors: {
         origin: (origin, callback) => {
-          if (!origin || allowedSocketOrigins.includes(origin)) {
-            callback(null, true);
-            return;
-          }
-          // Widget embed em sites externos — visitante autentica com webchatVisitorToken
-          callback(null, true);
+          void isSocketIoOriginAllowed(origin)
+            .then(ok => {
+              if (ok) callback(null, true);
+              else callback(new Error('Origin not allowed'));
+            })
+            .catch(() => callback(new Error('Origin not allowed')));
         },
         credentials: true,
       },
@@ -572,10 +570,58 @@ export class DashboardService {
 
     this.app.use(sessionMiddleware);
     this.io.engine.use(sessionMiddleware);
+
+    /** Liveness público — fora de loadAuthContext (Docker/VPS); detalhes em GET /admin/ops/infra-health */
+    this.app.get('/api/services/health', rateLimiters.health, async (_req, res) => {
+      try {
+        const snapshot = await buildInfraHealthSnapshot();
+        res.status(snapshot.healthy ? 200 : 503).json(toPublicLivenessHealth(snapshot));
+      } catch {
+        res.status(503).json({
+          healthy: false,
+          uptime: process.uptime(),
+          version: process.env.npm_package_version ?? '0.0.0',
+          checkedAt: new Date().toISOString(),
+        });
+      }
+    });
+
     this.io.use(async (socket, next) => {
       const presenceId = socket.handshake.auth?.webchatPresenceId as string | undefined;
+      const publicKey = socket.handshake.auth?.webchatPublicKey as string | undefined;
+      const presenceAuth = socket.handshake.auth?.webchatPresenceAuth as string | undefined;
+      const origin = socket.handshake.headers.origin;
+      const referer = socket.handshake.headers.referer;
+
       if (presenceId?.startsWith('wcp_')) {
+        if (!publicKey?.trim()) {
+          next(new Error('Unauthorized'));
+          return;
+        }
+
+        const widget = await WebChatWidget.findOne({ publicKey: publicKey.trim(), active: true })
+          .select('clientId allowedDomains')
+          .lean();
+        if (!widget) {
+          next(new Error('Unauthorized'));
+          return;
+        }
+
+        if (!isWebChatOriginAllowed(widget.allowedDomains ?? [], origin, referer)) {
+          next(new Error('Forbidden origin'));
+          return;
+        }
+
+        const clientId = String(widget.clientId);
+        const isProd = config.NODE_ENV === 'production';
+        if (isProd && !verifyWebChatPresenceSocketAuth(presenceAuth, clientId, presenceId)) {
+          next(new Error('Unauthorized'));
+          return;
+        }
+
         await socket.join(`webchat:presence:${presenceId}`);
+        socket.data.webchatClientId = clientId;
+        socket.data.webchatPublicKey = publicKey.trim();
       }
 
       const visitorToken = socket.handshake.auth?.webchatVisitorToken as string | undefined;
@@ -1297,8 +1343,8 @@ export class DashboardService {
     // ── Stats ──────────────────────────────────────────────────────────────
     r.get('/stats', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
       try {
-        const stats = await this.buildStats();
-        res.json(stats);
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await this.buildTenantStats(auth));
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -1362,42 +1408,43 @@ export class DashboardService {
       }
     });
 
-    r.post('/panel/notifications/ingest', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
+    r.post(
+      '/panel/notifications/ingest',
+      rateLimiters.panelIngest,
+      requireCapability(Cap.WHATSAPP_SESSION_VIEW),
+      async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const body = req.body as {
           id?: string;
           type?: string;
-          title?: string;
-          body?: string;
-          href?: string;
-          createdAt?: string;
         };
-        const allowed = new Set(['whatsapp:connected', 'whatsapp:disconnected']);
-        if (!body?.type || !allowed.has(body.type) || !body.id || !body.title) {
+        const {
+          assertWhatsAppIngestMatchesSession,
+          buildPanelWaIngestEvent,
+          isValidPanelWaIngestId,
+          parsePanelWaIngestType,
+        } = await import('@/services/inbox/panel-notification-ingest.util');
+
+        const type = parsePanelWaIngestType(body?.type);
+        if (!type || !isValidPanelWaIngestId(body?.id)) {
           return res.status(400).json({ error: 'Evento inválido' });
         }
+
+        await assertWhatsAppIngestMatchesSession(auth.clientId, type);
+
         const { persistPanelEvent } = await import('@/services/inbox/panel-notifications-store.service');
-        const {
-          resolvePanelEventUrgency,
-          resolvePanelEventOwnerOnly,
-        } = await import('@/types/panel-events');
-        const event = {
-          id: String(body.id),
-          type: body.type as 'whatsapp:connected' | 'whatsapp:disconnected',
-          title: String(body.title),
-          body: String(body.body ?? ''),
-          href: body.href,
-          createdAt: body.createdAt ?? new Date().toISOString(),
-          urgent: resolvePanelEventUrgency(body.type),
-          ownerOnly: resolvePanelEventOwnerOnly(body.type),
-        };
+        const event = buildPanelWaIngestEvent(type, String(body.id));
         await persistPanelEvent(auth.clientId, event);
         res.json({ ok: true });
       } catch (e) {
-        res.status(500).json({ error: (e as Error).message });
+        const msg = (e as Error).message;
+        const status =
+          msg.includes('não está conectado') || msg.includes('inválida') ? 403 : 500;
+        res.status(status).json({ error: msg });
       }
-    });
+    },
+    );
 
     r.get('/platform/health/atendimento', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
       try {
@@ -1408,9 +1455,15 @@ export class DashboardService {
       }
     });
 
-    // ── Health ─────────────────────────────────────────────────────────────
-    r.get('/services/health', (_req, res) => {
-      res.json({ healthy: true, uptime: process.uptime() });
+    // ── Health (detalhe staff — liveness público em setupExpress) ─────────────
+
+    r.get('/admin/ops/infra-health', requireCapability(Cap.DASHBOARD_GLOBAL), async (_req, res) => {
+      try {
+        const snapshot = await buildInfraHealthSnapshot();
+        res.status(snapshot.healthy ? 200 : 503).json(snapshot);
+      } catch (e) {
+        res.status(503).json({ error: (e as Error).message, healthy: false });
+      }
     });
 
     // ── Sessions ───────────────────────────────────────────────────────────
@@ -4001,35 +4054,34 @@ export class DashboardService {
       }
     });
 
-    r.post('/admin/destinations/:id/block', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
-      try {
-        const auth = (req as DashboardRequest).auth!;
-        const dest = await Destination.findById(req.params.id);
-        if (!dest) return res.status(404).json({ error: 'Contato não encontrado' });
-        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
-        if (!relatedIds.some(id => id.toString() === dest.clientId?.toString())) {
-          return res.status(403).json({ error: 'Contato fora da sua empresa' });
-        }
-        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId, auth.clientId);
-        res.json({ ok: true });
-      } catch (e) {
-        res.status(400).json({ error: (e as Error).message });
-      }
-    });
-
     r.post('/destinations/:id/consent/block', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const dest = await Destination.findById(req.params.id);
-        if (!dest) return res.status(404).json({ error: 'Contato não encontrado' });
-        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
-        if (!relatedIds.some(id => id.toString() === dest.clientId?.toString())) {
-          return res.status(403).json({ error: 'Contato fora da sua empresa' });
-        }
-        await ConsentService.getInstance().manualBlock(req.params.id, auth.userId, auth.clientId);
+        await this.assertAndManualBlockDestination(auth, req.params.id);
         res.json({ ok: true });
       } catch (e) {
-        res.status(400).json({ error: (e as Error).message });
+        const msg = (e as Error).message;
+        const status = msg.includes('não encontrado') ? 404 : msg.includes('empresa') ? 403 : 400;
+        res.status(status).json({ error: msg });
+      }
+    });
+
+    /** @deprecated AH-R08 — use POST /destinations/:id/consent/block (não é rota admin global). */
+    r.post('/admin/destinations/:id/block', requireCapability(Cap.CONSENT_MANUAL_BLOCK), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.setHeader('Deprecation', 'true');
+        res.setHeader('Link', '</api/destinations/{id}/consent/block>; rel="successor-version"');
+        await this.assertAndManualBlockDestination(auth, req.params.id);
+        res.json({
+          ok: true,
+          deprecated: true,
+          successor: `/destinations/${req.params.id}/consent/block`,
+        });
+      } catch (e) {
+        const msg = (e as Error).message;
+        const status = msg.includes('não encontrado') ? 404 : msg.includes('empresa') ? 403 : 400;
+        res.status(status).json({ error: msg });
       }
     });
 
@@ -4832,21 +4884,24 @@ export class DashboardService {
           .map(u => u.primaryOrganizationId)
           .filter(Boolean) as mongoose.Types.ObjectId[];
         const orgs = orgIds.length
-          ? await Organization.find({ _id: { $in: orgIds } }).select('name').lean()
+          ? await Organization.find({ _id: { $in: orgIds } }).select('name plan').lean()
           : [];
-        const orgMap = new Map(orgs.map(o => [String(o._id), o.name]));
+        const orgNameMap = new Map(orgs.map(o => [String(o._id), o.name]));
+        const orgPlanMap = new Map(orgs.map(o => [String(o._id), o.plan]));
 
         const payload = await Promise.all(
           users.map(async (u) => {
             const id = (u._id as mongoose.Types.ObjectId).toString();
             const orgId = u.primaryOrganizationId ? String(u.primaryOrganizationId) : null;
+            const orgPlan = orgId ? orgPlanMap.get(orgId) : undefined;
             return {
               _id: id,
               discordUserId: u.discordUserId ?? null,
               email: u.email ?? null,
               displayName: await this.resolveUserDisplayName(u),
-              organizationName: orgId ? orgMap.get(orgId) ?? null : null,
-              plan: u.plan,
+              organizationId: orgId,
+              organizationName: orgId ? orgNameMap.get(orgId) ?? null : null,
+              plan: (orgPlan ?? u.plan) as 'free' | 'starter' | 'pro' | 'enterprise',
               limits: u.limits,
               usage: u.usage,
               createdAt: u.createdAt,
@@ -4862,17 +4917,35 @@ export class DashboardService {
 
     r.put('/users/:id/plan', requireCapability(Cap.SYSTEM_PLANS_MANAGE), async (req, res) => {
       try {
-        const { plan } = req.body;
-        const validPlans = ['free', 'starter', 'pro', 'enterprise'];
-        if (!validPlans.includes(plan)) {
-          return res.status(400).json({ error: `Invalid plan. Must be one of: ${validPlans.join(', ')}` });
-        }
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as { plan?: string; reason?: string };
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ error: 'User not found' });
-        await user.upgradePlan(plan as any);
-        res.json({ ok: true, plan: user.plan, limits: user.limits });
+        if (!user.primaryOrganizationId) {
+          res.status(400).json({
+            error: 'Usuário sem organização principal. Altere o plano em Admin → Empresas.',
+            code: 'ORGANIZATION_REQUIRED',
+          });
+          return;
+        }
+        const orgId = String(user.primaryOrganizationId);
+        res.setHeader('Deprecation', 'true');
+        res.setHeader('Link', '</api/admin/ops/organizations/{id}/plan>; rel="successor-version"');
+        const result = await changeAdminOpsOrganizationPlan(orgId, {
+          plan: body.plan as 'free' | 'starter' | 'pro' | 'enterprise',
+          reason: body.reason ?? '',
+          actorUserId: auth.userId,
+          ip: req.ip,
+        });
+        res.json({
+          ...result,
+          deprecated: true,
+          successor: `/admin/ops/organizations/${orgId}/plan`,
+        });
       } catch (e) {
-        res.status(500).json({ error: (e as Error).message });
+        const msg = (e as Error).message;
+        const status = msg.includes('não encontrada') ? 404 : 400;
+        res.status(status).json({ error: msg });
       }
     });
 
@@ -6048,7 +6121,7 @@ export class DashboardService {
 
     r.get('/admin/monitoring', requireCapability(Cap.LOGS_GLOBAL), async (_req, res) => {
       try {
-        const stats = await this.buildStats();
+        const stats = await this.buildGlobalStats();
         const health = {
           mongodb: DatabaseManager.getInstance().isConnected(),
           redis: RedisManager.getInstance().isConnected(),
@@ -6162,6 +6235,7 @@ export class DashboardService {
         const q = req.query as Record<string, string | undefined>;
         res.json(
           await listAdminOpsSecurityEvents({
+            page: q.page,
             limit: q.limit,
             kind: q.kind,
             level: q.level,
@@ -6193,30 +6267,26 @@ export class DashboardService {
       requireCapability(Cap.SYSTEM_PLANS_MANAGE),
       async (req, res) => {
         try {
-          const { plan } = req.body as { plan?: string };
-          const allowed = ['free', 'starter', 'pro', 'enterprise'];
-          if (!plan || !allowed.includes(plan)) {
-            res.status(400).json({ error: 'plan inválido' });
-            return;
-          }
-          const org = await Organization.findById(req.params.id);
-          if (!org) {
-            res.status(404).json({ error: 'Organização não encontrada' });
-            return;
-          }
-          org.plan = plan as typeof org.plan;
-          if (plan === 'free') {
-            org.planExpiresAt = undefined;
-            org.stripeSubscriptionId = undefined;
-          }
-          const limits = User.getPlanLimits(plan as 'free' | 'starter' | 'pro' | 'enterprise');
-          org.limits.messagesPerDay = limits.messagesPerDay;
-          org.limits.groupsMax = limits.groupsMax;
-          org.limits.templatesMax = limits.templatesMax;
-          await org.save();
-          res.json({ ok: true, plan: org.plan });
+          const auth = (req as DashboardRequest).auth!;
+          const body = req.body as { plan?: string; reason?: string; expiresAt?: string | null };
+          res.setHeader('Deprecation', 'true');
+          res.setHeader('Link', '</api/admin/ops/organizations/{id}/plan>; rel="successor-version"');
+          const result = await changeAdminOpsOrganizationPlan(req.params.id, {
+            plan: body.plan as 'free' | 'starter' | 'pro' | 'enterprise',
+            expiresAt: body.expiresAt,
+            reason: body.reason ?? '',
+            actorUserId: auth.userId,
+            ip: req.ip,
+          });
+          res.json({
+            ...result,
+            deprecated: true,
+            successor: `/admin/ops/organizations/${req.params.id}/plan`,
+          });
         } catch (e) {
-          res.status(400).json({ error: (e as Error).message });
+          const msg = (e as Error).message;
+          const status = msg.includes('não encontrada') ? 404 : 400;
+          res.status(status).json({ error: msg });
         }
       },
     );
@@ -7227,7 +7297,74 @@ export class DashboardService {
     };
   }
 
-  private async buildStats() {
+  /** Bloqueio manual LGPD — tenant-scoped (não confundir com rotas /admin/* globais). */
+  private async assertAndManualBlockDestination(
+    auth: NonNullable<DashboardRequest['auth']>,
+    destinationId: string,
+  ): Promise<void> {
+    const dest = await Destination.findById(destinationId);
+    if (!dest) throw new Error('Contato não encontrado');
+    const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+    if (!relatedIds.some(id => id.toString() === dest.clientId?.toString())) {
+      throw new Error('Contato fora da sua empresa');
+    }
+    await ConsentService.getInstance().manualBlock(destinationId, auth.userId, auth.clientId);
+  }
+
+  /** Stats escopados ao tenant autenticado — usado em GET /api/stats (painel tenant). */
+  private async buildTenantStats(auth: DashboardRequest['auth']) {
+    const clientOid = new mongoose.Types.ObjectId(auth!.clientId);
+    const now = new Date();
+    const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const [messagesToday, activeSessions, pendingJobs, failedJobs, hourlyLogs] =
+      await Promise.all([
+        SystemLog.countDocuments({
+          clientId: clientOid,
+          message: 'Message sent successfully',
+          timestamp: { $gte: startOfDay },
+        }),
+        WhatsAppSession.countDocuments({ clientId: clientOid, status: 'active' }),
+        MessageQueue.countDocuments({
+          clientId: clientOid,
+          status: { $in: ['pending', 'processing'] },
+        }),
+        MessageQueue.countDocuments({
+          clientId: clientOid,
+          status: 'failed',
+        }),
+        SystemLog.aggregate([
+          {
+            $match: {
+              clientId: clientOid,
+              message: 'Message sent successfully',
+              timestamp: { $gte: since24h },
+            },
+          },
+          { $group: { _id: { $hour: '$timestamp' }, count: { $sum: 1 } } },
+          { $sort: { _id: 1 } },
+        ]).catch(() => []),
+      ]);
+
+    const messagesPerHour = Array.from({ length: 24 }, (_, i) => {
+      const hour = (now.getHours() - 23 + i + 24) % 24;
+      const found = (hourlyLogs as Array<{ _id: number; count: number }>).find(h => h._id === hour);
+      return { hour: `${String(hour).padStart(2, '0')}h`, count: found?.count ?? 0 };
+    });
+
+    return {
+      totalMessages: messagesToday,
+      activeSessions,
+      pendingJobs,
+      failedJobs,
+      messagesPerHour,
+    };
+  }
+
+  /** Agregador global da plataforma — somente staff (GET /admin/monitoring). */
+  private async buildGlobalStats() {
     const now = new Date();
     const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 

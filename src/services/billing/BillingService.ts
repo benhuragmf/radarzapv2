@@ -66,9 +66,7 @@ export class BillingService {
   }
 
   private canUseDevBilling(): boolean {
-    if (process.env.ALLOW_DEV_BILLING === 'true') return true;
-    if (process.env.NODE_ENV === 'production') return false;
-    return true;
+    return process.env.ALLOW_DEV_BILLING === 'true';
   }
 
   private assertPurchasable(planId: string): PurchasablePlanId {

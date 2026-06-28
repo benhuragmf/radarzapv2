@@ -97,11 +97,17 @@ export class RateLimiter {
 
     } catch (error) {
       this.serviceLogger.error('Rate limit check failed:', error);
-      // Fail open - allow request if Redis is down
+      if (config.RATE_LIMIT.FAIL_OPEN_ON_REDIS_ERROR) {
+        return {
+          allowed: true,
+          tokensRemaining: maxTokens,
+          resetTime: now + windowMs,
+        };
+      }
       return {
-        allowed: true,
-        tokensRemaining: maxTokens,
-        resetTime: now + windowMs
+        allowed: false,
+        tokensRemaining: 0,
+        resetTime: now + windowMs,
       };
     }
   }
@@ -396,11 +402,17 @@ export class RateLimiter {
 
     } catch (error) {
       this.serviceLogger.error('Sliding window rate limit check failed:', error);
-      // Fail open
+      if (config.RATE_LIMIT.FAIL_OPEN_ON_REDIS_ERROR) {
+        return {
+          allowed: true,
+          requestsRemaining: maxRequests,
+          resetTime: now + windowMs,
+        };
+      }
       return {
-        allowed: true,
-        requestsRemaining: maxRequests,
-        resetTime: now + windowMs
+        allowed: false,
+        requestsRemaining: 0,
+        resetTime: now + windowMs,
       };
     }
   }

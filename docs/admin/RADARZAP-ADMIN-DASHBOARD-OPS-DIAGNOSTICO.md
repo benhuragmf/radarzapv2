@@ -197,7 +197,8 @@ Rotas admin listadas consultam Mongo **sem filtro `clientId`** — correto para 
 | GET/PATCH | `/admin/ai-platform/*` | `system:settings:manage` | Credenciais IA plataforma + usage |
 | GET/PATCH | `/admin/ai-blueprint` | `system:settings:manage` | Modelo global IA |
 | GET/PATCH | `/admin/whatsapp-send-policy` | `system:settings:manage` | Política envio WA sistema |
-| POST | `/admin/destinations/:id/block` | `consent:manual-block` | Bloqueio manual destino |
+| POST | `/destinations/:id/consent/block` | `consent:manual-block` | Bloqueio manual destino (canônico) |
+| POST | `/admin/destinations/:id/block` | `consent:manual-block` | **Depreciada 2.12.59** — usar rota acima |
 | GET | `/queue` | `queue:view` **ou** `platform:reports:view` | Stats BullMQ por fila |
 | GET | `/queue/failed` | `queue:view` | Jobs falhos (pode incluir `data` do job) |
 | GET | `/services/health` | *(nenhuma)* | Uptime público |

@@ -81,7 +81,29 @@ const rateLimitConfigs = {
       code: 'HEAVY_RATE_LIMIT_EXCEEDED',
       retryAfter: '1 hour'
     }
-  }
+  },
+
+  /** Liveness público — Docker/load balancer (AH-R07) */
+  health: {
+    windowMs: 60 * 1000,
+    max: devRelax ? 600 : 120,
+    message: {
+      error: 'Too many health checks',
+      code: 'HEALTH_RATE_LIMIT_EXCEEDED',
+      retryAfter: '1 minute',
+    },
+  },
+
+  /** Ingest client-side WA alerts → Redis (AH-R05) */
+  panelIngest: {
+    windowMs: 60 * 1000,
+    max: devRelax ? 200 : 12,
+    message: {
+      error: 'Muitos alertas de sessão — aguarde',
+      code: 'PANEL_INGEST_RATE_LIMIT',
+      retryAfter: '1 minute',
+    },
+  },
 };
 
 /**
@@ -271,6 +293,8 @@ export const rateLimiters = {
   messages: createRateLimiter('messages'),
   webchatPublic: createRateLimiter('webchatPublic'),
   heavy: createRateLimiter('heavy'),
+  panelIngest: createRateLimiter('panelIngest'),
+  health: createRateLimiter('health'),
   
   // Plan-based limiters
   templateOperations: createPlanBasedRateLimiter(10, 50, 200), // per 15 minutes

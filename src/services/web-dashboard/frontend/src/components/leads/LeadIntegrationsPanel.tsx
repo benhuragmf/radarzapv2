@@ -157,7 +157,7 @@ export function LeadIntegrationsPanel({
 
         {!form.allowedDomains?.length && (
           <div className="text-sm text-amber-800 dark:text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
-            Qualquer domínio poderá enviar leads para este formulário.{' '}
+            Em produção, embeds sem domínios configurados ficam bloqueados.{' '}
             {!readOnly && onConfigureDomains && (
               <button type="button" className="underline font-medium" onClick={() => onConfigureDomains(form.id)}>
                 Configurar domínios permitidos

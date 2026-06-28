@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { config } from '@/config/environment';
 
 export function generateWebChatPublicKey(): string {
   return `wck_${crypto.randomBytes(16).toString('hex')}`;
@@ -12,7 +13,7 @@ export function hashWebChatVisitorToken(raw: string): string {
   return crypto.createHash('sha256').update(raw).digest('hex');
 }
 
-function hostFromUrl(value?: string | null): string | null {
+export function hostFromUrl(value?: string | null): string | null {
   if (!value?.trim()) return null;
   try {
     return new URL(value).hostname.toLowerCase();
@@ -21,17 +22,25 @@ function hostFromUrl(value?: string | null): string | null {
   }
 }
 
-function isLocalDevHost(host: string): boolean {
+export function isLocalDevHost(host: string): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost');
 }
 
-/** Valida origem do embed — lista vazia permite qualquer host. */
+/** Política global quando allowedDomains está vazio (AH-D01 / AH-W02). */
+export function isPublicEmbedOpenOriginPolicyEnabled(): boolean {
+  return config.PUBLIC_EMBED.ALLOW_OPEN_ORIGIN;
+}
+
+/** Valida origem do embed — lista vazia obedece PUBLIC_EMBED_ALLOW_OPEN_ORIGIN. */
 export function isWebChatOriginAllowed(
   allowedDomains: string[],
   origin?: string | null,
   referer?: string | null,
 ): boolean {
-  if (!allowedDomains.length) return true;
+  if (!allowedDomains.length) {
+    return isPublicEmbedOpenOriginPolicyEnabled();
+  }
+
   const host = hostFromUrl(origin) ?? hostFromUrl(referer);
   if (!host) {
     // Embed same-origin (ex.: preview /leads/preview.html) pode omitir Origin e Referer.

@@ -27,6 +27,10 @@ const AuditLogSchema = new Schema<IAuditLog>({
 
 AuditLogSchema.index({ createdAt: -1 });
 
+/** TTL automático — retenção 180 dias (AH-D02). */
+const AUDIT_LOG_RETENTION_SEC = 180 * 24 * 60 * 60;
+AuditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: AUDIT_LOG_RETENTION_SEC });
+
 export const AuditLog = mongoose.model<IAuditLog>('AuditLog', AuditLogSchema);
 
 export async function writeAuditLog(entry: {

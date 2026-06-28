@@ -138,7 +138,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 |-------------|-----------|
 | [`concluidos/`](./concluidos/README.md) | Entregas e fases arquivadas |
 | [`audits/`](./audits/) | Auditorias incrementais e horizontal |
-| [`audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal 2.12.46** — segurança, multi-tenant, estabilidade |
+| [`audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal** — correções 2.12.47–2.12.59; QA manual pendente |
+| [`operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](./operacao/RUNBOOK-SPOF-MONGO-REDIS.md) | Runbook SPOF Mongo/Redis (AH-S01) |
 | [`security/`](./security/) | Notas de segurança |
 
 ---

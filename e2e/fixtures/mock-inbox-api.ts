@@ -555,10 +555,18 @@ export async function setupInboxMocks(
 
     const detailMatch = path.match(/^\/inbox\/conversations\/([^/]+)$/);
     if (detailMatch) {
+      const convId = decodeURIComponent(detailMatch[1]);
+      if (convId.includes('foreign-org')) {
+        return route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Conversa não encontrada' }),
+        });
+      }
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(buildConversationDetail(decodeURIComponent(detailMatch[1]))),
+        body: JSON.stringify(buildConversationDetail(convId)),
       });
     }
 

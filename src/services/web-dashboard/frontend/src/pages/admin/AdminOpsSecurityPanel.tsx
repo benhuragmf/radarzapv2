@@ -73,11 +73,13 @@ function windowToRange(preset: WindowPreset): { from: string; to: string } {
 
 function buildEventsQuery(params: {
   window: WindowPreset
+  page: number
   level: '' | AdminOpsSecurityEventLevel
   source: '' | AdminOpsSecurityEventSource
   kind: string
 }) {
   const qs = new URLSearchParams()
+  qs.set('page', String(params.page))
   qs.set('limit', '25')
   const range = windowToRange(params.window)
   qs.set('from', range.from)
@@ -151,14 +153,15 @@ export default function AdminOpsSecurityPanel({
 }: Props) {
   const queryClient = useQueryClient()
   const [windowPreset, setWindowPreset] = useState<WindowPreset>('24h')
+  const [page, setPage] = useState(1)
   const [levelFilter, setLevelFilter] = useState<'' | AdminOpsSecurityEventLevel>(initialLevelFilter)
   const [sourceFilter, setSourceFilter] = useState<'' | AdminOpsSecurityEventSource>('')
   const [kindFilter, setKindFilter] = useState('')
 
   const queryKey = useMemo(
     () =>
-      ['admin-ops-security-events', windowPreset, levelFilter, sourceFilter, kindFilter] as const,
-    [windowPreset, levelFilter, sourceFilter, kindFilter],
+      ['admin-ops-security-events', windowPreset, page, levelFilter, sourceFilter, kindFilter] as const,
+    [windowPreset, page, levelFilter, sourceFilter, kindFilter],
   )
 
   const eventsQuery = useQuery({
@@ -167,6 +170,7 @@ export default function AdminOpsSecurityPanel({
       api.get<AdminOpsSecurityEventsPage>(
         buildEventsQuery({
           window: windowPreset,
+          page,
           level: levelFilter,
           source: sourceFilter,
           kind: kindFilter,
@@ -226,7 +230,10 @@ export default function AdminOpsSecurityPanel({
             <select
               data-testid="admin-ops-security-window"
               value={windowPreset}
-              onChange={e => setWindowPreset(e.target.value as WindowPreset)}
+              onChange={e => {
+                setWindowPreset(e.target.value as WindowPreset)
+                setPage(1)
+              }}
               className="rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] px-2 py-1.5 text-sm"
             >
               <option value="24h">Últimas 24h</option>
@@ -238,9 +245,10 @@ export default function AdminOpsSecurityPanel({
             <select
               data-testid="admin-ops-security-level"
               value={levelFilter}
-              onChange={e =>
+              onChange={e => {
                 setLevelFilter(e.target.value as '' | AdminOpsSecurityEventLevel)
-              }
+                setPage(1)
+              }}
               className="rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] px-2 py-1.5 text-sm"
             >
               {LEVEL_OPTIONS.map(o => (
@@ -255,9 +263,10 @@ export default function AdminOpsSecurityPanel({
             <select
               data-testid="admin-ops-security-source"
               value={sourceFilter}
-              onChange={e =>
+              onChange={e => {
                 setSourceFilter(e.target.value as '' | AdminOpsSecurityEventSource)
-              }
+                setPage(1)
+              }}
               className="rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] px-2 py-1.5 text-sm"
             >
               {SOURCE_OPTIONS.map(o => (
@@ -273,7 +282,10 @@ export default function AdminOpsSecurityPanel({
               data-testid="admin-ops-security-kind"
               type="text"
               value={kindFilter}
-              onChange={e => setKindFilter(e.target.value)}
+              onChange={e => {
+                setKindFilter(e.target.value)
+                setPage(1)
+              }}
               placeholder="ex. billing.invoice.failed"
               className="rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] px-2 py-1.5 text-sm"
             />
@@ -341,6 +353,33 @@ export default function AdminOpsSecurityPanel({
                 ))}
               </tbody>
             </table>
+            {eventsQuery.data && eventsQuery.data.totalPages > 1 ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="text-[var(--rz-text-muted)]">
+                  Página {eventsQuery.data.page} de {eventsQuery.data.totalPages} ·{' '}
+                  {formatOpsNumber(eventsQuery.data.total)} evento(s)
+                  {eventsQuery.data.truncated ? ' (janela parcial)' : ''}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-md border border-[var(--rz-border)] px-3 py-1.5 disabled:opacity-50"
+                    disabled={page <= 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border border-[var(--rz-border)] px-3 py-1.5 disabled:opacity-50"
+                    disabled={page >= eventsQuery.data.totalPages}
+                    onClick={() => setPage(p => p + 1)}
+                  >
+                    Próxima
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </SectionCard>

@@ -14,6 +14,8 @@ import { AiUsageMeterService } from './AiUsageMeterService';
 import { aiUsageKindFromProviderLabel } from '@/types/ai-usage-kind';
 import { recordAiCreditAttendanceEvent } from '@/types/ai-wallet';
 import { PlatformAiCredentialsService } from './PlatformAiCredentialsService';
+import { config } from '@/config/environment';
+import { fetchWithTimeout } from '@/utils/fetch-with-timeout';
 
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -289,13 +291,14 @@ export class AiProviderService {
     if (useJsonObject) {
       payload.response_format = { type: 'json_object' };
     }
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+      timeoutMs: config.AI.PROVIDER_TIMEOUT_MS,
     });
     const data = (await res.json()) as {
       error?: { message?: string };
@@ -362,7 +365,7 @@ export class AiProviderService {
       }));
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -377,6 +380,7 @@ export class AiProviderService {
           responseMimeType: 'application/json',
         },
       }),
+      timeoutMs: config.AI.PROVIDER_TIMEOUT_MS,
     });
     const data = (await res.json()) as {
       error?: { message?: string };

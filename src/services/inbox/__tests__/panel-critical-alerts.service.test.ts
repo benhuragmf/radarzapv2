@@ -20,6 +20,18 @@ jest.mock('@/models/AiSettings', () => ({
   },
 }));
 
+jest.mock('@/models/WebChatWidget', () => ({
+  WebChatWidget: {
+    countDocuments: jest.fn(),
+  },
+}));
+
+jest.mock('@/models/LeadForm', () => ({
+  LeadForm: {
+    countDocuments: jest.fn(),
+  },
+}));
+
 jest.mock('@/services/ai/AiUsageMeterService', () => ({
   AiUsageMeterService: {
     getInstance: () => ({ getUsageSnapshot }),
@@ -42,6 +54,8 @@ jest.mock('@/types/ai-wallet', () => {
 
 const { InboxSettings } = jest.requireMock('@/models/InboxSettings');
 const { AiSettings } = jest.requireMock('@/models/AiSettings');
+const { WebChatWidget } = jest.requireMock('@/models/WebChatWidget');
+const { LeadForm } = jest.requireMock('@/models/LeadForm');
 
 const CLIENT_OID = '6a18bdc5ee126fd553a2c56b';
 
@@ -54,6 +68,8 @@ function freshService(): PanelCriticalAlertsService {
 describe('PanelCriticalAlertsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    WebChatWidget.countDocuments.mockResolvedValue(0);
+    LeadForm.countDocuments.mockResolvedValue(0);
     freshService();
   });
 
@@ -193,6 +209,44 @@ describe('PanelCriticalAlertsService', () => {
         type: 'system:critical_config',
         title: 'IA sem chave configurada',
         href: '/platform/inbox/ia',
+      }),
+    );
+  });
+
+  it('scanCriticalConfig alerta embeds sem domínios (AH-W02)', async () => {
+    InboxSettings.findOne.mockReturnValue({
+      select: () => ({
+        lean: () =>
+          Promise.resolve({
+            whatsappFallbackEnabled: false,
+            whatsappFallbackAlertPhones: [],
+          }),
+      }),
+    });
+    AiSettings.findOne.mockReturnValue({
+      lean: () => Promise.resolve(null),
+    });
+    isAiActive.mockResolvedValue(false);
+    WebChatWidget.countDocuments.mockResolvedValue(1);
+    LeadForm.countDocuments.mockResolvedValue(1);
+
+    const svc = freshService();
+    await svc.scanCriticalConfig(CLIENT_OID);
+
+    expect(emitPanelEvent).toHaveBeenCalledWith(
+      CLIENT_OID,
+      expect.objectContaining({
+        type: 'system:critical_config',
+        title: 'WebChat sem domínios permitidos',
+        href: '/platform/webchat',
+      }),
+    );
+    expect(emitPanelEvent).toHaveBeenCalledWith(
+      CLIENT_OID,
+      expect.objectContaining({
+        type: 'system:critical_config',
+        title: 'Formulário sem domínios permitidos',
+        href: '/platform/leads',
       }),
     );
   });

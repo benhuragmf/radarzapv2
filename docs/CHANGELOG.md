@@ -6,6 +6,124 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.59] — 2026-06-28
+
+### Encerramento auditoria horizontal — AH-R08 + AH-D03 + doc final
+
+- **AH-R08:** `POST /admin/destinations/:id/block` depreciada → sucessora `POST /destinations/:id/consent/block`; handler unificado.
+- **AH-D03:** política de audit IA (sem prompt completo) em `IA-CREDITOS-E-CARTEIRA.md`.
+- **Auditoria:** status final atualizado — correções código 2.12.47–2.12.59.
+
+## [2.12.58] — 2026-06-28
+
+### Correção P3 — AH-R07 health público + índice AttendanceEvent admin
+
+- **`GET /api/services/health`:** público (sem sessão), rate limit, payload mínimo (`healthy`, `uptime`, `version`); ping interno Mongo+Redis.
+- **`GET /admin/ops/infra-health`:** detalhe staff (`dashboard:global`) com latências e filas.
+- **`AttendanceEvent`:** índice `{ kind: 1, createdAt: -1 }` para feed segurança admin.
+- **Testes:** `toPublicLivenessHealth` em `infra-health.service.test.ts`.
+
+## [2.12.57] — 2026-06-28
+
+### Correção P2 — AH-B02 + AH-M04 + AH-S05
+
+- **Billing dev:** `POST /billing/dev/activate` exige `ALLOW_DEV_BILLING=true` (removido fallback `NODE_ENV !== production`).
+- **Cross-tenant:** testes integrados Inbox/Leads (`cross-tenant-scope.integration.test.ts`); E2E mock `e2e/cross-tenant-isolation.spec.ts`.
+- **Bridge dedup:** documentado Map in-process single-node em `WEBCHAT.md` (AH-S05).
+- **Testes:** `billing-dev-activate.test.ts`.
+
+## [2.12.56] — 2026-06-28
+
+### Correção P2 — AH-S04 health infra + AH-S01 runbook SPOF
+
+- **`GET /api/services/health`:** ping MongoDB + Redis + filas BullMQ; `healthy` agregado; HTTP 503 se core down.
+- **`buildInfraHealthSnapshot`:** latência por dependência, `version`, `checkedAt`.
+- **Runbook:** `docs/operacao/RUNBOOK-SPOF-MONGO-REDIS.md` — SPOF, sintomas, recuperação dev/VPS.
+- **Testes:** `infra-health.service.test.ts`.
+
+## [2.12.55] — 2026-06-28
+
+### Correção P2 — AH-R06 Socket.IO + AH-M03 Inbox defense-in-depth
+
+- **Socket.IO CORS:** origem validada via painel + `allowedDomains` dos widgets ativos (cache 60s); não aceita `*` implícito.
+- **Presença WebChat (`wcp_`):** exige `webchatPublicKey`, origem embed válida e `socketAuth` HMAC (POST `/presence`) em produção.
+- **Widget:** envia `publicKey` + token; ping de presença antes do connect.
+- **`InboxService`:** `findConversationForClient` — substitui `findById` sem `clientId` (10 ocorrências).
+- **Testes:** `webchat-presence-auth.util.test.ts`, `webchat-socket-origin.util.test.ts`.
+
+## [2.12.54] — 2026-06-28
+
+### Correção P2/P3 — AH-R05 ingest sino + AH-D02 TTL logs
+
+- **`POST /panel/notifications/ingest`:** cap `whatsapp:session:view`; rate limit; id `sess-*`; texto fixo no servidor; `connected` valida sessão WA active.
+- **`AuditLog`:** índice TTL 180 dias.
+- **`AttendanceEvent`:** índice TTL 90 dias.
+- **Testes:** `panel-notification-ingest.util.test.ts`.
+
+## [2.12.53] — 2026-06-28
+
+### Correção P2 — AH-E02 security-events paginação + filtros Mongo
+
+- **`GET /admin/ops/security-events`:** `page`, `totalPages`, `truncated`; offset real após merge.
+- **`buildSecurityEventsFetchPlan`:** consulta só coleções/filtros necessários (ex. `source=system` pula Attendance).
+- **AuditLog:** filtro `$or` de ações relevantes no Mongo (não traz perfil etc.).
+- **UI:** paginação Anterior/Próxima no feed Segurança.
+
+## [2.12.52] — 2026-06-28
+
+### Correção P2 — AH-D01/W02 embed público fail-closed
+
+- **`isWebChatOriginAllowed`:** `allowedDomains` vazio → bloqueia em produção; dev mantém aberto. Env `PUBLIC_EMBED_ALLOW_OPEN_ORIGIN`.
+- **Leads + WebChat:** mesma política via util compartilhado.
+- **Painel:** alerta `system:critical_config` quando widget/formulário ativo sem domínios.
+- **UI:** copy atualizado (WebChat, Leads, integrações).
+
+## [2.12.51] — 2026-06-28
+
+### Correção P1 — AH-E01 filtro `?status=` Admin Ops sem full scan
+
+- **`buildMongoFilterForAdminOpsBillingStatus`:** filtro Mongo espelha `normalizeBillingStatus` — paginação server-side com `countDocuments` + `skip/limit`.
+- **`normalizeBillingStatus`:** retorna `manual` quando Stripe/manual vigente; expirado → `canceled`.
+- **Testes:** `admin-ops-billing-status-filter.util.test.ts` (paridade) + service test atualizado.
+
+## [2.12.50] — 2026-06-28
+
+### Correção P1 — AH-S03 timeout IA + AH-S02 rate limit fail-closed
+
+- **`fetchWithTimeout`:** util com `AbortSignal` + `FetchTimeoutError` (`src/utils/fetch-with-timeout.ts`).
+- **`AiProviderService`:** OpenAI e Gemini usam timeout configurável (`AI_PROVIDER_TIMEOUT_MS`, default 30s).
+- **`RateLimiter`:** em produção, Redis indisponível → **negar** requisição (fail-closed); dev mantém fail-open. Env `RATE_LIMIT_FAIL_OPEN`.
+- **Testes:** `fetch-with-timeout.test.ts`, `rate-limiter-fail-mode.test.ts`.
+
+## [2.12.49] — 2026-06-28
+
+### Correção P1 — AH-R03/R04 rotas plano legado → Ops + AuditLog
+
+- **PATCH `/admin/organizations/:id/plan`:** delega `changeAdminOpsOrganizationPlan`; exige motivo; header `Deprecation`.
+- **PUT `/users/:id/plan`:** resolve `primaryOrganizationId` → Ops; sem `User.upgradePlan`.
+- **GET `/users`:** expõe `organizationId` + plano da **Organization**.
+- **Frontend `/admin/plans`:** modal motivo + `PATCH /admin/ops/organizations/:id/plan`; link Empresas.
+- **Teste:** `legacy-plan-routes.test.ts`.
+
+## [2.12.48] — 2026-06-28
+
+### Correção P0 — AH-R02 filas BullMQ tenant-scoped
+
+- **GET `/api/queue`:** sem `queue:global` → stats de `MessageQueue` do tenant; staff global → BullMQ completo.
+- **GET `/api/queue/failed`:** filtra por `clientId` no payload; **nunca** retorna `job.data` bruto.
+- **POST `/api/queue/:id/retry`:** tenant só reprocessa jobs do próprio `clientId`.
+- **Util:** `queue-job-tenant.util.ts` + testes; UX Discord fila com aviso staff.
+- **Próxima etapa:** AH-R03/R04 rotas plano legado.
+
+## [2.12.47] — 2026-06-28
+
+### Correção P0 — AH-R01 stats tenant-scoped
+
+- **GET `/api/stats`:** passa a usar `buildTenantStats(auth)` — filtra por `clientId` (mensagens, sessão WA, fila MessageQueue, gráfico 24h).
+- **Global:** `buildStats` renomeado `buildGlobalStats` — exclusivo `GET /admin/monitoring` (`logs:global`).
+- **Teste:** `tenant-stats-scope.test.ts` — contrato anti-vazamento global.
+- **Próxima etapa controlada:** AH-R02 filas BullMQ.
+
 ## [2.12.46] — 2026-06-28
 
 ### Auditoria horizontal — segurança, dados e estabilidade

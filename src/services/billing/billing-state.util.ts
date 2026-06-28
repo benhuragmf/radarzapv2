@@ -19,11 +19,14 @@ export type BillingProductStatus =
 
 export const BILLING_GRACE_PERIOD_DAYS = 3;
 
-export function normalizeBillingStatus(input: {
-  plan: OrgPlanId;
-  planExpiresAt?: Date | null;
-  stripeSubscriptionStatus?: string | null;
-}): BillingProductStatus {
+export function normalizeBillingStatus(
+  input: {
+    plan: OrgPlanId;
+    planExpiresAt?: Date | null;
+    stripeSubscriptionStatus?: string | null;
+  },
+  now = new Date(),
+): BillingProductStatus {
   if (input.plan === 'free') return 'free';
 
   const stripe = (input.stripeSubscriptionStatus ?? '').toLowerCase();
@@ -33,8 +36,21 @@ export function normalizeBillingStatus(input: {
   if (stripe === 'paused') return 'paused';
   if (stripe === 'incomplete' || stripe === 'incomplete_expired') return 'incomplete';
   if (stripe === 'trialing') return 'trialing';
+  if (stripe === 'manual') {
+    const local: SubscriptionStatus = computeSubscriptionStatus(
+      input.plan,
+      input.planExpiresAt,
+      now,
+    );
+    if (local === 'expired') return 'canceled';
+    return 'manual';
+  }
 
-  const local: SubscriptionStatus = computeSubscriptionStatus(input.plan, input.planExpiresAt);
+  const local: SubscriptionStatus = computeSubscriptionStatus(
+    input.plan,
+    input.planExpiresAt,
+    now,
+  );
   if (local === 'expired') return 'canceled';
   return 'active';
 }

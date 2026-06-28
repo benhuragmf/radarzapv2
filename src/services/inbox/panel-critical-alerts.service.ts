@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import { Organization } from '@/models/Organization';
 import { InboxSettings } from '@/models/InboxSettings';
 import { AiSettings } from '@/models/AiSettings';
+import { WebChatWidget } from '@/models/WebChatWidget';
+import { LeadForm } from '@/models/LeadForm';
 import { AiUsageMeterService } from '@/services/ai/AiUsageMeterService';
 import { AiSettingsService } from '@/services/ai/AiSettingsService';
 import { computeSubscriptionStatus, formatTimeRemaining } from '@/services/billing/subscription.util';
@@ -278,6 +280,44 @@ export class PanelCriticalAlertsService {
         'Modo empresa ativo sem API key — a IA não conseguirá responder.',
         '/platform/inbox/ia',
         'ai-company-key',
+      );
+    }
+
+    await this.scanOpenEmbedOrigins(clientId);
+  }
+
+  private emptyAllowedDomainsFilter(): Record<string, unknown> {
+    return {
+      $or: [{ allowedDomains: { $exists: false } }, { allowedDomains: { $size: 0 } }],
+    };
+  }
+
+  async scanOpenEmbedOrigins(clientId: string): Promise<void> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const base = { clientId: clientOid, active: true, ...this.emptyAllowedDomainsFilter() };
+
+    const [openWebChat, openLeads] = await Promise.all([
+      WebChatWidget.countDocuments(base),
+      LeadForm.countDocuments(base),
+    ]);
+
+    if (openWebChat > 0) {
+      this.notifyCriticalConfig(
+        clientId,
+        'WebChat sem domínios permitidos',
+        'Widget ativo sem allowedDomains — em produção o embed fica bloqueado até configurar domínios.',
+        '/platform/webchat',
+        'webchat-open-origin',
+      );
+    }
+
+    if (openLeads > 0) {
+      this.notifyCriticalConfig(
+        clientId,
+        'Formulário sem domínios permitidos',
+        'Formulário ativo sem allowedDomains — em produção capturas públicas ficam bloqueadas.',
+        '/platform/leads',
+        'leads-open-origin',
       );
     }
   }

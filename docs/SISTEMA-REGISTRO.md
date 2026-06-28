@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.12.46` (`package.json`) · **Última revisão doc:** 2026-06-28
+**Versão atual:** `2.12.59` (`package.json`) · **Última revisão doc:** 2026-06-28
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Resultado TOP 01–20:** [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,19 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.12.59** | AH-R08 rota consent block; AH-D03 doc audit IA; encerramento auditoria horizontal |
+| **2.12.58** | AH-R07 health público mínimo + `/admin/ops/infra-health`; índice AttendanceEvent admin |
+| **2.12.57** | AH-B02 dev billing flag; AH-M04 testes cross-tenant; AH-S05 doc bridge dedup |
+| **2.12.56** | AH-S04 `/services/health` Mongo+Redis+filas; AH-S01 runbook SPOF Mongo/Redis |
+| **2.12.55** | AH-R06 Socket.IO CORS + presença wcp_ HMAC; AH-M03 Inbox findById → clientId |
+| **2.12.54** | AH-R05 ingest sino WA hardened + AH-D02 TTL AuditLog/AttendanceEvent |
+| **2.12.53** | AH-E02 security-events: paginação `page` + fetch plan Mongo por fonte |
+| **2.12.52** | AH-D01/W02 embed fail-closed prod + alerta painel domínios vazios |
+| **2.12.51** | AH-E01 Admin Ops `?status=` — filtro Mongo sem full scan + status `manual` |
+| **2.12.50** | AH-S03 timeout IA (`fetchWithTimeout`) + AH-S02 rate limit fail-closed prod |
+| **2.12.49** | AH-R03/R04 rotas plano legado → Admin Ops + AuditLog |
+| **2.12.48** | AH-R02 filas BullMQ tenant-scoped + sanitização `job.data` |
+| **2.12.47** | AH-R01 `GET /api/stats` tenant-scoped |
 | **2.12.46** | Auditoria horizontal segurança/dados/estabilidade + hardening WebChat anexo + leads GET origin |
 | **2.12.45** | Admin Ops Etapa 10: Bloco E local, E2E plano/tenants, prep push |
 | **2.12.44** | Admin Ops Etapa 9 + reconciliação 8–9 (verificação real docs×git) |

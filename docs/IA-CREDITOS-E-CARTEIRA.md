@@ -335,6 +335,20 @@ Label UI: `TeamPermissionsEditor.tsx` → `'inbox:ai:balance:view': 'Ver saldo I
 
 ---
 
+## Auditoria e logs (AH-D03)
+
+Política para eventos `AttendanceEvent`, `AuditLog` e `AiUsage`:
+
+| Permitido em `meta` | **Proibido** |
+|---------------------|--------------|
+| `planId`, `creditWeight`, `usageKind`, `bodyLength`, `status` | Prompt completo do system/user |
+| IDs de conversa/ticket (sem conteúdo) | Chaves API, tokens, `wcv_` / `wck_` |
+| Códigos de erro sanitizados | Resposta bruta do provider LLM |
+
+Implementação: `redactSensitiveMeta` em `attendance-audit.service.ts` e `mask-secret.util.ts`. **Não** adicionar campos `prompt`, `messages[]` ou `completion` em audit — usar logs de debug só em dev local.
+
+---
+
 ## Checklist QA manual
 
 1. **Dono** — barra mostra `IA usado/total` e `LM usado/limite`; tooltip com saldo.

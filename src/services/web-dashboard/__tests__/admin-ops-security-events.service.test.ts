@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import {
   assertSafeSecurityEventRow,
+  buildSecurityEventsFetchPlan,
   listAdminOpsSecurityEvents,
   mapAttendanceEventToAdminOpsSecurityEvent,
   mapAuditLogToAdminOpsSecurityEvent,
@@ -152,6 +153,22 @@ describe('admin-ops-security-events.service', () => {
     });
   });
 
+  describe('buildSecurityEventsFetchPlan', () => {
+    it('kind system.error consulta só SystemLog', () => {
+      const plan = buildSecurityEventsFetchPlan({ kind: 'system.error' });
+      expect(plan.attendance.enabled).toBe(false);
+      expect(plan.system.enabled).toBe(true);
+      expect(plan.audit.enabled).toBe(false);
+    });
+
+    it('source ticket restringe kinds attendance', () => {
+      const plan = buildSecurityEventsFetchPlan({ source: 'ticket' });
+      expect(plan.attendance.enabled).toBe(true);
+      expect(plan.attendance.kinds).toEqual(['ticket.public_lookup_failed']);
+      expect(plan.system.enabled).toBe(false);
+    });
+  });
+
   describe('listAdminOpsSecurityEvents', () => {
     it('agrega fontes e ordena por createdAt desc', async () => {
       AttendanceEvent.find.mockReturnValue(
@@ -200,8 +217,53 @@ describe('admin-ops-security-events.service', () => {
       expect(page.items[1].id).toBe(`aud:${String(audId)}`);
       expect(page.items[2].id).toBe(`att:${String(attId)}`);
       expect(page.items[0].organizationName).toBe('Acme Corp');
+      expect(page.page).toBe(1);
+      expect(page.totalPages).toBe(1);
       expect(page.window.from).toBeDefined();
       expect(page.window.to).toBeDefined();
+    });
+
+    it('pagina com page/limit (AH-E02)', async () => {
+      const rows = Array.from({ length: 30 }, (_, i) => ({
+        _id: new mongoose.Types.ObjectId(),
+        clientId: orgId,
+        kind: 'form.blocked' as const,
+        meta: {},
+        createdAt: new Date(Date.now() - i * 1000),
+      }));
+      AttendanceEvent.find.mockReturnValue(chainLean(rows));
+      SystemLog.find.mockReturnValue(chainLean([]));
+      AuditLog.find.mockReturnValue(chainLean([]));
+
+      const page1 = await listAdminOpsSecurityEvents({ page: 1, limit: 10 });
+      const page2 = await listAdminOpsSecurityEvents({ page: 2, limit: 10 });
+
+      expect(page1.items).toHaveLength(10);
+      expect(page2.items).toHaveLength(10);
+      expect(page1.total).toBe(30);
+      expect(page1.totalPages).toBe(3);
+      expect(page2.page).toBe(2);
+      expect(page1.items[0].id).not.toBe(page2.items[0].id);
+    });
+
+    it('source=system não consulta AttendanceEvent', async () => {
+      AttendanceEvent.find.mockReturnValue(chainLean([]));
+      SystemLog.find.mockReturnValue(
+        chainLean([
+          {
+            _id: sysId,
+            level: 'error',
+            service: 'Core',
+            message: 'Erro',
+            timestamp: new Date(),
+          },
+        ]),
+      );
+      AuditLog.find.mockReturnValue(chainLean([]));
+
+      await listAdminOpsSecurityEvents({ source: 'system' });
+      expect(AttendanceEvent.find).not.toHaveBeenCalled();
+      expect(AuditLog.find).not.toHaveBeenCalled();
     });
 
     it('limita máximo 100', async () => {

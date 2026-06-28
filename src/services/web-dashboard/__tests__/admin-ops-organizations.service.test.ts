@@ -114,33 +114,38 @@ describe('admin-ops-organizations.service', () => {
       assertSafeOrganizationRow(page.items[0]);
     });
 
-    it('filtra por status em memória', async () => {
+    it('filtra por status via MongoDB (sem full scan)', async () => {
+      Organization.countDocuments.mockResolvedValue(1);
       Organization.find.mockReturnValue({
         select: jest.fn().mockReturnValue({
-          lean: jest.fn().mockResolvedValue([
-            {
-              _id: orgId,
-              name: 'Trial Co',
-              plan: 'starter',
-              planExpiresAt: new Date(Date.now() + 86400000),
-              stripeSubscriptionStatus: 'trialing',
-              createdAt: new Date(),
-            },
-            {
-              _id: new mongoose.Types.ObjectId(),
-              name: 'Free Co',
-              plan: 'free',
-              planExpiresAt: null,
-              stripeSubscriptionStatus: null,
-              createdAt: new Date(),
-            },
-          ]),
+          sort: jest.fn().mockReturnValue({
+            skip: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                lean: jest.fn().mockResolvedValue([
+                  {
+                    _id: orgId,
+                    name: 'Trial Co',
+                    plan: 'starter',
+                    planExpiresAt: new Date(Date.now() + 86400000),
+                    stripeSubscriptionStatus: 'trialing',
+                    createdAt: new Date(),
+                  },
+                ]),
+              }),
+            }),
+          }),
         }),
       });
 
       const page = await listAdminOpsOrganizations({ status: 'trialing' });
       expect(page.total).toBe(1);
       expect(page.items[0].billingStatus).toBe('trialing');
+      expect(Organization.countDocuments).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stripeSubscriptionStatus: expect.objectContaining({ $regex: expect.any(RegExp) }),
+        }),
+      );
+      expect(Organization.find).toHaveBeenCalled();
     });
   });
 

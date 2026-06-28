@@ -63,6 +63,12 @@ const AttendanceEventSchema = new Schema<IAttendanceEvent>(
 
 AttendanceEventSchema.index({ clientId: 1, createdAt: -1 });
 AttendanceEventSchema.index({ clientId: 1, kind: 1, createdAt: -1 });
+/** Feed admin segurança — query global por kind + janela temporal. */
+AttendanceEventSchema.index({ kind: 1, createdAt: -1 });
+
+/** TTL automático — retenção 90 dias (AH-D02). */
+const ATTENDANCE_EVENT_RETENTION_SEC = 90 * 24 * 60 * 60;
+AttendanceEventSchema.index({ createdAt: 1 }, { expireAfterSeconds: ATTENDANCE_EVENT_RETENTION_SEC });
 
 export const AttendanceEvent = mongoose.model<IAttendanceEvent>(
   'AttendanceEvent',

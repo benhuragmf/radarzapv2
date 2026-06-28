@@ -161,8 +161,10 @@ export const MOCK_ADMIN_OPS_ORGS_MALICIOUS: AdminOpsOrganizationsPage = {
 
 export const MOCK_ADMIN_OPS_SECURITY_EVENTS: AdminOpsSecurityEventsPage = {
   generatedAt: new Date().toISOString(),
+  page: 1,
   limit: 25,
   total: 2,
+  totalPages: 1,
   window: {
     from: new Date(Date.now() - 86400000).toISOString(),
     to: new Date().toISOString(),

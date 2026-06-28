@@ -2,6 +2,7 @@ import { Router, type Request } from 'express';
 import { WebChatService } from './WebChatService';
 import { WebChatPresenceService } from './WebChatPresenceService';
 import { isWebChatMessageReceiptRateLimited } from './webchat-message-receipt-rate-limit';
+import { issueWebChatPresenceSocketAuth } from './webchat-presence-auth.util';
 
 function visitorTokenFromReq(req: Request): string | undefined {
   const header = req.headers['x-webchat-visitor'];
@@ -98,7 +99,11 @@ export function createWebChatPublicRouter(): Router {
         remoteIp: req.socket.remoteAddress,
       });
       if (!visitor) return res.status(400).json({ error: 'presenceId inválido' });
-      res.json({ ok: true });
+      const widgetClientId = String(widget.clientId);
+      res.json({
+        ok: true,
+        socketAuth: issueWebChatPresenceSocketAuth(widgetClientId, body.presenceId ?? ''),
+      });
     } catch (e) {
       const msg = (e as Error).message;
       const status = msg.includes('não encontrado') ? 404 : msg.includes('Origem') ? 403 : 400;

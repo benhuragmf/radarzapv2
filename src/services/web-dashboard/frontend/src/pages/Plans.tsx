@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Card } from '../components/ui/Card'
@@ -17,6 +17,7 @@ interface UserData {
   discordUserId: string | null
   email?: string | null
   displayName: string
+  organizationId?: string | null
   organizationName?: string | null
   plan: 'free' | 'starter' | 'pro' | 'enterprise'
   limits: { messagesPerDay: number; groupsMax: number; templatesMax: number }
@@ -101,6 +102,13 @@ export default function Plans({ user, admin }: Props) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [checkoutMsg, setCheckoutMsg] = useState<string | null>(null)
   const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null)
+  const [planModal, setPlanModal] = useState<{
+    orgId: string
+    plan: string
+    userName: string
+    previousPlan: string
+  } | null>(null)
+  const [planReason, setPlanReason] = useState('')
   const isAdmin = admin && can(user, 'system:plans:manage')
 
   const { data: pricing } = useQuery<BillingPricing>({
@@ -190,11 +198,19 @@ export default function Plans({ user, admin }: Props) {
     onError: (e: Error) => setCheckoutMsg(e.message),
   })
 
-  const changePlan = useMutation({
-    mutationFn: ({ id, plan }: { id: string; plan: string }) =>
-      api.put(`/users/${id}/plan`, { plan }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
-    onError: (e: Error) => notifyError(`Erro: ${e.message}`),
+  const changeOrgPlan = useMutation({
+    mutationFn: (payload: { orgId: string; plan: string; reason: string }) =>
+      api.patch(`/admin/ops/organizations/${payload.orgId}/plan`, {
+        plan: payload.plan,
+        reason: payload.reason,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      notifySuccess('Plano da empresa atualizado')
+      setPlanModal(null)
+      setPlanReason('')
+    },
+    onError: (e: Error) => notifyError(e.message),
   })
 
   const resetUsage = useMutation({
@@ -328,6 +344,16 @@ export default function Plans({ user, admin }: Props) {
 
       {isAdmin ? (
         <div>
+          <Card className="border-brand-800/30 bg-brand-950/10 text-xs text-[var(--rz-text-muted)] mb-4">
+            <p>
+              Plano da <strong className="text-[var(--rz-text-secondary)]">empresa</strong> (não do usuário).
+              Preferência: aba{' '}
+              <Link to="/admin/dashboard?tab=tenants" className="text-brand-400 hover:underline">
+                Empresas
+              </Link>{' '}
+              no Dashboard global (trial + audit completo).
+            </p>
+          </Card>
           <h2 className="text-sm font-medium text-[var(--rz-text-muted)] mb-3 flex items-center gap-2">
             <Users size={14} /> Usuários ({users.length})
           </h2>
@@ -350,9 +376,24 @@ export default function Plans({ user, admin }: Props) {
                   <div className="flex flex-col gap-2 shrink-0">
                     <select
                       value={u.plan}
-                      onChange={e => changePlan.mutate({ id: u._id, plan: e.currentTarget.value })}
-                      disabled={changePlan.isPending}
+                      onChange={e => {
+                        const next = e.currentTarget.value
+                        if (next === u.plan) return
+                        if (!u.organizationId) {
+                          notifyError('Usuário sem empresa vinculada')
+                          return
+                        }
+                        setPlanModal({
+                          orgId: u.organizationId,
+                          plan: next,
+                          userName: u.displayName,
+                          previousPlan: u.plan,
+                        })
+                        setPlanReason('')
+                      }}
+                      disabled={changeOrgPlan.isPending || !u.organizationId}
                       className="bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-lg px-2 py-1 text-xs text-[var(--rz-text-secondary)]"
+                      aria-label={`Plano da empresa de ${u.displayName}`}
                     >
                       {['free', 'starter', 'pro', 'enterprise'].map(id => (
                         <option key={id} value={id}>
@@ -375,6 +416,54 @@ export default function Plans({ user, admin }: Props) {
           </div>
         </div>
       ) : null}
+
+      {planModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md p-4 space-y-3">
+            <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">Alterar plano da empresa</h3>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              {planModal.userName}: {planModal.previousPlan} → <strong>{planModal.plan}</strong>
+            </p>
+            <label className="block text-xs text-[var(--rz-text-muted)]">
+              Motivo (obrigatório, mín. 5 caracteres)
+              <textarea
+                value={planReason}
+                onChange={e => setPlanReason(e.target.value)}
+                rows={3}
+                className="mt-1 w-full rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)] px-3 py-2 text-sm text-[var(--rz-text-secondary)]"
+                data-testid="admin-plans-plan-reason"
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setPlanModal(null)
+                  setPlanReason('')
+                }}
+                disabled={changeOrgPlan.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                disabled={changeOrgPlan.isPending || planReason.trim().length < 5}
+                onClick={() =>
+                  changeOrgPlan.mutate({
+                    orgId: planModal.orgId,
+                    plan: planModal.plan,
+                    reason: planReason.trim(),
+                  })
+                }
+                data-testid="admin-plans-plan-confirm"
+              >
+                Confirmar
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
       </div>
     </RadarPageShell>
   )

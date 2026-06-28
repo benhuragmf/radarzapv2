@@ -1352,7 +1352,7 @@ export class InboxService {
       await ticket.save();
       this.cancelClientReplyGrace(clientId, ticket.ticketRef);
       await this.sendToContact(clientId, dest.identifier, TICKET_CLIENT_EXIT_ACK);
-      const conv = await InboxConversation.findById(ticket.conversationId);
+      const conv = await this.findConversationForClient(clientId, ticket.conversationId);
       if (conv) {
         await this.appendSystemMessage(
           conv,
@@ -1769,7 +1769,7 @@ export class InboxService {
     ticket.updatedAt = new Date();
     await ticket.save();
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
 
     if (!isAck && !wasInActiveGrace) {
       await this.sendToContact(clientId, contactIdentifier, TICKET_CLIENT_REPLY_GRACE_PROMPT);
@@ -1910,7 +1910,7 @@ export class InboxService {
       'ticket_grace_expired',
     );
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
     if (conv) {
       await InboxMessage.create({
         clientId: conv.clientId,
@@ -2127,7 +2127,7 @@ export class InboxService {
     ticket.updatedAt = new Date();
     await ticket.save();
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
     if (conv) {
       await this.appendSystemMessage(
         conv,
@@ -3703,7 +3703,7 @@ export class InboxService {
     const clientMsg = this.buildTicketClosedClientMessage(ticket, ctx);
     await this.sendTicketMessageToClient(clientId, userId, ticket, clientMsg);
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
     if (conv) {
       const agentName = await this.resolveAgentDisplayName(userId);
       await this.appendSystemMessage(
@@ -3736,7 +3736,7 @@ export class InboxService {
       actorUserId: userId,
     });
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
     if (conv) {
       const agentName = await this.resolveAgentDisplayName(userId);
       await this.appendSystemMessage(
@@ -3760,7 +3760,7 @@ export class InboxService {
     ticket.deleteReason = reason?.trim() || 'Excluído pelo painel';
     await ticket.save();
 
-    const conv = await InboxConversation.findById(convId);
+    const conv = await this.findConversationForClient(clientId, convId);
     if (conv?.ticketRef === ref) {
       conv.ticketRef = undefined;
       await conv.save();
@@ -3789,7 +3789,7 @@ export class InboxService {
 
     await this.sendTicketMessageToClient(clientId, userId, ticket, body);
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
     if (conv) {
       const agentName = await this.resolveAgentDisplayName(userId);
       await this.appendSystemMessage(
@@ -3861,7 +3861,7 @@ export class InboxService {
 
     if (!result.success) throw new Error('Falha ao enviar WhatsApp para o funcionário');
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
     if (conv) {
       const label = targetName ?? normalized;
       await this.appendSystemMessage(
@@ -4397,7 +4397,7 @@ export class InboxService {
       return;
     }
 
-    const conv = await InboxConversation.findById(ticket.conversationId);
+    const conv = await this.findConversationForClient(clientId, ticket.conversationId);
     if (!conv) throw new Error('Conversa vinculada não encontrada');
 
     const result = await this.sendToContact(clientId, ticket.contactIdentifier, body);
@@ -5905,6 +5905,17 @@ export class InboxService {
       notifiedClient: created,
       ok: true,
     };
+  }
+
+  private async findConversationForClient(
+    clientId: string,
+    conversationId: mongoose.Types.ObjectId | string | undefined | null,
+  ): Promise<IInboxConversation | null> {
+    if (!conversationId) return null;
+    return InboxConversation.findOne({
+      _id: new mongoose.Types.ObjectId(String(conversationId)),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
   }
 
   private async getConversationIfAllowed(

@@ -22,6 +22,7 @@ import type {
   ListAdminOpsOrganizationsParams,
 } from '@/types/admin-ops-organizations';
 import { invalidateAdminOpsSummaryCache } from './admin-ops-summary.service';
+import { buildMongoFilterForAdminOpsBillingStatus } from './admin-ops-billing-status-filter.util';
 
 const PAID_PLANS: AdminOpsOrgPlan[] = ['starter', 'pro', 'enterprise'];
 const ALL_PLANS: AdminOpsOrgPlan[] = ['free', ...PAID_PLANS];
@@ -153,25 +154,23 @@ async function enrichOrganizationRows(
   }));
 }
 
-function sortDocs<T extends { name: string; createdAt: Date; planExpiresAt?: Date | null }>(
-  docs: T[],
-  sort: AdminOpsOrgSort,
-): T[] {
-  const copy = [...docs];
-  if (sort === 'name') {
-    copy.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-    return copy;
+function buildListFilter(params: ListAdminOpsOrganizationsParams): Record<string, unknown> {
+  const search = String(params.search ?? '').trim().slice(0, 80);
+  const clauses: Record<string, unknown>[] = [];
+
+  if (params.plan) {
+    clauses.push({ plan: params.plan });
   }
-  if (sort === 'planExpiresAt') {
-    copy.sort((a, b) => {
-      const av = a.planExpiresAt?.getTime() ?? 0;
-      const bv = b.planExpiresAt?.getTime() ?? 0;
-      return bv - av;
-    });
-    return copy;
+  if (search) {
+    clauses.push({ name: { $regex: escapeMongoRegex(search), $options: 'i' } });
   }
-  copy.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  return copy;
+  if (params.status) {
+    clauses.push(buildMongoFilterForAdminOpsBillingStatus(params.status));
+  }
+
+  if (clauses.length === 0) return {};
+  if (clauses.length === 1) return clauses[0];
+  return { $and: clauses };
 }
 
 export async function listAdminOpsOrganizations(
@@ -180,51 +179,10 @@ export async function listAdminOpsOrganizations(
   const page = parsePage(params.page);
   const limit = parseLimit(params.limit);
   const sort = parseSort(params.sort);
-  const search = String(params.search ?? '').trim().slice(0, 80);
-
-  const filter: Record<string, unknown> = {};
-  if (params.plan) {
-    filter.plan = params.plan;
-  }
-  if (search) {
-    filter.name = { $regex: escapeMongoRegex(search), $options: 'i' };
-  }
+  const filter = buildListFilter(params);
 
   const select =
     'name plan planExpiresAt stripeSubscriptionStatus createdAt' as const;
-
-  if (params.status) {
-    const all = await Organization.find(filter).select(select).lean();
-    const filtered = all.filter(
-      doc =>
-        billingSnapshot({
-          plan: doc.plan as AdminOpsOrgPlan,
-          planExpiresAt: doc.planExpiresAt,
-          stripeSubscriptionStatus: doc.stripeSubscriptionStatus,
-        }) === params.status,
-    );
-    const sorted = sortDocs(
-      filtered.map(doc => ({
-        ...doc,
-        plan: doc.plan as AdminOpsOrgPlan,
-        createdAt: doc.createdAt ?? new Date(0),
-      })),
-      sort,
-    );
-    const total = sorted.length;
-    const totalPages = Math.max(1, Math.ceil(total / limit));
-    const slice = sorted.slice((page - 1) * limit, page * limit);
-    const items = await enrichOrganizationRows(slice);
-
-    return {
-      items,
-      page,
-      limit,
-      total,
-      totalPages,
-      generatedAt: new Date().toISOString(),
-    };
-  }
 
   const sortSpec: Record<string, 1 | -1> =
     sort === 'name'

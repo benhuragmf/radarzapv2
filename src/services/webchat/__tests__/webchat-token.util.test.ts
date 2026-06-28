@@ -2,8 +2,15 @@ import {
   generateWebChatPublicKey,
   generateWebChatVisitorToken,
   hashWebChatVisitorToken,
+  isPublicEmbedOpenOriginPolicyEnabled,
   isWebChatOriginAllowed,
 } from '../webchat-token.util';
+
+jest.mock('@/config/environment', () => ({
+  config: {
+    PUBLIC_EMBED: { ALLOW_OPEN_ORIGIN: true },
+  },
+}));
 
 describe('webchat-token.util', () => {
   it('gera chaves com prefixos esperados', () => {
@@ -16,8 +23,18 @@ describe('webchat-token.util', () => {
     expect(hashWebChatVisitorToken(token)).toBe(hashWebChatVisitorToken(token));
   });
 
-  it('allowedDomains vazio libera qualquer origem', () => {
+  it('allowedDomains vazio obedece política open origin (dev/test)', () => {
+    expect(isPublicEmbedOpenOriginPolicyEnabled()).toBe(true);
     expect(isWebChatOriginAllowed([], 'https://cliente.com', null)).toBe(true);
+  });
+
+  it('allowedDomains vazio bloqueia quando política fechada (AH-D01)', () => {
+    const { config } = jest.requireMock('@/config/environment') as {
+      config: { PUBLIC_EMBED: { ALLOW_OPEN_ORIGIN: boolean } };
+    };
+    config.PUBLIC_EMBED.ALLOW_OPEN_ORIGIN = false;
+    expect(isWebChatOriginAllowed([], 'https://cliente.com', null)).toBe(false);
+    config.PUBLIC_EMBED.ALLOW_OPEN_ORIGIN = true;
   });
 
   it('valida domínio exato e wildcard', () => {

@@ -1232,7 +1232,7 @@ function FormEditor({
             />
             {!draft.allowedDomains?.length && (
               <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                Qualquer domínio poderá enviar leads. Configure domínios para mais segurança.
+                Nenhum domínio configurado — em produção o formulário público ficará bloqueado até informar domínios.
               </p>
             )}
           </div>

@@ -15,7 +15,7 @@ import type {
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 const DEFAULT_WINDOW_HOURS = 24;
-const FETCH_CAP_PER_SOURCE = 200;
+const MAX_FETCH_PER_SOURCE = 500;
 const TITLE_MAX = 80;
 const MESSAGE_MAX = 300;
 
@@ -140,6 +140,138 @@ function parseLimit(value: unknown, fallback = 25): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 1) return fallback;
   return Math.min(100, Math.floor(n));
+}
+
+function parsePage(value: unknown, fallback = 1): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.floor(n);
+}
+
+function auditMongoFilter(extra?: Record<string, unknown>): Record<string, unknown> {
+  const prefixClauses = AUDIT_ACTION_PREFIXES.map(prefix =>
+    prefix.endsWith('.')
+      ? { action: { $regex: `^${prefix.replace(/\./g, '\\.')}` } }
+      : { action: prefix },
+  );
+  const base = { $or: prefixClauses };
+  if (!extra) return base;
+  return { $and: [base, extra] };
+}
+
+function attendanceKindsForSource(
+  source?: AdminOpsSecurityEventSource,
+): AttendanceEventKind[] | null {
+  if (!source || source === 'attendance') return ATTENDANCE_SECURITY_KINDS;
+  if (source === 'ticket') {
+    return ATTENDANCE_SECURITY_KINDS.filter(k => k.startsWith('ticket.'));
+  }
+  if (source === 'form') {
+    return ATTENDANCE_SECURITY_KINDS.filter(k => k.startsWith('form.'));
+  }
+  if (source === 'billing') {
+    return ATTENDANCE_SECURITY_KINDS.filter(k => k.startsWith('billing.'));
+  }
+  if (source === 'ai') {
+    return ATTENDANCE_SECURITY_KINDS.filter(k => k.startsWith('ai.'));
+  }
+  if (source === 'bridge') {
+    return ATTENDANCE_SECURITY_KINDS.filter(
+      k => k.startsWith('bridge.') || k.startsWith('webchat.'),
+    );
+  }
+  return null;
+}
+
+function systemLevelsForFilter(
+  level?: AdminOpsSecurityEventLevel,
+  kind?: string,
+): Array<'warn' | 'error'> {
+  if (kind === 'system.error') return ['error'];
+  if (kind === 'system.warn') return ['warn'];
+  if (level === 'error') return ['error'];
+  if (level === 'warning') return ['warn'];
+  if (level === 'critical' || level === 'info') return [];
+  return ['warn', 'error'];
+}
+
+export type SecurityEventsFetchPlan = {
+  attendance: { enabled: boolean; kinds: AttendanceEventKind[] };
+  system: { enabled: boolean; levels: Array<'warn' | 'error'> };
+  audit: { enabled: boolean; filter: Record<string, unknown> };
+};
+
+/** Quais coleções consultar — reduz full scan (AH-E02). */
+export function buildSecurityEventsFetchPlan(input: {
+  kind?: string;
+  level?: AdminOpsSecurityEventLevel;
+  source?: AdminOpsSecurityEventSource;
+}): SecurityEventsFetchPlan {
+  const { kind, level, source } = input;
+
+  if (kind?.startsWith('system.')) {
+    return {
+      attendance: { enabled: false, kinds: [] },
+      system: {
+        enabled: true,
+        levels: kind === 'system.error' ? ['error'] : kind === 'system.warn' ? ['warn'] : ['warn', 'error'],
+      },
+      audit: { enabled: false, filter: {} },
+    };
+  }
+
+  if (kind && ATTENDANCE_SECURITY_KINDS.includes(kind as AttendanceEventKind)) {
+    return {
+      attendance: { enabled: true, kinds: [kind as AttendanceEventKind] },
+      system: { enabled: false, levels: [] },
+      audit: { enabled: false, filter: {} },
+    };
+  }
+
+  if (kind && isAuditActionRelevant(kind)) {
+    return {
+      attendance: { enabled: false, kinds: [] },
+      system: { enabled: false, levels: [] },
+      audit: { enabled: true, filter: auditMongoFilter({ action: kind }) },
+    };
+  }
+
+  const attendanceKinds = attendanceKindsForSource(source);
+  const attendanceEnabled =
+    attendanceKinds !== null &&
+    (!level ||
+      attendanceKinds.some(k => resolveSecurityEventLevel(k) === level));
+
+  const systemLevels = systemLevelsForFilter(level, kind);
+  const systemEnabled =
+    systemLevels.length > 0 && (!source || source === 'system');
+
+  let auditEnabled = !source || source === 'audit' || source === 'billing' || source === 'webhook';
+  let auditFilter = auditMongoFilter();
+
+  if (source === 'billing') {
+    auditFilter = auditMongoFilter({ action: { $regex: '^billing\\.' } });
+  } else if (source === 'webhook') {
+    auditFilter = auditMongoFilter({ action: { $regex: '^webhook\\.' } });
+  } else if (source === 'audit') {
+    auditFilter = auditMongoFilter();
+  } else if (source && source !== 'attendance' && attendanceKinds === null) {
+    auditEnabled = false;
+  }
+
+  if (level && auditEnabled) {
+    // level não mapeia 1:1 em audit — filtro fino permanece pós-merge
+    auditEnabled = true;
+  }
+
+  return {
+    attendance: {
+      enabled: attendanceEnabled,
+      kinds: attendanceKinds ?? [],
+    },
+    system: { enabled: systemEnabled, levels: systemLevels },
+    audit: { enabled: auditEnabled, filter: auditFilter },
+  };
 }
 
 function parseIsoDate(value: unknown): Date | null {
@@ -358,6 +490,7 @@ export function assertSafeSecurityEventRow(row: AdminOpsSecurityEventRow): void 
 export async function listAdminOpsSecurityEvents(
   params: ListAdminOpsSecurityEventsParams = {},
 ): Promise<AdminOpsSecurityEventsPage> {
+  const page = parsePage(params.page);
   const limit = parseLimit(params.limit);
   const window = resolveWindow(params);
 
@@ -369,33 +502,57 @@ export async function listAdminOpsSecurityEvents(
     ? (String(params.source).trim() as AdminOpsSecurityEventSource)
     : undefined;
 
+  const plan = buildSecurityEventsFetchPlan({
+    kind: kindFilter,
+    level: levelFilter,
+    source: sourceFilter,
+  });
+
+  const fetchPerSource = Math.min(page * limit + limit, MAX_FETCH_PER_SOURCE);
+  let truncated = false;
+
   const [attendanceDocs, systemDocs, auditDocs] = await Promise.all([
-    AttendanceEvent.find({
-      createdAt: { $gte: window.from, $lte: window.to },
-      kind: { $in: ATTENDANCE_SECURITY_KINDS },
-    })
-      .sort({ createdAt: -1 })
-      .limit(FETCH_CAP_PER_SOURCE)
-      .select('clientId kind meta createdAt')
-      .lean(),
+    plan.attendance.enabled
+      ? AttendanceEvent.find({
+          createdAt: { $gte: window.from, $lte: window.to },
+          kind: { $in: plan.attendance.kinds },
+        })
+          .sort({ createdAt: -1 })
+          .limit(fetchPerSource)
+          .select('clientId kind meta createdAt')
+          .lean()
+      : Promise.resolve([]),
 
-    SystemLog.find({
-      timestamp: { $gte: window.from, $lte: window.to },
-      level: { $in: ['warn', 'error'] },
-    })
-      .sort({ timestamp: -1 })
-      .limit(FETCH_CAP_PER_SOURCE)
-      .select('level service message clientId timestamp')
-      .lean(),
+    plan.system.enabled
+      ? SystemLog.find({
+          timestamp: { $gte: window.from, $lte: window.to },
+          level: { $in: plan.system.levels },
+        })
+          .sort({ timestamp: -1 })
+          .limit(fetchPerSource)
+          .select('level service message clientId timestamp')
+          .lean()
+      : Promise.resolve([]),
 
-    AuditLog.find({
-      createdAt: { $gte: window.from, $lte: window.to },
-    })
-      .sort({ createdAt: -1 })
-      .limit(FETCH_CAP_PER_SOURCE)
-      .select('action details createdAt')
-      .lean(),
+    plan.audit.enabled
+      ? AuditLog.find({
+          createdAt: { $gte: window.from, $lte: window.to },
+          ...plan.audit.filter,
+        })
+          .sort({ createdAt: -1 })
+          .limit(fetchPerSource)
+          .select('action details createdAt')
+          .lean()
+      : Promise.resolve([]),
   ]);
+
+  if (
+    (plan.attendance.enabled && attendanceDocs.length >= fetchPerSource) ||
+    (plan.system.enabled && systemDocs.length >= fetchPerSource) ||
+    (plan.audit.enabled && auditDocs.length >= fetchPerSource)
+  ) {
+    truncated = true;
+  }
 
   const attendanceRows = attendanceDocs.map(mapAttendanceEventToAdminOpsSecurityEvent);
   const systemRows = systemDocs.map(mapSystemLogToAdminOpsSecurityEvent);
@@ -416,7 +573,9 @@ export async function listAdminOpsSecurityEvents(
   );
 
   const total = merged.length;
-  const sliced = merged.slice(0, limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const offset = (page - 1) * limit;
+  const sliced = merged.slice(offset, offset + limit);
   const items = await enrichOrganizationNames(sliced);
 
   for (const row of items) {
@@ -425,8 +584,11 @@ export async function listAdminOpsSecurityEvents(
 
   return {
     items,
+    page,
     limit,
     total,
+    totalPages,
+    truncated: truncated || undefined,
     generatedAt: new Date().toISOString(),
     window: {
       from: window.from.toISOString(),

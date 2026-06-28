@@ -37,6 +37,7 @@ const QUEUE_LABELS: Record<string, string> = {
   'message-processing': 'Processamento de mensagens',
   'discord-notifications': 'Notificações Discord',
   'whatsapp-send': 'Envio WhatsApp',
+  'tenant-campaigns': 'Envios da sua conta',
 }
 
 interface Props {
@@ -180,6 +181,9 @@ export default function Queue({ scope = 'all' }: Props) {
     ? queues.filter(q => ['message-processing', 'discord-notifications'].includes(q.name))
     : queues
 
+  const discordStaffOnly =
+    isDiscord && filtered.length === 0 && queues.some(q => q.name === 'tenant-campaigns')
+
   if (isLoading) {
     const loading = <LoadingState rows={4} className="pt-8" />
     if (isDiscord) {
@@ -196,12 +200,28 @@ export default function Queue({ scope = 'all' }: Props) {
     <div className="space-y-6">
       <p className="text-sm text-[var(--rz-text-muted)]">
         {isDiscord
-          ? 'Filas internas da automação Discord → WhatsApp.'
+          ? discordStaffOnly
+            ? 'Filas técnicas Discord (BullMQ) são visíveis apenas para staff com permissão global. Use Fila de envio na Plataforma para campanhas da sua empresa.'
+            : 'Filas internas da automação Discord → WhatsApp.'
           : 'Filas técnicas do servidor (BullMQ). Clientes usam a aba Fila de envio na Plataforma.'}
       </p>
 
+      {discordStaffOnly && (
+        <Card className="border-brand-800/30 bg-brand-950/10 text-xs text-[var(--rz-text-muted)]">
+          <p>
+            Você está vendo apenas envios da <strong className="text-[var(--rz-text-secondary)]">sua empresa</strong>.
+            Métricas globais do worker Discord exigem acesso staff em{' '}
+            <Link to="/admin/queue" className="text-brand-400 hover:underline">
+              Fila global
+            </Link>
+            .
+          </p>
+        </Card>
+      )}
+
+      {(discordStaffOnly ? queues : filtered).length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(q => (
+        {(discordStaffOnly ? queues : filtered).map(q => (
           <Card key={q.name}>
             <div className="flex items-center gap-2 mb-3">
               <ListOrdered size={14} className="text-[var(--rz-text-muted)]" />
@@ -222,8 +242,9 @@ export default function Queue({ scope = 'all' }: Props) {
           </Card>
         ))}
       </div>
+      )}
 
-      {filtered.length === 0 && (
+      {(discordStaffOnly ? queues : filtered).length === 0 && !discordStaffOnly && (
         <EmptyState title="Nenhuma fila ativa" description="As filas aparecem quando há processamento em andamento." />
       )}
     </div>

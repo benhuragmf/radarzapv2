@@ -242,8 +242,11 @@ export const OPENAPI_DASHBOARD = {
         type: 'object',
         properties: {
           items: { type: 'array', items: { $ref: '#/components/schemas/AdminOpsSecurityEventRow' } },
+          page: { type: 'integer' },
           limit: { type: 'integer' },
           total: { type: 'integer' },
+          totalPages: { type: 'integer' },
+          truncated: { type: 'boolean' },
           generatedAt: { type: 'string', format: 'date-time' },
           window: {
             type: 'object',
@@ -528,7 +531,12 @@ export const OPENAPI_DASHBOARD = {
       get: { summary: 'Listar organizações (admin legado)', tags: ['Admin'] },
     },
     '/admin/organizations/{id}/plan': {
-      patch: { summary: 'Alterar plano de uma organização (admin legado)', tags: ['Admin'] },
+      patch: {
+        summary: 'Alterar plano de uma organização (legado — deprecado)',
+        description:
+          'Deprecado: use PATCH /admin/ops/organizations/{id}/plan com motivo (AuditLog). Delega ao serviço Ops.',
+        tags: ['Admin'],
+      },
     },
     '/admin/ops/summary': {
       get: {
@@ -627,9 +635,10 @@ export const OPENAPI_DASHBOARD = {
       get: {
         summary: 'Feed global de eventos críticos sanitizados',
         description:
-          'Capability: dashboard:global. Fontes: AttendanceEvent, SystemLog (warn/error), AuditLog. Query: limit (max 100), kind, level, source, from, to (ISO). Sem meta/payload/tokens.',
+          'Capability: dashboard:global. Fontes: AttendanceEvent, SystemLog (warn/error), AuditLog. Query: page, limit (max 100), kind, level, source, from, to (ISO). Sem meta/payload/tokens.',
         tags: ['Admin Ops'],
         parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1, minimum: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 25, maximum: 100 } },
           { name: 'kind', in: 'query', schema: { type: 'string' } },
           { name: 'level', in: 'query', schema: { type: 'string', enum: ['info', 'warning', 'critical', 'error'] } },

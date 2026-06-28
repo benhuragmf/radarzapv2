@@ -105,6 +105,8 @@ export interface AppConfig {
     WINDOW_MS: number;
     SKIP_FAILED_REQUESTS: boolean;
     REDIS_KEY_PREFIX: string;
+    /** true = permite tráfego se Redis falhar (default só dev) */
+    FAIL_OPEN_ON_REDIS_ERROR: boolean;
   };
   
   // Health Check Configuration
@@ -119,6 +121,11 @@ export interface AppConfig {
     TIMEOUT_MS: number;
     MAX_RETRIES: number;
     RETRY_DELAY_MS: number;
+  };
+
+  /** Chamadas LLM (OpenAI / Gemini) */
+  AI: {
+    PROVIDER_TIMEOUT_MS: number;
   };
 
   /** E-mail transacional (convites de equipe, etc.) */
@@ -137,6 +144,12 @@ export interface AppConfig {
     ENABLED: boolean;
     /** Máx. destinatários por campanha quando piloto ativo */
     MAX_CAMPAIGN_RECIPIENTS: number;
+  };
+
+  /** Embeds públicos WebChat + Leads */
+  PUBLIC_EMBED: {
+    /** true = allowedDomains vazio aceita qualquer origem (default só dev) */
+    ALLOW_OPEN_ORIGIN: boolean;
   };
 }
 
@@ -295,7 +308,11 @@ export const config: AppConfig = {
     MAX_REQUESTS: parseNumber(process.env.RATE_LIMIT_MAX_REQUESTS, 50),
     WINDOW_MS: parseNumber(process.env.RATE_LIMIT_WINDOW_MS, 900000), // 15 minutes
     SKIP_FAILED_REQUESTS: parseBoolean(process.env.RATE_LIMIT_SKIP_FAILED_REQUESTS, false),
-    REDIS_KEY_PREFIX: getOptional('RATE_LIMIT_REDIS_KEY_PREFIX', 'rate_limit:')
+    REDIS_KEY_PREFIX: getOptional('RATE_LIMIT_REDIS_KEY_PREFIX', 'rate_limit:'),
+    FAIL_OPEN_ON_REDIS_ERROR: parseBoolean(
+      process.env.RATE_LIMIT_FAIL_OPEN,
+      process.env.NODE_ENV !== 'production',
+    ),
   },
   
   // Health Check Configuration
@@ -311,6 +328,10 @@ export const config: AppConfig = {
     RETRY_DELAY_MS: parseNumber(process.env.WEBHOOK_RETRY_DELAY_MS, 2000),
   },
 
+  AI: {
+    PROVIDER_TIMEOUT_MS: parseNumber(process.env.AI_PROVIDER_TIMEOUT_MS, 30000),
+  },
+
   MAIL: {
     FROM: getOptional('MAIL_FROM', 'RadarZap <noreply@radarzap.local>'),
     RESEND_API_KEY: getOptional('RESEND_API_KEY', ''),
@@ -324,6 +345,13 @@ export const config: AppConfig = {
   PILOT: {
     ENABLED: parseBoolean(process.env.PILOT_MODE, false),
     MAX_CAMPAIGN_RECIPIENTS: parseNumber(process.env.PILOT_MAX_CAMPAIGN_RECIPIENTS, 50),
+  },
+
+  PUBLIC_EMBED: {
+    ALLOW_OPEN_ORIGIN: parseBoolean(
+      process.env.PUBLIC_EMBED_ALLOW_OPEN_ORIGIN,
+      process.env.NODE_ENV !== 'production',
+    ),
   },
 };
 
