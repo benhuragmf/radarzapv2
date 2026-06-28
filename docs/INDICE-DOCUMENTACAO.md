@@ -51,6 +51,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md) | Papéis e capabilities |
 | [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) | Consentimento LGPD |
 | [`BILLING.md`](./BILLING.md) | Stripe, planos, limites |
+| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) | Dashboard ops global — `GET /api/admin/ops/summary` |
+| [`admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) | Diagnóstico Etapa 1 `/admin/dashboard` |
 | [`WEBHOOKS.md`](./WEBHOOKS.md) | Webhooks outbound |
 | [`MENU-PAGES-REGISTRY.md`](./MENU-PAGES-REGISTRY.md) | Rotas → componentes → API |
 | [`MENUS-SISTEMA.md`](./MENUS-SISTEMA.md) | Menus UX do painel |

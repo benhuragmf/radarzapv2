@@ -192,6 +192,7 @@ import { requireDashboardOrigin } from '../../middleware/same-origin';
 import { productionSafeError } from '../../middleware/production-safe-error';
 import { sanitizeInput } from '../../middleware/validation';
 import { registerDashboardQueueRoutes } from './routes/dashboardQueueRoutes';
+import { getAdminOpsSummary } from './admin-ops-summary.service';
 import { AiSettingsService } from '../ai/AiSettingsService';
 import { AiProviderService } from '../ai/AiProviderService';
 import { AiUsageMeterService } from '../ai/AiUsageMeterService';
@@ -6045,6 +6046,15 @@ export class DashboardService {
           redis: RedisManager.getInstance().isConnected(),
         };
         res.json({ health, stats, timestamp: new Date().toISOString() });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/ops/summary', requireCapability(Cap.DASHBOARD_GLOBAL), async (req, res) => {
+      try {
+        const refresh = String((req.query as { refresh?: string }).refresh ?? '') === '1';
+        res.json(await getAdminOpsSummary({ refresh }));
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

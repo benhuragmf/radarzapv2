@@ -6,6 +6,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.37] — 2026-06-27
+
+### Admin — ops summary backend (dashboard global)
+
+- **API:** `GET /api/admin/ops/summary` — agregador cross-tenant com cap `dashboard:global`, cache Redis 30s, alertas operacionais.
+- **Serviço:** `admin-ops-summary.service.ts` — tenants, WA, WebChat, Inbox, tickets, leads, IA, billing, security.
+- **Doc:** `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` + testes `admin-ops-*`.
+
 ## [2.12.36] — 2026-06-27
 
 ### Deploy — assets estáticos webchat/leads no dist
