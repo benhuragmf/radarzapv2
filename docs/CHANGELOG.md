@@ -6,6 +6,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.32] — 2026-06-27
+
+### WebChat — fallback WhatsApp timing dual + encerramento por fila
+
+- **Com atendente indicado online:** prazo maior (`whatsappFallbackAcceptTimeoutSeconds`, padrão **120s**) antes do alerta WA; cronômetro desde `whatsappFallbackPriorityStartedAt` (não reinicia ao rotacionar indicado).
+- **Sem atendente disponível / fila aberta:** alerta imediato ou curto (`whatsappFallbackNoAgentTimeoutSeconds`, padrão **0**) na escalação e no scan — só se `whatsappFallbackEnabled`.
+- **Tempo máximo na fila:** após `webchatQueueMaxWaitMinutes` (padrão **45**, 0=off) → mensagem configurável + encerramento automático.
+- Re-tentativa fallback após **15 min** se ciclo esgotou (`whatsappFallbackAlertSentAt`).
+- UI: Triagem e Bot → Fila e equipe → card Fallback WhatsApp.
+- Util: `webchat-fallback-timing.util.ts`; testes `webchat-fallback-timing.util.test.ts`.
+- **Fix leitura WebChat:** receipts no layout Copilot, painel `/platform/webchat` via socket, marcação inbound ao abrir conversa, queries Mongo `readAt`/`deliveredAt` null-safe.
+
 ## [2.12.31] — 2026-06-27
 
 ### Painel — `/sessions` mobile

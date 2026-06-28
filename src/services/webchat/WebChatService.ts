@@ -189,7 +189,18 @@ import {
 import {
   isFallbackAcceptTimeoutElapsed,
   processFallbackWhatsappRotation,
+  type FallbackWhatsappRotationResult,
 } from './webchat-whatsapp-fallback.service';
+import {
+  resolveFallbackAcceptTimeoutSeconds,
+  resolveFallbackWaitMode,
+  shouldRetryFallbackAfterCooldown,
+} from './webchat-fallback-timing.util';
+import {
+  DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE,
+} from '@/types/inbox-settings';
+
+const FALLBACK_EXHAUSTED_COOLDOWN_MS = 15 * 60 * 1000;
 
 export class WebChatService {
   private static instance: WebChatService;
@@ -1689,12 +1700,14 @@ export class WebChatService {
     }).lean();
     if (!conv) return null;
 
-    if (userId && (conv.unreadAgentCount ?? 0) > 0) {
+    if (userId) {
       await markInboundReadByAgent(clientId, conversationId);
-      await WebChatConversation.updateOne(
-        { _id: conv._id },
-        { $set: { unreadAgentCount: 0 } },
-      );
+      if ((conv.unreadAgentCount ?? 0) > 0) {
+        await WebChatConversation.updateOne(
+          { _id: conv._id },
+          { $set: { unreadAgentCount: 0 } },
+        );
+      }
     }
 
     const widget = await WebChatWidget.findById(conv.widgetId).select('name').lean();
@@ -2724,6 +2737,85 @@ export class WebChatService {
     return replies;
   }
 
+  private async appendFallbackRotationMessages(
+    clientId: string,
+    conversation: IWebChatConversation,
+    rotation: FallbackWhatsappRotationResult,
+    nowMs: number,
+  ): Promise<void> {
+    if (rotation.kind === 'none') return;
+
+    const visitorLabel =
+      conversation.visitorName || conversation.visitorEmail || 'Visitante do site';
+
+    if (rotation.kind === 'rotated') {
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: `${rotation.agentName} foi alertado no WhatsApp — aguardando !assumir.`,
+      });
+      emitPanelEvent(clientId, {
+        id: crypto.randomUUID(),
+        type: 'webchat:fallback_missed',
+        title: 'Chat perdido — próximo atendente',
+        body: `${visitorLabel} · alerta enviado para ${rotation.agentName}`,
+        href: `/platform/inbox?conv=${toWebChatInboxId(String(conversation._id))}`,
+        conversationId: toWebChatInboxId(String(conversation._id)),
+        targetUserId: rotation.fromUserId,
+        urgent: true,
+        createdAt: new Date(nowMs).toISOString(),
+      });
+      return;
+    }
+
+    if (rotation.kind === 'sent') {
+      await this.appendMessage(conversation, {
+        direction: 'system',
+        body: `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
+      });
+      return;
+    }
+
+    if (rotation.kind === 'exhausted') {
+      await this.appendMessage(conversation, { direction: 'system', body: rotation.visitorMessage });
+      emitPanelEvent(clientId, {
+        id: crypto.randomUUID(),
+        type: 'webchat:fallback_missed',
+        title: 'Chat perdido — fallback WhatsApp',
+        body: `${visitorLabel} · tempo esgotado sem aceite`,
+        href: `/platform/inbox?conv=${toWebChatInboxId(String(conversation._id))}`,
+        conversationId: toWebChatInboxId(String(conversation._id)),
+        targetUserId: conversation.suggestedUserId?.trim() || undefined,
+        urgent: true,
+        createdAt: new Date(nowMs).toISOString(),
+      });
+    }
+  }
+
+  /** Sem atendente online / fila aberta — alerta WA imediato se configurado (0s). */
+  private async maybeTriggerNoAgentFallbackOnEscalate(
+    clientId: string,
+    conversation: IWebChatConversation,
+  ): Promise<void> {
+    const settings = await loadInboxSettings(clientId);
+    if (!settings.whatsappFallbackEnabled) return;
+
+    const mode = resolveFallbackWaitMode(clientId, conversation);
+    if (mode !== 'no_agent_available') return;
+
+    const noAgentSec = resolveFallbackAcceptTimeoutSeconds(settings, mode);
+    if (noAgentSec > 0) return;
+
+    const rotation = await processFallbackWhatsappRotation(clientId, conversation, {
+      immediate: true,
+    });
+    await this.appendFallbackRotationMessages(
+      clientId,
+      conversation,
+      rotation,
+      Date.now(),
+    );
+  }
+
   async escalateToQueue(
     clientId: string,
     conversationId: string,
@@ -2748,6 +2840,10 @@ export class WebChatService {
     conversation.assignedUserId = undefined;
     conversation.suggestedUserId = undefined;
     conversation.suggestedAt = undefined;
+    conversation.whatsappFallbackTriedUserIds = undefined;
+    conversation.whatsappFallbackWaNotifiedUserId = undefined;
+    conversation.whatsappFallbackAlertSentAt = undefined;
+    conversation.whatsappFallbackPriorityStartedAt = undefined;
     if (departmentOid) conversation.departmentId = departmentOid;
     await conversation.save();
 
@@ -2770,6 +2866,7 @@ export class WebChatService {
       if (rr?.kind === 'suggested') {
         conversation.suggestedUserId = rr.userId;
         conversation.suggestedAt = new Date();
+        conversation.whatsappFallbackPriorityStartedAt = new Date();
         await conversation.save();
 
         await this.appendMessage(conversation, {
@@ -2792,27 +2889,12 @@ export class WebChatService {
           direction: 'system',
           body: 'Nossos atendentes estão em atendimento agora. Você entrou na fila e será chamado assim que possível.',
         });
-      } else if (rr?.kind === 'no_online') {
-        const rotation = await processFallbackWhatsappRotation(clientId, conversation, {
-          immediate: true,
-        });
-        if (rotation.kind === 'sent') {
-          await this.appendMessage(conversation, {
-            direction: 'system',
-            body: `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
-          });
-        }
+        await this.maybeTriggerNoAgentFallbackOnEscalate(clientId, conversation);
+      } else {
+        await this.maybeTriggerNoAgentFallbackOnEscalate(clientId, conversation);
       }
     } else {
-      const rotation = await processFallbackWhatsappRotation(clientId, conversation, {
-        immediate: true,
-      });
-      if (rotation.kind === 'sent') {
-        await this.appendMessage(conversation, {
-          direction: 'system',
-          body: `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
-        });
-      }
+      await this.maybeTriggerNoAgentFallbackOnEscalate(clientId, conversation);
     }
 
     this.emitWebchatWebhook(String(conversation.clientId), 'webchat.conversation.escalated', {
@@ -2841,84 +2923,105 @@ export class WebChatService {
   /** Scan periódico: após timeout configurável sem aceite, dispara fallback WhatsApp. */
   async processWebChatFallbackAcceptTimeouts(): Promise<void> {
     const rows = await InboxSettings.find({ whatsappFallbackEnabled: true })
-      .select('clientId whatsappFallbackAcceptTimeoutSeconds')
+      .select(
+        'clientId whatsappFallbackAcceptTimeoutSeconds whatsappFallbackNoAgentTimeoutSeconds',
+      )
       .lean();
 
     const nowMs = Date.now();
+    const cooldownCutoff = new Date(nowMs - FALLBACK_EXHAUSTED_COOLDOWN_MS);
+
     for (const row of rows) {
       const clientId = String(row.clientId);
-      const timeoutSec = Math.min(
-        900,
-        Math.max(30, Number(row.whatsappFallbackAcceptTimeoutSeconds) || 60),
-      );
+      const timingSettings = {
+        whatsappFallbackAcceptTimeoutSeconds: row.whatsappFallbackAcceptTimeoutSeconds,
+        whatsappFallbackNoAgentTimeoutSeconds: row.whatsappFallbackNoAgentTimeoutSeconds,
+      };
 
       const candidates = await WebChatConversation.find({
         clientId: row.clientId,
         status: 'open',
         queueStatus: 'waiting_human',
         assignedUserId: { $in: [null, undefined, ''] },
-        whatsappFallbackAlertSentAt: { $exists: false },
+        $or: [
+          { whatsappFallbackAlertSentAt: { $exists: false } },
+          { whatsappFallbackAlertSentAt: null },
+          { whatsappFallbackAlertSentAt: { $lte: cooldownCutoff } },
+        ],
       })
         .limit(25)
         .exec();
 
       for (const conv of candidates) {
-        if (!isFallbackAcceptTimeoutElapsed(conv, timeoutSec, nowMs)) continue;
+        if (!isFallbackAcceptTimeoutElapsed(clientId, conv, timingSettings, nowMs)) continue;
 
         const fresh = await WebChatConversation.findById(conv._id);
         if (!fresh) continue;
         if (fresh.status === 'closed' || fresh.queueStatus !== 'waiting_human') continue;
         if (fresh.assignedUserId?.trim()) continue;
-        if (fresh.whatsappFallbackAlertSentAt) continue;
 
         const rotation = await processFallbackWhatsappRotation(clientId, fresh, {
-          timeoutSeconds: timeoutSec,
+          allowRetry: shouldRetryFallbackAfterCooldown(
+            fresh.whatsappFallbackAlertSentAt,
+            FALLBACK_EXHAUSTED_COOLDOWN_MS,
+            nowMs,
+          ),
         });
 
         if (rotation.kind === 'none') continue;
 
-        const visitorLabel =
-          fresh.visitorName || fresh.visitorEmail || 'Visitante do site';
+        await this.appendFallbackRotationMessages(clientId, fresh, rotation, nowMs);
+      }
+    }
+  }
 
-        if (rotation.kind === 'rotated') {
-          await this.appendMessage(fresh, {
-            direction: 'system',
-            body: `${rotation.agentName} foi alertado no WhatsApp — aguardando !assumir.`,
-          });
-          emitPanelEvent(clientId, {
-            id: crypto.randomUUID(),
-            type: 'webchat:fallback_missed',
-            title: 'Chat perdido — próximo atendente',
-            body: `${visitorLabel} · alerta enviado para ${rotation.agentName}`,
-            href: `/platform/inbox?conv=${toWebChatInboxId(String(fresh._id))}`,
-            conversationId: toWebChatInboxId(String(fresh._id)),
-            targetUserId: rotation.fromUserId,
-            urgent: true,
-            createdAt: new Date(nowMs).toISOString(),
-          });
-          continue;
-        }
+  /** Encerra conversas WebChat na fila após tempo máximo (opção 2 — equilibrada). */
+  async processWebChatQueueMaxWait(): Promise<void> {
+    const rows = await InboxSettings.find({
+      whatsappFallbackEnabled: true,
+      webchatQueueMaxWaitMinutes: { $gt: 0 },
+    })
+      .select('clientId webchatQueueMaxWaitMinutes webchatQueueMaxWaitCloseMessage')
+      .lean();
 
-        if (rotation.kind === 'sent') {
-          await this.appendMessage(fresh, {
-            direction: 'system',
-            body: `Alerta enviado no WhatsApp para ${rotation.agentName} — aguardando !assumir.`,
-          });
-          continue;
-        }
+    const nowMs = Date.now();
 
-        if (rotation.kind === 'exhausted') {
-          await this.appendMessage(fresh, { direction: 'system', body: rotation.visitorMessage });
-          emitPanelEvent(clientId, {
-            id: crypto.randomUUID(),
-            type: 'webchat:fallback_missed',
-            title: 'Chat perdido — fallback WhatsApp',
-            body: `${visitorLabel} · tempo esgotado sem aceite`,
-            href: `/platform/inbox?conv=${toWebChatInboxId(String(fresh._id))}`,
-            conversationId: toWebChatInboxId(String(fresh._id)),
-            targetUserId: fresh.suggestedUserId?.trim() || undefined,
-            urgent: true,
-            createdAt: new Date(nowMs).toISOString(),
+    for (const row of rows) {
+      const clientId = String(row.clientId);
+      const maxMin = Math.min(480, Math.max(1, Number(row.webchatQueueMaxWaitMinutes) || 0));
+      const closeMessage =
+        row.webchatQueueMaxWaitCloseMessage?.trim() ||
+        DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE;
+      const cutoff = new Date(nowMs - maxMin * 60_000);
+
+      const convs = await WebChatConversation.find({
+        clientId: row.clientId,
+        status: 'open',
+        queueStatus: 'waiting_human',
+        assignedUserId: { $in: [null, undefined, ''] },
+        queueEnteredAt: { $lte: cutoff },
+        whatsappBridgeActive: { $ne: true },
+      })
+        .limit(20)
+        .exec();
+
+      for (const conv of convs) {
+        try {
+          await this.appendMessage(conv, {
+            direction: 'outbound',
+            body: closeMessage,
+            senderUserId: WEBCHAT_BOT_SENDER_ID,
+            senderName: 'Assistente',
+            notifyVisitor: true,
+          });
+          await this.closeConversation(clientId, String(conv._id), WEBCHAT_BOT_SENDER_ID, {
+            skipSystemMessage: true,
+          });
+        } catch (err) {
+          this.serviceLogger.warn('Falha ao encerrar WebChat por tempo máximo na fila', {
+            clientId,
+            conversationId: String(conv._id),
+            err,
           });
         }
       }
@@ -3920,6 +4023,7 @@ export class WebChatService {
       conversation.assignedUserId = targetUserId;
       conversation.suggestedUserId = undefined;
       conversation.suggestedAt = undefined;
+      conversation.whatsappFallbackPriorityStartedAt = undefined;
       conversation.queueStatus = 'with_agent';
       conversation.lastMessageAt = new Date();
       await conversation.save();
@@ -3932,6 +4036,9 @@ export class WebChatService {
     } else {
       conversation.suggestedUserId = targetUserId;
       conversation.suggestedAt = new Date();
+      if (!conversation.whatsappFallbackPriorityStartedAt) {
+        conversation.whatsappFallbackPriorityStartedAt = new Date();
+      }
       conversation.assignedUserId = undefined;
       conversation.queueStatus = 'waiting_human';
       conversation.lastMessageAt = new Date();

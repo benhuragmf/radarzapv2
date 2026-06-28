@@ -103,14 +103,19 @@ export function useWebChatSocket(
       if (!payload?.conversationId) return
       const convKey = `wc:${payload.conversationId}`
 
-      if (syncInbox) {
-        qc.setQueryData<ConversationDetail>(['inbox-conversation', convKey], old => {
+      const patchMessages = (queryKey: readonly unknown[]) => {
+        qc.setQueryData<ConversationDetail>(queryKey, old => {
           if (!old?.messages?.length) return old
           return {
             ...old,
             messages: applyReceiptsToInboxMessages(old.messages, payload),
           }
         })
+      }
+
+      patchMessages(['webchat-conversation', payload.conversationId])
+      if (syncInbox) {
+        patchMessages(['inbox-conversation', convKey])
       }
     }
 

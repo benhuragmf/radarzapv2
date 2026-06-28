@@ -560,20 +560,22 @@ Código: `inbox-agent-presence.ts`, `inbox-agent-presence-api.ts`, `constants/ag
 
 ---
 
-### Fallback WhatsApp + bridge site (2.10.72–2.11.28)
+### Fallback WhatsApp + bridge site (2.10.72–2.12.32)
 
 Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) §4 · [`WEBCHAT.md`](./WEBCHAT.md) § Fallback.
 
-Quando uma conversa **WebChat** entra na fila (`waiting_human`):
+Quando uma conversa **WebChat** entra na fila (`waiting_human`) **e** `whatsappFallbackEnabled`:
 
-1. **Triagem e Bot** — `whatsappFallbackEnabled`, `whatsappFallbackAcceptTimeoutSeconds` (padrão **60s**, 30–900), telefones alerta, mensagem visitante, `agentPresenceTimeoutSeconds`.
-2. Round-robin indica atendente (`suggestedUserId` + `suggestedAt`) se houver alguém **availableForQueue** (2.11.25+).
-3. **Não** chama fallback na escalação — aguarda aceite no painel (2.11.28).
-4. Scan ~60s (`processWebChatFallbackAcceptTimeouts` em `WebChatService`, via `InboxService.processInactivityAndQueueSla`):
-   - Cronômetro: `suggestedAt` se houver indicado; senão `queueEnteredAt`.
-   - Sem `assignedUserId` após timeout → `handleWebChatNoAgentOnline` + mensagem sistema.
+1. **Triagem e Bot** — `whatsappFallbackAcceptTimeoutSeconds` (com indicado online, padrão **120s**, 30–900), `whatsappFallbackNoAgentTimeoutSeconds` (sem online, padrão **0** = imediato), telefones alerta, mensagem visitante, `webchatQueueMaxWaitMinutes` (padrão **45**, 0=off) + mensagem de encerramento.
+2. Round-robin indica atendente (`suggestedUserId` + `suggestedAt` + `whatsappFallbackPriorityStartedAt`) se houver alguém **availableForQueue** (2.11.25+).
+3. **Com indicado online:** aguarda aceite no painel pelo prazo maior; **sem online / fila aberta / todos ocupados:** alerta WA na escalação se timeout = 0 (2.12.32).
+4. Scan ~60s (`processWebChatFallbackAcceptTimeouts` + `processWebChatQueueMaxWait` em `WebChatService`, via `InboxService.processInactivityAndQueueSla`):
+   - Modo dual (`webchat-fallback-timing.util`): `with_priority_agent` vs `no_agent_available` (presença real via `isAgentAvailableForQueue`).
+   - Cronômetro com indicado: `whatsappFallbackPriorityStartedAt` (não reinicia ao rotacionar indicado); sem indicado: `queueEnteredAt`.
+   - Re-tentativa após **15 min** se ciclo esgotou (`whatsappFallbackAlertSentAt`).
+   - Tempo máximo na fila → mensagem + `closeConversation`.
 5. Atendente que perdeu prioridade → `webchat:fallback_missed` (sino **vermelho**, `targetUserId`).
-6. Alerta WA via `sendInternalAlert` (`sendKind: alert`); **rotação 1 atendente/vez** com WA verificado na equipe (2.11.53); cooldown **15 min**/conversa; anti-loop sessão Baileys.
+6. Alerta WA via `sendInternalAlert` (`sendKind: alert`); **rotação 1 atendente/vez** com WA verificado na equipe (2.11.53); anti-loop sessão Baileys.
 7. `!assumir TK-…` → bridge (`whatsappBridgeActive`).
 
 **Inbox:** badge **Bridge WA** na lista e cabeçalho.
@@ -603,7 +605,7 @@ Coleção `inboxSettings` por tenant (`clientId`). Painel: `/platform/inbox/bot`
 | `alertOnNewChat` | Alerta quando entra conversa nova na fila |
 | `alertOnNewMessage` | Alerta quando chega mensagem em conversa ativa |
 | `csatEnabled` / `csatPrompt` / `csatThankYou` | Pesquisa 1–5 pós-atendimento — ver § CSAT abaixo |
-| `whatsappFallbackEnabled` / `whatsappFallbackAlertPhones[]` / `whatsappFallbackVisitorMessage` / `whatsappFallbackAcceptTimeoutSeconds` | Fallback WebChat → alerta WA após timeout sem aceite (2.10.72, deferido 2.11.28) |
+| `whatsappFallbackEnabled` / `whatsappFallbackAlertPhones[]` / `whatsappFallbackVisitorMessage` / `whatsappFallbackAcceptTimeoutSeconds` / `whatsappFallbackNoAgentTimeoutSeconds` / `webchatQueueMaxWaitMinutes` / `webchatQueueMaxWaitCloseMessage` | Fallback WebChat → alerta WA (timing dual 2.12.32) + encerramento por tempo máximo na fila |
 | `agentPresenceTimeoutSeconds` | Timeout offline sem heartbeat (30–300s, padrão 90) |
 | `presenceIdleTimeoutSeconds` | Inatividade no painel antes de marcar ausente (60–3600s, padrão 300) |
 

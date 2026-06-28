@@ -35,7 +35,9 @@ export interface IWebChatConversation extends Document {
   proactiveGreetingSentAt?: Date;
   /** Referência do chamado vinculado (paridade com Inbox WhatsApp) */
   ticketRef?: string;
-  /** Último alerta WhatsApp enviado por fallback offline */
+  /** Início do prazo de fallback com atendente indicado (não reinicia ao trocar indicado) */
+  whatsappFallbackPriorityStartedAt?: Date;
+  /** Último ciclo de alerta WA esgotado (cooldown antes de re-tentar) */
   whatsappFallbackAlertSentAt?: Date;
   /** Atendentes já notificados via WA sem !assumir (rotação) */
   whatsappFallbackTriedUserIds?: string[];
@@ -87,6 +89,7 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     unreadAgentCount: { type: Number, default: 0 },
     proactiveGreetingSentAt: { type: Date },
     ticketRef: { type: String, trim: true, maxlength: 32, index: true },
+    whatsappFallbackPriorityStartedAt: { type: Date },
     whatsappFallbackAlertSentAt: { type: Date },
     whatsappFallbackTriedUserIds: { type: [String], default: undefined },
     whatsappFallbackWaNotifiedUserId: { type: String, index: true },

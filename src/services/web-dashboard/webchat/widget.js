@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.12.31';
+  var WIDGET_BUILD = '2.12.32';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -1558,7 +1558,9 @@
         }
       });
     }
-    if (touchedInbound || payload.inboundBatch) {
+    if (isCopilotLayout()) {
+      renderBubble();
+    } else if (touchedInbound || payload.inboundBatch) {
       patchInboundReceiptMeta();
     }
   }
@@ -4700,6 +4702,11 @@
         writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
         connectSocket();
         renderBubble();
+        if (state.open) {
+          setTimeout(function () {
+            scheduleAckOutboundReceipts(isMessagesAtBottom());
+          }, 100);
+        }
         flushPendingFaqPick();
       })
       .catch(function (err) {
@@ -4891,6 +4898,11 @@
           } else {
             state.started = true;
             if (data.status === 'open') connectSocket();
+          }
+          if (state.open && state.messages.length) {
+            setTimeout(function () {
+              scheduleAckOutboundReceipts(isMessagesAtBottom());
+            }, 150);
           }
         });
       }

@@ -89,6 +89,9 @@ interface InboxSettings {
   whatsappFallbackAlertPhones: string[]
   whatsappFallbackVisitorMessage: string
   whatsappFallbackAcceptTimeoutSeconds: number
+  whatsappFallbackNoAgentTimeoutSeconds: number
+  webchatQueueMaxWaitMinutes: number
+  webchatQueueMaxWaitCloseMessage: string
   agentPresenceTimeoutSeconds: number
   presenceIdleTimeoutSeconds: number
 }
@@ -791,7 +794,8 @@ export default function InboxBotSettings() {
                   </Link>
                 </div>
                 <p className="text-xs text-[var(--rz-text-muted)]">
-                  Quando um chat do site não for aceito no prazo, avisa números WhatsApp e exibe mensagem ao visitante.
+                  Com atendente online indicado, aguarda mais tempo antes do alerta no WhatsApp. Sem ninguém
+                  disponível na fila, o alerta pode ser imediato (se ativado abaixo).
                 </p>
                 <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
                   <input
@@ -799,18 +803,61 @@ export default function InboxBotSettings() {
                     checked={form.whatsappFallbackEnabled}
                     onChange={e => patch('whatsappFallbackEnabled', e.target.checked)}
                   />
-                  Ativar fallback após tempo sem aceite
+                  Ativar fallback WhatsApp para chats do site na fila
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-xs text-[var(--rz-text-muted)]">Tempo para aceitar (segundos, 30–900)</span>
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Com atendente indicado online — tempo para aceitar (segundos, 30–900)
+                  </span>
                   <input
                     type="number"
                     min={30}
                     max={900}
                     className={inputCls}
-                    value={form.whatsappFallbackAcceptTimeoutSeconds ?? 60}
+                    value={form.whatsappFallbackAcceptTimeoutSeconds ?? 120}
                     onChange={e => patch('whatsappFallbackAcceptTimeoutSeconds', Number(e.target.value))}
                     disabled={!form.whatsappFallbackEnabled}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Sem atendente disponível — tempo antes do alerta (0 = imediato, máx. 120s)
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    className={inputCls}
+                    value={form.whatsappFallbackNoAgentTimeoutSeconds ?? 0}
+                    onChange={e => patch('whatsappFallbackNoAgentTimeoutSeconds', Number(e.target.value))}
+                    disabled={!form.whatsappFallbackEnabled}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Tempo máximo na fila antes de encerrar o chat (minutos, 0 = desligado)
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={480}
+                    className={inputCls}
+                    value={form.webchatQueueMaxWaitMinutes ?? 45}
+                    onChange={e => patch('webchatQueueMaxWaitMinutes', Number(e.target.value))}
+                    disabled={!form.whatsappFallbackEnabled}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="flex justify-between text-xs text-[var(--rz-text-muted)]">
+                    <span>Mensagem ao encerrar por tempo máximo na fila</span>
+                    <CharCount value={form.webchatQueueMaxWaitCloseMessage} max={800} />
+                  </span>
+                  <textarea
+                    className={textareaCls}
+                    rows={3}
+                    value={form.webchatQueueMaxWaitCloseMessage ?? ''}
+                    onChange={e => patch('webchatQueueMaxWaitCloseMessage', e.target.value)}
+                    disabled={!form.whatsappFallbackEnabled || !(form.webchatQueueMaxWaitMinutes ?? 0)}
                   />
                 </label>
                 <label className="block space-y-1">

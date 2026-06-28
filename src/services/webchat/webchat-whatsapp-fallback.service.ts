@@ -8,42 +8,29 @@ import { DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE } from '@/types/inbox-setting
 import { listVerifiedWhatsappInboxAgents } from '@/services/inbox/whatsapp-agent-auth.service';
 import { createServiceLogger } from '@/utils/logger';
 import mongoose from 'mongoose';
+import {
+  isFallbackAcceptTimeoutElapsed,
+  resolveFallbackAcceptTimeoutSeconds,
+  resolveFallbackWaitMode,
+  shouldRetryFallbackAfterCooldown,
+} from './webchat-fallback-timing.util';
 
 const logger = createServiceLogger('WebChatWhatsAppFallback');
 
-const ALERT_COOLDOWN_MS = 15 * 60 * 1000;
+const EXHAUSTED_ALERT_COOLDOWN_MS = 15 * 60 * 1000;
+
+export {
+  isFallbackAcceptTimeoutElapsed,
+  getFallbackAcceptWaitStart,
+  resolveFallbackWaitMode,
+  resolveFallbackAcceptTimeoutSeconds,
+} from './webchat-fallback-timing.util';
 
 export type FallbackWhatsappRotationResult =
   | { kind: 'none' }
   | { kind: 'sent'; userId: string; agentName: string }
   | { kind: 'rotated'; fromUserId: string; toUserId: string; agentName: string }
   | { kind: 'exhausted'; visitorMessage: string; alertSent: boolean };
-
-export function getFallbackAcceptWaitStart(conversation: {
-  suggestedAt?: Date | null;
-  suggestedUserId?: string | null;
-  queueEnteredAt?: Date | null;
-}): Date | null {
-  if (conversation.suggestedUserId?.trim() && conversation.suggestedAt) {
-    return conversation.suggestedAt;
-  }
-  return conversation.queueEnteredAt ?? null;
-}
-
-export function isFallbackAcceptTimeoutElapsed(
-  conversation: {
-    suggestedAt?: Date | null;
-    suggestedUserId?: string | null;
-    queueEnteredAt?: Date | null;
-  },
-  timeoutSeconds: number,
-  nowMs: number = Date.now(),
-): boolean {
-  if (timeoutSeconds <= 0) return false;
-  const start = getFallbackAcceptWaitStart(conversation);
-  if (!start) return false;
-  return nowMs - start.getTime() >= timeoutSeconds * 1000;
-}
 
 export function normalizeWhatsAppAlertDestination(raw: string): string | null {
   const trimmed = raw.trim();
@@ -249,23 +236,40 @@ export async function sendFallbackAlertToAgent(
 export async function processFallbackWhatsappRotation(
   clientId: string,
   conversation: IWebChatConversation,
-  opts?: { immediate?: boolean; timeoutSeconds?: number },
+  opts?: { immediate?: boolean; timeoutSeconds?: number; allowRetry?: boolean },
 ): Promise<FallbackWhatsappRotationResult> {
   const settings = await loadInboxSettings(clientId);
   if (!settings.whatsappFallbackEnabled) return { kind: 'none' };
 
-  if (conversation.whatsappFallbackAlertSentAt) {
-    const age = Date.now() - conversation.whatsappFallbackAlertSentAt.getTime();
-    if (age < ALERT_COOLDOWN_MS) return { kind: 'none' };
+  const exhaustedCooldown = shouldRetryFallbackAfterCooldown(
+    conversation.whatsappFallbackAlertSentAt,
+    EXHAUSTED_ALERT_COOLDOWN_MS,
+  );
+  if (
+    conversation.whatsappFallbackAlertSentAt &&
+    !exhaustedCooldown &&
+    !opts?.allowRetry
+  ) {
+    return { kind: 'none' };
   }
 
-  const timeoutSec = Math.min(
-    900,
-    Math.max(30, opts?.timeoutSeconds ?? settings.whatsappFallbackAcceptTimeoutSeconds ?? 60),
-  );
+  if (exhaustedCooldown && conversation.whatsappFallbackAlertSentAt) {
+    conversation.whatsappFallbackTriedUserIds = [];
+    conversation.whatsappFallbackWaNotifiedUserId = undefined;
+    conversation.whatsappFallbackAlertSentAt = undefined;
+  }
+
+  const mode = resolveFallbackWaitMode(clientId, conversation);
+  const timeoutSec =
+    opts?.timeoutSeconds ??
+    resolveFallbackAcceptTimeoutSeconds(settings, mode);
+
   const nowMs = Date.now();
 
-  if (!opts?.immediate && !isFallbackAcceptTimeoutElapsed(conversation, timeoutSec, nowMs)) {
+  if (
+    !opts?.immediate &&
+    !isFallbackAcceptTimeoutElapsed(clientId, conversation, settings, nowMs)
+  ) {
     return { kind: 'none' };
   }
 
@@ -286,6 +290,9 @@ export async function processFallbackWhatsappRotation(
       const sent = await sendFallbackAlertToAgent(clientId, conversation, first);
       conversation.suggestedUserId = first.userId;
       conversation.suggestedAt = new Date();
+      if (!conversation.whatsappFallbackPriorityStartedAt) {
+        conversation.whatsappFallbackPriorityStartedAt = new Date();
+      }
       conversation.whatsappFallbackWaNotifiedUserId = first.userId;
       await conversation.save();
       if (sent) {
@@ -326,6 +333,9 @@ export async function processFallbackWhatsappRotation(
     const sent = await sendFallbackAlertToAgent(clientId, conversation, next);
     conversation.suggestedUserId = next.userId;
     conversation.suggestedAt = new Date();
+    if (!conversation.whatsappFallbackPriorityStartedAt) {
+      conversation.whatsappFallbackPriorityStartedAt = new Date();
+    }
     conversation.whatsappFallbackWaNotifiedUserId = next.userId;
     await conversation.save();
 
@@ -375,7 +385,7 @@ export async function handleWebChatNoAgentOnline(
 
   if (conversation.whatsappFallbackAlertSentAt) {
     const age = Date.now() - conversation.whatsappFallbackAlertSentAt.getTime();
-    if (age < ALERT_COOLDOWN_MS) {
+    if (age < EXHAUSTED_ALERT_COOLDOWN_MS) {
       return { visitorMessage, alertSent: false };
     }
   }

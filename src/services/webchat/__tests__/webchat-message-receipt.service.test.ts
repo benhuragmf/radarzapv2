@@ -40,7 +40,7 @@ describe('webchat-message-receipt.service', () => {
     expect(WebChatMessage.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         direction: 'outbound',
-        deliveredAt: { $exists: false },
+        deliveredAt: null,
       }),
       expect.objectContaining({ $set: expect.objectContaining({ deliveredAt: expect.any(Date) }) }),
     );

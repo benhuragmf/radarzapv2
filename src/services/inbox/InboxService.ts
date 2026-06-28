@@ -464,6 +464,9 @@ export class InboxService {
       whatsappFallbackAlertPhones: string[];
       whatsappFallbackVisitorMessage: string;
       whatsappFallbackAcceptTimeoutSeconds: number;
+      whatsappFallbackNoAgentTimeoutSeconds: number;
+      webchatQueueMaxWaitMinutes: number;
+      webchatQueueMaxWaitCloseMessage: string;
       agentPresenceTimeoutSeconds: number;
       presenceIdleTimeoutSeconds: number;
     }>,
@@ -621,8 +624,23 @@ export class InboxService {
     if (patch.whatsappFallbackAcceptTimeoutSeconds !== undefined) {
       settings.whatsappFallbackAcceptTimeoutSeconds = Math.min(
         900,
-        Math.max(30, Number(patch.whatsappFallbackAcceptTimeoutSeconds) || 60),
+        Math.max(30, Number(patch.whatsappFallbackAcceptTimeoutSeconds) || 120),
       );
+    }
+    if (patch.whatsappFallbackNoAgentTimeoutSeconds !== undefined) {
+      settings.whatsappFallbackNoAgentTimeoutSeconds = Math.min(
+        120,
+        Math.max(0, Number(patch.whatsappFallbackNoAgentTimeoutSeconds) || 0),
+      );
+    }
+    if (patch.webchatQueueMaxWaitMinutes !== undefined) {
+      settings.webchatQueueMaxWaitMinutes = Math.min(
+        480,
+        Math.max(0, Number(patch.webchatQueueMaxWaitMinutes) || 0),
+      );
+    }
+    if (patch.webchatQueueMaxWaitCloseMessage !== undefined) {
+      settings.webchatQueueMaxWaitCloseMessage = patch.webchatQueueMaxWaitCloseMessage.trim();
     }
     if (patch.agentPresenceTimeoutSeconds !== undefined) {
       settings.agentPresenceTimeoutSeconds = Math.min(
@@ -5437,6 +5455,7 @@ export class InboxService {
       }
       const { WebChatService } = await import('../webchat/WebChatService');
       await WebChatService.getInstance().processWebChatFallbackAcceptTimeouts();
+      await WebChatService.getInstance().processWebChatQueueMaxWait();
       await WebChatService.getInstance().processWebChatTriageInactivity();
       const { PanelCriticalAlertsService } = await import('./panel-critical-alerts.service');
       await PanelCriticalAlertsService.getInstance().scanAll();

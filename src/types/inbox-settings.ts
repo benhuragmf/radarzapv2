@@ -102,8 +102,17 @@ export const DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS = 300;
 export const DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE =
   'No momento não temos atendentes online no painel, mas podemos continuar seu atendimento pelo WhatsApp. Um atendente autorizado poderá assumir sua conversa em breve.';
 
-/** Segundos aguardando aceite no painel antes de disparar fallback WhatsApp (30–900). */
-export const DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS = 60;
+/** Segundos aguardando aceite quando há atendente indicado online (30–900). */
+export const DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS = 120;
+
+/** Sem atendente online / fila aberta — 0 = alerta WA imediato na escalação. */
+export const DEFAULT_WHATSAPP_FALLBACK_NO_AGENT_TIMEOUT_SECONDS = 0;
+
+/** Minutos máximos na fila WebChat antes de encerrar (0 = desligado). */
+export const DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_MINUTES = 45;
+
+export const DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE =
+  'Ainda não conseguimos um atendente no chat. Encerramos esta conversa — você pode iniciar um novo chat ou falar conosco pelo WhatsApp quando preferir.';
 
 /** Atendimentos simultâneos por atendente (Inbox + WebChat + bridge WA). */
 export const DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT = 1;

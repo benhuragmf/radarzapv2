@@ -12,6 +12,9 @@ import {
   DEFAULT_AGENT_PRESENCE_TIMEOUT_SECONDS,
   DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS,
   DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS,
+  DEFAULT_WHATSAPP_FALLBACK_NO_AGENT_TIMEOUT_SECONDS,
+  DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_MINUTES,
+  DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE,
   DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
   DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT,
 } from '@/types/inbox-settings';
@@ -67,8 +70,13 @@ export interface IInboxSettings extends Document {
   whatsappFallbackEnabled: boolean;
   whatsappFallbackAlertPhones: string[];
   whatsappFallbackVisitorMessage: string;
-  /** Segundos aguardando aceite no painel antes do fallback WhatsApp (30–900) */
+  /** Segundos aguardando aceite quando há atendente indicado online (30–900) */
   whatsappFallbackAcceptTimeoutSeconds: number;
+  /** Sem atendente online — segundos antes do alerta WA (0 = imediato) */
+  whatsappFallbackNoAgentTimeoutSeconds: number;
+  /** Minutos máximos na fila WebChat antes de encerrar (0 = desligado) */
+  webchatQueueMaxWaitMinutes: number;
+  webchatQueueMaxWaitCloseMessage: string;
   /** Segundos sem heartbeat para considerar atendente offline (30–300) */
   agentPresenceTimeoutSeconds: number;
   /** Segundos de inatividade no painel antes de marcar ausente (60–3600) */
@@ -247,6 +255,23 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       default: DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS,
       min: 30,
       max: 900,
+    },
+    whatsappFallbackNoAgentTimeoutSeconds: {
+      type: Number,
+      default: DEFAULT_WHATSAPP_FALLBACK_NO_AGENT_TIMEOUT_SECONDS,
+      min: 0,
+      max: 120,
+    },
+    webchatQueueMaxWaitMinutes: {
+      type: Number,
+      default: DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_MINUTES,
+      min: 0,
+      max: 480,
+    },
+    webchatQueueMaxWaitCloseMessage: {
+      type: String,
+      default: DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE,
+      maxlength: 800,
     },
     agentPresenceTimeoutSeconds: {
       type: Number,

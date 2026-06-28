@@ -19,7 +19,7 @@ export async function markOutboundDelivered(
       clientId: new mongoose.Types.ObjectId(clientId),
       conversationId: new mongoose.Types.ObjectId(conversationId),
       direction: 'outbound',
-      deliveredAt: { $exists: false },
+      deliveredAt: null,
     },
     { $set: { deliveredAt: now } },
   );
@@ -52,7 +52,7 @@ export async function markOutboundReadThrough(
       conversationId: new mongoose.Types.ObjectId(conversationId),
       direction: 'outbound',
       createdAt: { $lte: anchor.createdAt },
-      readAt: { $exists: false },
+      readAt: null,
     },
     { $set: { readAt: now, deliveredAt: now } },
   );
@@ -63,7 +63,7 @@ export async function markOutboundReadThrough(
       conversationId: new mongoose.Types.ObjectId(conversationId),
       direction: 'outbound',
       createdAt: { $lte: anchor.createdAt },
-      deliveredAt: { $exists: false },
+      deliveredAt: null,
     },
     { $set: { deliveredAt: now } },
   );
@@ -94,7 +94,7 @@ export async function markInboundReadOnTeamReply(
       conversationId: new mongoose.Types.ObjectId(conversationId),
       direction: 'inbound',
       createdAt: { $lte: replyCreatedAt },
-      readAt: { $exists: false },
+      readAt: null,
     },
     { $set: { readAt: now } },
   );
@@ -116,7 +116,7 @@ export async function markInboundReadByAgent(
       clientId: new mongoose.Types.ObjectId(clientId),
       conversationId: new mongoose.Types.ObjectId(conversationId),
       direction: 'inbound',
-      readAt: { $exists: false },
+      readAt: null,
     },
     { $set: { readAt: now } },
   );
