@@ -957,30 +957,24 @@ write_service_env_file() {
 
 deploy_service_direct() {
   local dir="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${SERVICE_UUID}}"
-  local env_tmp compose_override merged
+  local env_tmp merged
   [[ -n "${SERVICE_UUID:-}" && -f "${COMPOSE_FILE:-}" ]] || return 1
   log "Deploy direto no host (fallback) → ${dir}"
   sudo mkdir -p "$dir"
-  compose_override="${DEPLOY_PATH}/docker-compose.coolify-direct-override.yml"
   merged="$(mktemp)"
-  if [[ -f "$compose_override" ]]; then
-    docker compose -f "$COMPOSE_FILE" -f "$compose_override" config >"$merged"
-  else
-    cp "$COMPOSE_FILE" "$merged"
+  cp "$COMPOSE_FILE" "$merged"
+  if ! grep -qE '3001:3001' "$merged"; then
+    log "Adicionando bind :3001 no serviço app..."
+    sed -i '/^    expose:/a\    ports:\n      - '\''3001:3001'\''' "$merged" 2>/dev/null || \
+    sed -i '/^    expose:/a\
+    ports:\
+      - '\''3001:3001'\''' "$merged"
   fi
-  if ! grep -q '3001:3001' "$merged"; then
-    log "AVISO: compose sem bind :3001 — adicionando ports no app"
-    awk '
-      /^  app:/ { in_app=1 }
-      in_app && /^    expose:/ {
-        print
-        print "    ports:"
-        print "      - '\''3001:3001'\''"
-        next
-      }
-      /^  [a-z]/ && !/^  app:/ { in_app=0 }
-      { print }
-    ' "$merged" >"${merged}.ports" && mv "${merged}.ports" "$merged"
+  if ! docker compose -f "$merged" config >/dev/null 2>&1; then
+    log "ERRO: compose inválido após patch :3001"
+    docker compose -f "$merged" config 2>&1 | tail -5 >&2 || true
+    rm -f "$merged"
+    return 1
   fi
   sudo cp "$merged" "${dir}/docker-compose.yaml"
   rm -f "$merged"
