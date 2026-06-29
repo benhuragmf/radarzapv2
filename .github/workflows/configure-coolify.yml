@@ -53,8 +53,14 @@ jobs:
               git fetch origin main --force -q
               git reset --hard origin/main -q
             fi
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq jq openssl
+            for attempt in 1 2 3 4 5 6; do
+              if sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq jq openssl; then
+                break
+              fi
+              log_attempt="apt lock, retry $attempt"
+              echo "$log_attempt"
+              sleep 15
+            done
             sudo -E bash scripts/vps-configure-coolify-radarzap.sh
             if [[ "${MIGRATE_LEGACY:-1}" != "1" ]]; then
               sudo bash scripts/vps-restore-sslip-https.sh || true

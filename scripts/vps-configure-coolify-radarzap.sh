@@ -728,9 +728,13 @@ sync_env_from_legacy() {
   payload="$(echo "$payload" | jq \
     --arg mongo "$mongo_pw" \
     --arg image "$radar_image" \
+    --arg service_url "https://${PUBLIC_HOST}" \
+    --arg fqdn "${PUBLIC_HOST}" \
     '. + [
       {"key":"SERVICE_PASSWORD_MONGODB","value":$mongo,"is_preview":false,"is_build_time":false,"is_literal":true},
-      {"key":"RADARZAP_IMAGE","value":$image,"is_preview":false,"is_build_time":false,"is_literal":true}
+      {"key":"RADARZAP_IMAGE","value":$image,"is_preview":false,"is_build_time":false,"is_literal":true},
+      {"key":"SERVICE_URL_APP","value":$service_url,"is_preview":false,"is_build_time":false,"is_literal":true},
+      {"key":"SERVICE_FQDN_APP","value":$fqdn,"is_preview":false,"is_build_time":false,"is_literal":true}
     ]')"
 
   if api PATCH "/api/v1/services/${SERVICE_UUID}/envs/bulk" -d "{\"data\":${payload}}" >/dev/null 2>&1; then
@@ -746,8 +750,44 @@ sync_env_from_legacy() {
 }
 
 deploy_service() {
-  log "Disparando deploy..."
-  api POST "/api/v1/deploy?uuid=${SERVICE_UUID}" -d '{}' >/dev/null || api POST "/api/v1/services/${SERVICE_UUID}/start" >/dev/null || true
+  log "Disparando deploy Coolify (${SERVICE_UUID})..."
+  api POST "/api/v1/deploy?uuid=${SERVICE_UUID}" -d '{}' >/dev/null 2>&1 || true
+  api POST "/api/v1/services/${SERVICE_UUID}/start" -d '{}' >/dev/null 2>&1 || true
+  api POST "/api/v1/services/${SERVICE_UUID}/restart" -d '{}' >/dev/null 2>&1 || true
+}
+
+remove_legacy_traefik_route() {
+  local proxy cfg
+  proxy="$(sudo docker ps --format '{{.Names}}' | grep -E 'coolify-proxy|traefik' | head -1 || true)"
+  [[ -n "$proxy" ]] || return 0
+  cfg="radarzap-legacy-${PUBLIC_HOST//[^a-zA-Z0-9]/-}.yaml"
+  for dir in /traefik/dynamic /etc/traefik/dynamic; do
+    sudo docker exec "$proxy" rm -f "${dir}/${cfg}" 2>/dev/null || true
+  done
+  log "Rota Traefik legado removida (Coolify assume o domínio)"
+}
+
+coolify_stack_healthy() {
+  local sid="${SERVICE_UUID:-}"
+  [[ -n "$sid" ]] || return 1
+  # Não confundir com radarzap-app-1 do compose legado — só containers do resource Coolify (UUID no nome)
+  if sudo docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -F "$sid" | grep -iE 'app|web' | grep -qiE 'up|healthy'; then
+    return 0
+  fi
+  return 1
+}
+
+wait_coolify_stack_up() {
+  local i
+  for i in $(seq 1 45); do
+    if coolify_stack_healthy; then
+      log "Stack Coolify Up (tentativa $i)"
+      return 0
+    fi
+    log "Aguardando containers Coolify ($i/45)..."
+    sleep 10
+  done
+  return 1
 }
 
 stop_legacy_stack() {
@@ -823,28 +863,23 @@ ensure_project_and_server
 ensure_service
 sync_env_from_legacy
 
-coolify_stack_healthy() {
-  sudo docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -iE 'app.*h143|h143.*app|radarzap.*app' | grep -qiE 'up|healthy' || return 1
-  return 0
-}
-
 if [[ "$MIGRATE_LEGACY" == "1" ]]; then
+  log "Migração legado → Coolify: parando GHCR para liberar volumes Mongo/Redis..."
+  stop_legacy_stack
+  sleep 8
   deploy_service
-  log "Aguardando stack Coolify ou HTTPS..."
-  sleep 20
-  if coolify_stack_healthy || curl -sf -o /dev/null --max-time 10 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
-    stop_legacy_stack
-    log "Coolify/HTTPS OK — stack legado parado"
-  elif wait_coolify_app_health; then
-    log "App em :3001 — configurando HTTPS via Traefik"
-    sudo bash "${DEPLOY_PATH}/scripts/vps-coolify-traefik-route-legacy.sh" || true
-    if curl -sf -o /dev/null --max-time 10 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
-      stop_legacy_stack
-    else
-      log "Mantendo legado em :3001 até Coolify emitir SSL"
-    fi
+  if wait_coolify_stack_up; then
+    remove_legacy_traefik_route
+    log "Coolify stack OK"
+    for i in $(seq 1 18); do
+      if curl -sf -o /dev/null --max-time 10 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
+        log "HTTPS OK via Coolify"
+        break
+      fi
+      sleep 5
+    done
   else
-    log "AVISO: deploy Coolify incompleto — restaurando legado GHCR"
+    log "AVISO: deploy Coolify incompleto — restaurando stack legado GHCR"
     restore_legacy_stack
     sudo bash "${DEPLOY_PATH}/scripts/vps-coolify-traefik-route-legacy.sh" || true
   fi

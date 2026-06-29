@@ -53,10 +53,12 @@ echo "service=" . $s->uuid . " status=" . ($s->status ?? "?");
   log "Mongo Coolify: ${out:-indisponível}"
 fi
 
+COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
+
 log ""
 log "=== Resumo ==="
-coolify_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE 'h143|coolify.*app' | head -3 || true)"
-legacy_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE 'radarzap.*app|radarzapv2' | grep -vi coolify | head -3 || true)"
+coolify_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -F "${COOLIFY_SERVICE_UUID}" | grep -iE 'app|web' | head -3 || true)"
+legacy_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE '^radarzap-app-' | head -3 || true)"
 if [[ -n "$coolify_app" ]]; then
   log "App Coolify (resource): SIM"
   echo "$coolify_app" | while read -r line; do log "  $line"; done
