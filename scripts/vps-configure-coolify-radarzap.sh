@@ -33,7 +33,7 @@ api() {
   local tmp http
   tmp="$(mktemp)"
   http="$(curl -sS -o "$tmp" -w "%{http_code}" -X "$method" \
-    -H "Authorization: Bearer ${API_TOKEN#*|}" \
+    -H "Authorization: Bearer ${API_TOKEN}" \
     -H "Accept: application/json" \
     -H "Content-Type: application/json" \
     "${COOLIFY_URL}${path}" "$@")"
@@ -206,30 +206,25 @@ echo "ok";
   log "Gerando token API..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
-$uid = (int) \DB::table("users")->whereNotNull("email")->orderBy("id")->value("id");
+$uid = (int) \DB::table("users")->where("id", ">", 0)->whereNotNull("email")->orderBy("id")->value("id");
 $tid = (int) \DB::table("teams")->where("id", ">", 0)->orderBy("id")->value("id");
 $user = \App\Models\User::find($uid);
 $team = \App\Models\Team::find($tid);
 if (!$user || !$team || $uid < 1 || $tid < 1) { echo "ERROR:no-user-team"; exit(1); }
-\Laravel\Sanctum\PersonalAccessToken::where("name", "radarzap-automation")->delete();
-$plain = \Illuminate\Support\Str::random(48);
-$pat = new \Laravel\Sanctum\PersonalAccessToken();
-$pat->name = "radarzap-automation";
-$pat->token = hash("sha256", $plain);
-$pat->abilities = "[\"root\"]";
-$pat->tokenable_type = get_class($user);
-$pat->tokenable_id = $uid;
-$pat->team_id = $tid;
-$pat->save();
-echo "TOKEN|" . $plain;
+$user->tokens()->where("name", "radarzap-automation")->delete();
+$access = $user->createToken("radarzap-automation", ["*"]);
+if ($access->accessToken) {
+  $access->accessToken->forceFill(["team_id" => $tid])->save();
+}
+echo "TOKEN|" . $access->plainTextToken;
 ' 2>&1)" || true
-  API_TOKEN="$(echo "$out" | grep -oE 'TOKEN\|[A-Za-z0-9]+' | tail -1 | tr '|' '\n' | tail -1 || true)"
+  API_TOKEN="$(echo "$out" | grep -oE 'TOKEN\|[0-9]+\|[^[:space:]]+' | tail -1 | cut -d'|' -f2- || true)"
   if [[ -z "$API_TOKEN" ]]; then
     log "ERRO ao criar token. Saída artisan:"
     echo "$out"
     exit 1
   fi
-  API_TOKEN="1|${API_TOKEN}"
+  log "Token API gerado (prefixo ${API_TOKEN%%|*}|…)"
 }
 
 detect_legacy_volumes() {
@@ -398,14 +393,18 @@ enable_api_and_token
 
 # Validar API
 for i in $(seq 1 12); do
-  raw="$(curl -sS -H "Authorization: Bearer ${API_TOKEN#*|}" -H "Accept: application/json" "${COOLIFY_URL}/api/v1/version" 2>/dev/null || true)"
+  raw="$(curl -sS -H "Authorization: Bearer ${API_TOKEN}" -H "Accept: application/json" "${COOLIFY_URL}/api/v1/version" 2>/dev/null || true)"
   VER="$(echo "$raw" | jq -r '.version // empty' 2>/dev/null || true)"
   if [[ -n "$VER" ]]; then
     log "Coolify API OK — versão ${VER}"
     break
   fi
   log "Aguardando API (tentativa $i/12)..."
-  [[ "$i" -eq 12 ]] && { log "ERRO: API Coolify indisponível. Última resposta: $raw"; exit 1; }
+  [[ "$i" -eq 12 ]] && {
+    log "ERRO: API Coolify indisponível. Última resposta: $raw"
+    docker logs coolify --tail 40 2>/dev/null || true
+    exit 1
+  }
   sleep 5
 done
 
