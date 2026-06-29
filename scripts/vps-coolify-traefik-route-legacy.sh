@@ -12,8 +12,18 @@ if [[ -z "$PROXY" ]]; then
   exit 1
 fi
 
+RESOLVED_IP="172.17.0.1"
+for try_ip in 172.17.0.1 host.docker.internal; do
+  if sudo docker exec "$PROXY" wget -qO- --timeout=3 "http://${try_ip}:3001/api/services/health" 2>/dev/null | grep -q healthy; then
+    RESOLVED_IP="$try_ip"
+    log "Backend acessível em ${RESOLVED_IP}:3001 (via proxy)"
+    break
+  fi
+done
+HOST_IP="$RESOLVED_IP"
+
 if ! curl -sf -o /dev/null --max-time 5 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
-  log "ERRO: app não responde em :3001 — suba o stack antes"
+  log "ERRO: app não responde em :3001 no host"
   exit 1
 fi
 
