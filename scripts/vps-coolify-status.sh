@@ -57,11 +57,18 @@ COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 
 log ""
 log "=== Resumo ==="
-coolify_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -F "${COOLIFY_SERVICE_UUID}" | grep -iE 'app|web' | head -3 || true)"
+coolify_app="$(sudo docker ps -a --format '{{.Names}} {{.Status}} {{.Image}}' 2>/dev/null | grep -F "${COOLIFY_SERVICE_UUID}" | grep -iE 'app|web' | head -3 || true)"
 legacy_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE '^radarzap-app-' | head -3 || true)"
 if [[ -n "$coolify_app" ]]; then
   log "App Coolify (resource): SIM"
   echo "$coolify_app" | while read -r line; do log "  $line"; done
+  if echo "$coolify_app" | grep -qiE 'restarting|exited'; then
+    cname="$(echo "$coolify_app" | awk '{print $1}' | head -1)"
+    if [[ -n "$cname" ]]; then
+      log "=== Logs ${cname} (últimas 50 linhas) ==="
+      sudo docker logs "$cname" --tail 50 2>&1 | while read -r l; do log "  $l"; done
+    fi
+  fi
 else
   log "App Coolify (resource): NÃO (stack Exited ou sem deploy)"
 fi
