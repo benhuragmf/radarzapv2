@@ -955,6 +955,35 @@ write_service_env_file() {
   fi
 }
 
+add_host_port_to_compose() {
+  local file="$1"
+  python3 - "$file" <<'PY'
+import sys
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    lines = f.readlines()
+if any("3001:3001" in line for line in lines):
+    sys.exit(0)
+out = []
+i = 0
+while i < len(lines):
+    line = lines[i]
+    out.append(line)
+    if line.strip() == "expose:":
+        j = i + 1
+        while j < len(lines) and lines[j].startswith("      "):
+            out.append(lines[j])
+            j += 1
+        out.append("    ports:\n")
+        out.append("      - '3001:3001'\n")
+        i = j
+        continue
+    i += 1
+with open(path, "w", encoding="utf-8") as f:
+    f.writelines(out)
+PY
+}
+
 deploy_service_direct() {
   local dir="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${SERVICE_UUID}}"
   local env_tmp merged
@@ -965,14 +994,11 @@ deploy_service_direct() {
   cp "$COMPOSE_FILE" "$merged"
   if ! grep -qE '3001:3001' "$merged"; then
     log "Adicionando bind :3001 no serviço app..."
-    sed -i '/^    expose:/a\    ports:\n      - '\''3001:3001'\''' "$merged" 2>/dev/null || \
-    sed -i '/^    expose:/a\
-    ports:\
-      - '\''3001:3001'\''' "$merged"
+    add_host_port_to_compose "$merged"
   fi
   if ! docker compose -f "$merged" config >/dev/null 2>&1; then
     log "ERRO: compose inválido após patch :3001"
-    docker compose -f "$merged" config 2>&1 | tail -5 >&2 || true
+    docker compose -f "$merged" config 2>&1 | tail -8 >&2 || true
     rm -f "$merged"
     return 1
   fi
