@@ -293,50 +293,79 @@ build_compose_with_external_volumes() {
 ensure_project_and_server() {
   local projects
   projects="$(api GET /api/v1/projects)"
-  PROJECT_UUID="$(echo "$projects" | jq -r '.[] | select(.name=="RadarZap") | .uuid' | head -1)"
+  PROJECT_UUID="$(echo "$projects" | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="RadarZap") | .uuid' | head -1)"
   if [[ -z "$PROJECT_UUID" || "$PROJECT_UUID" == "null" ]]; then
     log "Criando projeto RadarZap..."
     PROJECT_UUID="$(api POST /api/v1/projects -d '{"name":"RadarZap","description":"RadarZap v2 produção"}' | jq -r '.uuid')"
   fi
-  SERVER_UUID="$(api GET /api/v1/servers | jq -r '.[0].uuid')"
+  SERVER_UUID="$(api GET /api/v1/servers | jq -r 'if type=="array" then .[0].uuid else .data[0].uuid // empty end')"
   if [[ -z "$SERVER_UUID" || "$SERVER_UUID" == "null" ]]; then
     log "ERRO: nenhum servidor no Coolify"
     exit 1
   fi
-  log "Project=$PROJECT_UUID Server=$SERVER_UUID"
+  local server_json
+  server_json="$(api GET "/api/v1/servers/${SERVER_UUID}")"
+  DESTINATION_UUID="$(echo "$server_json" | jq -r '.destinations[0].uuid // .destination.uuid // empty' 2>/dev/null || true)"
+  log "Project=$PROJECT_UUID Server=$SERVER_UUID Destination=${DESTINATION_UUID:-auto}"
+}
+
+set_service_domain() {
+  [[ -n "${SERVICE_UUID:-}" ]] || return 0
+  log "Configurando domínio https://${PUBLIC_HOST} no serviço app..."
+  local body
+  body="$(jq -n \
+    --arg url "https://${PUBLIC_HOST}" \
+    '{urls: [{name: "app", url: $url}], force_domain_override: true}')"
+  api PATCH "/api/v1/services/${SERVICE_UUID}" -d "$body" >/dev/null || {
+    log "AVISO: domínio não aplicado via API — configure manualmente em Domains → app"
+  }
 }
 
 ensure_service() {
   local existing
-  existing="$(api GET /api/v1/services | jq -r '.[] | select(.name=="radarzap") | .uuid' | head -1)"
+  existing="$(api GET /api/v1/services | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="radarzap") | .uuid' | head -1)"
   if [[ -n "$existing" && "$existing" != "null" ]]; then
     SERVICE_UUID="$existing"
     log "Service radarzap já existe: $SERVICE_UUID"
+    set_service_domain
     return 0
   fi
 
-  local compose_b64
+  local compose_b64 payload_file resp
   compose_b64="$(base64 -w0 "$COMPOSE_FILE" 2>/dev/null || base64 "$COMPOSE_FILE" | tr -d '\n')"
+  payload_file="$(mktemp)"
+  jq -n \
+    --arg name "radarzap" \
+    --arg description "RadarZap monolito + Mongo + Redis" \
+    --arg project_uuid "$PROJECT_UUID" \
+    --arg server_uuid "$SERVER_UUID" \
+    --arg environment_name "production" \
+    --arg docker_compose_raw "$compose_b64" \
+    --arg destination_uuid "${DESTINATION_UUID:-}" \
+    '{
+      name: $name,
+      description: $description,
+      project_uuid: $project_uuid,
+      server_uuid: $server_uuid,
+      environment_name: $environment_name,
+      docker_compose_raw: $docker_compose_raw,
+      instant_deploy: false
+    }
+    + (if ($destination_uuid | length) > 0 then {destination_uuid: $destination_uuid} else {} end)' \
+    >"$payload_file"
   log "Criando service Docker Compose..."
-  SERVICE_UUID="$(api POST /api/v1/services -d @- <<EOF | jq -r '.uuid'
-{
-  "name": "radarzap",
-  "description": "RadarZap monolito + Mongo + Redis",
-  "project_uuid": "${PROJECT_UUID}",
-  "server_uuid": "${SERVER_UUID}",
-  "environment_name": "production",
-  "docker_compose_raw": "${compose_b64}",
-  "instant_deploy": false,
-  "force_domain_override": true,
-  "urls": ["https://${PUBLIC_HOST}:3001:app"]
-}
-EOF
-)"
+  resp="$(api POST /api/v1/services -d @"$payload_file")" || {
+    rm -f "$payload_file"
+    exit 1
+  }
+  rm -f "$payload_file"
+  SERVICE_UUID="$(echo "$resp" | jq -r '.uuid // empty')"
   if [[ -z "$SERVICE_UUID" || "$SERVICE_UUID" == "null" ]]; then
-    log "ERRO ao criar service"
+    log "ERRO ao criar service. Resposta: $resp"
     exit 1
   fi
   log "Service criado: $SERVICE_UUID"
+  set_service_domain
 }
 
 sync_env_from_legacy() {
