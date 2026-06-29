@@ -39,6 +39,27 @@ Durante migração: desligar deploy automático `main` no VPS antigo **ou** usar
 
 No Coolify: **Settings → Instance Settings → Instance's Domain** = `https://coolify-151-247-210-180.sslip.io` → Save. Workflow: **Coolify panel HTTPS**.
 
+### Dois servidores (RadarZap + RadarGamer)
+
+| VPS | IP | Papel | Coolify |
+|-----|-----|--------|---------|
+| **ZAP** `platonvps-3409` | `151.247.210.180` | RadarZap + painel Coolify | Servidor **local** (nome `RadarZap`) |
+| **Gamer** `platonvps-3410` | `151.247.210.179` | radargamer.com.br | Servidor **remoto** SSH (nome `RadarGamer`) |
+
+Cadastro automatizado:
+
+```bash
+gh workflow run "Coolify servers setup" -f confirm=SERVERS
+```
+
+Requisitos:
+
+1. Secret `DEPLOY_SSH_KEY` — chave privada que o Coolify usa para SSH no Gamer (`.179`).
+2. A **chave pública** correspondente deve estar em `~ubuntu/.ssh/authorized_keys` no VPS Gamer (painel Platon ou `ssh-copy-id`).
+3. Secret opcional `RADARGAMER_SSH_KEY` — se o Gamer usar chave diferente da do RadarZap.
+
+No painel: **Servers** → dois hosts com métricas após validação. Script: `scripts/vps-coolify-servers-setup.sh`.
+
 ---
 
 ## Pré-requisitos

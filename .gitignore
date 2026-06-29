@@ -231,5 +231,8 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Infra credentials (FTP, painéis — nunca commitar)
+config/infra-credentials.local.md
+
 # Cursor (local IDE)
 .cursor/

@@ -1,0 +1,50 @@
+# Cadastra RadarZap (.180) e RadarGamer (.179) no Coolify com validação SSH.
+name: Coolify servers setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite SERVERS para confirmar'
+        required: true
+        type: string
+
+jobs:
+  servers:
+    if: github.event.inputs.confirm == 'SERVERS'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Coolify servers via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          COOLIFY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          RADARGAMER_SSH_PRIVATE_KEY: ${{ secrets.RADARGAMER_SSH_KEY }}
+          RADARZAP_SERVER_IP: '151.247.210.180'
+          RADARGAMER_SERVER_IP: '151.247.210.179'
+          COOLIFY_SSH_USER: ${{ secrets.DEPLOY_USER }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_PATH,COOLIFY_SSH_PRIVATE_KEY,RADARGAMER_SSH_PRIVATE_KEY,RADARZAP_SERVER_IP,RADARGAMER_SERVER_IP,COOLIFY_SSH_USER
+          script_stop: true
+          command_timeout: 45m
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            for attempt in 1 2 3 4 5; do
+              if git fetch origin +refs/heads/main:refs/remotes/origin/main -q 2>/dev/null; then
+                git reset --hard origin/main -q
+                break
+              fi
+              sleep 2
+            done
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq jq openssl openssh-client
+            if [[ -z "${RADARGAMER_SSH_PRIVATE_KEY:-}" ]]; then
+              export RADARGAMER_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY}"
+            fi
+            sudo -E bash scripts/vps-coolify-servers-setup.sh

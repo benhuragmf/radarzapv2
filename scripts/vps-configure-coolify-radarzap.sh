@@ -9,12 +9,18 @@ DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
 PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
 PUBLIC_URL="https://${PUBLIC_HOST}"
 MIGRATE_LEGACY="${MIGRATE_LEGACY:-1}"
+COOLIFY_SERVERS_ONLY="${COOLIFY_SERVERS_ONLY:-0}"
+RADARZAP_SERVER_IP="${RADARZAP_SERVER_IP:-151.247.210.180}"
+RADARGAMER_SERVER_IP="${RADARGAMER_SERVER_IP:-151.247.210.179}"
+COOLIFY_SSH_USER="${COOLIFY_SSH_USER:-ubuntu}"
+COOLIFY_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}"
+RADARGAMER_SSH_PRIVATE_KEY="${RADARGAMER_SSH_PRIVATE_KEY:-${COOLIFY_SSH_PRIVATE_KEY:-}}"
 COOLIFY_COMPOSE_MODE="${COOLIFY_COMPOSE_MODE:-ghcr}"
 RADARZAP_IMAGE_DEFAULT="${RADARZAP_IMAGE_DEFAULT:-ghcr.io/benhuragmf/radarzapv2:latest}"
 ROOT_EMAIL="${COOLIFY_ROOT_EMAIL:-admin@${PUBLIC_HOST}}"
 ROOT_PASSWORD="${COOLIFY_ROOT_PASSWORD:-}"
 
-log() { echo "[coolify-config] $*"; }
+log() { echo "[coolify-config] $*" >&2; }
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || { log "ERRO: comando '$1' ausente"; exit 1; }
@@ -296,6 +302,218 @@ prepare_compose_from_template() {
   log "Compose com imagem ${image} e senha Mongo do .env legado"
 }
 
+servers_json() {
+  api GET /api/v1/servers 2>/dev/null || echo '[]'
+}
+
+server_uuid_by_name_or_ip() {
+  local name="$1" ip="$2"
+  servers_json | jq -r --arg n "$name" --arg ip "$ip" '
+    if type == "array" then .[] else .data[]? end
+    | select(.name == $n or .ip == $ip or (.name | test($n; "i")))
+    | .uuid' | head -1
+}
+
+write_ssh_key_file() {
+  local content="$1" dest="$2"
+  umask 077
+  printf '%s\n' "$content" >"$dest"
+  chmod 600 "$dest"
+}
+
+test_ssh_to_host() {
+  local key_file="$1" user="$2" host="$3"
+  ssh -i "$key_file" -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+    -o ConnectTimeout=12 "${user}@${host}" 'echo ok' 2>/dev/null | grep -q ok
+}
+
+ensure_private_key_in_coolify() {
+  local key_content="$1" key_name="${2:-radarzap-deploy}"
+  local keys uuid
+  for path in /api/v1/security/keys /api/v1/security/private-keys; do
+    keys="$(curl -sS -H "Authorization: Bearer ${API_TOKEN}" -H "Accept: application/json" \
+      "${COOLIFY_URL}${path}" 2>/dev/null || true)"
+    uuid="$(echo "$keys" | jq -r --arg n "$key_name" '
+      if type == "array" then .[] else .data[]? end
+      | select(.name == $n) | .uuid' | head -1)"
+    if [[ -n "$uuid" && "$uuid" != "null" ]]; then
+      echo "$uuid"
+      return 0
+    fi
+    if [[ -z "$uuid" || "$uuid" == "null" ]]; then
+      uuid="$(echo "$keys" | jq -r 'if type == "array" then .[0].uuid else .data[0].uuid // empty end')"
+      if [[ -n "$uuid" && "$uuid" != "null" ]]; then
+        echo "$uuid"
+        return 0
+      fi
+    fi
+  done
+
+  if [[ -z "$key_content" ]]; then
+    log "ERRO: nenhuma chave SSH no Coolify e COOLIFY_SSH_PRIVATE_KEY ausente"
+    return 1
+  fi
+
+  local body payload_file
+  payload_file="$(mktemp)"
+  jq -n --arg name "$key_name" --arg key "$key_content" '{name: $name, private_key: $key}' >"$payload_file"
+  for path in /api/v1/security/keys /api/v1/security/private-keys; do
+    if resp="$(curl -sS -o /tmp/coolify-key.json -w "%{http_code}" -X POST \
+      -H "Authorization: Bearer ${API_TOKEN}" \
+      -H "Accept: application/json" \
+      -H "Content-Type: application/json" \
+      "${COOLIFY_URL}${path}" -d @"$payload_file" 2>/dev/null)"; then
+      if [[ "$resp" -ge 200 && "$resp" -lt 300 ]]; then
+        uuid="$(jq -r '.uuid // empty' /tmp/coolify-key.json)"
+        rm -f "$payload_file" /tmp/coolify-key.json
+        if [[ -n "$uuid" ]]; then
+          log "Chave SSH cadastrada no Coolify: $key_name ($uuid)"
+          echo "$uuid"
+          return 0
+        fi
+      fi
+    fi
+  done
+  rm -f "$payload_file" /tmp/coolify-key.json
+  log "ERRO: não foi possível cadastrar chave SSH no Coolify"
+  return 1
+}
+
+patch_server_meta() {
+  local uuid="$1" name="$2" description="$3"
+  local body
+  body="$(jq -n --arg name "$name" --arg description "$description" '{name: $name, description: $description}')"
+  api PATCH "/api/v1/servers/${uuid}" -d "$body" >/dev/null 2>&1 || true
+}
+
+validate_server() {
+  local uuid="$1" label="$2"
+  log "Validando servidor ${label} (${uuid})..."
+  api GET "/api/v1/servers/${uuid}/validate" >/dev/null 2>&1 || \
+    api POST "/api/v1/servers/${uuid}/validate" -d '{}' >/dev/null 2>&1 || true
+  local i status
+  for i in $(seq 1 36); do
+    status="$(api GET "/api/v1/servers/${uuid}" 2>/dev/null | jq -r '.status // .server_status // empty' || true)"
+    if [[ "$status" == "reachable" || "$status" == "validated" ]]; then
+      log "Servidor ${label}: ${status}"
+      return 0
+    fi
+    sleep 5
+  done
+  log "AVISO: validação de ${label} ainda em andamento (status=${status:-desconhecido})"
+  return 0
+}
+
+ensure_remote_server() {
+  local name="$1" ip="$2" description="$3" key_content="$4"
+  local uuid key_uuid key_file tmp_key
+  uuid="$(server_uuid_by_name_or_ip "$name" "$ip")"
+  if [[ -n "$uuid" && "$uuid" != "null" ]]; then
+    log "Servidor ${name} já existe: ${uuid}"
+    patch_server_meta "$uuid" "$name" "$description"
+    validate_server "$uuid" "$name"
+    echo "$uuid"
+    return 0
+  fi
+
+  if [[ -z "$key_content" ]]; then
+    log "ERRO: chave SSH ausente para cadastrar ${name} (${ip})"
+    return 1
+  fi
+  tmp_key="$(mktemp)"
+  write_ssh_key_file "$key_content" "$tmp_key"
+  if ! test_ssh_to_host "$tmp_key" "$COOLIFY_SSH_USER" "$ip"; then
+    rm -f "$tmp_key"
+    log "ERRO: SSH ${COOLIFY_SSH_USER}@${ip} falhou — adicione a chave pública no VPS Gamer (radargamer.com.br)"
+    log "  Painel Platon → Gamer → chave SSH, ou: ssh-copy-id -i sua_chave.pub ubuntu@${ip}"
+    return 1
+  fi
+  rm -f "$tmp_key"
+
+  key_uuid="$(ensure_private_key_in_coolify "$key_content" "radarzap-deploy")" || return 1
+
+  local body payload_file resp
+  payload_file="$(mktemp)"
+  jq -n \
+    --arg name "$name" \
+    --arg description "$description" \
+    --arg ip "$ip" \
+    --arg user "$COOLIFY_SSH_USER" \
+    --arg key_uuid "$key_uuid" \
+    '{
+      name: $name,
+      description: $description,
+      ip: $ip,
+      port: 22,
+      user: $user,
+      private_key_uuid: $key_uuid,
+      instant_validate: true
+    }' >"$payload_file"
+  log "Criando servidor remoto ${name} (${ip})..."
+  resp="$(api POST /api/v1/servers -d @"$payload_file")" || {
+    rm -f "$payload_file"
+    return 1
+  }
+  rm -f "$payload_file"
+  uuid="$(echo "$resp" | jq -r '.uuid // empty')"
+  if [[ -z "$uuid" || "$uuid" == "null" ]]; then
+    log "ERRO ao criar servidor ${name}: $resp"
+    return 1
+  fi
+  validate_server "$uuid" "$name"
+  echo "$uuid"
+}
+
+ensure_local_radarzap_server() {
+  local uuid ip_json name
+  uuid="$(servers_json | jq -r --arg ip "$RADARZAP_SERVER_IP" '
+    if type == "array" then .[] else .data[]? end
+    | select(.ip == $ip or .name == "localhost" or .name == "RadarZap" or .is_localhost == true)
+    | .uuid' | head -1)"
+  if [[ -z "$uuid" || "$uuid" == "null" ]]; then
+    uuid="$(servers_json | jq -r 'if type == "array" then .[0].uuid else .data[0].uuid // empty end')"
+  fi
+  if [[ -z "$uuid" || "$uuid" == "null" ]]; then
+    log "ERRO: servidor local RadarZap não encontrado no Coolify"
+    return 1
+  fi
+  patch_server_meta "$uuid" "RadarZap" "RadarZap + Coolify — ${RADARZAP_SERVER_IP}"
+  validate_server "$uuid" "RadarZap"
+  log "Servidor local RadarZap: ${uuid}"
+  echo "$uuid"
+}
+
+fix_servers_team_visibility() {
+  local tid
+  tid="$(psql_exec 'SELECT id FROM teams WHERE id > 0 ORDER BY id LIMIT 1;')"
+  if [[ -z "${tid:-}" ]]; then
+    return 0
+  fi
+  docker exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=1 -c \
+    "UPDATE servers SET team_id = ${tid} WHERE team_id IS NULL OR team_id = 0;" 2>/dev/null || true
+  log "servers.team_id sincronizado com team ${tid}"
+}
+
+ensure_coolify_servers() {
+  log "Cadastrando servidores Coolify (RadarZap ${RADARZAP_SERVER_IP} + RadarGamer ${RADARGAMER_SERVER_IP})..."
+  fix_servers_team_visibility
+  local local_uuid gamer_uuid
+  local_uuid="$(ensure_local_radarzap_server)" || return 1
+  if [[ -n "${RADARGAMER_SSH_PRIVATE_KEY:-}" ]]; then
+    gamer_uuid="$(ensure_remote_server "RadarGamer" "$RADARGAMER_SERVER_IP" \
+      "radargamer.com.br — ${RADARGAMER_SERVER_IP}" "$RADARGAMER_SSH_PRIVATE_KEY")" || {
+      log "AVISO: RadarGamer não cadastrado — configure RADARGAMER_SSH_KEY no GitHub e autorize no VPS .179"
+    }
+  else
+    log "AVISO: RADARGAMER_SSH_PRIVATE_KEY ausente — apenas servidor local RadarZap"
+  fi
+  fix_servers_team_visibility
+  log "Servidores no Coolify:"
+  servers_json | jq -r 'if type == "array" then .[] else .data[]? end | "- \(.name) (\(.ip // "local")) status=\(.status // .server_status // "?") uuid=\(.uuid)"' 2>/dev/null || true
+  [[ -n "${local_uuid:-}" ]] && SERVER_UUID="$local_uuid"
+  [[ -n "${gamer_uuid:-}" ]] && RADARGAMER_SERVER_UUID="$gamer_uuid"
+}
+
 build_compose_with_external_volumes() {
   local src resolved
   src="$(resolve_compose_template)"
@@ -354,7 +572,12 @@ ensure_project_and_server() {
     log "Criando projeto RadarZap..."
     PROJECT_UUID="$(api POST /api/v1/projects -d '{"name":"RadarZap","description":"RadarZap v2 produção"}' | jq -r '.uuid')"
   fi
-  SERVER_UUID="$(api GET /api/v1/servers | jq -r 'if type=="array" then .[0].uuid else .data[0].uuid // empty end')"
+  if [[ -z "${SERVER_UUID:-}" ]]; then
+    SERVER_UUID="$(server_uuid_by_name_or_ip "RadarZap" "$RADARZAP_SERVER_IP")"
+  fi
+  if [[ -z "$SERVER_UUID" || "$SERVER_UUID" == "null" ]]; then
+    SERVER_UUID="$(servers_json | jq -r 'if type=="array" then .[0].uuid else .data[0].uuid // empty end')"
+  fi
   if [[ -z "$SERVER_UUID" || "$SERVER_UUID" == "null" ]]; then
     log "ERRO: nenhum servidor no Coolify"
     exit 1
@@ -535,6 +758,13 @@ for i in $(seq 1 12); do
   }
   sleep 5
 done
+
+ensure_coolify_servers
+
+if [[ "$COOLIFY_SERVERS_ONLY" == "1" ]]; then
+  log "COOLIFY_SERVERS_ONLY=1 — servidores configurados. Painel: ${COOLIFY_URL}"
+  exit 0
+fi
 
 detect_legacy_volumes
 build_compose_with_external_volumes
