@@ -1,6 +1,6 @@
 {
   "name": "radarzap",
-  "version": "2.12.70",
+  "version": "2.12.71",
   "private": true,
   "description": "RadarZap — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -38,6 +38,7 @@
     "pre-push:gate": "node scripts/pre-push-deploy-gate.mjs",
     "backfill:webchat-delivered": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/backfill-webchat-inbound-delivered-at.ts",
     "sync:widget-build": "node scripts/sync-widget-build.cjs",
+    "deploy:radarchat": "node scripts/deploy-radarchat-ftp.mjs",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",

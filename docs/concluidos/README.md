@@ -8,6 +8,15 @@ Redirects legados: [`admin/README.md`](../admin/README.md), [`audits/README.md`]
 
 ---
 
+## Infra / produção (2.12.71+)
+
+| Documento | Versão | Notas |
+|-----------|--------|-------|
+| [`ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`](./ENTREGA-COOLIFY-MIGRACAO-2.12.71.md) | 2.12.71 | Migração sslip.io → stack Coolify |
+| [`PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`](./PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md) | — | Prompt sessão Codex pós-Coolify |
+
+---
+
 ## Estabilização e visão produto (2.11.14+ ✅)
 
 | Documento | Versão | Notas |

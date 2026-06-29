@@ -6,6 +6,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.71] — 2026-06-29
+
+### Infra — Migração produção Coolify (VPS ZAP)
+
+- Migração sslip.io: legado GHCR → stack Coolify `h143brhw5f8tgfj9trj0f3bd` (volumes preservados).
+- `docker-compose.coolify-ghcr.yml`: `env_file: .env` no app; override `:3001` para Traefik.
+- Scripts: `vps-configure-coolify-radarzap.sh` (SSH localhost, `deploy_service_direct`, republish).
+- Workflows GitHub usam branch `layout-v3` no VPS; diagnóstico `vps-coolify-status.sh`.
+- Docs: `ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`, `PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`, `COOLIFY-DEPLOY.md` atualizado.
+
+---
+
 ## [2.12.70] — 2026-06-28
 
 ### Feat — Layout v3 (Fases 2–4) + deploy Coolify

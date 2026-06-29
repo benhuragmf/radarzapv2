@@ -1,7 +1,7 @@
 # RadarZap v2 — execução PREPARACAO-PRODUCAO (tracker vivo)
 
 > **Referência técnica:** [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) · **Coolify:** [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) · **Go-live:** [`PRODUCTION.md`](./PRODUCTION.md)  
-> **Branch de release:** **`layout-v3`** (UI v3 + produto `2.12.69+`) · **Atualizado:** 2026-06-28  
+> **Branch de release:** **`layout-v3`** (UI v3 + produto `2.12.71+`) · **Atualizado:** 2026-06-29  
 > **QA Fase 1:** em paralelo — [`concluidos/QA-FASE1-RESULTADO-2026-06-28.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-28.md)
 
 ---
@@ -19,8 +19,8 @@
 
 | Trilha | Branch | Deploy | Notas |
 |--------|--------|--------|-------|
-| **Release alvo** | `layout-v3` | **Coolify** (novo) | UI v3 + backend; ver [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) |
-| **Legado VPS** | `main` | GHCR + SSH | sslip.io até migrar ou desligar workflow |
+| **Release alvo** | `layout-v3` | **Coolify** (stack `h143brhw…`) | UI v3 + backend; ver [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) |
+| **Legado VPS** | `main` | GHCR + SSH | **Parado no .180** — não reativar junto com Coolify |
 | **QA Fase 1** | — | Testes no ambiente ativo | Não bloqueia instalar Coolify em host novo |
 | **Codex layout** | `layout-v3` | — (local) | Só frontend + docs layout; commits próprios |
 
@@ -48,59 +48,55 @@ Regra permanente: [`.cursor/rules/layout-v3-codex-isolation.mdc`](../.cursor/rul
 | Item | Evidência |
 |------|-----------|
 | Monolito Docker | `docker/Dockerfile.monolith` |
-| Compose Coolify | `docker-compose.coolify.yml` + `.env.coolify.example` |
+| Compose Coolify GHCR | `docker-compose.coolify-ghcr.yml` + `env_file` + override `:3001` |
+| Scripts migração | `vps-configure-coolify-radarzap.sh`, workflows `layout-v3` |
 | Compose GHCR legado | `docker-compose.deploy.yml`, `scripts/deploy-remote.sh` |
 | CI + E2E | `.github/workflows/ci.yml` — 80/80 |
 | Deploy `main` | `.github/workflows/deploy.yml` |
 | Gate local | `npm run pre-push:gate` |
 | Layout v3 (Codex) | Fases 2–4 em `layout-v3` (WIP local — commit pendente) |
 
-### VPS piloto ✅ parcial
+### VPS piloto ✅ Coolify em produção (sslip.io)
 
 | Item | Status |
 |------|--------|
-| Host sslip.io | ✅ QA Benhur |
-| Deploy `main` automático | ✅ até `2.12.69` |
-| WA único em prod | ✅ não rodar `dev` local no mesmo número |
-| **Coolify instalado** | ⏳ próximo passo |
+| Host sslip.io | ✅ https://151-247-210-180.sslip.io health 200 |
+| Stack Coolify | ✅ `h143brhw5f8tgfj9trj0f3bd-app-1` healthy |
+| Legado GHCR no .180 | ✅ parado |
+| **Coolify instalado** | ✅ v4.1.2 |
+| Deploy API Coolify | ⏳ SSH servidor local — usa fallback direto |
+| Validar servidor painel | ⏳ manual |
 | Domínio próprio | ⏳ |
 
 ---
 
-## Checklist — Coolify (prioridade agora)
+## Checklist — Coolify
 
 Legenda: ✅ · 🔄 · ⏳
 
-### H0 — Infra Coolify (só Auto — sem arquivos de layout)
+### H0 — Infra Coolify ✅
 
-- [ ] Commit **apenas** infra: `docker-compose.coolify.yml`, `.env.coolify.example`, `docs/COOLIFY-DEPLOY.md`, `docs/PREPARACAO*`, índice/roadmap (linhas infra)
-- [ ] **Não** incluir `frontend/` nem docs `RADARZAP-LAYOUT-V3-*` nesse commit
-- [ ] Push `layout-v3` → `origin` (Codex faz push dos commits de layout **separadamente**)
+- [x] Scripts + workflows + `COOLIFY-DEPLOY.md` + entrega `ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`
+- [x] Push `layout-v3` → merge `main`
 
-### H1 — Instalar Coolify no VPS
+### H1 — Instalar Coolify ✅
 
-- [ ] Ubuntu 22.04+, 4 GB+ RAM, portas 22/80/443
-- [ ] Instalar Coolify ([get-started](https://coolify.io/docs/get-started/introduction))
-- [ ] Conectar servidor (SSH key no Coolify)
-- [ ] Wildcard ou domínio para apps
+- [x] Ubuntu VPS ZAP `.180`, Coolify 4.1.2, proxy Traefik
+- [ ] Validar SSH servidor local no painel ⏳
 
-### H2 — Resource RadarZap
+### H2 — Resource RadarZap ✅ (deploy direto)
 
-- [ ] Project → Docker Compose → Git `radarzapv2`
-- [ ] Branch: **`layout-v3`**
-- [ ] Compose file: **`docker-compose.coolify.yml`**
-- [ ] Domínio no serviço **`app`**, porta **3001**
-- [ ] Colar env de `.env.coolify.example`
-- [ ] OAuth redirects com `SERVICE_URL_APP`
-- [ ] **Deploy** + health verde
+- [x] Project + service `radarzap` (`h143brhw5f8tgfj9trj0f3bd`)
+- [x] Compose `docker-compose.coolify-ghcr.yml`, volumes externos legado
+- [x] `env_file: .env` + secrets produção
+- [x] Health HTTPS sslip.io ✅
 
-### H3 — Migração (se sair do sslip.io legado)
+### H3 — Migração sslip.io ✅
 
-- [ ] Backup Mongo + volume `radarzap-sessions`
-- [ ] Mesma `SESSION_ENCRYPTION_KEY` no Coolify
-- [ ] Smoke PREPARACAO § pós-deploy
-- [ ] Desligar deploy GHCR no host antigo (ou host separado)
-- [ ] QA WA no ambiente Coolify
+- [x] Volumes Mongo/sessions preservados
+- [x] Legado parado; stack Coolify no ar
+- [ ] Desligar `deploy.yml` no host / GitHub ⏳
+- [ ] QA WA smoke pós-migração ⏳
 
 ### H4 — Staging (opcional antes de cutover)
 
@@ -138,11 +134,9 @@ npm run qa:release-gate
 
 ## Próximos passos imediatos
 
-1. **Commit infra** (Coolify + docs prep) — sem tocar layout Codex.
-2. **Instalar Coolify** no VPS (Codex segue layout em paralelo).
-3. **Criar resource** seguindo [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md).
-4. **Migrar** WA/sessions ou conectar QR no ambiente novo.
-5. QA manual quando puder; prep não espera gate Fase 1.
+1. **Codex:** continuar Layout v3 (`RADARZAP-LAYOUT-V3-05`) — usar [`PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`](./concluidos/PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md).
+2. **Infra:** validar servidor Coolify SSH; GitHub App auto-deploy.
+3. **Ops:** condicionar `deploy.yml`; smoke WA; QA Fase 1.
 
 ---
 
@@ -152,7 +146,7 @@ npm run qa:release-gate
 |------|------|
 | 2026-06-28 | Tracker criado; prep paralelo ao QA |
 | 2026-06-28 | `layout-v3` = branch release; Coolify adicionado |
-| | Coolify 1º deploy | _preencher_ |
+| 2026-06-29 | **Migração produção .180 → Coolify** — [`ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`](./concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md) |
 
 ---
 

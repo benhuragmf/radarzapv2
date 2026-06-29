@@ -1,20 +1,61 @@
 # RadarZap v2 — deploy com Coolify
 
 > **Branch de release:** `layout-v3` (UI v3 + produto `2.12.x`) — **é a branch do servidor**  
-> **Compose:** [`docker-compose.coolify-ghcr.yml`](../docker-compose.coolify-ghcr.yml) (GHCR, produção hoje) · [`docker-compose.coolify.yml`](../docker-compose.coolify.yml) (build no Coolify) · **Env:** [`.env.coolify.example`](../.env.coolify.example)  
-> **Tracker:** [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md)
+> **Compose produção (VPS ZAP):** [`docker-compose.coolify-ghcr.yml`](../docker-compose.coolify-ghcr.yml) + override [`docker-compose.coolify-direct-override.yml`](../docker-compose.coolify-direct-override.yml)  
+> **Compose build:** [`docker-compose.coolify.yml`](../docker-compose.coolify.yml) · **Env:** [`.env.coolify.example`](../.env.coolify.example)  
+> **Entrega migração:** [`concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`](./concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md) · **Tracker:** [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md)
 
-Coolify substitui (ou complementa) o fluxo **GHCR + SSH** ([`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) § Deploy CI). SSL, domínio e rede ficam no proxy Coolify (Traefik/Caddy).
+Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) § Deploy CI). SSL do app sslip.io hoje usa **Traefik do Coolify** com rota dinâmica para `:3001` ([`scripts/vps-coolify-traefik-route-legacy.sh`](../scripts/vps-coolify-traefik-route-legacy.sh)).
 
-### Sincronizar `main` → `layout-v3` (infra)
+---
 
-Commits de infra (`fix(infra):`, workflows VPS, scripts Coolify/SSL) entram primeiro em `main`. **Sempre** em seguida:
+## Estado produção (VPS ZAP — 2026-06-29) ✅
+
+| Item | Valor |
+|------|--------|
+| App | https://151-247-210-180.sslip.io |
+| Painel Coolify | http://151.247.210.180:8000 · https://coolify-151-247-210-180.sslip.io |
+| Container app | `h143brhw5f8tgfj9trj0f3bd-app-1` (healthy) |
+| Service UUID | `h143brhw5f8tgfj9trj0f3bd` |
+| Stack no host | `/data/coolify/services/h143brhw5f8tgfj9trj0f3bd/` |
+| Legado `radarzap-app-1` | **Parado** |
+| Modo deploy atual | **Direto** (`deploy_service_direct`) — API Coolify ainda não valida SSH local |
+
+**Importante:** o serviço `app` usa `env_file: .env` (secrets de produção copiados de `/opt/radarzap/.env`). Sem isso o container entra em crash loop (`validateConfig` falha).
+
+### Workflows GitHub (branch `layout-v3` no VPS)
+
+| Workflow | Uso |
+|----------|-----|
+| **Coolify status check** | Diagnóstico containers + health |
+| **Fix Coolify SSL (RadarZap)** | Republicar stack + Traefik sslip.io |
+| **Configure Coolify (RadarZap)** | `migrate_legacy=1` migração; `0` só sync |
+| **Coolify servers setup** | Cadastro servidores ZAP + Gamer |
+| **RadarGamer SSH bootstrap** | 1ª vez no VPS `.179` |
 
 ```bash
-git checkout layout-v3 && git merge main && git push origin layout-v3
+gh workflow run "Coolify status check" -R benhuragmf/radarzapv2 --ref layout-v3
 ```
 
-O VPS e o resource Coolify devem refletir `layout-v3`, não apenas `main`. Layout (Codex) e infra (Auto) convivem na mesma branch — ver isolamento em `.cursor/rules/layout-v3-codex-isolation.mdc`.
+---
+
+## Prompt Codex (layout-v3 — pós-Coolify)
+
+Arquivo pronto para colar: [`concluidos/PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`](./concluidos/PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md)
+
+Resumo: Codex cuida de `frontend/**` e docs layout; **não** alterar scripts `vps-*`, compose Coolify nem workflows de infra sem coordenar. Produção já está no stack Coolify — não reativar compose legado no mesmo host.
+
+---
+
+### Sincronizar `main` ↔ `layout-v3`
+
+Infra e layout em `layout-v3`; merge para `main`. VPS usa `DEPLOY_BRANCH=layout-v3`.
+
+```bash
+git checkout main && git merge layout-v3 && git push origin main
+```
+
+Isolamento Codex: `.cursor/rules/layout-v3-codex-isolation.mdc`.
 
 ---
 
@@ -22,12 +63,10 @@ O VPS e o resource Coolify devem refletir `layout-v3`, não apenas `main`. Layou
 
 | Método | Quando usar |
 |--------|-------------|
-| **Coolify** (novo) | VPS com Coolify instalado; deploy por branch `layout-v3`; UI de env/domínio |
-| **GitHub Actions + `deploy-remote.sh`** | VPS legado sslip.io; push `main` → GHCR |
+| **Coolify (produção ZAP)** | Stack `h143brhw…` em `/data/coolify/services/` |
+| **GHCR + `deploy-remote.sh`** | Legado — **parado no .180** |
 
-**Não** rodar os dois no **mesmo** host apontando para o **mesmo** WA — uma instância por número.
-
-Durante migração: desligar deploy automático `main` no VPS antigo **ou** usar Coolify em servidor novo.
+Não rodar os dois no mesmo host com o mesmo número WhatsApp. Condicionar `deploy.yml` no host ZAP.
 
 ### Painel Coolify (porta 8000)
 
@@ -159,14 +198,23 @@ Equivalente ao `.github/workflows/deploy.yml` em `main`, mas controlado pelo Coo
 
 ## Migração do VPS legado (sslip.io)
 
+**Status ZAP (.180):** ✅ migrado em 2026-06-29 — ver [`ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`](./concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md).
+
 | Passo | Ação |
 |-------|------|
-| 1 | Backup `mongodump` + copiar volume `radarzap-sessions` do host antigo |
-| 2 | Subir stack Coolify em host novo (ou mesmo host **após** parar compose antigo) |
-| 3 | Restaurar Mongo; recriar volume sessions com **mesma** `SESSION_ENCRYPTION_KEY` |
-| 4 | Atualizar DNS sslip.io → domínio Coolify (ou manter sslip só para testes) |
-| 5 | Smoke [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) § pós-deploy |
-| 6 | Desabilitar workflow `deploy.yml` no GitHub **se** Coolify for o único canal |
+| 1 | Backup `mongodump` + volume `radarzap-sessions` ✅ (volumes externos reutilizados) |
+| 2 | Parar compose legado; subir stack Coolify (`configure-coolify` ou `deploy_service_direct`) ✅ |
+| 3 | `env_file: .env` no app + secrets produção ✅ |
+| 4 | Traefik → `:3001` (`fix-coolify-ssl` ou `vps-coolify-traefik-route-legacy.sh`) ✅ |
+| 5 | Smoke health HTTPS ✅ |
+| 6 | Desabilitar `deploy.yml` no host / validar SSH Coolify ⏳ |
+
+Automação:
+
+```bash
+gh workflow run "Configure Coolify (RadarZap)" --ref layout-v3 \
+  -f confirm=CONFIGURE -f migrate_legacy=1
+```
 
 ---
 
@@ -174,11 +222,14 @@ Equivalente ao `.github/workflows/deploy.yml` em `main`, mas controlado pelo Coo
 
 | Sintoma | Verificar |
 |---------|-----------|
-| 502 Bad Gateway | Domínio no serviço `app`, porta **3001**, container healthy |
+| 502 Bad Gateway | App em `:3001`? `gh workflow run "Fix Coolify SSL" --ref layout-v3` |
+| Container `Restarting` | Falta `env_file: .env` ou secrets (`SESSION_SECRET`, `DISCORD_TOKEN`, …) |
 | Cookie / login falha | `FRONTEND_URL` = URL HTTPS real; `COOKIE_SECURE=true` |
 | WA pede QR de novo | Volume `radarzap-sessions` perdido ou `SESSION_ENCRYPTION_KEY` mudou |
-| Build falha no Coolify | Rodar local `npm run pre-push:gate`; branch `layout-v3` atualizada |
-| Mongo auth failed | Redeploy para regenerar `SERVICE_PASSWORD_MONGODB` **ou** restaurar backup com senha conhecida |
+| Compose inválido no deploy | `.env` deve existir **no mesmo dir** que `docker-compose.yaml` antes de `docker compose config` |
+| Painel Coolify `exited` | Containers podem estar Up — conferir `Coolify status check` |
+| Deploy botão Coolify não sobe | Servidor “not reachable” — usar workflow ou `deploy_service_direct` |
+| Mongo auth failed | `SERVICE_PASSWORD_MONGODB` = `MONGO_PASSWORD` do `.env` legado (volume já inicializado) |
 
 ---
 

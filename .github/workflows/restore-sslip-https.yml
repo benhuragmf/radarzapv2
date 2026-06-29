@@ -23,15 +23,16 @@ jobs:
           script: |
             set -euo pipefail
             cd "${DEPLOY_PATH:-/opt/radarzap}"
+            DEPLOY_BRANCH="${DEPLOY_BRANCH:-layout-v3}"
             for attempt in 1 2 3 4 5; do
-              if git fetch origin +refs/heads/main:refs/remotes/origin/main -q 2>/dev/null; then
-                git reset --hard origin/main -q
+              if git fetch origin "+refs/heads/${DEPLOY_BRANCH}:refs/remotes/origin/${DEPLOY_BRANCH}" -q 2>/dev/null; then
+                git reset --hard "origin/${DEPLOY_BRANCH}" -q
                 break
               fi
               sleep 2
             done
             if [[ ! -f scripts/vps-restore-sslip-https.sh ]]; then
-              git fetch origin main --force -q
-              git reset --hard origin/main -q
+              git fetch origin "${DEPLOY_BRANCH}" --force -q
+              git reset --hard "origin/${DEPLOY_BRANCH}" -q
             fi
             sudo bash scripts/vps-restore-sslip-https.sh
