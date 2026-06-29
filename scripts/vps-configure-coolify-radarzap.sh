@@ -11,7 +11,7 @@ PUBLIC_URL="https://${PUBLIC_HOST}"
 MIGRATE_LEGACY="${MIGRATE_LEGACY:-1}"
 COOLIFY_SERVERS_ONLY="${COOLIFY_SERVERS_ONLY:-0}"
 RADARZAP_SERVER_IP="${RADARZAP_SERVER_IP:-151.247.210.180}"
-RADARZAP_LOCAL_HOST="${RADARZAP_LOCAL_HOST:-host.docker.internal}"
+RADARZAP_LOCAL_HOST="${RADARZAP_LOCAL_HOST:-${RADARZAP_SERVER_IP}}"
 RADARGAMER_SERVER_IP="${RADARGAMER_SERVER_IP:-151.247.210.179}"
 COOLIFY_SSH_USER="${COOLIFY_SSH_USER:-ubuntu}"
 COOLIFY_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}"
@@ -770,8 +770,12 @@ remove_legacy_traefik_route() {
 coolify_stack_healthy() {
   local sid="${SERVICE_UUID:-}"
   [[ -n "$sid" ]] || return 1
-  # Não confundir com radarzap-app-1 do compose legado — só containers do resource Coolify (UUID no nome)
   if sudo docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -F "$sid" | grep -iE 'app|web' | grep -qiE 'up|healthy'; then
+    return 0
+  fi
+  # Fallback: prefixo curto do service UUID (Coolify nomeia containers assim)
+  local short="${sid:0:12}"
+  if sudo docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -F "$short" | grep -iE 'app|web' | grep -qiE 'up|healthy'; then
     return 0
   fi
   return 1
@@ -795,7 +799,15 @@ stop_legacy_stack() {
     return 0
   fi
   log "Parando stack legado GHCR (volumes preservados)..."
-  (cd "$DEPLOY_PATH" && sudo docker compose -f docker-compose.deploy.yml down --remove-orphans) || true
+  load_legacy_env
+  export RADARZAP_IMAGE="${RADARZAP_IMAGE:-$RADARZAP_IMAGE_DEFAULT}"
+  export MONGO_PASSWORD="${MONGO_PASSWORD:-${SERVICE_PASSWORD_MONGODB:-}}"
+  if [[ -f "${DEPLOY_PATH}/.env" ]]; then
+    (cd "$DEPLOY_PATH" && sudo -E docker compose -f docker-compose.deploy.yml --env-file .env down --remove-orphans) || true
+  else
+    (cd "$DEPLOY_PATH" && sudo -E docker compose -f docker-compose.deploy.yml down --remove-orphans) || true
+  fi
+  sudo docker ps -q --filter 'name=^radarzap-' 2>/dev/null | xargs -r sudo docker stop 2>/dev/null || true
 }
 
 restore_legacy_stack() {
@@ -868,7 +880,13 @@ if [[ "$MIGRATE_LEGACY" == "1" ]]; then
   stop_legacy_stack
   sleep 8
   deploy_service
-  if wait_coolify_stack_up; then
+  if ! wait_coolify_stack_up; then
+    log "Redeploy após aguardar fila Coolify..."
+    sleep 15
+    deploy_service
+    wait_coolify_stack_up || true
+  fi
+  if coolify_stack_healthy; then
     remove_legacy_traefik_route
     log "Coolify stack OK"
     for i in $(seq 1 18); do
