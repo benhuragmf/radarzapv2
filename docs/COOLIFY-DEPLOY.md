@@ -41,10 +41,14 @@ No Coolify: **Settings → Instance Settings → Instance's Domain** = `https://
 
 ### Dois servidores (RadarZap + RadarGamer)
 
-| VPS | IP | Papel | Coolify |
-|-----|-----|--------|---------|
-| **ZAP** `platonvps-3409` | `151.247.210.180` | RadarZap + painel Coolify | Servidor **local** (nome `RadarZap`) |
-| **Gamer** `platonvps-3410` | `151.247.210.179` | radargamer.com.br | Servidor **remoto** SSH (nome `RadarGamer`) |
+| VPS Platon | IP | Papel | Coolify |
+|------------|-----|--------|---------|
+| **ZAP** `platonvps-3409-1782517003` | `151.247.210.180` | RadarZap + painel Coolify | Servidor **local** (`RadarZap`) |
+| **Gamer** `platonvps-3410-1782516873` | `151.247.210.179` | radargamer.com.br | Servidor **remoto** (`RadarGamer`) |
+
+**Secrets GitHub (Actions):** `DEPLOY_SSH_KEY` (chave privada deploy), `DEPLOY_HOST` = `.180`, `RADARZAP_PASSWORD` / `RADARGAMER_PASSWORD` (senha `ubuntu` Platon — só bootstrap ou recuperação; **não** commitar).
+
+O **ZAP (.180)** já recebe deploy por chave (`DEPLOY_SSH_KEY`); o bootstrap por senha só é necessário no **Gamer (.179)** se a chave for perdida.
 
 Cadastro automatizado:
 

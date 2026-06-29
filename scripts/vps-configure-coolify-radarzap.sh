@@ -11,6 +11,7 @@ PUBLIC_URL="https://${PUBLIC_HOST}"
 MIGRATE_LEGACY="${MIGRATE_LEGACY:-1}"
 COOLIFY_SERVERS_ONLY="${COOLIFY_SERVERS_ONLY:-0}"
 RADARZAP_SERVER_IP="${RADARZAP_SERVER_IP:-151.247.210.180}"
+RADARZAP_LOCAL_HOST="${RADARZAP_LOCAL_HOST:-host.docker.internal}"
 RADARGAMER_SERVER_IP="${RADARGAMER_SERVER_IP:-151.247.210.179}"
 COOLIFY_SSH_USER="${COOLIFY_SSH_USER:-ubuntu}"
 COOLIFY_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}"
@@ -386,6 +387,47 @@ patch_server_meta() {
   api PATCH "/api/v1/servers/${uuid}" -d "$body" >/dev/null 2>&1 || true
 }
 
+patch_server_connection() {
+  local uuid="$1" key_uuid="$2" ip="$3" user="$4" localhost="${5:-false}"
+  local body payload_file
+  payload_file="$(mktemp)"
+  jq -n \
+    --arg user "$user" \
+    --arg ip "$ip" \
+    --arg key_uuid "$key_uuid" \
+    --argjson localhost "$localhost" \
+    '{
+      user: $user,
+      ip: $ip,
+      port: 22,
+      private_key_uuid: $key_uuid,
+      is_localhost: $localhost
+    }' >"$payload_file"
+  if api PATCH "/api/v1/servers/${uuid}" -d @"$payload_file" >/dev/null 2>&1; then
+    rm -f "$payload_file"
+    return 0
+  fi
+  rm -f "$payload_file"
+  log "AVISO: PATCH conexão falhou — corrigindo private_key_id via PostgreSQL"
+  return 1
+}
+
+fix_server_private_key_db() {
+  local server_uuid="$1" key_uuid="$2" user="$3"
+  [[ -n "$server_uuid" && -n "$key_uuid" ]] || return 0
+  docker exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=1 -c "
+    UPDATE servers SET
+      private_key_id = pk.id,
+      \"user\" = '${user}',
+      updated_at = NOW()
+    FROM private_keys pk
+    WHERE servers.uuid = '${server_uuid}'
+      AND pk.uuid = '${key_uuid}'
+      AND (servers.private_key_id IS NULL OR servers.private_key_id = 0 OR servers.\"user\" IS DISTINCT FROM '${user}');
+  " 2>/dev/null || true
+  log "private_key_id / user sincronizados no DB para ${server_uuid}"
+}
+
 validate_server() {
   local uuid="$1" label="$2"
   log "Validando servidor ${label} (${uuid})..."
@@ -411,6 +453,9 @@ ensure_remote_server() {
   if [[ -n "$uuid" && "$uuid" != "null" ]]; then
     log "Servidor ${name} já existe: ${uuid}"
     patch_server_meta "$uuid" "$name" "$description"
+    key_uuid="$(ensure_private_key_in_coolify "$key_content" "radarzap-deploy")" || return 1
+    patch_server_connection "$uuid" "$key_uuid" "$ip" "$COOLIFY_SSH_USER" false || true
+    fix_server_private_key_db "$uuid" "$key_uuid" "$COOLIFY_SSH_USER"
     validate_server "$uuid" "$name"
     echo "$uuid"
     return 0
@@ -465,7 +510,7 @@ ensure_remote_server() {
 }
 
 ensure_local_radarzap_server() {
-  local uuid ip_json name
+  local uuid key_uuid
   uuid="$(servers_json | jq -r --arg ip "$RADARZAP_SERVER_IP" '
     if type == "array" then .[] else .data[]? end
     | select(.ip == $ip or .name == "localhost" or .name == "RadarZap" or .is_localhost == true)
@@ -477,6 +522,10 @@ ensure_local_radarzap_server() {
     log "ERRO: servidor local RadarZap não encontrado no Coolify"
     return 1
   fi
+  key_uuid="$(ensure_private_key_in_coolify "${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}" "radarzap-deploy")" || return 1
+  log "Corrigindo RadarZap local: user=${COOLIFY_SSH_USER} ip=${RADARZAP_LOCAL_HOST} key=${key_uuid}"
+  patch_server_connection "$uuid" "$key_uuid" "$RADARZAP_LOCAL_HOST" "$COOLIFY_SSH_USER" true || true
+  fix_server_private_key_db "$uuid" "$key_uuid" "$COOLIFY_SSH_USER"
   patch_server_meta "$uuid" "RadarZap" "RadarZap + Coolify — ${RADARZAP_SERVER_IP}"
   validate_server "$uuid" "RadarZap"
   log "Servidor local RadarZap: ${uuid}"
