@@ -1,0 +1,38 @@
+# Instala Coolify na VPS de produção (manual). Não altera stack RadarZap legado.
+name: Install Coolify (VPS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite INSTALL para confirmar instalação na VPS de produção'
+        required: true
+        type: string
+
+jobs:
+  install:
+    if: github.event.inputs.confirm == 'INSTALL'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Coolify via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          ROOT_USER_EMAIL: ${{ secrets.COOLIFY_ROOT_EMAIL }}
+          ROOT_USER_PASSWORD: ${{ secrets.COOLIFY_ROOT_PASSWORD }}
+          ROOT_USERNAME: ${{ secrets.COOLIFY_ROOT_USERNAME }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_PATH,ROOT_USER_EMAIL,ROOT_USER_PASSWORD,ROOT_USERNAME
+          script_stop: true
+          command_timeout: 45m
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            git fetch origin main -q && git reset --hard origin/main -q
+            export USE_SUDO_DOCKER=1
+            sudo bash scripts/vps-install-coolify.sh
