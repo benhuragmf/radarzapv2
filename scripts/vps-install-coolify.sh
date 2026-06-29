@@ -24,6 +24,18 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^coolify$'; then
   exit 0
 fi
 
+if [[ -f /data/coolify/source/upgrade.sh ]] && ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^coolify$'; then
+  log "Instalação anterior incompleta — retomando upgrade.sh..."
+  run_root bash /data/coolify/source/upgrade.sh latest latest ghcr.io true
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^coolify$'; then
+    log "Coolify ativo após resume."
+    docker ps --filter name=coolify --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+    IPV4="$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
+    log "Painel Coolify: http://${IPV4}:8000"
+    exit 0
+  fi
+fi
+
 log "Pré-check: Docker..."
 if ! command -v docker >/dev/null 2>&1; then
   log "Docker não encontrado — o instalador Coolify tentará instalar."
@@ -50,12 +62,12 @@ curl -fsSL https://cdn.coollabs.io/coolify/install.sh -o "$INSTALL_DIR/install.s
 chmod +x "$INSTALL_DIR/install.sh"
 
 export DO_NOT_TRACK=1
-# Opcional via secrets GitHub: ROOT_USER_EMAIL, ROOT_USER_PASSWORD, ROOT_USERNAME
+# Coolify v4: 1º arg posicional = versão (não usar -f/-n — viram tag de imagem).
 run_root env DO_NOT_TRACK=1 \
   ROOT_USERNAME="${ROOT_USERNAME:-}" \
   ROOT_USER_EMAIL="${ROOT_USER_EMAIL:-}" \
   ROOT_USER_PASSWORD="${ROOT_USER_PASSWORD:-}" \
-  bash "$INSTALL_DIR/install.sh" -f -n
+  bash "$INSTALL_DIR/install.sh"
 
 log "Pós-install:"
 docker ps --filter name=coolify --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true
