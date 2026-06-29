@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1754" viewBox="0 0 1240 1754" role="img" aria-label="RadarChat logo">
+  <defs>
+    <style>
+      .brand { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-weight: 800; letter-spacing: -1.5px; }
+      .tag { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-weight: 500; }
+      .small { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-weight: 700; }
+    </style>
+    
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00D4FF"/>
+      <stop offset="0.55" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    
+  </defs>
+  
+  
+    <rect width="1240" height="1754" fill="#FFFFFF"/>
+    <rect x="0" y="0" width="1240" height="290" fill="#07111F"/>
+    
+    <g transform="translate(95,70) scale(0.6590909090909091)" filter="url(#softShadow)">
+      <rect x="24" y="28" width="160" height="132" rx="42" fill="url(#g1)"/>
+      <path d="M74 160 L52 194 L110 162 Z" fill="url(#g1)"/>
+      <circle cx="94" cy="92" r="11" fill="#fff"/>
+      <path d="M113 74 C134 88 134 116 113 130" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" opacity="0.95"/>
+      <path d="M137 52 C177 82 177 136 137 166" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" opacity="0.70"/>
+      <path d="M60 72 C43 90 43 114 60 132" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity="0.75"/>
+      <circle cx="154" cy="48" r="10" fill="#22C55E" stroke="#fff" stroke-width="5"/>
+    </g>
+      <text x="270" y="160" class="brand" font-size="64" text-anchor="start"><tspan fill="#FFFFFF">Radar</tspan><tspan fill="#00D4FF">Chat</tspan></text>
+      <text x="270" y="202" class="tag" font-size="24" fill="#D8E7FF" text-anchor="start">Atendimento inteligente em tempo real</text>
+    
+    <text x="90" y="390" class="small" font-size="34" fill="#2563EB">MANUAL RÁPIDO DA MARCA</text>
+    <text x="90" y="460" class="brand" font-size="58" fill="#0F172A">Signal Pro</text>
+    <text x="90" y="525" class="tag" font-size="28" fill="#475569">Conceito de logomarca profissional para RadarChat.</text>
+    <text x="90" y="640" class="small" font-size="31" fill="#0F172A">Cores principais</text>
+    <rect x="90" y="690" width="250" height="110" rx="24" fill="#00D4FF"/><text x="115" y="755" class="small" font-size="25" fill="#fff">#00D4FF</text>
+    <rect x="370" y="690" width="250" height="110" rx="24" fill="#2563EB"/><text x="395" y="755" class="small" font-size="25" fill="#fff">#2563EB</text>
+    <rect x="650" y="690" width="250" height="110" rx="24" fill="#22C55E"/><text x="675" y="755" class="small" font-size="25" fill="#fff">#22C55E</text>
+    <rect x="930" y="690" width="220" height="110" rx="24" fill="#07111F"/><text x="955" y="755" class="small" font-size="25" fill="#fff">#07111F</text>
+    <text x="90" y="920" class="small" font-size="31" fill="#0F172A">Uso recomendado</text>
+    <text x="90" y="970" class="tag" font-size="26" fill="#475569">1. Usar a versão clara em fundos brancos ou muito claros.</text>
+    <text x="90" y="1015" class="tag" font-size="26" fill="#475569">2. Usar a versão escura em fundos escuros, anúncios e telas noturnas.</text>
+    <text x="90" y="1060" class="tag" font-size="26" fill="#475569">3. Manter margem de segurança mínima igual à largura do ícone.</text>
+    <text x="90" y="1105" class="tag" font-size="26" fill="#475569">4. Não distorcer, não alterar proporção e não trocar as cores sem revisão.</text>
+    <text x="90" y="1240" class="small" font-size="31" fill="#0F172A">Aplicações incluídas</text>
+    <text x="90" y="1290" class="tag" font-size="26" fill="#475569">Logo horizontal, logo empilhada, ícone, monocromática, flyer A4 e folder tríptico.</text>
+    <rect x="90" y="1400" width="1060" height="155" rx="34" fill="#F8FAFC"/>
+    <text x="130" y="1470" class="small" font-size="28" fill="#0F172A">Tagline sugerida</text>
+    <text x="130" y="1515" class="tag" font-size="27" fill="#475569">Atendimento inteligente em tempo real</text>
+    
+</svg>

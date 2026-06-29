@@ -20,6 +20,13 @@ interface MemberProfile {
   canEditProfile: boolean
   profileComplete: boolean
   pendingConfirmations: Array<'email' | 'whatsapp'>
+  chatDisplayName: string | null
+  chatDisplayNamePending: string | null
+  chatDisplayNamePendingAt: string | null
+  chatDisplayNamePolicy: 'owner_only' | 'self_service' | 'approval_required'
+  chatDisplayNameEffective: string
+  canEditChatDisplayName: boolean
+  chatDisplayNameAwaitingApproval: boolean
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -34,6 +41,7 @@ const ROLE_LABEL: Record<string, string> = {
 export function MyProfilePanel({ user }: { user: AuthUser }) {
   const qc = useQueryClient()
   const [displayName, setDisplayName] = useState('')
+  const [chatDisplayName, setChatDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [emailCode, setEmailCode] = useState('')
@@ -49,6 +57,9 @@ export function MyProfilePanel({ user }: { user: AuthUser }) {
   useEffect(() => {
     if (!profile) return
     setDisplayName(profile.displayName ?? user.username ?? '')
+    setChatDisplayName(
+      profile.chatDisplayNamePending ?? profile.chatDisplayName ?? profile.chatDisplayNameEffective ?? '',
+    )
     setEmail(profile.email ?? user.email ?? '')
     if (!profile.canEditProfile && profile.whatsappPhone) {
       setPhone(profile.whatsappPhone)
@@ -56,6 +67,20 @@ export function MyProfilePanel({ user }: { user: AuthUser }) {
   }, [profile, user.username, user.email])
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: ['member-profile'] })
+
+  const saveChatDisplayName = useMutation({
+    mutationFn: () =>
+      sessionApi.patch<MemberProfile>('/auth/me/member-profile', { chatDisplayName }),
+    onSuccess: data => {
+      if (data.chatDisplayNamePolicy === 'approval_required' && data.chatDisplayNameAwaitingApproval) {
+        notifySuccess('Nome fantasia enviado para aprovação do dono da empresa.')
+      } else {
+        notifySuccess('Nome fantasia atualizado — visível no WebChat para visitantes.')
+      }
+      invalidate()
+    },
+    onError: (e: Error) => notifyError(e.message),
+  })
 
   const saveDisplayName = useMutation({
     mutationFn: () => sessionApi.patch<MemberProfile>('/auth/me/member-profile', { displayName }),
@@ -157,8 +182,54 @@ export function MyProfilePanel({ user }: { user: AuthUser }) {
         </div>
       </div>
 
+      {p && p.companyRole !== 'OWNER' && p.companyRole !== 'INTEGRATION' && (
+        <div className="border-t border-[var(--rz-border)] pt-4 space-y-3">
+          <p className="text-sm font-medium text-[var(--rz-text-primary)]">Nome fantasia no WebChat</p>
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Nome exibido ao visitante nas mensagens do chat do site (não altera seu login).
+            {p.chatDisplayNamePolicy === 'approval_required' &&
+              ' Sua empresa exige aprovação do dono antes de publicar.'}
+            {p.chatDisplayNamePolicy === 'owner_only' &&
+              ' Apenas o dono/admin pode definir — peça alteração na equipe.'}
+          </p>
+          {p.chatDisplayNameEffective && (
+            <p className="text-xs text-[var(--rz-text-secondary)]">
+              Ativo agora: <strong>{p.chatDisplayNameEffective}</strong>
+            </p>
+          )}
+          {p.chatDisplayNameAwaitingApproval && (
+            <p className="text-xs text-amber-400">
+              Aguardando aprovação: &quot;{p.chatDisplayNamePending}&quot;
+            </p>
+          )}
+          {p.canEditChatDisplayName ? (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={chatDisplayName}
+                onChange={e => setChatDisplayName(e.target.value)}
+                className={`flex-1 ${inputCls}`}
+                maxLength={40}
+                placeholder="Ex.: Ana · Suporte"
+              />
+              <Button
+                size="sm"
+                onClick={() => saveChatDisplayName.mutate()}
+                disabled={saveChatDisplayName.isPending || !chatDisplayName.trim()}
+              >
+                {p.chatDisplayNamePolicy === 'approval_required' ? 'Solicitar' : 'Salvar nome fantasia'}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--rz-text-muted)]">
+              Peça ao dono da empresa para definir seu nome fantasia em Equipe.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="border-t border-[var(--rz-border)] pt-4 space-y-3">
-        <p className="text-sm font-medium text-[var(--rz-text-primary)]">Nome</p>
+        <p className="text-sm font-medium text-[var(--rz-text-primary)]">Nome interno</p>
         {canEdit ? (
           <div className="flex flex-col sm:flex-row gap-2">
             <input

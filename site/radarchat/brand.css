@@ -1,0 +1,95 @@
+/* Marca Radar Chat — animação do ícone (site estático) */
+.site-brand-mark {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 4px 18px rgba(0, 212, 255, 0.28));
+}
+.site-brand-mark__bubble {
+  transform-origin: 104px 120px;
+  animation: rc-brand-float 4.5s ease-in-out infinite;
+}
+.site-brand-mark__wave-1 { animation: rc-radar-wave 2.2s ease-in-out infinite; }
+.site-brand-mark__wave-2 { animation: rc-radar-wave 2.2s ease-in-out 0.35s infinite; }
+.site-brand-mark__wave-3 { animation: rc-radar-wave 2.2s ease-in-out 0.7s infinite; }
+.site-brand-mark__core-wrap {
+  transform-origin: 94px 92px;
+  animation: rc-radar-core 2.2s ease-in-out infinite;
+}
+.site-brand-mark__ping {
+  transform-origin: 154px 48px;
+  animation: rc-radar-ping 2.8s ease-in-out infinite;
+}
+
+@keyframes rc-brand-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes rc-radar-wave {
+  0%, 100% { opacity: 0.32; }
+  45% { opacity: 1; }
+  70% { opacity: 0.5; }
+}
+@keyframes rc-radar-core {
+  0%, 100% { opacity: 0.88; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes rc-radar-ping {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.12); opacity: 0.88; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-brand-mark__bubble,
+  .site-brand-mark__wave-1,
+  .site-brand-mark__wave-2,
+  .site-brand-mark__wave-3,
+  .site-brand-mark__core-wrap,
+  .site-brand-mark__ping {
+    animation: none;
+  }
+}
+
+.brand-wordmark {
+  display: block;
+  height: 48px;
+  width: auto;
+  max-width: min(220px, 52vw);
+  object-fit: contain;
+  object-position: left center;
+}
+.brand-wordmark--dark { display: none; }
+[data-theme="dark"] .brand-wordmark--light { display: none; }
+[data-theme="dark"] .brand-wordmark--dark { display: block; }
+
+.brand-wordmark--footer { height: 42px; max-width: 200px; }
+.brand-wordmark--cta { height: 40px; margin: 0 auto 20px; opacity: 0.95; }
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.hero-brand-mark { width: 64px; height: 64px; flex-shrink: 0; }
+.hero-brand-copy { min-width: 0; }
+.hero-brand-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.hero-brand-title .rc-radar { color: var(--rc-ink); }
+.hero-brand-title .rc-chat { color: #00d4ff; }
+.hero-brand-tag {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--rc-muted);
+}
+
+.mobile-panel-brand {
+  padding-bottom: 18px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--rc-border);
+}
+.mobile-panel-brand .brand-wordmark { height: 40px; max-width: 200px; }

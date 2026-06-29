@@ -11,6 +11,11 @@ export interface ICompanyMember extends Document {
   customRoleId?: string;
   /** Nome exibido na equipe (pode ser definido pelo admin) */
   displayName?: string;
+  /** Nome fantasia aprovado — exibido ao visitante no WebChat */
+  chatDisplayName?: string;
+  /** Solicitação pendente de nome fantasia (política approval_required) */
+  chatDisplayNamePending?: string;
+  chatDisplayNamePendingAt?: Date;
   /** WhatsApp pessoal para encaminhamentos internos de tickets */
   whatsappPhone?: string;
   /** Confirmado pelo próprio membro via OTP no WhatsApp */
@@ -57,6 +62,9 @@ const CompanyMemberSchema = new Schema<ICompanyMember>({
   },
   customRoleId: { type: String, trim: true, index: true, sparse: true },
   displayName: { type: String, trim: true, maxlength: 120 },
+  chatDisplayName: { type: String, trim: true, maxlength: 40 },
+  chatDisplayNamePending: { type: String, trim: true, maxlength: 40 },
+  chatDisplayNamePendingAt: { type: Date },
   whatsappPhone: { type: String, maxlength: 32, trim: true },
   whatsappPhoneVerifiedAt: { type: Date },
   emailVerifiedAt: { type: Date },

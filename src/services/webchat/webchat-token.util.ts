@@ -40,6 +40,27 @@ export function isLocalDevHost(host: string): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost');
 }
 
+/**
+ * Normaliza entrada do painel (hostname, URL com protocolo ou wildcard *.host).
+ * Ex.: `https://radarchat.com.br/` → `radarchat.com.br`, `*.loja.com` preservado.
+ */
+export function normalizeAllowedDomainEntry(raw: string): string {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('*.')) {
+    const rest = trimmed.slice(2).trim();
+    const host =
+      hostFromUrl(rest.includes('://') ? rest : `https://${rest}`) ??
+      rest.split('/')[0]?.replace(/^\.+/, '') ??
+      '';
+    return host ? `*.${host}` : '';
+  }
+  if (trimmed.includes('://')) {
+    return hostFromUrl(trimmed) ?? '';
+  }
+  return trimmed.split('/')[0]?.replace(/^\.+/, '') ?? '';
+}
+
 /** Política global quando allowedDomains está vazio (AH-D01 / AH-W02). */
 export function isPublicEmbedOpenOriginPolicyEnabled(): boolean {
   return config.PUBLIC_EMBED.ALLOW_OPEN_ORIGIN;
@@ -72,7 +93,7 @@ export function isWebChatOriginAllowed(
   }
 
   return allowedDomains.some(raw => {
-    const domain = raw.trim().toLowerCase();
+    const domain = normalizeAllowedDomainEntry(raw);
     if (!domain) return false;
     if (domain.startsWith('*.')) {
       const base = domain.slice(2);

@@ -23,7 +23,7 @@ export function AuthHero() {
   return (
     <aside className="rz-auth-hero">
       <div className="rz-auth-hero-inner">
-        <AuthBrand subtitle="Plataforma de atendimento" />
+        <AuthBrand subtitle="Atendimento inteligente em tempo real" tone="dark" />
 
         <div className="rz-auth-hero-copy">
           <h1 className="rz-auth-hero-title">

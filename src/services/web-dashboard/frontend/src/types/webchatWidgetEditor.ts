@@ -24,6 +24,7 @@ export interface WebChatWidgetFormState {
   publicKey: string
   active: boolean
   allowedDomains: string[]
+  includeCompanyWebsite?: boolean
   appearance: {
     primaryColor: string
     position: 'left' | 'right'

@@ -24,9 +24,10 @@ import {
 import { WebChatWidgetEditorHeader } from '../../components/webchat/editor/WebChatWidgetEditorHeader'
 import { WebChatWidgetSaveBar } from '../../components/webchat/editor/WebChatWidgetSaveBar'
 import { WebChatWidgetPreviewPanel } from '../../components/webchat/editor/WebChatWidgetPreviewPanel'
-import { WebChatInstallSection } from '../../components/webchat/editor/WebChatInstallSection'
 import { WebChatBusinessHoursEditor } from '../../components/webchat/editor/WebChatBusinessHoursEditor'
 import { WebChatWidgetOverview } from '../../components/webchat/editor/WebChatWidgetOverview'
+import { WebChatIntegrationsPanel } from '../../components/webchat/WebChatIntegrationsPanel'
+import { EmbedSitesSection } from '../../components/embed/EmbedSitesSection'
 import {
   buildWidgetSavePayload,
   getWidgetSectionStatuses,
@@ -110,6 +111,7 @@ interface WebChatWidgetRow {
   publicKey: string
   active: boolean
   allowedDomains: string[]
+  includeCompanyWebsite?: boolean
   appearance: {
     primaryColor: string
     position: 'left' | 'right'
@@ -894,6 +896,10 @@ function WidgetEditorCard({
   embedded?: boolean
 }) {
   const qc = useQueryClient()
+  const { data: orgProfile } = useQuery<{ website?: string }>({
+    queryKey: ['organization-profile'],
+    queryFn: () => api.get('/organization/profile'),
+  })
   const [form, setForm] = useState(widget)
   const [delayDraft, setDelayDraft] = useState(String(widget.proactiveGreetingDelaySeconds ?? 30))
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(() => {
@@ -953,8 +959,8 @@ function WidgetEditorCard({
   )
 
   const sectionStatuses = useMemo(
-    () => getWidgetSectionStatuses(form as import('../../types/webchatWidgetEditor').WebChatWidgetFormState, delayDraft),
-    [form, delayDraft],
+    () => getWidgetSectionStatuses(form as import('../../types/webchatWidgetEditor').WebChatWidgetFormState, delayDraft, orgProfile?.website),
+    [form, delayDraft, orgProfile?.website],
   )
 
   useEffect(() => {
@@ -1221,9 +1227,27 @@ function WidgetEditorCard({
         <WebChatWidgetEditorSection
           id="webchat-section-overview"
           title="Visão geral"
-          description="Resumo do widget e configurações essenciais para começar."
+          description="Comece pelos domínios permitidos, depois identifique o widget e instale no site."
         >
           <div className="space-y-4">
+            <WidgetSectionCard
+              title="Sites onde este widget pode aparecer"
+              description="Primeiro passo — defina onde o chat pode carregar antes de copiar o script."
+            >
+              <EmbedSitesSection
+                title=""
+                description=""
+                includeCompanyWebsite={form.includeCompanyWebsite !== false}
+                onIncludeCompanyWebsiteChange={checked =>
+                  setForm(f => ({ ...f, includeCompanyWebsite: checked }))
+                }
+                extraDomains={form.allowedDomains}
+                onExtraDomainsChange={domains => setForm(f => ({ ...f, allowedDomains: domains }))}
+                companyWebsite={orgProfile?.website}
+                textareaCls={textareaCls}
+                id="webchat-overview-extra-domains"
+              />
+            </WidgetSectionCard>
             <WebChatWidgetOverview
               statuses={sectionStatuses}
               onNavigate={setEditorSection}
@@ -1261,34 +1285,9 @@ function WidgetEditorCard({
         <WebChatWidgetEditorSection
           id="webchat-section-avancado"
           title="Configurações avançadas"
-          description="Segurança, domínios e roteamento de conversas."
+          description="Roteamento e opções extras do widget."
         >
           <div className="space-y-4">
-            <WidgetSectionCard
-              title="Sites onde este widget pode aparecer"
-              description="Informe os domínios autorizados. Em produção, lista vazia bloqueia o embed até configurar ao menos um domínio."
-            >
-              <textarea
-                className={textareaCls + ' font-mono text-xs'}
-                rows={4}
-                value={form.allowedDomains.join('\n')}
-                onChange={e =>
-                  setForm(f => ({
-                    ...f,
-                    allowedDomains: e.target.value
-                      .split(/[\n,]/)
-                      .map(s => s.trim())
-                      .filter(Boolean),
-                  }))
-                }
-                placeholder={'meusite.com.br\nwww.meusite.com.br\nloja.meusite.com.br'}
-              />
-              {!form.allowedDomains.length && (
-                <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-                  Nenhum domínio configurado — em produção o widget não carregará em sites externos.
-                </p>
-              )}
-            </WidgetSectionCard>
             {canPickDepartment && (
               <WidgetSectionCard
                 title="Setor que recebe novas conversas"
@@ -1697,9 +1696,13 @@ function WidgetEditorCard({
         <WebChatWidgetEditorSection
           id="webchat-section-instalacao"
           title="Instalação no site"
-          description="Coloque o chat no ar em poucos minutos."
+          description="Copie o script e integre em WordPress, Elementor ou via API."
         >
-          <WebChatInstallSection snippet={snippet} publicKey={widget.publicKey} />
+          <WebChatIntegrationsPanel
+            publicKey={widget.publicKey}
+            name={form.name}
+            active={form.active}
+          />
         </WebChatWidgetEditorSection>
       )}
 

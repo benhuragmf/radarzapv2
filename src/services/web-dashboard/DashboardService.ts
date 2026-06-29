@@ -144,7 +144,7 @@ import { createLeadFormPublicRouter } from '../leads/lead-form-public.routes';
 import { LeadFormService } from '../leads/LeadFormService';
 import { WebChatService } from '../webchat/WebChatService';
 import { WebChatWidget } from '../../models/WebChatWidget';
-import { isWebChatOriginAllowed } from '../webchat/webchat-token.util';
+import { getOrganizationWebsite, isEmbedOriginAllowed } from '@/utils/embed-allowed-domains.util';
 import { applyPublicEmbedAssetHeaders } from '../webchat/webchat-embed-http.util';
 import { verifyWebChatPresenceSocketAuth } from '../webchat/webchat-presence-auth.util';
 import { isSocketIoOriginAllowed } from '../webchat/webchat-socket-origin.util';
@@ -613,14 +613,20 @@ export class DashboardService {
         }
 
         const widget = await WebChatWidget.findOne({ publicKey: publicKey.trim(), active: true })
-          .select('clientId allowedDomains')
+          .select('clientId allowedDomains includeCompanyWebsite')
           .lean();
         if (!widget) {
           next(new Error('Unauthorized'));
           return;
         }
 
-        if (!isWebChatOriginAllowed(widget.allowedDomains ?? [], origin, referer)) {
+        const companyWebsite = await getOrganizationWebsite(String(widget.clientId));
+        if (
+          !isEmbedOriginAllowed(widget.allowedDomains ?? [], origin, referer, {
+            companyWebsite,
+            includeCompanyWebsite: widget.includeCompanyWebsite,
+          })
+        ) {
           next(new Error('Forbidden origin'));
           return;
         }
@@ -1279,12 +1285,20 @@ export class DashboardService {
       if (!sess?.userId || !sess.organizationId) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
-      const { displayName } = req.body as { displayName?: string | null };
+      const { displayName, chatDisplayName } = req.body as {
+        displayName?: string | null;
+        chatDisplayName?: string | null;
+      };
       try {
         const { updateMemberProfileSelf } = await import(
           '@/services/organization/member-profile.service'
         );
-        res.json(await updateMemberProfileSelf(sess.userId, sess.organizationId, { displayName }));
+        res.json(
+          await updateMemberProfileSelf(sess.userId, sess.organizationId, {
+            displayName,
+            chatDisplayName,
+          }),
+        );
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -4570,10 +4584,11 @@ export class DashboardService {
       async (req, res) => {
         try {
           const auth = (req as DashboardRequest).auth!;
-          const { displayName, email, whatsappPhone } = req.body as {
+          const { displayName, email, whatsappPhone, chatDisplayName } = req.body as {
             displayName?: string | null;
             email?: string | null;
             whatsappPhone?: string | null;
+            chatDisplayName?: string | null;
           };
           const { updateMemberProfileByAdmin } = await import(
             '@/services/organization/member-profile.service'
@@ -4583,8 +4598,59 @@ export class DashboardService {
               displayName,
               email,
               whatsappPhone,
+              chatDisplayName,
             }),
           );
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.get(
+      '/team/chat-display-names/pending',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { listPendingChatDisplayNames } = await import(
+            '@/services/organization/chat-display-name.service'
+          );
+          res.json(await listPendingChatDisplayNames(auth.organizationId));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/team/members/:id/chat-display-name/approve',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { approveChatDisplayNamePending } = await import(
+            '@/services/organization/chat-display-name.service'
+          );
+          await approveChatDisplayNamePending(auth.organizationId, req.params.id);
+          res.json({ ok: true });
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/team/members/:id/chat-display-name/reject',
+      requireCapability(Cap.COMPANY_MEMBERS_MANAGE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { rejectChatDisplayNamePending } = await import(
+            '@/services/organization/chat-display-name.service'
+          );
+          await rejectChatDisplayNamePending(auth.organizationId, req.params.id);
+          res.json({ ok: true });
         } catch (e) {
           res.status(400).json({ error: (e as Error).message });
         }
@@ -4887,11 +4953,15 @@ export class DashboardService {
         if (auth.companyRole !== CompanyRole.OWNER) {
           return res.status(403).json({ error: 'Apenas o dono pode alterar esta política' });
         }
-        const { allowMembersEditOwnProfile } = req.body as { allowMembersEditOwnProfile?: boolean };
+        const { allowMembersEditOwnProfile, chatDisplayNamePolicy } = req.body as {
+          allowMembersEditOwnProfile?: boolean;
+          chatDisplayNamePolicy?: 'owner_only' | 'self_service' | 'approval_required';
+        };
         const { updateTeamSettings } = await import('@/services/organization/member-profile.service');
         res.json(
           await updateTeamSettings(auth.organizationId, {
             allowMembersEditOwnProfile,
+            chatDisplayNamePolicy,
           }),
         );
       } catch (e) {
@@ -6757,6 +6827,7 @@ export class DashboardService {
             publicKey: w.publicKey,
             active: w.active,
             allowedDomains: w.allowedDomains ?? [],
+            includeCompanyWebsite: w.includeCompanyWebsite !== false,
             appearance: w.appearance,
             autoReplyEnabled: w.autoReplyEnabled ?? true,
             autoReplyMessage: w.autoReplyMessage,
@@ -6803,6 +6874,7 @@ export class DashboardService {
           publicKey: widget.publicKey,
           active: widget.active,
           allowedDomains: widget.allowedDomains,
+          includeCompanyWebsite: widget.includeCompanyWebsite !== false,
           appearance: widget.appearance,
           autoReplyEnabled: widget.autoReplyEnabled,
           autoReplyMessage: widget.autoReplyMessage,
@@ -6841,6 +6913,7 @@ export class DashboardService {
           publicKey: widget.publicKey,
           active: widget.active,
           allowedDomains: widget.allowedDomains,
+          includeCompanyWebsite: widget.includeCompanyWebsite !== false,
           appearance: widget.appearance,
           autoReplyEnabled: widget.autoReplyEnabled,
           autoReplyMessage: widget.autoReplyMessage,

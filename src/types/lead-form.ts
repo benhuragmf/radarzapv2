@@ -324,6 +324,7 @@ export interface LeadFormListItem {
   publicKey: string;
   active: boolean;
   allowedDomains: string[];
+  includeCompanyWebsite?: boolean;
   appearance: LeadFormAppearance;
   routing: LeadFormRouting;
   redirectUrl?: string;

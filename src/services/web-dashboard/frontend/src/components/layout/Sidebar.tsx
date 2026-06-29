@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Building2, ChevronDown, ChevronRight, Radio, Shield, Zap } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Radio, Shield } from 'lucide-react'
+import { BrandLogo } from '../brand/BrandLogo'
 import type { AuthUser } from '../../lib/auth'
 import {
   detectNavMode,
@@ -308,15 +309,21 @@ export default function Sidebar({
         mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}
     >
-      <div className="flex items-center gap-2 px-5 py-5 border-b rz-sidebar-border">
-        <Zap className="text-[var(--rz-sidebar-icon-active)]" size={22} />
-        <div className="min-w-0">
-          <span className="font-bold text-lg tracking-tight block text-[var(--rz-sidebar-text)]">Radar Chat</span>
-          <span className="text-[10px] rz-sidebar-muted uppercase tracking-wider">
-            {mode === 'admin' ? 'Admin Radar Chat' : mode === 'discord' ? 'Discord' : 'Plataforma'}
-          </span>
-        </div>
-      </div>
+      <Link
+        to="/"
+        className="block px-4 py-4 border-b rz-sidebar-border rz-sidebar-brand hover:bg-white/[0.03] transition-colors"
+        aria-label="Radar Chat — início"
+      >
+        <BrandLogo
+          variant="horizontal"
+          height={48}
+          tone="dark"
+          className="rz-sidebar-brand-wordmark w-full max-w-[220px] h-auto object-contain object-left"
+        />
+        <span className="text-[10px] rz-sidebar-muted uppercase tracking-[0.16em] mt-2.5 block">
+          {mode === 'admin' ? 'Admin' : mode === 'discord' ? 'Discord' : 'Plataforma'}
+        </span>
+      </Link>
 
       {tabCount > 1 && (
         <div className="px-3 pt-3 pb-2">

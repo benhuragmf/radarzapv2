@@ -304,6 +304,7 @@ interface MemberRoleModalProps {
     displayEmail?: string
     email?: string
     displayName?: string
+    chatDisplayName?: string
     companyRole: CompanyRole
     customRoleId?: string
     whatsappPhone?: string
@@ -335,6 +336,7 @@ export function TeamMemberRoleModal({
   const [profileSaving, setProfileSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState(member.displayName ?? '')
+  const [chatDisplayName, setChatDisplayName] = useState(member.chatDisplayName ?? '')
   const [memberEmail, setMemberEmail] = useState(member.email ?? member.displayEmail ?? '')
   const [phone, setPhone] = useState(member.whatsappPhone ?? '')
   const [code, setCode] = useState('')
@@ -350,6 +352,7 @@ export function TeamMemberRoleModal({
   useEffect(() => {
     setRole(member.customRoleId ? `custom:${member.customRoleId}` : member.companyRole)
     setDisplayName(member.displayName ?? '')
+    setChatDisplayName(member.chatDisplayName ?? '')
     setMemberEmail(member.email ?? member.displayEmail ?? '')
     setPhone(member.whatsappPhone ?? '')
     setWaVerifiedAt(member.whatsappPhoneVerifiedAt)
@@ -363,6 +366,7 @@ export function TeamMemberRoleModal({
     member.companyRole,
     member.customRoleId,
     member.displayName,
+    member.chatDisplayName,
     member.email,
     member.displayEmail,
     member.whatsappPhone,
@@ -394,6 +398,7 @@ export function TeamMemberRoleModal({
         displayName: displayName.trim() || null,
         email: memberEmail.trim() || null,
         whatsappPhone: phone.trim() || null,
+        chatDisplayName: chatDisplayName.trim() || null,
       })
       setEmailVerifiedAt(updated.emailVerifiedAt)
       setWaVerifiedAt(updated.whatsappPhoneVerifiedAt)
@@ -497,6 +502,21 @@ export function TeamMemberRoleModal({
               ) : (
                 <p className="text-xs text-amber-400 mt-1">Pendente — membro confirma em Meu perfil</p>
               )}
+            </div>
+            <div>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Nome fantasia no WebChat</label>
+              <input
+                type="text"
+                value={chatDisplayName}
+                onChange={e => setChatDisplayName(e.target.value)}
+                className={inputCls}
+                maxLength={40}
+                placeholder="Ex.: Ana · Suporte"
+                disabled={profileSaving}
+              />
+              <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
+                Nome exibido ao visitante no widget. Deixe vazio para usar o nome interno.
+              </p>
             </div>
             <Button
               type="button"

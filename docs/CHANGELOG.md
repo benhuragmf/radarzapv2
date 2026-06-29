@@ -6,6 +6,34 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.74] — 2026-06-29
+
+### Leads / WebChat — domínios de embed e editor de formulários
+
+- `includeCompanyWebsite` + domínios adicionais em `LeadForm` e `WebChatWidget`; util `embed-allowed-domains.util.ts`.
+- Aba **Formulários** unificada (sem **Integrar no site** separada): lista + editor estilo widgets WebChat.
+- Editor: menu lateral, **Por onde começar?**, status das seções, pré-visualização lateral e integração por formulário.
+- Site `radarchat.com.br`: formulário de leads em `#contato` via `form.js`.
+
+### Marca — logomarca Signal Pro no painel e site
+
+- Favicon e ícone do painel (`/favicon.svg`, `/logo-icon.svg`) atualizados a partir de `logo/svg/`.
+- Componente `BrandLogo` reutilizável (ícone + horizontal claro/escuro) em auth e sidebar.
+- Site `radarchat.com.br`: header/rodapé com novo ícone e paleta (#00D4FF, #2563EB, #22C55E).
+- `manifest.webmanifest` e `theme-color` alinhados ao manual da marca.
+
+## [2.12.73] — 2026-06-29
+
+### WebChat — Nome fantasia do atendente
+
+- Campo `CompanyMember.chatDisplayName` com política em `Organization.teamSettings.chatDisplayNamePolicy`:
+  - `owner_only` — dono/admin define manualmente (Equipe → Editar membro);
+  - `self_service` — atendente altera em Configurações → Meu perfil;
+  - `approval_required` — atendente solicita; dono aprova em Equipe.
+- Serviço `chat-display-name.service.ts`: resolução batch para Inbox/WebChat (`resolveAgentChatDisplayName`).
+- Mensagens outbound do widget passam a usar nome fantasia aprovado (fallback: nome interno → e-mail → "Atendente").
+- API: `PATCH /organization/team-settings`, `GET /team/chat-display-names/pending`, approve/reject por membro.
+
 ## [2.12.72] — 2026-06-29
 
 ### Frontend — Login profissional (Layout v3)

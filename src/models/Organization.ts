@@ -52,6 +52,8 @@ export interface IOrganization extends Document {
   teamSettings?: {
     /** Se true, atendentes podem editar nome/e-mail/WhatsApp no painel (sempre com OTP) */
     allowMembersEditOwnProfile?: boolean;
+    /** Política do nome fantasia no WebChat — ver chat-display-name.service */
+    chatDisplayNamePolicy?: 'owner_only' | 'self_service' | 'approval_required';
   };
   /** Carteira IA — créditos comprados e uso de aprendizagem no ciclo mensal. */
   aiWallet?: {
@@ -127,8 +129,13 @@ const OrganizationSchema = new Schema<IOrganization>({
   teamSettings: {
     type: {
       allowMembersEditOwnProfile: { type: Boolean, default: false },
+      chatDisplayNamePolicy: {
+        type: String,
+        enum: ['owner_only', 'self_service', 'approval_required'],
+        default: 'self_service',
+      },
     },
-    default: () => ({ allowMembersEditOwnProfile: false }),
+    default: () => ({ allowMembersEditOwnProfile: false, chatDisplayNamePolicy: 'self_service' }),
   },
   aiWallet: {
     type: {

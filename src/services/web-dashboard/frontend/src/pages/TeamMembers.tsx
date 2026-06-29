@@ -22,6 +22,7 @@ interface Member {
   email?: string
   displayEmail?: string
   displayName?: string
+  chatDisplayName?: string
   companyRole: CompanyRole
   customRoleId?: string
   customRoleName?: string
@@ -98,16 +99,57 @@ export default function TeamMembers() {
   const { data: teamSettings, refetch: refetchTeamSettings } = useQuery({
     queryKey: ['team-settings'],
     queryFn: () =>
-      api.get<{ allowMembersEditOwnProfile: boolean }>('/organization/team-settings'),
+      api.get<{
+        allowMembersEditOwnProfile: boolean
+        chatDisplayNamePolicy: 'owner_only' | 'self_service' | 'approval_required'
+      }>('/organization/team-settings'),
+    enabled: isOwner,
+  })
+
+  const { data: pendingChatNames = [], refetch: refetchPendingChatNames } = useQuery({
+    queryKey: ['team-chat-display-pending'],
+    queryFn: () =>
+      api.get<
+        Array<{
+          memberId: string
+          displayName: string
+          currentChatDisplayName: string | null
+          requestedChatDisplayName: string
+          requestedAt: string | null
+        }>
+      >('/team/chat-display-names/pending'),
     enabled: isOwner,
   })
 
   const updateTeamSettings = useMutation({
-    mutationFn: (allowMembersEditOwnProfile: boolean) =>
-      api.patch('/organization/team-settings', { allowMembersEditOwnProfile }),
+    mutationFn: (patch: {
+      allowMembersEditOwnProfile?: boolean
+      chatDisplayNamePolicy?: 'owner_only' | 'self_service' | 'approval_required'
+    }) => api.patch('/organization/team-settings', patch),
     onSuccess: () => {
-      notifySuccess('Política de perfil atualizada.')
+      notifySuccess('Política da equipe atualizada.')
       void refetchTeamSettings()
+    },
+    onError: mutationError,
+  })
+
+  const approveChatName = useMutation({
+    mutationFn: (memberId: string) =>
+      api.post(`/team/members/${memberId}/chat-display-name/approve`),
+    onSuccess: () => {
+      notifySuccess('Nome fantasia aprovado.')
+      void refetchPendingChatNames()
+      qc.invalidateQueries({ queryKey: ['team-members'] })
+    },
+    onError: mutationError,
+  })
+
+  const rejectChatName = useMutation({
+    mutationFn: (memberId: string) =>
+      api.post(`/team/members/${memberId}/chat-display-name/reject`),
+    onSuccess: () => {
+      notifySuccess('Solicitação recusada.')
+      void refetchPendingChatNames()
     },
     onError: mutationError,
   })
@@ -267,13 +309,80 @@ export default function TeamMembers() {
               type="checkbox"
               className="mt-1"
               checked={teamSettings?.allowMembersEditOwnProfile === true}
-              onChange={e => updateTeamSettings.mutate(e.target.checked)}
+              onChange={e =>
+                updateTeamSettings.mutate({ allowMembersEditOwnProfile: e.target.checked })
+              }
               disabled={updateTeamSettings.isPending}
             />
             <span className="text-sm text-[var(--rz-text-secondary)]">
               Permitir que atendentes editem nome, e-mail e WhatsApp em Configurações → Meu perfil
             </span>
           </label>
+          <div className="mt-4">
+            <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Nome fantasia no WebChat</label>
+            <select
+              className="w-full max-w-md rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)] px-3 py-2 text-sm text-[var(--rz-text-primary)]"
+              value={teamSettings?.chatDisplayNamePolicy ?? 'self_service'}
+              onChange={e =>
+                updateTeamSettings.mutate({
+                  chatDisplayNamePolicy: e.target.value as
+                    | 'owner_only'
+                    | 'self_service'
+                    | 'approval_required',
+                })
+              }
+              disabled={updateTeamSettings.isPending}
+            >
+              <option value="owner_only">Somente dono/admin define</option>
+              <option value="self_service">Atendente altera sem aprovação</option>
+              <option value="approval_required">Atendente solicita · dono aprova</option>
+            </select>
+            <p className="text-[11px] text-[var(--rz-text-muted)] mt-1.5">
+              Nome exibido ao visitante no widget. Dono/admin pode editar direto em Editar membro.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {isOwner && pendingChatNames.length > 0 && (
+        <Card>
+          <CardTitle className="text-sm">Nomes fantasia pendentes</CardTitle>
+          <ul className="mt-3 space-y-2">
+            {pendingChatNames.map(row => (
+              <li
+                key={row.memberId}
+                className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between rounded-lg border border-[var(--rz-border)] px-3 py-2 text-sm"
+              >
+                <span className="text-[var(--rz-text-secondary)]">
+                  <strong className="text-[var(--rz-text-primary)]">{row.displayName}</strong>
+                  {' → '}
+                  <span className="text-brand-400">&quot;{row.requestedChatDisplayName}&quot;</span>
+                  {row.currentChatDisplayName ? (
+                    <span className="text-[var(--rz-text-muted)] text-xs ml-1">
+                      (atual: {row.currentChatDisplayName})
+                    </span>
+                  ) : null}
+                </span>
+                <span className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={() => approveChatName.mutate(row.memberId)}
+                    disabled={approveChatName.isPending || rejectChatName.isPending}
+                  >
+                    Aprovar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => rejectChatName.mutate(row.memberId)}
+                    disabled={approveChatName.isPending || rejectChatName.isPending}
+                  >
+                    Recusar
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 

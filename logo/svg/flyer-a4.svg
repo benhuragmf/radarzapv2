@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1754" viewBox="0 0 1240 1754" role="img" aria-label="RadarChat logo">
+  <defs>
+    <style>
+      .brand { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-weight: 800; letter-spacing: -1.5px; }
+      .tag { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-weight: 500; }
+      .small { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-weight: 700; }
+    </style>
+    
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00D4FF"/>
+      <stop offset="0.55" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    
+  </defs>
+  
+  
+    <rect width="1240" height="1754" fill="#F8FAFC"/>
+    <circle cx="1050" cy="150" r="310" fill="url(#g1)" opacity="0.11"/>
+    <circle cx="140" cy="1500" r="350" fill="url(#g2)" opacity="0.10"/>
+    <rect x="88" y="92" width="1064" height="1570" rx="54" fill="#FFFFFF" filter="url(#softShadow)"/>
+    
+    <g transform="translate(140,140) scale(0.8636363636363636)" filter="url(#softShadow)">
+      <rect x="24" y="28" width="160" height="132" rx="42" fill="url(#g1)"/>
+      <path d="M74 160 L52 194 L110 162 Z" fill="url(#g1)"/>
+      <circle cx="94" cy="92" r="11" fill="#fff"/>
+      <path d="M113 74 C134 88 134 116 113 130" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" opacity="0.95"/>
+      <path d="M137 52 C177 82 177 136 137 166" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" opacity="0.70"/>
+      <path d="M60 72 C43 90 43 114 60 132" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity="0.75"/>
+      <circle cx="154" cy="48" r="10" fill="#22C55E" stroke="#fff" stroke-width="5"/>
+    </g>
+      <text x="370" y="255" class="brand" font-size="72" text-anchor="start"><tspan fill="#0F172A">Radar</tspan><tspan fill="#2563EB">Chat</tspan></text>
+      <text x="370" y="297" class="tag" font-size="24" fill="#475569" text-anchor="start">Atendimento inteligente em tempo real</text>
+    
+    <text x="140" y="520" class="brand" font-size="72" fill="#0F172A">Atenda melhor.</text>
+    <text x="140" y="600" class="brand" font-size="72" fill="#0F172A">Venda com mais clareza.</text>
+    <text x="140" y="690" class="tag" font-size="31" fill="#475569" text-anchor="start">
+<tspan x="140" dy="0">Centralize WhatsApp, WebChat, leads, filas, equipe e automações</tspan>
+<tspan x="140" dy="42">em um único painel para vender e atender melhor.</tspan>
+</text><rect x="140" y="805" width="960" height="2" fill="#E5E7EB"/>
+        <circle cx="165" cy="887" r="14" fill="url(#g1)"/>
+        <text x="205" y="895" class="small" font-size="34" fill="#0F172A">Inbox unificada</text>
+        <text x="205" y="940" class="tag" font-size="25" fill="#475569">Conversas do WhatsApp e WebChat em um só lugar.</text>
+        
+        <circle cx="165" cy="1037" r="14" fill="url(#g1)"/>
+        <text x="205" y="1045" class="small" font-size="34" fill="#0F172A">Fila inteligente</text>
+        <text x="205" y="1090" class="tag" font-size="25" fill="#475569">Distribuição por status, disponibilidade e prioridade.</text>
+        
+        <circle cx="165" cy="1187" r="14" fill="url(#g1)"/>
+        <text x="205" y="1195" class="small" font-size="34" fill="#0F172A">Leads e histórico</text>
+        <text x="205" y="1240" class="tag" font-size="25" fill="#475569">Contato, origem, etapa e acompanhamento comercial.</text>
+        
+        <circle cx="165" cy="1337" r="14" fill="url(#g1)"/>
+        <text x="205" y="1345" class="small" font-size="34" fill="#0F172A">IA com controle humano</text>
+        <text x="205" y="1390" class="tag" font-size="25" fill="#475569">Automação quando ajuda, atendente quando precisa.</text>
+        
+    <rect x="140" y="1465" width="960" height="110" rx="32" fill="url(#g1)"/>
+    <text x="620" y="1533" text-anchor="middle" class="small" font-size="32" fill="#FFFFFF">radarchat.com.br • app.radarchat.com.br</text>
+    <text x="140" y="1635" class="tag" font-size="22" fill="#475569">Conceito visual 1: Signal Pro</text>
+    
+</svg>

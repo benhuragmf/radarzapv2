@@ -76,13 +76,14 @@ Toda captura (formulário, WhatsApp, WebChat, manual) emite evento `lead:new_ent
 ## Painel
 
 - Menu: **Contatos → Leads** (`/platform/leads`)
-- Abas: **Capturas** · **Integrar no site** · **Listas e segmentos** · **Formulários**
+- Abas: **Capturas** · **Formulários** · **Listas e segmentos**
+- A aba **Formulários** segue o mesmo padrão dos widgets WebChat: lista de formulários no topo + editor com **Visão geral** (domínios primeiro), campos, aparência, destino, segurança e **Integrar no site** (script, API, HTML, WordPress, etc.)
 - Cards no topo: total, novos hoje, em atendimento, convertidos, perdidos, origem principal
 - Permissões: visualizar `leads:view` (fallback `consent:view`); gerenciar `leads:manage` (fallback `send:destination:manage`); Kanban `leads:kanban:manage`; Inbox `inbox:reply`
 
-## Integrar no site (painel)
+## Integrar no site (dentro de Formulários)
 
-A aba **Integrar no site** oferece códigos prontos para copiar:
+Na seção **Integrar no site** de cada formulário há códigos prontos para copiar:
 
 | Método | Uso |
 |--------|-----|

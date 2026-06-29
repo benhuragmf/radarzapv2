@@ -3,6 +3,7 @@ import { parseChatBoxModelId } from './chatBoxModels'
 import { WEBCHAT_PREVIEW_TEMPLATES } from './webchatPreviewTemplates'
 import type { WebChatWidgetFormState, Weekday } from '../types/webchatWidgetEditor'
 import type { WebChatWidgetEditorSectionId } from '../components/webchat/WebChatWidgetEditorSection'
+import { hostsFromWebsiteUrl } from '@/lib/embedAllowedDomains'
 
 export type SectionStatusKind = 'complete' | 'incomplete' | 'optional' | 'attention'
 
@@ -26,6 +27,7 @@ export function buildWidgetSavePayload(
     name: form.name.trim(),
     active: form.active,
     allowedDomains: form.allowedDomains,
+    includeCompanyWebsite: form.includeCompanyWebsite !== false,
     appearance: syncLegacyAppearanceFlags(form.appearance),
     autoReplyEnabled: form.autoReplyEnabled,
     autoReplyMessage: form.autoReplyMessage,
@@ -114,6 +116,19 @@ export function validateWidgetForm(
   return errors
 }
 
+function embedSitesHint(form: WebChatWidgetFormState, companyWebsite?: string): string {
+  const parts: string[] = []
+  if (form.includeCompanyWebsite !== false) {
+    const hosts = hostsFromWebsiteUrl(companyWebsite)
+    if (hosts.length) parts.push(hosts.join(', '))
+  }
+  if (form.allowedDomains.length) {
+    parts.push(`+${form.allowedDomains.length} extra`)
+  }
+  if (!parts.length) return 'Configure domínios'
+  return parts.join(' ')
+}
+
 function hoursSummary(form: WebChatWidgetFormState): string {
   if (form.useInboxBusinessHours) return 'Mesmo do atendimento principal'
   if (!form.businessHoursEnabled) return 'Sempre disponível'
@@ -133,6 +148,7 @@ function modelLabel(form: WebChatWidgetFormState): string {
 export function getWidgetSectionStatuses(
   form: WebChatWidgetFormState,
   delayDraft: string,
+  companyWebsite?: string,
 ): Record<WebChatWidgetEditorSectionId, SectionStatus> {
   const fields = resolvePrechatFields(form.appearance)
   const activeFields = fields.filter(f => f.enabled)
@@ -141,8 +157,16 @@ export function getWidgetSectionStatuses(
 
   return {
     overview: {
-      kind: form.name.trim() && form.active !== undefined ? 'complete' : 'incomplete',
-      hint: form.name.trim() ? (form.active ? 'Widget ativo' : 'Widget inativo') : 'Defina o nome',
+      kind:
+        form.includeCompanyWebsite !== false && hostsFromWebsiteUrl(companyWebsite).length > 0
+          ? 'complete'
+          : form.allowedDomains.length
+            ? 'complete'
+            : 'attention',
+      hint:
+        form.name.trim()
+          ? embedSitesHint(form, companyWebsite)
+          : 'Nome e domínios',
     },
     visual: {
       kind: form.appearance.title.trim()
@@ -181,10 +205,8 @@ export function getWidgetSectionStatuses(
       hint: 'Copie o script no site',
     },
     avancado: {
-      kind: form.allowedDomains.length ? 'complete' : 'attention',
-      hint: form.allowedDomains.length
-        ? `${form.allowedDomains.length} domínio(s)`
-        : 'Bloqueado em prod.',
+      kind: form.defaultDepartmentId ? 'complete' : 'optional',
+      hint: form.defaultDepartmentId ? 'Setor definido' : 'Fila geral',
     },
   }
 }

@@ -22,7 +22,7 @@ export function createWebChatPublicRouter(): Router {
     try {
       const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
       if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
-      svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
+      await svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
       res.json(await svc.getPublicConfig(widget));
     } catch (e) {
       res.status(403).json({ error: (e as Error).message });
@@ -33,7 +33,7 @@ export function createWebChatPublicRouter(): Router {
     try {
       const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
       if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
-      svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
+      await svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
       res.json(await svc.getFaqCatalog(widget));
     } catch (e) {
       res.status(403).json({ error: (e as Error).message });
@@ -81,7 +81,7 @@ export function createWebChatPublicRouter(): Router {
       };
       const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
       if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
-      svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
+      await svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
       const visitor = await WebChatPresenceService.getInstance().upsertFromPublic({
         publicKey: req.params.publicKey,
         presenceId: body.presenceId ?? '',
@@ -115,7 +115,7 @@ export function createWebChatPublicRouter(): Router {
     try {
       const widget = await svc.getActiveWidgetByPublicKey(req.params.publicKey);
       if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
-      svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
+      await svc.assertOrigin(widget, req.headers.origin, req.headers.referer);
       const agentEngage = await WebChatPresenceService.getInstance().consumePendingEngage(
         req.params.publicKey,
         req.params.presenceId,

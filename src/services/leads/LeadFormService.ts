@@ -40,6 +40,8 @@ import {
   LEAD_CAPTURE_STATUSES,
   LEAD_TEMPERATURE_LABEL,
 } from '@/types/lead-form';
+import { normalizeAllowedDomainEntry } from '@/services/webchat/webchat-token.util';
+import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
 import {
   assertLeadFormOrigin,
   generateLeadFormPublicKey,
@@ -202,6 +204,7 @@ export class LeadFormService {
       appearance?: Partial<LeadFormAppearance>;
       routing?: Partial<LeadFormRouting>;
       allowedDomains?: string[];
+      includeCompanyWebsite?: boolean;
     },
   ): Promise<LeadFormListItem> {
     await this.assertCanCreateLeadForm(clientId);
@@ -213,7 +216,8 @@ export class LeadFormService {
       name,
       publicKey: generateLeadFormPublicKey(),
       active: true,
-      allowedDomains: (body.allowedDomains ?? []).map(d => d.trim()).filter(Boolean),
+      allowedDomains: (body.allowedDomains ?? []).map(normalizeAllowedDomainEntry).filter(Boolean),
+      includeCompanyWebsite: body.includeCompanyWebsite !== false,
       appearance: normalizeAppearance(body.appearance),
       routing: normalizeRouting(body.routing),
     });
@@ -233,6 +237,7 @@ export class LeadFormService {
       publicKey: generateLeadFormPublicKey(),
       active: false,
       allowedDomains: [...(form.allowedDomains ?? [])],
+      includeCompanyWebsite: form.includeCompanyWebsite !== false,
       appearance: { ...(form.appearance ?? DEFAULT_LEAD_FORM_APPEARANCE) },
       routing: { ...(form.routing ?? DEFAULT_LEAD_FORM_ROUTING) },
       redirectUrl: form.redirectUrl,
@@ -247,6 +252,7 @@ export class LeadFormService {
       name: string;
       active: boolean;
       allowedDomains: string[];
+      includeCompanyWebsite?: boolean;
       appearance: Partial<LeadFormAppearance>;
       routing: Partial<LeadFormRouting>;
       redirectUrl: string | null;
@@ -265,7 +271,10 @@ export class LeadFormService {
     }
     if (patch.active !== undefined) form.active = Boolean(patch.active);
     if (patch.allowedDomains !== undefined) {
-      form.allowedDomains = patch.allowedDomains.map(d => d.trim()).filter(Boolean);
+      form.allowedDomains = patch.allowedDomains.map(normalizeAllowedDomainEntry).filter(Boolean);
+    }
+    if (patch.includeCompanyWebsite !== undefined) {
+      form.includeCompanyWebsite = Boolean(patch.includeCompanyWebsite);
     }
     if (patch.appearance) {
       form.appearance = normalizeAppearance({ ...form.appearance, ...patch.appearance });
@@ -339,8 +348,12 @@ export class LeadFormService {
     };
   }
 
-  assertOrigin(form: ILeadForm, origin?: string | null, referer?: string | null): void {
-    assertLeadFormOrigin(form.allowedDomains ?? [], origin, referer);
+  async assertOrigin(form: ILeadForm, origin?: string | null, referer?: string | null): Promise<void> {
+    const companyWebsite = await getOrganizationWebsite(String(form.clientId));
+    assertLeadFormOrigin(form.allowedDomains ?? [], origin, referer, {
+      companyWebsite,
+      includeCompanyWebsite: form.includeCompanyWebsite,
+    });
   }
 
   async detectDuplicates(
@@ -488,7 +501,7 @@ export class LeadFormService {
     meta: { origin?: string; referer?: string; ipAddress?: string; userAgent?: string },
     clientId: string,
   ): Promise<{ success: true; successMessage: string; redirectUrl?: string }> {
-    this.assertOrigin(form, meta.origin, meta.referer);
+    await this.assertOrigin(form, meta.origin, meta.referer);
 
     const appearance = normalizeAppearance(form.appearance);
     const routing = normalizeRouting(form.routing);
@@ -1980,6 +1993,7 @@ export class LeadFormService {
       publicKey: form.publicKey,
       active: form.active,
       allowedDomains: form.allowedDomains ?? [],
+      includeCompanyWebsite: form.includeCompanyWebsite !== false,
       appearance: normalizeAppearance(form.appearance),
       routing: normalizeRouting(form.routing),
       redirectUrl: form.redirectUrl,

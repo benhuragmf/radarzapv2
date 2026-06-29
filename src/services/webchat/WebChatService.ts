@@ -45,8 +45,12 @@ import {
   generateWebChatPublicKey,
   generateWebChatVisitorToken,
   hashWebChatVisitorToken,
-  isWebChatOriginAllowed,
+  normalizeAllowedDomainEntry,
 } from './webchat-token.util';
+import {
+  getOrganizationWebsite,
+  isEmbedOriginAllowed,
+} from '@/utils/embed-allowed-domains.util';
 import {
   emitWebChatToTenant,
   emitWebChatToVisitor,
@@ -221,7 +225,7 @@ export class WebChatService {
 
   async createWidget(
     clientId: string,
-    data: { name: string; allowedDomains?: string[]; appearance?: Partial<WebChatWidgetAppearance> },
+    data: { name: string; allowedDomains?: string[]; includeCompanyWebsite?: boolean; appearance?: Partial<WebChatWidgetAppearance> },
   ): Promise<IWebChatWidget> {
     const { assertCanCreateWebchatWidget } = await import(
       '@/services/billing/plan-limit-enforcement'
@@ -233,7 +237,8 @@ export class WebChatService {
       clientId: clientOid,
       name: data.name.trim(),
       publicKey: generateWebChatPublicKey(),
-      allowedDomains: (data.allowedDomains ?? []).map(d => d.trim()).filter(Boolean),
+      allowedDomains: (data.allowedDomains ?? []).map(normalizeAllowedDomainEntry).filter(Boolean),
+      includeCompanyWebsite: data.includeCompanyWebsite !== false,
       appearance: { ...DEFAULT_WEBCHAT_APPEARANCE, ...data.appearance },
     });
     return doc;
@@ -254,6 +259,7 @@ export class WebChatService {
       name?: string;
       active?: boolean;
       allowedDomains?: string[];
+      includeCompanyWebsite?: boolean;
       appearance?: Partial<WebChatWidgetAppearance>;
       autoReplyEnabled?: boolean;
       autoReplyMessage?: string;
@@ -279,7 +285,10 @@ export class WebChatService {
     if (patch.name !== undefined) existing.name = patch.name.trim();
     if (patch.active !== undefined) existing.active = patch.active;
     if (patch.allowedDomains !== undefined) {
-      existing.allowedDomains = patch.allowedDomains.map(d => d.trim()).filter(Boolean);
+      existing.allowedDomains = patch.allowedDomains.map(normalizeAllowedDomainEntry).filter(Boolean);
+    }
+    if (patch.includeCompanyWebsite !== undefined) {
+      existing.includeCompanyWebsite = Boolean(patch.includeCompanyWebsite);
     }
     if (patch.appearance) {
       const merged = {
@@ -404,8 +413,14 @@ export class WebChatService {
     return AiKnowledgeBaseService.getInstance().listFaqCatalog(String(widget.clientId));
   }
 
-  assertOrigin(widget: IWebChatWidget, origin?: string | null, referer?: string | null): void {
-    if (!isWebChatOriginAllowed(widget.allowedDomains ?? [], origin, referer)) {
+  async assertOrigin(widget: IWebChatWidget, origin?: string | null, referer?: string | null): Promise<void> {
+    const companyWebsite = await getOrganizationWebsite(String(widget.clientId));
+    if (
+      !isEmbedOriginAllowed(widget.allowedDomains ?? [], origin, referer, {
+        companyWebsite,
+        includeCompanyWebsite: widget.includeCompanyWebsite,
+      })
+    ) {
       throw new Error('Origem não autorizada para este widget');
     }
   }
@@ -563,7 +578,7 @@ export class WebChatService {
     const widget = await this.getActiveWidgetByPublicKey(publicKey);
     if (!widget) throw new Error('Widget não encontrado');
 
-    this.assertOrigin(widget, opts.origin, opts.referer);
+    await this.assertOrigin(widget, opts.origin, opts.referer);
 
     const intakeRaw: Record<string, string | undefined> = {
       ...(opts.visitorIntake ?? {}),
@@ -738,7 +753,7 @@ export class WebChatService {
     const widget = await this.getActiveWidgetByPublicKey(publicKey);
     if (!widget) throw new Error('Widget não encontrado');
 
-    this.assertOrigin(widget, opts.origin, opts.referer);
+    await this.assertOrigin(widget, opts.origin, opts.referer);
 
     const session = await this.createOrResumeSession(publicKey, {
       ...opts,
@@ -983,19 +998,19 @@ export class WebChatService {
       ),
     ];
 
-    const [widgetNames, deptRecords, agents] = await Promise.all([
+    const [widgetNames, deptRecords, agentNameMap] = await Promise.all([
       this.widgetNameMap(widgetIds),
       this.departmentRecordMap(deptIds),
       agentIds.length
-        ? User.find({ _id: { $in: agentIds } }).select('displayName email').lean()
-        : Promise.resolve([]),
+        ? (async () => {
+            const { resolveAgentChatDisplayNameMap } = await import(
+              '@/services/organization/chat-display-name.service'
+            );
+            return resolveAgentChatDisplayNameMap(clientId, agentIds);
+          })()
+        : Promise.resolve(new Map<string, string>()),
     ]);
-    const agentMap = new Map(
-      agents.map(a => [
-        String(a._id),
-        a.displayName?.trim() || a.email?.split('@')[0] || 'Atendente',
-      ]),
-    );
+    const agentMap = agentNameMap;
     const pullTimeoutSeconds = inboxSettings.roundRobinPullTimeoutSeconds ?? 120;
     const triageTotalMin = triageInactivityTotalMinutes(
       inboxSettings.triageWarningMinutes ?? DEFAULT_INBOX_TRIAGE_INACTIVITY.triageWarningMinutes,
@@ -1152,22 +1167,29 @@ export class WebChatService {
       convDoc.visitorIntake as Record<string, string> | undefined,
     );
     let assignedUserName: string | undefined;
+    const agentIds = [convDoc.assignedUserId, convDoc.suggestedUserId].filter(Boolean) as string[];
+    const { resolveAgentChatDisplayNameMap } = await import(
+      '@/services/organization/chat-display-name.service'
+    );
+    const agentNameMap = await resolveAgentChatDisplayNameMap(clientId, agentIds);
     if (convDoc.assignedUserId) {
-      const agent = await User.findById(convDoc.assignedUserId).select('displayName email').lean();
-      assignedUserName =
-        agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+      assignedUserName = agentNameMap.get(String(convDoc.assignedUserId));
     }
 
-    const agentIds = [convDoc.assignedUserId, convDoc.suggestedUserId].filter(Boolean) as string[];
     const agents = agentIds.length
       ? await User.find({ _id: { $in: agentIds } }).select('displayName email').lean()
       : [];
-    const agentMap = new Map(
-      agents.map(a => [
-        String(a._id),
-        a.displayName?.trim() || a.email?.split('@')[0] || 'Atendente',
-      ]),
-    );
+    const agentMap = new Map<string, string>();
+    for (const uid of agentIds) {
+      const fromMember = agentNameMap.get(String(uid));
+      if (fromMember) agentMap.set(String(uid), fromMember);
+    }
+    for (const a of agents) {
+      const id = String(a._id);
+      if (!agentMap.has(id)) {
+        agentMap.set(id, a.displayName?.trim() || a.email?.split('@')[0] || 'Atendente');
+      }
+    }
     const inboxSettings = await loadInboxSettings(clientId);
     const pullTimeoutSeconds = inboxSettings.roundRobinPullTimeoutSeconds ?? 120;
 
@@ -1525,8 +1547,7 @@ export class WebChatService {
       conversation.visitorPhone,
     );
 
-    const agent = await User.findById(userId).select('displayName email').lean();
-    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+    const agentName = await this.agentDisplayName(clientId, userId);
 
     let ticket = await InboxTicket.findOne({ clientId: clientOid, ticketRef: ref });
     let created = false;
@@ -1570,11 +1591,7 @@ export class WebChatService {
 
     let assignedName: string | undefined;
     if (conversation.assignedUserId) {
-      const assignee = await User.findById(conversation.assignedUserId)
-        .select('displayName email')
-        .lean();
-      assignedName =
-        assignee?.displayName?.trim() || assignee?.email?.split('@')[0] || 'Atendente';
+      assignedName = await this.agentDisplayName(clientId, String(conversation.assignedUserId));
     }
 
     if (needsOpeningNotification) {
@@ -1765,15 +1782,10 @@ export class WebChatService {
 
     if (userId) {
       const agentIds = [conv.assignedUserId, conv.suggestedUserId].filter(Boolean) as string[];
-      const agents = agentIds.length
-        ? await User.find({ _id: { $in: agentIds } }).select('displayName email').lean()
-        : [];
-      const agentMap = new Map(
-        agents.map(a => [
-          String(a._id),
-          a.displayName?.trim() || a.email?.split('@')[0] || 'Atendente',
-        ]),
+      const { resolveAgentChatDisplayNameMap } = await import(
+        '@/services/organization/chat-display-name.service'
       );
+      const agentMap = await resolveAgentChatDisplayNameMap(clientId, agentIds);
       const inboxSettings = await loadInboxSettings(clientId);
       const display = visitorDisplayName(conv.visitorName, conv.visitorEmail, conv.visitorPhone);
       const enriched = await enrichWebChatInboxRow(
@@ -2011,8 +2023,7 @@ export class WebChatService {
 
     let name = senderName?.trim();
     if (!name) {
-      const user = await User.findById(userId).select('displayName').lean();
-      name = user?.displayName?.trim() || 'Atendente';
+      name = await this.agentDisplayName(clientId, userId);
     }
 
     this.emitTypingIndicator({
@@ -2036,7 +2047,7 @@ export class WebChatService {
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) return;
 
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
 
     this.emitTypingIndicator({
       clientId: String(conversation.clientId),
@@ -2058,7 +2069,7 @@ export class WebChatService {
 
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) throw new Error('Widget inativo');
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
 
     const messages = await WebChatMessage.find({ conversationId: conversation._id })
       .sort({ createdAt: 1 })
@@ -2079,7 +2090,7 @@ export class WebChatService {
 
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) throw new Error('Widget inativo');
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
 
     const clientIdStr = String(conversation.clientId);
     const convId = String(conversation._id);
@@ -2102,7 +2113,7 @@ export class WebChatService {
 
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) throw new Error('Widget inativo');
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
 
     await this.closeConversation(
       String(conversation.clientId),
@@ -2125,7 +2136,7 @@ export class WebChatService {
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) throw new Error('Widget inativo');
 
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
 
     const clientIdStr = String(conversation.clientId);
     const convId = String(conversation._id);
@@ -2272,7 +2283,7 @@ export class WebChatService {
 
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) throw new Error('Widget inativo');
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
 
     const clientIdStr = String(conversation.clientId);
     const convId = String(conversation._id);
@@ -2349,7 +2360,7 @@ export class WebChatService {
 
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) throw new Error('Widget inativo');
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
 
     const msg = await WebChatMessage.findOne({
       conversationId: conversation._id,
@@ -2458,7 +2469,7 @@ export class WebChatService {
 
     const widget = await WebChatWidget.findById(conversation.widgetId);
     if (!widget?.active) throw new Error('Widget inativo');
-    this.assertOrigin(widget, origin, referer);
+    await this.assertOrigin(widget, origin, referer);
     if (widget.faqInChatEnabled === false) throw new Error('FAQ desativada neste widget');
 
     const fresh = await WebChatConversation.findById(conversation._id);
@@ -3231,8 +3242,7 @@ export class WebChatService {
       String(conversation.assignedUserId) === String(userId)
     ) {
       const inboxSettings = await loadInboxSettings(clientId);
-      const agent = await User.findById(userId).select('displayName email').lean();
-      const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+      const agentName = await this.agentDisplayName(clientId, userId);
       const agentMap = new Map([[userId, agentName]]);
       const { contactName, contactIdentifier } = visitorDisplayName(
         conversation.visitorName,
@@ -3298,8 +3308,7 @@ export class WebChatService {
     conversation.lastMessageAt = new Date();
     await conversation.save();
 
-    const agent = await User.findById(userId).select('displayName email').lean();
-    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+    const agentName = await this.agentDisplayName(clientId, userId);
 
     if (wasPull) {
       await this.appendMessage(conversation, {
@@ -3554,7 +3563,8 @@ export class WebChatService {
 
     const clientIdStr = String(conversation.clientId);
     const convId = String(conversation._id);
-    const agentName = senderName?.trim() || 'Atendente';
+    const agentName =
+      senderName?.trim() || (await this.agentDisplayName(clientIdStr, userId));
 
     await assertWebChatSendAllowed(clientIdStr, convId, 'agent');
 
@@ -3611,13 +3621,15 @@ export class WebChatService {
     if (parsed.ok === false) throw new Error(parsed.error);
 
     const conversation = await this.prepareAgentReply(clientId, userId, conversationId);
+    const agentName =
+      senderName?.trim() || (await this.agentDisplayName(clientId, userId));
     const mediaUrl = saveWebChatMedia(clientId, parsed.data, parsed.ext);
 
     const msg = await this.appendMessage(conversation, {
       direction: 'outbound',
       body: parsed.body,
       senderUserId: userId,
-      senderName: senderName?.trim() || 'Atendente',
+      senderName: agentName,
       mediaType: parsed.mediaType,
       mediaUrl,
       mediaMime: parsed.mime,
@@ -3710,8 +3722,7 @@ export class WebChatService {
       throw new Error('Conversa em atendimento por outro agente');
     }
 
-    const agent = await User.findById(userId).select('displayName email').lean();
-    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+    const agentName = await this.agentDisplayName(clientId, userId);
     const customReason = reason?.trim();
     const systemReason =
       customReason ||
@@ -3820,8 +3831,7 @@ export class WebChatService {
     conversation.queueStatus = 'bot';
     await conversation.save();
 
-    const agent = await User.findById(userId).select('displayName email').lean();
-    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+    const agentName = await this.agentDisplayName(clientId, userId);
 
     await this.appendMessage(conversation, {
       direction: 'system',
@@ -3939,7 +3949,7 @@ export class WebChatService {
     if (widget.ticketLookupEnabled === false) {
       throw new Error('Consulta de chamado não está disponível');
     }
-    this.assertOrigin(widget, opts.origin, opts.referer);
+    await this.assertOrigin(widget, opts.origin, opts.referer);
 
     return lookupTicketByPublicAccess({
       clientId: String(widget.clientId),
@@ -3966,7 +3976,7 @@ export class WebChatService {
     if (widget.ticketLookupEnabled === false) {
       throw new Error('Consulta de chamado não está disponível');
     }
-    this.assertOrigin(widget, opts.origin, opts.referer);
+    await this.assertOrigin(widget, opts.origin, opts.referer);
 
     const channel: TicketTokenResendChannel =
       opts.channel === 'email' || (opts.email && !opts.phone) ? 'email' : 'whatsapp';
@@ -3999,7 +4009,7 @@ export class WebChatService {
     if (widget.ticketLookupEnabled === false) {
       throw new Error('Consulta de chamado não está disponível');
     }
-    this.assertOrigin(widget, opts.origin, opts.referer);
+    await this.assertOrigin(widget, opts.origin, opts.referer);
 
     const channel: TicketTokenResendChannel =
       opts.channel === 'email' || (opts.email && !opts.phone) ? 'email' : 'whatsapp';
@@ -4108,8 +4118,7 @@ export class WebChatService {
     });
     if (!targetMember?.userId) throw new Error('Atendente inválido');
 
-    const agent = await User.findById(targetUserId).select('displayName email').lean();
-    const agentName = agent?.displayName?.trim() || agent?.email?.split('@')[0] || 'Atendente';
+    const agentName = await this.agentDisplayName(clientId, targetUserId);
 
     if (mode === 'assign') {
       conversation.assignedUserId = targetUserId;
@@ -4194,5 +4203,12 @@ export class WebChatService {
       agentMap,
       inboxSettings.roundRobinPullTimeoutSeconds ?? 120,
     );
+  }
+
+  private async agentDisplayName(clientId: string, userId: string): Promise<string> {
+    const { resolveAgentChatDisplayName } = await import(
+      '@/services/organization/chat-display-name.service'
+    );
+    return resolveAgentChatDisplayName(clientId, userId);
   }
 }

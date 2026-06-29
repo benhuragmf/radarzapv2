@@ -8,6 +8,13 @@ import { User } from '@/models/User';
 import { EmailService } from '@/services/email/EmailService';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { createServiceLogger } from '@/utils/logger';
+import {
+  buildChatDisplayNameProfileFields,
+  updateChatDisplayNameByAdmin,
+  updateChatDisplayNameSelf,
+} from '@/services/organization/chat-display-name.service';
+import type { ChatDisplayNamePolicy } from '@/types/chat-display-name';
+import { normalizeChatDisplayNamePolicy } from '@/types/chat-display-name';
 
 const logger = createServiceLogger('MemberProfileService');
 const OTP_TTL_SEC = 600;
@@ -90,6 +97,13 @@ export interface MemberProfileDto {
   canEditProfile: boolean;
   profileComplete: boolean;
   pendingConfirmations: Array<'email' | 'whatsapp'>;
+  chatDisplayName: string | null;
+  chatDisplayNamePending: string | null;
+  chatDisplayNamePendingAt: string | null;
+  chatDisplayNamePolicy: ChatDisplayNamePolicy;
+  chatDisplayNameEffective: string;
+  canEditChatDisplayName: boolean;
+  chatDisplayNameAwaitingApproval: boolean;
 }
 
 type UserLean = {
@@ -98,10 +112,14 @@ type UserLean = {
   authProviders?: ('google' | 'discord')[];
 };
 
-async function loadOrgTeamSettings(organizationId: string): Promise<{ allowMembersEditOwnProfile: boolean }> {
+async function loadOrgTeamSettings(organizationId: string): Promise<{
+  allowMembersEditOwnProfile: boolean;
+  chatDisplayNamePolicy: ChatDisplayNamePolicy;
+}> {
   const org = await Organization.findById(organizationId).select('teamSettings').lean();
   return {
     allowMembersEditOwnProfile: org?.teamSettings?.allowMembersEditOwnProfile === true,
+    chatDisplayNamePolicy: normalizeChatDisplayNamePolicy(org?.teamSettings?.chatDisplayNamePolicy),
   };
 }
 
@@ -140,7 +158,7 @@ function buildPendingConfirmations(
 function memberToProfile(
   member: ICompanyMember,
   user: UserLean | null | undefined,
-  allowSelfEdit: boolean,
+  teamSettings: { allowMembersEditOwnProfile: boolean; chatDisplayNamePolicy: ChatDisplayNamePolicy },
 ): MemberProfileDto {
   const email = member.email ?? user?.email ?? null;
   const emailAutoVerifiedByGoogle = isGoogleEmailAutoVerified(user, member);
@@ -148,6 +166,8 @@ function memberToProfile(
   const whatsappPhoneVerified = Boolean(member.whatsappPhoneVerifiedAt);
   const pendingConfirmations = buildPendingConfirmations(member, user ?? null, emailVerified);
   const profileComplete = pendingConfirmations.length === 0;
+  const allowSelfEdit = teamSettings.allowMembersEditOwnProfile;
+  const chatFields = buildChatDisplayNameProfileFields(member, user ?? null, teamSettings.chatDisplayNamePolicy);
 
   return {
     email,
@@ -165,6 +185,7 @@ function memberToProfile(
     canEditProfile: allowSelfEdit && member.companyRole !== 'OWNER',
     profileComplete,
     pendingConfirmations,
+    ...chatFields,
   };
 }
 
@@ -340,7 +361,7 @@ async function confirmWhatsappOtp(
     loadUserForMember(member),
     loadOrgTeamSettings(organizationId),
   ]);
-  return memberToProfile(member, user, teamSettings.allowMembersEditOwnProfile);
+  return memberToProfile(member, user, teamSettings);
 }
 
 async function sendEmailVerificationOtp(
@@ -432,7 +453,7 @@ async function confirmEmailOtp(
     loadUserForMember(member),
     loadOrgTeamSettings(organizationId),
   ]);
-  return memberToProfile(member, user, teamSettings.allowMembersEditOwnProfile);
+  return memberToProfile(member, user, teamSettings);
 }
 
 async function assertSelfWhatsappAllowed(
@@ -461,7 +482,7 @@ export async function getMemberProfile(
   const user = await loadUserForMember(member);
   await maybeBackfillGoogleEmailVerification(member, user);
   const teamSettings = await loadOrgTeamSettings(organizationId);
-  return memberToProfile(member, user, teamSettings.allowMembersEditOwnProfile);
+  return memberToProfile(member, user, teamSettings);
 }
 
 export async function getMemberProfileByMemberId(
@@ -472,24 +493,36 @@ export async function getMemberProfileByMemberId(
   const user = await loadUserForMember(member);
   await maybeBackfillGoogleEmailVerification(member, user);
   const teamSettings = await loadOrgTeamSettings(organizationId);
-  return memberToProfile(member, user, teamSettings.allowMembersEditOwnProfile);
+  return memberToProfile(member, user, teamSettings);
 }
 
 export async function getTeamSettings(organizationId: string): Promise<{
   allowMembersEditOwnProfile: boolean;
+  chatDisplayNamePolicy: ChatDisplayNamePolicy;
 }> {
   return loadOrgTeamSettings(organizationId);
 }
 
 export async function updateTeamSettings(
   organizationId: string,
-  patch: { allowMembersEditOwnProfile?: boolean },
-): Promise<{ allowMembersEditOwnProfile: boolean }> {
+  patch: {
+    allowMembersEditOwnProfile?: boolean;
+    chatDisplayNamePolicy?: ChatDisplayNamePolicy;
+  },
+): Promise<{
+  allowMembersEditOwnProfile: boolean;
+  chatDisplayNamePolicy: ChatDisplayNamePolicy;
+}> {
   const org = await Organization.findById(organizationId);
   if (!org) throw new Error('Empresa não encontrada');
-  if (!org.teamSettings) org.teamSettings = { allowMembersEditOwnProfile: false };
+  if (!org.teamSettings) {
+    org.teamSettings = { allowMembersEditOwnProfile: false, chatDisplayNamePolicy: 'self_service' };
+  }
   if (patch.allowMembersEditOwnProfile !== undefined) {
     org.teamSettings.allowMembersEditOwnProfile = patch.allowMembersEditOwnProfile;
+  }
+  if (patch.chatDisplayNamePolicy !== undefined) {
+    org.teamSettings.chatDisplayNamePolicy = normalizeChatDisplayNamePolicy(patch.chatDisplayNamePolicy);
   }
   org.markModified('teamSettings');
   await org.save();
@@ -499,11 +532,21 @@ export async function updateTeamSettings(
 export async function updateMemberProfileByAdmin(
   organizationId: string,
   memberId: string,
-  patch: { displayName?: string | null; email?: string | null; whatsappPhone?: string | null },
+  patch: {
+    displayName?: string | null;
+    email?: string | null;
+    whatsappPhone?: string | null;
+    chatDisplayName?: string | null;
+  },
 ): Promise<MemberProfileDto> {
-  const member = await loadMemberById(organizationId, memberId);
+  let member = await loadMemberById(organizationId, memberId);
   if (member.companyRole === 'OWNER') {
     throw new Error('Use Meu perfil para alterar dados do dono');
+  }
+
+  if (patch.chatDisplayName !== undefined) {
+    await updateChatDisplayNameByAdmin(organizationId, memberId, patch.chatDisplayName);
+    member = await loadMemberById(organizationId, memberId);
   }
 
   if (patch.displayName !== undefined) {
@@ -528,35 +571,46 @@ export async function updateMemberProfileByAdmin(
     if (changed) member.whatsappPhoneVerifiedAt = undefined;
   }
 
-  await member.save();
+  if (
+    patch.displayName !== undefined ||
+    patch.email !== undefined ||
+    patch.whatsappPhone !== undefined
+  ) {
+    await member.save();
+  }
 
   const user = await loadUserForMember(member);
   const teamSettings = await loadOrgTeamSettings(organizationId);
-  return memberToProfile(member, user, teamSettings.allowMembersEditOwnProfile);
+  return memberToProfile(member, user, teamSettings);
 }
 
 export async function updateMemberProfileSelf(
   userId: string,
   organizationId: string,
-  patch: { displayName?: string | null },
+  patch: { displayName?: string | null; chatDisplayName?: string | null },
 ): Promise<MemberProfileDto> {
-  const member = await loadMemberByUserId(organizationId, userId);
   const teamSettings = await loadOrgTeamSettings(organizationId);
-  if (!teamSettings.allowMembersEditOwnProfile) {
-    throw new Error('Sua empresa não permite editar seus dados — confirme e-mail e WhatsApp abaixo.');
-  }
-  if (member.companyRole === 'OWNER') {
-    throw new Error('Dono edita nome em Conta vinculada');
+
+  if (patch.chatDisplayName !== undefined && patch.chatDisplayName !== null) {
+    await updateChatDisplayNameSelf(userId, organizationId, patch.chatDisplayName);
   }
 
   if (patch.displayName !== undefined) {
+    const member = await loadMemberByUserId(organizationId, userId);
+    if (!teamSettings.allowMembersEditOwnProfile) {
+      throw new Error('Sua empresa não permite editar seus dados — confirme e-mail e WhatsApp abaixo.');
+    }
+    if (member.companyRole === 'OWNER') {
+      throw new Error('Dono edita nome em Conta vinculada');
+    }
     const trimmed = patch.displayName?.trim() ?? '';
     member.displayName = trimmed ? trimmed.slice(0, 120) : undefined;
     await member.save();
   }
 
+  const member = await loadMemberByUserId(organizationId, userId);
   const user = await loadUserForMember(member);
-  return memberToProfile(member, user, teamSettings.allowMembersEditOwnProfile);
+  return memberToProfile(member, user, teamSettings);
 }
 
 export async function requestWhatsappVerification(
@@ -678,5 +732,5 @@ async function clearWhatsappForMember(
 
   const user = await loadUserForMember(member);
   const teamSettings = await loadOrgTeamSettings(organizationId);
-  return memberToProfile(member, user, teamSettings.allowMembersEditOwnProfile);
+  return memberToProfile(member, user, teamSettings);
 }

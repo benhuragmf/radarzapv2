@@ -8,6 +8,8 @@ import { isWebChatOriginAllowed } from '@/services/webchat/webchat-token.util';
 jest.mock('@/config/environment', () => ({
   config: {
     PUBLIC_EMBED: { ALLOW_OPEN_ORIGIN: true },
+    DASHBOARD: { FRONTEND_URL: 'https://app.radarchat.com.br' },
+    CORS_ORIGIN: 'https://app.radarchat.com.br',
   },
 }));
 

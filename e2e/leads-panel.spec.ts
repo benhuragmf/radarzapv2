@@ -29,9 +29,12 @@ test.describe('Leads — painel expandido (mock)', () => {
     await expect(page.getByText('50%')).toBeVisible();
   });
 
-  test('aba Integrar mostra prévia', async ({ page }) => {
+  test('aba Formulários mostra integração e prévia', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.getByRole('button', { name: /Formulários/i }).click();
+    await expect(page.getByText('Por onde começar?')).toBeVisible();
+    await expect(page.getByText('Pré-visualização')).toBeVisible();
     await page.getByRole('button', { name: /Integrar no site/i }).click();
-    await expect(page.getByText('Pré-visualização ao vivo')).toBeVisible();
     await expect(page.locator('iframe[title*="Preview"]')).toBeVisible();
   });
 });

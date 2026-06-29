@@ -20,6 +20,8 @@ export interface IWebChatWidget extends Document {
   publicKey: string;
   active: boolean;
   allowedDomains: string[];
+  /** Inclui hosts do site em Configurações → Empresa (padrão true). */
+  includeCompanyWebsite?: boolean;
   appearance: WebChatWidgetAppearance;
   autoReplyEnabled: boolean;
   autoReplyMessage: string;
@@ -76,6 +78,7 @@ const WebChatWidgetSchema = new Schema<IWebChatWidget>(
     publicKey: { type: String, required: true, unique: true, index: true },
     active: { type: Boolean, default: true, index: true },
     allowedDomains: { type: [String], default: [] },
+    includeCompanyWebsite: { type: Boolean, default: true },
     appearance: { type: AppearanceSchema, default: () => ({ ...DEFAULT_WEBCHAT_APPEARANCE }) },
     autoReplyEnabled: { type: Boolean, default: true },
     autoReplyMessage: { type: String, default: DEFAULT_WEBCHAT_AUTO_REPLY_MESSAGE, maxlength: 500 },

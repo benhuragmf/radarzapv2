@@ -8,6 +8,8 @@ export interface ILeadForm extends Document {
   publicKey: string;
   active: boolean;
   allowedDomains: string[];
+  /** Inclui hosts do site em Configurações → Empresa (padrão true). */
+  includeCompanyWebsite?: boolean;
   appearance: LeadFormAppearance;
   routing: LeadFormRouting;
   redirectUrl?: string;
@@ -83,6 +85,7 @@ const LeadFormSchema = new Schema<ILeadForm>(
     publicKey: { type: String, required: true, unique: true, index: true },
     active: { type: Boolean, default: true, index: true },
     allowedDomains: { type: [String], default: [] },
+    includeCompanyWebsite: { type: Boolean, default: true },
     appearance: { type: AppearanceSchema, default: () => ({ ...DEFAULT_LEAD_FORM_APPEARANCE }) },
     routing: { type: RoutingSchema, default: () => ({ ...DEFAULT_LEAD_FORM_ROUTING }) },
     redirectUrl: { type: String, maxlength: 500 },

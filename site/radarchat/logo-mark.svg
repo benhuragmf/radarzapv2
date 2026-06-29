@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 208 222" fill="none" role="img" aria-label="Radar Chat">
+  <defs>
+    <linearGradient id="rc-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00D4FF"/>
+      <stop offset="0.55" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="28" width="160" height="132" rx="42" fill="url(#rc-g)"/>
+  <path d="M74 160 L52 194 L110 162 Z" fill="url(#rc-g)"/>
+  <circle cx="94" cy="92" r="11" fill="#fff"/>
+  <path d="M113 74 C134 88 134 116 113 130" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" opacity="0.95"/>
+  <path d="M137 52 C177 82 177 136 137 166" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
+  <path d="M60 72 C43 90 43 114 60 132" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity="0.75"/>
+  <circle cx="154" cy="48" r="10" fill="#22C55E" stroke="#fff" stroke-width="5"/>
+</svg>

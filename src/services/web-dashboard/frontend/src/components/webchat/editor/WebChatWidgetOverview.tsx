@@ -31,7 +31,7 @@ export function WebChatWidgetOverview({ statuses, onNavigate, editorMode }: Prop
           Por onde começar?
         </h4>
         <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
-          Configure nesta ordem: identificação → aparência → formulário inicial → instale no site.
+          Configure nesta ordem: domínios permitidos → aparência → instale o script no site.
           IA, horários e opções avançadas podem vir depois.
         </p>
         <ol className="mt-3 space-y-2">

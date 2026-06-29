@@ -1,5 +1,8 @@
 import crypto from 'crypto';
-import { isWebChatOriginAllowed } from '@/services/webchat/webchat-token.util';
+import {
+  type EmbedAllowedDomainsOptions,
+  isEmbedOriginAllowed,
+} from '@/utils/embed-allowed-domains.util';
 
 export function generateLeadFormPublicKey(): string {
   return `lfm_${crypto.randomBytes(16).toString('hex')}`;
@@ -9,8 +12,9 @@ export function assertLeadFormOrigin(
   allowedDomains: string[],
   origin?: string | null,
   referer?: string | null,
+  options?: EmbedAllowedDomainsOptions,
 ): void {
-  if (!isWebChatOriginAllowed(allowedDomains, origin, referer)) {
+  if (!isEmbedOriginAllowed(allowedDomains, origin, referer, options)) {
     throw new Error('Origem não autorizada para este formulário');
   }
 }

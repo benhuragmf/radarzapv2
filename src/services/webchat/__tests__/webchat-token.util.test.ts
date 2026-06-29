@@ -4,6 +4,7 @@ import {
   hashWebChatVisitorToken,
   isPublicEmbedOpenOriginPolicyEnabled,
   isWebChatOriginAllowed,
+  normalizeAllowedDomainEntry,
 } from '../webchat-token.util';
 
 jest.mock('@/config/environment', () => ({
@@ -51,6 +52,13 @@ describe('webchat-token.util', () => {
     expect(isWebChatOriginAllowed(allowed, 'https://meusite.com', null)).toBe(true);
     expect(isWebChatOriginAllowed(allowed, 'https://app.loja.com', null)).toBe(true);
     expect(isWebChatOriginAllowed(allowed, 'https://outro.com', null)).toBe(false);
+  });
+
+  it('aceita URL com protocolo nos domínios permitidos', () => {
+    const allowed = ['https://radarchat.com.br/'];
+    expect(isWebChatOriginAllowed(allowed, 'https://radarchat.com.br', null)).toBe(true);
+    expect(normalizeAllowedDomainEntry('https://radarchat.com.br/')).toBe('radarchat.com.br');
+    expect(normalizeAllowedDomainEntry('*.loja.com')).toBe('*.loja.com');
   });
 
   it('em desenvolvimento libera localhost mesmo com allowedDomains restrito', () => {
