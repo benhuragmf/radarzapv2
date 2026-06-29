@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Building2, Zap } from 'lucide-react'
+import { ArrowRight, Building2 } from 'lucide-react'
+import { AuthBrand } from '../components/auth/AuthBrand'
+import { AuthHero } from '../components/auth/AuthHero'
 import { switchOrganization, type AuthUser, type UserOrganization } from '../lib/auth'
 import { Spinner } from '../components/ui/Spinner'
 
@@ -35,62 +37,87 @@ export default function ChooseCompany({ user, onSelected }: Props) {
   }
 
   return (
-    <div className="rz-auth-page px-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-[var(--rz-primary)] rounded-xl flex items-center justify-center shadow-lg">
-            <Zap size={24} className="text-white rz-on-primary" />
+    <div className="rz-auth-shell">
+      <AuthHero />
+
+      <main className="rz-auth-main">
+        <div className="rz-auth-main-inner rz-auth-main-inner-wide">
+          <div className="rz-auth-mobile-brand lg:hidden">
+            <AuthBrand subtitle="Escolha onde trabalhar" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--rz-text-primary)]">Radar Chat</h1>
-            <p className="text-xs text-[var(--rz-text-muted)]">Escolha onde trabalhar</p>
+
+          <div className="rz-auth-card">
+            <header className="rz-auth-card-header">
+              <h2 className="rz-auth-card-title">Selecione a empresa</h2>
+              <p className="rz-auth-card-subtitle">
+                Olá, <strong className="text-[var(--rz-text-primary)]">{user.username}</strong>. Você tem acesso a{' '}
+                {user.organizations.length === 1 ? 'uma empresa' : 'mais de uma empresa'} — escolha qual abrir agora.
+                Pode trocar depois no topo do painel.
+              </p>
+            </header>
+
+            {error ? (
+              <div className="rz-auth-error" role="alert">
+                {error}
+              </div>
+            ) : null}
+
+            <ul className="rz-auth-org-list">
+              {user.organizations.map(org => {
+                const loading = loadingId === org.organizationId
+                const disabled = loadingId !== null && !loading
+
+                return (
+                  <li key={org.organizationId}>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => handleSelect(org.organizationId)}
+                      className="rz-auth-org-item"
+                      aria-busy={loading}
+                    >
+                      <span className="rz-auth-org-icon">
+                        <Building2 size={20} strokeWidth={1.75} aria-hidden />
+                      </span>
+                      <span className="rz-auth-org-body">
+                        <span className="rz-auth-org-name">{org.organizationName}</span>
+                        <span className="rz-auth-org-meta">
+                          <span className="rz-auth-org-role">{ROLE_LABEL[org.companyRole]}</span>
+                          {org.companyRole !== 'OWNER' && org.ownerEmail ? (
+                            <>
+                              <span className="rz-auth-org-dot" aria-hidden>
+                                ·
+                              </span>
+                              <span>Dono: {org.ownerEmail}</span>
+                            </>
+                          ) : null}
+                        </span>
+                      </span>
+                      <span className="rz-auth-org-action">
+                        {loading ? (
+                          <Spinner size={18} />
+                        ) : (
+                          <>
+                            Entrar
+                            <ArrowRight size={16} aria-hidden />
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
+
+          <footer className="rz-auth-footer">
+            <p>
+              {user.organizations.length} {user.organizations.length === 1 ? 'empresa disponível' : 'empresas disponíveis'}{' '}
+              para sua conta.
+            </p>
+          </footer>
         </div>
-
-        <div className="rz-card rounded-2xl p-8">
-          <h2 className="text-lg font-semibold text-[var(--rz-text-primary)] mb-2">Selecione a empresa</h2>
-          <p className="text-sm text-[var(--rz-text-secondary)] mb-6 leading-relaxed">
-            Olá, <strong className="text-[var(--rz-text-primary)]">{user.username}</strong>. Você tem acesso a mais de
-            uma empresa — escolha qual deseja abrir agora. Pode trocar depois no topo do painel.
-          </p>
-
-          {error && (
-            <div className="mb-4 px-4 py-2 bg-[var(--rz-danger-bg)] border border-[var(--rz-danger-text)]/30 rounded-lg text-sm text-[var(--rz-danger-text)]">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {user.organizations.map(org => (
-              <button
-                key={org.organizationId}
-                type="button"
-                disabled={loadingId !== null}
-                onClick={() => handleSelect(org.organizationId)}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)] hover:border-[var(--rz-primary)]/50 hover:bg-[var(--rz-primary)]/5 transition-colors text-left disabled:opacity-60"
-              >
-                <div className="w-10 h-10 rounded-lg bg-[var(--rz-surface)] border border-[var(--rz-border)] flex items-center justify-center shrink-0">
-                  <Building2 size={18} className="text-[var(--rz-primary)]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--rz-text-primary)] truncate">{org.organizationName}</p>
-                  <p className="text-xs text-[var(--rz-text-muted)]">
-                    {ROLE_LABEL[org.companyRole]}
-                    {org.companyRole !== 'OWNER' && org.ownerEmail && (
-                      <> · Dono: <span className="text-[var(--rz-text-secondary)]">{org.ownerEmail}</span></>
-                    )}
-                  </p>
-                </div>
-                {loadingId === org.organizationId ? (
-                  <Spinner size={18} />
-                ) : (
-                  <span className="text-xs text-[var(--rz-primary)] font-medium">Entrar</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   )
 }

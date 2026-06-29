@@ -4,8 +4,8 @@
   "description": "Painel Radar Chat — WhatsApp, inbox e automações",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#22c55e",
+  "background_color": "#07050f",
+  "theme_color": "#7e14ff",
   "orientation": "portrait-primary",
   "icons": [
     {

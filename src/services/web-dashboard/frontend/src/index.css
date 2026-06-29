@@ -128,6 +128,7 @@ html[data-theme='light'] {
   body {
     background-color: var(--rz-background);
     color: var(--rz-text-primary);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
@@ -186,7 +187,7 @@ html[data-theme='light'] [class*='bg-[var(--rz-primary)]'].text-white {
   box-shadow: var(--rz-shadow-card);
 }
 
-/* Auth pages */
+/* Auth pages — layout split (login) + fallback centrado (choose company) */
 .rz-auth-page {
   min-height: 100vh;
   display: flex;
@@ -196,6 +197,414 @@ html[data-theme='light'] [class*='bg-[var(--rz-primary)]'].text-white {
 }
 html[data-theme='light'] .rz-auth-page {
   background: linear-gradient(160deg, #07111f 0%, #f3f7fb 50%, #e8eef5 100%);
+}
+
+.rz-auth-shell {
+  --rz-auth-purple: #7e14ff;
+  --rz-auth-cyan: #47bfff;
+  --rz-auth-ink: #f2ecff;
+  --rz-auth-muted: #a29bb5;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: var(--rz-background);
+}
+@media (min-width: 1024px) {
+  .rz-auth-shell {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  }
+}
+
+.rz-auth-hero {
+  position: relative;
+  display: none;
+  overflow: hidden;
+  background: #07050f;
+  color: var(--rz-auth-ink);
+}
+@media (min-width: 1024px) {
+  .rz-auth-hero {
+    display: flex;
+    align-items: stretch;
+  }
+}
+.rz-auth-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(71, 191, 255, 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 55% at 85% 75%, rgba(126, 20, 255, 0.22), transparent 50%),
+    linear-gradient(165deg, #07050f 0%, #12101c 48%, #0d0a16 100%);
+}
+.rz-auth-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.45;
+  background-image:
+    linear-gradient(rgba(155, 77, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155, 77, 255, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
+}
+.rz-auth-hero-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2.5rem;
+  width: min(520px, calc(100% - 4rem));
+  margin: 0 auto;
+  padding: 3rem 0;
+}
+
+.rz-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+.rz-auth-brand-logo {
+  flex-shrink: 0;
+  filter: drop-shadow(0 8px 24px rgba(126, 20, 255, 0.35));
+}
+.rz-auth-brand-name {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--rz-auth-ink);
+}
+.rz-auth-brand-tag {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--rz-auth-muted);
+}
+.rz-auth-page .rz-auth-brand-name,
+.rz-auth-main .rz-auth-mobile-brand .rz-auth-brand-name {
+  color: var(--rz-text-primary);
+}
+.rz-auth-page .rz-auth-brand-tag,
+.rz-auth-main .rz-auth-mobile-brand .rz-auth-brand-tag {
+  color: var(--rz-text-muted);
+}
+.rz-auth-hero .rz-auth-brand-name {
+  color: var(--rz-auth-ink);
+}
+.rz-auth-hero .rz-auth-brand-tag {
+  color: var(--rz-auth-muted);
+}
+
+.rz-auth-hero-title {
+  margin: 0;
+  font-size: clamp(1.875rem, 3vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: #fff;
+}
+.rz-auth-hero-accent {
+  display: block;
+  background: linear-gradient(90deg, var(--rz-auth-cyan), var(--rz-auth-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rz-auth-hero-lead {
+  margin: 1rem 0 0;
+  max-width: 34ch;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--rz-auth-muted);
+}
+
+.rz-auth-highlights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.rz-auth-highlight {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--rz-radius-xl);
+  border: 1px solid rgba(155, 77, 255, 0.18);
+  background: rgba(18, 16, 28, 0.72);
+  backdrop-filter: blur(8px);
+}
+.rz-auth-highlight-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--rz-radius-lg);
+  background: rgba(126, 20, 255, 0.16);
+  color: var(--rz-auth-cyan);
+  flex-shrink: 0;
+}
+.rz-auth-highlight strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.125rem;
+}
+.rz-auth-highlight span span {
+  display: block;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--rz-auth-muted);
+}
+
+.rz-auth-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% -10%, rgba(99, 102, 241, 0.08), transparent 55%),
+    var(--rz-background);
+}
+html[data-theme='light'] .rz-auth-main {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% -10%, rgba(126, 20, 255, 0.06), transparent 55%),
+    var(--rz-background);
+}
+.rz-auth-main-inner {
+  width: min(420px, 100%);
+}
+.rz-auth-main-inner-wide {
+  width: min(480px, 100%);
+}
+.rz-auth-mobile-brand {
+  margin-bottom: 1.75rem;
+}
+
+.rz-auth-card {
+  background: var(--rz-surface);
+  border: 1px solid var(--rz-border);
+  border-radius: var(--rz-radius-2xl);
+  box-shadow: var(--rz-shadow-drawer);
+  padding: 2rem 1.75rem;
+}
+@media (min-width: 640px) {
+  .rz-auth-card {
+    padding: 2.25rem 2rem;
+  }
+}
+.rz-auth-card-header {
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+.rz-auth-card-title {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--rz-text-primary);
+}
+.rz-auth-card-subtitle {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--rz-text-secondary);
+}
+
+.rz-auth-error {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--rz-radius-lg);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--rz-danger-text);
+  background: var(--rz-danger-bg);
+  border: 1px solid color-mix(in srgb, var(--rz-danger-text) 28%, transparent);
+}
+
+.rz-auth-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.rz-auth-provider-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.rz-auth-provider-label {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--rz-text-secondary);
+}
+.rz-auth-provider-badge {
+  align-self: flex-start;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--rz-info-text);
+  background: var(--rz-info-bg);
+}
+.rz-auth-provider-badge-discord {
+  color: #c4b5fd;
+  background: rgba(88, 101, 242, 0.18);
+}
+html[data-theme='light'] .rz-auth-provider-badge-discord {
+  color: #4338ca;
+  background: rgba(88, 101, 242, 0.12);
+}
+
+.rz-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  color: var(--rz-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.rz-auth-divider::before,
+.rz-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rz-border);
+}
+
+.rz-auth-footer {
+  margin-top: 1.75rem;
+  text-align: center;
+}
+.rz-auth-footer p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--rz-text-muted);
+}
+.rz-auth-footer p + p {
+  margin-top: 0.625rem;
+}
+.rz-auth-footer a {
+  color: var(--rz-primary);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.rz-auth-footer a:hover {
+  color: var(--rz-primary-hover);
+  text-decoration: underline;
+}
+
+.rz-auth-org-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.rz-auth-org-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+  border-radius: var(--rz-radius-xl);
+  border: 1px solid var(--rz-border);
+  background: var(--rz-surface-muted);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.rz-auth-org-item:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--rz-auth-purple, #7e14ff) 45%, var(--rz-border));
+  background: color-mix(in srgb, var(--rz-auth-purple, #7e14ff) 6%, var(--rz-surface-muted));
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+.rz-auth-org-item:focus-visible {
+  outline: none;
+  box-shadow: var(--rz-shadow-focus);
+}
+.rz-auth-org-item:active:not(:disabled) {
+  transform: scale(0.992);
+}
+.rz-auth-org-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.rz-auth-org-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--rz-radius-lg);
+  background: var(--rz-surface);
+  border: 1px solid var(--rz-border);
+  color: var(--rz-primary);
+  flex-shrink: 0;
+}
+.rz-auth-org-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.rz-auth-org-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--rz-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rz-auth-org-meta {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--rz-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rz-auth-org-role {
+  font-weight: 500;
+  color: var(--rz-text-secondary);
+}
+.rz-auth-org-dot {
+  margin: 0 0.25rem;
+}
+.rz-auth-org-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--rz-primary);
+}
+.rz-auth-org-item:hover:not(:disabled) .rz-auth-org-action {
+  color: var(--rz-primary-hover);
 }
 
 /* Preview WhatsApp — fundo escuro fixo (não segue tema claro do painel) */
@@ -234,24 +643,44 @@ html[data-theme='light'] .rz-auth-page {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  font-weight: 500;
-  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  padding: 0.8125rem 1.5rem;
   border-radius: var(--rz-radius-xl);
-  transition: background-color 0.15s, color 0.15s;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.rz-oauth-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--rz-shadow-focus);
+}
+.rz-oauth-btn:active {
+  transform: scale(0.985);
 }
 .rz-oauth-btn-google {
   background-color: var(--rz-oauth-google-bg);
   color: var(--rz-oauth-google-text);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
 }
 .rz-oauth-btn-google:hover {
   background-color: var(--rz-oauth-google-hover);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.08);
 }
 .rz-oauth-btn-discord {
   background-color: var(--rz-oauth-discord);
   color: var(--rz-on-primary);
+  box-shadow: 0 4px 14px rgb(88 101 242 / 0.28);
 }
 .rz-oauth-btn-discord:hover {
   background-color: var(--rz-oauth-discord-hover);
+  box-shadow: 0 6px 20px rgb(88 101 242 / 0.35);
 }
 
 /* QR WhatsApp — fundo claro fixo para leitura pelo app */

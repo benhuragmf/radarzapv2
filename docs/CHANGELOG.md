@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.72] — 2026-06-29
+
+### Frontend — Login profissional (Layout v3)
+
+- Tela de login split: painel hero (marca Radar Chat, proposta de valor) + card OAuth.
+- Logo oficial (`favicon.svg`), fonte Inter, botões Google/Discord refinados.
+- Badges de perfil (Dono / Equipe), link para `radarchat.com.br`.
+- `ChooseCompany`: layout split + lista de empresas refinada (card clicável).
+- `theme-color` e manifest alinhados à marca roxa.
+
 ## [2.12.71] — 2026-06-29
 
 ### Infra — Migração produção Coolify (VPS ZAP)
