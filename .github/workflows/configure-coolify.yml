@@ -1,0 +1,47 @@
+# Configura resource RadarZap no Coolify (projeto, compose, env, deploy).
+name: Configure Coolify (RadarZap)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite CONFIGURE para confirmar'
+        required: true
+        type: string
+      migrate_legacy:
+        description: 'Parar GHCR legado e fazer deploy no Coolify (1=sim)'
+        required: false
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '0'
+
+jobs:
+  configure:
+    if: github.event.inputs.confirm == 'CONFIGURE'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure RadarZap on Coolify via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          MIGRATE_LEGACY: ${{ github.event.inputs.migrate_legacy }}
+          COOLIFY_ROOT_EMAIL: ${{ secrets.COOLIFY_ROOT_EMAIL }}
+          COOLIFY_ROOT_PASSWORD: ${{ secrets.COOLIFY_ROOT_PASSWORD }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_PATH,MIGRATE_LEGACY,COOLIFY_ROOT_EMAIL,COOLIFY_ROOT_PASSWORD
+          script_stop: true
+          command_timeout: 60m
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            git fetch origin main -q && git reset --hard origin/main -q
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq jq openssl
+            sudo -E bash scripts/vps-configure-coolify-radarzap.sh
