@@ -90,7 +90,35 @@ echo 'ok';
   fi
 }
 
+ensure_team() {
+  local team_id user_id
+  team_id="$(psql_exec 'SELECT id FROM teams LIMIT 1;')"
+  user_id="$(psql_exec 'SELECT id FROM users LIMIT 1;')"
+  if [[ -n "$team_id" && -n "$user_id" ]]; then
+    psql_exec "UPDATE users SET current_team_id = ${team_id} WHERE id = ${user_id} AND (current_team_id IS NULL OR current_team_id = 0);" >/dev/null || true
+    psql_exec "UPDATE servers SET team_id = ${team_id} WHERE team_id IS NULL;" >/dev/null || true
+    log "Team OK (id=$team_id, user=$user_id)."
+    return 0
+  fi
+  log "Criando team para usuário existente..."
+  team_id="$(docker exec coolify php artisan tinker --execute="
+\$user = \\App\\Models\\User::first();
+if (!\$user) { echo 'ERROR'; exit(1); }
+\$team = \\App\\Models\\Team::create(['name' => 'RadarZap', 'personal_team' => true]);
+\$user->teams()->attach(\$team, ['role' => 'owner']);
+\$user->current_team_id = \$team->id;
+\$user->save();
+echo \$team->id;
+" 2>/dev/null | tail -1)"
+  log "Team criado: $team_id"
+}
+
 enable_api_and_token() {
+  ensure_team
+  local user_id team_id
+  user_id="$(psql_exec 'SELECT id FROM users LIMIT 1;')"
+  team_id="$(psql_exec 'SELECT id FROM teams LIMIT 1;')"
+
   log "Habilitando API Coolify..."
   docker exec coolify php artisan tinker --execute='
 $s = \App\Models\InstanceSettings::first();
@@ -104,13 +132,22 @@ echo "ok";
   log "Gerando token API..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
-$user = \App\Models\User::first();
-$team = \App\Models\Team::first();
-if (!$user || !$team) { echo "ERROR:no-user"; exit(1); }
-$user->tokens()->where("name", "radarzap-automation")->delete();
-$result = $user->createToken("radarzap-automation", ["root"]);
-$result->accessToken->forceFill(["team_id" => $team->id])->save();
-echo "TOKEN|" . $result->plainTextToken;
+$userId = '"${user_id}"';
+$teamId = '"${team_id}"';
+$user = \App\Models\User::find($userId);
+$team = \App\Models\Team::find($teamId);
+if (!$user || !$team) { echo "ERROR:no-user-team"; exit(1); }
+\Laravel\Sanctum\PersonalAccessToken::where("name", "radarzap-automation")->delete();
+$plain = \Illuminate\Support\Str::random(48);
+$pat = new \Laravel\Sanctum\PersonalAccessToken();
+$pat->name = "radarzap-automation";
+$pat->token = hash("sha256", $plain);
+$pat->abilities = "[\"root\"]";
+$pat->tokenable_type = get_class($user);
+$pat->tokenable_id = $user->id;
+$pat->team_id = $team->id;
+$pat->save();
+echo "TOKEN|" . $plain;
 ' 2>&1)" || true
   API_TOKEN="$(echo "$out" | grep -oE 'TOKEN\|[A-Za-z0-9]+' | tail -1 | tr '|' '\n' | tail -1 || true)"
   if [[ -z "$API_TOKEN" ]]; then
@@ -119,7 +156,7 @@ echo "TOKEN|" . $result->plainTextToken;
     exit 1
   fi
   API_TOKEN="1|${API_TOKEN}"
-  psql_exec "UPDATE servers SET team_id = (SELECT id FROM teams LIMIT 1) WHERE team_id IS NULL;" >/dev/null || true
+  psql_exec "UPDATE servers SET team_id = ${team_id} WHERE team_id IS NULL;" >/dev/null || true
 }
 
 detect_legacy_volumes() {
