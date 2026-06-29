@@ -91,33 +91,26 @@ echo 'ok';
 }
 
 ensure_team() {
-  local team_id user_id
-  team_id="$(psql_exec 'SELECT id FROM teams LIMIT 1;')"
-  user_id="$(psql_exec 'SELECT id FROM users LIMIT 1;')"
-  if [[ -n "$team_id" && -n "$user_id" ]]; then
-    psql_exec "UPDATE users SET current_team_id = ${team_id} WHERE id = ${user_id} AND (current_team_id IS NULL OR current_team_id = 0);" >/dev/null || true
-    psql_exec "UPDATE servers SET team_id = ${team_id} WHERE team_id IS NULL;" >/dev/null || true
-    log "Team OK (id=$team_id, user=$user_id)."
-    return 0
-  fi
-  log "Criando team para usuário existente..."
-  team_id="$(docker exec coolify php artisan tinker --execute="
-\$user = \\App\\Models\\User::first();
-if (!\$user) { echo 'ERROR'; exit(1); }
-\$team = \\App\\Models\\Team::create(['name' => 'RadarZap', 'personal_team' => true]);
-\$user->teams()->attach(\$team, ['role' => 'owner']);
-\$user->current_team_id = \$team->id;
-\$user->save();
-echo \$team->id;
-" 2>/dev/null | tail -1)"
-  log "Team criado: $team_id"
+  log "Garantindo team vinculado ao usuário..."
+  docker exec coolify php artisan tinker --execute='
+$user = \App\Models\User::orderBy("id")->first();
+if (!$user || !$user->id) { echo "ERROR:no-user"; exit(1); }
+$team = \App\Models\Team::first();
+if (!$team) {
+  $team = \App\Models\Team::create(["name" => "RadarZap", "personal_team" => true]);
+  $user->teams()->syncWithoutDetaching([$team->id => ["role" => "owner"]]);
+}
+if (!$user->current_team_id) {
+  $user->current_team_id = $team->id;
+  $user->save();
+}
+\DB::table("servers")->whereNull("team_id")->update(["team_id" => $team->id]);
+echo "team=" . $team->id . " user=" . $user->id;
+' >/dev/null
 }
 
 enable_api_and_token() {
   ensure_team
-  local user_id team_id
-  user_id="$(psql_exec 'SELECT id FROM users LIMIT 1;')"
-  team_id="$(psql_exec 'SELECT id FROM teams LIMIT 1;')"
 
   log "Habilitando API Coolify..."
   docker exec coolify php artisan tinker --execute='
@@ -132,11 +125,9 @@ echo "ok";
   log "Gerando token API..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
-$userId = '"${user_id}"';
-$teamId = '"${team_id}"';
-$user = \App\Models\User::find($userId);
-$team = \App\Models\Team::find($teamId);
-if (!$user || !$team) { echo "ERROR:no-user-team"; exit(1); }
+$user = \App\Models\User::orderBy("id")->first();
+$team = \App\Models\Team::first();
+if (!$user || !$team || !$user->id || !$team->id) { echo "ERROR:no-user-team"; exit(1); }
 \Laravel\Sanctum\PersonalAccessToken::where("name", "radarzap-automation")->delete();
 $plain = \Illuminate\Support\Str::random(48);
 $pat = new \Laravel\Sanctum\PersonalAccessToken();
@@ -156,7 +147,6 @@ echo "TOKEN|" . $plain;
     exit 1
   fi
   API_TOKEN="1|${API_TOKEN}"
-  psql_exec "UPDATE servers SET team_id = ${team_id} WHERE team_id IS NULL;" >/dev/null || true
 }
 
 detect_legacy_volumes() {
@@ -325,11 +315,14 @@ enable_api_and_token
 
 # Validar API
 for i in $(seq 1 12); do
-  if VER="$(api GET /api/v1/version 2>/dev/null | jq -r '.version // empty')" && [[ -n "$VER" ]]; then
+  raw="$(curl -sS -H "Authorization: Bearer ${API_TOKEN#*|}" -H "Accept: application/json" "${COOLIFY_URL}/api/v1/version" 2>/dev/null || true)"
+  VER="$(echo "$raw" | jq -r '.version // empty' 2>/dev/null || true)"
+  if [[ -n "$VER" ]]; then
     log "Coolify API OK — versão ${VER}"
     break
   fi
-  [[ "$i" -eq 12 ]] && { log "ERRO: API Coolify indisponível após habilitar token"; exit 1; }
+  log "Aguardando API (tentativa $i/12)..."
+  [[ "$i" -eq 12 ]] && { log "ERRO: API Coolify indisponível. Última resposta: $raw"; exit 1; }
   sleep 5
 done
 
