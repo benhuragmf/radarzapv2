@@ -1,0 +1,56 @@
+# Bootstrap SSH: instala chave deploy no VPS Gamer (.179) e cadastra no Coolify.
+name: RadarGamer SSH bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite RADARGAMER para confirmar'
+        required: true
+        type: string
+      register_coolify:
+        description: 'Cadastrar RadarGamer no Coolify após SSH (1=sim)'
+        required: false
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '0'
+
+jobs:
+  bootstrap:
+    if: github.event.inputs.confirm == 'RADARGAMER'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deploy key on RadarGamer VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          COOLIFY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          RADARGAMER_PASSWORD: ${{ secrets.RADARGAMER_PASSWORD }}
+          RADARGAMER_SERVER_IP: '151.247.210.179'
+          COOLIFY_SSH_USER: ${{ secrets.DEPLOY_USER }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_PATH,COOLIFY_SSH_PRIVATE_KEY,RADARGAMER_PASSWORD,RADARGAMER_SERVER_IP,COOLIFY_SSH_USER
+          script_stop: true
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            git fetch origin main -q 2>/dev/null || true
+            git reset --hard origin/main -q 2>/dev/null || true
+            if [[ -z "${RADARGAMER_PASSWORD:-}" ]]; then
+              echo "ERRO: secret RADARGAMER_PASSWORD ausente no GitHub (senha ubuntu do VPS Gamer)"
+              exit 1
+            fi
+            sudo -E bash scripts/vps-setup-radargamer-ssh.sh
+            if [[ "${{ github.event.inputs.register_coolify }}" == "1" ]]; then
+              export COOLIFY_SERVERS_ONLY=1
+              export RADARGAMER_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY}"
+              sudo -E bash scripts/vps-configure-coolify-radarzap.sh
+            fi

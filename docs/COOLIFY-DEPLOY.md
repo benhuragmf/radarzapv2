@@ -58,6 +58,17 @@ Requisitos:
 2. A **chave pública** correspondente deve estar em `~ubuntu/.ssh/authorized_keys` no VPS Gamer (painel Platon ou `ssh-copy-id`).
 3. Secret opcional `RADARGAMER_SSH_KEY` — se o Gamer usar chave diferente da do RadarZap.
 
+Bootstrap (primeira vez, senha do painel Platon no Gamer):
+
+1. GitHub → **Settings → Secrets** → `RADARGAMER_PASSWORD` (senha `ubuntu` do VPS Gamer; só bootstrap).
+2. Workflow **RadarGamer SSH bootstrap** → input `RADARGAMER` — instala a mesma chave de `DEPLOY_SSH_KEY` no `.179` e cadastra no Coolify.
+
+```bash
+gh workflow run "RadarGamer SSH bootstrap" -f confirm=RADARGAMER
+```
+
+Depois troque a senha do VPS Gamer no painel Platon.
+
 No painel: **Servers** → dois hosts com métricas após validação. Script: `scripts/vps-coolify-servers-setup.sh`.
 
 ---
