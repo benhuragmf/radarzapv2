@@ -8,7 +8,7 @@ Use como **primeira mensagem** em sessão Codex no branch `layout-v3`.
 Contexto RadarZap v2 — layout-v3 + produção Coolify (2026-06-29)
 
 PRODUÇÃO (não mexer sem coordenar):
-- URL: https://151-247-210-180.sslip.io
+- URL: https://app.radarchat.com.br (site: https://radarchat.com.br)
 - App roda no stack Coolify (NÃO no compose legado GHCR)
 - Container: h143brhw5f8tgfj9trj0f3bd-app-1
 - Compose no host: /data/coolify/services/h143brhw5f8tgfj9trj0f3bd/
@@ -39,7 +39,7 @@ DOCS:
 
 PENDÊNCIAS INFRA (outro agente / humano):
 - Validar servidor Coolify SSH no painel
-- deploy.yml GHCR: não reativar legado no .180
+- deploy.yml: só Coolify (legado deploy-remote desativado no VPS .180)
 - QA Fase 1 manual continua em paralelo
 
 Continue o Layout v3 conforme RADARZAP-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md

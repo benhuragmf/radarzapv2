@@ -1,5 +1,5 @@
-# Build na nuvem (GHCR) + deploy no VPS via SSH (~3–5 min no servidor).
-# Gatilhos: push na main (código), tag v*, ou manual (Actions → Deploy).
+# Build GHCR + republicação no stack Coolify (produção VPS ZAP).
+# Não usa mais docker-compose.deploy.yml / deploy-remote.sh no .180.
 name: Deploy
 
 on:
@@ -68,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy via SSH (pull GHCR + compose)
+      - name: Deploy Coolify via SSH (GHCR + fix-coolify-ssl)
         uses: appleboy/ssh-action@v1.2.0
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
@@ -77,27 +77,25 @@ jobs:
           REPO_OWNER: ${{ github.repository_owner }}
           PUBLIC_HOST: app.radarchat.com.br
           TRAEFIK_EXTRA_HOSTS: 151-247-210-180.sslip.io
+          COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: GHCR_PAT,DEPLOY_PATH,IMAGE,REPO_OWNER,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS
+          command_timeout: 30m
+          envs: GHCR_PAT,DEPLOY_PATH,IMAGE,REPO_OWNER,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS,COOLIFY_SERVICE_UUID
           script_stop: true
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
             git fetch origin main -q && git reset --hard origin/main -q
             export USE_SUDO_DOCKER=1
-            export ENV_FILE=.env
             export PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
             export TRAEFIK_EXTRA_HOSTS="${TRAEFIK_EXTRA_HOSTS:-151-247-210-180.sslip.io}"
+            export COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
             if [ -n "${GHCR_PAT:-}" ]; then
               echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
             fi
             export RADARZAP_IMAGE="$IMAGE"
-            if sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qE 'h143brhw|^[a-z0-9]{20,}-app-'; then
-              echo "[deploy] Stack Coolify detectada — republicando via fix-coolify-ssl (sem compose legado :3001)"
-              sudo -E bash scripts/vps-fix-coolify-ssl.sh
-            else
-              bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
-            fi
+            echo "[deploy] Coolify only — scripts/vps-fix-coolify-ssl.sh"
+            sudo -E bash scripts/vps-fix-coolify-ssl.sh
