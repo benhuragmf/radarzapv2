@@ -1,0 +1,5 @@
+# Override usado só no fallback `deploy_service_direct` (host :3001 + Traefik legado).
+services:
+  app:
+    ports:
+      - '3001:3001'

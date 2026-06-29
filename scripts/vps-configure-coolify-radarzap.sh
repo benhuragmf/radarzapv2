@@ -328,6 +328,176 @@ test_ssh_to_host() {
     -o ConnectTimeout=12 "${user}@${host}" 'echo ok' 2>/dev/null | grep -q ok
 }
 
+pubkey_from_private() {
+  local key_file="$1"
+  ssh-keygen -y -f "$key_file" 2>/dev/null
+}
+
+install_pubkey_for_user() {
+  local user="$1" pubkey="$2"
+  local home auth
+  [[ -n "$pubkey" ]] || return 1
+  home="$(getent passwd "$user" 2>/dev/null | cut -d: -f6)"
+  [[ -n "$home" && -d "$home" ]] || return 1
+  auth="${home}/.ssh/authorized_keys"
+  mkdir -p "${home}/.ssh"
+  chmod 700 "${home}/.ssh"
+  chown "$user:$user" "${home}/.ssh"
+  if ! grep -qxF "$pubkey" "$auth" 2>/dev/null; then
+    echo "$pubkey" >>"$auth"
+    chmod 600 "$auth"
+    chown "$user:$user" "$auth"
+    log "Chave deploy instalada em ${user}@${auth}"
+  fi
+}
+
+sync_private_key_to_coolify_fs() {
+  local key_uuid="$1" key_content="$2"
+  local id host_path container_path
+  [[ -n "$key_content" ]] || return 0
+  id="$(psql_exec "SELECT id FROM private_keys WHERE uuid = '${key_uuid}' LIMIT 1;")"
+  [[ -n "${id:-}" && "$id" != "0" ]] || return 0
+  host_path="/data/coolify/ssh/keys/${id}"
+  mkdir -p /data/coolify/ssh/keys
+  chmod 700 /data/coolify/ssh/keys
+  if [[ ! -f "$host_path" ]]; then
+    umask 077
+    printf '%s\n' "$key_content" >"$host_path"
+    chmod 600 "$host_path"
+    log "Chave privada espelhada em ${host_path}"
+  fi
+  for container_path in \
+    "/var/www/html/storage/app/ssh/keys/${id}" \
+    "/data/coolify/ssh/keys/${id}"; do
+    if docker exec coolify test -f "$container_path" 2>/dev/null; then
+      return 0
+    fi
+  done
+}
+
+ensure_deploy_key_on_localhost() {
+  local key_content="${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}"
+  [[ -n "$key_content" ]] || return 0
+  local key_file pubkey
+  key_file="$(mktemp)"
+  umask 077
+  printf '%s\n' "$key_content" >"$key_file"
+  chmod 600 "$key_file"
+  pubkey="$(pubkey_from_private "$key_file")"
+  rm -f "$key_file"
+  [[ -n "$pubkey" ]] || return 0
+  install_pubkey_for_user "$COOLIFY_SSH_USER" "$pubkey"
+}
+
+coolify_private_key_path() {
+  local key_uuid="$1"
+  local id name path container_path
+  id="$(psql_exec "SELECT id FROM private_keys WHERE uuid = '${key_uuid}' LIMIT 1;")"
+  [[ -n "${id:-}" && "$id" != "0" ]] || return 1
+  name="$(psql_exec "SELECT name FROM private_keys WHERE id = ${id} LIMIT 1;")"
+  for path in \
+    "/data/coolify/ssh/keys/${id}" \
+    "/data/coolify/ssh/keys/${name}"; do
+    if [[ -f "$path" ]]; then
+      echo "$path"
+      return 0
+    fi
+  done
+  for container_path in \
+    "/var/www/html/storage/app/ssh/keys/${id}" \
+    "/data/coolify/ssh/keys/${id}"; do
+    if docker exec coolify test -f "$container_path" 2>/dev/null; then
+      echo "$container_path"
+      return 0
+    fi
+  done
+  return 1
+}
+
+test_ssh_from_coolify_container() {
+  local key_path="$1" user="$2" host="$3"
+  docker exec coolify ssh -i "$key_path" \
+    -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o ConnectTimeout=10 "${user}@${host}" 'echo ok' 2>/dev/null | grep -q ok
+}
+
+pick_coolify_ssh_target() {
+  local key_uuid="$1" key_path host key_file key_content
+  key_content="${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}"
+  [[ -n "$key_content" ]] || return 1
+  key_file="$(mktemp)"
+  umask 077
+  printf '%s\n' "$key_content" >"$key_file"
+  chmod 600 "$key_file"
+  for host in 172.17.0.1 127.0.0.1 "${RADARZAP_SERVER_IP}" "${RADARZAP_LOCAL_HOST}"; do
+    [[ -n "$host" ]] || continue
+    if test_ssh_to_host "$key_file" "$COOLIFY_SSH_USER" "$host"; then
+      log "SSH host → ${COOLIFY_SSH_USER}@${host} OK"
+      rm -f "$key_file"
+      echo "$host"
+      return 0
+    fi
+  done
+  key_path="$(coolify_private_key_path "$key_uuid")" || { rm -f "$key_file"; return 1; }
+  for host in 172.17.0.1 127.0.0.1 "${RADARZAP_SERVER_IP}"; do
+    if test_ssh_from_coolify_container "$key_path" "$COOLIFY_SSH_USER" "$host"; then
+      log "SSH container Coolify → ${COOLIFY_SSH_USER}@${host} OK (key=${key_path})"
+      rm -f "$key_file"
+      echo "$host"
+      return 0
+    fi
+  done
+  rm -f "$key_file"
+  return 1
+}
+
+mark_server_reachable_db() {
+  local server_uuid="$1" ssh_host="$2" key_uuid="$3"
+  fix_server_private_key_db "$server_uuid" "$key_uuid" "$COOLIFY_SSH_USER"
+  docker exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=1 -c "
+    UPDATE servers SET
+      ip = '${ssh_host}',
+      \"user\" = '${COOLIFY_SSH_USER}',
+      is_localhost = true,
+      updated_at = NOW()
+    WHERE uuid = '${server_uuid}';
+  " >/dev/null 2>&1 || true
+  docker exec coolify php artisan tinker --execute="
+\$s = \\App\\Models\\Server::where('uuid', '${server_uuid}')->first();
+if (\$s) {
+  \$s->ip = '${ssh_host}';
+  \$s->user = '${COOLIFY_SSH_USER}';
+  \$s->is_localhost = true;
+  try { \$s->is_reachable = true; } catch (\\Throwable \$e) {}
+  \$s->save();
+  echo 'reachable';
+}
+" >/dev/null 2>&1 || true
+}
+
+ensure_coolify_can_ssh_localhost() {
+  local server_uuid="$1" key_uuid="$2" ssh_host
+  local key_content="${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}"
+  ensure_deploy_key_on_localhost
+  sync_private_key_to_coolify_fs "$key_uuid" "$key_content"
+  ssh_host="$(pick_coolify_ssh_target "$key_uuid")" || {
+    log "AVISO: Coolify ainda não alcança o host via SSH — deploy API pode falhar"
+    return 1
+  }
+  RADARZAP_LOCAL_HOST="$ssh_host"
+  mark_server_reachable_db "$server_uuid" "$ssh_host" "$key_uuid"
+  validate_server "$server_uuid" "RadarZap"
+  return 0
+}
+
+restart_coolify_workers() {
+  log "Reiniciando workers Coolify (fila de deploy)..."
+  for c in coolify-sentinel coolify; do
+    docker restart "$c" >/dev/null 2>&1 || true
+  done
+  sleep 8
+}
+
 ensure_private_key_in_coolify() {
   local key_content="$1" key_name="${2:-radarzap-deploy}"
   local keys uuid
@@ -526,6 +696,7 @@ ensure_local_radarzap_server() {
   log "Corrigindo RadarZap local: user=${COOLIFY_SSH_USER} ip=${RADARZAP_LOCAL_HOST} key=${key_uuid}"
   patch_server_connection "$uuid" "$key_uuid" "$RADARZAP_LOCAL_HOST" "$COOLIFY_SSH_USER" true || true
   fix_server_private_key_db "$uuid" "$key_uuid" "$COOLIFY_SSH_USER"
+  ensure_coolify_can_ssh_localhost "$uuid" "$key_uuid" || true
   patch_server_meta "$uuid" "RadarZap" "RadarZap + Coolify — ${RADARZAP_SERVER_IP}"
   validate_server "$uuid" "RadarZap"
   log "Servidor local RadarZap: ${uuid}"
@@ -756,6 +927,64 @@ deploy_service() {
   api POST "/api/v1/services/${SERVICE_UUID}/restart" -d '{}' >/dev/null 2>&1 || true
 }
 
+write_service_env_file() {
+  local out="$1"
+  load_legacy_env
+  local mongo_pw="${MONGO_PASSWORD:-${SERVICE_PASSWORD_MONGODB:-}}"
+  [[ -z "$mongo_pw" ]] && mongo_pw="$(openssl rand -base64 24)"
+  local radar_image="${RADARZAP_IMAGE:-$RADARZAP_IMAGE_DEFAULT}"
+  {
+    echo "RADARZAP_IMAGE=${radar_image}"
+    echo "SERVICE_PASSWORD_MONGODB=${mongo_pw}"
+    echo "SERVICE_URL_APP=https://${PUBLIC_HOST}"
+    echo "SERVICE_FQDN_APP=${PUBLIC_HOST}"
+  } >"$out"
+  local env_file="${DEPLOY_PATH}/.env"
+  if [[ -f "$env_file" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ -z "${line// }" ]] && continue
+      [[ "$line" != *"="* ]] && continue
+      local key="${line%%=*}"
+      key="$(echo "$key" | xargs)"
+      case "$key" in
+        MONGODB_URL|MONGO_PASSWORD|FRONTEND_URL|CORS_ORIGIN|RADARZAP_IMAGE|SERVICE_PASSWORD_MONGODB|SERVICE_URL_APP|SERVICE_FQDN_APP) continue ;;
+      esac
+      echo "$line" >>"$out"
+    done <"$env_file"
+  fi
+}
+
+deploy_service_direct() {
+  local dir="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${SERVICE_UUID}}"
+  local env_tmp compose_override
+  [[ -n "${SERVICE_UUID:-}" && -f "${COMPOSE_FILE:-}" ]] || return 1
+  log "Deploy direto no host (fallback) → ${dir}"
+  sudo mkdir -p "$dir"
+  sudo cp "$COMPOSE_FILE" "${dir}/docker-compose.yaml"
+  compose_override="${DEPLOY_PATH}/docker-compose.coolify-direct-override.yml"
+  if [[ -f "$compose_override" ]]; then
+    sudo cp "$compose_override" "${dir}/docker-compose.override.yaml"
+  fi
+  env_tmp="$(mktemp)"
+  write_service_env_file "$env_tmp"
+  sudo cp "$env_tmp" "${dir}/.env"
+  rm -f "$env_tmp"
+  if ! (cd "$dir" && sudo docker compose --env-file .env \
+    -f docker-compose.yaml -f docker-compose.override.yaml \
+    -p "${SERVICE_UUID}" up -d --remove-orphans 2>/dev/null); then
+    (cd "$dir" && sudo docker compose --env-file .env \
+      -f docker-compose.yaml -p "${SERVICE_UUID}" up -d --remove-orphans) || return 1
+  fi
+  docker exec coolify php artisan tinker --execute="
+\$s = \\App\\Models\\Service::where('uuid', '${SERVICE_UUID}')->first();
+if (\$s) { \$s->status = 'running'; \$s->save(); echo 'running'; }
+" >/dev/null 2>&1 || true
+  log "Stack iniciada via compose direto (project=${SERVICE_UUID})"
+  COOLIFY_DEPLOY_VIA=direct
+  return 0
+}
+
 remove_legacy_traefik_route() {
   local proxy cfg
   proxy="$(sudo docker ps --format '{{.Names}}' | grep -E 'coolify-proxy|traefik' | head -1 || true)"
@@ -782,13 +1011,14 @@ coolify_stack_healthy() {
 }
 
 wait_coolify_stack_up() {
+  local max="${1:-45}"
   local i
-  for i in $(seq 1 45); do
+  for i in $(seq 1 "$max"); do
     if coolify_stack_healthy; then
-      log "Stack Coolify Up (tentativa $i)"
+      log "Stack Coolify Up (tentativa $i/$max)"
       return 0
     fi
-    log "Aguardando containers Coolify ($i/45)..."
+    log "Aguardando containers Coolify ($i/$max)..."
     sleep 10
   done
   return 1
@@ -875,23 +1105,36 @@ ensure_project_and_server
 ensure_service
 sync_env_from_legacy
 
+COOLIFY_DEPLOY_VIA="${COOLIFY_DEPLOY_VIA:-api}"
+
 if [[ "$MIGRATE_LEGACY" == "1" ]]; then
   log "Migração legado → Coolify: parando GHCR para liberar volumes Mongo/Redis..."
   stop_legacy_stack
   sleep 8
+  restart_coolify_workers
+  COOLIFY_DEPLOY_VIA=api
   deploy_service
-  if ! wait_coolify_stack_up; then
+  if ! wait_coolify_stack_up 24; then
     log "Redeploy após aguardar fila Coolify..."
     sleep 15
     deploy_service
-    wait_coolify_stack_up || true
+    wait_coolify_stack_up 18 || true
+  fi
+  if ! coolify_stack_healthy; then
+    log "Deploy API não subiu containers — tentando compose direto em /data/coolify/services/..."
+    deploy_service_direct || true
+    wait_coolify_stack_up 36 || true
   fi
   if coolify_stack_healthy; then
-    remove_legacy_traefik_route
-    log "Coolify stack OK"
+    if [[ "$COOLIFY_DEPLOY_VIA" == "api" ]]; then
+      remove_legacy_traefik_route
+    else
+      sudo bash "${DEPLOY_PATH}/scripts/vps-coolify-traefik-route-legacy.sh" || true
+    fi
+    log "Coolify stack OK (via ${COOLIFY_DEPLOY_VIA})"
     for i in $(seq 1 18); do
       if curl -sf -o /dev/null --max-time 10 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
-        log "HTTPS OK via Coolify"
+        log "HTTPS OK"
         break
       fi
       sleep 5
