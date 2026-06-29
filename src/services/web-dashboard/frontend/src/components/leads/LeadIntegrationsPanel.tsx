@@ -111,7 +111,7 @@ export function LeadIntegrationsPanel({
           <div>
             <h2 className="font-semibold text-sm">Capture leads em qualquer site ou formulário</h2>
             <p className="text-sm text-[var(--rz-text-muted)] mt-1 leading-relaxed">
-              Use o formulário pronto RadarZap (recomendado) ou conecte WordPress, Elementor, landing pages e
+              Use o formulário pronto Radar Chat (recomendado) ou conecte WordPress, Elementor, landing pages e
               formulários próprios via API.
             </p>
           </div>

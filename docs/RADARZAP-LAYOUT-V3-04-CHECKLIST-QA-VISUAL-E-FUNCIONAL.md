@@ -1,8 +1,8 @@
-# RadarZap Layout v3 04 — Checklist QA Visual e Funcional
+# Radar Chat Layout v3 04 — Checklist QA Visual e Funcional
 
 ## 1. Objetivo
 
-Criar checklist obrigatório para validar cada fase visual sem quebrar o RadarZap. Este documento orienta QA local, por perfil, módulo, viewport e estado extremo. Ele não substitui testes automatizados nem prova funcionamento real sem execução/evidência.
+Criar checklist obrigatório para validar cada fase visual sem quebrar o Radar Chat. Este documento orienta QA local, por perfil, módulo, viewport e estado extremo. Ele não substitui testes automatizados nem prova funcionamento real sem execução/evidência.
 
 ## 2. Ambientes permitidos
 
@@ -56,7 +56,7 @@ Scripts encontrados em `package.json`. A execução deve ser decidida por fase, 
 
 | Módulo | Checklist mínimo |
 |--------|------------------|
-| Login | Erros legíveis; branding RadarZap; não usar linguagem interna demais |
+| Login | Erros legíveis; branding Radar Chat; não usar linguagem interna demais |
 | Empresa/workspace | Troca de organização clara; contexto atual visível |
 | Dashboard | KPIs carregam; estados vazio/loading/erro; dono entende próximo passo |
 | Sidebar | Itens filtrados por perfil; grupos não sobrepõem; mobile abre/fecha |

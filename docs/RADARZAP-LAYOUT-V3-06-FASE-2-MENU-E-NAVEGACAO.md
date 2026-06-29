@@ -1,8 +1,8 @@
-# RadarZap Layout v3 06 — Fase 2 Menu e Navegação
+# Radar Chat Layout v3 06 — Fase 2 Menu e Navegação
 
 ## 1. Objetivo
 
-Esta fase reorganiza visualmente o menu lateral e os títulos de navegação do RadarZap para reduzir carga cognitiva por perfil. A alteração foi feita em labels, ordem dos grupos e agrupamento visual, preservando rotas, redirects, deep links, `ROUTE_PERMISSIONS`, capabilities, backend, banco, IA, billing, WhatsApp, WebChat, LGPD e regras de atendimento.
+Esta fase reorganiza visualmente o menu lateral e os títulos de navegação do Radar Chat para reduzir carga cognitiva por perfil. A alteração foi feita em labels, ordem dos grupos e agrupamento visual, preservando rotas, redirects, deep links, `ROUTE_PERMISSIONS`, capabilities, backend, banco, IA, billing, WhatsApp, WebChat, LGPD e regras de atendimento.
 
 ## 2. Estado antes da alteração
 
@@ -75,7 +75,7 @@ Esta fase reorganiza visualmente o menu lateral e os títulos de navegação do 
 | Empresa | Configurações da empresa | Empresa > Conta e segurança | Configurações | `/settings` | `account:settings` | Label mais curto |
 | Empresa | Equipe e permissões | Empresa > Conta e segurança | Equipe | `/settings/team` | `company:members:manage` | Permissões em item separado |
 | Empresa | Plano e cobrança | Empresa > Conta e segurança | Plano e cobrança | `/plans` | `billing:view` | Sem mudança funcional |
-| Admin | Dashboard global | Admin RadarZap | Painel Admin RadarZap | `/admin/dashboard` | `dashboard:global` | Global fica explícito no modo |
+| Admin | Dashboard global | Admin Radar Chat | Painel Admin Radar Chat | `/admin/dashboard` | `dashboard:global` | Global fica explícito no modo |
 | Admin | Fila global | Operação global | Fila global do sistema | `/admin/queue` | `queue:global` | Evita confundir com fila tenant |
 | Discord | Fila | Monitoramento Discord | Fila Discord | `/discord/fila` | `queue:view` | Evita confundir com fila tenant/admin |
 
@@ -96,7 +96,7 @@ Esta fase reorganiza visualmente o menu lateral e os títulos de navegação do 
 | Integrações | Integrações/API | Hashes `/settings#api-*` | Deixar área técnica explícita | Dev/admin | Baixo | Sim |
 | Configurações da empresa | Configurações | `/settings` | Reduzir redundância no grupo Empresa | Dono/admin | Baixo | Sim |
 | Equipe e permissões | Equipe | `/settings/team` | Separar de Papéis e permissões | Dono/admin | Médio | Sim |
-| Dashboard global | Painel Admin RadarZap | `/admin/dashboard` | Diferenciar Admin SaaS global | Staff | Baixo | Sim |
+| Dashboard global | Painel Admin Radar Chat | `/admin/dashboard` | Diferenciar Admin SaaS global | Staff | Baixo | Sim |
 | Fila global | Fila global do sistema | `/admin/queue` | Evitar confundir com tenant/Discord | Staff | Baixo | Sim |
 | Sessões WhatsApp | Sessões WhatsApp globais | `/admin/sessions` | Contexto Admin global | Staff | Baixo | Sim |
 | Planos/Pagamentos | Planos globais/Pagamentos globais | `/admin/plans`, `/admin/payments` | Separar billing global de tenant | Staff | Baixo | Sim |
@@ -143,7 +143,7 @@ Esta fase reorganiza visualmente o menu lateral e os títulos de navegação do 
 | ATTENDANT | "Atendimentos" substitui "Caixa de Entrada"; precisa QA para confirmar que não vê itens indevidos |
 | Custom role | Precisa QA porque grupos com filhos filtrados podem variar conforme capabilities |
 | Staff/Admin SaaS | Labels globais mais explícitos em fila, sessões, billing e IA |
-| Discord | Fila Discord e Monitoramento Discord ficam isolados do RadarZap principal |
+| Discord | Fila Discord e Monitoramento Discord ficam isolados do Radar Chat principal |
 
 ## 10. QA recomendado
 
@@ -153,7 +153,7 @@ Esta fase reorganiza visualmente o menu lateral e os títulos de navegação do 
 - Usuário atendente: ver Atendimentos, Contatos/Leads permitidos, sem Admin SaaS/billing indevido.
 - Usuário supervisor: ver Supervisão, Métricas de atendimento e status de equipe.
 - Usuário dono: ver Canais, Empresa, Plano e cobrança, Integrações/API se permitido.
-- Usuário staff: ver Admin RadarZap separado e labels globais.
+- Usuário staff: ver Admin Radar Chat separado e labels globais.
 - Menu Plataforma: rotas abrem sem redirect indevido.
 - Menu Admin: `/admin/dashboard?tab=tenants` preservado.
 - Menu Discord: Fila Discord abre apenas com guild/permissão.

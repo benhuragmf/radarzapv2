@@ -363,17 +363,17 @@ export default function WaStatusPosts() {
               onChange={e => setAudience(e.target.value as StatusAudience)}
             >
               <option value="whatsapp">Meu WhatsApp (padrão — sem cadastrar contatos)</option>
-              <option value="all_contacts">Contatos cadastrados no RadarZap</option>
-              <option value="consented">RadarZap — só com consentimento</option>
+              <option value="all_contacts">Contatos cadastrados no Radar Chat</option>
+              <option value="consented">Radar Chat — só com consentimento</option>
             </select>
             {waConnected && audiencePreview && audience !== 'whatsapp' && (
               <p className="text-[11px] mt-1.5 text-brand-400/90">
-                Audiência estimada: <strong>{audiencePreview.count}</strong> contato(s) do RadarZap
+                Audiência estimada: <strong>{audiencePreview.count}</strong> contato(s) do Radar Chat
               </p>
             )}
             <p className="text-[11px] text-[var(--rz-text-muted)] mt-1">
               {audience === 'whatsapp'
-                ? 'Publica direto na sessão WhatsApp conectada — igual ao app, não precisa de contatos no RadarZap.'
+                ? 'Publica direto na sessão WhatsApp conectada — igual ao app, não precisa de contatos no Radar Chat.'
                 : audience === 'all_contacts'
                   ? 'Opcional: restringe quem vê usando a lista de Contatos do painel.'
                   : 'Opcional: só contatos com consentimento aceito.'}

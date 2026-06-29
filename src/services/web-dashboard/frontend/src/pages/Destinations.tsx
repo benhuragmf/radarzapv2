@@ -788,7 +788,7 @@ export default function Destinations() {
                   disabled={approveRenewal.isPending || r.previousStatus === 'REFUSED_THREE'}
                   onClick={() => {
                     if (r.previousStatus === 'REFUSED_THREE') {
-                      notifyInfo('Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte RadarZap.')
+                      notifyInfo('Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte Radar Chat.')
                       return
                     }
                     if (window.confirm(`Aprovar novo aceite para ${r.contactName}?`)) {
@@ -839,7 +839,7 @@ export default function Destinations() {
                     onClick={() => {
                       if (r.previousStatus === 'REFUSED_THREE') {
                         notifyError(
-                          'Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte RadarZap.',
+                          'Recusa definitiva (3x) — nem o dono consegue liberar. Contate o suporte Radar Chat.',
                         )
                         return
                       }

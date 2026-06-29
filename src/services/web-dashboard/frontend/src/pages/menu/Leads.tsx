@@ -1107,7 +1107,7 @@ function FormEditor({
               checked={draft.appearance.showLogo ?? false}
               onChange={e => setDraft(d => ({ ...d, appearance: { ...d.appearance, showLogo: e.target.checked } }))}
             />
-            Mostrar crédito RadarZap no rodapé
+            Mostrar crédito Radar Chat no rodapé
           </label>
         </div>
       )}

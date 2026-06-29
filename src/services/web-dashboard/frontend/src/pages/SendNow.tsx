@@ -1467,7 +1467,7 @@ export default function SendNow() {
                             className="mt-0.5 rounded border-red-700"
                           />
                           <span>
-                            Tenho ciência de que o RadarZap não se responsabiliza e que minha
+                            Tenho ciência de que o Radar Chat não se responsabiliza e que minha
                             conta WhatsApp pode ser <strong>banida ou perdida</strong> se eu
                             continuar.
                           </span>

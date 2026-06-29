@@ -21,7 +21,7 @@ export default function AdminApiPage() {
 
   return (
     <RadarPageShell>
-      <PageHeader title="API global" subtitle="Visão administrativa das integrações em todo o RadarZap." />
+      <PageHeader title="API global" subtitle="Visão administrativa das integrações em todo o Radar Chat." />
 
       <AdminOpsHubLink tab="overview" label="Resumo operacional consolidado:" />
 

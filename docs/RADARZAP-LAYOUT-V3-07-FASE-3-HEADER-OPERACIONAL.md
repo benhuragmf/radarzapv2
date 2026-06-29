@@ -1,8 +1,8 @@
-# RadarZap Layout v3 07 — Fase 3 Header Operacional
+# Radar Chat Layout v3 07 — Fase 3 Header Operacional
 
 ## 1. Objetivo
 
-Melhorar a hierarquia do header/topbar do painel RadarZap v2 na branch `layout-v3`, deixando os controles operacionais em ordem mais previsível e reduzindo risco de quebra em telas menores. A fase foi limitada a organização visual, espaçamento, tooltips e acessibilidade leve, sem alterar backend, banco, APIs, IA, billing, WhatsApp Bridge, WebChat público, atendimento, presença, filas, rotas ou RBAC.
+Melhorar a hierarquia do header/topbar do painel Radar Chat v2 na branch `layout-v3`, deixando os controles operacionais em ordem mais previsível e reduzindo risco de quebra em telas menores. A fase foi limitada a organização visual, espaçamento, tooltips e acessibilidade leve, sem alterar backend, banco, APIs, IA, billing, WhatsApp Bridge, WebChat público, atendimento, presença, filas, rotas ou RBAC.
 
 ## 2. Estado antes da alteração
 

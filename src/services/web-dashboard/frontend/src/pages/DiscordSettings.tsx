@@ -10,8 +10,7 @@ import { Hash, BookOpen, ExternalLink } from 'lucide-react'
 
 interface Props {
   user: AuthUser
-}
-
+}
 interface ChannelRow {
   _id: string
   channelName: string
@@ -52,7 +51,7 @@ export default function DiscordSettings({ user }: Props) {
               />
             </div>
             <div>
-              <p className="text-xs text-[var(--rz-text-muted)]">Papel efetivo no RadarZap</p>
+              <p className="text-xs text-[var(--rz-text-muted)]">Papel efetivo no Radar Chat</p>
               <p className="text-sm text-[var(--rz-text-secondary)]">{membership.effectiveRole.replace('_', ' ')}</p>
             </div>
           </>
@@ -90,7 +89,7 @@ export default function DiscordSettings({ user }: Props) {
       </Card>
 
       <Card className="space-y-2">
-        <p className="text-sm font-medium text-[var(--rz-text-primary)]">Conta RadarZap</p>
+        <p className="text-sm font-medium text-[var(--rz-text-primary)]">Conta Radar Chat</p>
         <p className="text-xs text-[var(--rz-text-muted)]">
           Plano, chaves de API e dados da conta Discord ficam em{' '}
           <Link to="/settings" className="text-[var(--rz-primary)] hover:underline">
@@ -101,5 +100,4 @@ export default function DiscordSettings({ user }: Props) {
       </Card>
     </DiscordPage>
   )
-}
-
+}

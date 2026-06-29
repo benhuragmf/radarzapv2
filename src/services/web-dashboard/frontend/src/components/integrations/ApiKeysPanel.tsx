@@ -91,7 +91,7 @@ export function ApiKeysPanel() {
       ) : keys.length === 0 ? (
         <EmptyState
           title="Nenhuma chave cadastrada"
-          description="Gere uma chave apenas para sistemas confiáveis que chamam a API do RadarZap."
+          description="Gere uma chave apenas para sistemas confiáveis que chamam a API do Radar Chat."
           size="sm"
         />
       ) : (

@@ -1,11 +1,11 @@
-# RadarZap v2 — deploy com Coolify
+# Radar Chat v2 — deploy com Coolify
 
 > **Branch de release:** `layout-v3` (UI v3 + produto `2.12.x`) — **é a branch do servidor**  
 > **Compose produção (VPS ZAP):** [`docker-compose.coolify-ghcr.yml`](../docker-compose.coolify-ghcr.yml) + override [`docker-compose.coolify-direct-override.yml`](../docker-compose.coolify-direct-override.yml)  
 > **Compose build:** [`docker-compose.coolify.yml`](../docker-compose.coolify.yml) · **Env:** [`.env.coolify.example`](../.env.coolify.example)  
 > **Entrega migração:** [`concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`](./concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md) · **Tracker:** [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md)
 
-Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) § Deploy CI). SSL do app sslip.io hoje usa **Traefik do Coolify** com rota dinâmica para `:3001` ([`scripts/vps-coolify-traefik-route-legacy.sh`](../scripts/vps-coolify-traefik-route-legacy.sh)).
+Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) § Deploy CI). Dominios oficiais: site publico `https://radarchat.com.br` e sistema `https://app.radarchat.com.br`. O host `sslip.io` fica como validacao/legado do cutover Coolify com rota dinamica para `:3001` ([`scripts/vps-coolify-traefik-route-legacy.sh`](../scripts/vps-coolify-traefik-route-legacy.sh)).
 
 ---
 
@@ -13,7 +13,9 @@ Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PR
 
 | Item | Valor |
 |------|--------|
-| App | https://151-247-210-180.sslip.io |
+| Site publico oficial | https://radarchat.com.br |
+| App oficial | https://app.radarchat.com.br |
+| Host legado/validacao sslip.io | https://151-247-210-180.sslip.io |
 | Painel Coolify | http://151.247.210.180:8000 · https://coolify-151-247-210-180.sslip.io |
 | Container app | `h143brhw5f8tgfj9trj0f3bd-app-1` (healthy) |
 | Service UUID | `h143brhw5f8tgfj9trj0f3bd` |
@@ -28,8 +30,8 @@ Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PR
 | Workflow | Uso |
 |----------|-----|
 | **Coolify status check** | Diagnóstico containers + health |
-| **Fix Coolify SSL (RadarZap)** | Republicar stack + Traefik sslip.io |
-| **Configure Coolify (RadarZap)** | `migrate_legacy=1` migração; `0` só sync |
+| **Fix Coolify SSL (Radar Chat)** | Republicar stack + Traefik sslip.io |
+| **Configure Coolify (Radar Chat)** | `migrate_legacy=1` migração; `0` só sync |
 | **Coolify servers setup** | Cadastro servidores ZAP + Gamer |
 | **RadarGamer SSH bootstrap** | 1ª vez no VPS `.179` |
 
@@ -74,15 +76,17 @@ Não rodar os dois no mesmo host com o mesmo número WhatsApp. Condicionar `depl
 |-----|-----|
 | `http://151.247.210.180:8000` | Setup inicial — **HTTP sem SSL** (navegador mostra “Não seguro”) |
 | `https://coolify-151-247-210-180.sslip.io` | Painel com HTTPS (após `scripts/vps-coolify-panel-https.sh` ou Settings → Instance Domain) |
-| `https://151-247-210-180.sslip.io` | **RadarZap** (app), não o painel Coolify |
+| `https://app.radarchat.com.br` | **Radar Chat** (app oficial), não o painel Coolify |
+| `https://radarchat.com.br` | Site publico/comercial |
+| `https://151-247-210-180.sslip.io` | Host legado/validacao do app no cutover Coolify |
 
 No Coolify: **Settings → Instance Settings → Instance's Domain** = `https://coolify-151-247-210-180.sslip.io` → Save. Workflow: **Coolify panel HTTPS**.
 
-### Dois servidores (RadarZap + RadarGamer)
+### Dois servidores (Radar Chat + RadarGamer)
 
 | VPS Platon | IP | Papel | Coolify |
 |------------|-----|--------|---------|
-| **ZAP** `platonvps-3409-1782517003` | `151.247.210.180` | RadarZap + painel Coolify | Servidor **local** (`RadarZap`) |
+| **ZAP** `platonvps-3409-1782517003` | `151.247.210.180` | Radar Chat + painel Coolify | Servidor **local** (`Radar Chat`) |
 | **Gamer** `platonvps-3410-1782516873` | `151.247.210.179` | radargamer.com.br | Servidor **remoto** (`RadarGamer`) |
 
 **Secrets GitHub (Actions):** `DEPLOY_SSH_KEY` (chave privada deploy), `DEPLOY_HOST` = `.180`, `RADARZAP_PASSWORD` / `RADARGAMER_PASSWORD` (senha `ubuntu` Platon — só bootstrap ou recuperação; **não** commitar).
@@ -99,7 +103,7 @@ Requisitos:
 
 1. Secret `DEPLOY_SSH_KEY` — chave privada que o Coolify usa para SSH no Gamer (`.179`).
 2. A **chave pública** correspondente deve estar em `~ubuntu/.ssh/authorized_keys` no VPS Gamer (painel Platon ou `ssh-copy-id`).
-3. Secret opcional `RADARGAMER_SSH_KEY` — se o Gamer usar chave diferente da do RadarZap.
+3. Secret opcional `RADARGAMER_SSH_KEY` — se o Gamer usar chave diferente da do Radar Chat.
 
 Bootstrap (primeira vez, senha do painel Platon no Gamer):
 
@@ -129,7 +133,7 @@ No painel: **Servers** → dois hosts com métricas após validação. Script: `
 
 ### 1. Projeto e servidor
 
-1. Coolify → **Projects** → criar projeto `RadarZap`.
+1. Coolify → **Projects** → criar projeto `Radar Chat`.
 2. Environment **production** (ou `staging` primeiro).
 3. Servidor conectado (localhost ou VPS remoto via SSH).
 
@@ -212,7 +216,7 @@ Equivalente ao `.github/workflows/deploy.yml` em `main`, mas controlado pelo Coo
 Automação:
 
 ```bash
-gh workflow run "Configure Coolify (RadarZap)" --ref layout-v3 \
+gh workflow run "Configure Coolify (Radar Chat)" --ref layout-v3 \
   -f confirm=CONFIGURE -f migrate_legacy=1
 ```
 

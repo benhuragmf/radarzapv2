@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Radar Chat — Plataforma de atendimento omnichannel com IA</title>
+  <meta name="description" content="WhatsApp, chat do site, tickets, leads e IA em um só painel. Filas inteligentes, supervisão em tempo real e LGPD nativo para empresas que levam atendimento a sério." />
+  <meta name="theme-color" content="#07050f" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://radarchat.com.br/" />
+  <meta property="og:title" content="Radar Chat — Atendimento omnichannel com IA" />
+  <meta property="og:description" content="Centralize WhatsApp, WebChat e equipe. Triagem com IA, tickets, CSAT e supervisão em uma plataforma brasileira." />
+  <meta property="og:locale" content="pt_BR" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="canonical" href="https://radarchat.com.br/" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      var t = localStorage.getItem('radarchat-theme');
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+    })();
+  </script>
+  <style>
+    :root,
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --rc-purple: #9b4dff;
+      --rc-purple-dark: #d4bcff;
+      --rc-purple-light: rgba(126, 20, 255, 0.18);
+      --rc-blue: #5ec8ff;
+      --rc-green: #34d399;
+      --rc-ink: #f2ecff;
+      --rc-muted: #a29bb5;
+      --rc-border: rgba(155, 77, 255, 0.22);
+      --rc-bg: #07050f;
+      --rc-surface: #12101c;
+      --rc-surface-raised: #1a1728;
+      --rc-surface-alt: #0d0a16;
+      --rc-surface-muted: #161222;
+      --rc-header-bg: rgba(7, 5, 15, 0.9);
+      --rc-hero-top: rgba(71, 191, 255, 0.14);
+      --rc-hero-bottom: rgba(126, 20, 255, 0.16);
+      --rc-grid-line: rgba(155, 77, 255, 0.07);
+      --rc-radius: 18px;
+      --rc-shadow: 0 28px 70px rgba(0, 0, 0, 0.48);
+      --rc-shadow-sm: 0 8px 28px rgba(0, 0, 0, 0.38);
+      --rc-pain-bg: rgba(239, 68, 68, 0.1);
+      --rc-pain-border: rgba(248, 113, 113, 0.28);
+      --rc-gain-bg: rgba(16, 185, 129, 0.1);
+      --rc-gain-border: rgba(52, 211, 153, 0.28);
+      --rc-mock-bg: #14101f;
+      --rc-mock-bar: #1c1729;
+      --rc-mock-sidebar: #100d18;
+      --rc-mock-conv: #1a1528;
+      --rc-mock-detail: #12101c;
+      --rc-mock-bubble-in: rgba(126, 20, 255, 0.2);
+      --rc-mock-bubble-ai: rgba(71, 191, 255, 0.12);
+      --rc-mobile-panel: #12101c;
+      --rc-nav-hover: #c9a8ff;
+      --rc-btn-ghost-text: #d4bcff;
+    }
+
+    [data-theme="light"] {
+      color-scheme: light;
+      --rc-purple: #7e14ff;
+      --rc-purple-dark: #5b0fcc;
+      --rc-purple-light: #ede6ff;
+      --rc-blue: #47bfff;
+      --rc-green: #10b981;
+      --rc-ink: #0c0818;
+      --rc-muted: #635f73;
+      --rc-border: rgba(126, 20, 255, 0.12);
+      --rc-bg: #ffffff;
+      --rc-surface: #ffffff;
+      --rc-surface-raised: #ffffff;
+      --rc-surface-alt: #faf8ff;
+      --rc-surface-muted: #faf8ff;
+      --rc-header-bg: rgba(255, 255, 255, 0.9);
+      --rc-hero-top: rgba(71, 191, 255, 0.2);
+      --rc-hero-bottom: rgba(126, 20, 255, 0.12);
+      --rc-grid-line: rgba(126, 20, 255, 0.04);
+      --rc-shadow: 0 28px 70px rgba(94, 20, 200, 0.11);
+      --rc-shadow-sm: 0 8px 28px rgba(94, 20, 200, 0.08);
+      --rc-pain-bg: #fff5f5;
+      --rc-pain-border: rgba(239, 68, 68, 0.15);
+      --rc-gain-bg: #f0fdf9;
+      --rc-gain-border: rgba(16, 185, 129, 0.18);
+      --rc-mock-bg: #ffffff;
+      --rc-mock-bar: #f8f6ff;
+      --rc-mock-sidebar: #faf8ff;
+      --rc-mock-conv: #ffffff;
+      --rc-mock-detail: #fcfbff;
+      --rc-mock-bubble-in: #f3f0ff;
+      --rc-mock-bubble-ai: #ecfeff;
+      --rc-mobile-panel: #ffffff;
+      --rc-nav-hover: #7e14ff;
+      --rc-btn-ghost-text: #5b0fcc;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--rc-ink);
+      background: var(--rc-bg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: none; background: none; }
+
+    .wrap { width: min(1140px, calc(100% - 40px)); margin: 0 auto; }
+    .wrap-narrow { width: min(760px, calc(100% - 40px)); margin: 0 auto; }
+
+    /* Reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--rc-header-bg);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--rc-border);
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 0;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+    @media (min-width: 900px) {
+      .header-actions { margin-left: 0; }
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 1.12rem;
+      letter-spacing: -0.03em;
+      z-index: 2;
+    }
+    .brand svg { width: 32px; height: auto; flex-shrink: 0; }
+    .brand span {
+      background: linear-gradient(120deg, var(--rc-purple), var(--rc-blue));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .nav-desktop { display: none; gap: 26px; font-size: 0.9rem; font-weight: 500; color: var(--rc-muted); }
+    .nav-desktop a:hover { color: var(--rc-nav-hover); }
+
+    .header-cta { display: none; gap: 10px; align-items: center; }
+    .theme-toggle {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--rc-border);
+      color: var(--rc-ink);
+      background: var(--rc-surface-muted);
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+    .theme-toggle:hover { border-color: var(--rc-purple); }
+    .theme-toggle svg { width: 20px; height: 20px; }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="light"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="light"] .theme-toggle .icon-moon { display: none; }
+    .menu-toggle {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--rc-border);
+      color: var(--rc-ink);
+      z-index: 2;
+    }
+    .menu-toggle svg { width: 22px; height: 22px; }
+
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(12, 8, 24, 0.45);
+      backdrop-filter: blur(4px);
+    }
+    .mobile-nav.open { display: block; }
+    .mobile-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: min(320px, 88vw);
+      height: 100%;
+      background: var(--rc-mobile-panel);
+      padding: 88px 28px 32px;
+      box-shadow: -20px 0 60px rgba(0,0,0,.12);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .mobile-panel a {
+      padding: 14px 0;
+      font-weight: 600;
+      font-size: 1.05rem;
+      border-bottom: 1px solid var(--rc-border);
+    }
+
+    @media (min-width: 900px) {
+      .nav-desktop, .header-cta { display: flex; }
+      .menu-toggle, .mobile-nav, .header-actions { display: none !important; }
+    }
+    @media (max-width: 899px) {
+      #themeToggle { display: none; }
+      .header-actions { display: flex; }
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.92rem;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--rc-purple) 0%, #9b3dff 55%, var(--rc-blue) 100%);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(126, 20, 255, 0.28);
+    }
+    .btn-primary:hover { box-shadow: 0 14px 36px rgba(126, 20, 255, 0.36); }
+    .btn-ghost { background: var(--rc-purple-light); color: var(--rc-btn-ghost-text); }
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--rc-border);
+      color: var(--rc-ink);
+    }
+    .btn-sm { padding: 9px 16px; font-size: 0.85rem; }
+
+    /* Hero */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 56px 0 40px;
+      background:
+        radial-gradient(ellipse 65% 50% at 90% -5%, var(--rc-hero-top), transparent),
+        radial-gradient(ellipse 55% 45% at 0% 100%, var(--rc-hero-bottom), transparent),
+        linear-gradient(180deg, var(--rc-surface-alt) 0%, var(--rc-bg) 55%);
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--rc-grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--rc-grid-line) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+      pointer-events: none;
+    }
+    .hero-grid {
+      position: relative;
+      display: grid;
+      gap: 40px;
+      align-items: center;
+    }
+    @media (min-width: 960px) {
+      .hero { padding: 72px 0 56px; }
+      .hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: 48px; }
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: var(--rc-purple-light);
+      color: var(--rc-purple-dark);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .eyebrow-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--rc-purple);
+      box-shadow: 0 0 0 4px rgba(126, 20, 255, 0.2);
+      animation: pulse 2s ease infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: clamp(2.15rem, 5.2vw, 3.5rem);
+      line-height: 1.06;
+      letter-spacing: -0.045em;
+      font-weight: 800;
+    }
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(120deg, var(--rc-purple), var(--rc-blue));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-lead {
+      margin: 0 0 26px;
+      font-size: 1.1rem;
+      color: var(--rc-muted);
+      max-width: 520px;
+      line-height: 1.7;
+    }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+    .hero-note {
+      font-size: 0.82rem;
+      color: var(--rc-muted);
+      margin: 0 0 32px;
+    }
+    .hero-note strong { color: var(--rc-green); }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 0;
+    }
+    .pill {
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: var(--rc-surface-raised);
+      border: 1px solid var(--rc-border);
+      color: var(--rc-muted);
+    }
+
+    /* Product mockup */
+    .mockup-wrap {
+      position: relative;
+      perspective: 1200px;
+    }
+    .mockup-glow {
+      position: absolute;
+      inset: 10% -5% -5%;
+      background: radial-gradient(ellipse, rgba(126,20,255,.18), transparent 70%);
+      filter: blur(24px);
+      pointer-events: none;
+    }
+    .mockup {
+      position: relative;
+      border-radius: 20px;
+      border: 1px solid var(--rc-border);
+      background: var(--rc-mock-bg);
+      box-shadow: var(--rc-shadow);
+      overflow: hidden;
+      transform: rotateY(-4deg) rotateX(2deg);
+      transition: transform 0.4s ease;
+    }
+    .mockup-wrap:hover .mockup { transform: none; }
+    .mockup-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background: var(--rc-mock-bar);
+      border-bottom: 1px solid var(--rc-border);
+    }
+    .mockup-dot { width: 9px; height: 9px; border-radius: 50%; }
+    .mockup-dot:nth-child(1) { background: #ff5f57; }
+    .mockup-dot:nth-child(2) { background: #febc2e; }
+    .mockup-dot:nth-child(3) { background: #28c840; }
+    .mockup-title {
+      margin-left: 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--rc-muted);
+    }
+    .mockup-body {
+      display: grid;
+      grid-template-columns: 130px 1fr 160px;
+      min-height: 300px;
+      font-size: 0.72rem;
+    }
+    @media (max-width: 520px) {
+      .mockup-body { grid-template-columns: 90px 1fr; }
+      .mockup-detail { display: none; }
+    }
+    .mock-sidebar {
+      background: var(--rc-mock-sidebar);
+      border-right: 1px solid var(--rc-border);
+      padding: 12px 10px;
+    }
+    .mock-sidebar h4 {
+      margin: 0 0 10px;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--rc-muted);
+    }
+    .mock-conv {
+      padding: 8px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      background: var(--rc-mock-conv);
+      border: 1px solid var(--rc-border);
+    }
+    .mock-conv.active {
+      border-color: rgba(126,20,255,.35);
+      background: var(--rc-purple-light);
+    }
+    .mock-conv strong { display: block; font-size: 0.72rem; }
+    .mock-conv span { color: var(--rc-muted); font-size: 0.65rem; }
+    .mock-chat { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .mock-bubble {
+      max-width: 82%;
+      padding: 8px 11px;
+      border-radius: 12px;
+      line-height: 1.45;
+    }
+    .mock-bubble.in {
+      align-self: flex-start;
+      background: var(--rc-mock-bubble-in);
+      border-bottom-left-radius: 4px;
+    }
+    .mock-bubble.out {
+      align-self: flex-end;
+      background: linear-gradient(135deg, var(--rc-purple), #9b3dff);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .mock-bubble.ai {
+      align-self: flex-start;
+      background: var(--rc-mock-bubble-ai);
+      border: 1px dashed rgba(71,191,255,.4);
+    }
+    .mock-detail {
+      border-left: 1px solid var(--rc-border);
+      padding: 12px;
+      background: var(--rc-mock-detail);
+    }
+    .mock-detail h4 { margin: 0 0 8px; font-size: 0.72rem; }
+    .mock-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.62rem;
+      font-weight: 600;
+      margin: 0 4px 4px 0;
+      background: var(--rc-purple-light);
+      color: var(--rc-purple-dark);
+    }
+    .mock-metric {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 10px;
+      background: var(--rc-mock-conv);
+      border: 1px solid var(--rc-border);
+    }
+    .mock-metric strong { font-size: 1.1rem; display: block; color: var(--rc-purple); }
+
+    /* Trust strip */
+    .trust {
+      padding: 28px 0 36px;
+      border-bottom: 1px solid var(--rc-border);
+    }
+    .trust p {
+      text-align: center;
+      margin: 0 0 16px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--rc-muted);
+    }
+    .trust-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px 14px;
+    }
+    .trust-item {
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: var(--rc-surface-muted);
+      border: 1px solid var(--rc-border);
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--rc-ink);
+    }
+
+    /* Sections */
+    section { padding: 80px 0; }
+    section.alt { background: linear-gradient(180deg, var(--rc-surface-alt) 0%, var(--rc-bg) 100%); }
+    .section-head {
+      text-align: center;
+      max-width: 660px;
+      margin: 0 auto 48px;
+    }
+    .section-head h2 {
+      margin: 0 0 12px;
+      font-size: clamp(1.75rem, 3.2vw, 2.35rem);
+      letter-spacing: -0.035em;
+      font-weight: 800;
+    }
+    .section-head p { margin: 0; color: var(--rc-muted); font-size: 1.05rem; line-height: 1.65; }
+
+    /* Problem / solution */
+    .split {
+      display: grid;
+      gap: 24px;
+    }
+    @media (min-width: 768px) { .split { grid-template-columns: 1fr 1fr; } }
+    .pain-card, .gain-card {
+      padding: 28px;
+      border-radius: var(--rc-radius);
+      border: 1px solid var(--rc-border);
+    }
+    .pain-card { background: var(--rc-pain-bg); border-color: var(--rc-pain-border); }
+    .gain-card { background: var(--rc-gain-bg); border-color: var(--rc-gain-border); }
+    .pain-card h3, .gain-card h3 { margin: 0 0 14px; font-size: 1.1rem; }
+    .pain-card ul, .gain-card ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+      font-size: 0.92rem;
+      color: var(--rc-muted);
+    }
+    .pain-card li::before { content: '✕ '; color: #ef4444; font-weight: 700; }
+    .gain-card li::before { content: '✓ '; color: var(--rc-green); font-weight: 700; }
+
+    /* Features */
+    .features {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 640px) { .features { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 960px) { .features { grid-template-columns: repeat(3, 1fr); } }
+
+    .feature {
+      padding: 26px;
+      border-radius: var(--rc-radius);
+      border: 1px solid var(--rc-border);
+      background: var(--rc-surface-raised);
+      transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+    .feature:hover {
+      box-shadow: var(--rc-shadow-sm);
+      transform: translateY(-3px);
+      border-color: rgba(126,20,255,.22);
+    }
+    .feature-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      font-size: 1.25rem;
+      margin-bottom: 14px;
+      background: var(--rc-purple-light);
+    }
+    .feature h3 { margin: 0 0 8px; font-size: 1.04rem; font-weight: 700; }
+    .feature p { margin: 0; font-size: 0.9rem; color: var(--rc-muted); line-height: 1.55; }
+
+    /* Use cases */
+    .use-cases {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .use-case {
+      padding: 22px;
+      border-radius: var(--rc-radius);
+      background: var(--rc-surface-raised);
+      border: 1px solid var(--rc-border);
+    }
+    .use-case strong { display: block; margin-bottom: 6px; font-size: 0.95rem; }
+    .use-case span { font-size: 0.86rem; color: var(--rc-muted); }
+
+    /* Steps */
+    .steps {
+      display: grid;
+      gap: 20px;
+      position: relative;
+    }
+    @media (min-width: 768px) { .steps { grid-template-columns: repeat(4, 1fr); } }
+    .step {
+      text-align: center;
+      padding: 24px 16px;
+      border-radius: var(--rc-radius);
+      background: var(--rc-surface-raised);
+      border: 1px solid var(--rc-border);
+    }
+    .step-num {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 14px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, var(--rc-purple), var(--rc-blue));
+    }
+    .step h3 { margin: 0 0 8px; font-size: 1rem; }
+    .step p { margin: 0; font-size: 0.88rem; color: var(--rc-muted); }
+
+    /* Metrics band */
+    .metrics-band {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, 1fr);
+      margin-top: 40px;
+    }
+    @media (min-width: 768px) { .metrics-band { grid-template-columns: repeat(4, 1fr); } }
+    .metric-card {
+      text-align: center;
+      padding: 24px 16px;
+      border-radius: var(--rc-radius);
+      background: var(--rc-surface-raised);
+      border: 1px solid var(--rc-border);
+      box-shadow: var(--rc-shadow-sm);
+    }
+    .metric-card strong {
+      display: block;
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--rc-purple);
+      margin-bottom: 4px;
+    }
+    .metric-card span { font-size: 0.85rem; color: var(--rc-muted); }
+
+    /* Pricing */
+    .pricing {
+      display: grid;
+      gap: 20px;
+      align-items: stretch;
+    }
+    @media (min-width: 768px) { .pricing { grid-template-columns: repeat(3, 1fr); } }
+    .price-card {
+      position: relative;
+      padding: 30px 26px;
+      border-radius: 22px;
+      border: 1px solid var(--rc-border);
+      background: var(--rc-surface-raised);
+      display: flex;
+      flex-direction: column;
+    }
+    .price-card.featured {
+      border-color: rgba(126,20,255,.35);
+      box-shadow: var(--rc-shadow);
+      transform: scale(1.02);
+    }
+    @media (max-width: 767px) { .price-card.featured { transform: none; } }
+    .price-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: linear-gradient(135deg, var(--rc-purple), var(--rc-blue));
+      color: #fff;
+    }
+    .price-card h3 { margin: 0 0 6px; font-size: 1.15rem; }
+    .price-card .desc { margin: 0 0 18px; font-size: 0.86rem; color: var(--rc-muted); min-height: 2.6em; }
+    .price-amount {
+      margin: 0 0 4px;
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+    .price-amount small { font-size: 0.95rem; font-weight: 600; color: var(--rc-muted); }
+    .price-period { margin: 0 0 20px; font-size: 0.82rem; color: var(--rc-muted); }
+    .price-list {
+      margin: 0 0 24px;
+      padding: 0;
+      list-style: none;
+      flex: 1;
+      display: grid;
+      gap: 9px;
+      font-size: 0.88rem;
+      color: var(--rc-muted);
+    }
+    .price-list li::before { content: '✓ '; color: var(--rc-green); font-weight: 700; }
+    .price-card .btn { width: 100%; }
+
+    /* Testimonials */
+    .testimonials {
+      display: grid;
+      gap: 20px;
+    }
+    @media (min-width: 768px) { .testimonials { grid-template-columns: repeat(3, 1fr); } }
+    .testimonial {
+      padding: 26px;
+      border-radius: var(--rc-radius);
+      background: var(--rc-surface-raised);
+      border: 1px solid var(--rc-border);
+      display: flex;
+      flex-direction: column;
+    }
+    .testimonial blockquote {
+      margin: 0 0 18px;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: var(--rc-ink);
+      flex: 1;
+    }
+    .testimonial footer {
+      border: none;
+      padding: 0;
+      font-size: 0.82rem;
+      color: var(--rc-muted);
+    }
+    .testimonial strong { display: block; color: var(--rc-ink); font-size: 0.9rem; }
+    .stars { color: #f59e0b; letter-spacing: 2px; margin-bottom: 12px; font-size: 0.9rem; }
+
+    /* FAQ */
+    .faq { display: grid; gap: 10px; }
+    .faq-item {
+      border: 1px solid var(--rc-border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--rc-surface-raised);
+    }
+    .faq-q {
+      width: 100%;
+      text-align: left;
+      padding: 18px 20px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .faq-q svg { flex-shrink: 0; transition: transform 0.2s ease; }
+    .faq-item.open .faq-q svg { transform: rotate(180deg); }
+    .faq-a {
+      display: none;
+      padding: 0 20px 18px;
+      font-size: 0.9rem;
+      color: var(--rc-muted);
+      line-height: 1.65;
+    }
+    .faq-item.open .faq-a { display: block; }
+
+    /* CTA */
+    .cta-band {
+      margin: 0 20px 80px;
+      border-radius: 28px;
+      padding: 56px 32px;
+      text-align: center;
+      color: #fff;
+      background: linear-gradient(135deg, #4a0aa8 0%, var(--rc-purple) 35%, #9b3dff 65%, var(--rc-blue) 100%);
+      box-shadow: 0 30px 70px rgba(94, 20, 200, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-band::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(255,255,255,.15), transparent 50%);
+      pointer-events: none;
+    }
+    .cta-band > * { position: relative; }
+    .cta-band h2 {
+      margin: 0 0 12px;
+      font-size: clamp(1.65rem, 3vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .cta-band p {
+      margin: 0 auto 28px;
+      max-width: 540px;
+      opacity: 0.94;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+    .cta-band .btn-primary {
+      background: var(--rc-surface-raised);
+      color: var(--rc-purple-dark);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+    .cta-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+    .cta-band .btn-outline-light {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+    .cta-band .btn-outline-light:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--rc-border);
+      padding: 48px 0 32px;
+      background: var(--rc-surface-alt);
+    }
+    .footer-grid {
+      display: grid;
+      gap: 32px;
+      margin-bottom: 36px;
+    }
+    @media (min-width: 768px) { .footer-grid { grid-template-columns: 1.4fr 1fr 1fr 1fr; } }
+    .footer-brand p {
+      margin: 12px 0 0;
+      font-size: 0.88rem;
+      color: var(--rc-muted);
+      max-width: 280px;
+      line-height: 1.6;
+    }
+    .footer-col h4 {
+      margin: 0 0 14px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--rc-muted);
+    }
+    .footer-col a {
+      display: block;
+      padding: 5px 0;
+      font-size: 0.9rem;
+      color: var(--rc-ink);
+    }
+    .footer-col a:hover { color: var(--rc-purple); }
+    .footer-bottom {
+      padding-top: 24px;
+      border-top: 1px solid var(--rc-border);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--rc-muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap header-inner">
+      <a href="/" class="brand" aria-label="Radar Chat — início">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="46" fill="none" viewBox="0 0 48 46" aria-hidden="true"><path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/></svg>
+        <span>Radar Chat</span>
+      </a>
+      <nav class="nav-desktop" aria-label="Navegação principal">
+        <a href="#recursos">Recursos</a>
+        <a href="#solucao">Solução</a>
+        <a href="#planos">Planos</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="header-cta">
+        <button class="theme-toggle" type="button" id="themeToggle" aria-label="Alternar tema claro/escuro">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+        <a class="btn btn-ghost btn-sm" href="https://app.radarchat.com.br" rel="noopener">Entrar</a>
+        <a class="btn btn-primary btn-sm" href="https://app.radarchat.com.br" rel="noopener">Começar grátis</a>
+      </div>
+      <div class="header-actions">
+        <button class="theme-toggle" type="button" id="themeToggleMobile" aria-label="Alternar tema claro/escuro">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+        <button class="menu-toggle" type="button" aria-label="Abrir menu" id="menuOpen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-nav" id="mobileNav" hidden>
+    <div class="mobile-panel">
+      <a href="#recursos">Recursos</a>
+      <a href="#solucao">Solução</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn btn-primary" href="https://app.radarchat.com.br" rel="noopener" style="margin-top:16px">Acessar painel</a>
+    </div>
+  </div>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="reveal">
+          <div class="eyebrow"><span class="eyebrow-dot"></span> Plataforma brasileira de atendimento</div>
+          <h1>Atenda em todos os canais com <em>uma só operação</em></h1>
+          <p class="hero-lead">
+            Radar Chat centraliza WhatsApp, chat do site, tickets, leads e equipe — com IA que tria,
+            encaminha e entrega contexto completo para cada atendente. Menos caos, mais conversão.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://app.radarchat.com.br" rel="noopener">Criar conta gratuita</a>
+            <a class="btn btn-outline" href="#planos">Ver planos</a>
+          </div>
+          <p class="hero-note"><strong>7 dias de trial</strong> no plano comercial · Sem cartão para explorar</p>
+          <div class="pill-row">
+            <span class="pill">WhatsApp + WebChat</span>
+            <span class="pill">IA Básica e Premium</span>
+            <span class="pill">LGPD nativo</span>
+            <span class="pill">API e webhooks</span>
+          </div>
+        </div>
+
+        <div class="mockup-wrap reveal">
+          <div class="mockup-glow" aria-hidden="true"></div>
+          <div class="mockup" aria-label="Prévia do painel Radar Chat">
+            <div class="mockup-bar">
+              <span class="mockup-dot"></span><span class="mockup-dot"></span><span class="mockup-dot"></span>
+              <span class="mockup-title">app.radarchat.com.br — Inbox</span>
+            </div>
+            <div class="mockup-body">
+              <aside class="mock-sidebar">
+                <h4>Conversas</h4>
+                <div class="mock-conv active">
+                  <strong>Marina · WebChat</strong>
+                  <span>Quero falar sobre planos</span>
+                </div>
+                <div class="mock-conv">
+                  <strong>+55 11 9… · WA</strong>
+                  <span>Pedido #4821 — aguardando</span>
+                </div>
+                <div class="mock-conv">
+                  <strong>TK-10482</strong>
+                  <span>Ticket aberto · Suporte</span>
+                </div>
+              </aside>
+              <div class="mock-chat">
+                <div class="mock-bubble in">Olá! Vi o chat no site e gostaria de saber sobre integração com WhatsApp.</div>
+                <div class="mock-bubble ai">🤖 IA: Posso ajudar! Temos bridge WebChat↔WhatsApp. Encaminho para um consultor?</div>
+                <div class="mock-bubble out">Claro! Já estou conectando você à fila comercial. Um momento.</div>
+                <div class="mock-bubble in">Perfeito, obrigada!</div>
+              </div>
+              <aside class="mock-detail">
+                <h4>Contexto do cliente</h4>
+                <span class="mock-tag">Lead quente</span>
+                <span class="mock-tag">WebChat</span>
+                <span class="mock-tag">Comercial</span>
+                <div class="mock-metric">
+                  <span>CSAT último atendimento</span>
+                  <strong>4,8</strong>
+                </div>
+                <div class="mock-metric" style="margin-top:8px">
+                  <span>Tempo na fila</span>
+                  <strong>42s</strong>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="trust">
+      <div class="wrap">
+        <p>Feito para operações que não podem perder mensagem</p>
+        <div class="trust-grid">
+          <span class="trust-item">E-commerce</span>
+          <span class="trust-item">Clínicas e saúde</span>
+          <span class="trust-item">Imobiliárias</span>
+          <span class="trust-item">Escolas e cursos</span>
+          <span class="trust-item">Serviços B2B</span>
+          <span class="trust-item">Franquias</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="alt" id="solucao">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Pare de atender no improviso</h2>
+          <p>Quando cada canal vive em um app diferente, o cliente repete a história e sua equipe perde tempo — e vendas.</p>
+        </div>
+        <div class="split reveal">
+          <div class="pain-card">
+            <h3>Sem Radar Chat</h3>
+            <ul>
+              <li>WhatsApp no celular, site em outra ferramenta, e-mail à parte</li>
+              <li>Ninguém sabe quem já falou com o cliente</li>
+              <li>Leads do site esfriam na fila</li>
+              <li>Supervisor sem visão em tempo real</li>
+              <li>LGPD e consentimento difíceis de auditar</li>
+            </ul>
+          </div>
+          <div class="gain-card">
+            <h3>Com Radar Chat</h3>
+            <ul>
+              <li>Inbox único: WhatsApp + WebChat + tickets na mesma tela</li>
+              <li>Histórico, tags e contexto antes de responder</li>
+              <li>IA tria, FAQ responde e escala só quando precisa</li>
+              <li>Filas por setor, round-robin e presença da equipe</li>
+              <li>Portal LGPD, CSAT e relatórios integrados</li>
+            </ul>
+          </div>
+        </div>
+        <div class="metrics-band reveal">
+          <div class="metric-card"><strong>1</strong><span>painel para todos os canais</span></div>
+          <div class="metric-card"><strong>24/7</strong><span>IA + horário comercial</span></div>
+          <div class="metric-card"><strong>TK</strong><span>protocolo rastreável</span></div>
+          <div class="metric-card"><strong>CSAT</strong><span>pós-atendimento automático</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="recursos">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Recursos que sustentam operação real</h2>
+          <p>Do primeiro “oi” no site até o ticket fechado — com governança para donos, supervisores e atendentes.</p>
+        </div>
+        <div class="features">
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">📥</div>
+            <h3>Inbox omnichannel</h3>
+            <p>WhatsApp e WebChat unificados, com atribuição, transferência entre setores e bridge bidirecional site ↔ WA.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">🌐</div>
+            <h3>Chat do site premium</h3>
+            <p>Widget embed com modelos visuais, pré-chat configurável, anexos, FAQ com base de conhecimento e notificações.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">🤖</div>
+            <h3>IA em 4 modos</h3>
+            <p>Robô com menu, triagem básica local, IA premium com KB e handoff humano — você escolhe o nível de automação.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">🎫</div>
+            <h3>Tickets e chamados</h3>
+            <p>Protocolo TK com SLA por equipe, consulta pública com token, comentários internos e auditoria completa.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">👥</div>
+            <h3>Equipe e supervisão</h3>
+            <p>Setores públicos e internos, round-robin por disponibilidade, painel supervisor e métricas de 7 dias.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">📋</div>
+            <h3>Leads e formulários</h3>
+            <p>Capture no site ou WordPress, qualifique por segmento e abra atendimento no Inbox em um clique.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">⚡</div>
+            <h3>Automações e API</h3>
+            <p>Webhooks outbound, REST com OpenAPI, campanhas e integrações para conectar seu stack comercial.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">📊</div>
+            <h3>Relatórios e CSAT</h3>
+            <p>TMA, fila, desempenho por atendente, pesquisa de satisfação ao finalizar e exportação quando precisar.</p>
+          </article>
+          <article class="feature reveal">
+            <div class="feature-icon" aria-hidden="true">🔒</div>
+            <h3>LGPD e consentimento</h3>
+            <p>Portal de privacidade, renovação progressiva de consentimento, auditoria e mascaramento de dados sensíveis.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Para o seu segmento</h2>
+          <p>Configurações flexíveis para diferentes modelos de negócio — sem engessar sua operação.</p>
+        </div>
+        <div class="use-cases reveal">
+          <div class="use-case"><strong>E-commerce</strong><span>Recuperação de carrinho, status de pedido e pós-venda no mesmo fluxo.</span></div>
+          <div class="use-case"><strong>Clínicas</strong><span>Pré-chat com motivo, triagem por especialidade e confirmação via WhatsApp.</span></div>
+          <div class="use-case"><strong>Imobiliárias</strong><span>Leads do site qualificados, distribuição por corretor e histórico por imóvel.</span></div>
+          <div class="use-case"><strong>Edtech</strong><span>FAQ de matrículas com IA, tickets para secretaria e campanhas segmentadas.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-funciona">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Do cadastro ao primeiro atendimento em 4 passos</h2>
+          <p>Sem consultoria obrigatória. Você configura, testa e escala no seu ritmo.</p>
+        </div>
+        <div class="steps reveal">
+          <div class="step">
+            <div class="step-num">1</div>
+            <h3>Crie sua conta</h3>
+            <p>Acesse o painel, convide a equipe e defina papéis e permissões.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <h3>Conecte canais</h3>
+            <p>QR do WhatsApp, widget no site e formulários de captura de leads.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <h3>Configure a IA</h3>
+            <p>Escolha o modo de atendimento, base de conhecimento e regras de escalação.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <h3>Opere e meça</h3>
+            <p>Supervisione filas, feche tickets e acompanhe CSAT e relatórios.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt" id="planos">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Planos transparentes, que crescem com você</h2>
+          <p>Comece no Starter para PMEs ou escale para Pro com API, relatórios e IA premium. Enterprise sob medida.</p>
+        </div>
+        <div class="pricing reveal">
+          <article class="price-card">
+            <h3>Starter</h3>
+            <p class="desc">Pequenos negócios montando o primeiro time de atendimento.</p>
+            <p class="price-amount">R$ 99<small>,00</small></p>
+            <p class="price-period">por mês · cobrança mensal</p>
+            <ul class="price-list">
+              <li>2 atendentes · 3 usuários · 1 supervisor</li>
+              <li>500 mensagens/dia · 5 destinos WA</li>
+              <li>WebChat + Inbox + Tickets + Leads</li>
+              <li>IA Básica · 400 créditos/mês</li>
+              <li>Supervisão e exportação</li>
+            </ul>
+            <a class="btn btn-outline" href="https://app.radarchat.com.br" rel="noopener">Começar no Starter</a>
+          </article>
+
+          <article class="price-card featured">
+            <span class="price-badge">Mais popular</span>
+            <h3>Pro</h3>
+            <p class="desc">Empresas com operação diária e equipe comercial estruturada.</p>
+            <p class="price-amount">R$ 299<small>,00</small></p>
+            <p class="price-period">por mês · cobrança mensal</p>
+            <ul class="price-list">
+              <li>5 atendentes · 8 usuários · 3 widgets</li>
+              <li>2.500 mensagens/dia · 15 destinos WA</li>
+              <li>IA Premium + remoção de branding</li>
+              <li>Relatórios, webhooks e API REST</li>
+              <li>2.500 créditos IA/mês · auditoria</li>
+            </ul>
+            <a class="btn btn-primary" href="https://app.radarchat.com.br" rel="noopener">Assinar Pro</a>
+          </article>
+
+          <article class="price-card">
+            <h3>Enterprise</h3>
+            <p class="desc">Grandes operações com limites customizados e suporte prioritário.</p>
+            <p class="price-amount">Sob consulta</p>
+            <p class="price-period">limites ampliados · onboarding dedicado</p>
+            <ul class="price-list">
+              <li>Até 20+ atendentes e 10 widgets</li>
+              <li>20.000 mensagens/dia · destinos ilimitados</li>
+              <li>12.000 créditos IA/mês</li>
+              <li>Suporte prioritário</li>
+              <li>Customização comercial</li>
+            </ul>
+            <a class="btn btn-outline" href="mailto:contato@radarchat.com.br?subject=Radar%20Chat%20Enterprise">Falar com vendas</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Quem já estruturou o atendimento</h2>
+          <p>Operações reais que saíram do caos de planilhas e celulares espalhados.</p>
+        </div>
+        <div class="testimonials reveal">
+          <article class="testimonial">
+            <div class="stars" aria-label="5 estrelas">★★★★★</div>
+            <blockquote>“Antes perdíamos lead do site porque ninguém via a mensagem a tempo. Com fila e notificação, o tempo de resposta caiu muito.”</blockquote>
+            <footer><strong>Gerente de operações</strong>E-commerce de moda · SP</footer>
+          </article>
+          <article class="testimonial">
+            <div class="stars" aria-label="5 estrelas">★★★★★</div>
+            <blockquote>“A ponte WebChat com WhatsApp mudou o jogo: o paciente começa no site e continua no celular sem repetir tudo.”</blockquote>
+            <footer><strong>Coordenadora administrativa</strong>Clínica odontológica · PR</footer>
+          </article>
+          <article class="testimonial">
+            <div class="stars" aria-label="5 estrelas">★★★★★</div>
+            <blockquote>“Supervisão em tempo real e CSAT automático deram visibilidade que eu não tinha nem com três ferramentas separadas.”</blockquote>
+            <footer><strong>Dono</strong>Imobiliária · MG</footer>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt" id="faq">
+      <div class="wrap wrap-narrow">
+        <div class="section-head reveal">
+          <h2>Perguntas frequentes</h2>
+          <p>Tudo o que você precisa saber antes de começar.</p>
+        </div>
+        <div class="faq reveal">
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Preciso de cartão para testar?
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a">Você pode criar conta e explorar o painel. O trial comercial de 7 dias está disponível nos planos pagos — consulte as condições atuais dentro do painel em Planos e cobrança.</div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Funciona com WhatsApp Business?
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a">Sim. Conecte via QR Code no painel, com fila humanizada de envio, comandos operacionais para a equipe e reconexão automática. Evolução para API oficial Meta está no roadmap.</div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Posso instalar o chat no meu site?
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a">Sim. Um script embed leve (`widget.js`) é gerado no painel. Funciona em sites, landing pages e WordPress. Há modelos visuais gratuitos e premium.</div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              A plataforma é adequada para LGPD?
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a">O Radar Chat inclui portal LGPD, gestão de consentimento com renovação progressiva, auditoria de eventos e controles de exportação — ferramentas para apoiar sua conformidade, com responsabilidade compartilhada conforme seu uso.</div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Tem API para integrar com meu sistema?
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="faq-a">No plano Pro e Enterprise você tem API REST documentada (OpenAPI), chaves de integração e webhooks outbound para eventos de ticket, conversa e bridge WebChat↔WhatsApp.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="cta-band reveal" id="contato">
+      <h2>Centralize seu atendimento hoje</h2>
+      <p>Junte WhatsApp, site, equipe e IA em uma plataforma pensada para operações brasileiras — com suporte a LGPD e escala real.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href="https://app.radarchat.com.br" rel="noopener">Criar conta em app.radarchat.com.br</a>
+        <a class="btn btn-outline btn-outline-light" href="mailto:contato@radarchat.com.br">Falar com a equipe</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <div class="footer-brand">
+        <a href="/" class="brand">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="27" fill="none" viewBox="0 0 48 46" aria-hidden="true"><path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/></svg>
+          <span>Radar Chat</span>
+        </a>
+        <p>Plataforma de atendimento omnichannel com IA, feita no Brasil para empresas que precisam de controle, velocidade e conformidade.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Produto</h4>
+        <a href="#recursos">Recursos</a>
+        <a href="#planos">Planos</a>
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="footer-col">
+        <h4>Acesso</h4>
+        <a href="https://app.radarchat.com.br" rel="noopener">Painel</a>
+        <a href="https://app.radarchat.com.br" rel="noopener">Criar conta</a>
+        <a href="mailto:contato@radarchat.com.br">contato@radarchat.com.br</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="mailto:contato@radarchat.com.br?subject=Privacidade%20Radar%20Chat">Privacidade</a>
+        <a href="mailto:contato@radarchat.com.br?subject=Termos%20Radar%20Chat">Termos de uso</a>
+      </div>
+    </div>
+    <div class="wrap footer-bottom">
+      <span>&copy; <span id="year"></span> Radar Chat. Todos os direitos reservados.</span>
+      <span>radarchat.com.br · app.radarchat.com.br</span>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Theme — padrão escuro
+    const THEME_KEY = 'radarchat-theme';
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    function applyTheme(theme) {
+      const next = theme === 'light' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem(THEME_KEY, next);
+      if (metaTheme) metaTheme.setAttribute('content', next === 'dark' ? '#07050f' : '#ffffff');
+    }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    }
+    document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+    document.getElementById('themeToggleMobile')?.addEventListener('click', toggleTheme);
+
+    // Mobile menu
+    const mobileNav = document.getElementById('mobileNav');
+    const menuOpen = document.getElementById('menuOpen');
+    menuOpen.addEventListener('click', () => {
+      mobileNav.hidden = false;
+      mobileNav.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    });
+    mobileNav.addEventListener('click', (e) => {
+      if (e.target === mobileNav || e.target.closest('a')) {
+        mobileNav.classList.remove('open');
+        mobileNav.hidden = true;
+        document.body.style.overflow = '';
+      }
+    });
+
+    // FAQ accordion
+    document.querySelectorAll('.faq-q').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.faq-item');
+        const open = item.classList.contains('open');
+        document.querySelectorAll('.faq-item').forEach((i) => {
+          i.classList.remove('open');
+          i.querySelector('.faq-q').setAttribute('aria-expanded', 'false');
+        });
+        if (!open) {
+          item.classList.add('open');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+
+    // Scroll reveal
+    const revealEls = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    revealEls.forEach((el) => io.observe(el));
+  </script>
+  <script
+    src="https://app.radarchat.com.br/webchat/widget.js?v=2.12.71"
+    data-widget-key="wck_0e0dc3451295dc581977c02f922de507"
+    data-base-url="https://app.radarchat.com.br"
+    async
+  ></script>
+</body>
+</html>

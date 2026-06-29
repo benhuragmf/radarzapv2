@@ -1,9 +1,10 @@
-# RadarZap v2 — preparação para produção
+# Radar Chat v2 — preparação para produção
 
 > **Referência de servidor e deploy** — infra, env, segurança, staging, go-live, smoke e rollback.  
-> **Versão ref:** `2.12.69` · **Última revisão:** 2026-06-28  
+> **Versão ref:** `2.12.71` · **Última revisão:** 2026-06-29
 > **Tracker de execução (vivo):** [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) — marcar progresso infra **em paralelo** ao QA Fase 1.  
 > **Branch de release (produto + UI v3):** `layout-v3` — ver [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md).  
+> **Domínios oficiais:** site `https://radarchat.com.br` · sistema `https://app.radarchat.com.br`.
 > **Go-live comercial** ainda exige gate § Estabilização + smoke completo — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
 
 ---

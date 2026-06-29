@@ -72,7 +72,7 @@ export function ApiDocsPanel() {
       </InlineNotice>
 
       <DataTable
-        ariaLabel="Endpoints da API RadarZap"
+        ariaLabel="Endpoints da API Radar Chat"
         columns={columns}
         data={rows}
         tableOptions={{ getRowId: row => row.key }}

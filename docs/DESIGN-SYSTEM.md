@@ -1,4 +1,4 @@
-# RadarZap — Design System (painel frontend)
+# Radar Chat — Design System (painel frontend)
 
 **Versão:** 2.8.4+ · **Código:** `src/services/web-dashboard/frontend/src/design-system/`
 

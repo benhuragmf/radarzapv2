@@ -1,8 +1,8 @@
-# RadarZap Layout v3 08 — Fase 4 Componentes Visuais Compartilhados
+# Radar Chat Layout v3 08 — Fase 4 Componentes Visuais Compartilhados
 
 ## 1. Objetivo
 
-Fortalecer a base visual compartilhada do painel RadarZap v2 na branch `layout-v3`, criando e refinando componentes pequenos do design system para reduzir duplicacao visual em telas futuras. A fase foi limitada a componentes reutilizaveis, estados visuais, documentacao e aplicacao segura em paineis de integracoes ja existentes.
+Fortalecer a base visual compartilhada do painel Radar Chat v2 na branch `layout-v3`, criando e refinando componentes pequenos do design system para reduzir duplicacao visual em telas futuras. A fase foi limitada a componentes reutilizaveis, estados visuais, documentacao e aplicacao segura em paineis de integracoes ja existentes.
 
 Nao houve redesign amplo de paginas, mudanca de backend, banco, APIs, rotas, redirects, atendimento, filas, presenca, IA, creditos, billing, WhatsApp Bridge, WebChat publico/widget, Leads/Tickets/LGPD ou Admin SaaS backend.
 

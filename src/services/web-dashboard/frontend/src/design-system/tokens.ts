@@ -1,4 +1,4 @@
-/** Tokens visuais centralizados do RadarZap — valores JS para uso em lógica e estilos inline. */
+/** Tokens visuais centralizados do Radar Chat — valores JS para uso em lógica e estilos inline. */
 export const colors = {
   background: '#F3F7FB',
   surface: '#FFFFFF',

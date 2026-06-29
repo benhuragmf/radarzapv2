@@ -10,7 +10,7 @@
   --color-brand-900: #14532d;
 }
 
-/* Remapeia escala gray legada → tokens RadarZap (todas as páginas herdam) */
+/* Remapeia escala gray legada → tokens Radar Chat (todas as páginas herdam) */
 @theme inline {
   --color-gray-950: var(--rz-background);
   --color-gray-900: var(--rz-surface);
@@ -25,7 +25,7 @@
   --color-rz-border: var(--rz-border);
 }
 
-/* RadarZap design tokens — dark (padrão) */
+/* Radar Chat design tokens — dark (padrão) */
 :root {
   --rz-background: #030712;
   --rz-surface: #111827;

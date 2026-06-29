@@ -126,8 +126,8 @@ export const CHATBOX_RESERVED_MODEL_IDS = [
 export const CHATBOX_RESERVED_MODELS: Array<{ id: string; name: string; status: 'planned' }> = [
   { id: 'office-chat', name: 'Office Chat', status: 'planned' },
   { id: 'helpdesk-mini', name: 'Helpdesk Mini', status: 'planned' },
-  { id: 'radarzap-compact', name: 'RadarZap Compact', status: 'planned' },
-  { id: 'radarzap-mini', name: 'RadarZap Mini', status: 'planned' },
+  { id: 'radarzap-compact', name: 'Radar Chat Compact', status: 'planned' },
+  { id: 'radarzap-mini', name: 'Radar Chat Mini', status: 'planned' },
 ]
 
 const baseAppearance = (
@@ -187,7 +187,7 @@ export const CHATBOX_MODELS: ChatBoxModel[] = [
     },
     preview: {
       variant: 'blue-compact',
-      headerTitle: 'RadarZap',
+      headerTitle: 'Radar Chat',
       headerStatus: 'Online agora',
       introLines: ['Como podemos ajudar?', 'Respostas rápidas para você.'],
       primaryCta: 'Nova conversa',
@@ -198,7 +198,7 @@ export const CHATBOX_MODELS: ChatBoxModel[] = [
     isPremium: false,
     appearance: baseAppearance('blue-compact', {
       primaryColor: '#2563EB',
-      title: 'RadarZap',
+      title: 'Radar Chat',
       subtitle: 'Online agora',
       greeting: 'Como podemos ajudar? Respostas rápidas para você.',
       theme: 'light',
@@ -235,7 +235,7 @@ export const CHATBOX_MODELS: ChatBoxModel[] = [
     },
     preview: {
       variant: 'small-chat',
-      headerTitle: 'RadarZap',
+      headerTitle: 'Radar Chat',
       headerStatus: 'Online agora',
       introLines: ['Olá! 👋', 'Como posso ajudar você hoje?'],
       quickActions: ['Tenho uma dúvida', 'Quero saber mais', 'Falar com um atendente'],
@@ -245,7 +245,7 @@ export const CHATBOX_MODELS: ChatBoxModel[] = [
     isPremium: false,
     appearance: baseAppearance('small-chat', {
       primaryColor: '#14B8A6',
-      title: 'RadarZap',
+      title: 'Radar Chat',
       subtitle: 'Online agora',
       greeting: 'Olá! Como posso ajudar você hoje?',
       theme: 'light',
@@ -442,7 +442,7 @@ export const CHATBOX_MODELS: ChatBoxModel[] = [
       headerSubtitle: 'Suporte corporativo inteligente',
       headerStatus: 'Online',
       messages: [
-        { role: 'user', text: 'Olá! Preciso de ajuda para integrar o RadarZap ao nosso CRM.' },
+        { role: 'user', text: 'Olá! Preciso de ajuda para integrar o Radar Chat ao nosso CRM.' },
         {
           role: 'bot',
           text: 'Olá! 👋 Vamos te ajudar com isso. Escolha uma opção abaixo para continuarmos.',
@@ -503,10 +503,10 @@ export const CHATBOX_MODELS: ChatBoxModel[] = [
       headerSubtitle: 'Seu assistente inteligente',
       headerStatus: 'IA ativa',
       messages: [
-        { role: 'user', text: 'Como posso integrar o RadarZap com nossa plataforma?' },
+        { role: 'user', text: 'Como posso integrar o Radar Chat com nossa plataforma?' },
         {
           role: 'bot',
-          text: 'Você pode integrar o RadarZap via API REST. Nossa documentação inclui exemplos para facilitar.',
+          text: 'Você pode integrar o Radar Chat via API REST. Nossa documentação inclui exemplos para facilitar.',
         },
       ],
       suggestionsTitle: 'Sugestões para você',

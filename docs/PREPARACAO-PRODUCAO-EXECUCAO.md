@@ -1,4 +1,4 @@
-# RadarZap v2 — execução PREPARACAO-PRODUCAO (tracker vivo)
+# Radar Chat v2 — execução PREPARACAO-PRODUCAO (tracker vivo)
 
 > **Referência técnica:** [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) · **Coolify:** [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) · **Go-live:** [`PRODUCTION.md`](./PRODUCTION.md)  
 > **Branch de release:** **`layout-v3`** (UI v3 + produto `2.12.71+`) · **Atualizado:** 2026-06-29  
@@ -61,12 +61,14 @@ Regra permanente: [`.cursor/rules/layout-v3-codex-isolation.mdc`](../.cursor/rul
 | Item | Status |
 |------|--------|
 | Host sslip.io | ✅ https://151-247-210-180.sslip.io health 200 |
+| Site publico oficial | ✅ https://radarchat.com.br |
+| App oficial | ✅ https://app.radarchat.com.br |
 | Stack Coolify | ✅ `h143brhw5f8tgfj9trj0f3bd-app-1` healthy |
 | Legado GHCR no .180 | ✅ parado |
 | **Coolify instalado** | ✅ v4.1.2 |
 | Deploy API Coolify | ⏳ SSH servidor local — usa fallback direto |
 | Validar servidor painel | ⏳ manual |
-| Domínio próprio | ⏳ |
+| Domínio próprio | ✅ `radarchat.com.br` + `app.radarchat.com.br` |
 
 ---
 
@@ -84,12 +86,13 @@ Legenda: ✅ · 🔄 · ⏳
 - [x] Ubuntu VPS ZAP `.180`, Coolify 4.1.2, proxy Traefik
 - [ ] Validar SSH servidor local no painel ⏳
 
-### H2 — Resource RadarZap ✅ (deploy direto)
+### H2 — Resource Radar Chat ✅ (deploy direto)
 
 - [x] Project + service `radarzap` (`h143brhw5f8tgfj9trj0f3bd`)
 - [x] Compose `docker-compose.coolify-ghcr.yml`, volumes externos legado
 - [x] `env_file: .env` + secrets produção
 - [x] Health HTTPS sslip.io ✅
+- [x] Dominio oficial do app: `https://app.radarchat.com.br`
 
 ### H3 — Migração sslip.io ✅
 

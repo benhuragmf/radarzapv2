@@ -198,11 +198,11 @@ export default function AdminAiPlatform() {
   return (
     <RadarPageShell maxWidth="wide">
       <PageHeader
-        title="IA da plataforma (RadarZap)"
+        title="IA da plataforma (Radar Chat)"
         subtitle={
           <>
             Chave, modelo e relatório de consumo da IA usada pelos clientes no modo{' '}
-            <strong>RadarZap</strong>. Comportamento global do assistente em{' '}
+            <strong>Radar Chat</strong>. Comportamento global do assistente em{' '}
             <Link to="/admin/ai-blueprint" className="text-brand-400 hover:underline inline-flex items-center gap-1">
               Modelo global de IA <ExternalLink className="w-3 h-3" />
             </Link>
@@ -247,7 +247,7 @@ export default function AdminAiPlatform() {
             <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200 flex gap-2">
               <AlertTriangle className="w-5 h-5 shrink-0" />
               <div>
-                <strong>Nenhuma chave ativa.</strong> Clientes com provedor RadarZap não conseguirão
+                <strong>Nenhuma chave ativa.</strong> Clientes com provedor Radar Chat não conseguirão
                 usar IA até configurar a chave aqui ou no <code className="text-xs">.env</code> do
                 servidor.
               </div>
@@ -259,7 +259,7 @@ export default function AdminAiPlatform() {
               <Sparkles className="w-5 h-5" /> Motor LLM padrão
             </h2>
             <p className="text-xs text-[var(--rz-text-muted)]">
-              Todos os tenants em modo <strong>RadarZap</strong> usam este provedor e modelo. A chave
+              Todos os tenants em modo <strong>Radar Chat</strong> usam este provedor e modelo. A chave
               ativa: <strong>{keySourceLabel(form.activeKeySource)}</strong>
               {activeKeyMasked ? ` · ${activeKeyMasked}` : ''}.
             </p>
@@ -286,7 +286,7 @@ export default function AdminAiPlatform() {
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs text-[var(--rz-text-muted)] mb-2 block">
-                  Modelo padrão (chave RadarZap)
+                  Modelo padrão (chave Radar Chat)
                 </label>
                 <AiModelPicker
                   models={modelOptions}
@@ -393,7 +393,7 @@ export default function AdminAiPlatform() {
         <Card className="p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-medium flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" /> Consumo IA RadarZap (todos os clientes)
+              <BarChart3 className="w-5 h-5" /> Consumo IA Radar Chat (todos os clientes)
             </h2>
             <select
               className={`${inputCls} w-auto`}
@@ -413,7 +413,7 @@ export default function AdminAiPlatform() {
               <p className="text-xs text-[var(--rz-text-muted)]">
                 Período: {new Date(usageQuery.data.period.from).toLocaleDateString('pt-BR')} —{' '}
                 {new Date(usageQuery.data.period.to).toLocaleDateString('pt-BR')}. Apenas chamadas na
-                chave RadarZap (não inclui API própria dos clientes).
+                chave Radar Chat (não inclui API própria dos clientes).
               </p>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
@@ -525,7 +525,7 @@ export default function AdminAiPlatform() {
 
               {usageQuery.data.rows.length === 0 && (
                 <p className="text-sm text-[var(--rz-text-muted)]">
-                  Nenhuma chamada na chave RadarZap no período selecionado.
+                  Nenhuma chamada na chave Radar Chat no período selecionado.
                 </p>
               )}
             </>

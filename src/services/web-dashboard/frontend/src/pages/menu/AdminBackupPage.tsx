@@ -19,7 +19,7 @@ export default function AdminBackupPage() {
           .
         </p>
         <p className="text-xs text-[var(--rz-text-muted)] pt-2">
-          Em produção: agendar snapshots do banco e retenção conforme política RadarZap.
+          Em produção: agendar snapshots do banco e retenção conforme política Radar Chat.
         </p>
       </Card>
     </RadarPageShell>

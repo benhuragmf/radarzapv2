@@ -34,7 +34,7 @@ function maybeBrowserNotify(body?: string) {
   const text = body?.trim().slice(0, 160) || 'Nova mensagem de um visitante'
   const show = () => {
     try {
-      new Notification('Chat do site — RadarZap', { body: text })
+      new Notification('Chat do site — Radar Chat', { body: text })
     } catch {
       /* ignore */
     }

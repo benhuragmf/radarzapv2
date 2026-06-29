@@ -94,7 +94,7 @@ export interface CredentialSourceCardDef {
 export const CREDENTIAL_SOURCE_CARDS: CredentialSourceCardDef[] = [
   {
     id: 'radarzap',
-    title: 'RadarZap',
+    title: 'Radar Chat',
     description:
       'Usa a chave interna da plataforma. Limites em chamadas LLM; créditos gastos refletem o custo real de cada cliente.',
   },
@@ -102,7 +102,7 @@ export const CREDENTIAL_SOURCE_CARDS: CredentialSourceCardDef[] = [
     id: 'company',
     title: 'Chave própria da empresa',
     description:
-      'A empresa usa sua própria API Key. Os custos externos ficam por conta da empresa — não consome créditos RadarZap.',
+      'A empresa usa sua própria API Key. Os custos externos ficam por conta da empresa — não consome créditos Radar Chat.',
   },
   {
     id: 'none',

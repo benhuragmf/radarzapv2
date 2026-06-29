@@ -17,7 +17,7 @@ interface DestOption {
 
 export function ApiPlayground() {
   const [destination, setDestination] = useState('')
-  const [message, setMessage] = useState('Teste via API RadarZap')
+  const [message, setMessage] = useState('Teste via API Radar Chat')
   const [result, setResult] = useState<string | null>(null)
 
   const { data: destinations = [] } = useQuery<DestOption[]>({

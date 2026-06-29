@@ -28,7 +28,7 @@ export function embedInContainerSnippet(publicKey: string, containerId: string, 
 export function fetchSubmitSnippet(publicKey: string, origin?: string): string {
   const api = leadPublicApiBase(origin ?? panelOrigin())
   return `// Enviar lead de qualquer formulário ou página (fetch)
-async function enviarLeadRadarZap(dados) {
+async function enviarLeadRadarChat(dados) {
   const res = await fetch('${api}/forms/${publicKey}/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -47,7 +47,7 @@ async function enviarLeadRadarZap(dados) {
 }
 
 // Exemplo de uso após validar seu form:
-// await enviarLeadRadarZap({ name: 'Maria', phone: '5511999999999', email: 'maria@email.com' });`
+// await enviarLeadRadarChat({ name: 'Maria', phone: '5511999999999', email: 'maria@email.com' });`
 }
 
 export function curlSubmitSnippet(publicKey: string, origin?: string): string {
@@ -127,7 +127,7 @@ document.addEventListener('wpcf7mailsent', function (event) {
       sourceUrl: window.location.href,
       pageTitle: document.title
     })
-  }).catch(function (err) { console.error('[RadarZap Leads]', err); });
+  }).catch(function (err) { console.error('[Radar Chat Leads]', err); });
 });
 
 // Ajuste os nomes your-name / your-phone conforme os campos do seu CF7`
@@ -143,7 +143,7 @@ export function buildersSnippet(publicKey: string, origin?: string): string {
   return `Elementor / Wix / Webflow / RD Station / Typeform
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1) Formulário pronto RadarZap (recomendado)
+1) Formulário pronto Radar Chat (recomendado)
    Cole em widget HTML / embed:
 ${embedInContainerSnippet(publicKey, 'radarzap-lead-form', origin)}
 
@@ -165,7 +165,7 @@ export const LEAD_INTEGRATION_METHODS: Array<{
 }> = [
   {
     id: 'embed',
-    label: 'Formulário RadarZap',
+    label: 'Formulário Radar Chat',
     description: 'Nosso padrão — script pronto, visual configurável no painel.',
   },
   {
@@ -176,7 +176,7 @@ export const LEAD_INTEGRATION_METHODS: Array<{
   {
     id: 'html',
     label: 'HTML + formulário',
-    description: 'Formulário seu com envio via fetch para o RadarZap.',
+    description: 'Formulário seu com envio via fetch para o Radar Chat.',
   },
   {
     id: 'wordpress',

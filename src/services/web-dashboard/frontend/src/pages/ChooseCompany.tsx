@@ -27,7 +27,7 @@ export default function ChooseCompany({ user, onSelected }: Props) {
     try {
       const updated = await switchOrganization(organizationId)
       onSelected(updated)
-      window.location.href = '/dashboard'
+      window.location.assign('/dashboard')
     } catch (e) {
       setError((e as Error).message)
       setLoadingId(null)
@@ -42,7 +42,7 @@ export default function ChooseCompany({ user, onSelected }: Props) {
             <Zap size={24} className="text-white rz-on-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[var(--rz-text-primary)]">RadarZap</h1>
+            <h1 className="text-2xl font-bold text-[var(--rz-text-primary)]">Radar Chat</h1>
             <p className="text-xs text-[var(--rz-text-muted)]">Escolha onde trabalhar</p>
           </div>
         </div>

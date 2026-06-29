@@ -151,7 +151,7 @@ export default function AccountConnectionsPanel({ user, onUserUpdate }: Props) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-[var(--rz-text-secondary)] leading-relaxed">
-        Vincule Google e Discord à mesma conta RadarZap. Assim você entra por qualquer um e sua equipe vê seu
+        Vincule Google e Discord à mesma conta Radar Chat. Assim você entra por qualquer um e sua equipe vê seu
         e-mail corretamente.
       </p>
 

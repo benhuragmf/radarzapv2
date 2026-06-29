@@ -14,7 +14,7 @@ import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Download, ListOrder
 type ExportProfile = 'radarzap-native' | 'google-compatible' | 'apple-compatible'
 
 const EXPORT_PROFILES: { id: ExportProfile; label: string }[] = [
-  { id: 'radarzap-native', label: 'RadarZap (nativo)' },
+  { id: 'radarzap-native', label: 'Radar Chat (nativo)' },
   { id: 'google-compatible', label: 'Google / Android' },
   { id: 'apple-compatible', label: 'Apple / iOS' },
 ]
@@ -372,7 +372,7 @@ export default function PlatformContacts() {
               />
               <span>
                 Usar coluna <strong className="text-[var(--rz-text-secondary)]">Grupos</strong> do arquivo para criar ou
-                vincular segmentos (ex.: Google Group Membership, coluna grupos no CSV RadarZap)
+                vincular segmentos (ex.: Google Group Membership, coluna grupos no CSV Radar Chat)
               </span>
             </label>
           </div>

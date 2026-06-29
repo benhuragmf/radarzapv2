@@ -1,4 +1,4 @@
-# RadarZap — Changelog
+# Radar Chat — Changelog
 
 Registro append-only de entregas versionadas. Protocolo: [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md).
 
@@ -15,6 +15,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Scripts: `vps-configure-coolify-radarzap.sh` (SSH localhost, `deploy_service_direct`, republish).
 - Workflows GitHub usam branch `layout-v3` no VPS; diagnóstico `vps-coolify-status.sh`.
 - Docs: `ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`, `PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`, `COOLIFY-DEPLOY.md` atualizado.
+
+### Layout v3 — Fase 4.5 QA visual + marca Radar Chat
+
+- Registro: `layout-v3-fase-4-5-qa` em `RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`.
+- Marca visível atualizada para **Radar Chat** no app, PWA, login, navegação, WebChat, leads, integrações e site público.
+- Domínios oficiais documentados: `https://radarchat.com.br` e `https://app.radarchat.com.br`.
+- Preservados contratos técnicos como `X-RadarZap-Signature`, env vars/volumes `radarzap*`, tokens `--rz-*` e arquivos históricos.
+- Validação local: build frontend verde; lint focado verde; QA autenticada por perfil fica pendente manual.
 
 ---
 
@@ -597,10 +605,10 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Admin — IA da plataforma (credenciais + relatório)
 
-- Nova página `/admin/ai-platform`: chaves OpenAI/Gemini criptografadas, modelo padrão RadarZap, teste de conexão.
+- Nova página `/admin/ai-platform`: chaves OpenAI/Gemini criptografadas, modelo padrão Radar Chat, teste de conexão.
 - API: `GET/PATCH /admin/ai-platform/credentials`, `DELETE …/keys/:target`, `POST …/test`, `GET /admin/ai-platform/usage`.
 - Runtime `mode: radarzap` usa credenciais do painel (prioridade) ou `.env`; modelo global da plataforma.
-- Relatório agregado de consumo LLM RadarZap por cliente e últimas chamadas.
+- Relatório agregado de consumo LLM Radar Chat por cliente e últimas chamadas.
 
 ---
 
@@ -629,7 +637,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - Gates obrigatórios verdes: typecheck, build, 772 testes Jest, `qa:atendimento:gate`, E2E 38/38.
 - Doc: `docs/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` — roteiro manual TOP 20, checklist pré-go-live.
-- Fix E2E: seletores Inbox (título no Header) e radio RadarZap (strict mode).
+- Fix E2E: seletores Inbox (título no Header) e radio Radar Chat (strict mode).
 - Produção não declarada pronta; deploy não executado.
 
 ---
@@ -858,7 +866,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### IA — créditos, carteira mensal e barra do painel
 
-- Carteira mensal por empresa: franquia do plano + créditos comprados; débito proporcional ao custo real de cada LLM RadarZap (`AI_CREDIT_USD_UNIT`).
+- Carteira mensal por empresa: franquia do plano + créditos comprados; débito proporcional ao custo real de cada LLM Radar Chat (`AI_CREDIT_USD_UNIT`).
 - Cota de **aprendizagem** (skills/memória automáticas) com limite mensal por plano.
 - Barra superior: WhatsApp (todos com `inbox:view`), saldo **IA** e **LM** (`usado/total`) só com `inbox:ai:balance:view`.
 - `GET /api/platform/ai/balance`, `GET /api/inbox/whatsapp-status`.
@@ -1023,7 +1031,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 ### Feat — Leads: Kanban, embed completo, preview inline, responsável padrão
 
 - **Kanban** na aba Capturas (drag-and-drop de status).
-- **form.js**: select/checkbox/hidden, tema claro/escuro/auto, tamanho compact/padrão/largo, logo RadarZap.
+- **form.js**: select/checkbox/hidden, tema claro/escuro/auto, tamanho compact/padrão/largo, logo Radar Chat.
 - **Integrar no site**: pré-visualização iframe inline + alerta de domínios.
 - **Responsável padrão**: seletor de equipe (`GET /leads/assignees`), nome no detalhe do lead.
 - Editor: bloco Aparência; opções de select no editor de campos.
@@ -1552,7 +1560,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 - **IA Básica (Fase 5):** modo `basic_triage` com classificador local, auto-resolve KB/skills, encaminhamento por setor (WA + WebChat).
 - `AiBasicTriageService`, `WebChatBasicTriageService`, `basic-triage-classifier.ts`.
-- Campo `basicTriageLlmFallbackEnabled` em `AiPrompt` — LLM RadarZap opcional em ambiguidade.
+- Campo `basicTriageLlmFallbackEnabled` em `AiPrompt` — LLM Radar Chat opcional em ambiguidade.
 - `AiProviderService.completeForBasicTriage()` — fallback econômico.
 
 ### Alterado

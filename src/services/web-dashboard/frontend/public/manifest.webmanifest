@@ -1,7 +1,7 @@
 {
-  "name": "RadarZap",
-  "short_name": "RadarZap",
-  "description": "Painel RadarZap — WhatsApp, inbox e automações",
+  "name": "Radar Chat",
+  "short_name": "Radar Chat",
+  "description": "Painel Radar Chat — WhatsApp, inbox e automações",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

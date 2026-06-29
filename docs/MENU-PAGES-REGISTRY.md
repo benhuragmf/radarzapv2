@@ -1,4 +1,4 @@
-﻿# Registro de páginas do menu — RadarZap v2
+# Registro de páginas do menu — Radar Chat v2
 
 Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 

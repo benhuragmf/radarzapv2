@@ -1,4 +1,4 @@
-﻿# RadarZap v2 — registro do sistema
+# Radar Chat v2 — registro do sistema
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
@@ -12,7 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
-| **2.12.71** | Infra: migração produção Coolify VPS ZAP (sslip.io), `env_file`, deploy direto, docs Codex |
+| **2.12.71** | Infra: migração produção Coolify VPS ZAP, domínios Radar Chat, marca pública e Layout v3 Fase 4.5 QA |
 | **2.12.70** | Layout v3 Fases 2–4 (menu, header, design system integrações) + Coolify compose/docs |
 | **2.12.69** | Inatividade automática: mensagens editáveis + gate manual separado |
 | **2.12.68** | Gate atalhos separado inatividade vs encerramento natural |
@@ -90,7 +90,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.5.0** | Backup tenant JSON, CSAT Inbox, admin ops, Docker monolito, PWA manifest, Cloud API stub |
 | **2.5.1** | Deploy CI (GHCR+SSH), E2E Playwright, OpenAPI rotas v2.5, touch mobile, docs |
 | **2.5.2** | Segurança (IDOR, criptografia, `PRODUCTION.md` §8); consentimento: fila `pendingOutboundDeliveries` antes do conteúdo; tickets assíncronos: janela 12h, grace 30min, menu 2h (`sair`/`finalizar`) — ver `INBOX-ATENDIMENTO.md` |
-| **2.6.0** | IA Atendimento: triagem WhatsApp (RadarZap / chave própria / **desativada = bot fixo apenas**), painel `/platform/inbox/ia`, fallback `ai_fallback_standard`, colisão menu inbox×ticket (`1`/`2`) — ver `INBOX-ATENDIMENTO.md` § Ordem inbound, § IA opcional, § Colisão |
+| **2.6.0** | IA Atendimento: triagem WhatsApp (Radar Chat / chave própria / **desativada = bot fixo apenas**), painel `/platform/inbox/ia`, fallback `ai_fallback_standard`, colisão menu inbox×ticket (`1`/`2`) — ver `INBOX-ATENDIMENTO.md` § Ordem inbound, § IA opcional, § Colisão |
 | **2.6.1** | IA: confirmação de nome (`nameConfirmed`, `registryNameSnapshot`); ticket: ack curto (*Positivo*) inicia 12h sem prompt 30min, prioridade sobre triagem/IA — ver `TICKET-ATENDIMENTO.md`, `INBOX-ATENDIMENTO.md` § Coleta cadastro |
 | **2.6.2** | Ticket: doc máquina de estados (nomenclatura 12h retorno / 2h captura / 30min complemento; `status` × `ticketInboundMode`); fix janela 12h no envio equipe; ack mantém janela (não inicia) e não captura durante IA — ver `TICKET-ATENDIMENTO.md`, `INBOX-ATENDIMENTO.md` § Tickets de acompanhamento |
 | **2.6.3** | Ticket: menu pós-30min com 3 opções (complemento / novo / aguardar); campo `lastTeamMessageAt` — ver `TICKET-ATENDIMENTO.md` |

@@ -54,7 +54,7 @@ export default function AdminPaymentsPage() {
     <RadarPageShell maxWidth="wide">
       <PageHeader
         title="Pagamentos"
-        subtitle="Pedidos Stripe e assinaturas das organizações RadarZap."
+        subtitle="Pedidos Stripe e assinaturas das organizações Radar Chat."
         actions={
           <Button
             size="sm"

@@ -22,7 +22,7 @@ export default function Login({ error }: { error?: string }) {
             <Zap size={24} className="text-white rz-on-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[var(--rz-text-primary)]">RadarZap</h1>
+            <h1 className="text-2xl font-bold text-[var(--rz-text-primary)]">Radar Chat</h1>
             <p className="text-xs text-[var(--rz-text-muted)]">Painel Administrativo</p>
           </div>
         </div>

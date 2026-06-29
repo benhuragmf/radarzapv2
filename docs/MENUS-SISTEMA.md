@@ -1,4 +1,4 @@
-# Menus do RadarZap v2 — resumo e funções
+# Menus do Radar Chat v2 — resumo e funções
 
 Documento de referência para produto, suporte e desenvolvimento.  
 Painel: `http://localhost:5174` · API: `/api`
@@ -11,7 +11,7 @@ Painel: `http://localhost:5174` · API: `/api`
 |-----|---------|--------|
 | **Plataforma** | Todos | Uso diário da empresa: envios, contatos, WhatsApp, automações, API |
 | **Discord** | Quem tem servidor vinculado | Automação Discord → WhatsApp |
-| **Admin** | Staff RadarZap | Operação, clientes e sistema global |
+| **Admin** | Staff Radar Chat | Operação, clientes e sistema global |
 
 O cliente **não** vê Operação, Gestão ou Fila global — isso fica só na aba **Admin**.
 
@@ -134,13 +134,13 @@ Requer servidor selecionado na sidebar.
 
 ---
 
-## 3. Admin RadarZap
+## 3. Admin Radar Chat
 
 Somente staff (`isInternalStaff`). Aba **Admin**.
 
 | Menu | Rota |
 |------|------|
-| Painel Admin RadarZap | `/admin/dashboard` |
+| Painel Admin Radar Chat | `/admin/dashboard` |
 | Sessões WhatsApp globais | `/admin/sessions` |
 | Fila global do sistema | `/admin/queue` |
 | Logs globais | `/admin/logs` |

@@ -4,7 +4,7 @@ import { UserCog, ScrollText } from 'lucide-react'
 import { RadarPageShell, PageHeader } from '@/design-system'
 
 const STAFF_ROLES = [
-  { role: 'SYSTEM_ADMIN', desc: 'Acesso total ao Admin RadarZap e operação global' },
+  { role: 'SYSTEM_ADMIN', desc: 'Acesso total ao Admin Radar Chat e operação global' },
   { role: 'SYSTEM_MODERATOR', desc: 'Moderação, clientes e logs limitados' },
 ]
 
@@ -13,7 +13,7 @@ export default function AdminPermissionsPage() {
     <RadarPageShell maxWidth="wide">
       <PageHeader
         title="Permissões do staff"
-        subtitle="Papéis internos do RadarZap — separados das permissões de empresa (menu Plataforma)."
+        subtitle="Papéis internos do Radar Chat — separados das permissões de empresa (menu Plataforma)."
       />
 
       <div className="space-y-2">

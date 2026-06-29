@@ -161,7 +161,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   ]),
 ]
 
-/** Admin RadarZap — somente staff interno (aba separada). */
+/** Admin Radar Chat — somente staff interno (aba separada). */
 export const ADMIN_RADARZAP_NAV: NavEntry[] = [
   section('sec-admin-inicio', 'Início'),
   link('admin-dash', 'Dashboard global', LayoutDashboard, '/admin/dashboard', 'dashboard:global'),
@@ -576,5 +576,5 @@ export function pageTitleFor(pathname: string, hash: string, search = ''): strin
     return CONSENT_PAGE_TITLES[search] ?? PAGE_TITLES[pathname] ?? 'Contatos'
   }
   const key = hash ? `${pathname}${hash}` : pathname
-  return HASH_PAGE_TITLES[key] ?? PAGE_TITLES[pathname] ?? 'RadarZap'
+  return HASH_PAGE_TITLES[key] ?? PAGE_TITLES[pathname] ?? 'Radar Chat'
 }

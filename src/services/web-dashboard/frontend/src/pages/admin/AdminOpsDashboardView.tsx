@@ -161,7 +161,7 @@ export default function AdminOpsDashboardView({
   if (isError && !data) {
     return (
       <RadarPageShell maxWidth="wide">
-        <PageHeader title="Admin Dashboard" subtitle="Saúde do sistema, empresas, trial, billing e operação RadarZap" />
+        <PageHeader title="Admin Dashboard" subtitle="Saúde do sistema, empresas, trial, billing e operação Radar Chat" />
         <ErrorState
           title="Não foi possível carregar o Dashboard Ops."
           message="Verifique sua conexão ou permissões de staff e tente novamente."
@@ -193,7 +193,7 @@ export default function AdminOpsDashboardView({
     <RadarPageShell maxWidth="wide">
       <PageHeader
         title="Admin Dashboard"
-        subtitle="Saúde do sistema, empresas, trial, billing e operação RadarZap"
+        subtitle="Saúde do sistema, empresas, trial, billing e operação Radar Chat"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status="neutral" text={`v${data.system.version}`} />

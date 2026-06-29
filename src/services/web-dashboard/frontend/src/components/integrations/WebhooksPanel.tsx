@@ -78,7 +78,7 @@ export function WebhooksPanel() {
   return (
     <div className="space-y-4">
       <InlineNotice tone="info" title="Entrega assinada por HMAC">
-        O RadarZap envia POST JSON para a sua URL com o header{' '}
+        O Radar Chat envia POST JSON para a sua URL com o header{' '}
         <code className="text-[var(--rz-text-secondary)]">X-RadarZap-Signature</code>.
       </InlineNotice>
 
@@ -92,7 +92,7 @@ export function WebhooksPanel() {
         <input
           value={url}
           onChange={e => setUrl(e.target.value)}
-          placeholder="https://seu-sistema.com/webhooks/radarzap"
+          placeholder="https://seu-sistema.com/webhooks/radarchat"
           className={`${inputCls} min-w-[240px] flex-1`}
         />
         <Button size="sm" onClick={() => create.mutate()} disabled={create.isPending || !url.trim()}>

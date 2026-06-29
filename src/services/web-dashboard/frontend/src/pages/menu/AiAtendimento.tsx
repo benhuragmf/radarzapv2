@@ -6,7 +6,6 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Spinner'
 import {
   Sparkles,
   Trash2,
@@ -38,7 +37,7 @@ import {
   type AttendanceUiSelection,
   type AiCredentialSource,
 } from '../../lib/attendanceMode'
-import { notifyError, notifySuccess, notifyInfo, notifyConfigSaved, mutationError } from '../../lib/notify'
+import { notifyInfo, notifyConfigSaved, mutationError } from '../../lib/notify'
 import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
 
 const textareaClsAi = `${textareaCls} min-h-[120px]`
@@ -248,18 +247,24 @@ export default function AiAtendimento() {
   })
 
   useEffect(() => {
-    if (data) {
-      setForm({
-        ...data,
-        skills: data.skills ?? [],
-        memories: data.memories ?? [],
-        prompt: {
-          ...data.prompt,
-          learnMemoryEnabled: data.prompt?.learnMemoryEnabled ?? true,
-        },
-      })
-      setAttendanceUi(attendanceSelectionFromSettings(data.settings))
+    if (!data) return undefined
+
+    const nextForm: AiPayload = {
+      ...data,
+      skills: data.skills ?? [],
+      memories: data.memories ?? [],
+      prompt: {
+        ...data.prompt,
+        learnMemoryEnabled: data.prompt?.learnMemoryEnabled ?? true,
+      },
     }
+    const nextAttendanceUi = attendanceSelectionFromSettings(data.settings)
+    const timer = window.setTimeout(() => {
+      setForm(nextForm)
+      setAttendanceUi(nextAttendanceUi)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [data])
 
   const save = useMutation({
@@ -500,7 +505,7 @@ export default function AiAtendimento() {
       {form.blueprintInfo && (
         <details className="rounded-lg border border-brand-800/40 bg-brand-950/20 text-xs text-[var(--rz-text-secondary)]">
           <summary className="cursor-pointer select-none px-3 py-2 text-brand-300/90 font-medium">
-            Assistente pré-configurado pela RadarZap — o que personalizar
+            Assistente pré-configurado pelo Radar Chat — o que personalizar
           </summary>
           <p className="px-3 pb-3 leading-relaxed">
             Personalidade e fluxo já vêm prontos. Alimente{' '}
@@ -633,7 +638,7 @@ export default function AiAtendimento() {
               {attendanceUi.credentialSource === 'company' && (
                 <p className="text-emerald-400/90">
                   Com chave própria, o limite abaixo conta <strong>chamadas</strong> — não debita créditos
-                  RadarZap.
+                  Radar Chat.
                 </p>
               )}
             </div>
@@ -720,7 +725,7 @@ export default function AiAtendimento() {
                   disabled={!credentialSourceEnabled}
                 />
                 <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-                  Usado no modo <strong>IA Premium</strong>. Vazio usa o padrão RadarZap (
+                  Usado no modo <strong>IA Premium</strong>. Vazio usa o padrão Radar Chat (
                   <em>{form.blueprintInfo.defaultAgentName}</em>). Saudações na aba{' '}
                   <button
                     type="button"
@@ -756,7 +761,7 @@ export default function AiAtendimento() {
             </p>
             <p className="text-xs text-[var(--rz-text-muted)] mt-2">
               Variáveis: {'{companyName}'}, {'{agentName}'}, {'{customerName}'} (apenas no cliente
-              conhecido). Deixe em branco para usar o padrão RadarZap.
+              conhecido). Deixe em branco para usar o padrão Radar Chat.
             </p>
           </div>
           <div className="space-y-4">
@@ -775,7 +780,7 @@ export default function AiAtendimento() {
                 className="text-xs text-brand-400 hover:underline mt-1"
                 onClick={() => patchPrompt({ greetingKnown: '' })}
               >
-                Usar padrão RadarZap
+                Usar padrão Radar Chat
               </button>
             </div>
             <div>
@@ -793,7 +798,7 @@ export default function AiAtendimento() {
                 className="text-xs text-brand-400 hover:underline mt-1"
                 onClick={() => patchPrompt({ greetingUnknown: '' })}
               >
-                Usar padrão RadarZap
+                Usar padrão Radar Chat
               </button>
             </div>
           </div>
@@ -804,7 +809,7 @@ export default function AiAtendimento() {
         <Card className="p-6 space-y-4">
           <h2 className="text-lg font-medium">Modelo LLM e parâmetros</h2>
           <p className="text-xs text-[var(--rz-text-muted)]">
-            Credencial da IA (RadarZap ou chave própria) fica na aba{' '}
+            Credencial da IA (Radar Chat ou chave própria) fica na aba{' '}
             <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('geral')}>
               Geral
             </button>
@@ -897,7 +902,7 @@ export default function AiAtendimento() {
             <Shield className="w-5 h-5" /> Economia de créditos e regras da empresa
           </h2>
           <p className="text-xs text-[var(--rz-text-muted)]">
-            O assistente já vem com triagem e comportamento padrão da RadarZap. Aqui você ajusta
+            O assistente já vem com triagem e comportamento padrão do Radar Chat. Aqui você ajusta
             economia de créditos e regras específicas do seu negócio (horários, produtos, o que não
             oferecer).
           </p>
@@ -911,7 +916,7 @@ export default function AiAtendimento() {
                   ? ([
                       [
                         'basicTriageLlmFallbackEnabled',
-                        'IA Básica: usar LLM RadarZap só quando classificador local tiver baixa confiança',
+                        'IA Básica: usar LLM Radar Chat só quando classificador local tiver baixa confiança',
                       ],
                     ] as const)
                   : []),
@@ -1527,11 +1532,11 @@ export default function AiAtendimento() {
             {form.usage.meteringMode === 'company_calls' ? (
               <p>
                 Com <strong>chave própria</strong>, os limites contam <strong>chamadas LLM</strong>. O
-                custo externo fica com a empresa — sem débito de créditos RadarZap.
+                custo externo fica com a empresa — sem débito de créditos Radar Chat.
               </p>
             ) : (
               <p>
-                Com <strong>RadarZap</strong>, o limite do plano é em <strong>chamadas LLM</strong> (1 por
+                Com <strong>Radar Chat</strong>, o limite do plano é em <strong>chamadas LLM</strong> (1 por
                 resposta, igual para Básica e Premium). Os <strong>créditos gastos</strong> refletem o
                 custo real de cada chamada — cobrança proporcional ao consumo do cliente.
               </p>
@@ -1569,7 +1574,7 @@ export default function AiAtendimento() {
             />
           </div>
           <p className="md:col-span-3 text-xs text-[var(--rz-text-muted)]">
-            Plano RadarZap: máx. {form.planLimits.dailyLimit} chamadas/dia ·{' '}
+            Plano Radar Chat: máx. {form.planLimits.dailyLimit} chamadas/dia ·{' '}
             {form.planLimits.monthlyLimit} chamadas/mês · Créditos gastos hoje:{' '}
             {formatCredits(form.usage.dailyCreditsSpent ?? 0)}
           </p>

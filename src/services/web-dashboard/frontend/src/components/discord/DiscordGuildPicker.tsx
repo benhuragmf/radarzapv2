@@ -106,7 +106,7 @@ export default function DiscordGuildPicker({ user, selected, onChange }: Props) 
               )}
               {!isLoading && guilds.length === 0 && (
                 <p className="text-xs text-[var(--rz-text-muted)] px-3 py-4 text-center">
-                  Nenhum servidor com o bot. Convide o RadarZap ao Discord.
+                  Nenhum servidor com o bot. Convide o Radar Chat ao Discord.
                 </p>
               )}
               {guilds.map(g => (

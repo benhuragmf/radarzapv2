@@ -28,7 +28,7 @@ export function InboxBotFlowPreview({
           <Bot size={18} className="text-emerald-400" />
         </div>
         <div>
-          <p className="text-sm font-medium text-[#e9edef]">RadarZap</p>
+          <p className="text-sm font-medium text-[#e9edef]">Radar Chat</p>
           <p className="text-[11px] text-emerald-400">Atendimento automático</p>
         </div>
       </div>

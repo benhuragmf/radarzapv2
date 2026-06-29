@@ -1,12 +1,12 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.12.69';
+  var WIDGET_BUILD = '2.12.71';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
 
   if (window.__RZ_WEBCHAT_WIDGET__) {
-    console.warn('[RadarZap WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
+    console.warn('[Radar Chat WebChat] Script duplicado ignorado (build ' + window.__RZ_WEBCHAT_WIDGET__ + ').');
     return;
   }
   window.__RZ_WEBCHAT_WIDGET__ = WIDGET_BUILD;
@@ -1097,7 +1097,7 @@
       t.textMuted +
       ';">Powered by <strong style="color:' +
       primaryColor() +
-      ';font-weight:600;">RadarZap</strong></span></div>'
+      ';font-weight:600;">Radar Chat</strong></span></div>'
     );
   }
 
@@ -1225,7 +1225,7 @@
   var script = currentScript();
   var widgetKey = script.getAttribute('data-widget-key') || script.dataset.widgetKey;
   if (!widgetKey) {
-    console.warn('[RadarZap WebChat] data-widget-key ausente no script.');
+    console.warn('[Radar Chat WebChat] data-widget-key ausente no script.');
     return;
   }
 
@@ -2000,7 +2000,7 @@
         })
         .catch(function (err) {
           state.proactiveLastError = err.message || String(err);
-          console.error('[RadarZap WebChat]', err.message);
+          console.error('[Radar Chat WebChat]', err.message);
         });
     }, delaySec * 1000);
   }
@@ -4727,7 +4727,7 @@
         flushPendingFaqPick();
       })
       .catch(function (err) {
-        console.error('[RadarZap WebChat]', err.message);
+        console.error('[Radar Chat WebChat]', err.message);
         state.prechatError =
           err.message || 'Não foi possível iniciar a conversa. Tente novamente.';
         renderBubble();
@@ -4759,7 +4759,7 @@
         renderBubble();
       })
       .catch(function (err) {
-        console.error('[RadarZap WebChat]', err.message);
+        console.error('[Radar Chat WebChat]', err.message);
       })
       .finally(function () {
         state.sending = false;
@@ -4789,7 +4789,7 @@
         renderBubble();
       })
       .catch(function (err) {
-        console.error('[RadarZap WebChat]', err.message);
+        console.error('[Radar Chat WebChat]', err.message);
         handleSendFailure(err);
       })
       .finally(function () {
@@ -4825,7 +4825,7 @@
         renderBubble();
       })
       .catch(function (err) {
-        console.error('[RadarZap WebChat]', err.message);
+        console.error('[Radar Chat WebChat]', err.message);
         handleSendFailure(err, draft);
       })
       .finally(function () {
@@ -4836,12 +4836,12 @@
   function sendAttachment(file) {
     if (state.sending || !state.visitorToken || state.conversationStatus === 'closed') return;
     if (!file || file.size > 5 * 1024 * 1024) {
-      console.error('[RadarZap WebChat]', 'Imagem muito grande (máx. 5 MB)');
+      console.error('[Radar Chat WebChat]', 'Imagem muito grande (máx. 5 MB)');
       return;
     }
     var allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
     if (allowed.indexOf(file.type) < 0) {
-      console.error('[RadarZap WebChat]', 'Tipo de arquivo não permitido');
+      console.error('[Radar Chat WebChat]', 'Tipo de arquivo não permitido');
       return;
     }
     state.keepComposerFocus = true;
@@ -4865,7 +4865,7 @@
           renderBubble();
         })
         .catch(function (err) {
-          console.error('[RadarZap WebChat]', err.message);
+          console.error('[Radar Chat WebChat]', err.message);
           handleSendFailure(err);
         })
         .finally(function () {
@@ -4874,7 +4874,7 @@
     };
     reader.onerror = function () {
       state.sending = false;
-      console.error('[RadarZap WebChat]', 'Falha ao ler arquivo');
+      console.error('[Radar Chat WebChat]', 'Falha ao ler arquivo');
     };
     reader.readAsDataURL(file);
   }
@@ -4925,7 +4925,7 @@
       }
     })
     .catch(function (err) {
-      console.error('[RadarZap WebChat]', err.message);
+      console.error('[Radar Chat WebChat]', err.message);
       state.configError = err.message || 'Falha ao carregar configuração do widget.';
     })
     .finally(function () {

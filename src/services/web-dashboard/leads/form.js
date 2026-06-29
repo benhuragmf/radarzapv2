@@ -1,5 +1,5 @@
 /**
- * RadarZap — formulário público de leads (embed externo).
+ * Radar Chat — formulário público de leads (embed externo).
  * Uso: <script src="https://SEU-PAINEL/leads/form.js" data-form-key="lfm_..." async></script>
  */
 (function () {
@@ -13,14 +13,14 @@
 
   var script = resolveScriptEl();
   if (!script) {
-    console.error('[RadarZap Leads] tag script não encontrada (use data-form-key no embed)');
+    console.error('[Radar Chat Leads] tag script não encontrada (use data-form-key no embed)');
     return;
   }
   script.setAttribute('data-rz-lead-init', '1');
 
   var publicKey = script.getAttribute('data-form-key');
   if (!publicKey) {
-    console.error('[RadarZap Leads] data-form-key ausente no script');
+    console.error('[Radar Chat Leads] data-form-key ausente no script');
     return;
   }
 
@@ -363,7 +363,7 @@
       root.appendChild(
         el('p', {
           className: 'rz-logo',
-          html: 'Formulário por <a href="https://radarzap.com.br" target="_blank" rel="noopener">RadarZap</a>',
+          html: 'Formulário por <a href="https://radarchat.com.br" target="_blank" rel="noopener">Radar Chat</a>',
         }),
       );
     }
@@ -470,7 +470,7 @@
     })
     .then(mountForm)
     .catch(function (err) {
-      console.error('[RadarZap Leads]', err.message);
+      console.error('[Radar Chat Leads]', err.message);
       var containerId = script.getAttribute('data-container');
       var container = containerId ? document.getElementById(containerId) : null;
       if (container) {

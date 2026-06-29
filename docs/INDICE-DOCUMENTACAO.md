@@ -1,6 +1,6 @@
-﻿# RadarZap v2 — Índice de documentação
+# Radar Chat v2 — Índice de documentação
 
-**Versão do produto:** `2.12.64` · **Atualizado:** 2026-06-28
+**Versão do produto:** `2.12.71` · **Atualizado:** 2026-06-29
 
 ### Leitura principal obrigatória
 
@@ -37,6 +37,17 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`concluidos/RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./concluidos/RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (arquivo) |
 | [`referencias/REFERENCIAS-MERCADO-UPGRADES.md`](./referencias/REFERENCIAS-MERCADO-UPGRADES.md) | Referências mercado (Conecta360, Nextiva, RadarLeads, VoxCRM) — inspiração upgrades |
 | [`RADARZAP-PLANO-UPGRADES.md`](./RADARZAP-PLANO-UPGRADES.md) | **Plano 21 upgrades** — backlog pós-gate Fase 1 |
+
+---
+
+## Layout v3
+
+| Documento | Descrição |
+|-----------|-----------|
+| [`RADARZAP-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md`](./RADARZAP-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md) | Fase 2 — menu e navegação |
+| [`RADARZAP-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md`](./RADARZAP-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md) | Fase 3 — header operacional |
+| [`RADARZAP-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md`](./RADARZAP-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md) | Fase 4 — componentes visuais compartilhados |
+| [`RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | Fase 4.5 — QA visual navegável, marca Radar Chat e domínios |
 
 ---
 
@@ -111,6 +122,7 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) | Jest/Playwright vs manual |
 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Fallback e bridge |
 | [`QA-WEBCHAT-CHATBOX-MODELS.md`](./QA-WEBCHAT-CHATBOX-MODELS.md) | Modelos chat box |
+| [`RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | QA visual Layout v3 Fase 4.5 |
 | [`QA-FASE1-RESULTADO-2026-06-22.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-22.md) | Sessão QA anterior (histórico, arquivo) |
 
 ---

@@ -1,5 +1,5 @@
 /**
- * Carrega o widget RadarZap em páginas de preview/teste.
+ * Carrega o widget Radar Chat em páginas de preview/teste.
  * Uso: <script src="/webchat/preview-loader.js" data-default-key="wck_..."></script>
  * Não use async — quebra document.currentScript.
  */

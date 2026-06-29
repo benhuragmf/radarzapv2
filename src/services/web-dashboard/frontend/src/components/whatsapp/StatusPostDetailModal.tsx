@@ -50,7 +50,7 @@ function formatWhen(iso: string): string {
 
 const AUDIENCE_LABEL: Record<string, string> = {
   whatsapp: 'Meu WhatsApp (padrão)',
-  all_contacts: 'Contatos RadarZap',
+  all_contacts: 'Contatos Radar Chat',
   consented: 'Com consentimento',
 }
 

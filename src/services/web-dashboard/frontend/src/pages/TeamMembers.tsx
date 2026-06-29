@@ -128,7 +128,7 @@ export default function TeamMembers() {
       const target = data.email ?? email
       if (data.linkedAccount) {
         setInviteNotice(
-          `${target} já tem conta no RadarZap — adicionada como ${ROLE_LABEL[data.companyRole] ?? 'membro'}. ` +
+          `${target} já tem conta no Radar Chat — adicionada como ${ROLE_LABEL[data.companyRole] ?? 'membro'}. ` +
             'Ela pode entrar e escolher esta empresa no login ou no menu do painel.',
         )
       } else if (data.inviteEmail?.sent) {

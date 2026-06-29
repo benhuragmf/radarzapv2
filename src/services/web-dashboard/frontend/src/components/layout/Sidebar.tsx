@@ -251,7 +251,7 @@ function ModeSwitcher({
             role="tab"
             aria-selected={active}
             aria-label={label}
-            title={id === 'admin' ? 'Admin RadarZap' : label}
+            title={id === 'admin' ? 'Admin Radar Chat' : label}
             onClick={() => onModeChange(id)}
             className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg min-w-0 transition-all ${
               active
@@ -311,9 +311,9 @@ export default function Sidebar({
       <div className="flex items-center gap-2 px-5 py-5 border-b rz-sidebar-border">
         <Zap className="text-[var(--rz-sidebar-icon-active)]" size={22} />
         <div className="min-w-0">
-          <span className="font-bold text-lg tracking-tight block text-[var(--rz-sidebar-text)]">RadarZap</span>
+          <span className="font-bold text-lg tracking-tight block text-[var(--rz-sidebar-text)]">Radar Chat</span>
           <span className="text-[10px] rz-sidebar-muted uppercase tracking-wider">
-            {mode === 'admin' ? 'Admin RadarZap' : mode === 'discord' ? 'Discord' : 'Plataforma'}
+            {mode === 'admin' ? 'Admin Radar Chat' : mode === 'discord' ? 'Discord' : 'Plataforma'}
           </span>
         </div>
       </div>
