@@ -50,10 +50,12 @@ done
 log "=== 2) HTTPS Traefik → :3001 (${PUBLIC_HOST}) ==="
 apply_traefik_routes
 
-log "=== 3) Atualizar Coolify env/domínio (${PUBLIC_HOST}) ==="
+log "=== 3) Atualizar Coolify env/domínio (${PUBLIC_HOST}) + recriar app ==="
 export COOLIFY_COMPOSE_MODE=ghcr
 export MIGRATE_LEGACY=0
 export PUBLIC_HOST="${PUBLIC_HOST}"
+export COOLIFY_REPUBLISH_DIRECT=1
+export SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 sudo -E bash scripts/vps-configure-coolify-radarzap.sh || true
 
 log "=== 4) Verificar HTTPS ==="
