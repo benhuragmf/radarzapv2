@@ -30,11 +30,20 @@ psql_exec() {
 api() {
   local method="$1" path="$2"
   shift 2
-  curl -sS -X "$method" \
+  local tmp http
+  tmp="$(mktemp)"
+  http="$(curl -sS -o "$tmp" -w "%{http_code}" -X "$method" \
     -H "Authorization: Bearer ${API_TOKEN#*|}" \
     -H "Accept: application/json" \
     -H "Content-Type: application/json" \
-    "${COOLIFY_URL}${path}" "$@"
+    "${COOLIFY_URL}${path}" "$@")"
+  if [[ "$http" -lt 200 || "$http" -ge 300 ]]; then
+    log "API ${method} ${path} → HTTP ${http}: $(cat "$tmp")"
+    rm -f "$tmp"
+    return 1
+  fi
+  cat "$tmp"
+  rm -f "$tmp"
 }
 
 wait_coolify() {
@@ -90,6 +99,7 @@ $s->save();
 echo "ok";
 ' >/dev/null
   docker exec coolify php artisan config:clear >/dev/null 2>&1 || true
+  sleep 10
 
   log "Gerando token API..."
   local out
@@ -97,17 +107,10 @@ echo "ok";
 $user = \App\Models\User::first();
 $team = \App\Models\Team::first();
 if (!$user || !$team) { echo "ERROR:no-user"; exit(1); }
-\Laravel\Sanctum\PersonalAccessToken::where("name", "radarzap-automation")->delete();
-$plain = \Illuminate\Support\Str::random(48);
-$pat = new \Laravel\Sanctum\PersonalAccessToken();
-$pat->name = "radarzap-automation";
-$pat->token = hash("sha256", $plain);
-$pat->abilities = "[\"*\"]";
-$pat->tokenable_type = get_class($user);
-$pat->tokenable_id = $user->id;
-$pat->team_id = $team->id;
-$pat->save();
-echo "TOKEN|" . $plain;
+$user->tokens()->where("name", "radarzap-automation")->delete();
+$result = $user->createToken("radarzap-automation", ["root"]);
+$result->accessToken->forceFill(["team_id" => $team->id])->save();
+echo "TOKEN|" . $result->plainTextToken;
 ' 2>&1)" || true
   API_TOKEN="$(echo "$out" | grep -oE 'TOKEN\|[A-Za-z0-9]+' | tail -1 | tr '|' '\n' | tail -1 || true)"
   if [[ -z "$API_TOKEN" ]]; then
@@ -181,7 +184,9 @@ build_compose_with_external_volumes() {
 }
 
 ensure_project_and_server() {
-  PROJECT_UUID="$(api GET /api/v1/projects | jq -r '.[] | select(.name=="RadarZap") | .uuid' | head -1)"
+  local projects
+  projects="$(api GET /api/v1/projects)"
+  PROJECT_UUID="$(echo "$projects" | jq -r '.[] | select(.name=="RadarZap") | .uuid' | head -1)"
   if [[ -z "$PROJECT_UUID" || "$PROJECT_UUID" == "null" ]]; then
     log "Criando projeto RadarZap..."
     PROJECT_UUID="$(api POST /api/v1/projects -d '{"name":"RadarZap","description":"RadarZap v2 produção"}' | jq -r '.uuid')"
@@ -282,8 +287,14 @@ ensure_root_user
 enable_api_and_token
 
 # Validar API
-VER="$(api GET /api/v1/version | jq -r '.version // .')"
-log "Coolify API OK — versão ${VER}"
+for i in $(seq 1 12); do
+  if VER="$(api GET /api/v1/version 2>/dev/null | jq -r '.version // empty')" && [[ -n "$VER" ]]; then
+    log "Coolify API OK — versão ${VER}"
+    break
+  fi
+  [[ "$i" -eq 12 ]] && { log "ERRO: API Coolify indisponível após habilitar token"; exit 1; }
+  sleep 5
+done
 
 detect_legacy_volumes
 build_compose_with_external_volumes
