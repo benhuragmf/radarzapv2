@@ -397,6 +397,9 @@ enable_api_and_token
 for i in $(seq 1 12); do
   raw="$(curl -sS -H "Authorization: Bearer ${API_TOKEN}" -H "Accept: application/json" "${COOLIFY_URL}/api/v1/version" 2>/dev/null || true)"
   VER="$(echo "$raw" | jq -r '.version // empty' 2>/dev/null || true)"
+  if [[ -z "$VER" && "$raw" =~ ^[0-9]+\.[0-9]+ ]]; then
+    VER="$(echo "$raw" | tr -d '[:space:]"')"
+  fi
   if [[ -n "$VER" ]]; then
     log "Coolify API OK — versão ${VER}"
     break
