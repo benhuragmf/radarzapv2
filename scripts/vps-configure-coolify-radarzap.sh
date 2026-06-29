@@ -392,7 +392,7 @@ validate_server() {
   api GET "/api/v1/servers/${uuid}/validate" >/dev/null 2>&1 || \
     api POST "/api/v1/servers/${uuid}/validate" -d '{}' >/dev/null 2>&1 || true
   local i status
-  for i in $(seq 1 36); do
+  for i in $(seq 1 12); do
     status="$(api GET "/api/v1/servers/${uuid}" 2>/dev/null | jq -r '.status // .server_status // empty' || true)"
     if [[ "$status" == "reachable" || "$status" == "validated" ]]; then
       log "Servidor ${label}: ${status}"
@@ -510,8 +510,9 @@ ensure_coolify_servers() {
   fix_servers_team_visibility
   log "Servidores no Coolify:"
   servers_json | jq -r 'if type == "array" then .[] else .data[]? end | "- \(.name) (\(.ip // "local")) status=\(.status // .server_status // "?") uuid=\(.uuid)"' 2>/dev/null || true
-  [[ -n "${local_uuid:-}" ]] && SERVER_UUID="$local_uuid"
-  [[ -n "${gamer_uuid:-}" ]] && RADARGAMER_SERVER_UUID="$gamer_uuid"
+  [[ -n "${local_uuid:-}" ]] && SERVER_UUID="$local_uuid" || true
+  [[ -n "${gamer_uuid:-}" ]] && RADARGAMER_SERVER_UUID="$gamer_uuid" || true
+  return 0
 }
 
 build_compose_with_external_volumes() {
