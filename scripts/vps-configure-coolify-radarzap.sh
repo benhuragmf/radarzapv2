@@ -92,7 +92,8 @@ echo 'ok';
 
 ensure_team() {
   log "Garantindo team vinculado ao usuário..."
-  docker exec coolify php artisan tinker --execute='
+  local out
+  out="$(docker exec coolify php artisan tinker --execute='
 $user = \App\Models\User::orderBy("id")->first();
 if (!$user || !$user->id) { echo "ERROR:no-user"; exit(1); }
 $team = \App\Models\Team::first();
@@ -106,7 +107,12 @@ if (!$user->current_team_id) {
 }
 \DB::table("servers")->whereNull("team_id")->update(["team_id" => $team->id]);
 echo "team=" . $team->id . " user=" . $user->id;
-' >/dev/null
+' 2>&1)" || true
+  if ! echo "$out" | grep -q 'team='; then
+    log "ERRO ao garantir team: $out"
+    exit 1
+  fi
+  log "$out"
 }
 
 enable_api_and_token() {
