@@ -1,0 +1,57 @@
+# RadarZap v2 — Coolify com imagem GHCR (sem build no servidor).
+# Defina RADARZAP_IMAGE e SERVICE_PASSWORD_MONGODB nas env do resource Coolify.
+# Domínio HTTPS: serviço `app` · porta interna 3001
+
+services:
+  app:
+    image: ${RADARZAP_IMAGE:?defina RADARZAP_IMAGE}
+    expose:
+      - '3001'
+    environment:
+      NODE_ENV: production
+      MONGODB_URL: mongodb://admin:${SERVICE_PASSWORD_MONGODB}@mongodb:27017/discord-whatsapp?authSource=admin
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: ${SERVICE_URL_APP}
+      CORS_ORIGIN: ${SERVICE_URL_APP}
+      COOKIE_SECURE: 'true'
+      LOG_FORMAT: json
+      WHATSAPP_HEADLESS: 'true'
+    volumes:
+      - radarzap-sessions:/app/sessions
+      - radarzap-media:/app/media
+      - radarzap-logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3001/api/services/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MONGODB}
+    volumes:
+      - mongodb-data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  mongodb-data:
+  redis-data:
+  radarzap-sessions:
+  radarzap-media:
+  radarzap-logs:

@@ -31,11 +31,12 @@ jobs:
           MIGRATE_LEGACY: ${{ github.event.inputs.migrate_legacy }}
           COOLIFY_ROOT_EMAIL: ${{ secrets.COOLIFY_ROOT_EMAIL }}
           COOLIFY_ROOT_PASSWORD: ${{ secrets.COOLIFY_ROOT_PASSWORD }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_PATH,MIGRATE_LEGACY,COOLIFY_ROOT_EMAIL,COOLIFY_ROOT_PASSWORD
+          envs: DEPLOY_PATH,MIGRATE_LEGACY,COOLIFY_ROOT_EMAIL,COOLIFY_ROOT_PASSWORD,GHCR_PAT
           script_stop: true
           command_timeout: 60m
           script: |

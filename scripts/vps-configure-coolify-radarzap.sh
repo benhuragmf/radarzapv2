@@ -9,6 +9,8 @@ DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
 PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
 PUBLIC_URL="https://${PUBLIC_HOST}"
 MIGRATE_LEGACY="${MIGRATE_LEGACY:-1}"
+COOLIFY_COMPOSE_MODE="${COOLIFY_COMPOSE_MODE:-ghcr}"
+RADARZAP_IMAGE_DEFAULT="${RADARZAP_IMAGE_DEFAULT:-ghcr.io/benhuragmf/radarzapv2:latest}"
 ROOT_EMAIL="${COOLIFY_ROOT_EMAIL:-admin@${PUBLIC_HOST}}"
 ROOT_PASSWORD="${COOLIFY_ROOT_PASSWORD:-}"
 
@@ -229,6 +231,45 @@ echo "TOKEN|" . $pat->id . "|" . $plain;
   log "Token API gerado (prefixo ${API_TOKEN%%|*}|…)"
 }
 
+load_legacy_env() {
+  local env_file="${DEPLOY_PATH}/.env"
+  [[ -f "$env_file" ]] || return 0
+  set -a
+  # shellcheck disable=SC1091
+  source "$env_file" 2>/dev/null || true
+  set +a
+}
+
+ensure_ghcr_login() {
+  if [[ -z "${GHCR_PAT:-}" ]]; then
+    return 0
+  fi
+  local user="${GHCR_USER:-benhuragmf}"
+  log "Login GHCR no host (pull da imagem)..."
+  echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$user" --password-stdin >/dev/null 2>&1 || {
+    log "AVISO: login GHCR falhou — imagem precisa ser pública ou credencial no Coolify"
+  }
+}
+
+resolve_compose_template() {
+  load_legacy_env
+  if [[ "$COOLIFY_COMPOSE_MODE" == "ghcr" ]]; then
+    echo "${DEPLOY_PATH}/docker-compose.coolify-ghcr.yml"
+  else
+    echo "${DEPLOY_PATH}/docker-compose.coolify.yml"
+  fi
+}
+
+update_service_compose() {
+  local compose_b64 payload_file
+  compose_b64="$(base64 -w0 "$COMPOSE_FILE" 2>/dev/null || base64 "$COMPOSE_FILE" | tr -d '\n')"
+  payload_file="$(mktemp)"
+  jq -n --arg docker_compose_raw "$compose_b64" '{docker_compose_raw: $docker_compose_raw}' >"$payload_file"
+  log "Atualizando Docker Compose no service ${SERVICE_UUID}..."
+  api PATCH "/api/v1/services/${SERVICE_UUID}" -d @"$payload_file" >/dev/null
+  rm -f "$payload_file"
+}
+
 detect_legacy_volumes() {
   local project
   project="$(docker volume ls --format '{{.Name}}' | grep -E '_radarzap-sessions$' | head -1 || true)"
@@ -244,7 +285,8 @@ detect_legacy_volumes() {
 }
 
 build_compose_with_external_volumes() {
-  local src="${DEPLOY_PATH}/docker-compose.coolify.yml"
+  local src
+  src="$(resolve_compose_template)"
   local out="/tmp/radarzap-coolify-compose.yml"
   if [[ -z "${VOL_SESSIONS:-}" ]]; then
     cp "$src" "$out"
@@ -327,6 +369,7 @@ ensure_service() {
   if [[ -n "$existing" && "$existing" != "null" ]]; then
     SERVICE_UUID="$existing"
     log "Service radarzap já existe: $SERVICE_UUID"
+    update_service_compose
     set_service_domain
     return 0
   fi
@@ -375,13 +418,11 @@ sync_env_from_legacy() {
     return 0
   fi
   log "Sincronizando variáveis do .env legado..."
-  # shellcheck disable=SC1091
-  set -a
-  source "$env_file"
-  set +a
+  load_legacy_env
 
   local mongo_pw="${MONGO_PASSWORD:-${SERVICE_PASSWORD_MONGODB:-}}"
   [[ -z "$mongo_pw" ]] && mongo_pw="$(openssl rand -base64 24)"
+  local radar_image="${RADARZAP_IMAGE:-$RADARZAP_IMAGE_DEFAULT}"
 
   local payload='[]'
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -392,16 +433,28 @@ sync_env_from_legacy() {
     local val="${line#*=}"
     key="$(echo "$key" | xargs)"
     case "$key" in
-      MONGODB_URL|MONGO_PASSWORD|RADARZAP_IMAGE|FRONTEND_URL|CORS_ORIGIN) continue ;;
+      MONGODB_URL|MONGO_PASSWORD|FRONTEND_URL|CORS_ORIGIN) continue ;;
     esac
     payload="$(echo "$payload" | jq --arg k "$key" --arg v "$val" '. + [{"key": $k, "value": $v, "is_preview": false, "is_build_time": false, "is_literal": true}]')"
   done <"$env_file"
 
-  payload="$(echo "$payload" | jq --arg v "$mongo_pw" '. + [{"key":"SERVICE_PASSWORD_MONGODB","value":$v,"is_preview":false,"is_build_time":false,"is_literal":true}]')"
+  payload="$(echo "$payload" | jq \
+    --arg mongo "$mongo_pw" \
+    --arg image "$radar_image" \
+    '. + [
+      {"key":"SERVICE_PASSWORD_MONGODB","value":$mongo,"is_preview":false,"is_build_time":false,"is_literal":true},
+      {"key":"RADARZAP_IMAGE","value":$image,"is_preview":false,"is_build_time":false,"is_literal":true}
+    ]')"
 
-  api POST "/api/v1/services/${SERVICE_UUID}/envs/bulk" -d "{\"data\":${payload}}" >/dev/null || {
-    log "AVISO: bulk env falhou — cole .env manualmente no painel"
-  }
+  if api POST "/api/v1/services/${SERVICE_UUID}/envs/bulk" -d "{\"data\":${payload}}" >/dev/null 2>&1; then
+    log "Env sincronizado (bulk OK)"
+    return 0
+  fi
+
+  log "Bulk env falhou — enviando variáveis críticas individualmente..."
+  echo "$payload" | jq -c '.[]' | while read -r item; do
+    api POST "/api/v1/services/${SERVICE_UUID}/envs" -d "$item" >/dev/null 2>&1 || true
+  done
 }
 
 deploy_service() {
@@ -444,6 +497,7 @@ done
 
 detect_legacy_volumes
 build_compose_with_external_volumes
+ensure_ghcr_login
 ensure_project_and_server
 ensure_service
 sync_env_from_legacy
