@@ -424,7 +424,7 @@ fix_server_private_key_db() {
     WHERE servers.uuid = '${server_uuid}'
       AND pk.uuid = '${key_uuid}'
       AND (servers.private_key_id IS NULL OR servers.private_key_id = 0 OR servers.\"user\" IS DISTINCT FROM '${user}');
-  " 2>/dev/null || true
+  " >/dev/null 2>&1 || true
   log "private_key_id / user sincronizados no DB para ${server_uuid}"
 }
 
@@ -539,7 +539,7 @@ fix_servers_team_visibility() {
     return 0
   fi
   docker exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=1 -c \
-    "UPDATE servers SET team_id = ${tid} WHERE team_id IS NULL OR team_id = 0;" 2>/dev/null || true
+    "UPDATE servers SET team_id = ${tid} WHERE team_id IS NULL OR team_id = 0;" >/dev/null 2>&1 || true
   log "servers.team_id sincronizado com team ${tid}"
 }
 

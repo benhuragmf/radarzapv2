@@ -32,11 +32,13 @@ jobs:
           COOLIFY_ROOT_EMAIL: ${{ secrets.COOLIFY_ROOT_EMAIL }}
           COOLIFY_ROOT_PASSWORD: ${{ secrets.COOLIFY_ROOT_PASSWORD }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          COOLIFY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          RADARGAMER_SSH_PRIVATE_KEY: ${{ secrets.RADARGAMER_SSH_KEY }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_PATH,MIGRATE_LEGACY,COOLIFY_ROOT_EMAIL,COOLIFY_ROOT_PASSWORD,GHCR_PAT
+          envs: DEPLOY_PATH,MIGRATE_LEGACY,COOLIFY_ROOT_EMAIL,COOLIFY_ROOT_PASSWORD,GHCR_PAT,COOLIFY_SSH_PRIVATE_KEY,RADARGAMER_SSH_PRIVATE_KEY
           script_stop: true
           command_timeout: 60m
           script: |
@@ -57,10 +59,12 @@ jobs:
               if sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq jq openssl; then
                 break
               fi
-              log_attempt="apt lock, retry $attempt"
-              echo "$log_attempt"
+              echo "apt lock, retry $attempt"
               sleep 15
             done
+            if [[ -z "${RADARGAMER_SSH_PRIVATE_KEY:-}" ]]; then
+              export RADARGAMER_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY}"
+            fi
             sudo -E bash scripts/vps-configure-coolify-radarzap.sh
             if [[ "${MIGRATE_LEGACY:-1}" != "1" ]]; then
               sudo bash scripts/vps-restore-sslip-https.sh || true
