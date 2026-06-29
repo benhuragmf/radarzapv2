@@ -67,6 +67,9 @@ interface InboxSettings {
   inactivityAutoCloseEnabled: boolean
   inactivityCloseMinutes: number
   inactivityWarningMinutes: number
+  inactivityWarningMessage: string
+  inactivityCloseMessage: string
+  inactivityCloseGateWaitMinutes?: number
   inactivityWarningQuickCode?: string
   inactivityCloseQuickCode?: string
   inactivityCloseGracefulQuickCode?: string
@@ -199,6 +202,9 @@ export default function InboxBotSettings() {
     if (raw === 'quality' || raw === 'qualidade' || raw === 'sla' || raw === 'atalhos') {
       setTab('quality')
     }
+    if (raw === 'inactivity' || raw === 'inatividade') {
+      setTab('messages')
+    }
     if (raw === 'sla' || raw === 'atalhos' || raw === 'aus' || raw === 'enc') {
       setTab('quality')
       setSlaAdvancedOpen(true)
@@ -243,6 +249,11 @@ export default function InboxBotSettings() {
         gracefulCloseAfterPromptMinutes: data.gracefulCloseAfterPromptMinutes ?? 2,
         gracefulCloseDetectPhrases: data.gracefulCloseDetectPhrases ?? true,
         inactivityCloseGracefulQuickCode: data.inactivityCloseGracefulQuickCode ?? 'enc_ok',
+        inactivityWarningMessage: data.inactivityWarningMessage ?? 'Você está aí?',
+        inactivityCloseMessage: data.inactivityCloseMessage ?? 'Conversa encerrada por inatividade.',
+        inactivityCloseGateWaitMinutes:
+          data.inactivityCloseGateWaitMinutes ??
+          Math.max(0, (data.inactivityCloseMinutes ?? 15) - (data.inactivityWarningMinutes ?? 10)),
         closeQuickReplyGateEnabled: data.closeQuickReplyGateEnabled ?? true,
         gracefulCloseQuickReplyGateEnabled:
           data.gracefulCloseQuickReplyGateEnabled ?? data.closeQuickReplyGateEnabled ?? true,
@@ -498,6 +509,101 @@ export default function InboxBotSettings() {
                     </label>
                   </FieldFocusWrap>
                 </div>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2 text-brand-400">
+                  <Clock size={18} />
+                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">
+                    Inatividade automática (atendimento humano)
+                  </h2>
+                </div>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  O sistema envia estas mensagens quando o <strong>cliente para de responder</strong> após a última
+                  mensagem do atendente. Use <code className="text-[var(--rz-text-muted)]">[user]</code> ou{' '}
+                  <code className="text-[var(--rz-text-muted)]">[nome]</code> para o primeiro nome. Tempos e atalhos
+                  manuais (<span className="font-mono">/aus</span> · <span className="font-mono">/enc</span>) ficam
+                  em{' '}
+                  <button
+                    type="button"
+                    className="text-[var(--rz-accent)] hover:underline"
+                    onClick={() => setTab('quality')}
+                  >
+                    Qualidade → Atalhos
+                  </button>
+                  .
+                </p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.inactivityAutoCloseEnabled}
+                    onChange={e => patch('inactivityAutoCloseEnabled', e.target.checked)}
+                  />
+                  Encerrar automaticamente por inatividade
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1">
+                    <span className="text-xs text-[var(--rz-text-muted)]">Minutos sem resposta até aviso</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={1440}
+                      className={inputCls}
+                      value={form.inactivityWarningMinutes}
+                      disabled={!form.inactivityAutoCloseEnabled}
+                      onChange={e => patch('inactivityWarningMinutes', Number(e.target.value) || 0)}
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs text-[var(--rz-text-muted)]">Minutos totais sem resposta até encerrar</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={1440}
+                      className={inputCls}
+                      value={form.inactivityCloseMinutes}
+                      disabled={!form.inactivityAutoCloseEnabled}
+                      onChange={e => patch('inactivityCloseMinutes', Number(e.target.value) || 0)}
+                    />
+                  </label>
+                </div>
+                <FieldFocusWrap field="inactivityWarningMessage" activeField={focusedField} onFocus={setFocusedField}>
+                  <label className="block space-y-1">
+                    <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de aviso</span>
+                    <input
+                      className={inputCls}
+                      value={form.inactivityWarningMessage}
+                      disabled={!form.inactivityAutoCloseEnabled}
+                      onChange={e => patch('inactivityWarningMessage', e.target.value)}
+                      placeholder="Você está aí?"
+                    />
+                  </label>
+                </FieldFocusWrap>
+                <FieldFocusWrap field="inactivityCloseMessage" activeField={focusedField} onFocus={setFocusedField}>
+                  <label className="block space-y-1">
+                    <span className="text-xs text-[var(--rz-text-muted)]">Mensagem de encerramento</span>
+                    <textarea
+                      className={textareaCls}
+                      value={form.inactivityCloseMessage}
+                      disabled={!form.inactivityAutoCloseEnabled}
+                      onChange={e => patch('inactivityCloseMessage', e.target.value)}
+                      placeholder="Conversa encerrada por inatividade."
+                    />
+                  </label>
+                </FieldFocusWrap>
+                {form.inactivityAutoCloseEnabled && (
+                  <p className="text-xs text-[var(--rz-text-muted)]">
+                    Após o aviso, o sistema espera{' '}
+                    <strong>
+                      {Math.max(
+                        0,
+                        (form.inactivityCloseMinutes ?? 0) - (form.inactivityWarningMinutes ?? 0),
+                      )}{' '}
+                      min
+                    </strong>{' '}
+                    antes de enviar a mensagem de encerramento (total − aviso).
+                  </p>
+                )}
               </Card>
             </>
           )}
@@ -977,74 +1083,6 @@ export default function InboxBotSettings() {
               </Card>
 
               <Card className="space-y-4 p-5">
-                <div className="flex items-center gap-2 text-brand-400">
-                  <Clock size={18} />
-                  <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">Inatividade do cliente</h2>
-                </div>
-                <p className="text-xs text-[var(--rz-text-muted)]">
-                  Encerramento automático quando o cliente para de responder durante o atendimento humano.
-                  Também define quanto tempo esperar entre <span className="font-mono">/aus</span> e{' '}
-                  <span className="font-mono">/enc</span> quando você usa os atalhos no Inbox.
-                </p>
-                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-                  <input
-                    type="checkbox"
-                    checked={form.inactivityAutoCloseEnabled}
-                    onChange={e => patch('inactivityAutoCloseEnabled', e.target.checked)}
-                  />
-                  Encerrar automaticamente por inatividade
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs text-[var(--rz-text-muted)]">
-                    Minutos até aviso automático do bot (0 = desligado) — equivalente ao /{' '}
-                    {form.inactivityWarningQuickCode ?? 'aus'}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={1440}
-                    className={inputCls}
-                    value={form.inactivityWarningMinutes}
-                    disabled={!form.inactivityAutoCloseEnabled}
-                    onChange={e => patch('inactivityWarningMinutes', Number(e.target.value) || 0)}
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs text-[var(--rz-text-muted)]">
-                    Minutos totais até encerramento automático (0 = desligado) — equivalente ao /{' '}
-                    {form.inactivityCloseQuickCode ?? 'enc'}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={1440}
-                    className={inputCls}
-                    value={form.inactivityCloseMinutes}
-                    disabled={!form.inactivityAutoCloseEnabled}
-                    onChange={e => patch('inactivityCloseMinutes', Number(e.target.value) || 0)}
-                  />
-                </label>
-                {form.inactivityAutoCloseEnabled && (
-                  <p className="rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/60 px-3 py-2 text-xs text-[var(--rz-text-secondary)]">
-                    Após enviar{' '}
-                    <span className="font-mono text-brand-300">/{form.inactivityWarningQuickCode ?? 'aus'}</span>{' '}
-                    manualmente no Inbox, o{' '}
-                    <span className="font-mono text-brand-300">/{form.inactivityCloseQuickCode ?? 'enc'}</span>{' '}
-                    libera em{' '}
-                    <strong>
-                      {Math.max(
-                        0,
-                        (form.inactivityCloseMinutes ?? 0) - (form.inactivityWarningMinutes ?? 0),
-                      )}{' '}
-                      min
-                    </strong>{' '}
-                    (total − aviso). Para liberar na hora, desmarque o bloqueio de inatividade na seção
-                    abaixo.
-                  </p>
-                )}
-              </Card>
-
-              <Card className="space-y-4 p-5">
                 <button
                   type="button"
                   onClick={() => setSlaAdvancedOpen(v => !v)}
@@ -1082,43 +1120,69 @@ export default function InboxBotSettings() {
 
                 {slaAdvancedOpen && (
                   <div className="space-y-4 border-t border-[var(--rz-border)] pt-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-3 rounded-lg border border-[var(--rz-border)] p-3">
+                      <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">
+                        Atalho inatividade (atendente)
+                      </h3>
+                      <p className="text-xs text-[var(--rz-text-muted)]">
+                        Você envia manualmente no Inbox — independente do encerramento automático do bot.
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block space-y-1">
+                          <span className="text-xs text-[var(--rz-text-muted)]">Código do aviso</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-[var(--rz-text-muted)]">/</span>
+                            <input
+                              className={inputCls}
+                              value={form.inactivityWarningQuickCode ?? 'aus'}
+                              onChange={e =>
+                                patch('inactivityWarningQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
+                              }
+                            />
+                          </div>
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs text-[var(--rz-text-muted)]">Código do encerramento</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-[var(--rz-text-muted)]">/</span>
+                            <input
+                              className={inputCls}
+                              value={form.inactivityCloseQuickCode ?? 'enc'}
+                              onChange={e =>
+                                patch('inactivityCloseQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
+                              }
+                            />
+                          </div>
+                        </label>
+                      </div>
                       <label className="block space-y-1">
-                        <span className="text-xs text-[var(--rz-text-muted)]">Código do aviso (inatividade)</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm text-[var(--rz-text-muted)]">/</span>
-                          <input
-                            className={inputCls}
-                            value={form.inactivityWarningQuickCode ?? 'aus'}
-                            onChange={e =>
-                              patch('inactivityWarningQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
-                            }
-                          />
-                        </div>
+                        <span className="text-xs text-[var(--rz-text-muted)]">
+                          Minutos após /{form.inactivityWarningQuickCode ?? 'aus'} para liberar /{form.inactivityCloseQuickCode ?? 'enc'}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={1440}
+                          className={inputCls}
+                          value={form.inactivityCloseGateWaitMinutes ?? 5}
+                          onChange={e => patch('inactivityCloseGateWaitMinutes', Number(e.target.value) || 0)}
+                        />
                       </label>
-                      <label className="block space-y-1">
-                        <span className="text-xs text-[var(--rz-text-muted)]">Código do encerramento (inatividade)</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm text-[var(--rz-text-muted)]">/</span>
-                          <input
-                            className={inputCls}
-                            value={form.inactivityCloseQuickCode ?? 'enc'}
-                            onChange={e =>
-                              patch('inactivityCloseQuickCode', e.target.value.replace(/\s/g, '').toLowerCase())
-                            }
-                          />
-                        </div>
+                      <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                        <input
+                          type="checkbox"
+                          checked={form.closeQuickReplyGateEnabled ?? true}
+                          onChange={e => patch('closeQuickReplyGateEnabled', e.target.checked)}
+                        />
+                        Bloquear /{form.inactivityCloseQuickCode ?? 'enc'} até /{form.inactivityWarningQuickCode ?? 'aus'}{' '}
+                        + tempo
                       </label>
+                      <p className="text-xs text-[var(--rz-text-muted)]">
+                        Fluxo: envie /{form.inactivityWarningQuickCode ?? 'aus'} no Inbox → aguarde{' '}
+                        {form.inactivityCloseGateWaitMinutes ?? 5} min → /{form.inactivityCloseQuickCode ?? 'enc'}{' '}
+                        libera.
+                      </p>
                     </div>
-                    <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
-                      <input
-                        type="checkbox"
-                        checked={form.closeQuickReplyGateEnabled ?? true}
-                        onChange={e => patch('closeQuickReplyGateEnabled', e.target.checked)}
-                      />
-                      Bloquear /{form.inactivityCloseQuickCode ?? 'enc'} até /{form.inactivityWarningQuickCode ?? 'aus'}{' '}
-                      + tempo (inatividade)
-                    </label>
 
                     <div className="space-y-3 rounded-lg border border-[var(--rz-border)] p-3">
                       <h3 className="text-sm font-medium text-[var(--rz-text-primary)]">Encerramento natural</h3>

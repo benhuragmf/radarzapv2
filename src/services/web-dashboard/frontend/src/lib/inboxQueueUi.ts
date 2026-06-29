@@ -72,7 +72,7 @@ export function liveCloseQuickReplyAllowed(
     gracefulCloseAckAt?: string
   },
   sla: {
-    inactivityCloseAfterWarningMinutes: number
+    inactivityCloseGateWaitMinutes: number
     gracefulCloseAfterPromptMinutes: number
   },
   tick = 0,
@@ -80,7 +80,7 @@ export function liveCloseQuickReplyAllowed(
   return (
     liveInactivityCloseAllowed(
       conv.inactivityWarnedAt,
-      sla.inactivityCloseAfterWarningMinutes,
+      sla.inactivityCloseGateWaitMinutes,
       tick,
     ) ||
     liveGracefulCloseAllowed(

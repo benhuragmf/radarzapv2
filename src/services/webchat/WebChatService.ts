@@ -89,7 +89,7 @@ import {
   isEncOkCloseQuickReplyAllowed,
   triageInactivityTotalMinutes,
 } from '../inbox/inbox-inactivity';
-import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, resolveGracefulCloseQuickReplyGateEnabled, resolveInactivityCloseQuickReplyGateEnabled } from '../../types/inbox-settings';
+import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, resolveGracefulCloseQuickReplyGateEnabled, resolveInactivityCloseGateWaitMinutes, resolveInactivityCloseQuickReplyGateEnabled } from '../../types/inbox-settings';
 import {
   applyQuickReplyTemplate,
   expandQuickReply,
@@ -101,7 +101,6 @@ import {
   resolveInactivityCloseGracefulQuickCode,
   isInactivityCloseQuickCode,
   isInactivityCloseGracefulQuickCode,
-  inactivityCloseAfterWarningMinutes,
   type InboxQuickReply,
 } from '../../types/inbox-quick-replies';
 import {
@@ -1008,6 +1007,7 @@ export class WebChatService {
         inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
       inactivityWarningMinutes:
         inboxSettings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+      inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(inboxSettings),
       gracefulCloseAfterPromptMinutes:
         inboxSettings.gracefulCloseAfterPromptMinutes ??
         DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
@@ -1131,7 +1131,7 @@ export class WebChatService {
       inactivityCloseGracefulQuickCode: string;
       closeQuickReplyGateEnabled: boolean;
       gracefulCloseQuickReplyGateEnabled: boolean;
-      inactivityCloseAfterWarningMinutes: number;
+      inactivityCloseGateWaitMinutes: number;
     };
   } | null> {
     const detail = await this.getConversationForAgent(clientId, conversationId, userId);
@@ -1184,6 +1184,7 @@ export class WebChatService {
         inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
       inactivityWarningMinutes:
         inboxSettings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+      inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(inboxSettings),
       gracefulCloseAfterPromptMinutes:
         inboxSettings.gracefulCloseAfterPromptMinutes ??
         DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
@@ -1323,10 +1324,7 @@ export class WebChatService {
         inactivityCloseGracefulQuickCode: resolveInactivityCloseGracefulQuickCode(inboxSettings),
         closeQuickReplyGateEnabled: resolveInactivityCloseQuickReplyGateEnabled(inboxSettings),
         gracefulCloseQuickReplyGateEnabled: resolveGracefulCloseQuickReplyGateEnabled(inboxSettings),
-        inactivityCloseAfterWarningMinutes: inactivityCloseAfterWarningMinutes(
-          inboxSettings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
-          inboxSettings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
-        ),
+        inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(inboxSettings),
       },
     };
   }
@@ -3516,17 +3514,11 @@ export class WebChatService {
           closeGateSource: freshBefore.closeGateSource,
         },
         {
-          inactivityCloseMinutes:
-            settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
-          inactivityWarningMinutes:
-            settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+          inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(settings),
         },
       );
       if (inactivityGateEnabled && !encAllowed) {
-        const afterAus = inactivityCloseAfterWarningMinutes(
-          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
-          settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
-        );
+        const afterAus = resolveInactivityCloseGateWaitMinutes(settings);
         throw new Error(
           `O atalho /${closeCode} só libera após enviar /${warnCode} e aguardar ${afterAus} min.`,
         );

@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.69] — 2026-06-28
+
+### Feat — Inatividade automática: mensagens editáveis + gate manual separado
+
+- Campos `inactivityWarningMessage` e `inactivityCloseMessage` (padrão: "Você está aí?" / "Conversa encerrada por inatividade.").
+- UI em Bot → **Mensagens** (tempos + textos); Qualidade só atalhos manuais (`/aus` · `/enc` · `/mais`).
+- `inactivityCloseGateWaitMinutes` independente do SLA automático do bot.
+
+---
+
 ## [2.12.68] — 2026-06-28
 
 ### Feat — Gate de atalhos separado: inatividade vs encerramento natural

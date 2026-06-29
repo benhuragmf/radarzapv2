@@ -38,6 +38,7 @@ type WebChatRowInput = InboxWebChatListRow & {
 type InactivitySla = {
   inactivityCloseMinutes: number;
   inactivityWarningMinutes: number;
+  inactivityCloseGateWaitMinutes: number;
   gracefulCloseAfterPromptMinutes: number;
   closeQuickReplyGateEnabled?: boolean;
 };
@@ -109,6 +110,7 @@ export async function enrichWebChatInboxRow(
   const sla = inactivitySla ?? {
     inactivityCloseMinutes: DEFAULT_INBOX_SLA.inactivityCloseMinutes,
     inactivityWarningMinutes: DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+    inactivityCloseGateWaitMinutes: DEFAULT_INBOX_SLA.inactivityCloseGateWaitMinutes,
     gracefulCloseAfterPromptMinutes: DEFAULT_INBOX_SLA.gracefulCloseAfterPromptMinutes,
     closeQuickReplyGateEnabled: DEFAULT_INBOX_SLA.closeQuickReplyGateEnabled,
   };
@@ -129,8 +131,7 @@ export async function enrichWebChatInboxRow(
             closeGateSource: row.closeGateSource,
           },
           {
-            inactivityCloseMinutes: sla.inactivityCloseMinutes,
-            inactivityWarningMinutes: sla.inactivityWarningMinutes,
+            inactivityCloseGateWaitMinutes: sla.inactivityCloseGateWaitMinutes,
           },
         )
       : false;

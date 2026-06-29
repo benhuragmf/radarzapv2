@@ -61,6 +61,12 @@ export const DEFAULT_INBOX_SLA = {
   inactivityCloseMinutes: 15,
   /** Aviso automático com resposta rápida de aviso antes do encerramento (0 = desligado). */
   inactivityWarningMinutes: 10,
+  /** Texto enviado pelo sistema no aviso automático (atendimento humano). */
+  inactivityWarningMessage: 'Você está aí?',
+  /** Texto enviado pelo sistema ao encerrar por inatividade automática. */
+  inactivityCloseMessage: 'Conversa encerrada por inatividade.',
+  /** Minutos após /aus (atalho manual) para liberar /enc no Inbox. Independente do SLA automático. */
+  inactivityCloseGateWaitMinutes: 5,
   /** Código da resposta rápida de aviso (ex.: aus → /aus). */
   inactivityWarningQuickCode: 'aus',
   /** Código da resposta rápida de encerramento (ex.: enc → /enc). */
@@ -134,4 +140,20 @@ export function resolveInactivityCloseQuickReplyGateEnabled(settings: {
   closeQuickReplyGateEnabled?: boolean;
 }): boolean {
   return settings.closeQuickReplyGateEnabled !== false;
+}
+
+/** Minutos após /aus para liberar /enc (atalho manual). Legado: total − aviso do SLA automático. */
+export function resolveInactivityCloseGateWaitMinutes(settings: {
+  inactivityCloseGateWaitMinutes?: number;
+  inactivityCloseMinutes?: number;
+  inactivityWarningMinutes?: number;
+}): number {
+  if (settings.inactivityCloseGateWaitMinutes !== undefined) {
+    return Math.max(0, Number(settings.inactivityCloseGateWaitMinutes) || 0);
+  }
+  const close = settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes;
+  const warn = settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes;
+  if (close <= 0) return 0;
+  if (warn > 0 && warn < close) return close - warn;
+  return close;
 }

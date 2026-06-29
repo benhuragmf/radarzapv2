@@ -29,7 +29,7 @@ import { InboxSettings, IInboxSettings } from '@/models/InboxSettings';
 import { Organization } from '@/models/Organization';
 import { User } from '@/models/User';
 import { InboxConversationStatus, InboxMessageMediaType } from '@/types/inbox';
-import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, INBOX_WEEKDAYS, InboxWeeklySchedule, resolveGracefulCloseQuickReplyGateEnabled, resolveInactivityCloseQuickReplyGateEnabled } from '@/types/inbox-settings';
+import { DEFAULT_INBOX_SLA, DEFAULT_INBOX_TRIAGE_INACTIVITY, INBOX_WEEKDAYS, InboxWeeklySchedule, resolveGracefulCloseQuickReplyGateEnabled, resolveInactivityCloseGateWaitMinutes, resolveInactivityCloseQuickReplyGateEnabled } from '@/types/inbox-settings';
 import {
   applyQuickReplyTemplate,
   expandQuickReply,
@@ -44,7 +44,6 @@ import {
   isInactivityCloseQuickCode,
   isInactivityCloseGracefulQuickCode,
   isGracefulCloseQuickCode,
-  inactivityCloseAfterWarningMinutes,
 } from '@/types/inbox-quick-replies';
 import { INBOX_MEDIA_LABEL } from '@/utils/inbox-media-storage';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
@@ -459,6 +458,9 @@ export class InboxService {
       inactivityAutoCloseEnabled: boolean;
       inactivityCloseMinutes: number;
       inactivityWarningMinutes: number;
+      inactivityCloseGateWaitMinutes?: number;
+      inactivityWarningMessage?: string;
+      inactivityCloseMessage?: string;
       inactivityWarningQuickCode?: string;
       inactivityCloseQuickCode?: string;
       gracefulCloseQuickCode?: string;
@@ -551,6 +553,18 @@ export class InboxService {
         1440,
         Math.max(0, Number(patch.inactivityWarningMinutes) || 0),
       );
+    }
+    if (patch.inactivityCloseGateWaitMinutes !== undefined) {
+      settings.inactivityCloseGateWaitMinutes = Math.min(
+        1440,
+        Math.max(0, Number(patch.inactivityCloseGateWaitMinutes) || 0),
+      );
+    }
+    if (patch.inactivityWarningMessage !== undefined) {
+      settings.inactivityWarningMessage = patch.inactivityWarningMessage.trim();
+    }
+    if (patch.inactivityCloseMessage !== undefined) {
+      settings.inactivityCloseMessage = patch.inactivityCloseMessage.trim();
     }
     if (patch.inactivityWarningQuickCode !== undefined) {
       settings.inactivityWarningQuickCode = resolveInactivityWarningQuickCode({
@@ -793,6 +807,7 @@ export class InboxService {
       inactivityAutoCloseEnabled: boolean;
       inactivityCloseMinutes: number;
       inactivityWarningMinutes: number;
+      inactivityCloseGateWaitMinutes?: number;
       gracefulCloseAfterPromptMinutes?: number;
       closeQuickReplyGateEnabled?: boolean;
     },
@@ -874,10 +889,7 @@ export class InboxService {
               closeGateSource: row.closeGateSource as 'inactivity' | 'graceful' | undefined,
             },
             {
-              inactivityCloseMinutes:
-                inactivitySla.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
-              inactivityWarningMinutes:
-                inactivitySla.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+              inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(inactivitySla),
             },
           )
         : false;
@@ -3253,6 +3265,7 @@ export class InboxService {
       inactivityAutoCloseEnabled: settings.inactivityAutoCloseEnabled,
       inactivityCloseMinutes: settings.inactivityCloseMinutes,
       inactivityWarningMinutes: settings.inactivityWarningMinutes,
+      inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(settings),
       gracefulCloseAfterPromptMinutes: settings.gracefulCloseAfterPromptMinutes,
       closeQuickReplyGateEnabled: settings.closeQuickReplyGateEnabled,
       gracefulCloseQuickReplyGateEnabled: settings.gracefulCloseQuickReplyGateEnabled,
@@ -4721,10 +4734,7 @@ export class InboxService {
         inactivityCloseGracefulQuickCode: resolveInactivityCloseGracefulQuickCode(settings),
         closeQuickReplyGateEnabled: resolveInactivityCloseQuickReplyGateEnabled(settings),
         gracefulCloseQuickReplyGateEnabled: resolveGracefulCloseQuickReplyGateEnabled(settings),
-        inactivityCloseAfterWarningMinutes: inactivityCloseAfterWarningMinutes(
-          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
-          settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
-        ),
+        inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(settings),
       },
     };
   }
@@ -5094,17 +5104,11 @@ export class InboxService {
           closeGateSource: conv.closeGateSource,
         },
         {
-          inactivityCloseMinutes:
-            settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
-          inactivityWarningMinutes:
-            settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
+          inactivityCloseGateWaitMinutes: resolveInactivityCloseGateWaitMinutes(settings),
         },
       );
       if (inactivityGateEnabled && !encAllowed) {
-        const afterAus = inactivityCloseAfterWarningMinutes(
-          settings.inactivityCloseMinutes ?? DEFAULT_INBOX_SLA.inactivityCloseMinutes,
-          settings.inactivityWarningMinutes ?? DEFAULT_INBOX_SLA.inactivityWarningMinutes,
-        );
+        const afterAus = resolveInactivityCloseGateWaitMinutes(settings);
         throw new Error(
           `O atalho /${closeCode} só libera após enviar /${warnCode} e aguardar ${afterAus} min.`,
         );
@@ -5561,7 +5565,7 @@ export class InboxService {
     try {
       const rows = await InboxSettings.find({})
         .select(
-          'clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes inactivityWarningQuickCode inactivityCloseQuickCode triageInactivityEnabled triageWarningMinutes triageCloseAfterWarningMinutes triageWarningMessage triageCloseMessage queueSlaAlertMinutes ticketTeamResponseHours quickReplies',
+          'clientId inactivityAutoCloseEnabled inactivityCloseMinutes inactivityWarningMinutes inactivityWarningMessage inactivityCloseMessage inactivityWarningQuickCode inactivityCloseQuickCode triageInactivityEnabled triageWarningMinutes triageCloseAfterWarningMinutes triageWarningMessage triageCloseMessage queueSlaAlertMinutes ticketTeamResponseHours quickReplies',
         )
         .lean();
 
@@ -5647,7 +5651,10 @@ export class InboxService {
     settings: {
       inactivityCloseMinutes?: number;
       inactivityWarningMinutes?: number;
+      inactivityWarningMessage?: string;
+      inactivityCloseMessage?: string;
       inactivityWarningQuickCode?: string;
+      inactivityCloseQuickCode?: string;
       quickReplies?: InboxQuickReply[];
     },
     nowMs: number,
@@ -5684,8 +5691,11 @@ export class InboxService {
         enabled
       ) {
         const warnCode = resolveInactivityWarningQuickCode(settings);
-        const warnBody =
-          this.quickReplyBody(warnCode, quickReplies, conv.contactName) ?? 'Você está aí?';
+        const warnTemplate =
+          settings.inactivityWarningMessage?.trim() ||
+          this.quickReplyBody(warnCode, quickReplies, conv.contactName) ||
+          DEFAULT_INBOX_SLA.inactivityWarningMessage;
+        const warnBody = applyQuickReplyTemplate(warnTemplate, conv.contactName);
         try {
           await this.sendAiReply(clientId, conv, conv.contactIdentifier, warnBody);
           conv.inactivityWarnedAt = new Date();
@@ -5701,7 +5711,15 @@ export class InboxService {
 
       if (shouldAutoCloseForInactivity(ts, closeMinutes, enabled, nowMs)) {
         try {
-          await this.closeConversationForInactivity(clientId, conv, { reason: 'auto' });
+          const closeCode = resolveInactivityCloseQuickCode(settings);
+          const closeTemplate =
+            settings.inactivityCloseMessage?.trim() ||
+            this.quickReplyBody(closeCode, quickReplies, conv.contactName) ||
+            DEFAULT_INBOX_SLA.inactivityCloseMessage;
+          await this.closeConversationForInactivity(clientId, conv, {
+            reason: 'auto',
+            closingMessage: applyQuickReplyTemplate(closeTemplate, conv.contactName),
+          });
         } catch (err) {
           logger.warn('Falha ao encerrar conversa por inatividade', {
             clientId,

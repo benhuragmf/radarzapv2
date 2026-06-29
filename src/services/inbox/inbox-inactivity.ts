@@ -1,4 +1,3 @@
-import { inactivityCloseAfterWarningMinutes } from '@/types/inbox-quick-replies';
 import type { CloseGateSource } from './inbox-graceful-close.util';
 
 /** Regras puras para SLA de inatividade do cliente no Inbox. */
@@ -163,22 +162,18 @@ function hasActiveInactivityWarning(conv: InactivityConversationTimestamps): boo
   return conv.inactivityWarnedAt.getTime() >= conv.lastOutboundAt.getTime() - 2000;
 }
 
-/** Libera o atalho de encerramento após o aviso (/aus ou código configurado) + tempo do SLA. */
+/** Libera o atalho de encerramento após o aviso (/aus) + tempo configurado para atalho manual. */
 export function isInactivityCloseQuickReplyAllowed(
   conv: InactivityConversationTimestamps,
   settings: {
-    inactivityCloseMinutes: number;
-    inactivityWarningMinutes: number;
+    inactivityCloseGateWaitMinutes: number;
   },
   nowMs = Date.now(),
 ): boolean {
   if (!isWaitingForClientReply(conv)) return false;
   if (!hasActiveInactivityWarning(conv)) return false;
 
-  const afterWarningMin = inactivityCloseAfterWarningMinutes(
-    settings.inactivityCloseMinutes,
-    settings.inactivityWarningMinutes,
-  );
+  const afterWarningMin = settings.inactivityCloseGateWaitMinutes;
   if (afterWarningMin <= 0) return true;
 
   const elapsedSinceWarn = (nowMs - conv.inactivityWarnedAt!.getTime()) / 60_000;
@@ -209,12 +204,11 @@ export function isGracefulCloseQuickReplyAllowed(
   return elapsed !== null && elapsed >= afterMin;
 }
 
-/** Libera /enc (inatividade) — só após /aus + tempo do SLA. */
+/** Libera /enc (inatividade) — só após /aus + tempo do atalho manual. */
 export function isEncInactivityCloseQuickReplyAllowed(
   conv: InactivityConversationTimestamps,
   settings: {
-    inactivityCloseMinutes: number;
-    inactivityWarningMinutes: number;
+    inactivityCloseGateWaitMinutes: number;
   },
   nowMs = Date.now(),
 ): boolean {
@@ -234,8 +228,7 @@ export function isEncOkCloseQuickReplyAllowed(
 export function isCloseQuickReplyAllowed(
   conv: InactivityConversationTimestamps,
   settings: {
-    inactivityCloseMinutes: number;
-    inactivityWarningMinutes: number;
+    inactivityCloseGateWaitMinutes: number;
     gracefulCloseAfterPromptMinutes: number;
     closeQuickReplyGateEnabled?: boolean;
   },

@@ -162,7 +162,7 @@ interface ConversationDetail {
     gracefulCloseAfterPromptMinutes?: number
     gracefulCloseDetectPhrases?: boolean
     inactivityCloseGracefulQuickCode?: string
-    inactivityCloseAfterWarningMinutes?: number
+    inactivityCloseGateWaitMinutes?: number
     closeQuickReplyGateEnabled?: boolean
     gracefulCloseQuickReplyGateEnabled?: boolean
   }
@@ -781,17 +781,12 @@ export default function Inbox() {
       ? detail.inactivitySla.gracefulCloseQuickReplyGateEnabled !== false
       : detail?.inactivitySla?.closeQuickReplyGateEnabled !== false
 
-  const inactivityCloseAfterWarningMinutes =
-    detail?.inactivitySla?.inactivityCloseAfterWarningMinutes ??
-    Math.max(
-      0,
-      (detail?.inactivitySla?.inactivityCloseMinutes ?? 15) -
-        (detail?.inactivitySla?.inactivityWarningMinutes ?? 10),
-    )
+  const inactivityCloseGateWaitMinutes =
+    detail?.inactivitySla?.inactivityCloseGateWaitMinutes ?? 5
 
   const inactivityCloseAllowed =
     !inactivityCloseGateEnabled ||
-    liveInactivityCloseAllowed(conv?.inactivityWarnedAt, inactivityCloseAfterWarningMinutes, tick)
+    liveInactivityCloseAllowed(conv?.inactivityWarnedAt, inactivityCloseGateWaitMinutes, tick)
 
   const encOkCloseAllowed =
     !gracefulCloseGateEnabled ||

@@ -47,6 +47,9 @@ export interface IInboxSettings extends Document {
   inactivityAutoCloseEnabled: boolean;
   inactivityCloseMinutes: number;
   inactivityWarningMinutes: number;
+  inactivityCloseGateWaitMinutes: number;
+  inactivityWarningMessage: string;
+  inactivityCloseMessage: string;
   inactivityWarningQuickCode: string;
   inactivityCloseQuickCode: string;
   gracefulCloseQuickCode: string;
@@ -154,6 +157,22 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       default: DEFAULT_INBOX_SLA.inactivityWarningMinutes,
       min: 0,
       max: 1440,
+    },
+    inactivityCloseGateWaitMinutes: {
+      type: Number,
+      default: DEFAULT_INBOX_SLA.inactivityCloseGateWaitMinutes,
+      min: 0,
+      max: 1440,
+    },
+    inactivityWarningMessage: {
+      type: String,
+      default: DEFAULT_INBOX_SLA.inactivityWarningMessage,
+      maxlength: 500,
+    },
+    inactivityCloseMessage: {
+      type: String,
+      default: DEFAULT_INBOX_SLA.inactivityCloseMessage,
+      maxlength: 500,
     },
     inactivityWarningQuickCode: {
       type: String,

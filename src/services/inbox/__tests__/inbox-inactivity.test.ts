@@ -101,7 +101,7 @@ describe('inbox-inactivity', () => {
 
   it('libera encerramento manual só após aviso e tempo configurado', () => {
     const waiting = { lastOutboundAt: t0, lastInboundAt: new Date('2026-06-05T11:55:00Z') };
-    const sla = { inactivityCloseMinutes: 15, inactivityWarningMinutes: 10 };
+    const sla = { inactivityCloseGateWaitMinutes: 5 };
 
     expect(isInactivityCloseQuickReplyAllowed(waiting, sla, t5.getTime())).toBe(false);
 
@@ -122,7 +122,7 @@ describe('inbox-inactivity', () => {
     expect(
       isInactivityCloseQuickReplyAllowed(
         warned,
-        { inactivityCloseMinutes: 15, inactivityWarningMinutes: 10 },
+        { inactivityCloseGateWaitMinutes: 5 },
         t20.getTime(),
       ),
     ).toBe(false);
@@ -151,7 +151,7 @@ describe('inbox-inactivity', () => {
   });
 
   it('caminhos enc e enc_ok são independentes', () => {
-    const slaInactivity = { inactivityCloseMinutes: 15, inactivityWarningMinutes: 10 };
+    const slaInactivity = { inactivityCloseGateWaitMinutes: 5 };
     const slaGraceful = { gracefulCloseAfterPromptMinutes: 2 };
     const t6 = new Date('2026-06-05T12:06:00Z');
 
@@ -178,8 +178,7 @@ describe('inbox-inactivity', () => {
       isCloseQuickReplyAllowed(
         waiting,
         {
-          inactivityCloseMinutes: 15,
-          inactivityWarningMinutes: 10,
+          inactivityCloseGateWaitMinutes: 5,
           gracefulCloseAfterPromptMinutes: 2,
           closeQuickReplyGateEnabled: false,
         },
