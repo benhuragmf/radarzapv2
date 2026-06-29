@@ -8,6 +8,13 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ## [2.12.74] — 2026-06-29
 
+### Setores — excluir + bridge WhatsApp por atendente
+
+- `DELETE /inbox/departments/:id` (bloqueia se houver conversas/chamados abertos).
+- `InboxDepartment.memberConfigs[]`: bridge por atendente (`whatsappBridgeEnabled`, `bridgeHoursMode`: always / business_hours / never).
+- Rotação fallback WA filtra elegíveis por setor + horário comercial do Inbox.
+- UI `/platform/inbox/setores`: botão excluir, editor por atendente com opções de bridge.
+
 ### Leads / WebChat — domínios de embed e editor de formulários
 
 - `includeCompanyWebsite` + domínios adicionais em `LeadForm` e `WebChatWidget`; util `embed-allowed-domains.util.ts`.

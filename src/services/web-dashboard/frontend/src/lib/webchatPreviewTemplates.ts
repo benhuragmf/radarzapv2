@@ -233,9 +233,12 @@ export function webChatPreviewUrl(
   templatePath: string,
   publicKey: string,
   cacheBust?: number,
+  _companyWebsite?: string | null,
+  options?: { embed?: boolean },
 ): string {
   const q = new URLSearchParams({ key: publicKey })
   if (cacheBust) q.set('_', String(cacheBust))
+  if (options?.embed !== false) q.set('embed', '1')
   return `${templatePath}?${q.toString()}`
 }
 

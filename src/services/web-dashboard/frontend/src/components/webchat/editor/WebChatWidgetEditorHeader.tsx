@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { cn } from '@/lib/utils'
+import { formatEmbedAllowedSitesSummary } from '@/lib/embedAllowedDomains'
 
 type Props = {
   title: string
@@ -15,6 +16,8 @@ type Props = {
   publicKey: string
   active: boolean
   allowedDomains: string[]
+  includeCompanyWebsite: boolean
+  companyWebsite?: string
   isDirty: boolean
   previewUrl: string
   snippet: string
@@ -34,6 +37,8 @@ export function WebChatWidgetEditorHeader({
   publicKey,
   active,
   allowedDomains,
+  includeCompanyWebsite,
+  companyWebsite,
   isDirty,
   previewUrl,
   saving,
@@ -45,10 +50,11 @@ export function WebChatWidgetEditorHeader({
   onCopyScript,
   validationErrors = [],
 }: Props) {
-  const domainsPreview =
-    allowedDomains.length > 0
-      ? allowedDomains.slice(0, 2).join(', ') + (allowedDomains.length > 2 ? '…' : '')
-      : 'Qualquer domínio'
+  const domainsPreview = formatEmbedAllowedSitesSummary(
+    allowedDomains,
+    includeCompanyWebsite,
+    companyWebsite,
+  )
 
   return (
     <div className="space-y-3 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/15 px-4 py-4">

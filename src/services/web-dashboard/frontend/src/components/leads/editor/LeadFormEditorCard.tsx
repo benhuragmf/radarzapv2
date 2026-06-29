@@ -126,6 +126,10 @@ export function LeadFormEditorCard({
         internalName={draft.name}
         publicKey={form.publicKey}
         active={draft.active}
+        onActiveChange={checked => setDraft(d => ({ ...d, active: checked }))}
+        allowedDomains={draft.allowedDomains ?? []}
+        includeCompanyWebsite={draft.includeCompanyWebsite !== false}
+        companyWebsite={orgProfile?.website}
         isDirty={isDirty}
         saving={pending}
         duplicating={duplicating}
@@ -159,6 +163,27 @@ export function LeadFormEditorCard({
                   >
                     <div className="space-y-4">
                       <LeadFormSectionCard
+                        title="Publicação no site"
+                        description="Enquanto inativo, o script no site não aceita envios — a prévia do painel continua funcionando."
+                      >
+                        <label className="flex items-start gap-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20 p-3">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4"
+                            checked={draft.active}
+                            onChange={e => setDraft(d => ({ ...d, active: e.target.checked }))}
+                          />
+                          <span className="text-sm text-[var(--rz-text)]">
+                            <strong>Formulário ativo no site</strong>
+                            <span className="mt-1 block text-xs text-[var(--rz-text-muted)]">
+                              Ative e clique em Salvar no topo para publicar. Desative para pausar capturas sem
+                              remover o script do site.
+                            </span>
+                          </span>
+                        </label>
+                      </LeadFormSectionCard>
+
+                      <LeadFormSectionCard
                         title="Sites onde este formulário pode aparecer"
                         description="Primeiro passo — defina onde o embed pode carregar antes de copiar o script."
                       >
@@ -186,7 +211,7 @@ export function LeadFormEditorCard({
                         description="Esse nome aparece apenas para sua equipe no painel."
                       >
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <label className="block text-xs font-medium text-[var(--rz-text-muted)]">
+                          <label className="block text-xs font-medium text-[var(--rz-text-muted)] sm:col-span-2">
                             Nome interno do formulário
                             <input
                               className={inputCls + ' mt-1'}
@@ -194,14 +219,6 @@ export function LeadFormEditorCard({
                               onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
                               placeholder="Ex.: Site principal"
                             />
-                          </label>
-                          <label className="flex items-center gap-2 pt-5 text-sm text-[var(--rz-text)]">
-                            <input
-                              type="checkbox"
-                              checked={draft.active}
-                              onChange={e => setDraft(d => ({ ...d, active: e.target.checked }))}
-                            />
-                            Formulário ativo no site
                           </label>
                         </div>
                       </LeadFormSectionCard>
@@ -612,6 +629,7 @@ export function LeadFormEditorCard({
             <LeadFormPreviewPanel
               publicKey={form.publicKey}
               formName={draft.name}
+              companyWebsite={orgProfile?.website}
               reloadKey={previewReloadKey}
               active={draft.active}
             />

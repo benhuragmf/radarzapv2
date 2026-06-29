@@ -1,8 +1,12 @@
 import { Router, type Request } from 'express';
+import { WebChatWidget } from '@/models/WebChatWidget';
 import { WebChatService } from './WebChatService';
 import { WebChatPresenceService } from './WebChatPresenceService';
 import { isWebChatMessageReceiptRateLimited } from './webchat-message-receipt-rate-limit';
 import { issueWebChatPresenceSocketAuth } from './webchat-presence-auth.util';
+import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
+import { isEmbedPreviewPanelOrigin } from '@/utils/embed-preview-origin.util';
+import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
 
 function visitorTokenFromReq(req: Request): string | undefined {
   const header = req.headers['x-webchat-visitor'];
@@ -26,6 +30,23 @@ export function createWebChatPublicRouter(): Router {
       res.json(await svc.getPublicConfig(widget));
     } catch (e) {
       res.status(403).json({ error: (e as Error).message });
+    }
+  });
+
+  /** Site da empresa para prévia no painel — origem restrita; URL nunca vem da query string. */
+  r.get('/widgets/:publicKey/preview-site', async (req, res) => {
+    try {
+      if (!isEmbedPreviewPanelOrigin(req.headers.origin, req.headers.referer)) {
+        return res.status(403).json({ error: 'Origem não autorizada para prévia' });
+      }
+      const publicKey = req.params.publicKey.trim();
+      const widget = await WebChatWidget.findOne({ publicKey }).select('clientId').lean();
+      if (!widget) return res.status(404).json({ error: 'Widget não encontrado' });
+      const website = await getOrganizationWebsite(String(widget.clientId));
+      const site = resolveSafeExternalHttpsUrl(website);
+      res.json({ site });
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
     }
   });
 

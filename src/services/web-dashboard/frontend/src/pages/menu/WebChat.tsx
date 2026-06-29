@@ -1085,7 +1085,12 @@ function WidgetEditorCard({
   const snippet = embedSnippet(widget.publicKey)
   const activePreviewTemplateId =
     form.appearance.previewTemplateId ?? selectedTemplateId ?? null
-  const previewUrl = webChatPreviewUrl('/webchat/widget.html', widget.publicKey)
+  const previewUrl = webChatPreviewUrl(
+    '/webchat/widget.html',
+    widget.publicKey,
+    previewReloadKey || undefined,
+    orgProfile?.website,
+  )
 
   const persistVisualAppearance = (appearance: WebChatWidgetRow['appearance']) => {
     setVisualApplying(true)
@@ -1190,6 +1195,8 @@ function WidgetEditorCard({
         publicKey={widget.publicKey}
         active={form.active}
         allowedDomains={form.allowedDomains}
+        includeCompanyWebsite={form.includeCompanyWebsite !== false}
+        companyWebsite={orgProfile?.website}
         isDirty={isDirty}
         previewUrl={previewUrl}
         snippet={snippet}
@@ -1715,6 +1722,7 @@ function WidgetEditorCard({
             <WebChatWidgetPreviewPanel
               publicKey={widget.publicKey}
               selectedTemplateId={livePreviewTemplateId}
+              companyWebsite={orgProfile?.website}
               reloadKey={previewReloadKey}
               applying={visualApplying}
             />

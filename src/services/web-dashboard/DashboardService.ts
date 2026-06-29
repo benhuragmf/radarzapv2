@@ -145,7 +145,11 @@ import { LeadFormService } from '../leads/LeadFormService';
 import { WebChatService } from '../webchat/WebChatService';
 import { WebChatWidget } from '../../models/WebChatWidget';
 import { getOrganizationWebsite, isEmbedOriginAllowed } from '@/utils/embed-allowed-domains.util';
-import { applyPublicEmbedAssetHeaders } from '../webchat/webchat-embed-http.util';
+import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
+import {
+  applyEmbedPreviewPageHeaders,
+  applyPublicEmbedAssetHeaders,
+} from '../webchat/webchat-embed-http.util';
 import { verifyWebChatPresenceSocketAuth } from '../webchat/webchat-presence-auth.util';
 import { isSocketIoOriginAllowed } from '../webchat/webchat-socket-origin.util';
 import { WebChatSendRateLimitError } from '../webchat/webchat-send-guard.service';
@@ -473,6 +477,7 @@ export class DashboardService {
       res.sendFile(path.join(__dirname, 'leads', 'form.js'));
     });
     this.app.get('/leads/preview.html', (_req, res) => {
+      applyEmbedPreviewPageHeaders(res);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       if (config.NODE_ENV !== 'production') {
         res.setHeader('Cache-Control', 'no-store');
@@ -507,6 +512,22 @@ export class DashboardService {
       }
       res.sendFile(path.join(__dirname, 'webchat', 'preview-loader.js'));
     });
+    this.app.get('/webchat/embed-preview-site.js', (_req, res) => {
+      applyPublicEmbedAssetHeaders(res);
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      if (config.NODE_ENV !== 'production') {
+        res.setHeader('Cache-Control', 'no-store');
+      }
+      res.sendFile(path.join(__dirname, 'webchat', 'embed-preview-site.js'));
+    });
+    this.app.get('/webchat/embed-preview-layout.js', (_req, res) => {
+      applyPublicEmbedAssetHeaders(res);
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      if (config.NODE_ENV !== 'production') {
+        res.setHeader('Cache-Control', 'no-store');
+      }
+      res.sendFile(path.join(__dirname, 'webchat', 'embed-preview-layout.js'));
+    });
     const webchatPreviewPages = [
       'widget',
       'demo',
@@ -520,7 +541,11 @@ export class DashboardService {
     ];
     for (const page of webchatPreviewPages) {
       this.app.get(`/webchat/${page}.html`, (_req, res) => {
-        applyPublicEmbedAssetHeaders(res);
+        applyEmbedPreviewPageHeaders(res);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        if (config.NODE_ENV !== 'production') {
+          res.setHeader('Cache-Control', 'no-store');
+        }
         res.sendFile(path.join(__dirname, 'webchat', `${page}.html`));
       });
     }
@@ -1680,10 +1705,15 @@ export class DashboardService {
     r.post('/inbox/departments', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { name, description, memberUserIds, clientVisible, internalRank } = req.body as {
+        const { name, description, memberUserIds, memberConfigs, clientVisible, internalRank } = req.body as {
           name?: string;
           description?: string;
           memberUserIds?: string[];
+          memberConfigs?: Array<{
+            userId: string;
+            whatsappBridgeEnabled?: boolean;
+            bridgeHoursMode?: 'always' | 'business_hours' | 'never';
+          }>;
           clientVisible?: boolean;
           internalRank?: number;
         };
@@ -1691,6 +1721,7 @@ export class DashboardService {
           name: name ?? '',
           description,
           memberUserIds,
+          memberConfigs,
           clientVisible,
           internalRank,
         });
@@ -1703,10 +1734,15 @@ export class DashboardService {
     r.patch('/inbox/departments/:id', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { name, description, memberUserIds, isActive, sortOrder, clientVisible, internalRank } = req.body as {
+        const { name, description, memberUserIds, memberConfigs, isActive, sortOrder, clientVisible, internalRank } = req.body as {
           name?: string;
           description?: string;
           memberUserIds?: string[];
+          memberConfigs?: Array<{
+            userId: string;
+            whatsappBridgeEnabled?: boolean;
+            bridgeHoursMode?: 'always' | 'business_hours' | 'never';
+          }>;
           isActive?: boolean;
           sortOrder?: number;
           clientVisible?: boolean;
@@ -1716,12 +1752,23 @@ export class DashboardService {
           name,
           description,
           memberUserIds,
+          memberConfigs,
           isActive,
           sortOrder,
           clientVisible,
           internalRank,
         });
         res.json(dept);
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.delete('/inbox/departments/:id', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        await inboxSvc.deleteDepartment(auth.clientId, req.params.id);
+        res.json({ ok: true });
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }
@@ -4918,7 +4965,20 @@ export class DashboardService {
         }
         if (body.phone !== undefined) org.phone = body.phone.trim().slice(0, 32) || undefined;
         if (body.email !== undefined) org.email = body.email.trim().slice(0, 120) || undefined;
-        if (body.website !== undefined) org.website = body.website.trim().slice(0, 200) || undefined;
+        if (body.website !== undefined) {
+          const raw = body.website.trim();
+          if (!raw) {
+            org.website = undefined;
+          } else {
+            const safe = resolveSafeExternalHttpsUrl(raw, { allowHttpInDev: true });
+            if (!safe) {
+              return res.status(400).json({
+                error: 'URL do site inválida. Use um endereço público https://seusite.com.br',
+              });
+            }
+            org.website = safe.slice(0, 200);
+          }
+        }
         if (body.taxId !== undefined) org.taxId = body.taxId.trim().slice(0, 20) || undefined;
         if (body.address !== undefined) org.address = body.address.trim().slice(0, 240) || undefined;
 

@@ -8,6 +8,7 @@ import { findChatBoxModel, parseChatBoxModelId } from '../../lib/chatBoxModels'
 type Props = {
   publicKey: string
   selectedTemplateId: string | null
+  companyWebsite?: string | null
   /** Incrementar após salvar widget para recarregar config da API no iframe */
   reloadKey?: number
   /** Visualização reduzida (balão fechado) */
@@ -28,6 +29,7 @@ const PREVIEW_CHATBOX_EXTRA = 80
 export function WebChatLivePreview({
   publicKey,
   selectedTemplateId,
+  companyWebsite,
   reloadKey = 0,
   compact = false,
   applying = false,
@@ -44,7 +46,15 @@ export function WebChatLivePreview({
       ? Math.max(PREVIEW_IFRAME_HEIGHT, chatBoxModel.dimensions.widgetHeight + PREVIEW_CHATBOX_EXTRA)
       : PREVIEW_IFRAME_HEIGHT
 
-  const href = webChatPreviewUrl(CHATBOX_LIVE_PREVIEW_PATH, publicKey, reloadKey || undefined)
+  const href = webChatPreviewUrl(
+    CHATBOX_LIVE_PREVIEW_PATH,
+    publicKey,
+    reloadKey || undefined,
+    companyWebsite,
+  )
+  const siteLabel = companyWebsite?.trim()
+    ? companyWebsite.trim().replace(/^https?:\/\//i, '').replace(/\/$/, '')
+    : null
 
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-lg shadow-black/10">
@@ -54,6 +64,11 @@ export function WebChatLivePreview({
           <p className="text-[10px] text-[var(--rz-text-muted)]">
             {applying ? (
               'Aplicando modelo no servidor…'
+            ) : siteLabel ? (
+              <>
+                Prévia padrão — tenta fundo em{' '}
+                <span className="text-[var(--rz-text-secondary)]">{siteLabel}</span>
+              </>
             ) : (
               <>
                 Modelo <span className="text-[var(--rz-text-secondary)]">{templateName}</span> — widget

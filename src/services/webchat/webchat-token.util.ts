@@ -47,6 +47,7 @@ export function isLocalDevHost(host: string): boolean {
 export function normalizeAllowedDomainEntry(raw: string): string {
   const trimmed = raw.trim().toLowerCase();
   if (!trimmed) return '';
+  if (trimmed === '*') return '*';
   if (trimmed.startsWith('*.')) {
     const rest = trimmed.slice(2).trim();
     const host =
@@ -95,6 +96,7 @@ export function isWebChatOriginAllowed(
   return allowedDomains.some(raw => {
     const domain = normalizeAllowedDomainEntry(raw);
     if (!domain) return false;
+    if (domain === '*') return true;
     if (domain.startsWith('*.')) {
       const base = domain.slice(2);
       return host === base || host.endsWith(`.${base}`);

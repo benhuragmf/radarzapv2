@@ -267,10 +267,30 @@ html[data-theme='light'] .rz-auth-page {
   gap: 0.875rem;
 }
 .rz-auth-brand-logo,
-.rz-sidebar-brand-logo,
-.rz-sidebar-brand-wordmark {
+.rz-sidebar-brand-logo {
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 10px rgba(0, 212, 255, 0.28));
+  filter: drop-shadow(0 0 14px rgba(0, 212, 255, 0.45));
+}
+
+.rz-sidebar-brand-icon-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.rz-sidebar-brand-icon-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 16px;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.28) 0%, rgba(37, 99, 235, 0.12) 45%, transparent 72%);
+  animation: rz-brand-glow 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+.rz-sidebar-brand-chat {
+  text-shadow: 0 0 18px rgba(0, 212, 255, 0.35);
+}
+.group:hover .rz-sidebar-brand-logo {
+  filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.62));
 }
 
 /* Ícone da marca — ondas de radar animadas */
@@ -278,53 +298,77 @@ html[data-theme='light'] .rz-auth-page {
   display: block;
   overflow: visible;
 }
+.rz-brand-mark__waves {
+  transform-origin: 94px 92px;
+}
 .rz-brand-mark__bubble {
   transform-origin: 104px 120px;
 }
 .rz-brand-mark--animated .rz-brand-mark__bubble {
   animation: rz-brand-float 4.5s ease-in-out infinite;
 }
+.rz-brand-mark--animated .rz-brand-mark__waves {
+  animation: rz-radar-breathe 2.4s ease-in-out infinite;
+}
 .rz-brand-mark--animated .rz-brand-mark__wave-1 {
-  animation: rz-radar-wave 2.2s ease-in-out infinite;
+  animation: rz-radar-wave 1.8s ease-in-out infinite;
 }
 .rz-brand-mark--animated .rz-brand-mark__wave-2 {
-  animation: rz-radar-wave 2.2s ease-in-out 0.35s infinite;
+  animation: rz-radar-wave 1.8s ease-in-out 0.3s infinite;
 }
 .rz-brand-mark--animated .rz-brand-mark__wave-3 {
-  animation: rz-radar-wave 2.2s ease-in-out 0.7s infinite;
+  animation: rz-radar-wave 1.8s ease-in-out 0.6s infinite;
 }
 .rz-brand-mark--animated .rz-brand-mark__core-wrap {
-  animation: rz-radar-core 2.2s ease-in-out infinite;
+  animation: rz-radar-core 1.8s ease-in-out infinite;
 }
 .rz-brand-mark--animated .rz-brand-mark__ping {
-  animation: rz-radar-ping 2.8s ease-in-out infinite;
+  animation: rz-radar-ping 2.4s ease-in-out infinite;
+}
+.rz-brand-mark--animated .rz-brand-mark__sweep {
+  animation: rz-radar-sweep 3s linear infinite;
 }
 
+@keyframes rz-brand-glow {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
 @keyframes rz-brand-float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-1.5px); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes rz-radar-breathe {
+  0%, 100% { transform: scale(0.96); }
+  50% { transform: scale(1.03); }
 }
 @keyframes rz-radar-wave {
-  0%, 100% { opacity: 0.32; }
-  45% { opacity: 1; }
-  70% { opacity: 0.5; }
+  0%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+  65% { opacity: 0.45; }
 }
 @keyframes rz-radar-core {
-  0%, 100% { opacity: 0.88; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.14); }
 }
 @keyframes rz-radar-ping {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.12); opacity: 0.88; }
+  50% { transform: scale(1.18); opacity: 0.82; }
+}
+@keyframes rz-radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .rz-sidebar-brand-icon-wrap::before,
   .rz-brand-mark--animated .rz-brand-mark__bubble,
+  .rz-brand-mark--animated .rz-brand-mark__waves,
   .rz-brand-mark--animated .rz-brand-mark__wave-1,
   .rz-brand-mark--animated .rz-brand-mark__wave-2,
   .rz-brand-mark--animated .rz-brand-mark__wave-3,
   .rz-brand-mark--animated .rz-brand-mark__core-wrap,
-  .rz-brand-mark--animated .rz-brand-mark__ping {
+  .rz-brand-mark--animated .rz-brand-mark__ping,
+  .rz-brand-mark--animated .rz-brand-mark__sweep {
     animation: none;
   }
 }

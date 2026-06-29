@@ -1,9 +1,27 @@
 import { Router } from 'express';
+import { LeadForm } from '@/models/LeadForm';
 import { LeadFormService } from './LeadFormService';
+import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
+import { isEmbedPreviewPanelOrigin } from '@/utils/embed-preview-origin.util';
+import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
 
 export function createLeadFormPublicRouter(): Router {
   const r = Router();
   const svc = LeadFormService.getInstance();
+
+  r.get('/forms/:publicKey/preview-config', async (req, res) => {
+    try {
+      if (!isEmbedPreviewPanelOrigin(req.headers.origin, req.headers.referer)) {
+        return res.status(403).json({ error: 'Origem não autorizada para prévia' });
+      }
+      const publicKey = req.params.publicKey.trim();
+      const form = await LeadForm.findOne({ publicKey }).exec();
+      if (!form) return res.status(404).json({ error: 'Formulário não encontrado' });
+      res.json(svc.getPublicConfig(form));
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
 
   r.get('/forms/:publicKey/config', async (req, res) => {
     try {
@@ -13,6 +31,22 @@ export function createLeadFormPublicRouter(): Router {
       res.json(svc.getPublicConfig(form));
     } catch (e) {
       res.status(403).json({ error: (e as Error).message });
+    }
+  });
+
+  r.get('/forms/:publicKey/preview-site', async (req, res) => {
+    try {
+      if (!isEmbedPreviewPanelOrigin(req.headers.origin, req.headers.referer)) {
+        return res.status(403).json({ error: 'Origem não autorizada para prévia' });
+      }
+      const publicKey = req.params.publicKey.trim();
+      const form = await LeadForm.findOne({ publicKey }).select('clientId').lean();
+      if (!form) return res.status(404).json({ error: 'Formulário não encontrado' });
+      const website = await getOrganizationWebsite(String(form.clientId));
+      const site = resolveSafeExternalHttpsUrl(website);
+      res.json({ site });
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
     }
   });
 

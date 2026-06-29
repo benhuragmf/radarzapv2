@@ -1,7 +1,7 @@
 import { AlertCircle, Copy, CopyPlus, ExternalLink, Save, Trash2 } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { cn } from '@/lib/utils'
-import { embedScriptSnippet } from '@/lib/leadIntegrationSnippets'
+import { formatEmbedAllowedSitesSummary } from '@/lib/embedAllowedDomains'
 import { leadFormPreviewUrl } from '@/lib/leadFormEditorUtils'
 
 type Props = {
@@ -9,6 +9,10 @@ type Props = {
   internalName: string
   publicKey: string
   active: boolean
+  onActiveChange?: (active: boolean) => void
+  allowedDomains: string[]
+  includeCompanyWebsite: boolean
+  companyWebsite?: string
   isDirty: boolean
   saving?: boolean
   duplicating?: boolean
@@ -25,6 +29,10 @@ export function LeadFormEditorHeader({
   internalName,
   publicKey,
   active,
+  onActiveChange,
+  allowedDomains,
+  includeCompanyWebsite,
+  companyWebsite,
   isDirty,
   saving,
   duplicating,
@@ -35,7 +43,12 @@ export function LeadFormEditorHeader({
   onDuplicate,
   onCopyScript,
 }: Props) {
-  const previewUrl = leadFormPreviewUrl(publicKey, previewReloadKey)
+  const previewUrl = leadFormPreviewUrl(publicKey, previewReloadKey, companyWebsite)
+  const domainsPreview = formatEmbedAllowedSitesSummary(
+    allowedDomains,
+    includeCompanyWebsite,
+    companyWebsite,
+  )
 
   return (
     <div className="space-y-3 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/15 px-4 py-4">
@@ -50,11 +63,22 @@ export function LeadFormEditorHeader({
                 'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
                 active
                   ? 'border-emerald-500/25 bg-emerald-500/15 text-emerald-400'
-                  : 'border-[var(--rz-border)] bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]',
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-400',
               )}
             >
               {active ? 'Ativo' : 'Inativo'}
             </span>
+            {onActiveChange ? (
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] px-2.5 py-1 text-xs font-medium text-[var(--rz-text-secondary)]">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-[var(--rz-border)]"
+                  checked={active}
+                  onChange={e => onActiveChange(e.target.checked)}
+                />
+                Publicar no site
+              </label>
+            ) : null}
             {isDirty && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
                 <AlertCircle className="h-3 w-3" />
@@ -67,6 +91,10 @@ export function LeadFormEditorHeader({
               Nome interno: <span className="text-[var(--rz-text-secondary)]">{internalName}</span>
             </span>
             <span className="font-mono text-[10px]">{publicKey}</span>
+            <span>
+              Sites permitidos:{' '}
+              <span className="text-[var(--rz-text-secondary)]">{domainsPreview}</span>
+            </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -95,6 +123,12 @@ export function LeadFormEditorHeader({
           </Button>
         </div>
       </div>
+      {!active && onActiveChange ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          Marque <strong>Publicar no site</strong> ao lado do título e clique <strong>Salvar</strong> para
+          o formulário aceitar envios no site. A prévia lateral já mostra o layout mesmo inativo.
+        </div>
+      ) : null}
     </div>
   )
 }

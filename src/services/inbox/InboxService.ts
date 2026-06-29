@@ -166,6 +166,8 @@ import {
   departmentInternalRank,
   formatInternalRankLabel,
   INBOX_INTERNAL_RANK_MIN,
+  normalizeDepartmentMemberConfigs,
+  type InboxDepartmentMemberConfig,
 } from '@/types/inbox-department';
 import { departmentBadgeFieldsFrom } from '@/services/inbox/inbox-department-badge.util';
 import {
@@ -388,7 +390,12 @@ export class InboxService {
     if (opts?.all) {
       await this.repairDepartmentMenuKeysIfNeeded(clientId);
     }
-    const depts = await loadActiveDepartments(clientId);
+    const depts = opts?.all
+      ? await InboxDepartment.find({ clientId: new mongoose.Types.ObjectId(clientId) }).sort({
+          sortOrder: 1,
+          menuKey: 1,
+        })
+      : await loadActiveDepartments(clientId);
     const visibility = await this.departmentVisibility(clientId, userId);
     const isAdmin = !visibility.restricted;
     const allowed = new Set(visibility.departmentIds.map(String));
@@ -421,6 +428,16 @@ export class InboxService {
       internalRank,
       internalRankLabel: formatInternalRankLabel(internalRank),
       memberUserIds: (d.memberUserIds ?? []).map(String),
+      memberConfigs: (d.memberConfigs ?? []).map(c => ({
+        userId: String(c.userId),
+        whatsappBridgeEnabled: c.whatsappBridgeEnabled !== false,
+        bridgeHoursMode:
+          c.bridgeHoursMode === 'never' ||
+          c.bridgeHoursMode === 'business_hours' ||
+          c.bridgeHoursMode === 'always'
+            ? c.bridgeHoursMode
+            : 'always',
+      })),
       isActive: d.isActive,
       sortOrder: d.sortOrder,
       ...extras,
@@ -1093,6 +1110,7 @@ export class InboxService {
         displayName: u?.displayName?.trim() || m.email?.split('@')[0] || 'Sem nome',
         linked: Boolean(m.userId),
         whatsappPhone: m.whatsappPhone?.trim() || undefined,
+        whatsappPhoneVerified: Boolean(m.whatsappPhoneVerifiedAt),
         online: presence?.online ?? false,
         availableForQueue: presence?.availableForQueue ?? false,
         operationalStatus: presence?.operationalStatus ?? 'offline',
@@ -1107,6 +1125,7 @@ export class InboxService {
       name: string;
       description?: string;
       memberUserIds?: string[];
+      memberConfigs?: Array<Partial<InboxDepartmentMemberConfig> & { userId: string }>;
       clientVisible?: boolean;
       internalRank?: number;
     },
@@ -1124,6 +1143,10 @@ export class InboxService {
       : await this.nextInternalMenuKey(clientOid);
     const sortOrder = await InboxDepartment.countDocuments({ clientId: clientOid });
     const memberUserIds = await this.resolveMemberUserIds(clientId, data.memberUserIds ?? []);
+    const memberConfigs = normalizeDepartmentMemberConfigs(
+      memberUserIds.map(String),
+      data.memberConfigs,
+    );
 
     return InboxDepartment.create({
       clientId: clientOid,
@@ -1134,6 +1157,11 @@ export class InboxService {
       internalRank,
       sortOrder,
       memberUserIds,
+      memberConfigs: memberConfigs.map(c => ({
+        userId: new mongoose.Types.ObjectId(c.userId),
+        whatsappBridgeEnabled: c.whatsappBridgeEnabled,
+        bridgeHoursMode: c.bridgeHoursMode,
+      })),
       isActive: true,
     });
   }
@@ -1145,6 +1173,7 @@ export class InboxService {
       name?: string;
       description?: string;
       memberUserIds?: string[];
+      memberConfigs?: Array<Partial<InboxDepartmentMemberConfig> & { userId: string }>;
       isActive?: boolean;
       sortOrder?: number;
       clientVisible?: boolean;
@@ -1165,6 +1194,15 @@ export class InboxService {
     if (data.memberUserIds) {
       dept.memberUserIds = await this.resolveMemberUserIds(clientId, data.memberUserIds);
     }
+    if (data.memberConfigs !== undefined || data.memberUserIds) {
+      const ids = (dept.memberUserIds ?? []).map(String);
+      const normalized = normalizeDepartmentMemberConfigs(ids, data.memberConfigs);
+      dept.memberConfigs = normalized.map(c => ({
+        userId: new mongoose.Types.ObjectId(c.userId),
+        whatsappBridgeEnabled: c.whatsappBridgeEnabled,
+        bridgeHoursMode: c.bridgeHoursMode,
+      }));
+    }
     if (data.clientVisible !== undefined && data.clientVisible !== dept.clientVisible) {
       dept.clientVisible = data.clientVisible;
       dept.menuKey = data.clientVisible
@@ -1179,6 +1217,56 @@ export class InboxService {
     }
     await dept.save();
     return dept;
+  }
+
+  async deleteDepartment(clientId: string, departmentId: string): Promise<void> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const deptOid = new mongoose.Types.ObjectId(departmentId);
+    const dept = await InboxDepartment.findOne({ _id: deptOid, clientId: clientOid });
+    if (!dept) throw new Error('Setor não encontrado');
+
+    const openInbox = await InboxConversation.countDocuments({
+      clientId: clientOid,
+      departmentId: deptOid,
+      status: {
+        $nin: [InboxConversationStatus.CLOSED, InboxConversationStatus.RESOLVED],
+      },
+    });
+    if (openInbox > 0) {
+      throw new Error(
+        'Não é possível excluir: existem conversas WhatsApp abertas neste setor. Transfira ou encerre antes.',
+      );
+    }
+
+    const openWebChat = await WebChatConversation.countDocuments({
+      clientId: clientOid,
+      departmentId: deptOid,
+      status: { $ne: 'closed' },
+    });
+    if (openWebChat > 0) {
+      throw new Error(
+        'Não é possível excluir: existem chats do site abertos neste setor. Transfira ou encerre antes.',
+      );
+    }
+
+    const openTickets = await InboxTicket.countDocuments({
+      clientId: clientOid,
+      departmentId: deptOid,
+      status: { $nin: ['closed'] },
+    });
+    if (openTickets > 0) {
+      throw new Error(
+        'Não é possível excluir: existem chamados abertos neste setor. Feche ou transfira antes.',
+      );
+    }
+
+    const { WebChatWidget } = await import('@/models/WebChatWidget');
+    await WebChatWidget.updateMany(
+      { clientId: clientOid, defaultDepartmentId: deptOid },
+      { $unset: { defaultDepartmentId: 1 } },
+    );
+
+    await InboxDepartment.deleteOne({ _id: deptOid, clientId: clientOid });
   }
 
   private async nextPublicMenuKey(clientOid: mongoose.Types.ObjectId, excludeId?: string): Promise<string> {

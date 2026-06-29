@@ -1,4 +1,7 @@
-import { hostsFromWebsiteUrl } from '@/lib/embedAllowedDomains'
+import {
+  hostsFromWebsiteUrl,
+  formatEmbedAllowedSitesSummary,
+} from '@/lib/embedAllowedDomains'
 import type { LeadFormListItem } from '@radarzap-types/lead-form'
 
 export type LeadFormEditorSectionId =
@@ -17,16 +20,12 @@ export interface SectionStatus {
 }
 
 function embedSitesHint(form: LeadFormListItem, companyWebsite?: string): string {
-  const parts: string[] = []
-  if (form.includeCompanyWebsite !== false) {
-    const hosts = hostsFromWebsiteUrl(companyWebsite)
-    if (hosts.length) parts.push(hosts.join(', '))
-  }
-  if ((form.allowedDomains ?? []).length) {
-    parts.push(`+${form.allowedDomains!.length} extra`)
-  }
-  if (!parts.length) return 'Configure domínios'
-  return parts.join(' ')
+  return formatEmbedAllowedSitesSummary(
+    form.allowedDomains,
+    form.includeCompanyWebsite !== false,
+    companyWebsite,
+    2,
+  )
 }
 
 function fieldsSummary(form: LeadFormListItem): string {
@@ -105,7 +104,12 @@ function normalizeFormSnapshot(form: LeadFormListItem) {
   }
 }
 
-export function leadFormPreviewUrl(publicKey: string, reloadKey?: number): string {
-  const base = `/leads/preview.html?key=${encodeURIComponent(publicKey)}`
-  return reloadKey ? `${base}&_r=${reloadKey}` : base
+export function leadFormPreviewUrl(
+  publicKey: string,
+  reloadKey?: number,
+  _companyWebsite?: string | null,
+): string {
+  const q = new URLSearchParams({ key: publicKey })
+  if (reloadKey) q.set('_r', String(reloadKey))
+  return `/leads/preview.html?${q.toString()}`
 }

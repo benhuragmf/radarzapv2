@@ -62,7 +62,7 @@ export function EmbedAllowedDomainsFields({
           id={id}
           className={textareaCls + ' font-mono text-xs'}
           rows={4}
-          placeholder="outrosite.com.br&#10;landing.outrosite.com.br"
+          placeholder="outrosite.com.br&#10;landing.outrosite.com.br&#10;*  (qualquer domínio)"
           value={extraDomains.join('\n')}
           onChange={e =>
             onExtraDomainsChange(
@@ -75,7 +75,8 @@ export function EmbedAllowedDomainsFields({
         />
         <p className="text-xs text-[var(--rz-text-muted)] mt-1">
           Use para outro site ou landing — desmarque &quot;Incluir site da empresa&quot; se este embed for{' '}
-          <strong>somente</strong> para outro domínio.
+          <strong>somente</strong> para outro domínio. Linha <code className="text-[10px]">*</code> libera
+          qualquer domínio (use com cuidado).
         </p>
       </div>
 

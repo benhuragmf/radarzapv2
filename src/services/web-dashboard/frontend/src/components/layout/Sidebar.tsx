@@ -311,18 +311,21 @@ export default function Sidebar({
     >
       <Link
         to="/"
-        className="block px-4 py-4 border-b rz-sidebar-border rz-sidebar-brand hover:bg-white/[0.03] transition-colors"
+        className="flex items-center gap-3 px-4 py-4 border-b rz-sidebar-border rz-sidebar-brand group hover:bg-white/[0.04] transition-colors"
         aria-label="Radar Chat — início"
       >
-        <BrandLogo
-          variant="horizontal"
-          height={48}
-          tone="dark"
-          className="rz-sidebar-brand-wordmark w-full max-w-[220px] h-auto object-contain object-left"
-        />
-        <span className="text-[10px] rz-sidebar-muted uppercase tracking-[0.16em] mt-2.5 block">
-          {mode === 'admin' ? 'Admin' : mode === 'discord' ? 'Discord' : 'Plataforma'}
+        <span className="rz-sidebar-brand-icon-wrap shrink-0">
+          <BrandLogo height={40} tone="dark" animated className="rz-sidebar-brand-logo" />
         </span>
+        <div className="min-w-0 flex-1">
+          <span className="font-bold text-[1.05rem] tracking-tight block leading-none">
+            <span className="text-[var(--rz-sidebar-text)]">Radar</span>
+            <span className="text-[#00D4FF] rz-sidebar-brand-chat">Chat</span>
+          </span>
+          <span className="text-[10px] rz-sidebar-muted uppercase tracking-[0.18em] mt-1.5 block">
+            {mode === 'admin' ? 'Admin' : mode === 'discord' ? 'Discord' : 'Plataforma'}
+          </span>
+        </div>
       </Link>
 
       {tabCount > 1 && (

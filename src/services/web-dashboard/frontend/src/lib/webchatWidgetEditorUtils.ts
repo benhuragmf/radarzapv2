@@ -3,7 +3,7 @@ import { parseChatBoxModelId } from './chatBoxModels'
 import { WEBCHAT_PREVIEW_TEMPLATES } from './webchatPreviewTemplates'
 import type { WebChatWidgetFormState, Weekday } from '../types/webchatWidgetEditor'
 import type { WebChatWidgetEditorSectionId } from '../components/webchat/WebChatWidgetEditorSection'
-import { hostsFromWebsiteUrl } from '@/lib/embedAllowedDomains'
+import { hostsFromWebsiteUrl, formatEmbedAllowedSitesSummary } from '@/lib/embedAllowedDomains'
 
 export type SectionStatusKind = 'complete' | 'incomplete' | 'optional' | 'attention'
 
@@ -117,16 +117,12 @@ export function validateWidgetForm(
 }
 
 function embedSitesHint(form: WebChatWidgetFormState, companyWebsite?: string): string {
-  const parts: string[] = []
-  if (form.includeCompanyWebsite !== false) {
-    const hosts = hostsFromWebsiteUrl(companyWebsite)
-    if (hosts.length) parts.push(hosts.join(', '))
-  }
-  if (form.allowedDomains.length) {
-    parts.push(`+${form.allowedDomains.length} extra`)
-  }
-  if (!parts.length) return 'Configure domínios'
-  return parts.join(' ')
+  return formatEmbedAllowedSitesSummary(
+    form.allowedDomains,
+    form.includeCompanyWebsite !== false,
+    companyWebsite,
+    2,
+  )
 }
 
 function hoursSummary(form: WebChatWidgetFormState): string {

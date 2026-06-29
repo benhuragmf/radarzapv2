@@ -461,7 +461,12 @@
     });
   }
 
-  fetch(apiUrl('/forms/' + encodeURIComponent(publicKey) + '/config'))
+  var configPath =
+    /\/leads\/preview\.html/i.test(window.location.pathname)
+      ? '/forms/' + encodeURIComponent(publicKey) + '/preview-config'
+      : '/forms/' + encodeURIComponent(publicKey) + '/config';
+
+  fetch(apiUrl(configPath))
     .then(function (res) {
       return res.json().then(function (data) {
         if (!res.ok) throw new Error((data && data.error) || 'Formulário indisponível');

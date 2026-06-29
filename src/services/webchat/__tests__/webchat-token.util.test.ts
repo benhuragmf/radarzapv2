@@ -59,6 +59,8 @@ describe('webchat-token.util', () => {
     expect(isWebChatOriginAllowed(allowed, 'https://radarchat.com.br', null)).toBe(true);
     expect(normalizeAllowedDomainEntry('https://radarchat.com.br/')).toBe('radarchat.com.br');
     expect(normalizeAllowedDomainEntry('*.loja.com')).toBe('*.loja.com');
+    expect(normalizeAllowedDomainEntry('*')).toBe('*');
+    expect(isWebChatOriginAllowed(['*'], 'https://qualquer-site.com', null)).toBe(true);
   });
 
   it('em desenvolvimento libera localhost mesmo com allowedDomains restrito', () => {

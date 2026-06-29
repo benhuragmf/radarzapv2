@@ -8,6 +8,7 @@ type PreviewMode = 'desktop' | 'mobile' | 'bubble' | 'open'
 type Props = {
   publicKey: string
   selectedTemplateId: string | null
+  companyWebsite?: string | null
   reloadKey?: number
   /** PATCH visual em andamento — prévia ainda reflete o modelo salvo no servidor */
   applying?: boolean
@@ -17,6 +18,7 @@ type Props = {
 export function WebChatWidgetPreviewPanel({
   publicKey,
   selectedTemplateId,
+  companyWebsite,
   reloadKey = 0,
   applying = false,
   className,
@@ -35,6 +37,7 @@ export function WebChatWidgetPreviewPanel({
       <WebChatLivePreview
         publicKey={publicKey}
         selectedTemplateId={selectedTemplateId}
+        companyWebsite={companyWebsite}
         reloadKey={reloadKey}
         compact={mode === 'bubble'}
         applying={applying}
@@ -77,7 +80,9 @@ export function WebChatWidgetPreviewPanel({
         <p className="mt-1 text-[10px] text-[var(--rz-text-muted)]">
           {applying
             ? 'Aplicando modelo no servidor — a prévia atualiza ao concluir.'
-            : 'Prévia aproximada. O comportamento real depende do site instalado.'}
+            : companyWebsite?.trim()
+              ? 'Tenta o site da empresa como fundo; se não carregar, usa a prévia padrão.'
+              : 'Prévia padrão. Cadastre o site da empresa para tentar fundo real.'}
         </p>
       </div>
 

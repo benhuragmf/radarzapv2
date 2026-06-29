@@ -44,30 +44,48 @@ export function BrandMark({ size = 24, animated = true, className }: BrandMarkPr
         <circle className="rz-brand-mark__core" cx="94" cy="92" r="11" fill="#fff" />
       </g>
 
-      <path
-        className="rz-brand-mark__wave rz-brand-mark__wave-1"
-        d="M113 74 C134 88 134 116 113 130"
-        fill="none"
-        stroke="#fff"
-        strokeWidth="13"
-        strokeLinecap="round"
-      />
-      <path
-        className="rz-brand-mark__wave rz-brand-mark__wave-2"
-        d="M137 52 C177 82 177 136 137 166"
-        fill="none"
-        stroke="#fff"
-        strokeWidth="12"
-        strokeLinecap="round"
-      />
-      <path
-        className="rz-brand-mark__wave rz-brand-mark__wave-3"
-        d="M60 72 C43 90 43 114 60 132"
-        fill="none"
-        stroke="#fff"
-        strokeWidth="10"
-        strokeLinecap="round"
-      />
+      <g className="rz-brand-mark__waves" style={{ transformOrigin: '94px 92px' }}>
+        <path
+          className="rz-brand-mark__wave rz-brand-mark__wave-1"
+          d="M113 74 C134 88 134 116 113 130"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="13"
+          strokeLinecap="round"
+        />
+        <path
+          className="rz-brand-mark__wave rz-brand-mark__wave-2"
+          d="M137 52 C177 82 177 136 137 166"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        <path
+          className="rz-brand-mark__wave rz-brand-mark__wave-3"
+          d="M60 72 C43 90 43 114 60 132"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="10"
+          strokeLinecap="round"
+        />
+      </g>
+
+      {animated ? (
+        <g className="rz-brand-mark__sweep" style={{ transformOrigin: '94px 92px' }}>
+          <circle
+            cx="94"
+            cy="92"
+            r="58"
+            fill="none"
+            stroke="#00D4FF"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="36 320"
+            opacity="0.55"
+          />
+        </g>
+      ) : null}
 
       <g className="rz-brand-mark__ping" style={{ transformOrigin: '154px 48px' }}>
         <circle cx="154" cy="48" r="10" fill="#22C55E" stroke="#fff" strokeWidth="5" />

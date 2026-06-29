@@ -69,4 +69,18 @@ describe('embed-allowed-domains.util', () => {
       }),
     ).toBe(true);
   });
+
+  it('isEmbedOriginAllowed aceita * nos domínios adicionais', () => {
+    const effective = resolveEmbedAllowedDomains(['*'], {
+      companyWebsite: 'https://radarchat.com.br',
+      includeCompanyWebsite: true,
+    });
+    expect(effective).toContain('*');
+    expect(
+      isEmbedOriginAllowed(['*'], 'https://qualquer-site.com', null, {
+        companyWebsite: 'https://radarchat.com.br',
+        includeCompanyWebsite: true,
+      }),
+    ).toBe(true);
+  });
 });

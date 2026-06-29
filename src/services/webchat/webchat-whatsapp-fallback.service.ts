@@ -147,12 +147,33 @@ async function resolveDepartmentMemberUserIds(
   return dept.memberUserIds.map(id => String(id));
 }
 
+async function loadDepartmentForBridge(
+  clientId: string,
+  departmentId?: mongoose.Types.ObjectId | null,
+) {
+  if (!departmentId) return null;
+  return InboxDepartment.findOne({
+    _id: departmentId,
+    clientId: new mongoose.Types.ObjectId(clientId),
+  })
+    .select('memberUserIds memberConfigs')
+    .lean();
+}
+
 export async function listFallbackWhatsappAgents(
   clientId: string,
   departmentId?: mongoose.Types.ObjectId | null,
 ): Promise<Array<{ userId: string; displayName: string; whatsappPhone: string }>> {
   const memberFilter = await resolveDepartmentMemberUserIds(clientId, departmentId);
-  return listVerifiedWhatsappInboxAgents(clientId, memberFilter);
+  const agents = await listVerifiedWhatsappInboxAgents(clientId, memberFilter);
+  const dept = await loadDepartmentForBridge(clientId, departmentId);
+  if (!dept?.memberConfigs?.length) return agents;
+
+  const settings = await loadInboxSettings(clientId);
+  const { filterAgentsForDepartmentBridge } = await import(
+    '@/services/inbox/inbox-department-bridge.util'
+  );
+  return filterAgentsForDepartmentBridge(agents, dept, settings);
 }
 
 export function pickNextFallbackAgent(
