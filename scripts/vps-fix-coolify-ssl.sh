@@ -21,6 +21,11 @@ export COOLIFY_COMPOSE_MODE=ghcr
 export MIGRATE_LEGACY=1
 sudo -E bash scripts/vps-configure-coolify-radarzap.sh
 
+if ! curl -sf -o /dev/null --max-time 8 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
+  log "App ainda offline em :3001 — forçando restore legado GHCR"
+  sudo -E bash -c 'cd "'"$DEPLOY_PATH"'" && source .env 2>/dev/null; export USE_SUDO_DOCKER=1; bash scripts/deploy-remote.sh "${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"' || true
+fi
+
 log "=== Aguardando HTTPS (até ~3 min) ==="
 for i in $(seq 1 12); do
   if curl -sf -o /dev/null --max-time 12 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then

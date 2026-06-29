@@ -284,17 +284,31 @@ detect_legacy_volumes() {
   log "Volumes legado: sessions=${VOL_SESSIONS:-novo} mongo=${VOL_MONGO:-novo}"
 }
 
+prepare_compose_from_template() {
+  local src="$1" out="$2"
+  load_legacy_env
+  local image="${RADARZAP_IMAGE:-$RADARZAP_IMAGE_DEFAULT}"
+  local mongo_pw="${MONGO_PASSWORD:-${SERVICE_PASSWORD_MONGODB:-}}"
+  [[ -z "$mongo_pw" ]] && mongo_pw="$(openssl rand -base64 24)"
+  sed -e "s|\${RADARZAP_IMAGE:?defina RADARZAP_IMAGE}|${image}|g" \
+      -e "s|\${SERVICE_PASSWORD_MONGODB}|${mongo_pw}|g" \
+      "$src" >"$out"
+  log "Compose com imagem ${image} e senha Mongo do .env legado"
+}
+
 build_compose_with_external_volumes() {
-  local src
+  local src resolved
   src="$(resolve_compose_template)"
+  resolved="/tmp/radarzap-coolify-resolved.yml"
+  prepare_compose_from_template "$src" "$resolved"
   local out="/tmp/radarzap-coolify-compose.yml"
   if [[ -z "${VOL_SESSIONS:-}" ]]; then
-    cp "$src" "$out"
+    cp "$resolved" "$out"
     COMPOSE_FILE="$out"
     return 0
   fi
   # Substitui bloco volumes por externos (reutiliza dados do deploy GHCR)
-  sed '/^volumes:/,$d' "$src" >"$out"
+  sed '/^volumes:/,$d' "$resolved" >"$out"
   {
     echo "volumes:"
     if [[ -n "${VOL_MONGO:-}" ]]; then
@@ -446,14 +460,15 @@ sync_env_from_legacy() {
       {"key":"RADARZAP_IMAGE","value":$image,"is_preview":false,"is_build_time":false,"is_literal":true}
     ]')"
 
-  if api POST "/api/v1/services/${SERVICE_UUID}/envs/bulk" -d "{\"data\":${payload}}" >/dev/null 2>&1; then
-    log "Env sincronizado (bulk OK)"
+  if api PATCH "/api/v1/services/${SERVICE_UUID}/envs/bulk" -d "{\"data\":${payload}}" >/dev/null 2>&1; then
+    log "Env sincronizado (bulk PATCH OK)"
     return 0
   fi
 
-  log "Bulk env falhou — enviando variáveis críticas individualmente..."
+  log "Bulk PATCH falhou — enviando variáveis críticas individualmente..."
   echo "$payload" | jq -c '.[]' | while read -r item; do
-    api POST "/api/v1/services/${SERVICE_UUID}/envs" -d "$item" >/dev/null 2>&1 || true
+    api POST "/api/v1/services/${SERVICE_UUID}/envs" -d "$item" >/dev/null 2>&1 || \
+    api PATCH "/api/v1/services/${SERVICE_UUID}/envs" -d "$item" >/dev/null 2>&1 || true
   done
 }
 
@@ -468,6 +483,32 @@ stop_legacy_stack() {
   fi
   log "Parando stack legado GHCR (volumes preservados)..."
   (cd "$DEPLOY_PATH" && sudo docker compose -f docker-compose.deploy.yml down --remove-orphans) || true
+}
+
+restore_legacy_stack() {
+  local env_file="${DEPLOY_PATH}/.env"
+  [[ -f "$env_file" ]] || return 0
+  load_legacy_env
+  [[ -n "${RADARZAP_IMAGE:-}" ]] || return 0
+  log "Restaurando stack legado GHCR (fallback)..."
+  (cd "$DEPLOY_PATH" && export USE_SUDO_DOCKER=1 ENV_FILE=.env && bash scripts/deploy-remote.sh "$RADARZAP_IMAGE") || true
+}
+
+wait_coolify_app_health() {
+  local i
+  for i in $(seq 1 24); do
+    if curl -sf -o /dev/null --max-time 8 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
+      return 0
+    fi
+    if curl -sf -o /dev/null --max-time 10 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
+      return 0
+    fi
+    if sudo docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -iE 'app.*healthy|radarzap-app' | grep -qi healthy; then
+      return 0
+    fi
+    sleep 10
+  done
+  return 1
 }
 
 # --- main ---
@@ -503,9 +544,16 @@ ensure_service
 sync_env_from_legacy
 
 if [[ "$MIGRATE_LEGACY" == "1" ]]; then
-  stop_legacy_stack
   deploy_service
-  log "Deploy iniciado. Aguarde build (~10–20 min) em ${COOLIFY_URL}"
+  log "Aguardando app Coolify/legado em :3001..."
+  if wait_coolify_app_health; then
+    stop_legacy_stack
+    log "Deploy OK — stack legado parado"
+  else
+    log "AVISO: app não healthy após deploy Coolify — restaurando legado GHCR"
+    restore_legacy_stack
+  fi
+  log "Deploy processado. SSL via Coolify quando proxy rotear ${PUBLIC_HOST}"
 else
   log "MIGRATE_LEGACY=0 — service criado sem deploy. Migre manualmente depois."
 fi
