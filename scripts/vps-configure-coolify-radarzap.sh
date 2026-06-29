@@ -99,14 +99,12 @@ if (!$user) { echo "ERROR:no-user"; exit(1); }
 $team = \App\Models\Team::first();
 if (!$team) {
   $team = \App\Models\Team::create(["name" => "RadarZap", "personal_team" => true]);
-  $user->teams()->syncWithoutDetaching([$team->id => ["role" => "owner"]]);
 }
-if (!$user->current_team_id) {
-  $user->current_team_id = $team->id;
-  $user->save();
+if (!$user->teams()->where("teams.id", $team->id)->exists()) {
+  $user->teams()->attach($team->id, ["role" => "owner"]);
 }
 \DB::table("servers")->whereNull("team_id")->update(["team_id" => $team->id]);
-echo "team=" . $team->id . " user=" . $user->id;
+echo "team=" . $team->id . " user=" . $user->getKey();
 ' 2>&1)" || true
   if ! echo "$out" | grep -q 'team='; then
     log "ERRO ao garantir team: $out"
@@ -141,7 +139,7 @@ $pat->name = "radarzap-automation";
 $pat->token = hash("sha256", $plain);
 $pat->abilities = "[\"root\"]";
 $pat->tokenable_type = get_class($user);
-$pat->tokenable_id = $user->id;
+$pat->tokenable_id = $user->getKey();
 $pat->team_id = $team->id;
 $pat->save();
 echo "TOKEN|" . $plain;
