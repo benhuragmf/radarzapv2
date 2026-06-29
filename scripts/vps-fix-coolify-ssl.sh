@@ -6,9 +6,15 @@ PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
 
 log() { echo "[fix-ssl] $*"; }
 
-log "=== 1) Garantir app em :3001 (GHCR legado) ==="
+coolify_app_running() {
+  sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qE 'h143brhw|^[a-z0-9]{20,}-app-'
+}
+
+log "=== 1) Garantir app em :3001 ==="
 cd "$DEPLOY_PATH"
-if ! curl -sf -o /dev/null --max-time 8 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
+if coolify_app_running; then
+  log "Stack Coolify detectada — aguardando :3001 (sem subir legado GHCR)"
+elif ! curl -sf -o /dev/null --max-time 8 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
   sudo -E bash -c 'source .env 2>/dev/null; export USE_SUDO_DOCKER=1; bash scripts/deploy-remote.sh "${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"' || true
 fi
 for i in $(seq 1 20); do

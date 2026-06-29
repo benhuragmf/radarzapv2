@@ -1126,6 +1126,11 @@ if [[ "$MIGRATE_LEGACY" == "1" ]]; then
     wait_coolify_stack_up 36 || true
   fi
   if coolify_stack_healthy; then
+    log "Aguardando app em :3001 antes de configurar HTTPS..."
+    wait_coolify_app_health || {
+      log "AVISO: health :3001 demorou — tentando mais 3 min"
+      wait_coolify_stack_up 18 || true
+    }
     if [[ "$COOLIFY_DEPLOY_VIA" == "api" ]]; then
       remove_legacy_traefik_route
     else

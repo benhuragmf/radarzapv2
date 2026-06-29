@@ -10,8 +10,10 @@ cd "$DEPLOY_PATH"
 export USE_SUDO_DOCKER=1
 export ENV_FILE=.env
 
-log "Subindo stack legado (se imagem GHCR configurada)..."
-if [[ -f .env ]] && sudo docker compose -f docker-compose.deploy.yml ps -q app 2>/dev/null | grep -q .; then
+log "Subindo stack legado (se imagem GHCR configurada e Coolify não estiver ativo)..."
+if sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qE 'h143brhw|^[a-z0-9]{20,}-app-'; then
+  log "Stack Coolify ativa — pulando legado GHCR"
+elif [[ -f .env ]] && sudo docker compose -f docker-compose.deploy.yml ps -q app 2>/dev/null | grep -q .; then
   sudo docker compose -f docker-compose.deploy.yml up -d --remove-orphans || true
 elif [[ -f .env ]]; then
   # pull latest via deploy script if RADARZAP_IMAGE in env
