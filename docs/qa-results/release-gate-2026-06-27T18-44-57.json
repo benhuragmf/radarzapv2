@@ -1,0 +1,54 @@
+{
+  "at": "2026-06-27T18:44:57.423Z",
+  "version": "2.12.22",
+  "failed": true,
+  "steps": [
+    {
+      "name": "jest campanha/limites",
+      "ok": true,
+      "ms": 6202,
+      "status": 0
+    },
+    {
+      "name": "build backend",
+      "ok": true,
+      "ms": 8905,
+      "status": 0
+    },
+    {
+      "name": "build frontend",
+      "ok": true,
+      "ms": 8002,
+      "status": 0
+    },
+    {
+      "name": "playwright install chromium",
+      "ok": true,
+      "ms": 870,
+      "status": 0
+    },
+    {
+      "name": "E2E limites campanha",
+      "ok": true,
+      "ms": 3041,
+      "status": 0
+    },
+    {
+      "name": "qa atendimento gate",
+      "ok": true,
+      "ms": 83832,
+      "status": 0
+    },
+    {
+      "name": "E2E fase1 painel",
+      "ok": false,
+      "ms": 18714,
+      "status": 1
+    },
+    {
+      "name": "smoke produção (pulado — sem RADARZAP_PUBLIC_URL)",
+      "ok": true,
+      "skipped": true
+    }
+  ]
+}

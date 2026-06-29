@@ -1,0 +1,42 @@
+{
+  "at": "2026-06-27T18:42:36.005Z",
+  "version": "2.12.22",
+  "failed": true,
+  "steps": [
+    {
+      "name": "jest campanha/limites",
+      "ok": false,
+      "ms": 27,
+      "status": 255
+    },
+    {
+      "name": "build backend",
+      "ok": true,
+      "ms": 9292,
+      "status": 0
+    },
+    {
+      "name": "build frontend",
+      "ok": true,
+      "ms": 8728,
+      "status": 0
+    },
+    {
+      "name": "playwright install chromium",
+      "ok": true,
+      "ms": 804,
+      "status": 0
+    },
+    {
+      "name": "E2E limites campanha",
+      "ok": true,
+      "ms": 3233,
+      "status": 0
+    },
+    {
+      "name": "smoke produção (pulado — sem RADARZAP_PUBLIC_URL)",
+      "ok": true,
+      "skipped": true
+    }
+  ]
+}
