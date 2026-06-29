@@ -9,6 +9,8 @@ import {
 jest.mock('@/config/environment', () => ({
   config: {
     PUBLIC_EMBED: { ALLOW_OPEN_ORIGIN: true },
+    DASHBOARD: { FRONTEND_URL: 'https://151-247-210-180.sslip.io' },
+    CORS_ORIGIN: 'https://151-247-210-180.sslip.io',
   },
 }));
 
@@ -35,6 +37,13 @@ describe('webchat-token.util', () => {
     config.PUBLIC_EMBED.ALLOW_OPEN_ORIGIN = false;
     expect(isWebChatOriginAllowed([], 'https://cliente.com', null)).toBe(false);
     config.PUBLIC_EMBED.ALLOW_OPEN_ORIGIN = true;
+  });
+
+  it('libera host da própria plataforma (prévia painel / widget.html)', () => {
+    const allowed = ['radarchat.com.br'];
+    expect(
+      isWebChatOriginAllowed(allowed, 'https://151-247-210-180.sslip.io', null),
+    ).toBe(true);
   });
 
   it('valida domínio exato e wildcard', () => {

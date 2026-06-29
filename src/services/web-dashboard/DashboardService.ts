@@ -145,6 +145,7 @@ import { LeadFormService } from '../leads/LeadFormService';
 import { WebChatService } from '../webchat/WebChatService';
 import { WebChatWidget } from '../../models/WebChatWidget';
 import { isWebChatOriginAllowed } from '../webchat/webchat-token.util';
+import { applyPublicEmbedAssetHeaders } from '../webchat/webchat-embed-http.util';
 import { verifyWebChatPresenceSocketAuth } from '../webchat/webchat-presence-auth.util';
 import { isSocketIoOriginAllowed } from '../webchat/webchat-socket-origin.util';
 import { WebChatSendRateLimitError } from '../webchat/webchat-send-guard.service';
@@ -379,6 +380,8 @@ export class DashboardService {
           },
         },
         crossOriginEmbedderPolicy: false,
+        /** widget.js / form.js são embedados em sites externos — CORP same-origin bloqueia o script. */
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
       }),
     );
 
@@ -446,6 +449,7 @@ export class DashboardService {
       createLeadFormPublicRouter(),
     );
     this.app.get('/webchat/widget.js', (_req, res) => {
+      applyPublicEmbedAssetHeaders(res);
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       if (config.NODE_ENV !== 'production') {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -457,6 +461,7 @@ export class DashboardService {
       res.sendFile(path.join(__dirname, 'webchat', 'widget.js'));
     });
     this.app.get('/leads/form.js', (_req, res) => {
+      applyPublicEmbedAssetHeaders(res);
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       if (config.NODE_ENV !== 'production') {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -495,6 +500,7 @@ export class DashboardService {
       });
     }
     this.app.get('/webchat/preview-loader.js', (_req, res) => {
+      applyPublicEmbedAssetHeaders(res);
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       if (config.NODE_ENV !== 'production') {
         res.setHeader('Cache-Control', 'no-store');
@@ -514,6 +520,7 @@ export class DashboardService {
     ];
     for (const page of webchatPreviewPages) {
       this.app.get(`/webchat/${page}.html`, (_req, res) => {
+        applyPublicEmbedAssetHeaders(res);
         res.sendFile(path.join(__dirname, 'webchat', `${page}.html`));
       });
     }

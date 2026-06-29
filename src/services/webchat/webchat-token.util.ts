@@ -1,6 +1,20 @@
 import crypto from 'crypto';
 import { config } from '@/config/environment';
 
+/** Hosts da própria plataforma (painel, prévia widget.html) — sempre podem carregar o embed. */
+function platformEmbedHosts(): Set<string> {
+  const hosts = new Set<string>();
+  for (const raw of [config.DASHBOARD.FRONTEND_URL, config.CORS_ORIGIN]) {
+    const host = hostFromUrl(raw);
+    if (host) hosts.add(host);
+  }
+  return hosts;
+}
+
+export function isPlatformEmbedHost(host: string): boolean {
+  return platformEmbedHosts().has(host.toLowerCase());
+}
+
 export function generateWebChatPublicKey(): string {
   return `wck_${crypto.randomBytes(16).toString('hex')}`;
 }
@@ -46,6 +60,10 @@ export function isWebChatOriginAllowed(
     // Embed same-origin (ex.: preview /leads/preview.html) pode omitir Origin e Referer.
     if (process.env.NODE_ENV !== 'production') return true;
     return false;
+  }
+
+  if (isPlatformEmbedHost(host)) {
+    return true;
   }
 
   // Painel e previews locais (npm run dev + dashboard:frontend) não devem quebrar por allowedDomains.
