@@ -94,20 +94,24 @@ ensure_team() {
   log "Garantindo team vinculado ao usuário..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
-$user = \App\Models\User::query()->whereNotNull("email")->first();
+$uid = (int) \DB::table("users")->whereNotNull("email")->orderBy("id")->value("id");
+if ($uid < 1) { echo "ERROR:bad-ids uid=$uid"; exit(1); }
+$user = \App\Models\User::find($uid);
 if (!$user) { echo "ERROR:no-user"; exit(1); }
-$team = \App\Models\Team::first();
+$team = \App\Models\Team::query()->orderBy("id")->first();
 if (!$team) {
   $team = \App\Models\Team::create(["name" => "RadarZap", "personal_team" => true]);
 }
-if (!$user->teams()->where("teams.id", $team->id)->exists()) {
-  $user->teams()->attach($team->id, ["role" => "owner"]);
+$tid = (int) $team->id;
+if (!$user->teams()->where("teams.id", $tid)->exists()) {
+  $user->teams()->attach($tid, ["role" => "owner"]);
 }
-\DB::table("servers")->whereNull("team_id")->update(["team_id" => $team->id]);
-echo "team=" . $team->id . " user=" . $user->getKey();
+\DB::table("servers")->whereNull("team_id")->update(["team_id" => $tid]);
+echo "team=$tid user=$uid email=" . $user->email;
 ' 2>&1)" || true
-  if ! echo "$out" | grep -q 'team='; then
+  if ! echo "$out" | grep -q 'email='; then
     log "ERRO ao garantir team: $out"
+    log "Complete o cadastro em ${COOLIFY_URL} e rode o workflow de novo."
     exit 1
   fi
   log "$out"
@@ -129,9 +133,11 @@ echo "ok";
   log "Gerando token API..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
-$user = \App\Models\User::query()->whereNotNull("email")->first();
-$team = \App\Models\Team::first();
-if (!$user || !$team) { echo "ERROR:no-user-team"; exit(1); }
+$uid = (int) \DB::table("users")->whereNotNull("email")->orderBy("id")->value("id");
+$tid = (int) \DB::table("teams")->orderBy("id")->value("id");
+$user = \App\Models\User::find($uid);
+$team = \App\Models\Team::find($tid);
+if (!$user || !$team || $uid < 1 || $tid < 1) { echo "ERROR:no-user-team"; exit(1); }
 \Laravel\Sanctum\PersonalAccessToken::where("name", "radarzap-automation")->delete();
 $plain = \Illuminate\Support\Str::random(48);
 $pat = new \Laravel\Sanctum\PersonalAccessToken();
@@ -139,8 +145,8 @@ $pat->name = "radarzap-automation";
 $pat->token = hash("sha256", $plain);
 $pat->abilities = "[\"root\"]";
 $pat->tokenable_type = get_class($user);
-$pat->tokenable_id = $user->getKey();
-$pat->team_id = $team->id;
+$pat->tokenable_id = $uid;
+$pat->team_id = $tid;
 $pat->save();
 echo "TOKEN|" . $plain;
 ' 2>&1)" || true
