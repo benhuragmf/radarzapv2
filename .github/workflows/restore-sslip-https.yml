@@ -23,5 +23,5 @@ jobs:
           script: |
             set -euo pipefail
             cd "${DEPLOY_PATH:-/opt/radarzap}"
-            git fetch origin main -q && git reset --hard origin/main -q
+            bash scripts/vps-git-sync-main.sh
             sudo bash scripts/vps-restore-sslip-https.sh

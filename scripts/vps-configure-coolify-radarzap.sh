@@ -114,8 +114,43 @@ fix_coolify_user_ids() {
   fi
 }
 
+fix_coolify_team_ids() {
+  local tid uid
+  tid="$(psql_exec "SELECT id FROM teams WHERE id > 0 ORDER BY id LIMIT 1;")"
+  if [[ -z "${tid:-}" || "${tid:-0}" == "0" ]]; then
+    tid="$(psql_exec "SELECT id FROM teams ORDER BY created_at NULLS LAST LIMIT 1;")"
+  fi
+  if [[ "${tid:-0}" == "0" ]]; then
+    log "Corrigindo team id=0 no PostgreSQL..."
+    docker exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=1 -c "
+      SELECT setval(pg_get_serial_sequence('teams','id'), GREATEST(1, COALESCE((SELECT MAX(id) FROM teams WHERE id > 0), 0)));
+      UPDATE teams SET id = nextval(pg_get_serial_sequence('teams','id'))
+        WHERE (id IS NULL OR id = 0) AND name IS NOT NULL AND name <> '';
+    " || {
+      log "ERRO: não foi possível corrigir id do team"
+      exit 1
+    }
+    tid="$(psql_exec "SELECT id FROM teams WHERE id > 0 ORDER BY id LIMIT 1;")"
+    log "Team id corrigido para ${tid}"
+  fi
+  uid="$(psql_exec "SELECT id FROM users WHERE email IS NOT NULL AND email <> '' AND id > 0 ORDER BY id LIMIT 1;")"
+  if [[ -n "${tid:-}" && "${tid:-0}" != "0" && -n "${uid:-}" ]]; then
+    docker exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=1 -c "
+      INSERT INTO team_user (team_id, user_id, role, created_at, updated_at)
+      SELECT ${tid}, ${uid}, 'owner', NOW(), NOW()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM team_user WHERE team_id = ${tid} AND user_id = ${uid}
+      );
+      UPDATE team_user SET team_id = ${tid} WHERE team_id = 0 OR team_id IS NULL;
+      UPDATE team_user SET user_id = ${uid} WHERE user_id = 0 OR user_id IS NULL;
+      UPDATE servers SET team_id = ${tid} WHERE team_id = 0 OR team_id IS NULL;
+    " 2>/dev/null || true
+  fi
+}
+
 ensure_team() {
   fix_coolify_user_ids
+  fix_coolify_team_ids
   log "Garantindo team vinculado ao usuário..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
@@ -123,11 +158,12 @@ $uid = (int) \DB::table("users")->whereNotNull("email")->orderBy("id")->value("i
 if ($uid < 1) { echo "ERROR:bad-ids uid=$uid"; exit(1); }
 $user = \App\Models\User::find($uid);
 if (!$user) { echo "ERROR:no-user"; exit(1); }
-$team = \App\Models\Team::query()->orderBy("id")->first();
+$team = \App\Models\Team::query()->where("id", ">", 0)->orderBy("id")->first();
 if (!$team) {
   $team = \App\Models\Team::create(["name" => "RadarZap", "personal_team" => true]);
 }
 $tid = (int) $team->id;
+if ($tid < 1) { echo "ERROR:bad-team tid=$tid"; exit(1); }
 if (!$user->teams()->where("teams.id", $tid)->exists()) {
   $user->teams()->attach($tid, ["role" => "owner"]);
 }
@@ -159,7 +195,7 @@ echo "ok";
   local out
   out="$(docker exec coolify php artisan tinker --execute='
 $uid = (int) \DB::table("users")->whereNotNull("email")->orderBy("id")->value("id");
-$tid = (int) \DB::table("teams")->orderBy("id")->value("id");
+$tid = (int) \DB::table("teams")->where("id", ">", 0)->orderBy("id")->value("id");
 $user = \App\Models\User::find($uid);
 $team = \App\Models\Team::find($tid);
 if (!$user || !$team || $uid < 1 || $tid < 1) { echo "ERROR:no-user-team"; exit(1); }
