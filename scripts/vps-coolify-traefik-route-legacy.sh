@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# Roteia https://sslip.io → app em :3001 via Traefik do Coolify (quando stack Coolify está Exited).
+# Roteia HTTPS → app em :3001 via Traefik do Coolify (domínio oficial ou legado sslip.io).
 set -euo pipefail
-PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
+PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
 HOST_IP="${HOST_IP:-172.17.0.1}"
 
 log() { echo "[traefik-legacy] $*"; }
+
+host_slug() {
+  echo "${1//./-}" | tr -cd 'a-zA-Z0-9-'
+}
 
 PROXY="$(sudo docker ps --format '{{.Names}}' | grep -E 'coolify-proxy|traefik' | head -1 || true)"
 if [[ -z "$PROXY" ]]; then
@@ -32,33 +36,34 @@ if ! sudo docker exec "$PROXY" test -d "$DYNAMIC_DIR" 2>/dev/null; then
   DYNAMIC_DIR="/etc/traefik/dynamic"
 fi
 
-CFG="radarzap-legacy-${PUBLIC_HOST//[^a-zA-Z0-9]/-}.yaml"
+SLUG="$(host_slug "$PUBLIC_HOST")"
+CFG="radarzap-${SLUG}.yaml"
 log "Aplicando rota ${PUBLIC_HOST} → ${HOST_IP}:3001 no ${PROXY} (${DYNAMIC_DIR}/${CFG})"
 
 sudo docker exec -i "$PROXY" sh -c "cat > ${DYNAMIC_DIR}/${CFG}" <<EOF
 http:
   routers:
-    radarzap-legacy-https:
+    radarzap-${SLUG}-https:
       entryPoints:
         - https
       rule: Host(\`${PUBLIC_HOST}\`)
       tls:
         certResolver: letsencrypt
-      service: radarzap-legacy-svc
-    radarzap-legacy-http:
+      service: radarzap-${SLUG}-svc
+    radarzap-${SLUG}-http:
       entryPoints:
         - http
       rule: Host(\`${PUBLIC_HOST}\`)
       middlewares:
-        - redirect-to-https
-      service: radarzap-legacy-svc
+        - redirect-to-https-${SLUG}
+      service: radarzap-${SLUG}-svc
   middlewares:
-    redirect-to-https:
+    redirect-to-https-${SLUG}:
       redirectScheme:
         scheme: https
         permanent: true
   services:
-    radarzap-legacy-svc:
+    radarzap-${SLUG}-svc:
       loadBalancer:
         servers:
           - url: http://${HOST_IP}:3001

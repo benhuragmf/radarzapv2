@@ -2,7 +2,7 @@
 # Diagnóstico: Coolify vs stack legado GHCR no VPS RadarZap (.180).
 set -euo pipefail
 
-PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
+PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
 
 log() { echo "[coolify-status] $*"; }

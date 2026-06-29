@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Completa .env de produção (secrets gerados + URL HTTPS sslip.io).
+# Completa .env de produção (secrets gerados + URL HTTPS app.radarchat.com.br).
 set -euo pipefail
 ENV_FILE="${1:-.env}"
-PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
+PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
 PUBLIC_URL="https://${PUBLIC_HOST}"
 OTP="$(openssl rand -hex 32)"
 python3 - "$ENV_FILE" "$PUBLIC_URL" "$OTP" <<'PY'

@@ -14,11 +14,13 @@ jobs:
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          PUBLIC_HOST: app.radarchat.com.br
+          TRAEFIK_EXTRA_HOSTS: 151-247-210-180.sslip.io
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_PATH,GHCR_PAT
+          envs: DEPLOY_PATH,GHCR_PAT,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS
           script_stop: true
           command_timeout: 30m
           script: |
