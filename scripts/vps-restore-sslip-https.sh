@@ -32,10 +32,12 @@ for i in $(seq 1 20); do
   sleep 3
 done
 
-# Coolify Traefik/Caddy proxy costuma usar 80/443 — Caddy do host só se 443 estiver livre para sslip.io
+# Coolify Traefik ocupa 80/443 — roteia sslip.io para :3001 ou Caddy se 443 livre
 if sudo ss -tlnp 2>/dev/null | grep -q ':443'; then
-  log "Porta 443 em uso (provavelmente proxy Coolify). HTTPS do app virá após domínio no resource RadarZap."
-  log "Painel Coolify: http://$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'):8000"
+  log "Porta 443 em uso (proxy Coolify) — configurando rota Traefik → :3001"
+  sudo bash scripts/vps-coolify-traefik-route-legacy.sh || {
+    log "AVISO: rota Traefik falhou — painel: http://$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'):8000"
+  }
   exit 0
 fi
 

@@ -543,17 +543,32 @@ ensure_project_and_server
 ensure_service
 sync_env_from_legacy
 
+coolify_stack_healthy() {
+  sudo docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -iE 'app.*h143|h143.*app|radarzap.*app' | grep -qiE 'up|healthy' || return 1
+  return 0
+}
+
 if [[ "$MIGRATE_LEGACY" == "1" ]]; then
   deploy_service
-  log "Aguardando app Coolify/legado em :3001..."
-  if wait_coolify_app_health; then
+  log "Aguardando stack Coolify ou HTTPS..."
+  sleep 20
+  if coolify_stack_healthy || curl -sf -o /dev/null --max-time 10 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
     stop_legacy_stack
-    log "Deploy OK — stack legado parado"
+    log "Coolify/HTTPS OK — stack legado parado"
+  elif wait_coolify_app_health; then
+    log "App em :3001 — configurando HTTPS via Traefik"
+    sudo bash "${DEPLOY_PATH}/scripts/vps-coolify-traefik-route-legacy.sh" || true
+    if curl -sf -o /dev/null --max-time 10 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
+      stop_legacy_stack
+    else
+      log "Mantendo legado em :3001 até Coolify emitir SSL"
+    fi
   else
-    log "AVISO: app não healthy após deploy Coolify — restaurando legado GHCR"
+    log "AVISO: deploy Coolify incompleto — restaurando legado GHCR"
     restore_legacy_stack
+    sudo bash "${DEPLOY_PATH}/scripts/vps-coolify-traefik-route-legacy.sh" || true
   fi
-  log "Deploy processado. SSL via Coolify quando proxy rotear ${PUBLIC_HOST}"
+  log "SSL: https://${PUBLIC_HOST}"
 else
   log "MIGRATE_LEGACY=0 — service criado sem deploy. Migre manualmente depois."
 fi
