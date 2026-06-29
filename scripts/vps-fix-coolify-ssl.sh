@@ -17,12 +17,7 @@ dump_app_logs() {
 }
 
 stop_conflicting_containers() {
-  log "Parando containers legado GHCR que conflitam na :3001..."
-  if [[ -f "${DEPLOY_PATH}/docker-compose.deploy.yml" ]]; then
-    (cd "$DEPLOY_PATH" && sudo docker compose -f docker-compose.deploy.yml down --remove-orphans 2>/dev/null) || true
-  fi
-  sudo docker ps -q --filter 'name=^radarzap-' 2>/dev/null | xargs -r sudo docker stop 2>/dev/null || true
-  sudo docker rm -f radarzap-app-1 2>/dev/null || true
+  sudo -E bash scripts/vps-purge-legacy-stack.sh || true
 }
 
 apply_traefik_routes() {
