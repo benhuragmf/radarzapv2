@@ -25,19 +25,18 @@ Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PR
 
 **Importante:** o serviço `app` usa `env_file: .env` (secrets de produção copiados de `/opt/radarzap/.env`). Sem isso o container entra em crash loop (`validateConfig` falha).
 
-### Workflows GitHub (branch `layout-v3` no VPS)
+## Deploy produção (GitHub Actions)
 
-| Workflow | Uso |
-|----------|-----|
-| **Coolify status check** | Diagnóstico containers + health |
-| **Fix Coolify SSL (Radar Chat)** | Republicar stack + Traefik sslip.io |
-| **Configure Coolify (Radar Chat)** | `migrate_legacy=1` migração; `0` só sync |
-| **Coolify servers setup** | Cadastro servidores ZAP + Gamer |
-| **RadarGamer SSH bootstrap** | 1ª vez no VPS `.179` |
+| Workflow | Quando roda | O que faz |
+|----------|-------------|-----------|
+| **Deploy** | Push na `main` | Build GHCR + `vps-fix-coolify-ssl.sh` (Coolify **somente**) |
+| **Fix Coolify SSL (Radar Chat)** | Manual | Republicar stack + Traefik |
+| **Configure Coolify (Radar Chat)** | Manual | Sync env/domínio no resource |
+| **Coolify status check** | Manual | Diagnóstico containers + health |
 
-```bash
-gh workflow run "Coolify status check" -R benhuragmf/radarzapv2 --ref layout-v3
-```
+**Removido:** workflow `Restore sslip.io HTTPS` (reativava compose legado).
+
+### Workflows GitHub (operacionais)
 
 ---
 
@@ -61,14 +60,14 @@ Isolamento Codex: `.cursor/rules/layout-v3-codex-isolation.mdc`.
 
 ---
 
-## Coexistência com deploy atual
+## Coexistência com deploy antigo
 
-| Método | Quando usar |
-|--------|-------------|
-| **Coolify (produção ZAP)** | Stack `h143brhw…` em `/data/coolify/services/` |
-| **GHCR + `deploy-remote.sh`** | Legado — **parado no .180** |
+| Método | Status no VPS .180 |
+|--------|---------------------|
+| **Coolify (produção)** | ✅ único caminho ativo (`deploy.yml` → `vps-fix-coolify-ssl.sh`) |
+| **GHCR + `deploy-remote.sh`** | ❌ desativado — não rodar manualmente |
 
-Não rodar os dois no mesmo host com o mesmo número WhatsApp. Condicionar `deploy.yml` no host ZAP.
+O compose `docker-compose.deploy.yml` e scripts `deploy-remote.sh` permanecem no repo só como referência/emergência em **outro** host.
 
 ### Painel Coolify (porta 8000)
 
