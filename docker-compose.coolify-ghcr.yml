@@ -5,6 +5,8 @@
 services:
   app:
     image: ${RADARZAP_IMAGE:?defina RADARZAP_IMAGE}
+    env_file:
+      - .env
     expose:
       - '3001'
     environment:

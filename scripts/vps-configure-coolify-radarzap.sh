@@ -936,8 +936,15 @@ write_service_env_file() {
   {
     echo "RADARZAP_IMAGE=${radar_image}"
     echo "SERVICE_PASSWORD_MONGODB=${mongo_pw}"
+    echo "MONGO_PASSWORD=${mongo_pw}"
+    echo "MONGODB_URL=mongodb://admin:${mongo_pw}@mongodb:27017/discord-whatsapp?authSource=admin"
+    echo "REDIS_URL=redis://redis:6379"
     echo "SERVICE_URL_APP=https://${PUBLIC_HOST}"
     echo "SERVICE_FQDN_APP=${PUBLIC_HOST}"
+    echo "FRONTEND_URL=https://${PUBLIC_HOST}"
+    echo "CORS_ORIGIN=https://${PUBLIC_HOST}"
+    echo "COOKIE_SECURE=true"
+    echo "NODE_ENV=production"
   } >"$out"
   local env_file="${DEPLOY_PATH}/.env"
   if [[ -f "$env_file" ]]; then
@@ -948,7 +955,7 @@ write_service_env_file() {
       local key="${line%%=*}"
       key="$(echo "$key" | xargs)"
       case "$key" in
-        MONGODB_URL|MONGO_PASSWORD|FRONTEND_URL|CORS_ORIGIN|RADARZAP_IMAGE|SERVICE_PASSWORD_MONGODB|SERVICE_URL_APP|SERVICE_FQDN_APP) continue ;;
+        MONGODB_URL|MONGO_PASSWORD|FRONTEND_URL|CORS_ORIGIN|REDIS_URL|NODE_ENV|COOKIE_SECURE|RADARZAP_IMAGE|SERVICE_PASSWORD_MONGODB|SERVICE_URL_APP|SERVICE_FQDN_APP) continue ;;
       esac
       echo "$line" >>"$out"
     done <"$env_file"
