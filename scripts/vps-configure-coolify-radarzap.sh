@@ -94,8 +94,8 @@ ensure_team() {
   log "Garantindo team vinculado ao usuário..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
-$user = \App\Models\User::orderBy("id")->first();
-if (!$user || !$user->id) { echo "ERROR:no-user"; exit(1); }
+$user = \App\Models\User::query()->whereNotNull("email")->first();
+if (!$user) { echo "ERROR:no-user"; exit(1); }
 $team = \App\Models\Team::first();
 if (!$team) {
   $team = \App\Models\Team::create(["name" => "RadarZap", "personal_team" => true]);
@@ -131,9 +131,9 @@ echo "ok";
   log "Gerando token API..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
-$user = \App\Models\User::orderBy("id")->first();
+$user = \App\Models\User::query()->whereNotNull("email")->first();
 $team = \App\Models\Team::first();
-if (!$user || !$team || !$user->id || !$team->id) { echo "ERROR:no-user-team"; exit(1); }
+if (!$user || !$team) { echo "ERROR:no-user-team"; exit(1); }
 \Laravel\Sanctum\PersonalAccessToken::where("name", "radarzap-automation")->delete();
 $plain = \Illuminate\Support\Str::random(48);
 $pat = new \Laravel\Sanctum\PersonalAccessToken();
