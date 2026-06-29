@@ -102,18 +102,20 @@ $plain = \Illuminate\Support\Str::random(48);
 $pat = new \Laravel\Sanctum\PersonalAccessToken();
 $pat->name = "radarzap-automation";
 $pat->token = hash("sha256", $plain);
-$pat->abilities = ['*'];
+$pat->abilities = "[\"*\"]";
 $pat->tokenable_type = get_class($user);
 $pat->tokenable_id = $user->id;
 $pat->team_id = $team->id;
 $pat->save();
-echo $pat->id . "|" . $plain;
-' 2>&1)"
-  API_TOKEN="$(echo "$out" | grep -oE '^[0-9]+\|[A-Za-z0-9]+' | tail -1 || true)"
+echo "TOKEN|" . $plain;
+' 2>&1)" || true
+  API_TOKEN="$(echo "$out" | grep -oE 'TOKEN\|[A-Za-z0-9]+' | tail -1 | tr '|' '\n' | tail -1 || true)"
   if [[ -z "$API_TOKEN" ]]; then
-    log "ERRO ao criar token: $out"
+    log "ERRO ao criar token. Saída artisan:"
+    echo "$out"
     exit 1
   fi
+  API_TOKEN="1|${API_TOKEN}"
   psql_exec "UPDATE servers SET team_id = (SELECT id FROM teams LIMIT 1) WHERE team_id IS NULL;" >/dev/null || true
 }
 
