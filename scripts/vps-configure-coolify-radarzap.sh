@@ -927,8 +927,28 @@ deploy_service() {
   api POST "/api/v1/services/${SERVICE_UUID}/restart" -d '{}' >/dev/null 2>&1 || true
 }
 
+patch_legacy_env_urls() {
+  local env_file="${DEPLOY_PATH}/.env"
+  local url="https://${PUBLIC_HOST}"
+  [[ -f "$env_file" ]] || return 0
+  log "Atualizando URLs públicas no ${env_file} → ${url}"
+  for key in FRONTEND_URL CORS_ORIGIN SERVICE_URL_APP; do
+    if grep -q "^${key}=" "$env_file" 2>/dev/null; then
+      sudo sed -i "s|^${key}=.*|${key}=${url}|" "$env_file" 2>/dev/null || true
+    else
+      echo "${key}=${url}" | sudo tee -a "$env_file" >/dev/null
+    fi
+  done
+  if grep -q "^SERVICE_FQDN_APP=" "$env_file" 2>/dev/null; then
+    sudo sed -i "s|^SERVICE_FQDN_APP=.*|SERVICE_FQDN_APP=${PUBLIC_HOST}|" "$env_file" 2>/dev/null || true
+  else
+    echo "SERVICE_FQDN_APP=${PUBLIC_HOST}" | sudo tee -a "$env_file" >/dev/null
+  fi
+}
+
 write_service_env_file() {
   local out="$1"
+  patch_legacy_env_urls
   load_legacy_env
   local mongo_pw="${MONGO_PASSWORD:-${SERVICE_PASSWORD_MONGODB:-}}"
   [[ -z "$mongo_pw" ]] && mongo_pw="$(openssl rand -base64 24)"
