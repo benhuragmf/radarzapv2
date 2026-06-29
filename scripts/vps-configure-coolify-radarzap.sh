@@ -957,30 +957,44 @@ write_service_env_file() {
 
 deploy_service_direct() {
   local dir="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${SERVICE_UUID}}"
-  local env_tmp compose_override
+  local env_tmp compose_override merged
   [[ -n "${SERVICE_UUID:-}" && -f "${COMPOSE_FILE:-}" ]] || return 1
   log "Deploy direto no host (fallback) → ${dir}"
   sudo mkdir -p "$dir"
-  sudo cp "$COMPOSE_FILE" "${dir}/docker-compose.yaml"
   compose_override="${DEPLOY_PATH}/docker-compose.coolify-direct-override.yml"
+  merged="$(mktemp)"
   if [[ -f "$compose_override" ]]; then
-    sudo cp "$compose_override" "${dir}/docker-compose.override.yaml"
+    docker compose -f "$COMPOSE_FILE" -f "$compose_override" config >"$merged"
+  else
+    cp "$COMPOSE_FILE" "$merged"
   fi
+  if ! grep -q '3001:3001' "$merged"; then
+    log "AVISO: compose sem bind :3001 — adicionando ports no app"
+    awk '
+      /^  app:/ { in_app=1 }
+      in_app && /^    expose:/ {
+        print
+        print "    ports:"
+        print "      - '\''3001:3001'\''"
+        next
+      }
+      /^  [a-z]/ && !/^  app:/ { in_app=0 }
+      { print }
+    ' "$merged" >"${merged}.ports" && mv "${merged}.ports" "$merged"
+  fi
+  sudo cp "$merged" "${dir}/docker-compose.yaml"
+  rm -f "$merged"
   env_tmp="$(mktemp)"
   write_service_env_file "$env_tmp"
   sudo cp "$env_tmp" "${dir}/.env"
   rm -f "$env_tmp"
-  if ! (cd "$dir" && sudo docker compose --env-file .env \
-    -f docker-compose.yaml -f docker-compose.override.yaml \
-    -p "${SERVICE_UUID}" up -d --remove-orphans 2>/dev/null); then
-    (cd "$dir" && sudo docker compose --env-file .env \
-      -f docker-compose.yaml -p "${SERVICE_UUID}" up -d --remove-orphans) || return 1
-  fi
+  (cd "$dir" && sudo docker compose --env-file .env \
+    -f docker-compose.yaml -p "${SERVICE_UUID}" up -d --force-recreate --remove-orphans) || return 1
   docker exec coolify php artisan tinker --execute="
 \$s = \\App\\Models\\Service::where('uuid', '${SERVICE_UUID}')->first();
 if (\$s) { \$s->status = 'running'; \$s->save(); echo 'running'; }
 " >/dev/null 2>&1 || true
-  log "Stack iniciada via compose direto (project=${SERVICE_UUID})"
+  log "Stack iniciada via compose direto (project=${SERVICE_UUID}, :3001 publicado)"
   COOLIFY_DEPLOY_VIA=direct
   return 0
 }
@@ -1104,6 +1118,15 @@ ensure_ghcr_login
 ensure_project_and_server
 ensure_service
 sync_env_from_legacy
+
+if [[ "${COOLIFY_REPUBLISH_DIRECT:-0}" == "1" ]]; then
+  log "COOLIFY_REPUBLISH_DIRECT=1 — republicando stack com :3001 no host..."
+  deploy_service_direct || exit 1
+  wait_coolify_app_health || exit 1
+  sudo bash "${DEPLOY_PATH}/scripts/vps-coolify-traefik-route-legacy.sh" || true
+  log "Republish OK"
+  exit 0
+fi
 
 COOLIFY_DEPLOY_VIA="${COOLIFY_DEPLOY_VIA:-api}"
 

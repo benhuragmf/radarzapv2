@@ -14,6 +14,14 @@ log "=== 1) Garantir app em :3001 ==="
 cd "$DEPLOY_PATH"
 if coolify_app_running; then
   log "Stack Coolify detectada — aguardando :3001 (sem subir legado GHCR)"
+  if ! curl -sf -o /dev/null --max-time 8 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
+    log "Republicando stack Coolify com bind :3001 no host..."
+    export COOLIFY_COMPOSE_MODE=ghcr
+    export MIGRATE_LEGACY=0
+    export COOLIFY_REPUBLISH_DIRECT=1
+    export SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
+    sudo -E bash scripts/vps-configure-coolify-radarzap.sh || true
+  fi
 elif ! curl -sf -o /dev/null --max-time 8 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
   sudo -E bash -c 'source .env 2>/dev/null; export USE_SUDO_DOCKER=1; bash scripts/deploy-remote.sh "${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"' || true
 fi
