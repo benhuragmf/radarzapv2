@@ -75,11 +75,13 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           IMAGE: ghcr.io/${{ github.repository }}:latest
           REPO_OWNER: ${{ github.repository_owner }}
+          PUBLIC_HOST: app.radarchat.com.br
+          TRAEFIK_EXTRA_HOSTS: 151-247-210-180.sslip.io
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: GHCR_PAT,DEPLOY_PATH,IMAGE,REPO_OWNER
+          envs: GHCR_PAT,DEPLOY_PATH,IMAGE,REPO_OWNER,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS
           script_stop: true
           script: |
             set -euo pipefail
@@ -87,8 +89,15 @@ jobs:
             git fetch origin main -q && git reset --hard origin/main -q
             export USE_SUDO_DOCKER=1
             export ENV_FILE=.env
+            export PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
+            export TRAEFIK_EXTRA_HOSTS="${TRAEFIK_EXTRA_HOSTS:-151-247-210-180.sslip.io}"
             if [ -n "${GHCR_PAT:-}" ]; then
               echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
             fi
             export RADARZAP_IMAGE="$IMAGE"
-            bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
+            if sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qE 'h143brhw|^[a-z0-9]{20,}-app-'; then
+              echo "[deploy] Stack Coolify detectada — republicando via fix-coolify-ssl (sem compose legado :3001)"
+              sudo -E bash scripts/vps-fix-coolify-ssl.sh
+            else
+              bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
+            fi
