@@ -120,6 +120,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | Documento | Descrição |
 |-----------|-----------|
 | [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) | Infra, env, deploy |
+| [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) | Deploy Coolify (branch `layout-v3`) |
+| [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) | Tracker vivo — checklist infra + Coolify |
 | [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
 | [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md) | Migração v1 → v2 |
 

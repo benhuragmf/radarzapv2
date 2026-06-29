@@ -8,6 +8,8 @@ interface EmptyStateProps {
   description?: string
   action?: React.ReactNode
   className?: string
+  size?: 'sm' | 'md'
+  align?: 'center' | 'start'
 }
 
 export function EmptyState({
@@ -16,16 +18,26 @@ export function EmptyState({
   description,
   action,
   className,
+  size = 'md',
+  align = 'center',
 }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center py-10 text-center',
+        'flex flex-col justify-center',
+        size === 'sm' ? 'py-6' : 'py-10',
+        align === 'center' ? 'items-center text-center' : 'items-start text-left',
         className,
       )}
+      role="status"
     >
-      <span className="mb-3 rounded-full bg-[var(--rz-surface-muted)] p-3 text-[var(--rz-text-muted)]">
-        <Icon className="size-6" aria-hidden />
+      <span
+        className={cn(
+          'mb-3 rounded-full bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]',
+          size === 'sm' ? 'p-2' : 'p-3',
+        )}
+      >
+        <Icon className={size === 'sm' ? 'size-5' : 'size-6'} aria-hidden />
       </span>
       <h3 className="text-sm font-semibold text-[var(--rz-text-primary)]">{title}</h3>
       {description ? (

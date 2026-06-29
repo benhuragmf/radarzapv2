@@ -1,10 +1,10 @@
 # RadarZap v2 — preparação para produção
 
 > **Referência de servidor e deploy** — infra, env, segurança, staging, go-live, smoke e rollback.  
-> **⚠️ Fase atual do projeto (`2.12.63`): estabilização** — gate automático ✅; QA manual humano pendente — ver [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) e [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Gate Estabilização.  
-> **Não execute** checklist de VPS/deploy até o gate § Estabilização estar marcado.
-
-**Versão ref:** `2.12.63` · **Última revisão:** 2026-06-28
+> **Versão ref:** `2.12.69` · **Última revisão:** 2026-06-28  
+> **Tracker de execução (vivo):** [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) — marcar progresso infra **em paralelo** ao QA Fase 1.  
+> **Branch de release (produto + UI v3):** `layout-v3` — ver [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md).  
+> **Go-live comercial** ainda exige gate § Estabilização + smoke completo — ver [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
 
 ---
 
@@ -13,7 +13,9 @@
 | Documento | Quando usar |
 |-----------|-------------|
 | **`ROADMAP-COMPLETUDE.md`** | **Agora** — fase atual, estabilização, QA, lacunas |
-| **`PREPARACAO-PRODUCAO.md`** (este) | **Depois do gate Fase 1** — servidor, deploy, env, segurança |
+| **`PREPARACAO-PRODUCAO.md`** (este) | Servidor, deploy, env, segurança |
+| **`COOLIFY-DEPLOY.md`** | Deploy Docker Compose no Coolify (branch `layout-v3`) |
+| **`PREPARACAO-PRODUCAO-EXECUCAO.md`** | Tracker vivo — checklist infra |
 | **`PRODUCTION.md`** | Go-live — atalho após staging |
 | `SISTEMA-REGISTRO.md` | Versão e changelog |
 | `TICKET-ATENDIMENTO.md`, `INBOX-ATENDIMENTO.md` | Comportamento do produto |
@@ -44,7 +46,11 @@ Checklist Cloud API, migração Baileys→Cloud e dev com ngrok: `INBOX-ATENDIME
 
 ## Gate — antes de qualquer deploy no servidor (Fase 3)
 
-**Pré-requisito:** [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Gate § Estabilização **concluído**.
+**Pré-requisito go-live comercial:** [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Gate § Estabilização (QA manual).
+
+**Prep infra em paralelo (2026-06-28):** inventário VPS, segurança, staging e smoke podem avançar via [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) **sem** substituir QA de atendimento.
+
+**Isolamento `layout-v3`:** branch alvo de produto + UI; Coolify e prep infra usam esta branch até merge em `main`.
 
 Só subir staging/prod quando **todos** estiverem ok:
 
@@ -117,12 +123,32 @@ Docker: volumes `radarzap-sessions`, `radarzap-media`, `mongodb-data`, `redis-da
 | Arquivo | Função |
 |---------|--------|
 | `docker/Dockerfile.monolith` | Build app + frontend |
-| `docker-compose.deploy.yml` | Stack: app + Mongo + Redis |
-| `scripts/deploy-remote.sh` | Pull imagem + compose + health |
-| `.github/workflows/deploy.yml` | GHCR + SSH (staging/production) |
+| `docker-compose.coolify.yml` | **Coolify** — build no servidor, magic env, proxy Coolify |
+| `docker-compose.deploy.yml` | Stack GHCR: imagem pré-buildada + Mongo + Redis |
+| `docker-compose.prod.yml` | Build local compose (sem Coolify/GHCR) |
+| `.env.coolify.example` | Variáveis para colar no painel Coolify |
+| `scripts/deploy-remote.sh` | Pull imagem GHCR + compose + health |
+| `.github/workflows/deploy.yml` | GHCR + SSH (legado `main`) |
 | `.github/workflows/ci.yml` | test + build + E2E |
+| **`docs/COOLIFY-DEPLOY.md`** | Passo a passo Coolify |
 
 **Dev local:** `npm run docker:infra` — **nunca** `auto-setup` em prod.
+
+---
+
+## Deploy — Coolify (recomendado para layout-v3)
+
+Stack oficial para **UI v3 + monolito** na branch `layout-v3`:
+
+1. Instalar Coolify no VPS ([`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md)).
+2. Resource **Docker Compose** → repo → branch **`layout-v3`** → arquivo **`docker-compose.coolify.yml`**.
+3. Domínio no serviço **`app`**, porta **3001**.
+4. Env: `.env.coolify.example` + magic vars (`SERVICE_URL_APP`, `SERVICE_PASSWORD_MONGODB`).
+5. Volumes `radarzap-sessions` / `mongodb-data` persistentes.
+
+Coolify gerencia SSL (Traefik/Caddy). **Não** expor `3001`/`27017`/`6379` na internet.
+
+Coexiste com deploy GHCR legado até migração completa — **não** duas instâncias no mesmo WA.
 
 ---
 

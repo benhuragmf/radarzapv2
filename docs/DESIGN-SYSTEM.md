@@ -61,6 +61,7 @@ Paleta de cores de **status WA** (produto): `lib/wa-status-colors.ts`.
 | `StatusBadge` | Badge semântico (success, warning, …) |
 | `SectionCard` | Bloco com título |
 | `DataTable` | Tabela simples |
+| `InlineNotice` | Mensagens informativas, aviso de segredo, alerta leve e contexto de uso sem criar card extra |
 
 Discord tenant: wrapper `DiscordPage`. Plataforma: `PlatformPage`.
 
@@ -90,6 +91,20 @@ Discord tenant: wrapper `DiscordPage`. Plataforma: `PlatformPage`.
 2. **Exceções intencionais:** SVG de marcas (Google, Discord), paleta WA em status, acentos por categoria (ex.: `KIND_META` em Templates).
 3. **Inbox chat:** manter layout fixo (`min-h-[70vh]`, painéis lista + conversa) — não converter para scroll de página.
 4. Novos tokens visíveis → adicionar em `index.css`, espelhar em `tokens.ts` se usados em JS, documentar aqui.
+
+---
+
+## Layout v3 Fase 4 — base compartilhada
+
+| Padrão | Uso |
+|--------|-----|
+| `InlineNotice` | Substitui textos soltos e cards pequenos de aviso em contextos de API/configuração. Tons: `info`, `success`, `warning`, `danger`, `neutral`. |
+| `EmptyState size="sm"` | Estados vazios dentro de cards, tabs e painéis compactos. Mantém `md` como padrão para telas/listas. |
+| `LoadingState label` | Nome acessível do carregamento por contexto, sem mudar skeleton visual. |
+| `ErrorState` | Mantém erro real visível, mas redige padrões comuns de segredo (`token`, `secret`, `X-API-Key`, `rz_*`, `sk_*`, `whsec_*`). |
+| `StatusBadge size="sm"` | Badges compactos em linhas de tabela/lista e cards densos. |
+| `SectionCard compact` | Blocos internos menores sem criar novo padrão de card. |
+| `DataTable ariaLabel` | Tabelas compartilhadas com nome acessível e overflow horizontal seguro. |
 
 ---
 

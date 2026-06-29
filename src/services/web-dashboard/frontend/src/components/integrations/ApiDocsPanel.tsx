@@ -1,17 +1,57 @@
 import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import type { ColumnDef } from '@tanstack/react-table'
 import { api } from '../../lib/api'
-import { Card } from '../ui/Card'
-import { LoadingState, ErrorState } from '@/design-system'
+import { DataTable, ErrorState, InlineNotice, LoadingState } from '@/design-system'
+
+interface ApiDocRow {
+  key: string
+  method: string
+  path: string
+  summary: string
+}
+
+const columns: ColumnDef<ApiDocRow, unknown>[] = [
+  {
+    accessorKey: 'path',
+    header: 'Endpoint',
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-brand-300">
+        <span className="mr-2 text-[var(--rz-text-muted)]">{row.original.method}</span>
+        {row.original.path}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'summary',
+    header: 'Descrição',
+    cell: ({ row }) => (
+      <span className="text-xs text-[var(--rz-text-secondary)]">{row.original.summary}</span>
+    ),
+  },
+]
 
 export function ApiDocsPanel() {
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['openapi-dashboard'],
     queryFn: () => api.get<Record<string, unknown>>('/integrations/openapi'),
   })
 
+  const rows = useMemo<ApiDocRow[]>(() => {
+    const paths = (data?.paths ?? {}) as Record<string, Record<string, { summary?: string }>>
+    return Object.entries(paths).flatMap(([path, methods]) =>
+      Object.entries(methods).map(([method, meta]) => ({
+        key: `${method}${path}`,
+        method: method.toUpperCase(),
+        path,
+        summary: meta.summary ?? '-',
+      })),
+    )
+  }, [data])
+
   if (isLoading) {
-    return <LoadingState rows={5} className="py-4" />
+    return <LoadingState rows={5} className="py-4" label="Carregando documentação da API" />
   }
 
   if (isError) {
@@ -19,61 +59,38 @@ export function ApiDocsPanel() {
       <ErrorState
         message={(error as Error).message}
         title="Não foi possível carregar a documentação"
+        onRetry={() => void refetch()}
       />
     )
   }
 
-  const paths = (data?.paths ?? {}) as Record<string, Record<string, { summary?: string }>>
-  const rows = Object.entries(paths).flatMap(([path, methods]) =>
-    Object.entries(methods).map(([method, meta]) => ({
-      key: `${method}${path}`,
-      method: method.toUpperCase(),
-      path,
-      summary: meta.summary ?? '—',
-    })),
-  )
-
   return (
     <div className="space-y-4">
-      <p className="text-xs text-[var(--rz-text-muted)] leading-relaxed">
-        REST em <code className="text-[var(--rz-text-muted)]">/api</code>. Integrações externas: header{' '}
-        <code className="text-[var(--rz-text-muted)]">X-API-Key</code>. No painel, a sessão usa cookie.
-      </p>
+      <InlineNotice tone="info" title="REST autenticado em /api">
+        Integrações externas usam <code className="text-[var(--rz-text-secondary)]">X-API-Key</code>. No
+        painel, a sessão continua usando cookie.
+      </InlineNotice>
 
-      <div className="overflow-x-auto rounded-lg border border-[var(--rz-border)]">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-[var(--rz-surface-muted)]/50">
-            <tr className="text-[var(--rz-text-muted)] border-b border-[var(--rz-border)]">
-              <th className="py-2.5 px-3 font-medium">Endpoint</th>
-              <th className="py-2.5 px-3 font-medium">Descrição</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(row => (
-              <tr key={row.key} className="border-b border-[var(--rz-border)]/60 last:border-0">
-                <td className="py-2 px-3 font-mono text-brand-300 whitespace-nowrap">
-                  <span className="text-[var(--rz-text-muted)] mr-2">{row.method}</span>
-                  {row.path}
-                </td>
-                <td className="py-2 px-3 text-[var(--rz-text-muted)]">{row.summary}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        ariaLabel="Endpoints da API RadarZap"
+        columns={columns}
+        data={rows}
+        tableOptions={{ getRowId: row => row.key }}
+        empty={{
+          title: 'Nenhum endpoint documentado',
+          description: 'A documentação aparecerá quando o contrato OpenAPI estiver disponível.',
+        }}
+      />
 
-      <Card className="text-xs text-[var(--rz-text-muted)] space-y-2 bg-[var(--rz-surface-muted)]/30">
-        <p className="text-[var(--rz-text-secondary)] font-medium">Exemplo de envio</p>
-        <pre className="bg-[var(--rz-surface-muted)] p-3 rounded-lg overflow-x-auto text-[var(--rz-text-secondary)] text-[11px] leading-relaxed">{`POST /api/integrations/playground
-X-API-Key: rz_…
+      <InlineNotice tone="neutral" title="Exemplo de envio">
+        <pre className="mb-2 overflow-x-auto rounded-lg bg-[var(--rz-surface-muted)] p-3 text-[11px] leading-relaxed text-[var(--rz-text-secondary)]">{`POST /api/integrations/playground
+X-API-Key: rz_...
 {"destination":"5511999999999","message":"Olá!"}`}</pre>
-        <p>
-          Destino precisa estar cadastrado.{' '}
-          <Link to="/integrations/playground" className="text-brand-400 hover:underline">
-            Abrir playground
-          </Link>
-        </p>
-      </Card>
+        Destino precisa estar cadastrado.{' '}
+        <Link to="/integrations/playground" className="text-[var(--rz-primary)] hover:underline">
+          Abrir playground
+        </Link>
+      </InlineNotice>
     </div>
   )
 }

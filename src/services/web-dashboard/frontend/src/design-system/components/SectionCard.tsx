@@ -14,6 +14,9 @@ interface SectionCardProps {
   loading?: boolean
   empty?: { title: string; description?: string; action?: ReactNode }
   error?: { title?: string; message: string; onRetry?: () => void }
+  compact?: boolean
+  headerClassName?: string
+  bodyClassName?: string
 }
 
 export function SectionCard({
@@ -25,6 +28,9 @@ export function SectionCard({
   loading,
   empty,
   error,
+  compact = false,
+  headerClassName,
+  bodyClassName,
 }: SectionCardProps) {
   let body: ReactNode = children
 
@@ -51,7 +57,13 @@ export function SectionCard({
   return (
     <section className={cn(themeClasses.card, 'overflow-hidden', className)}>
       {(title || description || actions) && (
-        <div className="flex flex-col gap-2 border-b border-[var(--rz-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className={cn(
+            'flex flex-col gap-2 border-b border-[var(--rz-border)] sm:flex-row sm:items-center sm:justify-between',
+            compact ? 'px-4 py-3' : 'px-5 py-4',
+            headerClassName,
+          )}
+        >
           <div className="min-w-0">
             {title ? (
               <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">{title}</h2>
@@ -63,7 +75,13 @@ export function SectionCard({
           {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
         </div>
       )}
-      <div className={cn(themeClasses.cardPadding, !title && !description && !actions && 'pt-5')}>
+      <div
+        className={cn(
+          compact ? 'p-4' : themeClasses.cardPadding,
+          !title && !description && !actions && (compact ? 'pt-4' : 'pt-5'),
+          bodyClassName,
+        )}
+      >
         {body}
       </div>
     </section>

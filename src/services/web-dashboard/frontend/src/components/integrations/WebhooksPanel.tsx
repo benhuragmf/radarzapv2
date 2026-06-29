@@ -4,9 +4,9 @@ import { api } from '../../lib/api'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
-import { Webhook, Plus, Trash2 } from 'lucide-react'
-import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
-import { inputCls, LoadingState, EmptyState } from '@/design-system'
+import { Plus, Trash2, Webhook } from 'lucide-react'
+import { mutationError } from '../../lib/notify'
+import { EmptyState, InlineNotice, LoadingState, StatusBadge, inputCls } from '@/design-system'
 
 const EVENTS = [
   'campaign.sent',
@@ -39,6 +39,12 @@ interface WebhookRow {
   lastDeliveryStatus?: number
 }
 
+function deliveryVariant(status?: number): 'success' | 'warning' | 'neutral' {
+  if (status == null) return 'neutral'
+  if (status >= 200 && status < 300) return 'success'
+  return 'warning'
+}
+
 export function WebhooksPanel() {
   const qc = useQueryClient()
   const [url, setUrl] = useState('')
@@ -66,20 +72,20 @@ export function WebhooksPanel() {
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/integrations/webhooks/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+    onError: mutationError,
   })
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-[var(--rz-text-muted)]">
-        POST JSON para sua URL com header <code className="text-[var(--rz-text-muted)]">X-RadarZap-Signature</code>{' '}
-        (HMAC com o secret abaixo).
-      </p>
+      <InlineNotice tone="info" title="Entrega assinada por HMAC">
+        O RadarZap envia POST JSON para a sua URL com o header{' '}
+        <code className="text-[var(--rz-text-secondary)]">X-RadarZap-Signature</code>.
+      </InlineNotice>
 
       {newSecret && (
-        <Card className="border-amber-800/40 bg-amber-950/20 space-y-1">
-          <p className="text-sm text-amber-200">Secret do webhook (guarde com segurança)</p>
-          <code className="text-xs break-all text-[var(--rz-text-secondary)]">{newSecret}</code>
-        </Card>
+        <InlineNotice tone="warning" title="Secret do webhook. Guarde com segurança.">
+          <code className="block text-xs text-[var(--rz-text-secondary)] break-all">{newSecret}</code>
+        </InlineNotice>
       )}
 
       <div className="flex flex-wrap gap-2">
@@ -87,7 +93,7 @@ export function WebhooksPanel() {
           value={url}
           onChange={e => setUrl(e.target.value)}
           placeholder="https://seu-sistema.com/webhooks/radarzap"
-          className={`${inputCls} flex-1 min-w-[240px]`}
+          className={`${inputCls} min-w-[240px] flex-1`}
         />
         <Button size="sm" onClick={() => create.mutate()} disabled={create.isPending || !url.trim()}>
           {create.isPending ? <Spinner size={14} /> : <Plus size={14} />}
@@ -95,49 +101,61 @@ export function WebhooksPanel() {
         </Button>
       </div>
 
-      <p className="text-[11px] text-[var(--rz-text-muted)]">Eventos disponíveis: {EVENTS.join(', ')}</p>
+      <p className="text-[11px] leading-relaxed text-[var(--rz-text-muted)]">
+        Eventos disponíveis: {EVENTS.join(', ')}
+      </p>
 
       {isLoading ? (
-        <LoadingState rows={3} className="py-2" />
+        <LoadingState rows={3} className="py-2" label="Carregando webhooks" />
       ) : hooks.length === 0 ? (
-        <EmptyState title="Nenhum webhook" description="Adicione uma URL HTTPS para receber eventos da plataforma." />
+        <EmptyState
+          title="Nenhum webhook"
+          description="Adicione uma URL HTTPS para receber eventos da plataforma com assinatura."
+          size="sm"
+        />
       ) : (
         <div className="space-y-2">
-          {hooks.map(h => (
-            <Card key={h._id} className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm text-[var(--rz-text-primary)] flex items-center gap-2 truncate">
-                  <Webhook size={14} className="text-brand-500 shrink-0" />
-                  <span className="truncate">{h.url}</span>
-                </p>
-                <p className="text-xs text-[var(--rz-text-muted)] mt-1">{h.events.join(', ')}</p>
-                {h.lastDeliveryAt && (
-                  <p className="text-[10px] text-[var(--rz-text-muted)] mt-1">
-                    Última entrega: {new Date(h.lastDeliveryAt).toLocaleString('pt-BR')}
-                    {h.lastDeliveryStatus != null && (
-                      <span
-                        className={
-                          h.lastDeliveryStatus >= 200 && h.lastDeliveryStatus < 300
-                            ? ' text-brand-400'
-                            : ' text-red-400/80'
-                        }
-                      >
-                        {' '}
-                        · HTTP {h.lastDeliveryStatus}
-                      </span>
-                    )}
+          {hooks.map(h => {
+            const statusLabel =
+              h.lastDeliveryStatus == null ? 'Sem entrega' : `HTTP ${h.lastDeliveryStatus}`
+
+            return (
+              <Card key={h._id} className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-sm text-[var(--rz-text-primary)]">
+                    <Webhook size={14} className="shrink-0 text-brand-500" />
+                    <span className="truncate">{h.url}</span>
+                    <StatusBadge
+                      status={h.active ? 'success' : 'neutral'}
+                      text={h.active ? 'Ativo' : 'Inativo'}
+                      size="sm"
+                    />
                   </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => window.confirm('Remover webhook?') && remove.mutate(h._id)}
-                className="p-2 text-[var(--rz-text-muted)] hover:text-red-400 shrink-0"
-              >
-                <Trash2 size={16} />
-              </button>
-            </Card>
-          ))}
+                  <p className="mt-1 text-xs text-[var(--rz-text-muted)]">{h.events.join(', ')}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-[var(--rz-text-muted)]">
+                    <StatusBadge
+                      status={deliveryVariant(h.lastDeliveryStatus)}
+                      text={statusLabel}
+                      size="sm"
+                      title="Status da última entrega"
+                    />
+                    {h.lastDeliveryAt ? (
+                      <span>Última entrega: {new Date(h.lastDeliveryAt).toLocaleString('pt-BR')}</span>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.confirm('Remover webhook?') && remove.mutate(h._id)}
+                  className="shrink-0 p-2 text-[var(--rz-text-muted)] hover:text-red-400"
+                  title="Remover webhook"
+                  aria-label={`Remover webhook ${h.url}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

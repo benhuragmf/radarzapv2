@@ -1,0 +1,70 @@
+# RadarZap v2 — stack para Coolify (Docker Compose build pack)
+# Branch alvo: layout-v3 (UI v3 + produto 2.12.x)
+#
+# No Coolify: Resource → Docker Compose → repositório Git →
+#   Compose file: docker-compose.coolify.yml
+#   Branch: layout-v3 (ou main após merge)
+#   Domínio: atribuir ao serviço `app` · porta interna 3001
+#
+# Não publicar ports no `app` — o proxy Coolify (Traefik/Caddy) roteia HTTPS.
+# Mongo/Redis ficam só na rede interna do compose.
+#
+# Magic env (Coolify v4+): https://coolify.io/docs/knowledge-base/docker/compose
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.monolith
+    expose:
+      - '3001'
+    environment:
+      NODE_ENV: production
+      MONGODB_URL: mongodb://admin:${SERVICE_PASSWORD_MONGODB}@mongodb:27017/discord-whatsapp?authSource=admin
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: ${SERVICE_URL_APP}
+      CORS_ORIGIN: ${SERVICE_URL_APP}
+      COOKIE_SECURE: 'true'
+      LOG_FORMAT: json
+      WHATSAPP_HEADLESS: 'true'
+    env_file:
+      - .env
+    volumes:
+      - radarzap-sessions:/app/sessions
+      - radarzap-media:/app/media
+      - radarzap-logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3001/api/services/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MONGODB}
+    volumes:
+      - mongodb-data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  mongodb-data:
+  redis-data:
+  radarzap-sessions:
+  radarzap-media:
+  radarzap-logs:

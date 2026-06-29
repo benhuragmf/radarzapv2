@@ -7,6 +7,9 @@ export interface StatusBadgeProps {
   text: string
   icon?: LucideIcon
   className?: string
+  title?: string
+  ariaLabel?: string
+  size?: 'sm' | 'md'
 }
 
 const statusClass: Record<StatusVariant, string> = {
@@ -18,17 +21,28 @@ const statusClass: Record<StatusVariant, string> = {
   premium: 'bg-[var(--rz-premium-bg)] text-[var(--rz-premium-text)] border-[var(--rz-premium-text)]/20',
 }
 
-export function StatusBadge({ status, text, icon: Icon, className }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  text,
+  icon: Icon,
+  className,
+  title,
+  ariaLabel,
+  size = 'md',
+}: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
+        'inline-flex max-w-full items-center gap-1 rounded-md border font-medium',
+        size === 'sm' ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-xs',
         statusClass[status],
         className,
       )}
+      title={title}
+      aria-label={ariaLabel}
     >
       {Icon ? <Icon className="size-3 shrink-0" aria-hidden /> : null}
-      {text}
+      <span className="truncate">{text}</span>
     </span>
   )
 }

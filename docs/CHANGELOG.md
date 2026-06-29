@@ -6,6 +6,21 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.70] — 2026-06-28
+
+### Feat — Layout v3 (Fases 2–4) + deploy Coolify
+
+**Layout v3 (painel):**
+- Fase 2: reorganização menu/navegação (`navConfig`, docs `RADARZAP-LAYOUT-V3-06`).
+- Fase 3: header operacional (pills, status, notificações — `RADARZAP-LAYOUT-V3-07`).
+- Fase 4: design system — `InlineNotice`, refinamentos `EmptyState`/`LoadingState`/`ErrorState`/`SectionCard`/`StatusBadge`/`DataTable`; integrações API (`ApiKeys`, `Webhooks`, `ApiDocs`, `RateLimit`).
+
+**Infra:**
+- `docker-compose.coolify.yml`, `.env.coolify.example`, `docs/COOLIFY-DEPLOY.md`.
+- Tracker `PREPARACAO-PRODUCAO-EXECUCAO.md`; regra agentes `layout-v3-codex-isolation.mdc`.
+
+---
+
 ## [2.12.69] — 2026-06-28
 
 ### Feat — Inatividade automática: mensagens editáveis + gate manual separado

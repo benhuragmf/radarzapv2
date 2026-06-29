@@ -48,12 +48,14 @@ export default function OrganizationSwitcher({ user, onOrganizationChange }: Pro
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 border border-[var(--rz-border)] rounded-lg px-3 py-1.5 text-sm text-[var(--rz-text-secondary)] hover:bg-[var(--rz-surface-muted)] transition-colors max-w-[220px]"
-        title="Trocar empresa"
+        className="flex h-8 items-center gap-2 border border-[var(--rz-border)] rounded-lg px-2 sm:px-3 text-sm text-[var(--rz-text-secondary)] hover:bg-[var(--rz-surface-muted)] transition-colors max-w-[2.25rem] sm:max-w-[180px] lg:max-w-[220px] overflow-hidden"
+        title={`Empresa atual: ${current.organizationName}. Trocar empresa.`}
+        aria-label={`Empresa atual: ${current.organizationName}. Trocar empresa.`}
+        aria-expanded={open}
       >
         <Building2 size={14} className="text-brand-400 shrink-0" />
-        <span className="truncate">{current.organizationName}</span>
-        <ChevronDown size={14} className="text-[var(--rz-text-muted)] shrink-0" />
+        <span className="hidden sm:block truncate">{current.organizationName}</span>
+        <ChevronDown size={14} className="hidden sm:block text-[var(--rz-text-muted)] shrink-0" />
       </button>
 
       {open && (

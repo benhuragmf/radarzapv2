@@ -26,8 +26,8 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
   }
 
   return (
-    <header className="h-14 bg-[var(--rz-surface)] border-b border-[var(--rz-border)] flex items-center justify-between px-4 sm:px-6 gap-3">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
+    <header className="h-14 bg-[var(--rz-surface)] border-b border-[var(--rz-border)] flex items-center justify-between px-3 sm:px-4 lg:px-6 gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         {onMenuClick && (
           <button
             type="button"
@@ -38,23 +38,24 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
             <Menu size={20} />
           </button>
         )}
-        <h1 className="font-semibold text-base truncate text-[var(--rz-text-primary)] shrink-0 max-w-[40vw] sm:max-w-none">
+        <h1 className="font-semibold text-base truncate text-[var(--rz-text-primary)] min-w-0">
           {title}
         </h1>
-        <HeaderStatusPills user={user} />
       </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
+      <div className="flex items-center justify-end gap-1.5 sm:gap-2 lg:gap-3 min-w-0 shrink-0">
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
 
         <EventNotificationBell />
 
         <AgentStatusSelector user={user} />
 
+        <HeaderStatusPills user={user} className="hidden lg:flex" />
+
         <button
           type="button"
           onClick={toggleTheme}
-          className="text-[var(--rz-text-muted)] hover:text-[var(--rz-primary)] transition-colors p-1.5 rounded-lg hover:bg-[var(--rz-surface-muted)]"
+          className="w-8 h-8 flex items-center justify-center text-[var(--rz-text-muted)] hover:text-[var(--rz-primary)] transition-colors rounded-lg hover:bg-[var(--rz-surface-muted)] shrink-0"
           title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
           aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
         >
@@ -64,7 +65,7 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
         {/* User info */}
         <Link
           to="/settings#perfil"
-          className="flex items-center gap-2 rounded-lg hover:bg-[var(--rz-surface-muted)] px-1.5 py-1 transition-colors"
+          className="flex items-center gap-2 rounded-lg hover:bg-[var(--rz-surface-muted)] px-1.5 py-1 transition-colors shrink-0"
           title="Meu perfil"
           aria-label="Meu perfil"
         >
@@ -76,13 +77,17 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
               {user.username[0].toUpperCase()}
             </div>
           )}
-          <span className="text-sm text-[var(--rz-text-secondary)] hidden sm:block">{user.username}</span>
+          <span className="text-sm text-[var(--rz-text-secondary)] hidden sm:block truncate max-w-[120px] lg:max-w-[160px]">
+            {user.username}
+          </span>
         </Link>
 
         <button
+          type="button"
           onClick={handleLogout}
-          className="text-[var(--rz-text-muted)] hover:text-[var(--rz-danger-text)] transition-colors p-1.5 rounded-lg hover:bg-[var(--rz-surface-muted)]"
+          className="w-8 h-8 flex items-center justify-center text-[var(--rz-text-muted)] hover:text-[var(--rz-danger-text)] transition-colors rounded-lg hover:bg-[var(--rz-surface-muted)] shrink-0"
           title="Sair"
+          aria-label="Sair"
         >
           <LogOut size={16} />
         </button>

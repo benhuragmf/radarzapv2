@@ -30,6 +30,8 @@ export interface DataTableProps<TData> {
   /** Rodapé opcional — paginação, totais, etc. */
   footer?: React.ReactNode
   className?: string
+  ariaLabel?: string
+  tableClassName?: string
   tableOptions?: Partial<Omit<TableOptions<TData>, 'data' | 'columns' | 'getCoreRowModel'>>
 }
 
@@ -43,6 +45,8 @@ export function DataTable<TData>({
   toolbar,
   footer,
   className,
+  ariaLabel,
+  tableClassName,
   tableOptions,
 }: DataTableProps<TData>) {
   const table = useReactTable({
@@ -72,7 +76,7 @@ export function DataTable<TData>({
             />
           </div>
         ) : (
-          <Table>
+          <Table aria-label={ariaLabel} className={cn('min-w-full', tableClassName)}>
             <TableHeader>
               {table.getHeaderGroups().map(hg => (
                 <TableRow key={hg.id}>

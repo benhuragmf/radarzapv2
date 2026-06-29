@@ -69,13 +69,14 @@ export function AgentStatusSelector({ user }: Props) {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-secondary)] max-w-[220px]"
-        title={presence.statusLabel}
+        className="flex h-8 items-center gap-1.5 text-xs rounded-lg px-2 border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-secondary)] max-w-[2.25rem] sm:max-w-[180px] lg:max-w-[220px] overflow-hidden"
+        title={`Status operacional: ${presence.statusLabel}`}
+        aria-label={`Status operacional: ${presence.statusLabel}`}
         aria-expanded={open}
       >
         <Circle size={10} className={`fill-current ${dotClass}`} />
-        <span className="truncate hidden sm:inline">{presence.statusLabel}</span>
-        <ChevronDown size={12} className="shrink-0 opacity-60" />
+        <span className="truncate hidden md:inline">{presence.statusLabel}</span>
+        <ChevronDown size={12} className="hidden sm:block shrink-0 opacity-60" />
       </button>
 
       {open && (

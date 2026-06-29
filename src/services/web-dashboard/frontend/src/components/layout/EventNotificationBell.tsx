@@ -24,7 +24,9 @@ export default function EventNotificationBell() {
             ? 'border-red-500/50 hover:bg-red-950/30 text-red-300'
             : 'border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-secondary)]'
         }`}
-        title="Eventos"
+        title={unreadCount > 0 ? `Eventos: ${unreadCount} não lidos` : 'Eventos'}
+        aria-label={unreadCount > 0 ? `Eventos: ${unreadCount} não lidos` : 'Eventos'}
+        aria-expanded={open}
       >
         <Bell size={15} />
         {unreadCount > 0 && (

@@ -36,9 +36,10 @@ function formatCredits(n: number): string {
 
 interface Props {
   user: AuthUser
+  className?: string
 }
 
-export function HeaderStatusPills({ user }: Props) {
+export function HeaderStatusPills({ user, className }: Props) {
   const showWhatsApp = can(user, 'inbox:view')
   const showAiBalance = can(user, 'inbox:ai:balance:view')
   const canManageWa = can(user, 'whatsapp:session:view')
@@ -76,6 +77,14 @@ export function HeaderStatusPills({ user }: Props) {
       : 'text-[var(--rz-text-secondary)] border-[var(--rz-border)] bg-[var(--rz-surface-muted)]'
 
   const waHref = canManageWa ? '/sessions' : '/platform/inbox'
+  const waActionLabel = canManageWa ? 'Abrir conexão WhatsApp' : 'Abrir atendimentos'
+  const waTitle = connected
+    ? `WhatsApp conectado: ${waLabel}. ${waActionLabel}.`
+    : waStatus?.status === 'qr-required'
+      ? `WhatsApp com QR pendente. ${waActionLabel}.`
+      : waStatus?.status === 'connecting'
+        ? `WhatsApp conectando. ${waActionLabel}.`
+        : `WhatsApp desconectado. ${waActionLabel}.`
 
   const wallet = aiBalance?.wallet
   const llm = aiBalance?.llm
@@ -87,14 +96,24 @@ export function HeaderStatusPills({ user }: Props) {
     llm && llm.monthlyLimit > 0 && llm.monthlyUsed >= llm.monthlyLimit * 0.9
 
   const pillBase =
-    'flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs transition-colors hover:opacity-90 shrink-0'
+    'inline-flex h-8 items-center gap-1.5 border rounded-lg px-2.5 text-xs transition-colors hover:opacity-90 shrink-0'
+  const containerClassName = className
+    ? `items-center gap-1.5 min-w-0 overflow-x-auto scrollbar-thin ${className}`
+    : 'flex items-center gap-1.5 min-w-0 overflow-x-auto scrollbar-thin'
+  const iaTitle = wallet
+    ? `${wallet.depleted ? 'Créditos IA esgotados' : iaHigh ? 'Créditos IA em atenção' : 'Créditos IA disponíveis'}: ${formatCredits(wallet.usedThisMonth)} usados de ${formatCredits(wallet.totalAllowance)}. Saldo ${formatCredits(wallet.balance)}.`
+    : 'Créditos IA'
+  const lmTitle = llm
+    ? `${llmHigh ? 'Chamadas LM em atenção' : 'Chamadas LM disponíveis'}: ${llm.monthlyUsed} usadas de ${llm.monthlyLimit} no mês. Hoje ${llm.dailyUsed}/${llm.dailyLimit}.`
+    : 'Chamadas LM'
 
   return (
-    <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scrollbar-thin">
+    <div className={containerClassName}>
       {showWhatsApp && waStatus && (
-        <Link to={waHref} className={`${pillBase} ${waColor}`} title="Status WhatsApp da empresa">
+        <Link to={waHref} className={`${pillBase} ${waColor}`} title={waTitle} aria-label={waTitle}>
           <Smartphone size={13} className="shrink-0" />
-          <span className="truncate max-w-[100px] sm:max-w-[140px] lg:max-w-[180px]">{waLabel}</span>
+          <span className="hidden xl:inline truncate max-w-[180px]">{waLabel}</span>
+          <span className="xl:hidden font-medium">WA</span>
           <span
             className={`w-1.5 h-1.5 rounded-full shrink-0 ${connected ? 'bg-brand-500' : 'bg-[var(--rz-text-muted)]'}`}
           />
@@ -111,12 +130,14 @@ export function HeaderStatusPills({ user }: Props) {
                 ? 'text-amber-300 border-amber-500/40 bg-amber-500/10'
                 : 'text-violet-300 border-violet-500/40 bg-violet-500/10'
           }`}
-          title={`Créditos IA: ${formatCredits(wallet.usedThisMonth)} usados de ${formatCredits(wallet.totalAllowance)} · Saldo ${formatCredits(wallet.balance)}`}
+          title={iaTitle}
+          aria-label={iaTitle}
         >
           <Sparkles size={13} className="shrink-0" />
-          <span className="font-medium tabular-nums">
+          <span className="hidden xl:inline font-medium tabular-nums">
             IA {formatCredits(wallet.usedThisMonth)}/{formatCredits(wallet.totalAllowance)}
           </span>
+          <span className="xl:hidden font-medium">IA</span>
         </Link>
       )}
 
@@ -128,12 +149,14 @@ export function HeaderStatusPills({ user }: Props) {
               ? 'text-amber-300 border-amber-500/40 bg-amber-500/10'
               : 'text-blue-300 border-blue-500/40 bg-blue-500/10'
           }`}
-          title={`Chamadas LM no mês: ${llm.monthlyUsed} usadas de ${llm.monthlyLimit} · Hoje: ${llm.dailyUsed}/${llm.dailyLimit}`}
+          title={lmTitle}
+          aria-label={lmTitle}
         >
           <Cpu size={13} className="shrink-0" />
-          <span className="font-medium tabular-nums">
+          <span className="hidden xl:inline font-medium tabular-nums">
             LM {llm.monthlyUsed}/{llm.monthlyLimit}
           </span>
+          <span className="xl:hidden font-medium">LM</span>
         </Link>
       )}
     </div>

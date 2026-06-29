@@ -7,7 +7,7 @@
 |------|-----------|--------|
 | **1 — Agora** | Este arquivo + [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) | QA manual + parar regressões |
 | 2 — Produto | § Lacunas produto abaixo | Cloud API, compliance avançado |
-| 3 — Servidor | `PREPARACAO-PRODUCAO.md` | **Só após gate § Estabilização** |
+| 3 — Servidor | `PREPARACAO-PRODUCAO.md` · [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) · [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) | **Coolify + branch `layout-v3`** em paralelo ao QA |
 | 4 — Go-live | `PRODUCTION.md` | Staging validado + gate §0 |
 
 ---
@@ -156,7 +156,7 @@ Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 
 1. **Trabalho diário / bugs / QA** → este arquivo + docs de módulo (`INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`) + [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) para detalhe técnico recente
 2. Feature nova → `SISTEMA-REGISTRO.md` + semver `package.json`
-3. **Servidor / VPS / deploy** → `PREPARACAO-PRODUCAO.md` — **consulta antecipada ok; execução só após gate § Estabilização**
+3. **Servidor / VPS / deploy** → `PREPARACAO-PRODUCAO.md` + **tracker** [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) — prep infra **em paralelo** ao QA; go-live após gate § Estabilização
 4. **Go-live** → `PRODUCTION.md` — **após** staging + gate §0
 
 ---
