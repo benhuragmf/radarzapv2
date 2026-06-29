@@ -1034,7 +1034,16 @@ deploy_service_direct() {
     return 1
   fi
   (cd "$dir" && sudo docker compose --env-file .env \
-    -f docker-compose.yaml -p "${SERVICE_UUID}" up -d --force-recreate --remove-orphans) || return 1
+    -f docker-compose.yaml -p "${SERVICE_UUID}" pull app) 2>/dev/null || true
+  if sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qF "${SERVICE_UUID}-mongodb-1"; then
+    log "Recriando somente serviço app (mongo/redis preservados)..."
+    (cd "$dir" && sudo docker compose --env-file .env \
+      -f docker-compose.yaml -p "${SERVICE_UUID}" up -d --no-deps --force-recreate app) || return 1
+  else
+    log "Primeiro deploy — subindo stack completa..."
+    (cd "$dir" && sudo docker compose --env-file .env \
+      -f docker-compose.yaml -p "${SERVICE_UUID}" up -d --force-recreate --remove-orphans) || return 1
+  fi
   docker exec coolify php artisan tinker --execute="
 \$s = \\App\\Models\\Service::where('uuid', '${SERVICE_UUID}')->first();
 if (\$s) { \$s->status = 'running'; \$s->save(); echo 'running'; }
