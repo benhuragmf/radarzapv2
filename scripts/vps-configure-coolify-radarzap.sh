@@ -90,7 +90,32 @@ echo 'ok';
   fi
 }
 
+fix_coolify_user_ids() {
+  local email uid
+  email="$(psql_exec "SELECT email FROM users WHERE email IS NOT NULL AND email <> '' ORDER BY created_at DESC NULLS LAST LIMIT 1;")"
+  uid="$(psql_exec "SELECT id FROM users WHERE email IS NOT NULL AND email <> '' ORDER BY created_at DESC NULLS LAST LIMIT 1;")"
+  log "Coolify user: id=${uid:-?} email=${email:-ausente}"
+  if [[ -z "$email" ]]; then
+    log "ERRO: crie a conta em http://$(curl -4 -s ifconfig.me 2>/dev/null || echo 151.247.210.180):8000/register"
+    exit 1
+  fi
+  if [[ "${uid:-0}" == "0" ]]; then
+    log "Corrigindo user id=0 no PostgreSQL..."
+    docker exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=1 -c "
+      SELECT setval(pg_get_serial_sequence('users','id'), GREATEST(1, COALESCE((SELECT MAX(id) FROM users WHERE id > 0), 0)));
+      UPDATE users SET id = nextval(pg_get_serial_sequence('users','id'))
+        WHERE (id IS NULL OR id = 0) AND email IS NOT NULL AND email <> '';
+    " || {
+      log "ERRO: não foi possível corrigir id do usuário. Recrie a conta no painel :8000"
+      exit 1
+    }
+    uid="$(psql_exec "SELECT id FROM users WHERE email = '${email}' LIMIT 1;")"
+    log "User id corrigido para ${uid}"
+  fi
+}
+
 ensure_team() {
+  fix_coolify_user_ids
   log "Garantindo team vinculado ao usuário..."
   local out
   out="$(docker exec coolify php artisan tinker --execute='
