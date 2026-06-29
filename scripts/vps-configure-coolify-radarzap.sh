@@ -1003,18 +1003,16 @@ deploy_service_direct() {
     log "Adicionando bind :3001 no serviço app..."
     add_host_port_to_compose "$merged"
   fi
-  if ! docker compose -f "$merged" config >/dev/null 2>&1; then
-    log "ERRO: compose inválido após patch :3001"
-    docker compose -f "$merged" config 2>&1 | tail -8 >&2 || true
-    rm -f "$merged"
-    return 1
-  fi
-  sudo cp "$merged" "${dir}/docker-compose.yaml"
-  rm -f "$merged"
   env_tmp="$(mktemp)"
   write_service_env_file "$env_tmp"
+  sudo cp "$merged" "${dir}/docker-compose.yaml"
   sudo cp "$env_tmp" "${dir}/.env"
-  rm -f "$env_tmp"
+  rm -f "$merged" "$env_tmp"
+  if ! (cd "$dir" && sudo docker compose --env-file .env -f docker-compose.yaml config >/dev/null 2>&1); then
+    log "ERRO: compose inválido em ${dir}"
+    (cd "$dir" && sudo docker compose --env-file .env -f docker-compose.yaml config 2>&1 | tail -8 >&2) || true
+    return 1
+  fi
   (cd "$dir" && sudo docker compose --env-file .env \
     -f docker-compose.yaml -p "${SERVICE_UUID}" up -d --force-recreate --remove-orphans) || return 1
   docker exec coolify php artisan tinker --execute="
