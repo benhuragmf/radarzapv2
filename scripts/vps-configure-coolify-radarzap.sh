@@ -209,14 +209,16 @@ echo "ok";
 $uid = (int) \DB::table("users")->where("id", ">", 0)->whereNotNull("email")->orderBy("id")->value("id");
 $tid = (int) \DB::table("teams")->where("id", ">", 0)->orderBy("id")->value("id");
 $user = \App\Models\User::find($uid);
-$team = \App\Models\Team::find($tid);
-if (!$user || !$team || $uid < 1 || $tid < 1) { echo "ERROR:no-user-team"; exit(1); }
+if (!$user || $uid < 1 || $tid < 1) { echo "ERROR:no-user-team"; exit(1); }
 $user->tokens()->where("name", "radarzap-automation")->delete();
-$access = $user->createToken("radarzap-automation", ["*"]);
-if ($access->accessToken) {
-  $access->accessToken->forceFill(["team_id" => $tid])->save();
-}
-echo "TOKEN|" . $access->plainTextToken;
+$plain = \Illuminate\Support\Str::random(64);
+$pat = $user->tokens()->create([
+  "name" => "radarzap-automation",
+  "token" => hash("sha256", $plain),
+  "abilities" => ["*"],
+  "team_id" => $tid,
+]);
+echo "TOKEN|" . $pat->id . "|" . $plain;
 ' 2>&1)" || true
   API_TOKEN="$(echo "$out" | grep -oE 'TOKEN\|[0-9]+\|[^[:space:]]+' | tail -1 | cut -d'|' -f2- || true)"
   if [[ -z "$API_TOKEN" ]]; then
