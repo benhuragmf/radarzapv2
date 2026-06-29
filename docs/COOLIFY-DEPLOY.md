@@ -1,10 +1,20 @@
 # RadarZap v2 — deploy com Coolify
 
-> **Branch de release:** `layout-v3` (UI v3 + produto `2.12.x`)  
-> **Compose:** [`docker-compose.coolify.yml`](../docker-compose.coolify.yml) · **Env:** [`.env.coolify.example`](../.env.coolify.example)  
+> **Branch de release:** `layout-v3` (UI v3 + produto `2.12.x`) — **é a branch do servidor**  
+> **Compose:** [`docker-compose.coolify-ghcr.yml`](../docker-compose.coolify-ghcr.yml) (GHCR, produção hoje) · [`docker-compose.coolify.yml`](../docker-compose.coolify.yml) (build no Coolify) · **Env:** [`.env.coolify.example`](../.env.coolify.example)  
 > **Tracker:** [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md)
 
 Coolify substitui (ou complementa) o fluxo **GHCR + SSH** ([`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) § Deploy CI). SSL, domínio e rede ficam no proxy Coolify (Traefik/Caddy).
+
+### Sincronizar `main` → `layout-v3` (infra)
+
+Commits de infra (`fix(infra):`, workflows VPS, scripts Coolify/SSL) entram primeiro em `main`. **Sempre** em seguida:
+
+```bash
+git checkout layout-v3 && git merge main && git push origin layout-v3
+```
+
+O VPS e o resource Coolify devem refletir `layout-v3`, não apenas `main`. Layout (Codex) e infra (Auto) convivem na mesma branch — ver isolamento em `.cursor/rules/layout-v3-codex-isolation.mdc`.
 
 ---
 
