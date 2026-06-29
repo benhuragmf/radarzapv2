@@ -1,0 +1,32 @@
+name: Coolify panel HTTPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  panel-https:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Coolify panel HTTPS via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_PATH
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            for attempt in 1 2 3 4 5; do
+              if git fetch origin +refs/heads/layout-v3:refs/remotes/origin/layout-v3 -q 2>/dev/null; then
+                git reset --hard origin/layout-v3 -q
+                break
+              fi
+              sleep 2
+            done
+            sudo bash scripts/vps-coolify-panel-https.sh

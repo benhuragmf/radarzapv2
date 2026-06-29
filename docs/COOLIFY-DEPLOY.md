@@ -29,6 +29,16 @@ O VPS e o resource Coolify devem refletir `layout-v3`, não apenas `main`. Layou
 
 Durante migração: desligar deploy automático `main` no VPS antigo **ou** usar Coolify em servidor novo.
 
+### Painel Coolify (porta 8000)
+
+| URL | Uso |
+|-----|-----|
+| `http://151.247.210.180:8000` | Setup inicial — **HTTP sem SSL** (navegador mostra “Não seguro”) |
+| `https://coolify-151-247-210-180.sslip.io` | Painel com HTTPS (após `scripts/vps-coolify-panel-https.sh` ou Settings → Instance Domain) |
+| `https://151-247-210-180.sslip.io` | **RadarZap** (app), não o painel Coolify |
+
+No Coolify: **Settings → Instance Settings → Instance's Domain** = `https://coolify-151-247-210-180.sslip.io` → Save. Workflow: **Coolify panel HTTPS**.
+
 ---
 
 ## Pré-requisitos
