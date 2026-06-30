@@ -49,9 +49,9 @@ if command -v setfacl >/dev/null 2>&1; then
   sudo setfacl -R -d -m "u:${COOLIFY_SSH_USER}:rwx" /data/coolify/services 2>/dev/null || true
 fi
 
-if [[ ! -f "${COOLIFY_SERVICE_DIR}/docker-compose.yaml" && -f /opt/radarzap/docker-compose.coolify-ghcr.yml ]]; then
+if [[ ! -f "${COOLIFY_SERVICE_DIR}/docker-compose.yaml" && -f /opt/radarchat/docker-compose.coolify-ghcr.yml ]]; then
   log "Compose ausente — copiando template GHCR"
-  sudo cp /opt/radarzap/docker-compose.coolify-ghcr.yml "${COOLIFY_SERVICE_DIR}/docker-compose.yaml"
+  sudo cp /opt/radarchat/docker-compose.coolify-ghcr.yml "${COOLIFY_SERVICE_DIR}/docker-compose.yaml"
 fi
 
 # Travessia como ubuntu (mesmo teste do painel ao abrir Settings)

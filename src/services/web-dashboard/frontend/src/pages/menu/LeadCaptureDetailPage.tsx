@@ -11,8 +11,8 @@ import { LeadStatusReasonModal } from '../../components/leads/LeadStatusReasonMo
 import { notifySuccess, mutationError } from '../../lib/notify'
 import { EmptyState, LoadingState } from '@/design-system'
 import { LEAD_STATUS_DISPLAY } from '../../lib/leadUi'
-import type { LeadCaptureListItem, LeadCaptureStatus, LeadTemperature } from '@radarzap-types/lead-form'
-import { LEAD_TEMPERATURE_LABEL } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem, LeadCaptureStatus, LeadTemperature } from '@radarchat-types/lead-form'
+import { LEAD_TEMPERATURE_LABEL } from '@radarchat-types/lead-form'
 
 export default function LeadCaptureDetailPage() {
   const { captureId = '' } = useParams<{ captureId: string }>()

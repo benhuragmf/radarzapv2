@@ -146,7 +146,7 @@ export class AiConversationService {
     }
 
     const pendingCredits =
-      settings.mode === 'radarzap'
+      settings.mode === 'radarchat'
         ? aiCreditsFromActualCost(estimateTypicalTurnCostUsd(settings.llmModel))
         : 0;
     const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(

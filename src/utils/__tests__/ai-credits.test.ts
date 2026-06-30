@@ -5,14 +5,14 @@ import {
   aiCreditsFromActualCost,
   aiModuleCreditEstimate,
   inferCreditsFromRow,
-  isRadarzapPlatformProvider,
+  isRadarchatPlatformProvider,
 } from '@/types/ai-credits';
 
 describe('ai-credits', () => {
-  it('identifica provedores RadarZap', () => {
-    expect(isRadarzapPlatformProvider('radarzap')).toBe(true);
-    expect(isRadarzapPlatformProvider('radarzap-basic-triage')).toBe(true);
-    expect(isRadarzapPlatformProvider('openai')).toBe(false);
+  it('identifica provedores Radar Chat', () => {
+    expect(isRadarchatPlatformProvider('radarchat')).toBe(true);
+    expect(isRadarchatPlatformProvider('radarchat-basic-triage')).toBe(true);
+    expect(isRadarchatPlatformProvider('openai')).toBe(false);
   });
 
   it('estimativa 1x básica e 2x premium é só projeção de módulo', () => {
@@ -26,11 +26,11 @@ describe('ai-credits', () => {
     const cost = AI_CREDIT_USD_UNIT * 2.5;
     expect(aiCreditsFromActualCost(cost)).toBe(2.5);
     expect(
-      aiCreditsDebitForCall({ provider: 'radarzap', estimatedCostUsd: cost }),
+      aiCreditsDebitForCall({ provider: 'radarchat', estimatedCostUsd: cost }),
     ).toBe(2.5);
   });
 
-  it('chave própria da empresa não consome créditos RadarZap', () => {
+  it('chave própria da empresa não consome créditos Radar Chat', () => {
     expect(
       aiCreditsDebitForCall({ provider: 'openai', estimatedCostUsd: 0.05 }),
     ).toBe(0);
@@ -39,7 +39,7 @@ describe('ai-credits', () => {
   it('respeita creditWeight persistido no registro', () => {
     expect(
       inferCreditsFromRow({
-        provider: 'radarzap',
+        provider: 'radarchat',
         usageKind: 'premium_assistant',
         creditWeight: 1.42,
         estimatedCost: 0.01,

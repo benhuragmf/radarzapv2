@@ -7,7 +7,7 @@
 
 ## Resumo
 
-O RadarZap v2 trata **MongoDB** e **Redis** como dependências **hard** no boot (`src/index.ts`). Se qualquer uma falhar na subida, o processo encerra com `exit(1)`.
+O Radar Chat v2 trata **MongoDB** e **Redis** como dependências **hard** no boot (`src/index.ts`). Se qualquer uma falhar na subida, o processo encerra com `exit(1)`.
 
 | Dependência | Uso crítico |
 |-------------|-------------|
@@ -113,5 +113,5 @@ Aguardar até `Banco de dados OK` e `Redis OK` nos logs.
 
 - `src/index.ts` — `initializeInfrastructure`, `waitForMongoReady`
 - `src/services/infra/infra-health.service.ts` — AH-S04
-- `docs/concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md` — AH-S01
+- `docs/concluidos/RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md` — AH-S01
 - `docs/ROADMAP-COMPLETUDE.md` — gate estabilização

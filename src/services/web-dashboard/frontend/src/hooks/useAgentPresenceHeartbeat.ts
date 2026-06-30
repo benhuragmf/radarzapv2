@@ -5,7 +5,7 @@ import { getSocket } from '../lib/socket'
 import { api } from '../lib/api'
 import { useAgentPresenceContext } from '../lib/agentPresenceContext'
 import { toastInfo } from '@/design-system/toast'
-import type { AgentOperationalStatus, AgentStatusSource } from '@radarzap-types/agent-presence'
+import type { AgentOperationalStatus, AgentStatusSource } from '@radarchat-types/agent-presence'
 
 type PresenceConfigResponse = {
   idleTimeoutSeconds: number

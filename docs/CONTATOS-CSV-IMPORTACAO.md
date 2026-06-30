@@ -7,7 +7,7 @@
 
 ## 1. Objetivo
 
-Permitir que o cliente traga contatos de **Google Contacts / Android**, **Apple Contacts / iOS** (ou exportações compatíveis) e de planilhas genéricas, normalizando para o modelo canônico do RadarZap e exportando de volta em perfis compatíveis com cada ecossistema.
+Permitir que o cliente traga contatos de **Google Contacts / Android**, **Apple Contacts / iOS** (ou exportações compatíveis) e de planilhas genéricas, normalizando para o modelo canônico do Radar Chat e exportando de volta em perfis compatíveis com cada ecossistema.
 
 **Estado do código (jun/2026):** `POST /api/destinations/import-csv` (JSON `{ content | csv, format?: 'auto'|'csv'|'vcf', dryRun }`); detecção automática de VCF (`BEGIN:VCARD`); `GET /api/destinations/export-csv?profile=...` com BOM UTF-8; parsers em `contact-csv-import.ts` / `contact-vcf-import.ts`. Upload **`multipart`** — backlog (não bloqueia gate Fase 1); ver [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md).
 
@@ -17,8 +17,8 @@ Permitir que o cliente traga contatos de **Google Contacts / Android**, **Apple 
 
 | Local | Resultado |
 |-------|-----------|
-| `radarzapv2/**/*.csv` | Nenhum arquivo |
-| `radarzap/**/*.csv` | Nenhum arquivo |
+| `radarchatv2/**/*.csv` | Nenhum arquivo |
+| `radarchat/**/*.csv` | Nenhum arquivo |
 | `docs/samples/Contatos-exemplo.vcf` | 20 vCards (amostra sanitizada de export iOS/Android) |
 | `assets/` | Inexistente |
 | Área de trabalho / Projetos / Downloads (contatos) | Nenhum CSV de contatos encontrado |
@@ -29,7 +29,7 @@ Até lá, os mapeamentos abaixo seguem os formatos **oficiais / de mercado** doc
 
 ---
 
-## 3. Modelo canônico RadarZap
+## 3. Modelo canônico Radar Chat
 
 Campos internos (API, Mongo, export nativo). Nomes em português na UI; chaves em inglês no CSV nativo.
 
@@ -56,10 +56,10 @@ O parser deve identificar o perfil pelo **conjunto de cabeçalhos** (case-insens
 |--------|------------|----------------------------------------|
 | Google Contacts / Android | `google` | `Phone 1 - Value` ou `Group Membership` + (`Given Name` ou `Name`) |
 | Apple Contacts / iOS CSV | `apple` | `First Name` + (`Mobile Phone` ou `Home Phone` ou `Phone`) sem `Phone 1 - Value` |
-| RadarZap nativo | `radarzap` | `nome` + `telefone` (ou `name` + `phone`) |
+| Radar Chat nativo | `radarchat` | `nome` + `telefone` (ou `name` + `phone`) |
 | Genérico | `generic` | Cabeçalho mínimo: coluna de nome + coluna de telefone mapeável (§4.3) |
 
-Ordem de tentativa: `radarzap` → `google` → `apple` → `generic`.
+Ordem de tentativa: `radarchat` → `google` → `apple` → `generic`.
 
 ### 4.1 Google Contacts / Android (export CSV)
 
@@ -67,7 +67,7 @@ Export: [Google Contacts](https://contacts.google.com) → **Exportar** → **Go
 
 Cabeçalhos relevantes (export completo Google; dezenas de colunas — só estas entram no mapeamento):
 
-| Coluna Google | → Campo RadarZap | Regra |
+| Coluna Google | → Campo Radar Chat | Regra |
 |---------------|------------------|-------|
 | `Name` | `nome` | Preferir se preenchido |
 | `Given Name` + `Family Name` | `nome` | Se `Name` vazio: `Given Name` + espaço + `Family Name` |
@@ -95,7 +95,7 @@ No iPhone/iPad o export nativo costuma ser **vCard (`.vcf`)**, não CSV. Usuári
 
 Cabeçalhos comuns e mapeamento:
 
-| Coluna Apple (variantes) | → Campo RadarZap | Regra |
+| Coluna Apple (variantes) | → Campo Radar Chat | Regra |
 |--------------------------|------------------|-------|
 | `First Name` + `Last Name` | `nome` | Concatenar com espaço; ou `Full Name` / `Name` se existir |
 | `Middle Name` | (opcional) | Inserir entre primeiro e último se presente |
@@ -163,7 +163,7 @@ Campo ausente ou inválido → `aniversario` omitido (não falha a linha).
 
 | Fonte | Formato bruto | Parse |
 |-------|---------------|-------|
-| RadarZap / genérico | `VIP; Clientes; Aniversário` | `split(';')`, trim, descartar vazios |
+| Radar Chat / genérico | `VIP; Clientes; Aniversário` | `split(';')`, trim, descartar vazios |
 | Google `Group Membership` | `My Contacts ::: * starred ::: VIP` | Extrair rótulos após `:::`; ignorar `* myContacts`, `* starred`, `* friends`, etc. |
 | Apple `Groups` | `Família, Trabalho` | `split` por `,` ou `;` conforme detecção |
 
@@ -175,7 +175,7 @@ Persistência alvo: `tags: string[]` no destino ou entidade `ContactGroup` (Fase
 
 Como **não há CSV de exemplo versionado**, a tabela abaixo reflete um export **Google CSV padrão** (jun/2026). Quando `docs/samples/contatos-exemplo.csv` existir, substituir por leitura automática do cabeçalho.
 
-| # | Cabeçalho no arquivo (Google) | Campo RadarZap | Observação |
+| # | Cabeçalho no arquivo (Google) | Campo Radar Chat | Observação |
 |---|------------------------------|----------------|------------|
 | 1 | `Name` | `nome` | Display name |
 | 2 | `Given Name` | `nome` | Fallback composição |
@@ -216,7 +216,7 @@ API atual (`bulkImport`): body JSON pré-parsed; etapa futura `POST .../bulk-imp
 
 | Perfil | ID | Uso | Colunas emitidas |
 |--------|-----|-----|------------------|
-| RadarZap nativo | `radarzap-native` | Backup, reimportação | `nome`, `telefone`, `aniversario`, `grupos`, `email`, `notas`, `status_consent` (opcional) |
+| Radar Chat nativo | `radarchat-native` | Backup, reimportação | `nome`, `telefone`, `aniversario`, `grupos`, `email`, `notas`, `status_consent` (opcional) |
 | Google-compatível | `google-compatible` | Reimport no Google/Android | `Name`, `Given Name`, `Family Name`, `Phone 1 - Type`, `Phone 1 - Value`, `Birthday`, `Group Membership`, `E-mail 1 - Value`, `Notes` |
 | Apple-compatível | `apple-compatible` | Reimport em apps Apple / CSV | `First Name`, `Last Name`, `Mobile Phone`, `Birthday`, `Email Address`, `Notes`, `Groups` |
 
@@ -225,14 +225,14 @@ Regras de export:
 - UTF-8 com **BOM** (`EF BB BF`) para Excel abrir acentos corretamente.
 - `telefone` sempre em E.164 (`+55...`).
 - `aniversario` em export Google: `YYYY-MM-DD` ou `--MM-DD` se sem ano.
-- `grupos` RadarZap → Google: `Label ::: * myContacts` ou lista separada por ` ::: ` conforme doc Google.
+- `grupos` Radar Chat → Google: `Label ::: * myContacts` ou lista separada por ` ::: ` conforme doc Google.
 - `status_consent`: somente perfil nativo (`granted` / `pending` / `revoked`).
 
 Endpoint planejado: `GET /api/destinations/client/:clientId/export?format=csv&profile=google-compatible` (hoje `exportDestinationData` retorna nome de arquivo — implementação pendente).
 
 ---
 
-## 11. Exemplo mínimo — CSV RadarZap nativo
+## 11. Exemplo mínimo — CSV Radar Chat nativo
 
 ```csv
 nome,telefone,aniversario,grupos,email,notas
@@ -281,7 +281,7 @@ Maria,Silva,+55 11 98877-6655,3/20/1992,maria@exemplo.com,,VIP
 
 - [ ] Import Google CSV real (≥10 contatos) → 100% telefones `+55...` válidos
 - [ ] Import Apple CSV → nomes compostos corretos
-- [ ] Reimportar export `radarzap-native` → idempotente (só atualiza)
+- [ ] Reimportar export `radarchat-native` → idempotente (só atualiza)
 - [ ] Duplicata mesma planilha → 0 novos, N atualizados
 - [ ] Linha sem telefone → aparece em `erros` com número da linha
 - [ ] Export `google-compatible` abre no Google Contacts sem perda de colunas obrigatórias
@@ -303,9 +303,9 @@ Export nativo **Apple Contacts / iOS** e muitos apps Android (via “Compartilha
 | Codificação | `CHARSET=UTF-8` + `ENCODING=QUOTED-PRINTABLE` em vários `N`/`FN`/`ORG` |
 | Telefones | `TEL;CELL`, `TEL;HOME`, `TEL;CELL;PREF`, `TEL;X-WhatsApp` |
 
-### 16.2 Mapeamento vCard → RadarZap
+### 16.2 Mapeamento vCard → Radar Chat
 
-| # | Propriedade vCard (exemplo real) | Campo RadarZap | Regra |
+| # | Propriedade vCard (exemplo real) | Campo Radar Chat | Regra |
 |---|----------------------------------|----------------|-------|
 | 1 | `FN` (Formatted Name) | `nome` | Preferencial; QP decodificado |
 | 2 | `N` (Structured Name) | `nome` | Fallback: Given + Middle + Family |
@@ -330,7 +330,7 @@ Export nativo **Apple Contacts / iOS** e muitos apps Android (via “Compartilha
 - **Foto** (`PHOTO`) ignorada.
 - Múltiplos `TEL`: importa o principal (maior prioridade) + **um** secundário se o E.164 for diferente e válido.
 - vCards **sem `FN` nem `N` utilizável** ou **sem telefone válido** → erro por índice de vCard.
-- Arquivo do usuário sem aniversário/e-mail: esses campos ficam vazios até o contato ser editado no RadarZap ou reexportado com mais dados.
+- Arquivo do usuário sem aniversário/e-mail: esses campos ficam vazios até o contato ser editado no Radar Chat ou reexportado com mais dados.
 
 ### 16.5 Como testar com o arquivo em Downloads
 
@@ -344,7 +344,7 @@ Export nativo **Apple Contacts / iOS** e muitos apps Android (via “Compartilha
 # Preview via API (substitua TOKEN e cole o arquivo em content)
 curl -X POST http://localhost:3001/api/destinations/import-csv \
   -H "Content-Type: application/json" \
-  -H "Cookie: radarzap.sid=..." \
+  -H "Cookie: radarchat.sid=..." \
   -d "{\"content\":\"BEGIN:VCARD...\",\"format\":\"vcf\",\"dryRun\":true}"
 ```
 

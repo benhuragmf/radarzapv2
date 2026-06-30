@@ -371,7 +371,7 @@ export default function Templates() {
       {legacyTemplates.length > 0 && (
         <details className="text-sm text-[var(--rz-text-muted)]">
           <summary className="cursor-pointer hover:text-[var(--rz-text-muted)] list-none">
-            Templates legados ({legacyTemplates.length}) — radarzap-*, game-*
+            Templates legados ({legacyTemplates.length}) — radarchat-*, game-*
           </summary>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3 opacity-75">
             {legacyTemplates.map(t => (

@@ -8,7 +8,7 @@ jobs:
   fix:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Fix SSL via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -29,7 +29,7 @@ jobs:
           command_timeout: 30m
           script: |
             set -euo pipefail
-            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
             DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
             for attempt in 1 2 3 4 5; do
               if git fetch origin "+refs/heads/${DEPLOY_BRANCH}:refs/remotes/origin/${DEPLOY_BRANCH}" -q 2>/dev/null; then

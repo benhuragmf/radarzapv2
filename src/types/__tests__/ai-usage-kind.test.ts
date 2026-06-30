@@ -6,17 +6,17 @@ import {
 
 describe('ai-usage-kind', () => {
   it('infere basic_triage do provider legado', () => {
-    expect(inferAiUsageKind('radarzap-basic-triage')).toBe('basic_triage');
-    expect(inferAiUsageKind('radarzap')).toBe('premium_assistant');
+    expect(inferAiUsageKind('radarchat-basic-triage')).toBe('basic_triage');
+    expect(inferAiUsageKind('radarchat')).toBe('premium_assistant');
   });
 
   it('prioriza usageKind persistido', () => {
-    expect(inferAiUsageKind('radarzap', 'basic_triage')).toBe('basic_triage');
+    expect(inferAiUsageKind('radarchat', 'basic_triage')).toBe('basic_triage');
   });
 
   it('mapeia providerLabel para kind', () => {
-    expect(aiUsageKindFromProviderLabel('radarzap-basic-triage')).toBe('basic_triage');
-    expect(aiUsageKindFromProviderLabel('radarzap')).toBe('premium_assistant');
+    expect(aiUsageKindFromProviderLabel('radarchat-basic-triage')).toBe('basic_triage');
+    expect(aiUsageKindFromProviderLabel('radarchat')).toBe('premium_assistant');
   });
 
   it('rótulos legíveis', () => {

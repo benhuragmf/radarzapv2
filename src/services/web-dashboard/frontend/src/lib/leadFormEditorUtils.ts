@@ -2,7 +2,7 @@ import {
   hostsFromWebsiteUrl,
   formatEmbedAllowedSitesSummary,
 } from '@/lib/embedAllowedDomains'
-import type { LeadFormAppearance, LeadFormListItem } from '@radarzap-types/lead-form'
+import type { LeadFormAppearance, LeadFormListItem } from '@radarchat-types/lead-form'
 
 export type LeadFormEditorSectionId =
   | 'overview'

@@ -7,7 +7,7 @@ import { useAdminOpsSummary } from './useAdminOpsSummary'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { RadarPageShell, PageHeader, LoadingState, EmptyState } from '@/design-system'
-import { sanitizeOpsDisplayText } from '@radarzap-types/admin-ops-summary.util'
+import { sanitizeOpsDisplayText } from '@radarchat-types/admin-ops-summary.util'
 
 interface ErrorLog {
   _id: string

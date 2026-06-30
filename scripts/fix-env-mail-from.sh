@@ -6,7 +6,7 @@ python3 - "$ENV_FILE" <<'PY'
 import re, sys
 p = sys.argv[1]
 t = open(p, encoding="utf-8").read()
-t = re.sub(r"^MAIL_FROM=.*", 'MAIL_FROM="RadarZap <noreply@radarzap.local>"', t, flags=re.M)
+t = re.sub(r"^MAIL_FROM=.*", 'MAIL_FROM="Radar Chat <noreply@radarchat.local>"', t, flags=re.M)
 open(p, "w", encoding="utf-8").write(t)
 print(f"[fix-env] MAIL_FROM corrigido em {p}")
 PY

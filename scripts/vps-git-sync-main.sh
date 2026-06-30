@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Atualiza clone em DEPLOY_PATH para origin/main (evita race em fetch concorrente).
 set -euo pipefail
-DEPLOY_PATH="${1:-${DEPLOY_PATH:-/opt/radarzap}}"
+DEPLOY_PATH="${1:-${DEPLOY_PATH:-/opt/radarchat}}"
 cd "$DEPLOY_PATH"
 for attempt in 1 2 3 4 5; do
   if git fetch origin +refs/heads/main:refs/remotes/origin/main -q 2>/dev/null; then

@@ -15,9 +15,9 @@ services:
       MONGODB_URL: mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/discord-whatsapp?authSource=admin
       REDIS_URL: redis://redis:6379
     volumes:
-      - radarzap-sessions:/app/sessions
-      - radarzap-media:/app/media
-      - radarzap-logs:/app/logs
+      - radarchat-sessions:/app/sessions
+      - radarchat-media:/app/media
+      - radarchat-logs:/app/logs
     depends_on:
       - mongodb
       - redis
@@ -42,6 +42,6 @@ services:
 volumes:
   mongodb-data:
   redis-data:
-  radarzap-sessions:
-  radarzap-media:
-  radarzap-logs:
+  radarchat-sessions:
+  radarchat-media:
+  radarchat-logs:

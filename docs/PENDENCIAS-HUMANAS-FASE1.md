@@ -43,7 +43,7 @@ Checklist 1 página: [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
 
 | # | O quê | Doc |
 |---|-------|-----|
-| A1–D | Blocos A–D dashboard admin | [`concluidos/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](./concluidos/admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) |
+| A1–D | Blocos A–D dashboard admin | [`concluidos/admin/RADARCHAT-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](./concluidos/admin/RADARCHAT-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) |
 | **E** | Alterar plano org no browser VPS + conferir `AuditLog` | idem § Bloco E · evidência: [`qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json`](./qa-results/qa-manual-pos-auditoria-2.12.60-63-TEMPLATE.json) |
 
 Automação local Bloco E: `npm run qa:admin-ops:bloco-e:local` (não substitui browser VPS).
@@ -66,9 +66,9 @@ Automação local Bloco E: `npm run qa:admin-ops:bloco-e:local` (não substitui 
 | Import CSV `multipart` (upload arquivo) | [`CONTATOS-CSV-IMPORTACAO.md`](./CONTATOS-CSV-IMPORTACAO.md) | JSON `{ content \| csv }` ✅ · multipart ⏳ |
 | Export por `clientId` dedicado | idem | Parcial — `export-csv` global ✅ |
 | Cloud API Meta | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Fase 2 | Stub POST 503 |
-| 21 upgrades produto | [`RADARZAP-PLANO-UPGRADES.md`](./RADARZAP-PLANO-UPGRADES.md) | Backlog pós-gate |
+| 21 upgrades produto | [`RADARCHAT-PLANO-UPGRADES.md`](./RADARCHAT-PLANO-UPGRADES.md) | Backlog pós-gate |
 | PREPARACAO-PRODUCAO / PRODUCTION | [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) · [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) · [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) | 🔄 Coolify + branch `layout-v3` |
-| Branch `layout-v3` | docs `RADARZAP-LAYOUT-V3-*` | Release alvo UI v3 + deploy Coolify |
+| Branch `layout-v3` | docs `RADARCHAT-LAYOUT-V3-*` | Release alvo UI v3 + deploy Coolify |
 | SECURITY_* (raiz) | `SECURITY_CHECKLIST.md` | Go-live — após Fase 3 |
 
 ---
@@ -87,7 +87,7 @@ Automação local Bloco E: `npm run qa:admin-ops:bloco-e:local` (não substitui 
 ## Ao fechar tudo P0 + P1
 
 1. Atualizar [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) — marcar gate § Estabilização.
-2. Atualizar [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) status.
+2. Atualizar [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) status.
 3. Registrar em [`CHANGELOG.md`](./CHANGELOG.md) + [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 4. Concluir itens restantes em [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) § go-live (domínio, staging, smoke).
 5. Seguir [`PRODUCTION.md`](./PRODUCTION.md) para cutover final.

@@ -110,7 +110,7 @@ export function parseCommandTicketArg(raw: string): { ticketRef: string; message
 }
 
 export const WHATSAPP_AGENT_COMMAND_HELP = [
-  '📋 RadarZap — Comandos WhatsApp (Equipe)',
+  '📋 Radar Chat — Comandos WhatsApp (Equipe)',
   '',
   '▸ Contexto (evita repetir TK)',
   '!assumir — último alerta ou item único da lista',

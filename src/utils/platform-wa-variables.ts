@@ -5,7 +5,7 @@ import {
   computeAgeYears,
   formatBirthdayPtBr,
 } from '@/utils/birthday-match';
-import { resolveTenantSenderLabel } from '@/utils/radarzap-sender';
+import { resolveTenantSenderLabel } from '@/utils/radarchat-sender';
 
 const WEEKDAY_PT = [
   'domingo',

@@ -14,12 +14,12 @@
     }
   }
 
-  var mountId = 'radarzap-discord-status-' + (guildId || 'global');
+  var mountId = 'radarchat-discord-status-' + (guildId || 'global');
   var mount = document.getElementById(mountId);
   if (!mount) {
     mount = document.createElement('div');
     mount.id = mountId;
-    mount.setAttribute('data-radarzap-discord-status', '1');
+    mount.setAttribute('data-radarchat-discord-status', '1');
     script.parentNode.insertBefore(mount, script.nextSibling);
   }
 

@@ -1,9 +1,9 @@
-﻿# Inbox — atendimento WhatsApp (RadarZap)
+﻿# Inbox — atendimento WhatsApp (Radar Chat)
 
 Módulo proprietário de triagem, filas e atendimento humano via WhatsApp.
 
 > **Referências externas** (Izing, Whaticket, Chatwoot, etc.) servem apenas para inspirar fluxos de mercado.  
-> Nenhum código de terceiros é copiado. Contratos, modelos e UI são exclusivos do RadarZap.
+> Nenhum código de terceiros é copiado. Contratos, modelos e UI são exclusivos do Radar Chat.
 
 **Última revisão:** 2026-06-30 (modo atendente desktop — ver [`MODO-ATENDENTE-DESKTOP.md`](./MODO-ATENDENTE-DESKTOP.md))
 
@@ -16,7 +16,7 @@ Guia operacional para instalar o painel como PWA, notificações do sistema e at
 ```txt
 Cliente envia mensagem no WhatsApp (contato 1:1) — ele iniciou o contato
 ↓
-RadarZap localiza ou cria contato (aceite implícito para atendimento, sem pedir 1/2)
+Radar Chat localiza ou cria contato (aceite implícito para atendimento, sem pedir 1/2)
 ↓
 Ordem: ticket TK → consentimento LGPD → Inbox (triagem)
 ↓
@@ -110,7 +110,7 @@ Configuração: **Atendimento → IA Atendimento** (`/platform/inbox/ia`).
 | Modo | `enabled` / `mode` | Comportamento |
 |------|---------------------|---------------|
 | **Desativada** | `enabled: false` ou `mode: disabled` | **Somente** bot fixo + fila humana. Nenhuma regra de IA executada. |
-| **IA RadarZap** | `mode: radarzap` | Chave interna do servidor; limites por plano |
+| **IA Radar Chat** | `mode: radarchat` | Chave interna do servidor; limites por plano |
 | **IA própria** | `mode: company` | OpenAI ou Gemini com API Key criptografada (vault) |
 
 **Ativação:** `AiSettingsService.isAiActive()` → `settings.enabled && mode !== 'disabled'`.
@@ -545,7 +545,7 @@ Referência completa: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA
 - **Disponível para fila:** `online && status === 'online'` — funções `isAgentAvailableForQueue`, `getAvailableAgentIdsForQueue`.
 - **Inatividade:** sem mouse/teclado por `presenceIdleTimeoutSeconds` (padrão **300s**, 60–3600) → status auto `ausente`; ao voltar à aba, prompt restaura último status manual.
 - **Round-robin:** `suggestRoundRobinAgent` só indica quem está `availableForQueue`.
-- **Limite simultâneo (2.11.91):** `maxConcurrentChatsPerAgent` no catálogo por plano + teto em `InboxSettings`; helper `resolveMaxConcurrentChatsForPlan` — ver `docs/concluidos/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`.
+- **Limite simultâneo (2.11.91):** `maxConcurrentChatsPerAgent` no catálogo por plano + teto em `InboxSettings`; helper `resolveMaxConcurrentChatsForPlan` — ver `docs/concluidos/top/RADARCHAT-TOP-05-STATUS-PRESENCA-FILA.md`.
 - **Offline com chat ativo:** evento `inbox:agent_offline_risk` no sino (sem encerrar conversa).
 - **Socket:** heartbeat valida `supervisor_online` com capabilities do usuário (`filterHeartbeatOperationalStatus`).
 
@@ -584,7 +584,7 @@ Quando **WebChat** (`waiting_human`) **ou fila WhatsApp nativa** (`waiting_queue
 
 **Inbox:** badge **Bridge WA** na lista e cabeçalho.
 
-Doc histórica: [`concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md).
+Doc histórica: [`concluidos/RADARCHAT_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`](./concluidos/RADARCHAT_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md).
 
 ---
 
@@ -624,7 +624,8 @@ Setores continuam em `inboxDepartments` — o menu é montado dinamicamente a pa
 | **Finalizar** no painel (`resolveConversation`) | Envia pesquisa CSAT se `csatEnabled` (antes só no encerramento automático `/enc`) |
 | Cliente responde `1`–`5` | Grava nota, agradece, webhook `inbox.csat.rated` |
 | Cliente escreve *avaliar* / *nota* / etc. | Reenvia pesquisa ou inicia CSAT na conversa recente (24 h) — **não** abre ticket |
-| CSAT pendente + nota inválida | Lembrete *"responda só com 1 a 5"* |
+| CSAT pendente + nota inválida | Lembrete *"responda só com 1 a 5"* (máx. **2** lembretes — depois silencia e limpa `csatPending`) |
+| CSAT pendente + eco/burst de bot | Gate `WaAutomatedPeerGuard` ignora inbound antes de CSAT/IA/bot (2.17.22) |
 | CSAT pendente + novo atendimento (*ola*, *atendimento*, *atendente*) | Limpa `csatPending` e segue para Inbox (2.8.11) |
 
 Ordem inbound: `handleTicketInboundMessage` chama `tryHandleCsatReply` **antes** de rotear ao ticket. Helpers: `parseCsatScore`, `isCsatIntent`, `shouldBypassCsatForNewService` — `src/services/inbox/csat.util.ts`.

@@ -1,4 +1,4 @@
-import type { InboundRegistrationPolicy } from '@radarzap-types/inbound-registration-policy'
+import type { InboundRegistrationPolicy } from '@radarchat-types/inbound-registration-policy'
 import { Card } from '../ui/Card'
 import { inputCls } from '@/design-system'
 

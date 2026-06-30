@@ -83,7 +83,7 @@ const commands = [
       .addStringOption(o => o.setName('name').setDescription('Rule name').setRequired(true))
       .addStringOption(o => o.setName('priority').setDescription('Priority')
         .addChoices({ name: 'High', value: 'high' }, { name: 'Medium', value: 'medium' }, { name: 'Low', value: 'low' }))
-      .addStringOption(o => o.setName('template').setDescription('Template name (default: radarzap-padrao)'))
+      .addStringOption(o => o.setName('template').setDescription('Template name (default: radarchat-padrao)'))
       .addStringOption(o => o.setName('keywords').setDescription('Required keywords, comma-separated'))
       .addStringOption(o => o.setName('destinations').setDescription('Destination identifiers, comma-separated (empty = all)')))
     .addSubcommand(s => s.setName('list').setDescription('List all your rules'))

@@ -1,5 +1,5 @@
 /** Modo de operação da IA no tenant — legado (credencial + on/off). Ver `attendance-mode.ts` para separação conceitual Fase 1+. */
-export type AiMode = 'radarzap' | 'company' | 'disabled';
+export type AiMode = 'radarchat' | 'company' | 'disabled';
 
 /** Provedor LLM suportado */
 export type AiProvider = 'openai' | 'gemini';
@@ -50,19 +50,19 @@ export interface AiPlanLimits {
   dailyLimit: number;
   monthlyLimit: number;
   perConversationLimit: number;
-  radarzapAllowed: boolean;
+  radarchatAllowed: boolean;
 }
 
 export function getAiPlanLimits(plan: string): AiPlanLimits {
   switch (plan) {
     case 'starter':
-      return { dailyLimit: 30, monthlyLimit: 400, perConversationLimit: 20, radarzapAllowed: true };
+      return { dailyLimit: 30, monthlyLimit: 400, perConversationLimit: 20, radarchatAllowed: true };
     case 'pro':
-      return { dailyLimit: 120, monthlyLimit: 2500, perConversationLimit: 40, radarzapAllowed: true };
+      return { dailyLimit: 120, monthlyLimit: 2500, perConversationLimit: 40, radarchatAllowed: true };
     case 'enterprise':
-      return { dailyLimit: 500, monthlyLimit: 12000, perConversationLimit: 60, radarzapAllowed: true };
+      return { dailyLimit: 500, monthlyLimit: 12000, perConversationLimit: 60, radarchatAllowed: true };
     default:
-      return { dailyLimit: 0, monthlyLimit: 0, perConversationLimit: 0, radarzapAllowed: false };
+      return { dailyLimit: 0, monthlyLimit: 0, perConversationLimit: 0, radarchatAllowed: false };
   }
 }
 

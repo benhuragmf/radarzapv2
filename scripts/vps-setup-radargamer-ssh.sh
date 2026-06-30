@@ -54,7 +54,7 @@ SSHPASS="$RADARGAMER_PASSWORD" sshpass -e ssh-copy-id \
   -o PubkeyAuthentication=no \
   "${COOLIFY_SSH_USER}@${RADARGAMER_SERVER_IP}"
 
-log "Testando SSH por chave (mesma do RadarZap / Coolify)..."
+log "Testando SSH por chave (mesma do Radar Chat / Coolify)..."
 if ssh -i "$KEY_FILE" -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
   -o ConnectTimeout=15 "${COOLIFY_SSH_USER}@${RADARGAMER_SERVER_IP}" 'echo ok' | grep -q ok; then
   log "OK — ${COOLIFY_SSH_USER}@${RADARGAMER_SERVER_IP} aceita a chave de deploy"

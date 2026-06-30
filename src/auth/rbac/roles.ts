@@ -1,4 +1,4 @@
-/** Papéis globais do sistema (equipe interna RadarZap) */
+/** Papéis globais do sistema (equipe interna Radar Chat) */
 export enum SystemRole {
   USER = 'USER',
   SYSTEM_MODERATOR = 'SYSTEM_MODERATOR',

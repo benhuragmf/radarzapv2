@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-/** Assinatura HMAC-SHA256 — header `X-RadarZap-Signature: t={ts},v1={hex}` */
+/** Assinatura HMAC-SHA256 — header `X-Radar Chat-Signature: t={ts},v1={hex}` */
 export function signWebhookPayload(secret: string, timestampSec: number, rawBody: string): string {
   const signed = `${timestampSec}.${rawBody}`;
   return crypto.createHmac('sha256', secret).update(signed, 'utf8').digest('hex');

@@ -1,5 +1,5 @@
 /**
- * Standalone script to run the RadarZap web dashboard locally.
+ * Standalone script to run the Radar Chat web dashboard locally.
  * Connects to MongoDB + Redis then starts DashboardService on port 3001.
  *
  * Usage:

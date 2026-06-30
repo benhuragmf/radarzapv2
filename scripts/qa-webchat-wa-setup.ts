@@ -51,7 +51,7 @@ function parsePhones(): { agentPhone: string; alertPhones: string[] } | null {
 async function main() {
   const phones = parsePhones();
   if (!phones) {
-    console.log('=== RadarZap — QA WebChat/WA setup ===\n');
+    console.log('=== Radar Chat — QA WebChat/WA setup ===\n');
     console.log('Informe o WhatsApp pessoal do atendente de teste:\n');
     console.log('  QA_WA_PHONE=5511999999999 npm run qa:webchat-wa:setup');
     console.log('  npm run qa:webchat-wa:setup -- 5511999999999\n');
@@ -63,7 +63,7 @@ async function main() {
   const { agentPhone, alertPhones } = phones;
 
   await mongoose.connect(MONGODB_URL);
-  console.log('=== RadarZap — QA WebChat/WA setup ===\n');
+  console.log('=== Radar Chat — QA WebChat/WA setup ===\n');
 
   const widget = await WebChatWidget.findOne({ active: true }).sort({ updatedAt: -1 }).lean();
   if (!widget) {

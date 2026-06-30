@@ -30,9 +30,9 @@ services:
     env_file:
       - .env
     volumes:
-      - radarzap-sessions:/app/sessions
-      - radarzap-media:/app/media
-      - radarzap-logs:/app/logs
+      - radarchat-sessions:/app/sessions
+      - radarchat-media:/app/media
+      - radarchat-logs:/app/logs
     depends_on:
       mongodb:
         condition: service_started
@@ -65,6 +65,6 @@ services:
 volumes:
   mongodb-data:
   redis-data:
-  radarzap-sessions:
-  radarzap-media:
-  radarzap-logs:
+  radarchat-sessions:
+  radarchat-media:
+  radarchat-logs:

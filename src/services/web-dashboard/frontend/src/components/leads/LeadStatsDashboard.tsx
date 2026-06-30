@@ -9,7 +9,7 @@ import {
   UserCheck,
   UserX,
 } from 'lucide-react'
-import type { LeadClassificationStats, LeadStats } from '@radarzap-types/lead-form'
+import type { LeadClassificationStats, LeadStats } from '@radarchat-types/lead-form'
 import { operationalStatCards, type OperationalStatKey } from '../../lib/leadUi'
 import { CONTACT_KIND_LABELS, type ContactKind } from '../../lib/contactClassificationUi'
 import { cn } from '@/lib/utils'

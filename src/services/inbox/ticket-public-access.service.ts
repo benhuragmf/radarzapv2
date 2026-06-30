@@ -391,7 +391,7 @@ export function formatTicketCreatedWithTokenMessage(ticketRef: string, accessTok
 
 export function formatTicketTokenResendWhatsAppMessage(ticketRef: string, accessToken: string): string {
   return [
-    'RadarZap — token de consulta',
+    'Radar Chat — token de consulta',
     '',
     `Chamado: *${ticketRef}*`,
     `Token: *${accessToken}*`,
@@ -418,7 +418,7 @@ export function formatTicketTokenResendEmailContent(
     'No widget: Consultar chamado → informe o número e este token.',
     'O token anterior deixa de valer após este envio.',
     '',
-    '— RadarZap',
+    '— Radar Chat',
   ].join('\n');
 
   const html = `
@@ -428,7 +428,7 @@ export function formatTicketTokenResendEmailContent(
     <strong>Token:</strong> <code style="font-size:16px;letter-spacing:1px;">${accessToken}</code></p>
     <p>No widget, use <em>Consultar chamado</em> e informe o número e este token.<br/>
     O token anterior deixa de valer após este envio.</p>
-    <p style="color:#888;font-size:12px;">RadarZap</p>
+    <p style="color:#888;font-size:12px;">Radar Chat</p>
   `.trim();
 
   return { subject: `Token de consulta — ${ticketRef}`, text, html };
@@ -460,7 +460,7 @@ export async function sendTicketAccessTokenEmail(opts: {
 
 export function formatTicketTokenResendOtpWhatsApp(ticketRef: string, code: string): string {
   return [
-    'RadarZap — verificação',
+    'Radar Chat — verificação',
     '',
     `Chamado: *${ticketRef}*`,
     `Código: *${code}*`,
@@ -486,7 +486,7 @@ export function formatTicketTokenResendOtpEmail(
     '',
     'Válido por 10 minutos. Não compartilhe este código.',
     '',
-    '— RadarZap',
+    '— Radar Chat',
   ].join('\n');
 
   const html = `
@@ -495,7 +495,7 @@ export function formatTicketTokenResendOtpEmail(
     <p><strong>Chamado:</strong> ${ticketRef}<br/>
     <strong>Código:</strong> <code style="font-size:18px;letter-spacing:2px;">${code}</code></p>
     <p>Válido por 10 minutos. Não compartilhe este código.</p>
-    <p style="color:#888;font-size:12px;">RadarZap</p>
+    <p style="color:#888;font-size:12px;">Radar Chat</p>
   `.trim();
 
   return { subject: `Código de verificação — ${ticketRef}`, text, html };

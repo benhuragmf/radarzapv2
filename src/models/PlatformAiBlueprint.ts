@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { PLATFORM_AI_BLUEPRINT_DEFAULTS } from '@/constants/ai-platform-blueprint-defaults';
 
-/** Blueprint global da IA — único documento, gerido pelo admin RadarZap. */
+/** Blueprint global da IA — único documento, gerido pelo admin Radar Chat. */
 export interface IPlatformAiBlueprint extends Document {
   key: 'global';
   agentName: string;

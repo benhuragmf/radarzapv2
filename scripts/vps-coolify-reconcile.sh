@@ -4,7 +4,7 @@
 # Uso: sudo -E bash scripts/vps-coolify-reconcile.sh
 set -euo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 CANONICAL_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 COOLIFY_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${CANONICAL_UUID}}"
 PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"

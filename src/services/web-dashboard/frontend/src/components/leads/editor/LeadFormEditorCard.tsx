@@ -30,11 +30,11 @@ import type {
   LeadCaptureStatus,
   LeadFormListItem,
   LeadFormRouting,
-} from '@radarzap-types/lead-form'
+} from '@radarchat-types/lead-form'
 import {
   DEFAULT_LEAD_FORM_ROUTING,
   LEAD_CAPTURE_STATUS_LABEL,
-} from '@radarzap-types/lead-form'
+} from '@radarchat-types/lead-form'
 
 export type { LeadFormEditorSectionId }
 

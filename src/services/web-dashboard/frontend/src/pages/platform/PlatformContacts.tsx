@@ -11,10 +11,10 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Download, ListOrdered } from 'lucide-react'
 
-type ExportProfile = 'radarzap-native' | 'google-compatible' | 'apple-compatible'
+type ExportProfile = 'radarchat-native' | 'google-compatible' | 'apple-compatible'
 
 const EXPORT_PROFILES: { id: ExportProfile; label: string }[] = [
-  { id: 'radarzap-native', label: 'Radar Chat (nativo)' },
+  { id: 'radarchat-native', label: 'Radar Chat (nativo)' },
   { id: 'google-compatible', label: 'Google / Android' },
   { id: 'apple-compatible', label: 'Apple / iOS' },
 ]

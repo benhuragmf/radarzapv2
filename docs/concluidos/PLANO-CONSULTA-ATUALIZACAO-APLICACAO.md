@@ -3,7 +3,7 @@
 **Versão ref:** `2.11.28` · **Data:** 2026-06-21  
 **Status:** Fase 1 — estabilização (sem go-live)
 
-Este documento consolida os rascunhos `gg.md`, `gg1.md` e `gg2.md` em entregas oficiais do **RadarZap v2** e define **como consultar, atualizar e aplicar** cada bloco no sistema.
+Este documento consolida os rascunhos `gg.md`, `gg1.md` e `gg2.md` em entregas oficiais do **Radar Chat v2** e define **como consultar, atualizar e aplicar** cada bloco no sistema.
 
 > **Ordem de execução:** implementação Fase B/C → gate automático → **QA manual por último** (§10).
 
@@ -13,11 +13,11 @@ Este documento consolida os rascunhos `gg.md`, `gg1.md` e `gg2.md` em entregas o
 
 | Arquivo | Conteúdo | Destino no repo | Escopo |
 |---------|----------|-----------------|--------|
-| `gg.md` | Auditoria técnica + estabilização atendimento | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | **RadarZap v2** |
-| `gg1.md` | Visão produto / diferenciação vs concorrentes | [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | **RadarZap v2** (Fase D+) |
+| `gg.md` | Auditoria técnica + estabilização atendimento | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | **Radar Chat v2** |
+| `gg1.md` | Visão produto / diferenciação vs concorrentes | [`RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md) | **Radar Chat v2** (Fase D+) |
 | `gg2.md` | Termos/privacidade Discord — RadarGamer v4 | **Fora do escopo** deste repositório | Projeto **RadarGamer** |
 
-> **Nota:** `gg2.md` não se aplica ao `radarzapv2`. Se necessário, reutilizar o texto no repositório RadarGamer como `docs/discord-app-settings.md` + rotas `/termos` e `/privacidade`.
+> **Nota:** `gg2.md` não se aplica ao `radarchatv2`. Se necessário, reutilizar o texto no repositório RadarGamer como `docs/discord-app-settings.md` + rotas `/termos` e `/privacidade`.
 
 ---
 
@@ -33,7 +33,7 @@ CONSULTAR → IMPLEMENTAR (patch seguro) → VALIDAR (gate automático) → QA M
 2. Ler doc de módulo afetado (`INBOX-ATENDIMENTO.md`, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, etc.)
 3. Ler [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) — gate § Estabilização
 4. Inspecionar código real (não assumir rotas/campos)
-5. Comparar com v1 só se comportamento divergir (`.cursor/rules/radarzap-v2-reference.mdc`)
+5. Comparar com v1 só se comportamento divergir (`.cursor/rules/radarchat-v2-reference.mdc`)
 
 ### 2.2 Atualizar (documentação)
 
@@ -43,7 +43,7 @@ Protocolo: [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md
 |-----------|-----------|
 | Comportamento de domínio | Doc de módulo + `CHANGELOG.md` |
 | Menu/rota/API | `MENU-PAGES-REGISTRY.md` |
-| Entrega significativa | `SISTEMA-REGISTRO.md` + `.cursor/rules/radarzap-v2-system-registry.mdc` |
+| Entrega significativa | `SISTEMA-REGISTRO.md` + `.cursor/rules/radarchat-v2-system-registry.mdc` |
 | Novo doc | `INDICE-DOCUMENTACAO.md` |
 | Versão | `package.json` (patch/minor) |
 
@@ -89,10 +89,10 @@ Regras do `gg.md` adaptadas:
 
 | Item (gg1.md) | Aplicação |
 |---------------|-----------|
-| CRM leve / funil lead | Backlog — ver `RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md` |
+| CRM leve / funil lead | Backlog — ver `RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md` |
 | Gatilhos inteligentes WebChat | `WEBCHAT.md` + widget |
 | Templates por segmento | Seeds + onboarding |
-| IA Básica local-first | [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md) |
+| IA Básica local-first | [`concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-5.md) |
 
 ---
 
@@ -179,7 +179,7 @@ npm run qa:gate
 | Documento | Papel |
 |-----------|-------|
 | [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria técnica detalhada (gg.md) |
-| [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão comercial (gg1.md) |
+| [`RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão comercial (gg1.md) |
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Gate oficial Fase 1 |
 
 ---

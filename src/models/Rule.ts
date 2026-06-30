@@ -103,7 +103,7 @@ const RuleSchema = new Schema<IRule>(
       templateName: {
         type: String,
         required: true,
-        default: 'radarzap-padrao',
+        default: 'radarchat-padrao',
       },
       priority: {
         type: String,

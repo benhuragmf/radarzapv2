@@ -23,7 +23,7 @@ describe('WebhookDispatcherService', () => {
     jest.clearAllMocks();
   });
 
-  it('deliver envia POST com headers RadarZap', async () => {
+  it('deliver envia POST com headers Radar Chat', async () => {
     const svc = WebhookDispatcherService.getInstance();
     const job = {
       endpointId: 'ep1',
@@ -47,10 +47,10 @@ describe('WebhookDispatcherService', () => {
     expect(init.method).toBe('POST');
     expect(init.headers).toMatchObject({
       'Content-Type': 'application/json',
-      'X-RadarZap-Event': 'campaign.sent',
-      'X-RadarZap-Delivery-Id': 'evt-1',
+      'X-Radar Chat-Event': 'campaign.sent',
+      'X-Radar Chat-Delivery-Id': 'evt-1',
     });
-    expect(String((init.headers as Record<string, string>)['X-RadarZap-Signature'])).toMatch(/^t=\d+,v1=[a-f0-9]+$/);
+    expect(String((init.headers as Record<string, string>)['X-Radar Chat-Signature'])).toMatch(/^t=\d+,v1=[a-f0-9]+$/);
     expect(WebhookEndpoint.updateOne).toHaveBeenCalled();
   });
 

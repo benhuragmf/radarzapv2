@@ -107,7 +107,7 @@ Na seção **Integrar no site** de cada formulário há códigos prontos para co
 
 | Método | Uso |
 |--------|-----|
-| **Formulário RadarZap** | Script `form.js` — padrão recomendado |
+| **Formulário Radar Chat** | Script `form.js` — padrão recomendado |
 | **API / JavaScript** | `fetch` ou cURL para site customizado |
 | **HTML + formulário** | Formulário seu enviando JSON |
 | **WordPress** | Bloco HTML, Contact Form 7, rodapé global |
@@ -127,7 +127,7 @@ Resposta pública (2.11.96): `{ success, successMessage, redirectUrl? }` — **s
 - Reenvio do formulário atualiza lead **aberto** (dedupe TOP 09) em vez de duplicar.
 - Validação central: `src/types/lead-form-submit.util.ts`.
 - Rate limit: middleware `webchatPublic` em `/api/leads/public` (120 POST/min prod).
-- Doc: [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./concluidos/top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md).
+- Doc: [`top/RADARCHAT-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./concluidos/top/RADARCHAT-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md).
 
 ## API autenticada (`/api/leads`)
 

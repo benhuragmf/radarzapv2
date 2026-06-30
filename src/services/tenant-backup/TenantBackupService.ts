@@ -15,7 +15,7 @@ import { encryptField, decryptField } from '@/utils/field-encryption';
 
 const logger = createServiceLogger('TenantBackup');
 export const TENANT_BACKUP_VERSION = '2.5.0';
-export const BACKUP_ENCRYPTED_FORMAT = 'radarzap-backup-encrypted';
+export const BACKUP_ENCRYPTED_FORMAT = 'radarchat-backup-encrypted';
 
 export type EncryptedBackupExport = {
   format: typeof BACKUP_ENCRYPTED_FORMAT;

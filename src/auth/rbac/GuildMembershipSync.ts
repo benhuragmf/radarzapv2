@@ -12,12 +12,12 @@ const ADMINISTRATOR = BigInt(0x8);
 const MANAGE_GUILD = BigInt(0x20);
 
 function parseSystemAdminIds(): Set<string> {
-  const raw = process.env.RADARZAP_SYSTEM_ADMIN_DISCORD_IDS ?? '';
+  const raw = process.env.RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS ?? '';
   return new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
 }
 
 function parseSystemModeratorIds(): Set<string> {
-  const raw = process.env.RADARZAP_SYSTEM_MODERATOR_DISCORD_IDS ?? '';
+  const raw = process.env.RADARCHAT_SYSTEM_MODERATOR_DISCORD_IDS ?? '';
   return new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
 }
 

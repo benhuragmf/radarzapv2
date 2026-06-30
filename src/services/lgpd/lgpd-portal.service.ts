@@ -114,7 +114,7 @@ export async function buildTitularExportPackage(
   });
 
   return {
-    schema: 'radarzap-lgpd-export-v1',
+    schema: 'radarchat-lgpd-export-v1',
     exportedAt: new Date().toISOString(),
     destination: {
       id: String(dest._id),

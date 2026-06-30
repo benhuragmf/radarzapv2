@@ -1,4 +1,4 @@
-import type { LeadClassificationStats } from '@radarzap-types/lead-form'
+import type { LeadClassificationStats } from '@radarchat-types/lead-form'
 import { CONTACT_KIND_LABELS } from '../../lib/contactClassificationUi'
 import type { ContactKind } from '../../lib/contactClassificationUi'
 

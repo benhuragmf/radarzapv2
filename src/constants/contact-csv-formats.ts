@@ -3,7 +3,7 @@
  * Spec: docs/CONTATOS-CSV-IMPORTACAO.md
  */
 
-export type ContactCsvProfile = 'radarzap' | 'google' | 'apple' | 'generic';
+export type ContactCsvProfile = 'radarchat' | 'google' | 'apple' | 'generic';
 
 export const MAX_CSV_IMPORT_ROWS = 5000;
 
@@ -62,7 +62,7 @@ export const GLOBAL_COLUMN_ALIASES: Record<string, CanonicalContactField> = {
 
 /** Colunas específicas por perfil (header normalizado → campo canônico) */
 export const PROFILE_COLUMN_MAP: Record<ContactCsvProfile, Record<string, CanonicalContactField>> = {
-  radarzap: {
+  radarchat: {
     ...GLOBAL_COLUMN_ALIASES,
   },
   google: {
@@ -111,7 +111,7 @@ export const PROFILE_COLUMN_MAP: Record<ContactCsvProfile, Record<string, Canoni
 
 /** Fingerprint: header normalizado presente no arquivo */
 export const PROFILE_FINGERPRINTS: Record<ContactCsvProfile, string[][]> = {
-  radarzap: [
+  radarchat: [
     ['nome', 'telefone'],
     ['name', 'phone'],
   ],
@@ -130,14 +130,14 @@ export const PROFILE_FINGERPRINTS: Record<ContactCsvProfile, string[][]> = {
 
 /** Ordem de detecção automática */
 export const PROFILE_DETECTION_ORDER: ContactCsvProfile[] = [
-  'radarzap',
+  'radarchat',
   'google',
   'apple',
   'generic',
 ];
 
-/** Cabeçalhos CSV nativo RadarZap (export) */
-export const RADARZAP_NATIVE_HEADERS = [
+/** Cabeçalhos CSV nativo Radar Chat (export) */
+export const RADARCHAT_NATIVE_HEADERS = [
   'nome',
   'telefone',
   'aniversario',
@@ -149,18 +149,18 @@ export const RADARZAP_NATIVE_HEADERS = [
 
 /** Perfis de exportação (§10 CONTATOS-CSV-IMPORTACAO.md) */
 export type ContactCsvExportProfile =
-  | 'radarzap-native'
+  | 'radarchat-native'
   | 'google-compatible'
   | 'apple-compatible';
 
 export const CONTACT_CSV_EXPORT_PROFILES: ContactCsvExportProfile[] = [
-  'radarzap-native',
+  'radarchat-native',
   'google-compatible',
   'apple-compatible',
 ];
 
 export const EXPORT_PROFILE_LABELS: Record<ContactCsvExportProfile, string> = {
-  'radarzap-native': 'RadarZap (nativo)',
+  'radarchat-native': 'Radar Chat (nativo)',
   'google-compatible': 'Google / Android',
   'apple-compatible': 'Apple / iOS',
 };

@@ -1,4 +1,4 @@
-# RadarZap — Análise crítica de atendimento e estabilização
+# Radar Chat — Análise crítica de atendimento e estabilização
 
 **Versão analisada:** `2.11.16`  
 **Data da auditoria:** 2026-06-21  
@@ -24,7 +24,7 @@
 
 ## 1. Resumo executivo
 
-O RadarZap v2 tem **superfície ampla implementada** (painel, Inbox, tickets, WebChat, bridge WhatsApp, IA, modos de atendimento Fases 1–8, API, webhooks). Correções **2.11.10–2.11.13** endereçaram chamado WebChat (mensagem ao cliente vs `!nota`, consulta TK+token).
+O Radar Chat v2 tem **superfície ampla implementada** (painel, Inbox, tickets, WebChat, bridge WhatsApp, IA, modos de atendimento Fases 1–8, API, webhooks). Correções **2.11.10–2.11.13** endereçaram chamado WebChat (mensagem ao cliente vs `!nota`, consulta TK+token).
 
 **Conclusão honesta:** o **código** dos fluxos críticos existe e há **testes unitários** em helpers (CSAT, routing ticket, janela 12h, comandos WA, consulta pública). Falta **validação integrada** em `InboxService` (~4.8k linhas) e **QA manual Fase 1** completo. **Produção/VPS permanece bloqueada** até gate em [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md).
 
@@ -42,11 +42,11 @@ O RadarZap v2 tem **superfície ampla implementada** (painel, Inbox, tickets, We
 
 | # | Documento | Uso |
 |---|-----------|-----|
-| 1–10 | `INDICE`, `CHANGELOG`, `SISTEMA-REGISTRO`, `VERSIONAMENTO`, `ROADMAP`, `INBOX`, `TICKET`, `WEBCHAT`, `WEBHOOKS`, `RADARZAP-MODOS-…` | Governança + comportamento |
-| 11–13 | `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-{1,3,4}.md` | Histórico modos |
+| 1–10 | `INDICE`, `CHANGELOG`, `SISTEMA-REGISTRO`, `VERSIONAMENTO`, `ROADMAP`, `INBOX`, `TICKET`, `WEBCHAT`, `WEBHOOKS`, `RADARCHAT-MODOS-…` | Governança + comportamento |
+| 11–13 | `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-{1,3,4}.md` | Histórico modos |
 | 14–17 | `QA-FASE1-*`, `QA-WEBCHAT-WA-*` | Roteiros manuais |
-| 18–19 | `concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_*` | FAQ/bridge entregue 2.10.75 |
-| 20–26 | `concluidos/radarzap-inbox-upgrade`, `MENU-PAGES-REGISTRY`, `EQUIPE-RBAC`, `DESIGN-SYSTEM`, migração, `PREPARACAO`, `PRODUCTION` | Referência |
+| 18–19 | `concluidos/RADARCHAT_WHATSAPP_TICKET_FAQ_*` | FAQ/bridge entregue 2.10.75 |
+| 20–26 | `concluidos/radarchat-inbox-upgrade`, `MENU-PAGES-REGISTRY`, `EQUIPE-RBAC`, `DESIGN-SYSTEM`, migração, `PREPARACAO`, `PRODUCTION` | Referência |
 
 ### Código inspecionado (2026-06-21)
 
@@ -132,7 +132,7 @@ O RadarZap v2 tem **superfície ampla implementada** (painel, Inbox, tickets, We
 
 ### 6.2 Melhorias futuras (produto — Fase D+)
 
-Ver [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md): CRM leve, gatilhos WebChat (preço, UTM, exit), templates por segmento, wizard onboarding, relatórios conversão.
+Ver [`RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md): CRM leve, gatilhos WebChat (preço, UTM, exit), templates por segmento, wizard onboarding, relatórios conversão.
 
 **Não iniciar** antes do gate § Estabilização.
 
@@ -320,7 +320,7 @@ Eventos bridge gravados: `bridge.started`, `bridge.closed`, `bridge.agent_reply`
 
 - Modo `basic_triage` em `src/types/attendance-mode.ts`
 - Serviço `webchat-basic-triage.service.ts`
-- Doc fase: [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./RADARZAP-ATTENDANCE-MODES-PHASE-5.md)
+- Doc fase: [`RADARCHAT-ATTENDANCE-MODES-PHASE-5.md`](./RADARCHAT-ATTENDANCE-MODES-PHASE-5.md)
 
 **Estabilização:** não expandir IA Básica até QA Fase 1 verde. Melhorias = patch isolado + testes.
 
@@ -339,7 +339,7 @@ Eventos bridge gravados: `bridge.started`, `bridge.closed`, `bridge.agent_reply`
 
 ## 16. Onboarding e templates
 
-Backlog Fase D — wizard e seeds por segmento. Ver §6.2 e [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md).
+Backlog Fase D — wizard e seeds por segmento. Ver §6.2 e [`RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md).
 
 ---
 
@@ -384,7 +384,7 @@ Backlog Fase D — wizard e seeds por segmento. Ver §6.2 e [`RADARZAP-VISAO-PRO
 
 ### Fase D — Produto vendável
 
-Expansão horizontal (CRM, gatilhos, templates, relatórios) — [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md)
+Expansão horizontal (CRM, gatilhos, templates, relatórios) — [`RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md)
 
 ### Fase E — Evolução IA Básica
 
@@ -487,7 +487,7 @@ Fase B entregou rate limit tipado, health API, audit bridge e `PILOT_MODE`. Gate
 
 Próximo implementação: webhooks ticket/bridge + audit ticket + testes integrados InboxService.
 
-Expansão horizontal (CRM, gatilhos) = **Fase D**. Visão: [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md).
+Expansão horizontal (CRM, gatilhos) = **Fase D**. Visão: [`RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md).
 
 ---
 

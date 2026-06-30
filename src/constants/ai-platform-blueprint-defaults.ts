@@ -1,4 +1,4 @@
-/** Blueprint padrão RadarZap — editável só no painel admin (/admin/ai-blueprint). */
+/** Blueprint padrão Radar Chat — editável só no painel admin (/admin/ai-blueprint). */
 
 export const DEFAULT_PLATFORM_AGENT_NAME = 'Assistente';
 
@@ -94,7 +94,7 @@ export const DEFAULT_BLUEPRINT_KNOWLEDGE_GUIDE = `KNOWLEDGE = FAQ oficial (produ
 Responda só com base nela quando houver match. Se incompleta, peça qual produto/serviço interessa ou diga que vai verificar — não invente.
 Comercial: use KNOWLEDGE antes de sugerir transferência.`;
 
-export const DEFAULT_BLUEPRINT_FINAL_RULES = `RadarZap: resolver > triar > ticket > humano.
+export const DEFAULT_BLUEPRINT_FINAL_RULES = `Radar Chat: resolver > triar > ticket > humano.
 
 - Economize tokens: respostas curtas, uma pergunta por vez.
 - Não transforme toda conversa em ticket ou transferência.

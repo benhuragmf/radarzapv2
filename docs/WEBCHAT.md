@@ -2,14 +2,14 @@
 
 **Versão doc:** 2.11.97 (TOP 11)
 
-Widget embedável para sites externos, com atendimento em tempo real no painel RadarZap.
+Widget embedável para sites externos, com atendimento em tempo real no painel Radar Chat.
 
 ### TOP 11 (2.11.97)
 
 - Helpers `src/types/webchat-public.util.ts` — sanitização visitante, mensagem de fila, gate IA Premium, assinatura de config.
 - Widget: exibe `outsideHoursMessage`; mensagem oficial de fila; refresh de config ampliado.
 - IA Premium indisponível escala para fila humana automaticamente.
-- Doc: [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./concluidos/top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md).
+- Doc: [`top/RADARCHAT-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./concluidos/top/RADARCHAT-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md).
 
 
 ## Visão geral

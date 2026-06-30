@@ -1,12 +1,12 @@
 /*
- * RadarZap / RadarGamer
+ * Radar Chat / RadarGamer
  * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
  * Todos os direitos reservados.
  * Uso, cópia, distribuição ou modificação sem autorização é proibido.
  */
 
 /**
- * DashboardService — RadarZap Web Panel
+ * DashboardService — Radar Chat Web Panel
  *
  * Serves the React frontend and exposes a REST API consumed by it.
  * All data comes from MongoDB models and the Redis/BullMQ queue.
@@ -351,6 +351,86 @@ export class DashboardService {
     return `${this.getFrontendBase()}/auth/discord/callback`;
   }
 
+  /** Google OAuth redirect URI */
+  private getGoogleOAuthRedirectUri(): string {
+    return `${this.getFrontendBase()}/auth/google/callback`;
+  }
+
+  private getAllowedOAuthOrigins(): Set<string> {
+    return new Set(
+      [
+        config.DASHBOARD.FRONTEND_URL,
+        config.CORS_ORIGIN,
+        'http://localhost:3001',
+        'http://localhost:5174',
+        'http://127.0.0.1:3001',
+        'http://127.0.0.1:5174',
+      ]
+        .filter(Boolean)
+        .map(url => url.replace(/\/$/, '')),
+    );
+  }
+
+  private isPrivateOAuthHost(host: string): boolean {
+    const hostname = host.split(':')[0].toLowerCase();
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.endsWith('.internal') ||
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    );
+  }
+
+  /**
+   * Origem pública para OAuth — prioriza host real (proxy/Vite) para bater com o browser e o Discord.
+   */
+  private resolveOAuthPublicBase(req: Request): string {
+    const configured = this.getFrontendBase().replace(/\/$/, '');
+    const allowed = this.getAllowedOAuthOrigins();
+
+    const forwardedProto = req.get('x-forwarded-proto')?.split(',')[0]?.trim();
+    const forwardedHost = req.get('x-forwarded-host')?.split(',')[0]?.trim();
+    const host = (forwardedHost ?? req.get('host'))?.split(',')[0]?.trim();
+
+    if (host) {
+      const scheme = forwardedProto || (req.secure ? 'https' : 'http');
+      const candidate = `${scheme}://${host}`.replace(/\/$/, '');
+
+      if (allowed.has(candidate)) return candidate;
+
+      if (config.NODE_ENV === 'production' && scheme === 'https' && !this.isPrivateOAuthHost(host)) {
+        return candidate;
+      }
+    }
+
+    const referer = req.get('referer');
+    if (referer) {
+      try {
+        const origin = new URL(referer).origin.replace(/\/$/, '');
+        if (allowed.has(origin)) return origin;
+      } catch {
+        // ignore
+      }
+    }
+
+    return configured;
+  }
+
+  private mapDiscordTokenError(tokenData: { error?: string; error_description?: string }): string {
+    const description = String(tokenData.error_description ?? '').toLowerCase();
+    if (tokenData.error === 'invalid_client') return 'discord_not_configured';
+    if (
+      tokenData.error === 'invalid_request' &&
+      (description.includes('redirect_uri') || description.includes('redirect uri'))
+    ) {
+      return 'discord_redirect_mismatch';
+    }
+    if (tokenData.error === 'invalid_grant') return 'oauth_expired';
+    return 'token_failed';
+  }
+
   private saveSession(req: Request): Promise<void> {
     return new Promise((resolve, reject) => {
       req.session.save(err => (err ? reject(err) : resolve()));
@@ -654,7 +734,7 @@ export class DashboardService {
     const isProd = config.NODE_ENV === 'production';
 
     const sessionMiddleware = session({
-      name: 'radarzap.sid',
+      name: 'radarchat.sid',
       store: new IORedisSesionStore(),
       secret: config.SECURITY.SESSION_SECRET,
       resave: false,
@@ -815,95 +895,121 @@ export class DashboardService {
     }
   }
 
-  /** Google OAuth redirect URI */
-  private getGoogleOAuthRedirectUri(): string {
-    return `${this.getFrontendBase()}/auth/google/callback`;
-  }
-
   /**
    * Discord OAuth2 routes
    */
   private setupAuthRoutes(): void {
-    const REDIRECT_URI = this.getOAuthRedirectUri();
-    const GOOGLE_REDIRECT_URI = this.getGoogleOAuthRedirectUri();
+    const DEFAULT_DISCORD_REDIRECT_URI = this.getOAuthRedirectUri();
+    const DEFAULT_GOOGLE_REDIRECT_URI = this.getGoogleOAuthRedirectUri();
     const SCOPES = 'identify';
     const orgSvc = OrganizationService.getInstance();
 
     logger.info('Discord OAuth redirect URI (cadastre no Discord Developer Portal)', {
-      redirectUri: REDIRECT_URI,
+      redirectUri: DEFAULT_DISCORD_REDIRECT_URI,
       frontendUrl: this.getFrontendBase(),
     });
     logger.info('Google OAuth redirect URI (cadastre no Google Cloud Console → Credentials → Redirect URIs)', {
-      redirectUri: GOOGLE_REDIRECT_URI,
+      redirectUri: DEFAULT_GOOGLE_REDIRECT_URI,
       frontendUrl: this.getFrontendBase(),
     });
 
-    const beginDiscordOAuth = (req: Request, res: Response, linkMode: boolean) => {
+    const beginDiscordOAuth = async (req: Request, res: Response, linkMode: boolean) => {
+      const frontendBase = this.resolveOAuthPublicBase(req);
+      if (!config.DISCORD.CLIENT_ID || !config.DISCORD.CLIENT_SECRET) {
+        return res.redirect(`${frontendBase}/?error=discord_not_configured`);
+      }
+
+      const redirectUri = `${frontendBase}/auth/discord/callback`;
       const state = crypto.randomBytes(24).toString('hex');
       const sess = req.session as {
         userId?: string;
         oauthStateDiscord?: string;
+        oauthRedirectUriDiscord?: string;
         oauthLinkTarget?: string;
       };
       if (linkMode) {
         if (!sess.userId) {
-          return res.redirect(`${this.getFrontendBase()}/?error=login_required`);
+          return res.redirect(`${frontendBase}/?error=login_required`);
         }
         sess.oauthLinkTarget = 'discord';
       }
       sess.oauthStateDiscord = state;
+      sess.oauthRedirectUriDiscord = redirectUri;
+
       const url = new URL('https://discord.com/api/oauth2/authorize');
       url.searchParams.set('client_id', config.DISCORD.CLIENT_ID);
-      url.searchParams.set('redirect_uri', REDIRECT_URI);
+      url.searchParams.set('redirect_uri', redirectUri);
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', SCOPES);
       url.searchParams.set('state', state);
+
+      await this.saveSession(req);
       res.redirect(url.toString());
     };
 
-    const beginGoogleOAuth = (req: Request, res: Response, linkMode: boolean) => {
+    const beginGoogleOAuth = async (req: Request, res: Response, linkMode: boolean) => {
       const clientId = config.GOOGLE.CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
       if (!clientId) {
         return res.status(503).json({ error: 'Google OAuth não configurado (GOOGLE_CLIENT_ID)' });
       }
+
+      const frontendBase = this.resolveOAuthPublicBase(req);
+      const redirectUri = `${frontendBase}/auth/google/callback`;
       const state = crypto.randomBytes(24).toString('hex');
       const sess = req.session as {
         userId?: string;
         oauthStateGoogle?: string;
+        oauthRedirectUriGoogle?: string;
         oauthLinkTarget?: string;
       };
       if (linkMode) {
         if (!sess.userId) {
-          return res.redirect(`${this.getFrontendBase()}/?error=login_required`);
+          return res.redirect(`${frontendBase}/?error=login_required`);
         }
         sess.oauthLinkTarget = 'google';
       }
       sess.oauthStateGoogle = state;
+      sess.oauthRedirectUriGoogle = redirectUri;
+
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       url.searchParams.set('client_id', clientId);
-      url.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI);
+      url.searchParams.set('redirect_uri', redirectUri);
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', 'openid email profile');
       url.searchParams.set('access_type', 'online');
       url.searchParams.set('prompt', 'select_account');
       url.searchParams.set('state', state);
+
+      await this.saveSession(req);
       res.redirect(url.toString());
     };
 
+    const handleOAuthBeginError = (provider: string, err: unknown, res: Response) => {
+      logger.error(`${provider} OAuth begin failed`, err);
+      res.redirect(`${this.getFrontendBase()}/?error=oauth_error`);
+    };
+
     // Step 1 — redirect to Discord
-    this.app.get('/auth/discord', (req, res) => beginDiscordOAuth(req, res, false));
-    this.app.get('/auth/discord/link', (req, res) => beginDiscordOAuth(req, res, true));
+    this.app.get('/auth/discord', (req, res) => {
+      void beginDiscordOAuth(req, res, false).catch(err => handleOAuthBeginError('Discord', err, res));
+    });
+    this.app.get('/auth/discord/link', (req, res) => {
+      void beginDiscordOAuth(req, res, true).catch(err => handleOAuthBeginError('Discord', err, res));
+    });
 
     // Step 2 — Discord redirects back with code
     this.app.get('/auth/discord/callback', async (req: Request, res: Response) => {
       const { code, state } = req.query as { code?: string; state?: string };
-      const frontendBase = this.getFrontendBase();
+      const frontendBase = this.resolveOAuthPublicBase(req);
       if (!code) return res.redirect(`${frontendBase}/?error=no_code`);
       const sess = req.session as any;
       if (!state || state !== sess.oauthStateDiscord) {
         return res.redirect(`${frontendBase}/?error=oauth_state`);
       }
+      const redirectUri =
+        (sess.oauthRedirectUriDiscord as string | undefined) || DEFAULT_DISCORD_REDIRECT_URI;
       delete sess.oauthStateDiscord;
+      delete sess.oauthRedirectUriDiscord;
 
       try {
         // Exchange code for access token
@@ -915,15 +1021,19 @@ export class DashboardService {
             client_secret: config.DISCORD.CLIENT_SECRET,
             grant_type:    'authorization_code',
             code,
-            redirect_uri:  REDIRECT_URI,
+            redirect_uri:  redirectUri,
           }),
         });
 
         const tokenData = await tokenRes.json() as any;
         if (!tokenData.access_token) {
-          logger.error('Discord token exchange failed', redactOAuthError(tokenData));
-          const frontendBase = this.getFrontendBase();
-          return res.redirect(`${frontendBase}/?error=token_failed`);
+          logger.error('Discord token exchange failed', {
+            ...redactOAuthError(tokenData),
+            status: tokenRes.status,
+            redirectUri,
+          });
+          const errCode = this.mapDiscordTokenError(tokenData);
+          return res.redirect(`${frontendBase}/?error=${errCode}`);
         }
 
         // Get Discord user info
@@ -959,7 +1069,7 @@ export class DashboardService {
           const created = await orgSvc.getOrCreateForDiscord(discordUser.id);
           dbUser = await User.findById(created._id);
           if (!dbUser) throw new Error('Falha ao criar usuário Discord');
-          logger.info(`Conta RadarZap criada no login Discord: ${discordUser.username}`);
+          logger.info(`Conta Radar Chat criada no login Discord: ${discordUser.username}`);
         } else {
           await orgSvc.ensureOrganization(dbUser);
         }
@@ -1006,12 +1116,16 @@ export class DashboardService {
     });
 
     // ── Google OAuth (dono da empresa / pagante) ───────────────────────────
-    this.app.get('/auth/google', (req, res) => beginGoogleOAuth(req, res, false));
-    this.app.get('/auth/google/link', (req, res) => beginGoogleOAuth(req, res, true));
+    this.app.get('/auth/google', (req, res) => {
+      void beginGoogleOAuth(req, res, false).catch(err => handleOAuthBeginError('Google', err, res));
+    });
+    this.app.get('/auth/google/link', (req, res) => {
+      void beginGoogleOAuth(req, res, true).catch(err => handleOAuthBeginError('Google', err, res));
+    });
 
     this.app.get('/auth/google/callback', async (req: Request, res: Response) => {
       const { code, state } = req.query as { code?: string; state?: string };
-      const frontendBase = this.getFrontendBase();
+      const frontendBase = this.resolveOAuthPublicBase(req);
       const clientId = config.GOOGLE.CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
       const clientSecret = config.GOOGLE.CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
       if (!code) return res.redirect(`${frontendBase}/?error=no_code`);
@@ -1019,7 +1133,10 @@ export class DashboardService {
       if (!state || state !== sess.oauthStateGoogle) {
         return res.redirect(`${frontendBase}/?error=oauth_state`);
       }
+      const redirectUri =
+        (sess.oauthRedirectUriGoogle as string | undefined) || DEFAULT_GOOGLE_REDIRECT_URI;
       delete sess.oauthStateGoogle;
+      delete sess.oauthRedirectUriGoogle;
       if (!clientId || !clientSecret) {
         return res.redirect(`${frontendBase}/?error=google_not_configured`);
       }
@@ -1032,7 +1149,7 @@ export class DashboardService {
             code,
             client_id: clientId,
             client_secret: clientSecret,
-            redirect_uri: GOOGLE_REDIRECT_URI,
+            redirect_uri: redirectUri,
             grant_type: 'authorization_code',
           }),
         });
@@ -1049,7 +1166,7 @@ export class DashboardService {
             status: tokenRes.status,
             error: tokenData.error,
             description: tokenData.error_description,
-            redirectUri: GOOGLE_REDIRECT_URI,
+            redirectUri,
           });
           const errCode = tokenData.error === 'redirect_uri_mismatch' ? 'google_redirect_mismatch' : 'token_failed';
           return res.redirect(`${frontendBase}/?error=${errCode}`);
@@ -1114,7 +1231,7 @@ export class DashboardService {
         res.redirect(`${frontendBase}${postLoginPath}`);
       } catch (err) {
         const message = (err as Error).message ?? '';
-        logError(err as Error, { step: 'google_oauth_callback', redirectUri: GOOGLE_REDIRECT_URI });
+        logError(err as Error, { step: 'google_oauth_callback', redirectUri });
         const errParam = message.includes('E11000') ? 'google_account_conflict' : 'oauth_error';
         res.redirect(`${frontendBase}/?error=${errParam}`);
       }
@@ -4174,7 +4291,7 @@ export class DashboardService {
         const body = TenantBackupService.getInstance().wrapExportPayload(
           await TenantBackupService.getInstance().exportOrganization(auth.clientId),
         );
-        const filename = `radarzap-backup-${auth.clientId}-${Date.now()}.json`;
+        const filename = `radarchat-backup-${auth.clientId}-${Date.now()}.json`;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         await writeAuditLog({
@@ -7335,7 +7452,7 @@ export class DashboardService {
       try {
         res.setHeader('Deprecation', 'true');
         res.setHeader('Link', '</api/admin/ops/organizations>; rel="successor-version"');
-        res.setHeader('X-RadarZap-Deprecated-Successor', '/admin/ops/organizations');
+        res.setHeader('X-Radar Chat-Deprecated-Successor', '/admin/ops/organizations');
         const orgs = await Organization.find({})
           .select('name plan planExpiresAt createdAt limits')
           .sort({ createdAt: -1 })
@@ -8509,7 +8626,7 @@ export class DashboardService {
 
     // Real-time WhatsApp session updates (QR, connected, etc.)
     try {
-      await this.redisManager.subscribe('radarzap:wa-session', (message) => {
+      await this.redisManager.subscribe('radarchat:wa-session', (message) => {
         try {
           const payload = JSON.parse(message) as Record<string, unknown>;
 

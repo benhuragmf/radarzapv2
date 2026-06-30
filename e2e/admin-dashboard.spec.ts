@@ -363,7 +363,7 @@ test.describe('Admin Dashboard Ops', () => {
   test('/admin/ai-platform — banner hub aba IA', async ({ page }) => {
     await page.goto('/admin/ai-platform');
     await expect(
-      page.getByRole('main').getByRole('heading', { name: /IA da plataforma \(RadarZap\)/i }),
+      page.getByRole('main').getByRole('heading', { name: /IA da plataforma \(Radar Chat\)/i }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('admin-ops-legacy-banner')).toBeVisible();
   });

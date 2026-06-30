@@ -1,4 +1,4 @@
-# RadarZap v2 — go-live (atalho)
+# Radar Chat v2 — go-live (atalho)
 
 > **Fase 4** — só após estabilização (Fase 1), produto aceito e staging validado.  
 > Conteúdo completo: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) · Fase atual: [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md)

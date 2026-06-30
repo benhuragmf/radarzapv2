@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
+import type { AdminOpsSummary } from '@radarchat-types/admin-ops-summary'
 import type {
   AdminOpsOrganizationRow,
   AdminOpsOrganizationsPage,
-} from '@radarzap-types/admin-ops-organizations'
+} from '@radarchat-types/admin-ops-organizations'
 import {
   formatOpsDate,
   formatOpsNumber,
   sanitizeOpsDisplayText,
-} from '@radarzap-types/admin-ops-summary.util'
+} from '@radarchat-types/admin-ops-summary.util'
 import { Building2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { AuthContext } from '../../lib/authContext'

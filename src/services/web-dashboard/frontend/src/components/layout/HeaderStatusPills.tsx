@@ -24,7 +24,7 @@ interface AiBalancePayload {
     dailyLimit: number
     monthlyUsed: number
     monthlyLimit: number
-    meteringMode?: 'radarzap_calls' | 'company_calls'
+    meteringMode?: 'radarchat_calls' | 'company_calls'
   }
 }
 

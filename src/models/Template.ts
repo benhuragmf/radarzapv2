@@ -185,7 +185,7 @@ TemplateSchema.methods.clone = async function(this: ITemplate, newName: string, 
  */
 TemplateSchema.statics.findByName = function(name: string, clientId?: mongoose.Types.ObjectId) {
   const isSystemDw =
-    name.startsWith('dw-') || name.startsWith('radarzap-');
+    name.startsWith('dw-') || name.startsWith('radarchat-');
 
   if (isSystemDw) {
     return this.findOne({ name, clientId: null, isDefault: true });

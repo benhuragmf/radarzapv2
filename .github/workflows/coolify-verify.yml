@@ -18,7 +18,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Gate RadarChat (+ auto-reconcile se necessário)
         uses: appleboy/ssh-action@v1.2.0
@@ -36,7 +36,7 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
             git fetch origin main -q && git reset --hard origin/main -q
             export COOLIFY_SERVICE_UUID PUBLIC_HOST
             if sudo -E bash scripts/vps-coolify-verify.sh; then

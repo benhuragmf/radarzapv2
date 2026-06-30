@@ -169,10 +169,10 @@ export class ConsentService {
 
     const st = dest.consentStatus ?? ConsentStatus.PENDING;
     if (st === ConsentStatus.MANUALLY_BLOCKED) {
-      return 'Contato bloqueado manualmente pelo RadarZap';
+      return 'Contato bloqueado manualmente pelo Radar Chat';
     }
     if (st === ConsentStatus.REFUSED_THREE) {
-      return 'Contato recusou 3 vezes — não é possível enviar. Contate o suporte RadarZap.';
+      return 'Contato recusou 3 vezes — não é possível enviar. Contate o suporte Radar Chat.';
     }
     if (st === ConsentStatus.REFUSED_FIRST || st === ConsentStatus.REFUSED_SECOND) {
       return 'Contato recusou receber mensagens. O dono da empresa deve aprovar novo consentimento.';
@@ -645,10 +645,10 @@ export class ConsentService {
 
     const st = dest.consentStatus ?? ConsentStatus.PENDING;
     if (st === ConsentStatus.REFUSED_THREE) {
-      throw new Error('Este contato recusou 3 vezes. Nem o dono consegue liberar — contate o suporte RadarZap.');
+      throw new Error('Este contato recusou 3 vezes. Nem o dono consegue liberar — contate o suporte Radar Chat.');
     }
     if (st === ConsentStatus.MANUALLY_BLOCKED) {
-      throw new Error('Contato bloqueado pelo administrador RadarZap.');
+      throw new Error('Contato bloqueado pelo administrador Radar Chat.');
     }
     const exhaustedPending =
       st === ConsentStatus.PENDING && (dest.pendingOutboundCount ?? 0) >= MAX_PENDING_OUTBOUND;
@@ -737,7 +737,7 @@ export class ConsentService {
     const st = dest.consentStatus ?? ConsentStatus.PENDING;
     if (!ownerCanResetStatus(st)) {
       if (st === ConsentStatus.REFUSED_THREE) {
-        throw new Error('Recusa definitiva (3x) — nem o dono consegue apagar. Contate o suporte RadarZap.');
+        throw new Error('Recusa definitiva (3x) — nem o dono consegue apagar. Contate o suporte Radar Chat.');
       }
       throw new Error('Este contato não está em status de recusa liberável.');
     }

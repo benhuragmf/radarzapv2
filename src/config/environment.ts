@@ -339,7 +339,7 @@ export const config: AppConfig = {
   },
 
   MAIL: {
-    FROM: getOptional('MAIL_FROM', 'RadarZap <noreply@radarzap.local>'),
+    FROM: getOptional('MAIL_FROM', 'Radar Chat <noreply@radarchat.local>'),
     RESEND_API_KEY: getOptional('RESEND_API_KEY', ''),
     SMTP_HOST: getOptional('SMTP_HOST', ''),
     SMTP_PORT: parseNumber(process.env.SMTP_PORT, 587),
@@ -452,7 +452,7 @@ export function validateConfig(): void {
     }
 
     const otpPepper = process.env.TICKET_OTP_PEPPER?.trim();
-    if (!otpPepper || otpPepper === 'radarzap-ticket-otp-change-in-production') {
+    if (!otpPepper || otpPepper === 'radarchat-ticket-otp-change-in-production') {
       errors.push('TICKET_OTP_PEPPER must be set to a strong secret in production');
     }
 

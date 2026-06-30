@@ -37,7 +37,7 @@ async function pickTestOrgId(): Promise<{ id: string; name: string; plan: string
 }
 
 async function main(): Promise<void> {
-  console.log('=== RadarZap — QA Admin Ops Bloco E (alterar plano) ===\n');
+  console.log('=== Radar Chat — QA Admin Ops Bloco E (alterar plano) ===\n');
 
   const db = DatabaseManager.getInstance();
   await db.connect();

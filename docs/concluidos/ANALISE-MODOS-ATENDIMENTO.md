@@ -1,11 +1,11 @@
-# RELATÓRIO DE ANÁLISE — RADARZAP MODOS DE ATENDIMENTO
+# RELATÓRIO DE ANÁLISE — RADARCHAT MODOS DE ATENDIMENTO
 
 **Versão analisada:** `2.10.105` (`package.json`)  
 **Data da análise:** 2026-06-19  
 **Escopo:** somente leitura — nenhuma implementação de código  
 **Objetivo:** mapear o que já existe antes de evoluir para 4 modos de atendimento + separação modo × provedor
 
-> **Implementação (Fases 1–4 concluídas):** ver [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) · versão atual `2.10.108`
+> **Implementação (Fases 1–4 concluídas):** ver [`RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](../RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) · versão atual `2.10.108`
 
 ---
 
@@ -35,9 +35,9 @@
 
 ## 1. Status geral
 
-O RadarZap v2 é um sistema **maduro e quase completo** para atendimento WhatsApp + WebChat + Inbox, com camada de IA já funcional em código (não só mock de UI).
+O Radar Chat v2 é um sistema **maduro e quase completo** para atendimento WhatsApp + WebChat + Inbox, com camada de IA já funcional em código (não só mock de UI).
 
-O que **não existe** hoje é um conceito unificado de **“modo de atendimento”** com os 4 níveis desejados. O campo `AiSettings.mode` (`radarzap` | `company` | `disabled`) mistura **provedor/credencial** com **ligar/desligar IA**, enquanto o **bot robotizado** (menu 1–2–3–4) vive em outro lugar (`InboxSettings` + `inbox-triage`), independente da tela de IA.
+O que **não existe** hoje é um conceito unificado de **“modo de atendimento”** com os 4 níveis desejados. O campo `AiSettings.mode` (`radarchat` | `company` | `disabled`) mistura **provedor/credencial** com **ligar/desligar IA**, enquanto o **bot robotizado** (menu 1–2–3–4) vive em outro lugar (`InboxSettings` + `inbox-triage`), independente da tela de IA.
 
 | Conceito desejado | Situação atual |
 |---|---|
@@ -171,7 +171,7 @@ Cliente envia mensagem
 | Respostas rápidas | `InboxSettings.quickReplies` | Atalhos da equipe (`/bd`) | Não é menu visitante |
 | Tenant | `src/models/Organization.ts` | `plan`, papéis custom | `clientId` = org |
 | RBAC | `src/auth/rbac/*` | Capabilities | `INBOX_AI_MANAGE` etc. |
-| Planos IA | `src/types/ai-assistant.ts` | `getAiPlanLimits(plan)` | free = 0 IA RadarZap |
+| Planos IA | `src/types/ai-assistant.ts` | `getAiPlanLimits(plan)` | free = 0 IA Radar Chat |
 | Busca textual IA | `src/utils/ai-text-match.ts` | `scoreAiTextMatch` | Sem vetores |
 | Testes IA | `src/services/ai/__tests__/` | escalation, auto-resolve | |
 
@@ -184,7 +184,7 @@ Cliente envia mensagem
 | Item | Existe? | Onde | Completo? | Backend? | Banco? | WA? | WebChat? | Testes? |
 |---|---|---|---|---|---|---|---|---|
 | Config IA tenant | ✅ | `AiSettings`, `AiPrompt` | Completo | ✅ | ✅ | ✅ | ✅ | Parcial |
-| Modo operação | ⚠️ | `AiMode`: radarzap/company/disabled | Mistura provedor+on/off | ✅ | ✅ | ✅ | ✅ | — |
+| Modo operação | ⚠️ | `AiMode`: radarchat/company/disabled | Mistura provedor+on/off | ✅ | ✅ | ✅ | ✅ | — |
 | Provedor | ✅ | `AiSettings.provider` | openai/gemini | ✅ | ✅ | ✅ | ✅ | — |
 | API Key | ✅ | `encryptedApiKey` + vault | Criptografada | ✅ | ✅ | ✅ | ✅ | — |
 | Modelo | ✅ | `llmModel` + catálogo | Completo | ✅ | ✅ | ✅ | ✅ | — |
@@ -328,14 +328,14 @@ Confirmado por busca no código (`attendanceMode`, embeddings, orchestrator dedi
 
 ```typescript
 // src/types/ai-assistant.ts
-type AiMode = 'radarzap' | 'company' | 'disabled';
+type AiMode = 'radarchat' | 'company' | 'disabled';
 type AiProvider = 'openai' | 'gemini';
 ```
 
 | Valor atual `mode` | Significado real hoje |
 |---|---|
 | `disabled` | IA LLM desligada |
-| `radarzap` | IA ligada + credencial RadarZap + limites do plano |
+| `radarchat` | IA ligada + credencial Radar Chat + limites do plano |
 | `company` | IA ligada + API key do tenant |
 
 ### Proposta compatível (spec — não implementada)
@@ -343,7 +343,7 @@ type AiProvider = 'openai' | 'gemini';
 | Novo conceito | Campo sugerido | Valores |
 |---|---|---|
 | Modo atendimento | `attendanceMode` | `disabled` \| `robot` \| `triage_basic` \| `assistant_premium` |
-| Provedor/credencial | renomear semântica de `mode` → `credentialSource` | `radarzap` \| `company` \| `none` |
+| Provedor/credencial | renomear semântica de `mode` → `credentialSource` | `radarchat` \| `company` \| `none` |
 | Provedor LLM | manter `provider` | `openai` \| `gemini` |
 
 ### Mapeamento legado sugerido
@@ -351,7 +351,7 @@ type AiProvider = 'openai' | 'gemini';
 | `mode` antigo | `attendanceMode` | `credentialSource` |
 |---|---|---|
 | `disabled` | `disabled` ou `robot`* | `none` |
-| `radarzap` | `assistant_premium` | `radarzap` |
+| `radarchat` | `assistant_premium` | `radarchat` |
 | `company` | `assistant_premium` | `company` |
 
 \*Se quiser manter bot WA ao “desligar IA”, mapear para `robot` em vez de `disabled` puro.
@@ -466,7 +466,7 @@ type AiProvider = 'openai' | 'gemini';
 ### Recomendação UI (sem implementar)
 
 1. Aba **Geral** → cards dos 4 modos (substituir 3 radios).
-2. Aba **Provedor** → separada (RadarZap / chave própria / nenhum).
+2. Aba **Provedor** → separada (Radar Chat / chave própria / nenhum).
 3. Manter KB, Skills, Memória, Transferência, Limites, Logs.
 4. Link/seção **Fluxo robotizado** → reutilizar `/platform/inbox/bot` (não duplicar formulário).
 5. WebChat → `autoReplyUseAi` derivado do modo global ou read-only com explicação.
@@ -647,7 +647,7 @@ npm run typecheck
 
 ## 19. Conclusão
 
-O RadarZap **já tem ~70–80% da infraestrutura** para os 4 modos, mas organizada de forma **fragmentada** e com nomenclatura que **mistura provedor com comportamento**.
+O Radar Chat **já tem ~70–80% da infraestrutura** para os 4 modos, mas organizada de forma **fragmentada** e com nomenclatura que **mistura provedor com comportamento**.
 
 **Recomendação:** não implementar os 4 modos de uma vez. Começar por **Fase 0 + Fase 1 + Fase 2 (UI com adapter)** para validar UX; depois **Fase 3 (campo no banco)** e **Fase 4 (robotizado WebChat)**.
 
@@ -669,7 +669,7 @@ Isso preserva WhatsApp, Inbox e WebChat que já estão quase prontos.
 - `../TICKET-ATENDIMENTO.md` — chamados e assistente ticket
 - `../MENU-PAGES-REGISTRY.md` — rotas painel
 - `../ROADMAP-COMPLETUDE.md` — gate estabilização Fase 1
-- `.cursor/rules/radarzap-v2-system-registry.mdc` — changelog sistema
+- `.cursor/rules/radarchat-v2-system-registry.mdc` — changelog sistema
 
 ---
 

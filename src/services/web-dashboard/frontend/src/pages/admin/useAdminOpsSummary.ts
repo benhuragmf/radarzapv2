@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
+import type { AdminOpsSummary } from '@radarchat-types/admin-ops-summary'
 import { api } from '../../lib/api'
 
 export function useAdminOpsSummary(enabled = true) {

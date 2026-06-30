@@ -3,7 +3,7 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { LoadingState, EmptyState } from '@/design-system'
 import { ExternalLink, List, Plus } from 'lucide-react'
-import type { LeadSegmentSummary } from '@radarzap-types/lead-form'
+import type { LeadSegmentSummary } from '@radarchat-types/lead-form'
 
 export function LeadSegmentsTab({
   segments,

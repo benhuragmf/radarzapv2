@@ -1,9 +1,9 @@
-import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
+import type { AdminOpsSummary } from '@radarchat-types/admin-ops-summary'
 import {
   formatOpsNumber,
   formatOpsUptime,
   serviceStatusLabel,
-} from '@radarzap-types/admin-ops-summary.util'
+} from '@radarchat-types/admin-ops-summary.util'
 import { SectionCard } from '@/design-system'
 
 function StatRow({ label, value }: { label: string; value: string | number }) {

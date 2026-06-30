@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { createLogger, defineConfig, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const radarzapVersion = JSON.parse(
+const radarchatVersion = JSON.parse(
   readFileSync(path.resolve(__dirname, '../../../../package.json'), 'utf8'),
 ).version as string
 
@@ -57,6 +57,13 @@ function createApiProxy(): ProxyOptions {
     changeOrigin: true,
     timeout: 120_000,
     configure(proxy) {
+      proxy.on('proxyReq', (proxyReq, req) => {
+        const host = req.headers.host;
+        if (host) {
+          proxyReq.setHeader('x-forwarded-host', host);
+          proxyReq.setHeader('x-forwarded-proto', 'http');
+        }
+      });
       proxy.on('error', (err, _req, res) => {
         warnApiOffline(err)
         if (res && !res.headersSent && 'writeHead' in res) {
@@ -76,13 +83,13 @@ function createApiProxy(): ProxyOptions {
 export default defineConfig({
   customLogger: viteLogger,
   define: {
-    'import.meta.env.VITE_RADARZAP_VERSION': JSON.stringify(radarzapVersion),
+    'import.meta.env.VITE_RADARCHAT_VERSION': JSON.stringify(radarchatVersion),
   },
   plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@radarzap-types': path.resolve(__dirname, '../../../types'),
+      '@radarchat-types': path.resolve(__dirname, '../../../types'),
     },
   },
   build: {

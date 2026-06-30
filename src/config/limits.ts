@@ -9,7 +9,7 @@ import {
 } from '@/utils/campaign-inter-destination-delay.util';
 import { DEFAULT_CAMPAIGN_DELAYS, type CampaignDelaysConfig } from '@/types/whatsapp-send-policy';
 
-/** Limites técnicos do WhatsApp Web + política do RadarZap. */
+/** Limites técnicos do WhatsApp Web + política do Radar Chat. */
 export const WHATSAPP_LIMITS = {
   /** Intervalo mínimo seguro entre destinos (modo protegido) — tier Mínimo. */
   MIN_DELAY_BETWEEN_MS: 30_000,

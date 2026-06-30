@@ -5,7 +5,7 @@ import type { AiUsageKind } from '@/types/ai-usage-kind';
 export interface IAiUsage extends Document {
   clientId: mongoose.Types.ObjectId;
   conversationId?: mongoose.Types.ObjectId;
-  provider: AiProvider | 'radarzap' | 'radarzap-basic-triage' | string;
+  provider: AiProvider | 'radarchat' | 'radarchat-basic-triage' | string;
   /** Modo de atendimento que originou a chamada LLM — desde 2.11.3. */
   usageKind?: AiUsageKind;
   /** Créditos debitados pelo custo real (USD / AI_CREDIT_USD_UNIT). 0 = chave própria. */

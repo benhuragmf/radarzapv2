@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Download, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 
-const DISMISS_KEY = 'radarzap-pwa-install-dismissed-at'
+const DISMISS_KEY = 'radarchat-pwa-install-dismissed-at'
 const DISMISS_DAYS = 14
 
 interface BeforeInstallPromptEvent extends Event {

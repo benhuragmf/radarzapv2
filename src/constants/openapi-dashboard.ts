@@ -1,5 +1,5 @@
 /**
- * Contrato REST do painel RadarZap — base para integrações externas.
+ * Contrato REST do painel Radar Chat — base para integrações externas.
  * Autenticação: cookie de sessão (painel) ou header X-API-Key (integrações).
  */
 export const DASHBOARD_API_BASE = '/api';
@@ -7,7 +7,7 @@ export const DASHBOARD_API_BASE = '/api';
 export const OPENAPI_DASHBOARD = {
   openapi: '3.0.3',
   info: {
-    title: 'RadarZap Dashboard API',
+    title: 'Radar Chat Dashboard API',
     version: '1.0.0',
     description:
       'API REST consumida pelo painel e por integrações. Use X-API-Key para chamadas server-to-server.',
@@ -466,7 +466,7 @@ export const OPENAPI_DASHBOARD = {
     },
     '/status-posts/audience-preview': {
       get: {
-        summary: 'Prévia de audiência (modos RadarZap — opcional)',
+        summary: 'Prévia de audiência (modos Radar Chat — opcional)',
         tags: ['WhatsApp'],
       },
     },

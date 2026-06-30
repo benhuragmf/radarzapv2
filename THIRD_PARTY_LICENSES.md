@@ -1,6 +1,6 @@
-# Licenças de terceiros — RadarZap / RadarGamer
+# Licenças de terceiros — Radar Chat / RadarGamer
 
-O RadarZap é **software proprietário**. Este arquivo lista bibliotecas de código
+O Radar Chat é **software proprietário**. Este arquivo lista bibliotecas de código
 aberto usadas no projeto e cujos avisos de copyright devem ser preservados na
 distribuição do software compilado ou empacotado.
 
@@ -62,7 +62,7 @@ Referência: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 
 ## Dependências a evitar sem revisão jurídica
 
-Não adicionar dependências **GPL** ou **AGPL** ao core do RadarZap sem análise
+Não adicionar dependências **GPL** ou **AGPL** ao core do Radar Chat sem análise
 prévia — podem impor obrigações de abertura de código em certos cenários de
 distribuição ou SaaS.
 

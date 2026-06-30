@@ -9,7 +9,7 @@ import {
   AI_MODULE_CREDIT_ESTIMATE,
   aiCreditsDebitForCall,
   inferCreditsFromRow,
-  isRadarzapPlatformProvider,
+  isRadarchatPlatformProvider,
 } from '@/types/ai-credits';
 import {
   aiUsageKindLabel,
@@ -23,7 +23,7 @@ import type { AiWalletSnapshot } from '@/types/ai-wallet';
 import { buildAiUsageMetadata, recordAiCreditAttendanceEvent } from '@/types/ai-wallet';
 
 export interface AiUsageLimitsSnapshot {
-  /** Chamadas LLM RadarZap hoje (1 chamada = 1 unidade no limite do plano). */
+  /** Chamadas LLM Radar Chat hoje (1 chamada = 1 unidade no limite do plano). */
   dailyUsed: number;
   monthlyUsed: number;
   conversationUsed: number;
@@ -40,7 +40,7 @@ export interface AiUsageLimitsSnapshot {
   companyCallsToday: number;
   /** Expectativa por módulo — só planejamento na UI (não multiplica cobrança). */
   moduleCreditEstimates: typeof AI_MODULE_CREDIT_ESTIMATE;
-  meteringMode: 'radarzap_calls' | 'company_calls';
+  meteringMode: 'radarchat_calls' | 'company_calls';
   wallet: AiWalletSnapshot;
 }
 
@@ -85,7 +85,7 @@ export interface PlatformAiUsageListResult extends AiUsageListResult {
   rows: Array<AiUsageRowDto & { clientId: string; clientName: string }>;
 }
 
-const RADARZAP_PLATFORM_PROVIDERS = ['radarzap', 'radarzap-basic-triage'] as const;
+const RADARCHAT_PLATFORM_PROVIDERS = ['radarchat', 'radarchat-basic-triage'] as const;
 
 export class AiUsageMeterService {
   private static instance: AiUsageMeterService;
@@ -137,16 +137,16 @@ export class AiUsageMeterService {
     return new mongoose.Types.ObjectId(id);
   }
 
-  private meteringModeFor(settings: IAiSettings): 'radarzap_calls' | 'company_calls' {
+  private meteringModeFor(settings: IAiSettings): 'radarchat_calls' | 'company_calls' {
     if (settings.mode === 'company') return 'company_calls';
-    return 'radarzap_calls';
+    return 'radarchat_calls';
   }
 
   private async aggregateSince(
     clientId: mongoose.Types.ObjectId,
     since: Date,
   ): Promise<{
-    radarzapCalls: number;
+    radarchatCalls: number;
     creditsSpent: number;
     companyCalls: number;
     byKind: Pick<AiUsageTotalsByKind, 'premium_assistant' | 'basic_triage'>;
@@ -163,7 +163,7 @@ export class AiUsageMeterService {
       basic_triage: { calls: 0, tokens: 0, cost: 0, credits: 0 },
     };
 
-    let radarzapCalls = 0;
+    let radarchatCalls = 0;
     let creditsSpent = 0;
     let companyCalls = 0;
 
@@ -177,8 +177,8 @@ export class AiUsageMeterService {
         estimatedCost: row.estimatedCost,
       });
 
-      if (isRadarzapPlatformProvider(provider)) {
-        radarzapCalls += 1;
+      if (isRadarchatPlatformProvider(provider)) {
+        radarchatCalls += 1;
         creditsSpent += credits;
       } else {
         companyCalls += 1;
@@ -192,7 +192,7 @@ export class AiUsageMeterService {
       }
     }
 
-    return { radarzapCalls, creditsSpent, companyCalls, byKind };
+    return { radarchatCalls, creditsSpent, companyCalls, byKind };
   }
 
   async getUsageSnapshot(
@@ -202,7 +202,7 @@ export class AiUsageMeterService {
     opts?: {
       pendingCalls?: number;
       pendingCredits?: number;
-      meteringOverride?: 'radarzap_calls' | 'company_calls';
+      meteringOverride?: 'radarchat_calls' | 'company_calls';
     },
   ): Promise<AiUsageLimitsSnapshot> {
     const clientOid = new mongoose.Types.ObjectId(clientId);
@@ -230,9 +230,9 @@ export class AiUsageMeterService {
 
     const meteringMode = opts?.meteringOverride ?? this.meteringModeFor(cfg);
     const dailyUsed =
-      meteringMode === 'company_calls' ? dailyAgg.companyCalls : dailyAgg.radarzapCalls;
+      meteringMode === 'company_calls' ? dailyAgg.companyCalls : dailyAgg.radarchatCalls;
     const monthlyUsed =
-      meteringMode === 'company_calls' ? monthlyAgg.companyCalls : monthlyAgg.radarzapCalls;
+      meteringMode === 'company_calls' ? monthlyAgg.companyCalls : monthlyAgg.radarchatCalls;
 
     let allowed = true;
     let reason: string | undefined;
@@ -241,13 +241,13 @@ export class AiUsageMeterService {
       reason =
         meteringMode === 'company_calls'
           ? 'Limite diário de chamadas IA (chave própria) atingido'
-          : 'Limite diário de chamadas IA RadarZap atingido';
+          : 'Limite diário de chamadas IA Radar Chat atingido';
     } else if (limits.monthlyLimit > 0 && monthlyUsed + pending > limits.monthlyLimit) {
       allowed = false;
       reason =
         meteringMode === 'company_calls'
           ? 'Limite mensal de chamadas IA (chave própria) atingido'
-          : 'Limite mensal de chamadas IA RadarZap atingido';
+          : 'Limite mensal de chamadas IA Radar Chat atingido';
     } else if (
       convOid &&
       limits.perConversationLimit > 0 &&
@@ -262,9 +262,9 @@ export class AiUsageMeterService {
       monthlyAgg.creditsSpent,
     );
 
-    const usesRadarzapWallet =
-      meteringMode === 'radarzap_calls' || opts?.meteringOverride === 'radarzap_calls';
-    if (allowed && usesRadarzapWallet) {
+    const usesRadarchatWallet =
+      meteringMode === 'radarchat_calls' || opts?.meteringOverride === 'radarchat_calls';
+    if (allowed && usesRadarchatWallet) {
       const walletCheck = AiWalletService.getInstance().canSpendLlmCredits(
         walletSnapshot,
         pendingCredits > 0 ? pendingCredits : 0.01,
@@ -326,7 +326,7 @@ export class AiUsageMeterService {
       totalTokens: total,
       estimatedCost,
     });
-    if (isRadarzapPlatformProvider(params.provider) && creditWeight > 0) {
+    if (isRadarchatPlatformProvider(params.provider) && creditWeight > 0) {
       void recordAiCreditAttendanceEvent({
         clientId: params.clientId,
         kind: 'ai.credits.consumed',
@@ -432,7 +432,7 @@ export class AiUsageMeterService {
               '$usageKind',
               {
                 $cond: [
-                  { $eq: ['$provider', 'radarzap-basic-triage'] },
+                  { $eq: ['$provider', 'radarchat-basic-triage'] },
                   'basic_triage',
                   'premium_assistant',
                 ],
@@ -451,7 +451,7 @@ export class AiUsageMeterService {
             $sum: {
               $cond: [
                 {
-                  $in: ['$provider', ['radarzap', 'radarzap-basic-triage']],
+                  $in: ['$provider', ['radarchat', 'radarchat-basic-triage']],
                 },
                 {
                   $ifNull: [
@@ -481,7 +481,7 @@ export class AiUsageMeterService {
               '$usageKind',
               {
                 $cond: [
-                  { $eq: ['$provider', 'radarzap-basic-triage'] },
+                  { $eq: ['$provider', 'radarchat-basic-triage'] },
                   'basic_triage',
                   'premium_assistant',
                 ],
@@ -500,7 +500,7 @@ export class AiUsageMeterService {
             $sum: {
               $cond: [
                 {
-                  $in: ['$provider', ['radarzap', 'radarzap-basic-triage']],
+                  $in: ['$provider', ['radarchat', 'radarchat-basic-triage']],
                 },
                 {
                   $ifNull: [
@@ -548,7 +548,7 @@ export class AiUsageMeterService {
     opts?: { from?: Date; to?: Date; limit?: number },
   ): Promise<PlatformAiUsageListResult> {
     const filter: Record<string, unknown> = {
-      provider: { $in: [...RADARZAP_PLATFORM_PROVIDERS] },
+      provider: { $in: [...RADARCHAT_PLATFORM_PROVIDERS] },
     };
     if (opts?.from || opts?.to) {
       filter.createdAt = {};
@@ -559,7 +559,7 @@ export class AiUsageMeterService {
 
     const creditExpr = {
       $cond: [
-        { $in: ['$provider', [...RADARZAP_PLATFORM_PROVIDERS]] },
+        { $in: ['$provider', [...RADARCHAT_PLATFORM_PROVIDERS]] },
         {
           $ifNull: [
             '$creditWeight',
@@ -642,7 +642,7 @@ export class AiUsageMeterService {
               '$usageKind',
               {
                 $cond: [
-                  { $eq: ['$provider', 'radarzap-basic-triage'] },
+                  { $eq: ['$provider', 'radarchat-basic-triage'] },
                   'basic_triage',
                   'premium_assistant',
                 ],

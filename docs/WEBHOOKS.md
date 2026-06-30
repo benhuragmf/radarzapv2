@@ -1,4 +1,4 @@
-# Webhooks outbound — RadarZap v2
+# Webhooks outbound — Radar Chat v2
 
 Integrações externas recebem eventos via **POST HTTPS** com assinatura HMAC.
 
@@ -169,14 +169,14 @@ Por monitor: `eventCooldownSec` em `PATCH /api/channels/:id/filters`.
 
 ## Assinatura
 
-Header: `X-RadarZap-Signature: t={unix},v1={hex}`
+Header: `X-Radar Chat-Signature: t={unix},v1={hex}`
 
 - `signed_payload = "{t}.{raw_json_body}"`
 - `v1 = HMAC-SHA256(secret, signed_payload)`
 
 Verificação: `src/utils/webhook-signature.ts` → `verifyWebhookSignature`
 
-Headers adicionais: `X-RadarZap-Event`, `X-RadarZap-Delivery-Id`
+Headers adicionais: `X-Radar Chat-Event`, `X-Radar Chat-Delivery-Id`
 
 ## Entrega
 

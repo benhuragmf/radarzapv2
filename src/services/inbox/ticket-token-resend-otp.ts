@@ -11,7 +11,7 @@ const OTP_REQUEST_WINDOW_SEC = Math.ceil(OTP_REQUEST_WINDOW_MS / 1000);
 const REDIS_OTP_PREFIX = 'rz:ticket-otp:';
 const REDIS_REQ_PREFIX = 'rz:ticket-otp-req:';
 
-const DEV_PEPPER = 'radarzap-ticket-otp-dev-only';
+const DEV_PEPPER = 'radarchat-ticket-otp-dev-only';
 
 interface OtpEntry {
   hash: string;
@@ -35,7 +35,7 @@ function useMemoryOtpStore(): boolean {
 export function getTicketOtpPepper(): string {
   const pepper = process.env.TICKET_OTP_PEPPER?.trim();
   if (process.env.NODE_ENV === 'production') {
-    if (!pepper || pepper === 'radarzap-ticket-otp-change-in-production') {
+    if (!pepper || pepper === 'radarchat-ticket-otp-change-in-production') {
       throw new Error('TICKET_OTP_PEPPER must be set to a strong secret in production');
     }
     return pepper;

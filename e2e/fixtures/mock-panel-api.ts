@@ -59,7 +59,7 @@ const TRANSFER_RULES = {
 
 function legacyFromMode(mode: AttendanceMode) {
   if (mode === 'premium_assistant') {
-    return { mode: 'radarzap' as const, enabled: true };
+    return { mode: 'radarchat' as const, enabled: true };
   }
   return { mode: 'disabled' as const, enabled: false };
 }
@@ -109,7 +109,7 @@ function buildAiSettingsPayload(attendanceMode: AttendanceMode = 'disabled') {
       dailyLimit: 100,
       monthlyLimit: 2000,
       perConversationLimit: 20,
-      meteringMode: 'radarzap_calls' as const,
+      meteringMode: 'radarchat_calls' as const,
       companyCallsToday: 0,
       dailyCreditsSpent: 1.25,
       monthlyCreditsSpent: 8.4,
@@ -138,15 +138,15 @@ function buildAiSettingsPayload(attendanceMode: AttendanceMode = 'disabled') {
     },
     apiKeyMasked: null,
     hasApiKey: false,
-    planLimits: { radarzapAllowed: true, dailyLimit: 100, monthlyLimit: 2000 },
+    planLimits: { radarchatAllowed: true, dailyLimit: 100, monthlyLimit: 2000 },
     modelCatalog: [MODEL_OPTION],
     modelCatalogs: { gemini: [], openai: [MODEL_OPTION] },
     selectedModelPricing: MODEL_OPTION,
     blueprintInfo: {
-      managedBy: 'radarzap' as const,
+      managedBy: 'radarchat' as const,
       version: 1,
       agentName: 'Assistente',
-      defaultAgentName: 'Assistente RadarZap',
+      defaultAgentName: 'Assistente Radar Chat',
       defaultGreetingKnown: 'Olá!',
       defaultGreetingUnknown: 'Olá, bem-vindo!',
       updatedAt: new Date().toISOString(),

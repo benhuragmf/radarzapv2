@@ -106,7 +106,7 @@ function stripFooterNoise(text: string): string {
       if (/Tempo:\s*\d+\s*ms/i.test(t)) return false;
       if (/^(Steam|Epic|Prime|GOG|itch)/i.test(t) && t.includes(',')) return false;
       if (/^#?live-on\s*[•·]\s*\d{1,2}:\d{2}/i.test(t)) return false;
-      if (/^[#\w-]+\s*[•·]\s*\d{1,2}:\d{2}\s*$/i.test(t) && !/via radarzap/i.test(t)) {
+      if (/^[#\w-]+\s*[•·]\s*\d{1,2}:\d{2}\s*$/i.test(t) && !/via radarchat/i.test(t)) {
         return false;
       }
       return true;

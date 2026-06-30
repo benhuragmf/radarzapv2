@@ -162,7 +162,7 @@ export function buildDynamicWhatsappAgentHelp(config: WhatsappBridgeCommandsConf
   };
 
   const lines = [
-    '📋 RadarZap — Comandos WhatsApp (Equipe)',
+    '📋 Radar Chat — Comandos WhatsApp (Equipe)',
     '',
     ...section('▸ Atendimento — chat do site', [
       ...byCategory.attendance,

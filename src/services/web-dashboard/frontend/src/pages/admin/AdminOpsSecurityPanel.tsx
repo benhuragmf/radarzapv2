@@ -1,19 +1,19 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, ShieldAlert } from 'lucide-react'
-import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
+import type { AdminOpsSummary } from '@radarchat-types/admin-ops-summary'
 import type {
   AdminOpsSecurityEventLevel,
   AdminOpsSecurityEventRow,
   AdminOpsSecurityEventsPage,
   AdminOpsSecurityEventSource,
-} from '@radarzap-types/admin-ops-security-events'
+} from '@radarchat-types/admin-ops-security-events'
 import {
   formatOpsDate,
   formatOpsNumber,
   sanitizeOpsDisplayText,
   sortAlertsBySeverity,
-} from '@radarzap-types/admin-ops-summary.util'
+} from '@radarchat-types/admin-ops-summary.util'
 import { api } from '../../lib/api'
 import {
   EmptyState,

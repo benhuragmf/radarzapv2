@@ -1,4 +1,4 @@
-# Auditoria de renomeação de menus — RadarZap v2
+# Auditoria de renomeação de menus — Radar Chat v2
 
 **Versão:** 2.10.67 · **Data:** 2026-06-19
 

@@ -3,7 +3,7 @@
 # Coolify (h143brhw…) continua como única produção.
 set -euo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 
 log() { echo "[purge-legacy] $*"; }
@@ -25,7 +25,7 @@ if [[ -f "${DEPLOY_PATH}/docker-compose.deploy.yml" ]]; then
   fi
   log "docker compose deploy down OK"
 else
-  log "compose legado ausente — limpando containers órfãos radarzap-*"
+  log "compose legado ausente — limpando containers órfãos radarchat-*"
 fi
 
 while read -r cname; do
@@ -33,18 +33,18 @@ while read -r cname; do
   if is_coolify_name "$cname"; then
     continue
   fi
-  if [[ "$cname" == radarzap-* ]]; then
+  if [[ "$cname" == radarchat-* ]]; then
     log "Removendo: $cname"
     sudo docker rm -f "$cname" 2>/dev/null || true
   fi
 done < <(sudo docker ps -a --format '{{.Names}}' 2>/dev/null || true)
 
-left="$(sudo docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^radarzap-' || true)"
+left="$(sudo docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^radarchat-' || true)"
 if [[ -n "$left" ]]; then
-  log "AVISO: containers radarzap-* restantes:"
+  log "AVISO: containers radarchat-* restantes:"
   echo "$left" | while read -r line; do log "  $line"; done
 else
-  log "OK: zero containers radarzap-* legado"
+  log "OK: zero containers radarchat-* legado"
 fi
 
 log ""

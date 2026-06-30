@@ -1,4 +1,4 @@
-# Plano de correção de segurança — RadarZap
+# Plano de correção de segurança — Radar Chat
 
 Priorizado por impacto. Status: junho 2026.
 
@@ -30,7 +30,7 @@ Priorizado por impacto. Status: junho 2026.
 | # | Item | Sev. | Status |
 |---|------|------|--------|
 | 1.1 | `GET /sessions/:id/connect` → 405 em prod; `POST` mantido | ALTO | ✅ |
-| 1.2 | Docker monolito `USER radarzap` | ALTO | ✅ `docker/Dockerfile.monolith` |
+| 1.2 | Docker monolito `USER radarchat` | ALTO | ✅ `docker/Dockerfile.monolith` |
 | 1.3 | Redis `requirepass` em prod | ALTO | 📄 `docs/PRODUCTION.md` §8 |
 | 1.4 | Escape `$regex` em `/api/logs` | MÉDIO | ✅ |
 | 1.5 | Handler de erro genérico em prod | MÉDIO | ✅ `production-safe-error.ts` |

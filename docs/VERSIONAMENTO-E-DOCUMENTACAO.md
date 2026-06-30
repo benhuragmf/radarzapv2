@@ -1,12 +1,12 @@
-﻿# RadarZap — Versionamento e documentação (.md)
+﻿# Radar Chat — Versionamento e documentação (.md)
 
 **Versão do protocolo:** 1.0 · **Vigência a partir de:** `2.11.0` (`package.json`) · **Data:** 2026-06-19
 
-A partir desta versão, **toda entrega de código** no RadarZap v2 deve:
+A partir desta versão, **toda entrega de código** no Radar Chat v2 deve:
 
 1. **Incrementar** `package.json` (`version`).
 2. **Registrar** o que foi feito em arquivos **`.md`** (nunca só no chat ou commit).
-3. **Atualizar** o espelho versionado [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) e [`.cursor/rules/radarzap-v2-system-registry.mdc`](../.cursor/rules/radarzap-v2-system-registry.mdc).
+3. **Atualizar** o espelho versionado [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) e [`.cursor/rules/radarchat-v2-system-registry.mdc`](../.cursor/rules/radarchat-v2-system-registry.mdc).
 
 ---
 
@@ -47,11 +47,11 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 [ ] package.json version incrementada
 [ ] docs/CHANGELOG.md — nova entrada no topo
 [ ] docs/SISTEMA-REGISTRO.md — linha no changelog + campos/modelos se aplicável
-[ ] .cursor/rules/radarzap-v2-system-registry.mdc — versão + linha changelog
+[ ] .cursor/rules/radarchat-v2-system-registry.mdc — versão + linha changelog
 [ ] Doc de módulo atualizado (ex.: WEBCHAT.md, INBOX-ATENDIMENTO.md)
 [ ] docs/MENU-PAGES-REGISTRY.md — se rota/menu/API mudou
-[ ] Doc de feature/fase — se escopo grande (ex.: RADARZAP-*-PHASE-N.md)
-[ ] Doc consolidado do módulo — se existir (ex.: RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
+[ ] Doc de feature/fase — se escopo grande (ex.: RADARCHAT-*-PHASE-N.md)
+[ ] Doc consolidado do módulo — se existir (ex.: RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
 [ ] Doc ENTREGA — se pacote multi-patch coeso (ex.: `concluidos/ENTREGA-ATENDIMENTO-*.md`); ao fechar ciclo → arquivar em [`concluidos/`](./concluidos/README.md)
 [ ] docs/INDICE-DOCUMENTACAO.md — se novo doc de módulo ou ENTREGA
 [ ] Testes/build passando
@@ -71,9 +71,9 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 | Créditos IA / carteira / barra painel | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) |
 | WebChat/widget | [`WEBCHAT.md`](./WEBCHAT.md) |
 | Tickets | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) |
-| Modos de atendimento | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) |
+| Modos de atendimento | [`RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) |
 | Análise / decisão arquitetural | doc dedicado `docs/ANALISE-*.md` ou seção no consolidado |
-| Fase de feature grande | `docs/RADARZAP-*-PHASE-N.md` + atualizar consolidado; ao concluir → mover para [`concluidos/`](./concluidos/README.md) |
+| Fase de feature grande | `docs/RADARCHAT-*-PHASE-N.md` + atualizar consolidado; ao concluir → mover para [`concluidos/`](./concluidos/README.md) |
 | **Pacote multi-versão** (várias entregas relacionadas) | [`concluidos/ENTREGA-ATENDIMENTO-*.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) — referência técnica; links nos módulos ativos |
 | Auditoria / análise fechada | [`concluidos/ANALISE-*.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) — doc operacional permanece na raiz (`INBOX-ATENDIMENTO.md`, etc.) |
 | Roadmap / produção | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) |
@@ -104,13 +104,13 @@ Copiar mentalmente (ou na descrição do PR) antes de commitar:
 **Commits:** `abc1234` · **Docs:** `docs/….md`
 ```
 
-### Novo doc de fase (`RADARZAP-*-PHASE-N.md`)
+### Novo doc de fase (`RADARCHAT-*-PHASE-N.md`)
 
 ```markdown
-# RadarZap — [Nome] (Fase N)
+# Radar Chat — [Nome] (Fase N)
 
 **Versão:** 2.11.x · **Data:** YYYY-MM-DD
-**Consolidado:** [link](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
+**Consolidado:** [link](./RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md)
 
 ## O que foi feito
 ## O que NÃO foi feito
@@ -137,9 +137,9 @@ Documentos-chave do ciclo **Modos de atendimento** (fases arquivadas em [`conclu
 
 | Documento | Propósito |
 |-----------|-----------|
-| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado ativo** Fases 1–8 |
+| [`RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | **Consolidado ativo** Fases 1–8 |
 | [`concluidos/ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md) | Análise pré-implementação (arquivo) |
-| [`concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-*.md`](./concluidos/README.md) | Docs parciais por fase (arquivo) |
+| [`concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-*.md`](./concluidos/README.md) | Docs parciais por fase (arquivo) |
 | [`concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) | Spec estabilização 2.11.24–38 (arquivo) |
 | [`concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) | Auditoria Fase 1 (arquivo) |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Changelog append-only do projeto |
@@ -153,13 +153,13 @@ Documentos-chave do ciclo **Modos de atendimento** (fases arquivadas em [`conclu
 
 | Fase | Versão | Status | Doc |
 |------|--------|--------|-----|
-| 0–2 UI + adapter | 2.10.106 | ✅ | [`concluidos/PHASE-1`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md) |
-| 3 Mongo `attendanceMode` | 2.10.107 | ✅ | [`concluidos/PHASE-3`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md) |
-| 4 WebChat robotizado | 2.10.108 | ✅ | [`concluidos/PHASE-4`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md) |
-| 5 IA Básica local-first | 2.11.1 | ✅ | [`concluidos/PHASE-5`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md) |
-| 6 WebChat × modo global | 2.11.2 | ✅ | [`concluidos/PHASE-6`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md) |
-| 7 Custos/logs por modo | 2.11.3 | ✅ | [`concluidos/PHASE-7`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md) |
-| 8 E2E Playwright | 2.11.4 | ✅ | [`concluidos/PHASE-8`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md) |
+| 0–2 UI + adapter | 2.10.106 | ✅ | [`concluidos/PHASE-1`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-1.md) |
+| 3 Mongo `attendanceMode` | 2.10.107 | ✅ | [`concluidos/PHASE-3`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-3.md) |
+| 4 WebChat robotizado | 2.10.108 | ✅ | [`concluidos/PHASE-4`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-4.md) |
+| 5 IA Básica local-first | 2.11.1 | ✅ | [`concluidos/PHASE-5`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-5.md) |
+| 6 WebChat × modo global | 2.11.2 | ✅ | [`concluidos/PHASE-6`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-6.md) |
+| 7 Custos/logs por modo | 2.11.3 | ✅ | [`concluidos/PHASE-7`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-7.md) |
+| 8 E2E Playwright | 2.11.4 | ✅ | [`concluidos/PHASE-8`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-8.md) |
 
 **Próxima entrega:** gate humano Fase 1 — [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) · [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) · [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md).
 

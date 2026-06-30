@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_RADARZAP_VERSION: string
+  readonly VITE_RADARCHAT_VERSION: string
 }
 
 interface ImportMeta {

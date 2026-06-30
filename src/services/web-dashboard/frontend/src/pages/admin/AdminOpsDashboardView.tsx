@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useEffect } from 'react'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import {
   Activity,
   Building2,
@@ -15,8 +16,8 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react'
-import type { AdminOpsHostReport } from '@radarzap-types/admin-ops-host'
-import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
+import type { AdminOpsHostReport } from '@radarchat-types/admin-ops-host'
+import type { AdminOpsSummary } from '@radarchat-types/admin-ops-summary'
 import {
   countCriticalAlerts,
   deriveOverallStatus,
@@ -30,13 +31,13 @@ import {
   serviceStatusLabel,
   serviceStatusVariant,
   sortAlertsBySeverity,
-} from '@radarzap-types/admin-ops-summary.util'
+} from '@radarchat-types/admin-ops-summary.util'
 import { Card } from '../../components/ui/Card'
 import AdminOpsTenantsPanel from './AdminOpsTenantsPanel'
 import AdminOpsSecurityPanel from './AdminOpsSecurityPanel'
 import AdminOpsInfraPanel from './AdminOpsInfraPanel'
 import AdminOpsHostPanel from './AdminOpsHostPanel'
-import { type AdminOpsTab } from './adminOpsTabs'
+import type { AdminOpsTab } from './adminOpsTabs'
 import {
   EmptyState,
   ErrorState,
@@ -49,6 +50,17 @@ import {
 } from '@/design-system'
 
 export type { AdminOpsTab } from './adminOpsTabs'
+
+const ADMIN_OPS_TAB_IDS: readonly AdminOpsTab[] = [
+  'overview',
+  'infra',
+  'tenants',
+  'atendimento',
+  'billing',
+  'ai',
+  'security',
+  'golive',
+]
 
 const TABS: Array<{ id: AdminOpsTab; label: string }> = [
   { id: 'overview', label: 'Visão geral' },
@@ -144,11 +156,7 @@ export default function AdminOpsDashboardView({
   hostLoading = false,
   hostError = false,
 }: Props) {
-  const [tab, setTab] = useState<AdminOpsTab>(initialTab ?? 'overview')
-
-  useEffect(() => {
-    if (initialTab) setTab(initialTab)
-  }, [initialTab])
+  const [tab, setTab] = useUrlHashTab(ADMIN_OPS_TAB_IDS, initialTab ?? 'overview')
 
   const overall = useMemo(
     () => (data ? deriveOverallStatus(data.alerts) : 'ok'),

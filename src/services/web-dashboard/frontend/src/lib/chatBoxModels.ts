@@ -119,15 +119,15 @@ export const CHATBOX_FORMAT_TOKENS = {
 export const CHATBOX_RESERVED_MODEL_IDS = [
   'office-chat',
   'helpdesk-mini',
-  'radarzap-compact',
-  'radarzap-mini',
+  'radarchat-compact',
+  'radarchat-mini',
 ] as const
 
 export const CHATBOX_RESERVED_MODELS: Array<{ id: string; name: string; status: 'planned' }> = [
   { id: 'office-chat', name: 'Office Chat', status: 'planned' },
   { id: 'helpdesk-mini', name: 'Helpdesk Mini', status: 'planned' },
-  { id: 'radarzap-compact', name: 'Radar Chat Compact', status: 'planned' },
-  { id: 'radarzap-mini', name: 'Radar Chat Mini', status: 'planned' },
+  { id: 'radarchat-compact', name: 'Radar Chat Compact', status: 'planned' },
+  { id: 'radarchat-mini', name: 'Radar Chat Mini', status: 'planned' },
 ]
 
 const baseAppearance = (

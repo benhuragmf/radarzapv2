@@ -141,8 +141,8 @@ export function ownerCanResetStatus(status: ConsentStatus): boolean {
 }
 
 /** IDs de botões (se o cliente suportar resposta por botão) */
-export const CONSENT_BUTTON_ACCEPT_ID = 'radarzap_consent_aceito';
-export const CONSENT_BUTTON_REFUSE_ID = 'radarzap_consent_recuso';
+export const CONSENT_BUTTON_ACCEPT_ID = 'radarchat_consent_aceito';
+export const CONSENT_BUTTON_REFUSE_ID = 'radarchat_consent_recuso';
 
 export type { ConsentMessages } from './consentMessages';
 export { buildConsentMessages } from './consentMessages';

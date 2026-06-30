@@ -4,7 +4,7 @@
 # Só mudou .env/Discord: scripts/vps-coolify-hotfix-env.sh ou npm run vps:hotfix:env (~1–2 min).
 # NÃO use este script para hotfix de variável — leva ~8–10 min (Traefik + republish completo).
 set -euo pipefail
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
 TRAEFIK_EXTRA_HOSTS="${TRAEFIK_EXTRA_HOSTS:-151-247-210-180.sslip.io}"
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
@@ -64,8 +64,8 @@ export MIGRATE_LEGACY=0
 export COOLIFY_REPUBLISH_DIRECT=1
 export PUBLIC_HOST="${PUBLIC_HOST}"
 export SERVICE_UUID="${COOLIFY_SERVICE_UUID}"
-export RADARZAP_IMAGE="${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"
-sudo -E bash scripts/vps-configure-coolify-radarzap.sh || true
+export RADARCHAT_IMAGE="${RADARCHAT_IMAGE:-ghcr.io/benhuragmf/radarchatv2:latest}"
+sudo -E bash scripts/vps-configure-coolify-radarchat.sh || true
 
 if ! wait_app_health 36; then
   log "ERRO: app não respondeu em :3001 após republish"

@@ -7,8 +7,8 @@ export const PLATFORM_AI_CREDENTIALS_DEFAULTS = {
 };
 
 export const PLATFORM_AI_ENV_KEYS = {
-  openai: ['RADARZAP_AI_OPENAI_KEY', 'OPENAI_API_KEY'] as const,
-  gemini: ['RADARZAP_AI_GEMINI_KEY', 'GEMINI_API_KEY'] as const,
+  openai: ['RADARCHAT_AI_OPENAI_KEY', 'OPENAI_API_KEY'] as const,
+  gemini: ['RADARCHAT_AI_GEMINI_KEY', 'GEMINI_API_KEY'] as const,
 };
 
 export function defaultModelForPlatformProvider(provider: AiProvider): string {

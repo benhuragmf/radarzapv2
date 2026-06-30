@@ -128,7 +128,7 @@ describe('WebChatRoboticTriageService', () => {
 
   it('híbrido: texto livre após menu passa para triagem (handled false)', async () => {
     getSettingsDoc.mockResolvedValue({
-      mode: 'radarzap',
+      mode: 'radarchat',
       enabled: true,
       attendanceMode: 'hybrid',
     });

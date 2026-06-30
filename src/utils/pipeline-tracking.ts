@@ -10,7 +10,7 @@ export function buildPipelineTrackingMeta(
   if (!extracted) return { ...extra };
 
   return {
-    tenantSender: extracted.radarzapSenderLabel,
+    tenantSender: extracted.radarchatSenderLabel,
     discordPoster: extracted.discordPosterLabel ?? extracted.authorName,
     discordPosterTag: formatDiscordPoster(extracted),
     discordAuthorId: extracted.authorId,

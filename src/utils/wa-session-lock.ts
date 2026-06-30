@@ -3,7 +3,7 @@ import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('WaSessionLock');
 
-const LOCK_PREFIX = 'radarzap:wa:socket-lock:';
+const LOCK_PREFIX = 'radarchat:wa:socket-lock:';
 const LOCK_TTL_SEC = 90;
 
 export type WaSocketLock = {

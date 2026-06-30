@@ -16,7 +16,7 @@ revogável, intransferível e não exclusiva.
 O uso não autorizado poderá resultar em medidas administrativas, civis e/ou
 judiciais cabíveis.
 
-Projeto: RadarZap / RadarGamer  
+Projeto: Radar Chat / RadarGamer  
 Titular: Benhur Augusto Gomes Monteiro Faria  
 Ano: 2026
 

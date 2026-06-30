@@ -31,7 +31,7 @@ export interface AiWalletSnapshot {
   periodStart: string;
   depleted: boolean;
   learningDepleted: boolean;
-  /** Ação sugerida quando saldo IA esgotado na chave RadarZap. */
+  /** Ação sugerida quando saldo IA esgotado na chave Radar Chat. */
   actionHint: 'recharge' | 'own_api' | null;
 }
 

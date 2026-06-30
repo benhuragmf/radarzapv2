@@ -44,11 +44,11 @@ export class AiProviderService {
     if (settings.mode === 'disabled' || !settings.enabled) {
       throw new Error('IA desativada');
     }
-    if (settings.mode === 'radarzap') {
+    if (settings.mode === 'radarchat') {
       const org = await Organization.findById(clientId).select('plan').lean();
       const plan = getAiPlanLimits(org?.plan ?? 'free');
-      if (!plan.radarzapAllowed) {
-        throw new Error('IA RadarZap não disponível no plano atual');
+      if (!plan.radarchatAllowed) {
+        throw new Error('IA Radar Chat não disponível no plano atual');
       }
       const runtime = await PlatformAiCredentialsService.getInstance().resolveForRuntime();
       return runtime.apiKey;
@@ -91,12 +91,12 @@ export class AiProviderService {
     conversationId?: string,
   ): Promise<AiCompletionResult> {
     const platformRuntime =
-      settings.mode === 'radarzap'
+      settings.mode === 'radarchat'
         ? await PlatformAiCredentialsService.getInstance().resolveForRuntime()
         : null;
     const effectiveModel = platformRuntime?.llmModel ?? settings.llmModel;
     const pendingCredits =
-      settings.mode === 'radarzap'
+      settings.mode === 'radarchat'
         ? aiCreditsFromActualCost(estimateTypicalTurnCostUsd(effectiveModel))
         : 0;
     const usage = await AiUsageMeterService.getInstance().getUsageSnapshot(
@@ -131,7 +131,7 @@ export class AiProviderService {
       messages,
       apiKey,
       conversationId,
-      settings.mode === 'radarzap' ? 'radarzap' : settings.provider,
+      settings.mode === 'radarchat' ? 'radarchat' : settings.provider,
       settings.temperature,
       maxTokens,
       llmProvider,
@@ -140,7 +140,7 @@ export class AiProviderService {
   }
 
   /**
-   * Chamada LLM para IA Básica (fallback classificação) — usa chave RadarZap e limites do plano.
+   * Chamada LLM para IA Básica (fallback classificação) — usa chave Radar Chat e limites do plano.
    */
   async completeForBasicTriage(
     clientId: string,
@@ -156,7 +156,7 @@ export class AiProviderService {
       clientId,
       conversationId,
       settings,
-      { pendingCalls: 1, pendingCredits, meteringOverride: 'radarzap_calls' },
+      { pendingCalls: 1, pendingCredits, meteringOverride: 'radarchat_calls' },
     );
     if (!usage.allowed) {
       void recordAiCreditAttendanceEvent({
@@ -181,7 +181,7 @@ export class AiProviderService {
       messages,
       apiKey,
       conversationId,
-      'radarzap-basic-triage',
+      'radarchat-basic-triage',
       0.2,
       Math.min(Math.max(settings.maxTokens, MIN_AI_MAX_TOKENS), 256),
       platformRuntime.provider,
@@ -189,11 +189,11 @@ export class AiProviderService {
     );
   }
 
-  private async resolveRadarzapPlatformKey(clientId: string): Promise<string> {
+  private async resolveRadarchatPlatformKey(clientId: string): Promise<string> {
     const org = await Organization.findById(clientId).select('plan').lean();
     const plan = getAiPlanLimits(org?.plan ?? 'free');
-    if (!plan.radarzapAllowed) {
-      throw new Error('IA RadarZap não disponível no plano atual');
+    if (!plan.radarchatAllowed) {
+      throw new Error('IA Radar Chat não disponível no plano atual');
     }
     const runtime = await PlatformAiCredentialsService.getInstance().resolveForRuntime();
     return runtime.apiKey;

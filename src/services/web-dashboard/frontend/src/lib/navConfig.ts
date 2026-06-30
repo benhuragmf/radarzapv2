@@ -5,7 +5,7 @@ import {
   CreditCard, Key, Activity, Calendar, Webhook, FileCode, Gauge, Zap, Phone,
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
   UserCog, Lock, Database, Building2, Circle, Bot, Eye, BarChart3, Ticket, Clock, Sparkles,
-  Inbox, MessageSquareText, PanelTop, UserPlus,
+  Inbox, MessageSquareText, PanelTop, UserPlus, Store, ClipboardList,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can, canAny } from './auth'
@@ -93,7 +93,13 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   link('inbox-sectors', 'Setores', Building2, '/platform/inbox/setores', 'inbox:department:manage'),
   link('inbox-bot', 'Triagem e Bot', Bot, '/platform/inbox/bot', 'inbox:department:manage'),
   link('inbox-wa-commands', 'Comandos WA Bridge', MessageSquareText, '/platform/inbox/comandos-wa', 'inbox:reply'),
-  link('inbox-ai', 'IA de Atendimento', Sparkles, '/platform/inbox/ia', 'inbox:ai:manage'),
+  group('grp-inbox-ai', 'IA de Atendimento', Sparkles, [
+    link('inbox-ai', 'Visão geral', Sparkles, '/platform/inbox/ia', 'inbox:ai:manage'),
+    link('inbox-ai-empresa', 'Empresa e catálogo', Store, '/platform/inbox/ia#empresa', 'inbox:ai:manage'),
+    link('inbox-ai-coleta', 'Dados a coletar', ClipboardList, '/platform/inbox/ia#coleta', 'inbox:ai:manage'),
+    link('inbox-ai-kb', 'Base de conhecimento', BookOpen, '/platform/inbox/ia#kb', 'inbox:ai:manage'),
+    link('inbox-ai-testar', 'Testar IA', Zap, '/platform/inbox/ia#testar', 'inbox:ai:manage'),
+  ], 'inbox:ai:manage'),
   link('inbox-quick-replies', 'Respostas rápidas', MessageSquareText, '/platform/inbox/respostas', 'inbox:department:manage'),
   link('inbox-supervisor', 'Supervisão', Eye, '/platform/inbox/supervisor', 'inbox:supervise'),
   link('inbox-reports', 'Métricas', BarChart3, '/platform/inbox/relatorios', 'inbox:reports:view'),
@@ -102,7 +108,9 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-contatos', 'Contatos'),
   group('grp-contatos', 'Contatos', Users, [
     link('wa-contacts', 'Contatos', Phone, '/contact', 'consent:view'),
-    link('wa-leads', 'Leads', UserPlus, '/platform/leads', 'consent:view'),
+    link('wa-leads', 'Capturas', UserPlus, '/platform/leads', 'consent:view'),
+    link('wa-leads-forms', 'Formulários', FileText, '/platform/leads#forms', 'consent:view'),
+    link('wa-leads-segments-tab', 'Segmentos de leads', ListOrdered, '/platform/leads#segments', 'consent:view'),
     link('wa-segments', 'Listas e segmentos', ListOrdered, '/platform/segmentos', 'send:destination:manage'),
     link('wa-groups', 'Grupos WhatsApp', Users, '/grupos', 'send:destination:manage'),
     link('wa-import', 'Importar / Exportar', Upload, '/platform/contacts', 'send:destination:manage'),
@@ -154,7 +162,8 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   section('sec-empresa', 'Empresa'),
   group('grp-empresa', 'Empresa', Building2, [
     link('empresa-home', 'Configurações da empresa', Settings, '/settings', 'account:settings'),
-    link('empresa-team', 'Equipe e permissões', UserCog, '/settings/team', 'company:members:manage'),
+    link('empresa-team', 'Equipe', UserCog, '/settings/team', 'company:members:manage'),
+    link('empresa-team-roles', 'Papéis da equipe', Lock, '/settings/team#papeis', 'company:members:manage'),
     link('empresa-plans', 'Plano e cobrança', Crown, '/plans', 'billing:view'),
     link('empresa-perms', 'Papéis e permissões', Lock, '/settings/permissions', 'company:members:manage'),
     link('empresa-security', 'Segurança', Shield, '/settings/security', 'account:settings'),
@@ -163,7 +172,7 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
 ]
 
 /** Admin Radar Chat — somente staff interno (aba separada). */
-export const ADMIN_RADARZAP_NAV: NavEntry[] = [
+export const ADMIN_RADARCHAT_NAV: NavEntry[] = [
   section('sec-admin-inicio', 'Início'),
   link('admin-dash', 'Dashboard global', LayoutDashboard, '/admin/dashboard', 'dashboard:global'),
 
@@ -179,7 +188,7 @@ export const ADMIN_RADARZAP_NAV: NavEntry[] = [
 
   section('sec-admin-gestao', 'Clientes e planos'),
   group('grp-gestao', 'Clientes e planos', Users, [
-    link('admin-tenants', 'Empresas', Building2, '/admin/dashboard?tab=tenants', 'dashboard:global'),
+    link('admin-tenants', 'Empresas', Building2, '/admin/dashboard#tenants', 'dashboard:global'),
     link('admin-clients', 'Usuários', Users, '/admin/clients', 'system:users:view'),
     link('admin-servers', 'Servidores', Server, '/admin/servers', 'system:servers:view'),
     link('admin-plans', 'Planos', Crown, '/admin/plans', 'system:plans:manage'),
@@ -212,7 +221,7 @@ export const MODERATOR_ADMIN_NAV: NavEntry[] = [
   ]),
   section('sec-admin-gestao', 'Clientes e planos'),
   group('grp-mod-gestao', 'Clientes e planos', Users, [
-    link('mod-tenants', 'Empresas', Building2, '/admin/dashboard?tab=tenants', 'dashboard:global'),
+    link('mod-tenants', 'Empresas', Building2, '/admin/dashboard#tenants', 'dashboard:global'),
     link('mod-clients', 'Usuários', Users, '/admin/clients', 'system:users:view'),
     link('mod-servers', 'Servidores', Server, '/admin/servers', 'system:servers:view'),
   ]),
@@ -335,7 +344,7 @@ export function navForPlatform(user: AuthUser): NavEntry[] {
 export function navForAdmin(user: AuthUser): NavEntry[] {
   if (!user.isInternalStaff) return []
   const base =
-    user.primaryRole === 'SYSTEM_MODERATOR' ? MODERATOR_ADMIN_NAV : ADMIN_RADARZAP_NAV
+    user.primaryRole === 'SYSTEM_MODERATOR' ? MODERATOR_ADMIN_NAV : ADMIN_RADARCHAT_NAV
   return filterNavTree(base, user)
 }
 
@@ -414,6 +423,16 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/platform/inbox/bot': 'inbox:department:manage',
   '/platform/inbox/comandos-wa': 'inbox:reply',
   '/platform/inbox/ia': 'inbox:ai:manage',
+  '/platform/inbox/ia#empresa': 'inbox:ai:manage',
+  '/platform/inbox/ia#coleta': 'inbox:ai:manage',
+  '/platform/inbox/ia#kb': 'inbox:ai:manage',
+  '/platform/inbox/ia#testar': 'inbox:ai:manage',
+  '/platform/inbox/bot#quality': 'inbox:department:manage',
+  '/platform/leads#forms': 'leads:view',
+  '/platform/leads#segments': 'leads:view',
+  '/platform/webchat#widgets': 'webchat:view',
+  '/settings/team#papeis': 'company:members:manage',
+  '/admin/dashboard#tenants': 'dashboard:global',
   '/platform/inbox/respostas': 'inbox:department:manage',
   '/platform/inbox/supervisor': 'inbox:supervise',
   '/platform/inbox/relatorios': 'inbox:reports:view',
@@ -497,6 +516,16 @@ export const PAGE_TITLES: Record<string, string> = {
   '/platform/inbox/bot': 'Triagem e Bot',
   '/platform/inbox/comandos-wa': 'Comandos WhatsApp Bridge',
   '/platform/inbox/ia': 'IA de Atendimento',
+  '/platform/inbox/ia#empresa': 'Empresa e catálogo',
+  '/platform/inbox/ia#coleta': 'Dados a coletar',
+  '/platform/inbox/ia#kb': 'Base de conhecimento',
+  '/platform/inbox/ia#testar': 'Testar IA',
+  '/platform/inbox/bot#quality': 'Qualidade do Bot',
+  '/platform/leads#forms': 'Formulários de leads',
+  '/platform/leads#segments': 'Segmentos de leads',
+  '/platform/webchat#widgets': 'Widgets WebChat',
+  '/settings/team#papeis': 'Papéis da equipe',
+  '/admin/dashboard#tenants': 'Empresas',
   '/platform/inbox/respostas': 'Respostas rápidas',
   '/platform/inbox/supervisor': 'Supervisão',
   '/platform/inbox/relatorios': 'Métricas de atendimento',

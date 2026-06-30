@@ -21,7 +21,7 @@ describe('contact-csv-export', () => {
   });
 
   it('export nativo inclui BOM e cabeçalho', () => {
-    const csv = buildContactCsvExport('radarzap-native', [
+    const csv = buildContactCsvExport('radarchat-native', [
       {
         nome: 'Maria',
         telefone: '+5511988776655',

@@ -110,7 +110,7 @@ export class PlatformAiCredentialsService {
     const provider = providerOverride ?? doc.provider;
     const { apiKey, keySource } = this.resolveKeyFromDoc(doc, provider);
     if (!apiKey || keySource === 'none') {
-      throw new Error('Chave interna RadarZap não configurada (painel admin ou .env)');
+      throw new Error('Chave interna Radar Chat não configurada (painel admin ou .env)');
     }
     return {
       provider,

@@ -56,7 +56,7 @@ export interface AiSettingsPayload {
   modelCatalogs: { gemini: AiModelCatalogPayload[]; openai: AiModelCatalogPayload[] };
   selectedModelPricing: AiModelCatalogPayload | null;
   blueprintInfo: {
-    managedBy: 'radarzap';
+    managedBy: 'radarchat';
     version: number;
     agentName: string;
     defaultAgentName: string;
@@ -233,7 +233,7 @@ export class AiSettingsService {
       modelCatalogs,
       selectedModelPricing: selectedModelPricing,
       blueprintInfo: {
-        managedBy: 'radarzap',
+        managedBy: 'radarchat',
         version: blueprint.version,
         agentName: promptDoc.agentName?.trim() || blueprint.agentName,
         defaultAgentName: blueprint.agentName,
@@ -283,8 +283,8 @@ export class AiSettingsService {
 
     if (isValidAttendanceMode(s.attendanceMode)) {
       const credentialSource: AiCredentialSource =
-        s.mode === 'radarzap'
-          ? 'radarzap'
+        s.mode === 'radarchat'
+          ? 'radarchat'
           : s.mode === 'company'
             ? 'company'
             : 'none';
@@ -299,7 +299,7 @@ export class AiSettingsService {
       settings.mode = 'disabled';
       settings.enabled = false;
       settings.attendanceMode = 'disabled';
-    } else if (s.mode === 'radarzap' || s.mode === 'company') {
+    } else if (s.mode === 'radarchat' || s.mode === 'company') {
       settings.mode = s.mode as AiMode;
       settings.enabled = typeof s.enabled === 'boolean' ? s.enabled : true;
       settings.attendanceMode = 'premium_assistant';

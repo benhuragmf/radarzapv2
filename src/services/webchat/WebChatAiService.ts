@@ -94,7 +94,7 @@ export class WebChatAiService {
       return { ...base, available: false, reason: (e as Error).message };
     }
 
-    if (settings.mode === 'radarzap') {
+    if (settings.mode === 'radarchat') {
       const pendingCredits = aiCreditsFromActualCost(
         estimateTypicalTurnCostUsd(settings.llmModel),
       );

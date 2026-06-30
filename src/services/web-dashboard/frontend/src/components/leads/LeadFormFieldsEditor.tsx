@@ -1,7 +1,7 @@
 import { GripVertical, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { inputCls, textareaCls } from '@/design-system'
-import type { LeadFormCustomField } from '@radarzap-types/lead-form'
+import type { LeadFormCustomField } from '@radarchat-types/lead-form'
 
 function newCustomFieldId(): string {
   const hex = crypto.randomUUID().replace(/-/g, '').slice(0, 12)

@@ -2,7 +2,7 @@
 
 **Versão:** 2.12.3 · **Atualizado:** 2026-06-24
 
-Documento canônico do sistema de **créditos IA RadarZap**, **carteira mensal por empresa**, **cota de aprendizagem** e **indicadores na barra superior** do painel.
+Documento canônico do sistema de **créditos IA Radar Chat**, **carteira mensal por empresa**, **cota de aprendizagem** e **indicadores na barra superior** do painel.
 
 Relacionado: [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) § IA de triagem, [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md), [`BILLING.md`](./BILLING.md) (recarga futura via Stripe).
 
@@ -12,13 +12,13 @@ Relacionado: [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) § IA de triagem, 
 
 | Conceito | O que é |
 |----------|---------|
-| **Crédito IA** | Unidade de cobrança proporcional ao **custo real** de cada chamada LLM na chave RadarZap (`estimatedCost` USD). |
+| **Crédito IA** | Unidade de cobrança proporcional ao **custo real** de cada chamada LLM na chave Radar Chat (`estimatedCost` USD). |
 | **Carteira mensal** | Franquia de créditos incluída no plano + créditos comprados (`purchasedCredits`) − gasto do mês. |
-| **Chamada LM** | Uma resposta LLM na chave RadarZap ou própria; limite técnico diário/mensal por plano (anti-abuso). |
+| **Chamada LM** | Uma resposta LLM na chave Radar Chat ou própria; limite técnico diário/mensal por plano (anti-abuso). |
 | **Aprendizagem** | Propostas automáticas de skill/memória ao escalar — consome **processamento**; cota mensal separada. |
 | **~1× / ~2× (UI)** | **Expectativa** de gasto por módulo (Básica vs Premium) — **não** multiplica cobrança. |
 
-**Princípio:** o dono paga pelo que o cliente **realmente consumiu** em LLM RadarZap. Premium **não** é cobrado em dobro automaticamente; o multiplicador 2× é só planejamento na escolha do modo.
+**Princípio:** o dono paga pelo que o cliente **realmente consumiu** em LLM Radar Chat. Premium **não** é cobrado em dobro automaticamente; o multiplicador 2× é só planejamento na escolha do modo.
 
 ---
 
@@ -28,20 +28,20 @@ Guia em linguagem de produto. A implementação técnica está nas seções segu
 
 ### Resumo
 
-**Créditos IA só são debitados quando o RadarZap usa a chave da plataforma.** O valor é **proporcional ao custo real** de cada resposta do modelo — não há tarifa fixa “por atendimento” nem cobrança automática em dobro no Premium.
+**Créditos IA só são debitados quando o Radar Chat usa a chave da plataforma.** O valor é **proporcional ao custo real** de cada resposta do modelo — não há tarifa fixa “por atendimento” nem cobrança automática em dobro no Premium.
 
 ### Dois contadores na barra do painel
 
 | Indicador | O que mede | Ao estourar |
 |-----------|------------|-------------|
 | **LM** | Quantas **chamadas** ao LLM no mês (1 resposta = 1 chamada) | Bloqueia novas respostas IA — limite técnico anti-abuso |
-| **IA** | Quanto da **franquia mensal** já foi **gasto** (em créditos) | Bloqueia LLM na chave RadarZap — recarregar, upgrade ou API própria |
+| **IA** | Quanto da **franquia mensal** já foi **gasto** (em créditos) | Bloqueia LLM na chave Radar Chat — recarregar, upgrade ou API própria |
 
 Exemplos na barra: `IA 2.1/12000` (créditos usados / franquia) e `LM 12/12000` (chamadas usadas / limite de chamadas).
 
 ### Conversão custo → crédito (dinheiro)
 
-Cada chamada LLM com **chave RadarZap**:
+Cada chamada LLM com **chave Radar Chat**:
 
 1. O modelo responde; o sistema estima o custo em USD (`estimatedCost`).
 2. Converte: **1 crédito ≈ US$ 0,01** de custo de LLM.
@@ -66,13 +66,13 @@ Resposta curta gasta pouco; conversa longa ou modelo caro gasta mais. **Não há
 
 **Saldo** = franquia do plano + créditos comprados (`purchasedCredits`, recarga futura) − gasto do mês.
 
-LM e IA usam números parecidos no plano, mas medem coisas diferentes: LM conta **quantidade de chamadas**; IA conta **valor proporcional** gasto nessas chamadas (só na chave RadarZap).
+LM e IA usam números parecidos no plano, mas medem coisas diferentes: LM conta **quantidade de chamadas**; IA conta **valor proporcional** gasto nessas chamadas (só na chave Radar Chat).
 
 ### IA Básica vs IA Premium
 
 Na **cobrança real**, o modo importa pouco. Contam:
 
-- chave RadarZap ou chave própria;
+- chave Radar Chat ou chave própria;
 - modelo escolhido;
 - tokens de entrada e saída.
 
@@ -85,15 +85,15 @@ Os badges **~1×** (Básica) e **~2×** (Premium) no painel são **expectativa d
 
 **Não há multiplicador 2× no débito.** Premium não é cobrado automaticamente em dobro.
 
-### Quando não debita crédito RadarZap
+### Quando não debita crédito Radar Chat
 
 | Situação | Créditos IA | LM |
 |----------|-------------|-----|
 | **Chave própria** (Provedor → API da empresa) | 0 — empresa paga direto ao provedor | Conta chamadas (limites do plano) |
 | **IA Básica** sem LLM (classificador local, KB) | 0 | 0 |
-| **Fallback LLM da IA Básica** (`radarzap-basic-triage`) | Debita — **sempre** chave RadarZap, mesmo se Premium estiver em chave própria | Conta chamada |
+| **Fallback LLM da IA Básica** (`radarchat-basic-triage`) | Debita — **sempre** chave Radar Chat, mesmo se Premium estiver em chave própria | Conta chamada |
 
-### Fluxo de cada chamada LLM (chave RadarZap)
+### Fluxo de cada chamada LLM (chave Radar Chat)
 
 ```mermaid
 flowchart TD
@@ -143,9 +143,9 @@ Chamadas LM (limites técnicos, `getAiPlanLimits` em `src/types/ai-assistant.ts`
 - **`aiCreditsFromActualCost(usd)`** — débito após cada chamada: `custo / 0.01`.
 - Registro em `AiUsage.creditWeight` (coleção `aiUsage`).
 
-**Chave própria** (`mode: company`): `creditWeight = 0` — não debita carteira RadarZap; limites contam **chamadas** da API da empresa.
+**Chave própria** (`mode: company`): `creditWeight = 0` — não debita carteira Radar Chat; limites contam **chamadas** da API da empresa.
 
-**IA Básica — fallback LLM** na triagem: sempre usa chave RadarZap (`radarzap-basic-triage`), debita créditos mesmo se o Premium estiver em chave própria.
+**IA Básica — fallback LLM** na triagem: sempre usa chave Radar Chat (`radarchat-basic-triage`), debita créditos mesmo se o Premium estiver em chave própria.
 
 ---
 
@@ -179,14 +179,14 @@ Não entra no cálculo de débito — apenas orienta o dono na configuração.
 | Método | Função |
 |--------|--------|
 | `getSnapshot(clientId, creditsUsedMonth)` | Saldo, gasto, franquia, aprendizagem |
-| `canSpendLlmCredits(wallet, pending)` | Bloqueia LLM RadarZap se saldo insuficiente |
+| `canSpendLlmCredits(wallet, pending)` | Bloqueia LLM Radar Chat se saldo insuficiente |
 | `canRunLearning(wallet)` | Bloqueia skill/memória aprendida se cota esgotada |
 | `recordLearningOp(clientId, kind)` | +1 op ao propor skill ou memória |
 | `addPurchasedCredits(clientId, amount)` | Recarga via `POST /billing/checkout/ai-credits` (webhook) ou `POST /platform/ai/wallet/purchased` (manual) |
 
 ### Quando o saldo esgota
 
-1. LLM na chave RadarZap é **bloqueado** (`AiProviderService` / `AiUsageMeterService`).
+1. LLM na chave Radar Chat é **bloqueado** (`AiProviderService` / `AiUsageMeterService`).
 2. Mensagem orienta: **recarregar** em Planos, **comprar créditos** ou **API própria** (`/platform/inbox/ia` → Provedor).
 3. Alerta crítico no painel (`panel-critical-alerts.service` → `ai:quota_exceeded` / `ai:quota_low`).
 
@@ -234,7 +234,7 @@ Arquivos: `AiUsageMeterService.ts`, `AiProviderService.ts`, `AiSkillService.prop
     "dailyLimit": 500,
     "monthlyUsed": 12,
     "monthlyLimit": 12000,
-    "meteringMode": "radarzap_calls"
+    "meteringMode": "radarchat_calls"
   }
 }
 ```
@@ -354,6 +354,6 @@ Implementação: `redactSensitiveMeta` em `attendance-audit.service.ts` e `mask-
 1. **Dono** — barra mostra `IA usado/total` e `LM usado/limite`; tooltip com saldo.
 2. **Atendente** — vê pill WhatsApp conectado; **não** vê IA/LM (sem permissão).
 3. **Dono** — libera `inbox:ai:balance:view` a papel custom → atendente passa a ver pills IA/LM após re-login.
-4. **LLM RadarZap** — após esgotar carteira, IA bloqueia com mensagem de recarga/API própria.
+4. **LLM Radar Chat** — após esgotar carteira, IA bloqueia com mensagem de recarga/API própria.
 5. **Aprendizagem** — ao esgotar cota mensal, `proposeFromConversation` não cria skill/memória (silencioso).
 6. **Chave própria** — chamadas não debitam `creditWeight`; limites em chamadas.

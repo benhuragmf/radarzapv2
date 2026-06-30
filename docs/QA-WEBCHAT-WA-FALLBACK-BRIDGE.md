@@ -195,6 +195,6 @@
 ## Referências
 
 - [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)
-- `docs/concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`
+- `docs/concluidos/RADARCHAT_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md`
 - `docs/WEBCHAT.md` § Consulta token, FAQ, Fallback, Bridge
 - `docs/QA-FASE1-CHECKLIST.md` (gate estabilização geral)

@@ -14,7 +14,7 @@ function resolveKey(): Buffer {
   if (config.NODE_ENV === 'production') {
     throw new Error('SESSION_ENCRYPTION_KEY is required for field encryption in production');
   }
-  return crypto.createHash('sha256').update('radarzap-dev-field-encryption-v1').digest();
+  return crypto.createHash('sha256').update('radarchat-dev-field-encryption-v1').digest();
 }
 
 /** Criptografa texto sensível para persistência (webhook secret, backup). */

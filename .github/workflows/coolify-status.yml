@@ -7,7 +7,7 @@ jobs:
   status:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check Coolify vs legacy on VPS
         uses: appleboy/ssh-action@v1.2.0
@@ -23,7 +23,7 @@ jobs:
           command_timeout: 10m
           script: |
             set -euo pipefail
-            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
             git fetch origin main -q 2>/dev/null || true
             DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
             git fetch origin "${DEPLOY_BRANCH}" -q 2>/dev/null || true
@@ -32,6 +32,6 @@ jobs:
             sudo bash scripts/vps-host-metrics.sh || true
             sudo -E bash scripts/vps-coolify-verify.sh
             if [[ -f scripts/vps-install-host-metrics-cron.sh ]]; then
-              sudo -E DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}" PUBLIC_HOST="${PUBLIC_HOST}" \
+              sudo -E DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}" PUBLIC_HOST="${PUBLIC_HOST}" \
                 bash scripts/vps-install-host-metrics-cron.sh || true
             fi

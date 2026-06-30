@@ -1,4 +1,4 @@
-# RadarZap v2 — Resultado QA Fase 1
+# Radar Chat v2 — Resultado QA Fase 1
 
 > Roteiro: [`QA-FASE1-ROTEIRO.md`](../QA-FASE1-ROTEIRO.md) · Checklist: [`QA-FASE1-CHECKLIST.md`](../QA-FASE1-CHECKLIST.md) · Pendências: [`PENDENCIAS-HUMANAS-FASE1.md`](../PENDENCIAS-HUMANAS-FASE1.md)
 

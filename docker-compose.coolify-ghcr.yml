@@ -1,10 +1,10 @@
-# RadarZap v2 — Coolify com imagem GHCR (sem build no servidor).
-# Defina RADARZAP_IMAGE e SERVICE_PASSWORD_MONGODB nas env do resource Coolify.
+# Radar Chat v2 — Coolify com imagem GHCR (sem build no servidor).
+# Defina RADARCHAT_IMAGE e SERVICE_PASSWORD_MONGODB nas env do resource Coolify.
 # Domínio HTTPS: serviço `app` · porta interna 3001
 
 services:
   app:
-    image: ${RADARZAP_IMAGE:?defina RADARZAP_IMAGE}
+    image: ${RADARCHAT_IMAGE:?defina RADARCHAT_IMAGE}
     env_file:
       - .env
     expose:
@@ -19,9 +19,9 @@ services:
       LOG_FORMAT: json
       WHATSAPP_HEADLESS: 'true'
     volumes:
-      - radarzap-sessions:/app/sessions
-      - radarzap-media:/app/media
-      - radarzap-logs:/app/logs
+      - radarchat-sessions:/app/sessions
+      - radarchat-media:/app/media
+      - radarchat-logs:/app/logs
     depends_on:
       mongodb:
         condition: service_started
@@ -54,6 +54,6 @@ services:
 volumes:
   mongodb-data:
   redis-data:
-  radarzap-sessions:
-  radarzap-media:
-  radarzap-logs:
+  radarchat-sessions:
+  radarchat-media:
+  radarchat-logs:

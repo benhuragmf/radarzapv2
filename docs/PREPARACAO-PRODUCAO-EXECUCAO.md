@@ -30,14 +30,14 @@ Regra permanente: [`.cursor/rules/layout-v3-codex-isolation.mdc`](../.cursor/rul
 
 | Agente | Escopo | **Não mexer** |
 |--------|--------|----------------|
-| **Codex** | Menu, header, design system, páginas, `navConfig`, docs `RADARZAP-LAYOUT-V3-*` | Docker, Coolify, PREPARACAO infra |
+| **Codex** | Menu, header, design system, páginas, `navConfig`, docs `RADARCHAT-LAYOUT-V3-*` | Docker, Coolify, PREPARACAO infra |
 | **Auto (prep)** | `docker-compose.coolify.yml`, `.env.coolify.example`, `COOLIFY-DEPLOY`, `PREPARACAO*` | `frontend/**`, docs layout, `DESIGN-SYSTEM`, `MENU-PAGES-REGISTRY` |
 
 - **Commits separados** — infra não inclui arquivos de layout do Codex.
 - Codex **continua** reorganizando layout sem esperar Coolify.
 - Coolify sobe o monolito inteiro; UI em WIP no build é ok para staging.
 - Antes de push: `git pull --rebase origin layout-v3` na sua área.
-- Merge `layout-v3` → `main` só após Codex + `pre-push:gate` + QA visual ([`RADARZAP-LAYOUT-V3-04`](./RADARZAP-LAYOUT-V3-04-CHECKLIST-QA-VISUAL-E-FUNCIONAL.md)).
+- Merge `layout-v3` → `main` só após Codex + `pre-push:gate` + QA visual ([`RADARCHAT-LAYOUT-V3-04`](./RADARCHAT-LAYOUT-V3-04-CHECKLIST-QA-VISUAL-E-FUNCIONAL.md)).
 
 ---
 
@@ -49,7 +49,7 @@ Regra permanente: [`.cursor/rules/layout-v3-codex-isolation.mdc`](../.cursor/rul
 |------|-----------|
 | Monolito Docker | `docker/Dockerfile.monolith` |
 | Compose Coolify GHCR | `docker-compose.coolify-ghcr.yml` + `env_file` + override `:3001` |
-| Scripts migração | `vps-configure-coolify-radarzap.sh`, workflows `layout-v3` |
+| Scripts migração | `vps-configure-coolify-radarchat.sh`, workflows `layout-v3` |
 | Compose GHCR legado | `docker-compose.deploy.yml`, `scripts/deploy-remote.sh` |
 | CI + E2E | `.github/workflows/ci.yml` — 80/80 |
 | Deploy `main` | `.github/workflows/deploy.yml` |
@@ -88,7 +88,7 @@ Legenda: ✅ · 🔄 · ⏳
 
 ### H2 — Resource Radar Chat ✅ (deploy direto)
 
-- [x] Project + service `radarzap` (`h143brhw5f8tgfj9trj0f3bd`)
+- [x] Project + service `radarchat` (`h143brhw5f8tgfj9trj0f3bd`)
 - [x] Compose `docker-compose.coolify-ghcr.yml`, volumes externos legado
 - [x] `env_file: .env` + secrets produção
 - [x] Health HTTPS sslip.io ✅
@@ -125,7 +125,7 @@ Legenda: ✅ · 🔄 · ⏳
 ### E — Smoke
 
 ```bash
-set RADARZAP_PUBLIC_URL=https://SEU_DOMINIO_COOLIFY
+set RADARCHAT_PUBLIC_URL=https://SEU_DOMINIO_COOLIFY
 npm run qa:release-gate
 ```
 
@@ -137,7 +137,7 @@ npm run qa:release-gate
 
 ## Próximos passos imediatos
 
-1. **Codex:** continuar Layout v3 (`RADARZAP-LAYOUT-V3-05`) — usar [`PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`](./concluidos/PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md).
+1. **Codex:** continuar Layout v3 (`RADARCHAT-LAYOUT-V3-05`) — usar [`PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`](./concluidos/PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md).
 2. **Infra:** validar servidor Coolify SSH; GitHub App auto-deploy.
 3. **Ops:** condicionar `deploy.yml`; smoke WA; QA Fase 1.
 
@@ -155,5 +155,5 @@ npm run qa:release-gate
 
 ## Referências
 
-- Layout v3: [`RADARZAP-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md`](./RADARZAP-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md)
-- QA visual layout: [`RADARZAP-LAYOUT-V3-04-CHECKLIST-QA-VISUAL-E-FUNCIONAL.md`](./RADARZAP-LAYOUT-V3-04-CHECKLIST-QA-VISUAL-E-FUNCIONAL.md)
+- Layout v3: [`RADARCHAT-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md`](./RADARCHAT-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md)
+- QA visual layout: [`RADARCHAT-LAYOUT-V3-04-CHECKLIST-QA-VISUAL-E-FUNCIONAL.md`](./RADARCHAT-LAYOUT-V3-04-CHECKLIST-QA-VISUAL-E-FUNCIONAL.md)

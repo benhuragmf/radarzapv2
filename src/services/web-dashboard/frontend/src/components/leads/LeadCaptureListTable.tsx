@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { MessageSquare, UserPlus } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import type { LeadCaptureListItem } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem } from '@radarchat-types/lead-form'
 import {
   LEAD_ORIGIN_DISPLAY,
   LEAD_STATUS_DISPLAY,
@@ -15,7 +15,7 @@ import {
   leadInboxHref,
   leadOriginBadgeVariant,
 } from '../../lib/leadUi'
-import { LEAD_CAPTURE_STATUS_VARIANT } from '@radarzap-types/lead-form'
+import { LEAD_CAPTURE_STATUS_VARIANT } from '@radarchat-types/lead-form'
 import { LeadClassificationBadges } from './LeadClassificationBadges'
 
 type Props = {

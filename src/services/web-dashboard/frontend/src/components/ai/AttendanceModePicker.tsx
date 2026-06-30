@@ -80,14 +80,14 @@ interface CredentialSourcePickerProps {
   selected: AiCredentialSource
   onSelect: (source: AiCredentialSource) => void
   disabled: boolean
-  radarzapAllowed: boolean
+  radarchatAllowed: boolean
 }
 
 export function CredentialSourcePicker({
   selected,
   onSelect,
   disabled,
-  radarzapAllowed,
+  radarchatAllowed,
 }: CredentialSourcePickerProps) {
   return (
     <div className="space-y-2 border-t border-[var(--rz-border)] pt-3">
@@ -98,11 +98,11 @@ export function CredentialSourcePicker({
       <div className="grid gap-1.5">
         {CREDENTIAL_SOURCE_CARDS.map(card => {
           const isNone = card.id === 'none'
-          const isRadarzap = card.id === 'radarzap'
+          const isRadarchatMode = card.id === 'radarchat'
           const optionDisabled =
             disabled ||
             isNone ||
-            (isRadarzap && !radarzapAllowed)
+            (isRadarchatMode && !radarchatAllowed)
           const isSelected = !disabled && selected === card.id
           return (
             <label
@@ -126,7 +126,7 @@ export function CredentialSourcePicker({
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-[var(--rz-text-primary)]">
                   {card.title}
-                  {isRadarzap && !radarzapAllowed && (
+                  {isRadarchatMode && !radarchatAllowed && (
                     <span className="ml-2 text-amber-500 text-xs font-normal">
                       Indisponível no plano Free
                     </span>

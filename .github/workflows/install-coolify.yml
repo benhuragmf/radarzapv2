@@ -1,4 +1,4 @@
-# Instala Coolify na VPS de produção (manual). Não altera stack RadarZap legado.
+# Instala Coolify na VPS de produção (manual). Não altera stack Radar Chat legado.
 name: Install Coolify (VPS)
 
 on:
@@ -14,7 +14,7 @@ jobs:
     if: github.event.inputs.confirm == 'INSTALL'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Coolify via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -32,7 +32,7 @@ jobs:
           command_timeout: 45m
           script: |
             set -euo pipefail
-            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
             DEPLOY_BRANCH="${DEPLOY_BRANCH:-layout-v3}"
             git fetch origin "${DEPLOY_BRANCH}" -q && git reset --hard "origin/${DEPLOY_BRANCH}" -q
             export USE_SUDO_DOCKER=1

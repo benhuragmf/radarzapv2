@@ -46,7 +46,7 @@
       "status": 1
     },
     {
-      "name": "smoke produção (pulado — sem RADARZAP_PUBLIC_URL)",
+      "name": "smoke produção (pulado — sem RADARCHAT_PUBLIC_URL)",
       "ok": true,
       "skipped": true
     }

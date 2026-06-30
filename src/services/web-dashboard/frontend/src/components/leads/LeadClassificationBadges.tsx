@@ -1,4 +1,4 @@
-import type { LeadContactClassification } from '@radarzap-types/lead-form'
+import type { LeadContactClassification } from '@radarchat-types/lead-form'
 import type { ContactClassificationView } from '../../lib/contactClassificationUi'
 import { ContactClassificationBadges } from '../contacts/ContactClassificationBadges'
 

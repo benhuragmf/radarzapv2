@@ -7,7 +7,7 @@ jobs:
   panel-https:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Enable Coolify panel HTTPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -21,7 +21,7 @@ jobs:
           command_timeout: 15m
           script: |
             set -euo pipefail
-            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
             for attempt in 1 2 3 4 5; do
               if git fetch origin +refs/heads/layout-v3:refs/remotes/origin/layout-v3 -q 2>/dev/null; then
                 git reset --hard origin/layout-v3 -q

@@ -7,7 +7,7 @@ import { Destination } from '../src/models/Destination';
 import { WhatsAppService } from '../src/services/whatsapp/WhatsAppService';
 
 async function main() {
-  const uri = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/radarzap';
+  const uri = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/radarchat';
   await mongoose.connect(uri);
 
   const withMime = await Destination.countDocuments({

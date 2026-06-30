@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { textareaCls } from '@/design-system'
-import type { LeadCaptureStatus } from '@radarzap-types/lead-form'
+import type { LeadCaptureStatus } from '@radarchat-types/lead-form'
 import { LEAD_STATUS_DISPLAY } from '../../lib/leadUi'
 
 type Props = {

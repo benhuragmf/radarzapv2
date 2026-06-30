@@ -15,8 +15,8 @@ export interface ExtractedMessage {
   authorTag: string;
   /** Quem postou no canal Discord (apelido global ou @username) */
   discordPosterLabel?: string;
-  /** Conta/empresa RadarZap (painel) — preenchido na fila */
-  radarzapSenderLabel?: string;
+  /** Conta/empresa Radar Chat (painel) — preenchido na fila */
+  radarchatSenderLabel?: string;
   isBot: boolean;
   /** Cargos Discord do autor no servidor (snowflakes) */
   authorRoleIds?: string[];

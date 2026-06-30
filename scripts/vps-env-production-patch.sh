@@ -21,7 +21,7 @@ setkv("CORS_ORIGIN", url)
 setkv("COOKIE_SECURE", "true")
 if not re.search(r"^TICKET_OTP_PEPPER=.+", t, flags=re.M):
     setkv("TICKET_OTP_PEPPER", otp)
-t = re.sub(r"^MAIL_FROM=.*", 'MAIL_FROM="RadarZap <noreply@radarzap.local>"', t, flags=re.M)
+t = re.sub(r"^MAIL_FROM=.*", 'MAIL_FROM="Radar Chat <noreply@radarchat.local>"', t, flags=re.M)
 open(p, "w", encoding="utf-8").write(t)
 print(f"[env-patch] FRONTEND_URL/CORS={url} COOKIE_SECURE=true TICKET_OTP_PEPPER ok")
 PY

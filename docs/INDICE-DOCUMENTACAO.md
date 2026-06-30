@@ -4,10 +4,10 @@
 
 ### Leitura principal obrigatória
 
-1. [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) — documentação mestre
+1. [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) — documentação mestre
 2. [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) — **única lista do que falta (QA humano)**
-3. [`concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo pós-TOP 20
-4. [`concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — **fonte oficial** status, checklists e go-live
+3. [`concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo pós-TOP 20
+4. [`concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — **fonte oficial** status, checklists e go-live
 5. [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual A–J
 
 Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
@@ -18,8 +18,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) | **Entrada principal** — visão consolidada, módulos, gates, TOPs, agente IA |
-| [`RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) | Resultado final TOP 01–20 — leitura rápida |
+| [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) | **Entrada principal** — visão consolidada, módulos, gates, TOPs, agente IA |
+| [`RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) | Resultado final TOP 01–20 — leitura rápida |
 
 ---
 
@@ -34,9 +34,9 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização |
 | [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) | **Pendências só humanas** — QA manual + Admin VPS |
 | [`concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação (arquivo) |
-| [`concluidos/RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](./concluidos/RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (arquivo) |
+| [`concluidos/RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./concluidos/RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (arquivo) |
 | [`referencias/REFERENCIAS-MERCADO-UPGRADES.md`](./referencias/REFERENCIAS-MERCADO-UPGRADES.md) | Referências mercado (Conecta360, Nextiva, RadarLeads, VoxCRM) — inspiração upgrades |
-| [`RADARZAP-PLANO-UPGRADES.md`](./RADARZAP-PLANO-UPGRADES.md) | **Plano 21 upgrades** — backlog pós-gate Fase 1 |
+| [`RADARCHAT-PLANO-UPGRADES.md`](./RADARCHAT-PLANO-UPGRADES.md) | **Plano 21 upgrades** — backlog pós-gate Fase 1 |
 
 ---
 
@@ -44,10 +44,10 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`RADARZAP-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md`](./RADARZAP-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md) | Fase 2 — menu e navegação |
-| [`RADARZAP-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md`](./RADARZAP-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md) | Fase 3 — header operacional |
-| [`RADARZAP-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md`](./RADARZAP-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md) | Fase 4 — componentes visuais compartilhados |
-| [`RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | Fase 4.5 — QA visual navegável, marca Radar Chat e domínios |
+| [`RADARCHAT-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md`](./RADARCHAT-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md) | Fase 2 — menu e navegação |
+| [`RADARCHAT-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md`](./RADARCHAT-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md) | Fase 3 — header operacional |
+| [`RADARCHAT-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md`](./RADARCHAT-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md) | Fase 4 — componentes visuais compartilhados |
+| [`RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | Fase 4.5 — QA visual navegável, marca Radar Chat e domínios |
 
 ---
 
@@ -62,12 +62,12 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`ONBOARDING-VERTICAL.md`](./ONBOARDING-VERTICAL.md) | Pré-configuração por tipo de comércio (11 verticais) |
 | [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulários embed e captura |
 | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA e carteira |
-| [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | Modos de atendimento (consolidado) |
+| [`RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | Modos de atendimento (consolidado) |
 | [`EQUIPE-RBAC.md`](./EQUIPE-RBAC.md) | Papéis e capabilities |
 | [`CONSENTIMENTO-LGPD.md`](./CONSENTIMENTO-LGPD.md) | Consentimento LGPD |
 | [`BILLING.md`](./BILLING.md) | Stripe, planos, limites |
-| [`concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md`](./concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) | Dashboard ops global (arquivo) |
-| [`concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md`](./concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-API.md) | **API** — contrato REST Admin Ops (arquivo) |
+| [`concluidos/admin/RADARCHAT-ADMIN-DASHBOARD-OPS.md`](./concluidos/admin/RADARCHAT-ADMIN-DASHBOARD-OPS.md) | Dashboard ops global (arquivo) |
+| [`concluidos/admin/RADARCHAT-ADMIN-DASHBOARD-OPS-API.md`](./concluidos/admin/RADARCHAT-ADMIN-DASHBOARD-OPS-API.md) | **API** — contrato REST Admin Ops (arquivo) |
 | [`admin/README.md`](./admin/README.md) | Redirect → `concluidos/admin/` |
 | [`concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md`](./concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Entrega Etapas 1–3 |
 | [`concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md`](./concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | Entrega auditoria 2.12.47–63 |
@@ -89,27 +89,27 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 | # | Documento |
 |---|-----------|
-| 01 | [`top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md`](./concluidos/top/RADARZAP-TOP-01-DIAGNOSTICO-INICIAL.md) |
-| 02 | [`top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md`](./concluidos/top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md) |
-| 03 | [`top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md) |
-| 04 | [`top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./concluidos/top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md) |
-| 05 | [`top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`](./concluidos/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md) |
-| 06 | [`top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`](./concluidos/top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md) |
-| 07 | [`top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./concluidos/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md) |
-| 08 | [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./concluidos/top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md) |
-| 09 | [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./concluidos/top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md) |
-| 10 | [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./concluidos/top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md) |
-| 11 | [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./concluidos/top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md) |
-| 12 | [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./concluidos/top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md) |
-| 13 | [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./concluidos/top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md) |
-| 14 | [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./concluidos/top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md) |
-| 15 | [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./concluidos/top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md) |
-| 16 | [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./concluidos/top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md) |
-| 17 | [`top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./concluidos/top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md) |
-| 18 | [`top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./concluidos/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) |
-| 19 | [`top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./concluidos/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md) |
-| 20 | [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) |
-| 21 | [`top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./concluidos/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) — extra pós-TOP20 |
+| 01 | [`top/RADARCHAT-TOP-01-DIAGNOSTICO-INICIAL.md`](./concluidos/top/RADARCHAT-TOP-01-DIAGNOSTICO-INICIAL.md) |
+| 02 | [`top/RADARCHAT-TOP-02-GOVERNANCA-BASELINE-GATES.md`](./concluidos/top/RADARCHAT-TOP-02-GOVERNANCA-BASELINE-GATES.md) |
+| 03 | [`top/RADARCHAT-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./concluidos/top/RADARCHAT-TOP-03-PLANOS-MENSALIDADES-LIMITES.md) |
+| 04 | [`top/RADARCHAT-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`](./concluidos/top/RADARCHAT-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md) |
+| 05 | [`top/RADARCHAT-TOP-05-STATUS-PRESENCA-FILA.md`](./concluidos/top/RADARCHAT-TOP-05-STATUS-PRESENCA-FILA.md) |
+| 06 | [`top/RADARCHAT-TOP-06-MODOS-ATENDIMENTO.md`](./concluidos/top/RADARCHAT-TOP-06-MODOS-ATENDIMENTO.md) |
+| 07 | [`top/RADARCHAT-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`](./concluidos/top/RADARCHAT-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md) |
+| 08 | [`top/RADARCHAT-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./concluidos/top/RADARCHAT-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md) |
+| 09 | [`top/RADARCHAT-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./concluidos/top/RADARCHAT-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md) |
+| 10 | [`top/RADARCHAT-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./concluidos/top/RADARCHAT-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md) |
+| 11 | [`top/RADARCHAT-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./concluidos/top/RADARCHAT-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md) |
+| 12 | [`top/RADARCHAT-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./concluidos/top/RADARCHAT-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md) |
+| 13 | [`top/RADARCHAT-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./concluidos/top/RADARCHAT-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md) |
+| 14 | [`top/RADARCHAT-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./concluidos/top/RADARCHAT-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md) |
+| 15 | [`top/RADARCHAT-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./concluidos/top/RADARCHAT-TOP-15-IA-PREMIUM-KB-HANDOFF.md) |
+| 16 | [`top/RADARCHAT-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./concluidos/top/RADARCHAT-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md) |
+| 17 | [`top/RADARCHAT-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`](./concluidos/top/RADARCHAT-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md) |
+| 18 | [`top/RADARCHAT-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`](./concluidos/top/RADARCHAT-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md) |
+| 19 | [`top/RADARCHAT-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md`](./concluidos/top/RADARCHAT-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md) |
+| 20 | [`top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) |
+| 21 | [`top/RADARCHAT-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](./concluidos/top/RADARCHAT-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) — extra pós-TOP20 |
 
 ---
 
@@ -127,7 +127,7 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) | Jest/Playwright vs manual |
 | [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Fallback e bridge |
 | [`QA-WEBCHAT-CHATBOX-MODELS.md`](./QA-WEBCHAT-CHATBOX-MODELS.md) | Modelos chat box |
-| [`RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | QA visual Layout v3 Fase 4.5 |
+| [`RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | QA visual Layout v3 Fase 4.5 |
 | [`QA-FASE1-RESULTADO-2026-06-22.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-22.md) | Sessão QA anterior (histórico, arquivo) |
 
 ---
@@ -141,7 +141,7 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`](./concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md) | Entrega migração sslip.io → Coolify |
 | [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) | Tracker vivo — checklist infra + Coolify |
 | [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
-| [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md) | Migração v1 → v2 |
+| [`RADARCHAT-V2-MIGRACAO.md`](./RADARCHAT-V2-MIGRACAO.md) | Migração v1 → v2 |
 
 ---
 
@@ -151,8 +151,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 |-------------|-----------|
 | [`concluidos/`](./concluidos/README.md) | Entregas arquivadas (admin, TOP, auditoria horizontal, modos) |
 | [`concluidos/top/`](./concluidos/top/) | TOP 01–21 — auditoria e fechamento |
-| [`concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./concluidos/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal** — achados + status 2.12.47–63 |
-| [`concluidos/RADARZAP_AUDITORIA_INCREMENTAL.md`](./concluidos/RADARZAP_AUDITORIA_INCREMENTAL.md) | Auditoria incremental (arquivo) |
+| [`concluidos/RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./concluidos/RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal** — achados + status 2.12.47–63 |
+| [`concluidos/RADARCHAT_AUDITORIA_INCREMENTAL.md`](./concluidos/RADARCHAT_AUDITORIA_INCREMENTAL.md) | Auditoria incremental (arquivo) |
 | [`audits/README.md`](./audits/README.md) | Redirect → `concluidos/` |
 | [`concluidos/operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](./concluidos/operacao/RUNBOOK-SPOF-MONGO-REDIS.md) | Runbook SPOF Mongo/Redis (AH-S01) |
 | [`operacao/README.md`](./operacao/README.md) | Redirect → `concluidos/operacao/` |

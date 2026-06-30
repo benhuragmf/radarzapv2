@@ -7,6 +7,7 @@ import {
 } from '@/utils/discord-wa-format';
 import {
   LEGACY_TEMPLATE_ALIASES,
+  normalizeLegacyTemplateName,
   resolveTemplateForCapture,
 } from '@/constants/discord-whatsapp-templates';
 
@@ -18,13 +19,13 @@ const PADRAO_LIKE = new Set([
   'dw-texto',
   'dw-embed',
   'dw-misto',
-  'radarzap-padrao',
-  'radarzap-simples',
-  'radarzap-com-embed',
+  'radarchat-padrao',
+  'radarchat-simples',
+  'radarchat-com-embed',
   'custom-message',
 ]);
 
-const FIXED_LIVE_RULES = new Set(['dw-live', 'radarzap-live']);
+const FIXED_LIVE_RULES = new Set(['dw-live', 'radarchat-live']);
 
 function templateForLinkKind(linkKind: LinkContentType): string | null {
   if (linkKind === 'live') return 'dw-live';
@@ -126,8 +127,10 @@ export function resolveOutboundTemplate(
   if (extracted.captureKind === 'short') return 'dw-short';
   if (extracted.captureKind === 'live') return 'dw-live';
 
-  const resolved = options.resolvedTemplate || options.fallbackTemplate || '';
-  if (resolved.startsWith('dw-') || resolved.startsWith('radarzap-')) {
+  const resolved = normalizeLegacyTemplateName(
+    options.resolvedTemplate || options.fallbackTemplate || '',
+  );
+  if (resolved.startsWith('dw-') || resolved.startsWith('radarchat-')) {
     return LEGACY_TEMPLATE_ALIASES[resolved] ?? resolved;
   }
 
@@ -170,14 +173,14 @@ export function previewOutbound(text: string, max = 140): string {
 
 /** Corpo parece dw-padrao quebrado (📢 sem live completo). */
 export function isWeakStreamOutbound(text: string, link: string): boolean {
-  if (/🔴\s*\*/.test(text) && /via radarzap/i.test(text) && text.includes('🔗')) {
+  if (/🔴\s*\*/.test(text) && /via radarchat/i.test(text) && text.includes('🔗')) {
     return false;
   }
   if (/^▶️|^📱/.test(text.trim())) return false;
   if (/^📢\s*\*?https?:\/\//i.test(text)) return true;
-  if (/^📢\s/m.test(text) && !/via radarzap/i.test(text)) return true;
+  if (/^📢\s/m.test(text) && !/via radarchat/i.test(text)) return true;
   const linkKind = link ? classifyLinkUrl(link) : 'unknown';
-  if (link && linkKind === 'live' && !/🔴/.test(text) && !/via radarzap/i.test(text)) {
+  if (link && linkKind === 'live' && !/🔴/.test(text) && !/via radarchat/i.test(text)) {
     return true;
   }
   return false;

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Deploy no servidor: pull da imagem GHCR + docker compose.
-# Uso: RADARZAP_IMAGE=ghcr.io/owner/radarzap:abc123 bash scripts/deploy-remote.sh
+# Uso: RADARCHAT_IMAGE=ghcr.io/owner/radarchat:abc123 bash scripts/deploy-remote.sh
 set -euo pipefail
 
-IMAGE="${1:?informe a imagem (ex.: ghcr.io/owner/radarzap:sha)}"
+IMAGE="${1:?informe a imagem (ex.: ghcr.io/owner/radarchat:sha)}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 if [[ "${USE_SUDO_DOCKER:-}" == "1" ]] || ! docker info >/dev/null 2>&1; then
@@ -22,16 +22,16 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-export RADARZAP_IMAGE="$IMAGE"
+export RADARCHAT_IMAGE="$IMAGE"
 
-echo "[deploy] Imagem: $RADARZAP_IMAGE"
-$DOCKER_BIN pull "$RADARZAP_IMAGE" || {
-  echo "[deploy] ERRO: falha ao baixar $RADARZAP_IMAGE"
+echo "[deploy] Imagem: $RADARCHAT_IMAGE"
+$DOCKER_BIN pull "$RADARCHAT_IMAGE" || {
+  echo "[deploy] ERRO: falha ao baixar $RADARCHAT_IMAGE"
   exit 1
 }
 
 run_compose() {
-  local extra=(RADARZAP_IMAGE="$RADARZAP_IMAGE")
+  local extra=(RADARCHAT_IMAGE="$RADARCHAT_IMAGE")
   [[ -n "${MONGO_PASSWORD:-}" ]] && extra+=(MONGO_PASSWORD="$MONGO_PASSWORD")
   if [[ "$DOCKER_BIN" == "sudo docker" ]]; then
     sudo env "${extra[@]}" docker compose "$@"

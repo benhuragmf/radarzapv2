@@ -7,7 +7,7 @@ CANONICAL_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 CANONICAL_NAME="${COOLIFY_SERVICE_NAME:-RadarChat}"
 COOLIFY_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${CANONICAL_UUID}}"
 PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 
 failures=0
 log() { echo "[coolify-verify] $*"; }
@@ -60,9 +60,9 @@ if [[ ! -w "${COOLIFY_DIR}" ]] && [[ "${EUID}" -ne 0 ]]; then
 fi
 
 # --- Legado GHCR não deve competir ---
-legacy="$(docker_cmd ps --format '{{.Names}}' 2>/dev/null | grep -E '^radarzap-' || true)"
+legacy="$(docker_cmd ps --format '{{.Names}}' 2>/dev/null | grep -E '^radarchat-' || true)"
 if [[ -n "$legacy" ]]; then
-  fail "stack legado radarzap-* ainda rodando: ${legacy}"
+  fail "stack legado radarchat-* ainda rodando: ${legacy}"
 fi
 
 # --- Coolify DB: uma única stack RadarChat ---
@@ -86,14 +86,14 @@ if docker_cmd ps --format '{{.Names}}' | grep -q '^coolify-db$'; then
     fi
   fi
 
-  dup_radarzap="$(psql_coolify "SELECT count(*) FROM services WHERE deleted_at IS NULL AND lower(name) LIKE '%radarzap%';" || echo 0)"
-  if [[ "${dup_radarzap:-0}" != "0" ]]; then
-    fail "service 'radarzap' duplicado ainda registrado (${dup_radarzap})"
+  dup_radarchat="$(psql_coolify "SELECT count(*) FROM services WHERE deleted_at IS NULL AND lower(name) LIKE '%radarchat%';" || echo 0)"
+  if [[ "${dup_radarchat:-0}" != "0" ]]; then
+    fail "service 'radarchat' duplicado ainda registrado (${dup_radarchat})"
   fi
 
-  proj_radarzap="$(psql_coolify "SELECT count(*) FROM projects WHERE deleted_at IS NULL AND lower(name) = 'radarzap';" || echo 0)"
-  if [[ "${proj_radarzap:-0}" != "0" ]]; then
-    fail "projeto RadarZap duplicado ainda existe no painel"
+  proj_radarchat="$(psql_coolify "SELECT count(*) FROM projects WHERE deleted_at IS NULL AND lower(name) = 'radarchat';" || echo 0)"
+  if [[ "${proj_radarchat:-0}" != "0" ]]; then
+    fail "projeto Radar Chat duplicado ainda existe no painel"
   fi
 
   bad_app="$(psql_coolify "SELECT count(*) FROM service_applications sa JOIN services s ON s.id = sa.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sa.status NOT LIKE 'running:%';" || echo 0)"

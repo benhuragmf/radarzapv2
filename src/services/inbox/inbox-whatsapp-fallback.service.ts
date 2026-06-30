@@ -62,7 +62,7 @@ export function buildWhatsAppInboxFallbackAlertBody(input: {
 }): string {
   const ticketNum = input.ticketRef.replace(/^TK-/i, '');
   const lines = [
-    'Novo atendimento na fila WhatsApp — RadarZap',
+    'Novo atendimento na fila WhatsApp — Radar Chat',
     '',
     `Ticket: ${input.ticketRef}`,
     `Cliente: ${input.contactName}`,

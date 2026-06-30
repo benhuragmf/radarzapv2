@@ -1,11 +1,11 @@
-import type { AdminOpsHostReport } from '@radarzap-types/admin-ops-host'
+import type { AdminOpsHostReport } from '@radarchat-types/admin-ops-host'
 import {
   formatHostCpuPercent,
   formatHostMemMb,
   hostDataStatusLabel,
   hostDataStatusVariant,
-} from '@radarzap-types/admin-ops-host.util'
-import { formatOpsDate, formatOpsUptime } from '@radarzap-types/admin-ops-summary.util'
+} from '@radarchat-types/admin-ops-host.util'
+import { formatOpsDate, formatOpsUptime } from '@radarchat-types/admin-ops-summary.util'
 import { SectionCard, StatusBadge } from '@/design-system'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -102,7 +102,7 @@ export default function AdminOpsHostPanel({ data, isLoading, isError }: Props) {
             <>
               {coolify.version ? <StatRow label="Versão" value={coolify.version} /> : null}
               {coolify.service?.status ? (
-                <StatRow label="Serviço RadarZap" value={coolify.service.status} />
+                <StatRow label="Serviço Radar Chat" value={coolify.service.status} />
               ) : null}
               {coolify.service?.name ? <StatRow label="Nome" value={coolify.service.name} /> : null}
               {coolify.service?.fqdn ? <StatRow label="FQDN" value={coolify.service.fqdn} /> : null}

@@ -7,11 +7,11 @@
 
 ## Resumo executivo
 
-O app **RadarZap em produção** (`https://151-247-210-180.sslip.io`) migrou do compose legado **`docker-compose.deploy.yml` + GHCR** para o **resource Coolify** `radarzap`, com volumes Mongo/Redis/sessões **preservados**.
+O app **Radar Chat em produção** (`https://151-247-210-180.sslip.io`) migrou do compose legado **`docker-compose.deploy.yml` + GHCR** para o **resource Coolify** `radarchat`, com volumes Mongo/Redis/sessões **preservados**.
 
 | Antes | Depois |
 |-------|--------|
-| `radarzap-app-1` (compose legado em `/opt/radarzap`) | `h143brhw5f8tgfj9trj0f3bd-app-1` |
+| `radarchat-app-1` (compose legado em `/opt/radarchat`) | `h143brhw5f8tgfj9trj0f3bd-app-1` |
 | Deploy: push `main` → GHCR → `deploy-remote.sh` | Stack em `/data/coolify/services/h143brhw5f8tgfj9trj0f3bd/` |
 | Traefik rota manual `vps-coolify-traefik-route-legacy.sh` | Mesma rota (deploy **direto**; proxy Coolify ainda não roteia o domínio via labels) |
 
@@ -23,10 +23,10 @@ O app **RadarZap em produção** (`https://151-247-210-180.sslip.io`) migrou do 
 
 | Recurso | UUID |
 |---------|------|
-| Service `radarzap` | `h143brhw5f8tgfj9trj0f3bd` |
-| Servidor local RadarZap | `hklsapd6w3wwu9g00k514vjt` |
+| Service `radarchat` | `h143brhw5f8tgfj9trj0f3bd` |
+| Servidor local Radar Chat | `hklsapd6w3wwu9g00k514vjt` |
 | Servidor remoto RadarGamer | `cg0rf7b0alfe7jobwdoy8xcb` |
-| Project RadarZap | `prmxqsp1rf57x977zs4z7iqp` |
+| Project Radar Chat | `prmxqsp1rf57x977zs4z7iqp` |
 
 ---
 
@@ -34,7 +34,7 @@ O app **RadarZap em produção** (`https://151-247-210-180.sslip.io`) migrou do 
 
 | Área | Arquivos / workflows |
 |------|----------------------|
-| Configuração Coolify API | `scripts/vps-configure-coolify-radarzap.sh` |
+| Configuração Coolify API | `scripts/vps-configure-coolify-radarchat.sh` |
 | Migração legado → Coolify | `MIGRATE_LEGACY=1`, `stop_legacy_stack`, `deploy_service_direct` |
 | SSH localhost | `ensure_deploy_key_on_localhost`, `pick_coolify_ssh_target` |
 | Compose produção GHCR | `docker-compose.coolify-ghcr.yml` + **`env_file: .env`** no `app` |
@@ -50,7 +50,7 @@ O app **RadarZap em produção** (`https://151-247-210-180.sslip.io`) migrou do 
 
 1. **Deploy via API Coolify** — fila não sobe containers (servidor local “not reachable” no painel). **Mitigação:** `deploy_service_direct` escreve compose + `.env` em `/data/coolify/services/{uuid}/` e roda `docker compose up`.
 2. **Status no painel** — resource pode aparecer `exited` no DB; containers reais estão **Up (healthy)**.
-3. **Validar servidor** — painel Coolify → Servers → RadarZap → user `ubuntu`, chave `radarzap-deploy`, Validate (pendência manual).
+3. **Validar servidor** — painel Coolify → Servers → Radar Chat → user `ubuntu`, chave `radarchat-deploy`, Validate (pendência manual).
 4. **RAM 2 GB** — apertado (Coolify + app); monitorar OOM.
 5. **`deploy.yml` em `main`** — ainda publica GHCR; **não** reativar deploy legado no mesmo host sem parar stack Coolify.
 
@@ -63,10 +63,10 @@ O app **RadarZap em produção** (`https://151-247-210-180.sslip.io`) migrou do 
 gh workflow run "Coolify status check" --ref layout-v3
 
 # Republicar stack + HTTPS (sem derrubar legado se Coolify já ativo)
-gh workflow run "Fix Coolify SSL (RadarZap)" --ref layout-v3
+gh workflow run "Fix Coolify SSL (Radar Chat)" --ref layout-v3
 
 # Migração completa (parar legado + Coolify)
-gh workflow run "Configure Coolify (RadarZap)" --ref layout-v3 -f confirm=CONFIGURE -f migrate_legacy=1
+gh workflow run "Configure Coolify (Radar Chat)" --ref layout-v3 -f confirm=CONFIGURE -f migrate_legacy=1
 
 # Cadastro servidores
 gh workflow run "Coolify servers setup" --ref layout-v3 -f confirm=SERVERS
@@ -82,7 +82,7 @@ Ver seção **“Prompt Codex”** em [`COOLIFY-DEPLOY.md`](../COOLIFY-DEPLOY.md
 
 ## Próximos passos (infra — não Codex)
 
-- [ ] Validar servidor RadarZap no painel Coolify (SSH reachable)
+- [ ] Validar servidor Radar Chat no painel Coolify (SSH reachable)
 - [ ] Conectar GitHub App no Coolify para auto-deploy `layout-v3`
 - [ ] Desabilitar ou condicionar `.github/workflows/deploy.yml` no host ZAP
 - [ ] RadarGamer: concluir validação SSH + métricas

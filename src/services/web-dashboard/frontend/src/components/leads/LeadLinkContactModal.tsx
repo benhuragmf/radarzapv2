@@ -4,7 +4,7 @@ import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { inputCls } from '@/design-system'
 import { api } from '../../lib/api'
-import type { LeadContactSearchItem } from '@radarzap-types/lead-form'
+import type { LeadContactSearchItem } from '@radarchat-types/lead-form'
 
 interface Props {
   open: boolean

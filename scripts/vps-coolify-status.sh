@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Diagnóstico: Coolify vs stack legado GHCR no VPS RadarZap (.180).
+# Diagnóstico: Coolify vs stack legado GHCR no VPS Radar Chat (.180).
 set -euo pipefail
 
 PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 
 log() { echo "[coolify-status] $*"; }
 
-log "=== Docker (radarzap / coolify / h143) ==="
+log "=== Docker (radarchat / coolify / h143) ==="
 sudo docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null \
-  | grep -iE 'coolify|radarzap|h143|mongo|redis|traefik|caddy' || echo "(nenhum container correspondente)"
+  | grep -iE 'coolify|radarchat|h143|mongo|redis|traefik|caddy' || echo "(nenhum container correspondente)"
 
 log ""
 log "=== Health :3001 (host) ==="
@@ -36,7 +36,7 @@ else
 fi
 
 log ""
-log "=== Coolify API (serviço radarzap) ==="
+log "=== Coolify API (serviço radarchat) ==="
 if curl -sf -o /dev/null -w "%{http_code}" "http://127.0.0.1:8000/" 2>/dev/null | grep -qE '200|302'; then
   log "Painel Coolify :8000 responde"
 else
@@ -47,7 +47,7 @@ COOLIFY_URL="${COOLIFY_URL:-http://127.0.0.1:8000}"
 if command -v docker >/dev/null && docker ps --format '{{.Names}}' | grep -q '^coolify$'; then
   out="$(docker exec coolify php artisan tinker --execute='
 $s = \App\Models\Service::where("name", "RadarChat")->first();
-if (!$s) { $s = \App\Models\Service::where("name", "radarzap")->first(); }
+if (!$s) { $s = \App\Models\Service::where("name", "radarchat")->first(); }
 if (!$s) { echo "service=ausente"; exit; }
 echo "service=" . $s->uuid . " status=" . ($s->status ?? "?");
 ' 2>/dev/null)" || out=""
@@ -59,7 +59,7 @@ COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 log ""
 log "=== Resumo ==="
 coolify_app="$(sudo docker ps -a --format '{{.Names}} {{.Status}} {{.Image}}' 2>/dev/null | grep -F "${COOLIFY_SERVICE_UUID}" | grep -iE 'app|web' | head -3 || true)"
-legacy_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE '^radarzap-app-' | head -3 || true)"
+legacy_app="$(sudo docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE '^radarchat-app-' | head -3 || true)"
 if [[ -n "$coolify_app" ]]; then
   log "App Coolify (resource): SIM"
   echo "$coolify_app" | while read -r line; do log "  $line"; done

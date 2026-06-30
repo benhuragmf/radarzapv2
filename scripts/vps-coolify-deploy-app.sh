@@ -9,9 +9,9 @@ COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID//$'\r'/}"
 COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
 COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR//$'\r'/}"
-RADARZAP_IMAGE="${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"
-RADARZAP_IMAGE="${RADARZAP_IMAGE//$'\r'/}"
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+RADARCHAT_IMAGE="${RADARCHAT_IMAGE:-ghcr.io/benhuragmf/radarchatv2:latest}"
+RADARCHAT_IMAGE="${RADARCHAT_IMAGE//$'\r'/}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 DEPLOY_PATH="${DEPLOY_PATH//$'\r'/}"
 WAIT_MAX="${WAIT_MAX:-36}"
 WAIT_INTERVAL_SEC="${WAIT_INTERVAL_SEC:-5}"
@@ -30,7 +30,7 @@ coolify_mongo_running() {
   [[ "$names" == *"${COOLIFY_SERVICE_UUID}-mongodb-1"* ]]
 }
 
-set_radarzap_image_env() {
+set_radarchat_image_env() {
   local env_file="$1"
   local image="$2"
   [[ -f "$env_file" ]] || return 0
@@ -38,15 +38,15 @@ set_radarzap_image_env() {
   local tmp found=0 line
   tmp="$(mktemp)"
   while IFS= read -r line || [[ -n "$line" ]]; do
-    if [[ "$line" == RADARZAP_IMAGE=* ]]; then
-      printf 'RADARZAP_IMAGE=%s\n' "$image" >>"$tmp"
+    if [[ "$line" == RADARCHAT_IMAGE=* ]]; then
+      printf 'RADARCHAT_IMAGE=%s\n' "$image" >>"$tmp"
       found=1
     else
       printf '%s\n' "$line" >>"$tmp"
     fi
   done <"$env_file"
   if [[ "$found" -eq 0 ]]; then
-    printf 'RADARZAP_IMAGE=%s\n' "$image" >>"$tmp"
+    printf 'RADARCHAT_IMAGE=%s\n' "$image" >>"$tmp"
   fi
   if [[ "${EUID}" -eq 0 ]]; then
     cp "$tmp" "$env_file"
@@ -84,7 +84,7 @@ dump_app_logs() {
   docker_cmd logs "$cname" --tail 40 2>&1 | while IFS= read -r line; do log "  $line"; done
 }
 
-log "Iniciando deploy app-only (uuid=${COOLIFY_SERVICE_UUID}, image=${RADARZAP_IMAGE})"
+log "Iniciando deploy app-only (uuid=${COOLIFY_SERVICE_UUID}, image=${RADARCHAT_IMAGE})"
 
 sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-fix-permissions.sh" || true
 
@@ -100,9 +100,9 @@ if ! coolify_mongo_running; then
   exit 1
 fi
 
-set_radarzap_image_env "${COOLIFY_SERVICE_DIR}/.env" "$RADARZAP_IMAGE"
+set_radarchat_image_env "${COOLIFY_SERVICE_DIR}/.env" "$RADARCHAT_IMAGE"
 
-log "Pull app -> ${RADARZAP_IMAGE}"
+log "Pull app -> ${RADARCHAT_IMAGE}"
 if ! (cd "$COOLIFY_SERVICE_DIR" && docker_cmd compose --env-file .env \
   -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" pull app); then
   log "ERRO: docker compose pull app falhou"
@@ -127,7 +127,7 @@ if ! wait_app_health; then
   exit 1
 fi
 
-log "Deploy app concluido (${RADARZAP_IMAGE})"
+log "Deploy app concluido (${RADARCHAT_IMAGE})"
 
 log "Sync painel Coolify..."
 sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-disable-sentinel.sh"

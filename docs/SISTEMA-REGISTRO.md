@@ -1,10 +1,10 @@
 # Radar Chat v2 — registro do sistema
 
-> Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
+> Espelho versionado de `.cursor/rules/radarchat-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.17.21` (`package.json`) · **Última revisão doc:** 2026-06-30
+**Versão atual:** `2.17.22` (`package.json`) · **Última revisão doc:** 2026-06-30
 
-Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
+Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARCHAT-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
 ---
 
@@ -12,6 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.17.22** | Anti-loop bot WA (eco/burst, teto CSAT) + rebrand Radar Chat |
 | **2.17.21** | Catálogo PIX: confirmação rua/número após pin impreciso |
 | **2.17.20** | Catálogo PIX: localização WhatsApp (pin), frete OSRM + reverse geocoding |
 | **2.17.19** | IA: dados a coletar expandidos + requisito de entrega |
@@ -89,25 +90,25 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.12.9** | Conta: remover e-mail ao desvincular Google |
 | **2.12.8** | Conta: desvincular Google (`DELETE /auth/account/google`) |
 | **2.12.7** | Admin IA plataforma: credenciais criptografadas + relatório uso — `/admin/ai-platform` |
-| **2.12.6** | TOP 20: congelamento/go-live controlado + TOP 21 extra: doc final única — `RADARZAP-RESULTADO-FINAL-TOP-01-20.md`, `concluidos/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` |
-| **2.12.5** | TOP 19: QA final, regressão, checklist pré-go-live — `docs/concluidos/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` |
-| **2.12.4** | TOP 18: auditoria/segurança/LGPD/hardening — `docs/concluidos/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md` |
-| **2.12.3** | TOP 17: billing/assinaturas/limites/bloqueios — `docs/concluidos/top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md` |
-| **2.12.2** | TOP 16: IA Créditos/carteira/consumo/fallback — `docs/concluidos/top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md` |
-| **2.12.1** | TOP 15: IA Premium/KB/handoff — `docs/concluidos/top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md` |
-| **2.12.0** | TOP 14: IA Básica/triagem/encaminhamento — `docs/concluidos/top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md` |
-| **2.11.99** | TOP 13: Bridge WebChat↔WhatsApp — `docs/concluidos/top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md` |
-| **2.11.98** | TOP 12: WhatsApp/sessão/QR/reconexão/comandos + doc mestre — `docs/concluidos/top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`, `docs/RADARZAP-SISTEMA-COMPLETO.md` |
-| **2.11.97** | TOP 11: WebChat/widget/fallback/experiência visitante — `docs/concluidos/top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md` |
-| **2.11.96** | TOP 10: formulários públicos/embed/captura — `docs/concluidos/top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md` |
-| **2.11.95** | TOP 09: contatos/leads/Kanban/deduplicação — `docs/concluidos/top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md` |
-| **2.11.94** | TOP 08: tickets/chamados TK, token público, SLA, rastreabilidade — `docs/concluidos/top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md` |
-| **2.11.93** | TOP 07: Inbox fila/atribuição/transferência — `docs/concluidos/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md` |
-| **2.11.92** | TOP 06: modos atendimento unificados + híbrido mínimo — `docs/concluidos/top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md` |
-| **2.11.91** | TOP 05: presença/fila — limite simultâneo por plano, supervisor_online no socket, offline risk — `docs/concluidos/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md` |
-| **2.11.90** | TOP 04: RBAC/equipe — limites assentos por plano, papéis Financeiro/Marketing/Viewer, testes cross-tenant — `docs/concluidos/top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md` |
-| **2.11.89** | TOP 03: matriz comercial `config/plans.json`, validador planos, IA créditos do catálogo — `docs/concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md` |
-| **2.11.88** | TOP 02: baseline gates — fix TS `WebChatService`, frontend `InboxBotSettings`, mock CSAT, CI `tsc -b` frontend — `docs/concluidos/top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md` |
+| **2.12.6** | TOP 20: congelamento/go-live controlado + TOP 21 extra: doc final única — `RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`, `concluidos/top/RADARCHAT-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` |
+| **2.12.5** | TOP 19: QA final, regressão, checklist pré-go-live — `docs/concluidos/top/RADARCHAT-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` |
+| **2.12.4** | TOP 18: auditoria/segurança/LGPD/hardening — `docs/concluidos/top/RADARCHAT-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md` |
+| **2.12.3** | TOP 17: billing/assinaturas/limites/bloqueios — `docs/concluidos/top/RADARCHAT-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md` |
+| **2.12.2** | TOP 16: IA Créditos/carteira/consumo/fallback — `docs/concluidos/top/RADARCHAT-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md` |
+| **2.12.1** | TOP 15: IA Premium/KB/handoff — `docs/concluidos/top/RADARCHAT-TOP-15-IA-PREMIUM-KB-HANDOFF.md` |
+| **2.12.0** | TOP 14: IA Básica/triagem/encaminhamento — `docs/concluidos/top/RADARCHAT-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md` |
+| **2.11.99** | TOP 13: Bridge WebChat↔WhatsApp — `docs/concluidos/top/RADARCHAT-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md` |
+| **2.11.98** | TOP 12: WhatsApp/sessão/QR/reconexão/comandos + doc mestre — `docs/concluidos/top/RADARCHAT-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`, `docs/RADARCHAT-SISTEMA-COMPLETO.md` |
+| **2.11.97** | TOP 11: WebChat/widget/fallback/experiência visitante — `docs/concluidos/top/RADARCHAT-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md` |
+| **2.11.96** | TOP 10: formulários públicos/embed/captura — `docs/concluidos/top/RADARCHAT-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md` |
+| **2.11.95** | TOP 09: contatos/leads/Kanban/deduplicação — `docs/concluidos/top/RADARCHAT-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md` |
+| **2.11.94** | TOP 08: tickets/chamados TK, token público, SLA, rastreabilidade — `docs/concluidos/top/RADARCHAT-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md` |
+| **2.11.93** | TOP 07: Inbox fila/atribuição/transferência — `docs/concluidos/top/RADARCHAT-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md` |
+| **2.11.92** | TOP 06: modos atendimento unificados + híbrido mínimo — `docs/concluidos/top/RADARCHAT-TOP-06-MODOS-ATENDIMENTO.md` |
+| **2.11.91** | TOP 05: presença/fila — limite simultâneo por plano, supervisor_online no socket, offline risk — `docs/concluidos/top/RADARCHAT-TOP-05-STATUS-PRESENCA-FILA.md` |
+| **2.11.90** | TOP 04: RBAC/equipe — limites assentos por plano, papéis Financeiro/Marketing/Viewer, testes cross-tenant — `docs/concluidos/top/RADARCHAT-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md` |
+| **2.11.89** | TOP 03: matriz comercial `config/plans.json`, validador planos, IA créditos do catálogo — `docs/concluidos/top/RADARCHAT-TOP-03-PLANOS-MENSALIDADES-LIMITES.md` |
+| **2.11.88** | TOP 02: baseline gates — fix TS `WebChatService`, frontend `InboxBotSettings`, mock CSAT, CI `tsc -b` frontend — `docs/concluidos/top/RADARCHAT-TOP-02-GOVERNANCA-BASELINE-GATES.md` |
 | **2.11.86** | Fix detalhe chamados WebChat (`WebChatService` imports); refs `TK-…` sem ambiguidade 0/O; erro real no painel — `INBOX-ATENDIMENTO.md` § Lista × detalhe |
 | **2.0.0** | Migração limpa do v1; microserviços; painel `/api`; Baileys; campanhas; consentimento LGPD base |
 | **2.0.x** | Inbox MVP (triagem, filas, bot, round-robin, WS); segmentos automáticos; tickets; mídia; respostas rápidas |
@@ -167,9 +168,9 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.10.11** | Fix IA WebChat (contador usage); pré-chat nome/e-mail; widget aguarda formulário — ver `WEBCHAT.md` |
 | **2.10.16** | WebChat: modelos de preview (clássico, tecnológico, SaaS, minimal) + aplicar visual no painel — ver `WEBCHAT.md` |
 | **2.10.17** | WebChat widget: tema escuro (`appearance.theme`) alinhado ao modelo tecnológico — ver `WEBCHAT.md` |
-| **2.10.18** | Atendimento: upgrade visual (Inbox 3 colunas, métricas, Tickets/Setores/Bot/Respostas/Supervisor/WebChat/IA/Relatórios), paginação server-side em `GET /inbox/tickets` — ver `concluidos/radarzap-inbox-upgrade.md` |
+| **2.10.18** | Atendimento: upgrade visual (Inbox 3 colunas, métricas, Tickets/Setores/Bot/Respostas/Supervisor/WebChat/IA/Relatórios), paginação server-side em `GET /inbox/tickets` — ver `concluidos/radarchat-inbox-upgrade.md` |
 | **2.10.19** | CI: `npm audit` runtime (high+) verde — `npm audit fix`, nodemailer 9.0.1; kit QA Fase 1 (`qa:prep`, roteiro, E2E atendimento-smoke, `parseTicketListQuery`) |
-| **2.10.70** | WebChat: consulta de chamado por `TK-…` + token no widget — `concluidos/RADARZAP_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` |
+| **2.10.70** | WebChat: consulta de chamado por `TK-…` + token no widget — `concluidos/RADARCHAT_WHATSAPP_TICKET_FAQ_IMPLEMENTATION.md` |
 | **2.10.71** | WebChat: FAQ/base de conhecimento com links e chips no widget |
 | **2.10.72** | WebChat: fallback WhatsApp offline + presença heartbeat (`agent:heartbeat`) — `WEBCHAT.md` |
 | **2.10.73** | WhatsApp: comandos `!assumir` / `!ticket` / `!encerrar` (whitelist Equipe) |
@@ -184,12 +185,12 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.10.86** | WebChat: confirmação de leitura estilo WhatsApp (receipts widget + Inbox) |
 | **2.10.83** | WebChat: OTP 2 etapas no reenvio de token de chamado |
 | **2.10.87** | Hardening pós-auditoria: OTP Redis, rate limit receipts, lint, CSRF connect WA, backfill deliveredAt |
-| **2.10.106** | Modos atendimento Fase 1: UI 4 cards + adapter `attendance-mode.ts` — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md` |
-| **2.10.107** | Modos atendimento Fase 3: `attendanceMode` em `AiSettings` + backfill — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md` |
-| **2.10.108** | Modos atendimento Fase 4: WebChat robotizado — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md` |
-| **2.11.0** | **Baseline modos de atendimento** (Fases 1–4) + protocolo versionamento/docs `.md` — `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `VERSIONAMENTO-E-DOCUMENTACAO.md`, `CHANGELOG.md` |
-| **2.11.1** | Modos Fase 5: IA Básica (`basic_triage`) — classificador local + KB + encaminhamento WA/WebChat — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md` |
-| **2.11.2** | Fase 6: WebChat alinhado ao modo global — IA Premium só com `premium_assistant` — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md` |
+| **2.10.106** | Modos atendimento Fase 1: UI 4 cards + adapter `attendance-mode.ts` — `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-1.md` |
+| **2.10.107** | Modos atendimento Fase 3: `attendanceMode` em `AiSettings` + backfill — `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-3.md` |
+| **2.10.108** | Modos atendimento Fase 4: WebChat robotizado — `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-4.md` |
+| **2.11.0** | **Baseline modos de atendimento** (Fases 1–4) + protocolo versionamento/docs `.md` — `RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `VERSIONAMENTO-E-DOCUMENTACAO.md`, `CHANGELOG.md` |
+| **2.11.1** | Modos Fase 5: IA Básica (`basic_triage`) — classificador local + KB + encaminhamento WA/WebChat — `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-5.md` |
+| **2.11.2** | Fase 6: WebChat alinhado ao modo global — IA Premium só com `premium_assistant` — `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-6.md` |
 | **2.11.9** | WA: menu !ajuda, !abertos, !meus, !nota; !abrir TK + motivo interno — `WEBCHAT.md` |
 | **2.11.10** | Fix: atualização chamado WebChat ao visitante; consulta TK+token ampliada — `TICKET-ATENDIMENTO.md` |
 | **2.11.11** | Consulta pública: filtra intake/bridge; assunto placeholder WA rejeitado — `TICKET-ATENDIMENTO.md` |
@@ -199,8 +200,8 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | **2.11.7** | Fix: `!assumir` WebChat não abre chamado — só Abrir chamado no painel envia token — `WEBCHAT.md` |
 | **2.11.6** | (revertido) `!assumir` abria chamado automaticamente |
 | **2.11.5** | WebChat: editor guiado painel widgets, preview interativa, `previewTemplateId` na API pública — `WEBCHAT.md` |
-| **2.11.4** | Fase 8: E2E Playwright modos de atendimento (mock auth) — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md` |
-| **2.11.3** | Fase 7: custos/logs LLM por modo (`usageKind` Premium vs Básica) — `concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md` |
+| **2.11.4** | Fase 8: E2E Playwright modos de atendimento (mock auth) — `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-8.md` |
+| **2.11.3** | Fase 7: custos/logs LLM por modo (`usageKind` Premium vs Básica) — `concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-7.md` |
 | **2.11.15** | Docs: pasta `concluidos/` — arquivar entregas finalizadas (fases modos, FAQ WA, upgrades UI) |
 | **2.11.16** | Auditoria atendimento revisão 2; `qa:atendimento:gate`; anti-loop alerta fallback WebChat — [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md) |
 | **2.11.17** | Rate limit WA tipado + jitter; `GET /platform/health/atendimento`; `AttendanceEvent` bridge; `PILOT_MODE` — `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md` |
@@ -261,7 +262,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | Painel | scroll do navegador; `Layout.tsx` `min-h-screen` |
 | Design system (2.8) | Tokens CSS `--rz-*`; `RadarPageShell`, `PageHeader`, `LoadingState`/`EmptyState`/`ErrorState`; `inputCls`/`selectCls`; Sonner + `ToastContext` legado |
 | Estabilização Fase 1 | `npm run qa:prep`; docs `QA-FASE1-*`; gate em `ROADMAP-COMPLETUDE.md` |
-| Atendimento UI (2.10.18) | Upgrade visual — `concluidos/radarzap-inbox-upgrade.md`; paginação `GET /inbox/tickets` |
+| Atendimento UI (2.10.18) | Upgrade visual — `concluidos/radarchat-inbox-upgrade.md`; paginação `GET /inbox/tickets` |
 
 ---
 
@@ -307,7 +308,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 4. Atualizar doc de módulo (`.md`) se comportamento de domínio mudou
 5. Features grandes: doc de fase + atualizar consolidado (ex. modos de atendimento)
 6. Atualizar **`INDICE-DOCUMENTACAO.md`** se novo doc criado
-7. Atualizar **este arquivo** e `.cursor/rules/radarzap-v2-system-registry.mdc`
+7. Atualizar **este arquivo** e `.cursor/rules/radarchat-v2-system-registry.mdc`
 8. **Commit e push** ao concluir (não deixar alterações locais sem enviar)
 9. **Deploy:** `PREPARACAO-PRODUCAO.md` / `PRODUCTION.md` só quando gate estabilização OK
 10. Nunca commitar `sessions/`, `.env`, credenciais

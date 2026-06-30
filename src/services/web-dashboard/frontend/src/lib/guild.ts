@@ -9,7 +9,7 @@ export interface Guild {
   icon: string | null
 }
 
-const KEY = 'radarzap:selectedGuild'
+const KEY = 'radarchat:selectedGuild'
 
 export function getSelectedGuild(): Guild | null {
   try {

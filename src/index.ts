@@ -1,5 +1,5 @@
 /*
- * RadarZap / RadarGamer
+ * Radar Chat / RadarGamer
  * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
  * Todos os direitos reservados.
  * Uso, cópia, distribuição ou modificação sem autorização é proibido.
@@ -50,7 +50,7 @@ class Application {
    */
   async start(): Promise<void> {
     try {
-      logger.info('Iniciando RadarZap...');
+      logger.info('Iniciando Radar Chat...');
       const envLabel =
         process.env.npm_lifecycle_event === 'dev'
           ? 'development (npm run dev)'

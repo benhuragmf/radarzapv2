@@ -1,5 +1,5 @@
 import { MessageSquare, X } from 'lucide-react'
-import type { LeadCaptureListItem } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem } from '@radarchat-types/lead-form'
 import { LeadWhatsAppComposer } from './LeadWhatsAppComposer'
 
 interface Props {

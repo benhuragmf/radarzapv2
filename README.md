@@ -1,4 +1,4 @@
-# RadarZap v2
+# Radar Chat v2
 
 > **Software proprietário** — Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria.  
 > Ver [LICENSE.md](LICENSE.md) e [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
@@ -25,9 +25,9 @@ Changelog: [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md)
 
 Leia nesta ordem:
 
-1. [docs/RADARZAP-SISTEMA-COMPLETO.md](docs/RADARZAP-SISTEMA-COMPLETO.md) — **documentação mestre**
-2. [docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md](docs/concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo
-3. [docs/concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — status, checklists e go-live
+1. [docs/RADARCHAT-SISTEMA-COMPLETO.md](docs/RADARCHAT-SISTEMA-COMPLETO.md) — **documentação mestre**
+2. [docs/concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md](docs/concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo
+3. [docs/concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — status, checklists e go-live
 4. [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md) — mapa de todos os `.md`
 5. [docs/PENDENCIAS-HUMANAS-FASE1.md](docs/PENDENCIAS-HUMANAS-FASE1.md) — **o que falta fechar (só humano)**
 6. [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual TOP 20
@@ -51,7 +51,7 @@ npm run dashboard:frontend
 
 Painel: [http://localhost:5174](http://localhost:5174) · API: [http://localhost:3001/api](http://localhost:3001/api)
 
-Detalhes: [docs/RADARZAP-SISTEMA-COMPLETO.md](docs/RADARZAP-SISTEMA-COMPLETO.md) § Como rodar.
+Detalhes: [docs/RADARCHAT-SISTEMA-COMPLETO.md](docs/RADARCHAT-SISTEMA-COMPLETO.md) § Como rodar.
 
 ---
 
@@ -76,7 +76,7 @@ O código está congelado em `2.12.6`. Antes de produção:
 
 1. Executar blocos **A–J** (login, equipe, WebChat, WhatsApp, bridge, tickets, leads, IA, billing, segurança).
 2. Preencher [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) § Resultado QA Manual TOP 20.
-3. Seguir [docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).
+3. Seguir [docs/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).
 
 Roteiro passo a passo: [docs/QA-FASE1-ROTEIRO.md](docs/QA-FASE1-ROTEIRO.md)
 
@@ -88,21 +88,21 @@ Roteiro passo a passo: [docs/QA-FASE1-ROTEIRO.md](docs/QA-FASE1-ROTEIRO.md)
 
 | Área | Arquivo |
 |------|---------|
-| Mestre | [docs/RADARZAP-SISTEMA-COMPLETO.md](docs/RADARZAP-SISTEMA-COMPLETO.md) |
+| Mestre | [docs/RADARCHAT-SISTEMA-COMPLETO.md](docs/RADARCHAT-SISTEMA-COMPLETO.md) |
 | Índice | [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md) |
 | Inbox | [docs/INBOX-ATENDIMENTO.md](docs/INBOX-ATENDIMENTO.md) |
 | WebChat | [docs/WEBCHAT.md](docs/WEBCHAT.md) |
 | Billing | [docs/BILLING.md](docs/BILLING.md) |
 | Produção | [docs/PREPARACAO-PRODUCAO.md](docs/PREPARACAO-PRODUCAO.md), [docs/PRODUCTION.md](docs/PRODUCTION.md) |
 | TOPs 01–21 | [docs/top/](docs/top/) |
-| Migração v1 | [docs/RADARZAP-V2-MIGRACAO.md](docs/RADARZAP-V2-MIGRACAO.md) |
+| Migração v1 | [docs/RADARCHAT-V2-MIGRACAO.md](docs/RADARCHAT-V2-MIGRACAO.md) |
 
 ---
 
 ## Regras para IA / Codex / Cursor
 
-1. Ler **primeiro** [docs/RADARZAP-SISTEMA-COMPLETO.md](docs/RADARZAP-SISTEMA-COMPLETO.md) + [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md).
-2. Consultar v1 só para comparar: `.cursor/rules/radarzap-v2-reference.mdc`.
+1. Ler **primeiro** [docs/RADARCHAT-SISTEMA-COMPLETO.md](docs/RADARCHAT-SISTEMA-COMPLETO.md) + [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md).
+2. Consultar v1 só para comparar: `.cursor/rules/radarchat-v2-reference.mdc`.
 3. Após TOP 20: **somente** bug/blocker, ajustes de produção e documentação até o primeiro go-live.
 4. Não copiar Evolution/Sendfy; não declarar produção pronta sem QA manual.
 5. Ao alterar feature visível: versionar conforme [docs/VERSIONAMENTO-E-DOCUMENTACAO.md](docs/VERSIONAMENTO-E-DOCUMENTACAO.md).
@@ -114,8 +114,8 @@ Roteiro passo a passo: [docs/QA-FASE1-ROTEIRO.md](docs/QA-FASE1-ROTEIRO.md)
 - Não commitar `.env`, `.env.local`, `.env.production`
 - Não commitar `data/`, `sessions/`, credenciais
 - Não declarar produção pronta sem QA manual A–J
-- Não apagar `docs/top/` nem `docs/top/RADARZAP-TOP-*.md` (histórico auditoria TOP 01–20)
-- Não misturar RadarZap com RadarGamer / RadarLurk
+- Não apagar `docs/top/` nem `docs/top/RADARCHAT-TOP-*.md` (histórico auditoria TOP 01–20)
+- Não misturar Radar Chat com RadarGamer / RadarLurk
 - Não apagar `docs/top/` nem histórico TOP
 
 ---

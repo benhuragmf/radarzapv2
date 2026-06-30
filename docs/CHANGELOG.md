@@ -12,6 +12,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.22] - 2026-06-30
+
+### Entrega — anti-loop bot WhatsApp + rebrand Radar Chat
+
+- Gate inbound: eco/burst/template automatizado (`WaAutomatedPeerGuardService`) antes de CSAT/IA/bot
+- CSAT: máximo 2 lembretes por resposta inválida; depois silencia e limpa `csatPending`
+- Rebrand interno: `radarzap` → `radarchat` (UI, docs, aliases legados de template/provedor)
+- Testes: `wa-automated-peer.util`, `inbox-automated-peer.integration`
+
 ## [2.17.21] - 2026-06-30
 
 ### Entrega — confirmação de rua/número após pin impreciso
@@ -168,7 +177,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - `scripts/vps-coolify-sync-panel.sh` — sync status `running:healthy` + remove duplicatas sem rebuild.
 - Deploy, hotfix, SSL e reconcile chamam sync + verify; workflow **Coolify verify** a cada 6h com auto-reconcile.
 - `ensure_service` bloqueia criação de resource duplicado se stack canônica já existe em disco.
-- Coolify UI/nomes: projeto **RadarChat** (legado RadarZap renomeado/removido).
+- Coolify UI/nomes: projeto **RadarChat** (legado Radar Chat renomeado/removido).
 
 ---
 
@@ -473,16 +482,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - Migração sslip.io: legado GHCR → stack Coolify `h143brhw5f8tgfj9trj0f3bd` (volumes preservados).
 - `docker-compose.coolify-ghcr.yml`: `env_file: .env` no app; override `:3001` para Traefik.
-- Scripts: `vps-configure-coolify-radarzap.sh` (SSH localhost, `deploy_service_direct`, republish).
+- Scripts: `vps-configure-coolify-radarchat.sh` (SSH localhost, `deploy_service_direct`, republish).
 - Workflows GitHub usam branch `layout-v3` no VPS; diagnóstico `vps-coolify-status.sh`.
 - Docs: `ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`, `PROMPT-CODEX-COOLIFY-POS-MIGRACAO.md`, `COOLIFY-DEPLOY.md` atualizado.
 
 ### Layout v3 — Fase 4.5 QA visual + marca Radar Chat
 
-- Registro: `layout-v3-fase-4-5-qa` em `RADARZAP-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`.
+- Registro: `layout-v3-fase-4-5-qa` em `RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`.
 - Marca visível atualizada para **Radar Chat** no app, PWA, login, navegação, WebChat, leads, integrações e site público.
 - Domínios oficiais documentados: `https://radarchat.com.br` e `https://app.radarchat.com.br`.
-- Preservados contratos técnicos como `X-RadarZap-Signature`, env vars/volumes `radarzap*`, tokens `--rz-*` e arquivos históricos.
+- Preservados contratos técnicos como `X-Radar Chat-Signature`, env vars/volumes `radarchat*`, tokens `--rz-*` e arquivos históricos.
 - Validação local: build frontend verde; lint focado verde; QA autenticada por perfil fica pendente manual.
 
 ---
@@ -492,8 +501,8 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 ### Feat — Layout v3 (Fases 2–4) + deploy Coolify
 
 **Layout v3 (painel):**
-- Fase 2: reorganização menu/navegação (`navConfig`, docs `RADARZAP-LAYOUT-V3-06`).
-- Fase 3: header operacional (pills, status, notificações — `RADARZAP-LAYOUT-V3-07`).
+- Fase 2: reorganização menu/navegação (`navConfig`, docs `RADARCHAT-LAYOUT-V3-06`).
+- Fase 3: header operacional (pills, status, notificações — `RADARCHAT-LAYOUT-V3-07`).
 - Fase 4: design system — `InlineNotice`, refinamentos `EmptyState`/`LoadingState`/`ErrorState`/`SectionCard`/`StatusBadge`/`DataTable`; integrações API (`ApiKeys`, `Webhooks`, `ApiDocs`, `RateLimit`).
 
 **Infra:**
@@ -559,7 +568,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - **`PENDENCIAS-HUMANAS-FASE1.md`** — fonte única do que falta (QA manual + Admin Bloco E VPS).
 - Arquivamento concluído: entregas em `docs/concluidos/`; redirects `admin/`, `audits/`, `operacao/`, `top/`.
-- **`ROADMAP-COMPLETUDE.md`**, **`RADARZAP-SISTEMA-COMPLETO.md`**, **`WEBCHAT.md`** — alinhados @ `2.12.63` (gate auto ✅; sync WebChat→ticket documentado).
+- **`ROADMAP-COMPLETUDE.md`**, **`RADARCHAT-SISTEMA-COMPLETO.md`**, **`WEBCHAT.md`** — alinhados @ `2.12.63` (gate auto ✅; sync WebChat→ticket documentado).
 - **`qa:atendimento:gate`** revalidado 2026-06-28.
 
 ---
@@ -726,7 +735,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Auditoria horizontal — segurança, dados e estabilidade
 
-- **Relatório:** `docs/audits/RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md` — escopo transversal (RBAC, multi-tenant, billing, IA, WA/WebChat, Admin Ops, escalabilidade).
+- **Relatório:** `docs/audits/RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md` — escopo transversal (RBAC, multi-tenant, billing, IA, WA/WebChat, Admin Ops, escalabilidade).
 - **Hardening:** rate limit anexo WebChat público (`assertWebChatSendAllowed`); validação origem GET config leads.
 - **Achados críticos documentados:** `/api/stats` global para tenant; boot hard dependency Redis/Mongo.
 - **Gates:** build, admin-ops 65/65, E2E admin 27/27, qa:atendimento 235/235.
@@ -746,7 +755,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Admin — reconciliação Etapas 8–9 (auditoria real)
 
-- **Verificação:** `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md` — docs estavam adiantados vs git (`2.12.42`); código existia só local.
+- **Verificação:** `docs/admin/RADARCHAT-ADMIN-DASHBOARD-OPS-ETAPA-8-9-VERIFICACAO-REAL.md` — docs estavam adiantados vs git (`2.12.42`); código existia só local.
 - **Etapa 8 (2.12.43):** consolidação legado — redirect, deep links, monitoring/errors/servers enriquecidos.
 - **Etapa 9 (2.12.44):** auditoria rotas — Usuários/Empresas, moderação sem duplicação plano, hub links.
 - **Gates:** typecheck, build, admin-ops 65/65, E2E 50/50.
@@ -754,7 +763,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ## [2.12.43] — 2026-06-27
 
-- **Matriz:** `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md` — checklist 19 rotas.
+- **Matriz:** `docs/admin/RADARCHAT-ADMIN-DASHBOARD-OPS-ETAPA-9-AUDITORIA-ROTAS.md` — checklist 19 rotas.
 - **Usuários × Empresas:** menu **Empresas** (`?tab=tenants`) + **Usuários** (`/admin/clients`); guia anti-confusão.
 - **Moderação:** removida tabela duplicada de planos; foco LGPD + hub Empresas.
 - **Hub links:** pagamentos, API, auditoria, segurança → abas dashboard (`AdminOpsHubLink`).
@@ -763,7 +772,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Admin — consolidação páginas legado (Etapa 8)
 
-- **Inventário:** `docs/admin/RADARZAP-ADMIN-INVENTARIO-PAGINAS.md` — mapa completo `/admin/*`.
+- **Inventário:** `docs/admin/RADARCHAT-ADMIN-INVENTARIO-PAGINAS.md` — mapa completo `/admin/*`.
 - **Legado enriquecido:** `/admin/monitoring`, `/admin/errors`, `/admin/servers` consomem Ops summary + banner deep link.
 - **Navegação:** redirect `/admin` → `/admin/dashboard`; `?tab=` para abas diretas.
 - **Shared UI:** `AdminOpsInfraPanel`, `AdminOpsServersPanel`, `useAdminOpsSummary`.
@@ -819,7 +828,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - **API:** `GET /api/admin/ops/summary` — agregador cross-tenant com cap `dashboard:global`, cache Redis 30s, alertas operacionais.
 - **Serviço:** `admin-ops-summary.service.ts` — tenants, WA, WebChat, Inbox, tickets, leads, IA, billing, security.
-- **Doc:** `docs/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` + testes `admin-ops-*`.
+- **Doc:** `docs/admin/RADARCHAT-ADMIN-DASHBOARD-OPS.md` + testes `admin-ops-*`.
 
 ## [2.12.36] — 2026-06-27
 
@@ -930,7 +939,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### QA — gate automatizado pós-deploy
 
-- **`npm run qa:release-gate`:** Jest campanha/limites, build backend+frontend, E2E limites (`/admin/settings`, `/platform/wa-limits`, `/send`), `qa:atendimento:gate`, E2E Fase 1 (38 testes); smoke opcional com `RADARZAP_PUBLIC_URL`.
+- **`npm run qa:release-gate`:** Jest campanha/limites, build backend+frontend, E2E limites (`/admin/settings`, `/platform/wa-limits`, `/send`), `qa:atendimento:gate`, E2E Fase 1 (38 testes); smoke opcional com `RADARCHAT_PUBLIC_URL`.
 - **`npm run qa:campaign-limits`** / **`qa:campaign-limits:e2e`** / **`qa:campaign-limits:gate`:** atalhos focados em campanha.
 - E2E: `e2e/qa-campaign-limits.spec.ts`, fixture `mock-campaign-limits-api.ts`; relatório JSON em `docs/qa-results/`.
 
@@ -1068,7 +1077,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - Nova página `/admin/ai-platform`: chaves OpenAI/Gemini criptografadas, modelo padrão Radar Chat, teste de conexão.
 - API: `GET/PATCH /admin/ai-platform/credentials`, `DELETE …/keys/:target`, `POST …/test`, `GET /admin/ai-platform/usage`.
-- Runtime `mode: radarzap` usa credenciais do painel (prioridade) ou `.env`; modelo global da plataforma.
+- Runtime `mode: radarchat` usa credenciais do painel (prioridade) ou `.env`; modelo global da plataforma.
 - Relatório agregado de consumo LLM Radar Chat por cliente e últimas chamadas.
 
 ---
@@ -1078,14 +1087,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 ### TOP 20 — Congelamento final e go-live controlado
 
 - Status: `PRONTO PARA QA MANUAL` — gates automatizados verdes; QA manual A–J pendente Benhur.
-- Docs: `docs/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`, `docs/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`.
+- Docs: `docs/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`, `docs/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`.
 - Checklists: VPS/SSL/env, Stripe, WhatsApp real, bridge, segurança/LGPD, backup, monitoramento.
 - Deploy não executado; Stripe live não ativado; produção não declarada estável.
 
 ### Organização documental pós-TOP20 (TOP 21 extra)
 
 - Alinhamento versão `2.12.6` em doc mestre, README portal, índice.
-- `docs/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` — mapa de docs; **TOP 20 como fonte oficial** para status e checklists.
+- `docs/top/RADARCHAT-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md` — mapa de docs; **TOP 20 como fonte oficial** para status e checklists.
 - Revisão: doc mestre §15/16/25 — WhatsApp/Bridge fechados em código; pendente QA real blocos D/E.
 - Regra preservação: índice canônico TOP 01–21 em `docs/top/`; não remover histórico auditoria.
 - Sem alteração de código de produto; versão `package.json` mantida em `2.12.6`.
@@ -1097,7 +1106,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 ### TOP 19 — QA final, regressão e checklist pré-go-live
 
 - Gates obrigatórios verdes: typecheck, build, 772 testes Jest, `qa:atendimento:gate`, E2E 38/38.
-- Doc: `docs/top/RADARZAP-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` — roteiro manual TOP 20, checklist pré-go-live.
+- Doc: `docs/top/RADARCHAT-TOP-19-QA-FINAL-REGRESSAO-GO-LIVE.md` — roteiro manual TOP 20, checklist pré-go-live.
 - Fix E2E: seletores Inbox (título no Header) e radio Radar Chat (strict mode).
 - Produção não declarada pronta; deploy não executado.
 
@@ -1109,7 +1118,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - `mask-secret.util.ts`; redact em `AttendanceEvent`, `AuditLog`, logger.
 - Eventos: `ticket.public_lookup_failed`, `form.blocked`, `billing.*`.
-- Doc: `docs/top/RADARZAP-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`.
+- Doc: `docs/top/RADARCHAT-TOP-18-AUDITORIA-SEGURANCA-LGPD-HARDENING.md`.
 
 ---
 
@@ -1121,7 +1130,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Checkout Stripe pacotes IA (`POST /billing/checkout/ai-credits`); webhook idempotente → `purchasedCredits`.
 - Enforcement: `webchatWidgets`, `leadsPerMonth`, `contacts`, `ticketsPerMonth`.
 - `invoice.payment_failed` → `past_due` + grace 3 dias documentado.
-- Doc: `docs/top/RADARZAP-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`.
+- Doc: `docs/top/RADARCHAT-TOP-17-BILLING-ASSINATURAS-LIMITES-BLOQUEIOS.md`.
 
 ---
 
@@ -1131,7 +1140,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - Helpers `ai-credit-alerts.util.ts`, `ai-credit-packages.util.ts`; `canConsumeAiCredits`, eventos `ai.credits.*`.
 - Gate reforçado WebChat + `AiProviderService`; APIs `credit-packages` e `wallet/purchased` (sem checkout).
-- Doc [`top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./top/RADARZAP-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md); §19 doc mestre.
+- Doc [`top/RADARCHAT-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md`](./top/RADARCHAT-TOP-16-IA-CREDITOS-CARTEIRA-CONSUMO-FALLBACK.md); §19 doc mestre.
 
 ---
 
@@ -1141,7 +1150,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - Helpers `premium-ai.util.ts`: gate central, limites resposta, sanitização, handoff pré-chamada, anti-segredo.
 - Eventos `ai.premium.*` em `AttendanceEvent`; integração `WebChatAiService` + `InboxService.sendAiReply`.
-- Doc [`top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARZAP-TOP-15-IA-PREMIUM-KB-HANDOFF.md); §18 doc mestre.
+- Doc [`top/RADARCHAT-TOP-15-IA-PREMIUM-KB-HANDOFF.md`](./top/RADARCHAT-TOP-15-IA-PREMIUM-KB-HANDOFF.md); §18 doc mestre.
 
 ---
 
@@ -1152,7 +1161,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Intenções `ticket_status`, `complaint`, `partnership`; threshold roteamento 0.75.
 - Helpers `basic-triage.util.ts` (produto, confiança, ação, anti-bridge, auditoria).
 - Evento `triage.classified`; integração WA + WebChat.
-- Doc [`top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARZAP-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md).
+- Doc [`top/RADARCHAT-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md`](./top/RADARCHAT-TOP-14-IA-BASICA-TRIAGEM-ENCAMINHAMENTO.md).
 
 ---
 
@@ -1163,7 +1172,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Helpers `webchat-bridge.util.ts` (anti-loop, idempotência, estados, cross-tenant).
 - Dedupe encaminhamento visitante→WA; bloqueio eco em resposta atendente.
 - Eventos `bridge.message_forwarded`, `bridge.loop_prevented`.
-- Doc [`top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARZAP-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md).
+- Doc [`top/RADARCHAT-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md`](./top/RADARCHAT-TOP-13-BRIDGE-WEBCHAT-WHATSAPP.md).
 
 ---
 
@@ -1173,8 +1182,8 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - Helpers `whatsapp-session.util.ts` (status produto, RBAC sessão, sanitização outbound, cross-tenant).
 - `isWhatsappTeamCommand` em comandos equipe WA.
-- Documentação mestre [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md).
-- Doc [`top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARZAP-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md).
+- Documentação mestre [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md).
+- Doc [`top/RADARCHAT-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md`](./top/RADARCHAT-TOP-12-WHATSAPP-SESSAO-QR-RECONEXAO-COMANDOS.md).
 
 ---
 
@@ -1185,7 +1194,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Helpers `webchat-public.util.ts` (sanitização, fila, gate IA Premium, assinatura config).
 - Widget: `outsideHoursMessage`, mensagem oficial de fila, sync expandida no refresh.
 - IA Premium indisponível escala para fila humana; mensagens de escalação unificadas.
-- Testes `webchat-public.util`, `webchat-public-security`; doc [`top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./top/RADARZAP-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md).
+- Testes `webchat-public.util`, `webchat-public-security`; doc [`top/RADARCHAT-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md`](./top/RADARCHAT-TOP-11-WEBCHAT-WIDGET-FALLBACK-EXPERIENCIA.md).
 
 ---
 
@@ -1195,7 +1204,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 - Validação central `lead-form-submit.util.ts`; limite `leadForms` por plano em `createForm`/`duplicateForm`.
 - Submit público: dedupe lead aberto (TOP 09); resposta sem `captureId`; UTM no webhook.
-- Testes `lead-form-*`; documento [`top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./top/RADARZAP-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md).
+- Testes `lead-form-*`; documento [`top/RADARCHAT-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md`](./top/RADARCHAT-TOP-10-FORMULARIOS-PUBLICOS-EMBED-CAPTURA-LEADS.md).
 
 ---
 
@@ -1207,7 +1216,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Capabilities `leads:view|manage|kanban:manage|export` e `contacts:view|manage`; API `/leads/*` com fallback legado.
 - WhatsApp/WebChat genérico não cria lead automático (exige intenção comercial no 1º contato).
 - Kanban: rótulos alinhados ao funil TOP 09.
-- Documento [`top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARZAP-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md).
+- Documento [`top/RADARCHAT-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md`](./top/RADARCHAT-TOP-09-CONTATOS-LEADS-KANBAN-DEDUPLICACAO.md).
 
 ---
 
@@ -1218,7 +1227,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Helpers `ticket-status.util.ts` (estados de produto, `canCustomerReplyToTicket`) e `ticket-sla-priority.util.ts` (metas SLA por prioridade).
 - Auditoria `AttendanceEvent`: `ticket.reopened`, `ticket.assigned`.
 - Testes: status/SLA, notas internas fora da consulta pública, token ≠ TK, reabertura auditada.
-- Documento [`top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md).
+- Documento [`top/RADARCHAT-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md`](./top/RADARCHAT-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md).
 
 ---
 
@@ -1231,7 +1240,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Transferência: bloqueio conversa alheia; audit `inbox.queued|assigned|transferred|reassigned`.
 - Eventos painel `inbox:assigned`, `inbox:transferred`.
 - Anti cross-tenant em `getConversationIfAllowed`.
-- Doc: `docs/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`.
+- Doc: `docs/top/RADARCHAT-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`.
 
 ---
 
@@ -1244,7 +1253,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - WhatsApp: `disabled` → fila humana direta; híbrido `handleHybridBotTriage`.
 - WebChat: `runVisitorAutomationPipeline` com fallback humano.
 - UI: card Híbrido + provedor IA em Premium/Híbrido.
-- Doc: `docs/top/RADARZAP-TOP-06-MODOS-ATENDIMENTO.md`.
+- Doc: `docs/top/RADARCHAT-TOP-06-MODOS-ATENDIMENTO.md`.
 
 ---
 
@@ -1257,7 +1266,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Limite simultâneo por plano em `config/plans.json` (`maxConcurrentChatsPerAgent`).
 - Alerta `inbox:agent_offline_risk` ao desconectar com chats ativos.
 - Testes: `agent-availability`, `inbox-agent-presence-api`, plan-config.
-- Documento `docs/top/RADARZAP-TOP-05-STATUS-PRESENCA-FILA.md`.
+- Documento `docs/top/RADARCHAT-TOP-05-STATUS-PRESENCA-FILA.md`.
 
 ---
 
@@ -1265,7 +1274,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### TOP 04 — RBAC, permissões, equipe e segurança multiempresa
 
-- Matriz oficial de cargos/permissões documentada em `docs/top/RADARZAP-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`.
+- Matriz oficial de cargos/permissões documentada em `docs/top/RADARCHAT-TOP-04-RBAC-PERMISSOES-EQUIPE-SEGURANCA.md`.
 - Limites de equipe por plano (`includedUsers`, `includedAgents`, `includedSupervisors`) no convite e troca de cargo — `team-plan-limits.ts`.
 - Papéis custom sugeridos: Financeiro, Marketing/Leads, Somente leitura (`defaultOrgCustomRoles`).
 - Auditoria `AuditLog` em convite, alteração de cargo e remoção de membro.
@@ -1281,7 +1290,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Validador de catálogo e tipos em `plan-config.ts`; limites operacionais via `resolveOperationalLimits`.
 - IA Créditos por plano lidos do catálogo (`ai-wallet.ts`).
 - Testes ampliados em `plan-config.test.ts`.
-- Documento `docs/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`.
+- Documento `docs/top/RADARCHAT-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`.
 
 ---
 
@@ -1293,7 +1302,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Corrigido build frontend estrito (`InboxBotSettings`: campo `inactivityCloseGracefulQuickCode` tipado).
 - Corrigido teste integração CSAT — mock `ConsentService.findContactDestinationForInbound`.
 - CI frontend alinhado: `npm run build` (`tsc -b && vite build`) em vez de só `vite build`.
-- Documento `docs/top/RADARZAP-TOP-02-GOVERNANCA-BASELINE-GATES.md` e gates oficiais TOP 02/20.
+- Documento `docs/top/RADARCHAT-TOP-02-GOVERNANCA-BASELINE-GATES.md` e gates oficiais TOP 02/20.
 
 ---
 
@@ -1890,7 +1899,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- Consolidação rascunhos GG → `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`, [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md), `RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`.
+- Consolidação rascunhos GG → `PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`, [`ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md`](./concluidos/ANALISE-CRITICA-ATENDIMENTO-ESTABILIZACAO.md), `RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`.
 - `TICKET-ATENDIMENTO.md` § mensagens visíveis vs `!nota` interna.
 - `INDICE-DOCUMENTACAO.md` atualizado.
 
@@ -1983,7 +1992,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-8.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-8.md)
+- [`RADARCHAT-ATTENDANCE-MODES-PHASE-8.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-8.md)
 
 ---
 
@@ -1997,7 +2006,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-7.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-7.md)
+- [`RADARCHAT-ATTENDANCE-MODES-PHASE-7.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-7.md)
 
 ---
 
@@ -2011,7 +2020,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-6.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-6.md)
+- [`RADARCHAT-ATTENDANCE-MODES-PHASE-6.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-6.md)
 
 ---
 
@@ -2030,7 +2039,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-5.md)
+- [`RADARCHAT-ATTENDANCE-MODES-PHASE-5.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-5.md)
 - Consolidado modos atualizado para `2.11.1`.
 
 ---
@@ -2045,9 +2054,9 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- Consolidado modos: [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md).
+- Consolidado modos: [`RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md).
 - Análise: [`ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md).
-- Fases: [`PHASE-1`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md), [`PHASE-3`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md), [`PHASE-4`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md).
+- Fases: [`PHASE-1`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-1.md), [`PHASE-3`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-3.md), [`PHASE-4`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-4.md).
 - [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) sincronizado até `2.11.0`.
 
 **Commits:** `171b078`, `f899af0`, `b240284`, `2cc2b2a`
@@ -2062,7 +2071,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-4.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-4.md)
+- [`RADARCHAT-ATTENDANCE-MODES-PHASE-4.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-4.md)
 
 **Commit:** `f899af0`
 
@@ -2078,7 +2087,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-3.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-3.md)
+- [`RADARCHAT-ATTENDANCE-MODES-PHASE-3.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-3.md)
 
 **Commit:** `b240284`
 
@@ -2094,7 +2103,7 @@ Doc detalhada: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDI
 
 ### Documentação
 
-- [`RADARZAP-ATTENDANCE-MODES-PHASE-1.md`](./concluidos/RADARZAP-ATTENDANCE-MODES-PHASE-1.md)
+- [`RADARCHAT-ATTENDANCE-MODES-PHASE-1.md`](./concluidos/RADARCHAT-ATTENDANCE-MODES-PHASE-1.md)
 - [`ANALISE-MODOS-ATENDIMENTO.md`](./concluidos/ANALISE-MODOS-ATENDIMENTO.md)
 
 **Commit:** `2cc2b2a`

@@ -1,4 +1,4 @@
-# Classificação de contatos — RadarZap v2
+# Classificação de contatos — Radar Chat v2
 
 **Versão doc:** 2.12.19 · **Desde:** 2.12.10 (pacotes A–J)
 

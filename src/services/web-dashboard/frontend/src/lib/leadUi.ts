@@ -1,5 +1,5 @@
-import type { LeadCaptureListItem, LeadCaptureOrigin, LeadCaptureStatus, LeadStats } from '@radarzap-types/lead-form'
-import { LEAD_CAPTURE_STATUS_LABEL, LEAD_TEMPERATURE_LABEL } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem, LeadCaptureOrigin, LeadCaptureStatus, LeadStats } from '@radarchat-types/lead-form'
+import { LEAD_CAPTURE_STATUS_LABEL, LEAD_TEMPERATURE_LABEL } from '@radarchat-types/lead-form'
 
 /** Rótulos amigáveis para atendentes (não técnicos). */
 export const SITE_FORM_ORIGINS: LeadCaptureOrigin[] = ['site', 'widget', 'wordpress', 'webchat', 'api']

@@ -3,7 +3,7 @@ import { DEFAULT_AI_SYSTEM_PROMPT } from '@/types/ai-assistant';
 
 export interface IAiPrompt extends Document {
   clientId: mongoose.Types.ObjectId;
-  /** Nome exibido ao cliente (vazio = padrão RadarZap do blueprint global). */
+  /** Nome exibido ao cliente (vazio = padrão Radar Chat do blueprint global). */
   agentName: string;
   /** Saudação quando o contato já tem nome no cadastro (vazio = blueprint global). */
   greetingKnown: string;

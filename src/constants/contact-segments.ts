@@ -1,4 +1,4 @@
-/** Segmentos (ContactGroup) criados automaticamente pelo RadarZap. */
+/** Segmentos (ContactGroup) criados automaticamente pelo Radar Chat. */
 export const SYSTEM_CONTACT_GROUPS = {
   ATENDIMENTO: {
     name: 'Atendimento',

@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { inputCls, textareaCls } from '@/design-system'
-import type { LeadCaptureOrigin, LeadTemperature } from '@radarzap-types/lead-form'
-import { LEAD_CAPTURE_ORIGINS } from '@radarzap-types/lead-form'
+import type { LeadCaptureOrigin, LeadTemperature } from '@radarchat-types/lead-form'
+import { LEAD_CAPTURE_ORIGINS } from '@radarchat-types/lead-form'
 import { LEAD_ORIGIN_DISPLAY } from '../../lib/leadUi'
 
 type Props = {

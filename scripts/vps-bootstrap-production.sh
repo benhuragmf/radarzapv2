@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Bootstrap inicial RadarZap v2 em VPS Ubuntu (Docker Compose deploy).
+# Bootstrap inicial Radar Chat v2 em VPS Ubuntu (Docker Compose deploy).
 # Executar como ubuntu (sudo onde necessário). Não commitar .env gerado.
 set -euo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
-REPO_URL="${REPO_URL:-https://github.com/benhuragmf/radarzapv2.git}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
+REPO_URL="${REPO_URL:-https://github.com/benhuragmf/radarchatv2.git}"
 PUBLIC_URL="${PUBLIC_URL:-http://151.247.210.180:3001}"
 
-echo "[bootstrap] RadarZap v2 — $DEPLOY_PATH"
+echo "[bootstrap] Radar Chat v2 — $DEPLOY_PATH"
 
 # Swap recomendado em VPS 2GB (build Docker + Baileys)
 if [[ ! -f /swapfile ]]; then
@@ -45,7 +45,7 @@ sudo ufw default allow outgoing
 sudo ufw allow 22/tcp comment 'SSH'
 sudo ufw allow 80/tcp comment 'HTTP'
 sudo ufw allow 443/tcp comment 'HTTPS'
-sudo ufw allow 3001/tcp comment 'RadarZap direct (temporario)'
+sudo ufw allow 3001/tcp comment 'Radar Chat direct (temporario)'
 sudo ufw --force enable
 
 sudo mkdir -p "$DEPLOY_PATH"
@@ -96,8 +96,8 @@ GOOGLE_CLIENT_SECRET=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 RESEND_API_KEY=
-MAIL_FROM="RadarZap <noreply@radarzap.local>"
-RADARZAP_SYSTEM_ADMIN_DISCORD_IDS=
+MAIL_FROM="Radar Chat <noreply@radarchat.local>"
+RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS=
 EOF
   chmod 600 .env
   echo "[bootstrap] .env criado em ${DEPLOY_PATH}/.env (chmod 600)"
@@ -108,12 +108,12 @@ fi
 export MONGO_PASSWORD="$(grep '^MONGO_PASSWORD=' .env | cut -d= -f2-)"
 
 echo "[bootstrap] Build imagem monolito (pode levar vários minutos em 2GB RAM)..."
-$DOCKER build -f docker/Dockerfile.monolith -t radarzap:production .
+$DOCKER build -f docker/Dockerfile.monolith -t radarchat:production .
 
-export RADARZAP_IMAGE=radarzap:production
-export RADARZAP_IMAGE=radarzap:production
+export RADARCHAT_IMAGE=radarchat:production
+export RADARCHAT_IMAGE=radarchat:production
 export USE_SUDO_DOCKER=1
-bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
+bash scripts/deploy-remote.sh "$RADARCHAT_IMAGE"
 
 echo ""
 echo "=============================================="

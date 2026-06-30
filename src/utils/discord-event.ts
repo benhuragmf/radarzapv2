@@ -55,7 +55,7 @@ export function buildDiscordEventWhatsAppVariables(
     {
       guildName: event.guildName,
       channelName: event.channelName,
-      radarzapSenderLabel: senderLabel,
+      radarchatSenderLabel: senderLabel,
     } as Parameters<typeof buildRodape>[0],
     data,
     hora,

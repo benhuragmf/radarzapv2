@@ -1,5 +1,5 @@
 /**
- * Padrão de notificação no menu (Sidebar) — RadarZap
+ * Padrão de notificação no menu (Sidebar) — Radar Chat
  *
  * A API GET /discord/nav-alerts retorna `items` keyed por id do item em DISCORD_NAV (navConfig.ts).
  * A Sidebar exibe um ponto vermelho + tooltip quando há alerta para aquele id.

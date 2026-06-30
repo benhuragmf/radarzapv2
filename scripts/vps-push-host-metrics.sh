@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Coleta métricas do host e envia ao RadarZap (Admin Ops → aba Infra).
-# Cron sugerido: */5 * * * * root /opt/radarzapv2/scripts/vps-push-host-metrics.sh
+# Coleta métricas do host e envia ao Radar Chat (Admin Ops → aba Infra).
+# Cron sugerido: */5 * * * * root /opt/radarchatv2/scripts/vps-push-host-metrics.sh
 set -euo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzapv2}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchatv2}"
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
 INGEST_URL="${OPS_HOST_METRICS_URL:-https://${PUBLIC_HOST}/api/admin/ops/host-metrics/ingest}"

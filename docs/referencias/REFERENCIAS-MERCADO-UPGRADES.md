@@ -1,18 +1,18 @@
-# Referências de mercado — inspiração para upgrades RadarZap
+# Referências de mercado — inspiração para upgrades Radar Chat
 
 **Criado:** 2026-06-27  
 **Versão ref produto:** `2.12.6`  
 **Tipo:** documento interno de **inspiração** — **não copiar** UI, código, textos ou contratos de terceiros.
 
-> **Regra:** usar só para comparar **conceitos**, **posicionamento**, **padrões de produto** e **lacunas do RadarZap**. A implementação final segue arquitetura própria (`/api`, `WhatsAppService`, `InboxService`, etc.).
+> **Regra:** usar só para comparar **conceitos**, **posicionamento**, **padrões de produto** e **lacunas do Radar Chat**. A implementação final segue arquitetura própria (`/api`, `WhatsAppService`, `InboxService`, etc.).
 
-**Relacionados:** [`RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md`](../concluidos/RADARZAP-VISAO-PRODUTO-DIFERENCIACAO.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](../concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md), [`ROADMAP-COMPLETUDE.md`](../ROADMAP-COMPLETUDE.md), [`RADARZAP-PLANO-UPGRADES.md`](../RADARZAP-PLANO-UPGRADES.md)
+**Relacionados:** [`RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](../concluidos/RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](../concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md), [`ROADMAP-COMPLETUDE.md`](../ROADMAP-COMPLETUDE.md), [`RADARCHAT-PLANO-UPGRADES.md`](../RADARCHAT-PLANO-UPGRADES.md)
 
 ---
 
 ## 1. Resumo executivo
 
-| Referência | URL | Perfil | O que observar para o RadarZap |
+| Referência | URL | Perfil | O que observar para o Radar Chat |
 |------------|-----|--------|--------------------------------|
 | **Conecta360** | https://conecta360.com.br | Integradora BR — automação, ERP, WhatsApp | Posicionamento “integrações inteligentes”; produtos **HubAuto** (leads) + **WhatsAuto** (atendimento WA) |
 | **Nextiva** | https://www.nextiva.com | UCaaS/CX global — omnichannel + IA | Plataforma unificada, **XBert AI**, perfil único do cliente, journey orchestration, CSAT/NPS, marketplace |
@@ -30,7 +30,7 @@
 
 ### 2.1 Produtos citados no site
 
-| Produto | Promessa (conceito) | Ideia para RadarZap |
+| Produto | Promessa (conceito) | Ideia para Radar Chat |
 |---------|---------------------|---------------------|
 | **HubAuto** | Detecção e coleta automática de leads (MyHonda, Instagram, etc.) | Inspirar módulo futuro de **captura multicanal** além de WebChat/formulário — sem scraper copiado |
 | **WhatsAuto** | Atendimento unificado WA, fluxos automatizados, distribuição de contatos | Paridade conceitual com Inbox + fila + modos atendimento + bridge WebChat↔WA |
@@ -38,13 +38,13 @@
 ### 2.2 Padrões de produto observáveis
 
 - **Recepção automática 24h** — alinhado a modos robotic/IA + horário comercial WebChat.
-- **Integração com ERPs** — RadarZap já tem webhooks + API REST; backlog: conectores nomeados (Omie, Bling, etc.) como **integrações documentadas**, não clone HubAuto.
+- **Integração com ERPs** — Radar Chat já tem webhooks + API REST; backlog: conectores nomeados (Omie, Bling, etc.) como **integrações documentadas**, não clone HubAuto.
 - **Agendamentos e alertas automáticos** — inspirar automações pós-atendimento (lembrete, follow-up LGPD, ticket SLA).
-- **Landing comercial simples** — blocos “problema → solução → CTA WhatsApp”; útil para site/marketing RadarZap, não para o painel.
+- **Landing comercial simples** — blocos “problema → solução → CTA WhatsApp”; útil para site/marketing Radar Chat, não para o painel.
 
-### 2.3 RadarZap hoje vs inspiração
+### 2.3 Radar Chat hoje vs inspiração
 
-| Conceito Conecta360 | RadarZap hoje | Upgrade futuro (Fase D+) |
+| Conceito Conecta360 | Radar Chat hoje | Upgrade futuro (Fase D+) |
 |---------------------|---------------|---------------------------|
 | Distribuição de contatos | Fila, round-robin, setores | Regras por origem/campanha/UTM |
 | Fluxos automatizados | Bot menu, IA triagem, ticket | Builder visual leve de fluxos |
@@ -67,7 +67,7 @@
 
 ### 3.2 Funcionalidades destacadas (só como referência de mercado)
 
-| Área | O que o mercado espera | RadarZap — status |
+| Área | O que o mercado espera | Radar Chat — status |
 |------|------------------------|-------------------|
 | Inbox unificado | Todas as conversas + histórico + contexto | ✅ Inbox WA + WebChat unificado (`channel=all`) |
 | Perfil do cliente | LTV, interações, sentimento, VIP | 🟡 Contato + ticket; falta CRM/score formal |
@@ -81,7 +81,7 @@
 
 ### 3.3 Ideias de upgrade inspiradas (sem copiar Nextiva)
 
-| # | Ideia | Onde encaixa no RadarZap | Prioridade sugerida |
+| # | Ideia | Onde encaixa no Radar Chat | Prioridade sugerida |
 |---|-------|--------------------------|---------------------|
 | 1 | **Painel lateral “360° do cliente”** — origem, tickets, CSAT, bridge, tags, valor estimado | Inbox detalhe conversa | Fase D |
 | 2 | **Resumo IA automático** ao encerrar conversa/ticket | `InboxService` / IA Premium | Fase D |
@@ -93,9 +93,9 @@
 
 ### 3.4 O que **não** perseguir cedo
 
-- Telefonia VoIP / contact center voice-first (escopo diferente do RadarZap).
+- Telefonia VoIP / contact center voice-first (escopo diferente do Radar Chat).
 - Plataforma enterprise multi-região com milhares de integrações nativas.
-- “AI employee” como marca — RadarZap mantém **IA no contexto do negócio do cliente**, não produto genérico.
+- “AI employee” como marca — Radar Chat mantém **IA no contexto do negócio do cliente**, não produto genérico.
 
 ---
 
@@ -112,15 +112,15 @@ Busca (categoria + região) → Enriquecimento (WA + CNPJ) → Campanha ou expor
 
 ### 4.2 Padrões comerciais e UX
 
-- **Créditos avulsos** (Start/Pro/Scale) + **planos empresariais** com pool compartilhado — similar ao modelo IA créditos + assinatura RadarZap.
-- **Calculadora de ROI** na landing — boa referência para marketing/comercial RadarZap.
+- **Créditos avulsos** (Start/Pro/Scale) + **planos empresariais** com pool compartilhado — similar ao modelo IA créditos + assinatura Radar Chat.
+- **Calculadora de ROI** na landing — boa referência para marketing/comercial Radar Chat.
 - **Mapa interativo** de leads — visualização geográfica de contatos/campanhas.
 - **Comparativos “vs mercado”** (Hunter, Apollo, etc.) — referência de copy/SEO, não de produto.
 - **Segmentos verticais** (agência, SDR, contabilidade…) — alinhado a templates por segmento (visão produto §3.8).
 
-### 4.3 RadarZap hoje vs inspiração
+### 4.3 Radar Chat hoje vs inspiração
 
-| Conceito RadarLeads | RadarZap hoje | Upgrade futuro |
+| Conceito RadarLeads | Radar Chat hoje | Upgrade futuro |
 |---------------------|---------------|----------------|
 | Extração Maps | ❌ Fora do escopo core | Opcional: integração/import CSV de listas externas |
 | Validação WA em massa | 🟡 Consentimento + destinos | Ferramenta “validar números” pré-campanha |
@@ -133,11 +133,11 @@ Busca (categoria + região) → Enriquecimento (WA + CNPJ) → Campanha ou expor
 ### 4.4 Complementaridade estratégica
 
 RadarLeads = **topo de funil outbound** (achar quem contatar).  
-RadarZap = **meio/fundo de funil** (atender, converter, ticket, IA, LGPD).
+Radar Chat = **meio/fundo de funil** (atender, converter, ticket, IA, LGPD).
 
-**Sinergia possível (produto RadarZap, implementação própria):**
+**Sinergia possível (produto Radar Chat, implementação própria):**
 
-1. Importar lista enriquecida → segmento → campanha RadarZap.
+1. Importar lista enriquecida → segmento → campanha Radar Chat.
 2. Respostas de campanha caem no **Inbox** com origem rastreada.
 3. Lead que responde vira contato com consentimento LGPD.
 4. **Não** replicar scraper Maps/CNPJ sem decisão explícita de escopo.
@@ -151,32 +151,32 @@ RadarZap = **meio/fundo de funil** (atender, converter, ticket, IA, LGPD).
 
 ### 5.1 Módulos citados no site
 
-| Módulo | Promessa (conceito) | Ideia para RadarZap |
+| Módulo | Promessa (conceito) | Ideia para Radar Chat |
 |--------|---------------------|---------------------|
 | **Atendimento** | Inbox multicanal, filas, distribuição, app mobile | Paridade com Inbox + fila + presença; backlog app nativo |
 | **CRM** | Funil de vendas conversacional ligado às mensagens | Épico Fase D — funil mínimo no contato/conversa |
 | **Agentes de IA** | Chatbot com fluxos, múltiplos agentes orquestrados | Modos atendimento + IA Premium; inspirar orquestração leve |
 | **Agente Supervisor** | Detecta intenção, aciona agente ideal, transfere entre supervisores | Inspirar camada acima da triagem (roteamento por intenção/setor) |
 | **Automações / Sequências** | Jornadas automatizadas pós-contato | Backlog automações por evento (não copiar builder deles) |
-| **Campanhas** | Disparos e nurturing | Já existe em RadarZap — comparar UX preview/sequências |
+| **Campanhas** | Disparos e nurturing | Já existe em Radar Chat — comparar UX preview/sequências |
 | **Carteirização** | Contatos fixos por vendedor/atendente | Backlog: owner por contato + regras de transferência |
 | **Pagamentos** | Cobrança integrada ao CRM | Fora do escopo imediato; referência comercial |
 | **Agendamentos** | Agendamento automático no fluxo | Backlog Fase E+ (calendário + IA) |
-| **Chat interno** | Comunicação entre equipe | ✅ RadarZap já tem (`direction: internal` no Inbox) |
+| **Chat interno** | Comunicação entre equipe | ✅ Radar Chat já tem (`direction: internal` no Inbox) |
 | **Grupos (API oficial)** | Atendimento em grupos WA Meta | Backlog Fase 2 Cloud API — não priorizar Baileys |
-| **Integrações** | API + nativas n8n, menus personalizados na conversa | Webhooks/OpenAPI RadarZap; catálogo integrações |
+| **Integrações** | API + nativas n8n, menus personalizados na conversa | Webhooks/OpenAPI Radar Chat; catálogo integrações |
 
 ### 5.2 Padrões comerciais e operacionais
 
 - **Licenciamento por canal** — licença base com até 3 usuários por canal; planos Pro vs Premium por volume de recursos.
-- **Trial 14 dias** sem cartão — referência para onboarding comercial RadarZap.
+- **Trial 14 dias** sem cartão — referência para onboarding comercial Radar Chat.
 - **Suporte consultivo** — migração de número, treinamento, desenho de fluxo IA (serviço, não só SaaS).
 - **Prova de estabilidade** — uptime, status page, métricas públicas (mensagens/ano, usuários).
-- **App Android/iOS** — mobilidade do atendente; RadarZap hoje é web-first.
+- **App Android/iOS** — mobilidade do atendente; Radar Chat hoje é web-first.
 
-### 5.3 RadarZap hoje vs inspiração
+### 5.3 Radar Chat hoje vs inspiração
 
-| Conceito VoxCRM | RadarZap hoje | Upgrade futuro (Fase D+) |
+| Conceito VoxCRM | Radar Chat hoje | Upgrade futuro (Fase D+) |
 |-----------------|---------------|---------------------------|
 | Inbox multicanal Meta | 🟡 WA (Baileys) + WebChat; stub Cloud API | Fase 2: Instagram/Messenger via Cloud API |
 | Funil CRM conversacional | 🟡 Contatos/tags; sem estágios formais | Funil mínimo (visão produto §3.7) |
@@ -191,11 +191,11 @@ RadarZap = **meio/fundo de funil** (atender, converter, ticket, IA, LGPD).
 | Pagamentos no CRM | ❌ | Opcional / integração externa |
 | Status/uptime público | 🔴 | Página status plataforma (admin) |
 
-### 5.4 Diferenciação RadarZap vs referência VoxCRM
+### 5.4 Diferenciação Radar Chat vs referência VoxCRM
 
-| Onde RadarZap pode se destacar (implementação própria) | Nota |
+| Onde Radar Chat pode se destacar (implementação própria) | Nota |
 |--------------------------------------------------------|------|
-| **WebChat + bridge site↔WA** | VoxCRM foca canais Meta; RadarZap já tem widget + bridge |
+| **WebChat + bridge site↔WA** | VoxCRM foca canais Meta; Radar Chat já tem widget + bridge |
 | **Ticket TK + token público** | Rastreabilidade chamado fora do funil genérico |
 | **LGPD / consentimento explícito** | Diferencial regulatório BR |
 | **Modos de atendimento unificados** | Robotic / básica / premium / híbrido |
@@ -206,15 +206,15 @@ RadarZap = **meio/fundo de funil** (atender, converter, ticket, IA, LGPD).
 
 - Naming “Agente Supervisor”, layout do funil Kanban, fluxos visuais do chatbot.
 - Modelo de licença “3 usuários por canal” — inspirar **limites por plano**, não clonar tabela comercial.
-- Integrações n8n — referência de **ecossistema**, implementar conectores RadarZap próprios.
+- Integrações n8n — referência de **ecossistema**, implementar conectores Radar Chat próprios.
 
 ---
 
 ## 6. Matriz consolidada — lacunas × referência
 
-| Lacuna RadarZap (backlog) | Inspiração principal | Doc RadarZap |
+| Lacuna Radar Chat (backlog) | Inspiração principal | Doc Radar Chat |
 |---------------------------|----------------------|--------------|
-| Funil CRM mínimo | Nextiva + **VoxCRM** (funil conversacional) | `RADARZAP-VISAO-PRODUTO` §3.7 |
+| Funil CRM mínimo | Nextiva + **VoxCRM** (funil conversacional) | `RADARCHAT-VISAO-PRODUTO` §3.7 |
 | Gatilhos WebChat avançados | Nextiva (journey) + Conecta360 (24h) | §3.5 |
 | Relatórios conversão / CX | Nextiva (CSAT dashboard) | §3.9 |
 | Templates por vertical | RadarLeads (segmentos) | §3.8 |
@@ -237,10 +237,10 @@ RadarZap = **meio/fundo de funil** (atender, converter, ticket, IA, LGPD).
 
 1. **Consultar este doc** antes de épico Fase D+ de produto ou marketing.
 2. **Extrair o “porquê”** (job-to-be-done), não o “como” da UI deles.
-3. **Mapear** para módulo RadarZap existente antes de criar módulo novo.
+3. **Mapear** para módulo Radar Chat existente antes de criar módulo novo.
 4. **Respeitar gate Fase 1** — estabilização atendimento antes de features inspiradas nestas refs.
 5. **Nunca** mencionar Conecta360/Nextiva/RadarLeads/**VoxCRM** no código, UI ou docs públicos do produto salvo pedido explícito.
-6. Ao implementar item inspirado: registrar em `CHANGELOG.md` como feature RadarZap própria.
+6. Ao implementar item inspirado: registrar em `CHANGELOG.md` como feature Radar Chat própria.
 
 ---
 

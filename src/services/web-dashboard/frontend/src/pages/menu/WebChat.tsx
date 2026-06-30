@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { can, getMe, type AuthUser } from '../../lib/auth'
@@ -195,6 +196,8 @@ interface WebChatMessageRow {
 type Tab = 'chats' | 'widgets'
 type ChatFilter = 'open' | 'closed' | 'queue'
 
+const WEBCHAT_TAB_IDS: readonly Tab[] = ['chats', 'widgets']
+
 function queueStatusLabel(status?: WebChatConversationRow['queueStatus']) {
   if (status === 'waiting_human') return 'Na fila'
   if (status === 'with_agent') return 'Com atendente'
@@ -207,15 +210,12 @@ function embedSnippet(publicKey: string) {
   return `<script src="${origin}/webchat/widget.js?v=2.12.71" data-widget-key="${publicKey}" async></script>`
 }
 
-function parseWebChatTab(param: string | null): Tab {
-  return param === 'widgets' ? 'widgets' : 'chats'
-}
-
 export default function WebChat() {
   const qc = useQueryClient()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => parseWebChatTab(searchParams.get('tab')))
+  const [tab, setPageTab] = useUrlHashTab(WEBCHAT_TAB_IDS, 'chats')
   const [chatFilter, setChatFilter] = useState<ChatFilter>('open')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [chatSearch, setChatSearch] = useState('')
@@ -223,23 +223,21 @@ export default function WebChat() {
   const [newWidgetName, setNewWidgetName] = useState('')
   const [activeWidgetId, setActiveWidgetId] = useState<string | null>(null)
 
-  const setPageTab = (next: Tab) => {
-    setTab(next)
-    setSearchParams(
-      prev => {
-        const p = new URLSearchParams(prev)
-        if (next === 'widgets') p.set('tab', 'widgets')
-        else p.delete('tab')
-        return p
+  useEffect(() => {
+    const legacy = searchParams.get('tab')
+    if (legacy !== 'widgets' || location.hash) return
+    const params = new URLSearchParams(searchParams)
+    params.delete('tab')
+    const nextSearch = params.toString()
+    navigate(
+      {
+        pathname: location.pathname,
+        hash: '#widgets',
+        search: nextSearch ? `?${nextSearch}` : '',
       },
       { replace: true },
     )
-  }
-
-  const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
-  const canView = can(me ?? null, 'webchat:view')
-  const canManage = can(me ?? null, 'webchat:manage')
-  const canInbox = can(me ?? null, 'inbox:view')
+  }, [searchParams, location.hash, location.pathname, navigate])
 
   useEffect(() => {
     const conv = searchParams.get('conv')
@@ -258,10 +256,10 @@ export default function WebChat() {
     }
   }, [searchParams, navigate])
 
-  useEffect(() => {
-    const fromUrl = parseWebChatTab(searchParams.get('tab'))
-    if (fromUrl !== tab) setTab(fromUrl)
-  }, [searchParams, tab])
+  const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
+  const canView = can(me ?? null, 'webchat:view')
+  const canManage = can(me ?? null, 'webchat:manage')
+  const canInbox = can(me ?? null, 'inbox:view')
 
   const { data: widgets, isLoading: loadingWidgets } = useQuery({
     queryKey: ['webchat-widgets'],
@@ -1500,7 +1498,7 @@ function WidgetEditorCard({
             {aiStatus?.globalModeHint && (
               <p className="mt-2 text-xs text-[var(--rz-text-muted)] rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface-elevated)] px-3 py-2">
                 {aiStatus.globalModeHint}{' '}
-                <Link to="/platform/inbox/ia" className="text-brand-400 hover:underline">
+                <Link to="/platform/inbox/ia#empresa" className="text-brand-400 hover:underline">
                   IA Atendimento
                 </Link>
               </p>
@@ -1529,7 +1527,7 @@ function WidgetEditorCard({
               <p className="mt-1 text-xs text-[var(--rz-text-muted)]">
                 Disponível apenas com modo global{' '}
                 <strong>IA Premium</strong> em{' '}
-                <Link to="/platform/inbox/ia" className="text-brand-400 hover:underline">
+                <Link to="/platform/inbox/ia#empresa" className="text-brand-400 hover:underline">
                   IA Atendimento
                 </Link>
                 {aiStatus?.attendanceModeLabel

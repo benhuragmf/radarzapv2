@@ -245,7 +245,7 @@ async function notifyOwnerVerificationAudit(
     await wa.sendOperationalTextMessage(
       organizationId,
       ownerMember.whatsappPhone!,
-      `*RadarZap* — auditoria de cadastro WhatsApp\n\n` +
+      `*Radar Chat* — auditoria de cadastro WhatsApp\n\n` +
         `${adminLabel} solicitou verificar o número ${maskedPhone} para *${memberLabel}*.\n\n` +
         `Um código de segurança foi enviado ao número informado. ` +
         `O titular deve confirmar o código para concluir o cadastro.`,
@@ -294,12 +294,12 @@ async function sendWhatsappVerificationOtp(
 
   const message =
     initiatedBy === 'admin'
-      ? `*RadarZap* — verificação de WhatsApp (cadastro pela empresa)\n\n` +
+      ? `*Radar Chat* — verificação de WhatsApp (cadastro pela empresa)\n\n` +
         `Foi solicitado vincular este número ao atendimento da equipe.\n\n` +
         `*Código de segurança: ${code}*\n\n` +
         `Válido por 10 minutos. Informe o código ao responsável da empresa para concluir. ` +
         `Se não reconhece este pedido, ignore.`
-      : `*RadarZap* — confirme seu WhatsApp pessoal\n\n` +
+      : `*Radar Chat* — confirme seu WhatsApp pessoal\n\n` +
         `*Código de segurança: ${code}*\n\n` +
         `Válido por 10 minutos. Se não foi você, ignore esta mensagem.`;
 
@@ -390,10 +390,10 @@ async function sendEmailVerificationOtp(
   await redis.setWithTTL(emailCooldownKey(organizationId, memberId), '1', OTP_COOLDOWN_SEC);
 
   const org = await Organization.findById(organizationId).select('name').lean();
-  const orgName = org?.name?.trim() || 'RadarZap';
+  const orgName = org?.name?.trim() || 'Radar Chat';
   const subject = `${orgName} — confirme seu e-mail`;
   const text =
-    `Código de segurança RadarZap: ${code}\n\n` +
+    `Código de segurança Radar Chat: ${code}\n\n` +
     `Válido por 10 minutos. Se não foi você, ignore este e-mail.`;
   const html =
     `<p>Confirme seu e-mail na equipe <strong>${orgName}</strong>.</p>` +

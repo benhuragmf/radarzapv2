@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Card } from '../../components/ui/Card'
@@ -70,7 +71,20 @@ function TabHelp({ tabId }: { tabId: BlueprintTab }) {
 
 export default function AdminAiBlueprint() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<BlueprintTab>('identity')
+  const [tab, setTab] = useUrlHashTab(
+    [
+      'identity',
+      'soul',
+      'agents',
+      'tools',
+      'memory',
+      'skills',
+      'knowledge',
+      'final',
+      'greetings',
+    ] as const,
+    'identity',
+  )
   const [form, setForm] = useState<BlueprintPayload | null>(null)
 
   const { data, isLoading } = useQuery({

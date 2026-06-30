@@ -1,4 +1,4 @@
-# Recomendações futuras de segurança — RadarZap
+# Recomendações futuras de segurança — Radar Chat
 
 Melhorias além do plano de correção imediato.
 

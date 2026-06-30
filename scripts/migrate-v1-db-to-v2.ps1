@@ -1,14 +1,14 @@
-# Migracao unica: copia discord-whatsapp do volume v1 para volumes nativos radarzapv2.
+# Migracao unica: copia discord-whatsapp do volume v1 para volumes nativos radarchatv2.
 # Nao monta volumes v1 no docker-compose - so le uma vez via container temporario.
 # Uso: npm run migrate:v1-db
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$V1Volume = "radarzap_mongodb-data"
-$V2Volume = "radarzapv2_mongodb-data"
+$V1Volume = "radarchat_mongodb-data"
+$V2Volume = "radarchatv2_mongodb-data"
 $DumpDir = Join-Path $ProjectRoot "tmp\mongo-dump-v1"
-$ExportContainer = "radarzapv2-mongo-v1-export"
+$ExportContainer = "radarchatv2-mongo-v1-export"
 $V1Port = 27018
 
 function Load-DotEnv {
@@ -75,7 +75,7 @@ Start-Sleep -Seconds 8
 
 $ready = $false
 for ($i = 0; $i -lt 12; $i++) {
-    & docker exec radarzapv2-mongodb-1 mongosh `
+    & docker exec radarchatv2-mongodb-1 mongosh `
         "mongodb://admin:${mongoPassword}@localhost:27017/admin?authSource=admin" `
         --quiet --eval 'db.runCommand({ ping: 1 })' 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) { $ready = $true; break }
@@ -86,15 +86,15 @@ if (-not $ready) {
 }
 
 Write-Host "==> Restaurando dados no volume v2..."
-Run-Docker -Command @('cp', $DumpDir, 'radarzapv2-mongodb-1:/tmp/discord-whatsapp-restore')
+Run-Docker -Command @('cp', $DumpDir, 'radarchatv2-mongodb-1:/tmp/discord-whatsapp-restore')
 $restoreScript = @"
 REST=/tmp/discord-whatsapp-restore/discord-whatsapp
 if [ ! -d `"`$REST`" ]; then REST=/tmp/discord-whatsapp-restore; fi
 mongorestore --uri='mongodb://admin:${mongoPassword}@localhost:27017/?authSource=admin' --db discord-whatsapp --drop `"`$REST`"
 "@
-Run-Docker -Command @('exec', 'radarzapv2-mongodb-1', 'bash', '-c', $restoreScript)
+Run-Docker -Command @('exec', 'radarchatv2-mongodb-1', 'bash', '-c', $restoreScript)
 
-& docker exec radarzapv2-mongodb-1 mongosh `
+& docker exec radarchatv2-mongodb-1 mongosh `
     "mongodb://admin:${mongoPassword}@localhost:27017/discord-whatsapp?authSource=admin" `
     --quiet --eval 'printjson({users: db.users.countDocuments(), rules: db.rules.countDocuments(), templates: db.templates.countDocuments()})'
 

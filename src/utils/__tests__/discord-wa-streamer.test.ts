@@ -12,7 +12,7 @@ function baseExtracted(overrides: Partial<ExtractedMessage> = {}): ExtractedMess
     text: '',
     links: [],
     authorName: 'outro_no_discord',
-    radarzapSenderLabel: 'skulksgamer',
+    radarchatSenderLabel: 'skulksgamer',
     channelName: 'live-on',
     guildName: 'SK2 Staff',
     isBot: true,
@@ -45,21 +45,21 @@ describe('resolveStreamerIdentity', () => {
 describe('buildDiscordWhatsAppVariables', () => {
   it('streamer da URL; rodapé com tenant do painel', () => {
     const extracted = baseExtracted({
-      radarzapSenderLabel: 'skulksgamer',
+      radarchatSenderLabel: 'skulksgamer',
       primaryLink: 'https://www.tiktok.com/@mcjean7/live',
     });
 
     const { variables } = buildDiscordWhatsAppVariables(extracted);
 
     expect(variables.streamer).toBe('mcjean7');
-    expect(variables.rodape).toContain('skulksgamer via radarzap');
-    expect(variables.rodape).not.toContain('mcjean7 via radarzap');
+    expect(variables.rodape).toContain('skulksgamer via radarchat');
+    expect(variables.rodape).not.toContain('mcjean7 via radarchat');
     expect(variables.autor).toBe('skulksgamer');
   });
 
-  it('empresa no rodapé quando radarzapSenderLabel é org', () => {
+  it('empresa no rodapé quando radarchatSenderLabel é org', () => {
     const extracted = baseExtracted({
-      radarzapSenderLabel: 'SoContabilida',
+      radarchatSenderLabel: 'SoContabilida',
       primaryLink: 'https://www.twitch.tv/sonycxtv',
       captureKind: 'live',
     });
@@ -67,7 +67,7 @@ describe('buildDiscordWhatsAppVariables', () => {
     const { variables } = buildDiscordWhatsAppVariables(extracted);
 
     expect(variables.streamer).toBe('sonycxtv');
-    expect(variables.rodape).toContain("SoContabilida via radarzap • @");
+    expect(variables.rodape).toContain("SoContabilida via radarchat • @");
     expect(variables.canal_rota).toBe('@outro_no_discord > #live-on');
   });
 });
@@ -75,21 +75,21 @@ describe('buildDiscordWhatsAppVariables', () => {
 describe('buildRodape', () => {
   it('usa tenant, não streamer nem autor do canal', () => {
     const extracted = baseExtracted({
-      radarzapSenderLabel: 'skulksgamer',
+      radarchatSenderLabel: 'skulksgamer',
       primaryLink: 'https://www.twitch.tv/sonycxtv',
     });
 
     const rodape = buildRodape(extracted, '04/06/2026', '12:11');
 
     expect(rodape).toBe(
-      'skulksgamer via radarzap • @outro_no_discord > #live-on • SK2 Staff • 04/06/2026 12:11',
+      'skulksgamer via radarchat • @outro_no_discord > #live-on • SK2 Staff • 04/06/2026 12:11',
     );
     expect(rodape).not.toContain('sonycxtv via');
   });
 
   it('inclui apelido do servidor no trecho @poster > #canal', () => {
     const extracted = baseExtracted({
-      radarzapSenderLabel: 'SoContabilida',
+      radarchatSenderLabel: 'SoContabilida',
       discordPosterLabel: "'Skulks",
       primaryLink: 'https://www.twitch.tv/sonycxtv',
     });
@@ -97,17 +97,17 @@ describe('buildRodape', () => {
     const rodape = buildRodape(extracted, '04/06/2026', '12:12');
 
     expect(rodape).toBe(
-      "SoContabilida via radarzap • @'Skulks > #live-on • SK2 Staff • 04/06/2026 12:12",
+      "SoContabilida via radarchat • @'Skulks > #live-on • SK2 Staff • 04/06/2026 12:12",
     );
   });
 
   it('não usa segmento videos da URL Twitch', () => {
     const extracted = baseExtracted({
-      radarzapSenderLabel: 'skulksgamer',
+      radarchatSenderLabel: 'skulksgamer',
       primaryLink: 'https://www.twitch.tv/videos/2780609664',
       captureKind: 'video',
     });
 
-    expect(buildRodape(extracted, '04/06/2026', '12:12')).toMatch(/^skulksgamer via radarzap/);
+    expect(buildRodape(extracted, '04/06/2026', '12:12')).toMatch(/^skulksgamer via radarchat/);
   });
 });

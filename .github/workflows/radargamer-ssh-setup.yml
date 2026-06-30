@@ -22,7 +22,7 @@ jobs:
     if: github.event.inputs.confirm == 'RADARGAMER'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install deploy key on RadarGamer VPS
         uses: appleboy/ssh-action@v1.2.0
@@ -41,7 +41,7 @@ jobs:
           command_timeout: 20m
           script: |
             set -euo pipefail
-            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
             DEPLOY_BRANCH="${DEPLOY_BRANCH:-layout-v3}"
             git fetch origin "${DEPLOY_BRANCH}" -q 2>/dev/null || true
             git reset --hard "origin/${DEPLOY_BRANCH}" -q 2>/dev/null || true
@@ -53,5 +53,5 @@ jobs:
             if [[ "${{ github.event.inputs.register_coolify }}" == "1" ]]; then
               export COOLIFY_SERVERS_ONLY=1
               export RADARGAMER_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY}"
-              sudo -E bash scripts/vps-configure-coolify-radarzap.sh
+              sudo -E bash scripts/vps-configure-coolify-radarchat.sh
             fi

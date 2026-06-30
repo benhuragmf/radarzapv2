@@ -148,7 +148,7 @@ async function fetchSiteHtml(url: string): Promise<string> {
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'RadarZap-LeadPreview/1.0 (+https://radarchat.com.br)',
+        'User-Agent': 'Radar Chat-LeadPreview/1.0 (+https://radarchat.com.br)',
         Accept: 'text/html,application/xhtml+xml',
       },
       redirect: 'follow',
@@ -207,7 +207,7 @@ function buildInjection(
 ): string {
   const attrs = appearanceDataAttrs(appearance);
   return (
-    '\n<!-- RadarZap lead preview slot -->\n' +
+    '\n<!-- Radar Chat lead preview slot -->\n' +
     '<div id="rz-lead-preview-block">\n' +
     '<div id="rz-lead-preview-marker">↕ Formulário inserido aqui — o site continua empurrado abaixo</div>\n' +
     `<div id="form-mount"${attrs} style="margin:0 auto;padding:12px 20px 32px;box-sizing:border-box;min-height:80px;"></div>\n` +

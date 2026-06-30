@@ -20,7 +20,7 @@ export const ATTENDANCE_MODE_VALUES: readonly AttendanceMode[] = [
 ] as const;
 
 /** Quem fornece/paga a credencial da IA generativa (legado: `AiSettings.mode`). */
-export type AiCredentialSource = 'none' | 'radarzap' | 'company';
+export type AiCredentialSource = 'none' | 'radarchat' | 'company';
 
 export interface AttendanceUiSelection {
   attendanceMode: AttendanceMode;
@@ -58,7 +58,7 @@ export function inferAttendanceModeFromLegacyMode(mode: AiMode): AttendanceMode 
 /** Infere provedor/credencial a partir do campo legado. */
 export function inferCredentialSourceFromLegacyMode(mode: AiMode): AiCredentialSource {
   if (mode === 'disabled') return 'none';
-  if (mode === 'radarzap') return 'radarzap';
+  if (mode === 'radarchat') return 'radarchat';
   if (mode === 'company') return 'company';
   return 'none';
 }
@@ -136,8 +136,8 @@ export function legacySettingsFromAttendanceSelection(
   }
 
   if (attendanceMode === 'premium_assistant' || attendanceMode === 'hybrid') {
-    if (credentialSource === 'radarzap') {
-      return { mode: 'radarzap', enabled: true };
+    if (credentialSource === 'radarchat') {
+      return { mode: 'radarchat', enabled: true };
     }
     if (credentialSource === 'company') {
       return { mode: 'company', enabled: true };
@@ -214,8 +214,8 @@ export const getAttendanceModeLabel = attendanceModeLabel;
 
 export function credentialSourceLabel(source: AiCredentialSource): string {
   switch (source) {
-    case 'radarzap':
-      return 'RadarZap';
+    case 'radarchat':
+      return 'Radar Chat';
     case 'company':
       return 'Chave própria';
     case 'none':

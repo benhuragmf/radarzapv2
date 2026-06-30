@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { can, getMe, type AuthUser } from '../../lib/auth'
@@ -26,8 +27,8 @@ import { cn } from '@/lib/utils'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxBotFlowPreview } from '../../components/inbox/InboxBotFlowPreview'
 import { InboundRegistrationPolicyPanel } from '../../components/inbox/InboundRegistrationPolicyPanel'
-import type { InboundRegistrationPolicy } from '@radarzap-types/inbound-registration-policy'
-import { DEFAULT_INBOUND_REGISTRATION_POLICY } from '@radarzap-types/inbound-registration-policy'
+import type { InboundRegistrationPolicy } from '@radarchat-types/inbound-registration-policy'
+import { DEFAULT_INBOUND_REGISTRATION_POLICY } from '@radarchat-types/inbound-registration-policy'
 
 type Weekday =
   | 'monday'
@@ -200,28 +201,33 @@ function FieldFocusWrap({
   )
 }
 
+const BOT_TAB_IDS: readonly BotTab[] = ['messages', 'schedule', 'queue', 'registration', 'quality']
+
+const BOT_TAB_ALIASES: Record<string, BotTab> = {
+  qualidade: 'quality',
+  sla: 'quality',
+  atalhos: 'quality',
+  aus: 'quality',
+  enc: 'quality',
+  inactivity: 'messages',
+  inatividade: 'messages',
+  cadastro: 'registration',
+  crm: 'registration',
+}
+
 export default function InboxBotSettings() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<BotTab>('messages')
+  const { hash } = useLocation()
+  const [tab, setTab] = useUrlHashTab(BOT_TAB_IDS, 'messages', { aliases: BOT_TAB_ALIASES })
   const [focusedField, setFocusedField] = useState<keyof InboxSettings | null>(null)
   const [slaAdvancedOpen, setSlaAdvancedOpen] = useState(true)
 
   useEffect(() => {
-    const raw = window.location.hash.replace(/^#/, '').toLowerCase()
-    if (raw === 'quality' || raw === 'qualidade' || raw === 'sla' || raw === 'atalhos') {
-      setTab('quality')
-    }
-    if (raw === 'inactivity' || raw === 'inatividade') {
-      setTab('messages')
-    }
-    if (raw === 'registration' || raw === 'cadastro' || raw === 'crm') {
-      setTab('registration')
-    }
-    if (raw === 'sla' || raw === 'atalhos' || raw === 'aus' || raw === 'enc') {
-      setTab('quality')
+    const raw = hash.replace(/^#/, '').toLowerCase()
+    if (['sla', 'atalhos', 'aus', 'enc', 'quality', 'qualidade'].includes(raw)) {
       setSlaAdvancedOpen(true)
     }
-  }, [])
+  }, [hash])
 
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],
@@ -354,7 +360,7 @@ export default function InboxBotSettings() {
             <Zap size={14} /> Respostas rápidas
           </Button>
         </Link>
-        <Link to="/platform/inbox/ia">
+        <Link to="/platform/inbox/ia#empresa">
           <Button size="sm" variant="secondary">
             <Sparkles size={14} /> IA de atendimento
           </Button>

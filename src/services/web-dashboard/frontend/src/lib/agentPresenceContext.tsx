@@ -8,7 +8,7 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from 'react'
-import type { AgentOperationalStatus, AgentStatusSource } from '@radarzap-types/agent-presence'
+import type { AgentOperationalStatus, AgentStatusSource } from '@radarchat-types/agent-presence'
 
 export type AgentPresenceState = {
   operationalStatus: AgentOperationalStatus

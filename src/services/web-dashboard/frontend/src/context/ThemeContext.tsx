@@ -10,7 +10,7 @@ import {
 
 export type ThemeMode = 'dark' | 'light'
 
-const STORAGE_KEY = 'radarzap-theme'
+const STORAGE_KEY = 'radarchat-theme'
 
 interface ThemeContextValue {
   theme: ThemeMode

@@ -4,7 +4,7 @@
 # Uso: sudo -E bash scripts/vps-coolify-disable-sentinel.sh
 set -euo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 MARKER="/data/coolify/.radarchat-sentinel-disabled"
 
 log() { echo "[coolify-disable-sentinel] $*"; }

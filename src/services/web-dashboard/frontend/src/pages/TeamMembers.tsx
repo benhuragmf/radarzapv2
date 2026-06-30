@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { can, getMe, isCompanyOwner, type AuthUser, type CompanyRole } from '../lib/auth'
@@ -65,10 +66,11 @@ const ROLE_LABEL: Record<CompanyRole, string> = {
 }
 
 type Tab = 'equipe' | 'papeis'
+const TEAM_TAB_IDS: readonly Tab[] = ['equipe', 'papeis']
 
 export default function TeamMembers() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<Tab>('equipe')
+  const [tab, setTab] = useUrlHashTab(TEAM_TAB_IDS, 'equipe')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<string>('ATTENDANT')
   const [editingRole, setEditingRole] = useState<string>('ATTENDANT')

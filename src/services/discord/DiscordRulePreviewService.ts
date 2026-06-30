@@ -11,7 +11,7 @@ import {
   inferTwitchSlug,
 } from '@/utils/discord-wa-format';
 import { resolveStreamTemplate, streamLinkFromExtracted } from '@/utils/stream-template';
-import { resolveTenantSenderLabelAsync } from '@/utils/radarzap-sender';
+import { resolveTenantSenderLabelAsync } from '@/utils/radarchat-sender';
 import { Organization, User } from '@/models';
 import {
   normalizeRuleTriggersInput,
@@ -137,7 +137,7 @@ async function renderPreview(
   let user = await User.findById(clientOid);
   if (!user && org) user = await User.findById(org.ownerUserId);
 
-  extracted.radarzapSenderLabel = await resolveTenantSenderLabelAsync(org, user);
+  extracted.radarchatSenderLabel = await resolveTenantSenderLabelAsync(org, user);
 
   const linkForRoute = streamLinkFromExtracted(extracted);
   if (linkForRoute && /twitch\.tv|youtube\.com|youtu\.be/i.test(linkForRoute)) {

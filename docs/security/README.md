@@ -1,4 +1,4 @@
-# Segurança — boas práticas RadarZap
+# Segurança — boas práticas Radar Chat
 
 Guia rápido para desenvolvedores.
 
@@ -43,7 +43,7 @@ Staff global: use capability `Cap.*_GLOBAL` e documente o motivo.
 ## Webhooks
 
 - **Inbound Stripe:** body `raw` antes de `express.json`.
-- **Outbound:** HMAC em `X-RadarZap-Signature` — ver `docs/WEBHOOKS.md`.
+- **Outbound:** HMAC em `X-Radar Chat-Signature` — ver `docs/WEBHOOKS.md`.
 - Secrets: gerar forte; mostrar uma vez na UI.
 
 ---

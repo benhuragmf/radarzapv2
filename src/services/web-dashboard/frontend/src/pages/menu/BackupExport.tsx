@@ -16,7 +16,7 @@ export default function BackupExport() {
     setError(null)
     setMsg(null)
     try {
-      await downloadFile('/destinations/export-csv', 'contatos-radarzap.csv')
+      await downloadFile('/destinations/export-csv', 'contatos-radarchat.csv')
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -29,7 +29,7 @@ export default function BackupExport() {
     setError(null)
     setMsg(null)
     try {
-      await downloadFile('/tenant-backup/export', `radarzap-backup-${Date.now()}.json`)
+      await downloadFile('/tenant-backup/export', `radarchat-backup-${Date.now()}.json`)
     } catch (e) {
       setError((e as Error).message)
     } finally {

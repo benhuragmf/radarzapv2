@@ -1,4 +1,4 @@
-# Checklist de segurança — RadarZap
+# Checklist de segurança — Radar Chat
 
 Use antes de **deploy staging/prod** e em revisões trimestrais.
 
@@ -12,7 +12,7 @@ Use antes de **deploy staging/prod** e em revisões trimestrais.
 - [ ] `STRIPE_*` live só em prod; test só em staging
 - [ ] `ALLOW_DEV_BILLING=false` em prod (validado no boot)
 - [ ] `ALLOW_DEV_API_KEY_BYPASS` **não** definido em staging/prod
-- [ ] `RADARZAP_SYSTEM_ADMIN_DISCORD_IDS` preenchido só com IDs da equipe
+- [ ] `RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS` preenchido só com IDs da equipe
 
 ## HTTPS e cookies
 

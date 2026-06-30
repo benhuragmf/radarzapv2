@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { can, getMe, type AuthUser } from '../../lib/auth'
@@ -42,7 +43,7 @@ import {
   type AiCredentialSource,
 } from '../../lib/attendanceMode'
 import { notifyInfo, notifyConfigSaved, mutationError, notifyError } from '../../lib/notify'
-import { deliveryAddressValidationError } from '@radarzap-types/catalog-delivery-address'
+import { deliveryAddressValidationError } from '@radarchat-types/catalog-delivery-address'
 import { DeliveryOriginAddressFields } from '../../components/catalog/DeliveryOriginAddressFields'
 import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
 
@@ -87,7 +88,7 @@ interface CatalogSalesCompanyConfig {
 
 const textareaClsAi = `${textareaCls} min-h-[120px]`
 
-function usageUnitShort(mode?: 'radarzap_calls' | 'company_calls'): string {
+function usageUnitShort(mode?: 'radarchat_calls' | 'company_calls'): string {
   return mode === 'company_calls' ? 'chamadas' : 'chamadas LLM'
 }
 
@@ -128,10 +129,12 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'testar', label: 'Testar IA' },
 ]
 
+const AI_TAB_IDS: readonly TabId[] = TABS.map(t => t.id)
+
 interface AiPayload {
   settings: {
     enabled: boolean
-    mode: 'radarzap' | 'company' | 'disabled'
+    mode: 'radarchat' | 'company' | 'disabled'
     attendanceMode?: AttendanceMode
     provider: 'openai' | 'gemini'
     model: string
@@ -209,7 +212,7 @@ interface AiPayload {
     dailyLimit: number
     monthlyLimit: number
     perConversationLimit: number
-    meteringMode?: 'radarzap_calls' | 'company_calls'
+    meteringMode?: 'radarchat_calls' | 'company_calls'
     companyCallsToday?: number
     dailyCreditsSpent?: number
     monthlyCreditsSpent?: number
@@ -238,12 +241,12 @@ interface AiPayload {
   }
   apiKeyMasked: string | null
   hasApiKey: boolean
-  planLimits: { radarzapAllowed: boolean; dailyLimit: number; monthlyLimit: number }
+  planLimits: { radarchatAllowed: boolean; dailyLimit: number; monthlyLimit: number }
   modelCatalog: AiModelOption[]
   modelCatalogs: { gemini: AiModelOption[]; openai: AiModelOption[] }
   selectedModelPricing: AiModelOption | null
   blueprintInfo: {
-    managedBy: 'radarzap'
+    managedBy: 'radarchat'
     version: number
     agentName: string
     defaultAgentName: string
@@ -417,7 +420,7 @@ function productDraftToKnowledgeItem(product: ProductDraft): KnowledgeBaseItem {
 
 export default function AiAtendimento() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<TabId>('geral')
+  const [tab, setTab] = useUrlHashTab(AI_TAB_IDS, 'geral')
   const [form, setForm] = useState<AiPayload | null>(null)
   const [attendanceUi, setAttendanceUi] = useState<AttendanceUiSelection>({
     attendanceMode: 'disabled',
@@ -603,7 +606,7 @@ export default function AiAtendimento() {
     let credentialSource = attendanceUi.credentialSource
     if (mode === 'premium_assistant' || mode === 'hybrid') {
       if (credentialSource === 'none') {
-        credentialSource = form?.planLimits.radarzapAllowed ? 'radarzap' : 'company'
+        credentialSource = form?.planLimits.radarchatAllowed ? 'radarchat' : 'company'
       }
     } else {
       credentialSource = 'none'
@@ -969,7 +972,7 @@ export default function AiAtendimento() {
             selected={attendanceUi.credentialSource}
             onSelect={handleCredentialSourceSelect}
             disabled={!credentialSourceEnabled}
-            radarzapAllowed={form.planLimits.radarzapAllowed}
+            radarchatAllowed={form.planLimits.radarchatAllowed}
           />
 
           {attendanceUi.attendanceMode === 'robotic' && (
@@ -1022,7 +1025,7 @@ export default function AiAtendimento() {
                 </Link>{' '}
                 (resposta automática). KB, skills e memória abaixo alimentam o assistente Premium.
               </p>
-              {attendanceUi.credentialSource === 'radarzap' && (
+              {attendanceUi.credentialSource === 'radarchat' && (
                 <p className="text-brand-400/90">
                   Expectativa de consumo: <strong>~2 créditos</strong> por turno típico de conversa.
                   Cada chamada LLM debita créditos conforme o custo real — Premium não é cobrado em dobro
@@ -1056,7 +1059,7 @@ export default function AiAtendimento() {
             </div>
           )}
 
-          {form.usage.meteringMode === 'radarzap_calls' && form.usage.wallet && (
+          {form.usage.meteringMode === 'radarchat_calls' && form.usage.wallet && (
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
               <h3 className="text-sm font-medium text-blue-300 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4" /> Carteira de créditos IA (mensal)
@@ -1772,6 +1775,10 @@ export default function AiAtendimento() {
                 <button type="button" className="text-brand-400 underline" onClick={() => setTab('coleta')}>
                   Dados a coletar
                 </button>
+                {' '}ou abra{' '}
+                <Link to="/platform/inbox/ia#empresa" className="text-brand-400 underline">
+                  Empresa e catálogo
+                </Link>
               </label>
             </div>
 

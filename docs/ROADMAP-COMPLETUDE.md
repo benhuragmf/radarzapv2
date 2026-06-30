@@ -1,4 +1,4 @@
-﻿# RadarZap v2 — completude do sistema e roadmap
+﻿# Radar Chat v2 — completude do sistema e roadmap
 
 > **Versão ref:** `2.12.63` · **Última revisão:** 2026-06-28  
 > **Fase atual:** **estabilização (Fase 1)** — gate humano QA manual pendente; **não** go-live declarado.
@@ -14,7 +14,7 @@
 
 ## Resumo executivo (honesto)
 
-O RadarZap v2 tem **ampla superfície implementada** (painel, inbox, tickets, IA, campanhas, billing, API, webhooks, Admin Ops, LGPD portal, bridge dedup, infra degraded boot — até **2.12.63**).
+O Radar Chat v2 tem **ampla superfície implementada** (painel, inbox, tickets, IA, campanhas, billing, API, webhooks, Admin Ops, LGPD portal, bridge dedup, infra degraded boot — até **2.12.63**).
 
 Correções críticas Inbox × Ticket × CSAT × IA (2.8.7–2.8.11) foram seguidas por **gates automatizados verdes** (integração Jest, E2E 80/80, `qa:atendimento:gate` revalidado 2026-06-28).
 
@@ -123,8 +123,8 @@ Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 | 14 | E2E | ✅ | CI 80/80 — inbox, campanha, fase1 panel |
 | 15 | Lint / qualidade CI | 🔴 | ~7k issues; não no CI |
 | 16 | Compliance audit persistido | 🟡 | `ComplianceService` com TODOs |
-| 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) |
-| 18 | **UI módulo Atendimento** | ✅ **2.10.18** | Inbox 3 colunas, métricas, tickets paginados — ver [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) |
+| 17 | **WebChat (site)** | ✅ **2.10.18** | Widget + Inbox unificado + polish painel — ver `WEBCHAT.md`, [`concluidos/radarchat-inbox-upgrade.md`](./concluidos/radarchat-inbox-upgrade.md) |
+| 18 | **UI módulo Atendimento** | ✅ **2.10.18** | Inbox 3 colunas, métricas, tickets paginados — ver [`concluidos/radarchat-inbox-upgrade.md`](./concluidos/radarchat-inbox-upgrade.md) |
 
 ---
 
@@ -143,7 +143,7 @@ Registrar: data, versão (`2.11.35+`), pass/fail, prints.
 ## O que já está sólido (não confundir com “pronto para prod”)
 
 - Menus do painel sem placeholder “Em breve”
-- Design system 2.8.x + **upgrade visual Atendimento 2.10.18** ([`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md))
+- Design system 2.8.x + **upgrade visual Atendimento 2.10.18** ([`concluidos/radarchat-inbox-upgrade.md`](./concluidos/radarchat-inbox-upgrade.md))
 - RBAC, equipe, setores internos, consentimento LGPD base
 - Campanhas, Discord, integrações API, OpenAPI
 - **WebChat** embedável (widget + console painel) — `WEBCHAT.md`

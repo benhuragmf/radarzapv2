@@ -1,5 +1,5 @@
 /*
- * RadarZap / RadarGamer
+ * Radar Chat / RadarGamer
  * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
  * Todos os direitos reservados.
  * Uso, cópia, distribuição ou modificação sem autorização é proibido.
@@ -102,7 +102,7 @@ import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatc
 const WA_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
 /** MongoDB backup expiry — 30 days, renewed on activity */
 const WA_DB_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
-const WA_SESSION_CHANNEL = 'radarzap:wa-session';
+const WA_SESSION_CHANNEL = 'radarchat:wa-session';
 
 /**
  * WhatsApp Service with autonomous session management
@@ -883,7 +883,7 @@ export class WhatsAppService {
     if (dests.length === 0) {
       if (totalActive === 0) {
         this.serviceLogger.debug(
-          'Fotos de perfil: nenhum contato ativo em /contact — sync só roda para destinos cadastrados no RadarZap.',
+          'Fotos de perfil: nenhum contato ativo em /contact — sync só roda para destinos cadastrados no Radar Chat.',
         );
       } else {
         const [withImage, markedNone] = await Promise.all([
@@ -1230,14 +1230,14 @@ export class WhatsAppService {
   async previewStatusAudience(
     clientId: string,
     audience: 'whatsapp' | 'all_contacts' | 'consented',
-  ): Promise<{ count: number; waCache: number; deviceListPhones: number; radarzapContacts: number }> {
+  ): Promise<{ count: number; waCache: number; deviceListPhones: number; radarchatContacts: number }> {
     await this.ensureClientReady(clientId, 10_000);
     const socket = this.sessions.get(String(clientId));
     if (!socket?.user) {
       throw new Error('WhatsApp não conectado');
     }
     const clientOid = new mongoose.Types.ObjectId(clientId);
-    const radarzapContacts = await Destination.countDocuments({
+    const radarchatContacts = await Destination.countDocuments({
       clientId: clientOid,
       type: 'contact',
       isActive: true,
@@ -1248,7 +1248,7 @@ export class WhatsAppService {
       count: list.length,
       waCache: this.waStatusContactJids.get(clientId)?.size ?? 0,
       deviceListPhones: this.loadDeviceListPhonesFromSession(clientId).length,
-      radarzapContacts,
+      radarchatContacts,
     };
   }
 
@@ -2551,7 +2551,7 @@ export class WhatsAppService {
     const gotLock = await acquireWaSocketLock(clientId);
     if (!gotLock) {
       throw new Error(
-        `Outra instância RadarZap já usa o WhatsApp (${clientId}). Feche o outro terminal ou execute: npm run dev:stop`,
+        `Outra instância Radar Chat já usa o WhatsApp (${clientId}). Feche o outro terminal ou execute: npm run dev:stop`,
       );
     }
 
@@ -2758,7 +2758,7 @@ export class WhatsAppService {
     });
   }
 
-  /** Mantém cache de contatos WA para publicar status (não usa /contact do RadarZap). */
+  /** Mantém cache de contatos WA para publicar status (não usa /contact do Radar Chat). */
   private setupWaStatusContactSync(socket: WASocket, clientId: string): void {
     const cache = (jid: string | undefined | null) => this.cacheWaStatusContactJid(clientId, jid);
     const cacheContact = (c: { id?: string | null; lid?: string | null; phoneNumber?: string | null }) => {
@@ -3291,7 +3291,7 @@ export class WhatsAppService {
       if (
         extracted &&
         hasImage &&
-        (!/via radarzap/i.test(previewCheck) || !/https?:\/\//i.test(previewCheck))
+        (!/via radarchat/i.test(previewCheck) || !/https?:\/\//i.test(previewCheck))
       ) {
         const rebuildTpl = extracted
           ? resolveOutboundTemplate(extracted, {
@@ -3313,7 +3313,7 @@ export class WhatsAppService {
 
       const fullOutbound = `${text}\n${captionFollowUp}`.trim();
       const hasLink = /https?:\/\//i.test(fullOutbound);
-      const hasRodape = /via radarzap/i.test(fullOutbound);
+      const hasRodape = /via radarchat/i.test(fullOutbound);
 
       await logPipeline('WhatsAppService', 'send', 'Enviando ao WhatsApp', {
         clientId,

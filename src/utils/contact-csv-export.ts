@@ -86,7 +86,7 @@ function groupsToGoogle(grupos?: string[]): string {
 export function parseExportProfile(
   raw: string | undefined,
 ): ContactCsvExportProfile {
-  const p = (raw ?? 'radarzap-native').trim() as ContactCsvExportProfile;
+  const p = (raw ?? 'radarchat-native').trim() as ContactCsvExportProfile;
   if (CONTACT_CSV_EXPORT_PROFILES.includes(p)) return p;
   throw new Error(
     `Perfil de export inválido. Use: ${CONTACT_CSV_EXPORT_PROFILES.join(', ')}`,
@@ -99,7 +99,7 @@ export function buildContactCsvExport(
 ): string {
   const lines: string[] = [];
 
-  if (profile === 'radarzap-native') {
+  if (profile === 'radarchat-native') {
     lines.push(
       rowToLine([
         'nome',

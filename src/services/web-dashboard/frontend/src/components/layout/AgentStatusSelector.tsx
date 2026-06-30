@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Circle, ChevronDown } from 'lucide-react'
 import { useAgentPresenceContext } from '../../lib/agentPresenceContext'
 import { can, type AuthUser } from '../../lib/auth'
-import type { AgentOperationalStatus } from '@radarzap-types/agent-presence'
+import type { AgentOperationalStatus } from '@radarchat-types/agent-presence'
 
 const STATUS_DOT: Record<AgentOperationalStatus, string> = {
   online: 'text-emerald-500',

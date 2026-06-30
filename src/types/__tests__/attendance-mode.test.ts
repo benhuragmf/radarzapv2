@@ -30,15 +30,15 @@ describe('attendance-mode adapter', () => {
     });
   });
 
-  it('radarzap → premium_assistant + credential radarzap', () => {
-    expect(inferAttendanceModeFromLegacyMode('radarzap')).toBe('premium_assistant');
-    expect(inferCredentialSourceFromLegacyMode('radarzap')).toBe('radarzap');
+  it('radarchat → premium_assistant + credential radarchat', () => {
+    expect(inferAttendanceModeFromLegacyMode('radarchat')).toBe('premium_assistant');
+    expect(inferCredentialSourceFromLegacyMode('radarchat')).toBe('radarchat');
     expect(
       legacySettingsFromAttendanceSelection({
         attendanceMode: 'premium_assistant',
-        credentialSource: 'radarzap',
+        credentialSource: 'radarchat',
       }),
-    ).toEqual({ mode: 'radarzap', enabled: true });
+    ).toEqual({ mode: 'radarchat', enabled: true });
   });
 
   it('company → premium_assistant + credential company', () => {
@@ -65,25 +65,25 @@ describe('attendance-mode adapter', () => {
     expect(
       attendanceSettingsPatchFromSelection({
         attendanceMode: 'basic_triage',
-        credentialSource: 'radarzap',
+        credentialSource: 'radarchat',
       }),
     ).toEqual({ attendanceMode: 'basic_triage', mode: 'disabled', enabled: false });
   });
 
-  it('hybrid com credencial radarzap ativa LLM legado', () => {
+  it('hybrid com credencial radarchat ativa LLM legado', () => {
     expect(
       legacySettingsFromAttendanceSelection({
         attendanceMode: 'hybrid',
-        credentialSource: 'radarzap',
+        credentialSource: 'radarchat',
       }),
-    ).toEqual({ mode: 'radarzap', enabled: true });
+    ).toEqual({ mode: 'radarchat', enabled: true });
     expect(
       attendanceSelectionFromSettings({
-        mode: 'radarzap',
+        mode: 'radarchat',
         enabled: true,
         attendanceMode: 'hybrid',
       }),
-    ).toEqual({ attendanceMode: 'hybrid', credentialSource: 'radarzap' });
+    ).toEqual({ attendanceMode: 'hybrid', credentialSource: 'radarchat' });
   });
 
   it('hybrid sem credencial não ativa LLM', () => {
@@ -143,16 +143,16 @@ describe('attendance-mode adapter', () => {
 
   it('shouldRunGenerativeAi no premium ou híbrido com mode ativo', () => {
     expect(
-      shouldRunGenerativeAi({ mode: 'radarzap', enabled: true, attendanceMode: 'premium_assistant' }),
+      shouldRunGenerativeAi({ mode: 'radarchat', enabled: true, attendanceMode: 'premium_assistant' }),
     ).toBe(true);
     expect(
-      shouldRunGenerativeAi({ mode: 'radarzap', enabled: true, attendanceMode: 'hybrid' }),
+      shouldRunGenerativeAi({ mode: 'radarchat', enabled: true, attendanceMode: 'hybrid' }),
     ).toBe(true);
     expect(
       shouldRunGenerativeAi({ mode: 'disabled', enabled: false, attendanceMode: 'robotic' }),
     ).toBe(false);
     expect(
-      shouldRunGenerativeAi({ mode: 'radarzap', enabled: true, attendanceMode: 'robotic' }),
+      shouldRunGenerativeAi({ mode: 'radarchat', enabled: true, attendanceMode: 'robotic' }),
     ).toBe(false);
   });
 
@@ -168,8 +168,8 @@ describe('attendance-mode adapter', () => {
   });
 
   it('effectiveWebChatPremiumAi exige modo Premium/Híbrido + toggle widget', () => {
-    const premium = { mode: 'radarzap' as const, enabled: true, attendanceMode: 'premium_assistant' as const };
-    const hybrid = { mode: 'radarzap' as const, enabled: true, attendanceMode: 'hybrid' as const };
+    const premium = { mode: 'radarchat' as const, enabled: true, attendanceMode: 'premium_assistant' as const };
+    const hybrid = { mode: 'radarchat' as const, enabled: true, attendanceMode: 'hybrid' as const };
     expect(effectiveWebChatPremiumAi(true, premium)).toBe(true);
     expect(effectiveWebChatPremiumAi(true, hybrid)).toBe(true);
     expect(

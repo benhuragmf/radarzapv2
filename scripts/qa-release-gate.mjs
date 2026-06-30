@@ -4,7 +4,7 @@
  * build + testes campanha + E2E painel + atendimento + smoke produção (opcional).
  *
  * Uso: npm run qa:release-gate
- * Produção: RADARZAP_PUBLIC_URL=https://seu-dominio npm run qa:release-gate
+ * Produção: RADARCHAT_PUBLIC_URL=https://seu-dominio npm run qa:release-gate
  */
 import { spawnSync } from 'node:child_process';
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
@@ -39,10 +39,10 @@ function run(name, cmd, args, opts = {}) {
 }
 
 async function productionSmoke() {
-  const base = (process.env.RADARZAP_PUBLIC_URL || process.env.PUBLIC_URL || '').replace(/\/$/, '');
+  const base = (process.env.RADARCHAT_PUBLIC_URL || process.env.PUBLIC_URL || '').replace(/\/$/, '');
   if (!base) {
-    steps.push({ name: 'smoke produção (pulado — sem RADARZAP_PUBLIC_URL)', ok: true, skipped: true });
-    console.log('\n○ Smoke produção pulado — defina RADARZAP_PUBLIC_URL para validar VPS');
+    steps.push({ name: 'smoke produção (pulado — sem RADARCHAT_PUBLIC_URL)', ok: true, skipped: true });
+    console.log('\n○ Smoke produção pulado — defina RADARCHAT_PUBLIC_URL para validar VPS');
     return true;
   }
   const started = Date.now();
@@ -76,7 +76,7 @@ async function productionSmoke() {
   }
 }
 
-console.log('=== RadarZap — QA Release Gate (automático) ===\n');
+console.log('=== Radar Chat — QA Release Gate (automático) ===\n');
 
 run('jest campanha/limites', 'npm', ['run', 'qa:campaign-limits']);
 run('build backend', 'npm', ['run', 'build']);

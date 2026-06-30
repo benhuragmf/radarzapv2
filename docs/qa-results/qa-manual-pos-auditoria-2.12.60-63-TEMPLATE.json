@@ -1,5 +1,5 @@
 {
-  "schema": "radarzap-qa-manual-v1",
+  "schema": "radarchat-qa-manual-v1",
   "version": "2.12.63",
   "mainCommit": "db077e0",
   "environment": "vps",

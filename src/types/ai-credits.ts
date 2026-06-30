@@ -15,11 +15,12 @@ export const AI_CREDIT_WEIGHT = AI_MODULE_CREDIT_ESTIMATE;
 
 export type AiBillableKind = keyof typeof AI_MODULE_CREDIT_ESTIMATE;
 
-/** 1 crédito RadarZap ≈ este custo estimado (USD) de LLM na chave da plataforma. */
+/** 1 crédito Radar Chat ≈ este custo estimado (USD) de LLM na chave da plataforma. */
 export const AI_CREDIT_USD_UNIT = 0.01;
 
-export function isRadarzapPlatformProvider(provider: string): boolean {
-  return provider === 'radarzap' || provider === 'radarzap-basic-triage';
+export function isRadarchatPlatformProvider(provider: string): boolean {
+  const normalized = provider.replace(/^radarzap/i, 'radarchat');
+  return normalized === 'radarchat' || normalized === 'radarchat-basic-triage';
 }
 
 /** Créditos debitados com base no custo real da chamada (cobrança proporcional). */
@@ -42,7 +43,7 @@ export function aiCreditsDebitForCall(params: {
   if (typeof params.storedCredits === 'number' && params.storedCredits >= 0) {
     return params.storedCredits;
   }
-  if (!isRadarzapPlatformProvider(params.provider)) return 0;
+  if (!isRadarchatPlatformProvider(params.provider)) return 0;
   return aiCreditsFromActualCost(params.estimatedCostUsd);
 }
 
@@ -86,7 +87,7 @@ export function inferCreditWeightFromRow(row: {
 }
 
 export function aiCreditWeightLabel(credits: number): string {
-  if (credits <= 0) return 'Sem crédito RadarZap';
+  if (credits <= 0) return 'Sem crédito Radar Chat';
   if (credits < 0.1) return `${credits.toFixed(2)} crédito`;
   if (credits === 1) return '1 crédito';
   return `${credits.toFixed(2)} créditos`;

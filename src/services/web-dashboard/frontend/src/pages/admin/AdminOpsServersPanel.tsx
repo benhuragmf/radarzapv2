@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
-import { formatOpsNumber } from '@radarzap-types/admin-ops-summary.util'
+import type { AdminOpsSummary } from '@radarchat-types/admin-ops-summary'
+import { formatOpsNumber } from '@radarchat-types/admin-ops-summary.util'
 import { Hash, Smartphone } from 'lucide-react'
 import { MetricCard, SectionCard } from '@/design-system'
 

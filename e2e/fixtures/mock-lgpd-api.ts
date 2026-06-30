@@ -56,7 +56,7 @@ export async function setupLgpdMocks(page: Page): Promise<void> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        schema: 'radarzap-lgpd-export-v1',
+        schema: 'radarchat-lgpd-export-v1',
         exportedAt: new Date().toISOString(),
         destination: { id: 'dest-lgpd-1', name: 'Maria Titular' },
         consentHistory: [],

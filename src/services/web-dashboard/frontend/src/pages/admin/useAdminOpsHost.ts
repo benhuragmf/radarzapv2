@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { AdminOpsHostReport } from '@radarzap-types/admin-ops-host'
+import type { AdminOpsHostReport } from '@radarchat-types/admin-ops-host'
 import { api } from '../../lib/api'
 
 export function useAdminOpsHost(enabled = true) {

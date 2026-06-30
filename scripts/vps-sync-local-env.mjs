@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sincroniza chaves do .env local → /opt/radarzap/.env no VPS.
+ * Sincroniza chaves do .env local → /opt/radarchat/.env no VPS.
  * Não sobrescreve FRONTEND_URL, MONGODB_URL docker, SESSION_* gerados no servidor.
  * Uso: VPS_PASSWORD=... node scripts/vps-sync-local-env.mjs
  */
@@ -16,13 +16,13 @@ const SYNC_KEYS = [
   'DISCORD_GUILD_ID',
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
-  'RADARZAP_SYSTEM_ADMIN_DISCORD_IDS',
-  'RADARZAP_SYSTEM_MODERATOR_DISCORD_IDS',
+  'RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS',
+  'RADARCHAT_SYSTEM_MODERATOR_DISCORD_IDS',
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
   'STRIPE_PRICE_ID_STARTER',
   'STRIPE_PRICE_ID_PRO',
-  'RADARZAP_AI_OPENAI_KEY',
+  'RADARCHAT_AI_OPENAI_KEY',
   'GEMINI_API_KEY',
   'RESEND_API_KEY',
 ];
@@ -100,12 +100,12 @@ const conn = new Client();
 conn
   .on('ready', async () => {
     try {
-      await upload(conn, JSON.stringify(payload), '/tmp/radarzap-env-sync.json');
-      await upload(conn, patchPy, '/tmp/radarzap-patch-env.py');
-      await exec(conn, 'python3 /tmp/radarzap-patch-env.py /opt/radarzap/.env /tmp/radarzap-env-sync.json');
-      await exec(conn, 'rm -f /tmp/radarzap-env-sync.json /tmp/radarzap-patch-env.py');
-      await exec(conn, 'cd /opt/radarzap && export USE_SUDO_DOCKER=1 && bash scripts/vps-validate-env.sh');
-      await exec(conn, 'cd /opt/radarzap && git fetch origin main && git reset --hard origin/main && export USE_SUDO_DOCKER=1 && bash scripts/deploy-remote.sh radarzap:production');
+      await upload(conn, JSON.stringify(payload), '/tmp/radarchat-env-sync.json');
+      await upload(conn, patchPy, '/tmp/radarchat-patch-env.py');
+      await exec(conn, 'python3 /tmp/radarchat-patch-env.py /opt/radarchat/.env /tmp/radarchat-env-sync.json');
+      await exec(conn, 'rm -f /tmp/radarchat-env-sync.json /tmp/radarchat-patch-env.py');
+      await exec(conn, 'cd /opt/radarchat && export USE_SUDO_DOCKER=1 && bash scripts/vps-validate-env.sh');
+      await exec(conn, 'cd /opt/radarchat && git fetch origin main && git reset --hard origin/main && export USE_SUDO_DOCKER=1 && bash scripts/deploy-remote.sh radarchat:production');
       conn.end();
     } catch (e) {
       console.error(e.message || e);

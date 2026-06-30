@@ -19,8 +19,8 @@ const keyPath = join(keysDir, 'github_actions_ed25519');
 const host = process.env.VPS_HOST || '151.247.210.180';
 const user = process.env.VPS_USER || 'ubuntu';
 const password = process.env.VPS_PASSWORD;
-const deployPath = process.env.DEPLOY_PATH || '/opt/radarzap';
-const repo = process.env.GITHUB_REPOSITORY || 'benhuragmf/radarzapv2';
+const deployPath = process.env.DEPLOY_PATH || '/opt/radarchat';
+const repo = process.env.GITHUB_REPOSITORY || 'benhuragmf/radarchatv2';
 
 function run(cmd, opts = {}) {
   return execSync(cmd, { stdio: 'pipe', encoding: 'utf8', ...opts }).trim();
@@ -41,7 +41,7 @@ function ensureKeyPair() {
     console.log('[1/4] Gerando chave SSH ed25519 (não commitar .deploy-keys/)...');
     spawnSync(
       'ssh-keygen',
-      ['-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'github-actions-radarzap'],
+      ['-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'github-actions-radarchat'],
       { stdio: 'inherit' },
     );
   } else {

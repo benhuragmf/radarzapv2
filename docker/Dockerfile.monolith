@@ -1,11 +1,11 @@
-# RadarZap v2 — monolito (Discord + WA + painel + filas)
-# Build: docker build -f docker/Dockerfile.monolith -t radarzap:latest .
+# Radar Chat v2 — monolito (Discord + WA + painel + filas)
+# Build: docker build -f docker/Dockerfile.monolith -t radarchat:latest .
 
 FROM node:24-alpine AS frontend-builder
 WORKDIR /repo/src/services/web-dashboard/frontend
 COPY src/services/web-dashboard/frontend/package*.json ./
 RUN npm ci
-# Tipos compartilhados (@radarzap-types/* → ../../../types/*)
+# Tipos compartilhados (@radarchat-types/* → ../../../types/*)
 COPY src/types /repo/src/types
 # Versão do app (vite.config lê /repo/package.json)
 COPY package.json /repo/package.json
@@ -35,11 +35,11 @@ COPY --from=backend-builder /app/config ./config
 COPY --from=frontend-builder /repo/src/services/web-dashboard/public ./dist/services/web-dashboard/public
 
 RUN mkdir -p sessions media logs \
-  && addgroup -g 1001 -S radarzap \
-  && adduser -S radarzap -u 1001 -G radarzap \
-  && chown -R radarzap:radarzap /app
+  && addgroup -g 1001 -S radarchat \
+  && adduser -S radarchat -u 1001 -G radarchat \
+  && chown -R radarchat:radarchat /app
 
-USER radarzap
+USER radarchat
 
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \

@@ -1,5 +1,5 @@
 /*
- * RadarZap / RadarGamer
+ * Radar Chat / RadarGamer
  * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
  * Todos os direitos reservados.
  * Uso, cópia, distribuição ou modificação sem autorização é proibido.

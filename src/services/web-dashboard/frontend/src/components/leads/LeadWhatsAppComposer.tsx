@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { InboxComposer, type QuickReplyItem } from '../inbox/InboxComposer'
 import { api } from '../../lib/api'
 import { mutationError, notifySuccess } from '../../lib/notify'
-import type { LeadCaptureListItem } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem } from '@radarchat-types/lead-form'
 
 type Props = {
   item: LeadCaptureListItem

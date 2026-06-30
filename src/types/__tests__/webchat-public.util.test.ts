@@ -61,7 +61,7 @@ describe('webchat-public.util', () => {
     expect(
       canWebChatRunPremiumAi({
         widgetAutoReplyUseAi: true,
-        aiSettings: { mode: 'radarzap', enabled: true, attendanceMode: 'premium_assistant' },
+        aiSettings: { mode: 'radarchat', enabled: true, attendanceMode: 'premium_assistant' },
         premiumAvailability: true,
         hasCredits: false,
       }),
@@ -69,7 +69,7 @@ describe('webchat-public.util', () => {
     expect(
       canWebChatRunPremiumAi({
         widgetAutoReplyUseAi: true,
-        aiSettings: { mode: 'radarzap', enabled: true, attendanceMode: 'premium_assistant' },
+        aiSettings: { mode: 'radarchat', enabled: true, attendanceMode: 'premium_assistant' },
         premiumAvailability: true,
         hasCredits: true,
       }),

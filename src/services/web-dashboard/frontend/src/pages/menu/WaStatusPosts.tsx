@@ -118,7 +118,7 @@ export default function WaStatusPosts() {
     count: number
     waCache: number
     deviceListPhones: number
-    radarzapContacts: number
+    radarchatContacts: number
   }>({
     queryKey: ['status-posts-audience', audience],
     queryFn: () => api.get(`/status-posts/audience-preview?audience=${audience}`),

@@ -143,7 +143,7 @@ export class CommandHandler {
                 new mongoose.Types.ObjectId(clientId),
             );
 
-            // Sincroniza papel Discord (owner/admin) no RadarZap
+            // Sincroniza papel Discord (owner/admin) no Radar Chat
             syncGuildMemberships(
                 (user._id as mongoose.Types.ObjectId).toString(),
                 interaction.user.id,

@@ -1,4 +1,4 @@
-# Auditoria de segurança — RadarZap v2.5.1
+# Auditoria de segurança — Radar Chat v2.5.1
 
 **Data:** 2026-06-09  
 **Tipo:** Revisão defensiva estática + `npm audit` (sem ataques reais)  
@@ -19,7 +19,7 @@
 | WhatsApp | Baileys (`@whiskeysockets/baileys`) |
 | Discord | discord.js v14 |
 | Pagamentos | Stripe (checkout + webhooks) |
-| Sessão | `express-session` + Redis (`radarzap.sid`, HttpOnly) |
+| Sessão | `express-session` + Redis (`radarchat.sid`, HttpOnly) |
 | Tempo real | Socket.IO |
 | Deploy | Docker monolito, GitHub Actions → GHCR |
 
@@ -30,7 +30,7 @@
 3. Operações passam por `DashboardService` (`:3001`) com filtro `clientId` / `organizationId`.
 4. Envios Discord→WA: captura → `RulesEngine` → fila → `WhatsAppService`.
 5. Integrações externas: `X-API-Key` (hash SHA-256) no `APIGateway` legado (`:8080`).
-6. Webhooks outbound: HMAC `X-RadarZap-Signature` via fila `notifications`.
+6. Webhooks outbound: HMAC `X-Radar Chat-Signature` via fila `notifications`.
 
 ### Pontos críticos de segurança
 
@@ -78,7 +78,7 @@
 ### RBAC
 
 - Capabilities granulares (`src/auth/rbac/capabilities.ts`).
-- Staff interno via `RADARZAP_SYSTEM_ADMIN_DISCORD_IDS`.
+- Staff interno via `RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS`.
 - **Risco:** UI esconde menus; backend é autoridade — correto, mas rotas novas devem sempre usar `requireCapability`.
 
 ### Achados

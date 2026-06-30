@@ -63,7 +63,7 @@ function makeRule(conditions: any = {}, action: any = {}, triggerMeta: any = {})
     },
     action: {
       destinationIds: [],
-      templateName: 'radarzap-padrao',
+      templateName: 'radarchat-padrao',
       priority: 'medium',
       addDelay: 0,
       ...action,

@@ -338,7 +338,7 @@ export async function setupAdminDashboardMocks(
   );
 
   const blueprintPayload = {
-    agentName: 'RadarZap',
+    agentName: 'Radar Chat',
     identity: 'E2E',
     soul: '',
     agents: '',

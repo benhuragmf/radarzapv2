@@ -4,7 +4,7 @@ import type {
   AdminOpsHostSnapshot,
 } from '@/types/admin-ops-host';
 
-const REDIS_KEY = 'radarzap:admin:ops:host-metrics:v1';
+const REDIS_KEY = 'radarchat:admin:ops:host-metrics:v1';
 const TTL_SECONDS = 900;
 
 export function hostMetricsRedisKey(): string {

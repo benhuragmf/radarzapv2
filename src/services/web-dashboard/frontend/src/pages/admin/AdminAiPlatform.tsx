@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { api } from '../../lib/api'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -20,7 +22,6 @@ import {
   inputCls,
 } from '@/design-system'
 import { AiModelPicker } from '../../components/ai/AiModelPicker'
-import { Link } from 'react-router-dom'
 import AdminOpsHubLink from './AdminOpsHubLink'
 
 type AdminTab = 'credentials' | 'usage'
@@ -105,7 +106,7 @@ const TABS: { id: AdminTab; label: string; icon: typeof Key }[] = [
 
 export default function AdminAiPlatform() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<AdminTab>('credentials')
+  const [tab, setTab] = useUrlHashTab(['credentials', 'usage'] as const, 'credentials')
   const [form, setForm] = useState<CredentialsPayload | null>(null)
   const [openAiKeyInput, setOpenAiKeyInput] = useState('')
   const [geminiKeyInput, setGeminiKeyInput] = useState('')
@@ -303,8 +304,8 @@ export default function AdminAiPlatform() {
             </h2>
             <p className="text-xs text-[var(--rz-text-muted)]">
               Salvas criptografadas no banco. Se vazias, o servidor usa{' '}
-              <code className="text-[10px]">RADARZAP_AI_OPENAI_KEY</code> /{' '}
-              <code className="text-[10px]">RADARZAP_AI_GEMINI_KEY</code> (ou{' '}
+              <code className="text-[10px]">RADARCHAT_AI_OPENAI_KEY</code> /{' '}
+              <code className="text-[10px]">RADARCHAT_AI_GEMINI_KEY</code> (ou{' '}
               <code className="text-[10px]">OPENAI_API_KEY</code> /{' '}
               <code className="text-[10px]">GEMINI_API_KEY</code>) do <code className="text-[10px]">.env</code>.
             </p>

@@ -8,7 +8,7 @@ import {
   formatDeliveryAddress,
   parseDeliveryAddress,
   type DeliveryAddressStructured,
-} from '@radarzap-types/catalog-delivery-address'
+} from '@radarchat-types/catalog-delivery-address'
 
 const inputCls =
   'w-full rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] px-3 py-2 text-sm text-[var(--rz-text-primary)] placeholder:text-[var(--rz-text-muted)] focus:outline-none focus:ring-2 focus:ring-brand-500/40'

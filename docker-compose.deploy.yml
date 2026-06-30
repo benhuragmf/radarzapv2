@@ -1,9 +1,9 @@
-# Deploy com imagem pré-buildada (CI → GHCR). Uso: RADARZAP_IMAGE=ghcr.io/owner/radarzap:sha docker compose -f docker-compose.deploy.yml up -d
+# Deploy com imagem pré-buildada (CI → GHCR). Uso: RADARCHAT_IMAGE=ghcr.io/owner/radarchat:sha docker compose -f docker-compose.deploy.yml up -d
 version: '3.8'
 
 services:
   app:
-    image: ${RADARZAP_IMAGE:?defina RADARZAP_IMAGE}
+    image: ${RADARCHAT_IMAGE:?defina RADARCHAT_IMAGE}
     ports:
       - '3001:3001'
     env_file:
@@ -13,9 +13,9 @@ services:
       MONGODB_URL: mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/discord-whatsapp?authSource=admin
       REDIS_URL: redis://redis:6379
     volumes:
-      - radarzap-sessions:/app/sessions
-      - radarzap-media:/app/media
-      - radarzap-logs:/app/logs
+      - radarchat-sessions:/app/sessions
+      - radarchat-media:/app/media
+      - radarchat-logs:/app/logs
     depends_on:
       - mongodb
       - redis
@@ -40,6 +40,6 @@ services:
 volumes:
   mongodb-data:
   redis-data:
-  radarzap-sessions:
-  radarzap-media:
-  radarzap-logs:
+  radarchat-sessions:
+  radarchat-media:
+  radarchat-logs:

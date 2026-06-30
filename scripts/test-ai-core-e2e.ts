@@ -38,7 +38,7 @@ async function main() {
   );
   const { PlatformAiBlueprintService } = await import('@/services/ai/PlatformAiBlueprintService');
   const blueprint = await PlatformAiBlueprintService.getInstance().getGlobal();
-  console.log('2) Blueprint RadarZap v' + blueprint.version, '— agente:', blueprint.agentName);
+  console.log('2) Blueprint Radar Chat v' + blueprint.version, '— agente:', blueprint.agentName);
 
   const kbSvc = AiKnowledgeBaseService.getInstance();
   const existing = await kbSvc.list(CLIENT_ID);

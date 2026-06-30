@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Sincroniza DISCORD_* para /opt/radarzap/.env e stack Coolify (variáveis já exportadas no shell).
+# Sincroniza DISCORD_* para /opt/radarchat/.env e stack Coolify (variáveis já exportadas no shell).
 set -euo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
 

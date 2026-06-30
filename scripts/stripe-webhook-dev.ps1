@@ -1,4 +1,4 @@
-# Encaminha webhooks Stripe (teste) para o RadarZap local.
+# Encaminha webhooks Stripe (teste) para o Radar Chat local.
 # Requer Stripe CLI: winget install Stripe.StripeCli
 # Uso: powershell -ExecutionPolicy Bypass -File scripts/stripe-webhook-dev.ps1
 

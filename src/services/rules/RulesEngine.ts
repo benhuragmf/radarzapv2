@@ -16,7 +16,7 @@ export interface RuleMatch {
 }
 
 /**
- * Motor de regras do RadarZap.
+ * Motor de regras do Radar Chat.
  * Avalia cada mensagem capturada contra as regras ativas do cliente
  * e retorna as ações que devem ser executadas.
  */

@@ -102,7 +102,7 @@ export const WA_EMOJI_CATEGORIES: EmojiCategory[] = [
   },
 ]
 
-const RECENT_KEY = 'radarzap-wa-emoji-recent'
+const RECENT_KEY = 'radarchat-wa-emoji-recent'
 const RECENT_MAX = 24
 
 export function loadRecentEmojis(): string[] {

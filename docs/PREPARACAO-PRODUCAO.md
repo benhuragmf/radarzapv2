@@ -88,14 +88,14 @@ Cloudflare **grátis** serve como **DNS + SSL + Tunnel** na frente de um VPS/PC 
 ### Diretórios persistentes (VPS)
 
 ```text
-/opt/radarzap/
+/opt/radarchat/
   app/              ← repo ou compose + scripts
   data/sessions/    ← volume WA (crítico)
   data/media/
   logs/
 ```
 
-Docker: volumes `radarzap-sessions`, `radarzap-media`, `mongodb-data`, `redis-data` (`docker-compose.deploy.yml`).
+Docker: volumes `radarchat-sessions`, `radarchat-media`, `mongodb-data`, `redis-data` (`docker-compose.deploy.yml`).
 
 ---
 
@@ -145,7 +145,7 @@ Stack oficial para **UI v3 + monolito** na branch `layout-v3`:
 2. Resource **Docker Compose** → repo → branch **`layout-v3`** → arquivo **`docker-compose.coolify.yml`**.
 3. Domínio no serviço **`app`**, porta **3001**.
 4. Env: `.env.coolify.example` + magic vars (`SERVICE_URL_APP`, `SERVICE_PASSWORD_MONGODB`).
-5. Volumes `radarzap-sessions` / `mongodb-data` persistentes.
+5. Volumes `radarchat-sessions` / `mongodb-data` persistentes.
 
 Coolify gerencia SSL (Traefik/Caddy). **Não** expor `3001`/`27017`/`6379` na internet.
 
@@ -232,8 +232,8 @@ ssh root@SEU_IP
 apt update && apt install -y docker.io docker-compose-plugin git
 systemctl enable --now docker
 
-mkdir -p /opt/radarzap && cd /opt/radarzap
-git clone https://github.com/benhuragmf/radarzapv2.git .
+mkdir -p /opt/radarchat && cd /opt/radarchat
+git clone https://github.com/benhuragmf/radarchatv2.git .
 
 cp .env.example .env
 nano .env                    # secrets — ver § Variáveis acima
@@ -246,8 +246,8 @@ ufw enable
 
 echo $GITHUB_PAT | docker login ghcr.io -u SEU_USER --password-stdin
 
-export RADARZAP_IMAGE=ghcr.io/benhuragmf/radarzap:latest
-bash scripts/deploy-remote.sh "$RADARZAP_IMAGE"
+export RADARCHAT_IMAGE=ghcr.io/benhuragmf/radarchat:latest
+bash scripts/deploy-remote.sh "$RADARCHAT_IMAGE"
 ```
 
 Configurar **nginx + SSL** (§ abaixo) apontando para `127.0.0.1:3001`.
@@ -345,8 +345,8 @@ Baileys e Mongo/Redis continuam **no servidor local/VPS**, não na Cloudflare.
 // ecosystem.config.cjs
 module.exports = {
   apps: [{
-    name: 'radarzap',
-    cwd: '/opt/radarzap/app',
+    name: 'radarchat',
+    cwd: '/opt/radarchat/app',
     script: 'dist/index.js',
     instances: 1,
     exec_mode: 'fork',
@@ -391,7 +391,7 @@ Requisitos: Mongo e Redis instalados separadamente; `API_HOST=127.0.0.1` no `.en
 | Webhooks Stripe/Meta | Body **raw** antes de `express.json()` |
 | Backup | `BACKUP_ENCRYPT_EXPORT=true` |
 | Billing | `validateConfig` bloqueia `ALLOW_DEV_BILLING` em prod |
-| RBAC | `RADARZAP_SYSTEM_ADMIN_*` revisados |
+| RBAC | `RADARCHAT_SYSTEM_ADMIN_*` revisados |
 
 **Não definir** `SERVICE_NAME` no monolito de produção.
 
@@ -407,7 +407,7 @@ Requisitos: Mongo e Redis instalados separadamente; `API_HOST=127.0.0.1` no `.en
 - [ ] `JWT_SECRET`, `SESSION_SECRET`, `SESSION_ENCRYPTION_KEY` únicos (≥ 32 chars)
 - [ ] `STRIPE_*` live só em prod; test só em staging
 - [ ] `ALLOW_DEV_BILLING` e `ALLOW_DEV_API_KEY_BYPASS` **ausentes** em staging/prod
-- [ ] `RADARZAP_SYSTEM_ADMIN_DISCORD_IDS` só com IDs da equipe
+- [ ] `RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS` só com IDs da equipe
 
 ### Rede e TLS
 
@@ -485,7 +485,7 @@ Docs: `SECURITY.md`, `SECURITY_AUDIT.md`, `SECURITY_CHECKLIST.md`.
 
 ## Rollback
 
-1. Redeploy imagem/tag **anterior** (`RADARZAP_IMAGE=ghcr.io/.../radarzap:<sha-anterior>`)
+1. Redeploy imagem/tag **anterior** (`RADARCHAT_IMAGE=ghcr.io/.../radarchat:<sha-anterior>`)
 2. **Não** rollback Mongo se migration irreversível — restore snapshot pré-deploy
 3. Manter volume `sessions/` — rollback de código compatível se schema igual
 4. Stripe: reconciliar pedidos pendentes no dashboard Stripe
@@ -527,5 +527,5 @@ Docs: `SECURITY.md`, `SECURITY_AUDIT.md`, `SECURITY_CHECKLIST.md`.
 
 - Atalho go-live: [`PRODUCTION.md`](./PRODUCTION.md)
 - Roadmap produto: [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md)
-- Dev local: [`RADARZAP-V2-MIGRACAO.md`](./RADARZAP-V2-MIGRACAO.md)
+- Dev local: [`RADARCHAT-V2-MIGRACAO.md`](./RADARCHAT-V2-MIGRACAO.md)
 - Billing: [`BILLING.md`](./BILLING.md)

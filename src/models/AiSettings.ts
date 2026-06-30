@@ -51,7 +51,7 @@ const AiSettingsSchema = new Schema<IAiSettings>(
   {
     clientId: { type: Schema.Types.ObjectId, required: true, unique: true, index: true },
     enabled: { type: Boolean, default: false },
-    mode: { type: String, enum: ['radarzap', 'company', 'disabled'], default: 'disabled' },
+    mode: { type: String, enum: ['radarchat', 'company', 'disabled'], default: 'disabled' },
     attendanceMode: {
       type: String,
       enum: [...ATTENDANCE_MODE_VALUES],

@@ -7,7 +7,7 @@ import {
   requestBrowserNotificationPermission,
 } from '../../lib/browserNotify'
 
-const DISMISS_KEY = 'radarzap-browser-notify-banner-dismissed'
+const DISMISS_KEY = 'radarchat-browser-notify-banner-dismissed'
 
 export function BrowserNotifyPermissionBanner() {
   const { pathname } = useLocation()

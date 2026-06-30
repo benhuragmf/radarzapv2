@@ -8,7 +8,7 @@ import { can, type AuthUser } from '../../lib/auth'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { inputCls, LoadingState } from '@/design-system'
 import { DeliveryOriginAddressFields } from '../catalog/DeliveryOriginAddressFields'
-import { deliveryAddressValidationError } from '@radarzap-types/catalog-delivery-address'
+import { deliveryAddressValidationError } from '@radarchat-types/catalog-delivery-address'
 
 interface OrgProfile {
   name: string

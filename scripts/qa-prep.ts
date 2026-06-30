@@ -22,7 +22,7 @@ function maskUrl(url: string): string {
 }
 
 async function main() {
-  console.log('=== RadarZap — QA Fase 1: pré-requisitos ===\n');
+  console.log('=== Radar Chat — QA Fase 1: pré-requisitos ===\n');
 
   try {
     await mongoose.connect(MONGODB_URL);

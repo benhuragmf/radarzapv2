@@ -47,7 +47,7 @@ describe('webchat-bridge.util', () => {
 
   it('detecta formato encaminhado visitante e risco de loop', () => {
     expect(isBridgeForwardedVisitorFormat('*[Site · TK-ABC123] Maria*\nOi')).toBe(true);
-    expect(isBridgeLoopRisk('Novo chamado no RadarZap')).toBe(true);
+    expect(isBridgeLoopRisk('Novo chamado no Radar Chat')).toBe(true);
     expect(isBridgeLoopRisk('Resposta normal do atendente')).toBe(false);
   });
 

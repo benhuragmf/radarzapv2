@@ -86,7 +86,7 @@ export function WebhooksPanel() {
     <div className="space-y-4">
       <InlineNotice tone="info" title="Entrega assinada por HMAC">
         O Radar Chat envia POST JSON para a sua URL com o header{' '}
-        <code className="text-[var(--rz-text-secondary)]">X-RadarZap-Signature</code>.
+        <code className="text-[var(--rz-text-secondary)]">X-Radar Chat-Signature</code>.
       </InlineNotice>
 
       {newSecret && (

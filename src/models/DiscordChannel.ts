@@ -155,7 +155,7 @@ const DiscordChannelSchema = new Schema<IDiscordChannel>({
 
   templateName: {
     type: String,
-    default: 'radarzap-padrao',
+    default: 'radarchat-padrao',
     select: false,
   },
 

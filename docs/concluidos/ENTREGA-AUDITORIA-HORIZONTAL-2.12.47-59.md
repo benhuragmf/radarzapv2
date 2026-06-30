@@ -6,7 +6,7 @@
 
 ## Escopo
 
-Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) — etapas 1–14 + backlog pós-auditoria 2.12.60–63.
+Implementação controlada pós [`RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) — etapas 1–14 + backlog pós-auditoria 2.12.60–63.
 
 **Não declarar:** produção / go-live (gate Fase 1 ainda aberto).
 
@@ -22,7 +22,7 @@ Implementação controlada pós [`RADARZAP-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABI
 | `main` HEAD | `db077e0` |
 | Deploy VPS @ `b4bfb24` | ✅ success (~3m31s) |
 | Deploy VPS @ `db077e0` | ✅ success (~56s, só testes — sem mudança app) |
-| CI @ `db077e0` | ✅ success — E2E 80/80 + test + audit ([run 28336722683](https://github.com/benhuragmf/radarzapv2/actions/runs/28336722683)) |
+| CI @ `db077e0` | ✅ success — E2E 80/80 + test + audit ([run 28336722683](https://github.com/benhuragmf/radarchatv2/actions/runs/28336722683)) |
 | `npm run pre-push:gate` | ✅ verde antes de `b4bfb24` |
 
 ## Versões e achados
@@ -89,5 +89,5 @@ npx playwright test e2e/cross-tenant-isolation.spec.ts --project=chromium
 
 - [`docs/concluidos/operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](./operacao/RUNBOOK-SPOF-MONGO-REDIS.md)
 - [`docs/CHANGELOG.md`](../CHANGELOG.md) — entradas 2.12.47–2.12.63
-- [`admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](./admin/RADARZAP-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) — checklist QA manual (último passo)
+- [`admin/RADARCHAT-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md`](./admin/RADARCHAT-QA-MANUAL-POS-AUDITORIA-2.12.60-63.md) — checklist QA manual (último passo)
 - [`docs/CONSENTIMENTO-LGPD.md`](../CONSENTIMENTO-LGPD.md) § Portal LGPD

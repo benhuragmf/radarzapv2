@@ -39,7 +39,7 @@ Implement or confirm:
 - template validation
 - queue enqueue without real send in QA
 - safe logs with token/phone/message redaction
-- compatibility aliases for old RadarZap fields only if low risk:
+- compatibility aliases for old Radar Chat fields only if low risk:
   phone, message, userId, source
 
 Tests:

@@ -1,4 +1,4 @@
-# RadarZap v2 — Resultado QA Fase 1
+# Radar Chat v2 — Resultado QA Fase 1
 
 > Copie este arquivo para `QA-FASE1-RESULTADO-YYYY-MM-DD.md` ao concluir o roteiro.  
 > Roteiro: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md)
@@ -104,7 +104,7 @@
 
 ## Resultado QA Manual TOP 20
 
-> Preencher após executar blocos A–J do [`top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).  
+> Preencher após executar blocos A–J do [`top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).  
 > Versão alvo: `2.12.6`+ · Responsável: Benhur · Data: _______________
 
 | Bloco | Status | Evidência | Observação |

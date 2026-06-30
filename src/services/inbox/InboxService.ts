@@ -213,6 +213,8 @@ import {
   contactIdentifierLookupVariants,
   pickPreferredOpenConversation,
 } from '@/services/inbox/inbox-conversation-lookup.util';
+import { WaAutomatedPeerGuardService } from '@/services/inbox/wa-automated-peer-guard.service';
+import { CSAT_MAX_INVALID_REMINDERS } from '@/utils/wa-automated-peer.util';
 
 export interface InboxInboundPayload {
   text?: string;
@@ -1669,6 +1671,9 @@ export class InboxService {
     if (consentSvc.shouldDeferToConsentFlow(dest, trimmed)) return false;
 
     if (trimmed && !media) {
+      if (this.isAutomatedPeerInboundSuppressed(clientId, dest.identifier, trimmed)) {
+        return true;
+      }
       const csatHandled = await this.tryHandleCsatReply(clientId, dest, trimmed);
       if (csatHandled) return true;
     }
@@ -2560,6 +2565,9 @@ export class InboxService {
     const location = normalized.location;
 
     if (inboundText && !media && !location) {
+      if (this.isAutomatedPeerInboundSuppressed(clientId, dest.identifier, inboundText)) {
+        return;
+      }
       const csatHandled = await this.tryHandleCsatReply(clientId, dest, inboundText);
       if (csatHandled) return;
     }
@@ -5878,6 +5886,7 @@ export class InboxService {
     );
 
     conv.csatPending = true;
+    conv.csatReminderCount = 0;
     conv.csatScore = undefined;
     conv.csatRatedAt = undefined;
     if (closedByUserId) {
@@ -5937,6 +5946,7 @@ export class InboxService {
     if (pendingConv) {
       if (score) {
         pendingConv.csatPending = false;
+        pendingConv.csatReminderCount = 0;
         pendingConv.csatScore = score;
         pendingConv.csatRatedAt = new Date();
         await pendingConv.save();
@@ -5966,6 +5976,21 @@ export class InboxService {
         });
         return true;
       }
+
+      const reminders = pendingConv.csatReminderCount ?? 0;
+      if (reminders >= CSAT_MAX_INVALID_REMINDERS) {
+        pendingConv.csatPending = false;
+        pendingConv.csatReminderCount = 0;
+        await pendingConv.save();
+        logger.warn('CSAT encerrado — limite de lembretes (anti-loop peer)', {
+          clientId,
+          conversationId: String(pendingConv._id),
+        });
+        return true;
+      }
+
+      pendingConv.csatReminderCount = reminders + 1;
+      await pendingConv.save();
 
       const prompt = settings.csatPrompt?.trim() || DEFAULT_CSAT_PROMPT;
       const outbound = isCsatIntent(text)
@@ -6860,11 +6885,26 @@ export class InboxService {
     }
   }
 
+  private isAutomatedPeerInboundSuppressed(
+    clientId: string,
+    contactIdentifier: string,
+    text: string,
+  ): boolean {
+    return (
+      WaAutomatedPeerGuardService.getInstance().evaluateInbound(
+        clientId,
+        contactIdentifier,
+        text,
+      ) != null
+    );
+  }
+
   private async sendToContact(
     clientId: string,
     identifier: string,
     text: string,
   ): Promise<{ success: boolean; messageId?: string }> {
+    WaAutomatedPeerGuardService.getInstance().recordOutbound(clientId, identifier, text);
     const wa = WhatsAppService.getInstance();
     return wa.sendManualMessage(clientId, identifier, text, undefined, {
       skipConsentCheck: true,

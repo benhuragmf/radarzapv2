@@ -35,8 +35,8 @@ describe('contact-csv-import', () => {
   });
 
   describe('detectCsvProfile', () => {
-    it('detecta radarzap', () => {
-      expect(detectCsvProfile(['nome', 'telefone', 'email'])).toBe('radarzap');
+    it('detecta radarchat', () => {
+      expect(detectCsvProfile(['nome', 'telefone', 'email'])).toBe('radarchat');
     });
     it('detecta google', () => {
       expect(
@@ -54,9 +54,9 @@ Maria Silva,+5511988776655,1992-03-20,VIP; Clientes
 João Santos,5511976904921,15/08/1990,
 `;
 
-    it('parse perfil radarzap com telefones E.164', () => {
+    it('parse perfil radarchat com telefones E.164', () => {
       const r = parseContactCsv(radarCsv);
-      expect(r.profile).toBe('radarzap');
+      expect(r.profile).toBe('radarchat');
       expect(r.rows).toHaveLength(2);
       expect(r.rows[0].telefone).toBe('+5511988776655');
       expect(r.rows[0].grupos).toEqual(['VIP', 'Clientes']);

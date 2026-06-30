@@ -18,7 +18,7 @@ import {
 import { inputCls, textareaCls } from '@/design-system'
 import { cn } from '@/lib/utils'
 import { notifySuccess } from '../../lib/notify'
-import type { LeadCaptureListItem, LeadCaptureStatus, LeadTemperature } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem, LeadCaptureStatus, LeadTemperature } from '@radarchat-types/lead-form'
 import {
   LEAD_ORIGIN_DISPLAY,
   LEAD_STATUS_DISPLAY,
@@ -30,7 +30,7 @@ import {
   leadInboxHref,
   priorityLabel,
 } from '../../lib/leadUi'
-import { LEAD_CAPTURE_STATUS_VARIANT, LEAD_TEMPERATURE_LABEL, LEAD_TEMPERATURE_VARIANT, LEAD_TEMPERATURES } from '@radarzap-types/lead-form'
+import { LEAD_CAPTURE_STATUS_VARIANT, LEAD_TEMPERATURE_LABEL, LEAD_TEMPERATURE_VARIANT, LEAD_TEMPERATURES } from '@radarchat-types/lead-form'
 import { LeadLinkContactModal } from './LeadLinkContactModal'
 import { LeadStatusPipeline } from './LeadStatusPipeline'
 import { LeadWhatsAppComposer } from './LeadWhatsAppComposer'

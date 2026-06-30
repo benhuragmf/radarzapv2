@@ -14,8 +14,8 @@ export function isValidAiUsageKind(value: unknown): value is AiUsageKind {
 /** Infere kind a partir do provider legado (registros pré-2.11.3). */
 export function inferAiUsageKind(provider: string, storedKind?: string | null): AiUsageKind {
   if (isValidAiUsageKind(storedKind)) return storedKind;
-  if (provider === 'radarzap-basic-triage') return 'basic_triage';
-  if (provider === 'radarzap' || provider === 'openai' || provider === 'gemini' || provider === 'company') {
+  if (provider === 'radarchat-basic-triage') return 'basic_triage';
+  if (provider === 'radarchat' || provider === 'openai' || provider === 'gemini' || provider === 'company') {
     return 'premium_assistant';
   }
   return 'unknown';
@@ -33,7 +33,7 @@ export function aiUsageKindLabel(kind: AiUsageKind): string {
 }
 
 export function aiUsageKindFromProviderLabel(providerLabel: string): AiUsageKind {
-  if (providerLabel === 'radarzap-basic-triage') return 'basic_triage';
+  if (providerLabel === 'radarchat-basic-triage') return 'basic_triage';
   return 'premium_assistant';
 }
 
@@ -41,7 +41,7 @@ export interface AiUsageKindTotals {
   calls: number;
   tokens: number;
   cost: number;
-  /** Créditos RadarZap (ponderados). */
+  /** Créditos Radar Chat (ponderados). */
   credits: number;
 }
 

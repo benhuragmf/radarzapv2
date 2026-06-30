@@ -9,7 +9,7 @@ export class GracefulShutdown {
   private shutdownTimeout = 30000; // 30 seconds
 
   constructor() {
-    if (process.env.npm_lifecycle_event === 'dev' || process.env.RADARZAP_DEV === '1') {
+    if (process.env.npm_lifecycle_event === 'dev' || process.env.RADARCHAT_DEV === '1') {
       this.shutdownTimeout = 12_000;
     }
     this.setupSignalHandlers();

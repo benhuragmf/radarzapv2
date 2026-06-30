@@ -145,7 +145,7 @@ export function buildersSnippet(publicKey: string, origin?: string): string {
 
 1) Formulário pronto Radar Chat (recomendado)
    Cole em widget HTML / embed:
-${embedInContainerSnippet(publicKey, 'radarzap-lead-form', origin)}
+${embedInContainerSnippet(publicKey, 'radarchat-lead-form', origin)}
 
 2) Formulário do construtor + API
    No evento "após envio" / webhook / JavaScript customizado, chame:
@@ -199,7 +199,7 @@ export function snippetForMethod(
   switch (method) {
     case 'embed':
       return sub === 'container'
-        ? embedInContainerSnippet(publicKey, 'radarzap-lead-form', origin)
+        ? embedInContainerSnippet(publicKey, 'radarchat-lead-form', origin)
         : embedScriptSnippet(publicKey, origin)
     case 'api':
       return sub === 'curl' ? curlSubmitSnippet(publicKey, origin) : fetchSubmitSnippet(publicKey, origin)

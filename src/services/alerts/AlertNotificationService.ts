@@ -31,7 +31,7 @@ export class AlertNotificationService {
   }
 
   async whatsAppDisconnected(clientId: string, reason?: string): Promise<void> {
-    const msg = `:warning: *RadarZap* — WhatsApp desconectado\n• Empresa: \`${clientId}\`${reason ? `\n• Motivo: ${reason}` : ''}`;
+    const msg = `:warning: *Radar Chat* — WhatsApp desconectado\n• Empresa: \`${clientId}\`${reason ? `\n• Motivo: ${reason}` : ''}`;
     await this.notifySlack(msg);
   }
 }

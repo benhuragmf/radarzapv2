@@ -4,7 +4,7 @@ import { Shield, UserX, Ban, Building2 } from 'lucide-react'
 import AdminOpsHubLink from '../admin/AdminOpsHubLink'
 import { useAdminOpsSummary } from '../admin/useAdminOpsSummary'
 import { adminDashboardTabUrl } from '../admin/adminOpsTabs'
-import { formatOpsNumber } from '@radarzap-types/admin-ops-summary.util'
+import { formatOpsNumber } from '@radarchat-types/admin-ops-summary.util'
 import { RadarPageShell, PageHeader, MetricCard } from '@/design-system'
 
 export default function AdminModeration() {
@@ -77,7 +77,7 @@ export default function AdminModeration() {
             </Link>
           </li>
           <li>
-            <Link to="/admin/dashboard?tab=security" className="text-[var(--rz-primary)] hover:underline">
+            <Link to="/admin/dashboard#security" className="text-[var(--rz-primary)] hover:underline">
               Eventos de segurança
             </Link>
           </li>

@@ -1,4 +1,4 @@
-import type { LeadStats } from '@radarzap-types/lead-form'
+import type { LeadStats } from '@radarchat-types/lead-form'
 import { operationalStatCards, type OperationalStatKey } from '../../lib/leadUi'
 
 export function LeadOperationalStats({

@@ -32,7 +32,7 @@ import type {
 } from '@/types/admin-ops-summary';
 import { buildAdminOpsAlerts } from './admin-ops-alerts.util';
 
-const CACHE_KEY = 'radarzap:admin:ops:summary:v1';
+const CACHE_KEY = 'radarchat:admin:ops:summary:v1';
 const CACHE_TTL_SECONDS = 30;
 const MONGO_DEGRADED_MS = 500;
 const REDIS_DEGRADED_MS = 300;

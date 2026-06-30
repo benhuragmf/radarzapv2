@@ -6,8 +6,8 @@ A série completa de auditoria TOP foi movida para:
 
 | Referência | Arquivo |
 |------------|---------|
-| Fonte oficial go-live | [`RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](../concluidos/top/RADARZAP-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) |
-| Índice / organização | [`RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](../concluidos/top/RADARZAP-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) |
+| Fonte oficial go-live | [`RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](../concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) |
+| Índice / organização | [`RADARCHAT-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md`](../concluidos/top/RADARCHAT-TOP-21-DOCUMENTACAO-FINAL-UNICA-ORGANIZACAO.md) |
 | Catálogo | [`concluidos/README.md`](../concluidos/README.md) § TOP 01–21 |
 
 Docs operacionais ativos permanecem na raiz `docs/` (`INBOX-ATENDIMENTO.md`, `WEBCHAT.md`, etc.).

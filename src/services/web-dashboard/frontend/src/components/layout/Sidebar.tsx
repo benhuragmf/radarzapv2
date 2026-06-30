@@ -610,7 +610,7 @@ export default function Sidebar({
 
       {!isCollapsed && (
         <div className="px-5 py-4 border-t rz-sidebar-border text-xs rz-sidebar-muted">
-          (v{import.meta.env.VITE_RADARZAP_VERSION}) · {user.plan}
+          (v{import.meta.env.VITE_RADARCHAT_VERSION}) · {user.plan}
         </div>
       )}
     </aside>

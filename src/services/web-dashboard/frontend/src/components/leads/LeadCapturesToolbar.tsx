@@ -2,8 +2,8 @@ import { Filter, LayoutGrid, List, Plus, RotateCcw, Search, SlidersHorizontal } 
 import { Button } from '../ui/Button'
 import { DetailsDrawer } from '@/design-system/components/DetailsDrawer'
 import { inputCls, searchFieldIconCls } from '@/design-system'
-import type { LeadCaptureOrigin, LeadCaptureStatus, LeadFormListItem } from '@radarzap-types/lead-form'
-import { LEAD_CAPTURE_ORIGINS, LEAD_CAPTURE_STATUS_LABEL } from '@radarzap-types/lead-form'
+import type { LeadCaptureOrigin, LeadCaptureStatus, LeadFormListItem } from '@radarchat-types/lead-form'
+import { LEAD_CAPTURE_ORIGINS, LEAD_CAPTURE_STATUS_LABEL } from '@radarchat-types/lead-form'
 import { LEAD_ORIGIN_DISPLAY, LEAD_STATUS_DISPLAY } from '../../lib/leadUi'
 import { CONTACT_KIND_LABELS, type ContactKind } from '../../lib/contactClassificationUi'
 

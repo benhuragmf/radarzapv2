@@ -3,7 +3,7 @@
 **Versão produto:** `2.12.38` · **Data doc:** 2026-06-27  
 **Escopo:** Etapas 1–3 — diagnóstico, backend agregador seguro, frontend dashboard operacional completo em `/admin/dashboard`.
 
-Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). Complementa [`RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) (doc de módulo arquivado).
+Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). Complementa [`RADARCHAT-ADMIN-DASHBOARD-OPS.md`](./admin/RADARCHAT-ADMIN-DASHBOARD-OPS.md) (doc de módulo arquivado).
 
 **Status release:** `PRONTO PARA QA MANUAL` — produção estável **não** declarada · deploy **não** executado · Stripe live **não** ativar.
 
@@ -35,8 +35,8 @@ Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). C
 
 | Etapa | Doc |
 |-------|-----|
-| 1 — Diagnóstico | [`RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) |
-| 2–3 — Implementação | [`RADARZAP-ADMIN-DASHBOARD-OPS.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS.md) |
+| 1 — Diagnóstico | [`RADARCHAT-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARCHAT-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) |
+| 2–3 — Implementação | [`RADARCHAT-ADMIN-DASHBOARD-OPS.md`](./admin/RADARCHAT-ADMIN-DASHBOARD-OPS.md) |
 | Changelog | [`CHANGELOG.md`](../CHANGELOG.md) § 2.12.37–2.12.38 |
 
 ---
@@ -55,7 +55,7 @@ Documento **técnico e operacional** para handoff (GPT Code / próxima etapa). C
 
 ### Saída
 
-Relatório completo em `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` com proposta de Etapas 2–6.
+Relatório completo em `docs/concluidos/admin/RADARCHAT-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` com proposta de Etapas 2–6.
 
 ---
 
@@ -75,7 +75,7 @@ GET /api/admin/ops/summary?refresh=1
 | Alertas | `src/services/web-dashboard/admin-ops-alerts.util.ts` |
 | Rota | `DashboardService.ts` |
 | Tipo | `src/types/admin-ops-summary.ts` |
-| Cache | Redis TTL 30s (`radarzap:admin:ops:summary:v1`); `?refresh=1` ignora cache |
+| Cache | Redis TTL 30s (`radarchat:admin:ops:summary:v1`); `?refresh=1` ignora cache |
 
 ### Blocos retornados
 
@@ -155,7 +155,7 @@ refetchInterval: 30_000
 
 Arquivo: `src/types/admin-ops-summary.ts`
 
-Frontend importa via alias `@radarzap-types/admin-ops-summary`.
+Frontend importa via alias `@radarchat-types/admin-ops-summary`.
 
 Campos principais:
 
@@ -278,8 +278,8 @@ npx playwright test e2e/admin-dashboard.spec.ts
 
 | Arquivo | Papel |
 |---------|-------|
-| `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` | Etapa 1 |
-| `docs/concluidos/admin/RADARZAP-ADMIN-DASHBOARD-OPS.md` | Módulo arquivado |
+| `docs/concluidos/admin/RADARCHAT-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md` | Etapa 1 |
+| `docs/concluidos/admin/RADARCHAT-ADMIN-DASHBOARD-OPS.md` | Módulo arquivado |
 | `docs/concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md` | Este doc (handoff) |
 | `docs/CHANGELOG.md` | 2.12.37–2.12.38 |
 | `docs/SISTEMA-REGISTRO.md` | Registro versão |
@@ -309,7 +309,7 @@ npx playwright test e2e/admin-dashboard.spec.ts
 - Ações staff (estender trial, etc.) com audit  
 - Manter RBAC `dashboard:global` ou caps específicas por ação
 
-Referência diagnóstico: [`RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARZAP-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) § Etapa 4.
+Referência diagnóstico: [`RADARCHAT-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md`](./admin/RADARCHAT-ADMIN-DASHBOARD-OPS-DIAGNOSTICO.md) § Etapa 4.
 
 ---
 

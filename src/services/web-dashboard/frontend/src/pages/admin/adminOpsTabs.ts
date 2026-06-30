@@ -25,5 +25,5 @@ export function parseAdminOpsTab(value: string | null | undefined): AdminOpsTab 
 }
 
 export function adminDashboardTabUrl(tab: AdminOpsTab): string {
-  return `/admin/dashboard?tab=${tab}`
+  return tab === 'overview' ? '/admin/dashboard' : `/admin/dashboard#${tab}`
 }

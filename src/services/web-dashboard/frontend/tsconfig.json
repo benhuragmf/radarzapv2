@@ -17,7 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@radarzap-types/*": ["../../../types/*"]
+      "@radarchat-types/*": ["../../../types/*"]
     }
   },
   "include": ["src"]

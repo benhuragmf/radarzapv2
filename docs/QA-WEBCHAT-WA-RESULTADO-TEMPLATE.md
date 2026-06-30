@@ -1,4 +1,4 @@
-﻿# RadarZap v2 — Resultado QA WebChat / WhatsApp (2.11.28)
+﻿# Radar Chat v2 — Resultado QA WebChat / WhatsApp (2.11.28)
 
 > Copie para `QA-WEBCHAT-WA-RESULTADO-YYYY-MM-DD.md` ao concluir.  
 > Roteiro: [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) · Spec: [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md)

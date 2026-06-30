@@ -7,7 +7,7 @@ import AdminOpsInfraPanel from './AdminOpsInfraPanel'
 import { useAdminOpsSummary } from './useAdminOpsSummary'
 import { Card } from '../../components/ui/Card'
 import { RadarPageShell, PageHeader, LoadingState, MetricCard, SectionCard } from '@/design-system'
-import { formatOpsNumber } from '@radarzap-types/admin-ops-summary.util'
+import { formatOpsNumber } from '@radarchat-types/admin-ops-summary.util'
 
 type LegacyMonitoring = {
   health: { mongodb: boolean; redis: boolean }

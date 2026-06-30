@@ -6,7 +6,7 @@ import { Card } from '../../components/ui/Card'
 import AdminOpsHubLink from './AdminOpsHubLink'
 import { useAdminOpsSummary } from './useAdminOpsSummary'
 import { adminDashboardTabUrl } from './adminOpsTabs'
-import { formatOpsNumber } from '@radarzap-types/admin-ops-summary.util'
+import { formatOpsNumber } from '@radarchat-types/admin-ops-summary.util'
 import {
   RadarPageShell,
   PageHeader,

@@ -5,14 +5,14 @@ Use como **primeira mensagem** em sessão Codex no branch `layout-v3`.
 ---
 
 ```
-Contexto RadarZap v2 — layout-v3 + produção Coolify (2026-06-29)
+Contexto Radar Chat v2 — layout-v3 + produção Coolify (2026-06-29)
 
 PRODUÇÃO (não mexer sem coordenar):
 - URL: https://app.radarchat.com.br (site: https://radarchat.com.br)
 - App roda no stack Coolify (NÃO no compose legado GHCR)
 - Container: h143brhw5f8tgfj9trj0f3bd-app-1
 - Compose no host: /data/coolify/services/h143brhw5f8tgfj9trj0f3bd/
-- Volumes externos: radarzap_radarzap-sessions, radarzap_mongodb-data, etc.
+- Volumes externos: radarchat_radarchat-sessions, radarchat_mongodb-data, etc.
 - Health OK: GET /api/services/health → 200
 
 BRANCH:
@@ -21,7 +21,7 @@ BRANCH:
 - main recebe merge de layout-v3; VPS puxa layout-v3 nos workflows Coolify
 
 SEU ESCOPO (Codex):
-- frontend/**, design-system, navConfig, docs RADARZAP-LAYOUT-V3-*
+- frontend/**, design-system, navConfig, docs RADARCHAT-LAYOUT-V3-*
 - NÃO editar: scripts/vps-*, docker-compose.coolify*, .github/workflows/* Coolify,
   docs/COOLIFY-DEPLOY.md, PREPARACAO-PRODUCAO* (infra Auto)
 
@@ -42,5 +42,5 @@ PENDÊNCIAS INFRA (outro agente / humano):
 - deploy.yml: só Coolify (legado deploy-remote desativado no VPS .180)
 - QA Fase 1 manual continua em paralelo
 
-Continue o Layout v3 conforme RADARZAP-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md
+Continue o Layout v3 conforme RADARCHAT-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md
 ```

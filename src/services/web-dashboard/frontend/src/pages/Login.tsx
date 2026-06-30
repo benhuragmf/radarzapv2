@@ -7,6 +7,12 @@ const ERROR_MESSAGES: Record<string, string> = {
     'Conta não encontrada. Se você recebeu convite da equipe, entre com Google usando o mesmo e-mail.',
   token_failed: 'Falha na autenticação. Tente novamente.',
   oauth_error: 'Erro durante o login. Tente novamente.',
+  oauth_state: 'Sessão de login expirou. Clique em Continuar com Discord novamente.',
+  oauth_expired: 'Código de login expirou. Clique em Continuar com Discord novamente.',
+  discord_not_configured:
+    'Login Discord não configurado no servidor (DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET).',
+  discord_redirect_mismatch:
+    'Redirect URI incorreto no Discord Developer Portal. Cadastre a URL do painel + /auth/discord/callback (ex.: https://app.radarchat.com.br/auth/discord/callback ou http://localhost:5174/auth/discord/callback).',
   google_not_configured: 'Login Google não configurado no servidor (GOOGLE_CLIENT_ID).',
   google_profile: 'Não foi possível obter e-mail do Google.',
   google_redirect_mismatch:

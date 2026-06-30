@@ -1,10 +1,10 @@
-# Ticket — chamado assíncrono (RadarZap)
+# Ticket — chamado assíncrono (Radar Chat)
 
 Documento de referência do produto: o que é um Ticket, como difere do Inbox, quem cria, janelas de tempo e regras de roteamento no WhatsApp.
 
 **Última revisão:** 2026-06-24 (TOP 08 — `2.11.94`)
 **Implementação:** `src/services/inbox/InboxService.ts`, `src/types/inbox-ticket.ts`, `src/types/ticket-status.util.ts`, `src/types/ticket-sla-priority.util.ts`, `src/models/InboxTicket.ts`, `src/services/inbox/inbound-routing.ts`, `src/services/inbox/ticket-public-access.service.ts`
-**Relacionado:** [INBOX-ATENDIMENTO.md](./INBOX-ATENDIMENTO.md) (atendimento ao vivo), [WEBCHAT.md](./WEBCHAT.md) (consulta token widget), [top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md](./concluidos/top/RADARZAP-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md)
+**Relacionado:** [INBOX-ATENDIMENTO.md](./INBOX-ATENDIMENTO.md) (atendimento ao vivo), [WEBCHAT.md](./WEBCHAT.md) (consulta token widget), [top/RADARCHAT-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md](./concluidos/top/RADARCHAT-TOP-08-TICKETS-CHAMADOS-TK-RASTREABILIDADE.md)
 
 ---
 
@@ -54,7 +54,7 @@ Ver também: [`WEBCHAT.md`](./WEBCHAT.md), [`PLANO-CONSULTA-ATUALIZACAO-APLICACA
 
 ## Conceito
 
-O **Ticket** no RadarZap é um **chamado separado** do atendimento ao vivo.
+O **Ticket** no Radar Chat é um **chamado separado** do atendimento ao vivo.
 
 Use-o para problemas que **não** se resolvem na hora:
 

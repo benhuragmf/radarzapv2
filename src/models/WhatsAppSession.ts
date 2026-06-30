@@ -136,7 +136,7 @@ function sessionCryptoKey(): Buffer {
     logger.warn('Using development-only WhatsApp session encryption key');
   }
   const keyMaterial = ENCRYPTION_KEY || 'development-only-session-key-change-before-production';
-  return crypto.scryptSync(keyMaterial, 'radarzap-wa-session-v1', 32);
+  return crypto.scryptSync(keyMaterial, 'radarchat-wa-session-v1', 32);
 }
 
 /**

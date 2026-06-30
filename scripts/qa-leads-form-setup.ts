@@ -51,7 +51,7 @@ async function ensureLocalhostAllowed(form: typeof LeadForm.prototype): Promise<
 }
 
 async function main() {
-  console.log('=== RadarZap — QA Leads (formulário embed) ===\n');
+  console.log('=== Radar Chat — QA Leads (formulário embed) ===\n');
 
   await mongoose.connect(MONGODB_URL);
 

@@ -1,5 +1,5 @@
 /*
- * RadarZap / RadarGamer
+ * Radar Chat / RadarGamer
  * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
  * Todos os direitos reservados.
  * Uso, cópia, distribuição ou modificação sem autorização é proibido.
@@ -423,7 +423,7 @@ export class DiscordBotService {
                   )
               )
               .addStringOption(opt =>
-                opt.setName('template').setDescription('Template name (default: radarzap-padrao)')
+                opt.setName('template').setDescription('Template name (default: radarchat-padrao)')
               )
               .addStringOption(opt =>
                 opt.setName('keywords').setDescription('Required keywords, comma-separated')

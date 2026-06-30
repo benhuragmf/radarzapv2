@@ -182,7 +182,7 @@ export function buildPremiumAiSafetySuffix(channel: PremiumAiChannel): string {
   const limit = resolvePremiumAiResponseLimit(channel);
   return [
     '',
-    '--- Regras Premium (RadarZap) ---',
+    '--- Regras Premium (Radar Chat) ---',
     '- Responda em português, de forma curta e útil.',
     `- Limite aproximado: ${limit} caracteres.`,
     '- Use apenas base/FAQ/contexto fornecido; não invente preço, prazo, produto ou política.',

@@ -2,7 +2,7 @@ export type {
   AttendanceMode,
   AiCredentialSource,
   AttendanceUiSelection,
-} from '@radarzap-types/attendance-mode';
+} from '@radarchat-types/attendance-mode';
 
 export {
   attendanceModeLabel,
@@ -16,9 +16,9 @@ export {
   isLegacyGenerativeAiActive,
   legacySettingsFromAttendanceSelection,
   resolveAttendanceMode,
-} from '@radarzap-types/attendance-mode';
+} from '@radarchat-types/attendance-mode';
 
-import type { AttendanceMode } from '@radarzap-types/attendance-mode';
+import type { AttendanceMode } from '@radarchat-types/attendance-mode';
 
 export interface AttendanceModeCardDef {
   id: AttendanceMode;
@@ -86,14 +86,14 @@ export const ATTENDANCE_MODE_CARDS: AttendanceModeCardDef[] = [
 ];
 
 export interface CredentialSourceCardDef {
-  id: 'radarzap' | 'company' | 'none';
+  id: 'radarchat' | 'company' | 'none';
   title: string;
   description: string;
 }
 
 export const CREDENTIAL_SOURCE_CARDS: CredentialSourceCardDef[] = [
   {
-    id: 'radarzap',
+    id: 'radarchat',
     title: 'Radar Chat',
     description:
       'Usa a chave interna da plataforma. Limites em chamadas LLM; créditos gastos refletem o custo real de cada cliente.',

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Instala Coolify v4 na VPS (coexiste com RadarZap legado até migração do compose).
+# Instala Coolify v4 na VPS (coexiste com Radar Chat legado até migração do compose).
 # Uso: sudo bash scripts/vps-install-coolify.sh
 # GitHub Actions: workflow install-coolify.yml
 set -euo pipefail
 
 PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 
 log() { echo "[coolify-install] $*"; }
 
@@ -54,7 +54,7 @@ else
   log "Caddy não estava ativo."
 fi
 
-log "RadarZap legado (GHCR compose) permanece em execução até migração manual."
+log "Radar Chat legado (GHCR compose) permanece em execução até migração manual."
 if [[ -d "$DEPLOY_PATH" ]]; then
   (cd "$DEPLOY_PATH" && docker compose -f docker-compose.deploy.yml ps 2>/dev/null) || true
 fi

@@ -1,4 +1,4 @@
-# Cadastra RadarZap (.180) e RadarGamer (.179) no Coolify com validação SSH.
+# Cadastra Radar Chat (.180) e RadarGamer (.179) no Coolify com validação SSH.
 name: Coolify servers setup
 
 on:
@@ -14,7 +14,7 @@ jobs:
     if: github.event.inputs.confirm == 'SERVERS'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Coolify servers via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -22,19 +22,19 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           COOLIFY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           RADARGAMER_SSH_PRIVATE_KEY: ${{ secrets.RADARGAMER_SSH_KEY }}
-          RADARZAP_SERVER_IP: '151.247.210.180'
+          RADARCHAT_SERVER_IP: '151.247.210.180'
           RADARGAMER_SERVER_IP: '151.247.210.179'
           COOLIFY_SSH_USER: ${{ secrets.DEPLOY_USER }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_PATH,COOLIFY_SSH_PRIVATE_KEY,RADARGAMER_SSH_PRIVATE_KEY,RADARZAP_SERVER_IP,RADARGAMER_SERVER_IP,COOLIFY_SSH_USER
+          envs: DEPLOY_PATH,COOLIFY_SSH_PRIVATE_KEY,RADARGAMER_SSH_PRIVATE_KEY,RADARCHAT_SERVER_IP,RADARGAMER_SERVER_IP,COOLIFY_SSH_USER
           script_stop: true
           command_timeout: 45m
           script: |
             set -euo pipefail
-            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
             DEPLOY_BRANCH="${DEPLOY_BRANCH:-layout-v3}"
             for attempt in 1 2 3 4 5; do
               if git fetch origin "+refs/heads/${DEPLOY_BRANCH}:refs/remotes/origin/${DEPLOY_BRANCH}" -q 2>/dev/null; then

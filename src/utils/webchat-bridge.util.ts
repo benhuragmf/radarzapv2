@@ -81,7 +81,7 @@ export function isBridgeLoopRisk(text: string): boolean {
   const t = text.trim();
   if (!t) return true;
   if (isBridgeForwardedVisitorFormat(t)) return true;
-  if (/^Novo chamado no RadarZap/i.test(t)) return true;
+  if (/^Novo chamado no Radar Chat/i.test(t)) return true;
   if (/^Para assumir atendimento:/i.test(t)) return true;
   return false;
 }

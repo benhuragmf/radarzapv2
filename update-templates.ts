@@ -1,5 +1,5 @@
 /**
- * Atualiza templates legados radarzap-* no Mongo (conteúdo do v1).
+ * Atualiza templates legados radarchat-* no Mongo (conteúdo do v1).
  * Uso: npm run update:templates
  */
 import dotenv from 'dotenv';
@@ -15,7 +15,7 @@ const MONGODB_URL =
 /** Conteúdo alinhado ao v1 — variáveis preenchidas por buildDiscordWhatsAppVariables */
 const LEGACY_UPDATES = [
   {
-    name: 'radarzap-live',
+    name: 'radarchat-live',
     content: `🔴 *{streamer} está ao vivo!*
 
 {descricao}
@@ -25,7 +25,7 @@ const LEGACY_UPDATES = [
 _{rodape}_`,
   },
   {
-    name: 'radarzap-video',
+    name: 'radarchat-video',
     content: `▶️ *Novo vídeo* — {plataforma}
 
 *{titulo}*
@@ -37,7 +37,7 @@ _{rodape}_`,
 _{rodape}_`,
   },
   {
-    name: 'radarzap-jogo',
+    name: 'radarchat-jogo',
     content: `🎮 *{titulo}*
 
 {descricao}
@@ -47,7 +47,7 @@ _{rodape}_`,
 _{rodape}_`,
   },
   {
-    name: 'radarzap-com-embed',
+    name: 'radarchat-com-embed',
     content: `📰 *{embed_titulo}*
 
 {descricao}

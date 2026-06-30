@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import type { LeadCaptureListItem, LeadCaptureStatus } from '@radarzap-types/lead-form'
+import type { LeadCaptureListItem, LeadCaptureStatus } from '@radarchat-types/lead-form'
 import {
   LEAD_KANBAN_COLUMNS,
   LEAD_ORIGIN_DISPLAY,
@@ -25,7 +25,7 @@ import {
   leadOriginBadgeVariant,
   priorityLabel,
 } from '../../lib/leadUi'
-import { LEAD_TEMPERATURE_VARIANT } from '@radarzap-types/lead-form'
+import { LEAD_TEMPERATURE_VARIANT } from '@radarchat-types/lead-form'
 import { cn } from '@/lib/utils'
 
 type Props = {

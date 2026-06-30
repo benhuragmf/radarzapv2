@@ -107,11 +107,11 @@ export function extractStreamSlug(extracted: ExtractedMessage): string {
   return resolveStreamerIdentity(extracted, link);
 }
 
-/** Remetente no rodapé: tenant RadarZap (org/conta do painel), definido na fila. */
+/** Remetente no rodapé: tenant Radar Chat (org/conta do painel), definido na fila. */
 export function resolveSenderLabel(extracted: ExtractedMessage): string {
-  const label = extracted.radarzapSenderLabel?.trim();
+  const label = extracted.radarchatSenderLabel?.trim();
   if (label) return label.replace(/\s+/g, ' ');
-  return 'radarzap';
+  return 'radarchat';
 }
 
 /** @usuario que postou no canal Discord (ex.: @'Skulks). */
@@ -251,8 +251,8 @@ export function buildContentFingerprint(
 }
 
 /**
- * Rodapé: {empresa/conta painel} via radarzap • @{quem postou} > #canal • servidor • data hora
- * Ex.: SoContabilida via radarzap • @'Skulks > #live-on • SK2 Staff • 04/06/2026 12:12
+ * Rodapé: {empresa/conta painel} via radarchat • @{quem postou} > #canal • servidor • data hora
+ * Ex.: SoContabilida via radarchat • @'Skulks > #live-on • SK2 Staff • 04/06/2026 12:12
  */
 export function buildRodape(
   extracted: ExtractedMessage,
@@ -260,11 +260,11 @@ export function buildRodape(
   hora: string,
   senderOverride?: string
 ): string {
-  const tenant = (senderOverride || resolveSenderLabel(extracted)).trim() || 'radarzap';
+  const tenant = (senderOverride || resolveSenderLabel(extracted)).trim() || 'radarchat';
   const rota = formatCanalRota(extracted);
   const servidor = extracted.guildName?.trim() || 'Discord';
 
-  return `${tenant} via radarzap • ${rota} • ${servidor} • ${data} ${hora}`;
+  return `${tenant} via radarchat • ${rota} • ${servidor} • ${data} ${hora}`;
 }
 
 export function collectPrimaryLink(extracted: ExtractedMessage): string {
@@ -356,7 +356,7 @@ export function buildFinalWhatsAppBody(
 ): string {
   const { variables } = buildDiscordWhatsAppVariables(extracted);
   const fromCatalog =
-    resolvedTemplate.startsWith('dw-') || resolvedTemplate.startsWith('radarzap-')
+    resolvedTemplate.startsWith('dw-') || resolvedTemplate.startsWith('radarchat-')
       ? renderCatalogTemplate(resolvedTemplate, variables as Record<string, string>)
       : null;
 
@@ -385,7 +385,7 @@ export function splitImageCaption(fullText: string): { caption: string; followUp
     const line = lines[lines.length - 1]?.trim() ?? '';
     if (
       /^🔗\s*https?:\/\//i.test(line) ||
-      /via radarzap/i.test(line) ||
+      /via radarchat/i.test(line) ||
       /^_.*_$/.test(line)
     ) {
       tail.unshift(lines.pop()!);

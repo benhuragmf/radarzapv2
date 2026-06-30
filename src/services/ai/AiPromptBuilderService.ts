@@ -212,7 +212,7 @@ export class AiPromptBuilderService {
       { key: 'final', title: 'REGRA FINAL', content: finalRules },
     ]);
 
-    return `Blueprint RadarZap v${blueprint.version} — empresa ${companyName} (system prompt Gemini/OpenAI).
+    return `Blueprint Radar Chat v${blueprint.version} — empresa ${companyName} (system prompt Gemini/OpenAI).
 
 ${workspaceBootstrap}
 ${ticketBlock ? `\n${ticketBlock}\n` : ''}

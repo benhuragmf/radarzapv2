@@ -3,14 +3,14 @@
 # Uso: sudo -E bash scripts/vps-install-host-metrics-cron.sh
 set -euo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzapv2}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchatv2}"
 DEPLOY_PATH="${DEPLOY_PATH//$'\r'/}"
 PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID//$'\r'/}"
 COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
 COOLIFY_URL="${COOLIFY_URL:-http://127.0.0.1:8000}"
-CRON_FILE="/etc/cron.d/radarzap-host-metrics"
+CRON_FILE="/etc/cron.d/radarchat-host-metrics"
 ENV_FILE="${DEPLOY_PATH}/.env"
 SERVICE_ENV="${COOLIFY_SERVICE_DIR}/.env"
 APP_COOLIFY_URL="${APP_COOLIFY_URL:-http://172.17.0.1:8000}"
@@ -76,10 +76,10 @@ $uid = (int) \DB::table("users")->where("id", ">", 0)->whereNotNull("email")->or
 $tid = (int) \DB::table("teams")->where("id", ">", 0)->orderBy("id")->value("id");
 $user = \App\Models\User::find($uid);
 if (!$user || $uid < 1 || $tid < 1) { echo "ERROR"; exit(1); }
-$user->tokens()->where("name", "radarzap-host-metrics")->delete();
+$user->tokens()->where("name", "radarchat-host-metrics")->delete();
 $plain = \Illuminate\Support\Str::random(64);
 $pat = $user->tokens()->create([
-  "name" => "radarzap-host-metrics",
+  "name" => "radarchat-host-metrics",
   "token" => hash("sha256", $plain),
   "abilities" => ["*"],
   "team_id" => $tid,
@@ -170,10 +170,10 @@ install_cron() {
   chmod +x "$script"
 
   cat >"$CRON_FILE" <<EOF
-# RadarZap — métricas VPS → Admin Ops (a cada 5 min)
+# Radar Chat — métricas VPS → Admin Ops (a cada 5 min)
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-*/5 * * * * root DEPLOY_PATH=${DEPLOY_PATH} PUBLIC_HOST=${PUBLIC_HOST} COOLIFY_SERVICE_UUID=${COOLIFY_SERVICE_UUID} ${script} >> /var/log/radarzap-host-metrics.log 2>&1
+*/5 * * * * root DEPLOY_PATH=${DEPLOY_PATH} PUBLIC_HOST=${PUBLIC_HOST} COOLIFY_SERVICE_UUID=${COOLIFY_SERVICE_UUID} ${script} >> /var/log/radarchat-host-metrics.log 2>&1
 EOF
   chmod 644 "$CRON_FILE"
   log "Cron instalado: ${CRON_FILE}"

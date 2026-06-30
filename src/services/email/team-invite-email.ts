@@ -33,12 +33,12 @@ export function buildTeamInviteEmail(input: TeamInviteEmailInput): {
   html: string;
 } {
   const { organizationName, inviteeEmail, roleLabel, inviterName, loginUrl } = input;
-  const subject = `Convite para ${organizationName} — RadarZap`;
+  const subject = `Convite para ${organizationName} — Radar Chat`;
 
   const text = [
     `Olá,`,
     ``,
-    `${inviterName} convidou você (${inviteeEmail}) para a equipe *${organizationName}* no RadarZap.`,
+    `${inviterName} convidou você (${inviteeEmail}) para a equipe *${organizationName}* no Radar Chat.`,
     `Papel: ${roleLabel}.`,
     ``,
     `Para aceitar, entre com a conta Google deste e-mail:`,
@@ -46,7 +46,7 @@ export function buildTeamInviteEmail(input: TeamInviteEmailInput): {
     ``,
     `Se você não esperava este convite, ignore este e-mail.`,
     ``,
-    `— RadarZap`,
+    `— Radar Chat`,
   ].join('\n');
 
   const html = `<!DOCTYPE html>
@@ -54,7 +54,7 @@ export function buildTeamInviteEmail(input: TeamInviteEmailInput): {
 <head><meta charset="utf-8"><title>${subject}</title></head>
 <body style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;color:#111;max-width:520px;margin:0 auto;padding:24px;">
   <p>Olá,</p>
-  <p><strong>${escapeHtml(inviterName)}</strong> convidou você (<strong>${escapeHtml(inviteeEmail)}</strong>) para a equipe <strong>${escapeHtml(organizationName)}</strong> no RadarZap.</p>
+  <p><strong>${escapeHtml(inviterName)}</strong> convidou você (<strong>${escapeHtml(inviteeEmail)}</strong>) para a equipe <strong>${escapeHtml(organizationName)}</strong> no Radar Chat.</p>
   <p>Papel: <strong>${escapeHtml(roleLabel)}</strong></p>
   <p style="margin:28px 0;">
     <a href="${escapeHtml(loginUrl)}" style="background:#16a34a;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:600;">

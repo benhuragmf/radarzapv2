@@ -37,6 +37,8 @@ export interface IInboxConversation extends Document {
   priorityPullNotifiedAt?: Date;
   /** Aguardando nota CSAT 1–5 após encerramento. */
   csatPending?: boolean;
+  /** Lembretes CSAT enviados após resposta inválida (anti-loop bot). */
+  csatReminderCount?: number;
   csatScore?: number;
   csatRatedAt?: Date;
   csatAssignedUserId?: mongoose.Types.ObjectId;
@@ -110,6 +112,7 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     queueSlaNotifiedAt: Date,
     priorityPullNotifiedAt: Date,
     csatPending: { type: Boolean, default: false, index: true },
+    csatReminderCount: { type: Number, min: 0, default: 0 },
     csatScore: { type: Number, min: 1, max: 5 },
     csatRatedAt: Date,
     csatAssignedUserId: { type: Schema.Types.ObjectId, ref: 'User' },

@@ -348,7 +348,7 @@ export default function Plans({ user, admin }: Props) {
             <p>
               Plano da <strong className="text-[var(--rz-text-secondary)]">empresa</strong> (não do usuário).
               Preferência: aba{' '}
-              <Link to="/admin/dashboard?tab=tenants" className="text-brand-400 hover:underline">
+              <Link to="/admin/dashboard#tenants" className="text-brand-400 hover:underline">
                 Empresas
               </Link>{' '}
               no Dashboard global (trial + audit completo).

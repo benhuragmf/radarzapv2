@@ -53,7 +53,7 @@ describe('stream-template', () => {
     ).toBe(true);
     expect(
       isWeakStreamOutbound(
-        '🔴 *felps está ao vivo!*\n\n🔗 https://www.twitch.tv/felps\n\n_felps via radarzap_',
+        '🔴 *felps está ao vivo!*\n\n🔗 https://www.twitch.tv/felps\n\n_felps via radarchat_',
         'https://www.twitch.tv/felps'
       )
     ).toBe(false);

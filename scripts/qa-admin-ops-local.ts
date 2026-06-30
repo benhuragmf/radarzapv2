@@ -44,7 +44,7 @@ function assertNoSecrets(label: string, json: string): void {
 
 async function main(): Promise<void> {
   const started = new Date().toISOString();
-  console.log('=== RadarZap — QA Admin Ops Local (Etapa 7) ===\n');
+  console.log('=== Radar Chat — QA Admin Ops Local (Etapa 7) ===\n');
 
   const db = DatabaseManager.getInstance();
   await db.connect();

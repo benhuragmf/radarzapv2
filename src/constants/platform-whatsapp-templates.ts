@@ -24,7 +24,7 @@ export interface PlatformWhatsAppTemplateDef {
 export const PLATFORM_WA_VARIABLE_DOCS: Record<string, string> = {
   nome: 'Nome completo do contato ou destinatário',
   primeiro_nome: 'Primeiro nome do contato',
-  empresa: 'Nome da empresa / organização no RadarZap',
+  empresa: 'Nome da empresa / organização no Radar Chat',
   aniversario: 'Data de aniversário (ex.: 15/03)',
   idade: 'Idade em anos (quando disponível)',
   mensagem: 'Corpo principal da mensagem (ou texto extra no modelo)',

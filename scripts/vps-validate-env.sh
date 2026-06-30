@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Mostra erros de validateConfig no container (debug deploy).
 set -euo pipefail
-IMAGE="${1:-radarzap:production}"
+IMAGE="${1:-radarchat:production}"
 ENV_FILE="${2:-.env}"
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 [[ "${USE_SUDO_DOCKER:-}" == "1" ]] && DOCKER_BIN="sudo docker"

@@ -1,4 +1,4 @@
-# Política de segurança — RadarZap
+# Política de segurança — Radar Chat
 
 ## Reportar vulnerabilidades
 

@@ -44,7 +44,7 @@ export interface PipelineLogMeta {
   streamLink?: string;
   linkKind?: string;
   linkFinal?: string;
-  /** Conta/empresa RadarZap (painel) */
+  /** Conta/empresa Radar Chat (painel) */
   tenantSender?: string;
   organizationName?: string;
   /** Quem postou no canal Discord */

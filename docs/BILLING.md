@@ -1,10 +1,10 @@
-﻿# Billing Stripe — RadarZap v2
+﻿# Billing Stripe — Radar Chat v2
 
 Assinaturas mensais por **organização** (empresa), padrão inspirado no radargamev4 (fetch + HMAC webhook, sem SDK Stripe).
 
 ## Planos
 
-Catálogo canônico em `config/plans.json` (validado em `plan-config.ts`). Matriz comercial completa: [`docs/concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./concluidos/top/RADARZAP-TOP-03-PLANOS-MENSALIDADES-LIMITES.md).
+Catálogo canônico em `config/plans.json` (validado em `plan-config.ts`). Matriz comercial completa: [`docs/concluidos/top/RADARCHAT-TOP-03-PLANOS-MENSALIDADES-LIMITES.md`](./concluidos/top/RADARCHAT-TOP-03-PLANOS-MENSALIDADES-LIMITES.md).
 
 | ID | Nome | Preço | Comprável |
 |----|------|-------|-----------|
@@ -41,7 +41,7 @@ ALLOW_DEV_BILLING=true   # dev: POST /api/billing/dev/activate
 
 Webhook URL em produção: `https://seu-dominio/api/billing/webhook/stripe`
 
-## Chaves Stripe → RadarZap
+## Chaves Stripe → Radar Chat
 
 Referência: [Stripe API keys](https://docs.stripe.com/keys). Checkout **hospedado** (redirect) — **não** usa `pk_test_` no frontend.
 
@@ -54,7 +54,7 @@ Referência: [Stripe API keys](https://docs.stripe.com/keys). Checkout **hospeda
 | Webhook signing secret | `whsec_…` | ✅ | `STRIPE_WEBHOOK_SECRET` |
 | Price ID | `price_…` | ✅ | `STRIPE_PRICE_ID_*` |
 
-**Chave `radarzap`:** token `rk_test_…` em `STRIPE_SECRET_KEY`. Edite permissões (Checkout Sessions Write, Customers Write, Subscriptions Read, Prices Read) — [Restricted keys](https://docs.stripe.com/keys/restricted-api-keys).
+**Chave `radarchat`:** token `rk_test_…` em `STRIPE_SECRET_KEY`. Edite permissões (Checkout Sessions Write, Customers Write, Subscriptions Read, Prices Read) — [Restricted keys](https://docs.stripe.com/keys/restricted-api-keys).
 
 **Webhook:** API keys ≠ webhook secret. Dev: `npm run stripe:webhook` (Stripe CLI + atualiza `whsec_` no `.env`) ou `stripe listen --forward-to localhost:3001/api/billing/webhook/stripe`. Prod: [Webhooks](https://dashboard.stripe.com/webhooks).
 

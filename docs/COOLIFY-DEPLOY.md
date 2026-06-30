@@ -20,10 +20,10 @@ Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PR
 | Container app | `h143brhw5f8tgfj9trj0f3bd-app-1` (healthy) |
 | Service UUID | `h143brhw5f8tgfj9trj0f3bd` |
 | Stack no host | `/data/coolify/services/h143brhw5f8tgfj9trj0f3bd/` |
-| Legado `radarzap-app-1` | **Parado** |
+| Legado `radarchat-app-1` | **Parado** |
 | Modo deploy atual | **Leve** (`vps-coolify-deploy-app.sh`) no push `main`; full manual |
 
-**Importante:** o serviço `app` usa `env_file: .env` (secrets de produção copiados de `/opt/radarzap/.env`). Sem isso o container entra em crash loop (`validateConfig` falha).
+**Importante:** o serviço `app` usa `env_file: .env` (secrets de produção copiados de `/opt/radarchat/.env`). Sem isso o container entra em crash loop (`validateConfig` falha).
 
 ## Deploy produção (GitHub Actions)
 
@@ -62,7 +62,7 @@ gh workflow run Deploy -f deploy_mode=app-only
 # Republicação completa (SSL / compose / emergência)
 gh workflow run Deploy -f deploy_mode=full-republish
 # ou
-gh workflow run "Fix Coolify SSL (RadarZap)"
+gh workflow run "Fix Coolify SSL (Radar Chat)"
 ```
 
 ### Workflows GitHub (operacionais)
@@ -117,7 +117,7 @@ No Coolify: **Settings → Instance Settings → Instance's Domain** = `https://
 | **ZAP** `platonvps-3409-1782517003` | `151.247.210.180` | Radar Chat + painel Coolify | Servidor **local** (`Radar Chat`) |
 | **Gamer** `platonvps-3410-1782516873` | `151.247.210.179` | radargamer.com.br | Servidor **remoto** (`RadarGamer`) |
 
-**Secrets GitHub (Actions):** `DEPLOY_SSH_KEY` (chave privada deploy), `DEPLOY_HOST` = `.180`, `RADARZAP_PASSWORD` / `RADARGAMER_PASSWORD` (senha `ubuntu` Platon — só bootstrap ou recuperação; **não** commitar).
+**Secrets GitHub (Actions):** `DEPLOY_SSH_KEY` (chave privada deploy), `DEPLOY_HOST` = `.180`, `RADARCHAT_PASSWORD` / `RADARGAMER_PASSWORD` (senha `ubuntu` Platon — só bootstrap ou recuperação; **não** commitar).
 
 O **ZAP (.180)** já recebe deploy por chave (`DEPLOY_SSH_KEY`); o bootstrap por senha só é necessário no **Gamer (.179)** se a chave for perdida.
 
@@ -151,7 +151,7 @@ No painel: **Servers** → dois hosts com métricas após validação. Script: `
 ## Pré-requisitos
 
 1. Servidor Linux (Ubuntu 22.04+) com Coolify v4+ instalado ([coolify.io/docs/get-started](https://coolify.io/docs/get-started/introduction)).
-2. Repositório `radarzapv2` acessível (GitHub App ou deploy key).
+2. Repositório `radarchatv2` acessível (GitHub App ou deploy key).
 3. Branch **`layout-v3`** com Fase 4 layout commitada (ou `main` após merge).
 4. RAM **4 GB+** (Baileys + Mongo + Redis + build).
 
@@ -168,7 +168,7 @@ No painel: **Servers** → dois hosts com métricas após validação. Script: `
 ### 2. Adicionar resource
 
 1. **+ Add Resource** → **Docker Compose** → **Git Repository**.
-2. Repositório: `benhuragmf/radarzapv2` (ou fork).
+2. Repositório: `benhuragmf/radarchatv2` (ou fork).
 3. **Branch:** `layout-v3`.
 4. **Docker Compose location:** `docker-compose.coolify.yml`.
 5. **Build Pack:** Docker Compose (build do `docker/Dockerfile.monolith` no serviço `app`).
@@ -197,9 +197,9 @@ O compose declara volumes nomeados:
 
 | Volume | Conteúdo |
 |--------|----------|
-| `radarzap-sessions` | Sessões Baileys (**crítico**) |
-| `radarzap-media` | Mídia inbox/webchat |
-| `radarzap-logs` | Logs app |
+| `radarchat-sessions` | Sessões Baileys (**crítico**) |
+| `radarchat-media` | Mídia inbox/webchat |
+| `radarchat-logs` | Logs app |
 | `mongodb-data` | Banco |
 | `redis-data` | Filas BullMQ |
 
@@ -234,7 +234,7 @@ Equivalente ao `.github/workflows/deploy.yml` em `main`, mas controlado pelo Coo
 
 | Passo | Ação |
 |-------|------|
-| 1 | Backup `mongodump` + volume `radarzap-sessions` ✅ (volumes externos reutilizados) |
+| 1 | Backup `mongodump` + volume `radarchat-sessions` ✅ (volumes externos reutilizados) |
 | 2 | Parar compose legado; subir stack Coolify (`configure-coolify` ou `deploy_service_direct`) ✅ |
 | 3 | `env_file: .env` no app + secrets produção ✅ |
 | 4 | Traefik → `:3001` (`fix-coolify-ssl` ou `vps-coolify-traefik-route-legacy.sh`) ✅ |
@@ -257,7 +257,7 @@ gh workflow run "Configure Coolify (Radar Chat)" --ref layout-v3 \
 | 502 Bad Gateway | App em `:3001`? `gh workflow run "Fix Coolify SSL" --ref layout-v3` |
 | Container `Restarting` | Falta `env_file: .env` ou secrets (`SESSION_SECRET`, `DISCORD_TOKEN`, …) |
 | Cookie / login falha | `FRONTEND_URL` = URL HTTPS real; `COOKIE_SECURE=true` |
-| WA pede QR de novo | Volume `radarzap-sessions` perdido ou `SESSION_ENCRYPTION_KEY` mudou |
+| WA pede QR de novo | Volume `radarchat-sessions` perdido ou `SESSION_ENCRYPTION_KEY` mudou |
 | Compose inválido no deploy | `.env` deve existir **no mesmo dir** que `docker-compose.yaml` antes de `docker compose config` |
 | Painel Coolify `exited` | Containers podem estar Up — conferir `Coolify status check` |
 | Deploy botão Coolify não sobe | Servidor “not reachable” — usar workflow ou `deploy_service_direct` |
@@ -267,7 +267,7 @@ gh workflow run "Configure Coolify (Radar Chat)" --ref layout-v3 \
 
 ## Relação com Layout v3 (Codex)
 
-- **Codex** é dono de todo `frontend/` e docs `RADARZAP-LAYOUT-V3-*` — prep **não edita** esses arquivos.
+- **Codex** é dono de todo `frontend/` e docs `RADARCHAT-LAYOUT-V3-*` — prep **não edita** esses arquivos.
 - Coolify aponta para `layout-v3`; o build inclui a UI atual (mesmo em reorganização).
 - Commits de infra e de layout são **independentes** na mesma branch.
 - Merge `layout-v3` → `main` só quando Codex + gate + QA visual estiverem ok.

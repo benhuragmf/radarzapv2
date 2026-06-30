@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Restaura app legado em :3001 + HTTPS sslip.io (Caddy) quando Coolify ainda não roteia o domínio.
 set -euo pipefail
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 PUBLIC_HOST="${PUBLIC_HOST:-151-247-210-180.sslip.io}"
 
 log() { echo "[restore-https] $*"; }
@@ -16,12 +16,12 @@ if sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qE 'h143brhw|^[a-z0-
 elif [[ -f .env ]] && sudo docker compose -f docker-compose.deploy.yml ps -q app 2>/dev/null | grep -q .; then
   sudo docker compose -f docker-compose.deploy.yml up -d --remove-orphans || true
 elif [[ -f .env ]]; then
-  # pull latest via deploy script if RADARZAP_IMAGE in env
+  # pull latest via deploy script if RADARCHAT_IMAGE in env
   set -a; source .env 2>/dev/null || true; set +a
-  if [[ -n "${RADARZAP_IMAGE:-}" ]]; then
-    bash scripts/deploy-remote.sh "$RADARZAP_IMAGE" || sudo docker compose -f docker-compose.deploy.yml up -d || true
+  if [[ -n "${RADARCHAT_IMAGE:-}" ]]; then
+    bash scripts/deploy-remote.sh "$RADARCHAT_IMAGE" || sudo docker compose -f docker-compose.deploy.yml up -d || true
   else
-    log "AVISO: RADARZAP_IMAGE ausente — compose pode falhar"
+    log "AVISO: RADARCHAT_IMAGE ausente — compose pode falhar"
     sudo docker compose -f docker-compose.deploy.yml up -d || true
   fi
 fi

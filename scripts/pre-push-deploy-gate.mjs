@@ -33,7 +33,7 @@ const steps = [
   },
 ];
 
-console.log('=== RadarZap — pre-push deploy gate ===\n');
+console.log('=== Radar Chat — pre-push deploy gate ===\n');
 
 let failed = false;
 for (const step of steps) {

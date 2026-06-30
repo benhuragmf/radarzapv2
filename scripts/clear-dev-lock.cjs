@@ -6,8 +6,8 @@ require('dotenv').config();
 
 const Redis = require('ioredis');
 
-const DEV_LOCK_KEY = 'radarzap:dev:instance-lock';
-const WA_LOCK_PREFIX = 'radarzap:wa:socket-lock:';
+const DEV_LOCK_KEY = 'radarchat:dev:instance-lock';
+const WA_LOCK_PREFIX = 'radarchat:wa:socket-lock:';
 const url = process.env.REDIS_URL || 'redis://localhost:6380';
 
 async function main() {

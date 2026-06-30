@@ -45,7 +45,7 @@ OpenAPI: `GET /integrations/openapi` → paths `/onboarding/*`.
 
 ### Plano free
 
-Todos os dados acima são **gravados** sem checar plano. O **runtime** da IA (limites diários, credencial RadarZap) continua bloqueado conforme `getAiPlanLimits('free')`. Ao fazer upgrade, KB/skills/memórias/prompt já estão prontos.
+Todos os dados acima são **gravados** sem checar plano. O **runtime** da IA (limites diários, credencial Radar Chat) continua bloqueado conforme `getAiPlanLimits('free')`. Ao fazer upgrade, KB/skills/memórias/prompt já estão prontos.
 
 ---
 
@@ -98,4 +98,4 @@ Testes: `src/constants/__tests__/business-vertical-presets.test.ts`, `src/servic
 - Pré-chat (`prechatFields`) por segmento
 - Catálogo PIX / `catalogSales` por vertical
 
-Ver também: `docs/RADARZAP-PLANO-UPGRADES.md` § Templates por segmento.
+Ver também: `docs/RADARCHAT-PLANO-UPGRADES.md` § Templates por segmento.

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { api } from '../../lib/api'
 import { can, canAny, getMe } from '../../lib/auth'
 import { usePanelSocket } from '../../hooks/usePanelSocket'
@@ -36,13 +37,14 @@ import type {
   LeadSegmentSummary,
   LeadStats,
   LeadClassificationStats,
-} from '@radarzap-types/lead-form'
+} from '@radarchat-types/lead-form'
 import type { ContactKind } from '../../lib/contactClassificationUi'
 import {
   LEAD_TEMPERATURE_LABEL,
-} from '@radarzap-types/lead-form'
+} from '@radarchat-types/lead-form'
 
 type LeadsTab = 'captures' | 'forms' | 'segments'
+const LEADS_TAB_IDS: readonly LeadsTab[] = ['captures', 'forms', 'segments']
 type ClassificationStatKey = 'opt_in' | 'pending' | 'hot' | 'blocked' | 'unlinked'
 
 const CAPTURE_VIEW_KEY = 'rz-leads-capture-view'
@@ -70,7 +72,7 @@ function periodToDates(period: PeriodFilter): { from?: string; to?: string } {
 export default function Leads() {
   const qc = useQueryClient()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<LeadsTab>('captures')
+  const [tab, setTab] = useUrlHashTab(LEADS_TAB_IDS, 'captures')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeadCaptureStatus | ''>('')
   const [formFilter, setFormFilter] = useState('')

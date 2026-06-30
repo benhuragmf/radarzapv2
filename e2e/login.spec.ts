@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Login', () => {
   test('exibe título e botões de autenticação', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: 'RadarZap' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Radar Chat' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Entrar no painel' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Entrar com Google' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Entrar com Discord' })).toBeVisible();

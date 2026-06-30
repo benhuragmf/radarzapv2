@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useUrlHashTab } from '@/lib/useUrlHashTab'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { getMe, type AuthUser } from '../../lib/auth'
@@ -40,7 +41,7 @@ import type {
   SupervisorActiveConversation,
   SupervisorAgentActivity,
   SupervisorDashboardPayload,
-} from '@radarzap-types/inbox-supervisor'
+} from '@radarchat-types/inbox-supervisor'
 
 const STATUS_BADGE: Record<string, 'green' | 'blue' | 'yellow'> = {
   bot_triage: 'yellow',
@@ -248,7 +249,7 @@ export default function InboxSupervisor() {
   const [targetUser, setTargetUser] = useState('')
   const [mode, setMode] = useState<'suggest' | 'assign'>('suggest')
   const [monitorId, setMonitorId] = useState<string | null>(null)
-  const [tab, setTab] = useState<'team' | 'active' | 'queue'>('team')
+  const [tab, setTab] = useUrlHashTab(['team', 'active', 'queue'] as const, 'team')
 
   const { data: me } = useQuery<AuthUser | null>({
     queryKey: ['auth-me'],

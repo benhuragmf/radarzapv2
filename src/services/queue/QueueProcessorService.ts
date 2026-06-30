@@ -1,5 +1,5 @@
 /*
- * RadarZap / RadarGamer
+ * Radar Chat / RadarGamer
  * Copyright (c) 2026 Benhur Augusto Gomes Monteiro Faria
  * Todos os direitos reservados.
  * Uso, cópia, distribuição ou modificação sem autorização é proibido.
@@ -39,7 +39,7 @@ import {
 } from '@/utils/discord-wa-format';
 import { logPipeline } from '@/utils/pipeline-log';
 import { buildPipelineTrackingMeta } from '@/utils/pipeline-tracking';
-import { resolveTenantSenderLabelAsync } from '@/utils/radarzap-sender';
+import { resolveTenantSenderLabelAsync } from '@/utils/radarchat-sender';
 import { CircuitBreaker } from '@/services/common/CircuitBreaker';
 import { Job } from 'bullmq';
 import mongoose from 'mongoose';
@@ -231,7 +231,7 @@ export class QueueProcessorService {
         user = await User.findById(org.ownerUserId);
       }
 
-      extractedData.radarzapSenderLabel = await resolveTenantSenderLabelAsync(org, user);
+      extractedData.radarchatSenderLabel = await resolveTenantSenderLabelAsync(org, user);
       const pipelineTracking = () =>
         buildPipelineTrackingMeta(extractedData, {
           organizationName: org?.name,
@@ -457,7 +457,7 @@ export class QueueProcessorService {
         // Templates dw-* sempre do catálogo global (evita cópia antiga do cliente no Mongo)
         const useGlobalTemplate =
           resolvedTemplate.startsWith('dw-') ||
-          resolvedTemplate.startsWith('radarzap-');
+          resolvedTemplate.startsWith('radarchat-');
 
         const linkFinal =
           collectPrimaryLink(extractedData) ||
@@ -527,7 +527,7 @@ export class QueueProcessorService {
           captureKind: extractedData.captureKind,
           chars: renderedMessage.length,
           hasLink: renderedMessage.includes('https://'),
-          hasRodape: renderedMessage.includes('via radarzap'),
+          hasRodape: renderedMessage.includes('via radarchat'),
           hasImage: Boolean(primaryImage || variables.imagem),
           linkFinal: linkFinal || undefined,
           preview: previewOutbound(renderedMessage),
@@ -538,7 +538,7 @@ export class QueueProcessorService {
           template: resolvedTemplate,
           chars: renderedMessage.length,
           hasLink: renderedMessage.includes('https://'),
-          hasRodape: renderedMessage.includes('via radarzap'),
+          hasRodape: renderedMessage.includes('via radarchat'),
         });
 
         // If rule has no specific destinations, use all active destinations of the user

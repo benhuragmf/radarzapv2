@@ -1,4 +1,4 @@
-﻿# RadarZap v2 — Checklist QA Fase 1 (estabilização)
+﻿# Radar Chat v2 — Checklist QA Fase 1 (estabilização)
 
 > **Versão alvo:** `2.11.41` · **Gate:** `ROADMAP-COMPLETUDE.md` § Estabilização  
 > **E2E mock:** `npm run qa:fase1:e2e` (33 testes) · **Tudo:** `npm run qa:fase1:all`  
@@ -137,7 +137,7 @@
 
 - [`ENTREGA-ATENDIMENTO-2.11.24-28.md`](./concluidos/ENTREGA-ATENDIMENTO-2.11.24-28.md) — spec técnica + cenários QA
 - `ROADMAP-COMPLETUDE.md` — fases e lacunas
-- [`concluidos/radarzap-inbox-upgrade.md`](./concluidos/radarzap-inbox-upgrade.md) — escopo visual 2.10.18
+- [`concluidos/radarchat-inbox-upgrade.md`](./concluidos/radarchat-inbox-upgrade.md) — escopo visual 2.10.18
 - `INBOX-ATENDIMENTO.md` — CSAT, routing, API
 - `TICKET-ATENDIMENTO.md` — janela 12 h, estados ticket
 - `WEBCHAT.md` — widget, fila, Inbox unificado

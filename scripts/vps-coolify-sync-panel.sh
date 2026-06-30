@@ -68,10 +68,10 @@ foreach (\\App\\Models\\Service::query()->get() as \$s) {
   }
 }
 foreach (\\App\\Models\\Project::all() as \$p) {
-  if (strtolower(\$p->name ?? '') !== 'radarzap') { continue; }
+  if (strtolower(\$p->name ?? '') !== 'radarchat') { continue; }
   \$count = \\App\\Models\\Service::whereHas('environment', fn(\$q) => \$q->where('project_id', \$p->id))->count();
   if (\$count === 0) {
-    try { \$p->forceDelete(); echo 'DELETED_PROJECT RadarZap' . PHP_EOL; }
+    try { \$p->forceDelete(); echo 'DELETED_PROJECT Radar Chat' . PHP_EOL; }
     catch (\\Throwable \$e) { try { \$p->delete(); } catch (\\Throwable \$e2) {} }
   }
 }

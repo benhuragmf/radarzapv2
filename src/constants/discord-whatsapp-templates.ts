@@ -40,7 +40,7 @@ export const DISCORD_WA_VARIABLE_DOCS: Record<string, string> = {
   lista_conteudo: 'Blocos de fields (listas por loja, itens)',
   embed_titulo: 'Título do embed Discord',
   embed_descricao: 'Descrição do embed',
-  autor: 'Conta ou empresa RadarZap (painel Google/Discord)',
+  autor: 'Conta ou empresa Radar Chat (painel Google/Discord)',
   discord_poster: 'Quem postou no canal (ex.: @\'Skulks)',
   canal_rota: 'Poster + canal (ex.: @\'Skulks > #live-on)',
   canal: 'Nome do canal',
@@ -49,7 +49,7 @@ export const DISCORD_WA_VARIABLE_DOCS: Record<string, string> = {
   hora: 'Hora local',
   link_principal: 'Melhor link (loja, live, etc.)',
   link_bloco: 'Link formatado (🔗 URL)',
-  rodape: 'Tenant via radarzap • @poster > #canal • servidor • data hora',
+  rodape: 'Tenant via radarchat • @poster > #canal • servidor • data hora',
   links_lojas: 'Links formatados das lojas',
   opcoes_botoes: 'Botões Discord como opções 1, 2, 3…',
   anexos: 'Lista de arquivos anexados (nome + link)',
@@ -416,12 +416,12 @@ _{rodape}_`,
 
 /** Templates legados → novo nome (regras antigas continuam funcionando) */
 export const LEGACY_TEMPLATE_ALIASES: Record<string, string> = {
-  'radarzap-padrao': 'dw-padrao',
-  'radarzap-simples': 'dw-texto',
-  'radarzap-com-embed': 'dw-embed',
-  'radarzap-jogos-gratis': 'dw-lista',
-  'radarzap-live': 'dw-live',
-  'radarzap-alerta': 'dw-alerta',
+  'radarchat-padrao': 'dw-padrao',
+  'radarchat-simples': 'dw-texto',
+  'radarchat-com-embed': 'dw-embed',
+  'radarchat-jogos-gratis': 'dw-lista',
+  'radarchat-live': 'dw-live',
+  'radarchat-alerta': 'dw-alerta',
   'game-free': 'dw-lista',
   'game-promotion-basic': 'dw-promo',
   'game-promotion-discount': 'dw-promo',
@@ -431,12 +431,21 @@ export const LEGACY_TEMPLATE_ALIASES: Record<string, string> = {
 export const AUTO_ROUTER_TEMPLATES = new Set([
   'dw-padrao',
   'dw-auto',
-  'radarzap-padrao',
-  'radarzap-simples',
+  'radarchat-padrao',
+  'radarchat-simples',
   'custom-message',
 ]);
 
-const FIXED_LIVE_TEMPLATES = new Set(['dw-live', 'radarzap-live']);
+const FIXED_LIVE_TEMPLATES = new Set(['dw-live', 'radarchat-live']);
+
+/** Normaliza nomes de template gravados antes do rebrand (prefixo legado). */
+export function normalizeLegacyTemplateName(templateName: string): string {
+  const trimmed = templateName.trim();
+  if (/^radarzap-/i.test(trimmed)) {
+    return trimmed.replace(/^radarzap-/i, 'radarchat-');
+  }
+  return trimmed;
+}
 
 export interface ResolveTemplateContext {
   channelName?: string;
@@ -449,7 +458,8 @@ export function resolveTemplateForCapture(
   captureKind: string,
   ctx: ResolveTemplateContext = {}
 ): string {
-  const normalized = LEGACY_TEMPLATE_ALIASES[ruleTemplate] ?? ruleTemplate;
+  const ruleKey = normalizeLegacyTemplateName(ruleTemplate);
+  const normalized = LEGACY_TEMPLATE_ALIASES[ruleKey] ?? ruleKey;
   const liveChannel = /live-on|live_on/i.test(ctx.channelName ?? '');
 
   const kindToTemplate = (kind: string): string | null => {
@@ -556,9 +566,10 @@ export function renderCatalogTemplate(
   templateName: string,
   variables: Record<string, string>
 ): string | null {
-  const normalized = LEGACY_TEMPLATE_ALIASES[templateName] ?? templateName;
+  const templateKey = normalizeLegacyTemplateName(templateName);
+  const normalized = LEGACY_TEMPLATE_ALIASES[templateKey] ?? templateKey;
   const def = DISCORD_WHATSAPP_TEMPLATES.find(
-    t => t.name === normalized || t.name === templateName
+    t => t.name === normalized || t.name === templateKey
   );
   if (!def) return null;
 

@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import type { AiProvider } from '@/types/ai-assistant';
 import { PLATFORM_AI_CREDENTIALS_DEFAULTS } from '@/constants/platform-ai-credentials-defaults';
 
-/** Credenciais e modelo padrão da IA RadarZap — único documento, gerido pelo admin. */
+/** Credenciais e modelo padrão da IA Radar Chat — único documento, gerido pelo admin. */
 export interface IPlatformAiCredentials extends Document {
   key: 'global';
   provider: AiProvider;

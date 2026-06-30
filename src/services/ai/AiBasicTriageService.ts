@@ -274,7 +274,7 @@ export class AiBasicTriageService {
         clientId,
         undefined,
         settings,
-        { pendingCalls: 1, pendingCredits, meteringOverride: 'radarzap_calls' },
+        { pendingCalls: 1, pendingCredits, meteringOverride: 'radarchat_calls' },
       );
       if (!usage.allowed) return null;
 

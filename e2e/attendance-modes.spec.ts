@@ -29,12 +29,12 @@ test.describe('Modos de atendimento — IA Atendimento (mock auth)', () => {
     await expect(page.getByText(/IA Básica usa classificador local/)).toBeVisible();
   });
 
-  test('modo IA Premium habilita provedor RadarZap', async ({ page }) => {
+  test('modo IA Premium habilita provedor Radar Chat', async ({ page }) => {
     await page.getByTestId('attendance-mode-premium_assistant').click();
     await expect(page.getByText(/Usar IA Premium no widget/)).toBeVisible();
-    const radarzapRadio = page.getByRole('radio', { name: /^RadarZap\b/ });
-    await expect(radarzapRadio).toBeEnabled();
-    await expect(radarzapRadio).toBeChecked();
+    const radarchatRadio = page.getByRole('radio', { name: /^Radar Chat\b/ });
+    await expect(radarchatRadio).toBeEnabled();
+    await expect(radarchatRadio).toBeChecked();
   });
 
   test('aba Logs exibe breakdown por modo', async ({ page }) => {

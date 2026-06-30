@@ -8,7 +8,7 @@ import { createServiceLogger } from '@/utils/logger';
 const execFileAsync = promisify(execFile);
 
 const logger = createServiceLogger('DevInstanceLock');
-const LOCK_KEY = 'radarzap:dev:instance-lock';
+const LOCK_KEY = 'radarchat:dev:instance-lock';
 const LOCK_TTL_SEC = 86_400;
 const RESTART_WAIT_MS = 15_000;
 const POST_KILL_SETTLE_MS = 2_500;
@@ -25,7 +25,7 @@ let exitHandlersRegistered = false;
 function isDevProcess(): boolean {
   return (
     process.env.npm_lifecycle_event === 'dev' ||
-    process.env.RADARZAP_DEV === '1' ||
+    process.env.RADARCHAT_DEV === '1' ||
     process.env.NODE_ENV === 'development'
   );
 }
@@ -174,11 +174,11 @@ export async function acquireDevInstanceLock(apiPort: number): Promise<void> {
         const portBusy = await isPortListening(existing.port ?? apiPort);
         if (portBusy) {
           logger.error(
-            'Já existe outro RadarZap rodando nesta máquina. Feche o outro terminal ou execute: npm run dev:stop',
+            'Já existe outro Radar Chat rodando nesta máquina. Feche o outro terminal ou execute: npm run dev:stop',
             { otherPid: existing.pid, otherPort: existing.port, thisPid: process.pid }
           );
           const msg =
-            `RadarZap já em execução (PID ${existing.pid}, porta ${existing.port ?? '?'}). ` +
+            `Radar Chat já em execução (PID ${existing.pid}, porta ${existing.port ?? '?'}). ` +
             'Não é permitido duas instâncias em dev. Feche o outro terminal ou execute: npm run dev:stop';
           throw new Error(msg);
         }
@@ -195,18 +195,18 @@ export async function acquireDevInstanceLock(apiPort: number): Promise<void> {
             { stalePid: existing.pid, thisPid: process.pid },
           );
           throw new Error(
-            `Processo RadarZap anterior (PID ${existing.pid}) ainda ativo — causa desconexão WhatsApp (440). ` +
+            `Processo Radar Chat anterior (PID ${existing.pid}) ainda ativo — causa desconexão WhatsApp (440). ` +
               'Execute: npm run dev:stop',
           );
         }
       }
     } else {
       logger.error(
-        'Já existe outro RadarZap rodando nesta máquina. Feche o outro terminal ou execute: npm run dev:stop',
+        'Já existe outro Radar Chat rodando nesta máquina. Feche o outro terminal ou execute: npm run dev:stop',
         { otherPid: existing.pid, otherPort: existing.port, thisPid: process.pid }
       );
       const msg =
-        `RadarZap já em execução (PID ${existing.pid}, porta ${existing.port ?? '?'}). ` +
+        `Radar Chat já em execução (PID ${existing.pid}, porta ${existing.port ?? '?'}). ` +
         'Não é permitido duas instâncias em dev. Feche o outro terminal ou execute: npm run dev:stop';
       throw new Error(msg);
     }
