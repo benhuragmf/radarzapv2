@@ -68,6 +68,7 @@ interface InboxSettings {
   alertSoundEnabled: boolean
   alertOnNewChat: boolean
   alertOnNewMessage: boolean
+  alertBrowserNotify: boolean
   inactivityAutoCloseEnabled: boolean
   inactivityCloseMinutes: number
   inactivityWarningMinutes: number
@@ -267,6 +268,7 @@ export default function InboxBotSettings() {
         gracefulCloseQuickReplyGateEnabled:
           data.gracefulCloseQuickReplyGateEnabled ?? data.closeQuickReplyGateEnabled ?? true,
         attendantTriageVisible: data.attendantTriageVisible ?? false,
+        alertBrowserNotify: data.alertBrowserNotify ?? true,
         inboundRegistrationPolicy: data.inboundRegistrationPolicy ?? DEFAULT_INBOUND_REGISTRATION_POLICY,
       })
     }
@@ -276,6 +278,7 @@ export default function InboxBotSettings() {
     mutationFn: (payload: Partial<InboxSettings>) => api.patch('/inbox/settings', payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-settings'] })
+      qc.invalidateQueries({ queryKey: ['inbox-alerts'] })
       notifyConfigSaved()
     },
     onError: mutationError,
@@ -871,6 +874,14 @@ export default function InboxBotSettings() {
                     disabled={!form.alertSoundEnabled}
                   />
                   Cada nova mensagem do cliente
+                </label>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.alertBrowserNotify}
+                    onChange={e => patch('alertBrowserNotify', e.target.checked)}
+                  />
+                  Notificações do sistema (popup do Windows/macOS)
                 </label>
               </Card>
 

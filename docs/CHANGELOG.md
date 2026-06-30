@@ -8,6 +8,103 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.17.4] - 2026-06-30
+
+### Discord — multi-regra por captura (opt-in)
+
+- `Organization.discordSettings.multiRulePerMessage` — até 5 regras por mensagem/evento.
+- Pipeline: `selectDiscordRuleMatches`, dedup por `ruleId` quando ativo.
+- UI toggle em `/discord/settings`; API `PATCH /discord/settings` parcial.
+- Doc: [`DISCORD-MONITORAMENTO.md`](./DISCORD-MONITORAMENTO.md) § Multi-regra.
+
+---
+
+## [2.17.3] - 2026-06-30
+
+### Discord — limpeza legado + métricas simulação
+
+- `DiscordChannel.destinationIds` / `templateName` deprecados (`select: false`); API `GET /channels` sanitizada.
+- Métricas dashboard: contador **Simulação** (`dry_run`) em `/discord`.
+- Doc: [`DISCORD-MONITORAMENTO.md`](./DISCORD-MONITORAMENTO.md) § Campos legados.
+
+---
+
+## [2.17.2] - 2026-06-30
+
+### Painel — modo atendente desktop (PWA + notificações + atalhos)
+
+- PWA: `manifest.webmanifest` (start `/platform/inbox`), service worker `/sw.js`, banner **Instalar app**.
+- Notificações do sistema no Inbox via `panel:event` + `GET /api/inbox/alerts` + toggle `alertBrowserNotify`.
+- Atalhos de teclado no Inbox (`Alt+↑/↓`, `Alt+A`, `Alt+R`, `?`).
+- Doc: [`MODO-ATENDENTE-DESKTOP.md`](./MODO-ATENDENTE-DESKTOP.md).
+
+### Discord — dry-run global por tenant
+
+- `Organization.discordSettings.dryRun` — captura e avalia regras sem enviar ao WhatsApp.
+- API `GET/PATCH /api/discord/settings`; histórico `dry_run`; banner na home; toggle em `/discord/settings`.
+- Auditoria `discord.settings.updated`; OpenAPI `/discord/settings`.
+- Doc: [`DISCORD-MONITORAMENTO.md`](./DISCORD-MONITORAMENTO.md) § Modo simulação.
+
+---
+
+## [2.17.1] - 2026-06-30
+
+### Discord — painel auditoria + testes engajamento
+
+- UI: painel **Auditoria recente** em `/discord` (`GET /discord/audit`).
+- Testes: `discord-event` (edit/reaction), fix `inbox-graceful-close.util.test.ts`.
+- Roadmap card atualizado (prioridade baixa).
+
+---
+
+## [2.17.0] - 2026-06-30
+
+### Discord — engajamento, cargos, OpenAPI, auditoria
+
+- Gatilhos `message_edit` e `message_reaction` (bot + regras + templates WA).
+- Filtro `roleIds` nas regras; `GET /discord/guilds/:guildId/roles`.
+- Auditoria `discord.rule.*` / `discord.monitor.*`; `GET /discord/audit`.
+- OpenAPI: rotas `/discord/*`, `/channels`, `/rules`.
+
+---
+
+## [2.16.1] - 2026-06-30
+
+### Discord — threads/fóruns, filtros por autor, testes
+
+- Picker de canais: tipos thread (10/11/12) e fórum (15); badge `typeLabel` na UI.
+- Bot: mensagens em thread herdam monitor do canal pai (`findTextMonitorForMessage`).
+- Canais: UI + API para `allowedBotIds` / `allowedUserIds` nos filtros.
+- Testes: `RulesEngine.evaluateEvent`, `discord-event-cooldown`, `discord-channel-types`.
+
+---
+
+## [2.16.0] - 2026-06-30
+
+### Discord — histórico mensagens, prévia de regras, métricas
+
+- Histórico de mensagens de texto em `DiscordMonitorEvent` (90 dias) — status capturado, sem regra, duplicado, bloqueado, WA offline, enfileirado.
+- `POST /api/rules/preview` — testa regra com mensagem exemplo sem enviar ao WhatsApp.
+- `GET /api/discord/stats` enriquecido: mensagens vs eventos, por dia, duplicados/bloqueados.
+- UI: histórico em canais texto; painel prévia em Regras; dashboard métricas 7/14/30d em `/discord`.
+
+---
+
+## [2.15.0] - 2026-06-30
+
+### Discord — análise + melhorias operacionais
+
+- `GET /discord/health` e `GET /discord/stats` (eventos 7d por guild).
+- Card status do bot + métricas em `/discord`.
+- Regras: filtros avançados na UI (excluir keywords, bots/usuários, link/imagem/embed, delay).
+- Webhook `discord.message.matched` quando regra de mensagem enfileira WA.
+- Fix índice único `DiscordChannel`: `{ guildId, channelId, monitorType }`.
+- Doc `docs/DISCORD-MONITORAMENTO.md` com roadmap.
+
+---
+
 ## [2.14.5] - 2026-06-30
 
 ### Discord — fix link Convidar bot

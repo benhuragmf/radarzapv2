@@ -147,7 +147,16 @@ import { WebChatService } from '../webchat/WebChatService';
 import { WebChatWidget } from '../../models/WebChatWidget';
 import { getOrganizationWebsite, isEmbedOriginAllowed } from '@/utils/embed-allowed-domains.util';
 import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
-import { defaultTemplateForEventTrigger, normalizeRuleTriggersInput } from '@/utils/rule-triggers.util';
+import { defaultTemplateForEventTrigger, normalizeRuleTriggersInput, parseKeywordList, getRuleTriggers } from '@/utils/rule-triggers.util';
+import { parseDiscordIdList } from '@/utils/discord-id-list.util';
+import { recordDiscordAudit } from '@/services/discord/discord-audit.service';
+import { normalizeDiscordBooleanInput } from '@/utils/discord-dry-run.util';
+import { sanitizeDiscordChannelsForApi } from '@/utils/discord-channel-legacy.util';
+import { AttendanceEvent } from '@/models/AttendanceEvent';
+import {
+  filterDiscordChannelsForMonitor,
+  discordChannelTypeLabel,
+} from '@/utils/discord-channel-types.util';
 import {
   buildDiscordBotInviteUrl,
   DISCORD_BOT_CLIENT_ID_FALLBACK,
@@ -2558,6 +2567,15 @@ export class DashboardService {
       }
     });
 
+    r.get('/inbox/alerts', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await inboxSvc.getAlertSettings(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.patch('/inbox/settings', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -2945,7 +2963,7 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
-        const { name, priority, templateName, keywords, destinationIdentifiers, channelIds, trigger, triggers, voiceChannelIds } = req.body;
+        const { name, priority, templateName, keywords, excludeKeywords, destinationIdentifiers, channelIds, trigger, triggers, voiceChannelIds, roleIds, onlyBots, onlyUsers, requireLink, requireImage, requireEmbed, addDelay } = req.body;
         if (!name) return res.status(400).json({ error: 'name is required' });
 
         const ruleTriggers = normalizeRuleTriggersInput({ trigger, triggers });
@@ -2973,14 +2991,27 @@ export class DashboardService {
           conditions: {
             channelIds: channelIds ?? [],
             voiceChannelIds: voiceChannelIds ?? [],
-            requireKeywords: keywords ? keywords.split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean) : [],
+            roleIds: parseDiscordIdList(roleIds),
+            requireKeywords: parseKeywordList(keywords),
+            excludeKeywords: parseKeywordList(excludeKeywords),
+            onlyBots: Boolean(onlyBots),
+            onlyUsers: Boolean(onlyUsers),
+            requireLink: Boolean(requireLink),
+            requireImage: Boolean(requireImage),
+            requireEmbed: Boolean(requireEmbed),
           },
           action: {
             destinationIds,
             templateName: templateName || defaultTemplate,
             priority: priority || 'medium',
-            addDelay: 0,
+            addDelay: Math.max(0, Number(addDelay) || 0),
           },
+        });
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.rule.created',
+          actorUserId: auth.userId,
+          meta: { ruleId: rule._id.toString(), name: rule.name, triggers: ruleTriggers },
         });
         res.json(rule);
       } catch (e) {
@@ -2991,7 +3022,7 @@ export class DashboardService {
     r.put('/rules/:id', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { name, priority, templateName, keywords, destinationIdentifiers, channelIds, voiceChannelIds, trigger, triggers, isActive } = req.body;
+        const { name, priority, templateName, keywords, excludeKeywords, destinationIdentifiers, channelIds, voiceChannelIds, roleIds, trigger, triggers, isActive, onlyBots, onlyUsers, requireLink, requireImage, requireEmbed, addDelay } = req.body;
 
         const rule = await Rule.findOne({
           _id: req.params.id,
@@ -3013,10 +3044,19 @@ export class DashboardService {
         if (templateName !== undefined) rule.action.templateName = templateName;
         if (channelIds !== undefined) rule.conditions.channelIds = channelIds;
         if (voiceChannelIds !== undefined) rule.conditions.voiceChannelIds = voiceChannelIds;
+        if (roleIds !== undefined) rule.conditions.roleIds = parseDiscordIdList(roleIds);
         if (keywords !== undefined) {
-          rule.conditions.requireKeywords = keywords
-            .split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean);
+          rule.conditions.requireKeywords = parseKeywordList(keywords);
         }
+        if (excludeKeywords !== undefined) {
+          rule.conditions.excludeKeywords = parseKeywordList(excludeKeywords);
+        }
+        if (onlyBots !== undefined) rule.conditions.onlyBots = Boolean(onlyBots);
+        if (onlyUsers !== undefined) rule.conditions.onlyUsers = Boolean(onlyUsers);
+        if (requireLink !== undefined) rule.conditions.requireLink = Boolean(requireLink);
+        if (requireImage !== undefined) rule.conditions.requireImage = Boolean(requireImage);
+        if (requireEmbed !== undefined) rule.conditions.requireEmbed = Boolean(requireEmbed);
+        if (addDelay !== undefined) rule.action.addDelay = Math.max(0, Number(addDelay) || 0);
         if (destinationIdentifiers !== undefined) {
           const ids: mongoose.Types.ObjectId[] = [];
           for (const identifier of destinationIdentifiers) {
@@ -3030,7 +3070,57 @@ export class DashboardService {
         }
 
         await rule.save();
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.rule.updated',
+          actorUserId: auth.userId,
+          meta: { ruleId: rule._id.toString(), name: rule.name },
+        });
         res.json(rule);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/rules/preview', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { DiscordRulePreviewService } = await import('@/services/discord/DiscordRulePreviewService');
+        const body = req.body as Record<string, unknown>;
+        const sample = body.sample as Record<string, unknown> | undefined;
+        if (!sample || typeof sample.text !== 'string' || !sample.text.trim()) {
+          return res.status(400).json({ error: 'sample.text é obrigatório' });
+        }
+        const result = await DiscordRulePreviewService.getInstance().preview(auth.clientId, {
+          ruleId: body.ruleId as string | undefined,
+          name: body.name as string | undefined,
+          triggers: body.triggers as never,
+          trigger: body.trigger as never,
+          templateName: body.templateName as string | undefined,
+          keywords: body.keywords as string | undefined,
+          excludeKeywords: body.excludeKeywords as string | undefined,
+          channelIds: body.channelIds as string[] | undefined,
+          onlyBots: body.onlyBots as boolean | undefined,
+          onlyUsers: body.onlyUsers as boolean | undefined,
+          requireLink: body.requireLink as boolean | undefined,
+          requireImage: body.requireImage as boolean | undefined,
+          requireEmbed: body.requireEmbed as boolean | undefined,
+          sample: {
+            text: sample.text as string,
+            channelId: sample.channelId as string | undefined,
+            channelName: sample.channelName as string | undefined,
+            guildId: sample.guildId as string | undefined,
+            guildName: sample.guildName as string | undefined,
+            hasLink: sample.hasLink as boolean | undefined,
+            hasImage: sample.hasImage as boolean | undefined,
+            hasEmbed: sample.hasEmbed as boolean | undefined,
+            isBot: sample.isBot as boolean | undefined,
+            captureKind: sample.captureKind as string | undefined,
+            embedTitle: sample.embedTitle as string | undefined,
+            primaryLink: sample.primaryLink as string | undefined,
+          },
+        });
+        res.json(result);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -3045,6 +3135,12 @@ export class DashboardService {
         });
         if (!rule) return res.status(404).json({ error: 'Rule not found' });
         await rule.toggle();
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.rule.toggled',
+          actorUserId: auth.userId,
+          meta: { ruleId: rule._id.toString(), name: rule.name, isActive: rule.isActive },
+        });
         res.json({ ok: true, isActive: rule.isActive });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -3054,11 +3150,21 @@ export class DashboardService {
     r.delete('/rules/:id', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const result = await Rule.deleteOne({
+        const rule = await Rule.findOne({
           _id: req.params.id,
           clientId: new mongoose.Types.ObjectId(auth.clientId),
         });
+        if (!rule) return res.status(404).json({ error: 'Rule not found' });
+        const ruleId = rule._id.toString();
+        const ruleName = rule.name;
+        const result = await Rule.deleteOne({ _id: rule._id });
         if (result.deletedCount === 0) return res.status(404).json({ error: 'Rule not found' });
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.rule.deleted',
+          actorUserId: auth.userId,
+          meta: { ruleId, name: ruleName },
+        });
         res.json({ ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4388,7 +4494,7 @@ export class DashboardService {
         if (active === 'true') query.isActive = true;
         else if (active === 'false') query.isActive = false;
         const channels = await DiscordChannel.find(query).sort({ monitorType: 1, channelName: 1 }).lean();
-        res.json(channels);
+        res.json(sanitizeDiscordChannelsForApi(channels));
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -4403,11 +4509,107 @@ export class DashboardService {
       });
     });
 
+    r.get('/discord/health', requireCapability(Cap.DISCORD_SERVER_VIEW), async (_req, res) => {
+      try {
+        const { DiscordHealthService } = await import('@/services/discord/DiscordHealthService');
+        const health = await DiscordHealthService.getInstance().getHealth();
+        res.json(health);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/discord/stats', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromQuery: true }), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+        const { guildId, days } = req.query as { guildId?: string; days?: string };
+        const { DiscordMonitorEventService } = await import('@/services/discord/DiscordMonitorEventService');
+        const stats = await DiscordMonitorEventService.getInstance().aggregateStats(relatedIds, {
+          guildId,
+          days: days ? Math.min(30, Math.max(1, Number(days) || 7)) : 7,
+        });
+        res.json(stats);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/discord/audit', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+        const events = await AttendanceEvent.find({
+          clientId: { $in: relatedIds },
+          kind: { $regex: /^discord\./ },
+        })
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .lean();
+        res.json(events);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/discord/settings', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const org = await Organization.findById(auth.clientId).lean();
+        res.json({
+          dryRun: Boolean(org?.discordSettings?.dryRun),
+          multiRulePerMessage: Boolean(org?.discordSettings?.multiRulePerMessage),
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/discord/settings', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as { dryRun?: unknown; multiRulePerMessage?: unknown };
+        const $set: Record<string, boolean> = {};
+        if (body.dryRun !== undefined) {
+          $set['discordSettings.dryRun'] = normalizeDiscordBooleanInput(body.dryRun);
+        }
+        if (body.multiRulePerMessage !== undefined) {
+          $set['discordSettings.multiRulePerMessage'] = normalizeDiscordBooleanInput(body.multiRulePerMessage);
+        }
+        if (!Object.keys($set).length) {
+          return res.status(400).json({ error: 'Informe dryRun e/ou multiRulePerMessage' });
+        }
+        const org = await Organization.findByIdAndUpdate(
+          auth.clientId,
+          { $set },
+          { new: true },
+        ).lean();
+        if (!org) return res.status(404).json({ error: 'Organization not found' });
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.settings.updated',
+          actorUserId: auth.userId,
+          meta: {
+            ...(body.dryRun !== undefined ? { dryRun: org.discordSettings?.dryRun } : {}),
+            ...(body.multiRulePerMessage !== undefined
+              ? { multiRulePerMessage: org.discordSettings?.multiRulePerMessage }
+              : {}),
+          },
+        });
+        res.json({
+          dryRun: Boolean(org.discordSettings?.dryRun),
+          multiRulePerMessage: Boolean(org.discordSettings?.multiRulePerMessage),
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/discord/guilds', requireCapability(Cap.DISCORD_SERVER_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
         const token = config.DISCORD.TOKEN;
-        const botId  = config.DISCORD.CLIENT_ID;
         if (!token) return res.status(400).json({ error: 'DISCORD_TOKEN not configured' });
 
         const guildsRes = await fetch('https://discord.com/api/v10/users/@me/guilds', {
@@ -4435,6 +4637,30 @@ export class DashboardService {
       }
     });
 
+    r.get('/discord/guilds/:guildId/roles', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromParams: 'guildId' }), async (req, res) => {
+      try {
+        const token = config.DISCORD.TOKEN;
+        if (!token) return res.status(400).json({ error: 'DISCORD_TOKEN not configured' });
+
+        const rolesRes = await fetch(
+          `https://discord.com/api/v10/guilds/${req.params.guildId}/roles`,
+          { headers: { Authorization: `Bot ${token}` } },
+        );
+        if (!rolesRes.ok) {
+          return res.status(rolesRes.status).json({ error: 'Failed to fetch guild roles' });
+        }
+        const roles = await rolesRes.json() as { id: string; name: string; color: number; position: number }[];
+        res.json(
+          roles
+            .filter((r) => r.name !== '@everyone')
+            .sort((a, b) => b.position - a.position)
+            .map((r) => ({ id: r.id, name: r.name, color: r.color })),
+        );
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
     r.get('/discord/guilds/:guildId/channels', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromParams: 'guildId' }), async (req, res) => {
       try {
         const token = config.DISCORD.TOKEN;
@@ -4444,22 +4670,21 @@ export class DashboardService {
           `https://discord.com/api/v10/guilds/${req.params.guildId}/channels`,
           { headers: { Authorization: `Bot ${token}` } }
         );
-        const channels = await chRes.json() as any[];
+        const channels = await chRes.json() as { id: string; name: string; type: number }[];
         const { type: monitorFilter } = req.query as { type?: string };
-
-        let filtered = channels;
-        if (monitorFilter === 'voice') {
-          filtered = channels.filter((c: { type: number }) => c.type === 2 || c.type === 13);
-        } else if (monitorFilter === 'guild') {
-          filtered = [];
-        } else {
-          filtered = channels.filter((c: { type: number }) => c.type === 0 || c.type === 5);
-        }
+        const filterKey =
+          monitorFilter === 'voice' ? 'voice' : monitorFilter === 'guild' ? 'guild' : 'text';
+        const filtered = filterDiscordChannelsForMonitor(channels, filterKey);
 
         res.json(
           filtered
-            .map((c: { id: string; name: string; type: number }) => ({ id: c.id, name: c.name, type: c.type }))
-            .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
+            .map((c) => ({
+              id: c.id,
+              name: c.name,
+              type: c.type,
+              typeLabel: discordChannelTypeLabel(c.type),
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name))
         );
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4487,6 +4712,18 @@ export class DashboardService {
           channelName: mType === 'guild' ? (channelName || 'Eventos do servidor') : (channelName ?? ''),
           guildName: guildName ?? '',
         });
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.monitor.created',
+          actorUserId: auth.userId,
+          meta: {
+            monitorId: ch._id.toString(),
+            guildId,
+            channelId: resolvedChannelId,
+            monitorType: mType,
+            channelName: ch.channelName,
+          },
+        });
         res.json(ch);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4496,11 +4733,26 @@ export class DashboardService {
     r.delete('/channels/:id', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const result = await DiscordChannel.deleteOne({
+        const ch = await DiscordChannel.findOne({
           _id: req.params.id,
           clientId: new mongoose.Types.ObjectId(auth.clientId),
         });
+        if (!ch) return res.status(404).json({ error: 'Channel not found' });
+        const meta = {
+          monitorId: ch._id.toString(),
+          guildId: ch.guildId,
+          channelId: ch.channelId,
+          monitorType: ch.monitorType,
+          channelName: ch.channelName,
+        };
+        const result = await DiscordChannel.deleteOne({ _id: ch._id });
         if (result.deletedCount === 0) return res.status(404).json({ error: 'Channel not found' });
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.monitor.deleted',
+          actorUserId: auth.userId,
+          meta,
+        });
         res.json({ ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4517,6 +4769,16 @@ export class DashboardService {
         });
         if (!ch) return res.status(404).json({ error: 'Channel not found' });
         await ch.toggleActive();
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.monitor.toggled',
+          actorUserId: auth.userId,
+          meta: {
+            monitorId: ch._id.toString(),
+            channelName: ch.channelName,
+            isActive: ch.isActive,
+          },
+        });
         res.json({ ok: true, isActive: ch.isActive });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4537,6 +4799,8 @@ export class DashboardService {
           keywords?: string[];
           excludeKeywords?: string[];
           allowBots?: boolean;
+          allowedBotIds?: string[];
+          allowedUserIds?: string[];
           requireLink?: boolean;
           requireImage?: boolean;
           requireEmbed?: boolean;
@@ -4546,6 +4810,16 @@ export class DashboardService {
         if (body.keywords !== undefined) ch.filters.keywords = body.keywords;
         if (body.excludeKeywords !== undefined) ch.filters.excludeKeywords = body.excludeKeywords;
         if (body.allowBots !== undefined) ch.filters.allowBots = body.allowBots;
+        if (body.allowedBotIds !== undefined) {
+          ch.filters.allowedBotIds = body.allowedBotIds
+            .map((id) => String(id).trim())
+            .filter((id) => /^\d{17,19}$/.test(id));
+        }
+        if (body.allowedUserIds !== undefined) {
+          ch.filters.allowedUserIds = body.allowedUserIds
+            .map((id) => String(id).trim())
+            .filter((id) => /^\d{17,19}$/.test(id));
+        }
         if (body.requireLink !== undefined) ch.filters.requireLink = body.requireLink;
         if (body.requireImage !== undefined) ch.filters.requireImage = body.requireImage;
         if (body.requireEmbed !== undefined) ch.filters.requireEmbed = body.requireEmbed;
@@ -4554,6 +4828,12 @@ export class DashboardService {
         }
 
         await ch.save();
+        void recordDiscordAudit({
+          clientId: auth.clientId,
+          kind: 'discord.monitor.filters_updated',
+          actorUserId: auth.userId,
+          meta: { monitorId: ch._id.toString(), channelName: ch.channelName },
+        });
         res.json(ch);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4591,27 +4871,19 @@ export class DashboardService {
         if (guildId) query.guildId = guildId;
 
         const channels = await DiscordChannel.find(query).lean();
-        const eventRules = await Rule.find({
+        const eventRulesDocs = await Rule.find({
           clientId: { $in: relatedIds },
           isActive: true,
-          trigger: { $nin: ['message', null] },
-          ...(guildId
-            ? {
-                $or: [
-                  { 'conditions.guildIds': guildId },
-                  { 'conditions.guildIds': { $size: 0 } },
-                  { 'conditions.guildIds': { $exists: false } },
-                ],
-              }
-            : {}),
         }).lean();
+        const eventRules = eventRulesDocs.filter(r =>
+          getRuleTriggers(r).some(t => t !== 'message'),
+        ).length;
 
         res.json({
           text: channels.filter(c => !c.monitorType || c.monitorType === 'text').length,
           voice: channels.filter(c => c.monitorType === 'voice').length,
           guild: channels.filter(c => c.monitorType === 'guild').length,
-          eventRules: eventRules.length,
-          botVoiceIntent: true,
+          eventRules,
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });

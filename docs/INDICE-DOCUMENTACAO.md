@@ -56,6 +56,7 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | Documento | Descrição |
 |-----------|-----------|
 | [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem, fila, CSAT, supervisor |
+| [`MODO-ATENDENTE-DESKTOP.md`](./MODO-ATENDENTE-DESKTOP.md) | PWA, notificações SO e atalhos — posto de atendimento sem app nativo |
 | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados TK, SLA, token público |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, FAQ |
 | [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulários embed e captura |

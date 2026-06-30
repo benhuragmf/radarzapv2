@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { getSocket } from '../lib/socket'
+import { showBrowserNotification } from '../lib/browserNotify'
 import { applyReceiptsToInboxMessages, type WebChatReceiptPayload } from '../lib/webchatReceipts'
 import type { InboxMessageView } from '../components/inbox/InboxMessageBubble'
 
@@ -26,27 +27,20 @@ function playInboundChime() {
   }
 }
 
-function maybeBrowserNotify(body?: string) {
-  if (typeof window === 'undefined' || !('Notification' in window)) return
-  const onWebChatPage = window.location.pathname.startsWith('/platform/webchat')
-  if (document.visibilityState === 'visible' && onWebChatPage) return
-
+function maybeBrowserNotify(body?: string, conversationId?: string) {
   const text = body?.trim().slice(0, 160) || 'Nova mensagem de um visitante'
-  const show = () => {
-    try {
-      new Notification('Chat do site — Radar Chat', { body: text })
-    } catch {
-      /* ignore */
-    }
-  }
-
-  if (Notification.permission === 'granted') {
-    show()
-  } else if (Notification.permission !== 'denied') {
-    void Notification.requestPermission().then(p => {
-      if (p === 'granted') show()
-    })
-  }
+  const convKey = conversationId ? `wc:${conversationId}` : undefined
+  showBrowserNotification({
+    title: 'Chat do site — Radar Chat',
+    body: text,
+    href: convKey ? `/platform/inbox?conv=${encodeURIComponent(convKey)}` : '/platform/webchat',
+    tag: convKey ? `webchat:${conversationId}` : 'webchat:message',
+    skipWhenViewingConversationId: convKey,
+    viewingConversationId:
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/platform/inbox')
+        ? new URLSearchParams(window.location.search).get('conv') ?? convKey ?? null
+        : null,
+  })
 }
 
 export function useWebChatSocket(
@@ -69,7 +63,7 @@ export function useWebChatSocket(
       if (!payload?.conversationId) return
       if (payload.message?.direction === 'inbound') {
         if (chime) playInboundChime()
-        if (notifyBrowser) maybeBrowserNotify(payload.message.body)
+        if (notifyBrowser) maybeBrowserNotify(payload.message.body, payload.conversationId)
       }
       qc.invalidateQueries({ queryKey: ['webchat-conversations'] })
       qc.invalidateQueries({ queryKey: ['webchat-stats'] })

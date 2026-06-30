@@ -2,17 +2,24 @@
   "name": "Radar Chat",
   "short_name": "Radar Chat",
   "description": "Painel Radar Chat — WhatsApp, inbox e automações",
-  "start_url": "/",
+  "start_url": "/platform/inbox",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#07111f",
-  "theme_color": "#2563eb",
-  "orientation": "portrait-primary",
+  "theme_color": "#07111f",
+  "orientation": "any",
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

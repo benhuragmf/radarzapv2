@@ -523,6 +523,13 @@ export const OPENAPI_DASHBOARD = {
         tags: ['Conta'],
       },
     },
+    '/inbox/alerts': {
+      get: {
+        summary: 'Preferências de alerta do Inbox (som + notificações do sistema)',
+        description: 'Capability: inbox:reply. Retorna alertSoundEnabled, alertOnNewChat, alertOnNewMessage, alertBrowserNotify.',
+        tags: ['Inbox'],
+      },
+    },
     '/inbox/settings': {
       get: { summary: 'Configurações do Inbox (incl. CSAT)', tags: ['Inbox'] },
       patch: { summary: 'Atualizar configurações (csatEnabled, csatPrompt, csatThankYou)', tags: ['Inbox'] },
@@ -657,6 +664,86 @@ export const OPENAPI_DASHBOARD = {
     '/integrations/whatsapp/cloud/webhook': {
       get: { summary: 'Verificação webhook Meta (hub.verify_token)', tags: ['WhatsApp'] },
       post: { summary: 'Inbound mensagens/status Cloud API (Meta)', tags: ['WhatsApp'] },
+    },
+    '/discord/health': {
+      get: { summary: 'Status do bot Discord (token, guilds, online)', tags: ['Discord'] },
+    },
+    '/discord/stats': {
+      get: {
+        summary: 'Métricas de eventos Discord (7–30 dias)',
+        tags: ['Discord'],
+        parameters: [
+          { name: 'guildId', in: 'query', schema: { type: 'string' } },
+          { name: 'days', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 30 } },
+        ],
+      },
+    },
+    '/discord/audit': {
+      get: {
+        summary: 'Auditoria de mudanças em regras e monitores Discord',
+        tags: ['Discord'],
+        parameters: [{ name: 'limit', in: 'query', schema: { type: 'integer', maximum: 100 } }],
+      },
+    },
+    '/discord/settings': {
+      get: { summary: 'Configurações Discord do tenant (dry-run, multi-regra)', tags: ['Discord'] },
+      patch: {
+        summary: 'Atualiza configurações Discord globais do tenant',
+        tags: ['Discord'],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  dryRun: { type: 'boolean' },
+                  multiRulePerMessage: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/discord/bot-invite-url': {
+      get: { summary: 'URL OAuth para convidar o bot ao servidor', tags: ['Discord'] },
+    },
+    '/discord/guilds': {
+      get: { summary: 'Servidores Discord onde o bot está presente', tags: ['Discord'] },
+    },
+    '/discord/guilds/{guildId}/channels': {
+      get: {
+        summary: 'Canais do servidor (filtro texto/voz)',
+        tags: ['Discord'],
+        parameters: [
+          { name: 'guildId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'type', in: 'query', schema: { type: 'string', enum: ['text', 'voice'] } },
+        ],
+      },
+    },
+    '/discord/guilds/{guildId}/roles': {
+      get: {
+        summary: 'Cargos do servidor (filtro de regras)',
+        tags: ['Discord'],
+        parameters: [{ name: 'guildId', in: 'path', required: true, schema: { type: 'string' } }],
+      },
+    },
+    '/channels': {
+      get: { summary: 'Monitores Discord configurados', tags: ['Discord'] },
+      post: { summary: 'Adicionar monitor (texto, voz ou eventos)', tags: ['Discord'] },
+    },
+    '/channels/{id}/filters': {
+      patch: { summary: 'Atualizar filtros do monitor', tags: ['Discord'] },
+    },
+    '/channels/{id}/history': {
+      get: { summary: 'Histórico de capturas do monitor (90 dias)', tags: ['Discord'] },
+    },
+    '/rules': {
+      get: { summary: 'Listar regras Discord → WhatsApp', tags: ['Discord'] },
+      post: { summary: 'Criar regra (multi-gatilho, cargos, filtros)', tags: ['Discord'] },
+    },
+    '/rules/preview': {
+      post: { summary: 'Prévia de regra sem enviar ao WhatsApp', tags: ['Discord'] },
     },
   },
 } as const;

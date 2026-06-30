@@ -12,6 +12,8 @@ import { EventNotificationProvider } from '../../context/EventNotificationContex
 import { WebChatGlobalListener } from '../webchat/WebChatGlobalListener'
 import { AgentPresenceProvider } from '../../lib/agentPresenceContext'
 import { AgentPresenceRuntime } from './AgentPresenceRuntime'
+import { PwaInstallBanner } from './PwaInstallBanner'
+import { BrowserNotifyPermissionBanner } from './BrowserNotifyPermissionBanner'
 
 import { cn } from '@/lib/utils'
 
@@ -66,6 +68,8 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
                   onUserUpdate={onUserUpdate}
                   onMenuClick={() => setSidebarOpen(true)}
                 />
+                <PwaInstallBanner />
+                <BrowserNotifyPermissionBanner />
               </div>
               <main
                 className={cn(

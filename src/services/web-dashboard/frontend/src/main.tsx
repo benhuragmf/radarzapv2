@@ -6,6 +6,9 @@ import App from './App'
 import { ToastProvider } from './context/ToastContext'
 import { ThemeProvider } from './context/ThemeContext'
 import './index.css'
+import { registerAppServiceWorker } from './lib/registerServiceWorker'
+
+registerAppServiceWorker()
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -203,6 +203,10 @@ import {
   isDuplicateInboundMessage,
   markInboundMessageProcessed,
 } from '@/services/inbox/inbound-dedup';
+import {
+  contactIdentifierLookupVariants,
+  pickPreferredOpenConversation,
+} from '@/services/inbox/inbox-conversation-lookup.util';
 
 export interface InboxInboundPayload {
   text?: string;
@@ -449,6 +453,21 @@ export class InboxService {
     return loadInboxSettings(clientId);
   }
 
+  async getAlertSettings(clientId: string): Promise<{
+    alertSoundEnabled: boolean;
+    alertOnNewChat: boolean;
+    alertOnNewMessage: boolean;
+    alertBrowserNotify: boolean;
+  }> {
+    const settings = await loadInboxSettings(clientId);
+    return {
+      alertSoundEnabled: settings.alertSoundEnabled,
+      alertOnNewChat: settings.alertOnNewChat,
+      alertOnNewMessage: settings.alertOnNewMessage,
+      alertBrowserNotify: settings.alertBrowserNotify !== false,
+    };
+  }
+
   async updateSettings(
     clientId: string,
     patch: Partial<{
@@ -473,6 +492,7 @@ export class InboxService {
       alertSoundEnabled: boolean;
       alertOnNewChat: boolean;
       alertOnNewMessage: boolean;
+      alertBrowserNotify: boolean;
       inactivityAutoCloseEnabled: boolean;
       inactivityCloseMinutes: number;
       inactivityWarningMinutes: number;
@@ -557,6 +577,9 @@ export class InboxService {
     }
     if (patch.alertOnNewMessage !== undefined) {
       settings.alertOnNewMessage = Boolean(patch.alertOnNewMessage);
+    }
+    if (patch.alertBrowserNotify !== undefined) {
+      settings.alertBrowserNotify = Boolean(patch.alertBrowserNotify);
     }
     if (patch.inactivityAutoCloseEnabled !== undefined) {
       settings.inactivityAutoCloseEnabled = Boolean(patch.inactivityAutoCloseEnabled);
@@ -2408,7 +2431,7 @@ export class InboxService {
       settings.schedule,
     );
 
-    let conversation = await this.findOpenConversation(clientId, dest._id as mongoose.Types.ObjectId);
+    let conversation = await this.findOpenConversationForInbound(clientId, dest);
     const isNew = !conversation;
     if (!conversation) {
       conversation = await this.createConversation(clientId, dest);
@@ -2880,6 +2903,54 @@ export class InboxService {
       status: { $nin: [...TERMINAL_STATUSES] },
     }).sort({ lastMessageAt: -1 });
     return conv;
+  }
+
+  /**
+   * Reutiliza conversa aberta pelo operador (ex.: Central de Leads) mesmo quando o inbound
+   * resolve outro Destination com o mesmo telefone — evita segunda triagem/fila.
+   */
+  private async findOpenConversationForInbound(
+    clientId: string,
+    dest: IDestination,
+  ): Promise<IInboxConversation | null> {
+    const clientOid = new mongoose.Types.ObjectId(clientId);
+    const destinationId = dest._id as mongoose.Types.ObjectId;
+
+    const direct = await this.findOpenConversation(clientId, destinationId);
+    if (direct) return direct;
+
+    const variants = contactIdentifierLookupVariants(dest.identifier);
+    if (!variants.length) return null;
+
+    const siblingDests = await Destination.find({
+      clientId: clientOid,
+      type: 'contact',
+      identifier: { $in: variants },
+    })
+      .select('_id')
+      .lean();
+    const destIds = [
+      destinationId,
+      ...siblingDests.map(d => d._id as mongoose.Types.ObjectId),
+    ];
+
+    const open = await InboxConversation.find({
+      clientId: clientOid,
+      status: { $nin: [...TERMINAL_STATUSES] },
+      $or: [{ destinationId: { $in: destIds } }, { contactIdentifier: { $in: variants } }],
+    }).limit(30);
+
+    const preferred = pickPreferredOpenConversation(open);
+    if (preferred && String(preferred.destinationId) !== String(destinationId)) {
+      logger.info('Inbound reutilizou conversa aberta em outro contato do mesmo telefone', {
+        clientId,
+        conversationId: preferred._id,
+        fromDestinationId: String(destinationId),
+        conversationDestinationId: String(preferred.destinationId),
+        contactIdentifier: preferred.contactIdentifier,
+      });
+    }
+    return preferred;
   }
 
   private async createConversation(clientId: string, dest: IDestination): Promise<IInboxConversation> {
@@ -4997,7 +5068,7 @@ export class InboxService {
       ? await this.resolveLeadDepartmentForUser(clientId, userId)
       : null;
 
-    let conv = await this.findOpenConversation(clientId, dest._id as mongoose.Types.ObjectId);
+    let conv = await this.findOpenConversationForInbound(clientId, dest);
     let created = false;
 
     if (

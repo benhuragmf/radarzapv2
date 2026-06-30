@@ -47,6 +47,7 @@ export interface IInboxSettings extends Document {
   alertSoundEnabled: boolean;
   alertOnNewChat: boolean;
   alertOnNewMessage: boolean;
+  alertBrowserNotify: boolean;
   inactivityAutoCloseEnabled: boolean;
   inactivityCloseMinutes: number;
   inactivityWarningMinutes: number;
@@ -149,6 +150,7 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     alertSoundEnabled: { type: Boolean, default: true },
     alertOnNewChat: { type: Boolean, default: true },
     alertOnNewMessage: { type: Boolean, default: false },
+    alertBrowserNotify: { type: Boolean, default: true },
     inactivityAutoCloseEnabled: {
       type: Boolean,
       default: DEFAULT_INBOX_SLA.inactivityAutoCloseEnabled,

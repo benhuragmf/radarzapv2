@@ -238,6 +238,7 @@ export function InboxComposer({
           </div>
           <textarea
             ref={textareaRef}
+            data-inbox-composer
             value={value}
             onChange={e => onChange(e.currentTarget.value)}
             placeholder={

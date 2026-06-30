@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.14.5` (`package.json`) · **Última revisão doc:** 2026-06-30
+**Versão atual:** `2.17.2` (`package.json`) · **Última revisão doc:** 2026-06-30
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,9 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.17.2** | Modo atendente desktop: PWA (`sw.js`, install banner), notificações SO no Inbox, atalhos teclado, `GET /inbox/alerts`, `alertBrowserNotify` — `MODO-ATENDENTE-DESKTOP.md` |
+| **2.16.0** | Discord: histórico mensagens texto, `POST /rules/preview`, métricas 7–30d, UI histórico canais texto |
+| **2.15.0** | Discord: health/stats API, card bot no home, filtros avançados regras UI, webhook `discord.message.matched`, doc `DISCORD-MONITORAMENTO.md` |
 | **2.14.5** | Discord: fix link Convidar bot via `GET /api/discord/bot-invite-url` |
 | **2.14.4** | Discord regras: múltiplos gatilhos (`triggers[]`), picker multi-select, template auto por evento |
 | **2.14.3** | Discord `/discord/rules`: gatilhos em cards (Mensagens/Voz/Eventos), formulário em 4 etapas, atalhos e filtros; fix `GET /rules?guildId=` para regras voz/eventos |
@@ -263,6 +266,7 @@ Ver detalhes em `EQUIPE-RBAC.md`, `INBOX-ATENDIMENTO.md`, `CONSENTIMENTO-LGPD.md
 | `InboxSettings` | `whatsappFallbackEnabled`, `whatsappFallbackAlertPhones`, `whatsappFallbackVisitorMessage`, `agentPresenceTimeoutSeconds` | 2.10.72 |
 | `InboxSettings` | `whatsappFallbackAcceptTimeoutSeconds` | 2.11.28 |
 | `InboxSettings` | `presenceIdleTimeoutSeconds` | 2.11.25 |
+| `InboxSettings` | `alertBrowserNotify` | 2.17.2 |
 | `InboxConversation` | `lastOutboundAt`, `inactivityWarnedAt`, `queueSlaNotifiedAt` | 2.2.1 |
 | `InboxTicket` | `lastTeamMessageAt` | 2.6.3 |
 | `InboxTicket` | `teamSlaDueAt`, `teamSlaBreachedAt`, `lastStatusChangeAt` | 2.7.0 |

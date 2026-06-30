@@ -32,6 +32,7 @@ import {
   PanelRight,
 } from 'lucide-react'
 import { useInboxSocket } from '../../hooks/useInboxSocket'
+import { useInboxHotkeys } from '../../hooks/useInboxHotkeys'
 import { formatQueueTimer, liveQueueState, liveQueueWaitState, liveHandleTimeSec, liveFallbackCountdown, liveTriageWaitState, liveInactivityCloseAllowed, liveGracefulCloseAllowed, priorityBorderClass, queueUrgencyPanelClass, queueUrgencyTimerClass } from '../../lib/inboxQueueUi'
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
@@ -46,6 +47,7 @@ import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
 import { InboxChannelBadge } from '../../components/inbox/InboxChannelBadge'
 import { InboxDepartmentBadge } from '../../components/inbox/InboxDepartmentBadge'
 import { InboxEmptyChat } from '../../components/inbox/InboxEmptyChat'
+import { InboxHotkeysHelp } from '../../components/inbox/InboxHotkeysHelp'
 import { InboxLiveVisitors } from '../../components/inbox/InboxLiveVisitors'
 import {
   InboxContactClassFilter,
@@ -386,6 +388,7 @@ export default function Inbox() {
   const [historyConvId, setHistoryConvId] = useState<string | null>(null)
   const [showContactEditor, setShowContactEditor] = useState(false)
   const [showDetailsPanel, setShowDetailsPanel] = useState(true)
+  const [hotkeysOpen, setHotkeysOpen] = useState(false)
   const [composeMode, setComposeMode] = useState<'reply' | 'internal'>('reply')
   const [visitorTyping, setVisitorTyping] = useState(false)
   const visitorTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -888,6 +891,49 @@ export default function Inbox() {
   const inboxSearchCls = cn(inputCls, 'pl-9 text-sm')
   const chatFocus = Boolean(selectedId)
 
+  const canAssumeHotkey = Boolean(
+    conv &&
+      !isTerminal &&
+      ((conv.canAccept && conv.priorityForMe) ||
+        (convLiveCanPull && !conv.priorityForMe && conv.status === 'waiting_queue') ||
+        (conv.status !== 'in_progress' &&
+          conv.canAccept &&
+          !conv.priorityForMe &&
+          (!conv.suggestedUserId || conv.status === 'bot_triage'))),
+  )
+
+  const conversationIds = useMemo(
+    () => filteredConversations.map(c => c._id),
+    [filteredConversations],
+  )
+
+  useInboxHotkeys({
+    enabled: canInboxView,
+    conversationIds,
+    selectedId,
+    onSelectId: setSelectedId,
+    onAssume: () => {
+      if (conv && canAssumeHotkey) assign.mutate(conv._id)
+    },
+    canAssume: canAssumeHotkey,
+    onFocusComposer: () => {
+      const el = document.querySelector<HTMLTextAreaElement>('[data-inbox-composer]')
+      el?.focus()
+    },
+    onShowHelp: () => setHotkeysOpen(true),
+    onEscape: () => {
+      if (showDetailsPanel) {
+        setShowDetailsPanel(false)
+        return
+      }
+      if (showContactEditor) {
+        setShowContactEditor(false)
+        return
+      }
+      if (selectedId) setSelectedId(null)
+    },
+  })
+
   return (
     <div
       className={cn(
@@ -895,6 +941,7 @@ export default function Inbox() {
         platformPageMaxWidthClass,
       )}
     >
+      <InboxHotkeysHelp open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       {/* Cabeçalho — mínimo com conversa aberta (título já está no Header global) */}
       <div className={cn('shrink-0', chatFocus ? 'mb-1' : 'mb-2 space-y-1.5')}>
         {!chatFocus && (

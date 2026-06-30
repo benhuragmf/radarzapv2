@@ -12,8 +12,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { can, type AuthUser } from '../lib/auth'
 import { playAlertSound } from '../lib/alertSound'
+import { showBrowserNotification } from '../lib/browserNotify'
 import { usePanelSocket } from '../hooks/usePanelSocket'
 import { isUrgentPanelEventType, resolvePanelEventUrgency } from '../lib/panelEventPriority'
+import { useAgentPresenceContext } from '../lib/agentPresenceContext'
 
 export interface PanelEvent {
   id: string
@@ -33,6 +35,7 @@ interface AlertSettings {
   alertSoundEnabled: boolean
   alertOnNewChat: boolean
   alertOnNewMessage: boolean
+  alertBrowserNotify: boolean
 }
 
 interface Ctx {
@@ -46,6 +49,16 @@ interface Ctx {
 
 const EventNotificationContext = createContext<Ctx | null>(null)
 const NOTIFICATIONS_QUERY_KEY = ['panel-notifications'] as const
+
+const BROWSER_NOTIFY_CHAT_TYPES = new Set([
+  'inbox:new_chat',
+  'inbox:priority',
+  'inbox:priority_expired',
+  'inbox:supervisor_help',
+  'inbox:transferred',
+  'inbox:assigned',
+  'webchat:escalated',
+])
 
 function shouldShowPanelEvent(ev: PanelEvent, user: AuthUser): boolean {
   if (ev.targetUserId && ev.targetUserId !== user.userId) return false
@@ -85,6 +98,28 @@ function persistClientPanelEvent(ev: PanelEvent): void {
     .catch(() => {})
 }
 
+function shouldPlaySound(ev: PanelEvent, settings: AlertSettings): boolean {
+  if (!settings.alertSoundEnabled) return false
+  if (ev.urgent || isUrgentPanelEventType(ev.type)) return true
+  if (ev.type === 'inbox:new_message') return settings.alertOnNewMessage
+  if (BROWSER_NOTIFY_CHAT_TYPES.has(ev.type)) return settings.alertOnNewChat
+  return false
+}
+
+function shouldBrowserNotify(ev: PanelEvent, settings: AlertSettings): boolean {
+  if (!settings.alertBrowserNotify) return false
+  if (ev.urgent || isUrgentPanelEventType(ev.type)) return true
+  if (ev.type === 'inbox:new_message') return settings.alertOnNewMessage
+  if (BROWSER_NOTIFY_CHAT_TYPES.has(ev.type)) return settings.alertOnNewChat
+  return false
+}
+
+function soundKindForEvent(ev: PanelEvent): 'urgent' | 'message' | 'chat' {
+  if (ev.urgent || isUrgentPanelEventType(ev.type)) return 'urgent'
+  if (ev.type === 'inbox:new_message') return 'message'
+  return 'chat'
+}
+
 export function EventNotificationProvider({
   user,
   children,
@@ -95,7 +130,8 @@ export function EventNotificationProvider({
   const qc = useQueryClient()
   const [events, setEvents] = useState<PanelEvent[]>([])
   const hydratedRef = useRef(false)
-  const canReadSettings = can(user, 'inbox:department:manage')
+  const canInboxAlerts = can(user, 'inbox:reply')
+  const { viewingConversationId } = useAgentPresenceContext()
 
   const { data: persisted = [], isSuccess: persistedLoaded } = useQuery<PanelEvent[]>({
     queryKey: NOTIFICATIONS_QUERY_KEY,
@@ -117,9 +153,9 @@ export function EventNotificationProvider({
   }, [persisted, persistedLoaded, user])
 
   const { data: settingsRaw } = useQuery<AlertSettings>({
-    queryKey: ['inbox-settings-alerts'],
-    queryFn: () => api.get('/inbox/settings'),
-    enabled: canReadSettings,
+    queryKey: ['inbox-alerts'],
+    queryFn: () => api.get('/inbox/alerts'),
+    enabled: canInboxAlerts,
     staleTime: 60_000,
   })
 
@@ -127,6 +163,7 @@ export function EventNotificationProvider({
     alertSoundEnabled: true,
     alertOnNewChat: true,
     alertOnNewMessage: false,
+    alertBrowserNotify: true,
   }
 
   const handlePanelEvent = useCallback(
@@ -144,32 +181,27 @@ export function EventNotificationProvider({
 
       persistClientPanelEvent(normalized)
 
-      if (!settings?.alertSoundEnabled) return
-
-      if (normalized.urgent || isUrgentPanelEventType(normalized.type)) {
-        playAlertSound('urgent')
-        return
+      if (shouldPlaySound(normalized, settings)) {
+        playAlertSound(soundKindForEvent(normalized))
       }
 
-      if (ev.type === 'inbox:new_message' && !settings.alertOnNewMessage) return
-      if (
-        (ev.type === 'inbox:new_chat' ||
-          ev.type === 'inbox:priority' ||
-          ev.type === 'inbox:priority_expired' ||
-          ev.type === 'inbox:supervisor_help' ||
-          ev.type === 'webchat:escalated') &&
-        !settings.alertOnNewChat
-      ) {
-        return
-      }
-
-      if (ev.type === 'inbox:new_message') {
-        playAlertSound('message')
-      } else {
-        playAlertSound('chat')
+      if (shouldBrowserNotify(normalized, settings)) {
+        const convKey = normalized.conversationId
+          ? normalized.conversationId.startsWith('wc:')
+            ? normalized.conversationId
+            : normalized.conversationId
+          : undefined
+        showBrowserNotification({
+          title: normalized.title,
+          body: normalized.body,
+          href: normalized.href,
+          tag: normalized.id,
+          skipWhenViewingConversationId: convKey,
+          viewingConversationId,
+        })
       }
     },
-    [settings, user],
+    [settings, user, viewingConversationId],
   )
 
   usePanelSocket(Boolean(user), handlePanelEvent)
@@ -229,4 +261,3 @@ export function useEventNotifications(): Ctx {
   }
   return ctx
 }
-

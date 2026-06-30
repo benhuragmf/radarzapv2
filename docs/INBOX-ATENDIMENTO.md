@@ -5,7 +5,11 @@ Módulo proprietário de triagem, filas e atendimento humano via WhatsApp.
 > **Referências externas** (Izing, Whaticket, Chatwoot, etc.) servem apenas para inspirar fluxos de mercado.  
 > Nenhum código de terceiros é copiado. Contratos, modelos e UI são exclusivos do RadarZap.
 
-**Última revisão:** 2026-06-24 (TOP 07 — fila, atribuição, transferência; ver `docs/concluidos/top/RADARZAP-TOP-07-INBOX-CONVERSAS-FILA-TRANSFERENCIA.md`)
+**Última revisão:** 2026-06-30 (modo atendente desktop — ver [`MODO-ATENDENTE-DESKTOP.md`](./MODO-ATENDENTE-DESKTOP.md))
+
+## Modo atendente desktop
+
+Guia operacional para instalar o painel como PWA, notificações do sistema e atalhos de teclado: **[`MODO-ATENDENTE-DESKTOP.md`](./MODO-ATENDENTE-DESKTOP.md)** (`2.17.2`).
 
 ## Fluxo (MVP — Fase 1)
 
