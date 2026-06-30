@@ -1,4 +1,5 @@
 import { config } from '@/config/environment';
+import { SessionCache } from '@/cache/SessionCache';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('DiscordHealthService');
@@ -11,6 +12,9 @@ export interface DiscordHealthSnapshot {
   botId: string | null;
   guildsInToken: number;
   clientIdConfigured: boolean;
+  /** Gateway Discord.js (captura em tempo real) */
+  gatewayStatus: 'connected' | 'connecting' | 'disconnected' | 'unknown';
+  gatewayConnected: boolean;
   intents: {
     guildMessages: boolean;
     messageContent: boolean;
@@ -42,6 +46,8 @@ export class DiscordHealthService {
       botId: null,
       guildsInToken: 0,
       clientIdConfigured: Boolean(clientId),
+      gatewayStatus: 'unknown',
+      gatewayConnected: false,
       intents: {
         guildMessages: true,
         messageContent: true,
@@ -54,6 +60,20 @@ export class DiscordHealthService {
     if (!token) {
       base.error = 'DISCORD_TOKEN não configurado';
       return base;
+    }
+
+    try {
+      const clientIdForSession = clientId || config.DISCORD.CLIENT_ID?.trim();
+      if (clientIdForSession) {
+        const session = await SessionCache.getInstance().getDiscordSession(clientIdForSession);
+        const status = session?.status as DiscordHealthSnapshot['gatewayStatus'] | undefined;
+        if (status === 'connected' || status === 'connecting' || status === 'disconnected') {
+          base.gatewayStatus = status;
+          base.gatewayConnected = status === 'connected';
+        }
+      }
+    } catch (err) {
+      logger.debug('Gateway session read failed', { error: (err as Error).message });
     }
 
     try {

@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.17.5` (`package.json`) · **Última revisão doc:** 2026-06-30
+**Versão atual:** `2.17.6` (`package.json`) · **Última revisão doc:** 2026-06-30
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.17.6** | Discord badge embed: `GET /api/discord/public/status`, `/discord/status.js`, `gatewayStatus` no health — `DISCORD-MONITORAMENTO.md` |
 | **2.17.5** | Discord webhook inbound (`POST /integrations/discord/inbound/*`), opt-in `inboundEnabled` — `DISCORD-MONITORAMENTO.md` |
 | **2.17.4** | Discord: multi-regra por captura (`multiRulePerMessage`), até 5 regras por evento — `DISCORD-MONITORAMENTO.md` |
 | **2.17.3** | Discord: limpeza legado `destinationIds`, métricas simulação (`dry_run`), utilitários canal/evento |

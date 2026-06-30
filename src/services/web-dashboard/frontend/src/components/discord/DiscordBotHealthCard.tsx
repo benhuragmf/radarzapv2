@@ -12,6 +12,8 @@ interface Health {
   botUsername: string | null
   guildsInToken: number
   clientIdConfigured: boolean
+  gatewayStatus: 'connected' | 'connecting' | 'disconnected' | 'unknown'
+  gatewayConnected: boolean
   error?: string
 }
 
@@ -36,18 +38,31 @@ export function DiscordBotHealthCard({ guildId: _guildId }: Props) {
 
   if (!health) return null
 
-  const ok = health.botOnline && health.tokenConfigured
+  const ok = health.gatewayConnected && health.botApiReachable && health.tokenConfigured
+
+  const gatewayLabel =
+    health.gatewayStatus === 'connected'
+      ? 'Gateway conectado'
+      : health.gatewayStatus === 'connecting'
+        ? 'Gateway conectando'
+        : health.gatewayStatus === 'disconnected'
+          ? 'Gateway desconectado'
+          : 'Gateway desconhecido'
 
   return (
     <Card className="text-sm space-y-2 mb-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {ok ? (
           <CheckCircle2 size={16} className="text-green-400 shrink-0" />
         ) : (
           <AlertTriangle size={16} className="text-amber-400 shrink-0" />
         )}
         <span className="font-medium text-[var(--rz-text-primary)]">Status do bot</span>
-        <Badge label={ok ? 'Online' : 'Atenção'} variant={ok ? 'green' : 'yellow'} />
+        <Badge label={ok ? 'Operacional' : 'Atenção'} variant={ok ? 'green' : 'yellow'} />
+        <Badge
+          label={gatewayLabel}
+          variant={health.gatewayConnected ? 'green' : 'gray'}
+        />
       </div>
       <div className="text-xs text-[var(--rz-text-muted)] space-y-1">
         {health.botUsername && (
@@ -61,7 +76,8 @@ export function DiscordBotHealthCard({ guildId: _guildId }: Props) {
         )}
         {health.error && <p className="text-amber-400/90">{health.error}</p>}
         <p className="text-[10px]">
-          Intents: mensagens, conteúdo, membros, voz — ative no Discord Developer Portal.
+          API REST: {health.botApiReachable ? 'ok' : 'falha'} · Gateway: {gatewayLabel.toLowerCase()} · Intents:
+          mensagens, conteúdo, membros, voz.
         </p>
       </div>
     </Card>

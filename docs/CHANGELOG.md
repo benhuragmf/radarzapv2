@@ -10,6 +10,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.6] - 2026-06-30
+
+### Discord — badge de presença (widget embed)
+
+- `GET /api/discord/public/status` + script `/discord/status.js` (badge público).
+- Health: `gatewayStatus` / `gatewayConnected` via sessão do bot.
+- UI: snippet embed em `/discord/settings`; roadmap Discord concluído.
+
+---
+
 ## [2.17.5] - 2026-06-30
 
 ### Discord — webhook inbound (sem gateway)

@@ -1,6 +1,6 @@
 # Discord → WhatsApp — monitoramento
 
-**Versão doc:** 2.17.5 · **Atualizado:** 2026-06-30
+**Versão doc:** 2.17.6 · **Atualizado:** 2026-06-30
 
 Módulo de automação: captura eventos no Discord (mensagens, voz, membros) e envia ao WhatsApp via regras e templates `dw-*`.
 
@@ -43,7 +43,7 @@ Módulo de automação: captura eventos no Discord (mensagens, voz, membros) e e
 | 12 | Dry-run global por tenant | ✅ 2.17.2 |
 | 13 | Limpar campos legados `DiscordChannel.destinationIds` / `templateName` | ✅ 2.17.3 |
 | 14 | Multi-regra por mensagem | ✅ 2.17.4 |
-| 15 | Status presença do bot no widget embed |
+| 15 | Status presença do bot no widget embed | ✅ 2.17.6 |
 
 ## Threads e fóruns (2.16.1)
 
@@ -107,6 +107,21 @@ Alternativa ao bot Discord online: sistemas externos enviam capturas via HTTP.
 - Rate limit: 60 req/min por tenant (`RADARCHAT_DISCORD_INBOUND_RATE_LIMIT_PER_MINUTE`).
 - Resposta `202` com `status: queued | skipped | qa_no_real_send`.
 
+## Badge de status embed (2.17.6)
+
+Exibe no site se o bot está online (gateway) e com monitores ativos no servidor.
+
+```html
+<script src="https://SEU-PAINEL/discord/status.js"
+  data-guild-id="ID_DO_SERVIDOR"
+  data-base-url="https://SEU-PAINEL"
+  async></script>
+```
+
+- API pública: `GET /api/discord/public/status?guildId=` (CORS aberto, rate limit).
+- Painel: código pronto em **Discord → Configurações** (badge embed).
+- Health interno: `GET /api/discord/health` inclui `gatewayStatus` / `gatewayConnected`.
+
 ## Filtros por autor (2.16.1)
 
 - UI em Canais → Filtros: **IDs de bots** e **IDs de usuários** permitidos (vírgula).
@@ -118,7 +133,8 @@ Alternativa ao bot Discord online: sistemas externos enviam capturas via HTTP.
 |--------|------|-----------|
 | GET | `/api/discord/health` | Token, bot online, guilds |
 | GET | `/api/discord/stats?guildId=&days=7` | Agregado `DiscordMonitorEvent` |
-| GET/PATCH | `/api/discord/settings` | Modo simulação (dry-run) global |
+| GET | `/api/discord/public/status?guildId=` | Status público bot + monitores (embed) |
+| GET | `/discord/status.js` | Script badge embed |
 | GET | `/api/discord/audit?limit=50` | Auditoria regras/monitores/config |
 | GET | `/api/discord/bot-invite-url` | Link OAuth convite bot |
 

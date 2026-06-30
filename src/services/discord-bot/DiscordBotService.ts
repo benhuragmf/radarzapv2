@@ -185,6 +185,7 @@ export class DiscordBotService {
 
       // Update session
       await this.updateSessionStatus('connected');
+      await this.storeSession();
 
       // Set up periodic health checks
       this.setupHealthChecks();

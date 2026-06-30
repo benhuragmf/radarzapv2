@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const srcBase = path.join(root, 'src/services/web-dashboard');
 const distBase = path.join(root, 'dist/services/web-dashboard');
 
-const STATIC_DIRS = ['webchat', 'leads'];
+const STATIC_DIRS = ['webchat', 'leads', 'discord'];
 const STATIC_EXT = new Set(['.html', '.js']);
 
 function copyDir(name) {

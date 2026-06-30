@@ -143,6 +143,14 @@ export default function DiscordHome() {
           <DiscordAuditPanel />
           <DiscordRoadmapCard />
 
+          <Card className="mb-4 text-xs text-[var(--rz-text-muted)]">
+            Badge de status para o site do servidor:{' '}
+            <Link to="/discord/settings" className="text-brand-400 hover:underline">
+              Configurações → embed público
+            </Link>
+            .
+          </Card>
+
           <div className="grid sm:grid-cols-2 gap-2">
             {LINKS.map(({ to, label, icon: Icon }) => (
               <Link

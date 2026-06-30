@@ -486,6 +486,22 @@ export class DashboardService {
       rateLimiters.webchatPublic,
       createLeadFormPublicRouter(),
     );
+    this.app.get(
+      '/api/discord/public/status',
+      cors({ origin: true, methods: ['GET', 'OPTIONS'] }),
+      rateLimiters.webchatPublic,
+      async (req, res) => {
+        try {
+          const { guildId } = req.query as { guildId?: string };
+          const { DiscordPublicStatusService } = await import('@/services/discord/DiscordPublicStatusService');
+          const status = await DiscordPublicStatusService.getInstance().getStatus(guildId?.trim() || undefined);
+          res.json(status);
+        } catch (e) {
+          const msg = (e as Error).message;
+          res.status(msg.includes('guildId') ? 400 : 500).json({ error: msg });
+        }
+      },
+    );
     this.app.get('/webchat/widget.js', (_req, res) => {
       applyPublicEmbedAssetHeaders(res);
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -509,6 +525,18 @@ export class DashboardService {
         res.setHeader('Cache-Control', 'public, max-age=3600');
       }
       res.sendFile(path.join(__dirname, 'leads', 'form.js'));
+    });
+    this.app.get('/discord/status.js', (_req, res) => {
+      applyPublicEmbedAssetHeaders(res);
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      if (config.NODE_ENV !== 'production') {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
+      res.sendFile(path.join(__dirname, 'discord', 'status.js'));
     });
     this.app.get('/leads/preview.html', (_req, res) => {
       applyEmbedPreviewPageHeaders(res);

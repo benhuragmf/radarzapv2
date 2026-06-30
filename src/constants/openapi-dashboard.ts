@@ -718,6 +718,13 @@ export const OPENAPI_DASHBOARD = {
         tags: ['Discord', 'Integrations'],
       },
     },
+    '/discord/public/status': {
+      get: {
+        summary: 'Status público do bot (gateway + monitores por guildId)',
+        tags: ['Discord'],
+        parameters: [{ name: 'guildId', in: 'query', schema: { type: 'string' } }],
+      },
+    },
     '/discord/bot-invite-url': {
       get: { summary: 'URL OAuth para convidar o bot ao servidor', tags: ['Discord'] },
     },

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { DiscordPage } from '../components/discord/DiscordPage'
+import { DiscordStatusEmbedCard } from '../components/discord/DiscordStatusEmbedCard'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -177,6 +178,8 @@ export default function DiscordSettings({ user }: Props) {
           </div>
         </div>
       </Card>
+
+      <DiscordStatusEmbedCard guildId={guildId} />
 
       <Card className="space-y-4">
         <div className="flex items-start gap-3">
