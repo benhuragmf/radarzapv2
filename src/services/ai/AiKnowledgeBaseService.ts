@@ -189,11 +189,11 @@ export class AiKnowledgeBaseService {
         })
           .sort({ updatedAt: -1 })
           .limit(8)
-          .select('title content')
+          .select('title content category links')
           .lean();
 
     if (!rows.length) return '';
-    return rows.map(r => `### ${r.title}\n${r.content}`).join('\n\n');
+    return rows.map(r => this.formatContextRow(r)).join('\n\n');
   }
 
   async searchRelevant(
@@ -205,7 +205,7 @@ export class AiKnowledgeBaseService {
       clientId: new mongoose.Types.ObjectId(clientId),
       active: true,
     })
-      .select('title content keywords active links showAsQuickReply quickReplyLabel')
+      .select('title content category keywords active links showAsQuickReply quickReplyLabel')
       .lean();
 
     return rows
@@ -226,6 +226,19 @@ export class AiKnowledgeBaseService {
     const best = hits[0];
     if (!best || best.score < AI_AUTO_RESOLVE_MIN_SCORE) return null;
     return best;
+  }
+
+  /** Formata artigo para o prompt, incluindo links úteis do chat/site. */
+  private formatContextRow(
+    row: Pick<IAiKnowledgeBase, 'title' | 'content'> &
+      Partial<Pick<IAiKnowledgeBase, 'category' | 'links'>>,
+  ): string {
+    const links = sanitizeWebChatActionLinks(row.links ?? []);
+    const linkBlock = links.length
+      ? `\nLinks úteis:\n${links.map(link => `- ${link.label}: ${link.url}`).join('\n')}`
+      : '';
+    const category = normalizeKbCategory(row.category);
+    return `### ${row.title}\nCategoria: ${category}\n${row.content}${linkBlock}`;
   }
 
   /** Match para widget — inclui clique em sugestão rápida (título/rótulo). */

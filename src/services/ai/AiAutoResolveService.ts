@@ -2,6 +2,8 @@ import { AiKnowledgeBaseService } from './AiKnowledgeBaseService';
 import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
 import { AI_AUTO_RESOLVE_MIN_SCORE, scoreAiTextMatch } from '@/utils/ai-text-match';
+import { sanitizeWebChatActionLinks } from '@/utils/webchat-safe-url.util';
+import type { WebChatActionLink } from '@/types/webchat';
 
 export interface AiAutoResolveResult {
   hit: boolean;
@@ -130,7 +132,7 @@ export class AiAutoResolveService {
     if (kbMatch) {
       return {
         hit: true,
-        reply: this.formatReply(kbMatch.row.content, kbMatch.row.title),
+        reply: this.formatReply(kbMatch.row.content, kbMatch.row.title, kbMatch.row.links),
         source: 'knowledge_base',
         sourceId: String(kbMatch.row._id),
         sourceTitle: kbMatch.row.title,
@@ -174,7 +176,7 @@ export class AiAutoResolveService {
     if (kbMatch) {
       return {
         hit: true,
-        reply: this.formatReply(kbMatch.row.content, kbMatch.row.title),
+        reply: this.formatReply(kbMatch.row.content, kbMatch.row.title, kbMatch.row.links),
         source: 'knowledge_base',
         sourceId: String(kbMatch.row._id),
         sourceTitle: kbMatch.row.title,
@@ -185,8 +187,16 @@ export class AiAutoResolveService {
     return { hit: false };
   }
 
-  private formatReply(body: string, title: string): string {
-    const trimmed = body.trim();
+  private formatReply(body: string, title: string, links?: WebChatActionLink[]): string {
+    const validLinks = sanitizeWebChatActionLinks(links ?? []);
+    const trimmed = [
+      body.trim(),
+      validLinks.length
+        ? `Links úteis:\n${validLinks.map(link => `- ${link.label}: ${link.url}`).join('\n')}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
     if (trimmed.length <= 1200) return trimmed;
     return `${trimmed.slice(0, 1150).trim()}…\n\n(Referência: ${title})`;
   }

@@ -194,6 +194,12 @@ Política de resolução (antes de transferir):
 Dados a coletar antes de transferir: ${mustCollect.join(', ') || 'problema/dúvida'}.
 ${skipKnown.length ? `Já temos no cadastro (não pergunte de novo): ${skipKnown.join(', ')}.\n` : ''}
 ${contactCtx?.knownFields.name && contactCtx.name ? `Nome no cadastro: ${contactCtx.name}.\n` : ''}
+Politica comercial, catalogo e pagamento:
+1. Para perguntas sobre empresa, produtos, estoque, preco, frete, link de compra ou checkout, use KNOWLEDGE primeiro.
+2. Se o artigo tiver links, envie o link direto adequado ao produto, checkout ou rastreio.
+3. Nunca invente estoque, valor, desconto, prazo ou disponibilidade. Se faltar dado na base, peca confirmacao ou escale.
+4. Se o cliente enviar comprovante/PIX por imagem, registre como anexo/coleta e transfira para Financeiro/humano quando for preciso confirmar baixa. Nao confirme pagamento apenas pela imagem sem integracao oficial.
+
 Setores (departmentMenuKey):
 ${deptList || '(nenhum setor cadastrado)'}
 

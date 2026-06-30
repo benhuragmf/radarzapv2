@@ -19,6 +19,10 @@ import {
   Hand,
   CheckCircle2,
   XCircle,
+  Store,
+  Package,
+  CreditCard,
+  Pencil,
 } from 'lucide-react'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxStatsRow } from '../../components/inbox/InboxStatsRow'
@@ -58,6 +62,7 @@ type TabId =
   | 'provedor'
   | 'regras'
   | 'coleta'
+  | 'empresa'
   | 'kb'
   | 'skills'
   | 'memory'
@@ -72,6 +77,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'provedor', label: 'Provedor' },
   { id: 'regras', label: 'Economia e regras' },
   { id: 'coleta', label: 'Dados a coletar' },
+  { id: 'empresa', label: 'Empresa e catálogo' },
   { id: 'kb', label: 'Base de conhecimento' },
   { id: 'skills', label: 'Skills' },
   { id: 'memory', label: 'Memória' },
@@ -125,6 +131,7 @@ interface AiPayload {
     links?: Array<{ label: string; url: string; openInNewTab?: boolean }>
     showAsQuickReply?: boolean
     quickReplyLabel?: string
+    _delete?: boolean
   }>
   skills: Array<{
     id: string
@@ -136,6 +143,7 @@ interface AiPayload {
     sourceProblem?: string
     usageCount: number
     updatedAt: string
+    _delete?: boolean
   }>
   memories: Array<{
     id: string
@@ -146,6 +154,7 @@ interface AiPayload {
     source: 'learned' | 'manual'
     usageCount: number
     updatedAt: string
+    _delete?: boolean
   }>
   usage: {
     dailyUsed: number
@@ -197,6 +206,137 @@ interface AiPayload {
   }
 }
 
+type KnowledgeBaseItem = AiPayload['knowledgeBase'][number]
+type ProductDraft = {
+  name: string
+  sku: string
+  price: string
+  stock: string
+  link: string
+  description: string
+  paymentNotes: string
+}
+
+const COMPANY_PROFILE_TITLE = 'O que a empresa faz'
+const PAYMENT_GUIDE_TITLE = 'Pagamento por PIX e comprovantes'
+const PRODUCT_CATEGORY = 'Produtos e estoque'
+const COMPANY_CATEGORY = 'Empresa'
+const PAYMENT_CATEGORY = 'Pagamentos'
+
+const emptyProductDraft: ProductDraft = {
+  name: '',
+  sku: '',
+  price: '',
+  stock: '',
+  link: '',
+  description: '',
+  paymentNotes: '',
+}
+
+function makeKnowledgeBaseItem(partial: Partial<KnowledgeBaseItem>): KnowledgeBaseItem {
+  return {
+    id: '',
+    title: partial.title ?? 'Novo item',
+    content: partial.content ?? '',
+    category: partial.category ?? 'Geral',
+    active: partial.active ?? true,
+    keywords: partial.keywords ?? [],
+    links: partial.links ?? [],
+    showAsQuickReply: partial.showAsQuickReply ?? false,
+    quickReplyLabel: partial.quickReplyLabel ?? '',
+  }
+}
+
+function parseProductContentField(content: string, prefix: string): string {
+  const line = content.split('\n').find(row => row.startsWith(prefix))
+  return line ? line.slice(prefix.length).trim() : ''
+}
+
+function knowledgeItemToProductDraft(item: KnowledgeBaseItem): ProductDraft {
+  const content = item.content ?? ''
+  return {
+    name: item.title,
+    sku: parseProductContentField(content, 'SKU/código:'),
+    price: parseProductContentField(content, 'Valor atual:'),
+    stock: parseProductContentField(content, 'Estoque disponível:'),
+    description: parseProductContentField(content, 'Descrição:'),
+    paymentNotes: parseProductContentField(content, 'Pagamento/condições:'),
+    link: item.links?.[0]?.url ?? '',
+  }
+}
+
+function productMatchesRef(
+  item: KnowledgeBaseItem,
+  ref: { id?: string; title: string },
+): boolean {
+  if (item._delete) return false
+  if ((item.category ?? 'Geral') !== PRODUCT_CATEGORY) return false
+  if (ref.id && item.id) return item.id === ref.id
+  return item.title.trim().toLowerCase() === ref.title.trim().toLowerCase()
+}
+
+function upsertProductInKnowledgeBase(
+  knowledgeBase: KnowledgeBaseItem[],
+  product: ProductDraft,
+  editingRef?: { id?: string; title: string } | null,
+): KnowledgeBaseItem[] {
+  const next = [...knowledgeBase]
+  const newItem = productDraftToKnowledgeItem(product)
+  const normalizedName = product.name.trim().toLowerCase()
+
+  if (editingRef) {
+    const idx = next.findIndex(item => productMatchesRef(item, editingRef))
+    if (idx >= 0) {
+      next[idx] = { ...next[idx], ...newItem, id: next[idx].id || newItem.id }
+      return next
+    }
+  }
+
+  const dupIdx = next.findIndex(
+    item =>
+      !item._delete &&
+      (item.category ?? 'Geral') === PRODUCT_CATEGORY &&
+      item.title.trim().toLowerCase() === normalizedName,
+  )
+  if (dupIdx >= 0) {
+    next[dupIdx] = { ...next[dupIdx], ...newItem, id: next[dupIdx].id }
+    return next
+  }
+
+  next.push(newItem)
+  return next
+}
+
+function productDraftToKnowledgeItem(product: ProductDraft): KnowledgeBaseItem {
+  const title = product.name.trim() || 'Novo produto'
+  const content = [
+    `Produto: ${title}`,
+    product.sku.trim() ? `SKU/código: ${product.sku.trim()}` : '',
+    product.price.trim() ? `Valor atual: ${product.price.trim()}` : '',
+    product.stock.trim() ? `Estoque disponível: ${product.stock.trim()}` : '',
+    product.description.trim() ? `Descrição: ${product.description.trim()}` : '',
+    product.paymentNotes.trim() ? `Pagamento/condições: ${product.paymentNotes.trim()}` : '',
+    'Regra para a IA: informe preço, disponibilidade e link somente com base neste item. Se estoque, valor ou condição não estiverem claros, peça confirmação ou transfira para humano.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  return makeKnowledgeBaseItem({
+    title,
+    content,
+    category: PRODUCT_CATEGORY,
+    active: true,
+    keywords: [title, product.sku, 'produto', 'estoque', 'comprar', 'valor']
+      .map(k => k.trim())
+      .filter(Boolean),
+    links: product.link.trim()
+      ? [{ label: `Ver ${title}`.slice(0, 80), url: product.link.trim(), openInNewTab: true }]
+      : [],
+    showAsQuickReply: true,
+    quickReplyLabel: title.slice(0, 60),
+  })
+}
+
 export default function AiAtendimento() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<TabId>('geral')
@@ -207,6 +347,10 @@ export default function AiAtendimento() {
   })
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [testResult, setTestResult] = useState<string | null>(null)
+  const [productDraft, setProductDraft] = useState<ProductDraft>(emptyProductDraft)
+  const [editingProductRef, setEditingProductRef] = useState<{ id?: string; title: string } | null>(
+    null,
+  )
 
   const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
   const canManage = can(me ?? null, 'inbox:ai:manage')
@@ -428,6 +572,137 @@ export default function AiAtendimento() {
     save.mutate(body)
   }
 
+  const upsertKnowledgeArticle = (
+    matcher: (item: KnowledgeBaseItem) => boolean,
+    item: KnowledgeBaseItem,
+  ) => {
+    setForm(f => {
+      if (!f) return f
+      const knowledgeBase = [...f.knowledgeBase]
+      const idx = knowledgeBase.findIndex(k => !k._delete && matcher(k))
+      if (idx >= 0) {
+        knowledgeBase[idx] = {
+          ...knowledgeBase[idx],
+          ...item,
+          id: knowledgeBase[idx].id || item.id,
+        }
+      } else {
+        knowledgeBase.push(item)
+      }
+      return { ...f, knowledgeBase }
+    })
+  }
+
+  const updateSystemArticle = (
+    title: string,
+    category: string,
+    content: string,
+    extra?: Partial<KnowledgeBaseItem>,
+  ) => {
+    upsertKnowledgeArticle(
+      item => item.title === title && (item.category ?? 'Geral') === category,
+      makeKnowledgeBaseItem({
+        title,
+        category,
+        content,
+        active: true,
+        keywords: extra?.keywords ?? [title, category],
+        showAsQuickReply: extra?.showAsQuickReply ?? true,
+        quickReplyLabel: extra?.quickReplyLabel ?? title.slice(0, 60),
+        links: extra?.links ?? [],
+        ...extra,
+      }),
+    )
+  }
+
+  const removeKnowledgeBaseItem = (idx: number) => {
+    setForm(f => {
+      if (!f) return f
+      const knowledgeBase = [...f.knowledgeBase]
+      if (!knowledgeBase[idx]) return f
+      if (!knowledgeBase[idx].id) knowledgeBase.splice(idx, 1)
+      else knowledgeBase[idx] = { ...knowledgeBase[idx], _delete: true }
+      return { ...f, knowledgeBase }
+    })
+  }
+
+  const removeSkillItem = (idx: number) => {
+    setForm(f => {
+      if (!f) return f
+      const skills = [...(f.skills ?? [])]
+      if (!skills[idx]) return f
+      if (!skills[idx].id) skills.splice(idx, 1)
+      else skills[idx] = { ...skills[idx], _delete: true }
+      return { ...f, skills }
+    })
+  }
+
+  const removeMemoryItem = (idx: number) => {
+    setForm(f => {
+      if (!f) return f
+      const memories = [...(f.memories ?? [])]
+      if (!memories[idx]) return f
+      if (!memories[idx].id) memories.splice(idx, 1)
+      else memories[idx] = { ...memories[idx], _delete: true }
+      return { ...f, memories }
+    })
+  }
+
+  const companyProfile = form.knowledgeBase.find(
+    item => !item._delete && item.title === COMPANY_PROFILE_TITLE && item.category === COMPANY_CATEGORY,
+  )
+  const paymentGuide = form.knowledgeBase.find(
+    item => !item._delete && item.title === PAYMENT_GUIDE_TITLE && item.category === PAYMENT_CATEGORY,
+  )
+  const productItems = form.knowledgeBase.filter(
+    item => !item._delete && (item.category ?? 'Geral') === PRODUCT_CATEGORY,
+  )
+
+  const saveProductDraft = () => {
+    if (!productDraft.name.trim() && !productDraft.description.trim()) return
+    setForm(f =>
+      f
+        ? {
+            ...f,
+            knowledgeBase: upsertProductInKnowledgeBase(
+              f.knowledgeBase,
+              productDraft,
+              editingProductRef,
+            ),
+          }
+        : f,
+    )
+    const wasEdit = Boolean(editingProductRef)
+    setProductDraft(emptyProductDraft)
+    setEditingProductRef(null)
+    notifyInfo(
+      wasEdit
+        ? 'Produto atualizado na base. Clique em Salvar alterações para persistir.'
+        : 'Produto adicionado à base. Clique em Salvar alterações para persistir.',
+    )
+  }
+
+  const startEditProduct = (item: KnowledgeBaseItem) => {
+    setProductDraft(knowledgeItemToProductDraft(item))
+    setEditingProductRef({ id: item.id || undefined, title: item.title })
+  }
+
+  const cancelEditProduct = () => {
+    setProductDraft(emptyProductDraft)
+    setEditingProductRef(null)
+  }
+
+  const removeProductItem = (item: KnowledgeBaseItem) => {
+    const idx = form.knowledgeBase.findIndex(kb => productMatchesRef(kb, { id: item.id, title: item.title }))
+    if (idx >= 0) removeKnowledgeBaseItem(idx)
+    if (
+      editingProductRef &&
+      productMatchesRef(item, editingProductRef)
+    ) {
+      cancelEditProduct()
+    }
+  }
+
   return (
     <PlatformPage
       title="IA de Atendimento"
@@ -479,25 +754,25 @@ export default function AiAtendimento() {
           },
           {
             label: 'Skills pendentes',
-            value: (form.skills ?? []).filter(s => s.status === 'pending').length,
+            value: (form.skills ?? []).filter(s => !s._delete && s.status === 'pending').length,
             icon: Brain,
             colorClass: 'text-amber-400',
             description: 'Aguardando aprovação',
-            alert: (form.skills ?? []).some(s => s.status === 'pending'),
+            alert: (form.skills ?? []).some(s => !s._delete && s.status === 'pending'),
           },
           {
             label: 'Memórias pendentes',
-            value: (form.memories ?? []).filter(m => m.status === 'pending').length,
+            value: (form.memories ?? []).filter(m => !m._delete && m.status === 'pending').length,
             icon: MessageSquare,
             colorClass: 'text-amber-400',
             description: 'Aguardando aprovação',
           },
           {
             label: 'Base ativa',
-            value: form.knowledgeBase.filter(k => k.active).length,
+            value: form.knowledgeBase.filter(k => !k._delete && k.active).length,
             icon: BookOpen,
             colorClass: 'text-brand-400',
-            description: `${form.knowledgeBase.length} itens no total`,
+            description: `${form.knowledgeBase.filter(k => !k._delete).length} itens no total`,
           },
         ]}
       />
@@ -524,9 +799,13 @@ export default function AiAtendimento() {
             <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('saudacoes')}>
               saudações
             </button>{' '}
-            e{' '}
+            ,{' '}
             <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('regras')}>
               regras
+            </button>{' '}
+            e{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('empresa')}>
+              empresa/catálogo
             </button>
             .
           </p>
@@ -982,6 +1261,206 @@ export default function AiAtendimento() {
         </Card>
       )}
 
+      {tab === 'empresa' && (
+        <Card className="p-6 space-y-5">
+          <div>
+            <h2 className="text-lg font-medium flex items-center gap-2">
+              <Store className="w-5 h-5" /> Empresa, produtos e vendas
+            </h2>
+            <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+              Estes dados são salvos como itens ativos da{' '}
+              <button
+                type="button"
+                className="text-brand-400 hover:underline"
+                onClick={() => setTab('kb')}
+              >
+                Base de conhecimento
+              </button>{' '}
+              (categorias Empresa, Produtos e estoque, Pagamentos). A IA Premium e o Híbrido usam esse
+              conteúdo para explicar a empresa, informar produtos, enviar links e orientar venda sem
+              inventar valor ou estoque.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 px-4 py-3 text-xs text-[var(--rz-text-secondary)]">
+            Produtos cadastrados aqui aparecem na aba{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('kb')}>
+              Base de conhecimento
+            </button>{' '}
+            com a categoria <strong>Produtos e estoque</strong>. Edite ou exclua abaixo ou gerencie todos
+            os artigos na base.
+          </div>
+
+          <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <Store className="w-4 h-4" /> O que a empresa faz
+            </h3>
+            <textarea
+              className={textareaClsAi}
+              value={companyProfile?.content ?? ''}
+              onChange={e =>
+                updateSystemArticle(COMPANY_PROFILE_TITLE, COMPANY_CATEGORY, e.target.value, {
+                  keywords: ['empresa', 'sobre', 'quem somos', 'serviços', 'o que faz'],
+                  quickReplyLabel: 'Sobre a empresa',
+                })
+              }
+              placeholder="Explique em linguagem simples: o que a empresa vende/faz, para quem atende, região, diferenciais, horários e como contratar."
+            />
+          </div>
+
+          <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
+            <div>
+              <h3 className="text-sm font-medium flex items-center gap-2">
+                <Package className="w-4 h-4" /> Produtos, serviços e estoque
+              </h3>
+              <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+                Cadastre produtos com preço, estoque e link direto. Cada produto vira um artigo de base
+                para a IA responder dúvidas e mandar o cliente para compra. Nomes iguais atualizam o
+                produto existente em vez de duplicar.
+              </p>
+              {editingProductRef && (
+                <p className="text-xs text-amber-400/90 mt-2">
+                  Editando: <strong>{editingProductRef.title}</strong>
+                </p>
+              )}
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <input
+                className={inputCls}
+                value={productDraft.name}
+                onChange={e => setProductDraft(p => ({ ...p, name: e.target.value }))}
+                placeholder="Nome do produto ou serviço"
+              />
+              <input
+                className={inputCls}
+                value={productDraft.sku}
+                onChange={e => setProductDraft(p => ({ ...p, sku: e.target.value }))}
+                placeholder="SKU/código opcional"
+              />
+              <input
+                className={inputCls}
+                value={productDraft.price}
+                onChange={e => setProductDraft(p => ({ ...p, price: e.target.value }))}
+                placeholder="Valor atual. Ex.: R$ 149,90"
+              />
+              <input
+                className={inputCls}
+                value={productDraft.stock}
+                onChange={e => setProductDraft(p => ({ ...p, stock: e.target.value }))}
+                placeholder="Estoque. Ex.: 12 unidades / sob encomenda"
+              />
+              <input
+                className={`${inputCls} md:col-span-2`}
+                value={productDraft.link}
+                onChange={e => setProductDraft(p => ({ ...p, link: e.target.value }))}
+                placeholder="Link direto do produto ou checkout https://..."
+              />
+              <textarea
+                className={`${textareaClsAi} md:col-span-2`}
+                value={productDraft.description}
+                onChange={e => setProductDraft(p => ({ ...p, description: e.target.value }))}
+                placeholder="Descrição, variações, entrega, garantia, perguntas comuns."
+              />
+              <textarea
+                className={`${textareaClsAi} md:col-span-2 min-h-[90px]`}
+                value={productDraft.paymentNotes}
+                onChange={e => setProductDraft(p => ({ ...p, paymentNotes: e.target.value }))}
+                placeholder="Condições de pagamento, parcelamento, frete ou instruções para PIX."
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!productDraft.name.trim() && !productDraft.description.trim()}
+                onClick={saveProductDraft}
+              >
+                <Package className="w-4 h-4" />{' '}
+                {editingProductRef ? 'Salvar produto' : 'Adicionar produto à base'}
+              </Button>
+              {editingProductRef && (
+                <Button type="button" variant="ghost" onClick={cancelEditProduct}>
+                  Cancelar edição
+                </Button>
+              )}
+              <span className="text-xs text-[var(--rz-text-muted)]">
+                {productItems.length} itens em Produtos e estoque
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <CreditCard className="w-4 h-4" /> PIX, comprovante e conferência
+            </h3>
+            <textarea
+              className={textareaClsAi}
+              value={paymentGuide?.content ?? ''}
+              onChange={e =>
+                updateSystemArticle(PAYMENT_GUIDE_TITLE, PAYMENT_CATEGORY, e.target.value, {
+                  keywords: ['pix', 'pagamento', 'comprovante', 'valor', 'venda'],
+                  quickReplyLabel: 'Pagamento e PIX',
+                })
+              }
+              placeholder="Informe chave PIX, regras de pagamento, prazo de baixa e o que a IA deve fazer ao receber comprovante. Ex.: orientar envio de imagem, registrar no atendimento e transferir para Financeiro quando precisar confirmar pagamento. A IA não deve confirmar pagamento apenas por imagem sem validação oficial."
+            />
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              Para venda com pagamento real, use links de checkout/PIX na base. Confirmação por imagem deve
+              ir para humano ou integração de pagamento antes de liberar produto/serviço.
+            </p>
+          </div>
+
+          {productItems.length > 0 && (
+            <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-medium">Produtos cadastrados na base</h3>
+                <button
+                  type="button"
+                  className="text-xs text-brand-400 hover:underline"
+                  onClick={() => setTab('kb')}
+                >
+                  Gerenciar na base de conhecimento
+                </button>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {productItems.map(item => (
+                  <div
+                    key={item.id || item.title}
+                    className="rounded-lg bg-[var(--rz-surface-muted)]/50 p-3 space-y-2"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-[var(--rz-text-primary)]">{item.title}</p>
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditProduct(item)}
+                        >
+                          <Pencil className="w-3.5 h-3.5 mr-1" /> Editar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removeProductItem(item)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" /> Excluir
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-[var(--rz-text-muted)] line-clamp-3">{item.content}</p>
+                    {(item.links ?? []).length > 0 && (
+                      <p className="text-xs text-brand-400">{item.links?.[0]?.label}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
       {tab === 'skills' && (
         <Card className="p-6 space-y-4">
           <div className="flex justify-between items-center flex-wrap gap-2">
@@ -1056,10 +1535,10 @@ export default function AiAtendimento() {
               aprendizado após atendimentos — você aprova ou rejeita antes de entrarem no ar.
             </p>
           </div>
-          {(form.skills ?? []).length === 0 && (
+          {(form.skills ?? []).filter(s => !s._delete).length === 0 && (
             <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma skill ainda. A IA pode propor após atendimentos.</p>
           )}
-          {(form.skills ?? []).map((skill, idx) => (
+          {(form.skills ?? []).map((skill, idx) => skill._delete ? null : (
             <div
               key={skill.id || idx}
               className={`border rounded-lg p-4 space-y-2 ${
@@ -1078,26 +1557,38 @@ export default function AiAtendimento() {
                   {skill.source === 'learned' && ' · aprendida'}
                   {skill.usageCount > 0 && ` · ${skill.usageCount} usos`}
                 </span>
-                {skill.status === 'pending' && skill.id && (
-                  <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {skill.status !== 'approved' && skill.id && (
                     <Button
                       type="button"
                       variant="secondary"
+                      size="sm"
                       onClick={() => approveSkill.mutate(skill.id)}
                       disabled={approveSkill.isPending}
                     >
                       <CheckCircle2 className="w-4 h-4 mr-1" /> Aprovar
                     </Button>
+                  )}
+                  {skill.status === 'pending' && skill.id && (
                     <Button
                       type="button"
                       variant="secondary"
+                      size="sm"
                       onClick={() => rejectSkill.mutate(skill.id)}
                       disabled={rejectSkill.isPending}
                     >
                       <XCircle className="w-4 h-4 mr-1" /> Rejeitar
                     </Button>
-                  </div>
-                )}
+                  )}
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => removeSkillItem(idx)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                  </Button>
+                </div>
               </div>
               <input
                 className={inputCls}
@@ -1208,10 +1699,10 @@ export default function AiAtendimento() {
               ). Sugestões aprendidas em atendimentos ficam <em>pendentes</em> até você aprovar.
             </p>
           </div>
-          {(form.memories ?? []).length === 0 && (
+          {(form.memories ?? []).filter(m => !m._delete).length === 0 && (
             <p className="text-sm text-[var(--rz-text-muted)]">Nenhuma memória ainda.</p>
           )}
-          {(form.memories ?? []).map((mem, idx) => (
+          {(form.memories ?? []).map((mem, idx) => mem._delete ? null : (
             <div
               key={mem.id || idx}
               className={`border rounded-lg p-4 space-y-2 ${
@@ -1229,26 +1720,38 @@ export default function AiAtendimento() {
                   {mem.status === 'rejected' && 'Rejeitada'}
                   {mem.source === 'learned' && ' · aprendida'}
                 </span>
-                {mem.status === 'pending' && mem.id && (
-                  <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {mem.status !== 'approved' && mem.id && (
                     <Button
                       type="button"
                       variant="secondary"
+                      size="sm"
                       onClick={() => approveMemory.mutate(mem.id)}
                       disabled={approveMemory.isPending}
                     >
                       <CheckCircle2 className="w-4 h-4 mr-1" /> Aprovar
                     </Button>
+                  )}
+                  {mem.status === 'pending' && mem.id && (
                     <Button
                       type="button"
                       variant="secondary"
+                      size="sm"
                       onClick={() => rejectMemory.mutate(mem.id)}
                       disabled={rejectMemory.isPending}
                     >
                       <XCircle className="w-4 h-4 mr-1" /> Rejeitar
                     </Button>
-                  </div>
-                )}
+                  )}
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => removeMemoryItem(idx)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                  </Button>
+                </div>
               </div>
               <input
                 className={inputCls}
@@ -1360,13 +1863,13 @@ export default function AiAtendimento() {
               busca — desative os desatualizados em vez de apagar.
             </p>
           </div>
-          {form.knowledgeBase.length === 0 && (
+          {form.knowledgeBase.filter(k => !k._delete).length === 0 && (
             <p className="text-sm text-[var(--rz-text-muted)]">
               Nenhum item ainda. Comece pelos temas que os clientes mais perguntam: planos, preços, suporte e
               como contratar.
             </p>
           )}
-          {form.knowledgeBase.map((item, idx) => (
+          {form.knowledgeBase.map((item, idx) => item._delete ? null : (
             <div key={item.id || idx} className="border border-[var(--rz-border)] rounded-lg p-4 space-y-2">
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
@@ -1514,10 +2017,20 @@ export default function AiAtendimento() {
                 />
                 Ativo
               </label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  onClick={() => removeKnowledgeBaseItem(idx)}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" /> Excluir item
+                </Button>
+              </div>
             </div>
           ))}
           <datalist id="kb-category-suggestions">
-            {[...new Set(form.knowledgeBase.map(k => (k.category?.trim() || 'Geral')))]
+            {[...new Set(form.knowledgeBase.filter(k => !k._delete).map(k => (k.category?.trim() || 'Geral')))]
               .sort((a, b) => a.localeCompare(b, 'pt-BR'))
               .map(cat => (
                 <option key={cat} value={cat} />

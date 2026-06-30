@@ -10,6 +10,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.8] - 2026-06-30
+
+### IA Atendimento — empresa/catálogo e hardening
+
+- Aba **Empresa e catálogo**: editar/excluir produtos, dedupe por nome, aviso de espelho na Base de conhecimento.
+- Auto-resolve KB: `formatReply` sanitiza links (`sanitizeWebChatActionLinks`) como no prompt.
+- Teste unitário para bloqueio de URLs inseguras no auto-resolve.
+
+---
+
 ## [2.17.7] - 2026-06-30
 
 ### Infra Coolify — gate anti-duplicata RadarChat

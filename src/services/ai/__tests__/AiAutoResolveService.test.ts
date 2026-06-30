@@ -52,4 +52,39 @@ describe('AiAutoResolveService logic', () => {
       svc.shouldAttemptAutoResolve('meu rastreador não conecta no aplicativo'),
     ).toBe(true);
   });
+  it('anexa links uteis quando responde por artigo da base', () => {
+    const svc = AiAutoResolveService.getInstance() as unknown as {
+      formatReply: (
+        body: string,
+        title: string,
+        links?: Array<{ label: string; url: string }>,
+      ) => string;
+    };
+
+    const reply = svc.formatReply('Valor atual: R$ 149,90', 'Produto Pro', [
+      { label: 'Comprar agora', url: 'https://loja.exemplo/pro' },
+    ]);
+
+    expect(reply).toContain('Valor atual: R$ 149,90');
+    expect(reply).toContain('Comprar agora: https://loja.exemplo/pro');
+  });
+
+  it('formatReply ignora links inseguros ou sem rotulo', () => {
+    const svc = AiAutoResolveService.getInstance() as unknown as {
+      formatReply: (
+        body: string,
+        title: string,
+        links?: Array<{ label: string; url: string }>,
+      ) => string;
+    };
+
+    const reply = svc.formatReply('Conteudo', 'Titulo', [
+      { label: '', url: 'https://ok.exemplo' },
+      { label: 'Malicioso', url: 'javascript:alert(1)' },
+      { label: 'Valido', url: 'https://loja.exemplo/item' },
+    ]);
+
+    expect(reply).not.toContain('javascript:');
+    expect(reply).toContain('Valido: https://loja.exemplo/item');
+  });
 });

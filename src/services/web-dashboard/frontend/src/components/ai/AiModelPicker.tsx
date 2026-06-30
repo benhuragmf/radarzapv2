@@ -100,6 +100,10 @@ export function AiModelPicker({ models, selectedId, onSelect, disabled, dailyLim
             Preços de referência Google AI / OpenAI (tier pago). Atualize o catálogo em{' '}
             <code className="text-[var(--rz-text-muted)]">src/constants/ai-model-catalog.ts</code> quando surgirem novos modelos.
           </p>
+          <p className="text-[11px] text-[var(--rz-text-muted)]">
+            Todos os modelos usam o mesmo prompt, base de conhecimento, skills, memória e regras de
+            transferência. Trocar o modelo muda o motor LLM, não o comportamento cadastrado da empresa.
+          </p>
         </div>
       )}
     </div>
