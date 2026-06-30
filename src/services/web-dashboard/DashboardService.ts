@@ -210,6 +210,11 @@ import { sanitizeInput } from '../../middleware/validation';
 import { registerDashboardQueueRoutes } from './routes/dashboardQueueRoutes';
 import { getAdminOpsSummary } from './admin-ops-summary.service';
 import {
+  buildAdminOpsHostReport,
+  ingestAdminOpsHostMetrics,
+  verifyOpsHostMetricsSecret,
+} from './admin-ops-host.service';
+import {
   cancelAdminOpsOrganizationTrial,
   changeAdminOpsOrganizationPlan,
   extendAdminOpsOrganizationTrial,
@@ -625,6 +630,24 @@ export class DashboardService {
         });
       }
     });
+
+    this.app.post(
+      '/api/admin/ops/host-metrics/ingest',
+      rateLimiters.panelIngest,
+      async (req, res) => {
+        const secret = req.headers['x-ops-host-secret'];
+        if (!verifyOpsHostMetricsSecret(typeof secret === 'string' ? secret : undefined)) {
+          res.status(401).json({ error: 'Unauthorized', code: 'OPS_HOST_SECRET_INVALID' });
+          return;
+        }
+        try {
+          const result = await ingestAdminOpsHostMetrics(req.body ?? {});
+          res.json(result);
+        } catch (e) {
+          res.status(503).json({ error: (e as Error).message });
+        }
+      },
+    );
 
     this.io.use(async (socket, next) => {
       const presenceId = socket.handshake.auth?.webchatPresenceId as string | undefined;
@@ -1517,6 +1540,14 @@ export class DashboardService {
         res.status(snapshot.healthy ? 200 : 503).json(snapshot);
       } catch (e) {
         res.status(503).json({ error: (e as Error).message, healthy: false });
+      }
+    });
+
+    r.get('/admin/ops/host', requireCapability(Cap.DASHBOARD_GLOBAL), async (_req, res) => {
+      try {
+        res.json(await buildAdminOpsHostReport());
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
       }
     });
 

@@ -8,6 +8,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.13.1] — 2026-06-30
+
+### Admin Ops — métricas VPS / Coolify na aba Infra
+
+- `GET /api/admin/ops/host` — load, RAM, containers Docker (Redis) + status API Coolify (opcional).
+- `POST /api/admin/ops/host-metrics/ingest` — cron no VPS com header `X-Ops-Host-Secret`.
+- Script `scripts/vps-push-host-metrics.sh`; painel Admin Ops → aba **Infra** → seção **VPS / Host**.
+
+---
+
 ## [2.13.0] — 2026-06-30
 
 ### Infra — Node.js 24 LTS (Active LTS)

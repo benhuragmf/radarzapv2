@@ -4,6 +4,7 @@ import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
 import AdminOpsDashboardView from './AdminOpsDashboardView'
 import { parseAdminOpsTab } from './adminOpsTabs'
 import { refreshAdminOpsSummary, useAdminOpsSummary } from './useAdminOpsSummary'
+import { useAdminOpsHost } from './useAdminOpsHost'
 
 export default function AdminDashboard() {
   const [searchParams] = useSearchParams()
@@ -11,6 +12,7 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient()
 
   const { data, isLoading, isError, isFetching, refetch } = useAdminOpsSummary()
+  const hostQuery = useAdminOpsHost(!isLoading && !isError)
 
   const handleRefresh = async () => {
     await refreshAdminOpsSummary(
@@ -28,6 +30,9 @@ export default function AdminDashboard() {
       onRefresh={() => void handleRefresh()}
       onRetry={() => void refetch()}
       initialTab={initialTab}
+      hostData={hostQuery.data}
+      hostLoading={hostQuery.isLoading}
+      hostError={hostQuery.isError}
     />
   )
 }

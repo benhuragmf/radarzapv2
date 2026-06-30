@@ -15,6 +15,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react'
+import type { AdminOpsHostReport } from '@radarzap-types/admin-ops-host'
 import type { AdminOpsSummary } from '@radarzap-types/admin-ops-summary'
 import {
   countCriticalAlerts,
@@ -34,6 +35,7 @@ import { Card } from '../../components/ui/Card'
 import AdminOpsTenantsPanel from './AdminOpsTenantsPanel'
 import AdminOpsSecurityPanel from './AdminOpsSecurityPanel'
 import AdminOpsInfraPanel from './AdminOpsInfraPanel'
+import AdminOpsHostPanel from './AdminOpsHostPanel'
 import { type AdminOpsTab } from './adminOpsTabs'
 import {
   EmptyState,
@@ -77,6 +79,9 @@ interface Props {
   onRefresh: () => void
   onRetry: () => void
   initialTab?: AdminOpsTab
+  hostData?: AdminOpsHostReport
+  hostLoading?: boolean
+  hostError?: boolean
 }
 
 function StatRow({ label, value }: { label: string; value: string | number }) {
@@ -135,6 +140,9 @@ export default function AdminOpsDashboardView({
   onRefresh,
   onRetry,
   initialTab,
+  hostData,
+  hostLoading = false,
+  hostError = false,
 }: Props) {
   const [tab, setTab] = useState<AdminOpsTab>(initialTab ?? 'overview')
 
@@ -353,8 +361,9 @@ export default function AdminOpsDashboardView({
       )}
 
       {tab === 'infra' && (
-        <div className="mt-4">
-          <AdminOpsInfraPanel data={data} title="Infraestrutura detalhada" />
+        <div className="mt-4 space-y-4">
+          <AdminOpsHostPanel data={hostData} isLoading={hostLoading} isError={hostError} />
+          <AdminOpsInfraPanel data={data} title="App (processo Node)" />
         </div>
       )}
 

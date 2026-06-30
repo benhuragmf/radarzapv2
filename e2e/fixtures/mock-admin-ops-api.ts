@@ -3,6 +3,7 @@ import { MOCK_AUTH_USER } from './mock-panel-api';
 import type { AdminOpsSummary } from '../../src/types/admin-ops-summary';
 import type { AdminOpsOrganizationsPage } from '../../src/types/admin-ops-organizations';
 import type { AdminOpsSecurityEventsPage } from '../../src/types/admin-ops-security-events';
+import type { AdminOpsHostReport } from '../../src/types/admin-ops-host';
 
 export const ADMIN_OPS_CAPABILITIES = [
   'dashboard:global',
@@ -100,6 +101,35 @@ export const MOCK_ADMIN_OPS_SUMMARY: AdminOpsSummary = {
     errors: '/admin/errors',
     queue: '/admin/queue',
     aiPlatform: '/admin/ai-platform',
+  },
+};
+
+export const MOCK_ADMIN_OPS_HOST: AdminOpsHostReport = {
+  generatedAt: new Date().toISOString(),
+  hostMetrics: {
+    status: 'ok',
+    staleAfterSeconds: 600,
+    snapshot: {
+      reportedAt: new Date().toISOString(),
+      host: {
+        load1: 1.51,
+        load5: 1.54,
+        load15: 0.72,
+        cpuCount: 2,
+        memoryTotalMb: 1900,
+        memoryUsedMb: 1200,
+        memoryAvailableMb: 782,
+        uptimeSeconds: 3600,
+      },
+      containers: [
+        { name: 'coolify', cpuPercent: 42, memUsedMb: 352, memLimitMb: 1966, memPercent: 17.9 },
+        { name: 'h143brhw5f8tgfj9trj0f3bd-app-1', cpuPercent: 0.19, memUsedMb: 219, memPercent: 11.1 },
+      ],
+    },
+  },
+  coolify: {
+    status: 'not_configured',
+    message: 'COOLIFY_URL não configurado no app (mock E2E).',
   },
 };
 
@@ -234,6 +264,14 @@ export async function setupAdminDashboardMocks(
       body: JSON.stringify(summary),
     });
   });
+
+  await page.route('**/api/admin/ops/host**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_ADMIN_OPS_HOST),
+    }),
+  );
 
   await page.route('**/api/admin/ops/organizations**', route => {
     if (opts?.fail) {
