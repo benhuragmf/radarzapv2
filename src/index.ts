@@ -211,8 +211,8 @@ class Application {
       this.services.set('discord-bot', discordBot);
       logger.info('✅ Discord Bot service started');
     } catch (error) {
-      logger.error('❌ Failed to start Discord Bot service:', error);
-      throw error;
+      logger.error('❌ Failed to start Discord Bot service (painel segue sem gateway Discord):', error);
+      // Não derrubar o monolito — Inbox/WA/painel devem subir mesmo com Discord offline
     }
   }
 

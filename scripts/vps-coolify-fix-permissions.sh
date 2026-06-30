@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Corrige Permission denied em /data/coolify/services/{uuid} (painel Coolify 500).
+# Coolify roda deploy como uid 9999 — o diretório precisa ser legível/gravável por esse usuário.
 set -euo pipefail
 
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
@@ -7,23 +8,26 @@ COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SER
 
 log() { echo "[coolify-perms] $*"; }
 
-if [[ ! -d /data/coolify/services ]]; then
-  log "Sem /data/coolify/services — ignorando"
+if [[ ! -d /data/coolify ]]; then
+  log "Sem /data/coolify — ignorando"
   exit 0
 fi
 
-log "Ajustando permissões em ${COOLIFY_SERVICE_DIR}"
+log "Corrigindo permissões Coolify (uuid=${COOLIFY_SERVICE_UUID})"
 sudo mkdir -p "${COOLIFY_SERVICE_DIR}"
-sudo chmod 755 /data/coolify/services
-sudo chmod 755 "${COOLIFY_SERVICE_DIR}" 2>/dev/null || true
 
-if id coolify >/dev/null 2>&1; then
-  sudo chown -R coolify:coolify "${COOLIFY_SERVICE_DIR}" 2>/dev/null || \
-    sudo chown -R 9999:9999 "${COOLIFY_SERVICE_DIR}" 2>/dev/null || true
-else
-  sudo chown -R ubuntu:ubuntu "${COOLIFY_SERVICE_DIR}" 2>/dev/null || \
-    sudo chown -R root:root "${COOLIFY_SERVICE_DIR}" 2>/dev/null || true
+# Padrão Coolify v4: processo interno usa uid 9999
+sudo chown -R 9999:0 /data/coolify/services 2>/dev/null || \
+  sudo chown -R ubuntu:ubuntu /data/coolify/services 2>/dev/null || true
+
+sudo find /data/coolify/services -type d -exec chmod 775 {} + 2>/dev/null || true
+sudo find /data/coolify/services -type f -exec chmod 664 {} + 2>/dev/null || true
+sudo chmod 755 /data/coolify/services
+
+# Garantir arquivos mínimos do stack (Coolify quebra se pasta vazia/inacessível)
+if [[ ! -f "${COOLIFY_SERVICE_DIR}/docker-compose.yaml" && -f /opt/radarzap/docker-compose.coolify-ghcr.yml ]]; then
+  log "Compose ausente — copiando template GHCR"
+  sudo cp /opt/radarzap/docker-compose.coolify-ghcr.yml "${COOLIFY_SERVICE_DIR}/docker-compose.yaml"
 fi
 
-sudo chmod -R u+rwX,g+rwX,o+rX "${COOLIFY_SERVICE_DIR}" 2>/dev/null || true
-log "OK — ${COOLIFY_SERVICE_DIR} acessível"
+log "OK — ${COOLIFY_SERVICE_DIR} (owner: $(stat -c '%U:%G' "${COOLIFY_SERVICE_DIR}" 2>/dev/null || echo '?'))"
