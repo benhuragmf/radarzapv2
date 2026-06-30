@@ -16,11 +16,15 @@ jobs:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           PUBLIC_HOST: app.radarchat.com.br
           TRAEFIK_EXTRA_HOSTS: 151-247-210-180.sslip.io
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_PATH,GHCR_PAT,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS
+          envs: DEPLOY_PATH,GHCR_PAT,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS,DISCORD_TOKEN,DISCORD_CLIENT_ID,DISCORD_CLIENT_SECRET,DISCORD_GUILD_ID
           script_stop: true
           command_timeout: 30m
           script: |

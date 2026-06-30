@@ -47,9 +47,11 @@ wait_app_health() {
   return 1
 }
 
-log "=== 0) Permissões stack Coolify + guild Discord ==="
+log "=== 0) Permissões stack Coolify + Discord env ==="
 sudo -E bash scripts/vps-coolify-fix-permissions.sh || true
-if [[ -f "${DEPLOY_PATH}/.env" ]]; then
+if [[ -n "${DISCORD_CLIENT_SECRET:-}" || -n "${DISCORD_CLIENT_ID:-}" || -n "${DISCORD_TOKEN:-}" ]]; then
+  sudo -E bash scripts/vps-sync-discord-env.sh || true
+elif [[ -f "${DEPLOY_PATH}/.env" ]]; then
   sudo bash scripts/vps-patch-env-key.sh "${DEPLOY_PATH}/.env" DISCORD_GUILD_ID "${DISCORD_GUILD_ID:-1521572626793889925}" || true
 fi
 
