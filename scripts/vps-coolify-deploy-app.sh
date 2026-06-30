@@ -86,6 +86,8 @@ dump_app_logs() {
 
 log "Iniciando deploy app-only (uuid=${COOLIFY_SERVICE_UUID}, image=${RADARZAP_IMAGE})"
 
+sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-fix-permissions.sh" || true
+
 if [[ ! -d "$COOLIFY_SERVICE_DIR" || ! -f "${COOLIFY_SERVICE_DIR}/docker-compose.yaml" ]]; then
   log "ERRO: stack Coolify ausente em ${COOLIFY_SERVICE_DIR}"
   log "Use deploy full: sudo -E bash ${DEPLOY_PATH}/scripts/vps-fix-coolify-ssl.sh"

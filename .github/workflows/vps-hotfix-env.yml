@@ -1,0 +1,32 @@
+name: VPS hotfix env
+
+on:
+  workflow_dispatch:
+
+jobs:
+  hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hotfix env via SSH (~1–2 min)
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          envs: DEPLOY_PATH,DISCORD_TOKEN,DISCORD_CLIENT_ID,DISCORD_CLIENT_SECRET,DISCORD_GUILD_ID,COOLIFY_SERVICE_UUID
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            git fetch origin main -q && git reset --hard origin/main -q
+            export COOLIFY_SERVICE_UUID
+            exec sudo -E bash scripts/vps-coolify-hotfix-env.sh

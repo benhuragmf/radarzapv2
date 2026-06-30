@@ -21,6 +21,10 @@ run_root() {
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^coolify$'; then
   log "Coolify já instalado (container coolify). Pulando install."
   docker ps --filter name=coolify --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+  if [[ -d "$DEPLOY_PATH/scripts" ]]; then
+    run_root env COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}" \
+      bash "$DEPLOY_PATH/scripts/vps-coolify-fix-permissions.sh" || true
+  fi
   exit 0
 fi
 
@@ -71,6 +75,13 @@ run_root env DO_NOT_TRACK=1 \
 
 log "Pós-install:"
 docker ps --filter name=coolify --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true
+
+# Permissões /data/coolify/services — evita erro 500 "Permission denied" no painel
+if [[ -d "$DEPLOY_PATH/scripts" ]]; then
+  log "Aplicando permissões padrão Coolify (uid 9999) em /data/coolify/services..."
+  run_root env COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}" \
+    bash "$DEPLOY_PATH/scripts/vps-coolify-fix-permissions.sh" || true
+fi
 
 IPV4="$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
 log "Painel Coolify: http://${IPV4}:8000 (crie usuário root no 1º acesso se não definiu ROOT_USER_*)."
