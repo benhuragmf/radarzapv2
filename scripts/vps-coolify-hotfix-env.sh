@@ -22,7 +22,7 @@ log "1/4 Permissões Coolify"
 sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-fix-permissions.sh"
 
 log "2/4 Sync env (Discord + chaves exportadas)"
-if [[ -n "${DISCORD_TOKEN:-}${DISCORD_CLIENT_ID:-}${DISCORD_CLIENT_SECRET:-}" ]]; then
+if [[ -n "${DISCORD_TOKEN:-}${DISCORD_CLIENT_ID:-}${DISCORD_CLIENT_SECRET:-}${RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS:-}" ]]; then
   sudo -E bash "${DEPLOY_PATH}/scripts/vps-sync-discord-env.sh"
 else
   log "Sem DISCORD_* no shell — mantém .env existente"

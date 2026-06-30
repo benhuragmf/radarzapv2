@@ -12,7 +12,7 @@ patch_file() {
   local file="$1"
   [[ -f "$file" ]] || return 0
   local key val
-  for key in DISCORD_TOKEN DISCORD_CLIENT_ID DISCORD_CLIENT_SECRET DISCORD_GUILD_ID; do
+  for key in DISCORD_TOKEN DISCORD_CLIENT_ID DISCORD_CLIENT_SECRET DISCORD_GUILD_ID RADARCHAT_SYSTEM_ADMIN_DISCORD_IDS RADARCHAT_SYSTEM_MODERATOR_DISCORD_IDS; do
     val="${!key:-}"
     if [[ -n "$val" ]]; then
       sudo bash "${DEPLOY_PATH}/scripts/vps-patch-env-key.sh" "$file" "$key" "$val"
