@@ -33,11 +33,11 @@ need_cmd jq
 set_env_kv() {
   local file="$1" key="$2" val="$3"
   [[ -f "$file" ]] || touch "$file"
-  if grep -q "^${key}=" "$file" 2>/dev/null; then
-    sed -i "s|^${key}=.*|${key}=${val}|" "$file"
-  else
-    echo "${key}=${val}" >>"$file"
-  fi
+  local tmp
+  tmp="$(mktemp)"
+  grep -v "^${key}=" "$file" >"$tmp" 2>/dev/null || true
+  printf '%s=%s\n' "$key" "$val" >>"$tmp"
+  mv "$tmp" "$file"
 }
 
 load_env_file() {
@@ -61,8 +61,8 @@ ensure_ops_secret() {
 }
 
 ensure_coolify_api_token() {
-  load_env_file "$ENV_FILE"
-  if [[ -n "${COOLIFY_API_TOKEN:-}" ]]; then
+  if [[ -f "$ENV_FILE" ]] && grep -q '^COOLIFY_API_TOKEN=' "$ENV_FILE" 2>/dev/null; then
+    load_env_file "$ENV_FILE"
     return 0
   fi
   if ! docker ps --format '{{.Names}}' | grep -q '^coolify$'; then
