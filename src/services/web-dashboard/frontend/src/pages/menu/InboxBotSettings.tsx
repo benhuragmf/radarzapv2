@@ -99,6 +99,8 @@ interface InboxSettings {
   whatsappFallbackVisitorMessage: string
   whatsappFallbackAcceptTimeoutSeconds: number
   whatsappFallbackNoAgentTimeoutSeconds: number
+  whatsappPausarEnabled: boolean
+  whatsappPausarAutoResumeHours: number
   webchatQueueMaxWaitMinutes: number
   webchatQueueMaxWaitCloseMessage: string
   agentPresenceTimeoutSeconds: number
@@ -270,6 +272,8 @@ export default function InboxBotSettings() {
         attendantTriageVisible: data.attendantTriageVisible ?? false,
         alertBrowserNotify: data.alertBrowserNotify ?? true,
         inboundRegistrationPolicy: data.inboundRegistrationPolicy ?? DEFAULT_INBOUND_REGISTRATION_POLICY,
+        whatsappPausarEnabled: data.whatsappPausarEnabled ?? true,
+        whatsappPausarAutoResumeHours: data.whatsappPausarAutoResumeHours ?? 2,
       })
     }
   }, [data])
@@ -1036,6 +1040,40 @@ export default function InboxBotSettings() {
                     value={form.whatsappFallbackVisitorMessage}
                     onChange={e => patch('whatsappFallbackVisitorMessage', e.target.value)}
                     disabled={!form.whatsappFallbackEnabled}
+                  />
+                </label>
+              </Card>
+
+              <Card className="space-y-3 p-5">
+                <h2 className="text-sm font-semibold text-[var(--rz-text-primary)]">
+                  Comando !pausar (WhatsApp QR)
+                </h2>
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  Complementa o <span className="font-mono">!assumir</span> (que continua igual).
+                  Use <span className="font-mono">!pausar TK-…</span> no celular para pausar a IA na
+                  conversa do WhatsApp conectado; depois do tempo abaixo a IA retoma sozinha. Para
+                  assumir sem limite (incluindo bridge do site), use <span className="font-mono">!assumir</span>.
+                </p>
+                <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={form.whatsappPausarEnabled ?? true}
+                    onChange={e => patch('whatsappPausarEnabled', e.target.checked)}
+                  />
+                  Ativar comando !pausar
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs text-[var(--rz-text-muted)]">
+                    Horas até a IA retomar após !pausar (1–72)
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={72}
+                    className={inputCls}
+                    value={form.whatsappPausarAutoResumeHours ?? 2}
+                    onChange={e => patch('whatsappPausarAutoResumeHours', Number(e.target.value))}
+                    disabled={!(form.whatsappPausarEnabled ?? true)}
                   />
                 </label>
               </Card>

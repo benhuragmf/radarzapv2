@@ -2,6 +2,7 @@
 
 export type WhatsappBridgeSystemCommandId =
   | 'assumir'
+  | 'pausar'
   | 'abrir'
   | 'token'
   | 'nota'
@@ -113,6 +114,18 @@ export const WHATSAPP_BRIDGE_SYSTEM_COMMANDS: WhatsappBridgeSystemCommandDef[] =
     syntax: '!assumir TK-…',
     category: 'attendance',
     core: true,
+    requiresTicketRef: true,
+  },
+  {
+    id: 'pausar',
+    command: 'pausar',
+    aliases: [],
+    label: 'Pausar IA (WhatsApp QR)',
+    description:
+      'Pausa a IA na conversa WhatsApp conectada por tempo configurável; depois a IA retoma. Use !assumir para bridge do site ou assumir sem limite.',
+    syntax: '!pausar TK-…',
+    category: 'attendance',
+    core: false,
     requiresTicketRef: true,
   },
   {

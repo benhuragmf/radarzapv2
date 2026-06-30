@@ -10,6 +10,20 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.17.9] - 2026-06-30
+
+### WhatsApp — comando !pausar (QR) com retomada automática da IA
+
+- Novo **`!pausar TK-…`** — pausa a IA na conversa do WhatsApp conectado (QR); **`!assumir` inalterado** (bridge do site e assume permanente).
+- Configuração em **Triagem e Bot → Fila**: horas até a IA retomar (1–72, padrão 2h) e toggle ativar/desativar.
+- Scan ~60s libera conversa de volta à triagem/IA ao expirar o timer; `!assumir` remove o timer (assume permanente).
+- Alerta fallback fila WA grava alerta pendente (`!assumir` / `!pausar` sem repetir TK).
+- Identificador Baileys nos aparelhos conectados: **Google Chrome (Radar Chat)** (antes Discord-WhatsApp Bot).
+
+---
+
 ## [2.17.8] - 2026-06-30
 
 ### IA Atendimento — empresa/catálogo e hardening

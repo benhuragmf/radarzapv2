@@ -11,6 +11,7 @@ interface Props {
   guildReady: boolean
   navAlerts?: Record<string, NavAlertItem>
   onToggleFavorite: (id: string) => void
+  onNavigate?: () => void
 }
 
 export function SidebarQuickAccess({
@@ -20,6 +21,7 @@ export function SidebarQuickAccess({
   guildReady,
   navAlerts,
   onToggleFavorite,
+  onNavigate,
 }: Props) {
   const { pathname, hash, search } = useLocation()
   const linkMap = new Map(collectNavLinks(entries).map(l => [l.id, l]))
@@ -68,6 +70,7 @@ export function SidebarQuickAccess({
               <Link
                 to={to}
                 title={entry.label}
+                onClick={() => onNavigate?.()}
                 className={`flex items-center gap-2 rounded-lg text-sm transition-colors flex-1 min-w-0 ${
                   collapsed ? 'justify-center py-2' : 'px-2 py-1.5'
                 } ${active ? 'rz-nav-item-active' : 'rz-nav-item hover:bg-[var(--rz-sidebar-item-hover)]'}`}

@@ -2552,7 +2552,7 @@ export class WhatsAppService {
       auth: state,
       printQRInTerminal: false,
       logger: this.createBaileysLogger(),
-      browser: ['Discord-WhatsApp Bot', 'Chrome', '1.0.0'],
+      browser: ['Radar Chat', 'Chrome', '2.17.9'],
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       keepAliveIntervalMs: 30000,

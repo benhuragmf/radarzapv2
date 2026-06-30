@@ -12,6 +12,7 @@ export type PanelEventType =
   | 'inbox:ticket_sla'
   | 'inbox:fallback_alert'
   | 'inbox:fallback_missed'
+  | 'inbox:human_takeover_expired'
   | 'webchat:escalated'
   | 'webchat:fallback_missed'
   | 'whatsapp:disconnected'

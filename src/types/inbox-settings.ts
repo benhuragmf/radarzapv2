@@ -116,6 +116,13 @@ export const DEFAULT_WHATSAPP_FALLBACK_ACCEPT_TIMEOUT_SECONDS = 120;
 /** Sem atendente online / fila aberta — 0 = alerta WA imediato na escalação. */
 export const DEFAULT_WHATSAPP_FALLBACK_NO_AGENT_TIMEOUT_SECONDS = 0;
 
+/** !pausar — retomada automática da IA no WhatsApp conectado (QR). */
+export {
+  DEFAULT_WHATSAPP_PAUSAR_AUTO_RESUME_HOURS,
+  WHATSAPP_PAUSAR_AUTO_RESUME_HOURS_MIN,
+  WHATSAPP_PAUSAR_AUTO_RESUME_HOURS_MAX,
+} from '@/types/inbox-human-takeover';
+
 /** Minutos máximos na fila WebChat antes de encerrar (0 = desligado). */
 export const DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_MINUTES = 45;
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Building2, ChevronDown, ChevronLeft, ChevronRight, Radio, Shield, Star } from 'lucide-react'
 import { BrandLogo } from '../brand/BrandLogo'
@@ -43,8 +43,8 @@ interface Props {
   onModeChange: (mode: NavMode) => void
   guild: Guild | null
   onGuildChange: (guild: Guild | null) => void
-  mobileOpen?: boolean
-  onMobileClose?: () => void
+  mobileExpanded?: boolean
+  onMobileExpandedChange?: (expanded: boolean) => void
 }
 
 function NavAlertDot({ alert, active }: { alert: NavAlertItem; active: boolean }) {
@@ -68,6 +68,7 @@ function NavLinkItem({
   collapsed,
   isFavorite,
   onToggleFavorite,
+  onNavigate,
 }: {
   entry: NavLink
   depth: number
@@ -76,6 +77,7 @@ function NavLinkItem({
   collapsed?: boolean
   isFavorite?: boolean
   onToggleFavorite?: (id: string) => void
+  onNavigate?: () => void
 }) {
   const { pathname, hash, search } = useLocation()
   const blocked = entry.requiresGuild && !guildReady
@@ -108,6 +110,7 @@ function NavLinkItem({
       <Link
         to={to}
         title={collapsed ? entry.label : alert?.summary}
+        onClick={() => onNavigate?.()}
         className={`flex items-center gap-3 ${pad} py-2 touch-target-nav rounded-lg text-sm transition-colors active:scale-[0.98] flex-1 min-w-0 ${alertRing} ${
           active
             ? 'rz-nav-item-active'
@@ -164,6 +167,7 @@ function NavGroupItem({
   collapsed,
   isFavorite,
   onToggleFavorite,
+  onNavigate,
 }: {
   entry: Extract<NavEntry, { kind: 'group' }>
   guildReady: boolean
@@ -171,6 +175,7 @@ function NavGroupItem({
   collapsed?: boolean
   isFavorite?: (id: string) => boolean
   onToggleFavorite?: (id: string) => void
+  onNavigate?: () => void
 }) {
   const { pathname, hash, search } = useLocation()
   const isActive = isNavGroupActive(entry, pathname, hash, search)
@@ -240,6 +245,7 @@ function NavGroupItem({
                   collapsed={false}
                   isFavorite={isFavorite?.(child.id)}
                   onToggleFavorite={onToggleFavorite}
+                  onNavigate={onNavigate}
                 />
               ))}
             </div>
@@ -278,6 +284,7 @@ function NavGroupItem({
               alert={navAlerts?.[child.id]}
               isFavorite={isFavorite?.(child.id)}
               onToggleFavorite={onToggleFavorite}
+              onNavigate={onNavigate}
             />
           ))}
         </div>
@@ -315,6 +322,7 @@ function NavTree({
   isFavorite,
   onToggleFavorite,
   favoriteIds = [],
+  onNavigate,
 }: {
   entries: NavEntry[]
   guildReady: boolean
@@ -323,6 +331,7 @@ function NavTree({
   isFavorite?: (id: string) => boolean
   onToggleFavorite?: (id: string) => void
   favoriteIds?: string[]
+  onNavigate?: () => void
 }) {
   const insertAt = quickAccessInsertIndex(entries)
 
@@ -340,6 +349,7 @@ function NavTree({
           collapsed={collapsed}
           isFavorite={isFavorite}
           onToggleFavorite={onToggleFavorite}
+          onNavigate={onNavigate}
         />
       )
     }
@@ -353,6 +363,7 @@ function NavTree({
         collapsed={collapsed}
         isFavorite={isFavorite?.(entry.id)}
         onToggleFavorite={onToggleFavorite}
+        onNavigate={onNavigate}
       />
     )
   }
@@ -371,6 +382,7 @@ function NavTree({
         guildReady={guildReady}
         navAlerts={navAlerts}
         onToggleFavorite={onToggleFavorite}
+        onNavigate={onNavigate}
       />
       {entries.slice(insertAt).map(renderEntry)}
     </>
@@ -434,14 +446,28 @@ function ModeSwitcher({
   )
 }
 
+function useIsLgUp() {
+  const [isLg, setIsLg] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const sync = () => setIsLg(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+  return isLg
+}
+
 export default function Sidebar({
   user,
   mode,
   onModeChange,
   guild,
   onGuildChange,
-  mobileOpen = false,
-  onMobileClose,
+  mobileExpanded = false,
+  onMobileExpandedChange,
 }: Props) {
   const { pathname, hash } = useLocation()
   const guildReady = Boolean(guild?.id)
@@ -465,6 +491,18 @@ export default function Sidebar({
         : undefined
 
   const [collapsed, setCollapsed] = useSidebarCollapsed()
+  const isLg = useIsLgUp()
+  const isCollapsed = isLg ? collapsed : !mobileExpanded
+
+  const collapseMenu = useCallback(() => {
+    if (isLg) setCollapsed(true)
+    else onMobileExpandedChange?.(false)
+  }, [isLg, onMobileExpandedChange, setCollapsed])
+
+  const toggleCollapse = useCallback(() => {
+    if (isLg) setCollapsed(v => !v)
+    else onMobileExpandedChange?.(!mobileExpanded)
+  }, [isLg, mobileExpanded, onMobileExpandedChange, setCollapsed])
   const { favoriteIds, isFavorite, toggleFavorite, pruneInvalid } = useNavFavorites(user, mode)
 
   useEffect(() => {
@@ -478,34 +516,32 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`rz-sidebar fixed inset-y-0 left-0 z-50 w-[min(100vw,280px)] border-r flex flex-col shrink-0 overscroll-contain transition-[transform,width] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:overflow-hidden ${
-        collapsed ? 'lg:w-[4.5rem]' : 'lg:w-60'
-      } ${
-        mobileOpen ? 'translate-x-0 overflow-y-auto' : '-translate-x-full lg:translate-x-0'
+      className={`rz-sidebar fixed inset-y-0 left-0 z-50 border-r flex flex-col shrink-0 overscroll-contain transition-[width] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:overflow-hidden ${
+        isCollapsed ? 'w-[4.5rem]' : 'w-60 max-w-[min(100vw-4.5rem,280px)]'
       }`}
     >
       <div
         className={`shrink-0 border-b rz-sidebar-border ${
-          collapsed ? 'flex flex-col items-center gap-1 py-2' : 'flex items-center'
+          isCollapsed ? 'flex flex-col items-center gap-1 py-2' : 'flex items-center'
         }`}
       >
         <Link
           to="/"
           className={`flex items-center rz-sidebar-brand group hover:bg-white/[0.04] transition-colors min-w-0 ${
-            collapsed ? 'justify-center px-2 py-1' : 'gap-3 px-4 py-4 flex-1'
+            isCollapsed ? 'justify-center px-2 py-1' : 'gap-3 px-4 py-4 flex-1'
           }`}
           aria-label="Radar Chat — início"
           title="Radar Chat"
         >
           <span className="rz-sidebar-brand-icon-wrap shrink-0">
             <BrandLogo
-              height={collapsed ? 32 : 40}
+              height={isCollapsed ? 32 : 40}
               tone="dark"
               animated
               className="rz-sidebar-brand-logo"
             />
           </span>
-          {!collapsed && (
+          {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <span className="font-bold text-[1.05rem] tracking-tight block leading-none">
                 <span className="text-[var(--rz-sidebar-text)]">Radar</span>
@@ -519,25 +555,28 @@ export default function Sidebar({
         </Link>
         <button
           type="button"
-          onClick={() => setCollapsed(v => !v)}
-          className={`hidden lg:flex shrink-0 items-center justify-center rounded-lg border transition-colors ${
-            collapsed ? 'w-8 h-8' : 'w-8 h-8 mr-2'
+          onClick={toggleCollapse}
+          className={`shrink-0 flex items-center justify-center rounded-lg border transition-colors w-8 h-8 ${
+            isCollapsed ? 'mb-1' : 'mr-2'
           } border-[var(--rz-sidebar-icon-active)]/35 bg-[var(--rz-sidebar-item-active)] text-[var(--rz-sidebar-icon-active)] hover:bg-[var(--rz-sidebar-icon-active)]/25 hover:border-[var(--rz-sidebar-icon-active)]/60 shadow-sm`}
-          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
         >
-          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          {isCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
         </button>
       </div>
 
       {tabCount > 1 && (
-        <div className={collapsed ? 'px-1.5 pt-2 pb-1' : 'px-3 pt-3 pb-2'}>
+        <div className={isCollapsed ? 'px-1.5 pt-2 pb-1' : 'px-3 pt-3 pb-2'}>
           <ModeSwitcher
             mode={mode}
-            onModeChange={onModeChange}
+            onModeChange={m => {
+              onModeChange(m)
+              if (!isLg) collapseMenu()
+            }}
             showDiscord={showDiscord}
             showAdmin={showAdmin}
-            collapsed={collapsed}
+            collapsed={isCollapsed}
           />
         </div>
       )}
@@ -547,12 +586,12 @@ export default function Sidebar({
           user={user}
           selected={guild}
           onChange={onGuildChange}
-          collapsed={collapsed}
+          collapsed={isCollapsed}
         />
       )}
 
-      <nav className={`flex-1 min-h-0 py-3 space-y-0.5 overflow-y-auto overscroll-contain ${collapsed ? 'px-1' : 'px-2'}`}>
-        {!collapsed && !navGuildReady && mode === 'discord' && (
+      <nav className={`flex-1 min-h-0 py-3 space-y-0.5 overflow-y-auto overscroll-contain ${isCollapsed ? 'px-1' : 'px-2'}`}>
+        {!isCollapsed && !navGuildReady && mode === 'discord' && (
           <p className="px-3 py-2 text-[11px] text-amber-500/90 leading-snug">
             Escolha o servidor para liberar o menu de automação.
           </p>
@@ -561,14 +600,15 @@ export default function Sidebar({
           entries={nav}
           guildReady={navGuildReady}
           navAlerts={navAlerts}
-          collapsed={collapsed}
+          collapsed={isCollapsed}
           isFavorite={isFavorite}
           onToggleFavorite={toggleFavorite}
           favoriteIds={favoriteIds}
+          onNavigate={!isLg ? collapseMenu : undefined}
         />
       </nav>
 
-      {!collapsed && (
+      {!isCollapsed && (
         <div className="px-5 py-4 border-t rz-sidebar-border text-xs rz-sidebar-muted">
           (v{import.meta.env.VITE_RADARZAP_VERSION}) · {user.plan}
         </div>

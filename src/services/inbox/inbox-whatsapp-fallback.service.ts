@@ -71,7 +71,8 @@ export function buildWhatsAppInboxFallbackAlertBody(input: {
     input.initialMessage ? `Última mensagem:\n"${input.initialMessage.slice(0, 400)}"` : null,
     '',
     'Para assumir no painel ou pelo WhatsApp:',
-    `!assumir ${ticketNum}`,
+    `!assumir ${ticketNum} — assume sem limite (site = bridge)`,
+    `!pausar ${ticketNum} — pausa IA no WhatsApp QR; retoma sozinha depois`,
     '',
     'Consultar resumo:',
     `!ticket ${ticketNum}`,
@@ -165,7 +166,22 @@ async function sendFallbackAlertToAgent(
   agent: { userId: string; whatsappPhone: string },
 ): Promise<boolean> {
   const alertBody = await buildAlertBodyForInboxConversation(clientId, conversation);
-  return sendAlertToAgentPhone(clientId, agent.whatsappPhone, alertBody);
+  const sent = await sendAlertToAgentPhone(clientId, agent.whatsappPhone, alertBody);
+  if (sent) {
+    const ticketRef = conversation.ticketRef?.trim();
+    if (ticketRef) {
+      const { setWaAgentPendingAlert } = await import(
+        '@/services/inbox/whatsapp-agent-focus.service'
+      );
+      await setWaAgentPendingAlert(
+        clientId,
+        agent.userId,
+        ticketRef,
+        conversation.contactName?.trim(),
+      );
+    }
+  }
+  return sent;
 }
 
 async function broadcastFallbackAlert(

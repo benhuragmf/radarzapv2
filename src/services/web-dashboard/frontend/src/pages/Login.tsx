@@ -4,7 +4,7 @@ import { loginWithDiscord, loginWithGoogle } from '../lib/auth'
 
 const ERROR_MESSAGES: Record<string, string> = {
   no_account:
-    'Conta Discord não vinculada. Peça ao dono da empresa um convite ou use /setup no bot.',
+    'Conta não encontrada. Se você recebeu convite da equipe, entre com Google usando o mesmo e-mail.',
   token_failed: 'Falha na autenticação. Tente novamente.',
   oauth_error: 'Erro durante o login. Tente novamente.',
   google_not_configured: 'Login Google não configurado no servidor (GOOGLE_CLIENT_ID).',
@@ -31,7 +31,8 @@ export default function Login({ error }: { error?: string }) {
             <header className="rz-auth-card-header">
               <h2 className="rz-auth-card-title">Entrar no painel</h2>
               <p className="rz-auth-card-subtitle">
-                Acesso seguro via provedor OAuth. Escolha a opção correspondente ao seu perfil.
+                Crie sua empresa ou entre com o e-mail convidado. O Google é o caminho principal para donos,
+                administradores e equipe.
               </p>
             </header>
 
@@ -44,8 +45,8 @@ export default function Login({ error }: { error?: string }) {
             <div className="rz-auth-providers">
               <div className="rz-auth-provider-block">
                 <p className="rz-auth-provider-label">
-                  <span className="rz-auth-provider-badge">Dono / administrador</span>
-                  Conta Google (Gmail) da empresa
+                  <span className="rz-auth-provider-badge">Recomendado</span>
+                  Empresa nova, cobrança e convites da equipe — use o e-mail da sua organização.
                 </p>
                 <button type="button" onClick={loginWithGoogle} className="rz-oauth-btn rz-oauth-btn-google">
                   <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
@@ -76,8 +77,8 @@ export default function Login({ error }: { error?: string }) {
 
               <div className="rz-auth-provider-block">
                 <p className="rz-auth-provider-label">
-                  <span className="rz-auth-provider-badge rz-auth-provider-badge-discord">Equipe</span>
-                  Discord — atendentes e automação de servidor
+                  <span className="rz-auth-provider-badge rz-auth-provider-badge-discord">Alternativo</span>
+                  Para quem já acessava o painel com Discord vinculado — não substitui o convite por e-mail.
                 </p>
                 <button type="button" onClick={loginWithDiscord} className="rz-oauth-btn rz-oauth-btn-discord">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -90,7 +91,7 @@ export default function Login({ error }: { error?: string }) {
           </div>
 
           <footer className="rz-auth-footer">
-            <p>Dono da empresa? Adicione o bot no Discord para liberar automação completa do servidor.</p>
+            <p>Recebeu convite da equipe? Entre com Google usando exatamente o e-mail do convite.</p>
             <p>
               <a href="https://radarchat.com.br" target="_blank" rel="noopener noreferrer">
                 Conheça o Radar Chat

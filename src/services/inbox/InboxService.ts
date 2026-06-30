@@ -191,6 +191,11 @@ import {
 } from '@/services/inbox/ticket-team-sla';
 import { type ConversationAiStatus, isAiFallbackExpired } from '@/types/inbox-conversation-ai';
 import {
+  clampWhatsappPausarAutoResumeHours,
+  formatHumanTakeoverUntil,
+  humanTakeoverUntilFromHours,
+} from '@/types/inbox-human-takeover';
+import {
   evaluateTicketInboundRouting,
   buildTicketGraceExpiredMenu,
   parseTicketGraceExpiredChoice,
@@ -345,6 +350,120 @@ export class InboxService {
     await this.setConversationAiStatus(clientId, conversationId, 'human_assigned');
   }
 
+  /** !pausar — timer configurável; IA retoma após expirar. */
+  async applyTemporaryHumanTakeover(
+    clientId: string,
+    conversationId: string,
+    userId: string,
+    hours?: number,
+  ): Promise<{ until: Date; hours: number }> {
+    const settings = await loadInboxSettings(clientId);
+    if (settings.whatsappPausarEnabled === false) {
+      throw new Error('Comando !pausar desativado. Use !assumir para assumir sem limite de tempo.');
+    }
+    const resolvedHours = clampWhatsappPausarAutoResumeHours(
+      hours ?? settings.whatsappPausarAutoResumeHours,
+    );
+    const until = humanTakeoverUntilFromHours(resolvedHours);
+    await InboxConversation.updateOne(
+      {
+        _id: new mongoose.Types.ObjectId(conversationId),
+        clientId: new mongoose.Types.ObjectId(clientId),
+      },
+      {
+        $set: {
+          humanTakeoverUntil: until,
+          humanTakeoverByUserId: new mongoose.Types.ObjectId(userId),
+        },
+      },
+    );
+    return { until, hours: resolvedHours };
+  }
+
+  /** !assumir permanente — remove timer de !pausar. */
+  async clearTemporaryHumanTakeover(clientId: string, conversationId: string): Promise<void> {
+    await InboxConversation.updateOne(
+      {
+        _id: new mongoose.Types.ObjectId(conversationId),
+        clientId: new mongoose.Types.ObjectId(clientId),
+      },
+      { $unset: { humanTakeoverUntil: '', humanTakeoverByUserId: '' } },
+    );
+  }
+
+  /** Expira !pausar — devolve conversa à triagem/IA. */
+  async releaseConversationAfterHumanTakeover(
+    clientId: string,
+    conv: IInboxConversation,
+  ): Promise<void> {
+    if (TERMINAL_STATUSES.has(conv.status)) return;
+
+    const prevAgent = conv.assignedUserId?.toString();
+    conv.assignedUserId = undefined;
+    conv.acceptedAt = undefined;
+    conv.suggestedUserId = undefined;
+    conv.suggestedAt = undefined;
+    conv.humanTakeoverUntil = undefined;
+    conv.humanTakeoverByUserId = undefined;
+    conv.status = InboxConversationStatus.BOT_TRIAGE;
+    conv.lastMessageAt = new Date();
+    await conv.save();
+
+    await this.clearConversationAi(clientId, String(conv._id));
+    await AiConversationState.updateOne(
+      { conversationId: conv._id },
+      { status: AiConversationStatus.AI_COLLECTING },
+    );
+
+    await this.appendSystemMessage(
+      conv,
+      'Pausa humana expirada — assistente automático retomará novas mensagens.',
+      undefined,
+      clientId,
+    );
+
+    void recordAttendanceEvent({
+      clientId,
+      kind: 'inbox.human_takeover_expired',
+      conversationId: String(conv._id),
+      meta: {
+        channel: conv.channel,
+        previousAssignedUserId: prevAgent ?? null,
+      },
+    });
+
+    await this.pushPanelEvent(
+      clientId,
+      'inbox:human_takeover_expired',
+      'IA retomou após !pausar',
+      conv.contactName,
+      { conversationId: String(conv._id) },
+    );
+    this.notifyConversation(clientId, conv);
+  }
+
+  async processExpiredHumanTakeovers(): Promise<void> {
+    const now = new Date();
+    const expired = await InboxConversation.find({
+      humanTakeoverUntil: { $lte: now, $ne: null },
+      status: InboxConversationStatus.IN_PROGRESS,
+    })
+      .limit(40)
+      .exec();
+
+    for (const conv of expired) {
+      try {
+        await this.releaseConversationAfterHumanTakeover(String(conv.clientId), conv);
+      } catch (e) {
+        logger.warn('Falha ao expirar !pausar', {
+          clientId: String(conv.clientId),
+          conversationId: String(conv._id),
+          error: (e as Error).message,
+        });
+      }
+    }
+  }
+
   /** Recupera timers de grace após restart e varre tickets expirados + SLA Inbox. */
   startClientReplyGraceMonitor(): void {
     if (this.graceMonitorStarted) return;
@@ -358,8 +477,12 @@ export class InboxService {
   private startInactivitySlaMonitor(): void {
     if (this.slaMonitorStarted) return;
     this.slaMonitorStarted = true;
-    setInterval(() => void this.processInactivityAndQueueSla(), 60_000);
+    setInterval(() => {
+      void this.processInactivityAndQueueSla();
+      void this.processExpiredHumanTakeovers();
+    }, 60_000);
     void this.processInactivityAndQueueSla();
+    void this.processExpiredHumanTakeovers();
   }
 
   async ensureDepartments(clientId: string) {
@@ -524,6 +647,8 @@ export class InboxService {
       whatsappFallbackVisitorMessage: string;
       whatsappFallbackAcceptTimeoutSeconds: number;
       whatsappFallbackNoAgentTimeoutSeconds: number;
+      whatsappPausarEnabled: boolean;
+      whatsappPausarAutoResumeHours: number;
       webchatQueueMaxWaitMinutes: number;
       webchatQueueMaxWaitCloseMessage: string;
       agentPresenceTimeoutSeconds: number;
@@ -709,6 +834,14 @@ export class InboxService {
       settings.whatsappFallbackNoAgentTimeoutSeconds = Math.min(
         120,
         Math.max(0, Number(patch.whatsappFallbackNoAgentTimeoutSeconds) || 0),
+      );
+    }
+    if (patch.whatsappPausarEnabled !== undefined) {
+      settings.whatsappPausarEnabled = Boolean(patch.whatsappPausarEnabled);
+    }
+    if (patch.whatsappPausarAutoResumeHours !== undefined) {
+      settings.whatsappPausarAutoResumeHours = clampWhatsappPausarAutoResumeHours(
+        patch.whatsappPausarAutoResumeHours,
       );
     }
     if (patch.webchatQueueMaxWaitMinutes !== undefined) {
@@ -4991,6 +5124,8 @@ export class InboxService {
     conv.suggestedUserId = undefined;
     conv.suggestedAt = undefined;
     resetInboxQueueFallbackState(conv);
+    conv.humanTakeoverUntil = undefined;
+    conv.humanTakeoverByUserId = undefined;
     conv.assignedUserId = new mongoose.Types.ObjectId(userId);
     conv.acceptedAt = new Date();
     conv.status = InboxConversationStatus.IN_PROGRESS;

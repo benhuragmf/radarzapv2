@@ -13,6 +13,10 @@ describe('whatsapp-agent-command.util', () => {
       command: 'assumir',
       arg: 'ABC123',
     });
+    expect(parseWhatsappAgentCommand('!pausar ABC123')).toEqual({
+      command: 'pausar',
+      arg: 'ABC123',
+    });
     expect(parseWhatsappAgentCommand('!ticket TK-88CHYX')).toEqual({
       command: 'ticket',
       arg: 'TK-88CHYX',

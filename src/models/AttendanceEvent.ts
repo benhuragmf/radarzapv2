@@ -29,6 +29,7 @@ export type AttendanceEventKind =
   | 'inbox.assigned'
   | 'inbox.transferred'
   | 'inbox.reassigned'
+  | 'inbox.human_takeover_expired'
   | 'form.blocked'
   | 'billing.checkout.completed'
   | 'billing.invoice.failed'

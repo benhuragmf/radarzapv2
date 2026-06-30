@@ -53,6 +53,10 @@ export interface IInboxConversation extends Document {
   whatsappFallbackWaNotifiedAt?: Date;
   /** Cliente já recebeu mensagem de fallback na fila WA. */
   whatsappFallbackClientNotifiedAt?: Date;
+  /** !pausar — IA retoma após esta data (WhatsApp QR). */
+  humanTakeoverUntil?: Date;
+  /** Atendente que acionou !pausar. */
+  humanTakeoverByUserId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -114,6 +118,8 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     whatsappFallbackWaNotifiedUserId: { type: String, index: true },
     whatsappFallbackWaNotifiedAt: { type: Date },
     whatsappFallbackClientNotifiedAt: { type: Date },
+    humanTakeoverUntil: { type: Date, index: true },
+    humanTakeoverByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true, collection: 'inboxConversations' },
 );

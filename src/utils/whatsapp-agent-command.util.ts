@@ -2,6 +2,7 @@
 
 export type WhatsappAgentCommandName =
   | 'assumir'
+  | 'pausar'
   | 'abrir'
   | 'abrirchamado'
   | 'ticket'
@@ -30,11 +31,12 @@ const NO_ARG_COMMANDS = new Set<WhatsappAgentCommandName>([
   'meus',
   'foco',
   'assumir',
+  'pausar',
   'trocar',
 ]);
 
 const COMMAND_RE =
-  /^!(assumir|abrir|abrirchamado|ticket|token|nota|abertos|chamados|meus|foco|trocar|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+([\s\S]+))?$/i;
+  /^!(assumir|pausar|abrir|abrirchamado|ticket|token|nota|abertos|chamados|meus|foco|trocar|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+([\s\S]+))?$/i;
 
 export function isWhatsappAbrirCommand(command: WhatsappAgentCommandName): boolean {
   return ABRIR_ALIASES.has(command);
@@ -118,6 +120,10 @@ export const WHATSAPP_AGENT_COMMAND_HELP = [
   '',
   '▸ Atendimento — chat do site',
   '!assumir TK-… — assumir conversa + bridge (não abre chamado)',
+  '',
+  '▸ Atendimento — WhatsApp conectado (QR)',
+  '!pausar TK-… — pausa IA por tempo configurável; retoma sozinha depois',
+  '   (Para assumir sem limite de tempo, use !assumir)',
   '!abrir TK-… [motivo] — abrir chamado + token ao visitante',
   '   Ex.: !abrir TK-ABC Cliente precisa @suporte2, @financeiro',
   '!token TK-… — reenviar token de consulta ao visitante',

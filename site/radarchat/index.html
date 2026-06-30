@@ -108,7 +108,11 @@
     }
 
     *, *::before, *::after { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    html {
+      scroll-behavior: smooth;
+      overflow-y: scroll;
+      scrollbar-gutter: stable;
+    }
     body {
       margin: 0;
       font-family: 'Inter', system-ui, sans-serif;
@@ -117,7 +121,22 @@
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       transition: background 0.25s ease, color 0.25s ease;
+      overflow-x: hidden;
+      min-height: 100%;
     }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar { width: 10px; }
+    html::-webkit-scrollbar-track,
+    body::-webkit-scrollbar-track { background: var(--rc-surface-alt); }
+    html::-webkit-scrollbar-thumb,
+    body::-webkit-scrollbar-thumb {
+      background: var(--rc-border);
+      border-radius: 999px;
+      border: 2px solid var(--rc-surface-alt);
+    }
+    html::-webkit-scrollbar-thumb:hover,
+    body::-webkit-scrollbar-thumb:hover { background: var(--rc-purple); }
 
     a { color: inherit; text-decoration: none; }
     button { font: inherit; cursor: pointer; border: none; background: none; }
@@ -889,6 +908,10 @@
       color: var(--rc-ink);
     }
     .footer-col a:hover { color: var(--rc-purple); }
+    .footer-discord-status {
+      margin-top: 0.75rem;
+    }
+
     .footer-bottom {
       padding-top: 24px;
       border-top: 1px solid var(--rc-border);
@@ -1454,6 +1477,9 @@
       <span>&copy; <span id="year"></span> Radar Chat. Todos os direitos reservados.</span>
       <span>radarchat.com.br · app.radarchat.com.br</span>
     </div>
+    <div class="wrap footer-discord-status">
+      <div id="radarzap-discord-status-1521572626793889925" data-radarzap-discord-status="1"></div>
+    </div>
   </footer>
 
   <script>
@@ -1478,18 +1504,29 @@
     // Mobile menu
     const mobileNav = document.getElementById('mobileNav');
     const menuOpen = document.getElementById('menuOpen');
-    menuOpen.addEventListener('click', () => {
+    function closeMobileNav() {
+      if (!mobileNav) return;
+      mobileNav.classList.remove('open');
+      mobileNav.hidden = true;
+      document.body.style.overflow = '';
+    }
+    menuOpen?.addEventListener('click', () => {
       mobileNav.hidden = false;
       mobileNav.classList.add('open');
       document.body.style.overflow = 'hidden';
     });
-    mobileNav.addEventListener('click', (e) => {
+    mobileNav?.addEventListener('click', (e) => {
       if (e.target === mobileNav || e.target.closest('a')) {
-        mobileNav.classList.remove('open');
-        mobileNav.hidden = true;
-        document.body.style.overflow = '';
+        closeMobileNav();
       }
     });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMobileNav();
+    });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 900) closeMobileNav();
+    });
+    closeMobileNav();
 
     // FAQ accordion
     document.querySelectorAll('.faq-q').forEach((btn) => {
@@ -1529,6 +1566,12 @@
     src="https://app.radarchat.com.br/leads/form.js"
     data-form-key="lfm_59ac3035bb5166339d7437e82f70c110"
     data-container="radarchat-lead-form"
+    async
+  ></script>
+  <script
+    src="https://app.radarchat.com.br/discord/status.js"
+    data-guild-id="1521572626793889925"
+    data-base-url="https://app.radarchat.com.br"
     async
   ></script>
 </body>

@@ -17,7 +17,12 @@ import {
   DEFAULT_WEBCHAT_QUEUE_MAX_WAIT_CLOSE_MESSAGE,
   DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
   DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT,
+  DEFAULT_WHATSAPP_PAUSAR_AUTO_RESUME_HOURS,
 } from '@/types/inbox-settings';
+import {
+  WHATSAPP_PAUSAR_AUTO_RESUME_HOURS_MIN,
+  WHATSAPP_PAUSAR_AUTO_RESUME_HOURS_MAX,
+} from '@/types/inbox-human-takeover';
 import type { WhatsappBridgeCommandsConfig } from '@/types/whatsapp-bridge-commands';
 import type { InboundRegistrationPolicy } from '@/types/inbound-registration-policy';
 import { DEFAULT_INBOUND_REGISTRATION_POLICY } from '@/types/inbound-registration-policy';
@@ -82,6 +87,10 @@ export interface IInboxSettings extends Document {
   whatsappFallbackAcceptTimeoutSeconds: number;
   /** Sem atendente online — segundos antes do alerta WA (0 = imediato) */
   whatsappFallbackNoAgentTimeoutSeconds: number;
+  /** Comando !pausar — pausa IA no WhatsApp QR com retomada automática */
+  whatsappPausarEnabled: boolean;
+  /** Horas até a IA retomar após !pausar (1–72) */
+  whatsappPausarAutoResumeHours: number;
   /** Minutos máximos na fila WebChat antes de encerrar (0 = desligado) */
   webchatQueueMaxWaitMinutes: number;
   webchatQueueMaxWaitCloseMessage: string;
@@ -294,6 +303,13 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       default: DEFAULT_WHATSAPP_FALLBACK_NO_AGENT_TIMEOUT_SECONDS,
       min: 0,
       max: 120,
+    },
+    whatsappPausarEnabled: { type: Boolean, default: true },
+    whatsappPausarAutoResumeHours: {
+      type: Number,
+      default: DEFAULT_WHATSAPP_PAUSAR_AUTO_RESUME_HOURS,
+      min: WHATSAPP_PAUSAR_AUTO_RESUME_HOURS_MIN,
+      max: WHATSAPP_PAUSAR_AUTO_RESUME_HOURS_MAX,
     },
     webchatQueueMaxWaitMinutes: {
       type: Number,

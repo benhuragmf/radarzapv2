@@ -12,10 +12,11 @@ interface Props {
   user: AuthUser
   onLogout: () => void
   onUserUpdate: (user: AuthUser) => void
-  onMenuClick?: () => void
+  menuOpen?: boolean
+  onMenuToggle?: () => void
 }
 
-export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Props) {
+export default function Header({ user, onLogout, onUserUpdate, menuOpen, onMenuToggle }: Props) {
   const { pathname, hash, search } = useLocation()
   const { theme, toggleTheme } = useTheme()
   const title = pageTitleFor(pathname, hash, search)
@@ -28,12 +29,13 @@ export default function Header({ user, onLogout, onUserUpdate, onMenuClick }: Pr
   return (
     <header className="h-14 bg-[var(--rz-surface)] border-b border-[var(--rz-border)] flex items-center justify-between px-3 sm:px-4 lg:px-6 gap-2 sm:gap-3">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        {onMenuClick && (
+        {onMenuToggle && (
           <button
             type="button"
-            onClick={onMenuClick}
+            onClick={onMenuToggle}
             className="lg:hidden shrink-0 touch-target flex items-center justify-center p-2 -ml-1 text-[var(--rz-text-secondary)] hover:text-[var(--rz-text-primary)] rounded-lg hover:bg-[var(--rz-surface-muted)]"
-            aria-label="Abrir menu"
+            aria-label={menuOpen ? 'Recolher menu' : 'Expandir menu'}
+            aria-expanded={menuOpen ?? false}
           >
             <Menu size={20} />
           </button>

@@ -13,6 +13,8 @@ import {
 } from '@/utils/whatsapp-agent-command.util';
 import { WebChatService } from '@/services/webchat/WebChatService';
 import { InboxService } from '@/services/inbox/InboxService';
+import { formatHumanTakeoverUntil } from '@/types/inbox-human-takeover';
+import { loadInboxSettings } from '@/constants/inbox-triage';
 import { visitorDisplayName } from '@/services/webchat/webchat-inbox-bridge';
 import { createServiceLogger } from '@/utils/logger';
 import {
@@ -526,6 +528,114 @@ async function handleAssumir(
   return `Chamado ${ticketRef} não encontrado. Verifique o número TK-… do alerta.`;
 }
 
+function buildPausarSuccessMessage(input: {
+  ticketRef: string;
+  contactName: string;
+  until: Date;
+  hours: number;
+}): string {
+  const ref = input.ticketRef.trim().toUpperCase();
+  const when = formatHumanTakeoverUntil(input.until);
+  return [
+    `IA pausada em ${ref} por ${input.hours}h.`,
+    `Cliente: ${input.contactName}`,
+    `Canal: WhatsApp conectado (QR)`,
+    '',
+    `Retomada automática: ${when}`,
+    'Responda pelo app do número conectado ou pelo painel Inbox.',
+    '',
+    'Para assumir sem limite de tempo: !assumir ' + ref.replace(/^TK-/i, ''),
+    `Painel → Inbox → ${ref}`,
+  ].join('\n');
+}
+
+async function handlePausar(
+  clientId: string,
+  userId: string,
+  ticketRef: string,
+): Promise<string> {
+  const settings = await loadInboxSettings(clientId);
+  if (settings.whatsappPausarEnabled === false) {
+    return [
+      'Comando !pausar desativado nesta empresa.',
+      'Use !assumir para assumir sem limite de tempo (bridge do site ou WhatsApp).',
+    ].join('\n');
+  }
+
+  const { ticket, webChat, inboxConv: inboxFromRef } = await findTicketByRef(clientId, ticketRef);
+
+  if (webChat || ticket?.webChatConversationId) {
+    return [
+      'Este chamado é do chat do site — use !assumir (ativa bridge).',
+      '!pausar vale só para conversas no WhatsApp conectado (QR).',
+    ].join('\n');
+  }
+
+  const inboxSvc = InboxService.getInstance();
+
+  if (ticket?.conversationId) {
+    if (!ticketIsActive(ticket.status)) {
+      return `Chamado ${ticketRef} está fechado.`;
+    }
+    if (
+      ticket.assignedUserId &&
+      String(ticket.assignedUserId) !== userId &&
+      ticket.status === 'in_progress'
+    ) {
+      return `Chamado ${ticketRef} já está em atendimento por outro agente. Use !assumir se precisar assumir de forma permanente.`;
+    }
+
+    const convId = String(ticket.conversationId);
+    await inboxSvc.assignConversation(clientId, userId, convId);
+    const takeover = await inboxSvc.applyTemporaryHumanTakeover(clientId, convId, userId);
+
+    ticket.assignedUserId = new mongoose.Types.ObjectId(userId);
+    ticket.status = 'in_progress';
+    await ticket.save();
+
+    await commitAgentFocus(clientId, userId, ticketRef, ticket.contactName);
+
+    return buildPausarSuccessMessage({
+      ticketRef,
+      contactName: ticket.contactName,
+      until: takeover.until,
+      hours: takeover.hours,
+    });
+  }
+
+  const inboxConv = inboxFromRef;
+  if (inboxConv) {
+    if (
+      inboxConv.status === InboxConversationStatus.IN_PROGRESS &&
+      inboxConv.assignedUserId &&
+      String(inboxConv.assignedUserId) !== userId
+    ) {
+      const other = await User.findById(inboxConv.assignedUserId)
+        .select('displayName email')
+        .lean();
+      const otherName =
+        other?.displayName?.trim() || other?.email?.split('@')[0] || 'outro atendente';
+      return `Conversa ${ticketRef} já está com ${otherName}. Use !assumir para assumir de forma permanente.`;
+    }
+
+    const convId = String(inboxConv._id);
+    await inboxSvc.assignConversation(clientId, userId, convId);
+    const takeover = await inboxSvc.applyTemporaryHumanTakeover(clientId, convId, userId);
+
+    const ref = (inboxConv.ticketRef ?? ticketRef).trim().toUpperCase();
+    await commitAgentFocus(clientId, userId, ref, inboxConv.contactName);
+
+    return buildPausarSuccessMessage({
+      ticketRef: ref,
+      contactName: inboxConv.contactName,
+      until: takeover.until,
+      hours: takeover.hours,
+    });
+  }
+
+  return `Chamado ${ticketRef} não encontrado. Use !abertos e !pausar 1, ou !pausar TK-…`;
+}
+
 async function handleToken(clientId: string, userId: string, ticketRef: string): Promise<string> {
   const { ticket, webChat } = await findTicketByRef(clientId, ticketRef);
 
@@ -1003,6 +1113,19 @@ export async function handleWhatsappAgentCommand(
           break;
         }
         response = await handleAssumir(input.clientId, agent.userId, resolved.ticketRef);
+        break;
+      }
+      case 'pausar': {
+        const resolved = await resolveAgentTicketRef(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message.replace(/!assumir/g, '!pausar');
+          break;
+        }
+        response = await handlePausar(input.clientId, agent.userId, resolved.ticketRef);
         break;
       }
       case 'trocar': {
