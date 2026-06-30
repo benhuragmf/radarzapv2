@@ -24,7 +24,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - `deploy.yml`: push `main` usa app-only; `workflow_dispatch` escolhe `app-only` ou `full-republish`.
 - Commit com `[skip deploy]` na `main` builda GHCR sem reiniciar o VPS.
 - Doc `COOLIFY-DEPLOY.md`: política de merge em lote na `main`.
-- **Fix:** `vps-coolify-deploy-app.sh` — logs em stderr, sem login GHCR duplicado, paths absolutos no workflow, `.gitattributes` LF em `*.sh`; sem `tr` no boot (sudo secure_path).
+- **Fix:** deploy app-only — dispatcher `vps-deploy-main.sh`, workflow SSH minimo em bash, `.gitattributes` LF.
 
 ## [2.12.75] — 2026-06-29
 
