@@ -91,5 +91,5 @@ for i in $(seq 1 18); do
   }
 done
 
-sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh"
+sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-disable-sentinel.sh"
 exec sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-verify.sh"

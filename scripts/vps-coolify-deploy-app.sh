@@ -130,7 +130,7 @@ fi
 log "Deploy app concluido (${RADARZAP_IMAGE})"
 
 log "Sync painel Coolify..."
-sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh"
+sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-disable-sentinel.sh"
 
 log "Gate de verificacao..."
 sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-verify.sh"
