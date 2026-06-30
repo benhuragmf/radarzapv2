@@ -47,6 +47,12 @@ wait_app_health() {
   return 1
 }
 
+log "=== 0) Permissões stack Coolify + guild Discord ==="
+sudo -E bash scripts/vps-coolify-fix-permissions.sh || true
+if [[ -f "${DEPLOY_PATH}/.env" ]]; then
+  sudo bash scripts/vps-patch-env-key.sh "${DEPLOY_PATH}/.env" DISCORD_GUILD_ID "${DISCORD_GUILD_ID:-1521572626793889925}" || true
+fi
+
 log "=== 1) Parar legado + republicar Coolify ==="
 cd "$DEPLOY_PATH"
 stop_conflicting_containers

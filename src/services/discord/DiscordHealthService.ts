@@ -105,4 +105,22 @@ export class DiscordHealthService {
 
     return base;
   }
+
+  /** Verifica se o bot (DISCORD_TOKEN) está no servidor — consulta API Discord diretamente. */
+  async isBotInGuild(guildId: string): Promise<boolean | null> {
+    const token = config.DISCORD.TOKEN?.trim();
+    if (!token) return null;
+
+    try {
+      const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}`, {
+        headers: { Authorization: `Bot ${token}` },
+      });
+      if (res.status === 404) return false;
+      if (res.ok) return true;
+      return null;
+    } catch (err) {
+      logger.debug('isBotInGuild failed', { guildId, error: (err as Error).message });
+      return null;
+    }
+  }
 }

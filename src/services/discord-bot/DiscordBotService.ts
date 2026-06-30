@@ -703,6 +703,7 @@ export class DiscordBotService {
       }
 
       this.serviceLogger.info(`Welcome message sent to guild: ${guild.name}`);
+      await this.storeSession();
 
     } catch (error) {
       this.serviceLogger.error('Error handling guild join:', error);
@@ -718,6 +719,7 @@ export class DiscordBotService {
       await DiscordChannel.deleteMany({ guildId: guild.id });
       
       this.serviceLogger.info(`Cleaned up data for guild: ${guild.name} (${guild.id})`);
+      await this.storeSession();
 
     } catch (error) {
       this.serviceLogger.error('Error handling guild leave:', error);

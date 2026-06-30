@@ -1017,6 +1017,8 @@ deploy_service_direct() {
   [[ -n "${SERVICE_UUID:-}" && -f "${COMPOSE_FILE:-}" ]] || return 1
   log "Deploy direto no host (fallback) → ${dir}"
   sudo mkdir -p "$dir"
+  sudo chmod 755 /data/coolify/services 2>/dev/null || true
+  sudo chmod 755 "$dir" 2>/dev/null || true
   merged="$(mktemp)"
   cp "$COMPOSE_FILE" "$merged"
   if ! grep -qE '3001:3001' "$merged"; then

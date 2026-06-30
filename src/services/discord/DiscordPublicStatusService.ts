@@ -36,11 +36,16 @@ export class DiscordPublicStatusService {
         throw new Error('guildId inválido');
       }
 
-      const clientId = config.DISCORD.CLIENT_ID?.trim();
-      if (clientId) {
-        const session = await SessionCache.getInstance().getDiscordSession(clientId);
-        const guilds: string[] = Array.isArray(session?.guilds) ? session.guilds : [];
-        botInGuild = guilds.includes(guildId);
+      const apiCheck = await DiscordHealthService.getInstance().isBotInGuild(guildId);
+      if (apiCheck !== null) {
+        botInGuild = apiCheck;
+      } else {
+        const clientId = config.DISCORD.CLIENT_ID?.trim();
+        if (clientId) {
+          const session = await SessionCache.getInstance().getDiscordSession(clientId);
+          const guilds: string[] = Array.isArray(session?.guilds) ? session.guilds : [];
+          botInGuild = guilds.includes(guildId);
+        }
       }
 
       activeMonitors = await DiscordChannel.countDocuments({

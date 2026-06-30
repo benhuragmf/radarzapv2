@@ -36,6 +36,7 @@ describe('DiscordPublicStatusService', () => {
         botUsername: 'radarbot',
         checkedAt: '2026-06-30T12:00:00.000Z',
       }),
+      isBotInGuild: jest.fn().mockResolvedValue(true),
     });
     (SessionCache.getInstance as jest.Mock).mockReturnValue({
       getDiscordSession: jest.fn().mockResolvedValue({
