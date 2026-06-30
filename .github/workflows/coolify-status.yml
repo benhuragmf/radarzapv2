@@ -29,3 +29,4 @@ jobs:
             git fetch origin "${DEPLOY_BRANCH}" -q 2>/dev/null || true
             git reset --hard "origin/${DEPLOY_BRANCH}" -q 2>/dev/null || git reset --hard origin/main -q 2>/dev/null || true
             sudo bash scripts/vps-coolify-status.sh || true
+            sudo bash scripts/vps-host-metrics.sh || true
