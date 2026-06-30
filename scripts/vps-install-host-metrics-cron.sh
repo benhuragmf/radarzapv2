@@ -96,12 +96,50 @@ echo "TOKEN|" . $pat->id . "|" . $plain;
   log "COOLIFY_API_TOKEN salvo em ${ENV_FILE}"
 }
 
+get_env_kv() {
+  local file="$1" key="$2"
+  [[ -f "$file" ]] || return 0
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- || true
+}
+
+needs_service_env_sync() {
+  local current
+  current="$(get_env_kv "$SERVICE_ENV" "OPS_HOST_METRICS_SECRET")"
+  [[ "$current" != "${OPS_HOST_METRICS_SECRET:-}" ]] && return 0
+  current="$(get_env_kv "$SERVICE_ENV" "COOLIFY_URL")"
+  [[ "$current" != "$APP_COOLIFY_URL" ]] && return 0
+  current="$(get_env_kv "$SERVICE_ENV" "COOLIFY_SERVICE_UUID")"
+  [[ "$current" != "$COOLIFY_SERVICE_UUID" ]] && return 0
+  if [[ -n "${COOLIFY_API_TOKEN:-}" ]]; then
+    current="$(get_env_kv "$SERVICE_ENV" "COOLIFY_API_TOKEN")"
+    [[ "$current" != "$COOLIFY_API_TOKEN" ]] && return 0
+  fi
+  return 1
+}
+
+wait_app_health() {
+  local i code
+  for i in $(seq 1 24); do
+    code="$(curl -s -o /dev/null -w '%{http_code}' "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null || echo 000)"
+    if [[ "$code" == "200" ]]; then
+      return 0
+    fi
+    sleep 5
+  done
+  return 1
+}
+
 sync_service_env() {
   load_env_file "$ENV_FILE"
   [[ -n "${OPS_HOST_METRICS_SECRET:-}" ]] || { log "ERRO: secret ausente"; exit 1; }
 
   if [[ ! -d "$COOLIFY_SERVICE_DIR" ]]; then
     log "AVISO: stack Coolify ausente em ${COOLIFY_SERVICE_DIR} — só cron no host"
+    return 0
+  fi
+
+  if ! needs_service_env_sync; then
+    log "Env do app já sincronizado — skip recreate"
     return 0
   fi
 
@@ -118,6 +156,7 @@ sync_service_env() {
     (cd "$COOLIFY_SERVICE_DIR" && docker compose --env-file .env \
       -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" \
       up -d --no-deps --force-recreate app) 2>/dev/null || true
+    wait_app_health || log "AVISO: health ainda não OK após recreate"
   fi
 }
 
@@ -143,6 +182,7 @@ EOF
 run_first_push() {
   load_env_file "$ENV_FILE"
   export DEPLOY_PATH PUBLIC_HOST COOLIFY_SERVICE_UUID OPS_HOST_METRICS_SECRET
+  wait_app_health || true
   log "Enviando primeiro reporte..."
   if bash "${DEPLOY_PATH}/scripts/vps-push-host-metrics.sh"; then
     log "Primeiro reporte OK"
