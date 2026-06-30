@@ -705,6 +705,19 @@ export const OPENAPI_DASHBOARD = {
         },
       },
     },
+    '/integrations/discord/inbound/messages': {
+      post: {
+        summary: 'Inbound mensagem Discord (sem bot gateway)',
+        tags: ['Discord', 'Integrations'],
+        description: 'Headers: X-API-Key, Idempotency-Key. Requer inboundEnabled no tenant.',
+      },
+    },
+    '/integrations/discord/inbound/events': {
+      post: {
+        summary: 'Inbound evento Discord (voz/membros/edição/reação)',
+        tags: ['Discord', 'Integrations'],
+      },
+    },
     '/discord/bot-invite-url': {
       get: { summary: 'URL OAuth para convidar o bot ao servidor', tags: ['Discord'] },
     },
