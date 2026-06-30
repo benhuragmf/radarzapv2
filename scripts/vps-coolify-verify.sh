@@ -86,12 +86,12 @@ if docker_cmd ps --format '{{.Names}}' | grep -q '^coolify-db$'; then
     fi
   fi
 
-  dup_radarchat="$(psql_coolify "SELECT count(*) FROM services WHERE deleted_at IS NULL AND lower(name) LIKE '%radarchat%';" || echo 0)"
+  dup_radarchat="$(psql_coolify "SELECT count(*) FROM services WHERE deleted_at IS NULL AND lower(name) LIKE '%radarchat%' AND uuid != '${CANONICAL_UUID}';" || echo 0)"
   if [[ "${dup_radarchat:-0}" != "0" ]]; then
     fail "service 'radarchat' duplicado ainda registrado (${dup_radarchat})"
   fi
 
-  proj_radarchat="$(psql_coolify "SELECT count(*) FROM projects WHERE deleted_at IS NULL AND lower(name) = 'radarchat';" || echo 0)"
+  proj_radarchat="$(psql_coolify "SELECT count(*) FROM projects WHERE deleted_at IS NULL AND lower(name) = 'radarchat' AND id NOT IN (SELECT e.project_id FROM environments e JOIN services s ON s.environment_id = e.id WHERE s.uuid = '${CANONICAL_UUID}' AND s.deleted_at IS NULL LIMIT 1);" || echo 0)"
   if [[ "${proj_radarchat:-0}" != "0" ]]; then
     fail "projeto Radar Chat duplicado ainda existe no painel"
   fi
