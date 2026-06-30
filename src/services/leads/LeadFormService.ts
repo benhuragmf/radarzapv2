@@ -13,6 +13,12 @@ import {
 } from '@/services/destinations/destination-classification.service';
 import type { ContactKind } from '@/types/contact-classification';
 import { normalizeContactPhoneE164 } from '@/utils/contact-csv-import';
+import {
+  canRemoveBranding,
+  getOrganizationPlanId,
+  RADAR_CHAT_BRAND_URL,
+  resolveProductBrandingVisible,
+} from '@/utils/branding-plan.util';
 import { createServiceLogger } from '@/utils/logger';
 import type {
   LeadCaptureListItem,
@@ -142,6 +148,17 @@ function normalizeAppearance(raw: Partial<LeadFormAppearance> | undefined): Lead
   };
 }
 
+async function finalizeAppearanceForPlan(
+  clientId: string,
+  appearance: LeadFormAppearance,
+): Promise<LeadFormAppearance> {
+  const planId = await getOrganizationPlanId(clientId);
+  if (!canRemoveBranding(planId)) {
+    return { ...appearance, showLogo: true };
+  }
+  return appearance;
+}
+
 function detectOrigin(referer?: string, explicit?: string): LeadCaptureOrigin {
   if (explicit && LEAD_CAPTURE_ORIGINS.includes(explicit as LeadCaptureOrigin)) {
     return explicit as LeadCaptureOrigin;
@@ -218,7 +235,7 @@ export class LeadFormService {
       active: true,
       allowedDomains: (body.allowedDomains ?? []).map(normalizeAllowedDomainEntry).filter(Boolean),
       includeCompanyWebsite: body.includeCompanyWebsite !== false,
-      appearance: normalizeAppearance(body.appearance),
+      appearance: await finalizeAppearanceForPlan(clientId, normalizeAppearance(body.appearance)),
       routing: normalizeRouting(body.routing),
     });
     return this.toFormListItem(form, 0, 0);
@@ -277,7 +294,10 @@ export class LeadFormService {
       form.includeCompanyWebsite = Boolean(patch.includeCompanyWebsite);
     }
     if (patch.appearance) {
-      form.appearance = normalizeAppearance({ ...form.appearance, ...patch.appearance });
+      form.appearance = await finalizeAppearanceForPlan(
+        clientId,
+        normalizeAppearance({ ...form.appearance, ...patch.appearance }),
+      );
     }
     if (patch.routing) {
       if (patch.routing.defaultAssigneeId !== undefined) {
@@ -322,7 +342,8 @@ export class LeadFormService {
     return LeadForm.findOne({ publicKey, active: true }).exec();
   }
 
-  getPublicConfig(form: ILeadForm): LeadFormPublicConfig {
+  async getPublicConfig(form: ILeadForm): Promise<LeadFormPublicConfig> {
+    const planId = await getOrganizationPlanId(String(form.clientId));
     const a = normalizeAppearance(form.appearance);
     return {
       publicKey: form.publicKey,
@@ -334,7 +355,8 @@ export class LeadFormService {
       theme: a.theme,
       size: a.size,
       borderRadius: a.borderRadius,
-      showLogo: a.showLogo,
+      showLogo: resolveProductBrandingVisible(planId, a.showLogo),
+      brandUrl: RADAR_CHAT_BRAND_URL,
       askEmail: a.askEmail,
       requireEmail: a.requireEmail,
       askMessage: a.askMessage,

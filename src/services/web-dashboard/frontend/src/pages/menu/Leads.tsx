@@ -894,6 +894,7 @@ export default function Leads() {
                   pending={updateForm.isPending}
                   deleting={deleteForm.isPending}
                   duplicating={duplicateForm.isPending}
+                  organizationPlan={me?.plan}
                 />
               ) : null}
             </Card>

@@ -30,6 +30,18 @@ import {
   parseCustomWhatsappCommand,
   resolveSystemCommandIdByName,
 } from '@/services/inbox/whatsapp-bridge-commands.service';
+import {
+  clearWaAgentFocus,
+  clearWaAgentPendingAlert,
+  formatNumberedPicklist,
+  getWaAgentFocus,
+  resolveAgentTicketRef,
+  resolveTicketCommandArg,
+  resolveTicketOnlyArg,
+  saveWaAgentPicklist,
+  setWaAgentFocus,
+  type WaAgentPicklistEntry,
+} from '@/services/inbox/whatsapp-agent-focus.service';
 
 const logger = createServiceLogger('WhatsappAgentCommand');
 
@@ -122,7 +134,7 @@ function formatChannelLabel(channel?: string, bridge?: boolean): string {
   return '—';
 }
 
-async function handleAbertos(clientId: string): Promise<string> {
+async function handleAbertos(clientId: string, agentUserId: string): Promise<string> {
   const clientOid = new mongoose.Types.ObjectId(clientId);
   const tickets = await InboxTicket.find({
     clientId: clientOid,
@@ -152,6 +164,7 @@ async function handleAbertos(clientId: string): Promise<string> {
   });
 
   if (tickets.length === 0 && informal.length === 0) {
+    await saveWaAgentPicklist(clientId, agentUserId, []);
     return 'Nenhum chamado aberto no momento.';
   }
 
@@ -170,12 +183,14 @@ async function handleAbertos(clientId: string): Promise<string> {
     return u?.displayName?.trim() || u?.email?.split('@')[0] || 'Atendente';
   };
 
-  const lines: string[] = [`Chamados abertos (${tickets.length + informal.length}):`, ''];
+  const picklist: WaAgentPicklistEntry[] = [];
+  const detailLines: string[] = [];
 
   for (const t of tickets) {
     const status =
       INBOX_TICKET_STATUS_LABEL[t.status as keyof typeof INBOX_TICKET_STATUS_LABEL] ?? t.status;
-    lines.push(
+    picklist.push({ ticketRef: t.ticketRef, label: t.contactName || 'Cliente' });
+    detailLines.push(
       `${t.ticketRef} · ${status} · ${t.contactName} · ${formatChannelLabel(t.channel, bridgeByRef.get(t.ticketRef.toUpperCase()))} · ${userName(t.assignedUserId ? String(t.assignedUserId) : null)}`,
     );
   }
@@ -183,13 +198,21 @@ async function handleAbertos(clientId: string): Promise<string> {
   for (const c of informal.slice(0, 10)) {
     const ref = (c.ticketRef ?? '').trim().toUpperCase();
     const name = c.visitorName?.trim() || 'Visitante';
-    lines.push(
+    picklist.push({ ticketRef: ref, label: name });
+    detailLines.push(
       `${ref} · conversa site (use !abrir) · ${name} · ${c.whatsappBridgeActive ? 'bridge' : '—'} · ${userName(c.assignedUserId ? String(c.assignedUserId) : null)}`,
     );
   }
 
-  lines.push('', '!ticket TK-… — detalhes · !meus — só os seus');
-  return lines.join('\n');
+  await saveWaAgentPicklist(clientId, agentUserId, picklist);
+
+  const numbered = formatNumberedPicklist(
+    `Chamados abertos (${picklist.length}):`,
+    picklist,
+    '!assumir 1 — assume pelo número · !ticket TK-… — detalhes · !meus — só os seus',
+  );
+
+  return [numbered, '', '— Detalhes —', ...detailLines].join('\n');
 }
 
 async function handleMeus(clientId: string, userId: string): Promise<string> {
@@ -223,27 +246,102 @@ async function handleMeus(clientId: string, userId: string): Promise<string> {
   });
 
   if (tickets.length === 0 && convOnly.length === 0) {
+    await saveWaAgentPicklist(clientId, userId, []);
     return 'Você não tem chamados ou conversas em andamento.';
   }
 
-  const lines: string[] = [`Seus atendimentos (${tickets.length + convOnly.length}):`, ''];
+  const picklist: WaAgentPicklistEntry[] = [];
+  const detailLines: string[] = [];
 
   for (const t of tickets) {
     const status =
       INBOX_TICKET_STATUS_LABEL[t.status as keyof typeof INBOX_TICKET_STATUS_LABEL] ?? t.status;
-    lines.push(`${t.ticketRef} · ${status} · ${t.contactName} · ${formatChannelLabel(t.channel)}`);
+    picklist.push({ ticketRef: t.ticketRef, label: t.contactName || 'Cliente' });
+    detailLines.push(`${t.ticketRef} · ${status} · ${t.contactName} · ${formatChannelLabel(t.channel)}`);
   }
 
   for (const c of convOnly) {
     const ref = (c.ticketRef ?? '—').trim().toUpperCase() || '—';
     const name = c.visitorName?.trim() || 'Visitante';
-    lines.push(
+    if (ref !== '—') {
+      picklist.push({ ticketRef: ref, label: name });
+    }
+    detailLines.push(
       `${ref} · conversa site · ${name}${c.whatsappBridgeActive ? ' · bridge ativo' : ''}`,
     );
   }
 
-  lines.push('', '!ticket TK-… — resumo');
-  return lines.join('\n');
+  await saveWaAgentPicklist(clientId, userId, picklist);
+
+  const numbered = formatNumberedPicklist(
+    `Seus atendimentos (${picklist.length}):`,
+    picklist,
+    '!assumir 1 — foco pelo número · !foco — contexto atual',
+  );
+
+  return [numbered, '', '— Detalhes —', ...detailLines].join('\n');
+}
+
+async function handleFoco(clientId: string, userId: string): Promise<string> {
+  const focus = await getWaAgentFocus(clientId, userId);
+  if (!focus?.ticketRef) {
+    return [
+      'Nenhum foco ativo.',
+      'Use !assumir (alerta pendente), !assumir 1 após !abertos, ou !assumir TK-…',
+    ].join('\n');
+  }
+  const { ticket, webChat } = await findTicketByRef(clientId, focus.ticketRef);
+  const clientLabel =
+    focus.label ||
+    ticket?.contactName ||
+    webChat?.visitorName?.trim() ||
+    'Cliente';
+  const bridge =
+    webChat?.whatsappBridgeActive ||
+    (ticket?.webChatConversationId
+      ? (
+          await WebChatConversation.findById(ticket.webChatConversationId)
+            .select('whatsappBridgeActive')
+            .lean()
+        )?.whatsappBridgeActive
+      : false);
+
+  return [
+    `Foco: ${focus.ticketRef}`,
+    `Cliente: ${clientLabel}`,
+    bridge ? 'Bridge WhatsApp: ativo' : 'Bridge: inativo (use !assumir se for chat do site)',
+    '',
+    '!trocar 2 — mudar foco · !nota texto — nota no foco atual',
+  ].join('\n');
+}
+
+async function handleTrocar(
+  clientId: string,
+  userId: string,
+  rawArg?: string,
+): Promise<string> {
+  const resolved = await resolveAgentTicketRef(clientId, userId, rawArg);
+  if (resolved.ok === false) return resolved.message;
+
+  const { ticket, webChat } = await findTicketByRef(clientId, resolved.ticketRef);
+  const conv =
+    webChat ??
+    (ticket?.webChatConversationId
+      ? await WebChatConversation.findById(ticket.webChatConversationId)
+      : null);
+
+  if (conv?.whatsappBridgeActive && String(conv.whatsappBridgeAgentUserId) === userId) {
+    await setWaAgentFocus(clientId, userId, resolved.ticketRef, resolved.label);
+    await clearWaAgentPendingAlert(clientId, userId);
+    const name = resolved.label || conv.visitorName?.trim() || 'Cliente';
+    return [
+      `Foco alterado: ${resolved.ticketRef}`,
+      `Cliente: ${name}`,
+      'Bridge já ativo — responda direto no WhatsApp.',
+    ].join('\n');
+  }
+
+  return handleAssumir(clientId, userId, resolved.ticketRef);
 }
 
 async function handleNota(
@@ -274,6 +372,16 @@ async function handleNota(
   } catch (err) {
     return (err as Error).message || `Não foi possível salvar nota em ${ticketRef}.`;
   }
+}
+
+async function commitAgentFocus(
+  clientId: string,
+  userId: string,
+  ticketRef: string,
+  label?: string,
+): Promise<void> {
+  await setWaAgentFocus(clientId, userId, ticketRef, label);
+  await clearWaAgentPendingAlert(clientId, userId);
 }
 
 async function handleAssumir(
@@ -327,14 +435,18 @@ async function handleAssumir(
     );
     const ref = (conversation.ticketRef ?? ticketRef).trim().toUpperCase();
     const ticketOpened = Boolean(ticket);
+    const clientLabel = ticket?.contactName ?? contactName;
+
+    await commitAgentFocus(clientId, userId, ref, clientLabel);
 
     return [
       `Você assumiu ${ref}.`,
       `Canal: chat do site (bridge WhatsApp ativo)`,
-      `Cliente: ${ticket?.contactName ?? contactName}`,
+      `Cliente: ${clientLabel}`,
       '',
       'Responda aqui no WhatsApp — o visitante verá no chat do site.',
-      'Vários chamados? Use: TK-XXXX sua mensagem',
+      'Comandos usam o foco atual (!foco) — !nota texto, sem repetir TK.',
+      'Vários chamados? Use: TK-XXXX sua mensagem ou !trocar 2',
       '',
       ticketOpened
         ? `Chamado formal aberto. Reenvio de token: !token ${ref.replace(/^TK-/i, '')}`
@@ -364,6 +476,8 @@ async function handleAssumir(
     ticket.assignedUserId = new mongoose.Types.ObjectId(userId);
     ticket.status = 'in_progress';
     await ticket.save();
+
+    await commitAgentFocus(clientId, userId, ticketRef, ticket.contactName);
 
     return [
       `Você assumiu ${ticketRef}.`,
@@ -396,6 +510,8 @@ async function handleAssumir(
     );
 
     const ref = (inboxConv.ticketRef ?? ticketRef).trim().toUpperCase();
+    await commitAgentFocus(clientId, userId, ref, inboxConv.contactName);
+
     return [
       `Você assumiu ${ref}.`,
       `Canal: WhatsApp (fila Inbox)`,
@@ -672,6 +788,11 @@ async function handleEncerrarChat(
     return (err as Error).message || `Não foi possível encerrar o chat de ${ticketRef}.`;
   }
 
+  const focus = await getWaAgentFocus(clientId, userId);
+  if (focus?.ticketRef?.toUpperCase() === ticketRef.toUpperCase()) {
+    await clearWaAgentFocus(clientId, userId);
+  }
+
   return [
     `Atendimento de ${ticketRef} encerrado para o visitante no chat do site.`,
     'Bridge WhatsApp desativado.',
@@ -695,6 +816,7 @@ async function handleEncerrar(
   if (ticket?.channel === 'whatsapp' && ticket.conversationId && ticketIsActive(ticket.status)) {
     try {
       await InboxService.getInstance().closeTicket(clientId, userId, ticketRef);
+      await clearWaAgentFocus(clientId, userId);
       return `Chamado ${ticketRef} encerrado. Cliente notificado no WhatsApp.`;
     } catch (err) {
       return (err as Error).message || `Não foi possível encerrar ${ticketRef}.`;
@@ -725,6 +847,7 @@ async function handleEncerrar(
       );
     }
 
+    await clearWaAgentFocus(clientId, userId);
     return `Chamado ${ticketRef} finalizado. Visitante notificado no chat do site.`;
   }
 
@@ -733,7 +856,13 @@ async function handleEncerrar(
     ticket.closedByUserId = new mongoose.Types.ObjectId(userId);
     ticket.closedAt = new Date();
     await ticket.save();
+    await clearWaAgentFocus(clientId, userId);
     return `Chamado ${ticketRef} encerrado.`;
+  }
+
+  const focus = await getWaAgentFocus(clientId, userId);
+  if (focus?.ticketRef?.toUpperCase() === ticketRef.toUpperCase()) {
+    await clearWaAgentFocus(clientId, userId);
   }
 
   return `Chamado ${ticketRef} já estava fechado.`;
@@ -794,12 +923,36 @@ export async function handleWhatsappAgentCommand(
         );
         return true;
       }
+      let customArg = customParsed.arg;
+      if (cmd.requiresTicketRef) {
+        if (!customArg?.trim()) {
+          const only = await resolveTicketOnlyArg(input.clientId, agent.userId);
+          if (only.ok === false) {
+            await replyCommand(input.clientId, input.replyJid, only.message);
+            return true;
+          }
+          customArg = only.ticketRef.replace(/^TK-/i, '');
+        } else {
+          const resolved = await resolveTicketCommandArg(
+            input.clientId,
+            agent.userId,
+            customParsed.arg,
+          );
+          if (resolved.ok === false) {
+            await replyCommand(input.clientId, input.replyJid, resolved.message);
+            return true;
+          }
+          customArg = resolved.message
+            ? `${resolved.ticketRef.replace(/^TK-/i, '')} ${resolved.message}`
+            : resolved.ticketRef.replace(/^TK-/i, '');
+        }
+      }
       const response = await executeCustomWhatsappCommand({
         clientId: input.clientId,
         userId: agent.userId,
         agentName: agent.displayName,
         command: cmd,
-        arg: customParsed.arg,
+        arg: customArg,
       });
       await replyCommand(input.clientId, input.replyJid, response);
       return true;
@@ -831,47 +984,120 @@ export async function handleWhatsappAgentCommand(
     switch (parsed!.command) {
       case 'abertos':
       case 'chamados':
-        response = await handleAbertos(input.clientId);
+        response = await handleAbertos(input.clientId, agent.userId);
         break;
       case 'meus':
         response = await handleMeus(input.clientId, agent.userId);
         break;
+      case 'foco':
+        response = await handleFoco(input.clientId, agent.userId);
+        break;
       case 'assumir': {
-        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
-        response = await handleAssumir(input.clientId, agent.userId, ticketRef);
+        const resolved = await resolveAgentTicketRef(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message;
+          break;
+        }
+        response = await handleAssumir(input.clientId, agent.userId, resolved.ticketRef);
+        break;
+      }
+      case 'trocar': {
+        response = await handleTrocar(input.clientId, agent.userId, parsed.arg);
         break;
       }
       case 'abrir':
       case 'abrirchamado': {
-        const { ticketRef, message } = parseCommandTicketArg(parsed.arg!);
-        response = await handleAbrir(input.clientId, agent.userId, ticketRef, message);
+        const resolved = await resolveTicketCommandArg(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message;
+          break;
+        }
+        response = await handleAbrir(
+          input.clientId,
+          agent.userId,
+          resolved.ticketRef,
+          resolved.message,
+        );
         break;
       }
       case 'nota': {
-        const { ticketRef, message } = parseCommandTicketArg(parsed.arg!);
-        response = await handleNota(input.clientId, agent.userId, ticketRef, message);
+        const resolved = await resolveTicketCommandArg(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message;
+          break;
+        }
+        response = await handleNota(
+          input.clientId,
+          agent.userId,
+          resolved.ticketRef,
+          resolved.message,
+        );
         break;
       }
       case 'ticket': {
-        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
-        response = await handleTicketSummary(input.clientId, ticketRef);
+        const resolved = await resolveTicketOnlyArg(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message;
+          break;
+        }
+        response = await handleTicketSummary(input.clientId, resolved.ticketRef);
         break;
       }
       case 'token': {
-        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
-        response = await handleToken(input.clientId, agent.userId, ticketRef);
+        const resolved = await resolveTicketOnlyArg(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message;
+          break;
+        }
+        response = await handleToken(input.clientId, agent.userId, resolved.ticketRef);
         break;
       }
       case 'encerrar': {
-        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
-        response = await handleEncerrar(input.clientId, agent.userId, ticketRef);
+        const resolved = await resolveTicketOnlyArg(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message;
+          break;
+        }
+        response = await handleEncerrar(input.clientId, agent.userId, resolved.ticketRef);
         break;
       }
       case 'encerrarchat':
       case 'sairchat':
       case 'fecharchat': {
-        const { ticketRef } = parseCommandTicketArg(parsed.arg!);
-        response = await handleEncerrarChat(input.clientId, agent.userId, ticketRef);
+        const resolved = await resolveTicketOnlyArg(
+          input.clientId,
+          agent.userId,
+          parsed.arg,
+        );
+        if (resolved.ok === false) {
+          response = resolved.message;
+          break;
+        }
+        response = await handleEncerrarChat(input.clientId, agent.userId, resolved.ticketRef);
         break;
       }
       default:

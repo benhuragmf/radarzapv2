@@ -42,8 +42,24 @@ describe('whatsapp-agent-command.util', () => {
     expect(parseWhatsappAgentCommand('!help')).toEqual({ command: 'help', arg: undefined });
   });
 
+  it('parses assumir without arg', () => {
+    expect(parseWhatsappAgentCommand('!assumir')).toEqual({
+      command: 'assumir',
+      arg: undefined,
+    });
+    expect(parseWhatsappAgentCommand('!assumir 1')).toEqual({
+      command: 'assumir',
+      arg: '1',
+    });
+  });
+
+  it('parses foco and trocar', () => {
+    expect(parseWhatsappAgentCommand('!foco')).toEqual({ command: 'foco', arg: undefined });
+    expect(parseWhatsappAgentCommand('!trocar 2')).toEqual({ command: 'trocar', arg: '2' });
+  });
+
   it('rejects unknown or incomplete commands', () => {
-    expect(parseWhatsappAgentCommand('!assumir')).toBeNull();
+    expect(parseWhatsappAgentCommand('!ticket')).toBeNull();
     expect(parseWhatsappAgentCommand('!foo bar')).toBeNull();
     expect(parseWhatsappAgentCommand('ola')).toBeNull();
   });
@@ -52,7 +68,8 @@ describe('whatsapp-agent-command.util', () => {
     expect(isWhatsappTeamCommand('!ajuda')).toBe(true);
     expect(isWhatsappTeamCommand('!nota TK-ABC texto')).toBe(true);
     expect(isWhatsappTeamCommand('oi')).toBe(false);
-    expect(isWhatsappTeamCommand('!assumir')).toBe(false);
+    expect(isWhatsappTeamCommand('!assumir')).toBe(true);
+    expect(isWhatsappTeamCommand('!foco')).toBe(true);
   });
 
   it('normalizes ticket ref', () => {

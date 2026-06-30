@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.12.76';
+  var WIDGET_BUILD = '2.12.77';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -1087,17 +1087,22 @@
   }
 
   function renderPoweredBy(t) {
+    if (state.config && state.config.showPoweredBy === false) return '';
+    var brandUrl = (state.config && state.config.brandUrl) || 'https://radarchat.com.br';
     return (
-      '<div style="flex-shrink:0;padding:5px 10px 7px;text-align:center;background:' +
+      '<div style="flex-shrink:0;padding:4px 8px 6px;text-align:center;background:' +
       t.footerBg +
       ';border-top:1px solid ' +
       t.border +
       ';">' +
-      '<span style="font-size:10px;line-height:1.35;color:' +
+      '<a href="' +
+      brandUrl +
+      '" target="_blank" rel="noopener noreferrer" style="display:inline-block;font-size:9px;line-height:1.35;color:' +
       t.textMuted +
-      ';">Powered by <strong style="color:' +
+      ';opacity:0.72;text-decoration:none;">' +
+      'Powered by <strong style="color:' +
       primaryColor() +
-      ';font-weight:600;">Radar Chat</strong></span></div>'
+      ';font-weight:600;">Radar Chat</strong></a></div>'
     );
   }
 

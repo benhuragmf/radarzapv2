@@ -2,7 +2,7 @@ import { AlertCircle, Copy, CopyPlus, ExternalLink, Save, Trash2 } from 'lucide-
 import { Button } from '../../ui/Button'
 import { cn } from '@/lib/utils'
 import { formatEmbedAllowedSitesSummary } from '@/lib/embedAllowedDomains'
-import { leadFormPreviewUrl } from '@/lib/leadFormEditorUtils'
+import { leadFormPreviewUrl, type LeadFormPreviewAppearance } from '@/lib/leadFormEditorUtils'
 
 type Props = {
   title: string
@@ -18,6 +18,8 @@ type Props = {
   duplicating?: boolean
   deleting?: boolean
   previewReloadKey?: number
+  previewSection?: number
+  previewAppearance?: LeadFormPreviewAppearance
   onSave: () => void
   onDelete: () => void
   onDuplicate?: () => void
@@ -38,12 +40,20 @@ export function LeadFormEditorHeader({
   duplicating,
   deleting,
   previewReloadKey,
+  previewSection,
+  previewAppearance,
   onSave,
   onDelete,
   onDuplicate,
   onCopyScript,
 }: Props) {
-  const previewUrl = leadFormPreviewUrl(publicKey, previewReloadKey, companyWebsite)
+  const previewUrl = leadFormPreviewUrl(
+    publicKey,
+    previewReloadKey,
+    companyWebsite,
+    previewSection,
+    previewAppearance,
+  )
   const domainsPreview = formatEmbedAllowedSitesSummary(
     allowedDomains,
     includeCompanyWebsite,

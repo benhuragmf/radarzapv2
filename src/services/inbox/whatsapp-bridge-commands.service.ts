@@ -172,7 +172,7 @@ export function buildDynamicWhatsappAgentHelp(config: WhatsappBridgeCommandsConf
     ...section('▸ Encerrar', byCategory.close),
     ...section('▸ Ajuda', byCategory.help),
     ...section('▸ Comandos personalizados', byCategory.custom.filter(c => !c.actionPreset || c.actionPreset === 'static')),
-    'Com bridge ativo: responda normalmente ou TK-XXXX sua mensagem (vários chamados).',
+    'Com bridge ativo: responda direto (usa !foco) ou TK-XXXX / !trocar N com vários chamados.',
   ];
 
   return lines.filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== '')).join('\n').trim();
@@ -189,7 +189,9 @@ export function parseCustomWhatsappCommand(
   const cmd = customCommands.find(c => c.command === name);
   if (!cmd) return null;
   const arg = match[2]?.trim();
-  if (cmd.requiresTicketRef && !arg) return null;
+  if (cmd.requiresTicketRef && !arg) {
+    return { command: cmd, arg: undefined };
+  }
   return { command: cmd, arg };
 }
 

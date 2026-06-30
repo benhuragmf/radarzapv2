@@ -174,12 +174,11 @@
       ';color:' +
       cssImp(errText) +
       ';font-size:0.85rem}' +
-      '.rz-lead-form .rz-logo{margin-top:16px;text-align:center;font-size:0.7rem;color:' +
+      '.rz-lead-form .rz-logo{margin-top:12px;text-align:center;font-size:0.65rem;line-height:1.35;opacity:0.72;color:' +
       cssImp(muted) +
       '}' +
-      '.rz-lead-form .rz-logo a{color:' +
-      cssImp(muted) +
-      ';text-decoration:none}' +
+      '.rz-lead-form .rz-logo a{color:inherit;text-decoration:none;border-bottom:1px solid transparent}' +
+      '.rz-lead-form .rz-logo a:hover{opacity:1;border-bottom-color:currentColor}' +
       '.rz-lead-form .rz-consent{font-size:0.8rem;line-height:1.4;color:' +
       cssImp(label) +
       '}' +
@@ -393,10 +392,14 @@
     form.appendChild(btn);
 
     if (config.showLogo) {
+      var brandUrl = (config.brandUrl || 'https://radarchat.com.br').replace(/"/g, '');
       root.appendChild(
         el('p', {
           className: 'rz-logo',
-          html: 'Formulário por <a href="https://radarchat.com.br" target="_blank" rel="noopener">Radar Chat</a>',
+          html:
+            'Powered by <a href="' +
+            brandUrl +
+            '" target="_blank" rel="noopener noreferrer">Radar Chat</a>',
         }),
       );
     }

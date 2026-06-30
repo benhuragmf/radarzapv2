@@ -4,6 +4,7 @@ import {
   countSections,
   injectPreviewHeadFixes,
   absolutizeRootRelativeUrls,
+  buildPreviewRelocateScript,
 } from '@/services/leads/lead-form-preview-page.service';
 
 describe('lead-form-preview-page.service', () => {
@@ -49,5 +50,12 @@ describe('lead-form-preview-page.service', () => {
     );
     expect(out).toContain('href="https://radarchat.com.br/brand.css"');
     expect(out).toContain('src="https://radarchat.com.br/x.png"');
+  });
+
+  it('buildPreviewRelocateScript listens for section postMessage', () => {
+    const script = buildPreviewRelocateScript(5);
+    expect(script).toContain('rz-lead-preview-section');
+    expect(script).toContain('INITIAL=5');
+    expect(script).toContain('rz-lead-preview-block');
   });
 });

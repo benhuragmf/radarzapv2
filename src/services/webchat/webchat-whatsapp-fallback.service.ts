@@ -90,7 +90,8 @@ export function buildWhatsAppFallbackAlertBody(input: {
     input.pageUrl ? `Página: ${input.pageUrl}` : null,
     input.initialMessage ? `Mensagem inicial:\n"${input.initialMessage.slice(0, 400)}"` : null,
     '',
-    'Para assumir atendimento:',
+    'Para assumir atendimento (escolha uma opção):',
+    `!assumir — assume este alerta (${input.ticketRef})`,
     `!assumir ${ticketNum}`,
     '',
     'Para abrir chamado formal (token no site):',
@@ -250,7 +251,22 @@ export async function sendFallbackAlertToAgent(
   agent: { userId: string; whatsappPhone: string },
 ): Promise<boolean> {
   const alertBody = await buildAlertBodyForConversation(conversation);
-  return sendAlertToAgentPhone(clientId, agent.whatsappPhone, alertBody);
+  const sent = await sendAlertToAgentPhone(clientId, agent.whatsappPhone, alertBody);
+  if (sent) {
+    const ticketRef = conversation.ticketRef?.trim();
+    if (ticketRef) {
+      const { setWaAgentPendingAlert } = await import(
+        '@/services/inbox/whatsapp-agent-focus.service'
+      );
+      await setWaAgentPendingAlert(
+        clientId,
+        agent.userId,
+        ticketRef,
+        conversation.visitorName?.trim(),
+      );
+    }
+  }
+  return sent;
 }
 
 /**

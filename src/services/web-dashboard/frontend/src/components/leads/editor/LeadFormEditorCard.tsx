@@ -16,10 +16,14 @@ import {
   LeadFormSectionNavCompact,
 } from '@/components/leads/editor/LeadFormEditorSection'
 import { WebChatWidgetSaveBar } from '@/components/webchat/editor/WebChatWidgetSaveBar'
+import { ProductBrandingFooterToggle } from '@/components/shared/ProductBrandingFooterToggle'
+import { resolveProductBrandingVisible } from '@/lib/brandingPlan'
 import { embedScriptSnippet } from '@/lib/leadIntegrationSnippets'
 import {
   getLeadFormSectionStatuses,
   isLeadFormDirty,
+  loadLeadFormPreviewSection,
+  saveLeadFormPreviewSection,
   type LeadFormEditorSectionId,
 } from '@/lib/leadFormEditorUtils'
 import type {
@@ -46,6 +50,7 @@ type Props = {
   pending: boolean
   deleting: boolean
   duplicating?: boolean
+  organizationPlan?: string | null
   onSaved?: () => void
 }
 
@@ -61,6 +66,7 @@ export function LeadFormEditorCard({
   pending,
   deleting,
   duplicating,
+  organizationPlan,
   onSaved,
 }: Props) {
   const baseline = useMemo(
@@ -74,6 +80,25 @@ export function LeadFormEditorCard({
   const [draft, setDraft] = useState<LeadFormListItem>(baseline)
   const [section, setSection] = useState<LeadFormEditorSectionId>(initialSection ?? 'overview')
   const [previewReloadKey, setPreviewReloadKey] = useState(0)
+  const [previewSection, setPreviewSection] = useState(() => loadLeadFormPreviewSection(form.publicKey))
+
+  const previewAppearance = useMemo(
+    () => ({
+      theme: draft.appearance.theme,
+      size: draft.appearance.size,
+      borderRadius: draft.appearance.borderRadius,
+      showLogo: resolveProductBrandingVisible(organizationPlan, draft.appearance.showLogo),
+      primaryColor: draft.appearance.primaryColor,
+    }),
+    [
+      draft.appearance.theme,
+      draft.appearance.size,
+      draft.appearance.borderRadius,
+      draft.appearance.showLogo,
+      draft.appearance.primaryColor,
+      organizationPlan,
+    ],
+  )
 
   const { data: orgProfile } = useQuery<{ website?: string }>({
     queryKey: ['organization-profile'],
@@ -93,6 +118,7 @@ export function LeadFormEditorCard({
       includeCompanyWebsite: form.includeCompanyWebsite !== false,
     })
     setSection(initialSection ?? 'overview')
+    setPreviewSection(loadLeadFormPreviewSection(form.publicKey))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.id])
 
@@ -135,6 +161,8 @@ export function LeadFormEditorCard({
         duplicating={duplicating}
         deleting={deleting}
         previewReloadKey={previewReloadKey}
+        previewSection={previewSection}
+        previewAppearance={previewAppearance}
         onSave={handleSave}
         onDelete={onDelete}
         onDuplicate={onDuplicate}
@@ -386,19 +414,16 @@ export function LeadFormEditorCard({
                           }
                         />
                       </div>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={draft.appearance.showLogo ?? false}
-                          onChange={e =>
-                            setDraft(d => ({
-                              ...d,
-                              appearance: { ...d.appearance, showLogo: e.target.checked },
-                            }))
-                          }
-                        />
-                        Mostrar crédito Radar Chat no rodapé
-                      </label>
+                      <ProductBrandingFooterToggle
+                        planId={organizationPlan}
+                        checked={draft.appearance.showLogo ?? false}
+                        onChange={checked =>
+                          setDraft(d => ({
+                            ...d,
+                            appearance: { ...d.appearance, showLogo: checked },
+                          }))
+                        }
+                      />
                     </div>
                   </LeadFormEditorSection>
                 )}
@@ -630,12 +655,11 @@ export function LeadFormEditorCard({
               publicKey={form.publicKey}
               formName={draft.name}
               companyWebsite={orgProfile?.website}
-              appearance={{
-                theme: draft.appearance.theme,
-                size: draft.appearance.size,
-                borderRadius: draft.appearance.borderRadius,
-                showLogo: draft.appearance.showLogo,
-                primaryColor: draft.appearance.primaryColor,
+              appearance={previewAppearance}
+              section={previewSection}
+              onSectionChange={value => {
+                setPreviewSection(value)
+                saveLeadFormPreviewSection(form.publicKey, value)
               }}
               reloadKey={previewReloadKey}
               active={draft.active}

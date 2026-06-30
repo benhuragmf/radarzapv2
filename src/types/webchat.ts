@@ -64,6 +64,8 @@ export interface WebChatWidgetAppearance {
   askContactReason: boolean;
   contactReasonOptions: string[];
   askEmail: boolean;
+  /** Crédito Radar Chat no rodapé — pode ser ocultado só em planos Pro+. */
+  showPoweredBy?: boolean;
   theme: WebChatWidgetTheme;
   /** Layout da conversa no widget */
   chatLayout?: WebChatChatLayout;
@@ -82,6 +84,7 @@ export const DEFAULT_WEBCHAT_APPEARANCE: WebChatWidgetAppearance = {
   askContactReason: true,
   contactReasonOptions: [...DEFAULT_WEBCHAT_CONTACT_REASON_OPTIONS],
   askEmail: false,
+  showPoweredBy: true,
   theme: 'light',
 };
 
@@ -177,6 +180,9 @@ export interface WebChatPublicConfig {
   chatLayout: WebChatChatLayout;
   /** Modelo visual (landing id ou `chatbox-*`) — usado pelo widget.js para layout Chat Box */
   previewTemplateId?: string;
+  /** Crédito Radar Chat no rodapé — resolvido pelo plano no servidor. */
+  showPoweredBy: boolean;
+  brandUrl: string;
 }
 
 export interface WebChatTicketPublicLookupDto {

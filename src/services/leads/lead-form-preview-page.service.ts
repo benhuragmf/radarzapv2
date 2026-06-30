@@ -1,5 +1,9 @@
 import { LeadForm } from '@/models/LeadForm';
 import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
+import {
+  getOrganizationPlanId,
+  resolveProductBrandingVisible,
+} from '@/utils/branding-plan.util';
 import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
 
 const MAX_HTML_BYTES = 2_500_000;
@@ -162,14 +166,59 @@ async function fetchSiteHtml(url: string): Promise<string> {
   }
 }
 
-function buildInjection(publicKey: string, appearance?: LeadFormPreviewAppearanceAttrs): string {
+function buildRelocateScript(initialSection: number): string {
+  const initial = Math.max(0, Math.min(20, Math.floor(initialSection)));
+  return (
+    '<script id="rz-lead-preview-relocate">' +
+    '(function(){' +
+    'var INITIAL=' +
+    initial +
+    ';' +
+    'function relocate(sectionIndex){' +
+    'var block=document.getElementById("rz-lead-preview-block");' +
+    'if(!block)return;' +
+    'var n=Math.max(0,parseInt(sectionIndex,10)||0);' +
+    'if(n<=0){document.body.insertBefore(block,document.body.firstChild);}' +
+    'else{' +
+    'var sections=document.querySelectorAll("section");' +
+    'var anchor=sections[n-1];' +
+    'if(!anchor){document.body.appendChild(block);}' +
+    'else if(anchor.nextSibling){anchor.parentNode.insertBefore(block,anchor.nextSibling);}' +
+    'else{anchor.parentNode.appendChild(block);}' +
+    '}' +
+    'var mount=document.getElementById("form-mount");' +
+    'if(mount){try{mount.scrollIntoView({block:"start",behavior:"smooth"});}catch(e){}}' +
+    '}' +
+    'window.addEventListener("message",function(ev){' +
+    'if(!ev.data||ev.data.type!=="rz-lead-preview-section")return;' +
+    'relocate(ev.data.section);' +
+    '});' +
+    'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){relocate(INITIAL);});}' +
+    'else{relocate(INITIAL);}' +
+    '})();' +
+    '</script>'
+  );
+}
+
+function buildInjection(
+  publicKey: string,
+  sectionIndex: number,
+  appearance?: LeadFormPreviewAppearanceAttrs,
+): string {
   const attrs = appearanceDataAttrs(appearance);
   return (
     '\n<!-- RadarZap lead preview slot -->\n' +
+    '<div id="rz-lead-preview-block">\n' +
     '<div id="rz-lead-preview-marker">↕ Formulário inserido aqui — o site continua empurrado abaixo</div>\n' +
     `<div id="form-mount"${attrs} style="margin:0 auto;padding:12px 20px 32px;box-sizing:border-box;min-height:80px;"></div>\n` +
-    `<script src="/leads/form.js" data-form-key="${publicKey}" data-container="form-mount" async></script>\n`
+    '</div>\n' +
+    `<script src="/leads/form.js" data-form-key="${publicKey}" data-container="form-mount" async></script>\n` +
+    buildRelocateScript(sectionIndex)
   );
+}
+
+export function buildPreviewRelocateScript(initialSection: number): string {
+  return buildRelocateScript(initialSection);
 }
 
 export class LeadFormPreviewPageService {
@@ -192,6 +241,17 @@ export class LeadFormPreviewPageService {
       .lean();
     if (!form) throw new Error('Formulário não encontrado');
 
+    const planId = await getOrganizationPlanId(String(form.clientId));
+    const storedShowLogo = Boolean((form.appearance as { showLogo?: boolean } | undefined)?.showLogo);
+    const previewShowLogo =
+      options.appearance?.showLogo !== undefined
+        ? options.appearance.showLogo
+        : storedShowLogo;
+    const appearance: LeadFormPreviewAppearanceAttrs | undefined = {
+      ...(options.appearance ?? {}),
+      showLogo: resolveProductBrandingVisible(planId, previewShowLogo),
+    };
+
     const website = await getOrganizationWebsite(String(form.clientId));
     const siteUrl = resolveSafeExternalHttpsUrl(website);
     if (!siteUrl) throw new Error('Site da empresa não configurado ou URL inválida');
@@ -203,7 +263,7 @@ export class LeadFormPreviewPageService {
     let html = sanitizePreviewHtml(raw);
     html = absolutizeRootRelativeUrls(html, siteUrl);
     html = injectPreviewHeadFixes(html);
-    html = injectAfterSection(html, section, buildInjection(options.publicKey, options.appearance));
+    html = injectAfterSection(html, section, buildInjection(options.publicKey, section, appearance));
 
     return {
       html,

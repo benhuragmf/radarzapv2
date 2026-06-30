@@ -65,6 +65,7 @@ const AppearanceSchema = new Schema<WebChatWidgetAppearance>(
     prechatFields: { type: Schema.Types.Mixed, default: undefined },
     prechatMode: { type: String, enum: ['steps', 'form'], default: 'steps' },
     theme: { type: String, enum: ['light', 'dark'], default: DEFAULT_WEBCHAT_APPEARANCE.theme },
+    showPoweredBy: { type: Boolean, default: true },
     chatLayout: { type: String, enum: ['classic', 'copilot'], default: 'classic' },
     previewTemplateId: { type: String, maxlength: 32 },
   },

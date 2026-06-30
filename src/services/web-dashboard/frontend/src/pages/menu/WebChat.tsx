@@ -28,6 +28,7 @@ import { WebChatBusinessHoursEditor } from '../../components/webchat/editor/WebC
 import { WebChatWidgetOverview } from '../../components/webchat/editor/WebChatWidgetOverview'
 import { WebChatIntegrationsPanel } from '../../components/webchat/WebChatIntegrationsPanel'
 import { EmbedSitesSection } from '../../components/embed/EmbedSitesSection'
+import { ProductBrandingFooterToggle } from '../../components/shared/ProductBrandingFooterToggle'
 import {
   buildWidgetSavePayload,
   getWidgetSectionStatuses,
@@ -128,6 +129,7 @@ interface WebChatWidgetRow {
     theme: 'light' | 'dark'
     chatLayout?: 'classic' | 'copilot'
     previewTemplateId?: string
+    showPoweredBy?: boolean
   }
   autoReplyEnabled: boolean
   autoReplyMessage: string
@@ -872,6 +874,7 @@ function visualAppearancePatch(
     theme: appearance.theme ?? 'light',
     previewTemplateId: appearance.previewTemplateId,
     chatLayout: appearance.chatLayout === 'copilot' ? 'copilot' : 'classic',
+    showPoweredBy: appearance.showPoweredBy !== false,
   }
 }
 
@@ -1419,6 +1422,16 @@ function WidgetEditorCard({
                   </>
                 )}
               </div>
+              <ProductBrandingFooterToggle
+                className="mt-4 border-t border-[var(--rz-border)] pt-4"
+                planId={userPlan}
+                checked={form.appearance.showPoweredBy !== false}
+                onChange={checked => {
+                  const next = { ...form.appearance, showPoweredBy: checked }
+                  setForm(f => ({ ...f, appearance: next }))
+                  persistVisualAppearance(next)
+                }}
+              />
             </WidgetSectionCard>
           </WebChatWidgetEditorSection>
 

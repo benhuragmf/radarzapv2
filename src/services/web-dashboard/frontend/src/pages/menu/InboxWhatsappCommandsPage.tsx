@@ -532,8 +532,9 @@ export default function InboxWhatsappCommandsPage() {
             <ol className="list-decimal list-inside space-y-1">
               <li>Cadastre seu WhatsApp em Equipe → Perfil</li>
               <li>Confirme o número (OTP)</li>
-              <li>Receba alerta de fallback ou use !assumir TK-…</li>
-              <li>Com bridge ativo, responda normalmente ou TK-XXXX mensagem</li>
+              <li>Receba alerta e use <code className="text-brand-300">!assumir</code> (sem TK se for o único pendente) ou <code className="text-brand-300">!assumir 1</code> após <code className="text-brand-300">!abertos</code></li>
+              <li><code className="text-brand-300">!foco</code> mostra o chamado ativo; <code className="text-brand-300">!trocar 2</code> muda o contexto</li>
+              <li>Com bridge ativo, responda normalmente — vários chats exigem foco ou <code className="text-brand-300">TK-XXXX mensagem</code></li>
             </ol>
           </Card>
         </div>

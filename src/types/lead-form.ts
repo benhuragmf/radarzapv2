@@ -127,6 +127,8 @@ export interface LeadFormAppearance {
   size: LeadFormSize;
   borderRadius: number;
   showLogo: boolean;
+  /** URL do crédito no rodapé (público). */
+  brandUrl?: string;
   askEmail: boolean;
   requireEmail: boolean;
   askMessage: boolean;
@@ -188,6 +190,8 @@ export interface LeadFormPublicConfig {
   size: LeadFormSize;
   borderRadius: number;
   showLogo: boolean;
+  /** URL do crédito no rodapé (público). */
+  brandUrl?: string;
   askEmail: boolean;
   requireEmail: boolean;
   askMessage: boolean;

@@ -42,6 +42,12 @@ import {
   WEBCHAT_VISITOR_CLOSE_ID,
 } from './webchat-bot.util';
 import {
+  canRemoveBranding,
+  getOrganizationPlanId,
+  RADAR_CHAT_BRAND_URL,
+  resolveProductBrandingVisible,
+} from '@/utils/branding-plan.util';
+import {
   generateWebChatPublicKey,
   generateWebChatVisitorToken,
   hashWebChatVisitorToken,
@@ -299,6 +305,10 @@ export class WebChatService {
         merged.prechatFields = merged.prechatFields.map(normalizePrechatField);
       }
       existing.appearance = syncLegacyAppearanceFlags(merged);
+      const planId = await getOrganizationPlanId(clientId);
+      if (!canRemoveBranding(planId)) {
+        existing.appearance.showPoweredBy = true;
+      }
       existing.markModified('appearance');
     }
     if (patch.autoReplyEnabled !== undefined) existing.autoReplyEnabled = patch.autoReplyEnabled;
@@ -371,6 +381,8 @@ export class WebChatService {
         : [];
     const faqCatalogAvailable =
       faqEnabled && (await kbSvc.countActiveArticles(String(widget.clientId))) > 0;
+    const planId = await getOrganizationPlanId(String(widget.clientId));
+    const showPoweredBy = resolveProductBrandingVisible(planId, a.showPoweredBy !== false);
     return {
       publicKey: widget.publicKey,
       title: a.title,
@@ -403,6 +415,8 @@ export class WebChatService {
       faqCatalogAvailable,
       chatLayout: a.chatLayout === 'copilot' ? 'copilot' : 'classic',
       previewTemplateId: a.previewTemplateId,
+      showPoweredBy,
+      brandUrl: RADAR_CHAT_BRAND_URL,
     };
   }
 

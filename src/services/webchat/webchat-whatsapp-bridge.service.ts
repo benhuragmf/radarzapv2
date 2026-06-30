@@ -19,6 +19,7 @@ import {
   isBridgeLoopRisk,
   shouldProcessBridgeAgentReply,
 } from '@/utils/webchat-bridge.util';
+import { getWaAgentFocus } from '@/services/inbox/whatsapp-agent-focus.service';
 import { acquireBridgeForwardDedup } from '@/services/webchat/bridge-forward-dedup.service';
 import { createServiceLogger } from '@/utils/logger';
 import { recordAttendanceEvent } from '@/services/attendance/attendance-audit.service';
@@ -238,19 +239,36 @@ export async function handleWhatsappBridgeAgentReply(
       );
       return true;
     }
-  } else if (bridges.length === 1) {
-    conversation = bridges[0];
   } else {
-    const refs = bridges
-      .map(c => c.ticketRef)
-      .filter(Boolean)
-      .join(', ');
-    await sendWhatsappInternalReply(
-      ctx.clientId,
-      ctx.replyJid,
-      `Vários chamados ativos (${refs}). Envie: TK-XXXX sua resposta`,
-    );
-    return true;
+    const focus = await getWaAgentFocus(ctx.clientId, agent.userId);
+    if (focus?.ticketRef) {
+      conversation = bridges.find(
+        c => c.ticketRef?.toUpperCase() === focus.ticketRef.toUpperCase(),
+      );
+    }
+    if (!conversation && bridges.length === 1) {
+      conversation = bridges[0];
+    }
+    if (!conversation && bridges.length > 1) {
+      const refs = bridges
+        .map(c => c.ticketRef)
+        .filter(Boolean)
+        .join(', ');
+      await sendWhatsappInternalReply(
+        ctx.clientId,
+        ctx.replyJid,
+        `Vários chamados ativos (${refs}). Use !foco, !trocar 2 ou TK-XXXX sua resposta`,
+      );
+      return true;
+    }
+    if (!conversation) {
+      await sendWhatsappInternalReply(
+        ctx.clientId,
+        ctx.replyJid,
+        'Nenhum bridge ativo no foco. Use !assumir ou !trocar antes de responder.',
+      );
+      return true;
+    }
   }
 
   try {

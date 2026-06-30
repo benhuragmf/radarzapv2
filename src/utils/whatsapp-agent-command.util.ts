@@ -10,6 +10,8 @@ export type WhatsappAgentCommandName =
   | 'abertos'
   | 'chamados'
   | 'meus'
+  | 'foco'
+  | 'trocar'
   | 'encerrar'
   | 'encerrarchat'
   | 'sairchat'
@@ -26,10 +28,13 @@ const NO_ARG_COMMANDS = new Set<WhatsappAgentCommandName>([
   'abertos',
   'chamados',
   'meus',
+  'foco',
+  'assumir',
+  'trocar',
 ]);
 
 const COMMAND_RE =
-  /^!(assumir|abrir|abrirchamado|ticket|token|nota|abertos|chamados|meus|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+([\s\S]+))?$/i;
+  /^!(assumir|abrir|abrirchamado|ticket|token|nota|abertos|chamados|meus|foco|trocar|encerrarchat|sairchat|fecharchat|encerrar|ajuda|help)(?:\s+([\s\S]+))?$/i;
 
 export function isWhatsappAbrirCommand(command: WhatsappAgentCommandName): boolean {
   return ABRIR_ALIASES.has(command);
@@ -105,12 +110,18 @@ export function parseCommandTicketArg(raw: string): { ticketRef: string; message
 export const WHATSAPP_AGENT_COMMAND_HELP = [
   '📋 RadarZap — Comandos WhatsApp (Equipe)',
   '',
+  '▸ Contexto (evita repetir TK)',
+  '!assumir — último alerta ou item único da lista',
+  '!assumir 1 — após !abertos / !meus numerados',
+  '!foco — mostra cliente/chamado em atendimento',
+  '!trocar 2 — muda foco sem encerrar bridge anterior',
+  '',
   '▸ Atendimento — chat do site',
   '!assumir TK-… — assumir conversa + bridge (não abre chamado)',
   '!abrir TK-… [motivo] — abrir chamado + token ao visitante',
   '   Ex.: !abrir TK-ABC Cliente precisa @suporte2, @financeiro',
   '!token TK-… — reenviar token de consulta ao visitante',
-  '!nota TK-… texto — nota interna (só equipe; ex.: Cliente VIP @suporte2)',
+  '!nota [TK-…] texto — nota interna (com foco, TK opcional)',
   '',
   '▸ Consulta',
   '!ticket TK-… — resumo de um chamado',

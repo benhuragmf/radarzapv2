@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ExternalLink, Monitor, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { leadFormPreviewUrl } from '@/lib/leadFormEditorUtils'
-import type { LeadFormAppearance } from '@radarzap-types/lead-form'
+import {
+  LEAD_FORM_PREVIEW_MAX_SECTION,
+  leadFormPreviewUrl,
+  type LeadFormPreviewAppearance,
+} from '@/lib/leadFormEditorUtils'
 
 type PreviewMode = 'desktop' | 'mobile'
 
@@ -10,10 +13,9 @@ type Props = {
   publicKey: string
   formName: string
   companyWebsite?: string | null
-  appearance?: Pick<
-    LeadFormAppearance,
-    'theme' | 'size' | 'borderRadius' | 'showLogo' | 'primaryColor'
-  >
+  appearance?: LeadFormPreviewAppearance
+  section: number
+  onSectionChange: (section: number) => void
   reloadKey?: number
   active?: boolean
   className?: string
@@ -21,22 +23,17 @@ type Props = {
 
 const PREVIEW_HEIGHT = 640
 const PREVIEW_HEIGHT_MOBILE = 620
-const DEFAULT_SECTION = 3
-const MAX_SECTION = 12
+const PREVIEW_SECTION_MESSAGE = 'rz-lead-preview-section'
 
-function sectionStorageKey(publicKey: string) {
-  return `rz-lead-preview-section:${publicKey}`
-}
-
-function loadSection(publicKey: string): number {
-  try {
-    const raw = sessionStorage.getItem(sectionStorageKey(publicKey))
-    if (!raw) return DEFAULT_SECTION
-    const n = parseInt(raw, 10)
-    return Number.isFinite(n) ? Math.max(0, Math.min(MAX_SECTION, n)) : DEFAULT_SECTION
-  } catch {
-    return DEFAULT_SECTION
-  }
+function previewAppearanceKey(appearance?: LeadFormPreviewAppearance): string {
+  if (!appearance) return ''
+  return [
+    appearance.theme ?? '',
+    appearance.size ?? '',
+    appearance.borderRadius ?? '',
+    appearance.showLogo ?? '',
+    appearance.primaryColor ?? '',
+  ].join('|')
 }
 
 export function LeadFormPreviewPanel({
@@ -44,13 +41,15 @@ export function LeadFormPreviewPanel({
   formName,
   companyWebsite,
   appearance,
+  section,
+  onSectionChange,
   reloadKey = 0,
   active = true,
   className,
 }: Props) {
   const [mode, setMode] = useState<PreviewMode>('desktop')
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [section, setSection] = useState(() => loadSection(publicKey))
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   const usesSiteProxy = Boolean(companyWebsite?.trim())
 
@@ -66,18 +65,44 @@ export function LeadFormPreviewPanel({
     [publicKey, reloadKey, companyWebsite, section, appearance],
   )
 
+  const iframeKey = `${publicKey}:${reloadKey}:${previewAppearanceKey(appearance)}`
+  const prevIframeKey = useRef(iframeKey)
+  const sectionAtIframeLoad = useRef(section)
+  if (prevIframeKey.current !== iframeKey) {
+    sectionAtIframeLoad.current = section
+    prevIframeKey.current = iframeKey
+  }
+
+  const iframeSrc = useMemo(
+    () =>
+      leadFormPreviewUrl(
+        publicKey,
+        reloadKey || undefined,
+        companyWebsite,
+        sectionAtIframeLoad.current,
+        appearance,
+      ),
+    [publicKey, reloadKey, companyWebsite, appearance],
+  )
+
+  useEffect(() => {
+    if (!usesSiteProxy) return
+    const iframe = iframeRef.current
+    if (!iframe) return
+
+    const sendSection = () => {
+      iframe.contentWindow?.postMessage({ type: PREVIEW_SECTION_MESSAGE, section }, '*')
+    }
+
+    iframe.addEventListener('load', sendSection)
+    sendSection()
+
+    return () => iframe.removeEventListener('load', sendSection)
+  }, [section, iframeSrc, usesSiteProxy])
+
   const siteLabel = companyWebsite?.trim()
     ? companyWebsite.trim().replace(/^https?:\/\//i, '').replace(/\/$/, '')
     : null
-
-  const onSectionChange = (value: number) => {
-    setSection(value)
-    try {
-      sessionStorage.setItem(sectionStorageKey(publicKey), String(value))
-    } catch {
-      /* ignore */
-    }
-  }
 
   const layoutControls = (
     <div className="space-y-2 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/25 p-2.5">
@@ -90,7 +115,7 @@ export function LeadFormPreviewPanel({
           <input
             type="range"
             min={0}
-            max={MAX_SECTION}
+            max={LEAD_FORM_PREVIEW_MAX_SECTION}
             step={1}
             value={section}
             onChange={e => onSectionChange(Number(e.target.value))}
@@ -136,9 +161,10 @@ export function LeadFormPreviewPanel({
         style={{ height: mode === 'mobile' ? PREVIEW_HEIGHT_MOBILE : PREVIEW_HEIGHT }}
       >
         <iframe
-          key={href}
+          key={iframeKey}
+          ref={iframeRef}
           title={`Preview ${formName}`}
-          src={href}
+          src={iframeSrc}
           className="h-full w-full border-0 bg-[#07111f]"
           sandbox="allow-scripts allow-forms allow-same-origin"
         />

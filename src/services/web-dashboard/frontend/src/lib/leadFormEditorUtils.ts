@@ -104,15 +104,48 @@ function normalizeFormSnapshot(form: LeadFormListItem) {
   }
 }
 
+export const LEAD_FORM_PREVIEW_DEFAULT_SECTION = 3
+export const LEAD_FORM_PREVIEW_MAX_SECTION = 12
+
+export type LeadFormPreviewAppearance = Pick<
+  LeadFormAppearance,
+  'theme' | 'size' | 'borderRadius' | 'showLogo' | 'primaryColor'
+>
+
+export function leadFormPreviewSectionStorageKey(publicKey: string): string {
+  return `rz-lead-preview-section:${publicKey}`
+}
+
+export function loadLeadFormPreviewSection(publicKey: string): number {
+  try {
+    const raw = sessionStorage.getItem(leadFormPreviewSectionStorageKey(publicKey))
+    if (!raw) return LEAD_FORM_PREVIEW_DEFAULT_SECTION
+    const n = parseInt(raw, 10)
+    return Number.isFinite(n)
+      ? Math.max(0, Math.min(LEAD_FORM_PREVIEW_MAX_SECTION, n))
+      : LEAD_FORM_PREVIEW_DEFAULT_SECTION
+  } catch {
+    return LEAD_FORM_PREVIEW_DEFAULT_SECTION
+  }
+}
+
+export function saveLeadFormPreviewSection(publicKey: string, section: number): void {
+  try {
+    sessionStorage.setItem(
+      leadFormPreviewSectionStorageKey(publicKey),
+      String(Math.max(0, Math.min(LEAD_FORM_PREVIEW_MAX_SECTION, section))),
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
 export function leadFormPreviewUrl(
   publicKey: string,
   reloadKey?: number,
   companyWebsite?: string | null,
-  section = 3,
-  appearance?: Pick<
-    LeadFormAppearance,
-    'theme' | 'size' | 'borderRadius' | 'showLogo' | 'primaryColor'
-  >,
+  section = LEAD_FORM_PREVIEW_DEFAULT_SECTION,
+  appearance?: LeadFormPreviewAppearance,
 ): string {
   const q = new URLSearchParams()
   if (reloadKey) q.set('_r', String(reloadKey))

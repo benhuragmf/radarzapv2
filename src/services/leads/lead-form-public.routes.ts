@@ -6,6 +6,10 @@ import type { LeadFormPreviewAppearanceAttrs } from './lead-form-preview-page.se
 import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
 import { isEmbedPreviewPanelOrigin } from '@/utils/embed-preview-origin.util';
 import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
+import {
+  getOrganizationPlanId,
+  resolveProductBrandingVisible,
+} from '@/utils/branding-plan.util';
 import { applyLeadPreviewProxyHeaders } from '@/utils/lead-preview-proxy-headers.util';
 
 export function createLeadFormPublicRouter(): Router {
@@ -21,7 +25,7 @@ export function createLeadFormPublicRouter(): Router {
       const publicKey = req.params.publicKey.trim();
       const form = await LeadForm.findOne({ publicKey }).exec();
       if (!form) return res.status(404).json({ error: 'Formulário não encontrado' });
-      res.json(svc.getPublicConfig(form));
+      res.json(await svc.getPublicConfig(form));
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }
@@ -32,7 +36,7 @@ export function createLeadFormPublicRouter(): Router {
       const form = await svc.getActiveFormByPublicKey(req.params.publicKey);
       if (!form) return res.status(404).json({ error: 'Formulário não encontrado' });
       await svc.assertOrigin(form, req.headers.origin, req.headers.referer);
-      res.json(svc.getPublicConfig(form));
+      res.json(await svc.getPublicConfig(form));
     } catch (e) {
       res.status(403).json({ error: (e as Error).message });
     }
