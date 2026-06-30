@@ -1,5 +1,5 @@
-# Configura resource RadarZap no Coolify (projeto, compose, env, deploy).
-name: Configure Coolify (RadarZap)
+# Configura resource RadarChat no Coolify (projeto, compose, env, deploy).
+name: Configure Coolify (RadarChat)
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure RadarZap on Coolify via SSH
+      - name: Configure RadarChat on Coolify via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -68,3 +68,4 @@ jobs:
               export RADARGAMER_SSH_PRIVATE_KEY="${COOLIFY_SSH_PRIVATE_KEY}"
             fi
             sudo -E bash scripts/vps-configure-coolify-radarzap.sh
+            sudo -E bash scripts/vps-coolify-verify.sh

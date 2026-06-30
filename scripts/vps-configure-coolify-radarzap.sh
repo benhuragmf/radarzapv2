@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Configura resource RadarZap no Coolify (API) e opcionalmente migra do compose legado.
+# Configura resource RadarChat no Coolify (API) e opcionalmente migra do compose legado.
 # Uso: sudo -E bash scripts/vps-configure-coolify-radarzap.sh
 # Env: DEPLOY_PATH, PUBLIC_HOST, MIGRATE_LEGACY (0|1), COOLIFY_ROOT_EMAIL, COOLIFY_ROOT_PASSWORD
 set -euo pipefail
@@ -86,7 +86,7 @@ if (\\App\\Models\\User::count() > 0) { echo 'exists'; exit; }
   'email' => \$email,
   'password' => \\Illuminate\\Support\\Facades\\Hash::make(\$pass),
 ]);
-\$team = \\App\\Models\\Team::create(['name' => 'RadarZap', 'personal_team' => true]);
+\$team = \\App\\Models\\Team::create(['name' => 'RadarChat', 'personal_team' => true]);
 \$user->teams()->attach(\$team, ['role' => 'owner']);
 \$user->current_team_id = \$team->id;
 \$user->save();
@@ -144,7 +144,7 @@ if (!$team && \App\Models\Team::find($badId)) {
   try { $old->delete(); } catch (\Throwable $e) { /* FK restante — ignorar */ }
 }
 if (!$team) {
-  $team = \App\Models\Team::create(["name" => "RadarZap", "personal_team" => true]);
+  $team = \App\Models\Team::create(["name" => "RadarChat", "personal_team" => true]);
 }
 $tid = (int) $team->id;
 if ($tid < 1) { echo "ERROR:bad-team tid=$tid"; exit(1); }
@@ -181,7 +181,7 @@ $user = \App\Models\User::find($uid);
 if (!$user) { echo "ERROR:no-user"; exit(1); }
 $team = \App\Models\Team::query()->where("id", ">", 0)->orderBy("id")->first();
 if (!$team) {
-  $team = \App\Models\Team::create(["name" => "RadarZap", "personal_team" => true]);
+  $team = \App\Models\Team::create(["name" => "RadarChat", "personal_team" => true]);
 }
 $tid = (int) $team->id;
 if ($tid < 1) { echo "ERROR:bad-team tid=$tid"; exit(1); }
@@ -219,10 +219,10 @@ $uid = (int) \DB::table("users")->where("id", ">", 0)->whereNotNull("email")->or
 $tid = (int) \DB::table("teams")->where("id", ">", 0)->orderBy("id")->value("id");
 $user = \App\Models\User::find($uid);
 if (!$user || $uid < 1 || $tid < 1) { echo "ERROR:no-user-team"; exit(1); }
-$user->tokens()->where("name", "radarzap-automation")->delete();
+$user->tokens()->where("name", "radarchat-automation")->delete();
 $plain = \Illuminate\Support\Str::random(64);
 $pat = $user->tokens()->create([
-  "name" => "radarzap-automation",
+  "name" => "radarchat-automation",
   "token" => hash("sha256", $plain),
   "abilities" => ["*"],
   "team_id" => $tid,
@@ -683,23 +683,23 @@ ensure_local_radarzap_server() {
   local uuid key_uuid
   uuid="$(servers_json | jq -r --arg ip "$RADARZAP_SERVER_IP" '
     if type == "array" then .[] else .data[]? end
-    | select(.ip == $ip or .name == "localhost" or .name == "RadarZap" or .is_localhost == true)
+    | select(.ip == $ip or .name == "localhost" or .name == "RadarChat" or .name == "RadarZap" or .is_localhost == true)
     | .uuid' | head -1)"
   if [[ -z "$uuid" || "$uuid" == "null" ]]; then
     uuid="$(servers_json | jq -r 'if type == "array" then .[0].uuid else .data[0].uuid // empty end')"
   fi
   if [[ -z "$uuid" || "$uuid" == "null" ]]; then
-    log "ERRO: servidor local RadarZap não encontrado no Coolify"
+    log "ERRO: servidor local RadarChat não encontrado no Coolify"
     return 1
   fi
   key_uuid="$(ensure_private_key_in_coolify "${COOLIFY_SSH_PRIVATE_KEY:-${DEPLOY_SSH_KEY:-}}" "radarzap-deploy")" || return 1
-  log "Corrigindo RadarZap local: user=${COOLIFY_SSH_USER} ip=${RADARZAP_LOCAL_HOST} key=${key_uuid}"
+  log "Corrigindo RadarChat local: user=${COOLIFY_SSH_USER} ip=${RADARZAP_LOCAL_HOST} key=${key_uuid}"
   patch_server_connection "$uuid" "$key_uuid" "$RADARZAP_LOCAL_HOST" "$COOLIFY_SSH_USER" true || true
   fix_server_private_key_db "$uuid" "$key_uuid" "$COOLIFY_SSH_USER"
   ensure_coolify_can_ssh_localhost "$uuid" "$key_uuid" || true
-  patch_server_meta "$uuid" "RadarZap" "RadarZap + Coolify — ${RADARZAP_SERVER_IP}"
-  validate_server "$uuid" "RadarZap"
-  log "Servidor local RadarZap: ${uuid}"
+  patch_server_meta "$uuid" "RadarChat" "RadarChat + Coolify — ${RADARZAP_SERVER_IP}"
+  validate_server "$uuid" "RadarChat"
+  log "Servidor local RadarChat: ${uuid}"
   echo "$uuid"
 }
 
@@ -715,7 +715,7 @@ fix_servers_team_visibility() {
 }
 
 ensure_coolify_servers() {
-  log "Cadastrando servidores Coolify (RadarZap ${RADARZAP_SERVER_IP} + RadarGamer ${RADARGAMER_SERVER_IP})..."
+  log "Cadastrando servidores Coolify (RadarChat ${RADARZAP_SERVER_IP} + RadarGamer ${RADARGAMER_SERVER_IP})..."
   fix_servers_team_visibility
   local local_uuid gamer_uuid
   local_uuid="$(ensure_local_radarzap_server)" || return 1
@@ -788,12 +788,22 @@ build_compose_with_external_volumes() {
 ensure_project_and_server() {
   local projects
   projects="$(api GET /api/v1/projects)"
-  PROJECT_UUID="$(echo "$projects" | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="RadarChat" or .name=="RadarZap") | .uuid' | head -1)"
+  PROJECT_UUID="$(echo "$projects" | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="RadarChat") | .uuid' | head -1)"
+  if [[ -z "$PROJECT_UUID" || "$PROJECT_UUID" == "null" ]]; then
+    PROJECT_UUID="$(echo "$projects" | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="RadarZap") | .uuid' | head -1)"
+    if [[ -n "$PROJECT_UUID" && "$PROJECT_UUID" != "null" ]]; then
+      log "Renomeando projeto legado RadarZap → RadarChat..."
+      api PATCH "/api/v1/projects/${PROJECT_UUID}" -d '{"name":"RadarChat","description":"RadarChat v2 produção"}' >/dev/null 2>&1 || true
+    fi
+  fi
   if [[ -z "$PROJECT_UUID" || "$PROJECT_UUID" == "null" ]]; then
     log "Criando projeto RadarChat..."
     PROJECT_UUID="$(api POST /api/v1/projects -d '{"name":"RadarChat","description":"RadarChat v2 produção"}' | jq -r '.uuid')"
   fi
   if [[ -z "${SERVER_UUID:-}" ]]; then
+    SERVER_UUID="$(server_uuid_by_name_or_ip "RadarChat" "$RADARZAP_SERVER_IP")"
+  fi
+  if [[ -z "$SERVER_UUID" || "$SERVER_UUID" == "null" ]]; then
     SERVER_UUID="$(server_uuid_by_name_or_ip "RadarZap" "$RADARZAP_SERVER_IP")"
   fi
   if [[ -z "$SERVER_UUID" || "$SERVER_UUID" == "null" ]]; then
@@ -822,14 +832,35 @@ set_service_domain() {
 }
 
 ensure_service() {
-  local existing
-  existing="$(api GET /api/v1/services | jq -r 'if type=="array" then .[] else .data[]? end | select(.uuid=="'"${SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"'" or .name=="RadarChat" or .name=="radarzap") | .uuid' | head -1)"
+  local canonical="${SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
+  local canonical_dir="/data/coolify/services/${canonical}"
+  local existing dup_count
+
+  SERVICE_UUID="$canonical"
+
+  dup_count="$(api GET /api/v1/services | jq -r '[if type=="array" then .[] else .data[]? end | select(.name=="RadarChat" or .name=="radarzap" or .name=="RadarZap" or .uuid=="'"$canonical"'")] | length')"
+  if [[ "${dup_count:-0}" -gt 1 ]]; then
+    log "AVISO: ${dup_count} services Radar* no Coolify — dedupe via sync-panel antes de continuar"
+    sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh" 2>/dev/null || true
+  fi
+
+  existing="$(api GET /api/v1/services | jq -r 'if type=="array" then .[] else .data[]? end | select(.uuid=="'"$canonical"'") | .uuid' | head -1)"
+  if [[ -z "$existing" || "$existing" == "null" ]]; then
+    existing="$(api GET /api/v1/services | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="RadarChat") | .uuid' | head -1)"
+  fi
+
   if [[ -n "$existing" && "$existing" != "null" ]]; then
     SERVICE_UUID="$existing"
-    log "Service radarzap já existe: $SERVICE_UUID"
+    log "Service RadarChat já existe: $SERVICE_UUID"
     update_service_compose
     set_service_domain
     return 0
+  fi
+
+  if [[ -f "${canonical_dir}/docker-compose.yaml" ]]; then
+    log "ERRO: stack canônica em ${canonical_dir} sem registro no painel."
+    log "Não criar duplicata — rode: sudo -E bash ${DEPLOY_PATH}/scripts/vps-coolify-reconcile.sh"
+    exit 1
   fi
 
   local compose_b64 payload_file resp
@@ -837,7 +868,7 @@ ensure_service() {
   payload_file="$(mktemp)"
   jq -n \
     --arg name "RadarChat" \
-    --arg description "RadarZap monolito + Mongo + Redis" \
+    --arg description "RadarChat monolito + Mongo + Redis" \
     --arg project_uuid "$PROJECT_UUID" \
     --arg server_uuid "$SERVER_UUID" \
     --arg environment_name "production" \

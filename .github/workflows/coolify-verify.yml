@@ -1,0 +1,53 @@
+name: Coolify verify
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      auto_reconcile:
+        description: Se verify falhar, rodar reconcile automaticamente
+        required: false
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '0'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gate RadarChat (+ auto-reconcile se necessário)
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          PUBLIC_HOST: app.radarchat.com.br
+          COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
+          AUTO_RECONCILE: ${{ github.event_name == 'schedule' && '1' || github.event.inputs.auto_reconcile || '1' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 20m
+          envs: DEPLOY_PATH,PUBLIC_HOST,COOLIFY_SERVICE_UUID,AUTO_RECONCILE
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            git fetch origin main -q && git reset --hard origin/main -q
+            export COOLIFY_SERVICE_UUID PUBLIC_HOST
+            if sudo -E bash scripts/vps-coolify-verify.sh; then
+              echo "GATE OK"
+              exit 0
+            fi
+            if [[ "${AUTO_RECONCILE:-1}" != "1" ]]; then
+              echo "GATE FALHOU (auto-reconcile desligado)"
+              exit 1
+            fi
+            echo "GATE falhou — executando reconcile..."
+            sudo -E bash scripts/vps-coolify-reconcile.sh
+            echo "Re-verify após reconcile..."
+            exec sudo -E bash scripts/vps-coolify-verify.sh

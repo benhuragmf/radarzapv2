@@ -1,5 +1,5 @@
 # Corrige stack Exited + SSL (compose GHCR + redeploy).
-name: Fix Coolify SSL (RadarZap)
+name: Fix Coolify SSL (RadarChat)
 
 on:
   workflow_dispatch:

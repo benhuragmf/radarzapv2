@@ -76,15 +76,20 @@ fi
 log "=== 2) HTTPS Traefik → :3001 (${PUBLIC_HOST}) ==="
 apply_traefik_routes
 
-log "=== 3) Verificar HTTPS ==="
+log "=== 3) Verificar HTTPS + gate produção ==="
 for i in $(seq 1 18); do
   if curl -sf -o /dev/null --max-time 12 "https://${PUBLIC_HOST}/api/services/health" 2>/dev/null; then
     log "OK: https://${PUBLIC_HOST}"
-    exit 0
+    break
   fi
   log "HTTPS tentativa $i/18..."
   sleep 10
+  [[ "$i" -eq 18 ]] && {
+    dump_app_logs
+    log "Se ainda falhar: docker logs coolify-proxy --tail 50"
+    exit 1
+  }
 done
-dump_app_logs
-log "Se ainda falhar: docker logs coolify-proxy --tail 50"
-exit 1
+
+sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh"
+exec sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-verify.sh"

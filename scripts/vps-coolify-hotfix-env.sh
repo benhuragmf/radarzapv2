@@ -40,15 +40,22 @@ if ! (cd "$COOLIFY_SERVICE_DIR" && docker_cmd compose --env-file .env \
   exit 1
 fi
 
-log "4/4 Health :3001"
+log "4/6 Health :3001"
 for ((i = 1; i <= WAIT_MAX; i++)); do
   if curl -sf -o /dev/null --max-time 5 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
-    log "OK — hotfix concluído (tentativa $i/$WAIT_MAX)"
-    exit 0
+    log "OK — app respondeu (tentativa $i/$WAIT_MAX)"
+    break
   fi
+  [[ "$i" -eq "$WAIT_MAX" ]] && {
+    log "ERRO: app não respondeu em :3001"
+    docker_cmd logs "${COOLIFY_SERVICE_UUID}-app-1" --tail 30 2>&1 || true
+    exit 1
+  }
   sleep "$WAIT_INTERVAL_SEC"
 done
 
-log "ERRO: app não respondeu em :3001"
-docker_cmd logs "${COOLIFY_SERVICE_UUID}-app-1" --tail 30 2>&1 || true
-exit 1
+log "5/6 Sync painel Coolify"
+sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh"
+
+log "6/6 Gate de verificação"
+exec sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-verify.sh"

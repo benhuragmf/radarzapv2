@@ -10,6 +10,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.7] - 2026-06-30
+
+### Infra Coolify — gate anti-duplicata RadarChat
+
+- `scripts/vps-coolify-verify.sh` — gate obrigatório pós-deploy (containers, health, dedupe painel, 1 stack RadarChat).
+- `scripts/vps-coolify-sync-panel.sh` — sync status `running:healthy` + remove duplicatas sem rebuild.
+- Deploy, hotfix, SSL e reconcile chamam sync + verify; workflow **Coolify verify** a cada 6h com auto-reconcile.
+- `ensure_service` bloqueia criação de resource duplicado se stack canônica já existe em disco.
+- Coolify UI/nomes: projeto **RadarChat** (legado RadarZap renomeado/removido).
+
+---
+
 ## [2.17.6] - 2026-06-30
 
 ### Discord — badge de presença (widget embed)

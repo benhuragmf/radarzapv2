@@ -1,6 +1,6 @@
 {
   "name": "radarchat",
-  "version": "2.17.6",
+  "version": "2.17.7",
   "private": true,
   "description": "Radar Chat — automação Discord para WhatsApp",
   "main": "dist/index.js",
@@ -38,6 +38,7 @@
     "pre-push:gate": "node scripts/pre-push-deploy-gate.mjs",
     "vps:hotfix:env": "node scripts/trigger-vps-hotfix-env.mjs",
     "vps:coolify:reconcile": "gh workflow run \"Coolify reconcile\"",
+    "vps:coolify:verify": "gh workflow run \"Coolify verify\"",
     "backfill:webchat-delivered": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/backfill-webchat-inbound-delivered-at.ts",
     "sync:widget-build": "node scripts/sync-widget-build.cjs",
     "deploy:radarchat": "node scripts/deploy-radarchat-ftp.mjs",

@@ -19,7 +19,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: DEPLOY_PATH,PUBLIC_HOST
-          script_stop: false
+          script_stop: true
           command_timeout: 10m
           script: |
             set -euo pipefail
@@ -30,6 +30,7 @@ jobs:
             git reset --hard "origin/${DEPLOY_BRANCH}" -q 2>/dev/null || git reset --hard origin/main -q 2>/dev/null || true
             sudo bash scripts/vps-coolify-status.sh || true
             sudo bash scripts/vps-host-metrics.sh || true
+            sudo -E bash scripts/vps-coolify-verify.sh
             if [[ -f scripts/vps-install-host-metrics-cron.sh ]]; then
               sudo -E DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}" PUBLIC_HOST="${PUBLIC_HOST}" \
                 bash scripts/vps-install-host-metrics-cron.sh || true

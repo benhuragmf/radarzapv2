@@ -46,7 +46,8 @@ fi
 COOLIFY_URL="${COOLIFY_URL:-http://127.0.0.1:8000}"
 if command -v docker >/dev/null && docker ps --format '{{.Names}}' | grep -q '^coolify$'; then
   out="$(docker exec coolify php artisan tinker --execute='
-$s = \App\Models\Service::where("name", "radarzap")->first();
+$s = \App\Models\Service::where("name", "RadarChat")->first();
+if (!$s) { $s = \App\Models\Service::where("name", "radarzap")->first(); }
 if (!$s) { echo "service=ausente"; exit; }
 echo "service=" . $s->uuid . " status=" . ($s->status ?? "?");
 ' 2>/dev/null)" || out=""
