@@ -176,7 +176,7 @@ export class AiPromptBuilderService {
                 )
               : '',
             catalogWantsAddress
-              ? 'Endereço de entrega é obrigatório antes do PIX — preencha collectedAddress no JSON com endereço completo (rua, número, bairro, CEP, cidade, estado, Brasil).'
+              ? 'Endereço de entrega é obrigatório antes do PIX — peça o CEP primeiro, depois o número; preencha collectedAddress completo (CEP, rua, número, bairro, cidade, UF, Brasil).'
               : '',
           ]
             .filter(Boolean)

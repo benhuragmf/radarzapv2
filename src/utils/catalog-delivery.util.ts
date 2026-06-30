@@ -76,7 +76,7 @@ export function formatKmRatesForAiPrompt(
     `Formato obrigatório do endereço: ${CATALOG_DELIVERY_ADDRESS_HINT}`,
     'Tabela por distância (referência — o sistema calcula automaticamente ao receber o endereço):',
     ...lines,
-    `Colete do cliente o endereço no mesmo formato (${CATALOG_DELIVERY_ADDRESS_HINT}). Não invente taxa — aguarde o cálculo do sistema após o endereço completo.`,
+    'Colete do cliente o endereço começando pelo CEP (8 dígitos) para localizar rua, bairro, cidade e UF; depois peça o número. Preencha collectedAddress no formato completo. Não invente taxa — aguarde o cálculo do sistema após o endereço.',
   ].join('\n');
 }
 

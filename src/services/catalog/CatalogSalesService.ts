@@ -100,7 +100,7 @@ export class CatalogSalesService {
       const originErr = deliveryAddressValidationError(normalized.deliveryOriginAddress);
       if (originErr) {
         throw new Error(
-          `Entrega por distância: ${originErr} Exemplo: Rua das Flores, 120, Centro, 01001-000, São Paulo, SP, Brasil`,
+          `Entrega por distância: ${originErr} Exemplo: 01001-000, Praça da Sé, 100, Sé, São Paulo, SP, Brasil`,
         );
       }
     }

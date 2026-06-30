@@ -42,11 +42,8 @@ import {
   type AiCredentialSource,
 } from '../../lib/attendanceMode'
 import { notifyInfo, notifyConfigSaved, mutationError, notifyError } from '../../lib/notify'
-import {
-  CATALOG_DELIVERY_ADDRESS_EXAMPLE,
-  CATALOG_DELIVERY_ADDRESS_HINT,
-  deliveryAddressValidationError,
-} from '@radarzap-types/catalog-delivery-address'
+import { deliveryAddressValidationError } from '@radarzap-types/catalog-delivery-address'
+import { DeliveryOriginAddressFields } from '../../components/catalog/DeliveryOriginAddressFields'
 import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
 
 interface CatalogProductSalesMeta {
@@ -1733,22 +1730,13 @@ export default function AiAtendimento() {
                 <label className="text-xs font-medium text-[var(--rz-text-muted)]">
                   Endereço completo da empresa (origem A) *
                 </label>
-                <textarea
-                  className={`${textareaClsAi} min-h-[72px]`}
+                <DeliveryOriginAddressFields
                   value={catalogSales.deliveryOriginAddress ?? ''}
-                  onChange={e => updateCatalogSales({ deliveryOriginAddress: e.target.value })}
-                  placeholder={CATALOG_DELIVERY_ADDRESS_EXAMPLE}
-                  required={catalogSales.useDistanceBasedDelivery === true}
+                  onChange={canonical =>
+                    updateCatalogSales({ deliveryOriginAddress: canonical })
+                  }
+                  showValidation={catalogSales.useDistanceBasedDelivery === true}
                 />
-                <p className="text-xs text-[var(--rz-text-muted)]">
-                  {CATALOG_DELIVERY_ADDRESS_HINT} Obrigatório para o cálculo de distância não falhar.
-                </p>
-                {catalogSales.useDistanceBasedDelivery &&
-                  deliveryAddressValidationError(catalogSales.deliveryOriginAddress) && (
-                    <p className="text-xs text-amber-400">
-                      {deliveryAddressValidationError(catalogSales.deliveryOriginAddress)}
-                    </p>
-                  )}
               </div>
               {catalogSales.useDistanceBasedDelivery && (
                 <div className="grid gap-2 sm:grid-cols-4">

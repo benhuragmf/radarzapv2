@@ -47,7 +47,7 @@ Detecção: pedidos de "link", "loja", "site" **não** abrem fluxo PIX. "PIX", "
 ## Endereço e entrega
 
 - Empresa: `requireDeliveryAddress`, `forceCollectAddress` (sincroniza **Dados a coletar → Endereço** no prompt), `deliveryInstructions`
-- Origem A: `deliveryOriginAddress` — **obrigatório completo** (rua, número, bairro, CEP, cidade, UF, Brasil) quando `useDistanceBasedDelivery`; fallback `Organization.address` só se também estiver completo
+- Origem A: `deliveryOriginAddress` — **CEP primeiro** no painel (busca automática ViaCEP); formato salvo: `CEP, rua, número, bairro, cidade, UF, Brasil`
 - Taxa por distância: `useDistanceBasedDelivery` + `deliveryKmRates.km1` … `km8` (Haversine + geocoding OSM ao receber endereço)
 - Produto: `deliveryFee`, `requiresDeliveryAddress`
 - Pedido: `deliveryAddress`, `deliveryDistanceKm`, `deliveryTierKm`, status `aguardando_endereco` até IA coletar endereço
@@ -77,6 +77,7 @@ Base: `/api/platform/catalog-sales`
 
 | Método | Rota | Permissão |
 |--------|------|-----------|
+| GET | `/lookup-cep?cep=` | `inbox:ai:manage` |
 | GET | `/orders` | `orders:view` |
 | GET | `/orders/:id` | `orders:view` |
 | GET | `/orders/:id/proof` | `orders:view-payment-proof` |

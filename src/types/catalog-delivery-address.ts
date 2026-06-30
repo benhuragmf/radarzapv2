@@ -1,10 +1,23 @@
 /** Validação de endereço completo para cálculo de entrega por distância. */
 
+import { formatCepDisplay, isValidCepDigits, normalizeCepDigits } from '../utils/br-cep.util';
+
 export const CATALOG_DELIVERY_ADDRESS_HINT =
-  'Endereço completo: rua, número, bairro, CEP, cidade, estado e país.';
+  'Informe o CEP primeiro; depois rua, número, bairro, cidade, estado e país.';
 
 export const CATALOG_DELIVERY_ADDRESS_EXAMPLE =
-  'Rua das Flores, 120, Centro, 01001-000, São Paulo, SP, Brasil';
+  '01001-000, Praça da Sé, 100, Sé, São Paulo, SP, Brasil';
+
+export interface DeliveryAddressStructured {
+  cep: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  country?: string;
+  complement?: string;
+}
 
 const BR_UF =
   /\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/i;
@@ -16,7 +29,72 @@ export function deliveryAddressParts(address: string): string[] {
     .filter(Boolean);
 }
 
-/** Exige rua, número, bairro, CEP, cidade, estado e país (mín. 6 partes + CEP + UF + país). */
+function partLooksLikeCep(part: string): boolean {
+  return isValidCepDigits(part);
+}
+
+/** Formato canônico: CEP, rua, número, bairro, cidade, UF, país */
+export function formatDeliveryAddress(parts: DeliveryAddressStructured): string {
+  const cep = formatCepDisplay(parts.cep);
+  const country = parts.country?.trim() || 'Brasil';
+  const streetLine = [parts.street.trim(), parts.complement?.trim()].filter(Boolean).join(' — ');
+  return [
+    cep,
+    streetLine,
+    parts.number.trim(),
+    parts.neighborhood.trim(),
+    parts.city.trim(),
+    parts.state.trim().toUpperCase(),
+    country,
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** Interpreta endereço salvo (CEP primeiro ou legado). */
+export function parseDeliveryAddress(raw: string | null | undefined): DeliveryAddressStructured | null {
+  const parts = deliveryAddressParts(raw ?? '');
+  if (parts.length < 6) return null;
+
+  if (partLooksLikeCep(parts[0] ?? '')) {
+    return {
+      cep: normalizeCepDigits(parts[0] ?? ''),
+      street: parts[1] ?? '',
+      number: parts[2] ?? '',
+      neighborhood: parts[3] ?? '',
+      city: parts[4] ?? '',
+      state: parts[5] ?? '',
+      country: parts[6] ?? 'Brasil',
+    };
+  }
+
+  const cepIdx = parts.findIndex(p => partLooksLikeCep(p));
+  if (cepIdx < 0) return null;
+
+  return {
+    cep: normalizeCepDigits(parts[cepIdx] ?? ''),
+    street: parts[0] ?? '',
+    number: parts[1] ?? '',
+    neighborhood: parts[2] ?? '',
+    city: parts[cepIdx + 1] ?? '',
+    state: parts[cepIdx + 2] ?? '',
+    country: parts[cepIdx + 3] ?? 'Brasil',
+  };
+}
+
+export function emptyDeliveryAddress(): DeliveryAddressStructured {
+  return {
+    cep: '',
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    country: 'Brasil',
+  };
+}
+
+/** Exige CEP, rua, número, bairro, cidade, estado e país. */
 export function isCompleteDeliveryAddress(address: string | null | undefined): boolean {
   return deliveryAddressValidationError(address) === null;
 }
@@ -24,30 +102,27 @@ export function isCompleteDeliveryAddress(address: string | null | undefined): b
 export function deliveryAddressValidationError(
   address: string | null | undefined,
 ): string | null {
-  const t = address?.trim() ?? '';
-  if (!t) {
-    return `Informe o endereço completo da empresa (${CATALOG_DELIVERY_ADDRESS_HINT})`;
+  const structured = parseDeliveryAddress(address);
+  if (!structured) {
+    const t = address?.trim() ?? '';
+    if (!t) {
+      return `Informe o endereço completo da empresa (${CATALOG_DELIVERY_ADDRESS_HINT})`;
+    }
+    return `Use o formato: ${CATALOG_DELIVERY_ADDRESS_EXAMPLE}`;
   }
-  if (t.length < 30) {
-    return 'Endereço muito curto. Inclua rua, número, bairro, CEP, cidade, estado e país.';
+  if (!isValidCepDigits(structured.cep)) {
+    return 'Informe o CEP com 8 dígitos (ex.: 01001-000).';
   }
-  const parts = deliveryAddressParts(t);
-  if (parts.length < 6) {
-    return `Separe o endereço com vírgulas: ${CATALOG_DELIVERY_ADDRESS_EXAMPLE}`;
+  if (!structured.street.trim()) return 'Informe a rua/logradouro (busque pelo CEP).';
+  if (!structured.number.trim()) return 'Informe o número do imóvel.';
+  if (!structured.neighborhood.trim()) return 'Informe o bairro.';
+  if (!structured.city.trim()) return 'Informe a cidade.';
+  if (!BR_UF.test(structured.state)) {
+    return 'Informe a sigla do estado (UF), ex.: SP, RJ, MG.';
   }
-  if (!/\d{5}-?\d{3}/.test(t)) {
-    return 'Inclua o CEP no formato 00000-000 ou 00000000.';
-  }
-  const hasStreetNumber =
-    /,\s*\d+[A-Za-z]?(\s|,|-|$)/.test(t) || /\bn[º°.]?\s*\d+/i.test(t) || /\b\d{1,5}\b/.test(parts[1] ?? '');
-  if (!hasStreetNumber) {
-    return 'Inclua o número do imóvel (ex.: Rua Exemplo, 120, ...).';
-  }
-  if (!BR_UF.test(t)) {
-    return 'Inclua a sigla do estado (UF), ex.: SP, RJ, MG.';
-  }
-  if (!/\b(brasil|brazil)\b/i.test(t)) {
-    return 'Inclua o país no final (Brasil).';
+  const country = structured.country?.trim() || 'Brasil';
+  if (!/\b(brasil|brazil)\b/i.test(country)) {
+    return 'País deve ser Brasil.';
   }
   return null;
 }
@@ -57,6 +132,10 @@ export function normalizeAddressForGeocode(
   address: string,
   defaultCountry = 'Brasil',
 ): string {
+  const structured = parseDeliveryAddress(address);
+  if (structured) {
+    return formatDeliveryAddress(structured);
+  }
   const t = address.trim();
   if (!t) return t;
   if (/\b(brasil|brazil)\b/i.test(t)) return t;

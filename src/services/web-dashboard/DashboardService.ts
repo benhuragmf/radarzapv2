@@ -2806,6 +2806,22 @@ export class DashboardService {
 
     const catalogSalesSvc = CatalogSalesService.getInstance();
 
+    r.get(
+      '/platform/catalog-sales/lookup-cep',
+      requireCapability(Cap.INBOX_AI_MANAGE),
+      async (req, res) => {
+        try {
+          const { cep } = req.query as { cep?: string };
+          const { lookupBrCep } = await import('@/utils/br-cep.util');
+          const result = await lookupBrCep(cep ?? '');
+          if (!result) return res.status(404).json({ error: 'CEP não encontrado' });
+          res.json(result);
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
     r.get('/platform/catalog-sales/orders', requireCapability(Cap.ORDERS_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
