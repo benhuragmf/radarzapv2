@@ -1,6 +1,6 @@
 /** Validação de endereço completo para cálculo de entrega por distância. */
 
-import { formatCepDisplay, isValidCepDigits, normalizeCepDigits } from '../utils/br-cep.util';
+import { formatCepDisplay, isValidCepDigits, normalizeCepDigits } from './br-cep-format';
 
 export const CATALOG_DELIVERY_ADDRESS_HINT =
   'Informe o CEP primeiro; depois rua, número, bairro, cidade, estado e país.';

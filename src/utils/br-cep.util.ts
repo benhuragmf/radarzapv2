@@ -1,5 +1,13 @@
 /** Consulta CEP brasileiro (ViaCEP). */
 
+import {
+  formatCepDisplay,
+  isValidCepDigits,
+  normalizeCepDigits,
+} from '@/types/br-cep-format';
+
+export { formatCepDisplay, isValidCepDigits, normalizeCepDigits };
+
 export interface BrCepLookupResult {
   cep: string;
   street: string;
@@ -7,20 +15,6 @@ export interface BrCepLookupResult {
   city: string;
   state: string;
   complement?: string;
-}
-
-export function normalizeCepDigits(cep: string): string {
-  return cep.replace(/\D/g, '').slice(0, 8);
-}
-
-export function formatCepDisplay(cep: string): string {
-  const d = normalizeCepDigits(cep);
-  if (d.length !== 8) return cep.trim();
-  return `${d.slice(0, 5)}-${d.slice(5)}`;
-}
-
-export function isValidCepDigits(cep: string): boolean {
-  return normalizeCepDigits(cep).length === 8;
 }
 
 /** Busca endereço por CEP. Retorna null se inválido ou não encontrado. */
