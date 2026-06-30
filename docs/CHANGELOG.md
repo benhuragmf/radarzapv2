@@ -12,6 +12,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.14] - 2026-06-30
+
+### Catálogo PIX — busca de endereço por CEP
+
+- Formulário da empresa: **CEP primeiro** → preenchimento automático via ViaCEP (rua, bairro, cidade, UF)
+- Formato canônico salvo: `CEP, rua, número, bairro, cidade, UF, Brasil`
+- API `GET /api/platform/catalog-sales/lookup-cep?cep=`
+- IA orientada a pedir CEP antes do número ao cliente
+
 ## [2.17.13] - 2026-06-30
 
 ### Onboarding vertical — completude (docs, testes, ADMIN, memórias)
@@ -22,14 +31,6 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Doc: `docs/ONBOARDING-VERTICAL.md` · registro em `MENU-PAGES-REGISTRY.md`
 - Testes: integração `BusinessVerticalSetupService` + assert memórias/skills/KB no free
 - Conteúdo IA expandido (KB/skills/memórias extras em verticais principais)
-
-## [2.17.13] - 2026-06-30
-
-### Catálogo PIX — endereço completo obrigatório para distância
-
-- Validação de endereço da empresa e do cliente: rua, número, bairro, CEP, cidade, UF e Brasil
-- UI com textarea, exemplo e bloqueio ao salvar se entrega por km estiver ativa sem endereço completo
-- Geocoding rejeita endereços incompletos; fallback `Organization.address` só quando válido
 
 ## [2.17.12] - 2026-06-30
 
