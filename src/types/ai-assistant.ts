@@ -100,6 +100,10 @@ export interface AiStructuredReply {
   /** Gravar ticketAppendBody (ou texto do cliente) em clientReplies do ticket. */
   shouldAppendToTicket?: boolean;
   ticketAppendBody?: string;
+  /** Pedido catálogo — criar pré-pedido aguardando PIX */
+  shouldCreateCatalogOrder?: boolean;
+  catalogProductId?: string;
+  catalogProductName?: string;
 }
 
 /** Resposta estruturada vazia — append/status sem campos da IA. */

@@ -13,6 +13,10 @@ import type {
   WebChatKbSuggestion,
 } from '@/types/webchat';
 import {
+  CATALOG_SALES_SECURITY_INSTRUCTION,
+  type CatalogProductSalesMeta,
+} from '@/types/catalog-sales';
+import {
   WEBCHAT_FAQ_PICKER_MAX,
   WEBCHAT_FAQ_PICKER_MIN_SCORE,
 } from '@/utils/webchat-faq-reply.util';
@@ -30,6 +34,7 @@ export type KnowledgeBaseUpsertInput = {
   links?: WebChatActionLink[];
   showAsQuickReply?: boolean;
   quickReplyLabel?: string;
+  salesMeta?: CatalogProductSalesMeta;
 };
 
 export class AiKnowledgeBaseService {
@@ -62,6 +67,7 @@ export class AiKnowledgeBaseService {
       links: sanitizeWebChatActionLinks(item.links),
       showAsQuickReply: Boolean(item.showAsQuickReply),
       quickReplyLabel: item.quickReplyLabel?.trim().slice(0, 60) || undefined,
+      salesMeta: item.salesMeta ?? undefined,
     };
 
     if (item.id) {

@@ -27,6 +27,7 @@ import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
 import { AiUsageMeterService } from './AiUsageMeterService';
 import { PlatformAiBlueprintService } from './PlatformAiBlueprintService';
+import { normalizeCatalogSalesConfig } from '@/types/catalog-sales';
 
 export interface AiModelCatalogPayload {
   id: string;
@@ -44,6 +45,7 @@ export interface AiSettingsPayload {
   settings: Record<string, unknown>;
   prompt: Record<string, unknown>;
   knowledgeBase: unknown[];
+  catalogSales: Record<string, unknown>;
   skills: unknown[];
   memories: unknown[];
   usage: unknown;
@@ -102,7 +104,7 @@ export class AiSettingsService {
         AiSkillService.getInstance().list(clientId),
         AiMemoryService.getInstance().list(clientId),
         AiUsageMeterService.getInstance().getUsageSnapshot(clientId),
-        Organization.findById(clientId).select('plan').lean(),
+        Organization.findById(clientId).select('plan catalogSales').lean(),
         PlatformAiBlueprintService.getInstance().getGlobal(),
       ]);
 
@@ -213,8 +215,10 @@ export class AiSettingsService {
         links: k.links ?? [],
         showAsQuickReply: Boolean(k.showAsQuickReply),
         quickReplyLabel: k.quickReplyLabel ?? '',
+        salesMeta: k.salesMeta ?? {},
         updatedAt: k.updatedAt,
       })),
+      catalogSales: normalizeCatalogSalesConfig(org?.catalogSales) as unknown as Record<string, unknown>,
       skills: skills.map(s => AiSkillService.getInstance().toPayload(s)),
       memories: memories.map(m => AiMemoryService.getInstance().toPayload(m)),
       usage,
@@ -253,6 +257,7 @@ export class AiSettingsService {
       links?: Array<{ label: string; url: string; openInNewTab?: boolean }>;
       showAsQuickReply?: boolean;
       quickReplyLabel?: string;
+      salesMeta?: Record<string, unknown>;
       _delete?: boolean;
     }> | undefined;
     const skills = body.skills as Array<{
@@ -376,6 +381,14 @@ export class AiSettingsService {
 
     if (Array.isArray(memories)) {
       await AiMemoryService.getInstance().syncPayload(clientId, memories);
+    }
+
+    if (body.catalogSales && typeof body.catalogSales === 'object') {
+      const { CatalogSalesService } = await import('../catalog/CatalogSalesService');
+      await CatalogSalesService.getInstance().updateCompanyConfig(
+        clientId,
+        body.catalogSales as import('@/types/catalog-sales').CatalogSalesCompanyConfig,
+      );
     }
 
     return this.getFullPayload(clientId);

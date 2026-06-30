@@ -41,8 +41,52 @@ import {
   type AttendanceUiSelection,
   type AiCredentialSource,
 } from '../../lib/attendanceMode'
-import { notifyInfo, notifyConfigSaved, mutationError } from '../../lib/notify'
+import { notifyInfo, notifyConfigSaved, mutationError, notifyError } from '../../lib/notify'
+import {
+  CATALOG_DELIVERY_ADDRESS_EXAMPLE,
+  CATALOG_DELIVERY_ADDRESS_HINT,
+  deliveryAddressValidationError,
+} from '@radarzap-types/catalog-delivery-address'
 import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
+
+interface CatalogProductSalesMeta {
+  aiSellable?: boolean
+  saleMode?: 'link' | 'pix' | 'link_or_pix'
+  acceptsPix?: boolean
+  useCompanyWhatsapp?: boolean
+  productWhatsapp?: string
+  responsibleSector?: string
+  requireHumanReview?: boolean
+  madeToOrder?: boolean
+  deliveryFee?: string
+  requiresDeliveryAddress?: boolean
+}
+
+interface CatalogSalesCompanyConfig {
+  enabled?: boolean
+  pixEnabled?: boolean
+  pixInstructions?: string
+  notifyWhatsapp?: boolean
+  internalWhatsapp?: string
+  responsibleName?: string
+  internalMessageTemplate?: string
+  autoCreateOrderOnPurchase?: boolean
+  escalateOnProof?: boolean
+  requireHumanApproval?: boolean
+  allowManualResend?: boolean
+  requireDeliveryAddress?: boolean
+  deliveryInstructions?: string
+  deliveryOriginAddress?: string
+  useDistanceBasedDelivery?: boolean
+  deliveryKmRates?: Record<string, string>
+  forceCollectAddress?: boolean
+  notifyCustomerOnApprove?: boolean
+  notifyCustomerOnReject?: boolean
+  notifyCustomerOnRequestNewProof?: boolean
+  customerApproveMessage?: string
+  customerRejectMessage?: string
+  customerRequestNewProofMessage?: string
+}
 
 const textareaClsAi = `${textareaCls} min-h-[120px]`
 
@@ -131,8 +175,10 @@ interface AiPayload {
     links?: Array<{ label: string; url: string; openInNewTab?: boolean }>
     showAsQuickReply?: boolean
     quickReplyLabel?: string
+    salesMeta?: CatalogProductSalesMeta
     _delete?: boolean
   }>
+  catalogSales: CatalogSalesCompanyConfig
   skills: Array<{
     id: string
     title: string
@@ -215,6 +261,8 @@ type ProductDraft = {
   link: string
   description: string
   paymentNotes: string
+  deliveryFee: string
+  salesMeta: CatalogProductSalesMeta
 }
 
 const COMPANY_PROFILE_TITLE = 'O que a empresa faz'
@@ -231,6 +279,15 @@ const emptyProductDraft: ProductDraft = {
   link: '',
   description: '',
   paymentNotes: '',
+  deliveryFee: '',
+  salesMeta: {
+    aiSellable: true,
+    saleMode: 'link_or_pix',
+    acceptsPix: true,
+    useCompanyWhatsapp: true,
+    requireHumanReview: true,
+    requiresDeliveryAddress: false,
+  },
 }
 
 function makeKnowledgeBaseItem(partial: Partial<KnowledgeBaseItem>): KnowledgeBaseItem {
@@ -261,7 +318,20 @@ function knowledgeItemToProductDraft(item: KnowledgeBaseItem): ProductDraft {
     stock: parseProductContentField(content, 'Estoque disponível:'),
     description: parseProductContentField(content, 'Descrição:'),
     paymentNotes: parseProductContentField(content, 'Pagamento/condições:'),
+    deliveryFee: parseProductContentField(content, 'Taxa de entrega:'),
     link: item.links?.[0]?.url ?? '',
+    salesMeta: {
+      aiSellable: item.salesMeta?.aiSellable !== false,
+      saleMode: item.salesMeta?.saleMode ?? (item.links?.[0]?.url ? 'link_or_pix' : 'pix'),
+      acceptsPix: item.salesMeta?.acceptsPix !== false,
+      useCompanyWhatsapp: item.salesMeta?.useCompanyWhatsapp !== false,
+      productWhatsapp: item.salesMeta?.productWhatsapp ?? '',
+      responsibleSector: item.salesMeta?.responsibleSector ?? '',
+      requireHumanReview: item.salesMeta?.requireHumanReview !== false,
+      madeToOrder: item.salesMeta?.madeToOrder === true,
+      deliveryFee: item.salesMeta?.deliveryFee ?? parseProductContentField(content, 'Taxa de entrega:'),
+      requiresDeliveryAddress: item.salesMeta?.requiresDeliveryAddress === true,
+    },
   }
 }
 
@@ -316,7 +386,10 @@ function productDraftToKnowledgeItem(product: ProductDraft): KnowledgeBaseItem {
     product.stock.trim() ? `Estoque disponível: ${product.stock.trim()}` : '',
     product.description.trim() ? `Descrição: ${product.description.trim()}` : '',
     product.paymentNotes.trim() ? `Pagamento/condições: ${product.paymentNotes.trim()}` : '',
-    'Regra para a IA: informe preço, disponibilidade e link somente com base neste item. Se estoque, valor ou condição não estiverem claros, peça confirmação ou transfira para humano.',
+    product.deliveryFee.trim() || product.salesMeta.deliveryFee?.trim()
+      ? `Taxa de entrega: ${(product.deliveryFee.trim() || product.salesMeta.deliveryFee?.trim()) ?? ''}`
+      : '',
+    'Regra para a IA: informe preço, disponibilidade e link somente com base neste item. Se o produto tiver link de loja, envie o link quando o cliente preferir comprar pelo site. Para PIX no chat, colete endereço se necessário, informe taxa de entrega e oriente pagamento conforme configuração. Nunca confirme pagamento apenas com imagem de comprovante.',
   ]
     .filter(Boolean)
     .join('\n')
@@ -334,6 +407,10 @@ function productDraftToKnowledgeItem(product: ProductDraft): KnowledgeBaseItem {
       : [],
     showAsQuickReply: true,
     quickReplyLabel: title.slice(0, 60),
+    salesMeta: {
+      ...product.salesMeta,
+      deliveryFee: product.deliveryFee.trim() || product.salesMeta.deliveryFee,
+    },
   })
 }
 
@@ -395,6 +472,7 @@ export default function AiAtendimento() {
 
     const nextForm: AiPayload = {
       ...data,
+      catalogSales: data.catalogSales ?? {},
       skills: data.skills ?? [],
       memories: data.memories ?? [],
       prompt: {
@@ -558,11 +636,19 @@ export default function AiAtendimento() {
 
   const handleSave = () => {
     if (!form) return
+    if (form.catalogSales?.useDistanceBasedDelivery) {
+      const addrErr = deliveryAddressValidationError(form.catalogSales.deliveryOriginAddress)
+      if (addrErr) {
+        notifyError(`Entrega por distância: ${addrErr}`)
+        return
+      }
+    }
     const patchSettings = attendanceSettingsPatchFromSelection(attendanceUi)
     const body: Record<string, unknown> = {
       settings: { ...form.settings, ...patchSettings },
       prompt: { ...form.prompt },
       knowledgeBase: form.knowledgeBase,
+      catalogSales: form.catalogSales,
       skills: form.skills,
       memories: form.memories,
     }
@@ -657,6 +743,34 @@ export default function AiAtendimento() {
   const productItems = form.knowledgeBase.filter(
     item => !item._delete && (item.category ?? 'Geral') === PRODUCT_CATEGORY,
   )
+  const catalogSales = form.catalogSales ?? {}
+
+  const updateCatalogSales = (patch: Partial<CatalogSalesCompanyConfig>) => {
+    setForm(f => (f ? { ...f, catalogSales: { ...f.catalogSales, ...patch } } : f))
+  }
+
+  const syncPaymentGuideFromPixConfig = (instructions: string) => {
+    const content = [
+      instructions.trim(),
+      '',
+      'Regra para a IA: ao receber comprovante PIX por imagem ou PDF, informe que a equipe vai conferir. Nunca confirme pagamento apenas pela imagem.',
+    ]
+      .filter(Boolean)
+      .join('\n')
+    upsertKnowledgeArticle(
+      k => k.title === PAYMENT_GUIDE_TITLE,
+      makeKnowledgeBaseItem({
+        title: PAYMENT_GUIDE_TITLE,
+        content,
+        category: PAYMENT_CATEGORY,
+        active: true,
+        keywords: ['pix', 'pagamento', 'comprovante', 'valor', 'venda'],
+        quickReplyLabel: 'Pagamento e PIX',
+      }),
+    )
+  }
+
+  const canEditSalesWhatsapp = me ? can(me, 'company:sales-config:update') : false
 
   const saveProductDraft = () => {
     if (!productDraft.name.trim() && !productDraft.description.trim()) return
@@ -1236,7 +1350,8 @@ export default function AiAtendimento() {
       )}
 
       {tab === 'coleta' && (
-        <Card className="p-6 grid sm:grid-cols-2 gap-3">
+        <Card className="p-6 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
           {(
             [
               ['collectName', 'Nome'],
@@ -1258,6 +1373,13 @@ export default function AiAtendimento() {
               {label}
             </label>
           ))}
+          </div>
+          {(form.catalogSales?.forceCollectAddress || form.catalogSales?.requireDeliveryAddress) && (
+            <p className="text-xs text-amber-300/90">
+              Vendas PIX com entrega ativas — o endereço também entra em &quot;Dados a coletar&quot; no
+              prompt da IA.
+            </p>
+          )}
         </Card>
       )}
 
@@ -1367,6 +1489,114 @@ export default function AiAtendimento() {
                 onChange={e => setProductDraft(p => ({ ...p, paymentNotes: e.target.value }))}
                 placeholder="Condições de pagamento, parcelamento, frete ou instruções para PIX."
               />
+              <input
+                className={`${inputCls} md:col-span-2`}
+                value={productDraft.deliveryFee}
+                onChange={e => setProductDraft(p => ({ ...p, deliveryFee: e.target.value }))}
+                placeholder="Taxa de entrega. Ex.: R$ 15,00 ou Grátis na cidade"
+              />
+            </div>
+            <div className="rounded-lg border border-[var(--rz-border)]/60 p-3 space-y-2 md:col-span-2">
+              <p className="text-xs font-medium text-[var(--rz-text-secondary)]">Venda pela IA (opcional)</p>
+              <p className="text-xs text-[var(--rz-text-muted)]">
+                Produtos com link da loja continuam podendo enviar só o link — o fluxo PIX só abre quando o
+                cliente escolhe pagar por aqui.
+              </p>
+              <select
+                className={inputCls}
+                value={productDraft.salesMeta.saleMode ?? 'link_or_pix'}
+                onChange={e =>
+                  setProductDraft(p => ({
+                    ...p,
+                    salesMeta: {
+                      ...p.salesMeta,
+                      saleMode: e.target.value as CatalogProductSalesMeta['saleMode'],
+                    },
+                  }))
+                }
+              >
+                <option value="link">Só link da loja/checkout</option>
+                <option value="link_or_pix">Link ou PIX (cliente escolhe)</option>
+                <option value="pix">Só PIX com conferência no chat</option>
+              </select>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={productDraft.salesMeta.aiSellable !== false}
+                    onChange={e =>
+                      setProductDraft(p => ({
+                        ...p,
+                        salesMeta: { ...p.salesMeta, aiSellable: e.target.checked },
+                      }))
+                    }
+                  />
+                  Pode ser vendido pela IA
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={productDraft.salesMeta.acceptsPix !== false}
+                    onChange={e =>
+                      setProductDraft(p => ({
+                        ...p,
+                        salesMeta: { ...p.salesMeta, acceptsPix: e.target.checked },
+                      }))
+                    }
+                  />
+                  Aceita PIX
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={productDraft.salesMeta.useCompanyWhatsapp !== false}
+                    onChange={e =>
+                      setProductDraft(p => ({
+                        ...p,
+                        salesMeta: { ...p.salesMeta, useCompanyWhatsapp: e.target.checked },
+                      }))
+                    }
+                  />
+                  WhatsApp padrão da empresa
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={productDraft.salesMeta.requiresDeliveryAddress === true}
+                    onChange={e =>
+                      setProductDraft(p => ({
+                        ...p,
+                        salesMeta: { ...p.salesMeta, requiresDeliveryAddress: e.target.checked },
+                      }))
+                    }
+                  />
+                  Exigir endereço antes do PIX
+                </label>
+              </div>
+              {!productDraft.salesMeta.useCompanyWhatsapp && (
+                <input
+                  className={inputCls}
+                  value={productDraft.salesMeta.productWhatsapp ?? ''}
+                  onChange={e =>
+                    setProductDraft(p => ({
+                      ...p,
+                      salesMeta: { ...p.salesMeta, productWhatsapp: e.target.value },
+                    }))
+                  }
+                  placeholder="WhatsApp específico (DDI) ex.: 5566999999999"
+                />
+              )}
+              <input
+                className={inputCls}
+                value={productDraft.salesMeta.responsibleSector ?? ''}
+                onChange={e =>
+                  setProductDraft(p => ({
+                    ...p,
+                    salesMeta: { ...p.salesMeta, responsibleSector: e.target.value },
+                  }))
+                }
+                placeholder="Setor responsável (opcional)"
+              />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -1389,25 +1619,254 @@ export default function AiAtendimento() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-2">
-            <h3 className="text-sm font-medium flex items-center gap-2">
-              <CreditCard className="w-4 h-4" /> PIX, comprovante e conferência
-            </h3>
+          <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-medium flex items-center gap-2">
+                <CreditCard className="w-4 h-4" /> PIX, comprovante e conferência
+              </h3>
+              <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+                Configure como a IA orienta pedidos com PIX e para qual WhatsApp interno o comprovante
+                será enviado para conferência.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 text-xs text-amber-200/90">
+              Por segurança, a IA não confirma pagamento apenas por imagem. O comprovante será enviado
+              para conferência humana.
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.enabled === true}
+                  onChange={e => updateCatalogSales({ enabled: e.target.checked })}
+                />
+                Ativar pedidos via IA/catálogo
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.pixEnabled === true}
+                  onChange={e => updateCatalogSales({ pixEnabled: e.target.checked })}
+                />
+                Ativar pagamento via PIX
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.notifyWhatsapp === true}
+                  onChange={e => updateCatalogSales({ notifyWhatsapp: e.target.checked })}
+                />
+                Enviar comprovante para WhatsApp interno
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.requireHumanApproval !== false}
+                  onChange={e => updateCatalogSales({ requireHumanApproval: e.target.checked })}
+                />
+                Exigir conferência humana antes de confirmar pagamento
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.escalateOnProof !== false}
+                  onChange={e => updateCatalogSales({ escalateOnProof: e.target.checked })}
+                />
+                Mover conversa para fila humana após comprovante
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.autoCreateOrderOnPurchase !== false}
+                  onChange={e => updateCatalogSales({ autoCreateOrderOnPurchase: e.target.checked })}
+                />
+                Criar pedido ao cliente confirmar compra (PIX)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.requireDeliveryAddress === true}
+                  onChange={e => {
+                    const checked = e.target.checked
+                    updateCatalogSales({ requireDeliveryAddress: checked, forceCollectAddress: checked ? catalogSales.forceCollectAddress : false })
+                    if (checked) patchPrompt({ collectAddress: true })
+                  }}
+                />
+                Exigir endereço de entrega nos pedidos PIX
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.forceCollectAddress === true}
+                  onChange={e => {
+                    const checked = e.target.checked
+                    updateCatalogSales({ forceCollectAddress: checked, requireDeliveryAddress: checked ? true : catalogSales.requireDeliveryAddress })
+                    if (checked) patchPrompt({ collectAddress: true })
+                  }}
+                />
+                Forçar coleta de endereço no prompt da IA
+              </label>
+            </div>
+
+            <textarea
+              className={`${textareaClsAi} min-h-[72px]`}
+              value={catalogSales.deliveryInstructions ?? ''}
+              onChange={e => updateCatalogSales({ deliveryInstructions: e.target.value })}
+              placeholder="Instruções gerais de entrega/frete para a IA (opcional)."
+            />
+
+            <div className="rounded-lg border border-[var(--rz-border)] p-3 space-y-3">
+              <p className="text-sm font-medium">Entrega por distância (origem → cliente)</p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={catalogSales.useDistanceBasedDelivery === true}
+                  onChange={e =>
+                    updateCatalogSales({ useDistanceBasedDelivery: e.target.checked })
+                  }
+                />
+                Calcular taxa de entrega por km (1 a 8)
+              </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[var(--rz-text-muted)]">
+                  Endereço completo da empresa (origem A) *
+                </label>
+                <textarea
+                  className={`${textareaClsAi} min-h-[72px]`}
+                  value={catalogSales.deliveryOriginAddress ?? ''}
+                  onChange={e => updateCatalogSales({ deliveryOriginAddress: e.target.value })}
+                  placeholder={CATALOG_DELIVERY_ADDRESS_EXAMPLE}
+                  required={catalogSales.useDistanceBasedDelivery === true}
+                />
+                <p className="text-xs text-[var(--rz-text-muted)]">
+                  {CATALOG_DELIVERY_ADDRESS_HINT} Obrigatório para o cálculo de distância não falhar.
+                </p>
+                {catalogSales.useDistanceBasedDelivery &&
+                  deliveryAddressValidationError(catalogSales.deliveryOriginAddress) && (
+                    <p className="text-xs text-amber-400">
+                      {deliveryAddressValidationError(catalogSales.deliveryOriginAddress)}
+                    </p>
+                  )}
+              </div>
+              {catalogSales.useDistanceBasedDelivery && (
+                <div className="grid gap-2 sm:grid-cols-4">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(km => (
+                    <label key={km} className="text-xs space-y-1">
+                      <span className="text-[var(--rz-text-muted)]">Até {km} km</span>
+                      <input
+                        className={inputCls}
+                        value={catalogSales.deliveryKmRates?.[`km${km}`] ?? ''}
+                        onChange={e =>
+                          updateCatalogSales({
+                            deliveryKmRates: {
+                              ...catalogSales.deliveryKmRates,
+                              [`km${km}`]: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="R$ 0,00"
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-[var(--rz-border)] p-3 space-y-3">
+              <p className="text-sm font-medium">Mensagens automáticas ao cliente (Inbox)</p>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={catalogSales.notifyCustomerOnApprove !== false}
+                    onChange={e =>
+                      updateCatalogSales({ notifyCustomerOnApprove: e.target.checked })
+                    }
+                  />
+                  Ao aprovar pagamento
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={catalogSales.notifyCustomerOnReject !== false}
+                    onChange={e =>
+                      updateCatalogSales({ notifyCustomerOnReject: e.target.checked })
+                    }
+                  />
+                  Ao recusar pagamento
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={catalogSales.notifyCustomerOnRequestNewProof !== false}
+                    onChange={e =>
+                      updateCatalogSales({ notifyCustomerOnRequestNewProof: e.target.checked })
+                    }
+                  />
+                  Ao pedir novo comprovante
+                </label>
+              </div>
+              <textarea
+                className={`${textareaClsAi} min-h-[60px]`}
+                value={catalogSales.customerApproveMessage ?? ''}
+                onChange={e => updateCatalogSales({ customerApproveMessage: e.target.value })}
+                placeholder="Mensagem ao aprovar — variáveis: {{productName}}, {{amount}}, {{deliveryFee}}"
+              />
+              <textarea
+                className={`${textareaClsAi} min-h-[60px]`}
+                value={catalogSales.customerRejectMessage ?? ''}
+                onChange={e => updateCatalogSales({ customerRejectMessage: e.target.value })}
+                placeholder="Mensagem ao recusar — variáveis: {{productName}}, {{reason}}"
+              />
+              <textarea
+                className={`${textareaClsAi} min-h-[60px]`}
+                value={catalogSales.customerRequestNewProofMessage ?? ''}
+                onChange={e =>
+                  updateCatalogSales({ customerRequestNewProofMessage: e.target.value })
+                }
+                placeholder="Mensagem ao pedir novo comprovante — variáveis: {{productName}}, {{reason}}"
+              />
+            </div>
+
             <textarea
               className={textareaClsAi}
-              value={paymentGuide?.content ?? ''}
-              onChange={e =>
-                updateSystemArticle(PAYMENT_GUIDE_TITLE, PAYMENT_CATEGORY, e.target.value, {
-                  keywords: ['pix', 'pagamento', 'comprovante', 'valor', 'venda'],
-                  quickReplyLabel: 'Pagamento e PIX',
-                })
-              }
-              placeholder="Informe chave PIX, regras de pagamento, prazo de baixa e o que a IA deve fazer ao receber comprovante. Ex.: orientar envio de imagem, registrar no atendimento e transferir para Financeiro quando precisar confirmar pagamento. A IA não deve confirmar pagamento apenas por imagem sem validação oficial."
+              value={catalogSales.pixInstructions ?? paymentGuide?.content ?? ''}
+              onChange={e => {
+                updateCatalogSales({ pixInstructions: e.target.value })
+                syncPaymentGuideFromPixConfig(e.target.value)
+              }}
+              placeholder="Chave PIX, titular, instruções de pagamento para a IA repassar ao cliente."
             />
-            <p className="text-xs text-[var(--rz-text-muted)]">
-              Para venda com pagamento real, use links de checkout/PIX na base. Confirmação por imagem deve
-              ir para humano ou integração de pagamento antes de liberar produto/serviço.
-            </p>
+
+            <div className="grid gap-2 md:grid-cols-2">
+              <input
+                className={inputCls}
+                disabled={!canEditSalesWhatsapp}
+                value={catalogSales.internalWhatsapp ?? ''}
+                onChange={e => updateCatalogSales({ internalWhatsapp: e.target.value })}
+                placeholder="WhatsApp responsável (DDI) ex.: 5566999999999"
+              />
+              <input
+                className={inputCls}
+                value={catalogSales.responsibleName ?? ''}
+                onChange={e => updateCatalogSales({ responsibleName: e.target.value })}
+                placeholder="Setor ou responsável"
+              />
+            </div>
+            {!canEditSalesWhatsapp && (
+              <p className="text-xs text-[var(--rz-text-muted)]">
+                Somente admin/dono pode alterar o WhatsApp financeiro interno.
+              </p>
+            )}
+
+            <textarea
+              className={`${textareaClsAi} min-h-[80px]`}
+              value={catalogSales.internalMessageTemplate ?? ''}
+              onChange={e => updateCatalogSales({ internalMessageTemplate: e.target.value })}
+              placeholder="Mensagem interna opcional (cabeçalho). Dados do pedido e comprovante são anexados automaticamente."
+            />
           </div>
 
           {productItems.length > 0 && (

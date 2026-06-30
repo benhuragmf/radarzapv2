@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import type { CatalogProductSalesMeta } from '@/types/catalog-sales';
 import type { WebChatActionLink } from '../types/webchat';
 
 export interface IAiKnowledgeBase extends Document {
@@ -11,6 +12,8 @@ export interface IAiKnowledgeBase extends Document {
   showAsQuickReply: boolean;
   quickReplyLabel?: string;
   active: boolean;
+  /** Configuração de venda PIX por produto (opcional) */
+  salesMeta?: CatalogProductSalesMeta;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +38,7 @@ const AiKnowledgeBaseSchema = new Schema<IAiKnowledgeBase>(
     showAsQuickReply: { type: Boolean, default: false },
     quickReplyLabel: { type: String, maxlength: 60 },
     active: { type: Boolean, default: true },
+    salesMeta: { type: Schema.Types.Mixed, default: undefined },
   },
   { timestamps: true, collection: 'aiKnowledgeBase' },
 );

@@ -52,6 +52,9 @@ export interface IWebChatConversation extends Document {
   whatsappBridgeActive?: boolean;
   whatsappBridgeAgentUserId?: string;
   whatsappBridgeActivatedAt?: Date;
+  /** Pedido PIX aguardando conferência humana */
+  catalogSalesPixPending?: boolean;
+  activeCatalogOrderId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,6 +107,8 @@ const WebChatConversationSchema = new Schema<IWebChatConversation>(
     whatsappBridgeActive: { type: Boolean, default: false, index: true },
     whatsappBridgeAgentUserId: { type: String, index: true },
     whatsappBridgeActivatedAt: { type: Date },
+    catalogSalesPixPending: { type: Boolean, default: false, index: true },
+    activeCatalogOrderId: { type: Schema.Types.ObjectId, ref: 'CatalogSalesOrder', index: true },
   },
   { timestamps: true, collection: 'webChatConversations' },
 );

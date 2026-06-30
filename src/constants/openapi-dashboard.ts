@@ -765,6 +765,43 @@ export const OPENAPI_DASHBOARD = {
     '/rules/preview': {
       post: { summary: 'Prévia de regra sem enviar ao WhatsApp', tags: ['Discord'] },
     },
+    '/onboarding/verticals': {
+      get: {
+        summary: 'Listar tipos de negócio (presets onboarding)',
+        description: 'Permissão: billing:view. Retorna id, label, description, icon e modo IA sugerido.',
+        tags: ['Onboarding'],
+      },
+    },
+    '/onboarding/status': {
+      get: {
+        summary: 'Status do onboarding vertical da empresa',
+        description: 'Permissão: billing:view. `needsOnboarding` true quando `businessVertical` ainda não foi escolhido.',
+        tags: ['Onboarding'],
+      },
+    },
+    '/onboarding/apply-vertical': {
+      post: {
+        summary: 'Aplicar preset por tipo de comércio',
+        description:
+          'Permissão: billing:manage ou account:settings (dono ou admin). Body: `{ verticalId, overwrite? }`. Semeia setores, Inbox, WebChat, KB, skills, memórias e IA — independente do plano; runtime IA respeita limites do plano.',
+        tags: ['Onboarding'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['verticalId'],
+                properties: {
+                  verticalId: { type: 'string' },
+                  overwrite: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 } as const;
 

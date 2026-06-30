@@ -57,6 +57,10 @@ export interface IInboxConversation extends Document {
   humanTakeoverUntil?: Date;
   /** Atendente que acionou !pausar. */
   humanTakeoverByUserId?: mongoose.Types.ObjectId;
+  /** Pedido PIX aguardando conferência humana */
+  catalogSalesPixPending?: boolean;
+  /** Pedido ativo vinculado à conversa */
+  activeCatalogOrderId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -120,6 +124,8 @@ const InboxConversationSchema = new Schema<IInboxConversation>(
     whatsappFallbackClientNotifiedAt: { type: Date },
     humanTakeoverUntil: { type: Date, index: true },
     humanTakeoverByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
+    catalogSalesPixPending: { type: Boolean, default: false, index: true },
+    activeCatalogOrderId: { type: Schema.Types.ObjectId, ref: 'CatalogSalesOrder', index: true },
   },
   { timestamps: true, collection: 'inboxConversations' },
 );

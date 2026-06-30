@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { createServiceLogger } from '@/utils/logger';
+import type { CatalogSalesCompanyConfig } from '@/types/catalog-sales';
 import { User } from './User';
 
 const logger = createServiceLogger('OrganizationModel');
@@ -61,6 +62,11 @@ export interface IOrganization extends Document {
     learningOpsUsed: number;
     periodStart: Date;
   };
+  /** Pedidos via IA/catálogo com PIX e conferência humana */
+  catalogSales?: CatalogSalesCompanyConfig;
+  /** Tipo de comércio — preset onboarding */
+  businessVertical?: import('@/types/business-vertical').BusinessVerticalId;
+  businessVerticalAppliedAt?: Date;
   /** Integração Discord → WhatsApp */
   discordSettings?: {
     /** Simulação: avalia regras e grava histórico sem enviar ao WhatsApp */
@@ -166,6 +172,26 @@ const OrganizationSchema = new Schema<IOrganization>({
     },
     default: () => ({ dryRun: false, multiRulePerMessage: false, inboundEnabled: false }),
   },
+  catalogSales: { type: Schema.Types.Mixed, default: undefined },
+  businessVertical: {
+    type: String,
+    enum: [
+      'varejo_fisico',
+      'ecommerce',
+      'restaurante',
+      'clinica',
+      'escritorio',
+      'imobiliaria',
+      'beleza',
+      'auto_center',
+      'educacao',
+      'servicos',
+      'outro',
+    ],
+    index: true,
+    sparse: true,
+  },
+  businessVerticalAppliedAt: { type: Date },
 }, {
   timestamps: true,
   collection: 'organizations',

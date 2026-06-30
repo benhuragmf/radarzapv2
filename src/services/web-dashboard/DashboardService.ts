@@ -249,6 +249,7 @@ import { AiSkillService } from '../ai/AiSkillService';
 import { AiMemoryService } from '../ai/AiMemoryService';
 import { PlatformAiBlueprintService } from '../ai/PlatformAiBlueprintService';
 import { PlatformAiCredentialsService } from '../ai/PlatformAiCredentialsService';
+import { CatalogSalesService } from '../catalog/CatalogSalesService';
 
 const logger = createServiceLogger('DashboardService');
 
@@ -2802,6 +2803,165 @@ export class DashboardService {
         res.status(400).json({ error: (e as Error).message });
       }
     });
+
+    const catalogSalesSvc = CatalogSalesService.getInstance();
+
+    r.get('/platform/catalog-sales/orders', requireCapability(Cap.ORDERS_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { status, conversationId, limit } = req.query as {
+          status?: string;
+          conversationId?: string;
+          limit?: string;
+        };
+        const orders = await catalogSalesSvc.listOrders(auth.clientId, {
+          status,
+          conversationId,
+          limit: limit ? parseInt(limit, 10) : undefined,
+        });
+        res.json({ orders: orders.map(o => catalogSalesSvc.orderToPayload(o)) });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/catalog-sales/orders/:id', requireCapability(Cap.ORDERS_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const order = await catalogSalesSvc.getOrderForClient(auth.clientId, req.params.id);
+        res.json(catalogSalesSvc.orderToPayload(order));
+      } catch (e) {
+        res.status(404).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get(
+      '/platform/catalog-sales/orders/:id/proof',
+      requireCapability(Cap.ORDERS_VIEW_PAYMENT_PROOF),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const order = await catalogSalesSvc.getOrderForClient(auth.clientId, req.params.id);
+          const proof = order.proofs[order.proofs.length - 1];
+          if (!proof?.mediaUrl) return res.status(404).json({ error: 'Comprovante não encontrado' });
+          const token = String(req.query.token ?? '');
+          if (
+            token &&
+            !catalogSalesSvc.verifyProofToken(req.params.id, proof.mediaUrl, token)
+          ) {
+            return res.status(403).json({ error: 'Token inválido' });
+          }
+          const relative = proof.mediaUrl;
+          const { resolveInboxMediaPath } = await import('@/utils/inbox-media-storage');
+          const { resolveWebChatMediaPath } = await import('@/utils/webchat-media-storage');
+          const filePath =
+            order.channel === 'webchat'
+              ? resolveWebChatMediaPath(relative)
+              : resolveInboxMediaPath(relative) ?? resolveWebChatMediaPath(relative);
+          if (!filePath) return res.status(404).json({ error: 'Arquivo não encontrado' });
+          res.setHeader('Content-Type', proof.mediaMime || 'application/octet-stream');
+          res.setHeader('Cache-Control', 'private, no-store');
+          res.sendFile(filePath);
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/approve',
+      requireCapability(Cap.ORDERS_APPROVE_PAYMENT),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const order = await catalogSalesSvc.approvePayment(
+            auth.clientId,
+            req.params.id,
+            auth.userId,
+          );
+          res.json(catalogSalesSvc.orderToPayload(order));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/reject',
+      requireCapability(Cap.ORDERS_REJECT_PAYMENT),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { reason } = req.body as { reason?: string };
+          const order = await catalogSalesSvc.rejectPayment(
+            auth.clientId,
+            req.params.id,
+            auth.userId,
+            reason,
+          );
+          res.json(catalogSalesSvc.orderToPayload(order));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/request-new-proof',
+      requireCapability(Cap.ORDERS_UPDATE_STATUS),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const order = await catalogSalesSvc.requestNewProof(
+            auth.clientId,
+            req.params.id,
+            auth.userId,
+          );
+          res.json(catalogSalesSvc.orderToPayload(order));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/resend-notification',
+      requireCapability(Cap.ORDERS_RESEND_PIX_NOTIFICATION),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const order = await catalogSalesSvc.getOrderForClient(auth.clientId, req.params.id);
+          const result = await catalogSalesSvc.notifyInternalWhatsapp(auth.clientId, order, undefined, {
+            manual: true,
+          });
+          const fresh = await catalogSalesSvc.getOrderForClient(auth.clientId, req.params.id);
+          res.json({ ...catalogSalesSvc.orderToPayload(fresh), notification: result });
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/notes',
+      requireCapability(Cap.ORDERS_ADD_INTERNAL_NOTE),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { body } = req.body as { body?: string };
+          if (!body?.trim()) return res.status(400).json({ error: 'Observação obrigatória' });
+          const order = await catalogSalesSvc.addInternalNote(
+            auth.clientId,
+            req.params.id,
+            auth.userId,
+            body,
+          );
+          res.json(catalogSalesSvc.orderToPayload(order));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
 
     r.get('/platform/ai/usage', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
       try {
@@ -5518,6 +5678,56 @@ export class DashboardService {
       }
     });
 
+    r.get('/onboarding/verticals', requireCapability(Cap.BILLING_VIEW), async (_req, res) => {
+      try {
+        const { listBusinessVerticalPresetsPublic } = await import(
+          '@/constants/business-vertical-presets'
+        );
+        res.json(listBusinessVerticalPresetsPublic());
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/onboarding/status', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { BusinessVerticalSetupService } = await import(
+          '@/services/onboarding/BusinessVerticalSetupService'
+        );
+        res.json(await BusinessVerticalSetupService.getInstance().getStatus(auth.organizationId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post(
+      '/onboarding/apply-vertical',
+      requireAnyCapability(Cap.BILLING_MANAGE, Cap.ACCOUNT_SETTINGS),
+      async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as { verticalId?: string; overwrite?: boolean };
+        if (!body.verticalId?.trim()) {
+          return res.status(400).json({ error: 'verticalId obrigatório' });
+        }
+        const { BusinessVerticalSetupService } = await import(
+          '@/services/onboarding/BusinessVerticalSetupService'
+        );
+        const result = await BusinessVerticalSetupService.getInstance().applyPreset(
+          auth.organizationId,
+          body.verticalId.trim(),
+          { overwrite: body.overwrite === true },
+        );
+        res.json(result);
+      } catch (e) {
+        const msg = (e as Error).message;
+        const status = msg.includes('já possui') ? 409 : msg.includes('inválido') ? 400 : 500;
+        res.status(status).json({ error: msg });
+      }
+    },
+    );
+
     r.get('/organization/profile', requireCapability(Cap.BILLING_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -5531,6 +5741,8 @@ export class DashboardService {
           taxId: org.taxId ?? '',
           address: org.address ?? '',
           plan: org.plan,
+          businessVertical: org.businessVertical ?? null,
+          businessVerticalAppliedAt: org.businessVerticalAppliedAt?.toISOString() ?? null,
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });

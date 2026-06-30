@@ -12,6 +12,8 @@ import type { AiContactContext } from './AiContextService';
 import { AiContextService } from './AiContextService';
 import type { TicketBriefForAssist } from '@/types/ticket-assist';
 import type { TicketClientIntent } from '@/utils/ticket-client-intent';
+import { normalizeCatalogSalesConfig } from '@/types/catalog-sales';
+import { formatKmRatesForAiPrompt, normalizeKmRates } from '@/utils/catalog-delivery.util';
 
 export interface BuildSystemPromptOptions {
   contactContext?: AiContactContext;
@@ -64,7 +66,7 @@ export class AiPromptBuilderService {
       await Promise.all([
         this.getOrCreatePrompt(clientId),
         PlatformAiBlueprintService.getInstance().getGlobal(),
-        Organization.findById(clientId).select('name').lean(),
+        Organization.findById(clientId).select('name address catalogSales').lean(),
         InboxDepartment.find({
           clientId: new mongoose.Types.ObjectId(clientId),
           isActive: true,
@@ -96,6 +98,15 @@ export class AiPromptBuilderService {
     if (prompt.collectAddress) collectFields.push('endereço');
     if (prompt.collectOrderNumber) collectFields.push('número do pedido');
     if (prompt.collectUrgency) collectFields.push('urgência');
+
+    const catalogCfg = normalizeCatalogSalesConfig(org?.catalogSales);
+    const catalogWantsAddress =
+      catalogCfg.enabled &&
+      catalogCfg.pixEnabled &&
+      (catalogCfg.forceCollectAddress === true || catalogCfg.requireDeliveryAddress === true);
+    if (catalogWantsAddress && !collectFields.includes('endereço')) {
+      collectFields.push('endereço');
+    }
 
     const skipKnown = contactCtx ? ctxSvc.fieldsAlreadyKnown(contactCtx, prompt) : [];
     const mustCollect = collectFields.filter(f => !skipKnown.includes(f));
@@ -147,6 +158,31 @@ export class AiPromptBuilderService {
     const finalRules = applyAiPromptVars(blueprint.finalRules, varCtx);
     const deptList = departments.map(d => `- ${d.menuKey}: ${d.name}`).join('\n');
 
+    const deliveryOrigin =
+      catalogCfg.deliveryOriginAddress?.trim() || org?.address?.trim() || '';
+    const catalogDeliveryBlock =
+      catalogCfg.enabled && catalogCfg.pixEnabled
+        ? [
+            catalogCfg.pixInstructions?.trim()
+              ? `Instruções PIX da empresa: ${catalogCfg.pixInstructions.trim()}`
+              : '',
+            catalogCfg.deliveryInstructions?.trim()
+              ? `Entrega/frete: ${catalogCfg.deliveryInstructions.trim()}`
+              : '',
+            catalogCfg.useDistanceBasedDelivery && deliveryOrigin
+              ? formatKmRatesForAiPrompt(
+                  deliveryOrigin,
+                  normalizeKmRates(catalogCfg.deliveryKmRates),
+                )
+              : '',
+            catalogWantsAddress
+              ? 'Endereço de entrega é obrigatório antes do PIX — preencha collectedAddress no JSON com endereço completo (rua, número, bairro, CEP, cidade, estado, Brasil).'
+              : '',
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : '';
+
     const ticketBlock = opts.ticketContext
       ? [
           `## TICKET ATIVO (${opts.ticketContext.ticketRef})`,
@@ -196,9 +232,12 @@ ${skipKnown.length ? `Já temos no cadastro (não pergunte de novo): ${skipKnown
 ${contactCtx?.knownFields.name && contactCtx.name ? `Nome no cadastro: ${contactCtx.name}.\n` : ''}
 Politica comercial, catalogo e pagamento:
 1. Para perguntas sobre empresa, produtos, estoque, preco, frete, link de compra ou checkout, use KNOWLEDGE primeiro.
-2. Se o artigo tiver links, envie o link direto adequado ao produto, checkout ou rastreio.
+2. Se o artigo tiver links, envie o link direto adequado ao produto, checkout ou rastreio — o cliente pode comprar pela loja sem fluxo PIX.
 3. Nunca invente estoque, valor, desconto, prazo ou disponibilidade. Se faltar dado na base, peca confirmacao ou escale.
 4. Se o cliente enviar comprovante/PIX por imagem, registre como anexo/coleta e transfira para Financeiro/humano quando for preciso confirmar baixa. Nao confirme pagamento apenas pela imagem sem integracao oficial.
+5. Para confirmar compra com PIX no chat (nao pelo link), preencha shouldCreateCatalogOrder=true, catalogProductId e catalogProductName. Se precisar de entrega, colete collectedAddress antes de orientar o PIX. Informe taxa de entrega cadastrada quando existir.
+6. Se o cliente pedir link, loja ou site, priorize o link — nao force PIX nem shouldCreateCatalogOrder.
+${catalogDeliveryBlock ? `\nConfiguracao comercial PIX/entrega da empresa:\n${catalogDeliveryBlock}\n` : ''}
 
 Setores (departmentMenuKey):
 ${deptList || '(nenhum setor cadastrado)'}
@@ -232,7 +271,10 @@ JSON obrigatório:
   "shouldAppendToTicket": false,
   "ticketAppendBody": "",
   "escalationReason": "",
-  "internalSummary": "resumo interno"
+  "internalSummary": "resumo interno",
+  "shouldCreateCatalogOrder": false,
+  "catalogProductId": "",
+  "catalogProductName": ""
 }`;
   }
 }

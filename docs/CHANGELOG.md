@@ -12,6 +12,71 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.13] - 2026-06-30
+
+### Onboarding vertical — completude (docs, testes, ADMIN, memórias)
+
+- **Memórias IA** (`AiMemory`) semeadas por vertical com `status: approved` — grava no free; runtime respeita plano
+- **ADMIN** pode aplicar preset (`account:settings` ou `billing:manage`); wizard usa mesma regra
+- OpenAPI: `/onboarding/verticals`, `/onboarding/status`, `/onboarding/apply-vertical`
+- Doc: `docs/ONBOARDING-VERTICAL.md` · registro em `MENU-PAGES-REGISTRY.md`
+- Testes: integração `BusinessVerticalSetupService` + assert memórias/skills/KB no free
+- Conteúdo IA expandido (KB/skills/memórias extras em verticais principais)
+
+## [2.17.13] - 2026-06-30
+
+### Catálogo PIX — endereço completo obrigatório para distância
+
+- Validação de endereço da empresa e do cliente: rua, número, bairro, CEP, cidade, UF e Brasil
+- UI com textarea, exemplo e bloqueio ao salvar se entrega por km estiver ativa sem endereço completo
+- Geocoding rejeita endereços incompletos; fallback `Organization.address` só quando válido
+
+## [2.17.12] - 2026-06-30
+
+### Catálogo PIX — entrega por distância e mensagens ao cliente
+
+- **Dados a coletar:** `forceCollectAddress` / `requireDeliveryAddress` sincronizam `collectAddress` no prompt da IA
+- Endereço origem da empresa (`deliveryOriginAddress`, fallback `Organization.address`) + tabela taxa por km 1–8
+- Cálculo Haversine + geocoding OSM ao receber endereço do cliente (`deliveryDistanceKm`, `deliveryTierKm`)
+- Mensagem automática ao cliente no WhatsApp/WebChat ao aprovar, recusar ou pedir novo comprovante no Inbox
+- UI em **IA → Empresa e catálogo** + distância no painel de pedido do Inbox
+
+## [2.17.11] - 2026-06-30
+
+### Onboarding — pré-configuração por tipo de comércio
+
+- 10 verticais + **Outro**: loja física, e-commerce, restaurante, clínica, escritório, imobiliária, beleza, oficina, educação, prestador de serviços
+- API: `GET /api/onboarding/verticals`, `GET /api/onboarding/status`, `POST /api/onboarding/apply-vertical`
+- Aplica setores, textos do bot, horários, WebChat, FAQ seed, respostas rápidas e modo IA sugerido
+- Wizard no primeiro acesso (dono/admin) + seção em **Configurações → Empresa**
+- Campo `Organization.businessVertical` + `businessVerticalAppliedAt`
+
+### Catálogo PIX — endereço, entrega e convivência com link da loja
+
+- Modo de venda por produto: `link` | `link_or_pix` | `pix` — não força PIX quando cliente quer link/checkout
+- Taxa de entrega no produto + pedido (`deliveryFee`, `subtotalAmount`, `totalAmount`)
+- Coleta de endereço: status `aguardando_endereco`, `collectedAddress` da IA, config empresa/produto
+- Prompt IA: prioriza link da loja; PIX só quando cliente escolhe; endereço antes do pagamento
+- UI: seletor modo venda, taxa entrega, exigir endereço (empresa e produto)
+
+---
+
+## [2.17.10] - 2026-06-30
+
+### Pedidos IA/catálogo com PIX, comprovante e WhatsApp interno
+
+- Configuração empresa `Organization.catalogSales` + UI em IA Atendimento → Empresa e catálogo → PIX
+- Produtos: `salesMeta` opcional em `AiKnowledgeBase` (venda IA, PIX, WhatsApp por produto)
+- Modelo `CatalogSalesOrder` — status, comprovantes, histórico, notificação WA interna via `sendInternalAlert`
+- Hooks: inbound mídia (Inbox WA + WebChat), confirmação de compra na IA (`shouldCreateCatalogOrder`)
+- API painel: `GET/POST /api/platform/catalog-sales/orders/*` — aprovar, recusar, reenviar, comprovante protegido
+- RBAC: `orders:*`, `company:sales-config:*`
+- Inbox: painel rápido `CatalogSalesOrderPanel` na conversa com pedido PIX pendente
+- Testes: `src/types/__tests__/catalog-sales.test.ts`
+- Doc: `docs/CATALOGO-PIX-PEDIDOS.md`
+
+---
+
 ## [2.17.9] - 2026-06-30
 
 ### WhatsApp — comando !pausar (QR) com retomada automática da IA

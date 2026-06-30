@@ -597,6 +597,31 @@ export class AiConversationService {
     if (structured.internalSummary) state.summary = structured.internalSummary;
     if (structured.departmentMenuKey) state.suggestedDepartmentMenuKey = structured.departmentMenuKey;
 
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    void CatalogSalesService.getInstance()
+      .maybeCreateOrderFromAiTurn({
+        clientId: ctx.clientId,
+        conversation: {
+          conversationId: String(ctx.conversation._id),
+          channel: 'whatsapp',
+          destinationId: String(ctx.dest._id),
+          contactIdentifier: ctx.conversation.contactIdentifier,
+          contactName: ctx.conversation.contactName,
+        },
+        clientText: ctx.text ?? '',
+        structured,
+        aiSummary: structured.internalSummary,
+      })
+      .catch(() => undefined);
+
+    void CatalogSalesService.getInstance()
+      .maybeUpdateOrderFromAiTurn({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        structured: { collectedAddress: structured.collectedAddress },
+      })
+      .catch(() => undefined);
+
     const orgForGuard = await Organization.findById(ctx.clientId).select('name').lean();
     const factualGuard = guardPremiumAiFactualReply({
       reply: structured.reply,

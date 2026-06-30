@@ -8,6 +8,7 @@ import { WebhooksPanel } from '../components/integrations/WebhooksPanel'
 import { ApiDocsPanel } from '../components/integrations/ApiDocsPanel'
 import { RateLimitPanel } from '../components/integrations/RateLimitPanel'
 import { CompanyProfilePanel } from '../components/settings/CompanyProfilePanel'
+import { BusinessVerticalSettingsSection } from '../components/settings/BusinessVerticalSettingsSection'
 import { MyProfilePanel } from '../components/settings/MyProfilePanel'
 import AccountConnectionsPanel from '../components/settings/AccountConnectionsPanel'
 import DeleteOrganizationPanel from '../components/settings/DeleteOrganizationPanel'
@@ -62,6 +63,9 @@ export default function Settings({ user, onUserUpdate }: Props) {
           <h2 className="text-lg font-semibold mb-3">Dados da empresa</h2>
           <Card>
             <CompanyProfilePanel user={user} />
+          </Card>
+          <Card className="mt-4">
+            <BusinessVerticalSettingsSection />
           </Card>
         </section>
       )}

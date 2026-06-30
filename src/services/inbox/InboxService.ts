@@ -2591,6 +2591,33 @@ export class InboxService {
       whatsappMessageId: normalized.whatsappMessageId ?? media?.whatsappMessageId,
     });
 
+    if (media?.mediaUrl) {
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      void CatalogSalesService.getInstance()
+        .handleInboundProof({
+          clientId,
+          conversation: {
+            conversationId: String(conversation._id),
+            channel: 'whatsapp',
+            destinationId: String(dest._id),
+            contactIdentifier: conversation.contactIdentifier,
+            contactName: conversation.contactName,
+          },
+          media: {
+            mediaUrl: media.mediaUrl,
+            mediaMime: media.mediaMime,
+            mediaType: media.mediaType,
+            messageId: normalized.whatsappMessageId ?? media.whatsappMessageId,
+          },
+        })
+        .catch(err => {
+          logger.warn('Falha ao processar comprovante PIX catálogo', {
+            clientId,
+            error: (err as Error).message,
+          });
+        });
+    }
+
     if (isNewContact || isNew) {
       const { loadInboundRegistrationPolicy, shouldAutoCaptureLead } = await import(
         '@/services/inbound/inbound-registration-policy.service'

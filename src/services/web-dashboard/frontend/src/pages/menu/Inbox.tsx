@@ -37,6 +37,7 @@ import { formatQueueTimer, liveQueueState, liveQueueWaitState, liveHandleTimeSec
 import { formatContactIdentifier } from '../../lib/destinationFormat'
 import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '../../components/inbox/InboxMessageBubble'
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
+import { CatalogSalesOrderPanel } from '../../components/inbox/CatalogSalesOrderPanel'
 import { InboxContactDetailsPanel } from '../../components/inbox/InboxContactDetailsPanel'
 import type { ContactStats, PreviousConversation } from '../../components/inbox/InboxContactSidebar'
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
@@ -1648,6 +1649,15 @@ export default function Inbox() {
                       libera após resposta do cliente ou{' '}
                       {detail?.inactivitySla?.gracefulCloseAfterPromptMinutes ?? 2} min.
                     </p>
+                  )}
+                  {selectedId && (
+                    <CatalogSalesOrderPanel
+                      conversationId={
+                        isWebChatInboxId(selectedId)
+                          ? webChatInboxIdToMongo(selectedId)
+                          : selectedId
+                      }
+                    />
                   )}
                   <InboxComposer
                     value={reply}

@@ -2044,6 +2044,29 @@ export class WebChatService {
     });
   }
 
+  /** Mensagem automática ao visitante (ex.: status de pedido PIX). */
+  async sendCatalogAutomatedReply(
+    clientId: string,
+    conversationId: string,
+    body: string,
+    senderName = 'Equipe',
+  ): Promise<void> {
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) return;
+    const conversation = await WebChatConversation.findOne({
+      _id: new mongoose.Types.ObjectId(conversationId),
+      clientId: new mongoose.Types.ObjectId(clientId),
+    });
+    if (!conversation || conversation.status === 'closed') return;
+    const text = body.trim();
+    if (!text) return;
+    await this.appendMessage(conversation, {
+      direction: 'outbound',
+      body: text,
+      senderUserId: WEBCHAT_BOT_SENDER_ID,
+      senderName,
+    });
+  }
+
   emitTypingIndicator(input: {
     clientId: string;
     conversationId: string;
@@ -2371,6 +2394,26 @@ export class WebChatService {
       mediaMime: parsed.mime,
       mediaFileName: parsed.fileName,
     });
+
+    const { CatalogSalesService } = await import('../catalog/CatalogSalesService');
+    void CatalogSalesService.getInstance()
+      .handleInboundProof({
+        clientId: clientIdStr,
+        conversation: {
+          conversationId: convId,
+          channel: 'webchat',
+          destinationId: conversation.destinationId ? String(conversation.destinationId) : undefined,
+          contactIdentifier: conversation.visitorPhone ?? conversation.visitorEmail,
+          contactName: conversation.visitorName ?? 'Visitante',
+        },
+        media: {
+          mediaUrl,
+          mediaMime: parsed.mime,
+          mediaType: parsed.mediaType,
+          messageId: String(msg._id),
+        },
+      })
+      .catch(() => undefined);
 
     const replies: WebChatMessageDto[] = [];
     const freshAfterInbound = await WebChatConversation.findById(conversation._id);

@@ -59,6 +59,7 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`MODO-ATENDENTE-DESKTOP.md`](./MODO-ATENDENTE-DESKTOP.md) | PWA, notificações SO e atalhos — posto de atendimento sem app nativo |
 | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados TK, SLA, token público |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, FAQ |
+| [`ONBOARDING-VERTICAL.md`](./ONBOARDING-VERTICAL.md) | Pré-configuração por tipo de comércio (11 verticais) |
 | [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulários embed e captura |
 | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA e carteira |
 | [`RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | Modos de atendimento (consolidado) |

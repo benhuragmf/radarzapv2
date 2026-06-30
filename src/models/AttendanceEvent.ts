@@ -46,7 +46,14 @@ export type AttendanceEventKind =
   | 'discord.monitor.deleted'
   | 'discord.monitor.toggled'
   | 'discord.monitor.filters_updated'
-  | 'discord.settings.updated';
+  | 'discord.settings.updated'
+  | 'catalog_sales.order_created'
+  | 'catalog_sales.proof_received'
+  | 'catalog_sales.notification_sent'
+  | 'catalog_sales.notification_failed'
+  | 'catalog_sales.payment_approved'
+  | 'catalog_sales.payment_rejected'
+  | 'catalog_sales.proof_without_order';
 
 export interface IAttendanceEvent extends Document {
   clientId: mongoose.Types.ObjectId;
