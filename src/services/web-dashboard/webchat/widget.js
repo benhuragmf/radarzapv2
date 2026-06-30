@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.13.1';
+  var WIDGET_BUILD = '2.13.2';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -1993,7 +1993,11 @@
         .then(function (data) {
           if (data.visitorToken) state.visitorToken = data.visitorToken;
           if (data.conversationId) state.conversationId = data.conversationId;
-          if (data.messages) state.messages = data.messages;
+          if (data.messages) {
+            state.messages = data.messages.filter(function (m) {
+              return isVisitorVisibleMessage(m);
+            });
+          }
           writeStore({ visitorToken: state.visitorToken, conversationId: state.conversationId });
           state.proactiveSkipReason = data.skipReason || '';
           if (data.sent) {
@@ -2249,6 +2253,12 @@
     return false;
   }
 
+  function isVisitorVisibleMessage(message) {
+    if (!message) return false;
+    if (message.direction === 'internal') return false;
+    return !isHiddenVisitorSystemMessage(message);
+  }
+
   function applySessionData(data) {
     if (!data) return;
     if (data.visitorToken) state.visitorToken = data.visitorToken;
@@ -2271,7 +2281,7 @@
     if (data.departmentName !== undefined) state.departmentName = data.departmentName || '';
     if (data.messages) {
       state.messages = data.messages.filter(function (m) {
-        return !isHiddenVisitorSystemMessage(m);
+        return isVisitorVisibleMessage(m);
       });
     }
   }
@@ -2280,7 +2290,7 @@
     if (!items || !items.length) return;
     items.forEach(function (item) {
       if (!item || !item.id) return;
-      if (isHiddenVisitorSystemMessage(item)) return;
+      if (!isVisitorVisibleMessage(item)) return;
       var exists = state.messages.some(function (m) {
         return m.id === item.id;
       });
@@ -4495,6 +4505,7 @@
       if (!state.visitorToken || opts.presenceOnly) return;
       state.socket.on('webchat:message', function (payload) {
         if (!payload || !payload.message) return;
+        if (!isVisitorVisibleMessage(payload.message)) return;
         if (payload.conversationId && state.conversationId && payload.conversationId !== state.conversationId) return;
         applyConversationMeta(payload.conversation);
         if (isClosedSystemMessage(payload.message)) {

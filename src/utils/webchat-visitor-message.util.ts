@@ -12,6 +12,12 @@ export function isVisitorHiddenSystemMessage(msg: { direction: string; body: str
   return false;
 }
 
+/** Mensagem visível no widget/API pública do visitante (exclui chat interno da equipe). */
+export function isVisitorVisibleWebChatMessage(msg: { direction: string; body: string }): boolean {
+  if (msg.direction === 'internal') return false;
+  return !isVisitorHiddenSystemMessage(msg);
+}
+
 /** Oculta na consulta pública TK+token (mesmas regras do widget + ops internas). */
 export function isPublicTicketLookupHiddenMessage(msg: { direction: string; body: string }): boolean {
   if (isVisitorHiddenSystemMessage(msg)) return true;

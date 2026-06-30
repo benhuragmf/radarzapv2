@@ -1,6 +1,6 @@
 # Radar Chat v2 — Índice de documentação
 
-**Versão do produto:** `2.12.71` · **Atualizado:** 2026-06-29
+**Versão do produto:** `2.13.2` · **Atualizado:** 2026-06-30
 
 ### Leitura principal obrigatória
 
@@ -70,6 +70,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md`](./concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Entrega Etapas 1–3 |
 | [`concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md`](./concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | Entrega auditoria 2.12.47–63 |
 | [`WEBHOOKS.md`](./WEBHOOKS.md) | Webhooks outbound |
+| [`RADARCHAT_INTEGRATION_CONTRACT.md`](./RADARCHAT_INTEGRATION_CONTRACT.md) | Integração inbound RadarGamer -> RadarChat |
+| [`RADARCHAT_NEXT_PROMPT.md`](./RADARCHAT_NEXT_PROMPT.md) | Prompt de retomada da integração RadarGamer -> RadarChat |
 | [`MENU-PAGES-REGISTRY.md`](./MENU-PAGES-REGISTRY.md) | Rotas → componentes → API |
 | [`MENUS-SISTEMA.md`](./MENUS-SISTEMA.md) | Menus UX do painel |
 | [`CONTATOS-CSV-IMPORTACAO.md`](./CONTATOS-CSV-IMPORTACAO.md) | Import/export contatos |

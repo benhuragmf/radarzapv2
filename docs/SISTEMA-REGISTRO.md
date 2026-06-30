@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.13.0` (`package.json`) · **Última revisão doc:** 2026-06-30
+**Versão atual:** `2.13.2` (`package.json`) · **Última revisão doc:** 2026-06-30
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,8 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.13.2** | Sidebar recolhível + acesso rápido (favoritos); integração inbound RadarGamer -> RadarChat: `POST /api/integrations/radargamer/messages`, token, idempotência, opt-in, rate limit, QA no-real-send |
+| **2.13.1** | Admin Ops: métricas VPS/Coolify na aba Infra |
 | **2.13.0** | Infra: Node.js 24 LTS — Docker, CI, engines, `.nvmrc` |
 | **2.12.73** | WebChat: nome fantasia atendente (`chatDisplayName`) + políticas owner/self/approval |
 | **2.12.71** | Infra: migração produção Coolify VPS ZAP, domínios Radar Chat, marca pública e Layout v3 Fase 4.5 QA |
@@ -212,7 +214,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 | Camada | Onde |
 |--------|------|
 | Backend | `src/index.ts`, serviços em `src/services/*` |
-| API painel + integrações | `src/services/web-dashboard/DashboardService.ts` — base `/api` |
+| API painel + integrações | `src/services/web-dashboard/DashboardService.ts` — base `/api`; inbound RadarGamer em `src/services/integrations/radargamer-inbound.*` |
 | Auth/RBAC | `src/auth/rbac/*` |
 | Frontend painel | `src/services/web-dashboard/frontend/src/` — design system em `design-system/` |
 | Modelos Mongo | `src/models/*` |

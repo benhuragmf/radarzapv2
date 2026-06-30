@@ -141,6 +141,7 @@ import { setPanelSocketServer } from '../inbox/PanelNotifications';
 import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { createLeadFormPublicRouter } from '../leads/lead-form-public.routes';
+import { createRadarGamerInboundRouter } from '../integrations/radargamer-inbound.routes';
 import { LeadFormService } from '../leads/LeadFormService';
 import { WebChatService } from '../webchat/WebChatService';
 import { WebChatWidget } from '../../models/WebChatWidget';
@@ -446,6 +447,11 @@ export class DashboardService {
 
     /** VCF/CSV com milhares de contatos; padrão Express é 100kb */
     this.app.use(express.json({ limit: '16mb' }));
+
+    this.app.use(
+      '/api/integrations/radargamer',
+      createRadarGamerInboundRouter(),
+    );
 
     this.app.use(
       '/api/webchat/public',

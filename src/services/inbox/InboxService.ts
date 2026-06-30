@@ -87,6 +87,7 @@ import { isWithinBusinessHours } from '@/services/inbox/inbox-business-hours';
 import { emitInboxEvent } from '@/services/inbox/InboxRealtime';
 import { emitPanelEvent, PanelEventType } from '@/services/inbox/PanelNotifications';
 import { notifySupervisorInternalChatMention } from '@/services/inbox/inbox-supervisor-notify.service';
+import { mentionsSupervisor } from '@/utils/internal-chat-supervisor-mention';
 import crypto from 'crypto';
 import {
   getQueuePriorityState,
@@ -5165,6 +5166,11 @@ export class InboxService {
   ) {
     const raw = text.trim();
     if (!raw) throw new Error('Mensagem vazia');
+    if (mentionsSupervisor(raw)) {
+      throw new Error(
+        'Para mencionar @supervisor, use a aba "Chat interno" no Inbox — esta mensagem não pode ser enviada ao cliente.',
+      );
+    }
 
     const conv = await this.getConversationIfAllowed(clientId, userId, conversationId);
     if (TERMINAL_STATUSES.has(conv.status)) {

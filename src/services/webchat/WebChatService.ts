@@ -34,7 +34,8 @@ import {
   syncLegacyAppearanceFlags,
   toPlainAppearance,
 } from '../../utils/webchat-prechat-fields.util';
-import { isVisitorHiddenSystemMessage } from '../../utils/webchat-visitor-message.util';
+import { isVisitorVisibleWebChatMessage } from '../../utils/webchat-visitor-message.util';
+import { mentionsSupervisor } from '../../utils/internal-chat-supervisor-mention';
 import {
   DEFAULT_AUTO_REPLY_MESSAGE,
   shouldSendWebChatAutoReply,
@@ -469,11 +470,7 @@ export class WebChatService {
       pageTitle: conversation.pageTitle,
       visitorIntake: conversation.visitorIntake,
       messages: messages
-        .filter(m => {
-          const dir = (m as IWebChatMessage).direction;
-          if (dir === 'internal') return false;
-          return !isVisitorHiddenSystemMessage(m as { direction: string; body: string });
-        })
+        .filter(m => isVisitorVisibleWebChatMessage(m as { direction: string; body: string }))
         .map(m => this.toMessageDto(m)),
     };
   }
@@ -826,11 +823,13 @@ export class WebChatService {
       .limit(200)
       .lean();
 
+    const visitorSession = await this.visitorSessionDto(conversation, messages);
+
     return {
       visitorToken: session.visitorToken,
       conversationId: session.conversationId,
       sent: true,
-      messages: messages.map(m => this.toMessageDto(m)),
+      messages: visitorSession.messages,
     };
   }
 
@@ -3508,6 +3507,11 @@ export class WebChatService {
   ): Promise<WebChatMessageDto> {
     const raw = body?.trim();
     if (!raw) throw new Error('Mensagem vazia');
+    if (mentionsSupervisor(raw)) {
+      throw new Error(
+        'Para mencionar @supervisor, use a aba "Chat interno" no Inbox — esta mensagem não pode ser enviada ao visitante.',
+      );
+    }
 
     const conversation = await this.prepareAgentReply(clientId, userId, conversationId);
     const settings = await loadInboxSettings(clientId);

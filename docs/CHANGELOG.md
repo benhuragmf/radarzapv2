@@ -8,6 +8,23 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.13.2] - 2026-06-30
+
+### Painel — sidebar recolhível e acesso rápido
+
+- Botão recolher/expandir menu lateral (desktop), estado persistido em `localStorage`.
+- Barra **Acesso rápido** abaixo da seção Início: favoritar itens do menu com estrela (até 8, por usuário/org/aba).
+
+### Integracao inbound RadarGamer -> RadarChat
+
+- `POST /api/integrations/radargamer/messages` no app RadarChat (`DashboardService`, porta 3001).
+- Auth `Authorization: Bearer <RADARCHAT_API_TOKEN>`, `X-Source: radargamer`, idempotencia por `Idempotency-Key`/`sourceEventId`.
+- Validacao de telefone, template, opt-in aceito, rate limit e enqueue seguro em `whatsapp-sending`.
+- Modo QA `RADARCHAT_INTEGRATION_QA_NO_SEND=true` aceita sem criar job real.
+- Docs: `docs/RADARCHAT_INTEGRATION_CONTRACT.md` e `docs/RADARCHAT_NEXT_PROMPT.md`.
+
+---
+
 ## [2.13.1] — 2026-06-30
 
 ### Admin Ops — métricas VPS / Coolify na aba Infra

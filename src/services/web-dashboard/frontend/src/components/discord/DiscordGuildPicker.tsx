@@ -10,6 +10,7 @@ interface Props {
   user: AuthUser
   selected: Guild | null
   onChange: (guild: Guild | null) => void
+  collapsed?: boolean
 }
 
 function userHasDiscordMode(user: AuthUser): boolean {
@@ -17,7 +18,7 @@ function userHasDiscordMode(user: AuthUser): boolean {
   return user.guilds.some(g => g.role === 'OWNER' || g.role === 'ADMIN')
 }
 
-export default function DiscordGuildPicker({ user, selected, onChange }: Props) {
+export default function DiscordGuildPicker({ user, selected, onChange, collapsed }: Props) {
   const show = can(user, 'discord:server:view') || userHasDiscordMode(user)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -65,15 +66,20 @@ export default function DiscordGuildPicker({ user, selected, onChange }: Props) 
   }
 
   return (
-    <div className="px-3 pb-2" ref={ref}>
-      <p className="text-[10px] text-[var(--rz-text-muted)] uppercase tracking-wider font-semibold mb-1.5 px-0.5">
-        Servidor
-      </p>
+    <div className={collapsed ? 'px-1.5 pb-2' : 'px-3 pb-2'} ref={ref}>
+      {!collapsed && (
+        <p className="text-[10px] text-[var(--rz-text-muted)] uppercase tracking-wider font-semibold mb-1.5 px-0.5">
+          Servidor
+        </p>
+      )}
       <div className="relative">
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
-          className="w-full flex items-center gap-2 bg-[var(--rz-surface-muted)] hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)] rounded-lg px-3 py-2 text-sm transition-colors"
+          title={selected?.name ?? 'Selecionar servidor'}
+          className={`w-full flex items-center bg-[var(--rz-surface-muted)] hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)] rounded-lg text-sm transition-colors ${
+            collapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'
+          }`}
         >
           {selected ? (
             <>
@@ -82,22 +88,34 @@ export default function DiscordGuildPicker({ user, selected, onChange }: Props) 
               ) : (
                 <Server size={14} className="text-[var(--rz-text-muted)] shrink-0" />
               )}
-              <span className="font-medium truncate flex-1 text-left">{selected.name}</span>
+              {!collapsed && (
+                <span className="font-medium truncate flex-1 text-left">{selected.name}</span>
+              )}
             </>
           ) : (
             <>
               <Server size={14} className="text-[var(--rz-text-muted)] shrink-0" />
-              <span className="text-[var(--rz-text-muted)] flex-1 text-left">Selecionar servidor</span>
+              {!collapsed && (
+                <span className="text-[var(--rz-text-muted)] flex-1 text-left">Selecionar servidor</span>
+              )}
             </>
           )}
-          <ChevronDown
-            size={13}
-            className={`text-[var(--rz-text-muted)] shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-          />
+          {!collapsed && (
+            <ChevronDown
+              size={13}
+              className={`text-[var(--rz-text-muted)] shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+            />
+          )}
         </button>
 
         {open && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-xl shadow-xl z-50 overflow-hidden">
+          <div
+            className={`absolute bg-[var(--rz-surface-muted)] border border-[var(--rz-border)] rounded-xl shadow-xl z-50 overflow-hidden ${
+              collapsed
+                ? 'left-full top-0 ml-2 min-w-[14rem]'
+                : 'top-full left-0 right-0 mt-1'
+            }`}
+          >
             <div className="max-h-56 overflow-y-auto">
               {isLoading && (
                 <div className="flex justify-center py-4">
