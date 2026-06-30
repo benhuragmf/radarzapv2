@@ -29,7 +29,7 @@ export const MOCK_ADMIN_OPS_SUMMARY: AdminOpsSummary = {
     version: '2.12.38',
     nodeEnv: 'test',
     uptimeSeconds: 86400,
-    nodeVersion: 'v20.11.0',
+    nodeVersion: 'v24.14.0',
     memoryMb: { rss: 256, heapUsed: 128, heapTotal: 200, external: 4 },
     cpu: { load1: 0.42, load5: 0.35, load15: 0.3, cpuCount: 8 },
   },

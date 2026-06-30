@@ -74,7 +74,7 @@ Só subir staging/prod quando **todos** estiverem ok:
 | RAM | 4 GB+ (Baileys + filas BullMQ) |
 | Disco | SSD; espaço para `sessions/`, `media/`, Mongo, Redis |
 | Rede | IP fixo; porta **443** (HTTPS) pública; **3001/27017/6379 só localhost/VPC** |
-| Software | Docker + Compose **ou** Node 20 LTS + PM2 + nginx/Caddy |
+| Software | Docker + Compose **ou** Node 24 LTS + PM2 + nginx/Caddy |
 
 ### Onde **não** hospedar
 

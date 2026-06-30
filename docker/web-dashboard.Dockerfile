@@ -1,5 +1,5 @@
 # ── Stage 1: build React frontend ────────────────────────────────────────────
-FROM node:20-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 
 WORKDIR /frontend
 
@@ -12,7 +12,7 @@ RUN npm run build
 # but inside Docker we override to dist so we can copy it cleanly)
 
 # ── Stage 2: build Node.js backend ───────────────────────────────────────────
-FROM node:20-alpine AS backend-builder
+FROM node:24-alpine AS backend-builder
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ RUN npx tsc --outDir dist --rootDir src --module commonjs --target ES2022 \
     --baseUrl src 2>/dev/null || true
 
 # ── Stage 3: production image ─────────────────────────────────────────────────
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 

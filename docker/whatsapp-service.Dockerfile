@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 # Install system dependencies for WhatsApp Web (Puppeteer)
 RUN apk add --no-cache \

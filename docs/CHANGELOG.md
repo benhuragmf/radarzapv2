@@ -8,6 +8,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.13.0] — 2026-06-30
+
+### Infra — Node.js 24 LTS (Active LTS)
+
+- Docker (monolito + microserviços): `node:20-alpine` → `node:24-alpine`.
+- CI GitHub Actions: `node-version: '24'`.
+- `engines`: `node >=24`, `npm >=10`; `@types/node` ^24 no backend.
+- `.nvmrc` com `24` para dev local alinhado à produção.
+
 ## [2.12.79] — 2026-06-30
 
 ### Fix prévia embed no painel (produção)

@@ -12,7 +12,7 @@
 
 | Camada | Tecnologia |
 |--------|------------|
-| Backend | Node.js 20, TypeScript, Express |
+| Backend | Node.js 24 LTS, TypeScript, Express |
 | Frontend | React 19, Vite, Tailwind 4 |
 | Banco | MongoDB (Mongoose) |
 | Cache/filas | Redis, BullMQ |

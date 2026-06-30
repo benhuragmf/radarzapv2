@@ -8,7 +8,7 @@ function baseSummary(overrides: Partial<AdminOpsSummary> = {}): AdminOpsSummary 
       version: '2.12.37',
       nodeEnv: 'test',
       uptimeSeconds: 100,
-      nodeVersion: 'v20.0.0',
+      nodeVersion: 'v24.14.0',
       memoryMb: { rss: 1, heapUsed: 1, heapTotal: 2, external: 0 },
     },
     services: {

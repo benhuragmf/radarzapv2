@@ -1,7 +1,7 @@
 # RadarZap v2 — monolito (Discord + WA + painel + filas)
 # Build: docker build -f docker/Dockerfile.monolith -t radarzap:latest .
 
-FROM node:20-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /repo/src/services/web-dashboard/frontend
 COPY src/services/web-dashboard/frontend/package*.json ./
 RUN npm ci
@@ -12,7 +12,7 @@ COPY package.json /repo/package.json
 COPY src/services/web-dashboard/frontend/ ./
 RUN npm run build
 
-FROM node:20-alpine AS backend-builder
+FROM node:24-alpine AS backend-builder
 WORKDIR /app
 COPY package*.json ./
 # redis-memory-server (dev) tenta compilar Redis no postinstall — desnecessário no build de prod
@@ -23,7 +23,7 @@ COPY scripts ./scripts
 COPY src ./src
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache wget
