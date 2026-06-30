@@ -48,9 +48,31 @@ Detecção: pedidos de "link", "loja", "site" **não** abrem fluxo PIX. "PIX", "
 
 - Empresa: `requireDeliveryAddress`, `forceCollectAddress` (sincroniza **Dados a coletar → Endereço** no prompt), `deliveryInstructions`
 - Origem A: `deliveryOriginAddress` — **CEP primeiro** no painel (busca automática ViaCEP); formato salvo: `CEP, rua, número, bairro, cidade, UF, Brasil`
-- Taxa por distância: `useDistanceBasedDelivery` + `deliveryKmRates.km1` … `km8` (Haversine + geocoding OSM ao receber endereço)
+- Taxa por distância: `useDistanceBasedDelivery` + `deliveryKmRates.km1` … `km8` — **rota OSRM** (pela rua) com fallback Haversine; cotação **só no servidor**, mensagem automática ao cliente
 - Produto: `deliveryFee`, `requiresDeliveryAddress`
 - Pedido: `deliveryAddress`, `deliveryDistanceKm`, `deliveryTierKm`, status `aguardando_endereco` até IA coletar endereço
+
+## Cotação de frete (servidor — não IA)
+
+Com `useDistanceBasedDelivery` ativo:
+
+1. Cliente informa endereço completo → geocoding (OSM) + distância pela **rota** (OSRM) ou estimativa (Haversine se rota indisponível).
+2. Sistema aplica faixa 1–8 km na tabela `deliveryKmRates` cadastrada no painel.
+3. **Mensagem automática** ao cliente com produto, frete e total (`customerDeliveryQuoteMessage`).
+4. A IA **não** informa valores de frete/total — se tentar, o texto é sanitizado.
+5. Se o cálculo falhar (endereço, geocoding ou faixa sem taxa), pedido permanece `aguardando_endereco` e o cliente recebe aviso para aguardar confirmação humana.
+
+### Pin de localização no WhatsApp (2.17.20)
+
+Com **requisito de entrega** e frete por km ativos, o cliente pode enviar o **pin de localização fixa** no WhatsApp (não precisa digitar endereço):
+
+1. `WhatsAppService` extrai `locationMessage` (ou `liveLocationMessage` como fallback).
+2. Coordenadas são salvas no contato (`locationLat`, `locationLng`) e no pedido (`deliveryLocationLat/Lng`).
+3. Reverse geocoding (OSM) preenche endereço legível no cadastro quando possível.
+4. Distância empresa → GPS do cliente pela **rota OSRM** + faixa km — mesma mensagem automática de cotação.
+5. A IA orienta texto ou pin, mas **nunca** informa frete/total; valores vêm só do servidor.
+
+Se o pin **não tiver número confiável** (comum no WhatsApp), o sistema envia mensagem pedindo **rua e número** antes de cotar. O frete usa o endereço confirmado (geocoding), não só o GPS impreciso.
 
 ## Mensagens automáticas ao cliente
 
@@ -66,6 +88,18 @@ Ao aprovar/recusar/pedir novo comprovante no Inbox (`CatalogSalesOrderPanel`):
 | `customerRequestNewProofMessage` | template com `{{productName}}`, `{{reason}}` |
 
 Canal: WhatsApp (`contactIdentifier`) ou WebChat (mensagem outbound automática).
+
+## Dados no cadastro de contatos
+
+Campos em `Destination` (lista **Contatos**):
+
+| Campo | Origem |
+|-------|--------|
+| `address` | IA (`collectedAddress`), pedido PIX, edição manual — endereço completo do contato (não só entrega) |
+| `taxDocument` | IA (`collectedCpfCnpj`) |
+| `name`, `email` | IA + fluxos existentes |
+
+Na próxima conversa a IA lê o cadastro e **não pede o endereço de novo** se já estiver salvo (uso geral ou entrega).
 
 ## Status do pedido
 

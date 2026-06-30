@@ -12,6 +12,66 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.21] - 2026-06-30
+
+### Entrega — confirmação de rua/número após pin impreciso
+
+- Pin sem número confiável → sistema pergunta rua e número antes de cotar frete
+- Frete usa endereço confirmado (geocoding) em vez de GPS impreciso
+
+## [2.17.20] - 2026-06-30
+
+### Entrega — localização WhatsApp (pin fixo)
+
+- Captura `locationMessage` / pin no WhatsApp (Baileys)
+- Salva coordenadas no contato e no pedido PIX
+- Cálculo de frete empresa → GPS do cliente (rota OSRM + faixas km)
+- Reverse geocoding para endereço legível no cadastro
+
+## [2.17.19] - 2026-06-30
+
+### IA Atendimento — Dados a coletar + requisito de entrega
+
+- Novos campos: telefone, empresa, complemento/referência, horário preferido
+- Aba reorganizada: contato, atendimento, entrega e logística
+- **Requisito de entrega** libera endereço PIX, frete por km e cotação automática
+- Frete por distância só ativa com requisito de entrega ligado
+
+## [2.17.18] - 2026-06-30
+
+### Catálogo PIX — frete pela rota + valores só do servidor
+
+- Distância pela rota (OSRM/OpenStreetMap) com fallback Haversine
+- Cotação de frete calculada no `CatalogSalesService` — IA não informa frete/total
+- Mensagem automática ao cliente com valores exatos após endereço
+- Falha no cálculo bloqueia avanço para PIX e escala para confirmação humana
+
+## [2.17.17] - 2026-06-30
+
+### Contatos — campo `address` (endereço genérico)
+
+- Renomeado `Destination.deliveryAddress` → `address` — serve para qualquer coleta de endereço, não só entrega
+- Migração automática de documentos legados no load/save
+- API aceita `address` (e `deliveryAddress` legado no PATCH)
+
+## [2.17.16] - 2026-06-30
+
+### Contatos — persistência de dados coletados pela IA
+
+- Nome, e-mail, endereço completo e CPF/CNPJ salvos em `Destination` (base `/contact`)
+- WhatsApp (IA), WebChat (IA) e pedidos PIX atualizam o contato automaticamente
+- IA reutiliza endereço cadastrado — não pede de novo quando já existe
+- Edição manual em Contatos: campos endereço e CPF/CNPJ
+
+## [2.17.15] - 2026-06-30
+
+### Configurações — endereço da empresa com CEP
+
+- **Configurações → Dados da empresa** (`/settings#empresa`): mesmo formulário CEP primeiro + ViaCEP
+- Salvar empresa valida endereço completo e sincroniza `catalogSales.deliveryOriginAddress`
+- API `GET /api/organization/lookup-cep?cep=`
+- Link em **Meu perfil** (`#perfil`) para quem edita a empresa
+
 ## [2.17.14] - 2026-06-30
 
 ### Catálogo PIX — busca de endereço por CEP

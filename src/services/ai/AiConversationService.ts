@@ -135,7 +135,7 @@ export class AiConversationService {
     const contactCtx = prompt.useSystemContext
       ? await AiContextService.getInstance().buildContactContext(ctx.clientId, ctx.dest)
       : undefined;
-    AiContextService.getInstance().seedStateFromContact(state, contactCtx ?? { tags: [], knownFields: { name: false, email: false }, recentTickets: [] }, prompt);
+    AiContextService.getInstance().seedStateFromContact(state, contactCtx ?? { tags: [], knownFields: { name: false, email: false, address: false }, recentTickets: [] }, prompt);
 
     const hasUninterpretableMedia =
       ctx.hasMedia && (!ctx.text.trim() || ['audio', 'image', 'document', 'video'].includes(ctx.mediaType ?? ''));
@@ -200,7 +200,7 @@ export class AiConversationService {
 
     const ctxSvc = AiContextService.getInstance();
     const contactCtxForCollection =
-      contactCtx ?? { tags: [], knownFields: { name: false, email: false }, recentTickets: [] };
+      contactCtx ?? { tags: [], knownFields: { name: false, email: false, address: false }, recentTickets: [] };
 
     if (await this.ensureNameConfirmed(ctx, inbox, state, prompt, contactCtxForCollection, ctxSvc)) {
       return { handled: true };
@@ -591,6 +591,12 @@ export class AiConversationService {
     await ctxSvc.persistCollectedFields(ctx.dest, {
       name: state.nameConfirmed ? state.collectedName : undefined,
       email: state.collectedEmail,
+      address: state.collectedAddress,
+      phone: state.collectedPhone,
+      organization: state.collectedCompany,
+      deliveryNotes: state.collectedDeliveryNotes,
+      preferredSchedule: state.collectedPreferredSchedule,
+      taxDocument: state.collectedCpfCnpj,
     });
     state.confidence = structured.confidence;
     state.aiTurnCount += 1;
@@ -598,29 +604,20 @@ export class AiConversationService {
     if (structured.departmentMenuKey) state.suggestedDepartmentMenuKey = structured.departmentMenuKey;
 
     const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
-    void CatalogSalesService.getInstance()
-      .maybeCreateOrderFromAiTurn({
-        clientId: ctx.clientId,
-        conversation: {
-          conversationId: String(ctx.conversation._id),
-          channel: 'whatsapp',
-          destinationId: String(ctx.dest._id),
-          contactIdentifier: ctx.conversation.contactIdentifier,
-          contactName: ctx.conversation.contactName,
-        },
-        clientText: ctx.text ?? '',
-        structured,
-        aiSummary: structured.internalSummary,
-      })
-      .catch(() => undefined);
-
-    void CatalogSalesService.getInstance()
-      .maybeUpdateOrderFromAiTurn({
-        clientId: ctx.clientId,
+    const catalogSvc = CatalogSalesService.getInstance();
+    const catalogTurn = await catalogSvc.processAiCatalogTurn({
+      clientId: ctx.clientId,
+      conversation: {
         conversationId: String(ctx.conversation._id),
-        structured: { collectedAddress: structured.collectedAddress },
-      })
-      .catch(() => undefined);
+        channel: 'whatsapp',
+        destinationId: String(ctx.dest._id),
+        contactIdentifier: ctx.conversation.contactIdentifier,
+        contactName: ctx.conversation.contactName,
+      },
+      clientText: ctx.text ?? '',
+      structured,
+      aiSummary: structured.internalSummary,
+    });
 
     const orgForGuard = await Organization.findById(ctx.clientId).select('name').lean();
     const factualGuard = guardPremiumAiFactualReply({
@@ -638,6 +635,8 @@ export class AiConversationService {
         reason: factualGuard.reason,
       });
     }
+
+    structured.reply = catalogSvc.sanitizeAiReplyForCatalogQuote(structured.reply, catalogTurn);
 
     let escalation = escSvc.check({
       clientText: ctx.text,
@@ -933,6 +932,10 @@ export class AiConversationService {
       collectedProblem?: string;
       collectedCpfCnpj?: string;
       collectedAddress?: string;
+      collectedPhone?: string;
+      collectedCompany?: string;
+      collectedDeliveryNotes?: string;
+      collectedPreferredSchedule?: string;
       collectedOrderNumber?: string;
       urgency?: 'low' | 'medium' | 'high';
       internalSummary?: string;
@@ -970,6 +973,18 @@ export class AiConversationService {
     }
     if (structured.collectedAddress?.trim() && text.length >= 12) {
       state.collectedAddress = structured.collectedAddress.trim();
+    }
+    if (structured.collectedPhone?.trim() && /\d{8,}/.test(text.replace(/\D/g, ''))) {
+      state.collectedPhone = structured.collectedPhone.trim();
+    }
+    if (structured.collectedCompany?.trim() && text.length >= 2) {
+      state.collectedCompany = structured.collectedCompany.trim();
+    }
+    if (structured.collectedDeliveryNotes?.trim() && text.length >= 3) {
+      state.collectedDeliveryNotes = structured.collectedDeliveryNotes.trim();
+    }
+    if (structured.collectedPreferredSchedule?.trim() && text.length >= 3) {
+      state.collectedPreferredSchedule = structured.collectedPreferredSchedule.trim();
     }
     if (structured.collectedOrderNumber?.trim() && /\d{4,}/.test(text)) {
       state.collectedOrderNumber = structured.collectedOrderNumber.trim();

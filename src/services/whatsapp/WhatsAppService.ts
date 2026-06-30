@@ -88,6 +88,12 @@ import {
 } from './waSessionEvents';
 import { saveInboxMedia } from '@/utils/inbox-media-storage';
 import type { InboxMessageMediaType } from '@/types/inbox';
+import {
+  formatLocationLabel,
+  waCoordToDegrees,
+  isValidWaCoordinates,
+  type WaInboundLocation,
+} from '@/utils/wa-location.util';
 import { enqueueInboundForContact } from '@/services/inbox/inbound-contact-queue';
 import { isDuplicateInboundMessage } from '@/services/inbox/inbound-dedup';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
@@ -264,7 +270,8 @@ export class WhatsAppService {
     if (m.reactionMessage) {
       const hasText = Boolean(this.extractInboundText(msg));
       const hasMedia = Boolean(this.extractInboundMediaType(msg));
-      if (!hasText && !hasMedia) return true;
+      const hasLocation = Boolean(this.extractInboundLocation(msg));
+      if (!hasText && !hasMedia && !hasLocation) return true;
     }
     const protoOnly =
       m.protocolMessage &&
@@ -275,6 +282,8 @@ export class WhatsAppService {
       !m.audioMessage &&
       !m.documentMessage &&
       !m.stickerMessage &&
+      !m.locationMessage &&
+      !m.liveLocationMessage &&
       !m.buttonsResponseMessage &&
       !m.listResponseMessage;
     if (protoOnly) return true;
@@ -309,6 +318,26 @@ export class WhatsAppService {
     if (m.stickerMessage) return 'sticker';
     if (m.documentMessage) return 'document';
     return null;
+  }
+
+  /** Pin fixo ou localização ao vivo — preferimos pin fixo (locationMessage). */
+  private extractInboundLocation(msg: WAMessage): WaInboundLocation | null {
+    const m = normalizeMessageContent(msg.message);
+    if (!m) return null;
+    const loc = m.locationMessage ?? m.liveLocationMessage;
+    if (!loc) return null;
+    const lat = waCoordToDegrees(loc.degreesLatitude);
+    const lng = waCoordToDegrees(loc.degreesLongitude);
+    if (lat == null || lng == null || !isValidWaCoordinates(lat, lng)) return null;
+    const isLive = Boolean(m.liveLocationMessage && !m.locationMessage);
+    const locMsg = m.locationMessage;
+    return {
+      lat,
+      lng,
+      name: locMsg?.name?.trim() || undefined,
+      address: locMsg?.address?.trim() || undefined,
+      isLive,
+    };
   }
 
   private extractInboundMediaMime(msg: WAMessage, mediaType: InboxMessageMediaType): string | undefined {
@@ -2853,7 +2882,8 @@ export class WhatsAppService {
 
         const text = this.extractInboundText(msg);
         const mediaType = this.extractInboundMediaType(msg);
-        if ((!text && !mediaType) || !msg.key.remoteJid) continue;
+        const location = this.extractInboundLocation(msg);
+        if ((!text && !mediaType && !location) || !msg.key.remoteJid) continue;
 
         const contactKey = `${clientId}:${msg.key.remoteJid}`;
         const waMessageId = msg.key.id;
@@ -2885,7 +2915,7 @@ export class WhatsAppService {
             }
           }
 
-          if (!text && !mediaPayload) return;
+          if (!text && !mediaPayload && !location) return;
 
           if (text.trim().startsWith('!')) {
             let commandHandled = false;
@@ -2930,6 +2960,7 @@ export class WhatsAppService {
           this.serviceLogger.info('WA inbound recebido', {
             text: text.slice(0, 40),
             mediaType,
+            hasLocation: Boolean(location),
             remoteJid: msg.key.remoteJid,
             upsertType: m.type,
           });
@@ -2969,7 +3000,7 @@ export class WhatsAppService {
             await InboxService.getInstance().handleInboundMessage(
               clientId,
               msg.key.remoteJid!,
-              { text, media: mediaPayload, whatsappMessageId: waMessageId },
+              { text, media: mediaPayload, location, whatsappMessageId: waMessageId },
               msg.key.remoteJidAlt,
             );
           } catch (err) {

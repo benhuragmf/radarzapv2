@@ -85,6 +85,10 @@ export interface AiStructuredReply {
   collectedProblem?: string;
   collectedCpfCnpj?: string;
   collectedAddress?: string;
+  collectedPhone?: string;
+  collectedCompany?: string;
+  collectedDeliveryNotes?: string;
+  collectedPreferredSchedule?: string;
   collectedOrderNumber?: string;
   urgency?: 'low' | 'medium' | 'high';
   intent?: string;

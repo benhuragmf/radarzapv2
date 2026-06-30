@@ -56,6 +56,14 @@ export default function Settings({ user, onUserUpdate }: Props) {
         <Card>
           <MyProfilePanel user={user} />
         </Card>
+        {showCompanyProfile && (
+          <p className="text-xs text-[var(--rz-text-muted)] mt-3">
+            Endereço da empresa (CEP e entrega PIX):{' '}
+            <a href="#empresa" className="text-brand-400 hover:underline">
+              Dados da empresa ↓
+            </a>
+          </p>
+        )}
       </section>
 
       {showCompanyProfile && (

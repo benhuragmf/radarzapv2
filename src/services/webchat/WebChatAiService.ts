@@ -8,6 +8,9 @@ import { AiPromptBuilderService } from '@/services/ai/AiPromptBuilderService';
 import { AiAutoResolveService } from '@/services/ai/AiAutoResolveService';
 import { PlatformAiBlueprintService } from '@/services/ai/PlatformAiBlueprintService';
 import type { AiContactContext } from '@/services/ai/AiContextService';
+import { AiContextService } from '@/services/ai/AiContextService';
+import { Destination } from '@/models/Destination';
+import { WebChatConversation } from '@/models/WebChatConversation';
 import { AiEscalationService } from '@/services/ai/AiEscalationService';
 import { AiUsageMeterService } from '@/services/ai/AiUsageMeterService';
 import { estimateTypicalTurnCostUsd } from '@/constants/ai-model-catalog';
@@ -33,6 +36,7 @@ import {
   webChatPremiumAiAllowed,
   type AttendanceMode,
 } from '@/types/attendance-mode';
+import type { AiStructuredReply } from '@/types/ai-assistant';
 import {
   buildPremiumAiSafetySuffix,
   buildPremiumAiUngroundedReply,
@@ -154,23 +158,11 @@ export class WebChatAiService {
       body: m.body,
     }));
 
-    const contactContext: AiContactContext | undefined =
-      opts.visitorName ||
-      opts.visitorEmail ||
-      opts.visitorPhone ||
-      opts.contactReason
-        ? {
-            name: opts.visitorName,
-            email: opts.visitorEmail,
-            phone: opts.visitorPhone,
-            tags: opts.contactReason ? [opts.contactReason] : [],
-            recentTickets: [],
-            knownFields: {
-              name: Boolean(opts.visitorName?.trim()),
-              email: Boolean(opts.visitorEmail?.trim()),
-            },
-          }
-        : undefined;
+    const contactContext: AiContactContext | undefined = await this.resolveWebChatContactContext(
+      clientId,
+      conversationId,
+      opts,
+    );
 
     const lastInbound = [...rows].reverse().find(m => m.direction === 'inbound')?.body ?? '';
     const threadContext = buildWebChatThreadContext(messageRows);
@@ -299,12 +291,35 @@ export class WebChatAiService {
       const reply = result.structured.reply?.trim();
       if (!reply || provider.isUnusableClientReply(result.structured)) return null;
 
+      await this.persistWebChatCollectedData(clientId, conversationId, opts, result.structured);
+
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      const catalogSvc = CatalogSalesService.getInstance();
+      const conversation = await WebChatConversation.findById(conversationId)
+        .select('destinationId visitorName visitorEmail visitorPhone')
+        .lean();
+      const catalogTurn = await catalogSvc.processAiCatalogTurn({
+        clientId,
+        conversation: {
+          conversationId,
+          channel: 'webchat',
+          destinationId: conversation?.destinationId ? String(conversation.destinationId) : undefined,
+          contactIdentifier:
+            conversation?.visitorPhone ?? conversation?.visitorEmail ?? opts.visitorPhone,
+          contactName: conversation?.visitorName ?? opts.visitorName ?? 'Visitante',
+        },
+        clientText: lastInbound,
+        structured: result.structured,
+        aiSummary: result.structured.internalSummary,
+      });
+
       const factualGuard = guardPremiumAiFactualReply({
         reply,
         systemPrompt,
         companyName: (await Organization.findById(clientId).select('name').lean())?.name,
       });
-      const replyForClient = factualGuard.blocked ? factualGuard.reply : reply;
+      let replyForClient = factualGuard.blocked ? factualGuard.reply : reply;
+      replyForClient = catalogSvc.sanitizeAiReplyForCatalogQuote(replyForClient, catalogTurn);
 
       const shouldEscalate = resolveWebChatShouldEscalate({
         clientText: lastInbound,
@@ -375,6 +390,128 @@ export class WebChatAiService {
         error: (e as Error).message,
       });
       return null;
+    }
+  }
+
+  private async resolveWebChatContactContext(
+    clientId: string,
+    conversationId: string,
+    opts: {
+      visitorName?: string;
+      visitorEmail?: string;
+      visitorPhone?: string;
+      contactReason?: string;
+    },
+  ): Promise<AiContactContext | undefined> {
+    const conversation = await WebChatConversation.findById(conversationId)
+      .select('destinationId visitorName visitorEmail visitorPhone contactReason')
+      .lean();
+    const ctxSvc = AiContextService.getInstance();
+
+    if (conversation?.destinationId) {
+      const dest = await Destination.findOne({
+        _id: conversation.destinationId,
+        clientId: new mongoose.Types.ObjectId(clientId),
+        type: 'contact',
+      });
+      if (dest) return ctxSvc.buildContactContext(clientId, dest);
+    }
+
+    const phone = opts.visitorPhone?.trim() || conversation?.visitorPhone?.trim();
+    if (phone) {
+      const { resolveDestinationForCollectedData } = await import(
+        '@/services/contacts/contact-collected-data.service'
+      );
+      const dest = await resolveDestinationForCollectedData({
+        clientId,
+        visitorPhone: phone,
+        visitorName: opts.visitorName ?? conversation?.visitorName ?? undefined,
+        visitorEmail: opts.visitorEmail ?? conversation?.visitorEmail ?? undefined,
+      });
+      if (dest) return ctxSvc.buildContactContext(clientId, dest);
+    }
+
+    if (
+      opts.visitorName ||
+      opts.visitorEmail ||
+      opts.visitorPhone ||
+      opts.contactReason ||
+      conversation?.visitorName ||
+      conversation?.visitorEmail
+    ) {
+      return {
+        name: opts.visitorName ?? conversation?.visitorName,
+        email: opts.visitorEmail ?? conversation?.visitorEmail,
+        phone: opts.visitorPhone ?? conversation?.visitorPhone,
+        tags: (opts.contactReason ?? conversation?.contactReason)
+          ? [opts.contactReason ?? conversation?.contactReason ?? '']
+          : [],
+        recentTickets: [],
+        knownFields: {
+          name: Boolean((opts.visitorName ?? conversation?.visitorName)?.trim()),
+          email: Boolean((opts.visitorEmail ?? conversation?.visitorEmail)?.trim()),
+          address: false,
+        },
+      };
+    }
+    return undefined;
+  }
+
+  private async persistWebChatCollectedData(
+    clientId: string,
+    conversationId: string,
+    opts: {
+      visitorName?: string;
+      visitorEmail?: string;
+      visitorPhone?: string;
+    },
+    structured: Pick<
+      AiStructuredReply,
+      | 'collectedName'
+      | 'collectedEmail'
+      | 'collectedAddress'
+      | 'collectedPhone'
+      | 'collectedCompany'
+      | 'collectedDeliveryNotes'
+      | 'collectedPreferredSchedule'
+      | 'collectedCpfCnpj'
+      | 'catalogProductId'
+      | 'catalogProductName'
+      | 'shouldCreateCatalogOrder'
+      | 'internalSummary'
+    >,
+  ): Promise<void> {
+    const conversation = await WebChatConversation.findById(conversationId)
+      .select('destinationId visitorName visitorEmail visitorPhone')
+      .lean();
+    if (!conversation) return;
+
+    const { persistContactCollectedData } = await import(
+      '@/services/contacts/contact-collected-data.service'
+    );
+    const destId = await persistContactCollectedData({
+      clientId,
+      destinationId: conversation.destinationId ? String(conversation.destinationId) : undefined,
+      visitorPhone: opts.visitorPhone ?? conversation.visitorPhone ?? undefined,
+      visitorName: structured.collectedName ?? opts.visitorName ?? conversation.visitorName,
+      visitorEmail: structured.collectedEmail ?? opts.visitorEmail ?? conversation.visitorEmail,
+      fields: {
+        name: structured.collectedName,
+        email: structured.collectedEmail,
+        address: structured.collectedAddress,
+        phone: structured.collectedPhone,
+        organization: structured.collectedCompany,
+        deliveryNotes: structured.collectedDeliveryNotes,
+        preferredSchedule: structured.collectedPreferredSchedule,
+        taxDocument: structured.collectedCpfCnpj,
+      },
+    });
+
+    if (destId && !conversation.destinationId) {
+      await WebChatConversation.updateOne(
+        { _id: new mongoose.Types.ObjectId(conversationId) },
+        { $set: { destinationId: new mongoose.Types.ObjectId(destId) } },
+      );
     }
   }
 }

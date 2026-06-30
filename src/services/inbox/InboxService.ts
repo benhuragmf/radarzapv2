@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { IDestination, Destination } from '@/models/Destination';
 import { generateInboxTicketRef } from '@/utils/inbox-ticket-ref';
+import { resolveContactAddress } from '@/utils/contact-address.util';
 import { InboxTicket, IInboxTicket } from '@/models/InboxTicket';
 import { WebChatConversation } from '@/models/WebChatConversation';
 import { mapWebChatToInboxStatus } from '../webchat/webchat-inbox-bridge';
@@ -221,6 +222,13 @@ export interface InboxInboundPayload {
     mediaUrl: string;
     mediaMime?: string;
     whatsappMessageId?: string;
+  };
+  location?: {
+    lat: number;
+    lng: number;
+    name?: string;
+    address?: string;
+    isLive?: boolean;
   };
 }
 
@@ -2547,15 +2555,16 @@ export class InboxService {
     if (!channelOpen) return;
     if (dest.optOutConfirmPendingAt) return;
 
-    const trimmed = (normalized.text ?? '').trim();
+    let inboundText = (normalized.text ?? '').trim();
     const media = normalized.media;
+    const location = normalized.location;
 
-    if (trimmed && !media) {
-      const csatHandled = await this.tryHandleCsatReply(clientId, dest, trimmed);
+    if (inboundText && !media && !location) {
+      const csatHandled = await this.tryHandleCsatReply(clientId, dest, inboundText);
       if (csatHandled) return;
     }
 
-    if (!trimmed && !media) return;
+    if (!inboundText && !media && !location) return;
 
     const settings = await loadInboxSettings(clientId);
     const openHours = isWithinBusinessHours(
@@ -2580,16 +2589,68 @@ export class InboxService {
       });
     }
 
+    const { formatLocationLabel } = await import('@/utils/wa-location.util');
     const displayBody =
-      trimmed ||
-      (media ? INBOX_MEDIA_LABEL[media.mediaType] ?? 'Mídia recebida' : '');
+      inboundText ||
+      (location
+        ? formatLocationLabel(location.lat, location.lng, location.name)
+        : media
+          ? INBOX_MEDIA_LABEL[media.mediaType] ?? 'Mídia recebida'
+          : '');
+
+    if (!inboundText && location) {
+      inboundText = displayBody;
+    }
 
     await this.recordInbound(conversation, displayBody, clientId, {
-      mediaType: media?.mediaType,
+      mediaType: location ? 'location' : media?.mediaType,
       mediaUrl: media?.mediaUrl,
       mediaMime: media?.mediaMime,
+      locationLat: location?.lat,
+      locationLng: location?.lng,
       whatsappMessageId: normalized.whatsappMessageId ?? media?.whatsappMessageId,
     });
+
+    if (location) {
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      const catalogTurn = await CatalogSalesService.getInstance().handleInboundLocation({
+        clientId,
+        conversation: {
+          conversationId: String(conversation._id),
+          channel: 'whatsapp',
+          destinationId: String(dest._id),
+          contactIdentifier: conversation.contactIdentifier,
+          contactName: conversation.contactName,
+        },
+        location,
+      });
+      if (catalogTurn.serverQuoteSent || catalogTurn.quoteFailed || catalogTurn.needsAddressConfirmation) {
+        return;
+      }
+    }
+
+    if (inboundText?.trim() && !location) {
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      const streetConfirm = await CatalogSalesService.getInstance().handleInboundLocationStreetConfirm({
+        clientId,
+        conversation: {
+          conversationId: String(conversation._id),
+          channel: 'whatsapp',
+          destinationId: String(dest._id),
+          contactIdentifier: conversation.contactIdentifier,
+          contactName: conversation.contactName,
+        },
+        text: inboundText.trim(),
+      });
+      if (
+        streetConfirm.handled &&
+        (streetConfirm.serverQuoteSent ||
+          streetConfirm.quoteFailed ||
+          streetConfirm.needsAddressConfirmation)
+      ) {
+        return;
+      }
+    }
 
     if (media?.mediaUrl) {
       const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
@@ -2650,7 +2711,7 @@ export class InboxService {
             });
           });
       }
-    } else if (trimmed) {
+    } else if (inboundText) {
       const { loadInboundRegistrationPolicy, shouldAutoCaptureLead } = await import(
         '@/services/inbound/inbound-registration-policy.service'
       );
@@ -2690,8 +2751,8 @@ export class InboxService {
     }
 
     if (
-      trimmed &&
-      isNewServiceGreeting(trimmed) &&
+      inboundText &&
+      isNewServiceGreeting(inboundText) &&
       conversation.status === InboxConversationStatus.WAITING_QUEUE &&
       !conversation.assignedUserId
     ) {
@@ -2716,17 +2777,17 @@ export class InboxService {
       }
 
       if (attendanceMode === 'robotic') {
-        await this.handleStandardBotTriage(clientId, conversation, dest, trimmed, {
+        await this.handleStandardBotTriage(clientId, conversation, dest, inboundText, {
           isNew,
-          hasMedia: Boolean(media),
+          hasMedia: Boolean(media || location),
         });
         return;
       }
 
       if (attendanceMode === 'hybrid') {
-        await this.handleHybridBotTriage(clientId, conversation, dest, trimmed, {
+        await this.handleHybridBotTriage(clientId, conversation, dest, inboundText, {
           isNew,
-          hasMedia: Boolean(media),
+          hasMedia: Boolean(media || location),
         });
         return;
       }
@@ -2741,10 +2802,10 @@ export class InboxService {
             clientId,
             conversation,
             dest,
-            text: trimmed,
+            text: inboundText,
             isNew,
-            hasMedia: Boolean(media),
-            mediaType: media?.mediaType,
+            hasMedia: Boolean(media || location),
+            mediaType: location ? 'location' : media?.mediaType,
           },
           this,
         );
@@ -2757,10 +2818,10 @@ export class InboxService {
             clientId,
             conversation,
             dest,
-            text: trimmed,
+            text: inboundText,
             isNew,
-            hasMedia: Boolean(media),
-            mediaType: media?.mediaType,
+            hasMedia: Boolean(media || location),
+            mediaType: location ? 'location' : media?.mediaType,
           },
           this,
         );
@@ -2769,20 +2830,20 @@ export class InboxService {
         return;
       }
 
-      await this.handleStandardBotTriage(clientId, conversation, dest, trimmed, {
+      await this.handleStandardBotTriage(clientId, conversation, dest, inboundText, {
         isNew,
-        hasMedia: Boolean(media),
+        hasMedia: Boolean(media || location),
         forceMenu: forceStandardMenu,
       });
       return;
     }
 
-    if (trimmed && (await this.contactRecentlyReceivedInboxTriageMenu(clientId, dest._id as mongoose.Types.ObjectId))) {
-      const inboxChoice = await parseInboxMenuChoice(clientId, trimmed);
+    if (inboundText && (await this.contactRecentlyReceivedInboxTriageMenu(clientId, dest._id as mongoose.Types.ObjectId))) {
+      const inboxChoice = await parseInboxMenuChoice(clientId, inboundText);
       if (inboxChoice) {
         await this.releaseTicketsForInboxTriage(clientId, dest._id as mongoose.Types.ObjectId);
         await this.resetConversationForBotTriage(conversation);
-        await this.handleTriageReply(clientId, conversation, trimmed, dest);
+        await this.handleTriageReply(clientId, conversation, inboundText, dest);
       }
     }
   }
@@ -2988,10 +3049,12 @@ export class InboxService {
     conversation: IInboxConversation,
     body: string,
     clientId?: string,
-    opts?: {
+      opts?: {
       mediaType?: InboxMessageMediaType;
       mediaUrl?: string;
       mediaMime?: string;
+      locationLat?: number;
+      locationLng?: number;
       whatsappMessageId?: string;
     },
   ): Promise<void> {
@@ -3011,6 +3074,8 @@ export class InboxService {
         mediaType: opts?.mediaType,
         mediaUrl: opts?.mediaUrl,
         mediaMime: opts?.mediaMime,
+        locationLat: opts?.locationLat,
+        locationLng: opts?.locationLng,
         ...(waId?.trim() ? { whatsappMessageId: waId.trim() } : {}),
       });
     } catch (e) {
@@ -5038,7 +5103,7 @@ export class InboxService {
       this.buildContactContext(clientId, conv.destinationId, conv._id as mongoose.Types.ObjectId),
       Destination.findOne({ _id: conv.destinationId, clientId: conv.clientId })
         .select(
-          'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type',
+          'name email notes organization address deliveryAddress taxDocument identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type',
         )
         .lean(),
     ]);
@@ -5072,6 +5137,8 @@ export class InboxService {
             email: destination.email ?? '',
             notes: destination.notes ?? '',
             organization: destination.organization ?? '',
+            address: resolveContactAddress(destination) ?? '',
+            taxDocument: destination.taxDocument ?? '',
             identifier: destination.identifier,
             contactGroupIds: (destination.contactGroupIds ?? []).map(String),
             tags: destination.tags ?? [],

@@ -95,7 +95,11 @@ export class AiPromptBuilderService {
     if (prompt.collectEmail) collectFields.push('e-mail');
     if (prompt.collectProblem) collectFields.push('problema/dúvida');
     if (prompt.collectCpfCnpj) collectFields.push('CPF ou CNPJ');
-    if (prompt.collectAddress) collectFields.push('endereço');
+    if (prompt.collectAddress) collectFields.push('endereço completo');
+    if (prompt.collectPhone) collectFields.push('telefone/WhatsApp');
+    if (prompt.collectCompany) collectFields.push('empresa');
+    if (prompt.collectDeliveryNotes) collectFields.push('complemento ou ponto de referência');
+    if (prompt.collectPreferredSchedule) collectFields.push('horário preferido para entrega/visita');
     if (prompt.collectOrderNumber) collectFields.push('número do pedido');
     if (prompt.collectUrgency) collectFields.push('urgência');
 
@@ -103,9 +107,9 @@ export class AiPromptBuilderService {
     const catalogWantsAddress =
       catalogCfg.enabled &&
       catalogCfg.pixEnabled &&
-      (catalogCfg.forceCollectAddress === true || catalogCfg.requireDeliveryAddress === true);
-    if (catalogWantsAddress && !collectFields.includes('endereço')) {
-      collectFields.push('endereço');
+      catalogCfg.requireDeliveryAddress === true;
+    if (catalogWantsAddress && !collectFields.some(f => f.includes('endereço'))) {
+      collectFields.push('endereço completo ou pin de localização no WhatsApp');
     }
 
     const skipKnown = contactCtx ? ctxSvc.fieldsAlreadyKnown(contactCtx, prompt) : [];
@@ -176,7 +180,7 @@ export class AiPromptBuilderService {
                 )
               : '',
             catalogWantsAddress
-              ? 'Endereço de entrega é obrigatório antes do PIX — peça o CEP primeiro, depois o número; preencha collectedAddress completo (CEP, rua, número, bairro, cidade, UF, Brasil).'
+              ? 'Endereço obrigatório antes do PIX — peça CEP e número OU oriente o pin no WhatsApp; se o pin for impreciso o sistema pede rua e número — não informe frete.'
               : '',
           ]
             .filter(Boolean)
@@ -235,7 +239,7 @@ Politica comercial, catalogo e pagamento:
 2. Se o artigo tiver links, envie o link direto adequado ao produto, checkout ou rastreio — o cliente pode comprar pela loja sem fluxo PIX.
 3. Nunca invente estoque, valor, desconto, prazo ou disponibilidade. Se faltar dado na base, peca confirmacao ou escale.
 4. Se o cliente enviar comprovante/PIX por imagem, registre como anexo/coleta e transfira para Financeiro/humano quando for preciso confirmar baixa. Nao confirme pagamento apenas pela imagem sem integracao oficial.
-5. Para confirmar compra com PIX no chat (nao pelo link), preencha shouldCreateCatalogOrder=true, catalogProductId e catalogProductName. Se precisar de entrega, colete collectedAddress antes de orientar o PIX. Informe taxa de entrega cadastrada quando existir.
+5. Para confirmar compra com PIX no chat (nao pelo link), preencha shouldCreateCatalogOrder=true, catalogProductId e catalogProductName. Se precisar de endereco, colete collectedAddress antes do PIX. Com entrega por distancia ativa, NUNCA informe frete nem total — o sistema envia mensagem automatica com valores exatos.
 6. Se o cliente pedir link, loja ou site, priorize o link — nao force PIX nem shouldCreateCatalogOrder.
 ${catalogDeliveryBlock ? `\nConfiguracao comercial PIX/entrega da empresa:\n${catalogDeliveryBlock}\n` : ''}
 
@@ -259,6 +263,10 @@ JSON obrigatório:
   "collectedProblem": "",
   "collectedCpfCnpj": "",
   "collectedAddress": "",
+  "collectedPhone": "",
+  "collectedCompany": "",
+  "collectedDeliveryNotes": "",
+  "collectedPreferredSchedule": "",
   "collectedOrderNumber": "",
   "urgency": "low|medium|high|critical",
   "intent": "",

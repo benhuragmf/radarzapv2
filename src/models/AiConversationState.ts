@@ -14,6 +14,10 @@ export interface IAiConversationState extends Document {
   collectedProblem?: string;
   collectedCpfCnpj?: string;
   collectedAddress?: string;
+  collectedPhone?: string;
+  collectedCompany?: string;
+  collectedDeliveryNotes?: string;
+  collectedPreferredSchedule?: string;
   collectedOrderNumber?: string;
   urgency?: 'low' | 'medium' | 'high';
   summary?: string;
@@ -48,6 +52,10 @@ const AiConversationStateSchema = new Schema<IAiConversationState>(
     collectedProblem: { type: String, maxlength: 4000 },
     collectedCpfCnpj: { type: String, maxlength: 20 },
     collectedAddress: { type: String, maxlength: 500 },
+    collectedPhone: { type: String, maxlength: 40 },
+    collectedCompany: { type: String, maxlength: 120 },
+    collectedDeliveryNotes: { type: String, maxlength: 300 },
+    collectedPreferredSchedule: { type: String, maxlength: 120 },
     collectedOrderNumber: { type: String, maxlength: 80 },
     urgency: { type: String, enum: ['low', 'medium', 'high'] },
     summary: { type: String, maxlength: 4000 },

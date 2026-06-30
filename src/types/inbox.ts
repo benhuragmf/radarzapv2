@@ -13,4 +13,4 @@ export enum InboxConversationStatus {
 
 export type InboxMessageDirection = 'inbound' | 'outbound' | 'system' | 'internal';
 
-export type InboxMessageMediaType = 'image' | 'audio' | 'video' | 'document' | 'sticker';
+export type InboxMessageMediaType = 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location';

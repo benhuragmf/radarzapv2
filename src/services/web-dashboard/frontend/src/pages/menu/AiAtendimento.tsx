@@ -158,6 +158,10 @@ interface AiPayload {
     collectProblem: boolean
     collectCpfCnpj: boolean
     collectAddress: boolean
+    collectPhone: boolean
+    collectCompany: boolean
+    collectDeliveryNotes: boolean
+    collectPreferredSchedule: boolean
     collectOrderNumber: boolean
     collectUrgency: boolean
     collectAttachments: boolean
@@ -1347,36 +1351,112 @@ export default function AiAtendimento() {
       )}
 
       {tab === 'coleta' && (
-        <Card className="p-6 space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-          {(
-            [
-              ['collectName', 'Nome'],
-              ['collectEmail', 'E-mail'],
-              ['collectProblem', 'Problema'],
-              ['collectCpfCnpj', 'CPF/CNPJ'],
-              ['collectAddress', 'Endereço'],
-              ['collectOrderNumber', 'Número do pedido'],
-              ['collectUrgency', 'Urgência'],
-              ['collectAttachments', 'Anexos / fotos'],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2 text-sm">
+        <Card className="p-6 space-y-6">
+          <div>
+            <h3 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Dados do contato</h3>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {(
+                [
+                  ['collectName', 'Nome'],
+                  ['collectEmail', 'E-mail'],
+                  ['collectPhone', 'Telefone / WhatsApp'],
+                  ['collectCompany', 'Empresa'],
+                  ['collectCpfCnpj', 'CPF/CNPJ'],
+                  ['collectAddress', 'Endereço completo'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.prompt[key]}
+                    onChange={e => patchPrompt({ [key]: e.target.checked })}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-[var(--rz-text-secondary)] mb-3">Atendimento</h3>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {(
+                [
+                  ['collectProblem', 'Problema / motivo'],
+                  ['collectUrgency', 'Urgência'],
+                  ['collectOrderNumber', 'Número do pedido'],
+                  ['collectAttachments', 'Anexos / fotos'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.prompt[key]}
+                    onChange={e => patchPrompt({ [key]: e.target.checked })}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
+            <h3 className="text-sm font-medium">Entrega e logística</h3>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              Ative o requisito de entrega para pedidos PIX com endereço, frete por distância e cotação
+              automática pelo sistema (aba Empresa e catálogo).
+            </p>
+            <label className="flex items-center gap-2 text-sm font-medium">
               <input
                 type="checkbox"
-                checked={form.prompt[key]}
-                onChange={e => patchPrompt({ [key]: e.target.checked })}
+                checked={form.catalogSales?.requireDeliveryAddress === true}
+                onChange={e => {
+                  const on = e.target.checked
+                  updateCatalogSales({
+                    requireDeliveryAddress: on,
+                    forceCollectAddress: on,
+                    useDistanceBasedDelivery: on
+                      ? form.catalogSales?.useDistanceBasedDelivery
+                      : false,
+                  })
+                  patchPrompt({
+                    collectAddress: on ? true : form.prompt.collectAddress,
+                    collectDeliveryNotes: on ? true : form.prompt.collectDeliveryNotes,
+                  })
+                }}
               />
-              {label}
+              Requisito de entrega (obrigatório em pedidos PIX)
             </label>
-          ))}
+            <div
+              className={`grid sm:grid-cols-2 gap-3 pt-1 ${
+                form.catalogSales?.requireDeliveryAddress ? '' : 'opacity-50 pointer-events-none'
+              }`}
+            >
+              {(
+                [
+                  ['collectDeliveryNotes', 'Complemento / referência'],
+                  ['collectPreferredSchedule', 'Horário preferido'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.prompt[key]}
+                    onChange={e => patchPrompt({ [key]: e.target.checked })}
+                    disabled={!form.catalogSales?.requireDeliveryAddress}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {form.catalogSales?.requireDeliveryAddress && (
+              <p className="text-xs text-[var(--rz-text-muted)]">
+                No WhatsApp o cliente pode enviar o <strong>pin de localização fixa</strong> — o sistema
+                calcula o frete pela rota. Se o pin não tiver número confiável, pede rua e número antes de cotar
+                (sem a IA informar valores).
+              </p>
+            )}
           </div>
-          {(form.catalogSales?.forceCollectAddress || form.catalogSales?.requireDeliveryAddress) && (
-            <p className="text-xs text-amber-300/90">
-              Vendas PIX com entrega ativas — o endereço também entra em &quot;Dados a coletar&quot; no
-              prompt da IA.
-            </p>
-          )}
         </Card>
       )}
 
@@ -1681,29 +1761,17 @@ export default function AiAtendimento() {
                 />
                 Criar pedido ao cliente confirmar compra (PIX)
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm opacity-60">
                 <input
                   type="checkbox"
                   checked={catalogSales.requireDeliveryAddress === true}
-                  onChange={e => {
-                    const checked = e.target.checked
-                    updateCatalogSales({ requireDeliveryAddress: checked, forceCollectAddress: checked ? catalogSales.forceCollectAddress : false })
-                    if (checked) patchPrompt({ collectAddress: true })
-                  }}
+                  disabled
+                  readOnly
                 />
-                Exigir endereço de entrega nos pedidos PIX
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={catalogSales.forceCollectAddress === true}
-                  onChange={e => {
-                    const checked = e.target.checked
-                    updateCatalogSales({ forceCollectAddress: checked, requireDeliveryAddress: checked ? true : catalogSales.requireDeliveryAddress })
-                    if (checked) patchPrompt({ collectAddress: true })
-                  }}
-                />
-                Forçar coleta de endereço no prompt da IA
+                Requisito de entrega — configure em{' '}
+                <button type="button" className="text-brand-400 underline" onClick={() => setTab('coleta')}>
+                  Dados a coletar
+                </button>
               </label>
             </div>
 
@@ -1714,17 +1782,27 @@ export default function AiAtendimento() {
               placeholder="Instruções gerais de entrega/frete para a IA (opcional)."
             />
 
-            <div className="rounded-lg border border-[var(--rz-border)] p-3 space-y-3">
+            <div
+              className={`rounded-lg border border-[var(--rz-border)] p-3 space-y-3 ${
+                catalogSales.requireDeliveryAddress ? '' : 'opacity-50'
+              }`}
+            >
               <p className="text-sm font-medium">Entrega por distância (origem → cliente)</p>
+              {!catalogSales.requireDeliveryAddress && (
+                <p className="text-xs text-amber-300/90">
+                  Ative &quot;Requisito de entrega&quot; em Dados a coletar para liberar frete por km.
+                </p>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={catalogSales.useDistanceBasedDelivery === true}
+                  disabled={!catalogSales.requireDeliveryAddress}
                   onChange={e =>
                     updateCatalogSales({ useDistanceBasedDelivery: e.target.checked })
                   }
                 />
-                Calcular taxa de entrega por km (1 a 8)
+                Calcular taxa de entrega por km (1 a 8) — valores enviados pelo sistema, não pela IA
               </label>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-[var(--rz-text-muted)]">

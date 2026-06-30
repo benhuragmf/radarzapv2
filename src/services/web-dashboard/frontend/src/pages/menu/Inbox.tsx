@@ -141,6 +141,8 @@ interface InboxContactInfo {
   email: string
   notes: string
   organization: string
+  address?: string
+  taxDocument?: string
   identifier: string
   contactGroupIds: string[]
   tags?: string[]
@@ -195,6 +197,8 @@ function resolveInboxProfileContact(
     email,
     notes: contact?.notes ?? '',
     organization: contact?.organization ?? '',
+    address: contact?.address ?? '',
+    taxDocument: contact?.taxDocument ?? '',
     identifier: phone || contact?.identifier || email,
     contactGroupIds: contact?.contactGroupIds ?? [],
   }
@@ -1803,6 +1807,8 @@ export default function Inbox() {
             name: profileContact.name,
             email: profileContact.email,
             organization: profileContact.organization,
+            address: profileContact.address ?? '',
+            taxDocument: profileContact.taxDocument ?? '',
             notes: profileContact.notes,
             contactGroupIds: profileContact.contactGroupIds,
             contactKind: (detail?.contact?.classification?.kind ?? '') as ContactFormData['contactKind'],
@@ -1821,6 +1827,8 @@ export default function Inbox() {
                   identifier: data.identifier.trim() || undefined,
                   email: data.email.trim() || undefined,
                   organization: data.organization.trim() || undefined,
+                  address: data.address.trim() || undefined,
+                  taxDocument: data.taxDocument.trim() || undefined,
                   notes: data.notes.trim() || undefined,
                   contactGroupIds: data.contactGroupIds,
                   contactKind: data.contactKind || null,
@@ -1834,6 +1842,8 @@ export default function Inbox() {
                 name: data.name.trim(),
                 email: data.email.trim() || undefined,
                 organization: data.organization.trim() || undefined,
+                address: data.address.trim() || undefined,
+                taxDocument: data.taxDocument.trim() || undefined,
                 notes: data.notes.trim() || undefined,
                 contactGroupIds: data.contactGroupIds,
                 contactKind: data.contactKind || null,

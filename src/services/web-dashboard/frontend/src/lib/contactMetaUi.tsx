@@ -15,6 +15,8 @@ export interface ContactExtraFields {
   phoneType?: string
   birthday?: string
   email?: string
+  address?: string
+  taxDocument?: string
   tags?: string[]
   notes?: string
 }
@@ -43,6 +45,8 @@ export function ContactExtraMeta({
   const has =
     c.organization ||
     c.email ||
+    c.address ||
+    c.taxDocument ||
     c.birthday ||
     (c.tags?.length ?? 0) > 0 ||
     c.notes ||
@@ -80,6 +84,11 @@ export function ContactExtraMeta({
             {c.email}
           </span>
         )}
+        {c.address && (
+          <span className="truncate max-w-[180px]" title={c.address}>
+            📍 {c.address.split(',')[0]}
+          </span>
+        )}
         {c.birthday && (
           <span className="text-[var(--rz-text-muted)]">Aniv. {formatBirthdayDisplay(c.birthday)}</span>
         )}
@@ -106,6 +115,16 @@ export function ContactExtraMeta({
         {c.email && (
           <span className="truncate max-w-[220px]">
             <span className="text-[var(--rz-text-muted)]">E-mail:</span> {c.email}
+          </span>
+        )}
+        {c.address && (
+          <span className="truncate max-w-[280px]" title={c.address}>
+            <span className="text-[var(--rz-text-muted)]">Endereço:</span> {c.address}
+          </span>
+        )}
+        {c.taxDocument && (
+          <span>
+            <span className="text-[var(--rz-text-muted)]">CPF/CNPJ:</span> {c.taxDocument}
           </span>
         )}
         {c.birthday && (

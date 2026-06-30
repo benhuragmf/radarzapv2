@@ -7,6 +7,8 @@ import { Building2, Save } from 'lucide-react'
 import { can, type AuthUser } from '../../lib/auth'
 import { notifyError, notifySuccess, notifyInfo, mutationError } from '../../lib/notify'
 import { inputCls, LoadingState } from '@/design-system'
+import { DeliveryOriginAddressFields } from '../catalog/DeliveryOriginAddressFields'
+import { deliveryAddressValidationError } from '@radarzap-types/catalog-delivery-address'
 
 interface OrgProfile {
   name: string
@@ -55,6 +57,7 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
       qc.invalidateQueries({ queryKey: ['organization-profile'] })
       qc.invalidateQueries({ queryKey: ['billing-me'] })
       qc.invalidateQueries({ queryKey: ['platform-account-stats'] })
+      qc.invalidateQueries({ queryKey: ['ai-settings'] })
       notifySuccess('Dados da empresa salvos.')
     },
     onError: mutationError,
@@ -124,14 +127,17 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Endereço</label>
-          <input
+          <label className="text-xs text-[var(--rz-text-muted)] block mb-1">Endereço da empresa</label>
+          <DeliveryOriginAddressFields
             value={form.address}
-            onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+            onChange={address => setForm(f => ({ ...f, address }))}
+            showValidation={Boolean(form.address.trim())}
             disabled={!canEdit}
-            className={inputCls}
-            placeholder="Rua, cidade, estado"
+            inputClassName={inputCls}
           />
+          <p className="text-xs text-[var(--rz-text-muted)] mt-1">
+            Usado no cadastro da empresa e como origem do cálculo de entrega (vendas PIX).
+          </p>
         </div>
       </div>
 
@@ -142,7 +148,21 @@ export function CompanyProfilePanel({ user }: { user: AuthUser }) {
       )}
 
       {canEdit && (
-        <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending || !form.name.trim()}>
+        <Button
+          size="sm"
+          onClick={() => {
+            const addr = form.address.trim()
+            if (addr) {
+              const err = deliveryAddressValidationError(addr)
+              if (err) {
+                notifyError(err)
+                return
+              }
+            }
+            save.mutate()
+          }}
+          disabled={save.isPending || !form.name.trim()}
+        >
           {save.isPending ? <Spinner size={14} /> : <Save size={14} />}
           Salvar empresa
         </Button>

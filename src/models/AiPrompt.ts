@@ -36,6 +36,10 @@ export interface IAiPrompt extends Document {
   collectProblem: boolean;
   collectCpfCnpj: boolean;
   collectAddress: boolean;
+  collectPhone: boolean;
+  collectCompany: boolean;
+  collectDeliveryNotes: boolean;
+  collectPreferredSchedule: boolean;
   collectOrderNumber: boolean;
   collectUrgency: boolean;
   collectAttachments: boolean;
@@ -65,6 +69,10 @@ const AiPromptSchema = new Schema<IAiPrompt>(
     collectProblem: { type: Boolean, default: true },
     collectCpfCnpj: { type: Boolean, default: false },
     collectAddress: { type: Boolean, default: false },
+    collectPhone: { type: Boolean, default: false },
+    collectCompany: { type: Boolean, default: false },
+    collectDeliveryNotes: { type: Boolean, default: false },
+    collectPreferredSchedule: { type: Boolean, default: false },
     collectOrderNumber: { type: Boolean, default: false },
     collectUrgency: { type: Boolean, default: true },
     collectAttachments: { type: Boolean, default: true },

@@ -33,4 +33,5 @@ export const INBOX_MEDIA_LABEL: Record<string, string> = {
   audio: '🎵 Áudio',
   sticker: '🎭 Sticker',
   document: '📎 Documento',
+  location: '📍 Localização',
 };

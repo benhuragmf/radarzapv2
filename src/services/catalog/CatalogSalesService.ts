@@ -15,7 +15,10 @@ import {
   type CatalogSalesCompanyConfig,
   type CatalogSalesOrderStatus,
   DEFAULT_CATALOG_CUSTOMER_APPROVE_MESSAGE,
+  DEFAULT_CATALOG_CUSTOMER_DELIVERY_QUOTE_FAILED_MESSAGE,
+  DEFAULT_CATALOG_CUSTOMER_DELIVERY_QUOTE_MESSAGE,
   DEFAULT_CATALOG_CUSTOMER_NEW_PROOF_MESSAGE,
+  DEFAULT_CATALOG_CUSTOMER_LOCATION_CONFIRM_MESSAGE,
   DEFAULT_CATALOG_CUSTOMER_REJECT_MESSAGE,
   buildOrderAmountSummary,
   isValidCatalogSalesPhone,
@@ -34,8 +37,17 @@ import {
 } from '@/types/catalog-sales';
 import {
   estimateDeliveryFromAddresses,
+  estimateDeliveryToCoordinates,
+  buildAddressLabelFromLocation,
+  reverseGeocodeCoords,
+  locationAddressNeedsConfirmation,
+  mergeLocationConfirmReply,
+  locationAreaHint,
   normalizeKmRates,
+  sanitizeAiReplyWhenServerQuotedDelivery,
 } from '@/utils/catalog-delivery.util';
+import type { WaInboundLocation } from '@/utils/wa-location.util';
+import { isValidWaCoordinates } from '@/utils/wa-location.util';
 import { deliveryAddressValidationError, isCompleteDeliveryAddress } from '@/types/catalog-delivery-address';
 
 const logger = createServiceLogger('CatalogSalesService');
@@ -64,6 +76,14 @@ export interface CatalogSalesConversationRef {
   destinationId?: string;
   contactIdentifier?: string;
   contactName?: string;
+}
+
+export interface CatalogAiTurnResult {
+  serverQuoteSent: boolean;
+  quoteFailed: boolean;
+  useDistanceBasedDelivery: boolean;
+  needsAddressConfirmation?: boolean;
+  handled?: boolean;
 }
 
 export class CatalogSalesService {
@@ -97,6 +117,11 @@ export class CatalogSalesService {
       throw new Error('WhatsApp responsável inválido. Use DDI, ex.: 5566999999999');
     }
     if (normalized.useDistanceBasedDelivery) {
+      if (!normalized.requireDeliveryAddress) {
+        throw new Error(
+          'Ative "Requisito de entrega" em Dados a coletar antes de usar frete por distância.',
+        );
+      }
       const originErr = deliveryAddressValidationError(normalized.deliveryOriginAddress);
       if (originErr) {
         throw new Error(
@@ -104,10 +129,13 @@ export class CatalogSalesService {
         );
       }
     }
+    if (!normalized.requireDeliveryAddress) {
+      normalized.useDistanceBasedDelivery = false;
+    }
+
     await Organization.findByIdAndUpdate(clientId, { $set: { catalogSales: normalized } });
 
-    const shouldSyncAddressCollect =
-      normalized.forceCollectAddress === true || normalized.requireDeliveryAddress === true;
+    const shouldSyncAddressCollect = normalized.requireDeliveryAddress === true;
     if (shouldSyncAddressCollect) {
       const { AiPrompt } = await import('@/models/AiPrompt');
       await AiPrompt.updateOne(
@@ -131,6 +159,41 @@ export class CatalogSalesService {
     };
     if (productId) filter.productId = new mongoose.Types.ObjectId(productId);
     return CatalogSalesOrder.findOne(filter).sort({ updatedAt: -1 });
+  }
+
+  /** Pós-turno IA: pedido + cotação de frete pelo servidor (não pela IA). */
+  async processAiCatalogTurn(opts: {
+    clientId: string;
+    conversation: CatalogSalesConversationRef;
+    clientText: string;
+    structured: AiStructuredReply;
+    aiSummary?: string;
+  }): Promise<CatalogAiTurnResult> {
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    await this.maybeCreateOrderFromAiTurn(opts);
+
+    const quoteResult = await this.maybeUpdateOrderFromAiTurn({
+      clientId: opts.clientId,
+      conversationId: opts.conversation.conversationId,
+      structured: { collectedAddress: opts.structured.collectedAddress },
+    });
+
+    return {
+      serverQuoteSent: quoteResult.quoteSent,
+      quoteFailed: quoteResult.quoteFailed,
+      useDistanceBasedDelivery: Boolean(cfg.useDistanceBasedDelivery),
+    };
+  }
+
+  sanitizeAiReplyForCatalogQuote(
+    reply: string,
+    catalogTurn: CatalogAiTurnResult,
+  ): string {
+    return sanitizeAiReplyWhenServerQuotedDelivery(reply, {
+      serverQuoteSent: catalogTurn.serverQuoteSent,
+      quoteFailed: catalogTurn.quoteFailed,
+      useDistanceBasedDelivery: catalogTurn.useDistanceBasedDelivery,
+    });
   }
 
   async maybeCreateOrderFromAiTurn(opts: {
@@ -220,19 +283,66 @@ export class CatalogSalesService {
     });
   }
 
-  /** Atualiza endereço em pedido pendente e avança para aguardando pagamento. */
+  /** Atualiza endereço em pedido pendente; calcula frete no servidor e envia cotação ao cliente. */
   async maybeAttachAddressToOrder(
     order: ICatalogSalesOrder,
     collectedAddress?: string,
     companyCfg?: CatalogSalesCompanyConfig,
     productMeta?: ReturnType<typeof normalizeProductSalesMeta>,
-  ): Promise<void> {
+  ): Promise<{ quoteSent: boolean; quoteFailed: boolean }> {
     const addr = collectedAddress?.trim();
-    if (!addr || order.status !== 'aguardando_endereco') return;
-    order.deliveryAddress = addr.slice(0, 500);
+    if (!addr || order.status !== 'aguardando_endereco') {
+      return { quoteSent: false, quoteFailed: false };
+    }
+
+    let resolvedAddr = addr;
+    if (order.deliveryLocationPendingConfirm) {
+      const lat = order.deliveryLocationLat;
+      const lng = order.deliveryLocationLng;
+      const reverse =
+        lat != null && lng != null && isValidWaCoordinates(lat, lng)
+          ? await reverseGeocodeCoords(lat, lng)
+          : null;
+      const merged = mergeLocationConfirmReply(addr, reverse);
+      if (!merged) {
+        return { quoteSent: false, quoteFailed: false };
+      }
+      resolvedAddr = merged;
+      order.deliveryLocationPendingConfirm = false;
+    }
+
+    order.deliveryAddress = resolvedAddr.slice(0, 500);
     const cfg =
       companyCfg ?? (await this.loadCompanyConfig(String(order.clientId)));
-    await this.applyDeliveryEstimateToOrder(order, cfg, productMeta);
+
+    let quoteOk = true;
+    if (cfg.useDistanceBasedDelivery) {
+      quoteOk = await this.applyDeliveryEstimateToOrder(order, cfg, productMeta);
+      if (!quoteOk) {
+        order.status = 'aguardando_endereco';
+        order.history.push({
+          at: new Date(),
+          action: 'delivery_quote_failed',
+          status: 'aguardando_endereco',
+        });
+        await order.save();
+        await this.sendDeliveryQuoteToCustomer(order, cfg, 'failed');
+        void import('@/services/contacts/contact-collected-data.service').then(({ persistContactCollectedData }) =>
+          persistContactCollectedData({
+            clientId: String(order.clientId),
+            destinationId: order.destinationId ? String(order.destinationId) : undefined,
+            contactPhone: order.channel === 'whatsapp' ? order.contactIdentifier : undefined,
+            visitorPhone: order.channel === 'webchat' ? order.contactIdentifier : undefined,
+            visitorName: order.contactName,
+            fields: { address: order.deliveryAddress },
+          }),
+        );
+        return { quoteSent: false, quoteFailed: true };
+      }
+    } else {
+      await this.applyDeliveryEstimateToOrder(order, cfg, productMeta);
+    }
+
     order.status = 'aguardando_pagamento';
     order.history.push({
       at: new Date(),
@@ -240,62 +350,287 @@ export class CatalogSalesService {
       status: 'aguardando_pagamento',
     });
     await order.save();
+
+    void import('@/services/contacts/contact-collected-data.service').then(({ persistContactCollectedData }) =>
+      persistContactCollectedData({
+        clientId: String(order.clientId),
+        destinationId: order.destinationId ? String(order.destinationId) : undefined,
+        contactPhone: order.channel === 'whatsapp' ? order.contactIdentifier : undefined,
+        visitorPhone: order.channel === 'webchat' ? order.contactIdentifier : undefined,
+        visitorName: order.contactName,
+        fields: { address: order.deliveryAddress },
+      }),
+    );
+
+    if (cfg.useDistanceBasedDelivery) {
+      await this.sendDeliveryQuoteToCustomer(order, cfg, 'success');
+      return { quoteSent: true, quoteFailed: false };
+    }
+    return { quoteSent: false, quoteFailed: false };
   }
 
   private async applyDeliveryEstimateToOrder(
     order: ICatalogSalesOrder,
     cfg: CatalogSalesCompanyConfig,
-    productMeta?: ReturnType<typeof normalizeProductSalesMeta>,
-  ): Promise<void> {
-    if (!cfg.useDistanceBasedDelivery) return;
+    _productMeta?: ReturnType<typeof normalizeProductSalesMeta>,
+  ): Promise<boolean> {
+    if (!cfg.useDistanceBasedDelivery) return true;
     const origin = cfg.deliveryOriginAddress?.trim();
-    const dest = order.deliveryAddress?.trim();
-    if (!origin || !dest) return;
-    if (deliveryAddressValidationError(origin) || deliveryAddressValidationError(dest)) {
-      logger.warn('Endereço incompleto — cálculo de entrega por distância ignorado', {
+    if (!origin || deliveryAddressValidationError(origin)) {
+      logger.warn('Origem da empresa inválida — cálculo de entrega ignorado', {
         clientId: String(order.clientId),
         orderId: String(order._id),
-        hasOriginError: Boolean(deliveryAddressValidationError(origin)),
-        hasDestError: Boolean(deliveryAddressValidationError(dest)),
       });
-      return;
+      return false;
     }
 
     const rates = normalizeKmRates(cfg.deliveryKmRates);
-    const estimate = await estimateDeliveryFromAddresses({
-      originAddress: origin,
-      destinationAddress: dest,
-      rates,
-      countryCode: 'Brasil',
-    });
-    if (!estimate) return;
+    const dest = order.deliveryAddress?.trim();
+    const addressComplete = Boolean(dest && !deliveryAddressValidationError(dest));
+    const destLat = order.deliveryLocationLat;
+    const destLng = order.deliveryLocationLng;
+    const hasCoords =
+      destLat != null &&
+      destLng != null &&
+      isValidWaCoordinates(destLat, destLng) &&
+      !order.deliveryLocationPendingConfirm;
+
+    let estimate = addressComplete
+      ? await estimateDeliveryFromAddresses({
+          originAddress: origin,
+          destinationAddress: dest!,
+          rates,
+          countryCode: 'Brasil',
+        })
+      : null;
+
+    if (!estimate && hasCoords) {
+      estimate = await estimateDeliveryToCoordinates({
+        originAddress: origin,
+        destLat,
+        destLng: destLng!,
+        rates,
+        countryCode: 'Brasil',
+      });
+    }
+
+    if (!estimate && !addressComplete) {
+      const fallbackDest = order.deliveryAddress?.trim();
+      if (fallbackDest && !deliveryAddressValidationError(fallbackDest)) {
+        estimate = await estimateDeliveryFromAddresses({
+          originAddress: origin,
+          destinationAddress: fallbackDest,
+          rates,
+          countryCode: 'Brasil',
+        });
+      }
+    }
+
+    if (!estimate || !estimate.deliveryFee?.trim()) {
+      logger.warn('Cotação de entrega indisponível — geocoding, rota ou faixa sem taxa', {
+        clientId: String(order.clientId),
+        orderId: String(order._id),
+        hasEstimate: Boolean(estimate),
+        tierKm: estimate?.tierKm,
+        usedCoords: destLat != null && destLng != null,
+      });
+      return false;
+    }
 
     order.deliveryDistanceKm = estimate.distanceKm;
     order.deliveryTierKm = estimate.tierKm;
+    order.deliveryDistanceMethod = estimate.distanceMethod;
+    order.deliveryFee = estimate.deliveryFee;
+    const subtotal = order.subtotalAmount ?? order.amount;
+    order.totalAmount = buildOrderAmountSummary(subtotal ?? undefined, estimate.deliveryFee);
+    order.amount = order.totalAmount;
 
-    if (estimate.deliveryFee) {
-      order.deliveryFee = estimate.deliveryFee;
-      const subtotal = order.subtotalAmount ?? order.amount;
-      order.totalAmount = buildOrderAmountSummary(subtotal ?? undefined, estimate.deliveryFee);
-      order.amount = order.totalAmount;
-    } else if (productMeta?.deliveryFee?.trim()) {
-      order.deliveryFee = productMeta.deliveryFee.trim();
+    void AttendanceEvent.create({
+      clientId: order.clientId,
+      kind: 'catalog_sales.delivery_quoted',
+      conversationId: order.conversationId,
+      meta: {
+        orderId: String(order._id),
+        distanceKm: estimate.distanceKm,
+        tierKm: estimate.tierKm,
+        deliveryFee: estimate.deliveryFee,
+        distanceMethod: estimate.distanceMethod,
+        usedGps: destLat != null && destLng != null,
+      },
+    }).catch(() => undefined);
+
+    return true;
+  }
+
+  /** Pin de localização WhatsApp → endereço + frete calculado pelo servidor. */
+  async handleInboundLocation(opts: {
+    clientId: string;
+    conversation: CatalogSalesConversationRef;
+    location: WaInboundLocation;
+  }): Promise<CatalogAiTurnResult> {
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    const useDistance = Boolean(cfg.useDistanceBasedDelivery);
+    const { lat, lng } = opts.location;
+
+    if (!isValidWaCoordinates(lat, lng)) {
+      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance };
     }
+
+    const reverse = await reverseGeocodeCoords(lat, lng);
+    const addressLabel = buildAddressLabelFromLocation({
+      reverseDisplayName: reverse?.displayName,
+      waName: opts.location.name,
+      waAddress: opts.location.address,
+      lat,
+      lng,
+    });
+
+    void import('@/services/contacts/contact-collected-data.service').then(({ persistContactCollectedData }) =>
+      persistContactCollectedData({
+        clientId: opts.clientId,
+        destinationId: opts.conversation.destinationId,
+        contactPhone: opts.conversation.channel === 'whatsapp' ? opts.conversation.contactIdentifier : undefined,
+        visitorPhone: opts.conversation.channel === 'webchat' ? opts.conversation.contactIdentifier : undefined,
+        visitorName: opts.conversation.contactName,
+        fields: {
+          address: addressLabel,
+          locationLat: lat,
+          locationLng: lng,
+        },
+      }),
+    );
+
+    if (!cfg.requireDeliveryAddress) {
+      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance };
+    }
+
+    const order = await CatalogSalesOrder.findOne({
+      clientId: new mongoose.Types.ObjectId(opts.clientId),
+      conversationId: new mongoose.Types.ObjectId(opts.conversation.conversationId),
+      status: 'aguardando_endereco',
+    }).sort({ updatedAt: -1 });
+
+    if (!order) {
+      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance };
+    }
+
+    order.deliveryLocationLat = lat;
+    order.deliveryLocationLng = lng;
+    order.deliveryAddress = addressLabel.slice(0, 500);
+
+    const needsConfirm = locationAddressNeedsConfirmation({
+      reverse,
+      waAddress: opts.location.address,
+      addressLabel,
+      isLive: opts.location.isLive,
+    });
+
+    if (needsConfirm) {
+      order.deliveryLocationPendingConfirm = true;
+      order.status = 'aguardando_endereco';
+      order.history.push({
+        at: new Date(),
+        action: 'location_pending_confirm',
+        status: 'aguardando_endereco',
+        note: locationAreaHint(reverse) || 'pin',
+      });
+      await order.save();
+      await this.sendLocationConfirmRequestToCustomer(order, cfg, reverse);
+      return {
+        serverQuoteSent: false,
+        quoteFailed: false,
+        useDistanceBasedDelivery: useDistance,
+        needsAddressConfirmation: true,
+        handled: true,
+      };
+    }
+
+    order.deliveryLocationPendingConfirm = false;
+
+    const quoteOk = await this.applyDeliveryEstimateToOrder(order, cfg);
+    if (!quoteOk) {
+      order.status = 'aguardando_endereco';
+      order.history.push({
+        at: new Date(),
+        action: 'delivery_quote_failed',
+        status: 'aguardando_endereco',
+        note: 'localização',
+      });
+      await order.save();
+      await this.sendDeliveryQuoteToCustomer(order, cfg, 'failed');
+      return { serverQuoteSent: false, quoteFailed: true, useDistanceBasedDelivery: useDistance };
+    }
+
+    order.status = 'aguardando_pagamento';
+    order.history.push({
+      at: new Date(),
+      action: 'location_collected',
+      status: 'aguardando_pagamento',
+    });
+    await order.save();
+    await this.sendDeliveryQuoteToCustomer(order, cfg, 'success');
+    return { serverQuoteSent: true, quoteFailed: false, useDistanceBasedDelivery: useDistance };
+  }
+
+  /** Resposta em texto após pedido de confirmação de rua/número (pin impreciso). */
+  async handleInboundLocationStreetConfirm(opts: {
+    clientId: string;
+    conversation: CatalogSalesConversationRef;
+    text: string;
+  }): Promise<CatalogAiTurnResult> {
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    const useDistance = Boolean(cfg.useDistanceBasedDelivery);
+    const text = opts.text.trim();
+    if (!text) {
+      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance, handled: false };
+    }
+
+    const order = await CatalogSalesOrder.findOne({
+      clientId: new mongoose.Types.ObjectId(opts.clientId),
+      conversationId: new mongoose.Types.ObjectId(opts.conversation.conversationId),
+      status: 'aguardando_endereco',
+      deliveryLocationPendingConfirm: true,
+    }).sort({ updatedAt: -1 });
+
+    if (!order) {
+      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance, handled: false };
+    }
+
+    const wasPending = Boolean(order.deliveryLocationPendingConfirm);
+    const quoteResult = await this.maybeAttachAddressToOrder(order, text, cfg);
+
+    if (wasPending && order.deliveryLocationPendingConfirm) {
+      await this.sendLocationConfirmRetryToCustomer(order, cfg);
+      return {
+        serverQuoteSent: false,
+        quoteFailed: false,
+        useDistanceBasedDelivery: useDistance,
+        needsAddressConfirmation: true,
+        handled: true,
+      };
+    }
+
+    return {
+      serverQuoteSent: quoteResult.quoteSent,
+      quoteFailed: quoteResult.quoteFailed,
+      useDistanceBasedDelivery: useDistance,
+      handled: true,
+    };
   }
 
   async maybeUpdateOrderFromAiTurn(opts: {
     clientId: string;
     conversationId: string;
     structured: { collectedAddress?: string };
-  }): Promise<void> {
+  }): Promise<{ quoteSent: boolean; quoteFailed: boolean }> {
     const order = await CatalogSalesOrder.findOne({
       clientId: new mongoose.Types.ObjectId(opts.clientId),
       conversationId: new mongoose.Types.ObjectId(opts.conversationId),
       status: 'aguardando_endereco',
     }).sort({ updatedAt: -1 });
-    if (!order) return;
+    if (!order) return { quoteSent: false, quoteFailed: false };
     const cfg = await this.loadCompanyConfig(opts.clientId);
-    await this.maybeAttachAddressToOrder(order, opts.structured.collectedAddress, cfg);
+    return this.maybeAttachAddressToOrder(order, opts.structured.collectedAddress, cfg);
   }
 
   private async resolveProductForOrder(clientId: string, productId: string) {
@@ -378,8 +713,21 @@ export class CatalogSalesService {
 
     if (opts.deliveryAddress?.trim()) {
       const cfg = await this.loadCompanyConfig(opts.clientId);
-      await this.applyDeliveryEstimateToOrder(order, cfg);
-      await order.save();
+      if (cfg.useDistanceBasedDelivery) {
+        const quoteOk = await this.applyDeliveryEstimateToOrder(order, cfg);
+        if (quoteOk) {
+          order.status = 'aguardando_pagamento';
+          await order.save();
+          await this.sendDeliveryQuoteToCustomer(order, cfg, 'success');
+        } else {
+          order.status = 'aguardando_endereco';
+          await order.save();
+          await this.sendDeliveryQuoteToCustomer(order, cfg, 'failed');
+        }
+      } else {
+        await this.applyDeliveryEstimateToOrder(order, cfg);
+        await order.save();
+      }
     }
 
     await this.markConversationOrder(opts.clientId, opts.conversation, order._id as mongoose.Types.ObjectId, false);
@@ -835,6 +1183,145 @@ export class CatalogSalesService {
     const cfg = await this.loadCompanyConfig(clientId);
     await this.notifyCustomerPaymentUpdate(clientId, order, 'request_new_proof', cfg);
     return order;
+  }
+
+  private async sendLocationConfirmRequestToCustomer(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+    reverse: Awaited<ReturnType<typeof reverseGeocodeCoords>>,
+  ): Promise<void> {
+    const area = locationAreaHint(reverse);
+    const areaHint = area ? `Região detectada: *${area}*.\n\n` : '';
+    const text = renderCatalogCustomerMessage(
+      cfg.customerLocationConfirmMessage?.trim() || DEFAULT_CATALOG_CUSTOMER_LOCATION_CONFIRM_MESSAGE,
+      { areaHint },
+    );
+    await this.sendCatalogAutomatedCustomerMessage(order, text, 'catalog-sales-location-confirm');
+  }
+
+  private async sendLocationConfirmRetryToCustomer(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+  ): Promise<void> {
+    const text =
+      'Não consegui identificar a rua e o número. Envie no formato: *Rua das Flores, 123* (ou o endereço completo com CEP).';
+    await this.sendCatalogAutomatedCustomerMessage(order, text, 'catalog-sales-location-retry');
+  }
+
+  private async sendCatalogAutomatedCustomerMessage(
+    order: ICatalogSalesOrder,
+    text: string,
+    consentOrigin: string,
+  ): Promise<void> {
+    if (!text.trim()) return;
+    try {
+      if (order.channel === 'whatsapp' && order.contactIdentifier?.trim()) {
+        await WhatsAppService.getInstance().sendManualMessage(
+          String(order.clientId),
+          order.contactIdentifier.trim(),
+          text,
+          undefined,
+          {
+            skipConsentCheck: true,
+            consentOrigin,
+            sendKind: 'conversation',
+          },
+        );
+        return;
+      }
+      if (order.channel === 'webchat') {
+        const { WebChatService } = await import('@/services/webchat/WebChatService');
+        await WebChatService.getInstance().sendCatalogAutomatedReply(
+          String(order.clientId),
+          String(order.conversationId),
+          text,
+        );
+      }
+    } catch (err) {
+      logger.warn('Falha ao enviar mensagem automática catálogo ao cliente', {
+        clientId: String(order.clientId),
+        orderId: String(order._id),
+        consentOrigin,
+        err,
+      });
+    }
+  }
+
+  private async sendDeliveryQuoteToCustomer(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+    kind: 'success' | 'failed',
+  ): Promise<void> {
+    const text =
+      kind === 'failed'
+        ? renderCatalogCustomerMessage(
+            cfg.customerDeliveryQuoteFailedMessage?.trim() ||
+              DEFAULT_CATALOG_CUSTOMER_DELIVERY_QUOTE_FAILED_MESSAGE,
+            {},
+          )
+        : this.buildDeliveryQuoteMessage(order, cfg);
+    if (!text) return;
+
+    try {
+      if (order.channel === 'whatsapp' && order.contactIdentifier?.trim()) {
+        await WhatsAppService.getInstance().sendManualMessage(
+          String(order.clientId),
+          order.contactIdentifier.trim(),
+          text,
+          undefined,
+          {
+            skipConsentCheck: true,
+            consentOrigin: 'catalog-sales-delivery-quote',
+            sendKind: 'conversation',
+          },
+        );
+        return;
+      }
+      if (order.channel === 'webchat') {
+        const { WebChatService } = await import('@/services/webchat/WebChatService');
+        await WebChatService.getInstance().sendCatalogAutomatedReply(
+          String(order.clientId),
+          String(order.conversationId),
+          text,
+        );
+      }
+    } catch (err) {
+      logger.warn('Falha ao enviar cotação de entrega ao cliente', {
+        clientId: String(order.clientId),
+        orderId: String(order._id),
+        kind,
+        err,
+      });
+    }
+  }
+
+  private buildDeliveryQuoteMessage(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+  ): string {
+    const template =
+      cfg.customerDeliveryQuoteMessage?.trim() ||
+      DEFAULT_CATALOG_CUSTOMER_DELIVERY_QUOTE_MESSAGE;
+    const pixBlock = cfg.pixInstructions?.trim()
+      ? `*Pagamento PIX:*\n${cfg.pixInstructions.trim()}`
+      : '';
+    const distanceMethodLabel =
+      order.deliveryDistanceMethod === 'road'
+        ? ' pela rota'
+        : order.deliveryDistanceMethod === 'haversine'
+          ? ' (estimativa)'
+          : '';
+    return renderCatalogCustomerMessage(template, {
+      productName: order.productName,
+      subtotalAmount: order.subtotalAmount ?? order.amount ?? '—',
+      deliveryFee: order.deliveryFee ?? '—',
+      deliveryDistanceKm:
+        order.deliveryDistanceKm != null ? String(order.deliveryDistanceKm) : '—',
+      deliveryTierKm: order.deliveryTierKm != null ? String(order.deliveryTierKm) : '—',
+      totalAmount: order.totalAmount ?? order.amount ?? '—',
+      distanceMethodLabel,
+      pixInstructions: pixBlock,
+    });
   }
 
   private async notifyCustomerPaymentUpdate(

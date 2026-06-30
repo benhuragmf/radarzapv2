@@ -3,7 +3,10 @@
 import {
   CATALOG_DELIVERY_ADDRESS_HINT,
   deliveryAddressValidationError,
+  formatDeliveryAddress,
+  isCompleteDeliveryAddress,
   normalizeAddressForGeocode,
+  parseDeliveryAddress,
 } from '../types/catalog-delivery-address';
 
 export type CatalogDeliveryKmRates = {
@@ -29,7 +32,7 @@ export function normalizeKmRates(raw?: Partial<CatalogDeliveryKmRates> | null): 
   return out;
 }
 
-/** Graus → km (Haversine). */
+/** Graus → km (Haversine — linha reta; fallback se rota indisponível). */
 export function haversineDistanceKm(
   lat1: number,
   lon1: number,
@@ -64,20 +67,39 @@ export function deliveryFeeForTier(
 
 export function formatKmRatesForAiPrompt(
   originAddress: string,
-  rates: CatalogDeliveryKmRates,
+  _rates: CatalogDeliveryKmRates,
 ): string {
-  const lines = KM_KEYS.map(k => {
-    const n = k.replace('km', '');
-    const val = rates[k as keyof CatalogDeliveryKmRates]?.trim() || 'não informado';
-    return `- Até ${n} km: ${val}`;
-  });
   return [
-    `Origem da entrega (empresa): ${originAddress.trim() || 'não informado'}`,
+    `Origem da empresa: ${originAddress.trim() || 'não informado'}`,
     `Formato obrigatório do endereço: ${CATALOG_DELIVERY_ADDRESS_HINT}`,
-    'Tabela por distância (referência — o sistema calcula automaticamente ao receber o endereço):',
-    ...lines,
-    'Colete do cliente o endereço começando pelo CEP (8 dígitos) para localizar rua, bairro, cidade e UF; depois peça o número. Preencha collectedAddress no formato completo. Não invente taxa — aguarde o cálculo do sistema após o endereço.',
+    'Entrega por distância (faixas 1–8 km): o *sistema* calcula frete e total após o endereço completo — pela rota quando possível.',
+    'Colete CEP → número → confirme collectedAddress completo.',
+    'O cliente pode enviar o pin de localização fixa no WhatsApp — o sistema calcula o frete pelas coordenadas.',
+    'Se o pin não tiver número confiável, o sistema pede rua e número antes de cotar o frete.',
+    'PROIBIDO informar valor de frete, taxa de entrega ou total ao cliente — o sistema envia mensagem automática com os valores exatos.',
+    'Se o cliente perguntar o frete antes do endereço, diga que o valor será calculado assim que o endereço estiver completo.',
   ].join('\n');
+}
+
+/** Distância pela rota (OSRM / OpenStreetMap). Retorna null se indisponível. */
+export async function roadDistanceKm(
+  origin: GeocodeResult,
+  dest: GeocodeResult,
+): Promise<number | null> {
+  const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon},${origin.lat};${dest.lon},${dest.lat}?overview=false`;
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { routes?: Array<{ distance?: number }> };
+    const meters = data.routes?.[0]?.distance;
+    if (meters == null || !Number.isFinite(meters) || meters <= 0) return null;
+    return meters / 1000;
+  } catch {
+    return null;
+  }
 }
 
 export interface GeocodeResult {
@@ -121,6 +143,220 @@ export async function geocodeAddressFree(
   }
 }
 
+/** Endereço a partir do pin WhatsApp + reverse geocoding (OSM). */
+export interface ReverseGeocodeResult {
+  displayName: string;
+  lat: number;
+  lon: number;
+  houseNumber?: string;
+  road?: string;
+  suburb?: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+}
+
+export async function reverseGeocodeCoords(
+  lat: number,
+  lon: number,
+): Promise<ReverseGeocodeResult | null> {
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    format: 'json',
+    addressdetails: '1',
+  });
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, {
+      headers: {
+        'User-Agent': 'RadarChat/2.17 (catalog-delivery; contact@radarchat.local)',
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      display_name?: string;
+      lat?: string;
+      lon?: string;
+      address?: {
+        house_number?: string;
+        road?: string;
+        suburb?: string;
+        neighbourhood?: string;
+        city?: string;
+        town?: string;
+        village?: string;
+        state?: string;
+        postcode?: string;
+      };
+    };
+    const name = data.display_name?.trim();
+    if (!name) return null;
+    const addr = data.address;
+    return {
+      displayName: name,
+      lat: parseFloat(data.lat ?? String(lat)),
+      lon: parseFloat(data.lon ?? String(lon)),
+      houseNumber: addr?.house_number?.trim(),
+      road: addr?.road?.trim(),
+      suburb: (addr?.suburb ?? addr?.neighbourhood)?.trim(),
+      city: (addr?.city ?? addr?.town ?? addr?.village)?.trim(),
+      state: addr?.state?.trim(),
+      postcode: addr?.postcode?.trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Pin sem número confiável — pedir rua e número ao cliente. */
+export function locationAddressNeedsConfirmation(opts: {
+  reverse?: ReverseGeocodeResult | null;
+  waAddress?: string;
+  addressLabel: string;
+  isLive?: boolean;
+}): boolean {
+  if (opts.isLive) return true;
+  if (isCompleteDeliveryAddress(opts.waAddress)) return false;
+  if (opts.waAddress?.trim() && textHasStreetNumber(opts.waAddress)) return false;
+  if (opts.reverse?.houseNumber?.trim()) return false;
+  if (isCompleteDeliveryAddress(opts.addressLabel)) return false;
+  if (/^Localização GPS/i.test(opts.addressLabel)) return true;
+  if (!opts.reverse) return true;
+  return true;
+}
+
+function textHasStreetNumber(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/^\d{5}-?\d{3}$/.test(t)) return false;
+  return /(?:^|[\s,])(?:n[ºo°.]?\s*)?\d{1,6}[a-zA-Z]?(?:\s|$|[,.\-])/i.test(` ${t} `);
+}
+
+export function parseStreetNumberReply(
+  text: string,
+): { street: string; number: string } | null {
+  const t = text.trim();
+  if (!t) return null;
+  if (isCompleteDeliveryAddress(t)) {
+    const parsed = parseDeliveryAddress(t);
+    if (parsed?.street && parsed.number) {
+      return { street: parsed.street.trim(), number: parsed.number.trim() };
+    }
+  }
+  const comma = t.match(/^(.+?),\s*(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
+  if (comma) {
+    return { street: comma[1]!.trim(), number: comma[2]!.trim() };
+  }
+  const inline = t.match(/^(.+?)\s+(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
+  if (inline && inline[1]!.trim().length >= 3) {
+    return { street: inline[1]!.trim(), number: inline[2]!.trim() };
+  }
+  const onlyNum = t.match(/^(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
+  if (onlyNum) {
+    return { street: '', number: onlyNum[1]!.trim() };
+  }
+  return null;
+}
+
+/** Monta endereço completo a partir do pin + confirmação do cliente (rua e número). */
+export function mergeLocationConfirmReply(
+  reply: string,
+  reverse: ReverseGeocodeResult | null,
+): string | null {
+  const trimmed = reply.trim();
+  if (!trimmed) return null;
+  if (isCompleteDeliveryAddress(trimmed)) return trimmed;
+
+  const parsed = parseStreetNumberReply(trimmed);
+  if (!parsed?.number) return null;
+
+  const street = parsed.street || reverse?.road?.trim() || '';
+  const number = parsed.number;
+  if (!street || !number) return null;
+
+  const cep = reverse?.postcode?.replace(/\D/g, '') ?? '';
+  const neighborhood = reverse?.suburb?.trim() ?? '';
+  const city = reverse?.city?.trim() ?? '';
+  const stateMatch = reverse?.state?.match(/\b([A-Z]{2})\b/i);
+  const state = stateMatch?.[1]?.toUpperCase() ?? '';
+
+  if (!neighborhood || !city || !state || cep.length !== 8) {
+    return null;
+  }
+
+  return formatDeliveryAddress({
+    cep,
+    street,
+    number,
+    neighborhood,
+    city,
+    state,
+    country: 'Brasil',
+  });
+}
+
+export function locationAreaHint(reverse: ReverseGeocodeResult | null): string {
+  if (!reverse) return '';
+  const parts = [reverse.suburb, reverse.city, reverse.state?.match(/\b([A-Z]{2})\b/i)?.[1]]
+    .filter(Boolean)
+    .join(', ');
+  return parts;
+}
+
+export function buildAddressLabelFromLocation(parts: {
+  reverseDisplayName?: string;
+  waName?: string;
+  waAddress?: string;
+  lat: number;
+  lng: number;
+}): string {
+  if (parts.waAddress?.trim()) return parts.waAddress.trim().slice(0, 500);
+  if (parts.reverseDisplayName?.trim()) return parts.reverseDisplayName.trim().slice(0, 500);
+  const label = parts.waName?.trim();
+  if (label) return `${label} (${parts.lat.toFixed(5)}, ${parts.lng.toFixed(5)})`.slice(0, 500);
+  return `Localização GPS (${parts.lat.toFixed(5)}, ${parts.lng.toFixed(5)})`;
+}
+
+/** Frete origem (endereço empresa) → coordenadas do cliente (pin WhatsApp). */
+export async function estimateDeliveryToCoordinates(opts: {
+  originAddress: string;
+  destLat: number;
+  destLng: number;
+  rates: CatalogDeliveryKmRates;
+  countryCode?: string;
+}): Promise<{
+  distanceKm: number;
+  tierKm: number;
+  deliveryFee: string | null;
+  geocoded: boolean;
+  distanceMethod: 'road' | 'haversine';
+} | null> {
+  const origin = await geocodeAddressFree(opts.originAddress, {
+    countryCode: opts.countryCode ?? 'Brasil',
+  });
+  if (!origin) return null;
+
+  const dest: GeocodeResult = { lat: opts.destLat, lon: opts.destLng };
+  let distanceMethod: 'road' | 'haversine' = 'road';
+  let distanceKm = await roadDistanceKm(origin, dest);
+  if (distanceKm == null) {
+    distanceKm = haversineDistanceKm(origin.lat, origin.lon, dest.lat, dest.lon);
+    distanceMethod = 'haversine';
+  }
+
+  const tierKm = distanceKmToTier(distanceKm);
+  const deliveryFee = deliveryFeeForTier(tierKm, opts.rates);
+  return {
+    distanceKm: Math.round(distanceKm * 10) / 10,
+    tierKm,
+    deliveryFee,
+    geocoded: true,
+    distanceMethod,
+  };
+}
+
 export async function estimateDeliveryFromAddresses(opts: {
   originAddress: string;
   destinationAddress: string;
@@ -131,13 +367,21 @@ export async function estimateDeliveryFromAddresses(opts: {
   tierKm: number;
   deliveryFee: string | null;
   geocoded: boolean;
+  distanceMethod: 'road' | 'haversine';
 } | null> {
   const [origin, dest] = await Promise.all([
     geocodeAddressFree(opts.originAddress, { countryCode: opts.countryCode }),
     geocodeAddressFree(opts.destinationAddress, { countryCode: opts.countryCode }),
   ]);
   if (!origin || !dest) return null;
-  const distanceKm = haversineDistanceKm(origin.lat, origin.lon, dest.lat, dest.lon);
+
+  let distanceMethod: 'road' | 'haversine' = 'road';
+  let distanceKm = await roadDistanceKm(origin, dest);
+  if (distanceKm == null) {
+    distanceKm = haversineDistanceKm(origin.lat, origin.lon, dest.lat, dest.lon);
+    distanceMethod = 'haversine';
+  }
+
   const tierKm = distanceKmToTier(distanceKm);
   const deliveryFee = deliveryFeeForTier(tierKm, opts.rates);
   return {
@@ -145,5 +389,32 @@ export async function estimateDeliveryFromAddresses(opts: {
     tierKm,
     deliveryFee,
     geocoded: true,
+    distanceMethod,
   };
+}
+
+/** Remove valores de frete/total da IA quando o sistema já enviou (ou falhou) cotação oficial. */
+export function sanitizeAiReplyWhenServerQuotedDelivery(
+  reply: string,
+  opts: {
+    serverQuoteSent: boolean;
+    quoteFailed?: boolean;
+    useDistanceBasedDelivery: boolean;
+  },
+): string {
+  if (!opts.useDistanceBasedDelivery) return reply;
+  if (!opts.serverQuoteSent && !opts.quoteFailed) return reply;
+  const blocked = /(frete|entrega|taxa|total|valor\s+total|pix|r\$)/i;
+  const kept = reply
+    .split('\n')
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return true;
+      if (/r\$\s*[\d.,]+/i.test(t) && blocked.test(t)) return false;
+      if (/total\s*:/i.test(t) && /r\$/i.test(t)) return false;
+      return true;
+    });
+  const cleaned = kept.join('\n').trim();
+  if (cleaned.length >= 12) return cleaned;
+  return 'Perfeito! Em instantes você recebe o resumo do pedido com os valores calculados pelo sistema.';
 }

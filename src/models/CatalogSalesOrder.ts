@@ -23,6 +23,10 @@ export interface ICatalogSalesOrder extends Document {
     deliveryAddress?: string;
     deliveryDistanceKm?: number;
     deliveryTierKm?: number;
+    deliveryDistanceMethod?: 'road' | 'haversine';
+    deliveryLocationLat?: number;
+    deliveryLocationLng?: number;
+    deliveryLocationPendingConfirm?: boolean;
     stockSnapshot?: string;
   paymentMethod: 'pix';
   status: CatalogSalesOrderStatus;
@@ -85,6 +89,10 @@ const CatalogSalesOrderSchema = new Schema<ICatalogSalesOrder>(
     deliveryAddress: { type: String, maxlength: 500 },
     deliveryDistanceKm: { type: Number },
     deliveryTierKm: { type: Number, min: 1, max: 8 },
+    deliveryDistanceMethod: { type: String, enum: ['road', 'haversine'] },
+    deliveryLocationLat: { type: Number },
+    deliveryLocationLng: { type: Number },
+    deliveryLocationPendingConfirm: { type: Boolean, default: false },
     stockSnapshot: { type: String, maxlength: 120 },
     paymentMethod: { type: String, enum: ['pix'], default: 'pix' },
     status: {

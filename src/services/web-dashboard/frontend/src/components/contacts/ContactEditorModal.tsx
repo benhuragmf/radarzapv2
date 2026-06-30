@@ -26,6 +26,8 @@ export interface ContactFormData {
   name: string
   email: string
   organization: string
+  address: string
+  taxDocument: string
   notes: string
   contactGroupIds: string[]
   contactKind?: ContactKind | ''
@@ -175,6 +177,25 @@ export default function ContactEditorModal({
               <input
                 value={form.organization}
                 onChange={e => set('organization', e.target.value)}
+                placeholder="opcional"
+                className={inputCls}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">Endereço completo</label>
+              <textarea
+                value={form.address}
+                onChange={e => set('address', e.target.value)}
+                rows={2}
+                placeholder="CEP, rua, número, bairro, cidade, UF, Brasil"
+                className={`${textareaCls} resize-none`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">CPF/CNPJ</label>
+              <input
+                value={form.taxDocument}
+                onChange={e => set('taxDocument', e.target.value)}
                 placeholder="opcional"
                 className={inputCls}
               />

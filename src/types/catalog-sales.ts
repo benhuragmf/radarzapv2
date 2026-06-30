@@ -91,6 +91,11 @@ export interface CatalogSalesCompanyConfig {
   customerApproveMessage?: string;
   customerRejectMessage?: string;
   customerRequestNewProofMessage?: string;
+  /** Mensagem automática com frete/total calculados pelo sistema */
+  customerDeliveryQuoteMessage?: string;
+  customerDeliveryQuoteFailedMessage?: string;
+  /** Pede rua e número após pin impreciso no WhatsApp */
+  customerLocationConfirmMessage?: string;
 }
 
 export const DEFAULT_CATALOG_SALES_COMPANY_CONFIG: Required<
@@ -166,6 +171,8 @@ export function normalizeCatalogSalesConfig(
     customerApproveMessage: raw?.customerApproveMessage?.trim() ?? '',
     customerRejectMessage: raw?.customerRejectMessage?.trim() ?? '',
     customerRequestNewProofMessage: raw?.customerRequestNewProofMessage?.trim() ?? '',
+    customerDeliveryQuoteMessage: raw?.customerDeliveryQuoteMessage?.trim() ?? '',
+    customerDeliveryQuoteFailedMessage: raw?.customerDeliveryQuoteFailedMessage?.trim() ?? '',
   };
 }
 
@@ -312,6 +319,23 @@ export const DEFAULT_CATALOG_CUSTOMER_REJECT_MESSAGE =
 export const DEFAULT_CATALOG_CUSTOMER_NEW_PROOF_MESSAGE =
   'Precisamos de um novo comprovante PIX para o pedido {{productName}}. {{reason}} Envie a imagem ou PDF aqui no chat.';
 
+export const DEFAULT_CATALOG_CUSTOMER_DELIVERY_QUOTE_MESSAGE =
+  '📦 *Resumo do pedido* (valores calculados automaticamente pelo sistema)\n\n' +
+  'Produto: {{productName}}\n' +
+  'Valor do produto: {{subtotalAmount}}\n' +
+  'Entrega ({{deliveryDistanceKm}} km{{distanceMethodLabel}}, faixa {{deliveryTierKm}} km): {{deliveryFee}}\n' +
+  '*Total: {{totalAmount}}*\n\n' +
+  '{{pixInstructions}}';
+
+export const DEFAULT_CATALOG_CUSTOMER_DELIVERY_QUOTE_FAILED_MESSAGE =
+  'Recebemos seu endereço, mas não foi possível calcular o frete automaticamente neste momento. ' +
+  'Um atendente vai confirmar o valor da entrega antes do pagamento — aguarde um momento, por favor.';
+
+export const DEFAULT_CATALOG_CUSTOMER_LOCATION_CONFIRM_MESSAGE =
+  '📍 Recebemos sua localização. Para calcular o frete com precisão, confirme o *nome da rua* e o *número* do imóvel.\n\n' +
+  '{{areaHint}}' +
+  'Ex.: Rua das Flores, 123';
+
 export function renderCatalogCustomerMessage(
   template: string,
   vars: Record<string, string>,
@@ -324,4 +348,4 @@ export function renderCatalogCustomerMessage(
 }
 
 export const CATALOG_SALES_SECURITY_INSTRUCTION =
-  'Quando o cliente demonstrar interesse em comprar este produto, informe preço, estoque e formas de pagamento cadastradas. Se o produto tiver link de loja/checkout, envie o link quando o cliente preferir comprar pelo site — isso não exige PIX. Para pagamento PIX no chat, colete endereço de entrega quando aplicável, informe taxa de entrega se houver, e oriente o pagamento conforme configuração da empresa. Se o cliente enviar comprovante PIX, informe que a equipe vai conferir. Nunca confirme pagamento apenas com imagem de comprovante. Se preço, estoque ou condição não estiverem claros, peça confirmação ou transfira para humano.';
+  'Quando o cliente demonstrar interesse em comprar este produto, informe preço e estoque *somente* se constarem na base cadastrada. Se o produto tiver link de loja/checkout, envie o link quando o cliente preferir comprar pelo site. Para PIX no chat, colete o endereço completo quando aplicável. Com entrega por distância ativa, *nunca* informe frete nem total — o sistema envia mensagem automática com valores exatos após o endereço. Se o cliente enviar comprovante PIX, informe que a equipe vai conferir. Nunca confirme pagamento apenas com imagem. Se preço, estoque ou frete não estiverem claros, peça confirmação ou transfira para humano.';

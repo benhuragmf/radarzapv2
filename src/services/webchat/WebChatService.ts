@@ -1448,6 +1448,9 @@ export class WebChatService {
       identifier?: string;
       email?: string;
       organization?: string;
+      address?: string;
+      deliveryAddress?: string;
+      taxDocument?: string;
       notes?: string;
       contactGroupIds?: string[];
       contactKind?: ContactKind | null;
@@ -1464,6 +1467,8 @@ export class WebChatService {
 
     const name = data.name.trim();
     if (!name) throw new Error('Nome é obrigatório');
+
+    const contactAddressInput = data.address ?? data.deliveryAddress;
 
     conversation.visitorName = name.slice(0, 120);
     if (data.email !== undefined) {
@@ -1486,6 +1491,10 @@ export class WebChatService {
       if (data.email !== undefined) dest.email = data.email.trim() || undefined;
       if (data.notes !== undefined) dest.notes = data.notes.trim() || undefined;
       if (data.organization !== undefined) dest.organization = data.organization.trim() || undefined;
+      if (contactAddressInput !== undefined) {
+        dest.address = contactAddressInput.trim().slice(0, 500) || undefined;
+      }
+      if (data.taxDocument !== undefined) dest.taxDocument = data.taxDocument.trim().slice(0, 20) || undefined;
       if (data.contactGroupIds !== undefined) {
         if (!Array.isArray(data.contactGroupIds)) {
           throw new Error('contactGroupIds deve ser um array');
@@ -1524,6 +1533,10 @@ export class WebChatService {
       if (dest) {
         if (data.notes !== undefined) dest.notes = data.notes.trim() || undefined;
         if (data.organization !== undefined) dest.organization = data.organization.trim() || undefined;
+        if (contactAddressInput !== undefined) {
+          dest.address = contactAddressInput.trim().slice(0, 500) || undefined;
+        }
+        if (data.taxDocument !== undefined) dest.taxDocument = data.taxDocument.trim().slice(0, 20) || undefined;
         if (data.contactGroupIds !== undefined && Array.isArray(data.contactGroupIds)) {
           const validGroups = await ContactGroup.find({
             clientId: conversation.clientId,

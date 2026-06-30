@@ -27,6 +27,8 @@ interface Props {
   onChange: (canonical: string) => void
   showValidation?: boolean
   inputClassName?: string
+  disabled?: boolean
+  cepLookupPath?: string
 }
 
 export function DeliveryOriginAddressFields({
@@ -34,6 +36,8 @@ export function DeliveryOriginAddressFields({
   onChange,
   showValidation = false,
   inputClassName = inputCls,
+  disabled = false,
+  cepLookupPath = '/organization/lookup-cep',
 }: Props) {
   const [fields, setFields] = useState<DeliveryAddressStructured>(() =>
     parseDeliveryAddress(value) ?? emptyDeliveryAddress(),
@@ -67,7 +71,7 @@ export function DeliveryOriginAddressFields({
     setCepLoading(true)
     try {
       const data = await api.get<BrCepLookupResponse>(
-        `/platform/catalog-sales/lookup-cep?cep=${encodeURIComponent(digits)}`,
+        `${cepLookupPath}?cep=${encodeURIComponent(digits)}`,
       )
       emit({
         ...fields,
@@ -102,6 +106,7 @@ export function DeliveryOriginAddressFields({
           <span className="text-[var(--rz-text-muted)]">CEP *</span>
           <input
             className={inputClassName}
+            disabled={disabled}
             value={
               fields.cep.length > 5
                 ? `${fields.cep.slice(0, 5)}-${fields.cep.slice(5)}`
@@ -123,6 +128,7 @@ export function DeliveryOriginAddressFields({
           <span className="text-[var(--rz-text-muted)]">Número *</span>
           <input
             className={inputClassName}
+            disabled={disabled}
             value={fields.number}
             onChange={e => patch({ number: e.target.value })}
             placeholder="120"
@@ -132,6 +138,7 @@ export function DeliveryOriginAddressFields({
           <span className="text-[var(--rz-text-muted)]">Rua / logradouro *</span>
           <input
             className={inputClassName}
+            disabled={disabled}
             value={fields.street}
             onChange={e => patch({ street: e.target.value })}
             placeholder="Preenchido pelo CEP"
@@ -141,6 +148,7 @@ export function DeliveryOriginAddressFields({
           <span className="text-[var(--rz-text-muted)]">Bairro *</span>
           <input
             className={inputClassName}
+            disabled={disabled}
             value={fields.neighborhood}
             onChange={e => patch({ neighborhood: e.target.value })}
             placeholder="Centro"
@@ -150,6 +158,7 @@ export function DeliveryOriginAddressFields({
           <span className="text-[var(--rz-text-muted)]">Complemento</span>
           <input
             className={inputClassName}
+            disabled={disabled}
             value={fields.complement ?? ''}
             onChange={e => patch({ complement: e.target.value })}
             placeholder="Sala, bloco (opcional)"
@@ -159,6 +168,7 @@ export function DeliveryOriginAddressFields({
           <span className="text-[var(--rz-text-muted)]">Cidade *</span>
           <input
             className={inputClassName}
+            disabled={disabled}
             value={fields.city}
             onChange={e => patch({ city: e.target.value })}
             placeholder="São Paulo"
@@ -168,6 +178,7 @@ export function DeliveryOriginAddressFields({
           <span className="text-[var(--rz-text-muted)]">Estado (UF) *</span>
           <input
             className={inputClassName}
+            disabled={disabled}
             value={fields.state}
             onChange={e => patch({ state: e.target.value.toUpperCase().slice(0, 2) })}
             placeholder="SP"

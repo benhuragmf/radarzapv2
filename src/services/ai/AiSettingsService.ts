@@ -201,6 +201,10 @@ export class AiSettingsService {
         collectProblem: promptDoc.collectProblem,
         collectCpfCnpj: promptDoc.collectCpfCnpj,
         collectAddress: promptDoc.collectAddress,
+        collectPhone: promptDoc.collectPhone,
+        collectCompany: promptDoc.collectCompany,
+        collectDeliveryNotes: promptDoc.collectDeliveryNotes,
+        collectPreferredSchedule: promptDoc.collectPreferredSchedule,
         collectOrderNumber: promptDoc.collectOrderNumber,
         collectUrgency: promptDoc.collectUrgency,
         collectAttachments: promptDoc.collectAttachments,
@@ -354,6 +358,12 @@ export class AiSettingsService {
             ...(typeof p.collectProblem === 'boolean' ? { collectProblem: p.collectProblem } : {}),
             ...(typeof p.collectCpfCnpj === 'boolean' ? { collectCpfCnpj: p.collectCpfCnpj } : {}),
             ...(typeof p.collectAddress === 'boolean' ? { collectAddress: p.collectAddress } : {}),
+            ...(typeof p.collectPhone === 'boolean' ? { collectPhone: p.collectPhone } : {}),
+            ...(typeof p.collectCompany === 'boolean' ? { collectCompany: p.collectCompany } : {}),
+            ...(typeof p.collectDeliveryNotes === 'boolean' ? { collectDeliveryNotes: p.collectDeliveryNotes } : {}),
+            ...(typeof p.collectPreferredSchedule === 'boolean'
+              ? { collectPreferredSchedule: p.collectPreferredSchedule }
+              : {}),
             ...(typeof p.collectOrderNumber === 'boolean' ? { collectOrderNumber: p.collectOrderNumber } : {}),
             ...(typeof p.collectUrgency === 'boolean' ? { collectUrgency: p.collectUrgency } : {}),
             ...(typeof p.collectAttachments === 'boolean' ? { collectAttachments: p.collectAttachments } : {}),

@@ -2,12 +2,14 @@ import mongoose from 'mongoose';
 import type { IDestination } from '@/models/Destination';
 import type { IAiConversationState } from '@/models/AiConversationState';
 import type { IAiPrompt } from '@/models/AiPrompt';
+import { resolveContactAddress } from '@/utils/contact-address.util';
 import { listClientFacingTickets } from '@/services/inbox/client-ticket-list';
 
 export interface AiContactContext {
   name?: string;
   email?: string;
   phone?: string;
+  address?: string;
   organization?: string;
   tags: string[];
   notes?: string;
@@ -15,6 +17,7 @@ export interface AiContactContext {
   knownFields: {
     name: boolean;
     email: boolean;
+    address: boolean;
   };
 }
 
@@ -34,10 +37,12 @@ export class AiContextService {
 
     const name = dest.name?.trim() || undefined;
     const email = dest.email?.trim() || undefined;
+    const address = resolveContactAddress(dest);
 
     return {
       name: name && name !== dest.identifier ? name : undefined,
       email,
+      address,
       phone: dest.identifier,
       organization: dest.organization?.trim() || undefined,
       tags: dest.tags ?? [],
@@ -50,6 +55,7 @@ export class AiContextService {
       knownFields: {
         name: Boolean(name && name !== dest.identifier),
         email: Boolean(email?.includes('@')),
+        address: Boolean(address && address.length >= 20),
       },
     };
   }
@@ -66,6 +72,9 @@ export class AiContextService {
     if (!prompt.skipKnownFields && prompt.collectEmail && ctx.knownFields.email && ctx.email) {
       if (!state.collectedEmail) state.collectedEmail = ctx.email;
     }
+    if (!prompt.skipKnownFields && prompt.collectAddress && ctx.knownFields.address && ctx.address) {
+      if (!state.collectedAddress) state.collectedAddress = ctx.address;
+    }
   }
 
   formatContextBlock(ctx: AiContactContext): string {
@@ -74,6 +83,7 @@ export class AiContextService {
       `Nome: ${ctx.name ?? '(não informado)'}`,
       `Telefone: ${ctx.phone ?? '(não informado)'}`,
       `E-mail: ${ctx.email ?? '(não informado)'}`,
+      `Endereço: ${ctx.address ?? '(não informado)'}`,
       `Empresa: ${ctx.organization ?? '(não informado)'}`,
       `Ticket aberto: ${open ? `${open.ref} [${open.status}]` : 'nenhum'}`,
     ];
@@ -97,6 +107,7 @@ export class AiContextService {
     if (!prompt.skipKnownFields) return [];
     const skip: string[] = [];
     if (prompt.collectEmail && ctx.knownFields.email) skip.push('e-mail');
+    if (prompt.collectAddress && ctx.knownFields.address) skip.push('endereço');
     return skip;
   }
 
@@ -168,18 +179,16 @@ export class AiContextService {
 
   async persistCollectedFields(
     dest: IDestination,
-    fields: { name?: string; email?: string },
+    fields: { name?: string; email?: string; address?: string; phone?: string; organization?: string; deliveryNotes?: string; preferredSchedule?: string; taxDocument?: string },
   ): Promise<void> {
-    let changed = false;
-    if (fields.name?.trim() && fields.name.trim() !== dest.name) {
-      dest.name = fields.name.trim();
-      changed = true;
-    }
-    if (fields.email?.trim() && fields.email.includes('@') && fields.email !== dest.email) {
-      dest.email = fields.email.trim().toLowerCase();
-      changed = true;
-    }
-    if (changed) await dest.save();
+    const { persistContactCollectedData } = await import(
+      '@/services/contacts/contact-collected-data.service'
+    );
+    await persistContactCollectedData({
+      clientId: String(dest.clientId),
+      destinationId: String(dest._id),
+      fields,
+    });
   }
 
   private nameMatchesRegistry(norm: string, registryName: string): boolean {

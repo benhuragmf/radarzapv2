@@ -39,6 +39,8 @@ export interface Destination {
   email?: string
   notes?: string
   organization?: string
+  address?: string
+  taxDocument?: string
   secondaryPhone?: string
   phoneType?: string
   hasProfilePicture?: boolean

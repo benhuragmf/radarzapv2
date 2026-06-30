@@ -10,6 +10,8 @@ export interface IInboxMessage extends Document {
   /** Caminho relativo em data/inbox-media/ */
   mediaUrl?: string;
   mediaMime?: string;
+  locationLat?: number;
+  locationLng?: number;
   authorUserId?: mongoose.Types.ObjectId;
   whatsappMessageId?: string;
   createdAt: Date;
@@ -32,10 +34,12 @@ const InboxMessageSchema = new Schema<IInboxMessage>(
     body: { type: String, required: true, maxlength: 4096 },
     mediaType: {
       type: String,
-      enum: ['image', 'audio', 'video', 'document', 'sticker'],
+      enum: ['image', 'audio', 'video', 'document', 'sticker', 'location'],
     },
     mediaUrl: String,
     mediaMime: String,
+    locationLat: Number,
+    locationLng: Number,
     authorUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     whatsappMessageId: String,
   },

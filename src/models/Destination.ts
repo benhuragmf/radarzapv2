@@ -57,6 +57,16 @@ export interface IDestination extends Document {
   contactGroupIds?: mongoose.Types.ObjectId[];
   email?: string;
   notes?: string;
+  /** Endereço completo do contato (CEP, rua, número, bairro, cidade, UF, Brasil) */
+  address?: string;
+  /** @deprecated legado v2.17.16 — use `address`; removido no save */
+  deliveryAddress?: string;
+  /** CPF ou CNPJ informado no atendimento */
+  taxDocument?: string;
+  /** Pin de localização fixa enviado pelo cliente (WhatsApp) */
+  locationLat?: number;
+  locationLng?: number;
+  locationUpdatedAt?: Date;
   /** Empresa / ORG do VCF ou coluna CSV */
   organization?: string;
   /** Segunda linha TEL (VCF / phone 2) */
@@ -253,6 +263,29 @@ const DestinationSchema = new Schema<IDestination>({
     maxlength: 254,
     lowercase: true,
   },
+
+  address: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+
+  /** @deprecated legado v2.17.16 — migrado para `address` no save */
+  deliveryAddress: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+
+  taxDocument: {
+    type: String,
+    trim: true,
+    maxlength: 20,
+  },
+
+  locationLat: { type: Number },
+  locationLng: { type: Number },
+  locationUpdatedAt: { type: Date },
 
   notes: {
     type: String,
@@ -689,6 +722,23 @@ interface IDestinationModel extends Model<IDestination> {
   ): Promise<number>;
   findByType(type: 'group' | 'contact', clientId?: mongoose.Types.ObjectId): Promise<IDestination[]>;
 }
+
+DestinationSchema.post('init', function (doc: IDestination) {
+  if (!doc.address?.trim() && doc.deliveryAddress?.trim()) {
+    doc.address = doc.deliveryAddress.trim();
+  }
+});
+
+DestinationSchema.pre('save', function (next) {
+  const doc = this as IDestination;
+  if (!doc.address?.trim() && doc.deliveryAddress?.trim()) {
+    doc.address = doc.deliveryAddress.trim();
+  }
+  if (doc.address?.trim()) {
+    doc.deliveryAddress = undefined;
+  }
+  next();
+});
 
 /**
  * Export the Destination model

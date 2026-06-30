@@ -5,6 +5,7 @@ import {
   formatKmRatesForAiPrompt,
   haversineDistanceKm,
   normalizeKmRates,
+  sanitizeAiReplyWhenServerQuotedDelivery,
 } from '../catalog-delivery.util';
 
 describe('catalog-delivery.util', () => {
@@ -31,10 +32,21 @@ describe('catalog-delivery.util', () => {
     expect(deliveryFeeForTier(4, rates)).toBeNull();
   });
 
-  it('formata tabela para prompt da IA', () => {
+  it('formata instruções de entrega para IA sem valores de frete', () => {
     const text = formatKmRatesForAiPrompt('Rua A, 1', { km1: 'R$ 5' });
-    expect(text).toContain('Origem da entrega');
-    expect(text).toContain('Até 1 km: R$ 5');
-    expect(text).toContain('Até 8 km:');
+    expect(text).toContain('Origem da empresa');
+    expect(text).toContain('PROIBIDO informar valor de frete');
+    expect(text).not.toContain('R$ 5');
+  });
+
+  it('remove valores de frete da IA quando sistema cotou', () => {
+    const raw =
+      'Obrigado!\nFrete: R$ 12,00\nTotal: R$ 50,00\nQualquer dúvida estou aqui.';
+    const out = sanitizeAiReplyWhenServerQuotedDelivery(raw, {
+      serverQuoteSent: true,
+      useDistanceBasedDelivery: true,
+    });
+    expect(out).not.toMatch(/R\$\s*12/);
+    expect(out).not.toMatch(/Total.*R\$/);
   });
 });

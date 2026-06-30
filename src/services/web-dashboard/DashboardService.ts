@@ -2499,11 +2499,14 @@ export class DashboardService {
           if (!isWebChatInboxId(req.params.id)) {
             return res.status(400).json({ error: 'Disponível apenas para conversas do chat do site' });
           }
-          const { name, identifier, email, organization, notes, contactGroupIds, contactKind, contactOrigin, commercialStatus, temperature } = req.body as {
+          const body = req.body as {
             name?: string;
             identifier?: string;
             email?: string;
             organization?: string;
+            address?: string;
+            deliveryAddress?: string;
+            taxDocument?: string;
             notes?: string;
             contactGroupIds?: string[];
             contactKind?: string | null;
@@ -2511,6 +2514,8 @@ export class DashboardService {
             commercialStatus?: string | null;
             temperature?: string | null;
           };
+          const { name, identifier, email, organization, address, deliveryAddress, taxDocument, notes, contactGroupIds, contactKind, contactOrigin, commercialStatus, temperature } = body;
+          const contactAddress = address ?? deliveryAddress;
           if (!name?.trim()) {
             return res.status(400).json({ error: 'name é obrigatório' });
           }
@@ -2523,6 +2528,8 @@ export class DashboardService {
               identifier: identifier?.trim(),
               email,
               organization,
+              address: contactAddress,
+              taxDocument,
               notes,
               contactGroupIds,
               contactKind: contactKind as import('@/types/contact-classification').ContactKind | null | undefined,
@@ -2808,7 +2815,23 @@ export class DashboardService {
 
     r.get(
       '/platform/catalog-sales/lookup-cep',
-      requireCapability(Cap.INBOX_AI_MANAGE),
+      requireAnyCapability(Cap.INBOX_AI_MANAGE, Cap.BILLING_VIEW),
+      async (req, res) => {
+        try {
+          const { cep } = req.query as { cep?: string };
+          const { lookupBrCep } = await import('@/utils/br-cep.util');
+          const result = await lookupBrCep(cep ?? '');
+          if (!result) return res.status(404).json({ error: 'CEP não encontrado' });
+          res.json(result);
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.get(
+      '/organization/lookup-cep',
+      requireAnyCapability(Cap.INBOX_AI_MANAGE, Cap.BILLING_VIEW),
       async (req, res) => {
         try {
           const { cep } = req.query as { cep?: string };
@@ -3907,12 +3930,15 @@ export class DashboardService {
         });
         if (!dest) return res.status(404).json({ error: 'Destino não encontrado' });
 
-        const { name, contactGroupIds, email, notes, organization, contactKind, contactOrigin, commercialStatus, temperature, phoneQuality, crmRegistrationStatus } = req.body as {
+        const body = req.body as {
           name?: string;
           contactGroupIds?: string[];
           email?: string;
           notes?: string;
           organization?: string;
+          address?: string;
+          deliveryAddress?: string;
+          taxDocument?: string;
           contactKind?: string;
           contactOrigin?: string;
           commercialStatus?: string;
@@ -3920,6 +3946,8 @@ export class DashboardService {
           phoneQuality?: string;
           crmRegistrationStatus?: string;
         };
+        const { name, contactGroupIds, email, notes, organization, address, deliveryAddress, taxDocument, contactKind, contactOrigin, commercialStatus, temperature, phoneQuality, crmRegistrationStatus } = body;
+        const contactAddress = address ?? deliveryAddress;
 
         if (name !== undefined) {
           const trimmed = name.trim();
@@ -3929,6 +3957,10 @@ export class DashboardService {
         if (email !== undefined) dest.email = email.trim() || undefined;
         if (notes !== undefined) dest.notes = notes.trim() || undefined;
         if (organization !== undefined) dest.organization = organization.trim() || undefined;
+        if (contactAddress !== undefined) {
+          dest.address = contactAddress.trim().slice(0, 500) || undefined;
+        }
+        if (taxDocument !== undefined) dest.taxDocument = taxDocument.trim().slice(0, 20) || undefined;
 
         if (contactKind !== undefined) {
           dest.contactKind =
@@ -5801,7 +5833,28 @@ export class DashboardService {
           }
         }
         if (body.taxId !== undefined) org.taxId = body.taxId.trim().slice(0, 20) || undefined;
-        if (body.address !== undefined) org.address = body.address.trim().slice(0, 240) || undefined;
+        if (body.address !== undefined) {
+          const trimmed = body.address.trim();
+          if (!trimmed) {
+            org.address = undefined;
+          } else {
+            const {
+              deliveryAddressValidationError,
+              formatDeliveryAddress,
+              parseDeliveryAddress,
+            } = await import('@/types/catalog-delivery-address');
+            const addrErr = deliveryAddressValidationError(trimmed);
+            if (addrErr) return res.status(400).json({ error: addrErr });
+            const structured = parseDeliveryAddress(trimmed);
+            const canonical = structured ? formatDeliveryAddress(structured) : trimmed;
+            org.address = canonical.slice(0, 240);
+            const cs = org.catalogSales ?? {};
+            org.catalogSales = {
+              ...cs,
+              deliveryOriginAddress: canonical.slice(0, 240),
+            };
+          }
+        }
 
         await org.save();
         res.json({
