@@ -15,13 +15,18 @@ import {
   REST,
   Routes,
   ActivityType,
-  PresenceUpdateStatus
+  PresenceUpdateStatus,
+  VoiceState,
+  GuildMember,
+  PartialGuildMember,
+  AuditLogEvent,
 } from 'discord.js';
 import { config } from '@/config/environment';
 import { logger, createServiceLogger } from '@/utils/logger';
 import { QueueManager } from '@/cache/QueueManager';
 import { SessionCache } from '@/cache/SessionCache';
 import { RateLimiter } from '@/cache/RateLimiter';
+import { RedisManager } from '@/cache/RedisManager';
 import { DiscordChannel, User, MessageQueue } from '@/models';
 import { MessageExtractor } from './MessageExtractor';
 import {
@@ -35,6 +40,14 @@ import { logPipeline } from '@/utils/pipeline-log';
 import { buildPipelineTrackingMeta } from '@/utils/pipeline-tracking';
 import { CommandHandler } from './CommandHandler';
 import { CircuitBreaker } from '../common/CircuitBreaker';
+import type { DiscordEventPayload, DiscordRuleTrigger } from '@/types/discord-monitor';
+import crypto from 'crypto';
+import {
+  discordEventCooldownKey,
+  getDiscordEventCooldownSec,
+} from '@/utils/discord-event-cooldown';
+import { DiscordMonitorEventService } from '@/services/discord/DiscordMonitorEventService';
+import type { IDiscordChannel } from '@/models/DiscordChannel';
 
 /**
  * Discord Bot Service with autonomous operation
@@ -47,6 +60,7 @@ export class DiscordBotService {
   private queueManager: QueueManager;
   private sessionCache: SessionCache;
   private rateLimiter: RateLimiter;
+  private redisManager: RedisManager;
   private serviceLogger = createServiceLogger('DiscordBotService');
   private isReady = false;
   private reconnectAttempts = 0;
@@ -59,7 +73,8 @@ export class DiscordBotService {
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildVoiceStates,
       ],
       presence: {
         status: PresenceUpdateStatus.Online,
@@ -81,6 +96,7 @@ export class DiscordBotService {
     this.queueManager = QueueManager.getInstance();
     this.sessionCache = SessionCache.getInstance();
     this.rateLimiter = RateLimiter.getInstance();
+    this.redisManager = RedisManager.getInstance();
 
     this.setupEventHandlers();
   }
@@ -211,6 +227,22 @@ export class DiscordBotService {
     this.client.on(Events.GuildDelete, async (guild) => {
       this.serviceLogger.info(`➖ Bot removed from guild: ${guild.name} (${guild.id})`);
       await this.handleGuildLeave(guild);
+    });
+
+    this.client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+      await this.handleVoiceStateUpdate(oldState, newState);
+    });
+
+    this.client.on(Events.GuildMemberAdd, async (member) => {
+      await this.handleMemberJoin(member);
+    });
+
+    this.client.on(Events.GuildMemberRemove, async (member) => {
+      await this.handleMemberRemove(member);
+    });
+
+    this.client.on(Events.GuildBanAdd, async (ban) => {
+      await this.handleMemberBan(ban);
     });
   }
 
@@ -790,5 +822,251 @@ export class DiscordBotService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private displayName(member: GuildMember | PartialGuildMember): string {
+    return (
+      member.displayName?.trim() ||
+      member.user.globalName?.trim() ||
+      member.user.username
+    );
+  }
+
+  private async enqueueDiscordEvent(
+    monitor: IDiscordChannel,
+    payload: Omit<DiscordEventPayload, 'clientId' | 'eventId' | 'monitorId' | 'monitorType'>,
+  ): Promise<void> {
+    const eventId = crypto.randomUUID();
+    const clientId = monitor.clientId.toString();
+    const cooldownSec = getDiscordEventCooldownSec(
+      payload.trigger,
+      monitor.eventCooldownSec,
+    );
+    const cooldownKey = discordEventCooldownKey(
+      payload.trigger,
+      payload.guildId,
+      payload.channelId,
+      payload.userId,
+    );
+
+    const allowed = await this.redisManager.setIfNotExists(
+      cooldownKey,
+      eventId,
+      cooldownSec,
+    );
+
+    if (!allowed) {
+      await DiscordMonitorEventService.getInstance().recordSkippedCooldown(
+        monitor,
+        payload,
+        eventId,
+        clientId,
+        cooldownSec,
+      );
+      return;
+    }
+
+    const fullPayload: DiscordEventPayload = {
+      ...payload,
+      eventId,
+      clientId,
+      monitorId: monitor._id.toString(),
+      monitorType: monitor.monitorType ?? 'guild',
+    };
+
+    await DiscordMonitorEventService.getInstance().recordCaptured(
+      monitor,
+      payload,
+      eventId,
+      clientId,
+    );
+
+    await this.queueManager.addJob(
+      'message-processing',
+      'process-discord-event',
+      { event: fullPayload, timestamp: new Date() },
+      {
+        priority: 6,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      },
+    );
+
+    await logPipeline('DiscordBotService', 'capture', `Evento Discord: ${payload.trigger}`, {
+      eventId,
+      trigger: payload.trigger,
+      guildId: payload.guildId,
+      channelId: payload.channelId,
+      userId: payload.userId,
+      cooldownSec,
+    }, clientId);
+  }
+
+  private async handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
+    try {
+      if (newState.member?.user.bot || oldState.member?.user.bot) return;
+
+      const joined = !oldState.channelId && newState.channelId;
+      const left = oldState.channelId && !newState.channelId;
+      const moved = oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId;
+
+      if (!joined && !left && !moved) return;
+
+      const guild = newState.guild ?? oldState.guild;
+      if (!guild) return;
+
+      if (joined || (moved && newState.channelId)) {
+        const channelId = newState.channelId!;
+        const monitor = await DiscordChannel.findVoiceMonitor(channelId);
+        if (!monitor) return;
+
+        const channel = newState.channel;
+        const members = channel?.members?.filter(m => !m.user.bot).size ?? 0;
+
+        await this.enqueueDiscordEvent(monitor, {
+          trigger: 'voice_join',
+          guildId: guild.id,
+          guildName: guild.name,
+          channelId,
+          channelName: channel?.name ?? monitor.channelName ?? channelId,
+          userId: newState.id,
+          userName: this.displayName(newState.member!),
+          userTag: newState.member?.user.tag ?? newState.id,
+          memberCount: members,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (left || (moved && oldState.channelId)) {
+        const channelId = oldState.channelId!;
+        const monitor = await DiscordChannel.findVoiceMonitor(channelId);
+        if (!monitor) return;
+
+        const channel = oldState.channel;
+        const members = channel?.members?.filter(m => !m.user.bot).size ?? 0;
+
+        await this.enqueueDiscordEvent(monitor, {
+          trigger: 'voice_leave',
+          guildId: guild.id,
+          guildName: guild.name,
+          channelId,
+          channelName: channel?.name ?? monitor.channelName ?? channelId,
+          userId: oldState.id,
+          userName: this.displayName(oldState.member!),
+          userTag: oldState.member?.user.tag ?? oldState.id,
+          memberCount: members,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      this.serviceLogger.error('Error handling voice state update:', error);
+    }
+  }
+
+  private async handleMemberJoin(member: GuildMember): Promise<void> {
+    try {
+      if (member.user.bot) return;
+      const monitor = await DiscordChannel.findGuildMonitor(member.guild.id);
+      if (!monitor) return;
+
+      await this.enqueueDiscordEvent(monitor, {
+        trigger: 'member_join',
+        guildId: member.guild.id,
+        guildName: member.guild.name,
+        channelId: member.guild.id,
+        channelName: monitor.channelName || 'Eventos do servidor',
+        userId: member.id,
+        userName: this.displayName(member),
+        userTag: member.user.tag,
+        memberCount: member.guild.memberCount,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.serviceLogger.error('Error handling member join:', error);
+    }
+  }
+
+  private async handleMemberRemove(member: GuildMember | PartialGuildMember): Promise<void> {
+    try {
+      if (member.user.bot) return;
+      const monitor = await DiscordChannel.findGuildMonitor(member.guild.id);
+      if (!monitor) return;
+
+      let trigger: DiscordRuleTrigger = 'member_leave';
+      let moderatorName: string | undefined;
+      let reason: string | undefined;
+
+      try {
+        const logs = await member.guild.fetchAuditLogs({ limit: 5, type: AuditLogEvent.MemberKick });
+        const kick = logs.entries.find(
+          e => e.target?.id === member.id && Date.now() - e.createdTimestamp < 8000,
+        );
+        if (kick) {
+          trigger = 'member_kick';
+          moderatorName = kick.executor?.username;
+          reason = kick.reason ?? undefined;
+        }
+      } catch {
+        /* sem permissão de audit log */
+      }
+
+      await this.enqueueDiscordEvent(monitor, {
+        trigger,
+        guildId: member.guild.id,
+        guildName: member.guild.name,
+        channelId: member.guild.id,
+        channelName: monitor.channelName || 'Eventos do servidor',
+        userId: member.id,
+        userName: this.displayName(member),
+        userTag: member.user.tag ?? member.id,
+        moderatorName,
+        reason,
+        memberCount: member.guild.memberCount,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.serviceLogger.error('Error handling member remove:', error);
+    }
+  }
+
+  private async handleMemberBan(ban: { guild: GuildMember['guild']; user: { id: string; bot: boolean; tag: string; username: string; globalName?: string | null } }): Promise<void> {
+    try {
+      if (ban.user.bot) return;
+      const monitor = await DiscordChannel.findGuildMonitor(ban.guild.id);
+      if (!monitor) return;
+
+      let moderatorName: string | undefined;
+      let reason: string | undefined;
+
+      try {
+        const logs = await ban.guild.fetchAuditLogs({ limit: 3, type: AuditLogEvent.MemberBanAdd });
+        const entry = logs.entries.find(
+          e => e.target?.id === ban.user.id && Date.now() - e.createdTimestamp < 8000,
+        );
+        if (entry) {
+          moderatorName = entry.executor?.username;
+          reason = entry.reason ?? undefined;
+        }
+      } catch {
+        /* sem audit */
+      }
+
+      await this.enqueueDiscordEvent(monitor, {
+        trigger: 'member_ban',
+        guildId: ban.guild.id,
+        guildName: ban.guild.name,
+        channelId: ban.guild.id,
+        channelName: monitor.channelName || 'Eventos do servidor',
+        userId: ban.user.id,
+        userName: ban.user.globalName?.trim() || ban.user.username,
+        userTag: ban.user.tag,
+        moderatorName,
+        reason,
+        memberCount: ban.guild.memberCount,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.serviceLogger.error('Error handling member ban:', error);
+    }
   }
 }

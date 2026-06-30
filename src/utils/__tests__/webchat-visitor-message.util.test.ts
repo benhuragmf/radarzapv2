@@ -1,6 +1,7 @@
 import {
   isVisitorHiddenSystemMessage,
   isVisitorVisibleWebChatMessage,
+  VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY,
 } from '@/utils/webchat-visitor-message.util';
 
 describe('webchat-visitor-message.util', () => {
@@ -33,5 +34,11 @@ describe('webchat-visitor-message.util', () => {
         body: 'Prioridade para João — aguardando aceite no painel.',
       }),
     ).toBe(true);
+  });
+
+  it('query Mongo exclui direction internal', () => {
+    expect(VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY).toEqual({
+      direction: { $ne: 'internal' },
+    });
   });
 });

@@ -10,6 +10,8 @@ describe('WEBHOOK_EVENTS — ticket e bridge', () => {
         'ticket.closed',
         'webchat.bridge.started',
         'webchat.bridge.closed',
+        'discord.voice.join',
+        'discord.member.kick',
       ]),
     );
   });

@@ -147,6 +147,11 @@ import { WebChatService } from '../webchat/WebChatService';
 import { WebChatWidget } from '../../models/WebChatWidget';
 import { getOrganizationWebsite, isEmbedOriginAllowed } from '@/utils/embed-allowed-domains.util';
 import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
+import { defaultTemplateForEventTrigger, normalizeRuleTriggersInput } from '@/utils/rule-triggers.util';
+import {
+  buildDiscordBotInviteUrl,
+  DISCORD_BOT_CLIENT_ID_FALLBACK,
+} from '@/utils/discord-bot-invite.util';
 import {
   applyEmbedPreviewPageHeaders,
   applyPublicEmbedAssetHeaders,
@@ -1661,14 +1666,47 @@ export class DashboardService {
         const orgSvc = OrganizationService.getInstance();
         const relatedIds = await orgSvc.getRelatedClientIds(auth.clientId);
         const { guildId } = req.query as { guildId?: string };
-        const query: any = { clientId: { $in: relatedIds } };
-        // Filter by guild if provided (rules have channelIds from that guild)
+        const query: Record<string, unknown> = { clientId: { $in: relatedIds } };
         if (guildId) {
-          const channels = await DiscordChannel.find({ guildId, isActive: true }).lean();
+          const channels = await DiscordChannel.find({ guildId }).lean();
           const channelIds = channels.map(c => c.channelId);
+          const hasGuildMonitor = channels.some(c => c.monitorType === 'guild');
+
+          const or: Record<string, unknown>[] = [
+            {
+              $and: [
+                {
+                  $or: [
+                    { 'conditions.channelIds': { $size: 0 } },
+                    { 'conditions.channelIds': { $exists: false } },
+                  ],
+                },
+                {
+                  $or: [
+                    { 'conditions.voiceChannelIds': { $size: 0 } },
+                    { 'conditions.voiceChannelIds': { $exists: false } },
+                  ],
+                },
+              ],
+            },
+          ];
+
           if (channelIds.length > 0) {
-            query['conditions.channelIds'] = { $in: channelIds };
+            or.push({ 'conditions.channelIds': { $in: channelIds } });
+            or.push({ 'conditions.voiceChannelIds': { $in: channelIds } });
           }
+          if (hasGuildMonitor) {
+            or.push({
+              trigger: { $in: ['member_join', 'member_leave', 'member_kick', 'member_ban'] },
+            });
+            or.push({
+              triggers: { $in: ['member_join', 'member_leave', 'member_kick', 'member_ban'] },
+            });
+          }
+          or.push({ trigger: { $in: ['voice_join', 'voice_leave'] } });
+          or.push({ triggers: { $in: ['voice_join', 'voice_leave'] } });
+
+          query.$or = or;
         }
         const rules = await Rule.find(query).sort({ createdAt: -1 }).lean();
         const blockSvc = RuleGroupBlockService.getInstance();
@@ -2907,8 +2945,11 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
-        const { name, priority, templateName, keywords, destinationIdentifiers, channelIds } = req.body;
+        const { name, priority, templateName, keywords, destinationIdentifiers, channelIds, trigger, triggers, voiceChannelIds } = req.body;
         if (!name) return res.status(400).json({ error: 'name is required' });
+
+        const ruleTriggers = normalizeRuleTriggersInput({ trigger, triggers });
+        const primaryTrigger = ruleTriggers[0];
 
         // Resolve destination identifiers to ObjectIds
         let destinationIds: mongoose.Types.ObjectId[] = [];
@@ -2919,17 +2960,24 @@ export class DashboardService {
           }
         }
 
+        const defaultTemplate = ruleTriggers.length === 1
+          ? (primaryTrigger === 'message' ? 'dw-padrao' : defaultTemplateForEventTrigger(primaryTrigger))
+          : defaultTemplateForEventTrigger(primaryTrigger);
+
         const rule = await Rule.create({
           clientId: clientOid,
           name,
           isActive: true,
+          trigger: primaryTrigger,
+          triggers: ruleTriggers,
           conditions: {
             channelIds: channelIds ?? [],
+            voiceChannelIds: voiceChannelIds ?? [],
             requireKeywords: keywords ? keywords.split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean) : [],
           },
           action: {
             destinationIds,
-            templateName: templateName || 'dw-padrao',
+            templateName: templateName || defaultTemplate,
             priority: priority || 'medium',
             addDelay: 0,
           },
@@ -2943,7 +2991,7 @@ export class DashboardService {
     r.put('/rules/:id', requireCapability(Cap.SEND_RULES_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { name, priority, templateName, keywords, destinationIdentifiers, channelIds, isActive } = req.body;
+        const { name, priority, templateName, keywords, destinationIdentifiers, channelIds, voiceChannelIds, trigger, triggers, isActive } = req.body;
 
         const rule = await Rule.findOne({
           _id: req.params.id,
@@ -2953,9 +3001,18 @@ export class DashboardService {
 
         if (name !== undefined) rule.name = name;
         if (isActive !== undefined) rule.isActive = isActive;
+        if (trigger !== undefined || triggers !== undefined) {
+          const normalized = normalizeRuleTriggersInput({
+            trigger: trigger ?? rule.trigger,
+            triggers: triggers ?? rule.triggers,
+          });
+          rule.triggers = normalized;
+          rule.trigger = normalized[0];
+        }
         if (priority !== undefined) rule.action.priority = priority;
         if (templateName !== undefined) rule.action.templateName = templateName;
         if (channelIds !== undefined) rule.conditions.channelIds = channelIds;
+        if (voiceChannelIds !== undefined) rule.conditions.voiceChannelIds = voiceChannelIds;
         if (keywords !== undefined) {
           rule.conditions.requireKeywords = keywords
             .split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean);
@@ -3105,6 +3162,7 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const classFilter = parseDestinationClassFilter(req.query.class as string | undefined);
+        const registrationFilter = String(req.query.registration ?? 'approved').toLowerCase();
         let findFilter: Record<string, unknown> = { clientId: auth.clientId };
         if (classFilter) {
           const ids = await findDestinationIdsMatchingClassification(
@@ -3119,7 +3177,17 @@ export class DashboardService {
         const destinations = await Destination.find(findFilter)
           .select('-profilePictureData')
           .lean();
-        const enriched = await enrichDestinationsWithClassification(destinations);
+        const crmFiltered =
+          registrationFilter === 'all'
+            ? destinations
+            : destinations.filter(d => {
+                if (d.type === 'group') return true;
+                const st = (d as { crmRegistrationStatus?: string }).crmRegistrationStatus ?? 'approved';
+                if (registrationFilter === 'pending') return st === 'pending';
+                if (registrationFilter === 'inbox_only') return st === 'inbox_only';
+                return st === 'approved' || !('crmRegistrationStatus' in d);
+              });
+        const enriched = await enrichDestinationsWithClassification(crmFiltered);
         res.json(
           enriched.map(d => ({
             ...d,
@@ -3522,7 +3590,7 @@ export class DashboardService {
         });
         if (!dest) return res.status(404).json({ error: 'Destino não encontrado' });
 
-        const { name, contactGroupIds, email, notes, organization, contactKind, contactOrigin, commercialStatus, temperature, phoneQuality } = req.body as {
+        const { name, contactGroupIds, email, notes, organization, contactKind, contactOrigin, commercialStatus, temperature, phoneQuality, crmRegistrationStatus } = req.body as {
           name?: string;
           contactGroupIds?: string[];
           email?: string;
@@ -3533,6 +3601,7 @@ export class DashboardService {
           commercialStatus?: string;
           temperature?: string;
           phoneQuality?: string;
+          crmRegistrationStatus?: string;
         };
 
         if (name !== undefined) {
@@ -3583,6 +3652,14 @@ export class DashboardService {
               : (PHONE_QUALITIES as readonly string[]).includes(phoneQuality)
                 ? (phoneQuality as PhoneQuality)
                 : dest.phoneQuality;
+        }
+        if (crmRegistrationStatus !== undefined) {
+          const allowed = ['approved', 'pending', 'inbox_only'];
+          if (crmRegistrationStatus === null || crmRegistrationStatus === '') {
+            dest.crmRegistrationStatus = 'approved';
+          } else if (allowed.includes(crmRegistrationStatus)) {
+            dest.crmRegistrationStatus = crmRegistrationStatus as 'approved' | 'pending' | 'inbox_only';
+          }
         }
 
         if (contactGroupIds !== undefined) {
@@ -4305,10 +4382,12 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
-        const { guildId } = req.query as { guildId?: string };
-        const query: any = { isActive: true, clientId: { $in: relatedIds } };
+        const { guildId, active } = req.query as { guildId?: string; active?: string };
+        const query: Record<string, unknown> = { clientId: { $in: relatedIds } };
         if (guildId) query.guildId = guildId;
-        const channels = await DiscordChannel.find(query).lean();
+        if (active === 'true') query.isActive = true;
+        else if (active === 'false') query.isActive = false;
+        const channels = await DiscordChannel.find(query).sort({ monitorType: 1, channelName: 1 }).lean();
         res.json(channels);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4316,6 +4395,14 @@ export class DashboardService {
     });
 
     // ── Discord Guilds + Channels from bot (for channel picker) ────────────
+    r.get('/discord/bot-invite-url', requireCapability(Cap.DISCORD_SERVER_VIEW), (_req, res) => {
+      const clientId = config.DISCORD.CLIENT_ID?.trim() || DISCORD_BOT_CLIENT_ID_FALLBACK;
+      res.json({
+        url: buildDiscordBotInviteUrl(clientId),
+        clientId,
+      });
+    });
+
     r.get('/discord/guilds', requireCapability(Cap.DISCORD_SERVER_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
@@ -4358,13 +4445,21 @@ export class DashboardService {
           { headers: { Authorization: `Bot ${token}` } }
         );
         const channels = await chRes.json() as any[];
+        const { type: monitorFilter } = req.query as { type?: string };
 
-        // Return only text channels (type 0) and announcement channels (type 5)
+        let filtered = channels;
+        if (monitorFilter === 'voice') {
+          filtered = channels.filter((c: { type: number }) => c.type === 2 || c.type === 13);
+        } else if (monitorFilter === 'guild') {
+          filtered = [];
+        } else {
+          filtered = channels.filter((c: { type: number }) => c.type === 0 || c.type === 5);
+        }
+
         res.json(
-          channels
-            .filter((c: any) => c.type === 0 || c.type === 5)
-            .map((c: any) => ({ id: c.id, name: c.name, type: c.type }))
-            .sort((a: any, b: any) => a.name.localeCompare(b.name))
+          filtered
+            .map((c: { id: string; name: string; type: number }) => ({ id: c.id, name: c.name, type: c.type }))
+            .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
         );
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4375,16 +4470,23 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
-        const { guildId, channelId, channelName } = req.body;
-        if (!guildId || !channelId) return res.status(400).json({ error: 'guildId and channelId are required' });
-        const existing = await DiscordChannel.findOne({ guildId, channelId });
+        const { guildId, channelId, channelName, guildName, monitorType } = req.body;
+        if (!guildId) return res.status(400).json({ error: 'guildId is required' });
+
+        const mType = monitorType === 'voice' || monitorType === 'guild' ? monitorType : 'text';
+        const resolvedChannelId =
+          mType === 'guild' ? guildId : channelId;
+        if (!resolvedChannelId) return res.status(400).json({ error: 'channelId is required' });
+
+        const existing = await DiscordChannel.findOne({ guildId, channelId: resolvedChannelId, monitorType: mType });
         if (existing) return res.status(409).json({ error: 'Channel already configured' });
+
         await OrganizationService.getInstance().linkGuildToOrganization(auth.clientId, guildId);
-        const ch = await DiscordChannel.createChannel(guildId, channelId, clientOid);
-        // Store channelName if provided (best-effort update)
-        if (channelName) {
-          await DiscordChannel.findByIdAndUpdate(ch._id, { channelName });
-        }
+        const ch = await DiscordChannel.createChannel(guildId, resolvedChannelId, clientOid, {
+          monitorType: mType,
+          channelName: mType === 'guild' ? (channelName || 'Eventos do servidor') : (channelName ?? ''),
+          guildName: guildName ?? '',
+        });
         res.json(ch);
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4408,13 +4510,109 @@ export class DashboardService {
     r.patch('/channels/:id/toggle', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
         const ch = await DiscordChannel.findOne({
           _id: req.params.id,
-          clientId: new mongoose.Types.ObjectId(auth.clientId),
+          clientId: { $in: relatedIds },
         });
         if (!ch) return res.status(404).json({ error: 'Channel not found' });
         await ch.toggleActive();
         res.json({ ok: true, isActive: ch.isActive });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/channels/:id/filters', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+        const ch = await DiscordChannel.findOne({
+          _id: req.params.id,
+          clientId: { $in: relatedIds },
+        });
+        if (!ch) return res.status(404).json({ error: 'Channel not found' });
+
+        const body = req.body as {
+          keywords?: string[];
+          excludeKeywords?: string[];
+          allowBots?: boolean;
+          requireLink?: boolean;
+          requireImage?: boolean;
+          requireEmbed?: boolean;
+          eventCooldownSec?: number | null;
+        };
+
+        if (body.keywords !== undefined) ch.filters.keywords = body.keywords;
+        if (body.excludeKeywords !== undefined) ch.filters.excludeKeywords = body.excludeKeywords;
+        if (body.allowBots !== undefined) ch.filters.allowBots = body.allowBots;
+        if (body.requireLink !== undefined) ch.filters.requireLink = body.requireLink;
+        if (body.requireImage !== undefined) ch.filters.requireImage = body.requireImage;
+        if (body.requireEmbed !== undefined) ch.filters.requireEmbed = body.requireEmbed;
+        if (body.eventCooldownSec !== undefined) {
+          ch.eventCooldownSec = body.eventCooldownSec;
+        }
+
+        await ch.save();
+        res.json(ch);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/channels/:id/history', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+        const ch = await DiscordChannel.findOne({
+          _id: req.params.id,
+          clientId: { $in: relatedIds },
+        });
+        if (!ch) return res.status(404).json({ error: 'Channel not found' });
+
+        const limit = Math.min(parseInt(String(req.query.limit ?? '30'), 10) || 30, 100);
+        const { DiscordMonitorEventService } = await import('@/services/discord/DiscordMonitorEventService');
+        const events = await DiscordMonitorEventService.getInstance().listByMonitor(
+          String(ch._id),
+          limit,
+        );
+        res.json(events);
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/discord/monitor-summary', requireCapability(Cap.DISCORD_CHANNELS_MANAGE, { guildFromQuery: true }), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(auth.clientId);
+        const { guildId } = req.query as { guildId?: string };
+        const query: Record<string, unknown> = { clientId: { $in: relatedIds }, isActive: true };
+        if (guildId) query.guildId = guildId;
+
+        const channels = await DiscordChannel.find(query).lean();
+        const eventRules = await Rule.find({
+          clientId: { $in: relatedIds },
+          isActive: true,
+          trigger: { $nin: ['message', null] },
+          ...(guildId
+            ? {
+                $or: [
+                  { 'conditions.guildIds': guildId },
+                  { 'conditions.guildIds': { $size: 0 } },
+                  { 'conditions.guildIds': { $exists: false } },
+                ],
+              }
+            : {}),
+        }).lean();
+
+        res.json({
+          text: channels.filter(c => !c.monitorType || c.monitorType === 'text').length,
+          voice: channels.filter(c => c.monitorType === 'voice').length,
+          guild: channels.filter(c => c.monitorType === 'guild').length,
+          eventRules: eventRules.length,
+          botVoiceIntent: true,
+        });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -7309,7 +7507,7 @@ export class DashboardService {
         session?: { userId?: string; organizationId?: string };
       }).session;
 
-      if (sess?.userId) {
+      if (sess?.userId && !socket.data.webchatConversationId) {
         try {
           const clientId =
             sess.organizationId ?? (await orgSvc.resolveClientId(sess.userId)) ?? undefined;

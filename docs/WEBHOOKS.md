@@ -32,6 +32,54 @@ Painel: **Configurações → Webhooks** (`/settings#api-webhooks`)
 | `ticket.closed` | Chamado encerrado pela equipe |
 | `webchat.bridge.started` | Bridge bidirecional site ↔ WhatsApp ativado (`!assumir`) |
 | `webchat.bridge.closed` | Bridge desativado |
+| `discord.voice.join` | Alguém entrou em canal de voz monitorado (após regra + envio WA) |
+| `discord.voice.leave` | Alguém saiu de canal de voz monitorado |
+| `discord.member.join` | Membro entrou no servidor (monitor de eventos) |
+| `discord.member.leave` | Membro saiu do servidor |
+| `discord.member.kick` | Membro removido (kick) |
+| `discord.member.ban` | Membro banido |
+
+### Payloads Discord (campo `data`)
+
+**`discord.voice.join` / `discord.voice.leave`**
+```json
+{
+  "event_id": "uuid",
+  "trigger": "voice_join",
+  "guild_id": "...",
+  "guild_name": "Meu Servidor",
+  "channel_id": "...",
+  "channel_name": "Sala Geral",
+  "monitor_type": "voice",
+  "user_id": "...",
+  "user_name": "João",
+  "member_count": 3,
+  "wa_jobs_enqueued": 1
+}
+```
+
+**`discord.member.kick` / `discord.member.ban`**
+```json
+{
+  "event_id": "uuid",
+  "trigger": "member_kick",
+  "guild_id": "...",
+  "user_id": "...",
+  "user_name": "Maria",
+  "moderator_name": "Admin",
+  "reason": "Spam",
+  "wa_jobs_enqueued": 1
+}
+```
+
+### Cooldown (anti-spam voz)
+
+Variáveis de ambiente (opcional):
+
+- `DISCORD_VOICE_COOLDOWN_SEC` — padrão **60** (reconexões na chamada)
+- `DISCORD_MEMBER_COOLDOWN_SEC` — padrão **30**
+
+Por monitor: `eventCooldownSec` em `PATCH /api/channels/:id/filters`.
 
 ### Payloads ticket / bridge (campo `data`)
 

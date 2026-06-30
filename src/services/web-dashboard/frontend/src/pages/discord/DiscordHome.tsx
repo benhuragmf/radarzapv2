@@ -4,17 +4,19 @@ import { DiscordPage } from '../../components/discord/DiscordPage'
 import { Card } from '../../components/ui/Card'
 import { api } from '../../lib/api'
 import { useGuild } from '../../lib/guildContext'
-import { Hash, BookOpen, ListOrdered, ScrollText, Settings } from 'lucide-react'
+import { Hash, BookOpen, ListOrdered, ScrollText, Settings, Mic, Users } from 'lucide-react'
 import { LoadingState, MetricCard } from '@/design-system'
 
 interface Channel {
   _id: string
   isActive: boolean
+  monitorType?: string
 }
 
 interface Rule {
   _id: string
   isActive: boolean
+  trigger?: string
 }
 
 const LINKS = [
@@ -42,13 +44,23 @@ export default function DiscordHome() {
     refetchInterval: 30_000,
   })
 
+  const { data: summary } = useQuery({
+    queryKey: ['discord-monitor-summary', guildId],
+    queryFn: () =>
+      api.get<{ text: number; voice: number; guild: number; eventRules: number }>(
+        `/discord/monitor-summary${guildId ? `?guildId=${guildId}` : ''}`,
+      ),
+    enabled: Boolean(guildId),
+  })
+
   const activeChannels = channels.filter(c => c.isActive).length
   const activeRules = rules.filter(r => r.isActive).length
+  const eventRules = rules.filter(r => r.isActive && r.trigger && r.trigger !== 'message').length
   const loading = loadingChannels || loadingRules
 
   return (
     <DiscordPage
-      description="Resumo da automação Discord → WhatsApp do servidor selecionado."
+      description="Automação Discord → WhatsApp: mensagens, chamadas de voz e eventos de membros."
       requireGuild={false}
     >
       {!guildId ? (
@@ -64,21 +76,35 @@ export default function DiscordHome() {
           {loading ? (
             <LoadingState rows={2} className="py-4" />
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               <MetricCard
-                title="Canais monitorados"
+                title="Monitores ativos"
                 value={activeChannels}
                 description={`${channels.length} cadastrado(s)`}
                 icon={Hash}
               />
               <MetricCard
+                title="Texto"
+                value={summary?.text ?? channels.filter(c => !c.monitorType || c.monitorType === 'text').length}
+                icon={Hash}
+              />
+              <MetricCard title="Voz" value={summary?.voice ?? 0} icon={Mic} />
+              <MetricCard title="Eventos" value={summary?.guild ?? 0} icon={Users} />
+              <MetricCard
                 title="Regras ativas"
                 value={activeRules}
-                description={`${rules.length} regra(s) total`}
+                description={eventRules > 0 ? `${eventRules} de evento` : `${rules.length} total`}
                 icon={BookOpen}
               />
             </div>
           )}
+
+          <Card className="mb-4 text-xs text-[var(--rz-text-muted)] space-y-1">
+            <p><strong className="text-[var(--rz-text-secondary)]">Fluxo rápido:</strong></p>
+            <p>1. <Link to="/discord/channels" className="text-brand-400 hover:underline">Canais</Link> — texto, voz ou eventos do servidor</p>
+            <p>2. <Link to="/discord/rules" className="text-brand-400 hover:underline">Regras</Link> — gatilho (mensagem, voz, kick…) + destinos WhatsApp</p>
+            <p>3. <Link to="/discord/logs" className="text-brand-400 hover:underline">Logs</Link> — acompanhar capturas e envios</p>
+          </Card>
 
           <div className="grid sm:grid-cols-2 gap-2">
             {LINKS.map(({ to, label, icon: Icon }) => (

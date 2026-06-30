@@ -34,7 +34,10 @@ import {
   syncLegacyAppearanceFlags,
   toPlainAppearance,
 } from '../../utils/webchat-prechat-fields.util';
-import { isVisitorVisibleWebChatMessage } from '../../utils/webchat-visitor-message.util';
+import {
+  isVisitorVisibleWebChatMessage,
+  VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY,
+} from '../../utils/webchat-visitor-message.util';
 import { mentionsSupervisor } from '../../utils/internal-chat-supervisor-mention';
 import {
   DEFAULT_AUTO_REPLY_MESSAGE,
@@ -599,11 +602,39 @@ export class WebChatService {
     if (opts.visitorPhone?.trim()) intakeRaw.phone = opts.visitorPhone.trim();
     if (opts.contactReason?.trim()) intakeRaw.contact_reason = opts.contactReason.trim();
     const applied = applyVisitorIntake(intakeRaw, widget.appearance);
-    const destinationId = await linkWebChatVisitorToDestination(
+    const linkedExisting = await linkWebChatVisitorToDestination(
       String(widget.clientId),
       applied,
       { pageUrl: opts.pageUrl, pageTitle: opts.pageTitle },
     );
+    let destinationId = linkedExisting;
+    const hadExistingContact = Boolean(linkedExisting);
+
+    const { loadInboundRegistrationPolicy, shouldAutoCaptureLead } = await import(
+      '../inbound/inbound-registration-policy.service'
+    );
+    const { resolveChannelRegistration } = await import('@/types/inbound-registration-policy');
+    const regPolicy = await loadInboundRegistrationPolicy(String(widget.clientId));
+    const channelActions = resolveChannelRegistration(regPolicy, 'webchat', {
+      isReturn: hadExistingContact,
+    });
+
+    if (
+      !destinationId &&
+      applied.visitorPhone?.trim() &&
+      channelActions.createCrmContact
+    ) {
+      const ensured = await ensureDestinationForWebChatVisitor(
+        String(widget.clientId),
+        applied.visitorPhone,
+        applied.visitorName?.trim() || applied.visitorPhone,
+        {
+          email: applied.visitorEmail,
+          crmRegistrationStatus: channelActions.crmStatus,
+        },
+      );
+      if (ensured) destinationId = ensured;
+    }
 
     let visitorToken = opts.visitorToken?.trim();
     let conversation: IWebChatConversation | null = null;
@@ -678,27 +709,41 @@ export class WebChatService {
     if (isNewConversation && applied.visitorPhone?.trim()) {
       const { LeadFormService } = await import('../leads/LeadFormService');
       const messageParts = [applied.contactReason?.trim(), opts.pageTitle?.trim()].filter(Boolean);
-      void LeadFormService.getInstance()
-        .maybeCaptureWebChatSession(String(widget.clientId), {
-          webchatConversationId: String(conversation._id),
-          phone: applied.visitorPhone,
-          name: applied.visitorName?.trim() || applied.visitorPhone,
-          message: messageParts.length ? messageParts.join(' · ') : undefined,
-          pageUrl: opts.pageUrl,
-          pageTitle: opts.pageTitle,
-          hadExistingContact: Boolean(destinationId),
-          isNewConversation: true,
-          destinationId: destinationId ? String(destinationId) : undefined,
-        })
-        .catch(err => {
-          this.serviceLogger.warn('Falha ao capturar lead WebChat', {
-            clientId: String(widget.clientId),
-            error: (err as Error).message,
+      const captureLead = shouldAutoCaptureLead({
+        channel: 'webchat',
+        isNewContact: !hadExistingContact,
+        isNewConversation: true,
+        hadExistingContact,
+        message: messageParts.length ? messageParts.join(' · ') : undefined,
+        policy: regPolicy,
+      });
+      if (captureLead) {
+        void LeadFormService.getInstance()
+          .maybeCaptureWebChatSession(String(widget.clientId), {
+            webchatConversationId: String(conversation._id),
+            phone: applied.visitorPhone,
+            name: applied.visitorName?.trim() || applied.visitorPhone,
+            message: messageParts.length ? messageParts.join(' · ') : undefined,
+            pageUrl: opts.pageUrl,
+            pageTitle: opts.pageTitle,
+            hadExistingContact,
+            isNewConversation: true,
+            destinationId: destinationId ? String(destinationId) : undefined,
+            policyApproved: true,
+          })
+          .catch(err => {
+            this.serviceLogger.warn('Falha ao capturar lead WebChat', {
+              clientId: String(widget.clientId),
+              error: (err as Error).message,
+            });
           });
-        });
+      }
     }
 
-    const messages = await WebChatMessage.find({ conversationId: conversation._id })
+    const messages = await WebChatMessage.find({
+      conversationId: conversation._id,
+      ...VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY,
+    })
       .sort({ createdAt: 1 })
       .limit(200)
       .lean();
@@ -818,7 +863,10 @@ export class WebChatService {
     conversation.proactiveGreetingSentAt = new Date();
     await conversation.save();
 
-    const messages = await WebChatMessage.find({ conversationId: conversation._id })
+    const messages = await WebChatMessage.find({
+      conversationId: conversation._id,
+      ...VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY,
+    })
       .sort({ createdAt: 1 })
       .limit(200)
       .lean();
@@ -2084,7 +2132,10 @@ export class WebChatService {
     if (!widget?.active) throw new Error('Widget inativo');
     await this.assertOrigin(widget, origin, referer);
 
-    const messages = await WebChatMessage.find({ conversationId: conversation._id })
+    const messages = await WebChatMessage.find({
+      conversationId: conversation._id,
+      ...VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY,
+    })
       .sort({ createdAt: 1 })
       .limit(200)
       .lean();
@@ -2206,7 +2257,10 @@ export class WebChatService {
 
     const replies: WebChatMessageDto[] = [];
     const messageRows: WebChatMessageRow[] = (
-      await WebChatMessage.find({ conversationId: conversation._id })
+      await WebChatMessage.find({
+        conversationId: conversation._id,
+        ...VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY,
+      })
         .sort({ createdAt: 1 })
         .limit(24)
         .lean()
@@ -4091,7 +4145,10 @@ export class WebChatService {
     if (opts.pageTitle?.trim()) conversation.pageTitle = opts.pageTitle.trim();
     await conversation.save();
 
-    const messages = await WebChatMessage.find({ conversationId: conversation._id })
+    const messages = await WebChatMessage.find({
+      conversationId: conversation._id,
+      ...VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY,
+    })
       .sort({ createdAt: 1 })
       .limit(200)
       .lean();

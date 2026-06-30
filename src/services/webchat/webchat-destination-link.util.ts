@@ -121,6 +121,7 @@ export async function ensureDestinationForWebChatVisitor(
     email?: string;
     notes?: string;
     organization?: string;
+    crmRegistrationStatus?: import('@/types/inbound-registration-policy').CrmRegistrationStatus;
   },
 ): Promise<mongoose.Types.ObjectId | undefined> {
   const trimmedPhone = phone.trim();
@@ -151,6 +152,7 @@ export async function ensureDestinationForWebChatVisitor(
   }
 
   const displayName = name.trim() || e164;
+  const crmStatus = opts?.crmRegistrationStatus ?? 'approved';
   const dest = await Destination.createDestination(
     clientOid,
     'contact',
@@ -159,6 +161,7 @@ export async function ensureDestinationForWebChatVisitor(
     'manual',
     '127.0.0.1',
   );
+  dest.crmRegistrationStatus = crmStatus;
   const { setContactClassificationFields } = await import(
     '@/services/destinations/destination-classification.service'
   );

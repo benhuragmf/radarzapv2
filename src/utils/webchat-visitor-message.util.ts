@@ -18,6 +18,11 @@ export function isVisitorVisibleWebChatMessage(msg: { direction: string; body: s
   return !isVisitorHiddenSystemMessage(msg);
 }
 
+/** Filtro Mongo para histórico exposto ao visitante (API pública / widget). */
+export const VISITOR_VISIBLE_WEBCHAT_MESSAGE_QUERY = {
+  direction: { $ne: 'internal' as const },
+};
+
 /** Oculta na consulta pública TK+token (mesmas regras do widget + ops internas). */
 export function isPublicTicketLookupHiddenMessage(msg: { direction: string; body: string }): boolean {
   if (isVisitorHiddenSystemMessage(msg)) return true;

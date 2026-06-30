@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarzap-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.13.2` (`package.json`) · **Última revisão doc:** 2026-06-30
+**Versão atual:** `2.14.5` (`package.json`) · **Última revisão doc:** 2026-06-30
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Mestre:** [`RADARZAP-SISTEMA-COMPLETO.md`](./RADARZAP-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARZAP-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARZAP-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARZAP-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,12 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.14.5** | Discord: fix link Convidar bot via `GET /api/discord/bot-invite-url` |
+| **2.14.4** | Discord regras: múltiplos gatilhos (`triggers[]`), picker multi-select, template auto por evento |
+| **2.14.3** | Discord `/discord/rules`: gatilhos em cards (Mensagens/Voz/Eventos), formulário em 4 etapas, atalhos e filtros; fix `GET /rules?guildId=` para regras voz/eventos |
+| **2.14.2** | Discord: histórico por monitor, webhooks outbound voz/membros, cooldown por usuário |
+| **2.14.1** | Discord: monitoramento voz + eventos membros (kick/ban), novos gatilhos e templates `dw-*` |
+| **2.14.0** | Leads central comercial + política cadastro inbound CRM (`inboundRegistrationPolicy`, Kanban, stats) |
 | **2.13.2** | Sidebar recolhível + acesso rápido (favoritos); integração inbound RadarGamer -> RadarChat: `POST /api/integrations/radargamer/messages`, token, idempotência, opt-in, rate limit, QA no-real-send |
 | **2.13.1** | Admin Ops: métricas VPS/Coolify na aba Infra |
 | **2.13.0** | Infra: Node.js 24 LTS — Docker, CI, engines, `.nvmrc` |

@@ -63,6 +63,13 @@ export const DISCORD_WA_VARIABLE_DOCS: Record<string, string> = {
   preco: 'Preço detectado na promoção',
   loja: 'Loja / plataforma da promo',
   desconto: 'Percentual ou texto de desconto',
+  usuario: 'Membro Discord do evento',
+  usuario_id: 'ID Discord do membro',
+  canal_voz: 'Nome do canal de voz (#…)',
+  acao: 'Descrição da ação (entrou, saiu, banido…)',
+  moderador: 'Moderador (kick/ban via audit log)',
+  motivo: 'Motivo do kick/ban quando disponível',
+  membros_no_canal: 'Quantidade de membros na chamada ou servidor',
 };
 
 export const DISCORD_WHATSAPP_TEMPLATES: DiscordWhatsAppTemplateDef[] = [
@@ -308,6 +315,78 @@ _{rodape}_`,
 
 _{rodape}_`,
     variables: ['titulo', 'corpo', 'anexos', 'opcoes_botoes', 'link_bloco', 'rodape'],
+  },
+  {
+    name: 'dw-voice-join',
+    discordKind: 'alert',
+    label: 'Entrada em chamada de voz',
+    description: 'Quando alguém entra em um canal de voz monitorado.',
+    content: `🔊 *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'canal_voz', 'membros_no_canal', 'rodape'],
+  },
+  {
+    name: 'dw-voice-leave',
+    discordKind: 'alert',
+    label: 'Saída de chamada de voz',
+    description: 'Quando alguém sai de um canal de voz monitorado.',
+    content: `🔇 *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'canal_voz', 'membros_no_canal', 'rodape'],
+  },
+  {
+    name: 'dw-member-join',
+    discordKind: 'alert',
+    label: 'Membro entrou no servidor',
+    description: 'Novo membro no servidor Discord.',
+    content: `✅ *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'servidor', 'membros_no_canal', 'rodape'],
+  },
+  {
+    name: 'dw-member-leave',
+    discordKind: 'alert',
+    label: 'Membro saiu do servidor',
+    description: 'Membro saiu voluntariamente.',
+    content: `👋 *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'servidor', 'rodape'],
+  },
+  {
+    name: 'dw-member-kick',
+    discordKind: 'alert',
+    label: 'Membro removido (kick)',
+    description: 'Membro expulso do servidor.',
+    content: `⛔ *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'moderador', 'motivo', 'rodape'],
+  },
+  {
+    name: 'dw-member-ban',
+    discordKind: 'alert',
+    label: 'Membro banido',
+    description: 'Banimento no servidor Discord.',
+    content: `🚫 *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'moderador', 'motivo', 'rodape'],
   },
 ];
 

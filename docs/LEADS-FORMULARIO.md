@@ -4,6 +4,26 @@
 
 ## Central de Entrada Comercial (2.11.68+)
 
+### Política de cadastro por canal (2.14.0+)
+
+O **dono da empresa** define em **Atendimento → Triagem e Bot → aba Cadastro CRM** (`/platform/inbox/bot#cadastro`) como cada entrada vira registro:
+
+| Canal | Opções |
+|-------|--------|
+| WhatsApp | Contato · Lead · Ambos · Pendente · Apenas conversa |
+| Chat do site | Contato · Lead · Ambos · Pendente · Apenas conversa |
+| Formulário | Lead · Contato · Ambos · Pendente |
+| Retorno de cliente | Lead de retorno · Contato existente · Apenas conversa |
+| Captura manual (painel) | Contato aprovado direto (fixo) |
+
+- **Pendente:** `crmRegistrationStatus: pending` — não lista em Contatos até `PATCH` com `crmRegistrationStatus: approved`.
+- **Apenas conversa / Lead sem CRM:** registro técnico `inbox_only` (Inbox funciona; oculto em `/contact`).
+- **Padrão (retrocompat):** WA `both`, WebChat `lead`, Formulário `both`, Retorno `return_lead`.
+
+API: `inboundRegistrationPolicy` em `GET|PATCH /api/inbox/settings`. Filtro contatos pendentes: `GET /destinations?registration=pending`.
+
+Persistência: `InboxSettings.inboundRegistrationPolicy`, `Destination.crmRegistrationStatus`.
+
 A rota `/platform/leads` funciona como **triagem e conversão** — entradas ainda não tratadas. **Contatos** = base consolidada; **Inbox** = conversa/atendimento.
 
 Métricas operacionais (`GET /leads/stats` → `operational`): novos abertos, WhatsApp aguardando, site/formulários, convertidos hoje, sem responsável. Clique nos cards aplica filtros (`openOnly`, `origins`, etc.).

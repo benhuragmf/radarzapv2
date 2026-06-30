@@ -11,6 +11,7 @@ import type {
   ContactTemperature,
   PhoneQuality,
 } from '@/types/contact-classification';
+import type { CrmRegistrationStatus } from '@/types/inbound-registration-policy';
 
 const logger = createServiceLogger('DestinationModel');
 
@@ -76,6 +77,11 @@ export interface IDestination extends Document {
   temperature?: ContactTemperature;
   /** Qualidade do número (override manual; senão inferido) */
   phoneQuality?: PhoneQuality;
+  /**
+   * Visibilidade na base CRM (/contact).
+   * approved = lista normal; pending = aguarda dono; inbox_only = só Inbox técnico.
+   */
+  crmRegistrationStatus?: CrmRegistrationStatus;
   createdAt: Date;
   
   // Instance methods
@@ -321,6 +327,11 @@ const DestinationSchema = new Schema<IDestination>({
   phoneQuality: {
     type: String,
     enum: ['verified', 'attention', 'invalid', 'no_whatsapp', 'duplicate', 'incomplete', 'international', 'suspicious'],
+  },
+  crmRegistrationStatus: {
+    type: String,
+    enum: ['approved', 'pending', 'inbox_only'],
+    default: 'approved',
   },
 }, {
   timestamps: true,

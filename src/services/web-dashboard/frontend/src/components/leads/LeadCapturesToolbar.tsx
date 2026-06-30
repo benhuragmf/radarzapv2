@@ -109,7 +109,8 @@ export function LeadCapturesToolbar({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+      <div className="rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/10 p-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2">
         {canManage && onAddManual && (
           <Button size="sm" className="h-8 px-2.5 text-xs shrink-0" onClick={onAddManual}>
             <Plus size={14} /> Capturar lead
@@ -215,11 +216,13 @@ export function LeadCapturesToolbar({
             <LayoutGrid size={13} /> Kanban
           </button>
         </div>
+        </div>
       </div>
 
       {total != null && (
-        <p className="text-[10px] text-[var(--rz-text-muted)] mb-2 -mt-0.5">
-          {total} entrada{total !== 1 ? 's' : ''} comercial{total !== 1 ? 'is' : ''}
+        <p className="text-[11px] text-[var(--rz-text-muted)] mb-3 -mt-1">
+          <span className="font-medium text-[var(--rz-text-secondary)]">{total}</span> entrada
+          {total !== 1 ? 's' : ''} comercial{total !== 1 ? 'is' : ''}
         </p>
       )}
 

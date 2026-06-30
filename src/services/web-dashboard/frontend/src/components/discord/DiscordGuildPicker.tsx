@@ -5,6 +5,7 @@ import { getSelectedGuild, setSelectedGuild, type Guild } from '../../lib/guild'
 import { can, type AuthUser } from '../../lib/auth'
 import { ChevronDown, Server, ExternalLink } from 'lucide-react'
 import { Spinner } from '../ui/Spinner'
+import { discordBotInviteFromEnv } from '../../lib/discordBotInvite'
 
 interface Props {
   user: AuthUser
@@ -28,6 +29,15 @@ export default function DiscordGuildPicker({ user, selected, onChange, collapsed
     queryFn: () => api.get('/discord/guilds'),
     enabled: show,
   })
+
+  const { data: botInvite } = useQuery<{ url: string; clientId: string }>({
+    queryKey: ['discord-bot-invite-url'],
+    queryFn: () => api.get('/discord/bot-invite-url'),
+    enabled: show,
+    staleTime: 60 * 60 * 1000,
+  })
+
+  const botInviteUrl = botInvite?.url ?? discordBotInviteFromEnv()
 
   useEffect(() => {
     if (!show || isLoading) return
@@ -163,7 +173,7 @@ export default function DiscordGuildPicker({ user, selected, onChange, collapsed
             )}
             <div className="p-2 border-t border-[var(--rz-border)]">
               <a
-                href={`https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID || ''}&permissions=8&scope=bot`}
+                href={botInviteUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-2 py-1.5 text-xs text-brand-400 hover:text-brand-300 transition-colors"

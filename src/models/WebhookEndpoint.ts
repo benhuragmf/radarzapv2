@@ -24,6 +24,12 @@ export const WEBHOOK_EVENTS = [
   'lead.converted_to_contact',
   'lead.sent_to_inbox',
   'lead.added_to_list',
+  'discord.voice.join',
+  'discord.voice.leave',
+  'discord.member.join',
+  'discord.member.leave',
+  'discord.member.kick',
+  'discord.member.ban',
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

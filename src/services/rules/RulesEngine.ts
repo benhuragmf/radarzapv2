@@ -3,6 +3,8 @@ import { Rule, IRule } from '@/models/Rule';
 import { ExtractedMessage } from '@/services/discord-bot/MessageExtractor';
 import { OrganizationService } from '@/services/organization/OrganizationService';
 import { createServiceLogger } from '@/utils/logger';
+import type { DiscordEventPayload, DiscordRuleTrigger } from '@/types/discord-monitor';
+import { getRuleTriggers, resolveRuleTemplateForEvent } from '@/utils/rule-triggers.util';
 
 export interface RuleMatch {
   rule: IRule;
@@ -31,7 +33,15 @@ export class RulesEngine {
     let rulesChecked = 0;
 
     for (const cid of clientIds) {
-      const rules = await Rule.findActiveByClientId(cid);
+      const rules = await Rule.find({
+        clientId: cid,
+        isActive: true,
+        $or: [
+          { trigger: 'message' },
+          { trigger: { $exists: false } },
+          { triggers: 'message' },
+        ],
+      }).sort({ createdAt: -1 });
       rulesChecked += rules.length;
 
       for (const rule of rules) {
@@ -75,6 +85,71 @@ export class RulesEngine {
     return matches;
   }
 
+  /**
+   * Avalia eventos Discord (voz, membros) contra regras ativas.
+   */
+  async evaluateEvent(event: DiscordEventPayload, clientId: string): Promise<RuleMatch[]> {
+    const matches: RuleMatch[] = [];
+    const clientIds = await this.getRelatedClientIds(clientId);
+    const seenRuleIds = new Set<string>();
+
+    for (const cid of clientIds) {
+      const rules = await Rule.find({
+        clientId: cid,
+        isActive: true,
+        $or: [{ trigger: event.trigger }, { triggers: event.trigger }],
+      }).sort({ createdAt: -1 });
+
+      for (const rule of rules) {
+        const ruleKey = rule._id.toString();
+        if (seenRuleIds.has(ruleKey)) continue;
+
+        if (this.matchesEventConditions(event, rule)) {
+          seenRuleIds.add(ruleKey);
+          matches.push({
+            rule,
+            destinationIds: rule.action.destinationIds,
+            templateName: resolveRuleTemplateForEvent(rule, event.trigger),
+            priority: rule.action.priority,
+            addDelay: rule.action.addDelay ?? 0,
+          });
+          rule.incrementMatchCount().catch(() => {});
+        }
+      }
+    }
+
+    this.serviceLogger.info('Event rules evaluated', {
+      clientId,
+      trigger: event.trigger,
+      matchesFound: matches.length,
+    });
+
+    return matches;
+  }
+
+  private matchesEventConditions(event: DiscordEventPayload, rule: IRule): boolean {
+    const c = rule.conditions;
+    const triggers = getRuleTriggers(rule);
+
+    if (!triggers.includes(event.trigger)) return false;
+
+    if (c.guildIds && c.guildIds.length > 0) {
+      if (!c.guildIds.includes(event.guildId)) return false;
+    }
+
+    if (event.trigger.startsWith('voice_')) {
+      if (c.voiceChannelIds && c.voiceChannelIds.length > 0) {
+        if (!c.voiceChannelIds.includes(event.channelId)) return false;
+      }
+    }
+
+    if (c.authorIds && c.authorIds.length > 0) {
+      if (!c.authorIds.includes(event.userId)) return false;
+    }
+
+    return true;
+  }
+
   private async getRelatedClientIds(clientId: string): Promise<mongoose.Types.ObjectId[]> {
     if (process.env.JEST_WORKER_ID && mongoose.connection.readyState === 0) {
       return [new mongoose.Types.ObjectId(clientId)];
@@ -86,6 +161,9 @@ export class RulesEngine {
    * Verifica se uma mensagem satisfaz TODAS as condições de uma regra (AND).
    */
   private matchesConditions(message: ExtractedMessage, rule: IRule): boolean {
+    const triggers = getRuleTriggers(rule);
+    if (!triggers.includes('message')) return false;
+
     const c = rule.conditions;
 
     // Filtro por canal

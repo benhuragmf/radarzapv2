@@ -42,6 +42,7 @@ export function emitWebChatToVisitor(
   payload: WebChatRealtimePayload,
 ): void {
   if (!io) return;
+  if (event === 'webchat:message' && payload.message?.direction === 'internal') return;
   io.to(`webchat:conv:${conversationId}`).emit(event, payload);
 }
 

@@ -19,6 +19,8 @@ import {
   DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT,
 } from '@/types/inbox-settings';
 import type { WhatsappBridgeCommandsConfig } from '@/types/whatsapp-bridge-commands';
+import type { InboundRegistrationPolicy } from '@/types/inbound-registration-policy';
+import { DEFAULT_INBOUND_REGISTRATION_POLICY } from '@/types/inbound-registration-policy';
 
 export interface IInboxSettings extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -88,6 +90,8 @@ export interface IInboxSettings extends Document {
   presenceIdleTimeoutSeconds: number;
   /** Comandos operacionais WhatsApp bridge (!assumir, custom, etc.) */
   whatsappBridgeCommandsConfig?: WhatsappBridgeCommandsConfig;
+  /** Política de cadastro CRM por canal (dono da empresa). */
+  inboundRegistrationPolicy?: InboundRegistrationPolicy;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -315,6 +319,15 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
     whatsappBridgeCommandsConfig: {
       type: Schema.Types.Mixed,
       default: undefined,
+    },
+    inboundRegistrationPolicy: {
+      type: {
+        whatsapp: { type: String, default: DEFAULT_INBOUND_REGISTRATION_POLICY.whatsapp },
+        webchat: { type: String, default: DEFAULT_INBOUND_REGISTRATION_POLICY.webchat },
+        form: { type: String, default: DEFAULT_INBOUND_REGISTRATION_POLICY.form },
+        returnCustomer: { type: String, default: DEFAULT_INBOUND_REGISTRATION_POLICY.returnCustomer },
+      },
+      default: () => ({ ...DEFAULT_INBOUND_REGISTRATION_POLICY }),
     },
   },
   { timestamps: true, collection: 'inboxSettings' },

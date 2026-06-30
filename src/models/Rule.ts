@@ -1,11 +1,13 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { createServiceLogger } from '../utils/logger';
+import type { DiscordRuleTrigger } from '@/types/discord-monitor';
 
 const logger = createServiceLogger('RuleModel');
 
 export interface IRuleConditions {
   channelIds?: string[];
   guildIds?: string[];
+  voiceChannelIds?: string[];
   authorIds?: string[];
   onlyBots?: boolean;
   onlyUsers?: boolean;
@@ -27,6 +29,10 @@ export interface IRule extends Document {
   clientId: mongoose.Types.ObjectId;
   name: string;
   isActive: boolean;
+  /** message = padrão; demais = eventos Discord */
+  trigger: DiscordRuleTrigger;
+  /** Vários gatilhos na mesma regra (ex.: kick + ban). Se vazio, usa `trigger`. */
+  triggers?: DiscordRuleTrigger[];
   conditions: IRuleConditions;
   action: IRuleAction;
   matchCount: number;
@@ -59,9 +65,23 @@ const RuleSchema = new Schema<IRule>(
       index: true,
     },
 
+    trigger: {
+      type: String,
+      enum: ['message', 'voice_join', 'voice_leave', 'member_join', 'member_leave', 'member_kick', 'member_ban'],
+      default: 'message',
+      index: true,
+    },
+
+    triggers: {
+      type: [String],
+      enum: ['message', 'voice_join', 'voice_leave', 'member_join', 'member_leave', 'member_kick', 'member_ban'],
+      default: [],
+    },
+
     conditions: {
       channelIds: { type: [String], default: [] },
       guildIds: { type: [String], default: [] },
+      voiceChannelIds: { type: [String], default: [] },
       authorIds: { type: [String], default: [] },
       onlyBots: { type: Boolean, default: false },
       onlyUsers: { type: Boolean, default: false },

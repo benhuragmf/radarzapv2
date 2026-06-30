@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ExternalLink,
   Zap,
+  UserPlus,
   Star,
 } from 'lucide-react'
 import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
@@ -24,6 +25,9 @@ import { notifyConfigSaved, mutationError } from '../../lib/notify'
 import { cn } from '@/lib/utils'
 import { InboxAtendimentoNav } from '../../components/inbox/InboxAtendimentoNav'
 import { InboxBotFlowPreview } from '../../components/inbox/InboxBotFlowPreview'
+import { InboundRegistrationPolicyPanel } from '../../components/inbox/InboundRegistrationPolicyPanel'
+import type { InboundRegistrationPolicy } from '@radarzap-types/inbound-registration-policy'
+import { DEFAULT_INBOUND_REGISTRATION_POLICY } from '@radarzap-types/inbound-registration-policy'
 
 type Weekday =
   | 'monday'
@@ -34,7 +38,7 @@ type Weekday =
   | 'saturday'
   | 'sunday'
 
-type BotTab = 'messages' | 'schedule' | 'queue' | 'quality'
+type BotTab = 'messages' | 'schedule' | 'queue' | 'quality' | 'registration'
 
 interface DaySchedule {
   enabled: boolean
@@ -98,6 +102,7 @@ interface InboxSettings {
   webchatQueueMaxWaitCloseMessage: string
   agentPresenceTimeoutSeconds: number
   presenceIdleTimeoutSeconds: number
+  inboundRegistrationPolicy?: InboundRegistrationPolicy
 }
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -124,6 +129,7 @@ const BOT_TABS: Array<{ id: BotTab; label: string; icon: typeof Bot }> = [
   { id: 'messages', label: 'Mensagens', icon: Bot },
   { id: 'schedule', label: 'Horário', icon: Clock },
   { id: 'queue', label: 'Fila e equipe', icon: Users },
+  { id: 'registration', label: 'Cadastro CRM', icon: UserPlus },
   { id: 'quality', label: 'Qualidade', icon: Star },
 ]
 
@@ -205,6 +211,9 @@ export default function InboxBotSettings() {
     if (raw === 'inactivity' || raw === 'inatividade') {
       setTab('messages')
     }
+    if (raw === 'registration' || raw === 'cadastro' || raw === 'crm') {
+      setTab('registration')
+    }
     if (raw === 'sla' || raw === 'atalhos' || raw === 'aus' || raw === 'enc') {
       setTab('quality')
       setSlaAdvancedOpen(true)
@@ -258,6 +267,7 @@ export default function InboxBotSettings() {
         gracefulCloseQuickReplyGateEnabled:
           data.gracefulCloseQuickReplyGateEnabled ?? data.closeQuickReplyGateEnabled ?? true,
         attendantTriageVisible: data.attendantTriageVisible ?? false,
+        inboundRegistrationPolicy: data.inboundRegistrationPolicy ?? DEFAULT_INBOUND_REGISTRATION_POLICY,
       })
     }
   }, [data])
@@ -1019,6 +1029,13 @@ export default function InboxBotSettings() {
                 </label>
               </Card>
             </>
+          )}
+
+          {tab === 'registration' && form.inboundRegistrationPolicy && (
+            <InboundRegistrationPolicyPanel
+              policy={form.inboundRegistrationPolicy}
+              onChange={policy => patch('inboundRegistrationPolicy', policy)}
+            />
           )}
 
           {tab === 'quality' && (

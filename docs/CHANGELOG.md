@@ -8,6 +8,66 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.14.5] - 2026-06-30
+
+### Discord — fix link Convidar bot
+
+- `GET /api/discord/bot-invite-url` usa `DISCORD_CLIENT_ID` do servidor (fallback `1397251289838260244`).
+- Botão no seletor de servidor deixa de depender de `VITE_DISCORD_CLIENT_ID` vazio.
+
+---
+
+## [2.14.4] - 2026-06-30
+
+### Discord — regras com múltiplos gatilhos
+
+- Campo `triggers[]` no modelo `Rule`; mesma regra pode combinar kick + ban, entrada + saída de voz, etc.
+- `RuleTriggerPicker`: seleção múltipla (checkbox); mensagem continua exclusiva dos demais.
+- Engine: template automático por tipo quando há vários gatilhos de evento.
+
+---
+
+## [2.14.3] - 2026-06-30
+
+### Discord — UI regras + fix listagem por guild
+
+- `/discord/rules`: gatilhos em cards por categoria (Mensagens, Voz, Eventos), formulário em 4 etapas, atalhos e filtros na lista.
+- Fix `GET /rules?guildId=`: regras de voz/eventos com canais vazios passam a aparecer.
+
+---
+
+## [2.14.2] - 2026-06-30
+
+### Discord — histórico, webhooks e cooldown
+
+- Histórico por monitor (`GET /channels/:id/history`, TTL 90 dias) + painel em Canais monitorados.
+- Webhooks: `discord.voice.join/leave`, `discord.member.join/leave/kick/ban`.
+- Cooldown anti-spam por usuário (voz 60s, membros 30s — env ou `eventCooldownSec` por monitor).
+
+---
+
+## [2.14.0] - 2026-06-30
+
+### Leads — central comercial + política cadastro inbound CRM
+
+- Política por canal (WA, WebChat, formulário, retorno) em **Triagem e Bot → Cadastro CRM** (`inboundRegistrationPolicy`).
+- `Destination.crmRegistrationStatus` (approved / pending / inbox_only); filtro `GET /destinations?registration=pending`.
+- `/platform/leads`: dashboard operacional, Kanban, detalhe dedicado, composer WhatsApp e métricas `GET /leads/stats`.
+
+---
+
+## [2.14.1] - 2026-06-30
+
+### Discord — monitoramento voz e eventos de membros
+
+- `DiscordChannel.monitorType`: texto, voz ou eventos do servidor (`/discord/channels`).
+- Bot: `VoiceStateUpdate`, `GuildMemberAdd/Remove`, `GuildBanAdd` + intent `GuildVoiceStates`.
+- Regras com `trigger` (voice_join, voice_leave, member_join, kick, ban) e templates `dw-voice-*`, `dw-member-*`.
+- API: `PATCH /channels/:id/filters`, `GET /discord/monitor-summary`; listagem inclui canais inativos.
+- Fix: toggle de canal usa `PATCH` (antes `POST` quebrado).
+
+---
+
 ## [2.13.2] - 2026-06-30
 
 ### Painel — sidebar recolhível e acesso rápido

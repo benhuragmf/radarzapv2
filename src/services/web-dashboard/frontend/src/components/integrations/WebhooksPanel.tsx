@@ -27,6 +27,12 @@ const EVENTS = [
   'webchat.conversation.closed',
   'webchat.bridge.started',
   'webchat.bridge.closed',
+  'discord.voice.join',
+  'discord.voice.leave',
+  'discord.member.join',
+  'discord.member.leave',
+  'discord.member.kick',
+  'discord.member.ban',
 ] as const
 
 interface WebhookRow {

@@ -508,6 +508,7 @@ export class InboxService {
       webchatQueueMaxWaitCloseMessage: string;
       agentPresenceTimeoutSeconds: number;
       presenceIdleTimeoutSeconds: number;
+      inboundRegistrationPolicy?: import('@/types/inbound-registration-policy').InboundRegistrationPolicy;
     }>,
   ): Promise<IInboxSettings> {
     const settings = await InboxSettings.getOrCreate(clientId);
@@ -722,6 +723,15 @@ export class InboxService {
         };
       }
       settings.markModified('schedule');
+    }
+    if (patch.inboundRegistrationPolicy !== undefined) {
+      const { normalizeInboundRegistrationPolicy } = await import(
+        '@/types/inbound-registration-policy'
+      );
+      settings.inboundRegistrationPolicy = normalizeInboundRegistrationPolicy(
+        patch.inboundRegistrationPolicy,
+      );
+      settings.markModified('inboundRegistrationPolicy');
     }
     await settings.save();
     setAgentPresenceTimeout(clientId, settings.agentPresenceTimeoutSeconds ?? 90);
@@ -2426,37 +2436,67 @@ export class InboxService {
     });
 
     if (isNewContact || isNew) {
-      void LeadFormService.getInstance()
-        .maybeCaptureWhatsAppInbound(clientId, {
-          destinationId: String(dest._id),
-          conversationId: String(conversation._id),
-          phone: dest.identifier,
-          name: dest.name || dest.identifier,
-          message: displayBody,
-          isNewContact,
-          isNewConversation: isNew,
-        })
-        .catch(err => {
-          logger.warn('Falha ao capturar lead WhatsApp inbound', {
-            clientId,
-            error: (err as Error).message,
+      const { loadInboundRegistrationPolicy, shouldAutoCaptureLead } = await import(
+        '@/services/inbound/inbound-registration-policy.service'
+      );
+      const regPolicy = await loadInboundRegistrationPolicy(clientId);
+      const captureLead = shouldAutoCaptureLead({
+        channel: 'whatsapp',
+        isNewContact,
+        isNewConversation: isNew,
+        hadExistingContact: !isNewContact,
+        message: displayBody,
+        policy: regPolicy,
+      });
+      if (captureLead) {
+        void LeadFormService.getInstance()
+          .maybeCaptureWhatsAppInbound(clientId, {
+            destinationId: String(dest._id),
+            conversationId: String(conversation._id),
+            phone: dest.identifier,
+            name: dest.name || dest.identifier,
+            message: displayBody,
+            isNewContact,
+            isNewConversation: isNew,
+            policyApproved: true,
+          })
+          .catch(err => {
+            logger.warn('Falha ao capturar lead WhatsApp inbound', {
+              clientId,
+              error: (err as Error).message,
+            });
           });
-        });
+      }
     } else if (trimmed) {
-      void LeadFormService.getInstance()
-        .maybeCaptureWhatsAppCommercialIntent(clientId, {
-          destinationId: String(dest._id),
-          conversationId: String(conversation._id),
-          phone: dest.identifier,
-          name: dest.name || dest.identifier,
-          message: displayBody,
-        })
-        .catch(err => {
-          logger.warn('Falha ao capturar lead comercial WhatsApp', {
-            clientId,
-            error: (err as Error).message,
+      const { loadInboundRegistrationPolicy, shouldAutoCaptureLead } = await import(
+        '@/services/inbound/inbound-registration-policy.service'
+      );
+      const regPolicy = await loadInboundRegistrationPolicy(clientId);
+      const captureLead = shouldAutoCaptureLead({
+        channel: 'whatsapp',
+        isNewContact: false,
+        isNewConversation: false,
+        hadExistingContact: true,
+        message: displayBody,
+        policy: regPolicy,
+      });
+      if (captureLead) {
+        void LeadFormService.getInstance()
+          .maybeCaptureWhatsAppCommercialIntent(clientId, {
+            destinationId: String(dest._id),
+            conversationId: String(conversation._id),
+            phone: dest.identifier,
+            name: dest.name || dest.identifier,
+            message: displayBody,
+            policyApproved: true,
+          })
+          .catch(err => {
+            logger.warn('Falha ao capturar lead comercial WhatsApp', {
+              clientId,
+              error: (err as Error).message,
+            });
           });
-        });
+      }
     }
 
     if (!openHours) {

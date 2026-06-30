@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { createServiceLogger } from '../utils/logger';
+import type { DiscordMonitorType } from '@/types/discord-monitor';
 
 const logger = createServiceLogger('DiscordChannelModel');
 
@@ -13,6 +14,10 @@ export interface IDiscordChannel extends Document {
   guildName: string;
   clientId: mongoose.Types.ObjectId;
   isActive: boolean;
+  /** text = mensagens; voice = chamada de voz; guild = eventos de membros */
+  monitorType: DiscordMonitorType;
+  /** Cooldown por usuário/evento (segundos); null = padrão do sistema */
+  eventCooldownSec?: number | null;
   filters: {
     keywords: string[];
     excludeKeywords: string[];
@@ -78,6 +83,19 @@ const DiscordChannelSchema = new Schema<IDiscordChannel>({
   isActive: {
     type: Boolean,
     default: true,
+  },
+
+  monitorType: {
+    type: String,
+    enum: ['text', 'voice', 'guild'],
+    default: 'text',
+    index: true,
+  },
+
+  eventCooldownSec: {
+    type: Number,
+    min: 0,
+    default: null,
   },
   
   filters: {
@@ -308,7 +326,19 @@ DiscordChannelSchema.methods.matchesMessageFilters = function(
  * Static Methods
  */
 DiscordChannelSchema.statics.findByChannelId = function(channelId: string) {
-  return this.findOne({ channelId, isActive: true });
+  return this.findOne({
+    channelId,
+    isActive: true,
+    $or: [{ monitorType: 'text' }, { monitorType: { $exists: false } }],
+  });
+};
+
+DiscordChannelSchema.statics.findVoiceMonitor = function(channelId: string) {
+  return this.findOne({ channelId, isActive: true, monitorType: 'voice' });
+};
+
+DiscordChannelSchema.statics.findGuildMonitor = function(guildId: string) {
+  return this.findOne({ guildId, isActive: true, monitorType: 'guild' });
 };
 
 DiscordChannelSchema.statics.findByGuildId = function(guildId: string) {
@@ -322,10 +352,11 @@ DiscordChannelSchema.statics.findByClientId = function(clientId: mongoose.Types.
 DiscordChannelSchema.statics.createChannel = async function(
   guildId: string,
   channelId: string,
-  clientId: mongoose.Types.ObjectId
+  clientId: mongoose.Types.ObjectId,
+  options?: { monitorType?: DiscordMonitorType; channelName?: string; guildName?: string }
 ) {
-  // Check if channel already exists
-  const existing = await this.findOne({ guildId, channelId });
+  const monitorType = options?.monitorType ?? 'text';
+  const existing = await this.findOne({ guildId, channelId, monitorType });
   if (existing) {
     throw new Error('Channel already exists for this guild');
   }
@@ -333,8 +364,11 @@ DiscordChannelSchema.statics.createChannel = async function(
   const channel = new this({
     guildId,
     channelId,
+    channelName: options?.channelName ?? '',
+    guildName: options?.guildName ?? '',
     clientId,
     isActive: true,
+    monitorType,
     filters: {
       keywords: [],
       excludeKeywords: []
@@ -420,9 +454,16 @@ DiscordChannelSchema.index({ channelId: 1, isActive: 1 });
  */
 interface IDiscordChannelModel extends Model<IDiscordChannel> {
   findByChannelId(channelId: string): Promise<IDiscordChannel | null>;
+  findVoiceMonitor(channelId: string): Promise<IDiscordChannel | null>;
+  findGuildMonitor(guildId: string): Promise<IDiscordChannel | null>;
   findByGuildId(guildId: string): Promise<IDiscordChannel[]>;
   findByClientId(clientId: mongoose.Types.ObjectId): Promise<IDiscordChannel[]>;
-  createChannel(guildId: string, channelId: string, clientId: mongoose.Types.ObjectId): Promise<IDiscordChannel>;
+  createChannel(
+    guildId: string,
+    channelId: string,
+    clientId: mongoose.Types.ObjectId,
+    options?: { monitorType?: DiscordMonitorType; channelName?: string; guildName?: string }
+  ): Promise<IDiscordChannel>;
   getChannelStats(): Promise<any[]>;
   findChannelsWithFilters(): Promise<IDiscordChannel[]>;
 }

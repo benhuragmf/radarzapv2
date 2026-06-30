@@ -7,15 +7,12 @@ import { usePanelSocket } from '../../hooks/usePanelSocket'
 import { PlatformPage } from '../../components/platform/PlatformPage'
 import { LeadFormEditorCard, type LeadFormEditorSectionId } from '../../components/leads/editor/LeadFormEditorCard'
 import { LeadFormList } from '../../components/leads/LeadFormList'
-import { LeadStatsCards } from '../../components/leads/LeadStatsCards'
-import { LeadCaptureDetail, LeadDetailEmptyState } from '../../components/leads/LeadCaptureDetail'
+import { LeadStatsDashboard } from '../../components/leads/LeadStatsDashboard'
 import { LeadKanbanBoard } from '../../components/leads/LeadKanbanBoard'
 import { LeadCaptureListTable } from '../../components/leads/LeadCaptureListTable'
 import { LeadCapturesToolbar, type CaptureView, type PeriodFilter } from '../../components/leads/LeadCapturesToolbar'
-import { LeadClassificationStatsRow } from '../../components/leads/LeadClassificationStatsRow'
 import { LeadManualCaptureModal } from '../../components/leads/LeadManualCaptureModal'
 import { LeadStatusReasonModal } from '../../components/leads/LeadStatusReasonModal'
-import { LeadWhatsAppPanel } from '../../components/leads/LeadWhatsAppPanel'
 import type { OperationalStatKey } from '../../lib/leadUi'
 import { LEAD_STATUS_DISPLAY, SITE_FORM_ORIGINS } from '../../lib/leadUi'
 import { LeadSegmentsTab } from '../../components/leads/LeadSegmentsTab'
@@ -80,7 +77,6 @@ export default function Leads() {
   const [originsFilter, setOriginsFilter] = useState('')
   const [openOnlyFilter, setOpenOnlyFilter] = useState(false)
   const [manualCaptureOpen, setManualCaptureOpen] = useState(false)
-  const [whatsappPanelItem, setWhatsappPanelItem] = useState<LeadCaptureListItem | null>(null)
   const [statusReasonModal, setStatusReasonModal] = useState<{
     id: string
     status: 'lost' | 'spam'
@@ -100,7 +96,6 @@ export default function Leads() {
   const [classificationBlockedOnly, setClassificationBlockedOnly] = useState(false)
   const [unlinkedOnly, setUnlinkedOnly] = useState(false)
   const [pendingInboxId, setPendingInboxId] = useState<string | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeFormId, setActiveFormId] = useState<string | null>(null)
   const [newFormName, setNewFormName] = useState('')
   const [formEditorSection, setFormEditorSection] = useState<LeadFormEditorSectionId | null>(null)
@@ -210,15 +205,13 @@ export default function Leads() {
     enabled: canView,
   })
 
-  const selected = useMemo(
-    () => capturesData?.items.find(c => c.id === selectedId) ?? null,
-    [capturesData, selectedId],
-  )
+  const openLeadDetail = (id: string, tab?: 'conversa') => {
+    navigate(tab ? `/platform/leads/${id}?tab=${tab}` : `/platform/leads/${id}`)
+  }
 
-  const whatsappPanelLive = useMemo(() => {
-    if (!whatsappPanelItem) return null
-    return capturesData?.items.find(c => c.id === whatsappPanelItem.id) ?? whatsappPanelItem
-  }, [whatsappPanelItem, capturesData?.items])
+  const openLeadWhatsApp = (item: LeadCaptureListItem) => {
+    openLeadDetail(item.id, 'conversa')
+  }
 
   const activeForm = useMemo(
     () => forms.find(f => f.id === activeFormId) ?? null,
@@ -261,7 +254,7 @@ export default function Leads() {
       setActiveFormId(data.id)
       setTab('forms')
       setFormEditorSection('overview')
-      notifySuccess('FormulÃ¡rio criado')
+      notifySuccess('Formulário criado')
     },
     onError: mutationError,
   })
@@ -285,7 +278,7 @@ export default function Leads() {
             : 'Prioridade removida',
         )
       } else if (variables.internalNotes !== undefined) {
-        notifySuccess('ObservaÃ§Ãµes salvas')
+        notifySuccess('Observações salvas')
       }
     },
     onError: mutationError,
@@ -303,18 +296,8 @@ export default function Leads() {
     onSuccess: data => {
       invalidateLeads()
       setManualCaptureOpen(false)
-      setSelectedId(data.id)
+      navigate(`/platform/leads/${data.id}`)
       notifySuccess('Lead capturado')
-    },
-    onError: mutationError,
-  })
-
-  const linkCapture = useMutation({
-    mutationFn: (payload: { id: string; contactId: string }) =>
-      api.post<LeadCaptureListItem>(`/leads/captures/${payload.id}/link`, { contactId: payload.contactId }),
-    onSuccess: () => {
-      invalidateLeads()
-      notifySuccess('Lead vinculado ao contato')
     },
     onError: mutationError,
   })
@@ -325,28 +308,6 @@ export default function Leads() {
     onSuccess: () => {
       invalidateLeads()
       notifySuccess('Lead convertido em contato')
-    },
-    onError: mutationError,
-  })
-
-  const addToGroups = useMutation({
-    mutationFn: (payload: { id: string; groupIds: string[] }) =>
-      api.post<LeadCaptureListItem>(`/leads/captures/${payload.id}/add-to-groups`, {
-        groupIds: payload.groupIds,
-      }),
-    onSuccess: () => {
-      invalidateLeads()
-      notifySuccess('Listas atualizadas')
-    },
-    onError: mutationError,
-  })
-
-  const deleteCapture = useMutation({
-    mutationFn: (id: string) => api.delete(`/leads/captures/${id}`),
-    onSuccess: () => {
-      setSelectedId(null)
-      invalidateLeads()
-      notifySuccess('Lead excluÃ­do')
     },
     onError: mutationError,
   })
@@ -375,7 +336,7 @@ export default function Leads() {
       api.patch(`/leads/forms/${payload.id}`, payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['leads-forms'] })
-      notifySuccess('FormulÃ¡rio salvo')
+      notifySuccess('Formulário salvo')
     },
     onError: mutationError,
   })
@@ -385,7 +346,7 @@ export default function Leads() {
     onSuccess: data => {
       void qc.invalidateQueries({ queryKey: ['leads-forms'] })
       setActiveFormId(data.id)
-      notifySuccess('FormulÃ¡rio duplicado')
+      notifySuccess('Formulário duplicado')
     },
     onError: mutationError,
   })
@@ -395,7 +356,7 @@ export default function Leads() {
     onSuccess: (_data, id) => {
       void qc.invalidateQueries({ queryKey: ['leads-forms'] })
       if (activeFormId === id) setActiveFormId(null)
-      notifySuccess('FormulÃ¡rio excluÃ­do')
+      notifySuccess('Formulário excluído')
     },
     onError: mutationError,
   })
@@ -403,7 +364,7 @@ export default function Leads() {
   if (!canView) {
     return (
       <PlatformPage title="Leads">
-        <EmptyState title="Sem permissÃ£o" description="VocÃª nÃ£o pode visualizar leads nesta conta." />
+        <EmptyState title="Sem permissão" description="Você não pode visualizar leads nesta conta." />
       </PlatformPage>
     )
   }
@@ -470,10 +431,10 @@ export default function Leads() {
       key={id}
       type="button"
       onClick={() => setTab(id)}
-      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border ${
+      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
         tab === id
-          ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 text-[var(--rz-primary)]'
-          : 'border-[var(--rz-border)] text-[var(--rz-text-secondary)]'
+          ? 'bg-[var(--rz-surface)] text-[var(--rz-primary)] shadow-sm'
+          : 'text-[var(--rz-text-secondary)] hover:text-[var(--rz-text-primary)] hover:bg-[var(--rz-surface)]/60'
       }`}
     >
       {icon}
@@ -484,31 +445,30 @@ export default function Leads() {
   return (
     <PlatformPage
       title="Leads"
-      description="Central de entradas comerciais: capture, qualifique e converta contatos vindos do site, WhatsApp, chat, landing pages e formulÃ¡rios."
+      description="Central de entradas comerciais: capture, qualifique e converta contatos vindos do site, WhatsApp, chat, landing pages e formulários."
     >
       {tab === 'captures' && (
         <p className="text-[11px] text-[var(--rz-text-muted)] -mt-2 mb-3 max-w-3xl leading-relaxed">
-          Leads sÃ£o entradas ainda nÃ£o tratadas.{' '}
-          <strong className="font-medium text-[var(--rz-text-secondary)]">Contatos</strong> sÃ£o pessoas jÃ¡ salvas na base.{' '}
+          Leads são entradas ainda não tratadas.{' '}
+          <strong className="font-medium text-[var(--rz-text-secondary)]">Contatos</strong> são pessoas já salvas na base.{' '}
           <strong className="font-medium text-[var(--rz-text-secondary)]">Atendimentos</strong> acontecem no Inbox.
         </p>
       )}
 
       {tab === 'captures' && (
-        <LeadStatsCards stats={stats} activeKey={activeStatKey} onSelect={handleOperationalStatClick} />
-      )}
-
-      {tab === 'captures' && (
-        <LeadClassificationStatsRow
-          stats={classificationStats}
-          activeKey={activeClassificationStatKey}
-          onSelect={handleClassificationStatClick}
+        <LeadStatsDashboard
+          stats={stats}
+          classificationStats={classificationStats}
+          activeOperationalKey={activeStatKey}
+          activeClassificationKey={activeClassificationStatKey}
+          onOperationalSelect={handleOperationalStatClick}
+          onClassificationSelect={handleClassificationStatClick}
         />
       )}
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-1.5 mb-4 p-1 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/10 w-fit">
         {tabBtn('captures', 'Capturas')}
-        {canManage && tabBtn('forms', 'FormulÃ¡rios', <FileInput size={15} />)}
+        {canManage && tabBtn('forms', 'Formulários', <FileInput size={15} />)}
         {tabBtn('segments', 'Listas e segmentos', <List size={15} />)}
       </div>
 
@@ -517,7 +477,7 @@ export default function Leads() {
       )}
 
       {tab === 'captures' && (
-        <div className="flex flex-col min-h-[calc(100vh-14rem)] max-h-[calc(100vh-8rem)]">
+        <div className="flex flex-col flex-1 min-h-0">
           <LeadCapturesToolbar
             search={search}
             onSearchChange={v => {
@@ -670,162 +630,87 @@ export default function Leads() {
           )}
 
           <div className="flex flex-1 min-h-0 rounded-xl border border-[var(--rz-border)] overflow-hidden bg-[var(--rz-surface)]">
-            {/* Ãrea principal â€” lista ou kanban */}
-            <div className="flex-1 min-w-0 flex flex-col min-h-0">
-              {loadingCaptures ? (
-                <div className="p-4">
-                  <LoadingState rows={5} />
-                </div>
-              ) : !capturesData?.items.length ? (
-                <div className="p-6 flex-1 flex items-center justify-center">
-                  <EmptyState
-                    title="Nenhum lead encontrado"
-                    description="Ajuste os filtros ou integre um formulÃ¡rio no site."
-                    action={
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          if (forms.length) openFormEditor(forms[0].id, 'instalacao')
-                          else setTab('forms')
-                        }}
-                      >
-                        <Plug size={14} /> Integrar no site
-                      </Button>
-                    }
-                  />
-                </div>
-              ) : captureView === 'kanban' ? (
-                <div className="flex-1 min-h-0 p-2">
-                  <LeadKanbanBoard
-                    items={capturesData.items}
-                    canManage={canManage}
-                    canReply={canReply}
-                    selectedId={selectedId}
-                    onSelect={setSelectedId}
-                    onAssume={id => openInbox.mutate(id)}
-                    onWhatsApp={item => {
-                      setSelectedId(item.id)
-                      setWhatsappPanelItem(item)
-                    }}
-                    onConvert={id => convertCapture.mutate({ id })}
-                    assumingId={pendingInboxId}
-                    convertingId={convertCapture.isPending ? convertCapture.variables?.id ?? null : null}
-                    onStatusChange={(id, status) => {
-                      const current = capturesData.items.find(c => c.id === id)
-                      if (!current || current.status === status) return
-                      if (status === 'lost' || status === 'spam') {
-                        setStatusReasonModal({ id, status, name: current.name })
-                        return
-                      }
-                      updateCapture.mutate({ id, status })
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto p-2">
-                  <LeadCaptureListTable
-                    items={capturesData.items}
-                    selectedId={selectedId}
-                    onSelect={setSelectedId}
-                    canReply={canReply}
-                    canManage={canManage}
-                    onAssume={id => openInbox.mutate(id)}
-                    onWhatsApp={item => {
-                      setSelectedId(item.id)
-                      setWhatsappPanelItem(item)
-                    }}
-                    onConvert={id => convertCapture.mutate({ id })}
-                    assumingId={pendingInboxId}
-                    convertingId={convertCapture.isPending ? convertCapture.variables?.id ?? null : null}
-                  />
-                  {capturesData.total > 30 && (
-                    <div className="flex gap-2 justify-center pt-2 pb-1 sticky bottom-0 bg-[var(--rz-surface)]">
-                      <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-                        Anterior
-                      </Button>
-                      <span className="text-xs self-center text-[var(--rz-text-muted)]">PÃ¡g. {page}</span>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={page * 30 >= capturesData.total}
-                        onClick={() => setPage(p => p + 1)}
-                      >
-                        PrÃ³xima
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Painel lateral â€” desktop */}
-            <aside className="hidden lg:flex w-[min(420px,38vw)] max-w-[460px] shrink-0 border-l border-[var(--rz-border)] flex-col min-h-0">
-              {selected ? (
-                <LeadCaptureDetail
-                  item={selected}
+            {loadingCaptures ? (
+              <div className="p-4">
+                <LoadingState rows={5} />
+              </div>
+            ) : !capturesData?.items.length ? (
+              <div className="p-6 flex-1 flex items-center justify-center min-h-[320px]">
+                <EmptyState
+                  title="Nenhum lead encontrado"
+                  description="Ajuste os filtros ou integre um formulário no site."
+                  action={
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        if (forms.length) openFormEditor(forms[0].id, 'instalacao')
+                        else setTab('forms')
+                      }}
+                    >
+                      <Plug size={14} /> Integrar no site
+                    </Button>
+                  }
+                />
+              </div>
+            ) : captureView === 'kanban' ? (
+              <div className="flex-1 min-h-[min(720px,calc(100dvh-16rem))] h-full p-2">
+                <LeadKanbanBoard
+                  items={capturesData.items}
                   canManage={canManage}
                   canReply={canReply}
-                  contactGroups={contactGroups}
-                  layout="sidebar"
-                  onClose={() => setSelectedId(null)}
-                  onUpdate={patch => updateCapture.mutate({ id: selected.id, ...patch })}
-                  onOpenInbox={() => openInbox.mutate(selected.id)}
-                  onConvert={opts => convertCapture.mutate({ id: selected.id, ...opts })}
-                  onLinkContact={contactId => linkCapture.mutate({ id: selected.id, contactId })}
-                  onInboxConversationReady={() => invalidateLeads()}
-                  onAddToGroups={groupIds => addToGroups.mutate({ id: selected.id, groupIds })}
-                  onDelete={() => {
-                    if (window.confirm('Excluir este lead permanentemente?')) deleteCapture.mutate(selected.id)
+                  selectedId={null}
+                  onSelect={openLeadDetail}
+                  onAssume={id => openInbox.mutate(id)}
+                  onWhatsApp={openLeadWhatsApp}
+                  onConvert={id => convertCapture.mutate({ id })}
+                  assumingId={pendingInboxId}
+                  convertingId={convertCapture.isPending ? convertCapture.variables?.id ?? null : null}
+                  onStatusChange={(id, status) => {
+                    const current = capturesData.items.find(c => c.id === id)
+                    if (!current || current.status === status) return
+                    if (status === 'lost' || status === 'spam') {
+                      setStatusReasonModal({ id, status, name: current.name })
+                      return
+                    }
+                    updateCapture.mutate({ id, status })
                   }}
-                  openingInbox={openInbox.isPending}
-                  converting={convertCapture.isPending}
-                  linking={linkCapture.isPending}
-                  pending={updateCapture.isPending || addToGroups.isPending}
                 />
-              ) : (
-                <LeadDetailEmptyState />
-              )}
-            </aside>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 overflow-y-auto p-2">
+                <LeadCaptureListTable
+                  items={capturesData.items}
+                  selectedId={null}
+                  onSelect={openLeadDetail}
+                  canReply={canReply}
+                  canManage={canManage}
+                  onAssume={id => openInbox.mutate(id)}
+                  onWhatsApp={openLeadWhatsApp}
+                  onConvert={id => convertCapture.mutate({ id })}
+                  assumingId={pendingInboxId}
+                  convertingId={convertCapture.isPending ? convertCapture.variables?.id ?? null : null}
+                />
+                {capturesData.total > 30 && (
+                  <div className="flex gap-2 justify-center pt-2 pb-1 sticky bottom-0 bg-[var(--rz-surface)]">
+                    <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                      Anterior
+                    </Button>
+                    <span className="text-xs self-center text-[var(--rz-text-muted)]">Pág. {page}</span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={page * 30 >= capturesData.total}
+                      onClick={() => setPage(p => p + 1)}
+                    >
+                      Próxima
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-
-          {/* Drawer mobile â€” detalhe full screen */}
-          {selected && (
-            <div className="lg:hidden">
-              <LeadCaptureDetail
-                item={selected}
-                canManage={canManage}
-                canReply={canReply}
-                contactGroups={contactGroups}
-                layout="mobile-drawer"
-                onClose={() => setSelectedId(null)}
-                onUpdate={patch => updateCapture.mutate({ id: selected.id, ...patch })}
-                onOpenInbox={() => openInbox.mutate(selected.id)}
-                onConvert={opts => convertCapture.mutate({ id: selected.id, ...opts })}
-                onLinkContact={contactId => linkCapture.mutate({ id: selected.id, contactId })}
-                onInboxConversationReady={() => invalidateLeads()}
-                onAddToGroups={groupIds => addToGroups.mutate({ id: selected.id, groupIds })}
-                onDelete={() => {
-                  if (window.confirm('Excluir este lead permanentemente?')) deleteCapture.mutate(selected.id)
-                }}
-                openingInbox={openInbox.isPending}
-                converting={convertCapture.isPending}
-                linking={linkCapture.isPending}
-                pending={updateCapture.isPending || addToGroups.isPending}
-              />
-            </div>
-          )}
         </div>
-      )}
-
-      {whatsappPanelLive && (
-        <LeadWhatsAppPanel
-          item={whatsappPanelLive}
-          open
-          onClose={() => setWhatsappPanelItem(null)}
-          onConversationReady={() => invalidateLeads()}
-          canReply={canReply}
-        />
       )}
 
       {tab === 'forms' && canManage && (
@@ -836,15 +721,15 @@ export default function Leads() {
             <Card className="w-full p-8">
               <EmptyState
                 icon={FileInput}
-                title="Nenhum formulÃ¡rio configurado"
-                description="Crie seu primeiro formulÃ¡rio para capturar leads no site. Depois copie o script de integraÃ§Ã£o."
+                title="Nenhum formulário configurado"
+                description="Crie seu primeiro formulário para capturar leads no site. Depois copie o script de integração."
                 action={
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
                     <input
                       className={inputCls + ' max-w-xs'}
                       value={newFormName}
                       onChange={e => setNewFormName(e.target.value)}
-                      placeholder="Nome do formulÃ¡rio"
+                      placeholder="Nome do formulário"
                     />
                     <Button
                       type="button"
@@ -854,7 +739,7 @@ export default function Leads() {
                       disabled={createForm.isPending || !newFormName.trim()}
                     >
                       <Plus className="h-4 w-4" />
-                      Criar formulÃ¡rio
+                      Criar formulário
                     </Button>
                   </div>
                 }

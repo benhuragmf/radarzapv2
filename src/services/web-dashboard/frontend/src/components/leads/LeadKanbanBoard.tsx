@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ExternalLink, MessageSquare, UserPlus } from 'lucide-react'
+import {
+  AlertTriangle,
+  ExternalLink,
+  Inbox,
+  MessageSquare,
+  User,
+  UserPlus,
+} from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import type { LeadCaptureListItem, LeadCaptureStatus } from '@radarzap-types/lead-form'
@@ -19,7 +26,7 @@ import {
   priorityLabel,
 } from '../../lib/leadUi'
 import { LEAD_TEMPERATURE_VARIANT } from '@radarzap-types/lead-form'
-import { LeadClassificationBadges } from './LeadClassificationBadges'
+import { cn } from '@/lib/utils'
 
 type Props = {
   items: LeadCaptureListItem[]
@@ -33,6 +40,39 @@ type Props = {
   onConvert?: (id: string) => void
   assumingId?: string | null
   convertingId?: string | null
+}
+
+function LeadCardIndicators({ item }: { item: LeadCaptureListItem }) {
+  const indicators: { icon: typeof Inbox; title: string; className: string }[] = []
+  if (item.inboxConversationId || item.webchatConversationId) {
+    indicators.push({
+      icon: Inbox,
+      title: item.webchatConversationId && !item.inboxConversationId ? 'Chat do site' : 'Inbox aberto',
+      className: 'text-[var(--rz-primary)]',
+    })
+  }
+  if (item.linkedContactName || item.destinationId) {
+    indicators.push({ icon: User, title: 'Contato vinculado', className: 'text-emerald-500' })
+  }
+  if (item.possibleDuplicate) {
+    indicators.push({ icon: AlertTriangle, title: 'Possível duplicado', className: 'text-amber-500' })
+  }
+  if (!item.assignedUserName && item.status !== 'converted') {
+    indicators.push({ icon: User, title: 'Sem responsável', className: 'text-[var(--rz-text-muted)]' })
+  }
+  if (!indicators.length) return null
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5">
+      {indicators.map((ind, i) => {
+        const Icon = ind.icon
+        return (
+          <span key={i} title={ind.title} className={cn('inline-flex', ind.className)}>
+            <Icon size={12} aria-hidden />
+          </span>
+        )
+      })}
+    </div>
+  )
 }
 
 export function LeadKanbanBoard({
@@ -64,15 +104,19 @@ export function LeadKanbanBoard({
   }, [items])
 
   return (
-    <div className="flex gap-1.5 h-full min-h-0 overflow-x-auto pb-0.5">
+    <div className="flex gap-2 h-full min-h-0 overflow-x-auto pb-1">
       {LEAD_KANBAN_COLUMNS.map(col => {
         const dropStatus = col.statuses[0]
+        const count = byColumn[col.key].length
         return (
           <div
             key={col.key}
-            className={`flex flex-col min-w-[150px] w-[16.5%] max-w-[200px] shrink-0 rounded-md border ${
-              overCol === col.key ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/5' : 'border-[var(--rz-border)]'
-            } bg-[var(--rz-surface-muted)]/15`}
+            className={cn(
+              'flex flex-col min-w-[188px] flex-1 max-w-[280px] shrink-0 rounded-xl border',
+              overCol === col.key
+                ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/5'
+                : 'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/10',
+            )}
             onDragOver={e => {
               if (!canManage || !dragId) return
               e.preventDefault()
@@ -86,14 +130,24 @@ export function LeadKanbanBoard({
               setDragId(null)
             }}
           >
-            <div className="shrink-0 px-2 py-1.5 border-b border-[var(--rz-border)] flex items-center justify-between">
-              <p className="text-[10px] font-semibold truncate">{col.label}</p>
-              <span className="text-[9px] tabular-nums text-[var(--rz-text-muted)]">{byColumn[col.key].length}</span>
+            <div className="shrink-0 px-3 py-2.5 border-b border-[var(--rz-border)] flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-[var(--rz-text-secondary)] truncate">{col.label}</p>
+              <span
+                className={cn(
+                  'text-[10px] tabular-nums font-medium px-1.5 py-0.5 rounded-full',
+                  count > 0
+                    ? 'bg-[var(--rz-primary)]/15 text-[var(--rz-primary)]'
+                    : 'bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]',
+                )}
+              >
+                {count}
+              </span>
             </div>
-            <ul className="flex-1 min-h-0 overflow-y-auto p-1 space-y-1">
-              {byColumn[col.key].length === 0 ? (
-                <li className="text-[9px] text-center text-[var(--rz-text-muted)] py-4 px-1 leading-snug">
-                  {col.emptyLabel}
+            <ul className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
+              {count === 0 ? (
+                <li className="flex flex-col items-center justify-center text-center py-8 px-2">
+                  <Inbox size={18} className="text-[var(--rz-text-muted)]/50 mb-2" aria-hidden />
+                  <p className="text-[11px] text-[var(--rz-text-muted)] leading-snug">{col.emptyLabel}</p>
                 </li>
               ) : (
                 byColumn[col.key].map(item => {
@@ -116,20 +170,28 @@ export function LeadKanbanBoard({
                           setOverCol(null)
                         }}
                         onClick={() => onSelect(item.id)}
-                        className={`w-full text-left rounded-md border px-2 py-1.5 transition-colors cursor-grab active:cursor-grabbing ${
+                        className={cn(
+                          'w-full text-left rounded-xl border px-3 py-2.5 transition-all cursor-grab active:cursor-grabbing',
                           selectedId === item.id
-                            ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 ring-1 ring-[var(--rz-primary)]/25'
-                            : 'border-[var(--rz-border)] hover:border-[var(--rz-primary)]/35 bg-[var(--rz-surface)]'
-                        } ${dragId === item.id ? 'opacity-50' : ''} ${showActions ? 'pb-7' : ''}`}
+                            ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/10 ring-1 ring-[var(--rz-primary)]/30'
+                            : 'border-[var(--rz-border)] hover:border-[var(--rz-primary)]/40 bg-[var(--rz-surface)] hover:shadow-sm',
+                          dragId === item.id && 'opacity-50',
+                          showActions && 'pb-9',
+                        )}
                       >
-                        <p className="font-medium truncate text-[12px]">{item.name}</p>
-                        <p className="text-[10px] text-[var(--rz-text-muted)] truncate">
+                        <p className="font-semibold truncate text-[13px] text-[var(--rz-text-primary)]">{item.name}</p>
+                        <p className="text-[11px] text-[var(--rz-text-muted)] truncate mt-0.5">
                           {formatPhoneDisplay(item.phone)}
                         </p>
-                        <p className="text-[9px] text-[var(--rz-text-muted)] mt-0.5 truncate">
+                        <p className="text-[10px] text-[var(--rz-text-muted)] mt-1 truncate">
                           {LEAD_ORIGIN_DISPLAY[item.origin]} · {formatRelativeEntry(item.createdAt)}
                         </p>
-                        <div className="flex flex-wrap gap-0.5 mt-1">
+                        {item.message && (
+                          <p className="text-[10px] text-[var(--rz-text-secondary)] mt-1 line-clamp-2 leading-snug">
+                            {item.message}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-1 mt-2">
                           <Badge
                             label={LEAD_ORIGIN_DISPLAY[item.origin]}
                             variant={leadOriginBadgeVariant(item.origin)}
@@ -140,24 +202,17 @@ export function LeadKanbanBoard({
                               variant={LEAD_TEMPERATURE_VARIANT[item.temperature]}
                             />
                           )}
-                          {!item.assignedUserName && item.status !== 'converted' && (
-                            <Badge label="Sem resp." variant="gray" />
-                          )}
-                          {item.linkedContactName && <Badge label="Contato" variant="green" />}
-                          {item.inboxConversationId && <Badge label="Inbox" variant="blue" />}
-                          {item.webchatConversationId && !item.inboxConversationId && (
-                            <Badge label="Chat site" variant="blue" />
-                          )}
-                          {item.possibleDuplicate && <Badge label="Dup." variant="yellow" />}
-                          <LeadClassificationBadges classification={item.classification} />
+                          {item.consentAccepted === true && <Badge label="Opt-in" variant="green" />}
+                          {item.consentAccepted === false && <Badge label="Pendente" variant="yellow" />}
                         </div>
+                        <LeadCardIndicators item={item} />
                       </button>
                       {showActions && (
-                        <div className="absolute bottom-1 left-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                        <div className="absolute bottom-1.5 left-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                           {showOpen && (
                             <Button
                               size="sm"
-                              className="h-6 flex-1 px-1 text-[9px] min-w-0"
+                              className="h-7 flex-1 px-1.5 text-[10px] min-w-0"
                               disabled={assuming}
                               onClick={e => {
                                 e.stopPropagation()
@@ -171,21 +226,21 @@ export function LeadKanbanBoard({
                             <Button
                               size="sm"
                               variant="secondary"
-                              className="h-6 px-1.5 text-[9px] shrink-0"
+                              className="h-7 px-2 text-[10px] shrink-0"
                               title="WhatsApp"
                               onClick={e => {
                                 e.stopPropagation()
                                 onWhatsApp?.(item)
                               }}
                             >
-                              <MessageSquare size={11} />
+                              <MessageSquare size={12} />
                             </Button>
                           )}
                           {showConvert && (
                             <Button
                               size="sm"
                               variant="secondary"
-                              className="h-6 px-1.5 text-[9px] shrink-0"
+                              className="h-7 px-2 text-[10px] shrink-0"
                               title="Salvar como contato"
                               disabled={converting}
                               onClick={e => {
@@ -193,17 +248,17 @@ export function LeadKanbanBoard({
                                 onConvert?.(item.id)
                               }}
                             >
-                              <UserPlus size={11} />
+                              <UserPlus size={12} />
                             </Button>
                           )}
                           {showInbox && inboxHref && (
                             <Link
                               to={inboxHref}
                               title="Abrir Inbox"
-                              className="inline-flex h-6 items-center justify-center px-1.5 rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] hover:bg-[var(--rz-surface-muted)] shrink-0"
+                              className="inline-flex h-7 items-center justify-center px-2 rounded-md border border-[var(--rz-border)] bg-[var(--rz-surface)] hover:bg-[var(--rz-surface-muted)] shrink-0"
                               onClick={e => e.stopPropagation()}
                             >
-                              <ExternalLink size={11} />
+                              <ExternalLink size={12} />
                             </Link>
                           )}
                         </div>

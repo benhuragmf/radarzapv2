@@ -546,11 +546,24 @@ export class LeadFormService {
 
     const leadOrigin = detectOrigin(meta.referer, body.origin);
 
+    const { loadInboundRegistrationPolicy } = await import(
+      '@/services/inbound/inbound-registration-policy.service'
+    );
+    const { resolveFormRegistration } = await import('@/types/inbound-registration-policy');
+    const formRegPolicy = await loadInboundRegistrationPolicy(clientId);
+    const formReg = resolveFormRegistration(formRegPolicy);
+
     let destinationId: mongoose.Types.ObjectId | undefined;
-    if (routing.contactMode === 'always' && e164 && !e164.startsWith('email:')) {
+    const shouldCreateContact =
+      formReg.createCrmContact &&
+      e164 &&
+      !e164.startsWith('email:') &&
+      (routing.contactMode !== 'never');
+    if (shouldCreateContact) {
       const ensured = await ensureDestinationForWebChatVisitor(clientId, e164, name, {
         email: email || undefined,
         notes: noteParts.join('\n'),
+        crmRegistrationStatus: formReg.crmStatus,
       });
       if (ensured) {
         destinationId = new mongoose.Types.ObjectId(ensured);
@@ -575,6 +588,18 @@ export class LeadFormService {
 
     const consentAccepted = appearance.requireConsent ? Boolean(body.consent) : body.consent || undefined;
     const consentAcceptedAt = body.consent ? new Date() : undefined;
+
+    if (!formReg.createLead) {
+      if (!destinationId) {
+        throw new Error(
+          'Política da empresa: formulário configurado só para contato — informe um telefone válido.',
+        );
+      }
+      return buildPublicLeadSubmitResponse({
+        successMessage: appearance.successMessage,
+        redirectUrl: form.redirectUrl,
+      });
+    }
 
     const existingOpen = await this.findOpenLeadForFormDedupe(clientId, e164, email || undefined);
     if (existingOpen) {
@@ -1185,9 +1210,11 @@ export class LeadFormService {
       message?: string;
       isNewContact: boolean;
       isNewConversation: boolean;
+      /** Quando true, pula regra legada (política do dono já validou). */
+      policyApproved?: boolean;
     },
   ): Promise<ILeadCapture | null> {
-    if (!shouldCreateLeadFromWhatsAppInbound(opts)) return null;
+    if (!opts.policyApproved && !shouldCreateLeadFromWhatsAppInbound(opts)) return null;
 
     const historyMessage = opts.isNewContact
       ? 'Capturado via WhatsApp (primeiro contato)'
@@ -1218,9 +1245,10 @@ export class LeadFormService {
       hadExistingContact: boolean;
       isNewConversation: boolean;
       destinationId?: string;
+      policyApproved?: boolean;
     },
   ): Promise<ILeadCapture | null> {
-    if (!shouldCreateLeadFromWebChatSession(opts)) return null;
+    if (!opts.policyApproved && !shouldCreateLeadFromWebChatSession(opts)) return null;
 
     const historyMessage = opts.hadExistingContact
       ? 'Retorno via Chat do site (nova sessão)'
@@ -1252,9 +1280,10 @@ export class LeadFormService {
       phone: string;
       name: string;
       message: string;
+      policyApproved?: boolean;
     },
   ): Promise<ILeadCapture | null> {
-    if (!hasCommercialLeadIntent(opts.message)) return null;
+    if (!opts.policyApproved && !hasCommercialLeadIntent(opts.message)) return null;
 
     const clientOid = new mongoose.Types.ObjectId(clientId);
     const convOid = new mongoose.Types.ObjectId(opts.conversationId);
@@ -1364,9 +1393,26 @@ export class LeadFormService {
     const form = await this.ensureSystemForm(clientId, 'manual');
     const clientOid = new mongoose.Types.ObjectId(clientId);
 
+    const { resolveManualRegistration } = await import('@/types/inbound-registration-policy');
+    const manualReg = resolveManualRegistration();
+
+    let destinationId: mongoose.Types.ObjectId | undefined;
     const { Destination } = await import('@/models/Destination');
-    const dest = await Destination.findByIdentifier(e164, clientOid);
-    const destinationId = dest?._id as mongoose.Types.ObjectId | undefined;
+    const destExisting = await Destination.findByIdentifier(e164, clientOid);
+    if (destExisting) {
+      destinationId = destExisting._id as mongoose.Types.ObjectId;
+      if (manualReg.createCrmContact && destExisting.crmRegistrationStatus !== 'approved') {
+        destExisting.crmRegistrationStatus = 'approved';
+        await destExisting.save();
+      }
+    } else if (manualReg.createCrmContact) {
+      const ensured = await ensureDestinationForWebChatVisitor(clientId, e164, name, {
+        email: email || undefined,
+        notes: 'Captura manual no painel',
+        crmRegistrationStatus: manualReg.crmStatus,
+      });
+      if (ensured) destinationId = new mongoose.Types.ObjectId(ensured);
+    }
 
     const message = sanitizeLeadText(body.message, 2000) || undefined;
     const temperature =

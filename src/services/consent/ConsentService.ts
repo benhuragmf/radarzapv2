@@ -383,7 +383,7 @@ export class ConsentService {
     return dest;
   }
 
-  /** Localiza contato pelo JID ou cria como PENDING (inbox / primeiro contato). */
+  /** Localiza contato pelo JID ou cria conforme política de cadastro do dono. */
   async findOrCreateContactFromInbound(
     clientId: string,
     fromJid: string,
@@ -391,6 +391,14 @@ export class ConsentService {
   ): Promise<IDestination | null> {
     const existing = await this.findContactDestination(clientId, fromJid, altJid);
     if (existing) return existing;
+
+    const { loadInboundRegistrationPolicy } = await import(
+      '@/services/inbound/inbound-registration-policy.service'
+    );
+    const { resolveChannelRegistration } = await import('@/types/inbound-registration-policy');
+    const policy = await loadInboundRegistrationPolicy(clientId);
+    const actions = resolveChannelRegistration(policy, 'whatsapp', { isReturn: false });
+    if (!actions.createTechnicalContact) return null;
 
     const phone = resolvePhoneFromJids(clientId, altJid, fromJid);
     const candidates = identifierCandidatesFromJids(fromJid, altJid);
@@ -412,6 +420,7 @@ export class ConsentService {
       name: displayName,
       consentStatus: ConsentStatus.ACCEPTED,
       isActive: true,
+      crmRegistrationStatus: actions.crmStatus,
       consent: {
         granted: true,
         grantedAt: new Date(),
@@ -423,7 +432,9 @@ export class ConsentService {
     await this.recordHistory(dest, ConsentStatus.PENDING, ConsentStatus.ACCEPTED, 'whatsapp-inbound-initiated', {
       replyText: 'primeiro contato iniciado pelo cliente',
     });
-    await ContactAutoSegmentService.getInstance().tagInboundFirstContact(clientId, dest);
+    if (actions.tagAtendimento) {
+      await ContactAutoSegmentService.getInstance().tagInboundFirstContact(clientId, dest);
+    }
     logger.info('Contato criado via inbound (sem prompt LGPD)', {
       clientId,
       phone: redactPhone(identifier),
