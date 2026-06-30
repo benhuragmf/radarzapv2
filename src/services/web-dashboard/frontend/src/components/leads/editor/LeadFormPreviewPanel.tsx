@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, Monitor, RotateCcw, Smartphone } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ExternalLink, Monitor, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { leadFormPreviewUrl } from '@/lib/leadFormEditorUtils'
+import type { LeadFormAppearance } from '@radarzap-types/lead-form'
 
 type PreviewMode = 'desktop' | 'mobile'
-
-type LayoutState = {
-  slotTop: number
-  bgY: number
-  formX: number
-}
 
 type Props = {
   publicKey: string
   formName: string
   companyWebsite?: string | null
+  appearance?: Pick<
+    LeadFormAppearance,
+    'theme' | 'size' | 'borderRadius' | 'showLogo' | 'primaryColor'
+  >
   reloadKey?: number
   active?: boolean
   className?: string
@@ -22,118 +21,90 @@ type Props = {
 
 const PREVIEW_HEIGHT = 640
 const PREVIEW_HEIGHT_MOBILE = 620
+const DEFAULT_SECTION = 3
+const MAX_SECTION = 12
 
-const DEFAULT_LAYOUT: LayoutState = { slotTop: 340, bgY: 0, formX: 50 }
+function sectionStorageKey(publicKey: string) {
+  return `rz-lead-preview-section:${publicKey}`
+}
+
+function loadSection(publicKey: string): number {
+  try {
+    const raw = sessionStorage.getItem(sectionStorageKey(publicKey))
+    if (!raw) return DEFAULT_SECTION
+    const n = parseInt(raw, 10)
+    return Number.isFinite(n) ? Math.max(0, Math.min(MAX_SECTION, n)) : DEFAULT_SECTION
+  } catch {
+    return DEFAULT_SECTION
+  }
+}
 
 export function LeadFormPreviewPanel({
   publicKey,
   formName,
   companyWebsite,
+  appearance,
   reloadKey = 0,
   active = true,
   className,
 }: Props) {
   const [mode, setMode] = useState<PreviewMode>('desktop')
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [layout, setLayout] = useState<LayoutState>(DEFAULT_LAYOUT)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [section, setSection] = useState(() => loadSection(publicKey))
 
-  const href = leadFormPreviewUrl(publicKey, reloadKey || undefined, companyWebsite)
+  const usesSiteProxy = Boolean(companyWebsite?.trim())
+
+  const href = useMemo(
+    () =>
+      leadFormPreviewUrl(
+        publicKey,
+        reloadKey || undefined,
+        companyWebsite,
+        section,
+        appearance,
+      ),
+    [publicKey, reloadKey, companyWebsite, section, appearance],
+  )
+
   const siteLabel = companyWebsite?.trim()
     ? companyWebsite.trim().replace(/^https?:\/\//i, '').replace(/\/$/, '')
     : null
 
-  const postLayout = useCallback((patch: Partial<LayoutState> & { reset?: boolean }) => {
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: 'rz-preview-layout', ...patch },
-      window.location.origin,
-    )
-  }, [])
-
-  useEffect(() => {
-    postLayout(layout)
-  }, [layout, href, postLayout])
-
-  useEffect(() => {
-    const onMessage = (ev: MessageEvent) => {
-      if (ev.origin !== window.location.origin) return
-      const data = ev.data as {
-        type?: string
-        slotTop?: number
-        bgY?: number
-        formX?: number
-      }
-      if (data?.type !== 'rz-preview-layout-state') return
-      setLayout(prev => ({
-        slotTop: typeof data.slotTop === 'number' ? data.slotTop : prev.slotTop,
-        bgY: typeof data.bgY === 'number' ? data.bgY : prev.bgY,
-        formX: typeof data.formX === 'number' ? data.formX : prev.formX,
-      }))
+  const onSectionChange = (value: number) => {
+    setSection(value)
+    try {
+      sessionStorage.setItem(sectionStorageKey(publicKey), String(value))
+    } catch {
+      /* ignore */
     }
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-  }, [])
-
-  const resetLayout = () => {
-    setLayout(DEFAULT_LAYOUT)
-    postLayout({ reset: true })
   }
 
   const layoutControls = (
     <div className="space-y-2 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/25 p-2.5">
       <p className="text-[10px] font-medium text-[var(--rz-text-secondary)]">
-        Formulário entre seções do site
+        {usesSiteProxy ? 'Formulário no HTML do site (empurra de verdade)' : 'Prévia simples (sem site)'}
       </p>
-      <label className="block text-[10px] text-[var(--rz-text-muted)]">
-        Onde entra na página ({layout.slotTop}px) — alça ↕ na prévia
-        <input
-          type="range"
-          min={0}
-          max={2400}
-          step={10}
-          value={layout.slotTop}
-          onChange={e => setLayout(l => ({ ...l, slotTop: Number(e.target.value) }))}
-          className="mt-1 w-full accent-brand-500"
-        />
-      </label>
-      <label className="block text-[10px] text-[var(--rz-text-muted)]">
-        Ajuste fino do alinhamento ({layout.bgY}px) — ou Shift+scroll na prévia
-        <input
-          type="range"
-          min={-600}
-          max={600}
-          step={5}
-          value={layout.bgY}
-          onChange={e => setLayout(l => ({ ...l, bgY: Number(e.target.value) }))}
-          className="mt-1 w-full accent-brand-500"
-        />
-      </label>
-      <label className="block text-[10px] text-[var(--rz-text-muted)]">
-        Largura / posição horizontal ({layout.formX}%)
-        <input
-          type="range"
-          min={8}
-          max={92}
-          step={1}
-          value={layout.formX}
-          onChange={e => setLayout(l => ({ ...l, formX: Number(e.target.value) }))}
-          className="mt-1 w-full accent-brand-500"
-        />
-      </label>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[9px] leading-snug text-[var(--rz-text-muted)]">
-          Role a prévia para ver o site acima e abaixo do formulário. No site real:{' '}
-          <code className="text-[8px]">data-container=&quot;sua-div&quot;</code>
+      {usesSiteProxy ? (
+        <label className="block text-[10px] text-[var(--rz-text-muted)]">
+          Inserir após a seção nº {section} — a prévia rola até o formulário
+          <input
+            type="range"
+            min={0}
+            max={MAX_SECTION}
+            step={1}
+            value={section}
+            onChange={e => onSectionChange(Number(e.target.value))}
+            className="mt-1 w-full accent-brand-500"
+          />
+        </label>
+      ) : (
+        <p className="text-[10px] text-[var(--rz-text-muted)]">
+          Cadastre o site em Configurações → Empresa para prévia com empurrão real no layout.
         </p>
-        <button
-          type="button"
-          onClick={resetLayout}
-          className="inline-flex items-center gap-1 rounded-md border border-[var(--rz-border)] px-2 py-1 text-[10px] text-[var(--rz-text-muted)] hover:text-[var(--rz-text-secondary)]"
-        >
-          <RotateCcw className="h-3 w-3" />
-          Reset
-        </button>
-      </div>
+      )}
+      <p className="text-[9px] leading-snug text-[var(--rz-text-muted)]">
+        No site publicado: snippet <code className="text-[8px]">data-container=&quot;sua-div&quot;</code>
+      </p>
     </div>
   )
 
@@ -147,7 +118,7 @@ export function LeadFormPreviewPanel({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/30 px-3 py-2">
         <div className="min-w-0">
           <p className="truncate text-[10px] font-medium text-[var(--rz-text-muted)]">
-            {siteLabel ? `Inline em ${siteLabel}` : 'Prévia do formulário'}
+            {siteLabel ? `Site real · ${siteLabel}` : 'Prévia do formulário'}
           </p>
         </div>
         <a
@@ -161,16 +132,14 @@ export function LeadFormPreviewPanel({
         </a>
       </div>
       <div
-        className="relative overflow-hidden bg-white"
+        className="relative overflow-hidden bg-[#07111f]"
         style={{ height: mode === 'mobile' ? PREVIEW_HEIGHT_MOBILE : PREVIEW_HEIGHT }}
       >
         <iframe
-          ref={iframeRef}
           key={href}
           title={`Preview ${formName}`}
           src={href}
-          onLoad={() => postLayout(layout)}
-          className="h-full w-full border-0 bg-white"
+          className="h-full w-full border-0 bg-[#07111f]"
           sandbox="allow-scripts allow-forms allow-same-origin"
         />
         {!active && (
@@ -215,7 +184,9 @@ export function LeadFormPreviewPanel({
           </div>
         </div>
         <p className="mt-1 text-[10px] text-[var(--rz-text-muted)]">
-          O formulário ocupa espaço na página. Role para baixo do form para ver o site continuando empurrado.
+          {usesSiteProxy
+            ? 'A prévia reflete tema, tamanho e arredondamento do rascunho — salve para publicar no site.'
+            : 'Prévia básica sem o site do cliente.'}
         </p>
         <div className="mt-2">{layoutControls}</div>
       </div>

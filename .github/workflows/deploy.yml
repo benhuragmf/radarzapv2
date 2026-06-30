@@ -1,5 +1,5 @@
-# Build GHCR + republicação no stack Coolify (produção VPS ZAP).
-# Não usa mais docker-compose.deploy.yml / deploy-remote.sh no .180.
+# Build GHCR + deploy no stack Coolify (produção VPS ZAP).
+# Push em main: deploy leve (pull + up app). Republicação full só manual.
 name: Deploy
 
 on:
@@ -14,6 +14,14 @@ on:
       - '.cursor/**'
   workflow_dispatch:
     inputs:
+      deploy_mode:
+        description: Modo de deploy
+        required: true
+        default: app-only
+        type: choice
+        options:
+          - app-only
+          - full-republish
       target:
         description: Ambiente de destino
         required: true
@@ -64,11 +72,14 @@ jobs:
 
   deploy:
     needs: build-and-push
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip deploy]'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy Coolify via SSH (GHCR + fix-coolify-ssl)
+      - name: Deploy Coolify via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
@@ -78,12 +89,13 @@ jobs:
           PUBLIC_HOST: app.radarchat.com.br
           TRAEFIK_EXTRA_HOSTS: 151-247-210-180.sslip.io
           COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
+          DEPLOY_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode || 'app-only' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           command_timeout: 30m
-          envs: GHCR_PAT,DEPLOY_PATH,IMAGE,REPO_OWNER,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS,COOLIFY_SERVICE_UUID
+          envs: GHCR_PAT,DEPLOY_PATH,IMAGE,REPO_OWNER,PUBLIC_HOST,TRAEFIK_EXTRA_HOSTS,COOLIFY_SERVICE_UUID,DEPLOY_MODE
           script_stop: true
           script: |
             set -euo pipefail
@@ -93,9 +105,14 @@ jobs:
             export PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
             export TRAEFIK_EXTRA_HOSTS="${TRAEFIK_EXTRA_HOSTS:-151-247-210-180.sslip.io}"
             export COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
+            export RADARZAP_IMAGE="$IMAGE"
             if [ -n "${GHCR_PAT:-}" ]; then
               echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
             fi
-            export RADARZAP_IMAGE="$IMAGE"
-            echo "[deploy] Coolify only — scripts/vps-fix-coolify-ssl.sh"
-            sudo -E bash scripts/vps-fix-coolify-ssl.sh
+            if [ "${DEPLOY_MODE:-app-only}" = "full-republish" ]; then
+              echo "[deploy] Modo full-republish — scripts/vps-fix-coolify-ssl.sh"
+              sudo -E bash scripts/vps-fix-coolify-ssl.sh
+            else
+              echo "[deploy] Modo app-only — scripts/vps-coolify-deploy-app.sh"
+              sudo -E bash scripts/vps-coolify-deploy-app.sh
+            fi

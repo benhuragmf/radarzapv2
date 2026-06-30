@@ -2491,6 +2491,43 @@ export class DashboardService {
       }
     });
 
+    r.get('/inbox/whatsapp-bridge-commands', requireCapability(Cap.INBOX_REPLY), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { getWhatsappBridgeCommandsPayload } = await import(
+          '@/services/inbox/whatsapp-bridge-commands.service'
+        );
+        const payload = await getWhatsappBridgeCommandsPayload(auth.clientId);
+        const canManage = auth.capabilities.includes(Cap.INBOX_DEPARTMENT_MANAGE);
+        res.json({
+          config: canManage ? payload.config : { enabled: payload.config.enabled },
+          commands: canManage ? payload.commands : payload.agentCommands,
+          agentCommands: payload.agentCommands,
+          helpText: payload.helpText,
+          catalog: canManage ? payload.catalog : undefined,
+          canManage: Boolean(canManage),
+        });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/inbox/whatsapp-bridge-commands', requireCapability(Cap.INBOX_DEPARTMENT_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { patchWhatsappBridgeCommandsConfig } = await import(
+          '@/services/inbox/whatsapp-bridge-commands.service'
+        );
+        const payload = await patchWhatsappBridgeCommandsConfig(auth.clientId, req.body ?? {});
+        res.json({
+          ...payload,
+          canManage: true,
+        });
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
     const aiSettingsSvc = AiSettingsService.getInstance();
     const aiProviderSvc = AiProviderService.getInstance();
     const aiUsageSvc = AiUsageMeterService.getInstance();

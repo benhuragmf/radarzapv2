@@ -68,6 +68,30 @@
     return '420px';
   }
 
+  function cssImp(value) {
+    return value + ' !important';
+  }
+
+  function readPreviewOverrides(container) {
+    if (!container || !/\/preview-page/i.test(window.location.pathname)) return null;
+    var o = {};
+    var theme = container.getAttribute('data-preview-theme');
+    if (theme) o.theme = theme;
+    var size = container.getAttribute('data-preview-size');
+    if (size) o.size = size;
+    var br = container.getAttribute('data-preview-border-radius');
+    if (br !== null && br !== '') {
+      var n = Number(br);
+      if (!isNaN(n)) o.borderRadius = n;
+    }
+    var sl = container.getAttribute('data-preview-show-logo');
+    if (sl === '1') o.showLogo = true;
+    if (sl === '0') o.showLogo = false;
+    var pc = container.getAttribute('data-preview-primary-color');
+    if (pc) o.primaryColor = pc;
+    return Object.keys(o).length ? o : null;
+  }
+
   function injectStyles(config) {
     var styleId = 'rz-lead-form-styles-' + (config.publicKey || 'default');
     var existing = document.getElementById(styleId);
@@ -90,22 +114,24 @@
 
     var css =
       '.rz-lead-form{max-width:' +
-      maxW +
-      ';font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:' +
-      text +
-      '}' +
+      cssImp(maxW) +
+      ';width:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:' +
+      cssImp(text) +
+      ';margin:0 auto}' +
+      '.rz-lead-form.rz-theme-light{color-scheme:light}' +
+      '.rz-lead-form.rz-theme-dark{color-scheme:dark}' +
       '.rz-lead-form.rz-theme-dark{color:' +
-      text +
+      cssImp(text) +
       '}' +
       '.rz-lead-form *{box-sizing:border-box}' +
       '.rz-lead-form h2{margin:0 0 6px;font-size:1.25rem;font-weight:600;color:' +
-      text +
+      cssImp(text) +
       '}' +
       '.rz-lead-form p.rz-desc{margin:0 0 16px;font-size:0.875rem;color:' +
-      muted +
+      cssImp(muted) +
       ';line-height:1.45}' +
       '.rz-lead-form label{display:block;font-size:0.8rem;font-weight:500;margin-bottom:4px;color:' +
-      label +
+      cssImp(label) +
       '}' +
       '.rz-lead-form .rz-field{margin-bottom:12px}' +
       '.rz-lead-form .rz-check-label{display:flex;align-items:flex-start;gap:8px;font-weight:400;cursor:pointer}' +
@@ -113,50 +139,52 @@
       '.rz-lead-form input,.rz-lead-form textarea,.rz-lead-form select{width:100%;padding:10px 12px;border:1px solid ' +
       border +
       ';border-radius:' +
-      radius +
-      'px;font-size:0.95rem;background:' +
-      inputBg +
+      cssImp(radius + 'px') +
+      ';font-size:0.95rem;background:' +
+      cssImp(inputBg) +
       ';color:' +
-      text +
-      '}' +
+      cssImp(text) +
+      ';font-family:inherit}' +
       '.rz-lead-form input:focus,.rz-lead-form textarea:focus,.rz-lead-form select:focus{outline:2px solid ' +
       color +
       '33;border-color:' +
-      color +
+      cssImp(color) +
       '}' +
       '.rz-lead-form textarea{min-height:88px;resize:vertical}' +
       '.rz-lead-form .rz-err{color:#b91c1c;font-size:0.8rem;margin-top:4px}' +
-      '.rz-lead-form .rz-btn{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 16px;border:none;border-radius:' +
-      radius +
-      'px;font-size:0.95rem;font-weight:600;color:#fff;background:' +
-      color +
-      ';cursor:pointer;margin-top:4px}' +
+      '.rz-lead-form button.rz-btn,.rz-lead-form .rz-btn{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 16px;border:none;border-radius:' +
+      cssImp(radius + 'px') +
+      ';font-size:0.95rem;font-weight:600;color:' +
+      cssImp('#fff') +
+      ';background:' +
+      cssImp(color) +
+      ';cursor:pointer;margin-top:4px;font-family:inherit}' +
       '.rz-lead-form .rz-btn:disabled{opacity:0.6;cursor:not-allowed}' +
       '.rz-lead-form .rz-success{padding:16px;border-radius:' +
       radius +
       'px;background:' +
-      successBg +
+      cssImp(successBg) +
       ';color:' +
-      successText +
+      cssImp(successText) +
       ';font-size:0.9rem;line-height:1.45}' +
       '.rz-lead-form .rz-global-err{margin-bottom:12px;padding:10px;border-radius:' +
       radius +
       'px;background:' +
-      errBg +
+      cssImp(errBg) +
       ';color:' +
-      errText +
+      cssImp(errText) +
       ';font-size:0.85rem}' +
       '.rz-lead-form .rz-logo{margin-top:16px;text-align:center;font-size:0.7rem;color:' +
-      muted +
+      cssImp(muted) +
       '}' +
       '.rz-lead-form .rz-logo a{color:' +
-      muted +
+      cssImp(muted) +
       ';text-decoration:none}' +
       '.rz-lead-form .rz-consent{font-size:0.8rem;line-height:1.4;color:' +
-      label +
+      cssImp(label) +
       '}' +
       '.rz-lead-form .rz-consent a{color:' +
-      color +
+      cssImp(color) +
       '}';
 
     var style = document.createElement('style');
@@ -279,10 +307,15 @@
   }
 
   function mountForm(config) {
-    var theme = injectStyles(config);
-
     var containerId = script.getAttribute('data-container');
     var container = containerId ? document.getElementById(containerId) : null;
+    var overrides = container ? readPreviewOverrides(container) : null;
+    if (overrides) {
+      config = Object.assign({}, config, overrides);
+    }
+
+    var theme = injectStyles(config);
+
     if (!container) {
       container = el('div', { id: 'rz-lead-form-root' });
       script.parentNode.insertBefore(container, script.nextSibling);
@@ -461,8 +494,10 @@
     });
   }
 
-  var configPath =
-    /\/leads\/preview\.html/i.test(window.location.pathname)
+  var isPanelPreview =
+    /\/leads\/preview\.html/i.test(window.location.pathname) ||
+    /\/preview-page/i.test(window.location.pathname);
+  var configPath = isPanelPreview
       ? '/forms/' + encodeURIComponent(publicKey) + '/preview-config'
       : '/forms/' + encodeURIComponent(publicKey) + '/config';
 

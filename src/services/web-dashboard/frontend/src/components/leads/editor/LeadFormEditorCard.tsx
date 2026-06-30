@@ -630,6 +630,13 @@ export function LeadFormEditorCard({
               publicKey={form.publicKey}
               formName={draft.name}
               companyWebsite={orgProfile?.website}
+              appearance={{
+                theme: draft.appearance.theme,
+                size: draft.appearance.size,
+                borderRadius: draft.appearance.borderRadius,
+                showLogo: draft.appearance.showLogo,
+                primaryColor: draft.appearance.primaryColor,
+              }}
               reloadKey={previewReloadKey}
               active={draft.active}
             />

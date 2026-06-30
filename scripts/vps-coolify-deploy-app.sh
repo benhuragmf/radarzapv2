@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Deploy leve em produção Coolify: pull GHCR + recria só o serviço app.
+# Mongo, Redis, Traefik e rotas HTTPS permanecem intactos (~2–4 min vs ~12 min full).
+# Uso: sudo -E bash scripts/vps-coolify-deploy-app.sh
+# Full republish (compose + SSL): scripts/vps-fix-coolify-ssl.sh
+set -euo pipefail
+
+COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
+COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
+RADARZAP_IMAGE="${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"
+REPO_OWNER="${REPO_OWNER:-benhuragmf}"
+GHCR_PAT="${GHCR_PAT:-}"
+WAIT_MAX="${WAIT_MAX:-36}"
+WAIT_INTERVAL_SEC="${WAIT_INTERVAL_SEC:-5}"
+
+log() { echo "[coolify-deploy-app] $*"; }
+
+wait_app_health() {
+  local i
+  for i in $(seq 1 "$WAIT_MAX"); do
+    if curl -sf -o /dev/null --max-time 8 "http://127.0.0.1:3001/api/services/health" 2>/dev/null; then
+      log "App OK em :3001 (tentativa $i/$WAIT_MAX)"
+      return 0
+    fi
+    log "Aguardando :3001 ($i/$WAIT_MAX)..."
+    sleep "$WAIT_INTERVAL_SEC"
+  done
+  return 1
+}
+
+dump_app_logs() {
+  local cname
+  cname="$(sudo docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E "${COOLIFY_SERVICE_UUID}-app" | head -1 || true)"
+  [[ -n "$cname" ]] || return 0
+  log "=== Logs ${cname} (últimas 40 linhas) ==="
+  sudo docker logs "$cname" --tail 40 2>&1 | while read -r line; do log "  $line"; done
+}
+
+if [[ -n "${GHCR_PAT:-}" ]]; then
+  echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
+fi
+
+if [[ ! -d "$COOLIFY_SERVICE_DIR" || ! -f "${COOLIFY_SERVICE_DIR}/docker-compose.yaml" ]]; then
+  log "ERRO: stack Coolify ausente em ${COOLIFY_SERVICE_DIR}"
+  log "Use deploy full: sudo -E bash scripts/vps-fix-coolify-ssl.sh"
+  exit 1
+fi
+
+if ! sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qF "${COOLIFY_SERVICE_UUID}-mongodb-1"; then
+  log "ERRO: Mongo Coolify não está Up — primeiro deploy exige republicação full"
+  exit 1
+fi
+
+env_file="${COOLIFY_SERVICE_DIR}/.env"
+if [[ -f "$env_file" ]]; then
+  if sudo grep -q '^RADARZAP_IMAGE=' "$env_file"; then
+    sudo sed -i "s|^RADARZAP_IMAGE=.*|RADARZAP_IMAGE=${RADARZAP_IMAGE}|" "$env_file"
+  else
+    echo "RADARZAP_IMAGE=${RADARZAP_IMAGE}" | sudo tee -a "$env_file" >/dev/null
+  fi
+fi
+
+log "Pull app → ${RADARZAP_IMAGE}"
+(cd "$COOLIFY_SERVICE_DIR" && sudo docker compose --env-file .env \
+  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" pull app)
+
+log "Recriando somente app (--no-deps, mongo/redis preservados)..."
+if (cd "$COOLIFY_SERVICE_DIR" && sudo docker compose --env-file .env \
+  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" up -d --no-deps --wait --wait-timeout 180 app) 2>/dev/null; then
+  log "Compose --wait OK"
+elif ! (cd "$COOLIFY_SERVICE_DIR" && sudo docker compose --env-file .env \
+  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" up -d --no-deps app); then
+  log "ERRO: docker compose up app falhou"
+  dump_app_logs
+  exit 1
+fi
+
+if ! wait_app_health; then
+  log "ERRO: health :3001 falhou após deploy app"
+  dump_app_logs
+  exit 1
+fi
+
+log "Deploy app concluído (${RADARZAP_IMAGE})"

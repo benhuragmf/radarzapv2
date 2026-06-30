@@ -10,7 +10,6 @@ import {
   parseCommandTicketArg,
   parseWhatsappAgentCommand,
   isPlaceholderTicketOpeningMessage,
-  WHATSAPP_AGENT_COMMAND_HELP,
 } from '@/utils/whatsapp-agent-command.util';
 import { WebChatService } from '@/services/webchat/WebChatService';
 import { InboxService } from '@/services/inbox/InboxService';
@@ -22,6 +21,15 @@ import {
   type WhatsappSenderContext,
 } from '@/services/inbox/whatsapp-agent-auth.service';
 import { activateWhatsappBridge } from '@/services/webchat/webchat-whatsapp-bridge.service';
+import {
+  buildDynamicWhatsappAgentHelp,
+  executeCustomWhatsappCommand,
+  isSystemCommandAvailable,
+  loadWhatsappBridgeCommandsConfig,
+  mapSystemCommandNameToHandler,
+  parseCustomWhatsappCommand,
+  resolveSystemCommandIdByName,
+} from '@/services/inbox/whatsapp-bridge-commands.service';
 
 const logger = createServiceLogger('WhatsappAgentCommand');
 
@@ -738,18 +746,8 @@ async function handleEncerrar(
 export async function handleWhatsappAgentCommand(
   input: WhatsappAgentCommandInput,
 ): Promise<boolean> {
-  const parsed = parseWhatsappAgentCommand(input.text);
-  if (!parsed) {
-    if (input.text.trim().startsWith('!')) {
-      await replyCommand(
-        input.clientId,
-        input.replyJid,
-        'Comando não reconhecido. Envie !ajuda para ver os comandos.',
-      );
-      return true;
-    }
-    return false;
-  }
+  const trimmed = input.text.trim();
+  if (!trimmed.startsWith('!')) return false;
 
   const agent = await resolveAuthorizedWhatsappAgentFromContext(input);
   if (!agent) {
@@ -761,14 +759,76 @@ export async function handleWhatsappAgentCommand(
     return true;
   }
 
+  const bridgeConfig = await loadWhatsappBridgeCommandsConfig(input.clientId);
+  if (!bridgeConfig.enabled) {
+    await replyCommand(
+      input.clientId,
+      input.replyJid,
+      'Comandos WhatsApp bridge desativados pela empresa. Fale com o administrador.',
+    );
+    return true;
+  }
+
+  const parsed = parseWhatsappAgentCommand(trimmed);
+  const customParsed = !parsed
+    ? parseCustomWhatsappCommand(trimmed, bridgeConfig.customCommands)
+    : null;
+
+  if (!parsed && !customParsed) {
+    await replyCommand(
+      input.clientId,
+      input.replyJid,
+      'Comando não reconhecido. Envie !ajuda para ver os comandos.',
+    );
+    return true;
+  }
+
   try {
-    if (parsed.command === 'ajuda' || parsed.command === 'help') {
-      await replyCommand(input.clientId, input.replyJid, WHATSAPP_AGENT_COMMAND_HELP);
+    if (customParsed) {
+      const cmd = customParsed.command;
+      if (!cmd.enabled || cmd.paused) {
+        await replyCommand(
+          input.clientId,
+          input.replyJid,
+          `Comando !${cmd.command} está pausado ou desativado.`,
+        );
+        return true;
+      }
+      const response = await executeCustomWhatsappCommand({
+        clientId: input.clientId,
+        userId: agent.userId,
+        agentName: agent.displayName,
+        command: cmd,
+        arg: customParsed.arg,
+      });
+      await replyCommand(input.clientId, input.replyJid, response);
+      return true;
+    }
+
+    const systemId = mapSystemCommandNameToHandler(parsed!.command);
+    if (systemId && !isSystemCommandAvailable(bridgeConfig, systemId)) {
+      const def = resolveSystemCommandIdByName(parsed!.command);
+      await replyCommand(
+        input.clientId,
+        input.replyJid,
+        def
+          ? `Comando !${parsed!.command} está pausado ou desativado pela empresa.`
+          : 'Comando não disponível.',
+      );
+      return true;
+    }
+
+    if (parsed!.command === 'ajuda' || parsed!.command === 'help') {
+      await replyCommand(
+        input.clientId,
+        input.replyJid,
+        buildDynamicWhatsappAgentHelp(bridgeConfig),
+      );
       return true;
     }
 
     let response: string;
-    switch (parsed.command) {
+    switch (parsed!.command) {
       case 'abertos':
       case 'chamados':
         response = await handleAbertos(input.clientId);
@@ -815,14 +875,14 @@ export async function handleWhatsappAgentCommand(
         break;
       }
       default:
-        response = WHATSAPP_AGENT_COMMAND_HELP;
+        response = buildDynamicWhatsappAgentHelp(bridgeConfig);
     }
 
     await replyCommand(input.clientId, input.replyJid, response);
   } catch (err) {
     logger.warn('WhatsApp agent command failed', {
       clientId: input.clientId,
-      command: parsed.command,
+      command: parsed?.command ?? customParsed?.command.command,
       err: (err as Error).message,
     });
     await replyCommand(

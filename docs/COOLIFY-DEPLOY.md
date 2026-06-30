@@ -21,7 +21,7 @@ Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PR
 | Service UUID | `h143brhw5f8tgfj9trj0f3bd` |
 | Stack no host | `/data/coolify/services/h143brhw5f8tgfj9trj0f3bd/` |
 | Legado `radarzap-app-1` | **Parado** |
-| Modo deploy atual | **Direto** (`deploy_service_direct`) — API Coolify ainda não valida SSH local |
+| Modo deploy atual | **Leve** (`vps-coolify-deploy-app.sh`) no push `main`; full manual |
 
 **Importante:** o serviço `app` usa `env_file: .env` (secrets de produção copiados de `/opt/radarzap/.env`). Sem isso o container entra em crash loop (`validateConfig` falha).
 
@@ -29,12 +29,41 @@ Coolify substitui o fluxo **GHCR + SSH** legado ([`PREPARACAO-PRODUCAO.md`](./PR
 
 | Workflow | Quando roda | O que faz |
 |----------|-------------|-----------|
-| **Deploy** | Push na `main` | Build GHCR + `vps-fix-coolify-ssl.sh` (Coolify **somente**) |
-| **Fix Coolify SSL (Radar Chat)** | Manual | Republicar stack + Traefik |
+| **Deploy** | Push na `main` | Build GHCR + **`vps-coolify-deploy-app.sh`** (pull + up **só app**, ~2–4 min) |
+| **Deploy** (manual) | `workflow_dispatch` | Escolha `app-only` (padrão) ou `full-republish` |
+| **Fix Coolify SSL (Radar Chat)** | Manual | Republicar stack + Traefik (`vps-fix-coolify-ssl.sh`) |
 | **Configure Coolify (Radar Chat)** | Manual | Sync env/domínio no resource |
 | **Coolify status check** | Manual | Diagnóstico containers + health |
 
+**Skip deploy:** commit na `main` com `[skip deploy]` no texto — só builda GHCR, não reinicia o VPS.
+
 **Removido:** workflow `Restore sslip.io HTTPS` (reativava compose legado).
+
+### Política de merge na `main` (recomendado)
+
+| Prática | Motivo |
+|---------|--------|
+| Desenvolver em `develop` / feature branches | Evita deploy a cada WIP |
+| Merge `main` **em lote** (1×/dia ou quando o pacote estiver pronto) | Menos restarts do app + Baileys |
+| Push `main` com `[skip deploy]` se só docs/ajuste menor | Imagem GHCR atualiza; VPS fica estável |
+| `full-republish` só se mudou compose, `.env`, domínio ou Traefik | Evita ~12 min de downtime desnecessário |
+
+### Modos de deploy
+
+| Modo | Script | Duração típica | Quando usar |
+|------|--------|----------------|-------------|
+| **app-only** (padrão) | `scripts/vps-coolify-deploy-app.sh` | ~2–4 min | Push `main`, nova versão da imagem |
+| **full-republish** | `scripts/vps-fix-coolify-ssl.sh` | ~10–12 min | SSL, rotas Traefik, compose, migração, bootstrap |
+
+```bash
+# Deploy manual só da app (após merge sem push automático)
+gh workflow run Deploy -f deploy_mode=app-only
+
+# Republicação completa (SSL / compose / emergência)
+gh workflow run Deploy -f deploy_mode=full-republish
+# ou
+gh workflow run "Fix Coolify SSL (RadarZap)"
+```
 
 ### Workflows GitHub (operacionais)
 
@@ -64,7 +93,7 @@ Isolamento Codex: `.cursor/rules/layout-v3-codex-isolation.mdc`.
 
 | Método | Status no VPS .180 |
 |--------|---------------------|
-| **Coolify (produção)** | ✅ único caminho ativo (`deploy.yml` → `vps-fix-coolify-ssl.sh`) |
+| **Coolify (produção)** | ✅ push `main` → `vps-coolify-deploy-app.sh` (só app); full via manual |
 | **GHCR + `deploy-remote.sh`** | ❌ desativado — não rodar manualmente |
 
 O compose `docker-compose.deploy.yml` e scripts `deploy-remote.sh` permanecem no repo só como referência/emergência em **outro** host.

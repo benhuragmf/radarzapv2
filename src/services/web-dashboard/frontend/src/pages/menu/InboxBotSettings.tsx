@@ -917,7 +917,10 @@ export default function InboxBotSettings() {
                   Alerta a equipe no WhatsApp quando a fila estoura o tempo sem aceite — vale para
                   conversas do <strong>WhatsApp</strong> e do <strong>chat do site</strong>. Com
                   atendente online indicado, aguarda mais tempo; sem ninguém disponível, o alerta
-                  pode ser imediato (se ativado abaixo).
+                  pode ser imediato (se ativado abaixo).{' '}
+                  <Link to="/platform/inbox/comandos-wa" className="text-[var(--rz-accent)] hover:underline">
+                    Gerenciar comandos !assumir / bridge
+                  </Link>
                 </p>
                 <label className="flex items-center gap-2 text-sm text-[var(--rz-text-secondary)]">
                   <input

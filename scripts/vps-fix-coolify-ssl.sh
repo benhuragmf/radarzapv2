@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Garante app em :3001 + HTTPS (app.radarchat.com.br + sslip.io legado) via Traefik Coolify.
+# Deploy rotineiro (só imagem app): scripts/vps-coolify-deploy-app.sh (~2–4 min).
+# Use este script para republicação full, SSL/Traefik ou primeiro bootstrap.
 set -euo pipefail
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
 PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"

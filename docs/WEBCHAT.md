@@ -363,6 +363,8 @@ Heartbeat 30s; status operacional no header; RR/fallback usam `availableForQueue
 
 ### Bridge e comandos
 - Comandos `!assumir` / `!abrir` / `!ticket` / `!token` / `!encerrarchat` / `!encerrar` / `!ajuda` para atendentes com WhatsApp em Equipe (2.10.73+).
+- **Painel (2.12.75):** `/platform/inbox/comandos-wa` — dono pausa/edita/adiciona comandos; equipe vê referência e `!ajuda` dinâmico.
+- **Comandos personalizados:** catálogo sugerido (`!2via`, `!pix`, …) ou criar manualmente com templates `{{ticketRef}}`, `{{clientName}}`, `{{paymentLink}}`.
 - **`!assumir`** (2.11.7): só assume conversa + bridge WhatsApp — **não** abre chamado formal nem envia token.
 - **`!abrir TK-… [motivo]`** (2.11.8+): abre chamado + token; texto após TK vira **assunto/nota interna** (ex.: `@suporte2`) — **não** vai ao visitante.
 - **`!abertos`** / **`!meus`** (2.11.9): listar chamados abertos ou só os seus.

@@ -18,6 +18,7 @@ import {
   DEFAULT_WHATSAPP_FALLBACK_VISITOR_MESSAGE,
   DEFAULT_MAX_CONCURRENT_CHATS_PER_AGENT,
 } from '@/types/inbox-settings';
+import type { WhatsappBridgeCommandsConfig } from '@/types/whatsapp-bridge-commands';
 
 export interface IInboxSettings extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -85,6 +86,8 @@ export interface IInboxSettings extends Document {
   agentPresenceTimeoutSeconds: number;
   /** Segundos de inatividade no painel antes de marcar ausente (60–3600) */
   presenceIdleTimeoutSeconds: number;
+  /** Comandos operacionais WhatsApp bridge (!assumir, custom, etc.) */
+  whatsappBridgeCommandsConfig?: WhatsappBridgeCommandsConfig;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -308,6 +311,10 @@ const InboxSettingsSchema = new Schema<IInboxSettings>(
       default: DEFAULT_PRESENCE_IDLE_TIMEOUT_SECONDS,
       min: 60,
       max: 3600,
+    },
+    whatsappBridgeCommandsConfig: {
+      type: Schema.Types.Mixed,
+      default: undefined,
     },
   },
   { timestamps: true, collection: 'inboxSettings' },

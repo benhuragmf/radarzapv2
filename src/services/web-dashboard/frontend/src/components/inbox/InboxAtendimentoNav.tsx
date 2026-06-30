@@ -18,6 +18,7 @@ const LINKS = [
   { to: '/platform/inbox/tickets', label: 'Chamados', icon: Ticket, cap: 'inbox:view' },
   { to: '/platform/inbox/setores', label: 'Setores', icon: Building2, cap: 'inbox:department:manage' },
   { to: '/platform/inbox/bot', label: 'Triagem e Bot', icon: Bot, cap: 'inbox:department:manage' },
+  { to: '/platform/inbox/comandos-wa', label: 'Comandos WA', icon: MessageSquareText, cap: 'inbox:reply' },
   { to: '/platform/inbox/ia', label: 'IA', icon: Sparkles, cap: 'inbox:ai:manage' },
   { to: '/platform/inbox/respostas', label: 'Respostas', icon: MessageSquareText, cap: 'inbox:department:manage' },
   { to: '/platform/inbox/supervisor', label: 'Supervisão', icon: Eye, cap: 'inbox:supervise' },

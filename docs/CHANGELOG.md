@@ -6,6 +6,25 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.76] — 2026-06-30
+
+### Infra — deploy leve Coolify (app-only)
+
+- Novo `scripts/vps-coolify-deploy-app.sh`: `docker compose pull` + `up --no-deps app` (~2–4 min).
+- `deploy.yml`: push `main` usa app-only; `workflow_dispatch` escolhe `app-only` ou `full-republish`.
+- Commit com `[skip deploy]` na `main` builda GHCR sem reiniciar o VPS.
+- Doc `COOLIFY-DEPLOY.md`: política de merge em lote na `main`.
+
+## [2.12.75] — 2026-06-29
+
+### Comandos WhatsApp Bridge — gestão no painel
+
+- Config por tenant em `InboxSettings.whatsappBridgeCommandsConfig`: pausar, desativar e comandos personalizados.
+- API `GET/PATCH /inbox/whatsapp-bridge-commands` — gestão (`inbox:department:manage`) e referência para atendentes (`inbox:reply`).
+- UI `/platform/inbox/comandos-wa`: dono/admin edita; equipe vê lista ativa + texto `!ajuda`.
+- Catálogo sugerido (`!2via`, `!pix`, `!catalogo`, …) ativável pelo dono; templates com placeholders.
+- Handler WA respeita toggles; `!ajuda` dinâmico conforme comandos habilitados.
+
 ## [2.12.74] — 2026-06-29
 
 ### Setores — excluir + bridge WhatsApp por atendente

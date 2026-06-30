@@ -2,7 +2,7 @@ import {
   hostsFromWebsiteUrl,
   formatEmbedAllowedSitesSummary,
 } from '@/lib/embedAllowedDomains'
-import type { LeadFormListItem } from '@radarzap-types/lead-form'
+import type { LeadFormAppearance, LeadFormListItem } from '@radarzap-types/lead-form'
 
 export type LeadFormEditorSectionId =
   | 'overview'
@@ -107,9 +107,31 @@ function normalizeFormSnapshot(form: LeadFormListItem) {
 export function leadFormPreviewUrl(
   publicKey: string,
   reloadKey?: number,
-  _companyWebsite?: string | null,
+  companyWebsite?: string | null,
+  section = 3,
+  appearance?: Pick<
+    LeadFormAppearance,
+    'theme' | 'size' | 'borderRadius' | 'showLogo' | 'primaryColor'
+  >,
 ): string {
-  const q = new URLSearchParams({ key: publicKey })
+  const q = new URLSearchParams()
   if (reloadKey) q.set('_r', String(reloadKey))
+
+  if (companyWebsite?.trim()) {
+    q.set('section', String(Math.max(0, Math.min(20, section))))
+    if (appearance?.theme) q.set('theme', appearance.theme)
+    if (appearance?.size) q.set('size', appearance.size)
+    if (typeof appearance?.borderRadius === 'number') {
+      q.set('borderRadius', String(appearance.borderRadius))
+    }
+    if (typeof appearance?.showLogo === 'boolean') {
+      q.set('showLogo', appearance.showLogo ? '1' : '0')
+    }
+    if (appearance?.primaryColor) q.set('primaryColor', appearance.primaryColor)
+    const qs = q.toString()
+    return `/api/leads/public/forms/${encodeURIComponent(publicKey)}/preview-page${qs ? `?${qs}` : ''}#form-mount`
+  }
+
+  q.set('key', publicKey)
   return `/leads/preview.html?${q.toString()}`
 }
