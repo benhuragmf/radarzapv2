@@ -26,11 +26,13 @@ import {
   getContactStateLabel,
   getInboxStateLabel,
   getRecommendedAction,
+  hasLiveInboxConversation,
   leadInboxHref,
   priorityLabel,
 } from '../../lib/leadUi'
 import { LEAD_CAPTURE_STATUS_VARIANT, LEAD_TEMPERATURE_LABEL, LEAD_TEMPERATURE_VARIANT, LEAD_TEMPERATURES } from '@radarzap-types/lead-form'
 import { LeadLinkContactModal } from './LeadLinkContactModal'
+import { LeadStatusPipeline } from './LeadStatusPipeline'
 import { LeadWhatsAppComposer } from './LeadWhatsAppComposer'
 import { ContactClassificationCard } from '../contacts/ContactClassificationCard'
 import type { ContactClassificationView } from '../../lib/contactClassificationUi'
@@ -128,6 +130,13 @@ export function LeadCaptureDetail({
   const inboxHref = useMemo(() => leadInboxHref(item), [item])
   const isBottom = layout === 'bottom-panel'
   const isPage = layout === 'page'
+  const isWide = isBottom || isPage
+  const hideConversaFooter = isWide && (
+    Boolean(inboxHref)
+    || recommended.kind === 'inbox'
+    || recommended.kind === 'open-inbox'
+    || recommended.kind === 'follow-up'
+  )
 
   const shellCls =
     layout === 'mobile-sheet'
@@ -137,6 +146,177 @@ export function LeadCaptureDetail({
         : isBottom
           ? 'flex flex-col h-full min-h-0 bg-[var(--rz-surface)] overflow-hidden'
           : 'flex flex-col h-full min-h-0 bg-[var(--rz-surface)]'
+
+  const managementFields = canManage ? (
+    <div className={cn('rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20', isBottom ? 'p-2.5 space-y-3' : 'p-3 space-y-4')}>
+      <LeadStatusPipeline
+        status={item.status}
+        disabled={pending}
+        compact={isBottom}
+        onChange={next => onUpdate({ status: next })}
+      />
+      <div className={cn('grid gap-3', isWide ? 'sm:grid-cols-2' : '')}>
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">Prioridade</label>
+          <select
+            className={inputCls + ' mt-1.5 text-sm h-9 w-full'}
+            value={item.temperature ?? ''}
+            disabled={pending}
+            onChange={e => {
+              const v = e.target.value
+              onUpdate({ temperature: v ? (v as LeadTemperature) : null })
+            }}
+          >
+            <option value="">Sem prioridade</option>
+            {LEAD_TEMPERATURES.map(t => (
+              <option key={t} value={t}>
+                {LEAD_TEMPERATURE_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">Formulário</label>
+          <p className="mt-1.5 text-sm text-[var(--rz-text-secondary)] truncate h-9 flex items-center px-3 rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)]">
+            {item.formName}
+          </p>
+        </div>
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">Observações internas</label>
+        <textarea
+          className={textareaCls + ' mt-1.5 text-sm w-full'}
+          rows={2}
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Anotações da equipe sobre este lead…"
+        />
+        <div className="flex items-center justify-between gap-2 mt-2">
+          {item.internalNotes && notes !== item.internalNotes ? (
+            <p className="text-[10px] text-amber-500">Alterações não salvas</p>
+          ) : (
+            <span />
+          )}
+          <Button size="sm" disabled={pending || notes === (item.internalNotes ?? '')} onClick={() => onUpdate({ internalNotes: notes })}>
+            Salvar observações
+          </Button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
+  const quickActionChips = (
+    <div className="flex flex-wrap gap-1.5">
+      {hasPhone && canReply && (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
+          onClick={() => setDetailTab('conversa')}
+        >
+          <MessageSquare size={12} /> WhatsApp
+        </button>
+      )}
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
+        onClick={() => {
+          void navigator.clipboard.writeText(item.phone.startsWith('email:') ? (item.email ?? '') : item.phone)
+          notifySuccess('Copiado')
+        }}
+      >
+        <Phone size={12} /> Copiar
+      </button>
+      <Link
+        to={`/platform/inbox?search=${encodeURIComponent(item.phone)}`}
+        className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
+      >
+        <Search size={12} /> Procurar
+      </Link>
+      {canManage && (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
+          onClick={() => setLinkModalOpen(true)}
+        >
+          <Link2 size={12} /> Vincular
+        </button>
+      )}
+      {canManage && (
+        <div className="relative">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
+            onClick={() => setMoreOpen(v => !v)}
+          >
+            <MoreHorizontal size={12} /> Mais
+            <ChevronDown size={10} className={cn(moreOpen && 'rotate-180')} />
+          </button>
+          {moreOpen && (
+            <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-lg py-1">
+              {item.status !== 'lost' && (
+                <button
+                  type="button"
+                  className="w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--rz-surface-muted)]"
+                  onClick={() => {
+                    onUpdate({ status: 'lost' })
+                    setMoreOpen(false)
+                  }}
+                >
+                  Marcar como perdido
+                </button>
+              )}
+              {item.status !== 'spam' && (
+                <button
+                  type="button"
+                  className="w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--rz-surface-muted)]"
+                  onClick={() => {
+                    onUpdate({ status: 'spam' })
+                    setMoreOpen(false)
+                  }}
+                >
+                  Marcar como spam
+                </button>
+              )}
+              <button
+                type="button"
+                className="w-full text-left text-xs px-3 py-1.5 text-red-600 hover:bg-red-500/10"
+                onClick={() => {
+                  setMoreOpen(false)
+                  onDelete()
+                }}
+              >
+                <Trash2 size={12} className="inline mr-1" /> Excluir lead
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const duplicateBanner =
+    item.duplicateHints && item.duplicateHints.length > 0 ? (
+      <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 px-2.5 py-1.5 text-[11px]">
+        <p className="flex items-center gap-1 font-medium text-yellow-600 dark:text-yellow-400">
+          <AlertTriangle size={12} /> Possível duplicado
+        </p>
+        {item.duplicateHints.slice(0, 2).map(h => (
+          <div key={`${h.kind}-${h.id}`} className="flex items-center justify-between gap-2 mt-0.5">
+            <span className="truncate">{h.name ?? h.phone ?? h.email}</span>
+            {canManage && h.kind === 'contact' && (
+              <button
+                type="button"
+                className="text-[var(--rz-primary)] shrink-0"
+                disabled={linking}
+                onClick={() => onLinkContact(h.id)}
+              >
+                Vincular
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    ) : null
 
   const primaryAction = (
     <>
@@ -174,6 +354,57 @@ export function LeadCaptureDetail({
     </>
   )
 
+  const bottomTopBar = isBottom ? (
+    <div className="shrink-0 border-b border-[var(--rz-border)] px-4 py-2.5 space-y-2 bg-[var(--rz-surface-muted)]/10">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold truncate text-sm">{item.name}</h2>
+          <p className="text-xs text-[var(--rz-text-muted)] truncate">{contactLine}</p>
+          <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5 truncate">
+            {LEAD_ORIGIN_DISPLAY[item.origin]} · {LEAD_STATUS_DISPLAY[item.status]}
+            {item.assignedUserName ? ` · ${item.assignedUserName}` : ''}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Link
+            to={`/platform/leads/${item.id}`}
+            className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:text-[var(--rz-primary)]"
+          >
+            <ExternalLink size={12} /> Tela cheia
+          </Link>
+          {onClose && (
+            <button
+              type="button"
+              className="p-1.5 rounded-lg hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]"
+              onClick={onClose}
+              aria-label="Fechar painel"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        <Badge label={LEAD_STATUS_DISPLAY[item.status]} variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]} />
+        {item.temperature && (
+          <Badge label={priorityLabel(item.temperature)} variant={LEAD_TEMPERATURE_VARIANT[item.temperature]} />
+        )}
+        {item.linkedContactName && <Badge label="Vinculado" variant="green" />}
+        {item.possibleDuplicate && <Badge label="Duplicado?" variant="yellow" />}
+        {item.consentAccepted === true && <Badge label="LGPD OK" variant="green" />}
+        {!hasLiveInboxConversation(item) && item.inboxConversationId && (
+          <Badge label="Conversa encerrada" variant="yellow" />
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-[160px] flex-1 max-w-sm">{primaryAction}</div>
+        {quickActionChips}
+      </div>
+      <p className="text-[10px] text-[var(--rz-text-muted)]">{recommended.title} — {recommended.description}</p>
+      {duplicateBanner}
+    </div>
+  ) : null
+
   const actionsRail = (
     <>
       <div
@@ -183,7 +414,7 @@ export function LeadCaptureDetail({
         )}
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className={cn('font-semibold truncate', isBottom || isPage ? 'text-sm' : 'text-base')}>{item.name}</h2>
             <p className="text-xs text-[var(--rz-text-muted)] truncate">{contactLine}</p>
             {!isBottom && !isPage && (
@@ -204,16 +435,27 @@ export function LeadCaptureDetail({
               </p>
             )}
           </div>
-          {onClose && !isPage && (
-            <button
-              type="button"
-              className="shrink-0 p-1.5 rounded-lg hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]"
-              onClick={onClose}
-              aria-label="Fechar painel"
-            >
-              <X size={18} />
-            </button>
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {isBottom && (
+              <Link
+                to={`/platform/leads/${item.id}`}
+                className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:text-[var(--rz-primary)] hover:border-[var(--rz-primary)]/40"
+                title="Abrir em tela cheia"
+              >
+                <ExternalLink size={12} /> Tela cheia
+              </Link>
+            )}
+            {onClose && !isPage && (
+              <button
+                type="button"
+                className="p-1.5 rounded-lg hover:bg-[var(--rz-surface-muted)] text-[var(--rz-text-muted)]"
+                onClick={onClose}
+                aria-label="Fechar painel"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-1">
           <Badge label={LEAD_STATUS_DISPLAY[item.status]} variant={LEAD_CAPTURE_STATUS_VARIANT[item.status]} />
@@ -232,97 +474,12 @@ export function LeadCaptureDetail({
         {!isBottom && !isPage && <p className="text-[10px] text-[var(--rz-text-muted)] mt-0.5">{recommended.description}</p>}
       </div>
 
-      {isBottom || isPage ? (
+      {isPage ? (
         <div className="shrink-0 px-4 py-2 border-b border-[var(--rz-border)] flex flex-wrap items-center gap-2">
           <div className="min-w-[140px] flex-1">{primaryAction}</div>
-          <div className="flex flex-wrap gap-1.5">
-            {hasPhone && canReply && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
-                onClick={() => setDetailTab('conversa')}
-              >
-                <MessageSquare size={12} /> WhatsApp
-              </button>
-            )}
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
-              onClick={() => {
-                void navigator.clipboard.writeText(item.phone.startsWith('email:') ? (item.email ?? '') : item.phone)
-                notifySuccess('Copiado')
-              }}
-            >
-              <Phone size={12} /> Copiar
-            </button>
-            <Link
-              to={`/platform/inbox?search=${encodeURIComponent(item.phone)}`}
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
-            >
-              <Search size={12} /> Procurar
-            </Link>
-            {canManage && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
-                onClick={() => setLinkModalOpen(true)}
-              >
-                <Link2 size={12} /> Vincular
-              </button>
-            )}
-            {canManage && (
-              <div className="relative">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-border)] hover:bg-[var(--rz-surface-muted)]"
-                  onClick={() => setMoreOpen(v => !v)}
-                >
-                  <MoreHorizontal size={12} /> Mais
-                  <ChevronDown size={10} className={cn(moreOpen && 'rotate-180')} />
-                </button>
-                {moreOpen && (
-                  <div className="absolute right-0 top-full mt-1 z-10 min-w-[160px] rounded-lg border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-lg py-1">
-                    {item.status !== 'lost' && (
-                      <button
-                        type="button"
-                        className="w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--rz-surface-muted)]"
-                        onClick={() => {
-                          onUpdate({ status: 'lost' })
-                          setMoreOpen(false)
-                        }}
-                      >
-                        Marcar como perdido
-                      </button>
-                    )}
-                    {item.status !== 'spam' && (
-                      <button
-                        type="button"
-                        className="w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--rz-surface-muted)]"
-                        onClick={() => {
-                          onUpdate({ status: 'spam' })
-                          setMoreOpen(false)
-                        }}
-                      >
-                        Marcar como spam
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="w-full text-left text-xs px-3 py-1.5 text-red-600 hover:bg-red-500/10"
-                      onClick={() => {
-                        setMoreOpen(false)
-                        onDelete()
-                      }}
-                    >
-                      <Trash2 size={12} className="inline mr-1" /> Excluir lead
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {quickActionChips}
         </div>
-      ) : (
+      ) : !isBottom ? (
         <>
           <div className="shrink-0 px-4 py-2 border-b border-[var(--rz-border)]">{primaryAction}</div>
           <div className="shrink-0 px-3 py-2 border-b border-[var(--rz-border)] flex flex-wrap gap-1.5">
@@ -414,29 +571,10 @@ export function LeadCaptureDetail({
             )}
           </div>
         </>
-      )}
+      ) : null}
 
-      {item.duplicateHints && item.duplicateHints.length > 0 && (
-        <div className="shrink-0 mx-3 my-2 rounded-md border border-yellow-500/30 bg-yellow-500/5 px-2.5 py-2 text-[11px]">
-          <p className="flex items-center gap-1 font-medium text-yellow-600 dark:text-yellow-400">
-            <AlertTriangle size={12} /> Possível duplicado
-          </p>
-          {item.duplicateHints.slice(0, 2).map(h => (
-            <div key={`${h.kind}-${h.id}`} className="flex items-center justify-between gap-2 mt-1">
-              <span className="truncate">{h.name ?? h.phone ?? h.email}</span>
-              {canManage && h.kind === 'contact' && (
-                <button
-                  type="button"
-                  className="text-[var(--rz-primary)] shrink-0"
-                  disabled={linking}
-                  onClick={() => onLinkContact(h.id)}
-                >
-                  Vincular
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+      {duplicateBanner && !isBottom && (
+        <div className="shrink-0 mx-3 my-2">{duplicateBanner}</div>
       )}
     </>
   )
@@ -461,7 +599,14 @@ export function LeadCaptureDetail({
         ))}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 text-sm">
+      <div
+        className={cn(
+          'flex-1 min-h-0 px-4 py-3 text-sm',
+          detailTab === 'conversa' && isWide
+            ? 'flex flex-col overflow-hidden'
+            : 'overflow-y-auto overscroll-contain',
+        )}
+      >
           {detailTab === 'resumo' && (
             <div className="space-y-3">
               {item.message && (
@@ -488,7 +633,7 @@ export function LeadCaptureDetail({
                   </div>
                 )}
               </dl>
-              {canManage && (
+              {canManage && !isWide && (
                 <>
                   <div>
                     <label className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">Prioridade</label>
@@ -525,14 +670,31 @@ export function LeadCaptureDetail({
           )}
 
           {detailTab === 'conversa' && (
-            <div className="space-y-4 text-xs">
-              <div className="rounded-lg border border-[var(--rz-border)] p-2.5 space-y-1.5">
-                <p className="text-[10px] text-[var(--rz-text-muted)]">Situação do atendimento</p>
-                <p className="font-medium">{getInboxStateLabel(item)}</p>
+            <div className={cn('text-xs', isWide ? 'flex flex-col flex-1 min-h-0 gap-3' : 'space-y-4')}>
+              <div className="shrink-0 flex items-center justify-between gap-2 rounded-lg border border-[var(--rz-border)] px-3 py-2">
+                <div>
+                  <p className="text-[10px] text-[var(--rz-text-muted)]">Situação do atendimento</p>
+                  <p className="font-medium text-sm">{getInboxStateLabel(item)}</p>
+                </div>
+                {inboxHref && (
+                  <Link
+                    to={inboxHref}
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-[var(--rz-primary)]/40 text-[var(--rz-primary)] hover:bg-[var(--rz-primary)]/10"
+                  >
+                    <ExternalLink size={12} /> Inbox
+                  </Link>
+                )}
               </div>
               {hasPhone && canReply && (
-                <div className="rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20 p-3 space-y-2">
-                  <p className="text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">Responder pelo WhatsApp</p>
+                <div
+                  className={cn(
+                    'rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20 p-3',
+                    isWide ? 'flex flex-col flex-1 min-h-0 gap-2' : 'space-y-2',
+                  )}
+                >
+                  <p className="shrink-0 text-[10px] uppercase tracking-wide text-[var(--rz-text-muted)]">
+                    Responder pelo WhatsApp
+                  </p>
                   <LeadWhatsAppComposer
                     item={item}
                     canReply={canReply}
@@ -541,27 +703,29 @@ export function LeadCaptureDetail({
                   />
                 </div>
               )}
-              <div className="space-y-2">
-                {canReply &&
-                  (inboxHref ? (
-                    <Link
-                      to={inboxHref}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-primary)] text-[var(--rz-primary)] text-sm py-2"
-                    >
-                      <MessageSquare size={14} /> Abrir atendimento
-                    </Link>
-                  ) : (
-                    <Button className="w-full" size="sm" disabled={openingInbox} onClick={onOpenInbox}>
-                      Abrir atendimento
-                    </Button>
-                  ))}
-                <Link
-                  to={`/platform/inbox?search=${encodeURIComponent(item.phone)}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-border)] text-sm py-2"
-                >
-                  <Search size={14} /> Procurar conversa
-                </Link>
-              </div>
+              {!hideConversaFooter && (
+                <div className="space-y-2 shrink-0">
+                  {canReply &&
+                    (inboxHref ? (
+                      <Link
+                        to={inboxHref}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-primary)] text-[var(--rz-primary)] text-sm py-2"
+                      >
+                        <MessageSquare size={14} /> Abrir atendimento
+                      </Link>
+                    ) : (
+                      <Button className="w-full" size="sm" disabled={openingInbox} onClick={onOpenInbox}>
+                        Abrir atendimento
+                      </Button>
+                    ))}
+                  <Link
+                    to={`/platform/inbox?search=${encodeURIComponent(item.phone)}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rz-border)] text-sm py-2"
+                  >
+                    <Search size={14} /> Procurar conversa
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
@@ -673,10 +837,34 @@ export function LeadCaptureDetail({
   return (
     <>
       <div className={shellCls}>
-        {isPage ? (
+        {isBottom ? (
           <>
-            <div className="flex flex-col shrink-0 xl:w-[min(340px,34%)] xl:max-w-[400px] xl:border-r border-b xl:border-b-0 border-[var(--rz-border)] min-h-0 xl:overflow-y-auto">
+            {bottomTopBar}
+            <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
+              <aside className="shrink-0 lg:w-[min(300px,34%)] lg:max-w-[320px] lg:border-r border-b lg:border-b-0 border-[var(--rz-border)] overflow-y-auto overscroll-contain px-4 py-3 bg-[var(--rz-surface-muted)]/5">
+                {managementFields ?? (
+                  <p className="text-xs text-[var(--rz-text-muted)]">Visualização somente leitura.</p>
+                )}
+              </aside>
+              <div className="flex flex-col flex-1 min-w-0 min-h-0">{tabsBody}</div>
+            </div>
+          </>
+        ) : isWide ? (
+          <>
+            <div
+              className={cn(
+                'flex flex-col shrink-0 border-b min-h-0 overflow-y-auto border-[var(--rz-border)]',
+                isPage
+                  ? 'xl:w-[min(380px,38%)] xl:max-w-[420px] xl:border-r xl:border-b-0'
+                  : 'lg:w-[min(380px,38%)] lg:max-w-[420px] lg:border-r lg:border-b-0',
+              )}
+            >
               {actionsRail}
+              {managementFields && (
+                <div className="px-4 py-3 border-t border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/10">
+                  {managementFields}
+                </div>
+              )}
             </div>
             <div className="flex flex-col flex-1 min-w-0 min-h-0">{tabsBody}</div>
           </>
@@ -712,7 +900,7 @@ export function LeadDetailEmptyState() {
       </div>
       <p className="text-sm font-medium text-[var(--rz-text-secondary)]">Nenhum lead selecionado</p>
       <p className="text-xs text-[var(--rz-text-muted)] mt-1 max-w-[260px] leading-relaxed">
-        Clique em um card no Kanban ou em uma linha na lista para abrir a página completa do lead.
+        Clique em um card no Kanban ou em uma linha na lista para ver os detalhes abaixo.
       </p>
     </div>
   )

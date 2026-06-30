@@ -30,6 +30,7 @@ export const WEBHOOK_EVENTS = [
   'discord.member.leave',
   'discord.member.kick',
   'discord.member.ban',
+  'discord.message.matched',
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

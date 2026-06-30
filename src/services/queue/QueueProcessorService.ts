@@ -9,7 +9,7 @@ import { QueueManager } from '@/cache/QueueManager';
 import { RateLimiter } from '@/cache/RateLimiter';
 import { SessionCache } from '@/cache/SessionCache';
 import { RedisManager } from '@/cache/RedisManager';
-import { MessageQueue, User, Destination, SystemLog, Organization } from '@/models';
+import { MessageQueue, User, Destination, SystemLog, Organization, DiscordChannel } from '@/models';
 import { CampaignDispatchService } from '@/services/send/CampaignDispatchService';
 import { StatusDispatchService } from '@/services/send/StatusDispatchService';
 import { BirthdayAutomationService } from '@/services/platform/BirthdayAutomationService';
@@ -49,9 +49,12 @@ import { buildDiscordEventWhatsAppVariables, defaultEventTemplate } from '@/util
 import { DiscordMonitorEventService } from '@/services/discord/DiscordMonitorEventService';
 import { WebhookDispatcherService } from '@/services/integrations/WebhookDispatcherService';
 import {
+  buildDiscordMessageWebhookPayload,
   buildDiscordWebhookPayload,
   discordTriggerToWebhookEvent,
 } from '@/types/discord-monitor';
+import type { DiscordMonitorEventStatus } from '@/models/DiscordMonitorEvent';
+import { isDiscordDryRunEnabled, isDiscordMultiRuleEnabled, selectDiscordRuleMatches, buildDiscordWaDedupSeed } from '@/utils/discord-dry-run.util';
 import type { WebhookEvent } from '@/models/WebhookEndpoint';
 
 /**
@@ -76,6 +79,29 @@ export class QueueProcessorService {
   // Deduplication config
   private static readonly DEDUP_WINDOW_HOURS = 6;
   private static readonly MIN_SEND_DELAY_MS = isDevelopment() ? 1000 : 3000;
+
+  private async recordMessageHistory(
+    channelId: string,
+    extractedData: { messageId: string; guildId: string; guildName: string; channelId: string; channelName: string; authorId: string; authorName: string; authorTag?: string; captureKind?: string; searchText?: string; text?: string },
+    clientId: string,
+    status: DiscordMonitorEventStatus,
+    opts?: { waJobsEnqueued?: number; skipReason?: string; ruleName?: string },
+  ): Promise<void> {
+    try {
+      const monitor = await DiscordChannel.findByChannelId(channelId);
+      if (!monitor) return;
+      const svc = DiscordMonitorEventService.getInstance();
+      await svc.recordMessageCaptured(monitor, extractedData, clientId);
+      await svc.updateOutcome(extractedData.messageId, status, {
+        waJobsEnqueued: opts?.waJobsEnqueued,
+        skipReason: opts?.skipReason,
+        ruleName: opts?.ruleName,
+        captureKind: extractedData.captureKind,
+      });
+    } catch {
+      /* histórico não bloqueia pipeline */
+    }
+  }
 
   constructor() {
     this.queueManager = QueueManager.getInstance();
@@ -212,6 +238,7 @@ export class QueueProcessorService {
         });
 
       const logUserId = (user?._id ?? clientOid) as mongoose.Types.ObjectId;
+      const dryRun = isDiscordDryRunEnabled(org);
 
       if (org && !org.canSendMessage()) {
         this.serviceLogger.warn('Limite diário da organização atingido', logMeta);
@@ -236,12 +263,17 @@ export class QueueProcessorService {
 
       // ── 2. WhatsApp (socket ativo no processo, não só cache Redis) ─────────
       const wa = WhatsAppService.getInstance();
-      if (!wa.isClientConnected(clientId)) {
+      if (!dryRun && !wa.isClientConnected(clientId)) {
         this.serviceLogger.warn('WhatsApp não conectado — mensagem Discord não encaminhada', logMeta);
         await SystemLog.createLog('warn', 'QueueProcessorService', 'WhatsApp not connected', logMeta,
           logUserId, traceId);
+        await this.recordMessageHistory(channelId, extractedData, clientId, 'wa_disconnected', {
+          skipReason: 'WhatsApp não conectado',
+        });
         return { success: false, reason: 'WhatsApp not connected' };
       }
+
+      await this.recordMessageHistory(channelId, extractedData, clientId, 'captured');
 
       // ── 3. Rules evaluation ───────────────────────────────────────────────
       const matches = await this.rulesEngine.evaluate(extractedData, clientId);
@@ -257,26 +289,29 @@ export class QueueProcessorService {
         });
         await SystemLog.createLog('info', 'QueueProcessorService', 'No rules matched — message skipped', logMeta,
           logUserId, traceId);
+        await this.recordMessageHistory(channelId, extractedData, clientId, 'no_rules', {
+          skipReason: 'Nenhuma regra ativa',
+        });
         return { success: true, reason: 'No rules matched', jobsEnqueued: 0 };
       }
 
-      // Uma mensagem Discord → uma regra (maior prioridade), evita 5 posts no WhatsApp
-      const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
-      const activeMatches =
-        matches.length > 1
-          ? [
-              [...matches].sort(
-                (a, b) => priorityRank[a.priority] - priorityRank[b.priority]
-              )[0],
-            ]
-          : matches;
+      // Regras a aplicar: uma (padrão) ou várias se multi-regra ativo no tenant
+      const multiRule = isDiscordMultiRuleEnabled(org);
+      const activeMatches = selectDiscordRuleMatches(matches, org);
 
-      if (matches.length > 1) {
+      if (matches.length > 1 && !multiRule) {
         this.serviceLogger.info('Múltiplas regras — usando só a de maior prioridade', {
           ...logMeta,
           total: matches.length,
           picked: activeMatches[0].rule.name,
           template: activeMatches[0].templateName,
+        });
+      } else if (matches.length > 1 && multiRule) {
+        this.serviceLogger.info('Multi-regra ativo — aplicando regras por prioridade', {
+          ...logMeta,
+          total: matches.length,
+          applied: activeMatches.length,
+          rules: activeMatches.map(m => m.rule.name),
         });
       }
 
@@ -301,12 +336,59 @@ export class QueueProcessorService {
             dedupTtlSec,
             reason: 'mesmo streamer/thumb em janela curta',
           }, logUserId, traceId);
+          await this.recordMessageHistory(channelId, extractedData, clientId, 'skipped_duplicate', {
+            skipReason: 'Conteúdo duplicado no canal',
+          });
           return { success: true, reason: 'Duplicate content', jobsEnqueued: 0 };
         }
       }
 
+      if (dryRun) {
+        const appliedNames: string[] = [];
+        for (const match of activeMatches) {
+          const ruleBlock = await RuleGroupBlockService.getInstance().checkRuleBlocked(
+            clientId,
+            match.destinationIds,
+          );
+          if (!ruleBlock.blocked) appliedNames.push(match.rule.name);
+        }
+        if (!appliedNames.length) {
+          const match = activeMatches[0];
+          await this.recordMessageHistory(channelId, extractedData, clientId, 'blocked', {
+            skipReason: 'Grupo destino inacessível',
+            ruleName: match.rule.name,
+          });
+          return { success: true, dryRun: true, reason: 'Rule blocked', jobsEnqueued: 0 };
+        }
+        const ruleNameLabel = appliedNames.join(', ');
+        await this.recordMessageHistory(channelId, extractedData, clientId, 'dry_run', {
+          ruleName: ruleNameLabel,
+          skipReason: 'Modo simulação — WhatsApp não enviado',
+        });
+        await SystemLog.createLog(
+          'info',
+          'QueueProcessorService',
+          'Discord dry-run — regra(s) aplicada(s) sem envio WA',
+          {
+            ...logMeta,
+            ruleName: ruleNameLabel,
+            rulesApplied: appliedNames.length,
+          },
+          logUserId,
+          traceId,
+        );
+        return {
+          success: true,
+          dryRun: true,
+          jobsEnqueued: 0,
+          ruleName: ruleNameLabel,
+        };
+      }
+
       // ── 4. For each match: template + dedup + enqueue ─────────────────────
       let jobsEnqueued = 0;
+      let webhookRule: { id: string; name: string; template: string } | null = null;
+      const appliedRuleNames: string[] = [];
 
       for (const match of activeMatches) {
         const { destinationIds, templateName, priority, addDelay, rule } = match;
@@ -337,6 +419,10 @@ export class QueueProcessorService {
             ruleId: rule._id,
             ruleName: rule.name,
             reason: ruleBlock.reason,
+          });
+          await this.recordMessageHistory(channelId, extractedData, clientId, 'blocked', {
+            skipReason: ruleBlock.reason ?? 'Grupo destino inacessível',
+            ruleName: rule.name,
           });
           continue;
         }
@@ -477,6 +563,7 @@ export class QueueProcessorService {
         }
 
         const seenWaDest = new Set<string>();
+        let ruleJobs = 0;
 
         // Enqueue one job per destination
         for (const destinationId of resolvedDestinationIds) {
@@ -489,7 +576,15 @@ export class QueueProcessorService {
           // ── Deduplication ─────────────────────────────────────────────────
           const dedupHash = crypto
             .createHash('sha256')
-            .update(`${clientId}:${destinationId}:${messageId}`)
+            .update(
+              buildDiscordWaDedupSeed({
+                clientId,
+                destinationId: String(destinationId),
+                eventId: messageId,
+                ruleId: rule._id.toString(),
+                multiRule,
+              }),
+            )
             .digest('hex');
 
           const dedupKey = `dedup:${dedupHash}`;
@@ -571,6 +666,15 @@ export class QueueProcessorService {
           );
 
           jobsEnqueued++;
+          ruleJobs++;
+
+          if (!webhookRule) {
+            webhookRule = {
+              id: rule._id.toString(),
+              name: rule.name,
+              template: resolvedTemplate,
+            };
+          }
 
           await logPipeline('QueueProcessorService', 'queue', 'Job WA enfileirado', {
             ...logMeta,
@@ -591,6 +695,10 @@ export class QueueProcessorService {
             preview: previewOutbound(renderedMessage),
           }, logUserId, traceId);
         }
+
+        if (ruleJobs > 0) {
+          appliedRuleNames.push(rule.name);
+        }
       }
 
       this.processingStats.processed++;
@@ -599,6 +707,31 @@ export class QueueProcessorService {
       this.serviceLogger.info('Discord message processed successfully', {
         ...logMeta, jobsEnqueued, processingTimeMs: Date.now() - capturedAt.getTime()
       });
+
+      if (jobsEnqueued > 0 && webhookRule) {
+        WebhookDispatcherService.getInstance().emit(
+          clientId,
+          'discord.message.matched' as WebhookEvent,
+          buildDiscordMessageWebhookPayload({
+            messageId,
+            guildId: extractedData.guildId,
+            guildName: extractedData.guildName ?? '',
+            channelId: extractedData.channelId,
+            channelName: extractedData.channelName ?? '',
+            authorId: extractedData.authorId,
+            authorName: extractedData.authorName ?? extractedData.authorTag ?? '',
+            captureKind: extractedData.captureKind,
+            ruleId: webhookRule.id,
+            ruleName: webhookRule.name,
+            templateName: webhookRule.template,
+            waJobsEnqueued: jobsEnqueued,
+          }),
+        );
+        await this.recordMessageHistory(channelId, extractedData, clientId, 'wa_queued', {
+          waJobsEnqueued: jobsEnqueued,
+          ruleName: appliedRuleNames.length ? appliedRuleNames.join(', ') : webhookRule.name,
+        });
+      }
 
       return { success: true, jobsEnqueued };
 
@@ -636,13 +769,15 @@ export class QueueProcessorService {
       }
       if (!user && org) user = await User.findById(org.ownerUserId);
       const logUserId = (user?._id ?? clientOid) as mongoose.Types.ObjectId;
+      const dryRun = isDiscordDryRunEnabled(org);
+      const multiRule = isDiscordMultiRuleEnabled(org);
 
       if (org && !org.canSendMessage()) {
         return { success: false, reason: 'Message limit exceeded' };
       }
 
       const wa = WhatsAppService.getInstance();
-      if (!wa.isClientConnected(clientId)) {
+      if (!dryRun && !wa.isClientConnected(clientId)) {
         await SystemLog.createLog('warn', 'QueueProcessorService', 'WhatsApp not connected (event)', logMeta,
           logUserId, traceId);
         return { success: false, reason: 'WhatsApp not connected' };
@@ -658,98 +793,150 @@ export class QueueProcessorService {
         return { success: true, reason: 'No rules matched', jobsEnqueued: 0 };
       }
 
-      const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
-      const activeMatch = [...matches].sort(
-        (a, b) => priorityRank[a.priority] - priorityRank[b.priority],
-      )[0];
+      const activeMatches = selectDiscordRuleMatches(matches, org);
 
-      const { destinationIds, templateName, priority, addDelay, rule } = activeMatch;
-
-      const ruleBlock = await RuleGroupBlockService.getInstance().checkRuleBlocked(clientId, destinationIds);
-        if (ruleBlock.blocked) {
-          await DiscordMonitorEventService.getInstance().updateOutcome(event.eventId, 'no_rules', {
-            skipReason: ruleBlock.reason ?? 'Regra bloqueada',
-          });
-          return { success: true, reason: ruleBlock.reason, jobsEnqueued: 0 };
-        }
+      if (dryRun) {
+        const appliedNames = activeMatches
+          .filter(m => m.destinationIds?.length !== 0)
+          .map(m => m.rule.name);
+        const ruleNameLabel = appliedNames.join(', ') || activeMatches[0]?.rule.name;
+        await DiscordMonitorEventService.getInstance().updateOutcome(event.eventId, 'dry_run', {
+          ruleName: ruleNameLabel,
+          skipReason: 'Modo simulação — WhatsApp não enviado',
+          waJobsEnqueued: 0,
+        });
+        await SystemLog.createLog(
+          'info',
+          'QueueProcessorService',
+          'Discord event dry-run — regra(s) aplicada(s) sem envio WA',
+          { ...logMeta, ruleName: ruleNameLabel, rulesApplied: activeMatches.length },
+          logUserId,
+          traceId,
+        );
+        return {
+          success: true,
+          dryRun: true,
+          jobsEnqueued: 0,
+          ruleName: ruleNameLabel,
+        };
+      }
 
       const senderLabel = await resolveTenantSenderLabelAsync(org, user);
-      const { variables } = buildDiscordEventWhatsAppVariables(event, senderLabel);
-
-      const resolvedTemplate =
-        templateName && templateName !== 'dw-padrao'
-          ? templateName
-          : defaultEventTemplate(event.trigger);
-
-      let renderedMessage =
-        renderCatalogTemplate(resolvedTemplate, variables as Record<string, string>) ?? '';
-
-      if (!renderedMessage) {
-        renderedMessage =
-          renderCatalogTemplate(defaultEventTemplate(event.trigger), variables as Record<string, string>) ?? '';
-      }
-
-      renderedMessage = applyStandardWhatsAppLayout(renderedMessage, variables.rodape || '', '');
-
-      let resolvedDestinationIds = destinationIds;
-      if (!resolvedDestinationIds?.length) {
-        const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(clientId);
-        const allDests = (
-          await Promise.all(relatedIds.map(id => Destination.findByClientId(id, true)))
-        ).flat();
-        resolvedDestinationIds = allDests.map(d => d._id as mongoose.Types.ObjectId);
-      }
-
       let jobsEnqueued = 0;
-      const priorityValue = priority === 'high' ? 8 : priority === 'medium' ? 5 : 2;
+      const appliedRuleNames: string[] = [];
 
-      for (const destinationId of resolvedDestinationIds) {
-        const destination = await Destination.findById(destinationId);
-        if (!destination?.isActive) continue;
+      for (const activeMatch of activeMatches) {
+        const { destinationIds, templateName, priority, addDelay, rule } = activeMatch;
 
-        const dedupHash = crypto
-          .createHash('sha256')
-          .update(`${clientId}:${destinationId}:${event.eventId}`)
-          .digest('hex');
-        const dedupKey = `dedup:${dedupHash}`;
-        if (await this.redisManager.exists(dedupKey)) continue;
+        const ruleBlock = await RuleGroupBlockService.getInstance().checkRuleBlocked(clientId, destinationIds);
+        if (ruleBlock.blocked) {
+          this.serviceLogger.warn('Regra de evento bloqueada', {
+            ...logMeta,
+            ruleId: rule._id,
+            ruleName: rule.name,
+            reason: ruleBlock.reason,
+          });
+          continue;
+        }
 
-        await this.queueManager.addJob(
-          'whatsapp-sending',
-          'send-message',
-          {
-            clientId,
-            destination: destination.identifier,
-            content: { text: renderedMessage },
-            messageId: event.eventId,
-            ruleId: rule._id.toString(),
-            consentOrigin: 'campaign',
-            sendKind: 'marketing',
-            templateName: resolvedTemplate,
-            resolvedTemplate,
-            traceId,
-            dedupKey,
-            dedupTtlSeconds: QueueProcessorService.DEDUP_WINDOW_HOURS * 3600,
-            jobDelay: addDelay,
-          },
-          {
-            priority: priorityValue,
-            attempts: 3,
-            delay: addDelay,
-            backoff: { type: 'exponential', delay: 2000 },
-          },
-        );
-        jobsEnqueued++;
+        const { variables } = buildDiscordEventWhatsAppVariables(event, senderLabel);
+
+        const resolvedTemplate =
+          templateName && templateName !== 'dw-padrao'
+            ? templateName
+            : defaultEventTemplate(event.trigger);
+
+        let renderedMessage =
+          renderCatalogTemplate(resolvedTemplate, variables as Record<string, string>) ?? '';
+
+        if (!renderedMessage) {
+          renderedMessage =
+            renderCatalogTemplate(defaultEventTemplate(event.trigger), variables as Record<string, string>) ?? '';
+        }
+
+        renderedMessage = applyStandardWhatsAppLayout(renderedMessage, variables.rodape || '', '');
+
+        let resolvedDestinationIds = destinationIds;
+        if (!resolvedDestinationIds?.length) {
+          const relatedIds = await OrganizationService.getInstance().getRelatedClientIds(clientId);
+          const allDests = (
+            await Promise.all(relatedIds.map(id => Destination.findByClientId(id, true)))
+          ).flat();
+          resolvedDestinationIds = allDests.map(d => d._id as mongoose.Types.ObjectId);
+        }
+
+        const priorityValue = priority === 'high' ? 8 : priority === 'medium' ? 5 : 2;
+        let ruleJobs = 0;
+
+        for (const destinationId of resolvedDestinationIds) {
+          const destination = await Destination.findById(destinationId);
+          if (!destination?.isActive) continue;
+
+          const dedupHash = crypto
+            .createHash('sha256')
+            .update(
+              buildDiscordWaDedupSeed({
+                clientId,
+                destinationId: String(destinationId),
+                eventId: event.eventId,
+                ruleId: rule._id.toString(),
+                multiRule,
+              }),
+            )
+            .digest('hex');
+          const dedupKey = `dedup:${dedupHash}`;
+          if (await this.redisManager.exists(dedupKey)) continue;
+
+          await this.queueManager.addJob(
+            'whatsapp-sending',
+            'send-message',
+            {
+              clientId,
+              destination: destination.identifier,
+              content: { text: renderedMessage },
+              messageId: event.eventId,
+              ruleId: rule._id.toString(),
+              consentOrigin: 'campaign',
+              sendKind: 'marketing',
+              templateName: resolvedTemplate,
+              resolvedTemplate,
+              traceId,
+              dedupKey,
+              dedupTtlSeconds: QueueProcessorService.DEDUP_WINDOW_HOURS * 3600,
+              jobDelay: addDelay + ruleJobs * QueueProcessorService.MIN_SEND_DELAY_MS,
+            },
+            {
+              priority: priorityValue,
+              attempts: 3,
+              delay: addDelay + ruleJobs * QueueProcessorService.MIN_SEND_DELAY_MS,
+              backoff: { type: 'exponential', delay: 2000 },
+            },
+          );
+          jobsEnqueued++;
+          ruleJobs++;
+        }
+
+        if (ruleJobs > 0) {
+          appliedRuleNames.push(rule.name);
+        }
+      }
+
+      if (jobsEnqueued === 0 && activeMatches.length > 0) {
+        await DiscordMonitorEventService.getInstance().updateOutcome(event.eventId, 'blocked', {
+          skipReason: 'Nenhum destino disponível ou regras bloqueadas',
+        });
+        return { success: true, reason: 'No jobs enqueued', jobsEnqueued: 0 };
       }
 
       await logPipeline('QueueProcessorService', 'queue', `Evento WA enfileirado (${event.trigger})`, {
         ...logMeta,
-        ruleName: rule.name,
+        ruleName: appliedRuleNames.join(', '),
         jobsEnqueued,
       }, logUserId, traceId);
 
       await DiscordMonitorEventService.getInstance().updateOutcome(event.eventId, 'wa_queued', {
         waJobsEnqueued: jobsEnqueued,
+        ruleName: appliedRuleNames.join(', '),
       });
 
       const webhookEvent = discordTriggerToWebhookEvent(event.trigger);

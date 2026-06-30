@@ -6,7 +6,11 @@ export type DiscordMonitorEventStatus =
   | 'wa_queued'
   | 'no_rules'
   | 'skipped_cooldown'
-  | 'wa_failed';
+  | 'skipped_duplicate'
+  | 'blocked'
+  | 'wa_disconnected'
+  | 'wa_failed'
+  | 'dry_run';
 
 export interface IDiscordMonitorEvent extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -27,6 +31,10 @@ export interface IDiscordMonitorEvent extends Document {
   status: DiscordMonitorEventStatus;
   waJobsEnqueued: number;
   skipReason?: string;
+  /** Prévia do texto (mensagens) */
+  messagePreview?: string;
+  captureKind?: string;
+  ruleName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,12 +58,25 @@ const DiscordMonitorEventSchema = new Schema<IDiscordMonitorEvent>(
     memberCount: { type: Number },
     status: {
       type: String,
-      enum: ['captured', 'wa_queued', 'no_rules', 'skipped_cooldown', 'wa_failed'],
+      enum: [
+        'captured',
+        'wa_queued',
+        'no_rules',
+        'skipped_cooldown',
+        'skipped_duplicate',
+        'blocked',
+        'wa_disconnected',
+        'wa_failed',
+        'dry_run',
+      ],
       default: 'captured',
       index: true,
     },
     waJobsEnqueued: { type: Number, default: 0 },
     skipReason: { type: String },
+    messagePreview: { type: String },
+    captureKind: { type: String },
+    ruleName: { type: String },
   },
   { timestamps: true, collection: 'discordMonitorEvents' },
 );

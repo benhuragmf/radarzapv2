@@ -27,12 +27,14 @@ export function LeadWhatsAppComposer({ item, canReply, onConversationReady, comp
   })
 
   useEffect(() => {
-    setConversationId(item.inboxConversationId ?? null)
+    const liveId =
+      item.inboxConversationActive === false ? null : (item.inboxConversationId ?? null)
+    setConversationId(liveId)
     setText('')
-  }, [item.id, item.inboxConversationId])
+  }, [item.id, item.inboxConversationId, item.inboxConversationActive])
 
-  const ensureConversation = async (): Promise<string> => {
-    if (conversationId) return conversationId
+  const ensureConversation = async (forceReopen = false): Promise<string> => {
+    if (conversationId && !forceReopen) return conversationId
     setPreparing(true)
     try {
       const result = await api.post<{ conversationId: string }>(`/leads/captures/${item.id}/open-inbox`, {})
@@ -49,8 +51,16 @@ export function LeadWhatsAppComposer({ item, canReply, onConversationReady, comp
     if (!body || !canReply) return
     setSending(true)
     try {
-      const convId = await ensureConversation()
-      await api.post(`/inbox/conversations/${convId}/reply`, { text: body })
+      let convId = await ensureConversation()
+      try {
+        await api.post(`/inbox/conversations/${convId}/reply`, { text: body })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (!msg.includes('finalizada') && !msg.includes('finalizado')) throw e
+        setConversationId(null)
+        convId = await ensureConversation(true)
+        await api.post(`/inbox/conversations/${convId}/reply`, { text: body })
+      }
       setText('')
       notifySuccess('Mensagem enviada pelo WhatsApp')
     } catch (e) {

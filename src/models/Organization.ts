@@ -61,6 +61,15 @@ export interface IOrganization extends Document {
     learningOpsUsed: number;
     periodStart: Date;
   };
+  /** Integração Discord → WhatsApp */
+  discordSettings?: {
+    /** Simulação: avalia regras e grava histórico sem enviar ao WhatsApp */
+    dryRun?: boolean;
+    /** Aplica até 5 regras que batem; padrão só a de maior prioridade */
+    multiRulePerMessage?: boolean;
+    /** Aceita POST /api/integrations/discord/inbound/* com X-API-Key */
+    inboundEnabled?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 
@@ -148,6 +157,14 @@ const OrganizationSchema = new Schema<IOrganization>({
       learningOpsUsed: 0,
       periodStart: new Date(),
     }),
+  },
+  discordSettings: {
+    type: {
+      dryRun: { type: Boolean, default: false },
+      multiRulePerMessage: { type: Boolean, default: false },
+      inboundEnabled: { type: Boolean, default: false },
+    },
+    default: () => ({ dryRun: false, multiRulePerMessage: false, inboundEnabled: false }),
   },
 }, {
   timestamps: true,

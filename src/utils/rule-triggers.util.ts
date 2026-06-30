@@ -2,6 +2,8 @@ import type { DiscordRuleTrigger } from '@/types/discord-monitor';
 
 const VALID_TRIGGERS: DiscordRuleTrigger[] = [
   'message',
+  'message_edit',
+  'message_reaction',
   'voice_join',
   'voice_leave',
   'member_join',
@@ -51,6 +53,14 @@ export function normalizeRuleTriggersInput(input: {
   }
 
   return unique;
+}
+
+export function parseKeywordList(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  return raw
+    .split(',')
+    .map(k => k.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export function resolveRuleTemplateForEvent(

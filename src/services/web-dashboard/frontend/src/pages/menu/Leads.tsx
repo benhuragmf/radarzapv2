@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, type ReactNode } from 'react'
+﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
@@ -9,6 +9,7 @@ import { LeadFormEditorCard, type LeadFormEditorSectionId } from '../../componen
 import { LeadFormList } from '../../components/leads/LeadFormList'
 import { LeadStatsDashboard } from '../../components/leads/LeadStatsDashboard'
 import { LeadKanbanBoard } from '../../components/leads/LeadKanbanBoard'
+import { LeadCaptureDetail } from '../../components/leads/LeadCaptureDetail'
 import { LeadCaptureListTable } from '../../components/leads/LeadCaptureListTable'
 import { LeadCapturesToolbar, type CaptureView, type PeriodFilter } from '../../components/leads/LeadCapturesToolbar'
 import { LeadManualCaptureModal } from '../../components/leads/LeadManualCaptureModal'
@@ -102,6 +103,10 @@ export default function Leads() {
   const [page, setPage] = useState(1)
   const [captureView, setCaptureView] = useState<CaptureView>(loadCaptureView)
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
+  const [selectedCaptureId, setSelectedCaptureId] = useState<string | null>(null)
+  const [detailFocusConversa, setDetailFocusConversa] = useState(false)
+  const detailPanelRef = useRef<HTMLDivElement>(null)
+  const capturesBoardRef = useRef<HTMLDivElement>(null)
 
   const setCaptureViewPersist = (v: CaptureView) => {
     setCaptureView(v)
@@ -206,12 +211,29 @@ export default function Leads() {
   })
 
   const openLeadDetail = (id: string, tab?: 'conversa') => {
-    navigate(tab ? `/platform/leads/${id}?tab=${tab}` : `/platform/leads/${id}`)
+    setSelectedCaptureId(prev => (prev === id && !tab ? null : id))
+    setDetailFocusConversa(tab === 'conversa')
   }
 
   const openLeadWhatsApp = (item: LeadCaptureListItem) => {
-    openLeadDetail(item.id, 'conversa')
+    setSelectedCaptureId(item.id)
+    setDetailFocusConversa(true)
   }
+
+  const { data: selectedCapture, isLoading: loadingSelectedCapture } = useQuery({
+    queryKey: ['lead-capture', selectedCaptureId],
+    queryFn: () => api.get<LeadCaptureListItem>(`/leads/captures/${selectedCaptureId}`),
+    enabled: Boolean(selectedCaptureId) && tab === 'captures',
+  })
+
+  useEffect(() => {
+    if (!selectedCaptureId) return
+    const scrollToPanel = () => {
+      detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    const t = window.setTimeout(scrollToPanel, loadingSelectedCapture ? 150 : 80)
+    return () => window.clearTimeout(t)
+  }, [selectedCaptureId, loadingSelectedCapture, selectedCapture?.id])
 
   const activeForm = useMemo(
     () => forms.find(f => f.id === activeFormId) ?? null,
@@ -239,6 +261,9 @@ export default function Leads() {
     void qc.invalidateQueries({ queryKey: ['leads-stats'] })
     void qc.invalidateQueries({ queryKey: ['leads-classification-stats'] })
     void qc.invalidateQueries({ queryKey: ['leads-segments-summary'] })
+    if (selectedCaptureId) {
+      void qc.invalidateQueries({ queryKey: ['lead-capture', selectedCaptureId] })
+    }
   }
 
   usePanelSocket(canView && tab === 'captures', ev => {
@@ -296,7 +321,8 @@ export default function Leads() {
     onSuccess: data => {
       invalidateLeads()
       setManualCaptureOpen(false)
-      navigate(`/platform/leads/${data.id}`)
+      setSelectedCaptureId(data.id)
+      setDetailFocusConversa(false)
       notifySuccess('Lead capturado')
     },
     onError: mutationError,
@@ -308,6 +334,39 @@ export default function Leads() {
     onSuccess: () => {
       invalidateLeads()
       notifySuccess('Lead convertido em contato')
+    },
+    onError: mutationError,
+  })
+
+  const linkCapture = useMutation({
+    mutationFn: (payload: { id: string; contactId: string }) =>
+      api.post<LeadCaptureListItem>(`/leads/captures/${payload.id}/link`, { contactId: payload.contactId }),
+    onSuccess: () => {
+      invalidateLeads()
+      notifySuccess('Lead vinculado ao contato')
+    },
+    onError: mutationError,
+  })
+
+  const addToGroups = useMutation({
+    mutationFn: (payload: { id: string; groupIds: string[] }) =>
+      api.post<LeadCaptureListItem>(`/leads/captures/${payload.id}/add-to-groups`, { groupIds: payload.groupIds }),
+    onSuccess: () => {
+      invalidateLeads()
+      notifySuccess('Listas atualizadas')
+    },
+    onError: mutationError,
+  })
+
+  const deleteCapture = useMutation({
+    mutationFn: (id: string) => api.delete(`/leads/captures/${id}`),
+    onSuccess: (_data, id) => {
+      invalidateLeads()
+      if (selectedCaptureId === id) {
+        setSelectedCaptureId(null)
+        setDetailFocusConversa(false)
+      }
+      notifySuccess('Lead excluído')
     },
     onError: mutationError,
   })
@@ -360,6 +419,62 @@ export default function Leads() {
     },
     onError: mutationError,
   })
+
+  const renderLeadDetailPanel = () => {
+    if (!selectedCaptureId) return null
+    const panelShell = (children: ReactNode) => (
+      <div
+        ref={detailPanelRef}
+        className="scroll-mt-6 rounded-2xl border border-[var(--rz-border)] bg-[var(--rz-surface)] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.45)] overflow-hidden flex flex-col h-[min(680px,calc(100dvh-10rem))] min-h-[440px]"
+      >
+        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+      </div>
+    )
+    if (loadingSelectedCapture) {
+      return panelShell(
+        <div className="p-4">
+          <LoadingState rows={4} />
+        </div>,
+      )
+    }
+    if (!selectedCapture) return null
+    return panelShell(
+      <LeadCaptureDetail
+          item={selectedCapture}
+          canManage={canManage}
+          canReply={canReply}
+          contactGroups={contactGroups}
+          layout="bottom-panel"
+          focusConversa={detailFocusConversa}
+          onConversaFocusDone={() => setDetailFocusConversa(false)}
+          onClose={() => {
+            setSelectedCaptureId(null)
+            setDetailFocusConversa(false)
+          }}
+          onUpdate={patch => {
+            if (patch.status === 'lost' || patch.status === 'spam') {
+              setStatusReasonModal({ id: selectedCapture.id, status: patch.status, name: selectedCapture.name })
+              return
+            }
+            updateCapture.mutate({ id: selectedCapture.id, ...patch })
+          }}
+          onOpenInbox={() => openInbox.mutate(selectedCapture.id)}
+          onConvert={opts => convertCapture.mutate({ id: selectedCapture.id, ...opts })}
+          onLinkContact={contactId => linkCapture.mutate({ id: selectedCapture.id, contactId })}
+          onInboxConversationReady={() => invalidateLeads()}
+          onAddToGroups={groupIds => addToGroups.mutate({ id: selectedCapture.id, groupIds })}
+          onDelete={() => {
+            if (window.confirm('Excluir este lead permanentemente?')) {
+              deleteCapture.mutate(selectedCapture.id)
+            }
+          }}
+          openingInbox={openInbox.isPending && pendingInboxId === selectedCapture.id}
+          converting={convertCapture.isPending && convertCapture.variables?.id === selectedCapture.id}
+          linking={linkCapture.isPending}
+          pending={updateCapture.isPending || addToGroups.isPending}
+      />,
+    )
+  }
 
   if (!canView) {
     return (
@@ -629,7 +744,10 @@ export default function Leads() {
             />
           )}
 
-          <div className="flex flex-1 min-h-0 rounded-xl border border-[var(--rz-border)] overflow-hidden bg-[var(--rz-surface)]">
+          <div
+            ref={capturesBoardRef}
+            className="flex flex-1 min-h-0 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)] overflow-hidden"
+          >
             {loadingCaptures ? (
               <div className="p-4">
                 <LoadingState rows={5} />
@@ -654,12 +772,12 @@ export default function Leads() {
                 />
               </div>
             ) : captureView === 'kanban' ? (
-              <div className="flex-1 min-h-[min(720px,calc(100dvh-16rem))] h-full p-2">
+              <div className="flex flex-col flex-1 min-h-[min(520px,calc(100dvh-18rem))] p-3">
                 <LeadKanbanBoard
                   items={capturesData.items}
                   canManage={canManage}
                   canReply={canReply}
-                  selectedId={null}
+                  selectedId={selectedCaptureId}
                   onSelect={openLeadDetail}
                   onAssume={id => openInbox.mutate(id)}
                   onWhatsApp={openLeadWhatsApp}
@@ -678,10 +796,10 @@ export default function Leads() {
                 />
               </div>
             ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto p-2">
+              <div className="flex flex-col flex-1 min-h-[min(520px,calc(100dvh-18rem))] p-3 overflow-y-auto">
                 <LeadCaptureListTable
                   items={capturesData.items}
-                  selectedId={null}
+                  selectedId={selectedCaptureId}
                   onSelect={openLeadDetail}
                   canReply={canReply}
                   canManage={canManage}
@@ -710,6 +828,12 @@ export default function Leads() {
               </div>
             )}
           </div>
+
+          {selectedCaptureId && (
+            <div className="mt-6 pt-2 border-t border-dashed border-[var(--rz-border)]">
+              {renderLeadDetailPanel()}
+            </div>
+          )}
         </div>
       )}
 

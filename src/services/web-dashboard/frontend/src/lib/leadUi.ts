@@ -80,6 +80,12 @@ export type RecommendedAction = {
   kind: 'open-inbox' | 'inbox' | 'convert' | 'view-contact' | 'link' | 'follow-up'
 }
 
+export function hasLiveInboxConversation(item: LeadCaptureListItem): boolean {
+  if (item.webchatConversationId) return true
+  if (!item.inboxConversationId) return false
+  return item.inboxConversationActive !== false
+}
+
 export function getRecommendedAction(item: LeadCaptureListItem): RecommendedAction {
   if (item.possibleDuplicate && !item.destinationId) {
     return {
@@ -97,7 +103,7 @@ export function getRecommendedAction(item: LeadCaptureListItem): RecommendedActi
       primaryLabel: 'Ver contato',
     }
   }
-  if (item.inboxConversationId || item.webchatConversationId) {
+  if (hasLiveInboxConversation(item)) {
     return {
       kind: 'inbox',
       title: 'Atendimento em andamento',
@@ -107,6 +113,14 @@ export function getRecommendedAction(item: LeadCaptureListItem): RecommendedActi
           ? 'Conversa aberta no Chat do site.'
           : 'Existe conversa aberta no Inbox.',
       primaryLabel: 'Abrir atendimento',
+    }
+  }
+  if (item.inboxConversationId && item.inboxConversationActive === false) {
+    return {
+      kind: 'open-inbox',
+      title: 'Conversa encerrada',
+      description: 'A conversa anterior foi finalizada. Abra um novo atendimento para retomar o contato.',
+      primaryLabel: 'Retomar atendimento',
     }
   }
   if (item.status === 'qualified') {
@@ -142,7 +156,10 @@ export function getRecommendedAction(item: LeadCaptureListItem): RecommendedActi
 }
 
 export function getInboxStateLabel(item: LeadCaptureListItem): string {
-  if (item.inboxConversationId || item.webchatConversationId) {
+  if (item.inboxConversationId && item.inboxConversationActive === false) {
+    return 'Conversa encerrada — retome o atendimento para enviar mensagens'
+  }
+  if (hasLiveInboxConversation(item)) {
     return item.assignedUserName
       ? `Em atendimento com ${item.assignedUserName}`
       : item.webchatConversationId
@@ -190,6 +207,7 @@ export function canQuickConvertLead(item: LeadCaptureListItem): boolean {
 
 /** Deep link Inbox unificado (WhatsApp ou WebChat). */
 export function leadInboxHref(item: LeadCaptureListItem): string | null {
+  if (!hasLiveInboxConversation(item)) return null
   if (item.inboxConversationId) {
     return `/platform/inbox?conv=${encodeURIComponent(item.inboxConversationId)}`
   }

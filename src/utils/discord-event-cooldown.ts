@@ -25,6 +25,9 @@ export function getDiscordEventCooldownSec(
   if (trigger.startsWith('member_')) {
     return parseEnvInt('DISCORD_MEMBER_COOLDOWN_SEC', DEFAULT_MEMBER_SEC);
   }
+  if (trigger.startsWith('message_')) {
+    return parseEnvInt('DISCORD_ENGAGEMENT_COOLDOWN_SEC', DEFAULT_OTHER_SEC);
+  }
   return DEFAULT_OTHER_SEC;
 }
 

@@ -52,8 +52,7 @@ describe('inbox-graceful-close', () => {
       isCloseQuickReplyAllowed(
         conv,
         {
-          inactivityCloseMinutes: 15,
-          inactivityWarningMinutes: 10,
+          inactivityCloseGateWaitMinutes: 5,
           gracefulCloseAfterPromptMinutes: 2,
         },
         t1.getTime(),

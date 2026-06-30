@@ -1,4 +1,4 @@
-import { MessageSquare, Mic, Users, UserPlus, UserMinus, UserX, Ban, Check } from 'lucide-react'
+import { MessageSquare, Mic, Users, UserPlus, UserMinus, UserX, Ban, Check, Pencil, Smile } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
   type DiscordRuleTrigger,
@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
 
 const TRIGGER_ICONS: Partial<Record<DiscordRuleTrigger, LucideIcon>> = {
   message: MessageSquare,
+  message_edit: Pencil,
+  message_reaction: Smile,
   voice_join: Mic,
   voice_leave: Mic,
   member_join: UserPlus,

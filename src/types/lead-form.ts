@@ -278,6 +278,8 @@ export interface LeadCaptureListItem {
   destinationId?: string;
   linkedContactName?: string;
   inboxConversationId?: string;
+  /** Preenchido no detalhe: false quando a conversa WA vinculada está encerrada. */
+  inboxConversationActive?: boolean;
   webchatConversationId?: string;
   contactGroupIds?: string[];
   contactGroupNames?: string[];

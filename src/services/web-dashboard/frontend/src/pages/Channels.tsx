@@ -18,6 +18,7 @@ import { MetricCard, LoadingState, inputCls } from '@/design-system'
 import {
   type DiscordMonitorType,
   MONITOR_LABELS,
+  discordChannelTypeLabel,
 } from '../lib/discordMonitor'
 
 interface Channel {
@@ -33,6 +34,8 @@ interface Channel {
     keywords: string[]
     excludeKeywords?: string[]
     allowBots?: boolean
+    allowedBotIds?: string[]
+    allowedUserIds?: string[]
     requireLink?: boolean
     requireImage?: boolean
     requireEmbed?: boolean
@@ -49,6 +52,7 @@ interface DiscordChannelOption {
   id: string
   name: string
   type: number
+  typeLabel?: string
 }
 
 const MONITOR_ICONS = {
@@ -71,6 +75,8 @@ export default function Channels() {
     keywords: '',
     excludeKeywords: '',
     allowBots: true,
+    allowedBotIds: '',
+    allowedUserIds: '',
     requireLink: false,
     requireImage: false,
     requireEmbed: false,
@@ -156,6 +162,8 @@ export default function Channels() {
         keywords: filterForm.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean),
         excludeKeywords: filterForm.excludeKeywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean),
         allowBots: filterForm.allowBots,
+        allowedBotIds: filterForm.allowedBotIds.split(',').map(k => k.trim()).filter(Boolean),
+        allowedUserIds: filterForm.allowedUserIds.split(',').map(k => k.trim()).filter(Boolean),
         requireLink: filterForm.requireLink,
         requireImage: filterForm.requireImage,
         requireEmbed: filterForm.requireEmbed,
@@ -185,6 +193,8 @@ export default function Channels() {
       keywords: (ch.filters?.keywords ?? []).join(', '),
       excludeKeywords: (ch.filters?.excludeKeywords ?? []).join(', '),
       allowBots: ch.filters?.allowBots ?? true,
+      allowedBotIds: (ch.filters?.allowedBotIds ?? []).join(', '),
+      allowedUserIds: (ch.filters?.allowedUserIds ?? []).join(', '),
       requireLink: ch.filters?.requireLink ?? false,
       requireImage: ch.filters?.requireImage ?? false,
       requireEmbed: ch.filters?.requireEmbed ?? false,
@@ -251,7 +261,7 @@ export default function Channels() {
           </div>
 
           <p className="text-xs text-[var(--rz-text-muted)] mb-4">
-            {monitorType === 'text' && 'Encaminha novas mensagens do canal para o pipeline de regras.'}
+            {monitorType === 'text' && 'Encaminha novas mensagens do canal (inclui threads e fóruns se o canal pai estiver monitorado).'}
             {monitorType === 'voice' && 'Alerta quando alguém entra ou sai de um canal de voz (exige regra voice_join / voice_leave).'}
             {monitorType === 'guild' && 'Monitora entrada, saída, kick e ban de membros no servidor inteiro.'}
           </p>
@@ -345,6 +355,10 @@ export default function Channels() {
                     >
                       {monitorType === 'voice' ? <Mic size={13} /> : <Hash size={13} />}
                       <span className="truncate">{ch.name}</span>
+                      <Badge
+                        label={ch.typeLabel ?? discordChannelTypeLabel(ch.type)}
+                        variant="gray"
+                      />
                       {added && <Badge label="já adicionado" variant="gray" />}
                     </button>
                   )
@@ -402,6 +416,28 @@ export default function Channels() {
                     {label}
                   </label>
                 ))}
+              </div>
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">
+                  IDs de bots permitidos (vírgula, vazio = todos)
+                </label>
+                <input
+                  className={inputCls}
+                  placeholder="123456789012345678"
+                  value={filterForm.allowedBotIds}
+                  onChange={e => setFilterForm(f => ({ ...f, allowedBotIds: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[var(--rz-text-muted)] mb-1 block">
+                  IDs de usuários permitidos (vírgula, vazio = todos)
+                </label>
+                <input
+                  className={inputCls}
+                  placeholder="123456789012345678"
+                  value={filterForm.allowedUserIds}
+                  onChange={e => setFilterForm(f => ({ ...f, allowedUserIds: e.target.value }))}
+                />
               </div>
             </div>
           )}
@@ -491,7 +527,7 @@ export default function Channels() {
                   >
                     <Settings2 size={16} />
                   </button>
-                  {(type === 'voice' || type === 'guild') && (
+                  {(type === 'voice' || type === 'guild' || type === 'text') && (
                     <button
                       onClick={() => setHistoryOpenId(historyOpenId === ch._id ? null : ch._id)}
                       className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"

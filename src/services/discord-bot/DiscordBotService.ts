@@ -20,6 +20,9 @@ import {
   GuildMember,
   PartialGuildMember,
   AuditLogEvent,
+  Partials,
+  User as DiscordUser,
+  PartialMessage,
 } from 'discord.js';
 import { config } from '@/config/environment';
 import { logger, createServiceLogger } from '@/utils/logger';
@@ -75,7 +78,9 @@ export class DiscordBotService {
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessageReactions,
       ],
+      partials: [Partials.Message, Partials.Channel, Partials.Reaction],
       presence: {
         status: PresenceUpdateStatus.Online,
         activities: [{
@@ -187,6 +192,21 @@ export class DiscordBotService {
 
     this.client.on(Events.MessageCreate, async (message: Message) => {
       await this.handleMessage(message);
+    });
+
+    this.client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+      await this.handleMessageUpdate(oldMessage, newMessage);
+    });
+
+    this.client.on(Events.MessageReactionAdd, async (reaction, user) => {
+      if (user.partial) {
+        try {
+          user = await user.fetch();
+        } catch {
+          return;
+        }
+      }
+      await this.handleMessageReactionAdd(reaction, user as DiscordUser);
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
@@ -455,9 +475,14 @@ export class DiscordBotService {
       // Ignorar mensagens do próprio bot para evitar loops
       if (message.author.id === this.client.user?.id) return;
 
-      // Verificar se canal está monitorado
-      const discordChannel = await DiscordChannel.findByChannelId(message.channelId);
-      if (!discordChannel || !discordChannel.isActive) return;
+      // Verificar se canal está monitorado (inclui threads/posts herdando monitor do pai)
+      const parentChannelId =
+        message.channel.isThread?.() ? message.channel.parentId : null;
+      const discordChannel = await DiscordChannel.findTextMonitorForMessage(
+        message.channelId,
+        parentChannelId,
+      );
+      if (!discordChannel) return;
 
       // Atualiza nomes se ainda não foram salvos
       if (!discordChannel.channelName && message.channel) {
@@ -830,6 +855,158 @@ export class DiscordBotService {
       member.user.globalName?.trim() ||
       member.user.username
     );
+  }
+
+  private async resolveTextMonitor(message: Message | PartialMessage): Promise<IDiscordChannel | null> {
+    let full = message;
+    if (full.partial) {
+      try {
+        full = await full.fetch();
+      } catch {
+        return null;
+      }
+    }
+    const parentChannelId =
+      full.channel.isThread?.() ? full.channel.parentId : null;
+    return DiscordChannel.findTextMonitorForMessage(
+      full.channelId,
+      parentChannelId,
+    );
+  }
+
+  private async resolveMemberRoleIds(
+    guildId: string | null,
+    userId: string,
+    member?: GuildMember | null,
+  ): Promise<string[]> {
+    if (member?.roles?.cache) {
+      return member.roles.cache.map((r) => r.id);
+    }
+    if (!guildId) return [];
+    try {
+      const fetched = await this.client.guilds.cache.get(guildId)?.members.fetch(userId);
+      return fetched?.roles.cache.map((r) => r.id) ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  private previewText(content: string, max = 280): string {
+    const trimmed = content.trim();
+    if (trimmed.length <= max) return trimmed;
+    return `${trimmed.slice(0, max - 1)}…`;
+  }
+
+  private formatReactionEmoji(reaction: { emoji: { name: string | null; id: string | null; toString(): string } }): string {
+    return reaction.emoji.id ? reaction.emoji.toString() : (reaction.emoji.name ?? '👍');
+  }
+
+  private async handleMessageUpdate(
+    oldMessage: Message | PartialMessage,
+    newMessage: Message | PartialMessage,
+  ): Promise<void> {
+    try {
+      if (newMessage.partial) {
+        try {
+          newMessage = await newMessage.fetch();
+        } catch {
+          return;
+        }
+      }
+      if (oldMessage.partial && oldMessage.content == null) {
+        try {
+          oldMessage = await oldMessage.fetch();
+        } catch {
+          return;
+        }
+      }
+      if (!newMessage.guild || !newMessage.author || newMessage.author.bot) return;
+      if (oldMessage.content === newMessage.content) return;
+
+      const monitor = await this.resolveTextMonitor(newMessage);
+      if (!monitor) return;
+
+      const roleIds = await this.resolveMemberRoleIds(
+        newMessage.guildId,
+        newMessage.author.id,
+        newMessage.member,
+      );
+
+      await this.enqueueDiscordEvent(monitor, {
+        trigger: 'message_edit',
+        guildId: newMessage.guild.id,
+        guildName: newMessage.guild.name,
+        channelId: newMessage.channelId,
+        channelName: (newMessage.channel as { name?: string }).name ?? monitor.channelName ?? newMessage.channelId,
+        userId: newMessage.author.id,
+        userName: newMessage.member?.displayName?.trim() || newMessage.author.globalName?.trim() || newMessage.author.username,
+        userTag: newMessage.author.tag,
+        messageId: newMessage.id,
+        messagePreview: this.previewText(newMessage.content ?? ''),
+        previousContent: this.previewText(oldMessage.content ?? ''),
+        roleIds,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.serviceLogger.error('Error handling message update:', error);
+    }
+  }
+
+  private async handleMessageReactionAdd(
+    reaction: { partial: boolean; fetch(): Promise<unknown>; message: Message | PartialMessage; emoji: { name: string | null; id: string | null; toString(): string } },
+    user: DiscordUser,
+  ): Promise<void> {
+    try {
+      if (user.bot) return;
+
+      if (reaction.partial) {
+        try {
+          await reaction.fetch();
+        } catch {
+          return;
+        }
+      }
+
+      let message = reaction.message as Message;
+      if (message.partial) {
+        try {
+          message = await message.fetch();
+        } catch {
+          return;
+        }
+      }
+
+      if (!message.guild || !message.author) return;
+
+      const monitor = await this.resolveTextMonitor(message);
+      if (!monitor) return;
+
+      const roleIds = await this.resolveMemberRoleIds(message.guildId, user.id);
+
+      const preview =
+        message.content?.trim() ||
+        message.embeds[0]?.title ||
+        message.embeds[0]?.description ||
+        '(mensagem sem texto)';
+
+      await this.enqueueDiscordEvent(monitor, {
+        trigger: 'message_reaction',
+        guildId: message.guild.id,
+        guildName: message.guild.name,
+        channelId: message.channelId,
+        channelName: (message.channel as { name?: string }).name ?? monitor.channelName ?? message.channelId,
+        userId: user.id,
+        userName: user.globalName?.trim() || user.username,
+        userTag: user.tag,
+        messageId: message.id,
+        messagePreview: this.previewText(preview),
+        emoji: this.formatReactionEmoji(reaction),
+        roleIds,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.serviceLogger.error('Error handling message reaction:', error);
+    }
   }
 
   private async enqueueDiscordEvent(

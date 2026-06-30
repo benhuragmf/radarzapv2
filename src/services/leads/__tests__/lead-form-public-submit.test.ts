@@ -2,10 +2,15 @@ import mongoose from 'mongoose';
 import { LeadFormService } from '../LeadFormService';
 import { LeadCapture } from '@/models/LeadCapture';
 import { LeadForm } from '@/models/LeadForm';
+import { Organization } from '@/models/Organization';
 
 jest.mock('@/models/LeadCapture');
 jest.mock('@/models/LeadForm');
-jest.mock('@/models/Organization');
+jest.mock('@/models/Organization', () => ({
+  Organization: {
+    findById: jest.fn(),
+  },
+}));
 jest.mock('@/services/integrations/WebhookDispatcherService', () => ({
   WebhookDispatcherService: {
     getInstance: () => ({ emit: jest.fn() }),
@@ -22,6 +27,14 @@ jest.mock('@/services/contacts/ContactAutoSegmentService', () => ({
 }));
 jest.mock('@/services/webchat/webchat-destination-link.util', () => ({
   ensureDestinationForWebChatVisitor: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('@/services/inbound/inbound-registration-policy.service', () => ({
+  loadInboundRegistrationPolicy: jest.fn().mockResolvedValue({
+    whatsapp: 'both',
+    webchat: 'lead',
+    form: 'both',
+    returnCustomer: 'return_lead',
+  }),
 }));
 jest.mock('@/models/Destination', () => ({
   Destination: {
@@ -91,6 +104,11 @@ describe('LeadFormService.submitPublicLead', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (Organization.findById as jest.Mock).mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue({}),
+      }),
+    });
     (LeadForm.findOne as jest.Mock).mockReturnValue({
       exec: () => Promise.resolve(activeForm()),
     });

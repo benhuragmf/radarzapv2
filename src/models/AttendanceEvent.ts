@@ -36,7 +36,16 @@ export type AttendanceEventKind =
   | 'billing.limit.blocked'
   | 'lgpd.export_requested'
   | 'lgpd.delete_requested'
-  | 'lgpd.anonymized';
+  | 'lgpd.anonymized'
+  | 'discord.rule.created'
+  | 'discord.rule.updated'
+  | 'discord.rule.deleted'
+  | 'discord.rule.toggled'
+  | 'discord.monitor.created'
+  | 'discord.monitor.deleted'
+  | 'discord.monitor.toggled'
+  | 'discord.monitor.filters_updated'
+  | 'discord.settings.updated';
 
 export interface IAttendanceEvent extends Document {
   clientId: mongoose.Types.ObjectId;

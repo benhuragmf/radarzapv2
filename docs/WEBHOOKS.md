@@ -38,6 +38,9 @@ Painel: **Configurações → Webhooks** (`/settings#api-webhooks`)
 | `discord.member.leave` | Membro saiu do servidor |
 | `discord.member.kick` | Membro removido (kick) |
 | `discord.member.ban` | Membro banido |
+| `discord.message.matched` | Mensagem Discord bateu em regra e job WA foi enfileirado |
+| `discord.message.edited` | Mensagem editada em canal monitorado (regra + envio WA) |
+| `discord.message.reaction` | Nova reação em canal monitorado (regra + envio WA) |
 
 ### Payloads Discord (campo `data`)
 
@@ -55,6 +58,25 @@ Painel: **Configurações → Webhooks** (`/settings#api-webhooks`)
   "user_name": "João",
   "member_count": 3,
   "wa_jobs_enqueued": 1
+}
+```
+
+**`discord.message.matched`**
+```json
+{
+  "message_id": "discord-snowflake",
+  "trigger": "message",
+  "guild_id": "...",
+  "guild_name": "Meu Servidor",
+  "channel_id": "...",
+  "channel_name": "ofertas",
+  "author_id": "...",
+  "author_name": "Bot Promo",
+  "capture_kind": "promo",
+  "rule_id": "...",
+  "rule_name": "Promoções",
+  "template_name": "dw-promo",
+  "wa_jobs_enqueued": 2
 }
 ```
 

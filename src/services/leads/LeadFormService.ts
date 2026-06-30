@@ -1053,6 +1053,16 @@ export class LeadFormService {
       const names = await this.resolveUserNames([String(capture.assignedUserId)]);
       item.assignedUserName = names.get(String(capture.assignedUserId));
     }
+    if (capture.inboxConversationId) {
+      const { InboxConversation } = await import('@/models/InboxConversation');
+      const { InboxConversationStatus } = await import('@/types/inbox');
+      const linked = await InboxConversation.findById(capture.inboxConversationId).select('status').lean();
+      const terminal = new Set([
+        InboxConversationStatus.CLOSED,
+        InboxConversationStatus.RESOLVED,
+      ]);
+      item.inboxConversationActive = Boolean(linked && !terminal.has(linked.status));
+    }
     await this.enrichListItemsWithClassification(clientId, [item], [capture]);
     return item;
   }
@@ -1804,9 +1814,11 @@ export class LeadFormService {
       if (capture.phone.startsWith('email:')) {
         throw new Error('Lead sem telefone — converta ou vincule a um contato antes de abrir o Inbox');
       }
+      const phoneForDest =
+        normalizeContactPhoneE164(capture.phone.replace(/^email:/, '')) || capture.phone.trim();
       const ensured = await ensureDestinationForWebChatVisitor(
         clientId,
-        capture.phone,
+        phoneForDest,
         capture.name,
         { email: capture.email, notes: `Lead via ${formName}` },
       );

@@ -3,6 +3,8 @@ import { buildRodape } from '@/utils/discord-wa-format';
 import type { DiscordWaPayload } from '@/utils/discord-wa-variables';
 
 const TRIGGER_ACTION_LABEL: Record<string, string> = {
+  message_edit: 'editou uma mensagem',
+  message_reaction: 'reagiu a uma mensagem',
   voice_join: 'entrou na chamada',
   voice_leave: 'saiu da chamada',
   member_join: 'entrou no servidor',
@@ -23,7 +25,14 @@ export function buildDiscordEventWhatsAppVariables(
   const moderador = event.moderatorName ?? '';
 
   const corpoParts: string[] = [];
-  if (event.trigger.startsWith('voice_')) {
+  if (event.trigger === 'message_edit') {
+    corpoParts.push(`✏️ *${event.userName}* ${acao}`);
+    if (event.messagePreview) corpoParts.push(event.messagePreview);
+    if (event.previousContent) corpoParts.push(`_Antes:_ ${event.previousContent}`);
+  } else if (event.trigger === 'message_reaction') {
+    corpoParts.push(`${event.emoji ?? '👍'} *${event.userName}* ${acao}`);
+    if (event.messagePreview) corpoParts.push(event.messagePreview);
+  } else if (event.trigger.startsWith('voice_')) {
     corpoParts.push(`🔊 *${event.userName}* ${acao}`);
     if (canalVoz) corpoParts.push(`Canal: ${canalVoz}`);
     if (event.memberCount != null) corpoParts.push(`👥 ${event.memberCount} na chamada`);
@@ -36,7 +45,9 @@ export function buildDiscordEventWhatsAppVariables(
 
   const corpo = corpoParts.join('\n');
   const titulo =
-    event.trigger.startsWith('voice_')
+    event.trigger === 'message_edit' || event.trigger === 'message_reaction'
+      ? `Canal — ${event.guildName}`
+      : event.trigger.startsWith('voice_')
       ? `Chamada de voz — ${event.guildName}`
       : `Servidor — ${event.guildName}`;
 
@@ -66,6 +77,10 @@ export function buildDiscordEventWhatsAppVariables(
     acao,
     moderador,
     motivo: event.reason ?? '',
+    emoji: event.emoji ?? '',
+    mensagem_id: event.messageId ?? '',
+    mensagem_preview: event.messagePreview ?? '',
+    conteudo_anterior: event.previousContent ?? '',
     membros_no_canal: event.memberCount != null ? String(event.memberCount) : '',
     data,
     hora,
@@ -85,6 +100,8 @@ export function buildDiscordEventWhatsAppVariables(
 
 /** Template padrão por tipo de evento */
 export function defaultEventTemplate(trigger: string): string {
+  if (trigger === 'message_edit') return 'dw-message-edit';
+  if (trigger === 'message_reaction') return 'dw-message-reaction';
   if (trigger === 'voice_join') return 'dw-voice-join';
   if (trigger === 'voice_leave') return 'dw-voice-leave';
   if (trigger === 'member_join') return 'dw-member-join';

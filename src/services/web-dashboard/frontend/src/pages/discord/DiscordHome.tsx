@@ -4,8 +4,13 @@ import { DiscordPage } from '../../components/discord/DiscordPage'
 import { Card } from '../../components/ui/Card'
 import { api } from '../../lib/api'
 import { useGuild } from '../../lib/guildContext'
-import { Hash, BookOpen, ListOrdered, ScrollText, Settings, Mic, Users } from 'lucide-react'
+import { Hash, BookOpen, ListOrdered, ScrollText, Settings, Mic, Users, FlaskConical } from 'lucide-react'
 import { LoadingState, MetricCard } from '@/design-system'
+import { DiscordBotHealthCard } from '../../components/discord/DiscordBotHealthCard'
+import { DiscordMetricsPanel } from '../../components/discord/DiscordMetricsPanel'
+import { DiscordRoadmapCard } from '../../components/discord/DiscordRoadmapCard'
+import { DiscordAuditPanel } from '../../components/discord/DiscordAuditPanel'
+import { getRuleTriggersFromRule, type DiscordRuleTrigger } from '../../lib/discordMonitor'
 
 interface Channel {
   _id: string
@@ -16,7 +21,8 @@ interface Channel {
 interface Rule {
   _id: string
   isActive: boolean
-  trigger?: string
+  trigger?: DiscordRuleTrigger
+  triggers?: DiscordRuleTrigger[]
 }
 
 const LINKS = [
@@ -53,9 +59,16 @@ export default function DiscordHome() {
     enabled: Boolean(guildId),
   })
 
+  const { data: discordSettings } = useQuery<{ dryRun: boolean }>({
+    queryKey: ['discord-settings'],
+    queryFn: () => api.get('/discord/settings'),
+  })
+
   const activeChannels = channels.filter(c => c.isActive).length
   const activeRules = rules.filter(r => r.isActive).length
-  const eventRules = rules.filter(r => r.isActive && r.trigger && r.trigger !== 'message').length
+  const eventRules = rules.filter(
+    r => r.isActive && getRuleTriggersFromRule(r).some(t => t !== 'message'),
+  ).length
   const loading = loadingChannels || loadingRules
 
   return (
@@ -72,6 +85,27 @@ export default function DiscordHome() {
           <p className="text-sm text-[var(--rz-text-secondary)] mb-4">
             Servidor: <span className="text-[var(--rz-text-primary)]">{guildName ?? guildId}</span>
           </p>
+
+          <DiscordBotHealthCard guildId={guildId} />
+
+          {discordSettings?.dryRun && (
+            <Card className="mb-4 border-amber-600/40 bg-amber-950/20 flex items-start gap-3 text-sm">
+              <FlaskConical size={18} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-amber-200">Modo simulação ativo</p>
+                <p className="text-xs text-amber-200/80 mt-1">
+                  Mensagens e eventos são capturados e avaliados, mas <strong>não são enviados</strong> ao WhatsApp.
+                  Desative em{' '}
+                  <Link to="/discord/settings" className="text-amber-300 hover:underline">
+                    Configurações
+                  </Link>
+                  .
+                </p>
+              </div>
+            </Card>
+          )}
+
+          <DiscordMetricsPanel guildId={guildId} />
 
           {loading ? (
             <LoadingState rows={2} className="py-4" />
@@ -105,6 +139,9 @@ export default function DiscordHome() {
             <p>2. <Link to="/discord/rules" className="text-brand-400 hover:underline">Regras</Link> — gatilho (mensagem, voz, kick…) + destinos WhatsApp</p>
             <p>3. <Link to="/discord/logs" className="text-brand-400 hover:underline">Logs</Link> — acompanhar capturas e envios</p>
           </Card>
+
+          <DiscordAuditPanel />
+          <DiscordRoadmapCard />
 
           <div className="grid sm:grid-cols-2 gap-2">
             {LINKS.map(({ to, label, icon: Icon }) => (

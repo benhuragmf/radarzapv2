@@ -2,6 +2,8 @@ export type DiscordMonitorType = 'text' | 'voice' | 'guild'
 
 export type DiscordRuleTrigger =
   | 'message'
+  | 'message_edit'
+  | 'message_reaction'
   | 'voice_join'
   | 'voice_leave'
   | 'member_join'
@@ -15,8 +17,26 @@ export const MONITOR_LABELS: Record<DiscordMonitorType, string> = {
   guild: 'Eventos',
 }
 
+/** Rótulos de tipo de canal Discord (API v10) para o picker de Canais. */
+export const DISCORD_CHANNEL_TYPE_LABELS: Record<number, string> = {
+  0: 'Texto',
+  5: 'Anúncio',
+  2: 'Voz',
+  13: 'Palco',
+  10: 'Thread',
+  11: 'Thread',
+  12: 'Thread privada',
+  15: 'Fórum',
+}
+
+export function discordChannelTypeLabel(type: number): string {
+  return DISCORD_CHANNEL_TYPE_LABELS[type] ?? `Tipo ${type}`
+}
+
 export const TRIGGER_LABELS: Record<DiscordRuleTrigger, string> = {
   message: 'Nova mensagem',
+  message_edit: 'Mensagem editada',
+  message_reaction: 'Nova reação',
   voice_join: 'Entrou na chamada',
   voice_leave: 'Saiu da chamada',
   member_join: 'Membro entrou',
@@ -26,7 +46,9 @@ export const TRIGGER_LABELS: Record<DiscordRuleTrigger, string> = {
 }
 
 export const TRIGGER_HINTS: Record<DiscordRuleTrigger, string> = {
-  message: 'Dispara quando chega mensagem em canal de texto monitorado.',
+  message: 'Dispara quando chega mensagem em canal de texto monitorado (inclui threads e posts de fórum se o canal pai estiver monitorado).',
+  message_edit: 'Alguém edita uma mensagem em canal monitorado. Requer regra com este gatilho.',
+  message_reaction: 'Alguém reage a uma mensagem em canal monitorado (emoji).',
   voice_join: 'Alguém entra em canal de voz monitorado. Configure o canal em Canais → Voz.',
   voice_leave: 'Alguém sai do canal de voz monitorado.',
   member_join: 'Novo membro no servidor. Requer monitor "Eventos do servidor".',
@@ -48,6 +70,12 @@ export const TRIGGER_GROUPS: {
     triggers: ['message'],
   },
   {
+    id: 'engagement',
+    title: 'Engajamento',
+    subtitle: 'Edição e reações',
+    triggers: ['message_edit', 'message_reaction'],
+  },
+  {
     id: 'voice',
     title: 'Chamada de voz',
     subtitle: 'Entrada e saída',
@@ -62,6 +90,8 @@ export const TRIGGER_GROUPS: {
 ]
 
 export const EVENT_TEMPLATE_NAMES = [
+  'dw-message-edit',
+  'dw-message-reaction',
   'dw-voice-join',
   'dw-voice-leave',
   'dw-member-join',
@@ -71,6 +101,8 @@ export const EVENT_TEMPLATE_NAMES = [
 ] as const
 
 export const EVENT_TRIGGERS: DiscordRuleTrigger[] = [
+  'message_edit',
+  'message_reaction',
   'voice_join',
   'voice_leave',
   'member_join',
@@ -94,6 +126,14 @@ export function getRuleTriggersFromRule(rule: {
 
 export function ruleHasMessageTrigger(triggers: DiscordRuleTrigger[]): boolean {
   return triggers.includes('message')
+}
+
+export function ruleHasEngagementTrigger(triggers: DiscordRuleTrigger[]): boolean {
+  return triggers.some(t => t === 'message_edit' || t === 'message_reaction')
+}
+
+export function ruleHasTextChannelTrigger(triggers: DiscordRuleTrigger[]): boolean {
+  return ruleHasMessageTrigger(triggers) || ruleHasEngagementTrigger(triggers)
 }
 
 export function ruleHasVoiceTrigger(triggers: DiscordRuleTrigger[]): boolean {

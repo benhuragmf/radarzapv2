@@ -4,6 +4,8 @@ export type DiscordMonitorType = 'text' | 'voice' | 'guild';
 /** Gatilhos de regra Discord → WhatsApp */
 export type DiscordRuleTrigger =
   | 'message'
+  | 'message_edit'
+  | 'message_reaction'
   | 'voice_join'
   | 'voice_leave'
   | 'member_join'
@@ -13,6 +15,8 @@ export type DiscordRuleTrigger =
 
 export const DISCORD_RULE_TRIGGERS: DiscordRuleTrigger[] = [
   'message',
+  'message_edit',
+  'message_reaction',
   'voice_join',
   'voice_leave',
   'member_join',
@@ -23,6 +27,8 @@ export const DISCORD_RULE_TRIGGERS: DiscordRuleTrigger[] = [
 
 export const DISCORD_TRIGGER_LABELS: Record<DiscordRuleTrigger, string> = {
   message: 'Nova mensagem',
+  message_edit: 'Mensagem editada',
+  message_reaction: 'Nova reação',
   voice_join: 'Entrou na chamada de voz',
   voice_leave: 'Saiu da chamada de voz',
   member_join: 'Membro entrou no servidor',
@@ -42,6 +48,8 @@ export const DISCORD_TRIGGER_WEBHOOK_EVENT: Record<
   Exclude<DiscordRuleTrigger, 'message'>,
   string
 > = {
+  message_edit: 'discord.message.edited',
+  message_reaction: 'discord.message.reaction',
   voice_join: 'discord.voice.join',
   voice_leave: 'discord.voice.leave',
   member_join: 'discord.member.join',
@@ -53,8 +61,39 @@ export const DISCORD_TRIGGER_WEBHOOK_EVENT: Record<
 export function discordTriggerToWebhookEvent(
   trigger: DiscordRuleTrigger,
 ): string | null {
-  if (trigger === 'message') return null;
+  if (trigger === 'message') return 'discord.message.matched';
   return DISCORD_TRIGGER_WEBHOOK_EVENT[trigger];
+}
+
+export function buildDiscordMessageWebhookPayload(event: {
+  messageId: string;
+  guildId: string;
+  guildName: string;
+  channelId: string;
+  channelName: string;
+  authorId: string;
+  authorName: string;
+  captureKind?: string;
+  ruleId: string;
+  ruleName: string;
+  templateName: string;
+  waJobsEnqueued: number;
+}): Record<string, unknown> {
+  return {
+    message_id: event.messageId,
+    trigger: 'message',
+    guild_id: event.guildId,
+    guild_name: event.guildName,
+    channel_id: event.channelId,
+    channel_name: event.channelName,
+    author_id: event.authorId,
+    author_name: event.authorName,
+    capture_kind: event.captureKind ?? 'text',
+    rule_id: event.ruleId,
+    rule_name: event.ruleName,
+    template_name: event.templateName,
+    wa_jobs_enqueued: event.waJobsEnqueued,
+  };
 }
 
 export function buildDiscordWebhookPayload(event: {
@@ -111,4 +150,11 @@ export interface DiscordEventPayload {
   reason?: string;
   memberCount?: number;
   timestamp: string;
+  /** Mensagem alvo (edição/reação) */
+  messageId?: string;
+  messagePreview?: string;
+  previousContent?: string;
+  emoji?: string;
+  /** Cargos Discord do usuário no momento do evento */
+  roleIds?: string[];
 }

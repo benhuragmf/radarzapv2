@@ -142,6 +142,7 @@ import { setWebChatSocketServer } from '../webchat/WebChatRealtime';
 import { createWebChatPublicRouter } from '../webchat/webchat-public.routes';
 import { createLeadFormPublicRouter } from '../leads/lead-form-public.routes';
 import { createRadarGamerInboundRouter } from '../integrations/radargamer-inbound.routes';
+import { createDiscordInboundRouter } from '../integrations/discord-inbound.routes';
 import { LeadFormService } from '../leads/LeadFormService';
 import { WebChatService } from '../webchat/WebChatService';
 import { WebChatWidget } from '../../models/WebChatWidget';
@@ -151,6 +152,7 @@ import { defaultTemplateForEventTrigger, normalizeRuleTriggersInput, parseKeywor
 import { parseDiscordIdList } from '@/utils/discord-id-list.util';
 import { recordDiscordAudit } from '@/services/discord/discord-audit.service';
 import { normalizeDiscordBooleanInput } from '@/utils/discord-dry-run.util';
+import { normalizeDiscordInboundInput } from '@/utils/discord-inbound.util';
 import { sanitizeDiscordChannelsForApi } from '@/utils/discord-channel-legacy.util';
 import { AttendanceEvent } from '@/models/AttendanceEvent';
 import {
@@ -465,6 +467,11 @@ export class DashboardService {
     this.app.use(
       '/api/integrations/radargamer',
       createRadarGamerInboundRouter(),
+    );
+
+    this.app.use(
+      '/api/integrations/discord/inbound',
+      createDiscordInboundRouter(),
     );
 
     this.app.use(
@@ -4560,6 +4567,7 @@ export class DashboardService {
         res.json({
           dryRun: Boolean(org?.discordSettings?.dryRun),
           multiRulePerMessage: Boolean(org?.discordSettings?.multiRulePerMessage),
+          inboundEnabled: Boolean(org?.discordSettings?.inboundEnabled),
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
@@ -4569,7 +4577,11 @@ export class DashboardService {
     r.patch('/discord/settings', requireCapability(Cap.DISCORD_CHANNELS_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const body = req.body as { dryRun?: unknown; multiRulePerMessage?: unknown };
+        const body = req.body as {
+          dryRun?: unknown;
+          multiRulePerMessage?: unknown;
+          inboundEnabled?: unknown;
+        };
         const $set: Record<string, boolean> = {};
         if (body.dryRun !== undefined) {
           $set['discordSettings.dryRun'] = normalizeDiscordBooleanInput(body.dryRun);
@@ -4577,8 +4589,11 @@ export class DashboardService {
         if (body.multiRulePerMessage !== undefined) {
           $set['discordSettings.multiRulePerMessage'] = normalizeDiscordBooleanInput(body.multiRulePerMessage);
         }
+        if (body.inboundEnabled !== undefined) {
+          $set['discordSettings.inboundEnabled'] = normalizeDiscordInboundInput(body.inboundEnabled);
+        }
         if (!Object.keys($set).length) {
-          return res.status(400).json({ error: 'Informe dryRun e/ou multiRulePerMessage' });
+          return res.status(400).json({ error: 'Informe dryRun, multiRulePerMessage e/ou inboundEnabled' });
         }
         const org = await Organization.findByIdAndUpdate(
           auth.clientId,
@@ -4595,11 +4610,15 @@ export class DashboardService {
             ...(body.multiRulePerMessage !== undefined
               ? { multiRulePerMessage: org.discordSettings?.multiRulePerMessage }
               : {}),
+            ...(body.inboundEnabled !== undefined
+              ? { inboundEnabled: org.discordSettings?.inboundEnabled }
+              : {}),
           },
         });
         res.json({
           dryRun: Boolean(org.discordSettings?.dryRun),
           multiRulePerMessage: Boolean(org.discordSettings?.multiRulePerMessage),
+          inboundEnabled: Boolean(org.discordSettings?.inboundEnabled),
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });

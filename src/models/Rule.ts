@@ -9,6 +9,7 @@ export interface IRuleConditions {
   guildIds?: string[];
   voiceChannelIds?: string[];
   authorIds?: string[];
+  roleIds?: string[];
   onlyBots?: boolean;
   onlyUsers?: boolean;
   requireKeywords?: string[];
@@ -67,14 +68,14 @@ const RuleSchema = new Schema<IRule>(
 
     trigger: {
       type: String,
-      enum: ['message', 'voice_join', 'voice_leave', 'member_join', 'member_leave', 'member_kick', 'member_ban'],
+      enum: ['message', 'message_edit', 'message_reaction', 'voice_join', 'voice_leave', 'member_join', 'member_leave', 'member_kick', 'member_ban'],
       default: 'message',
       index: true,
     },
 
     triggers: {
       type: [String],
-      enum: ['message', 'voice_join', 'voice_leave', 'member_join', 'member_leave', 'member_kick', 'member_ban'],
+      enum: ['message', 'message_edit', 'message_reaction', 'voice_join', 'voice_leave', 'member_join', 'member_leave', 'member_kick', 'member_ban'],
       default: [],
     },
 
@@ -83,6 +84,7 @@ const RuleSchema = new Schema<IRule>(
       guildIds: { type: [String], default: [] },
       voiceChannelIds: { type: [String], default: [] },
       authorIds: { type: [String], default: [] },
+      roleIds: { type: [String], default: [] },
       onlyBots: { type: Boolean, default: false },
       onlyUsers: { type: Boolean, default: false },
       requireKeywords: { type: [String], default: [] },

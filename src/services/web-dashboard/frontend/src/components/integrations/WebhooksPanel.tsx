@@ -33,6 +33,7 @@ const EVENTS = [
   'discord.member.leave',
   'discord.member.kick',
   'discord.member.ban',
+  'discord.message.matched',
 ] as const
 
 interface WebhookRow {

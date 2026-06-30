@@ -31,8 +31,15 @@ export interface IDiscordChannel extends Document {
     minPrice?: number;
     maxPrice?: number;
   };
+  /**
+   * @deprecated Use regras (`Rule.action.destinationIds`). Mantido só para dados antigos no Mongo.
+   */
   destinationIds: mongoose.Types.ObjectId[];
+  /**
+   * @deprecated Use regras (`Rule.action.templateName`). Mantido só para dados antigos no Mongo.
+   */
   templateName: string;
+  /** Prioridade da fila BullMQ ao enfileirar mensagem (não confundir com prioridade da regra). */
   rulePriority: 'high' | 'medium' | 'low';
   createdAt: Date;
 
@@ -143,11 +150,13 @@ const DiscordChannelSchema = new Schema<IDiscordChannel>({
     type: [Schema.Types.ObjectId],
     ref: 'Destination',
     default: [],
+    select: false,
   },
 
   templateName: {
     type: String,
     default: 'radarzap-padrao',
+    select: false,
   },
 
   rulePriority: {
@@ -333,6 +342,26 @@ DiscordChannelSchema.statics.findByChannelId = function(channelId: string) {
   });
 };
 
+/** Monitor de texto no canal ou no pai (threads/posts de fórum). */
+DiscordChannelSchema.statics.findTextMonitorForMessage = function (
+  channelId: string,
+  parentChannelId?: string | null,
+) {
+  return this.findOne({
+    channelId,
+    isActive: true,
+    $or: [{ monitorType: 'text' }, { monitorType: { $exists: false } }],
+  }).then((direct: IDiscordChannel | null) => {
+    if (direct) return direct;
+    if (!parentChannelId || parentChannelId === channelId) return null;
+    return this.findOne({
+      channelId: parentChannelId,
+      isActive: true,
+      $or: [{ monitorType: 'text' }, { monitorType: { $exists: false } }],
+    });
+  });
+};
+
 DiscordChannelSchema.statics.findVoiceMonitor = function(channelId: string) {
   return this.findOne({ channelId, isActive: true, monitorType: 'voice' });
 };
@@ -443,7 +472,7 @@ DiscordChannelSchema.post('save', function(this: IDiscordChannel) {
 /**
  * Indexes
  */
-DiscordChannelSchema.index({ guildId: 1, channelId: 1 }, { unique: true });
+DiscordChannelSchema.index({ guildId: 1, channelId: 1, monitorType: 1 }, { unique: true });
 DiscordChannelSchema.index({ clientId: 1 });
 DiscordChannelSchema.index({ isActive: 1 });
 DiscordChannelSchema.index({ guildId: 1, isActive: 1 });
@@ -454,6 +483,7 @@ DiscordChannelSchema.index({ channelId: 1, isActive: 1 });
  */
 interface IDiscordChannelModel extends Model<IDiscordChannel> {
   findByChannelId(channelId: string): Promise<IDiscordChannel | null>;
+  findTextMonitorForMessage(channelId: string, parentChannelId?: string | null): Promise<IDiscordChannel | null>;
   findVoiceMonitor(channelId: string): Promise<IDiscordChannel | null>;
   findGuildMonitor(guildId: string): Promise<IDiscordChannel | null>;
   findByGuildId(guildId: string): Promise<IDiscordChannel[]>;

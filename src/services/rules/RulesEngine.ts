@@ -5,6 +5,7 @@ import { OrganizationService } from '@/services/organization/OrganizationService
 import { createServiceLogger } from '@/utils/logger';
 import type { DiscordEventPayload, DiscordRuleTrigger } from '@/types/discord-monitor';
 import { getRuleTriggers, resolveRuleTemplateForEvent } from '@/utils/rule-triggers.util';
+import { memberHasAnyRole } from '@/utils/discord-id-list.util';
 
 export interface RuleMatch {
   rule: IRule;
@@ -147,6 +148,19 @@ export class RulesEngine {
       if (!c.authorIds.includes(event.userId)) return false;
     }
 
+    if (c.roleIds && c.roleIds.length > 0) {
+      if (!memberHasAnyRole(event.roleIds, c.roleIds)) return false;
+    }
+
+    if (
+      event.trigger === 'message_edit' ||
+      event.trigger === 'message_reaction'
+    ) {
+      if (c.channelIds && c.channelIds.length > 0) {
+        if (!c.channelIds.includes(event.channelId)) return false;
+      }
+    }
+
     return true;
   }
 
@@ -159,7 +173,12 @@ export class RulesEngine {
 
   /**
    * Verifica se uma mensagem satisfaz TODAS as condições de uma regra (AND).
+   * Público para preview de regras no painel.
    */
+  messageMatchesRule(message: ExtractedMessage, rule: IRule): boolean {
+    return this.matchesConditions(message, rule);
+  }
+
   private matchesConditions(message: ExtractedMessage, rule: IRule): boolean {
     const triggers = getRuleTriggers(rule);
     if (!triggers.includes('message')) return false;
@@ -179,6 +198,10 @@ export class RulesEngine {
     // Filtro por autor específico
     if (c.authorIds && c.authorIds.length > 0) {
       if (!c.authorIds.includes(message.authorId)) return false;
+    }
+
+    if (c.roleIds && c.roleIds.length > 0) {
+      if (!memberHasAnyRole(message.authorRoleIds, c.roleIds)) return false;
     }
 
     // Apenas bots

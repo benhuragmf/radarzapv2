@@ -18,6 +18,8 @@ export interface ExtractedMessage {
   /** Conta/empresa RadarZap (painel) — preenchido na fila */
   radarzapSenderLabel?: string;
   isBot: boolean;
+  /** Cargos Discord do autor no servidor (snowflakes) */
+  authorRoleIds?: string[];
 
   text: string;
   hasEmbed: boolean;
@@ -78,6 +80,7 @@ export class MessageExtractor {
         message.author.username,
       authorTag: message.author.tag,
       isBot: message.author.bot,
+      authorRoleIds: message.member?.roles.cache.map((r) => r.id) ?? [],
       text: message.content,
       hasEmbed: message.embeds.length > 0,
       hasLink: captured.usefulLinks.length > 0 || captured.storeButtons.length > 0,

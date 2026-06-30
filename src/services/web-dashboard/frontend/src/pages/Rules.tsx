@@ -11,6 +11,7 @@ import { BookOpen, ToggleLeft, ToggleRight, Trash2, Plus, Pencil, X, Check, Hash
 import { DiscordPage } from '../components/discord/DiscordPage'
 import DestinationMultiSelect from '../components/discord/DestinationMultiSelect'
 import { RuleTriggerPicker } from '../components/discord/RuleTriggerPicker'
+import { RulePreviewPanel } from '../components/discord/RulePreviewPanel'
 import { discordNavAlertsQueryKey } from '../lib/useDiscordNavAlerts'
 import { LoadingState, MetricCard, EmptyState, inputCls } from '@/design-system'
 import {
@@ -20,6 +21,8 @@ import {
   defaultTemplateForTrigger,
   getRuleTriggersFromRule,
   ruleHasMessageTrigger,
+  ruleHasEngagementTrigger,
+  ruleHasTextChannelTrigger,
   ruleHasVoiceTrigger,
   ruleHasMemberTrigger,
 } from '../lib/discordMonitor'
@@ -36,8 +39,15 @@ interface Rule {
     channelIds?: string[]
     voiceChannelIds?: string[]
     requireKeywords?: string[]
+    excludeKeywords?: string[]
+    onlyBots?: boolean
+    onlyUsers?: boolean
+    requireLink?: boolean
+    requireImage?: boolean
+    requireEmbed?: boolean
+    roleIds?: string[]
   }
-  action: { templateName: string; priority: string; destinationIds: string[] }
+  action: { templateName: string; priority: string; destinationIds: string[]; addDelay?: number }
   executionBlock?: {
     reason: string | null
     blockedGroupNames: string[]
@@ -72,9 +82,17 @@ interface RuleForm {
   priority: 'high' | 'medium' | 'low'
   templateName: string
   keywords: string
+  excludeKeywords: string
+  onlyBots: boolean
+  onlyUsers: boolean
+  requireLink: boolean
+  requireImage: boolean
+  requireEmbed: boolean
+  addDelay: string
   destinationIdentifiers: string[]
   channelIds: string[]
   voiceChannelIds: string[]
+  roleIds: string[]
 }
 
 const emptyForm: RuleForm = {
@@ -83,9 +101,17 @@ const emptyForm: RuleForm = {
   priority: 'medium',
   templateName: 'dw-padrao',
   keywords: '',
+  excludeKeywords: '',
+  onlyBots: false,
+  onlyUsers: false,
+  requireLink: false,
+  requireImage: false,
+  requireEmbed: false,
+  addDelay: '0',
   destinationIdentifiers: [],
   channelIds: [],
   voiceChannelIds: [],
+  roleIds: [],
 }
 
 function ruleToForm(r: Rule, destinations: Destination[]): RuleForm {
@@ -99,9 +125,17 @@ function ruleToForm(r: Rule, destinations: Destination[]): RuleForm {
     priority: r.action.priority as 'high' | 'medium' | 'low',
     templateName: r.action.templateName,
     keywords: (r.conditions.requireKeywords ?? []).join(', '),
+    excludeKeywords: (r.conditions.excludeKeywords ?? []).join(', '),
+    onlyBots: Boolean(r.conditions.onlyBots),
+    onlyUsers: Boolean(r.conditions.onlyUsers),
+    requireLink: Boolean(r.conditions.requireLink),
+    requireImage: Boolean(r.conditions.requireImage),
+    requireEmbed: Boolean(r.conditions.requireEmbed),
+    addDelay: String(r.action.addDelay ?? 0),
     destinationIdentifiers: identifiers,
     channelIds: r.conditions.channelIds ?? [],
     voiceChannelIds: r.conditions.voiceChannelIds ?? [],
+    roleIds: r.conditions.roleIds ?? [],
   }
 }
 
@@ -111,6 +145,8 @@ function RuleFormPanel({
   destinations,
   templates,
   channels,
+  guildId,
+  guildName,
   onSave,
   onCancel,
   saving,
@@ -119,20 +155,33 @@ function RuleFormPanel({
   destinations: Destination[]
   templates: Template[]
   channels: Channel[]
+  guildId?: string | null
+  guildName?: string | null
   onSave: (f: RuleForm) => void
   onCancel: () => void
   saving: boolean
 }) {
   const [form, setForm] = useState<RuleForm>(initial)
-  const set = (k: keyof RuleForm, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const [showAdvanced, setShowAdvanced] = useState(
+    Boolean(initial.excludeKeywords || initial.onlyBots || initial.onlyUsers || initial.requireLink || initial.requireImage || initial.requireEmbed || Number(initial.addDelay) > 0),
+  )
+  const set = (k: keyof RuleForm, v: string | boolean) => setForm(f => ({ ...f, [k]: v }))
 
   const labelCls = 'text-xs text-[var(--rz-text-muted)] mb-1 block'
   const isMessage = ruleHasMessageTrigger(form.triggers)
+  const isEngagement = ruleHasEngagementTrigger(form.triggers)
+  const isTextChannel = ruleHasTextChannelTrigger(form.triggers)
   const isVoice = ruleHasVoiceTrigger(form.triggers)
   const isMember = ruleHasMemberTrigger(form.triggers)
   const multiEvent = form.triggers.length > 1 && !isMessage
   const textChannels = channels.filter(c => !c.monitorType || c.monitorType === 'text')
   const voiceChannels = channels.filter(c => c.monitorType === 'voice')
+
+  const { data: guildRoles = [] } = useQuery<{ id: string; name: string; color: number }[]>({
+    queryKey: ['discord-guild-roles', guildId],
+    queryFn: () => api.get(`/discord/guilds/${guildId}/roles`),
+    enabled: Boolean(guildId),
+  })
 
   const onTriggersChange = (triggers: DiscordRuleTrigger[]) => {
     setForm(f => {
@@ -140,8 +189,10 @@ function RuleFormPanel({
       if (triggers.length === 1) {
         next.templateName = defaultTemplateForTrigger(triggers[0])
       }
-      if (!ruleHasMessageTrigger(triggers)) {
+      if (!ruleHasTextChannelTrigger(triggers)) {
         next.channelIds = []
+      }
+      if (!ruleHasMessageTrigger(triggers)) {
         next.keywords = ''
       }
       if (!ruleHasVoiceTrigger(triggers)) {
@@ -166,6 +217,15 @@ function RuleFormPanel({
       voiceChannelIds: f.voiceChannelIds.includes(channelId)
         ? f.voiceChannelIds.filter(id => id !== channelId)
         : [...f.voiceChannelIds, channelId],
+    }))
+  }
+
+  const toggleRole = (roleId: string) => {
+    setForm(f => ({
+      ...f,
+      roleIds: f.roleIds.includes(roleId)
+        ? f.roleIds.filter(id => id !== roleId)
+        : [...f.roleIds, roleId],
     }))
   }
 
@@ -220,39 +280,42 @@ function RuleFormPanel({
       <div className={sectionCls}>
         <p className={sectionTitle}>3 · Filtros (opcional)</p>
 
+        {isTextChannel && (
+          <div>
+            <label className={labelCls}>
+              Canais de texto
+              <span className="text-[var(--rz-text-muted)] font-normal ml-1">— vazio = todos</span>
+            </label>
+            {textChannels.length === 0 ? (
+              <p className="text-xs text-amber-500/90">
+                Nenhum canal de texto.{' '}
+                <Link to="/discord/channels" className="text-brand-400 hover:underline">Adicionar monitor</Link>
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {textChannels.map(ch => (
+                  <button
+                    key={ch._id}
+                    type="button"
+                    onClick={() => toggleChannel(ch.channelId)}
+                    className={cn(
+                      'text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1',
+                      form.channelIds.includes(ch.channelId)
+                        ? 'bg-brand-600 border-brand-500 text-white'
+                        : 'bg-[var(--rz-surface)] border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-brand-500/40',
+                    )}
+                  >
+                    <Hash size={11} />
+                    {ch.channelName || ch.channelId}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {isMessage && (
           <>
-            <div>
-              <label className={labelCls}>
-                Canais de texto
-                <span className="text-[var(--rz-text-muted)] font-normal ml-1">— vazio = todos</span>
-              </label>
-              {textChannels.length === 0 ? (
-                <p className="text-xs text-amber-500/90">
-                  Nenhum canal de texto.{' '}
-                  <Link to="/discord/channels" className="text-brand-400 hover:underline">Adicionar monitor</Link>
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {textChannels.map(ch => (
-                    <button
-                      key={ch._id}
-                      type="button"
-                      onClick={() => toggleChannel(ch.channelId)}
-                      className={cn(
-                        'text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1',
-                        form.channelIds.includes(ch.channelId)
-                          ? 'bg-brand-600 border-brand-500 text-white'
-                          : 'bg-[var(--rz-surface)] border-[var(--rz-border)] text-[var(--rz-text-muted)] hover:border-brand-500/40',
-                      )}
-                    >
-                      <Hash size={11} />
-                      {ch.channelName || ch.channelId}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
             <div>
               <label className={labelCls}>Keywords obrigatórias (vírgula)</label>
               <input
@@ -262,7 +325,97 @@ function RuleFormPanel({
                 className={inputCls}
               />
             </div>
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(v => !v)}
+                className="text-xs text-brand-400 hover:text-brand-300"
+              >
+                {showAdvanced ? '▼ Ocultar filtros avançados' : '▶ Filtros avançados (excluir, tipo, mídia)'}
+              </button>
+            </div>
+            {showAdvanced && (
+              <div className="space-y-3 pl-2 border-l-2 border-[var(--rz-border)]">
+                <div>
+                  <label className={labelCls}>Keywords proibidas (vírgula)</label>
+                  <input
+                    value={form.excludeKeywords}
+                    onChange={e => set('excludeKeywords', e.currentTarget.value)}
+                    placeholder="spam, teste"
+                    className={inputCls}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {[
+                    { key: 'onlyBots' as const, label: 'Só mensagens de bots' },
+                    { key: 'onlyUsers' as const, label: 'Só usuários (não bots)' },
+                    { key: 'requireLink' as const, label: 'Exige link' },
+                    { key: 'requireImage' as const, label: 'Exige imagem' },
+                    { key: 'requireEmbed' as const, label: 'Exige embed' },
+                  ].map(opt => (
+                    <label key={opt.key} className="flex items-center gap-2 text-xs text-[var(--rz-text-secondary)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form[opt.key]}
+                        onChange={e => set(opt.key, e.target.checked)}
+                        className="rounded border-[var(--rz-border)]"
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+                <div>
+                  <label className={labelCls}>Atraso extra antes do envio (segundos)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={300}
+                    value={form.addDelay}
+                    onChange={e => set('addDelay', e.currentTarget.value)}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            )}
           </>
+        )}
+
+        {isEngagement && !isMessage && (
+          <p className="text-xs text-[var(--rz-text-muted)]">
+            Edições e reações usam os monitores de texto já configurados. Filtre canais acima se quiser restringir.
+          </p>
+        )}
+
+        {(isTextChannel || isVoice || isMember) && (
+          <div>
+            <label className={labelCls}>
+              Cargos Discord
+              <span className="text-[var(--rz-text-muted)] font-normal ml-1">— vazio = qualquer cargo</span>
+            </label>
+            {!guildId ? (
+              <p className="text-xs text-[var(--rz-text-muted)]">Selecione um servidor no menu Discord para listar cargos.</p>
+            ) : guildRoles.length === 0 ? (
+              <p className="text-xs text-[var(--rz-text-muted)]">Nenhum cargo listado (verifique permissões do bot).</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 mt-1 max-h-32 overflow-y-auto">
+                {guildRoles.map(role => (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => toggleRole(role.id)}
+                    className={cn(
+                      'text-xs px-2.5 py-1 rounded-md border transition-colors',
+                      form.roleIds.includes(role.id)
+                        ? 'bg-brand-600 border-brand-500 text-white'
+                        : 'bg-[var(--rz-surface)] border-[var(--rz-border)] text-[var(--rz-text-muted)]',
+                    )}
+                  >
+                    {role.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {isVoice && (
@@ -371,6 +524,10 @@ function RuleFormPanel({
         </div>
       </div>
 
+      {isMessage && (
+        <RulePreviewPanel form={form} guildId={guildId} guildName={guildName} />
+      )}
+
       <div className="flex gap-2 pt-1">
         <Button onClick={() => onSave(form)} disabled={!form.name.trim() || form.triggers.length === 0 || saving}>
           {saving ? <Spinner size={12} /> : <Check size={12} />}
@@ -459,8 +616,16 @@ export default function Rules() {
       priority: f.priority,
       templateName: f.templateName,
       keywords: f.keywords,
+      excludeKeywords: f.excludeKeywords,
+      onlyBots: f.onlyBots,
+      onlyUsers: f.onlyUsers,
+      requireLink: f.requireLink,
+      requireImage: f.requireImage,
+      requireEmbed: f.requireEmbed,
+      addDelay: Number(f.addDelay) || 0,
       channelIds: f.channelIds,
       voiceChannelIds: f.voiceChannelIds,
+      roleIds: f.roleIds,
       destinationIdentifiers: f.destinationIdentifiers,
     }),
     onSuccess: () => {
@@ -477,8 +642,16 @@ export default function Rules() {
         priority: form.priority,
         templateName: form.templateName,
         keywords: form.keywords,
+        excludeKeywords: form.excludeKeywords,
+        onlyBots: form.onlyBots,
+        onlyUsers: form.onlyUsers,
+        requireLink: form.requireLink,
+        requireImage: form.requireImage,
+        requireEmbed: form.requireEmbed,
+        addDelay: Number(form.addDelay) || 0,
         channelIds: form.channelIds,
         voiceChannelIds: form.voiceChannelIds,
+        roleIds: form.roleIds,
         destinationIdentifiers: form.destinationIdentifiers,
       }),
     onSuccess: () => {
@@ -500,6 +673,7 @@ export default function Rules() {
 
   const triggerBadgeVariant = (t?: DiscordRuleTrigger): 'blue' | 'purple' | 'yellow' | 'gray' => {
     if (!t || t === 'message') return 'blue'
+    if (t === 'message_edit' || t === 'message_reaction') return 'blue'
     if (t.startsWith('voice_')) return 'purple'
     return 'yellow'
   }
@@ -627,6 +801,8 @@ export default function Rules() {
             destinations={destinations}
             templates={templates}
             channels={channels}
+            guildId={guildId}
+            guildName={guildName}
             onSave={f => create.mutate(f)}
             onCancel={() => setCreating(false)}
             saving={create.isPending}
@@ -661,6 +837,8 @@ export default function Rules() {
                 destinations={destinations}
                 templates={templates}
                 channels={channels}
+                guildId={guildId}
+                guildName={guildName}
                 onSave={f => update.mutate({ id: r._id, form: f })}
                 onCancel={() => setEditingId(null)}
                 saving={update.isPending}

@@ -11,6 +11,9 @@ interface HistoryEvent {
   status: string
   waJobsEnqueued: number
   skipReason?: string
+  messagePreview?: string
+  ruleName?: string
+  captureKind?: string
   createdAt: string
 }
 
@@ -19,7 +22,11 @@ const STATUS_LABELS: Record<string, string> = {
   wa_queued: 'Enviado à fila WA',
   no_rules: 'Sem regra',
   skipped_cooldown: 'Cooldown',
+  skipped_duplicate: 'Duplicado',
+  blocked: 'Bloqueado',
+  wa_disconnected: 'WA offline',
   wa_failed: 'Falha',
+  dry_run: 'Simulação (dry-run)',
 }
 
 const STATUS_VARIANT: Record<string, 'green' | 'yellow' | 'gray' | 'red'> = {
@@ -27,7 +34,11 @@ const STATUS_VARIANT: Record<string, 'green' | 'yellow' | 'gray' | 'red'> = {
   wa_queued: 'green',
   no_rules: 'yellow',
   skipped_cooldown: 'yellow',
+  skipped_duplicate: 'yellow',
+  blocked: 'red',
+  wa_disconnected: 'red',
   wa_failed: 'red',
+  dry_run: 'yellow',
 }
 
 export function MonitorHistoryPanel({ monitorId }: { monitorId: string }) {
@@ -48,7 +59,7 @@ export function MonitorHistoryPanel({ monitorId }: { monitorId: string }) {
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-[var(--rz-border)] space-y-1.5 max-h-48 overflow-y-auto">
+    <div className="mt-3 pt-3 border-t border-[var(--rz-border)] space-y-1.5 max-h-56 overflow-y-auto">
       {events.map(ev => (
         <div
           key={ev._id}
@@ -59,12 +70,17 @@ export function MonitorHistoryPanel({ monitorId }: { monitorId: string }) {
               {ev.userName ?? '—'}
               {' · '}
               {TRIGGER_LABELS[ev.trigger as keyof typeof TRIGGER_LABELS] ?? ev.trigger}
+              {ev.ruleName && ` · ${ev.ruleName}`}
             </p>
+            {ev.messagePreview && (
+              <p className="text-[var(--rz-text-muted)] truncate italic">{ev.messagePreview}</p>
+            )}
             {ev.skipReason && (
               <p className="text-[var(--rz-text-muted)] truncate">{ev.skipReason}</p>
             )}
             <p className="text-[var(--rz-text-muted)]">
               {new Date(ev.createdAt).toLocaleString('pt-BR')}
+              {ev.captureKind && ` · ${ev.captureKind}`}
             </p>
           </div>
           <Badge

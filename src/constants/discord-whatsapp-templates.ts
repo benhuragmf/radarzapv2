@@ -388,6 +388,30 @@ _{rodape}_`,
 _{rodape}_`,
     variables: ['titulo', 'corpo', 'usuario', 'moderador', 'motivo', 'rodape'],
   },
+  {
+    name: 'dw-message-edit',
+    discordKind: 'alert',
+    label: 'Mensagem editada',
+    description: 'Quando alguém edita uma mensagem em canal monitorado.',
+    content: `✏️ *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'mensagem_preview', 'conteudo_anterior', 'rodape'],
+  },
+  {
+    name: 'dw-message-reaction',
+    discordKind: 'alert',
+    label: 'Nova reação',
+    description: 'Quando alguém reage a uma mensagem em canal monitorado.',
+    content: `{emoji} *{titulo}*
+
+{corpo}
+
+_{rodape}_`,
+    variables: ['titulo', 'corpo', 'usuario', 'emoji', 'mensagem_preview', 'rodape'],
+  },
 ];
 
 /** Templates legados → novo nome (regras antigas continuam funcionando) */

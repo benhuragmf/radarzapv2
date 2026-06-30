@@ -10,6 +10,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.5] - 2026-06-30
+
+### Discord — webhook inbound (sem gateway)
+
+- `POST /api/integrations/discord/inbound/messages` e `/events` com `X-API-Key`.
+- Opt-in `discordSettings.inboundEnabled`; idempotência, rate limit, filtros de monitor.
+- UI toggle em `/discord/settings`; doc `DISCORD-MONITORAMENTO.md` § Webhook inbound.
+
+---
+
 ## [2.17.4] - 2026-06-30
 
 ### Discord — multi-regra por captura (opt-in)
