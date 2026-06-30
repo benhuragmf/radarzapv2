@@ -98,10 +98,16 @@ if docker_cmd ps --format '{{.Names}}' | grep -q '^coolify-db$'; then
 
   bad_app="$(psql_coolify "SELECT count(*) FROM service_applications sa JOIN services s ON s.id = sa.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sa.status NOT LIKE 'running:%';" || echo 0)"
   bad_db="$(psql_coolify "SELECT count(*) FROM service_databases sd JOIN services s ON s.id = sd.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sd.status NOT LIKE 'running:%';" || echo 0)"
+  svc_status="$(psql_coolify "SELECT status FROM services WHERE uuid = '${CANONICAL_UUID}' AND deleted_at IS NULL LIMIT 1;" || echo '')"
   if [[ "${bad_app:-0}" != "0" || "${bad_db:-0}" != "0" ]]; then
     fail "status painel desincronizado (apps=${bad_app:-?} dbs=${bad_db:-?} — esperado running:*)"
   else
     log "OK status painel running:* nos componentes"
+  fi
+  if [[ "$svc_status" != "running" && "$svc_status" != running:* ]]; then
+    fail "service canônico status='${svc_status:-?}' (esperado running)"
+  else
+    log "OK service status=${svc_status}"
   fi
 else
   fail "coolify-db ausente — impossível validar dedupe no painel"
