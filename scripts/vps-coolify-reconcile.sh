@@ -49,46 +49,95 @@ if ! docker_cmd ps --format '{{.Names}}' | grep -q '^coolify$'; then
   exit 0
 fi
 
+psql_coolify() {
+  docker_cmd exec coolify-db psql -U coolify -d coolify -t -A -c "$1" 2>/dev/null | tr -d '\r'
+}
+
+# Status no Coolify v4 vem de service_applications / service_databases (não coluna type em services)
+log "  Atualizando status running:healthy nos componentes canônicos..."
+docker_cmd exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=0 <<SQL 2>/dev/null || true
+UPDATE services SET name = 'RadarChat' WHERE uuid = '${CANONICAL_UUID}';
+UPDATE service_applications SET status = 'running:healthy'
+  WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);
+UPDATE service_databases SET status = 'running:healthy'
+  WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);
+SQL
+
 docker_cmd exec coolify php artisan tinker --execute="
 \$keep = '${CANONICAL_UUID}';
-\$removed = [];
-foreach (\\App\\Models\\Service::query()->whereIn('type', ['docker-compose', 'service'])->get() as \$s) {
-  \$line = \$s->uuid . ' | ' . (\$s->name ?? '?') . ' | ' . (\$s->status ?? '?');
+foreach (\\App\\Models\\Service::query()->get() as \$s) {
+  \$line = \$s->uuid . ' | ' . (\$s->name ?? '?');
   echo \$line . PHP_EOL;
   if (\$s->uuid === \$keep) {
-    \$s->status = 'running';
     \$s->name = 'RadarChat';
     \$s->save();
+    foreach (\$s->applications as \$app) {
+      \$app->status = 'running:healthy';
+      \$app->save();
+      echo 'APP_OK ' . (\$app->name ?? '?') . PHP_EOL;
+    }
+    foreach (\$s->databases as \$db) {
+      \$db->status = 'running:healthy';
+      \$db->save();
+      echo 'DB_OK ' . (\$db->name ?? '?') . PHP_EOL;
+    }
     echo 'KEEP ' . \$keep . PHP_EOL;
     continue;
   }
   \$n = strtolower((string) (\$s->name ?? ''));
   if (str_contains(\$n, 'radar') || str_contains(\$n, 'radarchat')) {
     try {
-      \$s->delete();
-      \$removed[] = \$s->uuid;
-      echo 'DELETED ' . \$s->uuid . PHP_EOL;
+      \$uuid = \$s->uuid;
+      \$s->forceDelete();
+      echo 'DELETED ' . \$uuid . PHP_EOL;
     } catch (\\Throwable \$e) {
-      echo 'DELETE_FAIL ' . \$s->uuid . ' ' . \$e->getMessage() . PHP_EOL;
+      try {
+        \$uuid = \$s->uuid;
+        \$s->delete();
+        echo 'SOFT_DELETED ' . \$uuid . PHP_EOL;
+      } catch (\\Throwable \$e2) {
+        echo 'DELETE_FAIL ' . \$s->uuid . ' ' . \$e2->getMessage() . PHP_EOL;
+      }
     }
   }
 }
-\$emptyProjects = [];
 foreach (\\App\\Models\\Project::all() as \$p) {
-  \$count = \\App\\Models\\Service::where('project_id', \$p->id)->count();
+  \$count = \\App\\Models\\Service::whereHas('environment', fn(\$q) => \$q->where('project_id', \$p->id))->count();
   echo 'PROJECT ' . \$p->name . ' uuid=' . \$p->uuid . ' services=' . \$count . PHP_EOL;
   if (\$count === 0 && strtolower(\$p->name ?? '') === 'radarzap') {
     try {
-      \$p->delete();
-      \$emptyProjects[] = \$p->name;
+      \$p->forceDelete();
       echo 'DELETED_PROJECT RadarZap' . PHP_EOL;
     } catch (\\Throwable \$e) {
-      echo 'DELETE_PROJECT_FAIL ' . \$e->getMessage() . PHP_EOL;
+      try {
+        \$p->delete();
+        echo 'SOFT_DELETED_PROJECT RadarZap' . PHP_EOL;
+      } catch (\\Throwable \$e2) {
+        echo 'DELETE_PROJECT_FAIL ' . \$e2->getMessage() . PHP_EOL;
+      }
     }
   }
 }
 echo 'DONE' . PHP_EOL;
 " 2>&1 | while read -r line; do log "  $line"; done
+
+# Pastas órfãs em /data/coolify/services (duplicata sem registro no painel)
+for dir in /data/coolify/services/*/; do
+  [[ -d "$dir" ]] || continue
+  uuid="$(basename "$dir")"
+  [[ "$uuid" == "$CANONICAL_UUID" ]] && continue
+  if [[ "$uuid" == h143* ]] || grep -qiE 'radar|radarchat' "$dir/.env" 2>/dev/null || \
+     grep -qiE 'radar|radarchat' "$dir/docker-compose.yaml" 2>/dev/null; then
+    log "  Removendo pasta duplicada ${uuid}…"
+    (cd "$dir" && docker_cmd compose down --remove-orphans 2>/dev/null) || true
+    sudo rm -rf "$dir" 2>/dev/null || true
+  fi
+done
+
+log "  Serviços restantes no Coolify:"
+while read -r line; do
+  [[ -n "$line" ]] && log "    $line"
+done < <(psql_coolify "SELECT uuid || ' | ' || name FROM services WHERE deleted_at IS NULL ORDER BY name;" 2>/dev/null || true)
 
 log "=== 5) Containers ==="
 docker_cmd ps --format 'table {{.Names}}\t{{.Status}}' | grep -E "${CANONICAL_UUID}|NAMES" || true
