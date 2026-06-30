@@ -39,7 +39,7 @@ done
 psql_coolify "UPDATE services SET name = '${CANONICAL_NAME}' WHERE uuid = '${CANONICAL_UUID}';" || true
 psql_coolify "UPDATE service_applications SET status = 'running:healthy' WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);" || true
 psql_coolify "UPDATE service_databases SET status = 'running:healthy' WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);" || true
-psql_coolify "UPDATE servers SET is_reachable = true, \"user\" = '${COOLIFY_SSH_USER}', is_localhost = true WHERE uuid = '${COOLIFY_SERVER_UUID}';" || true
+psql_coolify "UPDATE servers SET is_reachable = true, \"user\" = '${COOLIFY_SSH_USER}' WHERE uuid = '${COOLIFY_SERVER_UUID}';" || true
 
 docker_cmd exec coolify php artisan tinker --execute="
 \$keep = '${CANONICAL_UUID}';
@@ -82,7 +82,6 @@ docker_cmd exec coolify php artisan tinker --execute="
 \$srv = \\App\\Models\\Server::where('uuid', '${COOLIFY_SERVER_UUID}')->first();
 if (\$srv) {
   \$srv->user = '${COOLIFY_SSH_USER}';
-  \$srv->is_localhost = true;
   try { \$srv->is_reachable = true; } catch (\\Throwable \$e) {}
   \$srv->save();
   echo 'SERVER_REACHABLE ' . '${COOLIFY_SERVER_UUID}' . PHP_EOL;

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Cron: mantém status Running no painel Coolify (deploy direto sem labels sentinel).
+# Uso: sudo -E bash scripts/vps-install-coolify-panel-sync-cron.sh
+set -euo pipefail
+
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+CRON_FILE="/etc/cron.d/radarzap-coolify-panel-sync"
+COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
+
+log() { echo "[coolify-panel-cron] $*"; }
+
+[[ "${EUID}" -eq 0 ]] || { log "Execute com sudo"; exit 1; }
+
+cat >"$CRON_FILE" <<EOF
+# RadarChat — sync status painel Coolify (deploy direto; sentinel pode marcar exited)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+*/2 * * * * root COOLIFY_SERVICE_UUID=${COOLIFY_SERVICE_UUID} DEPLOY_PATH=${DEPLOY_PATH} ${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh >>/var/log/radarzap-coolify-sync.log 2>&1
+EOF
+chmod 644 "$CRON_FILE"
+log "OK ${CRON_FILE} (sync a cada 2 min → /var/log/radarzap-coolify-sync.log)"

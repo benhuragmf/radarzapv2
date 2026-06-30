@@ -44,7 +44,8 @@ for i in $(seq 1 24); do
 done
 
 log "=== 4) Sincronizar painel Coolify + remover duplicata ==="
-sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh"
+sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-fix-sentinel.sh" || \
+  sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-sync-panel.sh"
 
 log "=== 5) Containers ==="
 docker_cmd ps --format 'table {{.Names}}\t{{.Status}}' | grep -E "${CANONICAL_UUID}|NAMES" || true
