@@ -100,6 +100,4 @@ jobs:
           script: |
             export DEPLOY_PATH IMAGE REPO_OWNER GHCR_PAT PUBLIC_HOST TRAEFIK_EXTRA_HOSTS COOLIFY_SERVICE_UUID DEPLOY_MODE
             export RADARZAP_IMAGE="$IMAGE"
-            cd "$DEPLOY_PATH"
-            git fetch origin main -q && git reset --hard origin/main -q
-            bash "${DEPLOY_PATH}/scripts/vps-deploy-main.sh"
+            exec bash "${DEPLOY_PATH}/scripts/vps-deploy-main.sh"
