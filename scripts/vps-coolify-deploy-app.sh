@@ -5,18 +5,19 @@
 # Full republish (compose + SSL): scripts/vps-fix-coolify-ssl.sh
 set -euo pipefail
 
-trim_env() {
-  printf '%s' "${1:-}" | tr -d '\r'
-}
-
-COOLIFY_SERVICE_UUID="$(trim_env "${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}")"
-COOLIFY_SERVICE_DIR="$(trim_env "${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}")"
-RADARZAP_IMAGE="$(trim_env "${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}")"
-DEPLOY_PATH="$(trim_env "${DEPLOY_PATH:-/opt/radarzap}")"
+# Sem comandos externos aqui: sudo secure_path pode ocultar tr/sed do PATH inicial.
+COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
+COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID//$'\r'/}"
+COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
+COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR//$'\r'/}"
+RADARZAP_IMAGE="${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"
+RADARZAP_IMAGE="${RADARZAP_IMAGE//$'\r'/}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarzap}"
+DEPLOY_PATH="${DEPLOY_PATH//$'\r'/}"
 WAIT_MAX="${WAIT_MAX:-36}"
 WAIT_INTERVAL_SEC="${WAIT_INTERVAL_SEC:-5}"
 
-log() { echo "[coolify-deploy-app] $*" >&2; }
+log() { echo "[coolify-deploy-app] $*"; }
 
 coolify_mongo_running() {
   sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qF "${COOLIFY_SERVICE_UUID}-mongodb-1"

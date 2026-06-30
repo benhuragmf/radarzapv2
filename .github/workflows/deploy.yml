@@ -89,7 +89,7 @@ jobs:
           PUBLIC_HOST: app.radarchat.com.br
           TRAEFIK_EXTRA_HOSTS: 151-247-210-180.sslip.io
           COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
-          DEPLOY_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode || 'app-only' }}
+          DEPLOY_MODE: ${{ github.event.inputs.deploy_mode || 'app-only' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -110,7 +110,8 @@ jobs:
             if [ -n "${GHCR_PAT:-}" ]; then
               echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
             fi
-            DEPLOY_MODE="$(printf '%s' "${DEPLOY_MODE:-app-only}" | tr -d '\r')"
+            DEPLOY_MODE="${DEPLOY_MODE:-app-only}"
+            DEPLOY_MODE="${DEPLOY_MODE//$'\r'/}"
             if [ "$DEPLOY_MODE" = "full-republish" ]; then
               echo "[deploy] modo full-republish -> scripts/vps-fix-coolify-ssl.sh" >&2
               sudo -E bash "${DEPLOY_PATH}/scripts/vps-fix-coolify-ssl.sh"
