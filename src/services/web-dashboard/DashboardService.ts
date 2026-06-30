@@ -386,6 +386,8 @@ export class DashboardService {
         crossOriginEmbedderPolicy: false,
         /** widget.js / form.js são embedados em sites externos — CORP same-origin bloqueia o script. */
         crossOriginResourcePolicy: { policy: 'cross-origin' },
+        /** Default do helmet é no-referrer — quebra prévia embed (iframe sem Referer em produção). */
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
       }),
     );
 

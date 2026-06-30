@@ -4,7 +4,7 @@ import { LeadFormService } from './LeadFormService';
 import { LeadFormPreviewPageService } from './lead-form-preview-page.service';
 import type { LeadFormPreviewAppearanceAttrs } from './lead-form-preview-page.service';
 import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
-import { isEmbedPreviewPanelOrigin } from '@/utils/embed-preview-origin.util';
+import { isEmbedPreviewPanelRequest } from '@/utils/embed-preview-origin.util';
 import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
 import {
   getOrganizationPlanId,
@@ -19,7 +19,7 @@ export function createLeadFormPublicRouter(): Router {
 
   r.get('/forms/:publicKey/preview-config', async (req, res) => {
     try {
-      if (!isEmbedPreviewPanelOrigin(req.headers.origin, req.headers.referer)) {
+      if (!isEmbedPreviewPanelRequest(req)) {
         return res.status(403).json({ error: 'Origem não autorizada para prévia' });
       }
       const publicKey = req.params.publicKey.trim();
@@ -44,7 +44,7 @@ export function createLeadFormPublicRouter(): Router {
 
   r.get('/forms/:publicKey/preview-site', async (req, res) => {
     try {
-      if (!isEmbedPreviewPanelOrigin(req.headers.origin, req.headers.referer)) {
+      if (!isEmbedPreviewPanelRequest(req)) {
         return res.status(403).json({ error: 'Origem não autorizada para prévia' });
       }
       const publicKey = req.params.publicKey.trim();
@@ -60,7 +60,7 @@ export function createLeadFormPublicRouter(): Router {
 
   r.get('/forms/:publicKey/preview-page', async (req, res) => {
     try {
-      if (!isEmbedPreviewPanelOrigin(req.headers.origin, req.headers.referer)) {
+      if (!isEmbedPreviewPanelRequest(req)) {
         return res.status(403).json({ error: 'Origem não autorizada para prévia' });
       }
       const publicKey = req.params.publicKey.trim();

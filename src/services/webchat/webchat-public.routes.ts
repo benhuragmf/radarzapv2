@@ -5,7 +5,7 @@ import { WebChatPresenceService } from './WebChatPresenceService';
 import { isWebChatMessageReceiptRateLimited } from './webchat-message-receipt-rate-limit';
 import { issueWebChatPresenceSocketAuth } from './webchat-presence-auth.util';
 import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
-import { isEmbedPreviewPanelOrigin } from '@/utils/embed-preview-origin.util';
+import { isEmbedPreviewPanelRequest } from '@/utils/embed-preview-origin.util';
 import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
 
 function visitorTokenFromReq(req: Request): string | undefined {
@@ -36,7 +36,7 @@ export function createWebChatPublicRouter(): Router {
   /** Site da empresa para prévia no painel — origem restrita; URL nunca vem da query string. */
   r.get('/widgets/:publicKey/preview-site', async (req, res) => {
     try {
-      if (!isEmbedPreviewPanelOrigin(req.headers.origin, req.headers.referer)) {
+      if (!isEmbedPreviewPanelRequest(req)) {
         return res.status(403).json({ error: 'Origem não autorizada para prévia' });
       }
       const publicKey = req.params.publicKey.trim();

@@ -16,11 +16,13 @@ describe('embed-preview-origin.util', () => {
     expect(isEmbedPreviewPanelOrigin('https://evil-phish.com', null)).toBe(false);
   });
 
-  it('libera localhost em dev', () => {
+  it('libera same-origin sem Referer em produção (iframe do painel)', () => {
     const prev = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
+    process.env.NODE_ENV = 'production';
     try {
-      expect(isEmbedPreviewPanelOrigin('http://localhost:5174', null)).toBe(true);
+      expect(isEmbedPreviewPanelOrigin(null, null, { secFetchSite: 'same-origin' })).toBe(true);
+      expect(isEmbedPreviewPanelOrigin(null, null, { secFetchSite: 'cross-origin' })).toBe(false);
+      expect(isEmbedPreviewPanelOrigin(null, null, {})).toBe(false);
     } finally {
       process.env.NODE_ENV = prev;
     }

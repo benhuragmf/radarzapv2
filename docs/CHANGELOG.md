@@ -6,6 +6,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.12.79] — 2026-06-30
+
+### Fix prévia embed no painel (produção)
+
+- Corrige `403 Origem não autorizada para prévia` no iframe de Leads/WebChat em produção.
+- Helmet: `referrerPolicy: strict-origin-when-cross-origin` (antes `no-referrer` suprimia Referer).
+- `isEmbedPreviewPanelOrigin`: aceita `Sec-Fetch-Site: same-origin` quando Referer ausente.
+- Iframes de prévia com `referrerPolicy` explícito.
+
 ## [2.12.77] — 2026-06-30
 
 ### WhatsApp bridge — foco do atendente (MVP)

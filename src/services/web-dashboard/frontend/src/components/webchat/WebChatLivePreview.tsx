@@ -92,6 +92,7 @@ export function WebChatLivePreview({
           key={href}
           title={`Preview WebChat — ${templateName}`}
           src={href}
+          referrerPolicy="strict-origin-when-cross-origin"
           className="h-full w-full border-0 bg-white"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />

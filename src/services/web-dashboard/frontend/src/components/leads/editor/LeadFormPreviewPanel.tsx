@@ -165,6 +165,7 @@ export function LeadFormPreviewPanel({
           ref={iframeRef}
           title={`Preview ${formName}`}
           src={iframeSrc}
+          referrerPolicy="strict-origin-when-cross-origin"
           className="h-full w-full border-0 bg-[#07111f]"
           sandbox="allow-scripts allow-forms allow-same-origin"
         />
