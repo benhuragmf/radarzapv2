@@ -6,6 +6,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.12.77] — 2026-06-30
+
+### WhatsApp bridge — foco do atendente (MVP)
+
+- `!assumir` sem TK: último alerta pendente ou item único da lista.
+- `!assumir 1` / `!trocar 2` após `!abertos` ou `!meus` numerados.
+- `!foco` — contexto atual; `!nota texto` usa foco sem repetir TK.
+- Redis: foco, picklist e alerta pendente por atendente (12 h).
+- Bridge: respostas livres usam foco quando há vários chamados ativos.
+
 ## [2.12.76] — 2026-06-30
 
 ### Infra — deploy leve Coolify (app-only)
@@ -14,6 +24,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - `deploy.yml`: push `main` usa app-only; `workflow_dispatch` escolhe `app-only` ou `full-republish`.
 - Commit com `[skip deploy]` na `main` builda GHCR sem reiniciar o VPS.
 - Doc `COOLIFY-DEPLOY.md`: política de merge em lote na `main`.
+- **Fix:** `vps-coolify-deploy-app.sh` — logs em stderr, sem login GHCR duplicado, paths absolutos no workflow, `.gitattributes` LF em `*.sh`.
 
 ## [2.12.75] — 2026-06-29
 

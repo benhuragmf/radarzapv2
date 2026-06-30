@@ -102,6 +102,7 @@ jobs:
             cd "$DEPLOY_PATH"
             git fetch origin main -q && git reset --hard origin/main -q
             export USE_SUDO_DOCKER=1
+            export DEPLOY_PATH
             export PUBLIC_HOST="${PUBLIC_HOST:-app.radarchat.com.br}"
             export TRAEFIK_EXTRA_HOSTS="${TRAEFIK_EXTRA_HOSTS:-151-247-210-180.sslip.io}"
             export COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
@@ -109,10 +110,11 @@ jobs:
             if [ -n "${GHCR_PAT:-}" ]; then
               echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
             fi
-            if [ "${DEPLOY_MODE:-app-only}" = "full-republish" ]; then
-              echo "[deploy] Modo full-republish — scripts/vps-fix-coolify-ssl.sh"
-              sudo -E bash scripts/vps-fix-coolify-ssl.sh
+            DEPLOY_MODE="$(printf '%s' "${DEPLOY_MODE:-app-only}" | tr -d '\r')"
+            if [ "$DEPLOY_MODE" = "full-republish" ]; then
+              echo "[deploy] modo full-republish -> scripts/vps-fix-coolify-ssl.sh" >&2
+              sudo -E bash "${DEPLOY_PATH}/scripts/vps-fix-coolify-ssl.sh"
             else
-              echo "[deploy] Modo app-only — scripts/vps-coolify-deploy-app.sh"
-              sudo -E bash scripts/vps-coolify-deploy-app.sh
+              echo "[deploy] modo app-only -> scripts/vps-coolify-deploy-app.sh" >&2
+              sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-deploy-app.sh"
             fi

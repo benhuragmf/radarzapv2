@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
-# Deploy leve em produção Coolify: pull GHCR + recria só o serviço app.
-# Mongo, Redis, Traefik e rotas HTTPS permanecem intactos (~2–4 min vs ~12 min full).
+# Deploy leve em producao Coolify: pull GHCR + recria so o servico app.
+# Mongo, Redis, Traefik e rotas HTTPS permanecem intactos (~2-4 min vs ~12 min full).
 # Uso: sudo -E bash scripts/vps-coolify-deploy-app.sh
 # Full republish (compose + SSL): scripts/vps-fix-coolify-ssl.sh
 set -euo pipefail
 
-COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
-COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
-RADARZAP_IMAGE="${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}"
-REPO_OWNER="${REPO_OWNER:-benhuragmf}"
-GHCR_PAT="${GHCR_PAT:-}"
+trim_env() {
+  printf '%s' "${1:-}" | tr -d '\r'
+}
+
+COOLIFY_SERVICE_UUID="$(trim_env "${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}")"
+COOLIFY_SERVICE_DIR="$(trim_env "${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}")"
+RADARZAP_IMAGE="$(trim_env "${RADARZAP_IMAGE:-ghcr.io/benhuragmf/radarzapv2:latest}")"
+DEPLOY_PATH="$(trim_env "${DEPLOY_PATH:-/opt/radarzap}")"
 WAIT_MAX="${WAIT_MAX:-36}"
 WAIT_INTERVAL_SEC="${WAIT_INTERVAL_SEC:-5}"
 
-log() { echo "[coolify-deploy-app] $*"; }
+log() { echo "[coolify-deploy-app] $*" >&2; }
+
+coolify_mongo_running() {
+  sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qF "${COOLIFY_SERVICE_UUID}-mongodb-1"
+}
 
 wait_app_health() {
   local i
@@ -32,22 +39,21 @@ dump_app_logs() {
   local cname
   cname="$(sudo docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E "${COOLIFY_SERVICE_UUID}-app" | head -1 || true)"
   [[ -n "$cname" ]] || return 0
-  log "=== Logs ${cname} (últimas 40 linhas) ==="
+  log "=== Logs ${cname} (ultimas 40 linhas) ==="
   sudo docker logs "$cname" --tail 40 2>&1 | while read -r line; do log "  $line"; done
 }
 
-if [[ -n "${GHCR_PAT:-}" ]]; then
-  echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
-fi
+log "Iniciando deploy app-only (uuid=${COOLIFY_SERVICE_UUID}, image=${RADARZAP_IMAGE})"
 
 if [[ ! -d "$COOLIFY_SERVICE_DIR" || ! -f "${COOLIFY_SERVICE_DIR}/docker-compose.yaml" ]]; then
   log "ERRO: stack Coolify ausente em ${COOLIFY_SERVICE_DIR}"
-  log "Use deploy full: sudo -E bash scripts/vps-fix-coolify-ssl.sh"
+  log "Use deploy full: sudo -E bash ${DEPLOY_PATH}/scripts/vps-fix-coolify-ssl.sh"
   exit 1
 fi
 
-if ! sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -qF "${COOLIFY_SERVICE_UUID}-mongodb-1"; then
-  log "ERRO: Mongo Coolify não está Up — primeiro deploy exige republicação full"
+if ! coolify_mongo_running; then
+  log "ERRO: Mongo Coolify nao esta Up (${COOLIFY_SERVICE_UUID}-mongodb-1)"
+  log "Primeiro deploy exige republicacao full"
   exit 1
 fi
 
@@ -60,25 +66,29 @@ if [[ -f "$env_file" ]]; then
   fi
 fi
 
-log "Pull app → ${RADARZAP_IMAGE}"
-(cd "$COOLIFY_SERVICE_DIR" && sudo docker compose --env-file .env \
-  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" pull app)
+log "Pull app -> ${RADARZAP_IMAGE}"
+if ! (cd "$COOLIFY_SERVICE_DIR" && sudo docker compose --env-file .env \
+  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" pull app); then
+  log "ERRO: docker compose pull app falhou"
+  dump_app_logs
+  exit 1
+fi
 
-log "Recriando somente app (--no-deps, mongo/redis preservados)..."
+log "Recriando somente app (--no-deps --force-recreate, mongo/redis preservados)..."
 if (cd "$COOLIFY_SERVICE_DIR" && sudo docker compose --env-file .env \
-  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" up -d --no-deps --wait --wait-timeout 180 app) 2>/dev/null; then
+  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" up -d --no-deps --force-recreate --wait --wait-timeout 180 app) 2>/dev/null; then
   log "Compose --wait OK"
 elif ! (cd "$COOLIFY_SERVICE_DIR" && sudo docker compose --env-file .env \
-  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" up -d --no-deps app); then
+  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" up -d --no-deps --force-recreate app); then
   log "ERRO: docker compose up app falhou"
   dump_app_logs
   exit 1
 fi
 
 if ! wait_app_health; then
-  log "ERRO: health :3001 falhou após deploy app"
+  log "ERRO: health :3001 falhou apos deploy app"
   dump_app_logs
   exit 1
 fi
 
-log "Deploy app concluído (${RADARZAP_IMAGE})"
+log "Deploy app concluido (${RADARZAP_IMAGE})"
