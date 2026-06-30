@@ -65,7 +65,7 @@ fi
 if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^coolify$'; then
   log "Reiniciando container coolify..."
   sudo docker restart coolify >/dev/null 2>&1 || true
-  sleep 3
+  sleep 10
 fi
 
 parent_perm="$(stat -c '%a %U:%G' /data/coolify 2>/dev/null || echo '?')"

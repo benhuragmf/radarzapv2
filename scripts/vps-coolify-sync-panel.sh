@@ -26,23 +26,26 @@ psql_coolify() {
 }
 
 log "Atualizando status running (uuid=${CANONICAL_UUID})..."
-docker_cmd exec coolify-db psql -U coolify -d coolify -v ON_ERROR_STOP=0 <<SQL 2>/dev/null || true
-UPDATE services SET name = '${CANONICAL_NAME}', status = 'running'
-  WHERE uuid = '${CANONICAL_UUID}';
-UPDATE service_applications SET status = 'running:healthy'
-  WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);
-UPDATE service_databases SET status = 'running:healthy'
-  WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);
-UPDATE servers SET is_reachable = true, "user" = '${COOLIFY_SSH_USER}', is_localhost = true
-  WHERE uuid = '${COOLIFY_SERVER_UUID}';
-SQL
+
+# Aguardar painel Coolify após restart (tinker falha se routes cache ausente)
+for i in $(seq 1 30); do
+  if curl -sf -o /dev/null --max-time 3 "http://127.0.0.1:8000/" 2>/dev/null; then
+    break
+  fi
+  [[ "$i" -eq 30 ]] && log "AVISO: Coolify :8000 lento — sync segue mesmo assim"
+  sleep 2
+done
+
+psql_coolify "UPDATE services SET name = '${CANONICAL_NAME}' WHERE uuid = '${CANONICAL_UUID}';" || true
+psql_coolify "UPDATE service_applications SET status = 'running:healthy' WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);" || true
+psql_coolify "UPDATE service_databases SET status = 'running:healthy' WHERE service_id = (SELECT id FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1);" || true
+psql_coolify "UPDATE servers SET is_reachable = true, \"user\" = '${COOLIFY_SSH_USER}', is_localhost = true WHERE uuid = '${COOLIFY_SERVER_UUID}';" || true
 
 docker_cmd exec coolify php artisan tinker --execute="
 \$keep = '${CANONICAL_UUID}';
 foreach (\\App\\Models\\Service::query()->get() as \$s) {
   if (\$s->uuid === \$keep) {
     \$s->name = '${CANONICAL_NAME}';
-    \$s->status = 'running';
     \$s->save();
     foreach (\$s->applications as \$app) {
       \$app->status = 'running:healthy';
@@ -52,7 +55,7 @@ foreach (\\App\\Models\\Service::query()->get() as \$s) {
       \$db->status = 'running:healthy';
       \$db->save();
     }
-    echo 'SYNC_OK ' . \$keep . ' service=' . \$s->status . PHP_EOL;
+    echo 'SYNC_OK ' . \$keep . PHP_EOL;
     continue;
   }
   \$n = strtolower((string) (\$s->name ?? ''));
@@ -73,7 +76,7 @@ foreach (\\App\\Models\\Project::all() as \$p) {
     catch (\\Throwable \$e) { try { \$p->delete(); } catch (\\Throwable \$e2) {} }
   }
 }
-" 2>&1 | while read -r line; do log "  $line"; done
+" 2>&1 | while read -r line; do log "  $line"; done || true
 
 docker_cmd exec coolify php artisan tinker --execute="
 \$srv = \\App\\Models\\Server::where('uuid', '${COOLIFY_SERVER_UUID}')->first();
@@ -84,9 +87,9 @@ if (\$srv) {
   \$srv->save();
   echo 'SERVER_REACHABLE ' . '${COOLIFY_SERVER_UUID}' . PHP_EOL;
 }
-" 2>&1 | while read -r line; do log "  $line"; done
+" 2>&1 | while read -r line; do log "  $line"; done || true
 
-svc_status="$(psql_coolify "SELECT status FROM services WHERE uuid = '${CANONICAL_UUID}' LIMIT 1;" || echo '?')"
+svc_status="$(psql_coolify "SELECT COALESCE((SELECT status FROM service_applications sa JOIN services s ON s.id = sa.service_id WHERE s.uuid = '${CANONICAL_UUID}' LIMIT 1), 'sem-app');" || echo '?')"
 app_bad="$(psql_coolify "SELECT count(*) FROM service_applications sa JOIN services s ON s.id = sa.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sa.status NOT LIKE 'running:%';" || echo '?')"
 db_bad="$(psql_coolify "SELECT count(*) FROM service_databases sd JOIN services s ON s.id = sd.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sd.status NOT LIKE 'running:%';" || echo '?')"
 log "Pós-sync DB: service=${svc_status} apps_off=${app_bad} dbs_off=${db_bad}"
