@@ -37,6 +37,7 @@
     "qa:release-gate": "node scripts/qa-release-gate.mjs",
     "pre-push:gate": "node scripts/pre-push-deploy-gate.mjs",
     "vps:hotfix:env": "node scripts/trigger-vps-hotfix-env.mjs",
+    "vps:coolify:reconcile": "gh workflow run \"Coolify reconcile\"",
     "backfill:webchat-delivered": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/backfill-webchat-inbound-delivered-at.ts",
     "sync:widget-build": "node scripts/sync-widget-build.cjs",
     "deploy:radarchat": "node scripts/deploy-radarchat-ftp.mjs",

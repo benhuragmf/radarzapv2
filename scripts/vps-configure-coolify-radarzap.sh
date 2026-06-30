@@ -788,10 +788,10 @@ build_compose_with_external_volumes() {
 ensure_project_and_server() {
   local projects
   projects="$(api GET /api/v1/projects)"
-  PROJECT_UUID="$(echo "$projects" | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="RadarZap") | .uuid' | head -1)"
+  PROJECT_UUID="$(echo "$projects" | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="RadarChat" or .name=="RadarZap") | .uuid' | head -1)"
   if [[ -z "$PROJECT_UUID" || "$PROJECT_UUID" == "null" ]]; then
-    log "Criando projeto RadarZap..."
-    PROJECT_UUID="$(api POST /api/v1/projects -d '{"name":"RadarZap","description":"RadarZap v2 produção"}' | jq -r '.uuid')"
+    log "Criando projeto RadarChat..."
+    PROJECT_UUID="$(api POST /api/v1/projects -d '{"name":"RadarChat","description":"RadarChat v2 produção"}' | jq -r '.uuid')"
   fi
   if [[ -z "${SERVER_UUID:-}" ]]; then
     SERVER_UUID="$(server_uuid_by_name_or_ip "RadarZap" "$RADARZAP_SERVER_IP")"
@@ -823,7 +823,7 @@ set_service_domain() {
 
 ensure_service() {
   local existing
-  existing="$(api GET /api/v1/services | jq -r 'if type=="array" then .[] else .data[]? end | select(.name=="radarzap") | .uuid' | head -1)"
+  existing="$(api GET /api/v1/services | jq -r 'if type=="array" then .[] else .data[]? end | select(.uuid=="'"${SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"'" or .name=="RadarChat" or .name=="radarzap") | .uuid' | head -1)"
   if [[ -n "$existing" && "$existing" != "null" ]]; then
     SERVICE_UUID="$existing"
     log "Service radarzap já existe: $SERVICE_UUID"
@@ -836,7 +836,7 @@ ensure_service() {
   compose_b64="$(base64 -w0 "$COMPOSE_FILE" 2>/dev/null || base64 "$COMPOSE_FILE" | tr -d '\n')"
   payload_file="$(mktemp)"
   jq -n \
-    --arg name "radarzap" \
+    --arg name "RadarChat" \
     --arg description "RadarZap monolito + Mongo + Redis" \
     --arg project_uuid "$PROJECT_UUID" \
     --arg server_uuid "$SERVER_UUID" \

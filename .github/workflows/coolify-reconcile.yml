@@ -1,0 +1,29 @@
+name: Coolify reconcile
+
+on:
+  workflow_dispatch:
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconcile Coolify stack + remove duplicate
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          PUBLIC_HOST: app.radarchat.com.br
+          COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          envs: DEPLOY_PATH,PUBLIC_HOST,COOLIFY_SERVICE_UUID
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarzap}"
+            git fetch origin main -q && git reset --hard origin/main -q
+            export COOLIFY_SERVICE_UUID
+            exec sudo -E bash scripts/vps-coolify-reconcile.sh
