@@ -22,6 +22,12 @@ if [[ -n "${GHCR_PAT:-}" ]]; then
   echo "$GHCR_PAT" | sudo docker login ghcr.io -u "$REPO_OWNER" --password-stdin
 fi
 
+PRUNE_SCRIPT="${DEPLOY_PATH}/scripts/vps-docker-prune-safe.sh"
+if [[ -f "$PRUNE_SCRIPT" ]]; then
+  log "Pre-deploy: limpeza segura de imagens Docker"
+  sudo -E bash "$PRUNE_SCRIPT" || sudo -E bash "$PRUNE_SCRIPT" --aggressive || true
+fi
+
 log "modo=${DEPLOY_MODE} image=${RADARCHAT_IMAGE}"
 
 if [[ "$DEPLOY_MODE" == "full-republish" ]]; then

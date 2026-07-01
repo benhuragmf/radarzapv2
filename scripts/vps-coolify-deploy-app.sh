@@ -102,12 +102,33 @@ fi
 
 set_radarchat_image_env "${COOLIFY_SERVICE_DIR}/.env" "$RADARCHAT_IMAGE"
 
+PRUNE_SCRIPT="${DEPLOY_PATH}/scripts/vps-docker-prune-safe.sh"
+if [[ -f "$PRUNE_SCRIPT" ]]; then
+  log "Verificando disco e limpando imagens Docker antigas..."
+  if ! sudo -E bash "$PRUNE_SCRIPT"; then
+    log "AVISO: limpeza padrao insuficiente — tentando prune agressivo"
+    sudo -E bash "$PRUNE_SCRIPT" --aggressive || true
+  fi
+else
+  log "AVISO: ${PRUNE_SCRIPT} ausente — pulando limpeza Docker"
+fi
+
+pull_app_image() {
+  (cd "$COOLIFY_SERVICE_DIR" && docker_cmd compose --env-file .env \
+    -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" pull app)
+}
+
 log "Pull app -> ${RADARCHAT_IMAGE}"
-if ! (cd "$COOLIFY_SERVICE_DIR" && docker_cmd compose --env-file .env \
-  -f docker-compose.yaml -p "${COOLIFY_SERVICE_UUID}" pull app); then
-  log "ERRO: docker compose pull app falhou"
-  dump_app_logs
-  exit 1
+if ! pull_app_image; then
+  log "Pull falhou — limpando Docker e repetindo uma vez..."
+  if [[ -f "$PRUNE_SCRIPT" ]]; then
+    sudo -E bash "$PRUNE_SCRIPT" --aggressive || true
+  fi
+  if ! pull_app_image; then
+    log "ERRO: docker compose pull app falhou"
+    dump_app_logs
+    exit 1
+  fi
 fi
 
 log "Recriando somente app (--no-deps --force-recreate, mongo/redis preservados)..."

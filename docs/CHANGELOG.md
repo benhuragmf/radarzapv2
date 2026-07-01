@@ -20,6 +20,11 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.42] - 2026-07-01
+
+### Fixed
+- **Deploy VPS:** limpeza automática de imagens Docker antes do `pull` (`vps-docker-prune-safe.sh` + retry); evita `no space left on device` sem apagar volumes de sessions/mongo.
+
 ## [2.17.41] - 2026-06-30
 
 ### Changed
