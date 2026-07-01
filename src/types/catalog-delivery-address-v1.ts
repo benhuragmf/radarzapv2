@@ -7,7 +7,8 @@ import {
   parseLooseDeliveryAddress,
   type DeliveryAddressStructured,
 } from './catalog-delivery-address';
-import { formatCepDisplay, normalizeCepDigits } from './br-cep-format';
+import { formatCepDisplay, isValidCepDigits, normalizeCepDigits } from './br-cep-format';
+import { parseStreetNumberReply } from '@/utils/catalog-delivery.util';
 
 export const DELIVERY_ADDRESS_V1_SOURCES = [
   'cep',
@@ -192,13 +193,159 @@ export function textIsAddressConfirmationYes(text: string): boolean {
   );
 }
 
-export function textIsAddressConfirmationNo(text: string): boolean {
-  const t = text.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+export type InlineAddressCorrectionKind =
+  | 'number'
+  | 'street_number'
+  | 'neighborhood'
+  | 'complement'
+  | 'cep';
+
+export interface InlineAddressCorrection {
+  kind: InlineAddressCorrectionKind;
+  number?: string;
+  street?: string;
+  neighborhood?: string;
+  complement?: string;
+  zipCode?: string;
+}
+
+function normalizeInlineText(text: string): string {
+  return text.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+}
+
+function stripNegationPrefix(text: string): string {
+  return text
+    .trim()
+    .replace(/^(?:nao|n[aã]o|errado|incorreto|corrigir)[,.\s!?-]+/i, '')
+    .replace(/^(?:é|e|o|a)\s+/i, '')
+    .trim();
+}
+
+/** Negativa com dado útil inline — ex.: "não, é número 120". */
+export function parseInlineAddressCorrectionAfterNo(text: string): InlineAddressCorrection | null {
+  const raw = text.trim();
+  if (!raw) return null;
+  const norm = normalizeInlineText(raw);
+  const hasNegation =
+    /^(nao|n|errado|incorreto|corrigir)\b/.test(norm) || /\b(nao|errado|corrigir|incorreto)\b/.test(norm);
+  if (!hasNegation) return null;
+
+  const cepMatch = norm.match(/\bcep\s*[:\-]?\s*(\d{5}-?\d{3}|\d{8})\b/);
+  if (cepMatch?.[1]) {
+    const digits = normalizeCepDigits(cepMatch[1]);
+    if (isValidCepDigits(digits)) {
+      return { kind: 'cep', zipCode: formatCepDisplay(digits) };
+    }
+  }
+
+  const bairroMatch = raw.match(/\bbairro\s*(?:é|e|:)?\s*(.+)$/i);
+  if (bairroMatch?.[1]?.trim()) {
+    return { kind: 'neighborhood', neighborhood: bairroMatch[1].trim() };
+  }
+
+  const compMatch = raw.match(/\bcomplemento\s*(?:é|e|:)?\s*(.+)$/i);
+  if (compMatch?.[1]?.trim()) {
+    return { kind: 'complement', complement: compMatch[1].trim() };
+  }
+
+  const numExplicit = norm.match(
+    /(?:numero|n\.?\s*º|nº|n)\s*(?:é|e|:)?\s*(\d{1,6}[a-zA-Z]?)/,
+  );
+  if (numExplicit?.[1]) {
+    return { kind: 'number', number: numExplicit[1] };
+  }
+
+  const afterNeg = stripNegationPrefix(raw);
+  if (afterNeg) {
+    const swapInAfterNeg = afterNeg.match(/^(\d{1,6}[a-zA-Z]?)\s+(?:é|e)\s+(\d{1,6}[a-zA-Z]?)\s*$/i);
+    if (swapInAfterNeg?.[2]) {
+      return { kind: 'number', number: swapInAfterNeg[2] };
+    }
+
+    const loose = parseLooseDeliveryAddress(afterNeg);
+    if (loose?.street?.trim() && loose?.number?.trim()) {
+      return {
+        kind: 'street_number',
+        street: loose.street.trim(),
+        number: loose.number.trim(),
+        neighborhood: loose.neighborhood?.trim() || undefined,
+      };
+    }
+    const streetNum = parseStreetNumberReply(afterNeg);
+    if (streetNum?.street && streetNum?.number) {
+      return {
+        kind: 'street_number',
+        street: streetNum.street,
+        number: streetNum.number,
+      };
+    }
+    const onlyNum = afterNeg.match(/^(?:é|e|numero|nº|n\.?\s*)?\s*(\d{1,6}[a-zA-Z]?)\s*$/i);
+    if (onlyNum?.[1]) {
+      return { kind: 'number', number: onlyNum[1] };
+    }
+  }
+
+  const swapNum = norm.match(/\b(?:é|e)\s*(\d{1,6}[a-zA-Z]?)\s*$/);
+  if (swapNum?.[1] && /\b(nao|errado|incorreto)\b/.test(norm)) {
+    return { kind: 'number', number: swapNum[1] };
+  }
+
+  return null;
+}
+
+/** Negativa simples sem correção inline — ex.: "não", "errado". */
+export function textIsSimpleAddressConfirmationNo(text: string): boolean {
+  if (parseInlineAddressCorrectionAfterNo(text)) return false;
+  const t = normalizeInlineText(text);
   if (!t) return false;
   if (/^(nao|n|errado|incorreto|corrigir|outro endereco|trocar endereco|nao e esse|nao e este)$/.test(t)) {
     return true;
   }
   return /\b(nao|errado|corrigir|outro endereco)\b/.test(t) && t.length <= 80;
+}
+
+export function textIsAddressConfirmationNo(text: string): boolean {
+  return textIsSimpleAddressConfirmationNo(text);
+}
+
+export function refreshV1AfterInlineCorrection(v1: DeliveryAddressV1): DeliveryAddressV1 {
+  const line = formatAddressConfirmationLine(v1);
+  return {
+    ...v1,
+    formattedAddress: line,
+    status: 'needs_confirmation',
+    confirmedAt: undefined,
+    confirmedBy: undefined,
+    needsHumanReview: false,
+    normalizedAt: new Date(),
+  };
+}
+
+export function buildInlineNumberCorrectedMessage(v1: DeliveryAddressV1): string {
+  return (
+    `Atualizei o número do endereço. Confirme por favor: *${formatAddressConfirmationLine(v1)}*.\n\n` +
+    'Responda *sim* para confirmar ou envie a correção.'
+  );
+}
+
+export function buildInlineAddressCorrectedMessage(v1: DeliveryAddressV1): string {
+  return (
+    `Atualizei o endereço. Confirme por favor: *${formatAddressConfirmationLine(v1)}*.\n\n` +
+    'Responda *sim* para confirmar ou envie a correção.'
+  );
+}
+
+export function buildInlineCepCorrectedMessage(): string {
+  return (
+    'Atualizei pelo CEP informado. Agora confirme o número do imóvel ou envie a correção do endereço.'
+  );
+}
+
+export function buildSimpleAddressRejectionMessage(contactFirstName?: string): string {
+  const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
+  return (
+    `${prefix}Sem problema. Me envie o endereço correto com rua e número, ou o CEP para eu localizar novamente.`
+  );
 }
 
 export function isDeliveryAddressV1Confirmed(v1?: DeliveryAddressV1 | null): boolean {

@@ -22,12 +22,18 @@ import {
   buildAddressConfirmationRequestMessage,
   buildCepOfferAllowedReply,
   buildGeocodingFailedHumanMessage,
+  buildInlineAddressCorrectedMessage,
+  buildInlineCepCorrectedMessage,
+  buildInlineNumberCorrectedMessage,
   buildPinNeedsStreetNumberMessage,
+  buildSimpleAddressRejectionMessage,
   createDeliveryAddressSnapshot,
   deliveryAddressV1NeedsConfirmation,
   formatAddressConfirmationLine,
   isDeliveryAddressV1Confirmed,
   mergePinReverseIntoV1,
+  parseInlineAddressCorrectionAfterNo,
+  refreshV1AfterInlineCorrection,
   structuredToDeliveryAddressV1,
   syncLegacyFieldsFromV1,
   textIsAddressConfirmationNo,
@@ -43,6 +49,7 @@ export type AddressProcessAction =
   | 'unhandled'
   | 'reply'
   | 'needs_confirmation'
+  | 'inline_corrected'
   | 'confirmed'
   | 'escalate_human'
   | 'request_correction';
@@ -145,24 +152,159 @@ export class CatalogDeliveryAddressService {
       this.applyV1ToOrder(order, confirmed);
       return { handled: true, action: 'confirmed', v1: confirmed };
     }
+
+    const inline = parseInlineAddressCorrectionAfterNo(text);
+    if (inline) {
+      return this.applyInlineCorrection(order, v1, inline, ctx);
+    }
+
     if (textIsAddressConfirmationNo(text)) {
       const partial: DeliveryAddressV1 = {
         ...v1,
         status: 'partial',
+        confirmedAt: undefined,
+        confirmedBy: undefined,
         missingFields: ['street', 'number'],
       };
+      this.invalidateFreightEstimate(order);
       this.applyV1ToOrder(order, partial);
-      const prefix = ctx.contactFirstName?.trim() ? `${ctx.contactFirstName.trim()}, ` : '';
       return {
         handled: true,
         action: 'request_correction',
-        reply: `${prefix}Sem problemas. Me envie o endereço corrigido (rua, número, bairro e cidade).`,
+        reply: buildSimpleAddressRejectionMessage(ctx.contactFirstName),
         v1: partial,
       };
     }
 
     const correction = await this.processFreeText(order, text, { ...v1, status: 'partial' }, ctx);
     if (correction.handled) return correction;
+
+    return {
+      handled: true,
+      action: 'reply',
+      reply: buildAddressConfirmationRequestMessage(v1),
+      v1,
+    };
+  }
+
+  private invalidateFreightEstimate(order: ICatalogSalesOrder): void {
+    order.deliveryFee = undefined;
+    order.deliveryDistanceKm = undefined;
+    order.deliveryTierKm = undefined;
+    order.deliveryDistanceMethod = undefined;
+  }
+
+  private orderBlocksInlineAddressCorrection(order: ICatalogSalesOrder): boolean {
+    return ['pagamento_aprovado', 'pedido_confirmado', 'entregue', 'concluido'].includes(order.status);
+  }
+
+  private async applyInlineCorrection(
+    order: ICatalogSalesOrder,
+    v1: DeliveryAddressV1,
+    inline: NonNullable<ReturnType<typeof parseInlineAddressCorrectionAfterNo>>,
+    ctx: AddressProcessContext,
+  ): Promise<AddressProcessResult> {
+    if (this.orderBlocksInlineAddressCorrection(order)) {
+      return {
+        handled: true,
+        action: 'escalate_human',
+        reply:
+          'Seu pedido já está em processamento de pagamento. Um atendente vai ajudar com a alteração de endereço.',
+        v1,
+      };
+    }
+
+    this.invalidateFreightEstimate(order);
+
+    if (inline.kind === 'cep' && inline.zipCode) {
+      const lookup = await lookupBrCep(inline.zipCode);
+      if (!lookup) {
+        return {
+          handled: true,
+          action: 'reply',
+          reply: 'Não consegui localizar esse CEP. Confira os 8 dígitos ou envie o endereço completo.',
+          v1,
+        };
+      }
+      const cepV1 = this.v1FromCepLookup(lookup, inline.zipCode, v1.source ?? 'cep');
+      const merged: DeliveryAddressV1 = refreshV1AfterInlineCorrection({
+        ...v1,
+        ...cepV1,
+        number: v1.number?.trim() ? v1.number : cepV1.number,
+        complement: v1.complement ?? cepV1.complement,
+        latitude: v1.latitude,
+        longitude: v1.longitude,
+      });
+      if (merged.number?.trim()) {
+        this.applyV1ToOrder(order, merged);
+        return {
+          handled: true,
+          action: 'inline_corrected',
+          reply: buildAddressConfirmationRequestMessage(merged),
+          v1: merged,
+        };
+      }
+      merged.status = 'partial';
+      merged.missingFields = ['number'];
+      this.applyV1ToOrder(order, merged);
+      return {
+        handled: true,
+        action: 'inline_corrected',
+        reply: buildInlineCepCorrectedMessage(),
+        v1: merged,
+      };
+    }
+
+    let updated: DeliveryAddressV1 = { ...v1 };
+
+    if (inline.kind === 'number' && inline.number) {
+      updated = refreshV1AfterInlineCorrection({ ...updated, number: inline.number });
+      this.applyV1ToOrder(order, updated);
+      return {
+        handled: true,
+        action: 'inline_corrected',
+        reply: buildInlineNumberCorrectedMessage(updated),
+        v1: updated,
+      };
+    }
+
+    if (inline.kind === 'street_number' && inline.street && inline.number) {
+      updated = refreshV1AfterInlineCorrection({
+        ...updated,
+        street: inline.street,
+        number: inline.number,
+        neighborhood: inline.neighborhood ?? updated.neighborhood,
+      });
+      this.applyV1ToOrder(order, updated);
+      return {
+        handled: true,
+        action: 'inline_corrected',
+        reply: buildInlineAddressCorrectedMessage(updated),
+        v1: updated,
+      };
+    }
+
+    if (inline.kind === 'neighborhood' && inline.neighborhood) {
+      updated = refreshV1AfterInlineCorrection({ ...updated, neighborhood: inline.neighborhood });
+      this.applyV1ToOrder(order, updated);
+      return {
+        handled: true,
+        action: 'inline_corrected',
+        reply: buildInlineAddressCorrectedMessage(updated),
+        v1: updated,
+      };
+    }
+
+    if (inline.kind === 'complement' && inline.complement) {
+      updated = refreshV1AfterInlineCorrection({ ...updated, complement: inline.complement });
+      this.applyV1ToOrder(order, updated);
+      return {
+        handled: true,
+        action: 'inline_corrected',
+        reply: buildInlineAddressCorrectedMessage(updated),
+        v1: updated,
+      };
+    }
 
     return {
       handled: true,

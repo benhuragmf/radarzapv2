@@ -991,9 +991,11 @@ export class CatalogSalesService {
       }
 
       const historyAction =
-        v1Result.action === 'needs_confirmation'
-          ? 'delivery_address_needs_confirmation'
-          : 'delivery_address_received';
+        v1Result.action === 'inline_corrected'
+          ? 'delivery_address_inline_corrected'
+          : v1Result.action === 'needs_confirmation'
+            ? 'delivery_address_needs_confirmation'
+            : 'delivery_address_received';
       order.history.push({
         at: new Date(),
         action: historyAction,
@@ -1014,7 +1016,8 @@ export class CatalogSalesService {
         result: {
           ...noop,
           handled: true,
-          needsAddressConfirmation: v1Result.action === 'needs_confirmation',
+          needsAddressConfirmation:
+            v1Result.action === 'needs_confirmation' || v1Result.action === 'inline_corrected',
         },
       };
     }

@@ -22,6 +22,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.61] - 2026-06-30
+
+### Fixed
+- Hotfix R1 endereço v1: correção inline após negativa na confirmação (`não, é número 120`, rua/CEP/bairro/complemento) antes de cair em `não` simples
+- `parseInlineAddressCorrectionAfterNo` + ordem sim → inline → não → texto livre
+- Frete/PIX invalidados até nova confirmação; histórico `delivery_address_inline_corrected`
+
+---
+
 ## [2.17.60] - 2026-07-01
 
 ### Added
