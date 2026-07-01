@@ -16,6 +16,7 @@ export {
 export const CATALOG_SALES_ORDER_STATUSES = [
   'rascunho',
   'aguardando_endereco',
+  'pendente_humano_endereco',
   'aguardando_pagamento',
   'comprovante_recebido',
   'em_conferencia',
@@ -1028,6 +1029,8 @@ export function catalogOrderInboxTitle(status: CatalogSalesOrderStatus): string 
   switch (status) {
     case 'aguardando_endereco':
       return '📍 Pedido aguardando endereço';
+    case 'pendente_humano_endereco':
+      return '👤 Endereço aguardando atendente';
     case 'aguardando_pagamento':
       return '💳 Pedido aguardando pagamento';
     case 'comprovante_recebido':

@@ -5,6 +5,10 @@ import type {
   CatalogSalesOrderStatus,
   CatalogSalesProofRecord,
 } from '@/types/catalog-sales';
+import type {
+  DeliveryAddressSnapshot,
+  DeliveryAddressV1,
+} from '@/types/catalog-delivery-address-v1';
 
 export interface ICatalogSalesOrder extends Document {
   clientId: mongoose.Types.ObjectId;
@@ -30,6 +34,10 @@ export interface ICatalogSalesOrder extends Document {
     deliveryLocationLng?: number;
     deliveryLocationPendingConfirm?: boolean;
     addressConfirmAttempts?: number;
+    /** Endereço de Entrega v1 — objeto estrutural */
+    deliveryAddressV1?: DeliveryAddressV1;
+    /** Snapshot imutável após confirmação + frete */
+    deliveryAddressSnapshot?: DeliveryAddressSnapshot;
     catalogFlowPaused?: boolean;
     stockSnapshot?: string;
   paymentMethod: 'pix';
@@ -51,6 +59,65 @@ export interface ICatalogSalesOrder extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const DeliveryAddressV1Schema = new Schema(
+  {
+    rawText: String,
+    street: String,
+    number: String,
+    complement: String,
+    reference: String,
+    neighborhood: String,
+    city: String,
+    state: String,
+    uf: String,
+    zipCode: String,
+    country: String,
+    latitude: Number,
+    longitude: Number,
+    source: String,
+    confidence: String,
+    status: String,
+    confirmedBy: String,
+    confirmedAt: Date,
+    normalizedAt: Date,
+    needsHumanReview: Boolean,
+    missingFields: [String],
+    geocodeProvider: String,
+    geocodeStatus: String,
+    reverseGeocodeStatus: String,
+    mapsUrl: String,
+    formattedAddress: { type: String, maxlength: 500 },
+    notes: { type: String, maxlength: 500 },
+    freightRuleVersion: String,
+  },
+  { _id: false },
+);
+
+const DeliveryAddressSnapshotSchema = new Schema(
+  {
+    formattedAddress: { type: String, maxlength: 500 },
+    street: String,
+    number: String,
+    neighborhood: String,
+    city: String,
+    uf: String,
+    zipCode: String,
+    latitude: Number,
+    longitude: Number,
+    source: String,
+    confirmedAt: Date,
+    confirmedBy: String,
+    deliveryDistanceKm: Number,
+    deliveryTierKm: Number,
+    deliveryFee: String,
+    subtotalAmount: String,
+    totalAmount: String,
+    freightRuleVersion: String,
+    capturedAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
 
 const ProofSchema = new Schema<CatalogSalesProofRecord>(
   {
@@ -99,6 +166,8 @@ const CatalogSalesOrderSchema = new Schema<ICatalogSalesOrder>(
     deliveryLocationLng: { type: Number },
     deliveryLocationPendingConfirm: { type: Boolean, default: false },
     addressConfirmAttempts: { type: Number, default: 0, min: 0 },
+    deliveryAddressV1: { type: DeliveryAddressV1Schema, default: undefined },
+    deliveryAddressSnapshot: { type: DeliveryAddressSnapshotSchema, default: undefined },
     catalogFlowPaused: { type: Boolean, default: false },
     stockSnapshot: { type: String, maxlength: 120 },
     paymentMethod: { type: String, enum: ['pix'], default: 'pix' },
@@ -107,6 +176,7 @@ const CatalogSalesOrderSchema = new Schema<ICatalogSalesOrder>(
       enum: [
         'rascunho',
         'aguardando_endereco',
+        'pendente_humano_endereco',
         'aguardando_pagamento',
         'comprovante_recebido',
         'em_conferencia',

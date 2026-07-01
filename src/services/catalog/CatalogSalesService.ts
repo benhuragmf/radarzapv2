@@ -107,11 +107,16 @@ import type { WaInboundLocation } from '@/utils/wa-location.util';
 import { isValidWaCoordinates } from '@/utils/wa-location.util';
 import { deliveryAddressValidationError, isCompleteDeliveryAddress } from '@/types/catalog-delivery-address';
 import { sanitizeKnowledgeBaseContentForClient } from '@/utils/ai-kb-client.util';
+import {
+  catalogDeliveryAddressService,
+} from '@/services/catalog/CatalogDeliveryAddressService';
+import { deliveryAddressV1Label } from '@/types/catalog-delivery-address-v1';
 
 const logger = createServiceLogger('CatalogSalesService');
 
 const ACTIVE_ORDER_STATUSES: CatalogSalesOrderStatus[] = [
   'aguardando_endereco',
+  'pendente_humano_endereco',
   'aguardando_pagamento',
   'comprovante_recebido',
   'em_conferencia',
@@ -937,100 +942,81 @@ export class CatalogSalesService {
       handled: false,
     };
     const order = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
-    if (!order || order.status !== 'aguardando_endereco') {
+    if (!order || (order.status !== 'aguardando_endereco' && order.status !== 'pendente_humano_endereco')) {
       return { handled: false, result: noop };
     }
 
     const text = opts.clientText.trim();
-    if (textIsCepOnly(text)) {
-      order.deliveryAddress = formatCepDisplay(normalizeCepDigits(text));
-      order.history.push({
-        at: new Date(),
-        action: 'cep_collected',
-        status: 'aguardando_endereco',
-      });
-      await order.save();
-      await this.sendCatalogAutomatedCustomerMessage(
-        order,
-        'Obrigado pelo CEP! Agora, por favor, me informe o *número* da sua residência para calcular o frete. ' +
-          'O sistema enviará a mensagem automática com os valores exatos.',
-        'catalog-sales-cep-collected',
-      );
-      return {
-        handled: true,
-        result: { ...noop, handled: true },
-      };
-    }
+    const v1Result = await catalogDeliveryAddressService.processClientInput(order, {
+      clientText: text,
+      contactFirstName: resolveClientFirstName(order.contactName),
+    });
 
-    if (textLooksLikeStreetNumber(text) && storedValueIsCepOnly(order.deliveryAddress)) {
-      const full = await buildDeliveryAddressFromCepAndNumber(order.deliveryAddress ?? '', text);
-      if (!full) {
-        await this.sendCatalogAutomatedCustomerMessage(
-          order,
-          'Não consegui localizar esse CEP. Confira os 8 dígitos ou envie o endereço completo.',
-          'catalog-sales-cep-invalid',
-        );
-        return { handled: true, result: { ...noop, handled: true, quoteFailed: true } };
-      }
-      const quoteResult = await this.maybeAttachAddressToOrder(order, full, opts.cfg);
-      return {
-        handled: true,
-        result: {
-          serverQuoteSent: quoteResult.quoteSent,
-          quoteFailed: quoteResult.quoteFailed,
-          useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
-          handled: true,
-        },
-      };
-    }
-
-    if (order.deliveryLocationPendingConfirm) {
-      const locResult = await this.handleInboundLocationStreetConfirm({
-        clientId: opts.clientId,
-        conversation: {
-          conversationId: opts.conversationId,
-          channel: order.channel,
-          destinationId: order.destinationId ? String(order.destinationId) : undefined,
-          contactIdentifier: order.contactIdentifier,
-          contactName: order.contactName,
-        },
-        text,
-      });
-      if (locResult.handled) {
+    if (v1Result.handled) {
+      if (v1Result.action === 'confirmed') {
+        order.history.push({
+          at: new Date(),
+          action: 'delivery_address_confirmed',
+          status: 'aguardando_endereco',
+        });
+        await order.save();
+        const quoteResult = await this.proceedToFreightAfterConfirmedAddress(order, opts.cfg);
         return {
           handled: true,
           result: {
-            serverQuoteSent: locResult.serverQuoteSent,
-            quoteFailed: locResult.quoteFailed,
+            serverQuoteSent: quoteResult.quoteSent,
+            quoteFailed: quoteResult.quoteFailed,
             useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
             handled: true,
-            needsAddressConfirmation: locResult.needsAddressConfirmation,
           },
         };
       }
-    }
 
-    const streetParsed = parseStreetNumberReply(text);
-    if (streetParsed?.number && order.deliveryLocationLat != null && order.deliveryLocationLng != null) {
-      const quoteResult = await this.maybeAttachAddressToOrder(order, text, opts.cfg);
+      if (v1Result.action === 'escalate_human') {
+        order.status = 'pendente_humano_endereco';
+        order.history.push({
+          at: new Date(),
+          action: 'delivery_address_needs_human',
+          status: 'pendente_humano_endereco',
+        });
+        await order.save();
+        if (v1Result.reply) {
+          await this.sendCatalogAutomatedCustomerMessage(
+            order,
+            v1Result.reply,
+            'catalog-sales-address-human',
+          );
+        }
+        return { handled: true, result: { ...noop, handled: true, quoteFailed: true } };
+      }
+
+      const historyAction =
+        v1Result.action === 'needs_confirmation'
+          ? 'delivery_address_needs_confirmation'
+          : 'delivery_address_received';
+      order.history.push({
+        at: new Date(),
+        action: historyAction,
+        status: 'aguardando_endereco',
+      });
+      await order.save();
+
+      if (v1Result.reply) {
+        await this.sendCatalogAutomatedCustomerMessage(
+          order,
+          v1Result.reply,
+          'catalog-sales-address-v1',
+        );
+      }
+
       return {
         handled: true,
         result: {
-          serverQuoteSent: quoteResult.quoteSent,
-          quoteFailed: quoteResult.quoteFailed,
-          useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
+          ...noop,
           handled: true,
+          needsAddressConfirmation: v1Result.action === 'needs_confirmation',
         },
       };
-    }
-
-    if (detectCatalogCepOfferQuestion(text)) {
-      await this.sendCatalogAutomatedCustomerMessage(
-        order,
-        buildCatalogCepOfferReply(order.contactName),
-        'catalog-sales-cep-offer',
-      );
-      return { handled: true, result: { ...noop, handled: true } };
     }
 
     const flowCmd = await this.tryProcessCatalogFlowCommand({
@@ -1048,19 +1034,6 @@ export class CatalogSalesService {
     if (flowCmd.handled && flowCmd.reply) {
       await this.sendCatalogAutomatedCustomerMessage(order, flowCmd.reply, 'catalog-sales-flow-command');
       return { handled: true, result: { ...noop, handled: true } };
-    }
-
-    if (textLooksLikeDeliveryAddressInput(text) && isGeocodableCustomerAddress(text)) {
-      const quoteResult = await this.maybeAttachAddressToOrder(order, text, opts.cfg);
-      return {
-        handled: true,
-        result: {
-          serverQuoteSent: quoteResult.quoteSent,
-          quoteFailed: quoteResult.quoteFailed,
-          useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
-          handled: true,
-        },
-      };
     }
 
     return { handled: false, result: noop };
@@ -1338,7 +1311,7 @@ export class CatalogSalesService {
     });
   }
 
-  /** Atualiza endereço em pedido pendente; calcula frete no servidor e envia cotação ao cliente. */
+  /** Atualiza endereço em pedido pendente; calcula frete no servidor após confirmação v1. */
   async maybeAttachAddressToOrder(
     order: ICatalogSalesOrder,
     collectedAddress?: string,
@@ -1350,37 +1323,78 @@ export class CatalogSalesService {
       return { quoteSent: false, quoteFailed: false };
     }
 
-    let resolvedAddr = addr;
-    if (order.deliveryLocationPendingConfirm) {
-      const lat = order.deliveryLocationLat;
-      const lng = order.deliveryLocationLng;
-      const reverse =
-        lat != null && lng != null && isValidWaCoordinates(lat, lng)
-          ? await reverseGeocodeCoords(lat, lng)
-          : null;
-      const merged = mergeLocationConfirmReply(addr, reverse, {
-        displayAddress: order.deliveryAddress,
+    const v1 = catalogDeliveryAddressService.ensureV1(order);
+    if (!catalogDeliveryAddressService.canProceedToFreight(v1)) {
+      const normalized = await catalogDeliveryAddressService.processClientInput(order, {
+        clientText: addr,
+        contactFirstName: resolveClientFirstName(order.contactName),
       });
-      if (!merged) {
-        return { quoteSent: false, quoteFailed: false };
+      if (normalized.handled && normalized.reply) {
+        order.history.push({
+          at: new Date(),
+          action: 'delivery_address_normalized',
+          status: 'aguardando_endereco',
+        });
+        await order.save();
+        await this.sendCatalogAutomatedCustomerMessage(
+          order,
+          normalized.reply,
+          'catalog-sales-address-v1',
+        );
+      } else {
+        await order.save();
       }
-      resolvedAddr = merged;
+      if (normalized.action === 'confirmed') {
+        const cfg =
+          companyCfg ?? (await this.loadCompanyConfig(String(order.clientId)));
+        return this.proceedToFreightAfterConfirmedAddress(order, cfg, productMeta);
+      }
+      if (normalized.action === 'escalate_human') {
+        order.status = 'pendente_humano_endereco';
+        await order.save();
+      }
+      return { quoteSent: false, quoteFailed: false };
+    }
+
+    order.deliveryAddress = (v1.formattedAddress ?? addr).slice(0, 500);
+    const cfg =
+      companyCfg ?? (await this.loadCompanyConfig(String(order.clientId)));
+    return this.proceedToFreightAfterConfirmedAddress(order, cfg, productMeta);
+  }
+
+  /** Frete + PIX somente após endereço confirmado (Endereço v1). */
+  private async proceedToFreightAfterConfirmedAddress(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+    productMeta?: ReturnType<typeof normalizeProductSalesMeta>,
+  ): Promise<{ quoteSent: boolean; quoteFailed: boolean }> {
+    const v1 = catalogDeliveryAddressService.ensureV1(order);
+    if (!catalogDeliveryAddressService.canProceedToFreight(v1)) {
+      return { quoteSent: false, quoteFailed: false };
+    }
+
+    if (order.deliveryLocationPendingConfirm) {
       order.deliveryLocationPendingConfirm = false;
     }
 
-    order.deliveryAddress = resolvedAddr.slice(0, 500);
-    const cfg =
-      companyCfg ?? (await this.loadCompanyConfig(String(order.clientId)));
+    const resolvedAddr = v1.formattedAddress?.trim() ?? order.deliveryAddress?.trim() ?? '';
+    if (resolvedAddr) order.deliveryAddress = resolvedAddr.slice(0, 500);
+
+    v1.status = 'freight_pending';
+    catalogDeliveryAddressService.applyV1ToOrder(order, v1);
 
     let quoteOk = true;
     if (cfg.useDistanceBasedDelivery) {
       quoteOk = await this.applyDeliveryEstimateToOrder(order, cfg, productMeta);
       if (!quoteOk) {
-        order.status = 'aguardando_endereco';
+        v1.status = 'needs_human_review';
+        v1.needsHumanReview = true;
+        catalogDeliveryAddressService.applyV1ToOrder(order, v1);
+        order.status = 'pendente_humano_endereco';
         order.history.push({
           at: new Date(),
           action: 'delivery_quote_failed',
-          status: 'aguardando_endereco',
+          status: 'pendente_humano_endereco',
         });
         await order.save();
         await this.sendDeliveryQuoteToCustomer(order, cfg, 'failed');
@@ -1400,11 +1414,13 @@ export class CatalogSalesService {
       await this.applyDeliveryEstimateToOrder(order, cfg, productMeta);
     }
 
+    catalogDeliveryAddressService.markFreightConfirmed(order);
     order.status = 'aguardando_pagamento';
     order.history.push({
       at: new Date(),
-      action: 'address_collected',
+      action: 'address_confirmed_freight',
       status: 'aguardando_pagamento',
+      note: deliveryAddressV1Label(order.deliveryAddressV1 as typeof v1),
     });
     await order.save();
 
@@ -1425,6 +1441,7 @@ export class CatalogSalesService {
     }
     return { quoteSent: false, quoteFailed: false };
   }
+
 
   private async applyDeliveryEstimateToOrder(
     order: ICatalogSalesOrder,
@@ -1586,60 +1603,38 @@ export class CatalogSalesService {
 
     order.deliveryLocationLat = lat;
     order.deliveryLocationLng = lng;
-    order.deliveryAddress = addressLabel.slice(0, 500);
 
-    const needsConfirm = locationAddressNeedsConfirmation({
-      reverse,
-      waAddress: opts.location.address,
-      addressLabel,
-      isLive: opts.location.isLive,
-    });
+    const pinResult = await catalogDeliveryAddressService.processPinLocation(
+      order,
+      lat,
+      lng,
+      opts.location.address,
+      opts.location.isLive,
+    );
 
-    if (needsConfirm) {
-      order.deliveryLocationPendingConfirm = true;
-      order.status = 'aguardando_endereco';
-      order.history.push({
-        at: new Date(),
-        action: 'location_pending_confirm',
-        status: 'aguardando_endereco',
-        note: locationAreaHint(reverse) || 'pin',
-      });
-      await order.save();
-      await this.sendLocationConfirmRequestToCustomer(order, cfg, reverse);
-      return {
-        serverQuoteSent: false,
-        quoteFailed: false,
-        useDistanceBasedDelivery: useDistance,
-        needsAddressConfirmation: true,
-        handled: true,
-      };
-    }
-
-    order.deliveryLocationPendingConfirm = false;
-
-    const quoteOk = await this.applyDeliveryEstimateToOrder(order, cfg);
-    if (!quoteOk) {
-      order.status = 'aguardando_endereco';
-      order.history.push({
-        at: new Date(),
-        action: 'delivery_quote_failed',
-        status: 'aguardando_endereco',
-        note: 'localização',
-      });
-      await order.save();
-      await this.sendDeliveryQuoteToCustomer(order, cfg, 'failed');
-      return { serverQuoteSent: false, quoteFailed: true, useDistanceBasedDelivery: useDistance };
-    }
-
-    order.status = 'aguardando_pagamento';
     order.history.push({
       at: new Date(),
-      action: 'location_collected',
-      status: 'aguardando_pagamento',
+      action: 'location_received',
+      status: 'aguardando_endereco',
+      note: locationAreaHint(reverse) || 'pin',
     });
     await order.save();
-    await this.sendDeliveryQuoteToCustomer(order, cfg, 'success');
-    return { serverQuoteSent: true, quoteFailed: false, useDistanceBasedDelivery: useDistance };
+
+    if (pinResult.reply) {
+      await this.sendCatalogAutomatedCustomerMessage(
+        order,
+        pinResult.reply,
+        'catalog-sales-pin-v1',
+      );
+    }
+
+    return {
+      serverQuoteSent: false,
+      quoteFailed: false,
+      useDistanceBasedDelivery: useDistance,
+      needsAddressConfirmation: pinResult.action === 'needs_confirmation',
+      handled: true,
+    };
   }
 
   /** Resposta em texto após pedido de confirmação de rua/número (pin impreciso). */
@@ -1649,42 +1644,18 @@ export class CatalogSalesService {
     text: string;
   }): Promise<CatalogAiTurnResult> {
     const cfg = await this.loadCompanyConfig(opts.clientId);
-    const useDistance = Boolean(cfg.useDistanceBasedDelivery);
-    const text = opts.text.trim();
-    if (!text) {
-      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance, handled: false };
-    }
-
-    const order = await CatalogSalesOrder.findOne({
-      clientId: new mongoose.Types.ObjectId(opts.clientId),
-      conversationId: new mongoose.Types.ObjectId(opts.conversation.conversationId),
-      status: 'aguardando_endereco',
-      deliveryLocationPendingConfirm: true,
-    }).sort({ updatedAt: -1 });
-
-    if (!order) {
-      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance, handled: false };
-    }
-
-    const wasPending = Boolean(order.deliveryLocationPendingConfirm);
-    const quoteResult = await this.maybeAttachAddressToOrder(order, text, cfg);
-
-    if (wasPending && order.deliveryLocationPendingConfirm) {
-      await this.sendLocationConfirmRetryToCustomer(order, cfg);
-      return {
-        serverQuoteSent: false,
-        quoteFailed: false,
-        useDistanceBasedDelivery: useDistance,
-        needsAddressConfirmation: true,
-        handled: true,
-      };
-    }
-
+    const incremental = await this.processIncrementalAddressInput({
+      clientId: opts.clientId,
+      conversationId: opts.conversation.conversationId,
+      clientText: opts.text,
+      cfg,
+    });
     return {
-      serverQuoteSent: quoteResult.quoteSent,
-      quoteFailed: quoteResult.quoteFailed,
-      useDistanceBasedDelivery: useDistance,
-      handled: true,
+      serverQuoteSent: incremental.result.serverQuoteSent,
+      quoteFailed: incremental.result.quoteFailed,
+      useDistanceBasedDelivery: incremental.result.useDistanceBasedDelivery,
+      needsAddressConfirmation: incremental.result.needsAddressConfirmation,
+      handled: incremental.handled,
     };
   }
 
@@ -2616,20 +2587,108 @@ export class CatalogSalesService {
   }
 
   async getOrderForClient(clientId: string, orderIdOrCode: string): Promise<ICatalogSalesOrder> {
+    let order: ICatalogSalesOrder | null = null;
     if (isValidCatalogOrderCode(orderIdOrCode)) {
-      const byCode = await this.getOrderByCode(clientId, orderIdOrCode);
-      if (!byCode) throw new Error('Pedido não encontrado');
-      if (!byCode.orderCode) await this.ensureOrderCode(byCode);
-      return byCode;
+      order = await this.getOrderByCode(clientId, orderIdOrCode);
+    } else if (mongoose.Types.ObjectId.isValid(orderIdOrCode)) {
+      order = await CatalogSalesOrder.findOne({
+        _id: new mongoose.Types.ObjectId(orderIdOrCode),
+        clientId: new mongoose.Types.ObjectId(clientId),
+      });
     }
-    if (!mongoose.Types.ObjectId.isValid(orderIdOrCode)) throw new Error('Pedido inválido');
-    const order = await CatalogSalesOrder.findOne({
-      _id: new mongoose.Types.ObjectId(orderIdOrCode),
-      clientId: new mongoose.Types.ObjectId(clientId),
-    });
     if (!order) throw new Error('Pedido não encontrado');
     if (!order.orderCode) await this.ensureOrderCode(order);
+    catalogDeliveryAddressService.ensureV1(order);
     return order;
+  }
+
+  async updateOrderDeliveryAddress(
+    clientId: string,
+    orderId: string,
+    payload: Record<string, unknown>,
+    actorUserId?: string,
+  ): Promise<ICatalogSalesOrder> {
+    const order = await this.getOrderForClient(clientId, orderId);
+    if (['pagamento_aprovado', 'pedido_confirmado', 'cancelado'].includes(order.status)) {
+      throw new Error('Pedido não permite alteração de endereço neste status');
+    }
+    catalogDeliveryAddressService.applyOperatorCorrection(
+      order,
+      payload as import('@/types/catalog-delivery-address-v1').DeliveryAddressV1,
+      actorUserId,
+    );
+    await order.save();
+    return order;
+  }
+
+  async confirmOrderDeliveryAddressByOperator(
+    clientId: string,
+    orderId: string,
+    actorUserId?: string,
+  ): Promise<ICatalogSalesOrder> {
+    const order = await this.getOrderForClient(clientId, orderId);
+    const v1 = catalogDeliveryAddressService.ensureV1(order);
+    v1.status = 'confirmed';
+    v1.confirmedBy = 'operator';
+    v1.confirmedAt = new Date();
+    catalogDeliveryAddressService.applyV1ToOrder(order, v1);
+    order.history.push({
+      at: new Date(),
+      action: 'delivery_address_confirmed_operator',
+      actorUserId,
+    });
+    await order.save();
+    return order;
+  }
+
+  async requestDeliveryAddressCorrection(
+    clientId: string,
+    orderId: string,
+    actorUserId?: string,
+  ): Promise<ICatalogSalesOrder> {
+    const order = await this.getOrderForClient(clientId, orderId);
+    order.status = 'aguardando_endereco';
+    const v1 = catalogDeliveryAddressService.ensureV1(order);
+    v1.status = 'partial';
+    catalogDeliveryAddressService.applyV1ToOrder(order, v1);
+    order.history.push({
+      at: new Date(),
+      action: 'delivery_address_correction_requested',
+      actorUserId,
+      status: 'aguardando_endereco',
+    });
+    await order.save();
+    await this.sendCatalogAutomatedCustomerMessage(
+      order,
+      'Precisamos confirmar seu endereço de entrega. Por favor, envie rua, número, bairro e cidade.',
+      'catalog-sales-address-correction-request',
+    );
+    return order;
+  }
+
+  async recalculateOrderFreight(
+    clientId: string,
+    orderId: string,
+    actorUserId?: string,
+  ): Promise<{ order: ICatalogSalesOrder; quoteSent: boolean; quoteFailed: boolean }> {
+    const order = await this.getOrderForClient(clientId, orderId);
+    if (!catalogDeliveryAddressService.canProceedToFreight(order.deliveryAddressV1)) {
+      throw new Error('Endereço precisa estar confirmado antes de recalcular frete');
+    }
+    if (['pagamento_aprovado', 'pedido_confirmado'].includes(order.status)) {
+      throw new Error('Pedido pago não permite recálculo automático de frete');
+    }
+    order.status = 'aguardando_endereco';
+    await order.save();
+    const cfg = await this.loadCompanyConfig(clientId);
+    const result = await this.proceedToFreightAfterConfirmedAddress(order, cfg);
+    order.history.push({
+      at: new Date(),
+      action: 'delivery_freight_recalculated',
+      actorUserId,
+    });
+    await order.save();
+    return { order, ...result };
   }
 
   private async clearConversationPixPending(
@@ -2651,6 +2710,7 @@ export class CatalogSalesService {
   }
 
   orderToPayload(order: ICatalogSalesOrder) {
+    catalogDeliveryAddressService.ensureV1(order);
     return {
       id: String(order._id),
       orderCode: order.orderCode ?? null,
@@ -2671,6 +2731,8 @@ export class CatalogSalesService {
       deliveryLocationLat: order.deliveryLocationLat,
       deliveryLocationLng: order.deliveryLocationLng,
       deliveryLocationPendingConfirm: order.deliveryLocationPendingConfirm,
+      deliveryAddressV1: order.deliveryAddressV1 ?? null,
+      deliveryAddressSnapshot: order.deliveryAddressSnapshot ?? null,
       stockSnapshot: order.stockSnapshot,
       status: order.status,
       proofs: order.proofs.map(p => ({

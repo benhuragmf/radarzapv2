@@ -32,6 +32,19 @@ export interface CatalogOrderListItem {
   contactIdentifier?: string
   conversationId?: string
   deliveryAddress?: string
+  deliveryAddressV1?: {
+    status?: string
+    source?: string
+    formattedAddress?: string
+    confidence?: string
+  } | null
+  deliveryAddressSnapshot?: {
+    formattedAddress: string
+    deliveryFee?: string
+    totalAmount?: string
+    deliveryDistanceKm?: number
+    deliveryTierKm?: number
+  } | null
   createdAt?: string
   updatedAt?: string
   proofs?: Array<{ receivedAt: string }>
@@ -39,6 +52,7 @@ export interface CatalogOrderListItem {
 
 const STATUS_LABEL: Record<string, { text: string; variant: 'info' | 'warning' | 'success' | 'danger' | 'neutral' }> = {
   aguardando_endereco: { text: 'Aguardando endereço', variant: 'info' },
+  pendente_humano_endereco: { text: 'Endereço — humano', variant: 'warning' },
   aguardando_pagamento: { text: 'Aguardando pagamento', variant: 'warning' },
   comprovante_recebido: { text: 'Comprovante recebido', variant: 'info' },
   em_conferencia: { text: 'Em conferência', variant: 'warning' },
@@ -400,10 +414,34 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
               <dt className="text-[var(--rz-text-muted)]">Total</dt>
               <dd className="font-medium">{selected.totalAmount ?? selected.amount ?? '—'}</dd>
             </div>
-            {selected.deliveryAddress && (
+            {(selected.deliveryAddressV1?.formattedAddress || selected.deliveryAddress) && (
               <div>
                 <dt className="text-[var(--rz-text-muted)]">Endereço</dt>
-                <dd>{selected.deliveryAddress}</dd>
+                <dd>
+                  {selected.deliveryAddressV1?.formattedAddress || selected.deliveryAddress}
+                  {selected.deliveryAddressV1?.status && (
+                    <span className="block text-xs text-[var(--rz-text-muted)]">
+                      Status: {selected.deliveryAddressV1.status}
+                      {selected.deliveryAddressV1.source ? ` · ${selected.deliveryAddressV1.source}` : ''}
+                    </span>
+                  )}
+                </dd>
+              </div>
+            )}
+            {selected.deliveryAddressSnapshot?.formattedAddress && (
+              <div>
+                <dt className="text-[var(--rz-text-muted)]">Snapshot entrega</dt>
+                <dd className="text-sm">
+                  {selected.deliveryAddressSnapshot.formattedAddress}
+                  {selected.deliveryAddressSnapshot.deliveryDistanceKm != null && (
+                    <span className="block text-xs text-[var(--rz-text-muted)]">
+                      ~{selected.deliveryAddressSnapshot.deliveryDistanceKm} km
+                      {selected.deliveryAddressSnapshot.deliveryTierKm != null
+                        ? ` · faixa ${selected.deliveryAddressSnapshot.deliveryTierKm} km`
+                        : ''}
+                    </span>
+                  )}
+                </dd>
               </div>
             )}
             <div>

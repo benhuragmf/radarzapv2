@@ -142,7 +142,9 @@ Base: `/api/platform/catalog-sales`
 
 Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é URL pública aberta).
 
-**Versão em produção:** `2.17.59` (`f1f54ee`, deploy [28542629760](https://github.com/benhuragmf/radarzapv2/actions/runs/28542629760)). Ver `concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md`.
+**Versão em produção:** `2.17.59`. **Local:** `2.17.60` (Endereço Entrega v1 — ver `concluidos/RADARCHAT-ENDERECO-ENTREGA-V1-2.17.60.md`).
+
+**Fluxo entrega (2.17.60+):** CEP/pin/texto → normalização → confirmação cliente → frete → PIX. Sem PIX antes de endereço confirmado.
 
 Pedidos exibem código curto `DX-####` (desde 2.17.59). Deep link: `/platform/produtos#pedidos?order=DX-1045`.
 

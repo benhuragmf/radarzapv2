@@ -3164,6 +3164,79 @@ export class DashboardService {
       },
     );
 
+    r.patch(
+      '/platform/catalog-sales/orders/:id/delivery-address',
+      requireCapability(Cap.ORDERS_UPDATE_STATUS),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const order = await catalogSalesSvc.updateOrderDeliveryAddress(
+            auth.clientId,
+            req.params.id,
+            req.body as Record<string, unknown>,
+            auth.userId,
+          );
+          res.json(catalogSalesSvc.orderToPayload(order));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/delivery-address/confirm',
+      requireCapability(Cap.ORDERS_UPDATE_STATUS),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const order = await catalogSalesSvc.confirmOrderDeliveryAddressByOperator(
+            auth.clientId,
+            req.params.id,
+            auth.userId,
+          );
+          res.json(catalogSalesSvc.orderToPayload(order));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/delivery-address/request-correction',
+      requireCapability(Cap.ORDERS_UPDATE_STATUS),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const order = await catalogSalesSvc.requestDeliveryAddressCorrection(
+            auth.clientId,
+            req.params.id,
+            auth.userId,
+          );
+          res.json(catalogSalesSvc.orderToPayload(order));
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
+    r.post(
+      '/platform/catalog-sales/orders/:id/freight/recalculate',
+      requireCapability(Cap.ORDERS_UPDATE_STATUS),
+      async (req, res) => {
+        try {
+          const auth = (req as DashboardRequest).auth!;
+          const { order, quoteSent, quoteFailed } = await catalogSalesSvc.recalculateOrderFreight(
+            auth.clientId,
+            req.params.id,
+            auth.userId,
+          );
+          res.json({ ...catalogSalesSvc.orderToPayload(order), quoteSent, quoteFailed });
+        } catch (e) {
+          res.status(400).json({ error: (e as Error).message });
+        }
+      },
+    );
+
     r.get('/platform/ai/usage', requireCapability(Cap.INBOX_AI_MANAGE), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;

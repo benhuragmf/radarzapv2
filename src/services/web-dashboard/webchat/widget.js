@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.17.59';
+  var WIDGET_BUILD = '2.17.60';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -19,7 +19,14 @@
   var STORAGE_PREFIX = 'rz_webchat_';
 
   function currentScript() {
+    if (document.currentScript) return document.currentScript;
     var scripts = document.getElementsByTagName('script');
+    for (var i = scripts.length - 1; i >= 0; i--) {
+      var src = scripts[i].src || '';
+      if (/\/webchat\/widget\.js(\?|$)/.test(src)) return scripts[i];
+      var key = scripts[i].getAttribute('data-widget-key') || scripts[i].dataset.widgetKey;
+      if (key) return scripts[i];
+    }
     return scripts[scripts.length - 1];
   }
 

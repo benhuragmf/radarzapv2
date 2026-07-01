@@ -5,6 +5,29 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { Button } from '../ui/Button'
 import { mutationError, notifyInfo } from '../../lib/notify'
 
+interface DeliveryAddressV1Payload {
+  status?: string
+  source?: string
+  confidence?: string
+  formattedAddress?: string
+  street?: string
+  number?: string
+  city?: string
+  uf?: string
+  zipCode?: string
+  missingFields?: string[]
+  mapsUrl?: string
+}
+
+interface DeliveryAddressSnapshotPayload {
+  formattedAddress: string
+  deliveryFee?: string
+  totalAmount?: string
+  deliveryDistanceKm?: number
+  deliveryTierKm?: number
+  capturedAt?: string
+}
+
 interface CatalogSalesOrder {
   id: string
   orderCode?: string | null
@@ -17,6 +40,8 @@ interface CatalogSalesOrder {
   deliveryLocationLat?: number
   deliveryLocationLng?: number
   deliveryLocationPendingConfirm?: boolean
+  deliveryAddressV1?: DeliveryAddressV1Payload | null
+  deliveryAddressSnapshot?: DeliveryAddressSnapshotPayload | null
   status: string
   lastNotificationStatus?: string
   lastNotificationError?: string
@@ -25,6 +50,7 @@ interface CatalogSalesOrder {
 
 const STATUS_TITLE: Record<string, string> = {
   aguardando_endereco: '📍 Pedido aguardando endereço',
+  pendente_humano_endereco: '👤 Endereço aguardando atendente',
   aguardando_pagamento: '💳 Pedido aguardando pagamento',
   comprovante_recebido: '🧾 Comprovante PIX recebido',
   em_conferencia: '🔍 Pagamento em conferência',
@@ -39,6 +65,21 @@ const STATUS_TITLE: Record<string, string> = {
 
 function orderPanelTitle(status: string): string {
   return STATUS_TITLE[status] ?? '📦 Pedido de catálogo'
+}
+
+function addressV1Badge(v1?: DeliveryAddressV1Payload | null): string | null {
+  if (!v1?.status || v1.status === 'empty') return null
+  switch (v1.status) {
+    case 'needs_confirmation':
+      return 'Endereço aguardando confirmação'
+    case 'confirmed':
+    case 'freight_confirmed':
+      return 'Endereço confirmado'
+    case 'needs_human_review':
+      return 'Conferência humana necessária'
+    default:
+      return null
+  }
 }
 
 function googleMapsUrl(lat: number, lng: number): string {
@@ -64,7 +105,7 @@ export function CatalogSalesOrderPanel({ conversationId }: Props) {
 
   const orders = data?.orders ?? []
   const active = orders.find(o =>
-    ['aguardando_endereco', 'aguardando_pagamento', 'comprovante_recebido', 'em_conferencia', 'falha_notificacao_whatsapp', 'pendente_configuracao_whatsapp', 'comprovante_sem_pedido'].includes(o.status),
+    ['aguardando_endereco', 'pendente_humano_endereco', 'aguardando_pagamento', 'comprovante_recebido', 'em_conferencia', 'falha_notificacao_whatsapp', 'pendente_configuracao_whatsapp', 'comprovante_sem_pedido'].includes(o.status),
   )
 
   const action = useMutation({
@@ -100,8 +141,21 @@ export function CatalogSalesOrderPanel({ conversationId }: Props) {
         Produto: {active.productName} · Valor: {active.amount || 'não informado'}
         {active.deliveryFee ? ` · Entrega: ${active.deliveryFee}` : ''}
       </p>
-      {active.deliveryAddress && (
-        <p className="text-xs text-[var(--rz-text-muted)]">Endereço: {active.deliveryAddress}</p>
+      {active.deliveryAddressV1 && addressV1Badge(active.deliveryAddressV1) && (
+        <span className="inline-block text-xs rounded px-2 py-0.5 bg-sky-900/40 text-sky-200 border border-sky-700/40">
+          {addressV1Badge(active.deliveryAddressV1)}
+        </span>
+      )}
+      {(active.deliveryAddressV1?.formattedAddress || active.deliveryAddress) && (
+        <p className="text-xs text-[var(--rz-text-muted)]">
+          Endereço: {active.deliveryAddressV1?.formattedAddress || active.deliveryAddress}
+          {active.deliveryAddressV1?.source ? ` · origem: ${active.deliveryAddressV1.source}` : ''}
+        </p>
+      )}
+      {active.deliveryAddressSnapshot?.formattedAddress && (
+        <p className="text-xs text-[var(--rz-text-muted)]">
+          Snapshot: {active.deliveryAddressSnapshot.formattedAddress}
+        </p>
       )}
       {active.deliveryLocationLat != null && active.deliveryLocationLng != null && (
         <div className="rounded-md border border-emerald-800/40 bg-emerald-950/30 p-2 space-y-1 text-xs">
@@ -119,8 +173,21 @@ export function CatalogSalesOrderPanel({ conversationId }: Props) {
               rel="noreferrer"
               className="underline text-brand-400"
             >
-              Google Maps
+              Abrir no Google Maps
             </a>
+            <button
+              type="button"
+              className="underline text-brand-400"
+              onClick={() =>
+                void navigator.clipboard?.writeText(
+                  active.deliveryAddressV1?.formattedAddress ||
+                    active.deliveryAddress ||
+                    `${active.deliveryLocationLat}, ${active.deliveryLocationLng}`,
+                )
+              }
+            >
+              Copiar endereço
+            </button>
             <button
               type="button"
               className="underline text-brand-400"
@@ -195,6 +262,36 @@ export function CatalogSalesOrderPanel({ conversationId }: Props) {
           >
             Recusar
           </Button>
+        )}
+        {me && can(me, 'orders:update-status') && active.status === 'aguardando_endereco' && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={action.isPending}
+              onClick={() =>
+                action.mutate(
+                  `/platform/catalog-sales/orders/${active.id}/delivery-address/confirm`,
+                )
+              }
+            >
+              Confirmar endereço
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={action.isPending}
+              onClick={() =>
+                action.mutate(
+                  `/platform/catalog-sales/orders/${active.id}/delivery-address/request-correction`,
+                )
+              }
+            >
+              Solicitar correção
+            </Button>
+          </>
         )}
         {me && can(me, 'orders:update-status') && (
           <Button

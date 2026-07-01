@@ -20,6 +20,22 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.17.60] - 2026-07-01
+
+### Added
+- Endereço de Entrega v1: objeto `deliveryAddressV1` + snapshot no pedido
+- `CatalogDeliveryAddressService` — normalização CEP, pin, texto livre, confirmação cliente
+- Frete/PIX bloqueados até endereço confirmado
+- API operador: PATCH/confirm/request-correction/recalculate freight
+- Inbox/Produtos: badges endereço, snapshot, ações atendente
+
+### Docs
+- `concluidos/RADARCHAT-ENDERECO-ENTREGA-V1-2.17.60.md`
+
+---
+
 ## [2.17.59] - 2026-06-30
 
 ### Fixed
