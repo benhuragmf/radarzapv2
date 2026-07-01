@@ -2564,14 +2564,6 @@ export class InboxService {
     const media = normalized.media;
     const location = normalized.location;
 
-    if (inboundText && !media && !location) {
-      if (this.isAutomatedPeerInboundSuppressed(clientId, dest.identifier, inboundText)) {
-        return;
-      }
-      const csatHandled = await this.tryHandleCsatReply(clientId, dest, inboundText);
-      if (csatHandled) return;
-    }
-
     if (!inboundText && !media && !location) return;
 
     const settings = await loadInboxSettings(clientId);
@@ -2618,6 +2610,14 @@ export class InboxService {
       locationLng: location?.lng,
       whatsappMessageId: normalized.whatsappMessageId ?? media?.whatsappMessageId,
     });
+
+    if (inboundText && !media && !location) {
+      if (this.isAutomatedPeerInboundSuppressed(clientId, dest.identifier, inboundText)) {
+        return;
+      }
+      const csatHandled = await this.tryHandleCsatReply(clientId, dest, inboundText);
+      if (csatHandled) return;
+    }
 
     if (location) {
       const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
@@ -3117,7 +3117,8 @@ export class InboxService {
 
     if (
       conversation.status === InboxConversationStatus.IN_PROGRESS ||
-      conversation.status === InboxConversationStatus.WAITING_QUEUE
+      conversation.status === InboxConversationStatus.WAITING_QUEUE ||
+      conversation.status === InboxConversationStatus.BOT_TRIAGE
     ) {
       await this.pushPanelEvent(cid, 'inbox:new_message', 'Nova mensagem', conversation.contactName, {
         conversationId: String(conversation._id),
@@ -6903,6 +6904,7 @@ export class InboxService {
     clientId: string,
     identifier: string,
     text: string,
+    opts?: { skipHumanize?: boolean },
   ): Promise<{ success: boolean; messageId?: string }> {
     WaAutomatedPeerGuardService.getInstance().recordOutbound(clientId, identifier, text);
     const wa = WhatsAppService.getInstance();
@@ -6910,6 +6912,7 @@ export class InboxService {
       skipConsentCheck: true,
       consentOrigin: 'inbox-reply',
       sendKind: 'conversation',
+      skipHumanize: opts?.skipHumanize,
     });
   }
 
@@ -6931,7 +6934,7 @@ export class InboxService {
   ): Promise<void> {
     const safeText = sanitizePremiumAiResponse(text, 'whatsapp');
     try {
-      await this.sendToContact(clientId, contactIdentifier, safeText);
+      await this.sendToContact(clientId, contactIdentifier, safeText, { skipHumanize: true });
     } catch (err) {
       logger.warn('Falha ao enviar mensagem automática do bot ao WhatsApp', {
         clientId,

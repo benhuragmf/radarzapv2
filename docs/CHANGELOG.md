@@ -12,6 +12,21 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.17.24] - 2026-06-30
+
+### Added
+- **Header:** cadeado de bloqueios operacionais + `GET /api/platform/operational-blocks` (IA, WA, billing, config).
+
+### Fixed
+- **Inbox:** mensagens inbound gravadas no painel antes da supressão anti-bot — burst de mensagens reais não some mais da timeline.
+- **Inbox:** anti-loop não bloqueia cliente real só por volume; supressão restrita a eco ou texto típico de bot.
+- **Inbox:** eventos `inbox:new_message` também em conversas em triagem (`BOT_TRIAGE`).
+- **IA Atendimento:** reconcile `attendanceMode`/`mode`/`enabled`; auto-save ao trocar modo; respostas IA sem delay humanize.
+
+---
+
 ## [2.17.22] - 2026-06-30
 
 ### Entrega — anti-loop bot WhatsApp + rebrand Radar Chat

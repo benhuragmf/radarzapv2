@@ -4,6 +4,7 @@ import { pageTitleFor } from '../../lib/navConfig'
 import { LogOut, Menu, Sun, Moon } from 'lucide-react'
 import OrganizationSwitcher from './OrganizationSwitcher'
 import EventNotificationBell from './EventNotificationBell'
+import { OperationalLockIndicator } from './OperationalLockIndicator'
 import { AgentStatusSelector } from './AgentStatusSelector'
 import { HeaderStatusPills } from './HeaderStatusPills'
 import { useTheme } from '../../context/ThemeContext'
@@ -48,6 +49,7 @@ export default function Header({ user, onLogout, onUserUpdate, menuOpen, onMenuT
       <div className="flex items-center justify-end gap-1.5 sm:gap-2 lg:gap-3 min-w-0 shrink-0">
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
 
+        <OperationalLockIndicator user={user} />
         <EventNotificationBell />
 
         <AgentStatusSelector user={user} />

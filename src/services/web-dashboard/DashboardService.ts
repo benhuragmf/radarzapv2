@@ -30,6 +30,7 @@ import { RedisManager } from '../../cache/RedisManager';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import { User, Destination, SystemLog, WhatsAppSession, DiscordChannel, MessageQueue, ContactGroup } from '../../models';
 import { buildAttendanceHealth } from '../attendance/attendance-health.service';
+import { buildOperationalBlocks } from '../platform/operational-blocks.service';
 import { buildInfraHealthSnapshot, toPublicLivenessHealth } from '../infra/infra-health.service';
 import {
   anonymizeTitularContact,
@@ -226,6 +227,13 @@ import { productionSafeError } from '../../middleware/production-safe-error';
 import { sanitizeInput } from '../../middleware/validation';
 import { registerDashboardQueueRoutes } from './routes/dashboardQueueRoutes';
 import { getAdminOpsSummary } from './admin-ops-summary.service';
+import {
+  getSystemBackupStatus,
+  isSystemBackupInternalToken,
+  patchSystemBackupSettings,
+  recordSystemBackupRun,
+} from './admin-backup.service';
+import type { RecordSystemBackupRunInput } from '../../types/admin-backup';
 import {
   buildAdminOpsHostReport,
   ingestAdminOpsHostMetrics,
@@ -1700,6 +1708,23 @@ export class DashboardService {
       try {
         const auth = (req as DashboardRequest).auth!;
         res.json(await buildAttendanceHealth(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/platform/operational-blocks', requireCapability(Cap.INBOX_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const caps = auth.capabilities;
+        res.json(
+          await buildOperationalBlocks(auth.clientId, {
+            canViewBilling: caps.includes(Cap.BILLING_VIEW),
+            canViewAiBalance: caps.includes(Cap.INBOX_AI_BALANCE_VIEW),
+            canManageAi: caps.includes(Cap.INBOX_AI_MANAGE),
+            canViewWhatsApp: caps.includes(Cap.INBOX_VIEW),
+          }),
+        );
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -7287,6 +7312,36 @@ export class DashboardService {
     r.patch('/admin/whatsapp-send-policy', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
       try {
         res.json(await patchSystemWhatsAppPolicy(req.body as Record<string, unknown>));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/admin/backup/status', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (_req, res) => {
+      try {
+        res.json(await getSystemBackupStatus());
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/admin/backup/settings', requireCapability(Cap.SYSTEM_SETTINGS_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        res.json(await patchSystemBackupSettings(req.body ?? {}, auth.userId));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/admin/backup/runs', async (req, res) => {
+      const token = String(req.headers['x-system-backup-token'] ?? '');
+      if (!isSystemBackupInternalToken(token)) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      try {
+        res.status(201).json(await recordSystemBackupRun(req.body as RecordSystemBackupRunInput));
       } catch (e) {
         res.status(400).json({ error: (e as Error).message });
       }

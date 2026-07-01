@@ -5,9 +5,11 @@ import { Organization } from '@/models/Organization';
 import type { AiMode, AiProvider } from '@/types/ai-assistant';
 import {
   attendanceSettingsPatchFromSelection,
+  attendanceSelectionFromSettings,
   isValidAttendanceMode,
   resolveAttendanceMode,
   syncAttendanceModeFromLegacy,
+  shouldRunGenerativeAi,
   type AttendanceMode,
   type AiCredentialSource,
 } from '@/types/attendance-mode';
@@ -84,15 +86,53 @@ export class AiSettingsService {
       doc.maxTokens = DEFAULT_AI_MAX_TOKENS;
       await doc.save();
     }
+    await this.reconcileAttendanceRuntime(doc, clientId);
+    return doc;
+  }
+
+  /**
+   * Mantém `mode`/`enabled` alinhados a `attendanceMode` — evita UI em IA Premium com runtime desligado.
+   */
+  private async reconcileAttendanceRuntime(doc: IAiSettings, clientId: string): Promise<void> {
     const backfilled = syncAttendanceModeFromLegacy({
       mode: doc.mode,
       attendanceMode: doc.attendanceMode,
     });
-    if (doc.attendanceMode !== backfilled) {
-      doc.attendanceMode = backfilled;
-      await doc.save();
+
+    const org = await Organization.findById(clientId).select('plan').lean();
+    const planLimits = getAiPlanLimits(org?.plan ?? 'free');
+
+    let selection = attendanceSelectionFromSettings({
+      mode: doc.mode,
+      enabled: doc.enabled,
+      attendanceMode: backfilled,
+    });
+
+    if (
+      (selection.attendanceMode === 'premium_assistant' || selection.attendanceMode === 'hybrid') &&
+      selection.credentialSource === 'none'
+    ) {
+      selection = {
+        ...selection,
+        credentialSource: planLimits.radarchatAllowed ? 'radarchat' : 'company',
+      };
     }
-    return doc;
+
+    const patch = attendanceSettingsPatchFromSelection(selection);
+    let changed = false;
+    if (doc.attendanceMode !== patch.attendanceMode) {
+      doc.attendanceMode = patch.attendanceMode;
+      changed = true;
+    }
+    if (doc.mode !== patch.mode) {
+      doc.mode = patch.mode;
+      changed = true;
+    }
+    if (doc.enabled !== patch.enabled) {
+      doc.enabled = patch.enabled;
+      changed = true;
+    }
+    if (changed) await doc.save();
   }
 
   async getFullPayload(clientId: string): Promise<AiSettingsPayload> {
@@ -295,7 +335,7 @@ export class AiSettingsService {
       settings.attendanceMode = patch.attendanceMode;
       settings.mode = patch.mode;
       settings.enabled = patch.enabled;
-    } else if (s.mode === 'disabled') {
+    } else if (s.mode === 'disabled' && !isValidAttendanceMode(settings.attendanceMode)) {
       settings.mode = 'disabled';
       settings.enabled = false;
       settings.attendanceMode = 'disabled';
@@ -414,8 +454,6 @@ export class AiSettingsService {
 
   async isAiActive(clientId: string): Promise<boolean> {
     const settings = await this.getSettingsDoc(clientId);
-    const mode = resolveAttendanceMode(settings);
-    if (mode !== 'premium_assistant' && mode !== 'hybrid') return false;
-    return settings.enabled && settings.mode !== 'disabled';
+    return shouldRunGenerativeAi(settings);
   }
 }

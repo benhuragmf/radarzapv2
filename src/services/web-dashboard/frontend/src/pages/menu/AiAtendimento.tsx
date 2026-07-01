@@ -612,6 +612,20 @@ export default function AiAtendimento() {
       credentialSource = 'none'
     }
     applyAttendanceSelection({ attendanceMode: mode, credentialSource })
+    if (form) {
+      const patchSettings = attendanceSettingsPatchFromSelection({
+        attendanceMode: mode,
+        credentialSource,
+      })
+      save.mutate({
+        settings: { ...form.settings, ...patchSettings },
+        prompt: { ...form.prompt },
+        knowledgeBase: form.knowledgeBase,
+        catalogSales: form.catalogSales,
+        skills: form.skills,
+        memories: form.memories,
+      })
+    }
     if (mode === 'robotic') {
       notifyInfo(
         'Modo robotizado ativo sem IA generativa. Configure menus em Triagem e Bot.',

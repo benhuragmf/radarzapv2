@@ -1286,18 +1286,53 @@ export class AiConversationService {
       await ctxSvc.persistCollectedFields(ctx.dest, { email });
       await state.save();
       if (state.collectedProblem?.trim()) return 'resume_problem';
-      return false;
+
+      const first = state.collectedName?.trim().split(/\s+/)[0];
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        first
+          ? `Obrigado, ${first}! E-mail registrado. Como posso ajudar você hoje?`
+          : 'E-mail registrado. Como posso ajudar você hoje?',
+      );
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      return true;
+    }
+
+    if (this.isImpatiencePing(ctx.text)) {
+      const first = state.collectedName?.trim().split(/\s+/)[0];
+      let body = first ? `${first}, estou aqui! ` : 'Estou aqui! ';
+      if (state.collectedProblem?.trim()) {
+        body += `Recebi: *${state.collectedProblem.trim().slice(0, 80)}*. `;
+      }
+      body += 'Para registrar e continuar, qual é o seu *e-mail*?';
+      await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, body);
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      return true;
     }
 
     if (this.textLooksLikeProblemDescription(ctx.text)) {
       state.collectedProblem = ctx.text.trim();
     }
 
+    const problem = state.collectedProblem?.trim();
+    const first = state.collectedName?.trim().split(/\s+/)[0];
+    const emailAsk = ctxSvc.buildEmailCollectionPrompt(state.collectedName);
+    const body =
+      problem && this.textLooksLikeProblemDescription(ctx.text)
+        ? first
+          ? `Entendi, ${first}! Anotei: *${problem.slice(0, 100)}*. Para registrar seu atendimento, qual é o seu *e-mail*?`
+          : `Anotei: *${problem.slice(0, 100)}*. Para registrar seu atendimento, qual é o seu *e-mail*?`
+        : emailAsk;
+
     await inbox.sendAiReply(
       ctx.clientId,
       ctx.conversation,
       ctx.dest.identifier,
-      ctxSvc.buildEmailCollectionPrompt(state.collectedName),
+      body,
     );
     state.status = AiConversationStatus.AI_WAITING_CLIENT;
     await state.save();
@@ -1312,6 +1347,21 @@ export class AiConversationService {
     return words.length <= 3 && t.length <= 40;
   }
 
+  private isImpatiencePing(text: string): boolean {
+    const raw = text.trim();
+    if (/^\?+$/.test(raw)) return true;
+    const norm = raw
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[!?.]+/g, '')
+      .trim();
+    if (!norm) return true;
+    if (/^(oi|ola|alo|e ai|eae|hello|cadê|cade|demora|demorando)$/.test(norm)) return true;
+    if (/^(esta ai|está ai|ta ai|tá ai|ola esta ai|ola ta ai)$/.test(norm)) return true;
+    return norm.length <= 12 && /^(oi|alo|eai|opa)$/.test(norm);
+  }
+
   private textLooksLikeProblemDescription(text: string): boolean {
     const t = text.trim();
     if (!t || t.includes('@')) return false;
@@ -1319,7 +1369,9 @@ export class AiConversationService {
     if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|preciso de ajuda|sim|nao|não|s|ss|ok)$/i.test(t)) {
       return false;
     }
-    if (/\b(plano|vip|sala de jogos|contrat|acesso|comercial|benef[ií]cio)\b/i.test(t)) return true;
+    if (/\b(plano|vip|sala de jogos|contrat|comprar|acesso|comercial|benef[ií]cio|zaad)\b/i.test(t)) {
+      return true;
+    }
     if (/\b(problema|erro|ajuda|n[aã]o conecta|n[aã]o funciona|instala)/i.test(t)) return true;
     const words = t.split(/\s+/).filter(Boolean);
     return words.length >= 3 && t.length >= 12;

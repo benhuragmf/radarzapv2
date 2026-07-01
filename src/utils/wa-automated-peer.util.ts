@@ -102,9 +102,8 @@ export function evaluateAutomatedPeerSuppression(
   }
 
   const burstCount = countInboundInBurstWindow(state, nowMs);
-  if (burstCount >= WA_PEER_BURST_MAX_INBOUND) {
-    return { suppress: true, reason: 'burst' };
-  }
+  // Burst sozinho não suprime — cliente real pode enviar várias mensagens seguidas.
+  // Supressão só para eco ou texto típico de bot + burst (guerra bot×bot).
 
   if (looksLikeAutomatedPeerMessage(trimmed) && burstCount >= 2) {
     return { suppress: true, reason: 'automated_burst' };

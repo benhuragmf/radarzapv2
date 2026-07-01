@@ -1601,7 +1601,8 @@ export class WhatsAppService {
     }
 
     const text = String((data.content as { text?: string })?.text ?? data.text ?? '');
-    const typingMs = computeHumanTypingMs(text, kind, policy);
+    const typingMs =
+      data.skipHumanize === true ? 0 : computeHumanTypingMs(text, kind, policy);
     const destination = String(data.destination ?? '');
 
     if (typingMs > 0) {
@@ -1636,6 +1637,8 @@ export class WhatsAppService {
       sendKind?: WhatsAppSendKind;
       /** Bypass fila (testes / replay interno) */
       skipQueue?: boolean;
+      /** Resposta automática IA/bot — sem delay de "digitando" */
+      skipHumanize?: boolean;
     },
   ): Promise<{ success: boolean; messageId?: string; queued?: boolean }> {
     const messageId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1648,6 +1651,7 @@ export class WhatsAppService {
       skipConsentCheck: options?.skipConsentCheck === true,
       consentOrigin: options?.consentOrigin ?? 'dashboard-send',
       sendKind: options?.sendKind,
+      skipHumanize: options?.skipHumanize === true,
     };
 
     if (options?.skipQueue) {

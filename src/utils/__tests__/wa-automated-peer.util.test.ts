@@ -37,17 +37,13 @@ describe('wa-automated-peer.util', () => {
     expect(looksLikeAutomatedPeerMessage('boa noite')).toBe(false);
   });
 
-  it('suprime burst após limite de inbound', () => {
+  it('nao suprime burst de mensagens normais do cliente', () => {
     let state = emptyWaAutomatedPeerState();
-    for (let i = 0; i < WA_PEER_BURST_MAX_INBOUND - 1; i++) {
+    for (let i = 0; i < WA_PEER_BURST_MAX_INBOUND + 2; i++) {
       state = recordPeerInbound(state, t0 + i * 1_000);
     }
-    expect(evaluateAutomatedPeerSuppression('msg', state, t0 + 4_000).suppress).toBe(false);
-
-    state = recordPeerInbound(state, t0 + 5_000);
-    const result = evaluateAutomatedPeerSuppression('msg', state, t0 + 5_000);
-    expect(result.suppress).toBe(true);
-    expect(result.reason).toBe('burst');
+    const result = evaluateAutomatedPeerSuppression('Benhur Monteiro', state, t0 + 10_000);
+    expect(result.suppress).toBe(false);
   });
 
   it('suprime template automatizado com burst moderado', () => {
