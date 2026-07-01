@@ -11,7 +11,6 @@ import {
   type PhoneQuality,
   type SendPermission,
 } from '@/types/contact-classification';
-import { WA_REGISTRATION_PACE_HINT } from '@/types/wa-registration';
 
 function isValidE164Phone(value: string): boolean {
   const trimmed = value.trim();
@@ -155,10 +154,10 @@ function resolvePhoneQuality(
 
 function waRegistrationBlockReason(status?: string): string | undefined {
   if (!status || status === 'pending') {
-    return `Aguardando validação no WhatsApp — envio bloqueado. ${WA_REGISTRATION_PACE_HINT}`;
+    return 'Aguardando validação no WhatsApp — envio bloqueado até a checagem (ritmo conforme o plano).';
   }
   if (status === 'check_failed') {
-    return `Falha na validação WhatsApp — reconecte ou revalide em Contatos. ${WA_REGISTRATION_PACE_HINT}`;
+    return 'Falha na validação WhatsApp — reconecte ou revalide em Contatos.';
   }
   if (status === 'not_on_whatsapp') {
     return 'Número não cadastrado no WhatsApp';

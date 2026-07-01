@@ -72,10 +72,6 @@ import {
   userPartFromJid,
 } from '@/utils/whatsapp-phone';
 import { StatusViewService } from '@/services/send/StatusViewService';
-import {
-  WA_REGISTRATION_BACKGROUND_BATCH,
-  WA_REGISTRATION_INTERVAL_MS,
-} from '@/types/wa-registration';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -133,6 +129,7 @@ export class WhatsAppService {
   private waRegistrationSyncInterval: NodeJS.Timeout | null = null;
   private waRegistrationSyncRunning = false;
   private waRegistrationSyncClientCursor = 0;
+  private waRegistrationLastCycleAt = new Map<string, number>();
   private autoReconnectInterval: NodeJS.Timeout | null = null;
   /** Evita múltiplos createWhatsAppSession simultâneos (causa erro 440) */
   private reconnectingClients = new Set<string>();
@@ -2393,12 +2390,11 @@ export class WhatsAppService {
   }
 
   /**
-   * Valida números no WhatsApp (onWhatsApp) — ritmo ~1000/24h por cliente.
+   * Valida números no WhatsApp — ritmo por plano (Free lenta / Pro média / Enterprise rápida).
    */
   private setupWaRegistrationBackgroundSync(): void {
-    const INTERVAL_MS = WA_REGISTRATION_INTERVAL_MS;
-    const BATCH_SIZE = WA_REGISTRATION_BACKGROUND_BATCH;
-    const INITIAL_DELAY_MS = 45_000;
+    const TICK_MS = 10_000;
+    const INITIAL_DELAY_MS = 30_000;
 
     const tick = async (): Promise<void> => {
       if (this.waRegistrationSyncRunning) return;
@@ -2413,10 +2409,23 @@ export class WhatsAppService {
         const idx = this.waRegistrationSyncClientCursor % connected.length;
         this.waRegistrationSyncClientCursor += 1;
         const clientId = connected[idx]!;
+
+        const { resolveWaRegistrationPaceForClient } = await import(
+          '@/services/destinations/wa-registration-pace.service'
+        );
         const { syncWaRegistrationForClient } = await import(
           '@/services/destinations/wa-registration-validation.service'
         );
-        await syncWaRegistrationForClient(clientId, { limit: BATCH_SIZE });
+        const pace = await resolveWaRegistrationPaceForClient(clientId);
+        const now = Date.now();
+        const last = this.waRegistrationLastCycleAt.get(clientId) ?? 0;
+        if (now - last < pace.cycleIntervalMs) return;
+
+        this.waRegistrationLastCycleAt.set(clientId, now);
+        await syncWaRegistrationForClient(clientId, {
+          limit: pace.backgroundBatch,
+          pace,
+        });
       } catch (error) {
         this.serviceLogger.warn('Background WA registration sync failed:', error);
       } finally {
@@ -2432,10 +2441,10 @@ export class WhatsAppService {
         tick().catch(error => {
           this.serviceLogger.warn('Scheduled WA registration sync failed:', error);
         });
-      }, INTERVAL_MS);
+      }, TICK_MS);
     }, INITIAL_DELAY_MS);
 
-    this.serviceLogger.info('✅ WA registration background sync scheduled');
+    this.serviceLogger.info('✅ WA registration background sync scheduled (plan-aware)');
   }
 
   /** Checa se o número existe no WhatsApp (variantes BR). */
@@ -2477,6 +2486,7 @@ export class WhatsAppService {
       limit?: number;
       destinationIds?: string[];
       allowFastSingle?: boolean;
+      pace?: import('@/services/destinations/wa-registration-pace.service').WaRegistrationPaceConfig;
     } = {},
   ): Promise<{ verified: number; notOnWhatsApp: number; failed: number; skipped: number }> {
     const { syncWaRegistrationForClient } = await import(

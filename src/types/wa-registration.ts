@@ -65,4 +65,4 @@ export function formatWaValidationEta(hours: number): string {
 }
 
 export const WA_REGISTRATION_PACE_HINT =
-  'Validamos em ritmo seguro (~1.000 números em até 24 h). O envio só libera após cada número ser checado no WhatsApp.';
+  'O envio só libera após cada número ser checado no WhatsApp (ritmo conforme o plano).';

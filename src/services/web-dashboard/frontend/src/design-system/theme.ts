@@ -32,7 +32,7 @@ export function pageShellClassName(className?: string): string {
   return cn('w-full space-y-6', className)
 }
 
-/** Largura máxima das páginas de plataforma/atendimento — alinhada ao Inbox (`max-w-[1600px]`). */
+/** Largura máxima das páginas de plataforma — Inbox usa largura total (`w-full`). */
 export const platformPageMaxWidthClass = 'max-w-[1600px]'
 
 export function dashboardGridClassName(className?: string): string {

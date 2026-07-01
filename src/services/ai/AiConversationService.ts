@@ -30,7 +30,10 @@ import {
 import {
   buildAddressLabelFromLocation,
   reverseGeocodeCoords,
+  aiReplyCollectsDeliveryAddress,
+  sanitizeAiReplyStripTransferDuringCatalogFlow,
 } from '@/utils/catalog-delivery.util';
+import { detectDeliveryFulfillmentChoice } from '@/types/catalog-sales';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
 import { AiTicketAssistService } from './AiTicketAssistService';
 import type { InboxService } from '@/services/inbox/InboxService';
@@ -249,7 +252,7 @@ export class AiConversationService {
     }
 
     const autoResolveSvc = AiAutoResolveService.getInstance();
-    const threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
+    let threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
     if (
       prompt.autoResolveEnabled &&
       state.nameConfirmed &&
@@ -619,6 +622,7 @@ export class AiConversationService {
 
     const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
     const catalogSvc = CatalogSalesService.getInstance();
+    threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
     const catalogTurn = await catalogSvc.processAiCatalogTurn({
       clientId: ctx.clientId,
       conversation: {
@@ -631,6 +635,7 @@ export class AiConversationService {
       clientText: ctx.text ?? '',
       structured,
       aiSummary: structured.internalSummary,
+      threadContext,
     });
 
     const orgForGuard = await Organization.findById(ctx.clientId).select('name').lean();
@@ -657,6 +662,16 @@ export class AiConversationService {
       String(ctx.conversation._id),
     );
     const catalogAddressPending = activeCatalogOrder?.status === 'aguardando_endereco';
+    const catalogSalesFlowActive =
+      Boolean(activeCatalogOrder) ||
+      detectDeliveryFulfillmentChoice(ctx.text ?? '') ||
+      (looksLikePurchaseInquiry(ctx.text ?? '', threadContext) &&
+        aiReplyCollectsDeliveryAddress(structured.reply));
+
+    if (catalogSalesFlowActive) {
+      structured.shouldEscalate = false;
+      structured.reply = sanitizeAiReplyStripTransferDuringCatalogFlow(structured.reply);
+    }
 
     let escalation = escSvc.check({
       clientText: ctx.text,
@@ -666,18 +681,19 @@ export class AiConversationService {
       prompt,
       rules: settings.transferRules,
       catalogAddressPending,
+      catalogSalesFlowActive,
     });
 
     if (!escalation.shouldEscalate) {
       if (escSvc.isWaitingForPromisedHandoff(ctx.text, lastAssistantBefore?.content)) {
-        if (!catalogAddressPending) {
+        if (!catalogSalesFlowActive) {
           escalation = {
             shouldEscalate: true,
             reason: 'Cliente aguardando transferência prometida pela IA',
           };
         }
       } else if (escSvc.aiReplyPromisesTransfer(structured.reply)) {
-        if (!catalogAddressPending) {
+        if (!catalogSalesFlowActive) {
           escalation = {
             shouldEscalate: true,
             reason: structured.escalationReason ?? 'IA confirmou encaminhamento para humano',

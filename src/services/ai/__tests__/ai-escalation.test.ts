@@ -205,6 +205,33 @@ describe('AiEscalationService', () => {
     expect(r.shouldEscalate).toBe(false);
   });
 
+  it('não escala com dados mínimos quando cliente escolhe entrega na compra', () => {
+    const state = {
+      ...baseState,
+      aiTurnCount: 3,
+      collectedName: 'Benhur',
+      nameConfirmed: true,
+      collectedEmail: 'benhur@example.com',
+      collectedProblem: 'Gostaria de comprar um zaad',
+    } as IAiConversationState;
+    const r = svc.check({
+      clientText: 'quero que entregue',
+      hasUninterpretableMedia: false,
+      structured: {
+        reply:
+          'Para calcular o frete e o valor total, por favor, me informe o CEP e o número do seu endereço de entrega.',
+        confidence: 0.9,
+        shouldEscalate: true,
+        parseFailed: false,
+      },
+      state,
+      prompt: basePrompt,
+      rules: { ...DEFAULT_AI_TRANSFER_RULES, onMinDataCollected: true },
+      catalogSalesFlowActive: true,
+    });
+    expect(r.shouldEscalate).toBe(false);
+  });
+
   it('não escala em despedida ou agradecimento', () => {
     const state = {
       ...baseState,

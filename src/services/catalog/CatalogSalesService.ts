@@ -170,6 +170,7 @@ export class CatalogSalesService {
     clientText: string;
     structured: AiStructuredReply;
     aiSummary?: string;
+    threadContext?: string;
   }): Promise<CatalogAiTurnResult> {
     const cfg = await this.loadCompanyConfig(opts.clientId);
     await this.maybeCreateOrderFromAiTurn(opts);
@@ -254,9 +255,14 @@ export class CatalogSalesService {
     clientText: string;
     structured: AiStructuredReply;
     aiSummary?: string;
+    threadContext?: string;
   }): Promise<ICatalogSalesOrder | null> {
     const cfg = await this.loadCompanyConfig(opts.clientId);
     if (!cfg.enabled || !cfg.autoCreateOrderOnPurchase) return null;
+
+    const combinedText = [opts.threadContext, opts.aiSummary, opts.clientText]
+      .filter(Boolean)
+      .join(' ');
 
     let product = null as Awaited<ReturnType<typeof this.resolveProductForOrder>>;
     if (opts.structured.catalogProductId) {
@@ -266,7 +272,7 @@ export class CatalogSalesService {
       product = await this.resolveProductByName(opts.clientId, opts.structured.catalogProductName);
     }
     if (!product) {
-      product = await this.guessProductFromText(opts.clientId, opts.clientText);
+      product = await this.guessProductFromText(opts.clientId, combinedText);
     }
     if (!product) return null;
 
@@ -278,6 +284,7 @@ export class CatalogSalesService {
     const openPix = shouldOpenPixOrderFlow({
       saleMode,
       clientText: opts.clientText,
+      threadContext: combinedText,
       structuredWantsOrder: opts.structured.shouldCreateCatalogOrder,
       companyPixEnabled: cfg.pixEnabled,
     });

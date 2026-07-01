@@ -162,6 +162,7 @@ export async function ensureDestinationForWebChatVisitor(
     '127.0.0.1',
   );
   dest.crmRegistrationStatus = crmStatus;
+  dest.waRegistrationStatus = 'pending';
   const { setContactClassificationFields } = await import(
     '@/services/destinations/destination-classification.service'
   );

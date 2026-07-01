@@ -54,6 +54,11 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
 
   const inboxViewport = pathname === '/platform/inbox'
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('rz-inbox-shell', inboxViewport)
+    return () => document.documentElement.classList.remove('rz-inbox-shell')
+  }, [inboxViewport])
+
   return (
     <EventNotificationProvider user={user}>
       <AgentPresenceRuntime user={user} />
@@ -72,10 +77,10 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
           )}
           <div
             className={cn(
-              'flex flex-col lg:flex-row w-full bg-[var(--rz-background)] pl-[4.5rem] lg:pl-0',
+              'w-full min-w-0 max-w-none bg-[var(--rz-background)] pl-[4.5rem] lg:pl-0',
               inboxViewport
-                ? 'h-[100dvh] max-h-[100dvh] overflow-hidden'
-                : 'min-h-screen',
+                ? 'grid h-[100dvh] max-h-[100dvh] overflow-hidden grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)]'
+                : 'flex min-h-screen flex-col lg:flex-row',
             )}
           >
             <Sidebar
@@ -89,8 +94,8 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
             />
             <div
               className={cn(
-                'flex flex-col flex-1 min-w-0',
-                inboxViewport && 'min-h-0 overflow-hidden',
+                'flex min-w-0 w-full max-w-none flex-col',
+                inboxViewport ? 'min-h-0 overflow-hidden' : 'flex-1',
               )}
             >
               <div className="sticky top-0 z-30 shrink-0 bg-[var(--rz-surface)]/95 backdrop-blur-sm border-b border-[var(--rz-border)]">
@@ -106,8 +111,9 @@ function LayoutInner({ user, onLogout, onUserUpdate }: Props) {
               </div>
               <main
                 className={cn(
-                  'flex-1 p-3 sm:p-4 lg:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-                  inboxViewport && 'flex flex-col min-h-0 overflow-hidden',
+                  inboxViewport
+                    ? 'flex flex-1 flex-col min-h-0 min-w-0 w-full max-w-none overflow-hidden px-2 pt-2 sm:px-3 sm:pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+                    : 'flex-1 p-3 sm:p-4 lg:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]',
                 )}
               >
                 <Outlet />

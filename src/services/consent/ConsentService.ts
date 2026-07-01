@@ -390,7 +390,16 @@ export class ConsentService {
     altJid?: string,
   ): Promise<IDestination | null> {
     const existing = await this.findContactDestination(clientId, fromJid, altJid);
-    if (existing) return existing;
+    if (existing) {
+      const { ensureWaRegistrationVerifiedFromInbound } = await import(
+        '@/services/destinations/wa-registration-validation.service'
+      );
+      const resolvedJid = [fromJid, altJid].find(j => j?.includes('@'));
+      await ensureWaRegistrationVerifiedFromInbound(existing, {
+        resolvedJid: resolvedJid ?? undefined,
+      });
+      return existing;
+    }
 
     const { loadInboundRegistrationPolicy } = await import(
       '@/services/inbound/inbound-registration-policy.service'
@@ -450,6 +459,11 @@ export class ConsentService {
    * Campanhas/envios ativos continuam usando assertCanSend para contatos só outbound.
    */
   async acceptInboundInitiated(clientId: string, dest: IDestination): Promise<boolean> {
+    const { ensureWaRegistrationVerifiedFromInbound } = await import(
+      '@/services/destinations/wa-registration-validation.service'
+    );
+    await ensureWaRegistrationVerifiedFromInbound(dest);
+
     const prev = dest.consentStatus ?? ConsentStatus.PENDING;
     if (prev === ConsentStatus.ACCEPTED) {
       if (dest.optOutConfirmPendingAt) {

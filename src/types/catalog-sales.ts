@@ -271,12 +271,20 @@ export function detectPixPurchaseIntent(text: string): boolean {
 export function shouldOpenPixOrderFlow(opts: {
   saleMode: CatalogProductSaleMode;
   clientText: string;
+  threadContext?: string;
   structuredWantsOrder?: boolean;
   companyPixEnabled?: boolean;
 }): boolean {
   if (opts.saleMode === 'link') return false;
   if (!opts.companyPixEnabled && opts.saleMode !== 'pix') return false;
   if (opts.structuredWantsOrder === true) return true;
+  const combined = [opts.threadContext, opts.clientText].filter(Boolean).join(' ');
+  if (
+    detectDeliveryFulfillmentChoice(opts.clientText) &&
+    /\b(comprar|zaad|produto|pedido|gostaria)\b/i.test(combined)
+  ) {
+    return true;
+  }
   if (detectLinkPurchaseIntent(opts.clientText) && !detectPixPurchaseIntent(opts.clientText)) {
     return false;
   }
@@ -325,6 +333,19 @@ export function detectPurchaseConfirmation(text: string): boolean {
       t,
     ) ||
     /^(sim|ok|pode ser|fechado|confirmo)[\s!.?]*$/i.test(t)
+  );
+}
+
+/** Cliente escolheu entrega ou retirada após oferta de compra. */
+export function detectDeliveryFulfillmentChoice(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t || t.length > 120) return false;
+  return (
+    /\b(quero que entregue|com entrega|para entregar|por entrega|quero entrega|prefiro entrega|manda entregar|enviar pra mim|enviar para mim|delivery)\b/i.test(
+      t,
+    ) ||
+    /\b(entregue|entrega|envio|enviar|receber em casa)\b/i.test(t) ||
+    /\b(retirar|retirada|vou buscar|pegar na loja|buscar na loja)\b/i.test(t)
   );
 }
 

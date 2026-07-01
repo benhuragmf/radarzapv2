@@ -180,6 +180,9 @@ export default function Destinations() {
     estimatedCompletionLabel: string
     paceHint: string
     contactsPerHour: number
+    paceTier?: string
+    paceTierLabel?: string
+    planId?: string
   }>({
     queryKey: ['destinations-wa-registration-stats'],
     queryFn: () => api.get('/destinations/wa-registration-stats'),
@@ -726,16 +729,21 @@ export default function Destinations() {
             <div className="space-y-1 text-sm">
               <p className="font-medium text-amber-100/95">Validação de números em andamento</p>
               <p className="text-[var(--rz-text-muted)] text-xs leading-relaxed">
+                {waRegistrationStats.paceTierLabel && (
+                  <span className="text-amber-200/90">{waRegistrationStats.paceTierLabel}. </span>
+                )}
                 {waRegistrationStats.queueSize} contato(s) na fila
                 {waRegistrationStats.estimatedCompletionLabel
                   ? ` — tempo estimado: ${waRegistrationStats.estimatedCompletionLabel}`
                   : ''}
-                . Ritmo seguro de ~{waRegistrationStats.contactsPerHour} número(s)/hora
-                (referência: 1.000 contatos em até 24 h).{' '}
+                . Ritmo do plano: ~{waRegistrationStats.contactsPerHour} número(s)/hora.{' '}
                 <strong className="text-amber-200/90 font-normal">
                   Nenhum envio é liberado antes da checagem de cada número no WhatsApp.
                 </strong>
               </p>
+              {waRegistrationStats.paceHint && (
+                <p className="text-[11px] text-[var(--rz-text-muted)]">{waRegistrationStats.paceHint}</p>
+              )}
               {!waConnected && (
                 <p className="text-xs text-amber-300/80">
                   Conecte o WhatsApp em Sessões para a fila avançar.

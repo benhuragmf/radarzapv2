@@ -3897,9 +3897,14 @@ export class DashboardService {
         const { clampWaRegistrationManualLimit } = await import(
           '@/services/destinations/wa-registration-validation.service'
         );
+        const { resolveWaRegistrationPaceForClient } = await import(
+          '@/services/destinations/wa-registration-pace.service'
+        );
+        const pace = await resolveWaRegistrationPaceForClient(auth.clientId);
         const result = await wa.syncDestinationWaRegistration(auth.clientId, {
-          limit: clampWaRegistrationManualLimit(body.limit),
+          limit: clampWaRegistrationManualLimit(body.limit, pace),
           destinationIds: body.destinationIds,
+          pace,
         });
         res.json({ ok: true, ...result });
       } catch (e) {
@@ -3917,6 +3922,10 @@ export class DashboardService {
         };
         const { requestWaRevalidation, syncWaRegistrationForClient, clampWaRegistrationManualLimit } =
           await import('@/services/destinations/wa-registration-validation.service');
+        const { resolveWaRegistrationPaceForClient } = await import(
+          '@/services/destinations/wa-registration-pace.service'
+        );
+        const pace = await resolveWaRegistrationPaceForClient(auth.clientId);
         const { queued } = await requestWaRevalidation(auth.clientId, {
           destinationIds: Array.isArray(body.destinationIds) ? body.destinationIds : undefined,
         });
@@ -3928,8 +3937,9 @@ export class DashboardService {
           const wa = WhatsAppService.getInstance();
           if (wa.isClientConnected(auth.clientId)) {
             syncResult = await syncWaRegistrationForClient(auth.clientId, {
-              limit: clampWaRegistrationManualLimit(body.limit),
+              limit: clampWaRegistrationManualLimit(body.limit, pace),
               destinationIds: body.destinationIds,
+              pace,
             });
           }
         }

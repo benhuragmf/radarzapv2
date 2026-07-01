@@ -35,7 +35,20 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 ### Changed
 - **IA confirmação de nome:** máscara palavra a palavra como cadastrado — 1ª/última letra maiúsculas, `*` proporcional (`Benhur Monteiro` → `B****R M******O`).
 
-## [2.17.40] - 2026-07-01
+## [2.17.45] - 2026-07-01
+
+### Changed
+- **Contatos — validação WhatsApp por plano:** ritmo lento (Free/trial ~1.000/24h), médio (Pro/Starter ~1.000/6h) e rápido (Enterprise ~1.000/1h); fila background e revalidação manual respeitam o plano; banner em Contatos exibe tier e ETA; WebChat/forms/import/manual ficam `pending` — inbound WhatsApp continua `verified` imediato.
+
+### Notas
+- **Contatos (futuro):** badge positivo «WhatsApp verificado» na lista e no painel do Inbox — hoje só exibimos badges de problema (`pending`, sem WA, falha na checagem); verificado fica sem badge para não poluir a lista.
+
+## [2.17.44] - 2026-07-01
+
+### Fixed
+- **Contatos — validação WhatsApp:** quem envia mensagem inbound no WhatsApp passa a `verified` na hora, inclusive contato que já existia na base (CSV/manual) — remove bloqueio contraditório no Inbox.
+
+## [2.17.41] - 2026-07-01
 
 ### Changed
 - **Contatos — validação WhatsApp:** ritmo gradual (~1 número a cada 86s, referência 1.000 contatos em 24h); envio outbound bloqueado até `verified`; banner com ETA na lista de contatos; import sem rajada; revalidação manual limitada a 3 por vez.

@@ -3,14 +3,13 @@ import { Destination } from '@/models/Destination';
 import type { IDestination } from '@/models/Destination';
 import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import type { WaRegistrationStatus } from '@/types/wa-registration';
+import { formatWaValidationEta } from '@/types/wa-registration';
 import {
-  WA_REGISTRATION_BACKGROUND_BATCH,
-  WA_REGISTRATION_MANUAL_BATCH_MAX,
-  WA_REGISTRATION_INTERVAL_MS,
-  WA_REGISTRATION_PACE_HINT,
-  estimateWaValidationHoursRemaining,
-  formatWaValidationEta,
-} from '@/types/wa-registration';
+  clampWaRegistrationManualLimitForPace,
+  estimateWaValidationHoursForPace,
+  resolveWaRegistrationPaceForClient,
+  type WaRegistrationPaceConfig,
+} from '@/services/destinations/wa-registration-pace.service';
 import { createServiceLogger } from '@/utils/logger';
 
 const logger = createServiceLogger('WaRegistrationValidation');
@@ -33,6 +32,9 @@ export interface WaRegistrationStats {
   estimatedCompletionLabel: string;
   paceHint: string;
   contactsPerHour: number;
+  paceTier: string;
+  paceTierLabel: string;
+  planId: string;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -48,17 +50,17 @@ export function assertWaRegistrationSendAllowed(dest: IDestination): string | nu
     return 'Este número não está cadastrado no WhatsApp. Remova da lista ou corrija o telefone.';
   }
   if (st === 'check_failed') {
-    return `Falha ao validar este número no WhatsApp. Reconecte a sessão ou use Revalidar em Contatos. ${WA_REGISTRATION_PACE_HINT}`;
+    return 'Falha ao validar este número no WhatsApp. Reconecte a sessão ou use Revalidar em Contatos.';
   }
-  const eta = formatWaValidationEta(
-    estimateWaValidationHoursRemaining(1),
-  );
-  return `Este número ainda aguarda validação no WhatsApp (próxima checagem ${eta}). ${WA_REGISTRATION_PACE_HINT}`;
+  return 'Aguardando validação no WhatsApp — o envio libera após a checagem (ritmo conforme o plano da conta).';
 }
 
-export function clampWaRegistrationManualLimit(limit?: number): number {
-  const n = limit ?? WA_REGISTRATION_MANUAL_BATCH_MAX;
-  return Math.min(Math.max(n, 1), WA_REGISTRATION_MANUAL_BATCH_MAX);
+export function clampWaRegistrationManualLimit(
+  limit: number | undefined,
+  pace?: Pick<WaRegistrationPaceConfig, 'manualBatchMax'>,
+): number {
+  if (pace) return clampWaRegistrationManualLimitForPace(limit, pace);
+  return Math.min(Math.max(limit ?? 3, 1), 3);
 }
 
 /** Contato criado por mensagem inbound no WhatsApp — já comprovado pelo canal. */
@@ -67,9 +69,30 @@ export function markWaRegistrationVerifiedInbound(dest: IDestination, resolvedJi
   dest.waRegistrationStatus = 'verified';
   dest.waCheckedAt = new Date();
   if (resolvedJid) dest.waResolvedJid = resolvedJid;
-  if (!dest.phoneQuality || dest.phoneQuality === 'attention') {
+  if (!dest.phoneQuality || dest.phoneQuality === 'attention' || dest.phoneQuality === 'no_whatsapp') {
     dest.phoneQuality = 'verified';
   }
+}
+
+/**
+ * Mensagem recebida no WhatsApp comprova que o número existe — libera envio na hora,
+ * mesmo se o contato veio de CSV/manual antes.
+ */
+export async function ensureWaRegistrationVerifiedFromInbound(
+  dest: IDestination,
+  opts?: { resolvedJid?: string },
+): Promise<boolean> {
+  if (dest.type !== 'contact') return false;
+  if (dest.waRegistrationStatus === 'verified') return false;
+
+  const previousStatus = dest.waRegistrationStatus ?? 'pending';
+  markWaRegistrationVerifiedInbound(dest, opts?.resolvedJid);
+  await dest.save();
+  logger.info('Contato marcado verified por inbound WhatsApp', {
+    destinationId: dest._id,
+    previousStatus,
+  });
+  return true;
 }
 
 export function markWaRegistrationPending(dest: IDestination): void {
@@ -154,15 +177,17 @@ export async function syncWaRegistrationForClient(
   options: {
     limit?: number;
     destinationIds?: string[];
-    /** Ignora teto manual (só uso interno pontual — ex.: 1 contato novo). */
+    /** Ignora teto do plano (só 1 contato novo manual). */
     allowFastSingle?: boolean;
+    pace?: WaRegistrationPaceConfig;
   } = {},
 ): Promise<WaRegistrationSyncResult> {
-  const requested = options.limit ?? WA_REGISTRATION_BACKGROUND_BATCH;
+  const pace = options.pace ?? (await resolveWaRegistrationPaceForClient(clientId));
+  const requested = options.limit ?? pace.backgroundBatch;
   const limit =
     options.allowFastSingle === true && requested <= 1
       ? 1
-      : clampWaRegistrationManualLimit(requested);
+      : clampWaRegistrationManualLimit(requested, pace);
   const clientOid = new mongoose.Types.ObjectId(clientId);
   const wa = WhatsAppService.getInstance();
   const waConnected = wa.isClientConnected(clientId);
@@ -181,6 +206,8 @@ export async function syncWaRegistrationForClient(
 
   logger.info(`Validando números WhatsApp: client=${clientId} fila=${dests.length}`, {
     connected: waConnected,
+    tier: pace.tier,
+    planId: pace.planId,
   });
 
   for (const d of dests) {
@@ -208,7 +235,9 @@ export async function syncWaRegistrationForClient(
       logger.warn(`Falha ao validar ${d.identifier}: ${(err as Error).message}`);
     }
 
-    if (waConnected && limit > 1) await sleep(WA_REGISTRATION_INTERVAL_MS / 4);
+    if (waConnected && limit > 1) {
+      await sleep(Math.max(500, Math.floor(pace.cycleIntervalMs / pace.backgroundBatch)));
+    }
   }
 
   logger.info(
@@ -257,6 +286,7 @@ export async function requestWaRevalidation(
 }
 
 export async function getWaRegistrationStats(clientId: string): Promise<WaRegistrationStats> {
+  const pace = await resolveWaRegistrationPaceForClient(clientId);
   const clientOid = new mongoose.Types.ObjectId(clientId);
   const base = { clientId: clientOid, type: 'contact' as const, isActive: true };
 
@@ -276,9 +306,7 @@ export async function getWaRegistrationStats(clientId: string): Promise<WaRegist
   ]);
 
   const queueSize = pending + checkFailed;
-  const estimatedHoursRemaining = estimateWaValidationHoursRemaining(queueSize);
-  const contactsPerHour =
-    Math.round((3_600_000 / WA_REGISTRATION_INTERVAL_MS) * 10) / 10;
+  const estimatedHoursRemaining = estimateWaValidationHoursForPace(queueSize, pace);
 
   return {
     pending,
@@ -289,8 +317,11 @@ export async function getWaRegistrationStats(clientId: string): Promise<WaRegist
     queueSize,
     estimatedHoursRemaining,
     estimatedCompletionLabel: formatWaValidationEta(estimatedHoursRemaining),
-    paceHint: WA_REGISTRATION_PACE_HINT,
-    contactsPerHour,
+    paceHint: pace.paceHint,
+    contactsPerHour: pace.contactsPerHour,
+    paceTier: pace.tier,
+    paceTierLabel: pace.tierLabel,
+    planId: pace.planId,
   };
 }
 

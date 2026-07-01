@@ -1,4 +1,5 @@
 import {
+  detectDeliveryFulfillmentChoice,
   detectPurchaseConfirmation,
   isValidCatalogSalesPhone,
   normalizeCatalogSalesConfig,
@@ -49,6 +50,23 @@ describe('catalog-sales types', () => {
   it('detecta confirmação de compra', () => {
     expect(detectPurchaseConfirmation('quero comprar esse produto')).toBe(true);
     expect(detectPurchaseConfirmation('qual o horário?')).toBe(false);
+  });
+
+  it('detecta escolha de entrega após oferta de compra', () => {
+    expect(detectDeliveryFulfillmentChoice('quero que entregue')).toBe(true);
+    expect(detectDeliveryFulfillmentChoice('vou retirar na loja')).toBe(true);
+    expect(detectDeliveryFulfillmentChoice('qual o horário?')).toBe(false);
+  });
+
+  it('abre PIX quando cliente escolhe entrega no fluxo de compra', () => {
+    expect(
+      shouldOpenPixOrderFlow({
+        saleMode: 'link_or_pix',
+        clientText: 'quero que entregue',
+        threadContext: 'gostaria de comprar um zaad',
+        companyPixEnabled: true,
+      }),
+    ).toBe(true);
   });
 
   it('exige preço claro para venda automática', () => {

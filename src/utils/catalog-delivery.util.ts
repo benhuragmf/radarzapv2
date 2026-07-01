@@ -394,6 +394,28 @@ export async function estimateDeliveryFromAddresses(opts: {
 }
 
 /** Remove valores de frete/total da IA quando o sistema já enviou (ou falhou) cotação oficial. */
+const AI_TRANSFER_DURING_CATALOG =
+  /\b(vou te transferir|vou encaminhar|estou transferindo|transferir para|encaminhar para|atendente humano|aguarde um momento)\b/i;
+
+/** Remove promessa de transferência quando o fluxo de entrega/catálogo ainda está ativo. */
+export function sanitizeAiReplyStripTransferDuringCatalogFlow(reply: string): string {
+  const kept = reply
+    .split('\n')
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return true;
+      return !AI_TRANSFER_DURING_CATALOG.test(t);
+    });
+  const cleaned = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned.length >= 8 ? cleaned : reply.trim();
+}
+
+export function aiReplyCollectsDeliveryAddress(reply: string): boolean {
+  return /\b(cep|endere[cç]o de entrega|endere[cç]o completo|n[uú]mero do seu endere[cç]o|calcular o frete|valor total)\b/i.test(
+    reply.trim(),
+  );
+}
+
 export function sanitizeAiReplyWhenServerQuotedDelivery(
   reply: string,
   opts: {

@@ -6,7 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import { LoadingState, selectCls, inputCls, searchFieldIconCls, platformPageMaxWidthClass, PageHeader } from '@/design-system'
+import { LoadingState, selectCls, inputCls, searchFieldIconCls, PageHeader } from '@/design-system'
 import { cn } from '@/lib/utils'
 import {
   MessageSquare,
@@ -941,12 +941,7 @@ export default function Inbox() {
   })
 
   return (
-    <div
-      className={cn(
-        'flex flex-col flex-1 min-h-0 w-full mx-auto',
-        platformPageMaxWidthClass,
-      )}
-    >
+    <div className="flex flex-col flex-1 min-h-0 w-full max-w-none min-w-0">
       <InboxHotkeysHelp open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       <div className={cn('shrink-0', chatFocus ? 'mb-1' : 'mb-2 space-y-2')}>
         {!chatFocus && (
@@ -1094,7 +1089,7 @@ export default function Inbox() {
       <div
         className={cn(
           'flex flex-col lg:flex-row gap-0 rounded-xl border border-[var(--rz-border)] bg-[var(--rz-surface)]/30 overflow-hidden shadow-xl shadow-black/20',
-          'flex-1 min-h-0',
+          'flex-1 min-h-0 w-full max-w-full min-w-0',
         )}
       >
         {/* Lista de conversas */}

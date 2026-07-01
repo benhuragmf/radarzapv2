@@ -35,6 +35,8 @@ export interface EscalationCheckInput {
   rules: AiTransferRules;
   /** Pedido catálogo aguardando endereço — não escalar só por dados mínimos. */
   catalogAddressPending?: boolean;
+  /** Compra/entrega em andamento — bloqueia escalação comercial prematura. */
+  catalogSalesFlowActive?: boolean;
 }
 
 export interface EscalationDecision {
@@ -59,15 +61,17 @@ export class AiEscalationService {
       prompt,
       hasUninterpretableMedia,
       catalogAddressPending,
+      catalogSalesFlowActive,
     } = input;
     const text = clientText.trim();
     const locationTurn = isWaLocationInboundText(text);
+    const catalogFlowGuard = Boolean(catalogSalesFlowActive || catalogAddressPending);
 
     if (this.clientClosingConversation(text)) {
       return { shouldEscalate: false };
     }
 
-    if (catalogAddressPending || locationTurn) {
+    if (catalogFlowGuard || locationTurn) {
       if (rules.onHumanRequest && this.clientRequestsHuman(text)) {
         return { shouldEscalate: true, reason: 'Cliente solicitou atendente humano' };
       }
@@ -121,6 +125,7 @@ export class AiEscalationService {
     }
     if (
       !collectionOnly &&
+      !catalogFlowGuard &&
       rules.onMinDataCollected &&
       state.aiTurnCount >= 2 &&
       this.hasMinData(state, prompt)
