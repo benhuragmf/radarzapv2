@@ -58,7 +58,7 @@ export function OperationalWhatsAppCards() {
       <div className="grid gap-4 lg:grid-cols-3">
         <SectionCard
           title="WhatsApp da loja"
-          description="Número onde o cliente conversa, reserva produto e envia comprovante."
+          description="Número conectado onde o cliente conversa, compra automaticamente e reserva o produto."
         >
           <div className="space-y-3">
             {canManageWa ? (
@@ -167,7 +167,7 @@ export function OperationalWhatsAppCards() {
 
         <SectionCard
           title="WhatsApp dos entregadores"
-          description="Em atualização futura — cadastro de entregadores para retirada e entrega após pagamento confirmado."
+          description="Em atualização futura, a empresa poderá cadastrar entregadores para receber os dados de retirada na loja e entrega ao cliente após o pagamento ser confirmado."
           className="opacity-90"
         >
           <div className="space-y-3">

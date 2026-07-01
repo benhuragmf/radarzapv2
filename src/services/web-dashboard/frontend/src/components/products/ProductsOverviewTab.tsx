@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
 import {
   Package,
   CreditCard,
@@ -25,6 +26,8 @@ interface CatalogOrderRow {
   id: string
   status: string
   productName: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface SessionRow {
@@ -53,9 +56,17 @@ export function ProductsOverviewTab() {
   ).length
   const awaitingPayment = orders.filter(o => o.status === 'aguardando_pagamento').length
   const awaitingAddress = orders.filter(o => o.status === 'aguardando_endereco').length
+  const todayStart = useMemo(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  }, [])
+
   const approvedToday = orders.filter(o => {
     if (!['pagamento_aprovado', 'pedido_confirmado'].includes(o.status)) return false
-    return true
+    const ts = o.updatedAt ?? o.createdAt
+    if (!ts) return false
+    return new Date(ts) >= todayStart
   }).length
 
   const pixIncomplete =
@@ -103,7 +114,7 @@ export function ProductsOverviewTab() {
         <MetricCard title="Aguardando pagamento" value={awaitingPayment} icon={CreditCard} />
         <MetricCard title="Comprovantes pendentes" value={pendingProof} icon={ClipboardList} />
         <MetricCard title="Aguardando endereço" value={awaitingAddress} icon={MapPin} />
-        <MetricCard title="Aprovados / confirmados" value={approvedToday} />
+        <MetricCard title="Aprovados hoje" value={approvedToday} />
       </div>
 
       <SectionCard title="Fluxo operacional">
@@ -168,6 +179,12 @@ export function ProductsOverviewTab() {
             {productStats.withoutPrice > 0 && (
               <InlineNotice tone="warning" title="Produtos sem preço">
                 {productStats.withoutPrice} produto(s) sem preço — a IA não gera PIX automático.
+              </InlineNotice>
+            )}
+            {(productStats.uncertainStock ?? 0) > 0 && (
+              <InlineNotice tone="warning" title="Estoque a confirmar">
+                {productStats.uncertainStock} produto(s) com disponibilidade indefinida — PIX
+                automático bloqueado até confirmar estoque.
               </InlineNotice>
             )}
           </div>

@@ -18,7 +18,7 @@ Entrega **2.17.55** evolui o módulo **Produtos** (`/platform/produtos`) de form
 
 ## 5. Commit final
 
-`93422c6` — `feat(products): melhora UX e separa WhatsApps operacionais 2.17.55`
+`f829bdf` — `feat(products): melhora UX e separa WhatsApps operacionais 2.17.55` (commit amendado; `93422c6` foi substituído antes do push)
 
 ## 6. Objetivo
 

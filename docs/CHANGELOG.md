@@ -22,6 +22,11 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ## [2.17.55] - 2026-07-01
 
+### Fixed
+- Produtos visão geral: KPI **Aprovados hoje** filtra por data (`createdAt`/`updatedAt`)
+- Alerta **Estoque a confirmar** no bloco de alertas da visão geral
+- Textos dos cards WhatsApp da loja e entregadores alinhados ao spec
+
 ### Added
 - Menu **Produtos**: UX profissional — dashboard na visão geral (KPIs, fluxo operacional, alertas, atalhos)
 - Formulário de produto colapsável com seções Dados/Venda/Fulfillment/Segurança; listagem em `DataTable` com badges de estoque/PIX
