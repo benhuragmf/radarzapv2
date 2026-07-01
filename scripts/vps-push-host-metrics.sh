@@ -40,6 +40,18 @@ if command -v free >/dev/null; then
 fi
 
 issues=()
+disk_pct="$(df -P / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $5}' || echo 0)"
+if [[ "$disk_pct" =~ ^[0-9]+$ ]] && (( disk_pct >= 82 )); then
+  issues+=("Disco / em ${disk_pct}% — executando limpeza Docker automatica")
+  if [[ -f "${DEPLOY_PATH}/scripts/vps-docker-prune-safe.sh" ]]; then
+    sudo -E DEPLOY_PATH="$DEPLOY_PATH" bash "${DEPLOY_PATH}/scripts/vps-docker-prune-safe.sh" --cron --aggressive \
+      >>/var/log/radarchat-docker-prune.log 2>&1 || true
+    disk_pct="$(df -P / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $5}' || echo "$disk_pct")"
+    if (( disk_pct >= 88 )); then
+      issues+=("Disco / ainda em ${disk_pct}% apos limpeza — risco de falha no deploy")
+    fi
+  fi
+fi
 while IFS= read -r line; do
   [[ -n "$line" ]] && issues+=("$line")
 done < <(sudo docker ps -a --format '{{.Names}} {{.Status}}' 2>/dev/null \

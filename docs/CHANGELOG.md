@@ -20,6 +20,11 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.43] - 2026-07-01
+
+### Fixed
+- **Infra VPS:** cron de limpeza Docker (6h + diário), prune pós-deploy, alerta de disco nas métricas e gate se `/` ≥ 92% — evita recorrência de `no space left on device`.
+
 ## [2.17.42] - 2026-07-01
 
 ### Fixed

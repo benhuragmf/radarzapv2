@@ -65,6 +65,20 @@ gh workflow run Deploy -f deploy_mode=full-republish
 gh workflow run "Fix Coolify SSL (Radar Chat)"
 ```
 
+### Disco VPS (Docker)
+
+Cada push na `main` gera nova imagem GHCR. Sem limpeza, o disco enche e o deploy falha com `no space left on device`.
+
+| Automação | Script |
+|-----------|--------|
+| Antes/depois de cada deploy | `scripts/vps-docker-prune-safe.sh` |
+| Cron (6h + 03:15 diário) | `scripts/vps-install-docker-prune-cron.sh` |
+| Métricas Admin Ops (disco ≥ 82%) | prune automático em `vps-push-host-metrics.sh` |
+
+**Emergência na VPS:** `sudo -E DEPLOY_PATH=/opt/radarchat bash /opt/radarchat/scripts/vps-docker-prune-safe.sh --aggressive`
+
+**Proibido em produção:** `docker volume prune` / `system prune --volumes` (apaga sessions e Mongo).
+
 ### Workflows GitHub (operacionais)
 
 ---

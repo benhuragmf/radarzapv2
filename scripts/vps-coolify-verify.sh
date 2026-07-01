@@ -21,6 +21,16 @@ fi
 
 log "=== Gate produção RadarChat (uuid=${CANONICAL_UUID}) ==="
 
+# --- Disco (gate deploy) ---
+disk_pct="$(df -P / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $5}' || echo 0)"
+if [[ "$disk_pct" =~ ^[0-9]+$ ]] && (( disk_pct >= 92 )); then
+  fail "disco / em ${disk_pct}% — rode scripts/vps-docker-prune-safe.sh na VPS antes do deploy"
+elif [[ "$disk_pct" =~ ^[0-9]+$ ]] && (( disk_pct >= 82 )); then
+  log "AVISO: disco / em ${disk_pct}% — limpeza recomendada"
+else
+  log "OK disco / (${disk_pct}% usado)"
+fi
+
 # --- Docker containers ---
 for svc in app mongodb redis; do
   cname="${CANONICAL_UUID}-${svc}-1"

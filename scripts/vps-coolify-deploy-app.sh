@@ -150,6 +150,17 @@ fi
 
 log "Deploy app concluido (${RADARCHAT_IMAGE})"
 
+log "Pos-deploy: limpando imagens Docker antigas..."
+if [[ -f "$PRUNE_SCRIPT" ]]; then
+  sudo -E bash "$PRUNE_SCRIPT" --cron || true
+fi
+
+CRON_INSTALL="${DEPLOY_PATH}/scripts/vps-install-docker-prune-cron.sh"
+if [[ -f "$CRON_INSTALL" ]]; then
+  log "Garantindo cron de limpeza Docker..."
+  sudo -E DEPLOY_PATH="$DEPLOY_PATH" bash "$CRON_INSTALL" || true
+fi
+
 log "Sync painel Coolify..."
 sudo -E bash "${DEPLOY_PATH}/scripts/vps-coolify-disable-sentinel.sh"
 
