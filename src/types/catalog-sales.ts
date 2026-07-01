@@ -331,6 +331,16 @@ export function productStockIsZero(stock: string | null | undefined): boolean {
   return parseInt(m[1], 10) === 0;
 }
 
+/** Normaliza texto para comparação de catálogo (acentos, caixa, hífens, espaços). */
+export function normalizeCatalogCompareText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
 function levenshteinDistance(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
@@ -350,14 +360,29 @@ function levenshteinDistance(a: string, b: string): number {
 
 /** Similaridade 0–1 entre consulta do cliente e título do produto. */
 export function catalogTitleSimilarity(query: string, title: string): number {
-  const q = query.trim().toLowerCase();
-  const t = title.trim().toLowerCase();
+  const q = normalizeCatalogCompareText(query);
+  const t = normalizeCatalogCompareText(title);
   if (!q || !t) return 0;
   if (q === t) return 1;
   if (t.includes(q) || q.includes(t)) return 0.92;
   const dist = levenshteinDistance(q, t);
   const maxLen = Math.max(q.length, t.length);
   return maxLen > 0 ? 1 - dist / maxLen : 0;
+}
+
+/** Score mínimo para ofertar produto direto (match forte). */
+export const CATALOG_STRONG_MATCH_MIN_SCORE = 0.92;
+
+/** Score mínimo para sugerir produto parecido (sem abrir pedido/PIX). */
+export const CATALOG_FUZZY_SUGGEST_MIN_SCORE = 0.68;
+
+export function isStrongCatalogProductTitleMatch(query: string, title: string): boolean {
+  return catalogTitleSimilarity(query, title) >= CATALOG_STRONG_MATCH_MIN_SCORE;
+}
+
+export function isAmbiguousCatalogFuzzyMatch(query: string, title: string): boolean {
+  const score = catalogTitleSimilarity(query, title);
+  return score >= CATALOG_FUZZY_SUGGEST_MIN_SCORE && score < CATALOG_STRONG_MATCH_MIN_SCORE;
 }
 
 const PRODUCT_QUERY_STOPWORDS = new Set([
@@ -459,12 +484,12 @@ export function detectPurchaseConfirmation(text: string): boolean {
 
 /** Cliente escolheu retirada na loja. */
 export function detectPickupFulfillmentChoice(text: string): boolean {
-  const t = text.trim().toLowerCase();
+  const t = normalizeCatalogCompareText(text);
   if (!t || t.length > 120) return false;
   return (
-    /\b(prefiro retirar|quero retirar|vou retirar|retirada|retirar na loja|pegar na loja|buscar na loja|vou buscar)\b/i.test(
+    /\b(prefiro retirar|quero retirar|vou retirar|retirar na loja|pegar na loja|buscar na loja|vou buscar|passo ai)\b/.test(
       t,
-    ) || /^(retirar|retirada|buscar)[\s!.?]*$/i.test(t)
+    ) || /^(retirar|retirada|buscar|retira)[\s!.?]*$/.test(t)
   );
 }
 
@@ -474,7 +499,7 @@ export function detectDeliveryFulfillmentChoice(text: string): boolean {
   if (!t || t.length > 120) return false;
   if (detectPickupFulfillmentChoice(text)) return false;
   return (
-    /\b(quero que entregue|me entregue|com entrega|para entregar|por entrega|quero entrega|prefiro entrega|manda entregar|mandar entregar|enviar pra mim|enviar para mim|quero receber|delivery)\b/i.test(
+    /\b(quero que entregue|me entregue|com entrega|para entregar|por entrega|quero entrega|prefiro entrega|manda entregar|mandar entregar|enviar pra mim|enviar para mim|envia pra mim|envia para mim|quero receber|delivery|pode entregar)\b/i.test(
       t,
     ) ||
     /\b(entregue|entrega|envio|enviar|receber em casa)\b/i.test(t)

@@ -40,6 +40,8 @@ import {
   extractProductNameFromCatalogOffer,
   extractCatalogProductQueryToken,
   catalogTitleSimilarity,
+  normalizeCatalogCompareText,
+  CATALOG_FUZZY_SUGGEST_MIN_SCORE,
   CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
   buildEmptyCatalogReply,
   formatCatalogProductSuggestionLine,
@@ -271,6 +273,7 @@ export class CatalogSalesService {
     });
     if (!product) return null;
 
+    const price = parseProductPriceFromContent(product.content ?? '');
     const stock = parseProductStockFromContent(product.content ?? '');
     const salesMeta = normalizeProductSalesMeta(product.salesMeta);
     if (productStockIsZero(stock) && !salesMeta.madeToOrder) {
@@ -282,9 +285,17 @@ export class CatalogSalesService {
       });
     }
 
+    if (!productHasClearPrice(price) && !salesMeta.madeToOrder) {
+      const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
+      return (
+        `${prefix}o produto *${product.title}* está no catálogo, mas o preço ainda não está cadastrado ` +
+        'para venda automática. Digite *atendente* para falar com nossa equipe.'
+      );
+    }
+
     return this.buildCatalogPurchaseOfferReply({
       productName: product.title,
-      price: parseProductPriceFromContent(product.content ?? ''),
+      price,
       stock,
       contactFirstName: opts.contactFirstName,
     });
@@ -1205,7 +1216,7 @@ export class CatalogSalesService {
     const token = extractCatalogProductQueryToken(query) ?? query.trim().toLowerCase();
     if (!token || token.length < 2) return [];
     const rows = await this.loadCatalogProductRows(clientId);
-    const minScore = opts?.minScore ?? 0.68;
+    const minScore = opts?.minScore ?? CATALOG_FUZZY_SUGGEST_MIN_SCORE;
     const exclude = opts?.excludeTitle?.trim().toLowerCase();
     return rows
       .filter(r => r.title.trim().toLowerCase() !== exclude)
@@ -1218,10 +1229,10 @@ export class CatalogSalesService {
 
   private async guessProductFromText(clientId: string, text: string) {
     const rows = await this.loadCatalogProductRows(clientId);
-    const lower = text.toLowerCase();
+    const lower = normalizeCatalogCompareText(text);
 
     const substringHit = rows.find(r => {
-      const title = r.title.toLowerCase();
+      const title = normalizeCatalogCompareText(r.title);
       return title.length >= 2 && lower.includes(title);
     });
     if (substringHit) return substringHit;
@@ -1229,11 +1240,11 @@ export class CatalogSalesService {
     const token = extractCatalogProductQueryToken(text);
     if (!token || token.length < 2) return null;
 
-    const exact = rows.find(r => r.title.trim().toLowerCase() === token);
+    const tokenNorm = normalizeCatalogCompareText(token);
+    const exact = rows.find(r => normalizeCatalogCompareText(r.title) === tokenNorm);
     if (exact) return exact;
 
-    const similar = await this.findSimilarCatalogProducts(clientId, token, 1, { minScore: 0.78 });
-    return similar[0] ?? null;
+    return null;
   }
 
   async createOrder(opts: {

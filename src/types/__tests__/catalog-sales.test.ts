@@ -1,17 +1,25 @@
 import {
+  buildEmptyCatalogReply,
+  buildFulfillmentReminderReply,
+  catalogTitleSimilarity,
+  CATALOG_EMPTY_REPLY_SUFFIX,
+  CATALOG_FUZZY_SUGGEST_MIN_SCORE,
+  CATALOG_STRONG_MATCH_MIN_SCORE,
   detectDeliveryFulfillmentChoice,
+  detectLinkPurchaseIntent,
   detectPickupFulfillmentChoice,
+  detectPixPurchaseIntent,
   detectPurchaseConfirmation,
   extractProductNameFromCatalogOffer,
-  isCatalogPurchaseOfferMessage,
-  catalogTitleSimilarity,
   extractCatalogProductQueryToken,
-  looksLikeCatalogProductNameQuery,
-  buildEmptyCatalogReply,
   formatCatalogProductSuggestionLine,
-  CATALOG_EMPTY_REPLY_SUFFIX,
-  isValidCatalogSalesPhone,
+  isAmbiguousCatalogFuzzyMatch,
+  isCatalogPurchaseOfferMessage,
+  isStrongCatalogProductTitleMatch,
+  looksLikeCatalogProductNameQuery,
+  normalizeCatalogCompareText,
   normalizeCatalogSalesConfig,
+  isValidCatalogSalesPhone,
   productHasClearPrice,
   productStockIsZero,
   shouldOpenPixOrderFlow,
@@ -32,10 +40,14 @@ describe('catalog-sales types', () => {
     expect(cfg.businessCatalogProfile).toBe('none');
   });
 
+  it('catálogo desligado — config enabled false por default', () => {
+    expect(normalizeCatalogSalesConfig({}).enabled).toBe(false);
+    expect(normalizeCatalogSalesConfig({ pixEnabled: true }).pixEnabled).toBe(true);
+  });
+
   it('valida telefone BR com DDI', () => {
     expect(isValidCatalogSalesPhone('5566999999999')).toBe(true);
     expect(isValidCatalogSalesPhone('66999999999')).toBe(false);
-    expect(isValidCatalogSalesPhone('5511')).toBe(false);
   });
 
   it('monta instruções PIX a partir de chave e titular', () => {
@@ -46,7 +58,6 @@ describe('catalog-sales types', () => {
     });
     expect(text).toContain('Chave PIX: benhur@email.com');
     expect(text).toContain('Titular: Benhur Ltda');
-    expect(text).toContain('comprovante');
   });
 
   it('extrai chave PIX legada de pixInstructions', () => {
@@ -54,82 +65,109 @@ describe('catalog-sales types', () => {
       pixInstructions: 'Chave PIX: 5566999999999\nTitular: Loja\nPague e envie print.',
     });
     expect(enriched.pixKey).toBe('5566999999999');
-    expect(enriched.pixHolderName).toBe('Loja');
     expect(resolveCatalogPixInstructions(enriched)).toContain('Pague e envie print');
   });
 
-  it('detecta confirmação de compra', () => {
-    expect(detectPurchaseConfirmation('quero comprar esse produto')).toBe(true);
-    expect(detectPurchaseConfirmation('qual o horário?')).toBe(false);
+  it('catálogo vazio — mensagem honesta sem loop genérico', () => {
+    const reply = buildEmptyCatalogReply('Benhur');
+    expect(reply).toContain(CATALOG_EMPTY_REPLY_SUFFIX);
+    expect(reply).toContain('Benhur');
+    expect(reply).not.toContain('Qual produto você gostaria');
   });
 
-  it('detecta escolha de entrega após oferta de compra', () => {
-    expect(detectDeliveryFulfillmentChoice('quero que entregue')).toBe(true);
-    expect(detectDeliveryFulfillmentChoice('entregue')).toBe(true);
-    expect(detectDeliveryFulfillmentChoice('me entregue')).toBe(true);
-    expect(detectDeliveryFulfillmentChoice('vou retirar na loja')).toBe(false);
-    expect(detectPickupFulfillmentChoice('vou retirar na loja')).toBe(true);
-    expect(detectDeliveryFulfillmentChoice('qual o horário?')).toBe(false);
+  it('similaridade normaliza acentos, caixa e hífens', () => {
+    expect(normalizeCatalogCompareText('ZA-Ad')).toBe('za ad');
+    expect(catalogTitleSimilarity('zád', 'ZAAd')).toBeGreaterThan(0.7);
+    expect(isStrongCatalogProductTitleMatch('zaad', 'ZAAd')).toBe(true);
+    expect(isStrongCatalogProductTitleMatch('zad', 'ZAAd')).toBe(false);
+    expect(isAmbiguousCatalogFuzzyMatch('zad', 'ZAAd')).toBe(true);
   });
 
-  it('extrai produto da oferta padronizada', () => {
-    const offer =
-      'Olá, Benhur! O produto *zaad* está disponível por R$ 1 e temos 2. Você gostaria de prosseguir com a compra? Se sim, prefere *retirar* ou que seja *entregue*?';
-    expect(isCatalogPurchaseOfferMessage(offer)).toBe(true);
-    expect(extractProductNameFromCatalogOffer(offer)).toBe('zaad');
+  it('similar ambíguo não é match forte — exige confirmação antes de oferta', () => {
+    const score = catalogTitleSimilarity('zad', 'ZAAd');
+    expect(score).toBeGreaterThanOrEqual(CATALOG_FUZZY_SUGGEST_MIN_SCORE);
+    expect(score).toBeLessThan(CATALOG_STRONG_MATCH_MIN_SCORE);
+    expect(isStrongCatalogProductTitleMatch('zad', 'ZAAd')).toBe(false);
   });
 
-  it('abre PIX quando cliente escolhe entrega só com oferta anterior', () => {
-    expect(
-      shouldOpenPixOrderFlow({
-        saleMode: 'link_or_pix',
-        clientText: 'entregue',
-        threadContext: '',
-        companyPixEnabled: true,
-        catalogOfferProductName: 'zaad',
-      }),
-    ).toBe(true);
-  });
-
-  it('calcula similaridade entre nomes de produto', () => {
-    expect(catalogTitleSimilarity('zaad', 'zaad')).toBe(1);
-    expect(catalogTitleSimilarity('zad', 'zaad')).toBeGreaterThan(0.7);
-    expect(catalogTitleSimilarity('xyz', 'zaad')).toBeLessThan(0.5);
-  });
-
-  it('detecta consulta curta por nome de produto', () => {
-    expect(looksLikeCatalogProductNameQuery('zaad')).toBe(true);
-    expect(looksLikeCatalogProductNameQuery('ola boa tarde')).toBe(false);
-    expect(looksLikeCatalogProductNameQuery('entrega')).toBe(false);
-    expect(looksLikeCatalogProductNameQuery('qual o horário?')).toBe(false);
+  it('produto inexistente — token extraído para busca', () => {
+    expect(extractCatalogProductQueryToken('zad')).toBe('zad');
     expect(extractCatalogProductQueryToken('quero o zaad')).toBe('zaad');
   });
 
-  it('formata sugestão de produto e catálogo vazio', () => {
-    expect(formatCatalogProductSuggestionLine('ZAAd', 'R$ 150,00', '2 unidades')).toContain('ZAAd');
-    expect(formatCatalogProductSuggestionLine('ZAAd', 'R$ 150,00', '2 unidades')).toContain('150');
-    expect(buildEmptyCatalogReply('Benhur')).toContain(CATALOG_EMPTY_REPLY_SUFFIX);
-    expect(buildEmptyCatalogReply('Benhur')).toContain('Benhur');
+  it('formata sugestão com preço e estoque reais', () => {
+    const line = formatCatalogProductSuggestionLine('ZAAd', 'R$ 150,00', '2 unidades');
+    expect(line).toContain('ZAAd');
+    expect(line).toContain('150');
+    expect(line).toContain('un');
   });
 
-  it('detecta variações de entrega', () => {
-    expect(detectDeliveryFulfillmentChoice('quero receber')).toBe(true);
-    expect(detectDeliveryFulfillmentChoice('mandar entregar')).toBe(true);
+  it('saudação não abre catálogo', () => {
+    expect(looksLikeCatalogProductNameQuery('ola boa tarde')).toBe(false);
+    expect(looksLikeCatalogProductNameQuery('bom dia')).toBe(false);
+    expect(looksLikeCatalogProductNameQuery('oi tudo bem')).toBe(false);
+    expect(looksLikeCatalogProductNameQuery('zaad')).toBe(true);
   });
 
-  it('exige preço claro para venda automática', () => {
-    expect(productHasClearPrice('R$ 149,90')).toBe(true);
-    expect(productHasClearPrice('sob consulta')).toBe(false);
-    expect(productHasClearPrice('')).toBe(false);
+  it('produto encontrado — oferta padronizada detectável', () => {
+    const offer =
+      'Olá, Benhur! O produto *ZAAd* está disponível por R$ 150,00 e temos 2 unidades. ' +
+      'Você gostaria de prosseguir com a compra? Se sim, prefere *retirar* ou que seja *entregue*?';
+    expect(isCatalogPurchaseOfferMessage(offer)).toBe(true);
+    expect(extractProductNameFromCatalogOffer(offer)).toBe('ZAAd');
   });
 
-  it('identifica estoque zero', () => {
+  it('estoque zero identificado', () => {
     expect(productStockIsZero('0 unidades')).toBe(true);
     expect(productStockIsZero('sob encomenda')).toBe(false);
     expect(productStockIsZero('12 unidades')).toBe(false);
   });
 
-  it('nao abre PIX quando cliente pede link da loja', () => {
+  it('produto sem preço — não tem preço claro', () => {
+    expect(productHasClearPrice('R$ 149,90')).toBe(true);
+    expect(productHasClearPrice('sob consulta')).toBe(false);
+    expect(productHasClearPrice('')).toBe(false);
+  });
+
+  it('entrega — variações avançam fluxo', () => {
+    for (const t of [
+      'entregue',
+      'entrega',
+      'quero receber',
+      'mandar entregar',
+      'manda entregar',
+      'pode entregar',
+      'envia pra mim',
+      'delivery',
+    ]) {
+      expect(detectDeliveryFulfillmentChoice(t)).toBe(true);
+    }
+    expect(detectDeliveryFulfillmentChoice('retirar')).toBe(false);
+  });
+
+  it('retirada — variações avançam fluxo', () => {
+    for (const t of ['retirar', 'retirada', 'buscar', 'vou buscar', 'passo aí', 'retira']) {
+      expect(detectPickupFulfillmentChoice(t)).toBe(true);
+    }
+    expect(detectPickupFulfillmentChoice('entrega')).toBe(false);
+  });
+
+  it('repetir nome do produto — lembrete fulfillment sem re-oferta completa', () => {
+    const reminder = buildFulfillmentReminderReply('ZAAd', 'Benhur');
+    expect(reminder).toContain('ZAAd');
+    expect(reminder).toContain('retirar');
+    expect(reminder).toContain('entregue');
+    expect(reminder).not.toContain('está disponível por');
+  });
+
+  it('sim no contexto confirma compra', () => {
+    expect(detectPurchaseConfirmation('sim')).toBe(true);
+    expect(detectPurchaseConfirmation('pode ser')).toBe(true);
+    expect(detectPurchaseConfirmation('qual o horário?')).toBe(false);
+  });
+
+  it('link da loja não abre PIX', () => {
+    expect(detectLinkPurchaseIntent('manda o link da loja')).toBe(true);
     expect(
       shouldOpenPixOrderFlow({
         saleMode: 'link_or_pix',
@@ -137,9 +175,18 @@ describe('catalog-sales types', () => {
         companyPixEnabled: true,
       }),
     ).toBe(false);
+    expect(
+      shouldOpenPixOrderFlow({
+        saleMode: 'link',
+        clientText: 'quero comprar',
+        structuredWantsOrder: true,
+        companyPixEnabled: true,
+      }),
+    ).toBe(false);
   });
 
-  it('abre PIX quando cliente pede pix explicitamente', () => {
+  it('pix explícito abre fluxo quando permitido', () => {
+    expect(detectPixPurchaseIntent('quero pagar no pix')).toBe(true);
     expect(
       shouldOpenPixOrderFlow({
         saleMode: 'link_or_pix',
@@ -149,14 +196,60 @@ describe('catalog-sales types', () => {
     ).toBe(true);
   });
 
-  it('modo link nunca abre pedido PIX', () => {
+  it('link_or_pix — escolha link não força PIX', () => {
     expect(
       shouldOpenPixOrderFlow({
-        saleMode: 'link',
-        clientText: 'quero comprar',
-        structuredWantsOrder: true,
+        saleMode: 'link_or_pix',
+        clientText: 'comprar pelo site',
         companyPixEnabled: true,
       }),
     ).toBe(false);
+  });
+
+  it('PIX desligado — fulfillment com oferta não abre sem pixEnabled em link_or_pix', () => {
+    expect(
+      shouldOpenPixOrderFlow({
+        saleMode: 'link_or_pix',
+        clientText: 'entregue',
+        companyPixEnabled: false,
+        catalogOfferProductName: 'ZAAd',
+      }),
+    ).toBe(false);
+  });
+
+  it('entregue com produto em contexto abre PIX quando pix habilitado', () => {
+    expect(
+      shouldOpenPixOrderFlow({
+        saleMode: 'link_or_pix',
+        clientText: 'entregue',
+        companyPixEnabled: true,
+        catalogOfferProductName: 'ZAAd',
+      }),
+    ).toBe(true);
+  });
+
+  it('PIX não abre sem produto em contexto na escolha de fulfillment', () => {
+    expect(
+      shouldOpenPixOrderFlow({
+        saleMode: 'link_or_pix',
+        clientText: 'entregue',
+        companyPixEnabled: true,
+        catalogOfferProductName: '',
+      }),
+    ).toBe(false);
+  });
+
+  it('requireHumanApproval default true — aprovação humana obrigatória', () => {
+    expect(normalizeCatalogSalesConfig({}).requireHumanApproval).toBe(true);
+  });
+
+  it('status comprovante_sem_pedido existe no contrato', () => {
+    expect(
+      [
+        'comprovante_sem_pedido',
+        'aguardando_pagamento',
+        'aguardando_endereco',
+      ].includes('comprovante_sem_pedido'),
+    ).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 # Pendências humanas — Fase 1 (única fonte ativa)
 
-**Versão produto:** `2.12.69` (main) · **VPS QA:** alinhar com último deploy `main` · **Atualizado:** 2026-06-28
+**Versão produto:** `2.17.52` (produção Coolify `app.radarchat.com.br`) · **Atualizado:** 2026-07-01
 
 Este doc lista **somente** o que **não pode** ser fechado por código ou CI — requer browser/celular real (Benhur).  
 Tudo que já está verde automaticamente está em § Gate automático abaixo.
@@ -36,6 +36,24 @@ Tudo que já está verde automaticamente está em § Gate automático abaixo.
 | **7** | **Fallback fila WA nativa** (2.12.67) | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) **Parte 3c** · registro [`concluidos/QA-FASE1-RESULTADO-2026-06-28.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-28.md) § Agendado | Benhur · **após deploy 2.12.67** |
 
 Checklist 1 página: [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
+
+---
+
+## P1b — Catálogo IA / PIX / entrega (WhatsApp + WebChat real)
+
+**Não marcar concluído sem teste real.** Roteiro: [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md) · conclusão técnica: [`concluidos/RADARCHAT-CATALOGO-IA-PIX-PRODUCAO-CONCLUSAO-2.17.52.md`](./concluidos/RADARCHAT-CATALOGO-IA-PIX-PRODUCAO-CONCLUSAO-2.17.52.md)
+
+| # | Cenário | Quem |
+|---|---------|------|
+| C1 | Catálogo vazio — sem loop, sem PIX | Benhur · WA |
+| C2 | *quero comprar zaad* → oferta retirar/entregue | Benhur · WA |
+| C3 | *entregue* / *retirar* após oferta | Benhur · WA |
+| C4 | *zad* → sugestão, não oferta direta | Benhur · WA |
+| C5 | *ola boa tarde* → não abre catálogo | Benhur · WA |
+| C6 | Repetir *zaad* após oferta → lembrete | Benhur · WA |
+| C7 | Estoque 0 / sem preço | Benhur · painel + WA |
+| C8 | Comprovante + notificação WA interno | Benhur · WA + Inbox |
+| C9 | Paridade WebChat (C2–C4) | Benhur · widget |
 
 ---
 

@@ -20,6 +20,25 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.52] - 2026-07-01
+
+### Fixed
+- Catálogo/IA: similar ambíguo (ex. *zad* → ZAAd) sugere com confirmação — não oferta direta nem PIX
+- `guessProductFromText` só match forte (exato/substring); fuzzy vai para `buildProductNotFoundReply`
+- Produto sem preço cadastrado bloqueia oferta automática — encaminha para atendente
+- Normalização de comparação (acentos, hífens, caixa) em similaridade e retirada
+- Sinônimos retirada: *passo aí*, *retira*; entrega: *pode entregar*, *envia pra mim*
+
+### Added
+- `normalizeCatalogCompareText`, `isStrongCatalogProductTitleMatch`, `isAmbiguousCatalogFuzzyMatch`
+- Doc conclusão: `docs/concluidos/RADARCHAT-CATALOGO-IA-PIX-PRODUCAO-CONCLUSAO-2.17.52.md`
+- Testes expandidos `catalog-sales.test.ts` (26 cenários)
+
+### Security
+- Revalidação: pedido/PIX só com produto real, estoque, preço e configuração ativa
+
+---
+
 ## [2.17.51] - 2026-06-30
 
 ### Added

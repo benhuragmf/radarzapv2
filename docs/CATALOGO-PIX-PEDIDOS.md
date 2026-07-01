@@ -1,6 +1,6 @@
 # Catálogo — pedidos PIX com comprovante e conferência humana
 
-**Versão:** 2.17.49 · **Marca:** RadarChat
+**Versão:** 2.17.52 · **Marca:** RadarChat · **App:** `https://app.radarchat.com.br`
 
 ## Objetivo
 
@@ -128,9 +128,10 @@ Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é 
 1. Cliente pergunta produto (nome ou intenção de compra) → oferta padronizada: preço, estoque, *retirar* ou *entregue* (sem PIX bruto da KB).
 2. Cliente escolhe **retirar** → pedido `aguardando_pagamento` + mensagem automática com endereço de retirada e PIX.
 3. Cliente escolhe **entregue** → pedido `aguardando_endereco` + pedido de **CEP**; depois número → cotação de frete no servidor → PIX.
-4. Produto inexistente ou typo → sugestão de itens parecidos ou lista do catálogo (não loop genérico).
-5. Cliente envia imagem/PDF → `handleInboundProof` → vincula comprovante, notifica WA interno se configurado.
-6. Operador aprova/recusa no Inbox (`CatalogSalesOrderPanel`) → mensagem automática ao cliente se configurado.
+4. Produto inexistente ou typo → sugestão de itens parecidos com **preço e estoque** (até 3); match ambíguo **pede confirmação** — não abre pedido/PIX direto (2.17.52).
+5. Catálogo vazio → mensagem honesta + atendente; sem loop *"Qual produto…"* (2.17.51+).
+6. Cliente envia imagem/PDF → `handleInboundProof` → vincula comprovante, notifica WA interno se configurado.
+7. Operador aprova/recusa no Inbox (`CatalogSalesOrderPanel`) → mensagem automática ao cliente se configurado.
 
 **Canais:** WhatsApp (`AiConversationService`) e WebChat (`WebChatAiService`) — atalhos de catálogo antes do LLM.
 
@@ -142,7 +143,18 @@ Texto fixo do servidor, exemplo:
 
 **Perfil comercial** (painel IA Atendimento): varejo/catálogo + ativar pedidos via IA; produtos na categoria **Produtos e estoque**.
 
-## QA manual (checklist)
+## Similaridade e confirmação (2.17.52)
+
+| Tipo de match | Comportamento |
+|---------------|---------------|
+| Exato / substring forte (`zaad` = ZAAd) | Oferta padronizada retirar/entregue |
+| Fuzzy ambíguo (`zad` ≈ ZAAd, score 0.68–0.91) | Sugestão com preço/estoque + *Deseja comprar algum deles?* |
+| Sem match | Lista do catálogo ou catálogo vazio honesto |
+
+Funções: `normalizeCatalogCompareText`, `catalogTitleSimilarity`, `isStrongCatalogProductTitleMatch`, `isAmbiguousCatalogFuzzyMatch`.  
+`guessProductFromText` **não** retorna fuzzy — só match forte.
+
+## QA manual (checklist atualizado)
 
 1. Função desligada: comprovante salvo, sem WA interno.
 2. Função ligada + número: pedido + notificação WA.
@@ -150,12 +162,16 @@ Texto fixo do servidor, exemplo:
 4. Produto sem preço: IA não inventa valor.
 5. Comprovante sem pedido: status `comprovante_sem_pedido`.
 6. Usuário sem permissão: não altera WA financeiro nem aprova pagamento.
+7. *zad* com catálogo ZAAd: sugere, não oferta direta.
+8. *ola boa tarde*: não abre catálogo.
+9. *entregue* / *retirar* após oferta: avança sem reiniciar.
+10. Repetir *zaad* após oferta: lembrete retirar/entregue.
+11. WebChat: mesmos atalhos (`tryCatalogWebChatShortCircuit`).
 
 ## Limitações conhecidas
 
-- Criação de pedido na IA depende de confirmação explícita ou `shouldCreateCatalogOrder` no JSON da IA.
-- WebChat premium triage básica não duplica hook de pedido em todos os modos — validar no modo `premium_assistant`.
-- Anexo no WA interno: envio prioritário de link seguro; mídia anexa direta em evolução futura.
+- Notificação interna WA: disparada no **comprovante**, não ao confirmar endereço; **sem pin GPS** para entregador.
+- Testes de integração `CatalogSalesService` com Mongo mock: pendente.
 
 ## Arquivos principais
 
