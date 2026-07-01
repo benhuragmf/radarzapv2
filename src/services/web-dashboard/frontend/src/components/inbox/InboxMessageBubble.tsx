@@ -1,4 +1,4 @@
-export type InboxMessageMediaType = 'image' | 'audio' | 'video' | 'document' | 'sticker'
+export type InboxMessageMediaType = 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location'
 
 export interface InboxMessageView {
   _id: string
@@ -8,6 +8,8 @@ export interface InboxMessageView {
   mediaUrl?: string
   mediaSrc?: string
   mediaMime?: string
+  locationLat?: number
+  locationLng?: number
   createdAt: string
   senderName?: string
   authorUserName?: string
@@ -71,6 +73,51 @@ export function formatInboxMsgTime(iso: string, withSeconds = true) {
 export function inboxMediaSrc(mediaUrl: string): string {
   const [clientId, filename] = mediaUrl.split('/')
   return `/api/inbox/media/${encodeURIComponent(clientId)}/${encodeURIComponent(filename)}`
+}
+
+function googleMapsUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}`
+}
+
+function InboxLocationCard({
+  lat,
+  lng,
+  label,
+}: {
+  lat: number
+  lng: number
+  label?: string
+}) {
+  const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+  const copyCoords = () => {
+    void navigator.clipboard?.writeText(coords)
+  }
+  return (
+    <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-3 mb-2 space-y-2 text-xs">
+      <p className="font-medium text-emerald-100">📍 Localização do cliente</p>
+      {label?.trim() ? (
+        <p className="text-[var(--rz-text-muted)] whitespace-pre-wrap break-words">{label}</p>
+      ) : null}
+      <p className="text-[var(--rz-text-muted)] font-mono">{coords}</p>
+      <div className="flex flex-wrap gap-2">
+        <a
+          href={googleMapsUrl(lat, lng)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center rounded-md border border-[var(--rz-border)] px-2.5 py-1 hover:bg-[var(--rz-surface-muted)]"
+        >
+          Abrir no Google Maps
+        </a>
+        <button
+          type="button"
+          onClick={copyCoords}
+          className="inline-flex items-center justify-center rounded-md border border-[var(--rz-border)] px-2.5 py-1 hover:bg-[var(--rz-surface-muted)]"
+        >
+          Copiar coordenadas
+        </button>
+      </div>
+    </div>
+  )
 }
 
 interface Props {
@@ -143,7 +190,13 @@ export function InboxMessageBubble({ message: m }: Props) {
             </a>
           ) : null}
 
-          {m.body?.trim() ? <span>{m.body}</span> : null}
+          {(m.mediaType === 'location' || (m.locationLat != null && m.locationLng != null)) &&
+          m.locationLat != null &&
+          m.locationLng != null ? (
+            <InboxLocationCard lat={m.locationLat} lng={m.locationLng} label={m.body} />
+          ) : null}
+
+          {m.body?.trim() && m.mediaType !== 'location' ? <span>{m.body}</span> : null}
         </div>
         {!isSystem && (
           <p

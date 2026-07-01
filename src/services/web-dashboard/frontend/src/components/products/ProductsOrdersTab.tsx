@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
 import { CreditCard, ExternalLink } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -20,6 +20,7 @@ import { mutationError, notifyInfo } from '../../lib/notify'
 
 export interface CatalogOrderListItem {
   id: string
+  orderCode?: string | null
   productName: string
   amount?: string
   subtotalAmount?: string
@@ -84,16 +85,21 @@ type OrdersFilterProps = {
 
 export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [statusFilter, setStatusFilter] = useState('')
   const [channelFilter, setChannelFilter] = useState('')
+  const [codeFilter, setCodeFilter] = useState('')
   const [selected, setSelected] = useState<CatalogOrderListItem | null>(null)
   const { data: me } = useQuery({ queryKey: ['auth-me'], queryFn: getMe })
 
+  const deepLinkOrder = searchParams.get('order')?.trim() ?? ''
+
   const { data, isLoading } = useQuery({
-    queryKey: ['catalog-sales-orders-list', statusFilter, proofOnly],
+    queryKey: ['catalog-sales-orders-list', statusFilter, proofOnly, codeFilter],
     queryFn: () => {
       const p = new URLSearchParams()
       if (statusFilter) p.set('status', statusFilter)
+      if (codeFilter) p.set('orderCode', codeFilter)
       p.set('limit', '80')
       return api.get<{ orders: CatalogOrderListItem[] }>(
         `/platform/catalog-sales/orders?${p.toString()}`,
@@ -109,6 +115,16 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
     return raw
   }, [data?.orders, proofOnly, channelFilter])
 
+  useEffect(() => {
+    if (!deepLinkOrder || orders.length === 0) return
+    const match = orders.find(
+      o =>
+        o.orderCode?.toUpperCase() === deepLinkOrder.toUpperCase() ||
+        o.id === deepLinkOrder,
+    )
+    if (match) setSelected(match)
+  }, [deepLinkOrder, orders])
+
   const action = useMutation({
     mutationFn: (path: string) => api.post(path, {}),
     onSuccess: () => {
@@ -122,6 +138,22 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
 
   const columns = useMemo<ColumnDef<CatalogOrderListItem>[]>(
     () => [
+      {
+        id: 'code',
+        header: 'Código',
+        cell: ({ row }) =>
+          row.original.orderCode ? (
+            <button
+              type="button"
+              className="font-mono text-xs text-brand-400 hover:underline"
+              onClick={() => setSelected(row.original)}
+            >
+              {row.original.orderCode}
+            </button>
+          ) : (
+            '—'
+          ),
+      },
       {
         id: 'product',
         header: 'Produto',
@@ -214,6 +246,12 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
             <option value="whatsapp">WhatsApp</option>
             <option value="webchat">WebChat</option>
           </select>
+          <input
+            className={inputCls}
+            placeholder="Código DX-1234"
+            value={codeFilter}
+            onChange={e => setCodeFilter(e.target.value.toUpperCase())}
+          />
         </FilterBar>
       )}
 
@@ -238,7 +276,7 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
       <DetailsDrawer
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
-        title={selected?.productName ?? 'Pedido'}
+        title={selected?.orderCode ? `${selected.orderCode} · ${selected.productName}` : selected?.productName ?? 'Pedido'}
         description={selected ? STATUS_LABEL[selected.status]?.text ?? selected.status : undefined}
         footer={
           selected ? (

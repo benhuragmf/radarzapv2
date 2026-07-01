@@ -879,5 +879,179 @@ export function renderCatalogCustomerMessage(
   return out.replace(/\{\{[^}]+\}\}/g, '').trim();
 }
 
+/** Pedido ativo de catálogo expirado — não retomar em saudação nova. */
+export const STALE_CATALOG_ORDER_MS = 72 * 60 * 60 * 1000;
+
+export function isStaleCatalogOrder(order: {
+  updatedAt: Date | string;
+  status: CatalogSalesOrderStatus;
+}): boolean {
+  if (order.status === 'cancelado' || order.status === 'pagamento_aprovado' || order.status === 'pedido_confirmado') {
+    return true;
+  }
+  const age = Date.now() - new Date(order.updatedAt).getTime();
+  if (order.status === 'aguardando_endereco' && age > STALE_CATALOG_ORDER_MS) return true;
+  return false;
+}
+
+const CATALOG_GREETING_ONLY_RE =
+  /^(oi|ola|olá|alo|alô|bom dia|boa tarde|boa noite|e ai|eae|opa|hey|hello|hi)[\s!.?]*$/i;
+
+export function isCatalogGreetingOnly(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > 60) return false;
+  if (isBareAffirmationOrNonProductReply(t)) return true;
+  if (CATALOG_GREETING_ONLY_RE.test(t)) return true;
+  if (/^(bom|boa)\s+(dia|tarde|noite)$/i.test(t)) return true;
+  if (/\b(bom dia|boa tarde|boa noite)\b/i.test(t) && !mentionsCatalogResumeIntent(t)) return true;
+  const norm = normalizeCatalogCompareText(t);
+  if (/^(ola|oi|opa|e ai|eae)\b/.test(norm) && t.length <= 40 && !mentionsCatalogResumeIntent(t)) {
+    return true;
+  }
+  return false;
+}
+
+export function mentionsCatalogResumeIntent(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  return /\b(continuar pedido|meu pedido|meu pix|comprovante|retirada|retirar|entrega|entregue|zaad|pedido|pagamento|manda o pix|chave pix|quero comprar|gostaria de comprar)\b/i.test(
+    t,
+  );
+}
+
+export function shouldIgnoreStaleCatalogRecovery(clientText: string, order?: { updatedAt: Date | string; status: CatalogSalesOrderStatus } | null): boolean {
+  if (!order) return false;
+  if (isStaleCatalogOrder(order) && !mentionsCatalogResumeIntent(clientText)) return true;
+  if (isCatalogGreetingOnly(clientText) && !mentionsCatalogResumeIntent(clientText)) return true;
+  return false;
+}
+
+export function detectCatalogHumanEscalationRequest(text: string): boolean {
+  const t = normalizeCatalogCompareText(text);
+  if (!t) return false;
+  return (
+    /\b(falar com atendente|quero atendente|chamar atendente|preciso de atendente|atendimento humano|quero humano|quero pessoa|falar com pessoa|falar com suporte|chamar suporte|suporte humano)\b/.test(
+      t,
+    ) || /^(atendente|humano|pessoa|suporte)[\s!.?]*$/.test(t)
+  );
+}
+
+export function detectCatalogCancelRequest(text: string): boolean {
+  const t = normalizeCatalogCompareText(text);
+  if (!t) return false;
+  return (
+    /\b(cancelar pedido|cancela pedido|desistir|nao quero mais|não quero mais|nao quero|não quero)\b/.test(t) ||
+    /^(cancelar|cancela)[\s!.?]*$/.test(t)
+  );
+}
+
+export function detectCatalogExitRequest(text: string): boolean {
+  const t = normalizeCatalogCompareText(text);
+  if (!t) return false;
+  return /^(sair|parar|encerrar)[\s!.?]*$/.test(t);
+}
+
+export function detectCatalogCepOfferQuestion(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t || t.length > 120) return false;
+  return /\b(posso te enviar o cep|posso enviar o cep|mando o cep|te mando o cep|prefere o cep|quer o cep)\b/i.test(
+    t,
+  );
+}
+
+export function buildCatalogCepOfferReply(contactFirstName?: string): string {
+  const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
+  return `${prefix}Sim, pode me enviar o *CEP*. Com ele eu calculo a entrega antes de liberar o PIX.`;
+}
+
+export function buildCatalogHumanEscalationReply(contactFirstName?: string): string {
+  const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
+  return `${prefix}Certo, vou chamar um atendente para continuar seu pedido.`;
+}
+
+export function buildCatalogCancelReply(contactFirstName?: string): string {
+  const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
+  return `${prefix}Certo, cancelei o fluxo de compra deste pedido. Se precisar, é só me chamar novamente.`;
+}
+
+export function buildCatalogExitReply(contactFirstName?: string): string {
+  const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
+  return `${prefix}Tudo bem, encerrei o fluxo de compra. Se quiser continuar depois, é só me chamar.`;
+}
+
+export function buildCatalogMediaInFlowReply(opts: {
+  productName?: string;
+  awaitingAddress?: boolean;
+  awaitingFulfillment?: boolean;
+  locationPendingConfirm?: boolean;
+  mediaKind?: 'audio' | 'image' | 'video' | 'document';
+}): string {
+  const product = opts.productName?.trim() ? `*${opts.productName.trim()}*` : 'seu pedido';
+  if (opts.mediaKind === 'audio') {
+    if (opts.locationPendingConfirm || opts.awaitingAddress) {
+      return (
+        'Recebi seu áudio. Para calcular a entrega antes do PIX, me envie o *CEP* ou a *rua e número* por texto.'
+      );
+    }
+    if (opts.awaitingFulfillment) {
+      return `Recebi seu áudio, mas para continuar a compra do produto ${product} preciso que você responda por texto se prefere *retirar* ou *receber por entrega*.`;
+    }
+    return `Recebi seu áudio. Para continuar a compra de ${product}, responda por *texto* no chat.`;
+  }
+  if (opts.mediaKind === 'image' || opts.mediaKind === 'document') {
+    return (
+      `Recebi sua ${opts.mediaKind === 'document' ? 'imagem/documento' : 'imagem'}. ` +
+      `Para seguir com ${product}, responda por texto ou envie o comprovante PIX quando for o momento do pagamento.`
+    );
+  }
+  return `Recebi sua mídia. Para continuar com ${product}, responda por *texto* no chat.`;
+}
+
+export function buildCatalogAddressRetryReply(opts: {
+  attempt: number;
+  contactFirstName?: string;
+}): string {
+  const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
+  if (opts.attempt >= 3) {
+    return `${prefix}Vou chamar um atendente para confirmar seu endereço e o frete antes do pagamento.`;
+  }
+  if (opts.attempt >= 2) {
+    return `${prefix}Se preferir, pode me enviar só o *CEP* (8 dígitos) para eu calcular a entrega antes do PIX.`;
+  }
+  return (
+    `${prefix}Ainda preciso da *rua* e do *número* do imóvel para calcular o frete. ` +
+    'Ex.: *Rua das Flores, 123* ou *Jose Pinto, 120*.'
+  );
+}
+
+export function catalogOrderInboxTitle(status: CatalogSalesOrderStatus): string {
+  switch (status) {
+    case 'aguardando_endereco':
+      return '📍 Pedido aguardando endereço';
+    case 'aguardando_pagamento':
+      return '💳 Pedido aguardando pagamento';
+    case 'comprovante_recebido':
+      return '🧾 Comprovante PIX recebido';
+    case 'em_conferencia':
+      return '🔍 Pagamento em conferência';
+    case 'pagamento_aprovado':
+      return '✅ Pagamento aprovado';
+    case 'pagamento_recusado':
+      return '❌ Pagamento recusado';
+    case 'pedido_confirmado':
+      return '✅ Pedido confirmado';
+    case 'cancelado':
+      return '🚫 Pedido cancelado';
+    case 'falha_notificacao_whatsapp':
+      return '⚠️ Falha notificação WhatsApp';
+    case 'pendente_configuracao_whatsapp':
+      return '⏳ Aguardando configuração WhatsApp';
+    case 'comprovante_sem_pedido':
+      return '🧾 Comprovante sem pedido vinculado';
+    default:
+      return '📦 Pedido de catálogo';
+  }
+}
+
 export const CATALOG_SALES_SECURITY_INSTRUCTION =
   'Quando o cliente demonstrar interesse em comprar este produto, informe preço e estoque *somente* se constarem na base cadastrada. Se o produto tiver link de loja/checkout, envie o link quando o cliente preferir comprar pelo site. Para PIX no chat, colete o endereço completo quando aplicável. Com entrega por distância ativa, *nunca* informe frete nem total — o sistema envia mensagem automática com valores exatos após o endereço. Se o cliente enviar comprovante PIX, informe que a equipe vai conferir. Nunca confirme pagamento apenas com imagem. Se preço, estoque ou frete não estiverem claros, peça confirmação ou transfira para humano.';

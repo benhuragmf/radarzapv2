@@ -61,7 +61,26 @@ import {
   buildPickupWithoutAddressReply,
   buildPickupWithAddressReply,
   buildCatalogContextualRecoveryReply,
+  buildCatalogCepOfferReply,
+  buildCatalogHumanEscalationReply,
+  buildCatalogCancelReply,
+  buildCatalogExitReply,
+  buildCatalogAddressRetryReply,
+  buildCatalogMediaInFlowReply,
+  detectCatalogHumanEscalationRequest,
+  detectCatalogCancelRequest,
+  detectCatalogExitRequest,
+  detectCatalogCepOfferQuestion,
+  isStaleCatalogOrder,
+  shouldIgnoreStaleCatalogRecovery,
+  isCatalogGreetingOnly,
+  isAwaitingCatalogFulfillmentChoice,
 } from '@/types/catalog-sales';
+import {
+  generateCatalogOrderCodeCandidate,
+  isValidCatalogOrderCode,
+  normalizeCatalogOrderCode,
+} from '@/utils/catalog-order-code.util';
 import {
   estimateDeliveryFromAddresses,
   estimateDeliveryToCoordinates,
@@ -73,6 +92,7 @@ import {
   normalizeKmRates,
   sanitizeAiReplyWhenServerQuotedDelivery,
   buildDeliveryAddressFromCepAndNumber,
+  parseStreetNumberReply,
 } from '@/utils/catalog-delivery.util';
 import {
   storedValueIsCepOnly,
@@ -195,9 +215,190 @@ export class CatalogSalesService {
       clientId: new mongoose.Types.ObjectId(clientId),
       conversationId: new mongoose.Types.ObjectId(conversationId),
       status: { $in: ACTIVE_ORDER_STATUSES },
+      catalogFlowPaused: { $ne: true },
     };
     if (productId) filter.productId = new mongoose.Types.ObjectId(productId);
     return CatalogSalesOrder.findOne(filter).sort({ updatedAt: -1 });
+  }
+
+  /** Pedido ativo ignorando contexto stale (saudação nova sem intenção de retomar). */
+  async findResolvableActiveOrderForConversation(
+    clientId: string,
+    conversationId: string,
+    clientText?: string,
+  ): Promise<ICatalogSalesOrder | null> {
+    const order = await this.findActiveOrderForConversation(clientId, conversationId);
+    if (!order) return null;
+    if (shouldIgnoreStaleCatalogRecovery(clientText ?? '', order)) return null;
+    return order;
+  }
+
+  async hasActiveCatalogFlow(opts: {
+    clientId: string;
+    conversationId: string;
+    lastAssistantReply?: string;
+    clientText?: string;
+  }): Promise<{
+    active: boolean;
+    order: ICatalogSalesOrder | null;
+    awaitingFulfillment?: boolean;
+  }> {
+    const order = await this.findResolvableActiveOrderForConversation(
+      opts.clientId,
+      opts.conversationId,
+      opts.clientText,
+    );
+    if (order) {
+      return { active: true, order };
+    }
+    if (isAwaitingCatalogFulfillmentChoice(opts.lastAssistantReply)) {
+      return { active: true, order: null, awaitingFulfillment: true };
+    }
+    const conv = await InboxConversation.findOne({
+      _id: new mongoose.Types.ObjectId(opts.conversationId),
+      clientId: new mongoose.Types.ObjectId(opts.clientId),
+    })
+      .select('activeCatalogOrderId catalogSalesPixPending')
+      .lean();
+    if (conv?.activeCatalogOrderId || conv?.catalogSalesPixPending) {
+      return { active: true, order: null };
+    }
+    return { active: false, order: null };
+  }
+
+  private async ensureOrderCode(order: ICatalogSalesOrder): Promise<string> {
+    if (order.orderCode?.trim()) return order.orderCode.trim();
+    for (let i = 0; i < 12; i++) {
+      const candidate = generateCatalogOrderCodeCandidate();
+      const exists = await CatalogSalesOrder.exists({
+        clientId: order.clientId,
+        orderCode: candidate,
+      });
+      if (exists) continue;
+      order.orderCode = candidate;
+      await order.save();
+      return candidate;
+    }
+    const fallback = `DX-${String(order._id).slice(-4).toUpperCase()}`;
+    order.orderCode = fallback;
+    await order.save();
+    return fallback;
+  }
+
+  async backfillOrderCodeIfMissing(order: ICatalogSalesOrder): Promise<string> {
+    return this.ensureOrderCode(order);
+  }
+
+  async getOrderByCode(clientId: string, orderCode: string): Promise<ICatalogSalesOrder | null> {
+    const code = normalizeCatalogOrderCode(orderCode);
+    if (!isValidCatalogOrderCode(code)) return null;
+    return CatalogSalesOrder.findOne({
+      clientId: new mongoose.Types.ObjectId(clientId),
+      orderCode: code,
+    });
+  }
+
+  async tryProcessCatalogFlowCommand(opts: {
+    clientId: string;
+    conversation: CatalogSalesConversationRef;
+    clientText: string;
+    contactFirstName?: string;
+    lastAssistantReply?: string;
+  }): Promise<{
+    handled: boolean;
+    reply?: string;
+    escalate?: boolean;
+    cancelled?: boolean;
+  }> {
+    const text = opts.clientText.trim();
+    if (!text) return { handled: false };
+
+    const order = await this.findActiveOrderForConversation(
+      opts.clientId,
+      opts.conversation.conversationId,
+    );
+    const flow = await this.hasActiveCatalogFlow({
+      clientId: opts.clientId,
+      conversationId: opts.conversation.conversationId,
+      lastAssistantReply: opts.lastAssistantReply,
+      clientText: text,
+    });
+    if (!flow.active && !order) return { handled: false };
+    if (order?.catalogFlowPaused) return { handled: false };
+
+    if (detectCatalogCepOfferQuestion(text)) {
+      if (order?.status === 'aguardando_endereco' || flow.awaitingFulfillment) {
+        return {
+          handled: true,
+          reply: buildCatalogCepOfferReply(opts.contactFirstName),
+        };
+      }
+    }
+
+    if (detectCatalogHumanEscalationRequest(text)) {
+      if (order) {
+        order.catalogFlowPaused = true;
+        order.history.push({
+          at: new Date(),
+          action: 'flow_escalated_human',
+          status: order.status,
+        });
+        await order.save();
+      }
+      return {
+        handled: true,
+        reply: buildCatalogHumanEscalationReply(opts.contactFirstName),
+        escalate: true,
+      };
+    }
+
+    if (detectCatalogCancelRequest(text)) {
+      if (order) {
+        order.status = 'cancelado';
+        order.catalogFlowPaused = true;
+        order.history.push({
+          at: new Date(),
+          action: 'flow_cancelled',
+          status: 'cancelado',
+        });
+        await order.save();
+        await this.clearConversationPixPending(opts.clientId, order);
+      }
+      return {
+        handled: true,
+        reply: buildCatalogCancelReply(opts.contactFirstName),
+        cancelled: true,
+      };
+    }
+
+    if (detectCatalogExitRequest(text)) {
+      if (order) {
+        order.catalogFlowPaused = true;
+        order.history.push({
+          at: new Date(),
+          action: 'flow_exited',
+          status: order.status,
+        });
+        await order.save();
+      }
+      return {
+        handled: true,
+        reply: buildCatalogExitReply(opts.contactFirstName),
+        cancelled: true,
+      };
+    }
+
+    return { handled: false };
+  }
+
+  buildCatalogMediaReply(opts: {
+    productName?: string;
+    awaitingAddress?: boolean;
+    awaitingFulfillment?: boolean;
+    locationPendingConfirm?: boolean;
+    mediaKind?: 'audio' | 'image' | 'video' | 'document';
+  }): string {
+    return buildCatalogMediaInFlowReply(opts);
   }
 
   /** Pós-turno IA: pedido + cotação de frete pelo servidor (não pela IA). */
@@ -809,6 +1010,46 @@ export class CatalogSalesService {
       }
     }
 
+    const streetParsed = parseStreetNumberReply(text);
+    if (streetParsed?.number && order.deliveryLocationLat != null && order.deliveryLocationLng != null) {
+      const quoteResult = await this.maybeAttachAddressToOrder(order, text, opts.cfg);
+      return {
+        handled: true,
+        result: {
+          serverQuoteSent: quoteResult.quoteSent,
+          quoteFailed: quoteResult.quoteFailed,
+          useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
+          handled: true,
+        },
+      };
+    }
+
+    if (detectCatalogCepOfferQuestion(text)) {
+      await this.sendCatalogAutomatedCustomerMessage(
+        order,
+        buildCatalogCepOfferReply(order.contactName),
+        'catalog-sales-cep-offer',
+      );
+      return { handled: true, result: { ...noop, handled: true } };
+    }
+
+    const flowCmd = await this.tryProcessCatalogFlowCommand({
+      clientId: opts.clientId,
+      conversation: {
+        conversationId: opts.conversationId,
+        channel: order.channel,
+        destinationId: order.destinationId ? String(order.destinationId) : undefined,
+        contactIdentifier: order.contactIdentifier,
+        contactName: order.contactName,
+      },
+      clientText: text,
+      contactFirstName: resolveClientFirstName(order.contactName),
+    });
+    if (flowCmd.handled && flowCmd.reply) {
+      await this.sendCatalogAutomatedCustomerMessage(order, flowCmd.reply, 'catalog-sales-flow-command');
+      return { handled: true, result: { ...noop, handled: true } };
+    }
+
     if (textLooksLikeDeliveryAddressInput(text) && isGeocodableCustomerAddress(text)) {
       const quoteResult = await this.maybeAttachAddressToOrder(order, text, opts.cfg);
       return {
@@ -853,8 +1094,13 @@ export class CatalogSalesService {
     clientId: string;
     conversationId: string;
     contactFirstName?: string;
+    clientText?: string;
   }): Promise<string | null> {
-    const active = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
+    const active = await this.findResolvableActiveOrderForConversation(
+      opts.clientId,
+      opts.conversationId,
+      opts.clientText,
+    );
     if (!active) return null;
     return buildCatalogContextualRecoveryReply({
       orderStatus: active.status,
@@ -885,7 +1131,11 @@ export class CatalogSalesService {
     if (!cfg.enabled) return null;
 
     const prefix = opts.contactFirstName ? `${opts.contactFirstName}, ` : '';
-    const active = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
+    const active = await this.findResolvableActiveOrderForConversation(
+      opts.clientId,
+      opts.conversationId,
+      opts.clientText,
+    );
     const contextual = active
       ? buildCatalogContextualRecoveryReply({
           orderStatus: active.status,
@@ -1108,7 +1358,9 @@ export class CatalogSalesService {
         lat != null && lng != null && isValidWaCoordinates(lat, lng)
           ? await reverseGeocodeCoords(lat, lng)
           : null;
-      const merged = mergeLocationConfirmReply(addr, reverse);
+      const merged = mergeLocationConfirmReply(addr, reverse, {
+        displayAddress: order.deliveryAddress,
+      });
       if (!merged) {
         return { quoteSent: false, quoteFailed: false };
       }
@@ -1539,6 +1791,18 @@ export class CatalogSalesService {
     return null;
   }
 
+  private async generateUniqueOrderCode(clientId: string): Promise<string> {
+    for (let i = 0; i < 12; i++) {
+      const candidate = generateCatalogOrderCodeCandidate();
+      const exists = await CatalogSalesOrder.exists({
+        clientId: new mongoose.Types.ObjectId(clientId),
+        orderCode: candidate,
+      });
+      if (!exists) return candidate;
+    }
+    return `DX-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+  }
+
   async createOrder(opts: {
     clientId: string;
     conversation: CatalogSalesConversationRef;
@@ -1554,6 +1818,7 @@ export class CatalogSalesService {
     aiSummary?: string;
     status?: CatalogSalesOrderStatus;
   }): Promise<ICatalogSalesOrder> {
+    const orderCode = await this.generateUniqueOrderCode(opts.clientId);
     const order = await CatalogSalesOrder.create({
       clientId: new mongoose.Types.ObjectId(opts.clientId),
       conversationId: new mongoose.Types.ObjectId(opts.conversation.conversationId),
@@ -1563,6 +1828,7 @@ export class CatalogSalesService {
         : undefined,
       contactIdentifier: opts.conversation.contactIdentifier,
       contactName: opts.conversation.contactName,
+      orderCode,
       productId: opts.productId ? new mongoose.Types.ObjectId(opts.productId) : undefined,
       productName: opts.productName,
       sku: opts.sku,
@@ -1880,11 +2146,14 @@ export class CatalogSalesService {
     const proof = order.proofs[order.proofs.length - 1];
     const proofLink = proof ? this.secureProofPath(String(order._id), proof.mediaUrl) : 'não informado';
     const convLink = this.conversationDashboardLink(order);
-    const orderLink = `${config.DASHBOARD.FRONTEND_URL}/platform/inbox?catalogOrder=${String(order._id)}`;
+    const orderLink = order.orderCode
+      ? `${config.DASHBOARD.FRONTEND_URL}/platform/produtos#pedidos?order=${encodeURIComponent(order.orderCode)}`
+      : `${config.DASHBOARD.FRONTEND_URL}/platform/inbox?catalogOrder=${String(order._id)}`;
 
     const lines = [
       base || '🧾 Novo comprovante PIX recebido',
       '',
+      `Pedido: ${order.orderCode || String(order._id)}`,
       `Empresa: ${companyName}`,
       `Cliente: ${order.contactName || 'não informado'}`,
       `Telefone: ${order.contactIdentifier || 'não informado'}`,
@@ -2096,9 +2365,31 @@ export class CatalogSalesService {
     order: ICatalogSalesOrder,
     cfg: CatalogSalesCompanyConfig,
   ): Promise<void> {
-    const text =
-      'Ainda preciso da *rua* e do *número* do imóvel para calcular o frete. ' +
-      'Ex.: *Rua das Flores, 123* ou *Salmen Hanze, 1326*.';
+    order.addressConfirmAttempts = (order.addressConfirmAttempts ?? 0) + 1;
+    const attempt = order.addressConfirmAttempts;
+    order.history.push({
+      at: new Date(),
+      action: 'address_confirm_retry',
+      status: order.status,
+      note: `attempt:${attempt}`,
+    });
+
+    if (attempt >= 3) {
+      order.catalogFlowPaused = true;
+      await order.save();
+      const text = buildCatalogAddressRetryReply({
+        attempt,
+        contactFirstName: resolveClientFirstName(order.contactName),
+      });
+      await this.sendCatalogAutomatedCustomerMessage(order, text, 'catalog-sales-location-escalate');
+      return;
+    }
+
+    await order.save();
+    const text = buildCatalogAddressRetryReply({
+      attempt,
+      contactFirstName: resolveClientFirstName(order.contactName),
+    });
     await this.sendCatalogAutomatedCustomerMessage(order, text, 'catalog-sales-location-retry');
   }
 
@@ -2307,7 +2598,7 @@ export class CatalogSalesService {
 
   async listOrders(
     clientId: string,
-    opts?: { status?: string; conversationId?: string; limit?: number },
+    opts?: { status?: string; conversationId?: string; orderCode?: string; limit?: number },
   ): Promise<ICatalogSalesOrder[]> {
     const filter: Record<string, unknown> = {
       clientId: new mongoose.Types.ObjectId(clientId),
@@ -2316,16 +2607,28 @@ export class CatalogSalesService {
     if (opts?.conversationId) {
       filter.conversationId = new mongoose.Types.ObjectId(opts.conversationId);
     }
-    return CatalogSalesOrder.find(filter).sort({ updatedAt: -1 }).limit(opts?.limit ?? 50);
+    if (opts?.orderCode) {
+      filter.orderCode = normalizeCatalogOrderCode(opts.orderCode);
+    }
+    const orders = await CatalogSalesOrder.find(filter).sort({ updatedAt: -1 }).limit(opts?.limit ?? 50);
+    await Promise.all(orders.filter(o => !o.orderCode?.trim()).map(o => this.ensureOrderCode(o)));
+    return orders;
   }
 
-  async getOrderForClient(clientId: string, orderId: string): Promise<ICatalogSalesOrder> {
-    if (!mongoose.Types.ObjectId.isValid(orderId)) throw new Error('Pedido inválido');
+  async getOrderForClient(clientId: string, orderIdOrCode: string): Promise<ICatalogSalesOrder> {
+    if (isValidCatalogOrderCode(orderIdOrCode)) {
+      const byCode = await this.getOrderByCode(clientId, orderIdOrCode);
+      if (!byCode) throw new Error('Pedido não encontrado');
+      if (!byCode.orderCode) await this.ensureOrderCode(byCode);
+      return byCode;
+    }
+    if (!mongoose.Types.ObjectId.isValid(orderIdOrCode)) throw new Error('Pedido inválido');
     const order = await CatalogSalesOrder.findOne({
-      _id: new mongoose.Types.ObjectId(orderId),
+      _id: new mongoose.Types.ObjectId(orderIdOrCode),
       clientId: new mongoose.Types.ObjectId(clientId),
     });
     if (!order) throw new Error('Pedido não encontrado');
+    if (!order.orderCode) await this.ensureOrderCode(order);
     return order;
   }
 
@@ -2350,6 +2653,7 @@ export class CatalogSalesService {
   orderToPayload(order: ICatalogSalesOrder) {
     return {
       id: String(order._id),
+      orderCode: order.orderCode ?? null,
       conversationId: String(order.conversationId),
       channel: order.channel,
       contactName: order.contactName,
@@ -2364,6 +2668,9 @@ export class CatalogSalesService {
       deliveryAddress: order.deliveryAddress,
       deliveryDistanceKm: order.deliveryDistanceKm,
       deliveryTierKm: order.deliveryTierKm,
+      deliveryLocationLat: order.deliveryLocationLat,
+      deliveryLocationLng: order.deliveryLocationLng,
+      deliveryLocationPendingConfirm: order.deliveryLocationPendingConfirm,
       stockSnapshot: order.stockSnapshot,
       status: order.status,
       proofs: order.proofs.map(p => ({

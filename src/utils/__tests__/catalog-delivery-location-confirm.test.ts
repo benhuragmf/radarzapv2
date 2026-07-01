@@ -2,6 +2,7 @@ import {
   locationAddressNeedsConfirmation,
   mergeLocationConfirmReply,
   parseStreetNumberReply,
+  resolveBrazilStateUf,
 } from '../catalog-delivery.util';
 
 describe('catalog-delivery location confirm', () => {
@@ -48,6 +49,46 @@ describe('catalog-delivery location confirm', () => {
       number: '1326',
     });
     expect(parseStreetNumberReply('45')).toEqual({ street: '', number: '45' });
+    expect(parseStreetNumberReply('Rua jose pinto, 120')).toEqual({
+      street: 'Rua jose pinto',
+      number: '120',
+    });
+    expect(parseStreetNumberReply('Av. jose pinto,120')).toEqual({
+      street: 'jose pinto',
+      number: '120',
+    });
+    expect(parseStreetNumberReply('Avenida José Pinto, 1020')).toEqual({
+      street: 'José Pinto',
+      number: '1020',
+    });
+    expect(parseStreetNumberReply('José Pinto 120')).toEqual({
+      street: 'José Pinto',
+      number: '120',
+    });
+  });
+
+  it('resolve UF a partir do nome do estado', () => {
+    expect(resolveBrazilStateUf('Mato Grosso')).toBe('MT');
+    expect(resolveBrazilStateUf('State of Mato Grosso')).toBe('MT');
+  });
+
+  it('monta endereço com estado por nome completo (pin real)', () => {
+    const merged = mergeLocationConfirmReply(
+      'Rua jose pinto, 120',
+      {
+        displayName: 'x',
+        lat: -16.47,
+        lon: -54.63,
+        suburb: 'Centro',
+        city: 'Rondonópolis',
+        state: 'Mato Grosso',
+      },
+      { displayAddress: 'Centro, Rondonópolis, Mato Grosso, Brasil' },
+    );
+    expect(merged).toContain('pinto');
+    expect(merged).toContain('120');
+    expect(merged).toContain('Rondonópolis');
+    expect(merged).toContain('MT');
   });
 
   it('monta endereço completo com reverse + número', () => {

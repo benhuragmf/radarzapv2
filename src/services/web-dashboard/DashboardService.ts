@@ -3008,14 +3008,16 @@ export class DashboardService {
     r.get('/platform/catalog-sales/orders', requireCapability(Cap.ORDERS_VIEW), async (req, res) => {
       try {
         const auth = (req as DashboardRequest).auth!;
-        const { status, conversationId, limit } = req.query as {
+        const { status, conversationId, orderCode, limit } = req.query as {
           status?: string;
           conversationId?: string;
+          orderCode?: string;
           limit?: string;
         };
         const orders = await catalogSalesSvc.listOrders(auth.clientId, {
           status,
           conversationId,
+          orderCode,
           limit: limit ? parseInt(limit, 10) : undefined,
         });
         res.json({ orders: orders.map(o => catalogSalesSvc.orderToPayload(o)) });

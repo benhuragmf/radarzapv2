@@ -142,6 +142,10 @@ Base: `/api/platform/catalog-sales`
 
 Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é URL pública aberta).
 
+**Versão em produção:** `2.17.58`. **Local:** `2.17.59` (hotfix QA — ver `concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md`).
+
+Pedidos exibem código curto `DX-####` (desde 2.17.59). Deep link: `/platform/produtos#pedidos?order=DX-1045`.
+
 ## Fluxo resumido
 
 1. Cliente pergunta produto (nome ou intenção de compra) → oferta padronizada: preço, estoque, *retirar* ou *entregue* (sem PIX bruto da KB).

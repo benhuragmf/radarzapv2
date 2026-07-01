@@ -44,6 +44,8 @@ import {
   isCatalogPurchaseOfferMessage,
   looksLikeCatalogProductNameQuery,
   isAwaitingCatalogFulfillmentChoice,
+  isCatalogGreetingOnly,
+  mentionsCatalogResumeIntent,
 } from '@/types/catalog-sales';
 import {
   textIsCepOnly,
@@ -174,6 +176,40 @@ export class AiConversationService {
     const hasUninterpretableMedia =
       ctx.hasMedia && (!ctx.text.trim() || ['audio', 'image', 'document', 'video'].includes(ctx.mediaType ?? ''));
 
+    if (hasUninterpretableMedia) {
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      const catalogSvcEarly = CatalogSalesService.getInstance();
+      const catalogFlow = await catalogSvcEarly.hasActiveCatalogFlow({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        clientText: ctx.text,
+      });
+      if (catalogFlow.active) {
+        const mediaKind =
+          ctx.mediaType === 'audio' || ctx.mediaType === 'image' || ctx.mediaType === 'document' || ctx.mediaType === 'video'
+            ? ctx.mediaType
+            : 'audio';
+        const reply = catalogSvcEarly.buildCatalogMediaReply({
+          productName: catalogFlow.order?.productName,
+          awaitingAddress: catalogFlow.order?.status === 'aguardando_endereco',
+          locationPendingConfirm: Boolean(catalogFlow.order?.deliveryLocationPendingConfirm),
+          awaitingFulfillment: catalogFlow.awaitingFulfillment,
+          mediaKind,
+        });
+        await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reply);
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        state.shouldEscalate = false;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return { handled: true };
+      }
+    }
+
     if (hasUninterpretableMedia && settings.transferRules.onUninterpretableMedia) {
       await this.releaseToStandardTriage(state, 'Mídia não interpretável pela IA', inbox);
       return { handled: false, useStandardTriage: true };
@@ -213,8 +249,16 @@ export class AiConversationService {
 
     if (!ctx.text.trim()) {
       if (ctx.hasMedia) {
-        await this.releaseToStandardTriage(state, 'Mídia sem texto', inbox);
-        return { handled: false, useStandardTriage: true };
+        const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+        const catalogFlow = await CatalogSalesService.getInstance().hasActiveCatalogFlow({
+          clientId: ctx.clientId,
+          conversationId: String(ctx.conversation._id),
+        });
+        if (!catalogFlow.active) {
+          await this.releaseToStandardTriage(state, 'Mídia sem texto', inbox);
+          return { handled: false, useStandardTriage: true };
+        }
+        return { handled: true };
       }
       return { handled: true };
     }
@@ -425,13 +469,22 @@ export class AiConversationService {
     }
 
     if (settings.transferRules.onHumanRequest && escSvc.clientRequestsHuman(ctx.text)) {
-      logger.info('IA escalonando por pedido explícito de suporte/humano', {
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      const catalogFlow = await CatalogSalesService.getInstance().hasActiveCatalogFlow({
         clientId: ctx.clientId,
-        conversationId: ctx.conversation._id,
-        text: ctx.text.slice(0, 80),
+        conversationId: String(ctx.conversation._id),
+        lastAssistantReply: lastAssistantBefore?.content,
+        clientText: ctx.text,
       });
-      await this.escalate(ctx, inbox, state, 'Cliente solicitou atendente humano');
-      return { handled: true };
+      if (!catalogFlow.active) {
+        logger.info('IA escalonando por pedido explícito de suporte/humano', {
+          clientId: ctx.clientId,
+          conversationId: ctx.conversation._id,
+          text: ctx.text.slice(0, 80),
+        });
+        await this.escalate(ctx, inbox, state, 'Cliente solicitou atendente humano');
+        return { handled: true };
+      }
     }
 
     if (this.textLooksLikeProblemDescription(ctx.text)) {
@@ -458,6 +511,17 @@ export class AiConversationService {
     const threadContextForKb = [state.collectedProblem, state.summary, ctx.text]
       .filter(Boolean)
       .join(' ');
+
+    if (
+      await this.tryCatalogFlowCommandShortCircuit(
+        ctx,
+        inbox,
+        state,
+        lastAssistantBefore?.content,
+      )
+    ) {
+      return { handled: true };
+    }
 
     if (
       await this.tryCatalogDeliveryQuestionShortCircuit(ctx, inbox, state)
@@ -846,6 +910,50 @@ export class AiConversationService {
       .replace(/\p{M}/gu, '');
     if (/^(s|ss)$/.test(norm)) return 'sim';
     return text.trim();
+  }
+
+  private async tryCatalogFlowCommandShortCircuit(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    lastAssistantReply?: string,
+  ): Promise<boolean> {
+    const text = ctx.text?.trim() ?? '';
+    if (!text) return false;
+
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    const catalogSvc = CatalogSalesService.getInstance();
+    const flowCmd = await catalogSvc.tryProcessCatalogFlowCommand({
+      clientId: ctx.clientId,
+      conversation: {
+        conversationId: String(ctx.conversation._id),
+        channel: 'whatsapp',
+        destinationId: String(ctx.dest._id),
+        contactIdentifier: ctx.conversation.contactIdentifier,
+        contactName: ctx.conversation.contactName,
+      },
+      clientText: text,
+      contactFirstName: resolveClientFirstName(state.collectedName),
+      lastAssistantReply,
+    });
+    if (!flowCmd.handled || !flowCmd.reply) return false;
+
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, flowCmd.reply);
+    if (flowCmd.escalate) {
+      await this.escalate(ctx, inbox, state, 'Cliente solicitou atendente no fluxo de catálogo');
+      return true;
+    }
+    state.aiTurnCount += 1;
+    state.shouldEscalate = false;
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    return true;
   }
 
   private async tryCatalogDeliveryQuestionShortCircuit(
@@ -1308,9 +1416,28 @@ export class AiConversationService {
       clientId: ctx.clientId,
       conversationId: String(ctx.conversation._id),
       contactFirstName: resolveClientFirstName(state.collectedName),
+      clientText: ctx.text,
     });
     if (contextual) {
       await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, contextual);
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      state.shouldEscalate = false;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return { handled: true };
+    }
+
+    if (isCatalogGreetingOnly(ctx.text) && !mentionsCatalogResumeIntent(ctx.text)) {
+      const first = resolveClientFirstName(state.collectedName);
+      const greeting = first
+        ? `Certo, ${first}! Como posso ajudar hoje?`
+        : 'Olá! Como posso ajudar hoje?';
+      await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, greeting);
       state.status = AiConversationStatus.AI_WAITING_CLIENT;
       state.shouldEscalate = false;
       await state.save();

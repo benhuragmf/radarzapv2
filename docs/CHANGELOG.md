@@ -20,6 +20,21 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.59] - 2026-06-30
+
+### Fixed
+- Catálogo WA: áudio/mídia no fluxo não abre triagem/setores
+- Catálogo: pin + rua/número; UF por nome de estado (ex. Mato Grosso → MT)
+- Catálogo: anti-loop endereço; comandos atendente/cancelar/sair/CEP
+- Catálogo: ignora pedido stale em saudação nova
+- Inbox: card pedido por status; localização no chat; código `DX-####`
+- Produtos: deep link `#pedidos?order=DX-1045`
+
+### Docs
+- `concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md`
+
+---
+
 ## [2.17.58] - 2026-07-01
 
 ### Fixed
@@ -31,6 +46,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Docs
 - Hotfix: `concluidos/RADARCHAT-HOTFIX-CATALOGO-WA-ENDERECO-PIX-2.17.58.md`
+- Deploy: `concluidos/RADARCHAT-DEPLOY-HOTFIX-CATALOGO-2.17.58.md` — **em produção** (`e3a1415`, deploy 28537807467)
 
 ---
 

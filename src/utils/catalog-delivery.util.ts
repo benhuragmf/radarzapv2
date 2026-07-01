@@ -285,12 +285,115 @@ function textHasStreetNumber(text: string): boolean {
 const STREET_TYPE_PREFIX_RE =
   /^(?:rua\s*:|r\.\s*|r:\s*|avenida\s*:|avenida\s+|av\.\s*|av:\s*|av\s+|travessa\s*:|tv\.\s*|alameda\s*:|rod\.\s*|estrada\s*:)\s*/i;
 
+const BR_STATE_NAME_TO_UF: Record<string, string> = {
+  acre: 'AC',
+  alagoas: 'AL',
+  amapa: 'AP',
+  amazonas: 'AM',
+  bahia: 'BA',
+  ceara: 'CE',
+  'distrito federal': 'DF',
+  'espirito santo': 'ES',
+  goias: 'GO',
+  maranhao: 'MA',
+  'mato grosso': 'MT',
+  'mato grosso do sul': 'MS',
+  'minas gerais': 'MG',
+  para: 'PA',
+  paraiba: 'PB',
+  parana: 'PR',
+  pernambuco: 'PE',
+  piaui: 'PI',
+  'rio de janeiro': 'RJ',
+  'rio grande do norte': 'RN',
+  'rio grande do sul': 'RS',
+  rondonia: 'RO',
+  roraima: 'RR',
+  'santa catarina': 'SC',
+  'sao paulo': 'SP',
+  sergipe: 'SE',
+  tocantins: 'TO',
+};
+
+/** Resolve UF a partir de sigla ou nome completo do estado (Nominatim/OSM). */
+export function resolveBrazilStateUf(stateRaw?: string | null): string {
+  const t = stateRaw?.trim() ?? '';
+  if (!t) return '';
+  const ufMatch = t.match(/\b([A-Z]{2})\b/i);
+  if (ufMatch?.[1] && /^(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/i.test(ufMatch[1])) {
+    return ufMatch[1].toUpperCase();
+  }
+  const norm = t
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/^state of\s+/i, '')
+    .replace(/^estado de\s+/i, '')
+    .trim();
+  return BR_STATE_NAME_TO_UF[norm] ?? '';
+}
+
+/** Extrai cidade/UF de endereço salvo (ex.: display_name do pin). */
+export function parseRegionFromDisplayAddress(address?: string | null): {
+  city?: string;
+  state?: string;
+  suburb?: string;
+} {
+  const parts = (address ?? '')
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return {};
+
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const uf = resolveBrazilStateUf(parts[i]);
+    if (uf) {
+      const city = parts[i - 1]?.trim();
+      const suburb = parts[i - 2]?.trim();
+      return { city, state: uf, suburb };
+    }
+  }
+  const tail = parts[parts.length - 1] ?? '';
+  const cityUf = tail.match(/^(.+?)\s+([A-Z]{2})$/i);
+  if (cityUf) {
+    return { city: cityUf[1]!.trim(), state: cityUf[2]!.toUpperCase() };
+  }
+  return {};
+}
+
 function normalizeStreetNumberInput(text: string): string {
   return text
     .trim()
     .replace(/\s+n[uú]mero\s+/gi, ' ')
     .replace(STREET_TYPE_PREFIX_RE, '')
     .trim();
+}
+
+function parseStreetNumberFromCandidate(candidate: string): { street: string; number: string } | null {
+  const c = candidate.trim();
+  if (!c) return null;
+  const comma = c.match(/^(.+?),\s*(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
+  if (comma) {
+    const streetRaw = comma[1]!.trim();
+    if (streetRaw.length >= 2) {
+      return {
+        street: stripStreetTypePrefix(streetRaw),
+        number: comma[2]!.trim(),
+      };
+    }
+  }
+  const inline = c.match(/^(.+?)\s+(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
+  if (inline) {
+    const streetRaw = inline[1]!.trim();
+    const wordCount = streetRaw.split(/\s+/).filter(Boolean).length;
+    if (streetRaw.length >= 3 && (wordCount >= 2 || /^(?:rua|r\.|avenida|av\.?)/i.test(streetRaw))) {
+      return {
+        street: stripStreetTypePrefix(streetRaw),
+        number: inline[2]!.trim(),
+      };
+    }
+  }
+  return null;
 }
 
 export function parseStreetNumberReply(
@@ -304,24 +407,23 @@ export function parseStreetNumberReply(
       return { street: parsed.street.trim(), number: parsed.number.trim() };
     }
   }
-  const candidates = [normalizeStreetNumberInput(t), t.replace(STREET_TYPE_PREFIX_RE, '').trim(), t];
+  const loose = parseLooseDeliveryAddress(t);
+  if (loose?.street && loose.number) {
+    return { street: loose.street.trim(), number: loose.number.trim() };
+  }
+  const candidates = [
+    t,
+    normalizeStreetNumberInput(t),
+    t.replace(STREET_TYPE_PREFIX_RE, '').trim(),
+    t.replace(/\s+n[uú]mero\s+/gi, ' ').trim(),
+  ];
+  const seen = new Set<string>();
   for (const candidate of candidates) {
-    const c = candidate.trim();
-    if (!c) continue;
-    const comma = c.match(/^(.+?),\s*(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
-    if (comma) {
-      return {
-        street: stripStreetTypePrefix(comma[1]!.trim()),
-        number: comma[2]!.trim(),
-      };
-    }
-    const inline = c.match(/^(.+?)\s+(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
-    if (inline && inline[1]!.trim().length >= 3) {
-      return {
-        street: stripStreetTypePrefix(inline[1]!.trim()),
-        number: inline[2]!.trim(),
-      };
-    }
+    const key = candidate.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const parsed = parseStreetNumberFromCandidate(candidate);
+    if (parsed) return parsed;
   }
   const onlyNum = t.match(/^(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
   if (onlyNum) {
@@ -330,10 +432,15 @@ export function parseStreetNumberReply(
   return null;
 }
 
+export interface LocationPinRegionFallback {
+  displayAddress?: string | null;
+}
+
 /** Monta endereço completo a partir do pin + confirmação do cliente (rua e número). */
 export function mergeLocationConfirmReply(
   reply: string,
   reverse: ReverseGeocodeResult | null,
+  pinFallback?: LocationPinRegionFallback | null,
 ): string | null {
   const trimmed = reply.trim();
   if (!trimmed) return null;
@@ -344,16 +451,15 @@ export function mergeLocationConfirmReply(
 
   const street = parsed.street || stripStreetTypePrefix(reverse?.road?.trim() ?? '');
   const number = parsed.number;
-  if (!street || !number) {
-    if (!number) return null;
-    if (!reverse?.road?.trim()) return null;
-  }
+  if (!number) return null;
+  if (!street && !reverse?.road?.trim()) return null;
 
+  const regionFromPin = parseRegionFromDisplayAddress(pinFallback?.displayAddress);
   const cepDigits = reverse?.postcode?.replace(/\D/g, '') ?? '';
-  const neighborhood = reverse?.suburb?.trim() || reverse?.city?.trim() || 'Centro';
-  const city = reverse?.city?.trim() ?? '';
-  const stateMatch = reverse?.state?.match(/\b([A-Z]{2})\b/i);
-  const state = stateMatch?.[1]?.toUpperCase() ?? '';
+  const neighborhood =
+    reverse?.suburb?.trim() || regionFromPin.suburb || reverse?.city?.trim() || 'Centro';
+  const city = reverse?.city?.trim() || regionFromPin.city || '';
+  const state = resolveBrazilStateUf(reverse?.state) || regionFromPin.state || '';
 
   if (!city || !state) return null;
 
@@ -382,9 +488,8 @@ export function mergeLocationConfirmReply(
 
 export function locationAreaHint(reverse: ReverseGeocodeResult | null): string {
   if (!reverse) return '';
-  const parts = [reverse.suburb, reverse.city, reverse.state?.match(/\b([A-Z]{2})\b/i)?.[1]]
-    .filter(Boolean)
-    .join(', ');
+  const uf = resolveBrazilStateUf(reverse.state);
+  const parts = [reverse.suburb, reverse.city, uf].filter(Boolean).join(', ');
   return parts;
 }
 

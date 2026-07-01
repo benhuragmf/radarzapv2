@@ -13,6 +13,8 @@ export interface ICatalogSalesOrder extends Document {
   destinationId?: mongoose.Types.ObjectId;
   contactIdentifier?: string;
   contactName?: string;
+  /** Código curto legível do pedido (ex.: DX-1045) — único por tenant */
+  orderCode?: string;
   productId?: mongoose.Types.ObjectId;
   productName: string;
   sku?: string;
@@ -27,6 +29,8 @@ export interface ICatalogSalesOrder extends Document {
     deliveryLocationLat?: number;
     deliveryLocationLng?: number;
     deliveryLocationPendingConfirm?: boolean;
+    addressConfirmAttempts?: number;
+    catalogFlowPaused?: boolean;
     stockSnapshot?: string;
   paymentMethod: 'pix';
   status: CatalogSalesOrderStatus;
@@ -79,6 +83,7 @@ const CatalogSalesOrderSchema = new Schema<ICatalogSalesOrder>(
     destinationId: { type: Schema.Types.ObjectId, ref: 'Destination', index: true },
     contactIdentifier: { type: String, maxlength: 120 },
     contactName: { type: String, maxlength: 120 },
+    orderCode: { type: String, maxlength: 16, index: true },
     productId: { type: Schema.Types.ObjectId, ref: 'AiKnowledgeBase', index: true },
     productName: { type: String, required: true, maxlength: 200 },
     sku: { type: String, maxlength: 80 },
@@ -93,6 +98,8 @@ const CatalogSalesOrderSchema = new Schema<ICatalogSalesOrder>(
     deliveryLocationLat: { type: Number },
     deliveryLocationLng: { type: Number },
     deliveryLocationPendingConfirm: { type: Boolean, default: false },
+    addressConfirmAttempts: { type: Number, default: 0, min: 0 },
+    catalogFlowPaused: { type: Boolean, default: false },
     stockSnapshot: { type: String, maxlength: 120 },
     paymentMethod: { type: String, enum: ['pix'], default: 'pix' },
     status: {
@@ -141,6 +148,10 @@ const CatalogSalesOrderSchema = new Schema<ICatalogSalesOrder>(
 );
 
 CatalogSalesOrderSchema.index({ clientId: 1, status: 1, updatedAt: -1 });
+CatalogSalesOrderSchema.index(
+  { clientId: 1, orderCode: 1 },
+  { unique: true, partialFilterExpression: { orderCode: { $type: 'string', $gt: '' } } },
+);
 CatalogSalesOrderSchema.index(
   { clientId: 1, conversationId: 1, productId: 1, status: 1 },
   { name: 'catalog_sales_active_product' },

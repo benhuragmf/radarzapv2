@@ -207,13 +207,15 @@ export function isGeocodableCustomerAddress(address: string | null | undefined):
 /** Texto parece endereço de entrega (CEP, número, rua+número ou endereço completo). */
 export function textLooksLikeDeliveryAddressInput(text: string): boolean {
   const t = text.trim();
-  if (!t || t.length < 8) return false;
+  if (!t || t.length < 4) return false;
   if (textIsCepOnly(t)) return true;
   if (textLooksLikeStreetNumber(t)) return true;
   if (isGeocodableCustomerAddress(t)) return true;
   if (parseLooseDeliveryAddress(t)) return true;
   if (/(?:^|[\s,])(?:n[ºo°.]?\s*)?\d{1,6}[a-zA-Z]?(?:\s|$|[,.\-])/i.test(` ${t} `)) {
-    return /(?:rua|r\.|r:|avenida|av\.|av:)/i.test(t) || t.includes(',');
+    if (/(?:rua|r\.|r:|avenida|av\.?|av\s)/i.test(t) || t.includes(',')) return true;
+    const words = t.split(/\s+/).filter(Boolean);
+    if (words.length >= 2 && /\d{1,6}/.test(t)) return true;
   }
   return false;
 }
