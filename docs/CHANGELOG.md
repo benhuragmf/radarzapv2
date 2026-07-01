@@ -20,6 +20,15 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.50] - 2026-06-30
+
+### Fixed
+- Catálogo: saudações (*ola boa tarde*) não disparam mais lista de produtos — volta ao atendimento normal
+- *entrega* / *entregue* após oferta sempre recebe resposta (pedido de CEP via `sendAiReply`, sem silêncio)
+- Pedido forçado ao escolher retirada/entrega mesmo se `autoCreateOrderOnPurchase` estiver off
+
+---
+
 ## [2.17.49] - 2026-06-30
 
 ### Added

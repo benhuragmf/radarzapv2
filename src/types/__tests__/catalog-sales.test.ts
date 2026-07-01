@@ -96,6 +96,8 @@ describe('catalog-sales types', () => {
 
   it('detecta consulta curta por nome de produto', () => {
     expect(looksLikeCatalogProductNameQuery('zaad')).toBe(true);
+    expect(looksLikeCatalogProductNameQuery('ola boa tarde')).toBe(false);
+    expect(looksLikeCatalogProductNameQuery('entrega')).toBe(false);
     expect(looksLikeCatalogProductNameQuery('qual o horário?')).toBe(false);
     expect(extractCatalogProductQueryToken('quero o zaad')).toBe('zaad');
   });

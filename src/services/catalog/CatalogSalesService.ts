@@ -40,6 +40,7 @@ import {
   extractProductNameFromCatalogOffer,
   extractCatalogProductQueryToken,
   catalogTitleSimilarity,
+  CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
 } from '@/types/catalog-sales';
 import {
   estimateDeliveryFromAddresses,
@@ -409,31 +410,89 @@ export class CatalogSalesService {
       threadContext: [opts.threadContext, opts.lastAssistantReply].filter(Boolean).join(' '),
     });
 
-    if (isPickup && turn.handled) {
-      return { handled: true };
+    const order = await this.findActiveOrderForConversation(
+      opts.clientId,
+      opts.conversation.conversationId,
+    );
+
+    if (isPickup) {
+      if (order) {
+        const reply = await this.preparePickupFulfillmentReply(order, cfg);
+        return { handled: true, customerReply: reply };
+      }
+      return { handled: turn.handled ?? false };
     }
 
     if (isDelivery) {
-      const order = await this.findActiveOrderForConversation(
-        opts.clientId,
-        opts.conversation.conversationId,
-      );
       if (order?.status === 'aguardando_endereco') {
-        await this.sendDeliveryAddressRequestToCustomer(order);
-        return { handled: true };
+        return { handled: true, customerReply: CATALOG_DELIVERY_CEP_REQUEST_MESSAGE };
       }
       if (order?.status === 'aguardando_pagamento') {
-        return { handled: true };
+        const reply = this.buildDeliveryPaymentReply(order, cfg);
+        return { handled: true, customerReply: reply };
       }
+      if (order) {
+        return { handled: true, customerReply: CATALOG_DELIVERY_CEP_REQUEST_MESSAGE };
+      }
+      return {
+        handled: true,
+        customerReply:
+          'Recebi sua escolha de *entrega*. Para continuar, confirme o produto ou digite *atendente*.',
+      };
     }
 
     return { handled: turn.handled ?? false };
   }
 
+  private buildDeliveryPaymentReply(order: ICatalogSalesOrder, cfg: CatalogSalesCompanyConfig): string {
+    const pix = cfg.pixEnabled && cfg.pixInstructions?.trim()
+      ? `\n\n*Pagamento PIX:*\n${cfg.pixInstructions.trim()}`
+      : '';
+    return (
+      `Perfeito! *Entrega* do produto *${order.productName}*.${pix}\n\n` +
+      'Envie o comprovante aqui após o pagamento para nossa equipe conferir.'
+    );
+  }
+
+  private async preparePickupFulfillmentReply(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+  ): Promise<string> {
+    if (order.status !== 'aguardando_pagamento') {
+      order.status = 'aguardando_pagamento';
+      order.history.push({
+        at: new Date(),
+        action: 'pickup_selected',
+        status: 'aguardando_pagamento',
+      });
+      await order.save();
+    }
+    const org = await Organization.findById(order.clientId).select('address').lean();
+    return this.buildPickupFulfillmentReply(order, cfg, org?.address);
+  }
+
+  private buildPickupFulfillmentReply(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+    orgAddress?: string | null,
+  ): string {
+    const pickupLocation =
+      cfg.deliveryInstructions?.trim() ||
+      orgAddress?.trim() ||
+      'Consulte nossa equipe para o endereço de retirada.';
+    const pix = cfg.pixEnabled && cfg.pixInstructions?.trim()
+      ? `\n\n*Pagamento PIX:*\n${cfg.pixInstructions.trim()}`
+      : '';
+    return (
+      `Perfeito! *Retirada* do produto *${order.productName}* no endereço:\n${pickupLocation}${pix}\n\n` +
+      'Envie o comprovante aqui após o pagamento para nossa equipe conferir.'
+    );
+  }
+
   private async sendDeliveryAddressRequestToCustomer(order: ICatalogSalesOrder): Promise<void> {
     await this.sendCatalogAutomatedCustomerMessage(
       order,
-      'Perfeito! Para calcular o frete da *entrega*, envie o *CEP* (8 dígitos) do endereço.',
+      CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
       'catalog-sales-delivery-cep-request',
     );
   }
@@ -505,26 +564,7 @@ export class CatalogSalesService {
     order: ICatalogSalesOrder,
     cfg: CatalogSalesCompanyConfig,
   ): Promise<void> {
-    if (order.status !== 'aguardando_pagamento') {
-      order.status = 'aguardando_pagamento';
-      order.history.push({
-        at: new Date(),
-        action: 'pickup_selected',
-        status: 'aguardando_pagamento',
-      });
-      await order.save();
-    }
-    const org = await Organization.findById(order.clientId).select('address').lean();
-    const pickupLocation =
-      cfg.deliveryInstructions?.trim() ||
-      org?.address?.trim() ||
-      'Consulte nossa equipe para o endereço de retirada.';
-    const pix = cfg.pixEnabled && cfg.pixInstructions?.trim()
-      ? `\n\n*Pagamento PIX:*\n${cfg.pixInstructions.trim()}`
-      : '';
-    const text =
-      `Perfeito! *Retirada* no endereço:\n${pickupLocation}${pix}\n\n` +
-      'Envie o comprovante aqui após o pagamento para nossa equipe conferir.';
+    const text = await this.preparePickupFulfillmentReply(order, cfg);
     await this.sendCatalogAutomatedCustomerMessage(order, text, 'catalog-sales-pickup');
   }
 
@@ -617,7 +657,12 @@ export class CatalogSalesService {
     threadContext?: string;
   }): Promise<ICatalogSalesOrder | null> {
     const cfg = await this.loadCompanyConfig(opts.clientId);
-    if (!cfg.enabled || !cfg.autoCreateOrderOnPurchase) return null;
+    if (!cfg.enabled) return null;
+    const forceFulfillmentOrder =
+      opts.structured.shouldCreateCatalogOrder &&
+      (detectDeliveryFulfillmentChoice(opts.clientText) ||
+        detectPickupFulfillmentChoice(opts.clientText));
+    if (!cfg.autoCreateOrderOnPurchase && !forceFulfillmentOrder) return null;
 
     const combinedText = [opts.threadContext, opts.aiSummary, opts.clientText]
       .filter(Boolean)

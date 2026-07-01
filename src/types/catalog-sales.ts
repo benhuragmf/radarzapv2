@@ -393,12 +393,27 @@ export function extractCatalogProductQueryToken(text: string): string | null {
 /** Mensagem curta que parece nome de produto (ex.: "zaad", "kit premium"). */
 export function looksLikeCatalogProductNameQuery(text: string): boolean {
   const t = text.trim();
-  if (!t || t.length > 48 || t.includes('?')) return false;
-  if (/\b(atendente|humano|ajuda|horario|horário|funciona)\b/i.test(t)) return false;
-  if (/^[\p{L}\p{N}\s\-_.]+$/u.test(t)) return true;
+  if (!t || t.length < 2 || t.length > 32 || t.includes('?')) return false;
+  if (detectDeliveryFulfillmentChoice(t) || detectPickupFulfillmentChoice(t)) return false;
+  if (/\b(atendente|humano|ajuda|horario|horário|funciona|obrigad|valeu|tchau)\b/i.test(t)) {
+    return false;
+  }
+  if (/\b(oi|ola|olá|bom dia|boa tarde|boa noite|e ai|eae|alo|alô)\b/i.test(t)) return false;
+  if (/^(bom|boa)\s+(dia|tarde|noite)$/i.test(t)) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length >= 3) return false;
+  if (words.length === 1) return words[0].length >= 2;
   const token = extractCatalogProductQueryToken(t);
-  return Boolean(token && token.length >= 2);
+  return Boolean(token && token.length >= 3);
 }
+
+/** Última mensagem do bot foi oferta padronizada aguardando retirada/entrega. */
+export function isAwaitingCatalogFulfillmentChoice(lastAssistantReply?: string): boolean {
+  return isCatalogPurchaseOfferMessage(lastAssistantReply);
+}
+
+export const CATALOG_DELIVERY_CEP_REQUEST_MESSAGE =
+  'Perfeito! Para calcular o frete da *entrega*, envie o *CEP* (8 dígitos) do endereço.';
 
 /** Detecta confirmação de compra no texto do cliente. */
 export function detectPurchaseConfirmation(text: string): boolean {

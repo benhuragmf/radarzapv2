@@ -53,6 +53,8 @@ import {
   buildFulfillmentReminderReply,
   isCatalogPurchaseOfferMessage,
   looksLikeCatalogProductNameQuery,
+  isAwaitingCatalogFulfillmentChoice,
+  CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
 } from '@/types/catalog-sales';
 import {
   textIsCepOnly,
@@ -620,14 +622,16 @@ export class WebChatAiService {
         contactFirstName,
       });
       if (!result.handled) return null;
-      if (result.customerReply) return { body: result.customerReply };
-      return { body: '', automatedOnly: true };
+      return {
+        body: result.customerReply ?? CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
+      };
     }
 
     const productNameQuery =
       looksLikeCatalogProductNameQuery(text) &&
       !detectDeliveryFulfillmentChoice(text) &&
-      !detectPickupFulfillmentChoice(text);
+      !detectPickupFulfillmentChoice(text) &&
+      !isAwaitingCatalogFulfillmentChoice(opts.lastAssistantReply);
 
     if (
       (looksLikePurchaseInquiry(text, opts.threadContext) || productNameQuery) &&

@@ -41,6 +41,7 @@ import {
   buildFulfillmentReminderReply,
   isCatalogPurchaseOfferMessage,
   looksLikeCatalogProductNameQuery,
+  isAwaitingCatalogFulfillmentChoice,
 } from '@/types/catalog-sales';
 import {
   textIsCepOnly,
@@ -475,7 +476,8 @@ export class AiConversationService {
     const catalogProductQuery =
       looksLikeCatalogProductNameQuery(ctx.text ?? '') &&
       !detectDeliveryFulfillmentChoice(ctx.text ?? '') &&
-      !detectPickupFulfillmentChoice(ctx.text ?? '');
+      !detectPickupFulfillmentChoice(ctx.text ?? '') &&
+      !isAwaitingCatalogFulfillmentChoice(lastAssistantBefore?.content);
 
     if (
       (looksLikePurchaseInquiry(ctx.text, threadContextForKb) || catalogProductQuery) &&
@@ -908,12 +910,17 @@ export class AiConversationService {
     });
     if (!result.handled) return false;
 
-    if (result.customerReply) {
+    const reply =
+      result.customerReply ??
+      (isDelivery
+        ? 'Perfeito! Para calcular o frete da *entrega*, envie o *CEP* (8 dígitos) do endereço.'
+        : undefined);
+    if (reply) {
       await inbox.sendAiReply(
         ctx.clientId,
         ctx.conversation,
         ctx.dest.identifier,
-        result.customerReply,
+        reply,
       );
     }
 
@@ -1123,12 +1130,17 @@ export class AiConversationService {
         contactFirstName: resolveClientFirstName(state.collectedName),
       });
       if (fulfillment.handled) {
-        if (fulfillment.customerReply) {
+        const reply =
+          fulfillment.customerReply ??
+          (detectDeliveryFulfillmentChoice(ctx.text)
+            ? 'Perfeito! Para calcular o frete da *entrega*, envie o *CEP* (8 dígitos) do endereço.'
+            : undefined);
+        if (reply) {
           await inbox.sendAiReply(
             ctx.clientId,
             ctx.conversation,
             ctx.dest.identifier,
-            fulfillment.customerReply,
+            reply,
           );
         }
         state.status = AiConversationStatus.AI_WAITING_CLIENT;
