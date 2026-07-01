@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Package, ChevronDown, ChevronUp } from 'lucide-react'
+import { Package, ChevronUp } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { inputCls, textareaCls, InlineNotice } from '@/design-system'
 import { useCatalogForm } from './CatalogFormContext'
@@ -7,14 +6,17 @@ import { useCatalogForm } from './CatalogFormContext'
 const textareaClsAi = `${textareaCls} min-h-[100px]`
 
 export function ProductFormPanel() {
-  const [open, setOpen] = useState(false)
   const {
     productDraft,
     setProductDraft,
     editingProductRef,
     saveProductDraft,
     cancelEditProduct,
+    productFormOpen,
+    setProductFormOpen,
   } = useCatalogForm()
+
+  const open = productFormOpen || Boolean(editingProductRef)
 
   const stockUncertain =
     productDraft.stock.trim() &&
@@ -24,7 +26,7 @@ export function ProductFormPanel() {
   return (
     <div className="space-y-3">
       {!open && !editingProductRef ? (
-        <Button type="button" onClick={() => setOpen(true)}>
+        <Button type="button" onClick={() => setProductFormOpen(true)}>
           <Package className="w-4 h-4 mr-1.5" />
           Novo produto
         </Button>
@@ -45,7 +47,7 @@ export function ProductFormPanel() {
               <button
                 type="button"
                 className="text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]"
-                onClick={() => setOpen(false)}
+                onClick={() => setProductFormOpen(false)}
                 aria-label="Fechar formulário"
               >
                 <ChevronUp className="w-5 h-5" />
@@ -197,7 +199,7 @@ export function ProductFormPanel() {
               disabled={!productDraft.name.trim() && !productDraft.description.trim()}
               onClick={() => {
                 saveProductDraft()
-                if (!editingProductRef) setOpen(false)
+                if (!editingProductRef) setProductFormOpen(false)
               }}
             >
               {editingProductRef ? 'Salvar alterações' : 'Adicionar à lista'}
@@ -206,27 +208,13 @@ export function ProductFormPanel() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => {
-                  cancelEditProduct()
-                  setOpen(false)
-                }}
+                onClick={() => cancelEditProduct()}
               >
                 Cancelar
               </Button>
             )}
           </div>
         </div>
-      )}
-
-      {!open && !editingProductRef && (
-        <button
-          type="button"
-          className="text-xs text-[var(--rz-text-muted)] hover:text-brand-400 flex items-center gap-1"
-          onClick={() => setOpen(true)}
-        >
-          <ChevronDown className="w-3.5 h-3.5" />
-          Expandir formulário de cadastro
-        </button>
       )}
     </div>
   )

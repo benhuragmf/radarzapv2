@@ -53,7 +53,10 @@ type CatalogFormContextValue = {
   patchCatalogSalesPix: (patch: Partial<CatalogSalesCompanyConfig>) => void
   saveProductDraft: () => void
   startEditProduct: (item: KnowledgeBaseItem) => void
+  startDuplicateProduct: (item: KnowledgeBaseItem) => void
   cancelEditProduct: () => void
+  productFormOpen: boolean
+  setProductFormOpen: (open: boolean) => void
   removeProductItem: (item: KnowledgeBaseItem) => void
   handleSave: () => void
   catalogPixExtraNotes: string
@@ -74,6 +77,7 @@ export function CatalogFormProvider({ children }: { children: ReactNode }) {
   const [editingProductRef, setEditingProductRef] = useState<{ id?: string; title: string } | null>(
     null,
   )
+  const [productFormOpen, setProductFormOpen] = useState(false)
 
   const { data: me } = useQuery<AuthUser | null>({ queryKey: ['auth-me'], queryFn: getMe })
   const canManage = can(me ?? null, 'inbox:ai:manage')
@@ -220,6 +224,7 @@ export function CatalogFormProvider({ children }: { children: ReactNode }) {
     const wasEdit = Boolean(editingProductRef)
     setProductDraft(emptyProductDraft)
     setEditingProductRef(null)
+    setProductFormOpen(false)
     notifyInfo(
       wasEdit
         ? 'Produto atualizado. Clique em Salvar para persistir.'
@@ -230,11 +235,24 @@ export function CatalogFormProvider({ children }: { children: ReactNode }) {
   const startEditProduct = useCallback((item: KnowledgeBaseItem) => {
     setProductDraft(knowledgeItemToProductDraft(item))
     setEditingProductRef({ id: item.id || undefined, title: item.title })
+    setProductFormOpen(true)
+  }, [])
+
+  const startDuplicateProduct = useCallback((item: KnowledgeBaseItem) => {
+    const draft = knowledgeItemToProductDraft(item)
+    setProductDraft({
+      ...draft,
+      name: `${draft.name} (cópia)`,
+      sku: draft.sku ? `${draft.sku}-copia` : '',
+    })
+    setEditingProductRef(null)
+    setProductFormOpen(true)
   }, [])
 
   const cancelEditProduct = useCallback(() => {
     setProductDraft(emptyProductDraft)
     setEditingProductRef(null)
+    setProductFormOpen(false)
   }, [])
 
   const removeProductItem = useCallback((item: KnowledgeBaseItem) => {
@@ -268,7 +286,10 @@ export function CatalogFormProvider({ children }: { children: ReactNode }) {
     patchCatalogSalesPix,
     saveProductDraft,
     startEditProduct,
+    startDuplicateProduct,
     cancelEditProduct,
+    productFormOpen,
+    setProductFormOpen,
     removeProductItem,
     handleSave,
     catalogPixExtraNotes,

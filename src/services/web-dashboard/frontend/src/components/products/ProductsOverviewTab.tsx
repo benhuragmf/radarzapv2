@@ -44,10 +44,12 @@ export function ProductsOverviewTab() {
     enabled: Boolean(me && can(me, 'orders:view')),
   })
 
+  const canViewWa = Boolean(me && can(me, 'whatsapp:session:view'))
+
   const { data: sessions = [] } = useQuery<SessionRow[]>({
     queryKey: ['sessions', 'tenant'],
     queryFn: () => api.get('/sessions'),
-    enabled: Boolean(me),
+    enabled: canViewWa,
   })
 
   const orders = ordersData?.orders ?? []
@@ -83,7 +85,7 @@ export function ProductsOverviewTab() {
           `km${km}` as keyof typeof catalogSales.deliveryKmRates
         ]?.trim(),
     )
-  const waOffline = !sessions.some(s => s.status === 'connected')
+  const waOffline = canViewWa && !sessions.some(s => s.status === 'connected')
   const conferenciaMissing =
     catalogSales.notifyWhatsapp && !catalogSales.internalWhatsapp?.trim()
 

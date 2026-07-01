@@ -20,6 +20,19 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.56] - 2026-07-01
+
+### Fixed
+- Produtos: duplicar/editar produto abre formulário automaticamente
+- Pedidos: drawer exibia valor no campo Produto — corrigido rótulos
+- Visão geral: alerta WA offline só para quem tem `whatsapp:session:view`
+- KPIs de pedidos invalidam cache da visão geral após ações
+
+### Docs
+- Handoff local pós-2.17.55 — `RADARCHAT-HANDOFF-LOCAL-POS-2.17.55.md`
+
+---
+
 ## [2.17.55] - 2026-07-01
 
 ### Fixed

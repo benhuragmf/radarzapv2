@@ -91,6 +91,7 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
     mutationFn: (path: string) => api.post(path, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['catalog-sales-orders-list'] })
+      qc.invalidateQueries({ queryKey: ['catalog-sales-orders-overview'] })
       notifyInfo('Pedido atualizado.')
     },
     onError: mutationError,
@@ -241,6 +242,7 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
                       .post(`/platform/catalog-sales/orders/${selected.id}/reject`, { reason })
                       .then(() => {
                         qc.invalidateQueries({ queryKey: ['catalog-sales-orders-list'] })
+                        qc.invalidateQueries({ queryKey: ['catalog-sales-orders-overview'] })
                         notifyInfo('Recusado.')
                       })
                       .catch(mutationError)
@@ -275,6 +277,10 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
             </div>
             <div>
               <dt className="text-[var(--rz-text-muted)]">Produto</dt>
+              <dd>{selected.productName}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--rz-text-muted)]">Valor produto</dt>
               <dd>{selected.subtotalAmount ?? selected.amount ?? '—'}</dd>
             </div>
             {selected.deliveryFee && (

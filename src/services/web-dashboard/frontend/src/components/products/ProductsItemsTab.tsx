@@ -5,11 +5,7 @@ import { Button } from '../ui/Button'
 import { SectionCard, StatusBadge, DataTable, EmptyState } from '@/design-system'
 import { useCatalogForm } from './CatalogFormContext'
 import { ProductFormPanel } from './ProductFormPanel'
-import {
-  productRowFromItem,
-  SALE_MODE_LABELS,
-} from '@/lib/catalog/productDisplay'
-import { knowledgeItemToProductDraft } from '@/lib/catalog/productKnowledge'
+import { productRowFromItem, SALE_MODE_LABELS } from '@/lib/catalog/productDisplay'
 
 type ProductRow = ReturnType<typeof productRowFromItem>
 
@@ -25,22 +21,15 @@ export function ProductsItemsTab() {
   const {
     productItems,
     startEditProduct,
+    startDuplicateProduct,
     removeProductItem,
-    setProductDraft,
   } = useCatalogForm()
 
   const rows = useMemo(() => productItems.map(productRowFromItem), [productItems])
 
   const duplicateProduct = useCallback(
-    (item: ProductRow['item']) => {
-      const draft = knowledgeItemToProductDraft(item)
-      setProductDraft({
-        ...draft,
-        name: `${draft.name} (cópia)`,
-        sku: draft.sku ? `${draft.sku}-copia` : '',
-      })
-    },
-    [setProductDraft],
+    (item: ProductRow['item']) => startDuplicateProduct(item),
+    [startDuplicateProduct],
   )
 
   const columns = useMemo<ColumnDef<ProductRow>[]>(
