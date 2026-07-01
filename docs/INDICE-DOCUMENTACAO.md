@@ -64,7 +64,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA e carteira |
 | [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md) | Catálogo, pedidos via IA, PIX e fulfillment |
 | [`PRODUTOS-CATALOGO.md`](./PRODUTOS-CATALOGO.md) | Menu Produtos — estoque, pedidos, PIX, frete, WhatsApps operacionais (2.17.55) |
-| [`concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md`](./concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md) | **Hotfix** QA real — áudio, pin, anti-loop, Inbox, orderCode (2.17.59 local) |
+| [`concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md`](./concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md) | **Deploy + QA** hotfix 2.17.59 — produção `f1f54ee` |
+| [`concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md`](./concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md) | **Hotfix** QA real — áudio, pin, anti-loop, Inbox, orderCode (implementação 2.17.59) |
 | [`concluidos/RADARCHAT-DEPLOY-HOTFIX-CATALOGO-2.17.58.md`](./concluidos/RADARCHAT-DEPLOY-HOTFIX-CATALOGO-2.17.58.md) | **Deploy** hotfix catálogo 2.17.58 |
 | [`concluidos/RADARCHAT-HOTFIX-CATALOGO-WA-ENDERECO-PIX-2.17.58.md`](./concluidos/RADARCHAT-HOTFIX-CATALOGO-WA-ENDERECO-PIX-2.17.58.md) | **Hotfix** catálogo WA — retirada, endereço, PIX duplicado (2.17.58) |
 | [`concluidos/RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md`](./concluidos/RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md) | **Validação pós-produção** 2.17.57 — Git, deploy, bundle, QA pendente |

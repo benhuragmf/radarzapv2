@@ -8,6 +8,8 @@ Centralizar a operação comercial (produtos, estoque, pedidos, PIX, entrega) fo
 
 **UX painel (2.17.55):** dashboard na visão geral, tabelas profissionais, três WhatsApps operacionais em Configurações (entregadores bloqueado). Ver [`concluidos/RADARCHAT-PRODUTOS-UX-WHATSAPPS-CONCLUSAO-2.17.55.md`](./concluidos/RADARCHAT-PRODUTOS-UX-WHATSAPPS-CONCLUSAO-2.17.55.md).
 
+**Pedidos (2.17.59):** código curto `DX-####` na lista e drawer; deep link `#pedidos?order=DX-1045`; link Inbox ↔ pedido. Ver [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md) e [`concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md`](./concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md).
+
 ## Quando o menu aparece
 
 - `Organization.catalogSales.businessCatalogProfile !== 'none'`

@@ -32,6 +32,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Docs
 - `concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md`
+- `concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md` — deploy produção (`f1f54ee`, run 28542629760)
 
 ---
 

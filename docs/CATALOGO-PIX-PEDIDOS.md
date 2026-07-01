@@ -142,7 +142,7 @@ Base: `/api/platform/catalog-sales`
 
 Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é URL pública aberta).
 
-**Versão em produção:** `2.17.58`. **Local:** `2.17.59` (hotfix QA — ver `concluidos/RADARCHAT-HOTFIX-QA-REAL-WHATSAPP-INBOX-PEDIDO-2.17.59.md`).
+**Versão em produção:** `2.17.59` (`f1f54ee`, deploy [28542629760](https://github.com/benhuragmf/radarzapv2/actions/runs/28542629760)). Ver `concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md`.
 
 Pedidos exibem código curto `DX-####` (desde 2.17.59). Deep link: `/platform/produtos#pedidos?order=DX-1045`.
 
