@@ -148,7 +148,7 @@ Base: `/api/platform/catalog-sales`
 
 Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é URL pública aberta).
 
-**Versão em produção:** `2.17.60` (`95666e9`, deploy [28547931838](https://github.com/benhuragmf/radarzapv2/actions/runs/28547931838)). Fluxo: CEP/pin/texto → confirmação → frete → PIX.
+**Versão em produção:** `2.17.61` (`4a7c690`, deploy [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502)). Fluxo: CEP/pin/texto → confirmação → frete → PIX; correção inline após `não` (2.17.61).
 
 Pedidos exibem código curto `DX-####` (desde 2.17.59). Deep link: `/platform/produtos#pedidos?order=DX-1045`.
 

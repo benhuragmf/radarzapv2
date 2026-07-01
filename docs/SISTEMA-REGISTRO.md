@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarchat-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.17.61` (`package.json`) · · **Última revisão doc:** 2026-07-01
+**Versão atual:** `2.17.61` (`package.json`) · **Produção:** `2.17.61` (`4a7c690`, deploy [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502)) · **Última revisão doc:** 2026-07-01
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Auditoria geral:** [`AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./AUDITORIA-GERAL-SISTEMA-RADARCHAT.md) · **Pendências/riscos:** [`PENDENCIAS-E-RISCOS-SISTEMA.md`](./PENDENCIAS-E-RISCOS-SISTEMA.md) · **Mestre:** [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARCHAT-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,7 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
-| **2.17.61** | Fechamento endereço v1: R1 inline após `não` + localização humana segura (Inbox/Produtos) — local, sem deploy — `RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md` |
+| **2.17.61** | Fechamento endereço v1 + localização humana segura — **em produção** (`4a7c690`, deploy 28550770502); QA humano pendente — `RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md` |
 | **2.17.60** | Endereço Entrega v1 — **em produção** (`95666e9`, deploy 28547931838); QA humano pendente — `RADARCHAT-QA-REAL-POS-DEPLOY-ENDERECO-V1-2.17.60.md` |
 | **2.17.59** | Hotfix QA real: áudio catálogo, pin+rua, anti-loop, comandos fluxo, Inbox localização, `orderCode` DX — **em produção** (`f1f54ee`, deploy 28542629760); `RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md` |
 | **2.17.58** | Hotfix catálogo WA: PIX retirada único, endereço retirada obrigatório, endereço livre/CEP, pin+rua, fallback contextual; **em produção** (`e3a1415`, deploy 28537807467); deploy `RADARCHAT-DEPLOY-HOTFIX-CATALOGO-2.17.58.md` |
