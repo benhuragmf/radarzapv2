@@ -37,6 +37,10 @@ import {
 import {
   detectDeliveryFulfillmentChoice,
   detectPickupFulfillmentChoice,
+  extractProductNameFromCatalogOffer,
+  buildFulfillmentReminderReply,
+  isCatalogPurchaseOfferMessage,
+  looksLikeCatalogProductNameQuery,
 } from '@/types/catalog-sales';
 import {
   textIsCepOnly,
@@ -457,10 +461,34 @@ export class AiConversationService {
     }
 
     if (
-      looksLikePurchaseInquiry(ctx.text, threadContextForKb) &&
+      await this.tryCatalogFulfillmentShortCircuit(
+        ctx,
+        inbox,
+        state,
+        threadContextForKb,
+        lastAssistantBefore?.content,
+      )
+    ) {
+      return { handled: true };
+    }
+
+    const catalogProductQuery =
+      looksLikeCatalogProductNameQuery(ctx.text ?? '') &&
+      !detectDeliveryFulfillmentChoice(ctx.text ?? '') &&
+      !detectPickupFulfillmentChoice(ctx.text ?? '');
+
+    if (
+      (looksLikePurchaseInquiry(ctx.text, threadContextForKb) || catalogProductQuery) &&
       !detectDeliveryFulfillmentChoice(ctx.text) &&
       !detectPickupFulfillmentChoice(ctx.text) &&
-      (await this.tryCatalogPurchaseOfferShortCircuit(ctx, inbox, state, threadContextForKb))
+      (await this.tryCatalogPurchaseOfferShortCircuit(
+        ctx,
+        inbox,
+        state,
+        threadContextForKb,
+        lastAssistantBefore?.content,
+        catalogProductQuery,
+      ))
     ) {
       return { handled: true };
     }
@@ -570,6 +598,7 @@ export class AiConversationService {
         prompt,
         llmError ?? 'IA indisponível',
         ticketSavedEarly,
+        lastAssistantBefore?.content,
       );
     }
 
@@ -589,6 +618,7 @@ export class AiConversationService {
         prompt,
         structured.parseFailed ? 'JSON inválido' : 'Resposta vazia',
         ticketSavedEarly,
+        lastAssistantBefore?.content,
       );
     }
 
@@ -604,6 +634,7 @@ export class AiConversationService {
         prompt,
         'Resposta genérica repetida',
         ticketSavedEarly,
+        lastAssistantBefore?.content,
       );
     }
 
@@ -844,11 +875,75 @@ export class AiConversationService {
     return true;
   }
 
+  private async tryCatalogFulfillmentShortCircuit(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    threadContext: string,
+    lastAssistantReply?: string,
+  ): Promise<boolean> {
+    const text = ctx.text?.trim() ?? '';
+    const isPickup = detectPickupFulfillmentChoice(text);
+    const isDelivery = detectDeliveryFulfillmentChoice(text);
+    if (!isPickup && !isDelivery) return false;
+
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    const catalogSvc = CatalogSalesService.getInstance();
+    const cfg = await catalogSvc.loadCompanyConfig(ctx.clientId);
+    if (!cfg.enabled) return false;
+
+    const result = await catalogSvc.processFulfillmentChoice({
+      clientId: ctx.clientId,
+      conversation: {
+        conversationId: String(ctx.conversation._id),
+        channel: 'whatsapp',
+        destinationId: String(ctx.dest._id),
+        contactIdentifier: ctx.conversation.contactIdentifier,
+        contactName: ctx.conversation.contactName,
+      },
+      clientText: text,
+      threadContext,
+      lastAssistantReply,
+      contactFirstName: resolveClientFirstName(state.collectedName),
+    });
+    if (!result.handled) return false;
+
+    if (result.customerReply) {
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        result.customerReply,
+      );
+    }
+
+    state.aiTurnCount += 1;
+    state.shouldEscalate = false;
+    state.confidence = 0.92;
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    logger.info('Catálogo processou retirada/entrega sem LLM', {
+      clientId: ctx.clientId,
+      conversationId: ctx.conversation._id,
+      delivery: isDelivery,
+      pickup: isPickup,
+    });
+    return true;
+  }
+
   private async tryCatalogPurchaseOfferShortCircuit(
     ctx: AiInboundContext,
     inbox: InboxService,
     state: IAiConversationState,
     threadContext: string,
+    lastAssistantReply?: string,
+    productNameQueryOnly = false,
   ): Promise<boolean> {
     const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
     const catalogSvc = CatalogSalesService.getInstance();
@@ -861,13 +956,73 @@ export class AiConversationService {
     );
     if (active) return false;
 
+    if (isCatalogPurchaseOfferMessage(lastAssistantReply)) {
+      const offeredProduct = extractProductNameFromCatalogOffer(lastAssistantReply);
+      const clientNorm = (ctx.text ?? '').trim().toLowerCase();
+      if (
+        offeredProduct &&
+        clientNorm === offeredProduct.toLowerCase()
+      ) {
+        const reminder = buildFulfillmentReminderReply(
+          offeredProduct,
+          resolveClientFirstName(state.collectedName),
+        );
+        state.aiTurnCount += 1;
+        state.shouldEscalate = false;
+        await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reminder);
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return true;
+      }
+    }
+
     const offer = await catalogSvc.buildPurchaseOfferForInquiry({
       clientId: ctx.clientId,
       clientText: ctx.text ?? '',
       threadContext,
       contactFirstName: resolveClientFirstName(state.collectedName),
+      lastAssistantReply,
     });
+
+    if (!offer && productNameQueryOnly) {
+      const notFound = await catalogSvc.buildProductNotFoundReply({
+        clientId: ctx.clientId,
+        clientText: ctx.text ?? '',
+        contactFirstName: resolveClientFirstName(state.collectedName),
+      });
+      if (!notFound) return false;
+      state.aiTurnCount += 1;
+      state.shouldEscalate = false;
+      await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, notFound);
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return true;
+    }
+
     if (!offer) return false;
+
+    const lastOfferProduct = extractProductNameFromCatalogOffer(lastAssistantReply);
+    const newOfferProduct = extractProductNameFromCatalogOffer(offer);
+    if (
+      lastOfferProduct &&
+      newOfferProduct &&
+      lastOfferProduct.toLowerCase() === newOfferProduct.toLowerCase() &&
+      isCatalogPurchaseOfferMessage(lastAssistantReply)
+    ) {
+      return false;
+    }
 
     if (this.textLooksLikeProblemDescription(ctx.text)) {
       state.collectedProblem = ctx.text.trim();
@@ -934,6 +1089,7 @@ export class AiConversationService {
     prompt: IAiPrompt,
     reason: string,
     ticketSavedEarly = false,
+    lastAssistantReply?: string,
   ): Promise<AiInboundResult> {
     logger.warn('IA em recuperação — sem menu de setores', {
       clientId: ctx.clientId,
@@ -947,6 +1103,47 @@ export class AiConversationService {
     }
 
     const threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
+    if (
+      detectDeliveryFulfillmentChoice(ctx.text) ||
+      detectPickupFulfillmentChoice(ctx.text)
+    ) {
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      const fulfillment = await CatalogSalesService.getInstance().processFulfillmentChoice({
+        clientId: ctx.clientId,
+        conversation: {
+          conversationId: String(ctx.conversation._id),
+          channel: 'whatsapp',
+          destinationId: String(ctx.dest._id),
+          contactIdentifier: ctx.conversation.contactIdentifier,
+          contactName: ctx.conversation.contactName,
+        },
+        clientText: ctx.text,
+        threadContext,
+        lastAssistantReply,
+        contactFirstName: resolveClientFirstName(state.collectedName),
+      });
+      if (fulfillment.handled) {
+        if (fulfillment.customerReply) {
+          await inbox.sendAiReply(
+            ctx.clientId,
+            ctx.conversation,
+            ctx.dest.identifier,
+            fulfillment.customerReply,
+          );
+        }
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        state.shouldEscalate = false;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return { handled: true };
+      }
+    }
+
     if (looksLikePurchaseInquiry(ctx.text, threadContext)) {
       const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
       const purchaseReply = await CatalogSalesService.getInstance().buildPurchaseRecoveryReply({
@@ -955,6 +1152,7 @@ export class AiConversationService {
         clientText: ctx.text,
         threadContext,
         contactFirstName: resolveClientFirstName(state.collectedName),
+        lastAssistantReply,
       });
       if (purchaseReply) {
         await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, purchaseReply);

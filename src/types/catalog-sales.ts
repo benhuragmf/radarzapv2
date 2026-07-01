@@ -277,22 +277,20 @@ export function shouldOpenPixOrderFlow(opts: {
   threadContext?: string;
   structuredWantsOrder?: boolean;
   companyPixEnabled?: boolean;
+  /** Produto da última oferta padronizada (quando cliente só responde retirar/entregue). */
+  catalogOfferProductName?: string;
 }): boolean {
   if (opts.saleMode === 'link') return false;
   if (!opts.companyPixEnabled && opts.saleMode !== 'pix') return false;
   if (opts.structuredWantsOrder === true) return true;
   const combined = [opts.threadContext, opts.clientText].filter(Boolean).join(' ');
-  if (
-    detectDeliveryFulfillmentChoice(opts.clientText) &&
-    /\b(comprar|zaad|produto|pedido|gostaria)\b/i.test(combined)
-  ) {
-    return true;
-  }
-  if (
-    detectPickupFulfillmentChoice(opts.clientText) &&
-    /\b(comprar|zaad|produto|pedido|gostaria)\b/i.test(combined)
-  ) {
-    return true;
+  const fulfillmentChosen =
+    detectDeliveryFulfillmentChoice(opts.clientText) ||
+    detectPickupFulfillmentChoice(opts.clientText);
+  if (fulfillmentChosen) {
+    if (opts.catalogOfferProductName?.trim()) return true;
+    if (/\b(comprar|produto|pedido|gostaria)\b/i.test(combined)) return true;
+    return false;
   }
   if (detectLinkPurchaseIntent(opts.clientText) && !detectPixPurchaseIntent(opts.clientText)) {
     return false;
@@ -333,6 +331,75 @@ export function productStockIsZero(stock: string | null | undefined): boolean {
   return parseInt(m[1], 10) === 0;
 }
 
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[m][n];
+}
+
+/** Similaridade 0–1 entre consulta do cliente e título do produto. */
+export function catalogTitleSimilarity(query: string, title: string): number {
+  const q = query.trim().toLowerCase();
+  const t = title.trim().toLowerCase();
+  if (!q || !t) return 0;
+  if (q === t) return 1;
+  if (t.includes(q) || q.includes(t)) return 0.92;
+  const dist = levenshteinDistance(q, t);
+  const maxLen = Math.max(q.length, t.length);
+  return maxLen > 0 ? 1 - dist / maxLen : 0;
+}
+
+const PRODUCT_QUERY_STOPWORDS = new Set([
+  'de',
+  'da',
+  'do',
+  'um',
+  'uma',
+  'o',
+  'a',
+  'the',
+  'comprar',
+  'quero',
+  'produto',
+]);
+
+/** Extrai token provável de nome de produto em frase curta. */
+export function extractCatalogProductQueryToken(text: string): string | null {
+  const t = text.trim();
+  if (!t || t.length > 80) return null;
+  const words = t
+    .split(/\s+/)
+    .map(w => w.replace(/[^\p{L}\p{N}\-_.]/gu, '').toLowerCase())
+    .filter(w => w.length >= 2 && !PRODUCT_QUERY_STOPWORDS.has(w));
+  if (words.length === 1) return words[0];
+  if (words.length > 1) {
+    const last = words[words.length - 1];
+    if (last.length >= 3) return last;
+  }
+  return t.length <= 32 ? t.toLowerCase().replace(/[^\p{L}\p{N}\-_.]/gu, '') : null;
+}
+
+/** Mensagem curta que parece nome de produto (ex.: "zaad", "kit premium"). */
+export function looksLikeCatalogProductNameQuery(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > 48 || t.includes('?')) return false;
+  if (/\b(atendente|humano|ajuda|horario|horário|funciona)\b/i.test(t)) return false;
+  if (/^[\p{L}\p{N}\s\-_.]+$/u.test(t)) return true;
+  const token = extractCatalogProductQueryToken(t);
+  return Boolean(token && token.length >= 2);
+}
+
 /** Detecta confirmação de compra no texto do cliente. */
 export function detectPurchaseConfirmation(text: string): boolean {
   const t = text.trim().toLowerCase();
@@ -356,17 +423,43 @@ export function detectPickupFulfillmentChoice(text: string): boolean {
   );
 }
 
-/** Cliente escolheu entrega ou retirada após oferta de compra. */
+/** Cliente escolheu entrega após oferta de compra (não inclui retirada). */
 export function detectDeliveryFulfillmentChoice(text: string): boolean {
   const t = text.trim().toLowerCase();
   if (!t || t.length > 120) return false;
+  if (detectPickupFulfillmentChoice(text)) return false;
   return (
-    /\b(quero que entregue|com entrega|para entregar|por entrega|quero entrega|prefiro entrega|manda entregar|enviar pra mim|enviar para mim|delivery)\b/i.test(
+    /\b(quero que entregue|me entregue|com entrega|para entregar|por entrega|quero entrega|prefiro entrega|manda entregar|enviar pra mim|enviar para mim|delivery)\b/i.test(
       t,
     ) ||
-    /\b(entregue|entrega|envio|enviar|receber em casa)\b/i.test(t) ||
-    /\b(retirar|retirada|vou buscar|pegar na loja|buscar na loja)\b/i.test(t)
+    /\b(entregue|entrega|envio|enviar|receber em casa)\b/i.test(t)
   );
+}
+
+const CATALOG_PURCHASE_OFFER_RE =
+  /O produto \*([^*]+)\* está disponível por .+ prefere \*retirar\* ou que seja \*entregue\*/i;
+
+/** Mensagem automática de oferta padronizada do catálogo. */
+export function isCatalogPurchaseOfferMessage(text: string | undefined): boolean {
+  if (!text?.trim()) return false;
+  return CATALOG_PURCHASE_OFFER_RE.test(text);
+}
+
+/** Extrai o nome do produto da oferta padronizada. */
+export function extractProductNameFromCatalogOffer(text: string | undefined): string | null {
+  if (!text?.trim()) return null;
+  const m = text.match(CATALOG_PURCHASE_OFFER_RE);
+  return m?.[1]?.trim() || null;
+}
+
+/** Lembrete quando o cliente repete o produto sem escolher retirada/entrega. */
+export function buildFulfillmentReminderReply(
+  productName: string,
+  contactFirstName?: string,
+): string {
+  const first = contactFirstName?.trim().split(/\s+/)[0];
+  const greet = first ? `${first}, ` : '';
+  return `${greet}para o *${productName}*, prefere *retirar* na loja ou que seja *entregue*?`;
 }
 
 export const DEFAULT_CATALOG_CUSTOMER_APPROVE_MESSAGE =

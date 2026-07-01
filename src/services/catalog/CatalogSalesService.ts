@@ -10,6 +10,7 @@ import { WhatsAppService } from '@/services/whatsapp/WhatsAppService';
 import { config } from '@/config/environment';
 import { createServiceLogger } from '@/utils/logger';
 import type { AiStructuredReply } from '@/types/ai-assistant';
+import { emptyAiStructuredReply } from '@/types/ai-assistant';
 import {
   type CatalogSalesChannel,
   type CatalogSalesCompanyConfig,
@@ -36,6 +37,9 @@ import {
   shouldOpenPixOrderFlow,
   detectDeliveryFulfillmentChoice,
   detectPickupFulfillmentChoice,
+  extractProductNameFromCatalogOffer,
+  extractCatalogProductQueryToken,
+  catalogTitleSimilarity,
 } from '@/types/catalog-sales';
 import {
   estimateDeliveryFromAddresses,
@@ -252,18 +256,186 @@ export class CatalogSalesService {
     clientText: string;
     threadContext?: string;
     contactFirstName?: string;
+    lastAssistantReply?: string;
   }): Promise<string | null> {
     const cfg = await this.loadCompanyConfig(opts.clientId);
     if (!cfg.enabled) return null;
-    const combined = [opts.threadContext, opts.clientText].filter(Boolean).join(' ');
-    const product = await this.guessProductFromText(opts.clientId, combined);
+    const product = await this.resolveProductForPurchaseContext({
+      clientId: opts.clientId,
+      clientText: opts.clientText,
+      threadContext: opts.threadContext,
+      lastAssistantReply: opts.lastAssistantReply,
+    });
     if (!product) return null;
+
+    const stock = parseProductStockFromContent(product.content ?? '');
+    const salesMeta = normalizeProductSalesMeta(product.salesMeta);
+    if (productStockIsZero(stock) && !salesMeta.madeToOrder) {
+      return this.buildOutOfStockReply({
+        clientId: opts.clientId,
+        productName: product.title,
+        clientText: opts.clientText,
+        contactFirstName: opts.contactFirstName,
+      });
+    }
+
     return this.buildCatalogPurchaseOfferReply({
       productName: product.title,
       price: parseProductPriceFromContent(product.content ?? ''),
-      stock: parseProductStockFromContent(product.content ?? ''),
+      stock,
       contactFirstName: opts.contactFirstName,
     });
+  }
+
+  private async buildOutOfStockReply(opts: {
+    clientId: string;
+    productName: string;
+    clientText: string;
+    contactFirstName?: string;
+  }): Promise<string> {
+    const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
+    const similar = await this.findSimilarCatalogProducts(opts.clientId, opts.clientText, 3, {
+      excludeTitle: opts.productName,
+    });
+    if (similar.length > 0) {
+      const lines = similar.map(r => `• *${r.title}*`).join('\n');
+      return (
+        `${prefix}o produto *${opts.productName}* está sem estoque no momento. ` +
+        `Temos opções parecidas:\n${lines}\n\nQual você prefere?`
+      );
+    }
+    return (
+      `${prefix}o produto *${opts.productName}* está sem estoque no momento. ` +
+      'Posso te ajudar com outro item do catálogo — qual produto você procura?'
+    );
+  }
+
+  /** Resolve produto a partir do texto, contexto e última oferta do assistente. */
+  async resolveProductForPurchaseContext(opts: {
+    clientId: string;
+    clientText: string;
+    threadContext?: string;
+    lastAssistantReply?: string;
+  }) {
+    const combined = [opts.threadContext, opts.clientText, opts.lastAssistantReply]
+      .filter(Boolean)
+      .join(' ');
+    let product = await this.guessProductFromText(opts.clientId, combined);
+    if (!product && opts.lastAssistantReply) {
+      const fromOffer = extractProductNameFromCatalogOffer(opts.lastAssistantReply);
+      if (fromOffer) {
+        product = await this.resolveProductByName(opts.clientId, fromOffer);
+      }
+    }
+    return product;
+  }
+
+  async buildCatalogProductListReply(
+    clientId: string,
+    contactFirstName?: string,
+  ): Promise<string | null> {
+    const rows = await this.loadCatalogProductRows(clientId);
+    if (rows.length === 0) return null;
+    const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
+    const lines = rows.slice(0, 8).map(r => `• *${r.title}*`).join('\n');
+    return (
+      `${prefix}não encontrei esse produto no cadastro. Temos estes disponíveis:\n${lines}\n\n` +
+      'Qual você gostaria de adquirir?'
+    );
+  }
+
+  async buildProductNotFoundReply(opts: {
+    clientId: string;
+    clientText: string;
+    contactFirstName?: string;
+  }): Promise<string | null> {
+    const token = extractCatalogProductQueryToken(opts.clientText) ?? opts.clientText.trim();
+    const similar = await this.findSimilarCatalogProducts(opts.clientId, token, 3);
+    const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
+    if (similar.length > 0) {
+      const lines = similar.map(r => `• *${r.title}*`).join('\n');
+      return (
+        `${prefix}não encontrei *${token}* no cadastro. Você quis dizer:\n${lines}\n\n` +
+        'Qual você gostaria de adquirir?'
+      );
+    }
+    return this.buildCatalogProductListReply(opts.clientId, opts.contactFirstName);
+  }
+
+  /** Processa escolha retirar/entregue sem depender do LLM. */
+  async processFulfillmentChoice(opts: {
+    clientId: string;
+    conversation: CatalogSalesConversationRef;
+    clientText: string;
+    threadContext?: string;
+    lastAssistantReply?: string;
+    contactFirstName?: string;
+  }): Promise<{ handled: boolean; customerReply?: string }> {
+    const isPickup = detectPickupFulfillmentChoice(opts.clientText);
+    const isDelivery = detectDeliveryFulfillmentChoice(opts.clientText);
+    if (!isPickup && !isDelivery) return { handled: false };
+
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    if (!cfg.enabled) return { handled: false };
+
+    const product = await this.resolveProductForPurchaseContext({
+      clientId: opts.clientId,
+      clientText: opts.clientText,
+      threadContext: opts.threadContext,
+      lastAssistantReply: opts.lastAssistantReply,
+    });
+    if (!product) {
+      const list = await this.buildProductNotFoundReply({
+        clientId: opts.clientId,
+        clientText: opts.clientText,
+        contactFirstName: opts.contactFirstName,
+      });
+      if (list) return { handled: true, customerReply: list };
+      return { handled: false };
+    }
+
+    const structured: AiStructuredReply = {
+      ...emptyAiStructuredReply(),
+      shouldCreateCatalogOrder: true,
+      catalogProductName: product.title,
+      catalogProductId: String(product._id),
+    };
+
+    const turn = await this.processAiCatalogTurn({
+      clientId: opts.clientId,
+      conversation: opts.conversation,
+      clientText: opts.clientText,
+      structured,
+      threadContext: [opts.threadContext, opts.lastAssistantReply].filter(Boolean).join(' '),
+    });
+
+    if (isPickup && turn.handled) {
+      return { handled: true };
+    }
+
+    if (isDelivery) {
+      const order = await this.findActiveOrderForConversation(
+        opts.clientId,
+        opts.conversation.conversationId,
+      );
+      if (order?.status === 'aguardando_endereco') {
+        await this.sendDeliveryAddressRequestToCustomer(order);
+        return { handled: true };
+      }
+      if (order?.status === 'aguardando_pagamento') {
+        return { handled: true };
+      }
+    }
+
+    return { handled: turn.handled ?? false };
+  }
+
+  private async sendDeliveryAddressRequestToCustomer(order: ICatalogSalesOrder): Promise<void> {
+    await this.sendCatalogAutomatedCustomerMessage(
+      order,
+      'Perfeito! Para calcular o frete da *entrega*, envie o *CEP* (8 dígitos) do endereço.',
+      'catalog-sales-delivery-cep-request',
+    );
   }
 
   private async processIncrementalAddressInput(opts: {
@@ -363,6 +535,7 @@ export class CatalogSalesService {
     clientText: string;
     threadContext?: string;
     contactFirstName?: string;
+    lastAssistantReply?: string;
   }): Promise<string | null> {
     const cfg = await this.loadCompanyConfig(opts.clientId);
     if (!cfg.enabled) return null;
@@ -388,9 +561,19 @@ export class CatalogSalesService {
       );
     }
 
-    const combined = [opts.threadContext, opts.clientText].filter(Boolean).join(' ');
-    const product = await this.guessProductFromText(opts.clientId, combined);
+    const product = await this.resolveProductForPurchaseContext({
+      clientId: opts.clientId,
+      clientText: opts.clientText,
+      threadContext: opts.threadContext,
+      lastAssistantReply: opts.lastAssistantReply,
+    });
     if (!product) {
+      const list = await this.buildProductNotFoundReply({
+        clientId: opts.clientId,
+        clientText: opts.clientText,
+        contactFirstName: opts.contactFirstName,
+      });
+      if (list) return list;
       return `${prefix}posso te ajudar com a compra! Qual produto você gostaria de adquirir?`;
     }
 
@@ -440,6 +623,8 @@ export class CatalogSalesService {
       .filter(Boolean)
       .join(' ');
 
+    const offerProductName = extractProductNameFromCatalogOffer(opts.threadContext);
+
     let product = null as Awaited<ReturnType<typeof this.resolveProductForOrder>>;
     if (opts.structured.catalogProductId) {
       product = await this.resolveProductForOrder(opts.clientId, opts.structured.catalogProductId);
@@ -449,6 +634,9 @@ export class CatalogSalesService {
     }
     if (!product) {
       product = await this.guessProductFromText(opts.clientId, combinedText);
+    }
+    if (!product && offerProductName) {
+      product = await this.resolveProductByName(opts.clientId, offerProductName);
     }
     if (!product) return null;
 
@@ -463,6 +651,8 @@ export class CatalogSalesService {
       threadContext: combinedText,
       structuredWantsOrder: opts.structured.shouldCreateCatalogOrder,
       companyPixEnabled: cfg.pixEnabled,
+      catalogOfferProductName:
+        opts.structured.catalogProductName ?? offerProductName ?? undefined,
     });
     if (!openPix) return null;
 
@@ -916,18 +1106,56 @@ export class CatalogSalesService {
     }).lean();
   }
 
-  private async guessProductFromText(clientId: string, text: string) {
-    const rows = await AiKnowledgeBase.find({
+  private async loadCatalogProductRows(clientId: string) {
+    return AiKnowledgeBase.find({
       clientId: new mongoose.Types.ObjectId(clientId),
       active: true,
       category: 'Produtos e estoque',
     })
       .select('title content salesMeta')
+      .sort({ title: 1 })
       .limit(50)
       .lean();
+  }
+
+  private async findSimilarCatalogProducts(
+    clientId: string,
+    query: string,
+    limit = 3,
+    opts?: { excludeTitle?: string; minScore?: number },
+  ) {
+    const token = extractCatalogProductQueryToken(query) ?? query.trim().toLowerCase();
+    if (!token || token.length < 2) return [];
+    const rows = await this.loadCatalogProductRows(clientId);
+    const minScore = opts?.minScore ?? 0.68;
+    const exclude = opts?.excludeTitle?.trim().toLowerCase();
+    return rows
+      .filter(r => r.title.trim().toLowerCase() !== exclude)
+      .map(r => ({ row: r, score: catalogTitleSimilarity(token, r.title) }))
+      .filter(x => x.score >= minScore)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(x => x.row);
+  }
+
+  private async guessProductFromText(clientId: string, text: string) {
+    const rows = await this.loadCatalogProductRows(clientId);
     const lower = text.toLowerCase();
-    const hit = rows.find(r => lower.includes(r.title.toLowerCase()));
-    return hit ?? null;
+
+    const substringHit = rows.find(r => {
+      const title = r.title.toLowerCase();
+      return title.length >= 2 && lower.includes(title);
+    });
+    if (substringHit) return substringHit;
+
+    const token = extractCatalogProductQueryToken(text);
+    if (!token || token.length < 2) return null;
+
+    const exact = rows.find(r => r.title.trim().toLowerCase() === token);
+    if (exact) return exact;
+
+    const similar = await this.findSimilarCatalogProducts(clientId, token, 1, { minScore: 0.78 });
+    return similar[0] ?? null;
   }
 
   async createOrder(opts: {

@@ -20,6 +20,26 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.48] - 2026-06-30
+
+### Added
+- Catálogo: sugestão de produtos **parecidos** (similaridade de título) quando o nome não bate exato ou está sem estoque
+- Consulta só pelo nome do produto (ex.: *zaad*) dispara oferta sem precisar dizer *comprar*
+
+### Fixed
+- Catálogo WA: **entregue** / **me entregue** após oferta não reinicia mais o fluxo — atalho cria pedido e pede CEP sem LLM
+- Separação correta entre detecção de **entrega** e **retirada**
+- Repetir nome do produto após oferta lembra *retirar ou entregue* em vez de reenviar a oferta inteira
+
+---
+
+## [2.17.47] - 2026-06-30
+
+### Fixed
+- (Consolidado em 2.17.48)
+
+---
+
 ## [2.17.46] - 2026-07-01
 
 ### Fixed

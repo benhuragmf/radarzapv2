@@ -1,6 +1,12 @@
 import {
   detectDeliveryFulfillmentChoice,
+  detectPickupFulfillmentChoice,
   detectPurchaseConfirmation,
+  extractProductNameFromCatalogOffer,
+  isCatalogPurchaseOfferMessage,
+  catalogTitleSimilarity,
+  extractCatalogProductQueryToken,
+  looksLikeCatalogProductNameQuery,
   isValidCatalogSalesPhone,
   normalizeCatalogSalesConfig,
   productHasClearPrice,
@@ -56,19 +62,42 @@ describe('catalog-sales types', () => {
 
   it('detecta escolha de entrega após oferta de compra', () => {
     expect(detectDeliveryFulfillmentChoice('quero que entregue')).toBe(true);
-    expect(detectDeliveryFulfillmentChoice('vou retirar na loja')).toBe(true);
+    expect(detectDeliveryFulfillmentChoice('entregue')).toBe(true);
+    expect(detectDeliveryFulfillmentChoice('me entregue')).toBe(true);
+    expect(detectDeliveryFulfillmentChoice('vou retirar na loja')).toBe(false);
+    expect(detectPickupFulfillmentChoice('vou retirar na loja')).toBe(true);
     expect(detectDeliveryFulfillmentChoice('qual o horário?')).toBe(false);
   });
 
-  it('abre PIX quando cliente escolhe entrega no fluxo de compra', () => {
+  it('extrai produto da oferta padronizada', () => {
+    const offer =
+      'Olá, Benhur! O produto *zaad* está disponível por R$ 1 e temos 2. Você gostaria de prosseguir com a compra? Se sim, prefere *retirar* ou que seja *entregue*?';
+    expect(isCatalogPurchaseOfferMessage(offer)).toBe(true);
+    expect(extractProductNameFromCatalogOffer(offer)).toBe('zaad');
+  });
+
+  it('abre PIX quando cliente escolhe entrega só com oferta anterior', () => {
     expect(
       shouldOpenPixOrderFlow({
         saleMode: 'link_or_pix',
-        clientText: 'quero que entregue',
-        threadContext: 'gostaria de comprar um zaad',
+        clientText: 'entregue',
+        threadContext: '',
         companyPixEnabled: true,
+        catalogOfferProductName: 'zaad',
       }),
     ).toBe(true);
+  });
+
+  it('calcula similaridade entre nomes de produto', () => {
+    expect(catalogTitleSimilarity('zaad', 'zaad')).toBe(1);
+    expect(catalogTitleSimilarity('zad', 'zaad')).toBeGreaterThan(0.7);
+    expect(catalogTitleSimilarity('xyz', 'zaad')).toBeLessThan(0.5);
+  });
+
+  it('detecta consulta curta por nome de produto', () => {
+    expect(looksLikeCatalogProductNameQuery('zaad')).toBe(true);
+    expect(looksLikeCatalogProductNameQuery('qual o horário?')).toBe(false);
+    expect(extractCatalogProductQueryToken('quero o zaad')).toBe('zaad');
   });
 
   it('exige preço claro para venda automática', () => {
