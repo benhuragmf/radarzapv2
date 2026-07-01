@@ -17,6 +17,7 @@ import {
   SectionCard,
 } from '@/design-system'
 import { mutationError, notifyInfo } from '../../lib/notify'
+import { CatalogDeliveryHumanPanel } from '../catalog/CatalogDeliveryHumanPanel'
 
 export interface CatalogOrderListItem {
   id: string
@@ -32,11 +33,29 @@ export interface CatalogOrderListItem {
   contactIdentifier?: string
   conversationId?: string
   deliveryAddress?: string
+  deliveryLocationLat?: number
+  deliveryLocationLng?: number
+  deliveryLocationPendingConfirm?: boolean
+  deliveryDistanceKm?: number
+  deliveryTierKm?: number
   deliveryAddressV1?: {
     status?: string
     source?: string
     formattedAddress?: string
     confidence?: string
+    street?: string
+    number?: string
+    neighborhood?: string
+    city?: string
+    uf?: string
+    zipCode?: string
+    complement?: string
+    reference?: string
+    confirmedAt?: string
+    confirmedBy?: string
+    latitude?: number
+    longitude?: number
+    mapsUrl?: string
   } | null
   deliveryAddressSnapshot?: {
     formattedAddress: string
@@ -414,36 +433,52 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
               <dt className="text-[var(--rz-text-muted)]">Total</dt>
               <dd className="font-medium">{selected.totalAmount ?? selected.amount ?? '—'}</dd>
             </div>
-            {(selected.deliveryAddressV1?.formattedAddress || selected.deliveryAddress) && (
-              <div>
-                <dt className="text-[var(--rz-text-muted)]">Endereço</dt>
-                <dd>
-                  {selected.deliveryAddressV1?.formattedAddress || selected.deliveryAddress}
-                  {selected.deliveryAddressV1?.status && (
-                    <span className="block text-xs text-[var(--rz-text-muted)]">
-                      Status: {selected.deliveryAddressV1.status}
-                      {selected.deliveryAddressV1.source ? ` · ${selected.deliveryAddressV1.source}` : ''}
-                    </span>
-                  )}
-                </dd>
-              </div>
-            )}
-            {selected.deliveryAddressSnapshot?.formattedAddress && (
-              <div>
-                <dt className="text-[var(--rz-text-muted)]">Snapshot entrega</dt>
-                <dd className="text-sm">
-                  {selected.deliveryAddressSnapshot.formattedAddress}
-                  {selected.deliveryAddressSnapshot.deliveryDistanceKm != null && (
-                    <span className="block text-xs text-[var(--rz-text-muted)]">
-                      ~{selected.deliveryAddressSnapshot.deliveryDistanceKm} km
-                      {selected.deliveryAddressSnapshot.deliveryTierKm != null
-                        ? ` · faixa ${selected.deliveryAddressSnapshot.deliveryTierKm} km`
-                        : ''}
-                    </span>
-                  )}
-                </dd>
-              </div>
-            )}
+            <div className="pt-2 border-t border-[var(--rz-border)]">
+              <CatalogDeliveryHumanPanel
+                orderCode={selected.orderCode}
+                contactName={selected.contactName ?? selected.contactIdentifier}
+                channel={selected.channel}
+                deliveryAddress={selected.deliveryAddress}
+                deliveryAddressV1={selected.deliveryAddressV1}
+                deliveryAddressSnapshot={selected.deliveryAddressSnapshot}
+                deliveryLocationLat={selected.deliveryLocationLat}
+                deliveryLocationLng={selected.deliveryLocationLng}
+                deliveryLocationPendingConfirm={selected.deliveryLocationPendingConfirm}
+                deliveryFee={selected.deliveryFee}
+                totalAmount={selected.totalAmount ?? selected.amount}
+                deliveryDistanceKm={selected.deliveryDistanceKm}
+                deliveryTierKm={selected.deliveryTierKm}
+              />
+            </div>
+            {can(me, 'orders:update-status') &&
+              ['aguardando_endereco', 'pendente_humano_endereco'].includes(selected.status) && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={action.isPending}
+                    onClick={() =>
+                      action.mutate(
+                        `/platform/catalog-sales/orders/${selected.id}/delivery-address/confirm`,
+                      )
+                    }
+                  >
+                    Confirmar endereço
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={action.isPending}
+                    onClick={() =>
+                      action.mutate(
+                        `/platform/catalog-sales/orders/${selected.id}/delivery-address/request-correction`,
+                      )
+                    }
+                  >
+                    Solicitar correção
+                  </Button>
+                </div>
+              )}
             <div>
               <dt className="text-[var(--rz-text-muted)]">Comprovante</dt>
               <dd>

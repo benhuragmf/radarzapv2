@@ -93,6 +93,12 @@ Com **requisito de entrega** e frete por km ativos, o cliente pode enviar o **pi
 
 Se o pin **não tiver número confiável** (comum no WhatsApp), o sistema envia mensagem pedindo **rua e número** antes de cotar. O frete usa o endereço confirmado (geocoding), não só o GPS impreciso.
 
+### Endereço v1 + operador (2.17.61)
+
+- Correção inline após `não` na confirmação (`não, é número 120`, CEP, bairro, complemento) — invalida frete anterior; PIX só após novo `sim`
+- Inbox e Produtos/Pedidos: blocos separados **endereço confirmado** × **pin enviado**; alerta se pin e endereço divergem (~400 m); botão **Copiar dados para entrega manual** (sem motoboy automático)
+- Doc: [`concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md)
+
 ## Mensagens automáticas ao cliente
 
 Ao aprovar/recusar/pedir novo comprovante no Inbox (`CatalogSalesOrderPanel`):

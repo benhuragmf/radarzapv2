@@ -285,6 +285,18 @@ describe('CatalogDeliveryAddressService', () => {
     expect(order.deliveryAddressV1?.status).toBe('needs_confirmation');
   });
 
+  it('processClientInput corrige complemento inline e reconfirma', async () => {
+    const order = mockOrder({
+      deliveryAddressV1: baseNeedsConfirmationV1(),
+    });
+    const result = await svc.processClientInput(order, {
+      clientText: 'não, complemento casa 2',
+    });
+    expect(result.action).toBe('inline_corrected');
+    expect(order.deliveryAddressV1?.complement).toBe('casa 2');
+    expect(order.deliveryAddressV1?.status).toBe('needs_confirmation');
+  });
+
   it('processClientInput após inline e sim confirma para frete', async () => {
     const order = mockOrder({
       deliveryAddressV1: baseNeedsConfirmationV1(),

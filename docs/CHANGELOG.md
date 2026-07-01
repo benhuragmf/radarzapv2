@@ -29,6 +29,10 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - `parseInlineAddressCorrectionAfterNo` + ordem sim → inline → não → texto livre
 - Frete/PIX invalidados até nova confirmação; histórico `delivery_address_inline_corrected`
 
+### Added
+- Localização humana segura: `CatalogDeliveryHumanPanel` (Inbox + Produtos/Pedidos) — endereço confirmado × pin separados, alerta divergência ~400 m, copiar dados para entrega manual (sem motoboy automático)
+- `catalog-delivery-human.util.ts` — haversine, `evaluatePinAddressDivergence`, `buildManualDeliveryCopyText`
+
 ---
 
 ## [2.17.60] - 2026-07-01

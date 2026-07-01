@@ -12,7 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
-| **2.17.61** | Hotfix R1 endereço v1: correção inline após `não` na confirmação — local, sem deploy — `RADARCHAT-HOTFIX-ENDERECO-CORRECAO-INLINE-2.17.61.md` |
+| **2.17.61** | Fechamento endereço v1: R1 inline após `não` + localização humana segura (Inbox/Produtos) — local, sem deploy — `RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md` |
 | **2.17.60** | Endereço Entrega v1 — **em produção** (`95666e9`, deploy 28547931838); QA humano pendente — `RADARCHAT-QA-REAL-POS-DEPLOY-ENDERECO-V1-2.17.60.md` |
 | **2.17.59** | Hotfix QA real: áudio catálogo, pin+rua, anti-loop, comandos fluxo, Inbox localização, `orderCode` DX — **em produção** (`f1f54ee`, deploy 28542629760); `RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md` |
 | **2.17.58** | Hotfix catálogo WA: PIX retirada único, endereço retirada obrigatório, endereço livre/CEP, pin+rua, fallback contextual; **em produção** (`e3a1415`, deploy 28537807467); deploy `RADARCHAT-DEPLOY-HOTFIX-CATALOGO-2.17.58.md` |
