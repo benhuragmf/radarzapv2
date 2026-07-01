@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarchat-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.17.29` (`package.json`) · **Última revisão doc:** 2026-06-30
+**Versão atual:** `2.17.30` (`package.json`) · **Última revisão doc:** 2026-06-30
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Auditoria geral:** [`AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./AUDITORIA-GERAL-SISTEMA-RADARCHAT.md) · **Pendências/riscos:** [`PENDENCIAS-E-RISCOS-SISTEMA.md`](./PENDENCIAS-E-RISCOS-SISTEMA.md) · **Mestre:** [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARCHAT-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.17.30** | STAB-02/04 Jest; DATA-03 transfer audit; DATA-04 models index doc |
 | **2.17.29** | SEC-05–10: WebChat token query, logs scope, inbound rate limit, ticket Redis, body limit, template fork |
 | **2.17.28** | SEC-01–04: socket WebChat origem, sessions scope global, RadarGamer X-API-Key, CSRF Origin |
 | **2.17.27** | Fix 6 suites Jest + `parseCustomWhatsappCommand` sem TK |

@@ -1,6 +1,6 @@
 /**
- * Central export file for all database models
- * This provides a single import point for all models
+ * Central export file for legacy/core models.
+ * Prefer import direto do arquivo do modelo (`@/models/InboxTicket`, etc.) — ver DATA-04 / PENDENCIAS.
  */
 
 // Import models first

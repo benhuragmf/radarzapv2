@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { formatCepDisplay, isValidCepDigits, normalizeCepDigits } from '../br-cep.util';
 
 describe('br-cep.util', () => {

@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   CATALOG_DELIVERY_ADDRESS_EXAMPLE,
   deliveryAddressValidationError,

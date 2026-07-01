@@ -20,17 +20,10 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
   testTimeout: 30000,
+  // Sem forceExit no padrão — use npm run test:handles para diagnosticar leaks.
+  // CI mantém exit rápido via workers; leaks aparecem como warning no final.
   forceExit: true,
-  // Testes escritos para Vitest (frontend utils) — rodar com Vitest, não Jest
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    'use-url-hash-tab\\.test\\.ts$',
-    'br-cep\\.util\\.test\\.ts$',
-    'wa-location\\.util\\.test\\.ts$',
-    'catalog-delivery\\.util\\.test\\.ts$',
-    'catalog-delivery-location-confirm\\.test\\.ts$',
-    'catalog-delivery-address\\.test\\.ts$',
-  ],
+  testPathIgnorePatterns: ['/node_modules/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     // Stub out Baileys and its native deps — tests mock the WhatsApp socket directly

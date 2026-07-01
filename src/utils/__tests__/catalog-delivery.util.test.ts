@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   deliveryFeeForTier,
   distanceKmToTier,
@@ -10,7 +9,9 @@ import {
 
 describe('catalog-delivery.util', () => {
   it('normaliza faixas km 1-8', () => {
-    expect(normalizeKmRates({ km1: ' R$ 5 ', km9: 'x', km2: '' })).toEqual({ km1: 'R$ 5' });
+    expect(
+      normalizeKmRates({ km1: ' R$ 5 ', km9: 'x', km2: '' } as Record<string, string>),
+    ).toEqual({ km1: 'R$ 5' });
   });
 
   it('calcula distância haversine', () => {

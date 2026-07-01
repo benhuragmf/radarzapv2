@@ -6823,6 +6823,7 @@ export class InboxService {
 
     const targetOid = new mongoose.Types.ObjectId(targetUserId);
     const agentName = await this.resolveAgentDisplayName(targetUserId);
+    const fromUserId = conv.assignedUserId ?? conv.suggestedUserId;
 
     if (mode === 'assign') {
       conv.assignedUserId = targetOid;
@@ -6854,6 +6855,18 @@ export class InboxService {
       );
       await this.pushPanelEvent(clientId, 'inbox:priority', 'Prioridade (supervisor)', agentName, {
         conversationId: String(conv._id),
+      });
+    }
+
+    if (conv.departmentId) {
+      await InboxTransfer.create({
+        clientId: new mongoose.Types.ObjectId(clientId),
+        conversationId: conv._id,
+        fromDepartmentId: conv.departmentId,
+        toDepartmentId: conv.departmentId,
+        fromUserId: fromUserId ?? new mongoose.Types.ObjectId(supervisorUserId),
+        toUserId: targetOid,
+        reason: mode === 'assign' ? 'supervisor:assign' : 'supervisor:suggest',
       });
     }
 

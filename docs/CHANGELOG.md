@@ -14,6 +14,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.30] - 2026-06-30
+
+### Fixed
+- **STAB-02:** 6 suites Vitest migradas para Jest (CEP, catálogo, wa-location, url-hash).
+- **STAB-04:** Removido `forceExit` padrão; `npm run test:handles` para diagnóstico.
+- **DATA-03:** `reassignConversation` grava `InboxTransfer.toUserId` para auditoria supervisor.
+- **DATA-04:** `models/index.ts` documenta preferência por import direto do modelo.
+
+---
+
 ## [2.17.29] - 2026-06-30
 
 ### Security

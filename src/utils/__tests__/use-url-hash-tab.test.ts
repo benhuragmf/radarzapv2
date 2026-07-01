@@ -1,6 +1,4 @@
-import { describe, expect, it } from 'vitest'
-
-// Espelho da lógica do hook (frontend) — evita import cross-package no vitest raiz.
+// Espelho da lógica do hook (frontend) — evita import cross-package no Jest raiz.
 function resolveUrlHashTab<T extends string>(
   hash: string,
   allowed: readonly T[],

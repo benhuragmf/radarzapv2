@@ -29,9 +29,9 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 | ID | Pendência | P | Impacto | C | Ciclo sugerido | Recomendação |
 |----|-----------|---|---------|---|----------------|--------------|
 | STAB-01 | 6 suites Jest integração falhando | P1 | CI/ gate incompleto | M | `fix-integration-tests` | **Corrigido** 2.17.27 — 188/188 suites |
-| STAB-02 | Testes Vitest sem runner no monorepo root | P2 | Cobertura utils frontend | S | `vitest-setup` | `npm run test:unit` com Vitest ou migrar para Jest |
+| STAB-02 | Testes Vitest sem runner no monorepo root | ~~P2~~ ✅ 2.17.30 | Cobertura utils frontend | S | `vitest-setup` | Migradas para Jest |
 | STAB-03 | Presença atendentes in-memory | P2 | Fila errada multi-réplica | L | `presence-redis-cluster` | Estado presença em Redis pub/sub |
-| STAB-04 | `forceExit: true` no Jest mascara handles | P3 | Flaky tests | S | `jest-open-handles` | `--detectOpenHandles` em CI |
+| STAB-04 | `forceExit: true` no Jest mascara handles | ~~P3~~ ✅ 2.17.30 | Flaky tests | S | `jest-open-handles` | `npm run test:handles`; forceExit mantido no CI (leaks mongoose) |
 
 ---
 
@@ -41,8 +41,8 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 |----|-----------|---|---------|---|----------------|--------------|
 | DATA-01 | WebChat sem telefone: CRM incompleto | P2 | Lead/contato ausente | M | `webchat-anonymous-crm` | Política explícita + UI “completar cadastro” |
 | DATA-02 | Modo `lead` / `inbox_only` confunde Contatos | P2 | Funcionário não acha cliente | S | `crm-ux-clarify` | Badge + doc operacional |
-| DATA-03 | `InboxTransfer.toUserId` não preenchido | P3 | Relatório transferência incompleto | S | `transfer-audit-fields` | Preencher em transferência direta futura |
-| DATA-04 | `models/index.ts` subset legado | P3 | Confusão imports | S | `models-index-refresh` | Exportar modelos atuais ou doc “import direto” |
+| DATA-03 | `InboxTransfer.toUserId` não preenchido | ~~P3~~ ✅ 2.17.30 | Relatório transferência incompleto | S | `transfer-audit-fields` | Supervisor `reassignConversation` |
+| DATA-04 | `models/index.ts` subset legado | ~~P3~~ ✅ 2.17.30 | Confusão imports | S | `models-index-refresh` | Doc import direto no barrel |
 
 ---
 
