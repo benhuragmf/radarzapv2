@@ -30,13 +30,13 @@ Auditoria completa do fluxo catálogo/compra IA (2.17.46 → 2.17.52) contra có
 
 ## 5. Commit final
 
-`8846246` — `fix(catalog): reconcilia compra IA PIX e documentação 2.17.52`
+`d470985` — `fix(catalog): reconcilia compra IA PIX e documentação 2.17.52`
 
 ---
 
 ## 6. Workflow/deploy
 
-*(preenchido após push main)* — workflow `Deploy` (`.github/workflows/deploy.yml`)
+[#28531214705](https://github.com/benhuragmf/radarzapv2/actions/runs/28531214705) — **success** (build-and-push 3m9s + deploy Coolify SSH)
 
 ---
 
