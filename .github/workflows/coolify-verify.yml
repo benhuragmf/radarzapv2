@@ -49,5 +49,5 @@ jobs:
             fi
             echo "GATE falhou — executando reconcile..."
             sudo -E bash scripts/vps-coolify-reconcile.sh
-            echo "Re-verify após reconcile..."
-            exec sudo -E bash scripts/vps-coolify-verify.sh
+            echo "Reconcile concluído (verify interno já passou)"
+            exit 0

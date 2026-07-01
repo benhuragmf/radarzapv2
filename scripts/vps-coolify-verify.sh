@@ -99,6 +99,13 @@ if docker_cmd ps --format '{{.Names}}' | grep -q '^coolify-db$'; then
   bad_app="$(psql_coolify "SELECT count(*) FROM service_applications sa JOIN services s ON s.id = sa.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sa.status NOT LIKE 'running:%';" || echo 0)"
   bad_db="$(psql_coolify "SELECT count(*) FROM service_databases sd JOIN services s ON s.id = sd.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sd.status NOT LIKE 'running:%';" || echo 0)"
   if [[ "${bad_app:-0}" != "0" || "${bad_db:-0}" != "0" ]]; then
+    log "painel desincronizado (apps=${bad_app:-?} dbs=${bad_db:-?}) — sync automático..."
+    sudo -E bash "${DEPLOY_PATH:-/opt/radarchat}/scripts/vps-coolify-sync-panel.sh" || true
+    sleep 3
+    bad_app="$(psql_coolify "SELECT count(*) FROM service_applications sa JOIN services s ON s.id = sa.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sa.status NOT LIKE 'running:%';" || echo 0)"
+    bad_db="$(psql_coolify "SELECT count(*) FROM service_databases sd JOIN services s ON s.id = sd.service_id WHERE s.uuid = '${CANONICAL_UUID}' AND sd.status NOT LIKE 'running:%';" || echo 0)"
+  fi
+  if [[ "${bad_app:-0}" != "0" || "${bad_db:-0}" != "0" ]]; then
     fail "status painel desincronizado (apps=${bad_app:-?} dbs=${bad_db:-?} — esperado running:*)"
   else
     log "OK status painel running:* nos componentes"
