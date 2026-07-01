@@ -7,15 +7,20 @@ import { issueWebChatPresenceSocketAuth } from './webchat-presence-auth.util';
 import { getOrganizationWebsite } from '@/utils/embed-allowed-domains.util';
 import { isEmbedPreviewPanelRequest } from '@/utils/embed-preview-origin.util';
 import { resolveSafeExternalHttpsUrl } from '@/utils/safe-external-url.util';
+import {
+  resolveWebChatVisitorTokenFromRequest,
+  type WebChatVisitorTokenResolveOptions,
+} from '@/utils/webchat-visitor-auth.util';
 
-function visitorTokenFromReq(req: Request): string | undefined {
-  const header = req.headers['x-webchat-visitor'];
-  if (typeof header === 'string' && header.trim()) return header.trim();
-  const queryToken = req.query.v;
-  if (typeof queryToken === 'string' && queryToken.trim()) return queryToken.trim();
-  const auth = req.headers.authorization;
-  if (auth?.startsWith('Bearer ')) return auth.slice(7).trim();
-  return undefined;
+function visitorTokenFromReq(req: Request, options?: WebChatVisitorTokenResolveOptions): string | undefined {
+  const resolved = resolveWebChatVisitorTokenFromRequest(req, options);
+  if (resolved.ok === false) {
+    if (resolved.code === 'QUERY_TOKEN_FORBIDDEN') {
+      throw new Error('Token de visitante deve ser enviado no header X-WebChat-Visitor');
+    }
+    return undefined;
+  }
+  return resolved.token;
 }
 
 export function createWebChatPublicRouter(): Router {

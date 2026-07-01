@@ -345,7 +345,7 @@ export async function lookupTicketByPublicAccess(opts: {
 }): Promise<TicketPublicLookupResult> {
   const clientOid = new mongoose.Types.ObjectId(opts.clientId);
 
-  if (isTicketLookupRateLimited(opts.clientId, opts.remoteIp)) {
+  if (await isTicketLookupRateLimited(opts.clientId, opts.remoteIp)) {
     logger.warn('ticket lookup rate limited', { clientId: opts.clientId });
     auditPublicLookupFailed(opts.clientId, opts.ticketRef, 'rate_limited', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
@@ -353,7 +353,7 @@ export async function lookupTicketByPublicAccess(opts: {
 
   const normalizedRef = normalizeTicketRefForLookup(opts.ticketRef);
   if (!normalizedRef) {
-    recordTicketLookupFailure(opts.clientId, opts.remoteIp);
+    await recordTicketLookupFailure(opts.clientId, opts.remoteIp);
     auditPublicLookupFailed(opts.clientId, opts.ticketRef, 'invalid_ref', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
   }
@@ -365,18 +365,18 @@ export async function lookupTicketByPublicAccess(opts: {
   }).select('+publicAccessTokenHash');
 
   if (!ticket?.publicAccessTokenHash) {
-    recordTicketLookupFailure(opts.clientId, opts.remoteIp);
+    await recordTicketLookupFailure(opts.clientId, opts.remoteIp);
     auditPublicLookupFailed(opts.clientId, normalizedRef, 'not_found', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
   }
 
   if (!verifyTicketPublicAccessToken(opts.accessToken, ticket.publicAccessTokenHash)) {
-    recordTicketLookupFailure(opts.clientId, opts.remoteIp);
+    await recordTicketLookupFailure(opts.clientId, opts.remoteIp);
     auditPublicLookupFailed(opts.clientId, normalizedRef, 'invalid_token', opts.remoteIp);
     throw new Error(LOOKUP_FAIL_MSG);
   }
 
-  clearTicketLookupFailures(opts.clientId, opts.remoteIp);
+  await clearTicketLookupFailures(opts.clientId, opts.remoteIp);
   return buildTicketPublicLookupResult(ticket);
 }
 
@@ -605,12 +605,12 @@ export async function requestTicketTokenResendOtp(opts: {
   email?: string;
   remoteIp?: string;
 }): Promise<{ message: string }> {
-  if (isTicketTokenResendRateLimited(opts.clientId, opts.remoteIp)) {
+  if (await isTicketTokenResendRateLimited(opts.clientId, opts.remoteIp)) {
     logger.warn('ticket token resend OTP request rate limited', { clientId: opts.clientId });
     return { message: TICKET_TOKEN_RESEND_REQUEST_MSG };
   }
 
-  recordTicketTokenResendAttempt(opts.clientId, opts.remoteIp);
+  await recordTicketTokenResendAttempt(opts.clientId, opts.remoteIp);
 
   const normalizedRef = normalizeTicketRefForLookup(opts.ticketRef);
   const contactRaw = opts.channel === 'email' ? opts.email?.trim() : opts.phone?.trim();
@@ -694,12 +694,12 @@ export async function confirmTicketTokenResendOtp(opts: {
   verificationCode: string;
   remoteIp?: string;
 }): Promise<{ message: string; ok?: boolean }> {
-  if (isTicketTokenResendRateLimited(opts.clientId, opts.remoteIp)) {
+  if (await isTicketTokenResendRateLimited(opts.clientId, opts.remoteIp)) {
     logger.warn('ticket token resend confirm rate limited', { clientId: opts.clientId });
     return { message: TICKET_TOKEN_RESEND_OTP_INVALID_MSG, ok: false };
   }
 
-  recordTicketTokenResendAttempt(opts.clientId, opts.remoteIp);
+  await recordTicketTokenResendAttempt(opts.clientId, opts.remoteIp);
 
   const normalizedRef = normalizeTicketRefForLookup(opts.ticketRef);
   const contactRaw = opts.channel === 'email' ? opts.email?.trim() : opts.phone?.trim();

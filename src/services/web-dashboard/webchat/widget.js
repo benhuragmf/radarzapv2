@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.17.28';
+  var WIDGET_BUILD = '2.17.29';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -1106,42 +1106,67 @@
     );
   }
 
-  function visitorMediaSrc(mediaUrl) {
-    if (!mediaUrl || !state.visitorToken) return null;
+  var mediaBlobCache = {};
+
+  function visitorMediaFilename(mediaUrl) {
+    if (!mediaUrl) return null;
     var parts = String(mediaUrl).split('/');
     var filename = parts[parts.length - 1];
-    if (!filename) return null;
-    return (
-      baseUrl +
-      '/api/webchat/public/media/' +
-      encodeURIComponent(filename) +
-      '?v=' +
-      encodeURIComponent(state.visitorToken)
-    );
+    return filename || null;
+  }
+
+  function visitorMediaFetchUrl(filename) {
+    return baseUrl + '/api/webchat/public/media/' + encodeURIComponent(filename);
+  }
+
+  function hydrateVisitorMedia(container) {
+    if (!container || !state.visitorToken) return;
+    var nodes = container.querySelectorAll('[data-wc-media]');
+    for (var i = 0; i < nodes.length; i++) {
+      (function (node) {
+        var fn = node.getAttribute('data-wc-media');
+        if (!fn) return;
+        if (mediaBlobCache[fn]) {
+          if (node.tagName === 'IMG') node.src = mediaBlobCache[fn];
+          else if (node.tagName === 'A') node.href = mediaBlobCache[fn];
+          return;
+        }
+        fetch(visitorMediaFetchUrl(fn), {
+          headers: { 'X-WebChat-Visitor': state.visitorToken },
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error('media');
+            return r.blob();
+          })
+          .then(function (blob) {
+            var url = URL.createObjectURL(blob);
+            mediaBlobCache[fn] = url;
+            if (node.tagName === 'IMG') node.src = url;
+            else if (node.tagName === 'A') node.href = url;
+          })
+          .catch(function () {});
+      })(nodes[i]);
+    }
   }
 
   function renderMessageBody(m) {
     var html = '';
     if (m.mediaType === 'image' && m.mediaUrl) {
-      var src = visitorMediaSrc(m.mediaUrl);
-      if (src) {
+      var imgFn = visitorMediaFilename(m.mediaUrl);
+      if (imgFn) {
         html +=
-          '<a href="' +
-          src +
-          '" target="_blank" rel="noreferrer" style="display:block;">' +
-          '<img src="' +
-          src +
-          '" alt="" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin-bottom:4px;" />' +
-          '</a>';
+          '<img data-wc-media="' +
+          escHtml(imgFn) +
+          '" alt="" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin-bottom:4px;" />';
       }
     } else if (m.mediaType === 'document' && m.mediaUrl) {
-      var docSrc = visitorMediaSrc(m.mediaUrl);
+      var docFn = visitorMediaFilename(m.mediaUrl);
       var label = escHtml(m.mediaFileName || 'Documento PDF');
-      if (docSrc) {
+      if (docFn) {
         html +=
-          '<a href="' +
-          docSrc +
-          '" target="_blank" rel="noreferrer" style="display:block;font-size:13px;text-decoration:underline;margin-bottom:4px;">📎 ' +
+          '<a data-wc-media="' +
+          escHtml(docFn) +
+          '" href="#" target="_blank" rel="noreferrer" style="display:block;font-size:13px;text-decoration:underline;margin-bottom:4px;">📎 ' +
           label +
           '</a>';
       }
@@ -2711,6 +2736,8 @@
       '</button>' +
       renderUnreadBadge() +
       '</div></div>';
+    var msgRoot = document.getElementById('rz-webchat-messages');
+    if (msgRoot) hydrateVisitorMedia(msgRoot);
     var toggle = document.getElementById('rz-webchat-toggle');
     if (toggle) {
       toggle.setAttribute('aria-label', state.open ? 'Fechar chat' : 'Abrir chat');

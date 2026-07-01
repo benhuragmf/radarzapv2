@@ -551,16 +551,22 @@ export class DashboardService {
       },
     );
 
-    /** VCF/CSV com milhares de contatos; padrão Express é 100kb */
-    this.app.use(express.json({ limit: '16mb' }));
+    /** Body JSON: 1 MB padrão; rotas pesadas sobem para 16 MB */
+    const LARGE_BODY_PREFIXES = ['/api/destinations/import-csv', '/api/tenant-backup/import'];
+    this.app.use((req, res, next) => {
+      const isLarge = LARGE_BODY_PREFIXES.some(prefix => req.path.startsWith(prefix));
+      return express.json({ limit: isLarge ? '16mb' : '1mb' })(req, res, next);
+    });
 
     this.app.use(
       '/api/integrations/radargamer',
+      rateLimiters.inboundIntegrations,
       createRadarGamerInboundRouter(),
     );
 
     this.app.use(
       '/api/integrations/discord/inbound',
+      rateLimiters.inboundIntegrations,
       createDiscordInboundRouter(),
     );
 
@@ -4473,7 +4479,7 @@ export class DashboardService {
 
         const clientOid = new mongoose.Types.ObjectId(auth.clientId);
 
-        if (tpl.isDefault && !tpl.clientId) {
+        if (!tpl.clientId) {
           let customDoc = await PlatformTemplate.findOne({
             name: tpl.name,
             clientId: clientOid,
@@ -5347,14 +5353,21 @@ export class DashboardService {
           stage,
           q,
           discord,
-          tenant,
           limit = '100',
+          scope,
         } = req.query as Record<string, string>;
 
         const and: Record<string, unknown>[] = [];
-        const wantsTenant = tenant === '1';
+        const scopeGlobal = scope === 'global';
         const hasGlobalLogs = auth.capabilities.includes(Cap.LOGS_GLOBAL);
-        if (wantsTenant || (!hasGlobalLogs && !auth.isInternalStaff)) {
+        if (scopeGlobal) {
+          if (!hasGlobalLogs) {
+            return res.status(403).json({
+              error: 'Sem permissão para logs globais',
+              code: 'LOGS_GLOBAL_REQUIRED',
+            });
+          }
+        } else {
           and.push({ clientId: new mongoose.Types.ObjectId(auth.clientId) });
         }
         if (level) and.push({ level });

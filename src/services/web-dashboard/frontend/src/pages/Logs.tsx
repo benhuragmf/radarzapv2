@@ -48,13 +48,14 @@ function stageFromLog(log: Log): string | undefined {
 }
 
 interface Props {
-  scope?: 'all' | 'discord' | 'tenant'
+  scope?: 'all' | 'discord' | 'tenant' | 'global'
   serviceFilter?: string
 }
 
 export default function Logs({ scope = 'all', serviceFilter }: Props) {
   const { hash } = useLocation()
   const isDiscord = scope === 'discord'
+  const isGlobal = scope === 'global'
   const isTenant = scope === 'tenant'
   const isHistoryView = hash === '#historico'
   const [level, setLevel]     = useState('')
@@ -64,7 +65,7 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const { data: logs = [], isLoading } = useQuery<Log[]>({
-    queryKey: ['logs', level, service, stage, search, isDiscord, isTenant],
+    queryKey: ['logs', level, service, stage, search, isDiscord, isGlobal],
     queryFn: () => {
       const params = new URLSearchParams()
       if (level)   params.set('level', level)
@@ -72,7 +73,7 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
       if (stage)   params.set('stage', stage)
       if (search)  params.set('q', search)
       if (isDiscord) params.set('discord', '1')
-      if (isTenant) params.set('tenant', '1')
+      if (isGlobal) params.set('scope', 'global')
       params.set('limit', isDiscord ? '200' : '100')
       return api.get(`/logs?${params}`)
     },
@@ -81,6 +82,11 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
 
   const body = (
     <div className="space-y-4">
+      {isGlobal && (
+        <p className="text-sm text-[var(--rz-text-muted)]">
+          Logs de todas as empresas (acesso global).
+        </p>
+      )}
       {isTenant && (
         <p className="text-sm text-[var(--rz-text-muted)]">
           Apenas logs da sua empresa (filtro por tenant).
@@ -236,7 +242,13 @@ export default function Logs({ scope = 'all', serviceFilter }: Props) {
     )
   }
 
-  const title = isTenant ? 'Logs da empresa' : isHistoryView ? 'Histórico de envios' : 'Logs do sistema'
+  const title = isGlobal
+    ? 'Logs globais'
+    : isTenant
+      ? 'Logs da empresa'
+      : isHistoryView
+        ? 'Histórico de envios'
+        : 'Logs do sistema'
 
   return (
     <RadarPageShell>

@@ -14,6 +14,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.29] - 2026-06-30
+
+### Security
+- **SEC-05:** WebChat rejeita token visitante em `?v=` em produção; mídia via header + blob no widget.
+- **SEC-06:** `GET /api/logs` global exige `scope=global` + `logs:global`; padrão filtra tenant.
+- **SEC-07:** Rate limit Express em inbound RadarGamer e Discord.
+- **SEC-08:** Rate limit lookup TK público com Redis (fallback memória).
+- **SEC-09:** Body JSON padrão 1 MB; 16 MB só em import CSV/backup tenant.
+- **SEC-10:** PATCH template plataforma sem `clientId` sempre faz fork para cópia do tenant.
+
+---
+
 ## [2.17.28] - 2026-06-30
 
 ### Security

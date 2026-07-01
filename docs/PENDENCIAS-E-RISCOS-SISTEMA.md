@@ -15,12 +15,12 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 | SEC-02 | `GET /sessions?scope=all` cross-tenant para staff | ~~P1~~ ✅ 2.17.28 | Exposição QR/telefone outras empresas | S | `admin-sessions-scope` | `DASHBOARD_GLOBAL` + mascaramento QR/telefone/avatar |
 | SEC-03 | RadarGamer token global único | ~~P1~~ ✅ 2.17.28 | Abuso envio WA se vazar Bearer | M | `integrations-per-tenant` | `X-API-Key` por org; Bearer legado |
 | SEC-04 | CSRF: Origin ausente passa em mutações | ~~P1~~ ✅ 2.17.28 | Ataque cross-site com cookie ativo | M | `csrf-hardening` | `Sec-Fetch-Site` / `Referer` válido ou bloqueio |
-| SEC-05 | Token WebChat em query `?v=` | P2 | Vazamento em logs/Referer | S | `webchat-token-header-only` | Rejeitar query em produção |
-| SEC-06 | Logs globais staff sem tenant default | P2 | Vazamento operacional cross-tenant | S | `logs-tenant-default` | Opt-in explícito `scope=global` |
-| SEC-07 | Rate limit inbound integrations no mount | P2 | DoS / abuso API | S | `rate-limit-inbound` | Limiter Express por IP + key |
-| SEC-08 | Ticket lookup rate limit in-memory | P2 | Brute-force TK em cluster | M | `ticket-rate-redis` | Redis TTL como RadarGamer idempotency |
-| SEC-09 | Body JSON 16 MB global | P2 | DoS memória | S | `body-limit-per-route` | Limites por rota |
-| SEC-10 | Template global editável (edge IDOR) | P2 | Alteração template sistema | S | `template-fork-tenant` | Fork obrigatório para tenant |
+| SEC-05 | Token WebChat em query `?v=` | ~~P2~~ ✅ 2.17.29 | Vazamento em logs/Referer | S | `webchat-token-header-only` | Header `X-WebChat-Visitor`; mídia via fetch+blob |
+| SEC-06 | Logs globais staff sem tenant default | ~~P2~~ ✅ 2.17.29 | Vazamento operacional cross-tenant | S | `logs-tenant-default` | `scope=global` opt-in + UI admin |
+| SEC-07 | Rate limit inbound integrations no mount | ~~P2~~ ✅ 2.17.29 | DoS / abuso API | S | `rate-limit-inbound` | `inboundIntegrations` 60/min por IP |
+| SEC-08 | Ticket lookup rate limit in-memory | ~~P2~~ ✅ 2.17.29 | Brute-force TK em cluster | M | `ticket-rate-redis` | Redis TTL + fallback memória |
+| SEC-09 | Body JSON 16 MB global | ~~P2~~ ✅ 2.17.29 | DoS memória | S | `body-limit-per-route` | 1 MB padrão; 16 MB rotas pesadas |
+| SEC-10 | Template global editável (edge IDOR) | ~~P2~~ ✅ 2.17.29 | Alteração template sistema | S | `template-fork-tenant` | Fork obrigatório se `!clientId` |
 
 ---
 
@@ -93,7 +93,8 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 
 1. **P0 humano:** QA manual + corrigir 6 suites Jest  
 2. **P1 segurança:** ~~SEC-01, SEC-02, SEC-04~~ ✅ 2.17.28
-3. **P1 integrações:** ~~SEC-03~~ ✅ 2.17.28 · SEC-07 pendente
+3. **P1 integrações:** ~~SEC-03~~ ✅ 2.17.28 · ~~SEC-07~~ ✅ 2.17.29
+4. **P2 segurança restante:** ~~SEC-05–10~~ ✅ 2.17.29
 
 ---
 

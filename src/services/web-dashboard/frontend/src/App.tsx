@@ -237,7 +237,7 @@ export default function App() {
           <Route path="admin/servers" element={<Guard user={user} path="/admin/servers"><AdminServers /></Guard>} />
           <Route path="admin/sessions" element={<Guard user={user} path="/admin/sessions"><Sessions /></Guard>} />
           <Route path="admin/queue" element={<Guard user={user} path="/admin/queue"><Queue /></Guard>} />
-          <Route path="admin/logs" element={<Guard user={user} path="/admin/logs"><Logs /></Guard>} />
+          <Route path="admin/logs" element={<Guard user={user} path="/admin/logs"><Logs scope="global" /></Guard>} />
           <Route path="admin/monitoring" element={<Guard user={user} path="/admin/monitoring"><AdminMonitoring /></Guard>} />
           <Route path="admin/errors" element={<Guard user={user} path="/admin/errors"><AdminErrors /></Guard>} />
           <Route path="admin/plans" element={<Guard user={user} path="/admin/plans"><Plans user={user} admin /></Guard>} />

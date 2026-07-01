@@ -61,6 +61,17 @@ const rateLimitConfigs = {
     }
   },
 
+  // Inbound integrations (RadarGamer, Discord) — POST only
+  inboundIntegrations: {
+    windowMs: 60 * 1000,
+    max: devRelax ? 500 : 60,
+    message: {
+      error: 'Too many integration requests',
+      code: 'INBOUND_INTEGRATION_RATE_LIMIT',
+      retryAfter: '1 minute',
+    },
+  },
+
   // Widget público no site — leituras não contam; POST mais folgado
   webchatPublic: {
     windowMs: 60 * 1000,
@@ -154,6 +165,9 @@ const createRateLimiter = (configKey: keyof typeof rateLimitConfigs) => {
     
     skip: (req: Request) => {
       if (configKey === 'general' || configKey === 'webchatPublic') {
+        return req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+      }
+      if (configKey === 'inboundIntegrations') {
         return req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
       }
       return false;
@@ -292,6 +306,7 @@ export const rateLimiters = {
   templates: createRateLimiter('templates'),
   messages: createRateLimiter('messages'),
   webchatPublic: createRateLimiter('webchatPublic'),
+  inboundIntegrations: createRateLimiter('inboundIntegrations'),
   heavy: createRateLimiter('heavy'),
   panelIngest: createRateLimiter('panelIngest'),
   health: createRateLimiter('health'),
