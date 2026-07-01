@@ -225,19 +225,19 @@ Código: ordem atalhos address → fulfillment → offer → LLM. Deploy não to
 
 ## 32. Push realizado
 
-`develop` e `main` — *(hash após commit)*
+`develop` e `main` — commit código `d470985`; doc workflow `f2301ce`
 
 ---
 
 ## 33. Deploy realizado ou bloqueado
 
-Deploy app-only via push `main` — *(workflow ID após push)*
+✅ Deploy [#28531214705](https://github.com/benhuragmf/radarzapv2/actions/runs/28531214705) — success (GHCR + Coolify SSH)
 
 ---
 
 ## 34. Status da produção
 
-`GET /api/services/health` → `healthy: true` após deploy
+`GET /api/services/health` → `healthy: true`, uptime ~118s pós-deploy 2.17.52
 
 ---
 
