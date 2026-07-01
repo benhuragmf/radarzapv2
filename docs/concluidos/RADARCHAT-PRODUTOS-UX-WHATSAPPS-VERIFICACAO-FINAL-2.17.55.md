@@ -25,7 +25,7 @@ Verificação pós-entrega **2.17.55** confirmou: código e testes alinhados ao 
 
 ## 6. Commit final, se houve correção
 
-`3b5a5b7` — `fix(products): valida UX WhatsApps e produção 2.17.55`
+`1324d47` — `fix(products): valida UX WhatsApps e produção 2.17.55`
 
 Correções:
 - `ProductsOverviewTab`: filtro real “aprovados hoje”; alerta estoque indefinido
@@ -47,19 +47,20 @@ Correções:
 
 ## 10. Workflow/deploy
 
-| Workflow | Run ID | Commit | Status (auditoria) |
-|----------|--------|--------|-------------------|
-| **Deploy** | [28534457928](https://github.com/benhuragmf/radarzapv2/actions/runs/28534457928) | `f829bdf` | `in_progress` (~3–10 min após push) |
-| **CI** | [28534457902](https://github.com/benhuragmf/radarzapv2/actions/runs/28534457902) | `f829bdf` | `in_progress` |
+| Workflow | Run ID | Commit | Status | Duração |
+|----------|--------|--------|--------|---------|
+| **Deploy (feat)** | [28534457928](https://github.com/benhuragmf/radarzapv2/actions/runs/28534457928) | `f829bdf` | **success** | ~5m15s (17:05–17:10 UTC) |
+| **Deploy (fix)** | [28534785912](https://github.com/benhuragmf/radarzapv2/actions/runs/28534785912) | `1324d47` | em andamento na auditoria | — |
+| **CI (feat)** | 28534457902 | `f829bdf` | verificar no GitHub | — |
+| **CI (fix)** | 28534785943 | `1324d47` | em andamento na auditoria | — |
 
-Deploy anterior bem-sucedido: `28533825049` (2.17.54).
-
-Após commit de correção: novo run Deploy será disparado na `main`.
+Deploy anterior: `28533825049` (2.17.54) — success.
 
 ## 11. Status produção
 
 - App: `https://app.radarchat.com.br` — HTTP 200
-- Serviço ativo; aguardando conclusão do deploy 2.17.55 para bundle atualizado
+- **2.17.55 feat (`f829bdf`) implantado** — bundle `index-xFHTumXn.js` confirmado em produção (17:12 UTC)
+- Fix `1324d47` aguardando deploy para bundle `index-B0EBWe6c.js`
 
 ## 12. Health check
 
@@ -72,10 +73,10 @@ GET https://app.radarchat.com.br/api/services/health
 
 ## 13. Bundle/build encontrado em produção
 
-| Momento | `index.html` referencia | Build local 2.17.55 |
-|---------|-------------------------|---------------------|
-| Durante deploy `f829bdf` | `/assets/index-BvTPOUCa.js` | `index-xFHTumXn.js` (feat) |
-| Após correção local | (aguardar deploy) | `index-B0EBWe6c.js` (fix) |
+| Momento | `index.html` referencia | Commit |
+|---------|-------------------------|--------|
+| Produção 17:12 UTC | `/assets/index-xFHTumXn.js` | `f829bdf` (feat 2.17.55) **live** |
+| Build local pós-fix | `index-B0EBWe6c.js` | `1324d47` (aguardando deploy) |
 
 CSS estável: `index-5xdt30gk.css`  
 Widget: `WIDGET_BUILD = '2.17.55'` em `webchat/widget.js`
