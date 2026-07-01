@@ -283,7 +283,15 @@ function textHasStreetNumber(text: string): boolean {
 }
 
 const STREET_TYPE_PREFIX_RE =
-  /^(?:rua\s*:|r\.\s*|r:\s*|avenida\s*:|av\.\s*|av:\s*|travessa\s*:|tv\.\s*|alameda\s*:|rod\.\s*|estrada\s*:)\s*/i;
+  /^(?:rua\s*:|r\.\s*|r:\s*|avenida\s*:|avenida\s+|av\.\s*|av:\s*|av\s+|travessa\s*:|tv\.\s*|alameda\s*:|rod\.\s*|estrada\s*:)\s*/i;
+
+function normalizeStreetNumberInput(text: string): string {
+  return text
+    .trim()
+    .replace(/\s+n[uú]mero\s+/gi, ' ')
+    .replace(STREET_TYPE_PREFIX_RE, '')
+    .trim();
+}
 
 export function parseStreetNumberReply(
   text: string,
@@ -296,7 +304,7 @@ export function parseStreetNumberReply(
       return { street: parsed.street.trim(), number: parsed.number.trim() };
     }
   }
-  const candidates = [t, t.replace(STREET_TYPE_PREFIX_RE, '').trim()];
+  const candidates = [normalizeStreetNumberInput(t), t.replace(STREET_TYPE_PREFIX_RE, '').trim(), t];
   for (const candidate of candidates) {
     const c = candidate.trim();
     if (!c) continue;

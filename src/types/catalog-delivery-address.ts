@@ -147,7 +147,7 @@ export function textLooksLikeStreetNumber(text: string): boolean {
 }
 
 const STREET_TYPE_PREFIX_RE =
-  /^(?:rua\s*:|r\.\s*|r:\s*|avenida\s*:|av\.\s*|av:\s*|travessa\s*:|tv\.\s*|alameda\s*:|rod\.\s*|estrada\s*:)\s*/i;
+  /^(?:rua\s*:|r\.\s*|r:\s*|avenida\s*:|avenida\s+|av\.\s*|av:\s*|av\s+|travessa\s*:|tv\.\s*|alameda\s*:|rod\.\s*|estrada\s*:)\s*/i;
 
 /** Remove prefixo de tipo logradouro (Rua:, Av., etc.). */
 export function stripStreetTypePrefix(street: string): string {
