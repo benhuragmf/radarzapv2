@@ -19,6 +19,8 @@ describe('catalog-sales types', () => {
     expect(cfg.requireHumanApproval).toBe(true);
     expect(cfg.enabled).toBe(false);
     expect(cfg.escalateOnProof).toBe(true);
+    expect(cfg.requireDeliveryAddress).toBe(true);
+    expect(cfg.businessCatalogProfile).toBe('none');
   });
 
   it('valida telefone BR com DDI', () => {

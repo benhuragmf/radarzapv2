@@ -127,6 +127,25 @@ export function deliveryAddressValidationError(
   return null;
 }
 
+export function textIsCepOnly(text: string): boolean {
+  const digits = normalizeCepDigits(text.trim());
+  return isValidCepDigits(digits) && text.replace(/\D/g, '').length <= 8;
+}
+
+export function storedValueIsCepOnly(value: string | null | undefined): boolean {
+  const t = value?.trim() ?? '';
+  if (!t) return false;
+  if (textIsCepOnly(t)) return true;
+  const digits = normalizeCepDigits(t);
+  return isValidCepDigits(digits) && !t.includes(',');
+}
+
+export function textLooksLikeStreetNumber(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > 10) return false;
+  return /^\d{1,6}[a-zA-Z]?$/.test(t);
+}
+
 /** Garante país na query de geocoding. */
 export function normalizeAddressForGeocode(
   address: string,

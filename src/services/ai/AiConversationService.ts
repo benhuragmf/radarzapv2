@@ -32,8 +32,16 @@ import {
   reverseGeocodeCoords,
   aiReplyCollectsDeliveryAddress,
   sanitizeAiReplyStripTransferDuringCatalogFlow,
+  sanitizeAiReplyStripPixBeforeAddress,
 } from '@/utils/catalog-delivery.util';
-import { detectDeliveryFulfillmentChoice } from '@/types/catalog-sales';
+import {
+  detectDeliveryFulfillmentChoice,
+  detectPickupFulfillmentChoice,
+} from '@/types/catalog-sales';
+import {
+  textIsCepOnly,
+  textLooksLikeStreetNumber,
+} from '@/types/catalog-delivery-address';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
 import { AiTicketAssistService } from './AiTicketAssistService';
 import type { InboxService } from '@/services/inbox/InboxService';
@@ -441,6 +449,22 @@ export class AiConversationService {
     const threadContextForKb = [state.collectedProblem, state.summary, ctx.text]
       .filter(Boolean)
       .join(' ');
+
+    if (
+      await this.tryCatalogAddressShortCircuit(ctx, inbox, state)
+    ) {
+      return { handled: true };
+    }
+
+    if (
+      looksLikePurchaseInquiry(ctx.text, threadContextForKb) &&
+      !detectDeliveryFulfillmentChoice(ctx.text) &&
+      !detectPickupFulfillmentChoice(ctx.text) &&
+      (await this.tryCatalogPurchaseOfferShortCircuit(ctx, inbox, state, threadContextForKb))
+    ) {
+      return { handled: true };
+    }
+
     if (isKbRequiredFactualInquiry(ctx.text, threadContextForKb)) {
       const grounded = await autoResolveSvc.tryResolve(ctx.clientId, ctx.text, {
         threadContext: threadContextForKb,
@@ -671,6 +695,9 @@ export class AiConversationService {
     if (catalogSalesFlowActive) {
       structured.shouldEscalate = false;
       structured.reply = sanitizeAiReplyStripTransferDuringCatalogFlow(structured.reply);
+      if (catalogAddressPending) {
+        structured.reply = sanitizeAiReplyStripPixBeforeAddress(structured.reply);
+      }
     }
 
     let escalation = escSvc.check({
@@ -769,6 +796,99 @@ export class AiConversationService {
       .replace(/\p{M}/gu, '');
     if (/^(s|ss)$/.test(norm)) return 'sim';
     return text.trim();
+  }
+
+  private async tryCatalogAddressShortCircuit(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+  ): Promise<boolean> {
+    const text = ctx.text?.trim() ?? '';
+    if (!textIsCepOnly(text) && !textLooksLikeStreetNumber(text)) return false;
+
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    const catalogSvc = CatalogSalesService.getInstance();
+    const cfg = await catalogSvc.loadCompanyConfig(ctx.clientId);
+    if (!cfg.enabled) return false;
+
+    const active = await catalogSvc.findActiveOrderForConversation(
+      ctx.clientId,
+      String(ctx.conversation._id),
+    );
+    if (!active || active.status !== 'aguardando_endereco') return false;
+
+    await catalogSvc.processAiCatalogTurn({
+      clientId: ctx.clientId,
+      conversation: {
+        conversationId: String(ctx.conversation._id),
+        channel: 'whatsapp',
+        destinationId: String(ctx.dest._id),
+        contactIdentifier: ctx.conversation.contactIdentifier,
+        contactName: ctx.conversation.contactName,
+      },
+      clientText: text,
+      structured: emptyAiStructuredReply(),
+      threadContext: [state.collectedProblem, state.summary].filter(Boolean).join(' '),
+    });
+
+    state.aiTurnCount += 1;
+    state.shouldEscalate = false;
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    return true;
+  }
+
+  private async tryCatalogPurchaseOfferShortCircuit(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+    threadContext: string,
+  ): Promise<boolean> {
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    const catalogSvc = CatalogSalesService.getInstance();
+    const cfg = await catalogSvc.loadCompanyConfig(ctx.clientId);
+    if (!cfg.enabled) return false;
+
+    const active = await catalogSvc.findActiveOrderForConversation(
+      ctx.clientId,
+      String(ctx.conversation._id),
+    );
+    if (active) return false;
+
+    const offer = await catalogSvc.buildPurchaseOfferForInquiry({
+      clientId: ctx.clientId,
+      clientText: ctx.text ?? '',
+      threadContext,
+      contactFirstName: resolveClientFirstName(state.collectedName),
+    });
+    if (!offer) return false;
+
+    if (this.textLooksLikeProblemDescription(ctx.text)) {
+      state.collectedProblem = ctx.text.trim();
+    }
+    state.aiTurnCount += 1;
+    state.shouldEscalate = false;
+    state.confidence = 0.9;
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, offer);
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    logger.info('IA enviou oferta padronizada de catálogo (sem KB/PIX bruto)', {
+      clientId: ctx.clientId,
+      conversationId: ctx.conversation._id,
+    });
+    return true;
   }
 
   private async tryAutoResolveAndReply(

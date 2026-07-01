@@ -20,6 +20,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.46] - 2026-07-01
+
+### Fixed
+- Catálogo/IA: oferta padronizada de compra (retirar/entregar), endereço antes do PIX por padrão, CEP+número via servidor, bloqueio de escalação comercial no fluxo de entrega.
+
+### Added
+- Perfil comercial na aba Empresa: libera produtos/PIX só quando o tenant escolhe varejo/catálogo; KB Produtos/Pagamentos oculta da IA sem catálogo ativo.
+
+---
+
 ## [2.17.43] - 2026-07-01
 
 ### Fixed

@@ -34,6 +34,8 @@ import {
   renderCatalogCustomerMessage,
   resolveProductSaleMode,
   shouldOpenPixOrderFlow,
+  detectDeliveryFulfillmentChoice,
+  detectPickupFulfillmentChoice,
 } from '@/types/catalog-sales';
 import {
   estimateDeliveryFromAddresses,
@@ -45,7 +47,15 @@ import {
   locationAreaHint,
   normalizeKmRates,
   sanitizeAiReplyWhenServerQuotedDelivery,
+  buildDeliveryAddressFromCepAndNumber,
 } from '@/utils/catalog-delivery.util';
+import {
+  storedValueIsCepOnly,
+  textIsCepOnly,
+  textLooksLikeStreetNumber,
+} from '@/types/catalog-delivery-address';
+import { formatCepDisplay, normalizeCepDigits } from '@/utils/br-cep.util';
+import { resolveClientFirstName } from '@/utils/ai-kb-client.util';
 import type { WaInboundLocation } from '@/utils/wa-location.util';
 import { isValidWaCoordinates } from '@/utils/wa-location.util';
 import { deliveryAddressValidationError, isCompleteDeliveryAddress } from '@/types/catalog-delivery-address';
@@ -173,12 +183,34 @@ export class CatalogSalesService {
     threadContext?: string;
   }): Promise<CatalogAiTurnResult> {
     const cfg = await this.loadCompanyConfig(opts.clientId);
-    await this.maybeCreateOrderFromAiTurn(opts);
+
+    const incremental = await this.processIncrementalAddressInput({
+      clientId: opts.clientId,
+      conversationId: opts.conversation.conversationId,
+      clientText: opts.clientText,
+      cfg,
+    });
+    if (incremental.handled) {
+      return incremental.result;
+    }
+
+    const order = await this.maybeCreateOrderFromAiTurn(opts);
+
+    if (order && detectPickupFulfillmentChoice(opts.clientText)) {
+      await this.sendPickupFulfillmentToCustomer(order, cfg);
+      return {
+        serverQuoteSent: false,
+        quoteFailed: false,
+        useDistanceBasedDelivery: Boolean(cfg.useDistanceBasedDelivery),
+        handled: true,
+      };
+    }
 
     const quoteResult = await this.maybeUpdateOrderFromAiTurn({
       clientId: opts.clientId,
       conversationId: opts.conversation.conversationId,
       structured: { collectedAddress: opts.structured.collectedAddress },
+      clientText: opts.clientText,
     });
 
     return {
@@ -186,6 +218,142 @@ export class CatalogSalesService {
       quoteFailed: quoteResult.quoteFailed,
       useDistanceBasedDelivery: Boolean(cfg.useDistanceBasedDelivery),
     };
+  }
+
+  /** Oferta padronizada de compra — retirada ou entrega (sem PIX bruto da KB). */
+  buildCatalogPurchaseOfferReply(opts: {
+    productName: string;
+    price?: string | null;
+    stock?: string | null;
+    contactFirstName?: string;
+  }): string {
+    const first = resolveClientFirstName(opts.contactFirstName);
+    const greeting = first ? `Olá, ${first}!` : 'Olá!';
+    const priceRaw = opts.price?.trim();
+    const priceLabel = priceRaw
+      ? priceRaw.includes('R$')
+        ? priceRaw
+        : `R$ ${priceRaw.replace(/^R\$\s*/i, '')}`
+      : 'consulte';
+    const stockRaw = opts.stock?.trim();
+    const stockLabel = stockRaw
+      ? stockRaw.match(/\d/)
+        ? `temos ${stockRaw}`
+        : stockRaw
+      : 'consulte disponibilidade';
+    return (
+      `${greeting} O produto *${opts.productName}* está disponível por ${priceLabel} e ${stockLabel}. ` +
+      'Você gostaria de prosseguir com a compra? Se sim, prefere *retirar* ou que seja *entregue*?'
+    );
+  }
+
+  async buildPurchaseOfferForInquiry(opts: {
+    clientId: string;
+    clientText: string;
+    threadContext?: string;
+    contactFirstName?: string;
+  }): Promise<string | null> {
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    if (!cfg.enabled) return null;
+    const combined = [opts.threadContext, opts.clientText].filter(Boolean).join(' ');
+    const product = await this.guessProductFromText(opts.clientId, combined);
+    if (!product) return null;
+    return this.buildCatalogPurchaseOfferReply({
+      productName: product.title,
+      price: parseProductPriceFromContent(product.content ?? ''),
+      stock: parseProductStockFromContent(product.content ?? ''),
+      contactFirstName: opts.contactFirstName,
+    });
+  }
+
+  private async processIncrementalAddressInput(opts: {
+    clientId: string;
+    conversationId: string;
+    clientText: string;
+    cfg: CatalogSalesCompanyConfig & ReturnType<typeof normalizeCatalogSalesConfig>;
+  }): Promise<{ handled: boolean; result: CatalogAiTurnResult }> {
+    const noop: CatalogAiTurnResult = {
+      serverQuoteSent: false,
+      quoteFailed: false,
+      useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
+      handled: false,
+    };
+    const order = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
+    if (!order || order.status !== 'aguardando_endereco') {
+      return { handled: false, result: noop };
+    }
+
+    const text = opts.clientText.trim();
+    if (textIsCepOnly(text)) {
+      order.deliveryAddress = formatCepDisplay(normalizeCepDigits(text));
+      order.history.push({
+        at: new Date(),
+        action: 'cep_collected',
+        status: 'aguardando_endereco',
+      });
+      await order.save();
+      await this.sendCatalogAutomatedCustomerMessage(
+        order,
+        'Obrigado pelo CEP! Agora, por favor, me informe o *número* da sua residência para calcular o frete. ' +
+          'O sistema enviará a mensagem automática com os valores exatos.',
+        'catalog-sales-cep-collected',
+      );
+      return {
+        handled: true,
+        result: { ...noop, handled: true },
+      };
+    }
+
+    if (textLooksLikeStreetNumber(text) && storedValueIsCepOnly(order.deliveryAddress)) {
+      const full = await buildDeliveryAddressFromCepAndNumber(order.deliveryAddress ?? '', text);
+      if (!full) {
+        await this.sendCatalogAutomatedCustomerMessage(
+          order,
+          'Não consegui localizar esse CEP. Confira os 8 dígitos ou envie o endereço completo.',
+          'catalog-sales-cep-invalid',
+        );
+        return { handled: true, result: { ...noop, handled: true, quoteFailed: true } };
+      }
+      const quoteResult = await this.maybeAttachAddressToOrder(order, full, opts.cfg);
+      return {
+        handled: true,
+        result: {
+          serverQuoteSent: quoteResult.quoteSent,
+          quoteFailed: quoteResult.quoteFailed,
+          useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
+          handled: true,
+        },
+      };
+    }
+
+    return { handled: false, result: noop };
+  }
+
+  private async sendPickupFulfillmentToCustomer(
+    order: ICatalogSalesOrder,
+    cfg: CatalogSalesCompanyConfig,
+  ): Promise<void> {
+    if (order.status !== 'aguardando_pagamento') {
+      order.status = 'aguardando_pagamento';
+      order.history.push({
+        at: new Date(),
+        action: 'pickup_selected',
+        status: 'aguardando_pagamento',
+      });
+      await order.save();
+    }
+    const org = await Organization.findById(order.clientId).select('address').lean();
+    const pickupLocation =
+      cfg.deliveryInstructions?.trim() ||
+      org?.address?.trim() ||
+      'Consulte nossa equipe para o endereço de retirada.';
+    const pix = cfg.pixEnabled && cfg.pixInstructions?.trim()
+      ? `\n\n*Pagamento PIX:*\n${cfg.pixInstructions.trim()}`
+      : '';
+    const text =
+      `Perfeito! *Retirada* no endereço:\n${pickupLocation}${pix}\n\n` +
+      'Envie o comprovante aqui após o pagamento para nossa equipe conferir.';
+    await this.sendCatalogAutomatedCustomerMessage(order, text, 'catalog-sales-pickup');
   }
 
   /** Quando o LLM falha em intenção de compra, orienta o cliente sem mensagem genérica de instabilidade. */
@@ -226,16 +394,24 @@ export class CatalogSalesService {
       return `${prefix}posso te ajudar com a compra! Qual produto você gostaria de adquirir?`;
     }
 
-    const body = sanitizeKnowledgeBaseContentForClient(product.content ?? '');
     const salesMeta = normalizeProductSalesMeta(product.salesMeta);
     const needsAddress = orderRequiresDeliveryAddress(cfg, salesMeta);
-    const nextStep = needsAddress
-      ? 'Para seguir com a compra, envie seu *endereço completo* para entrega.'
-      : cfg.pixEnabled && cfg.pixInstructions?.trim()
-        ? `Para pagar via PIX:\n${cfg.pixInstructions.trim()}`
-        : 'Confirme que deseja comprar para eu registrar seu pedido.';
+    if (!needsAddress) {
+      return this.buildCatalogPurchaseOfferReply({
+        productName: product.title,
+        price: parseProductPriceFromContent(product.content ?? ''),
+        stock: parseProductStockFromContent(product.content ?? ''),
+        contactFirstName: opts.contactFirstName,
+      });
+    }
 
-    return `${prefix}${body ? `${body}\n\n` : ''}${nextStep}`.trim();
+    const offer = this.buildCatalogPurchaseOfferReply({
+      productName: product.title,
+      price: parseProductPriceFromContent(product.content ?? ''),
+      stock: parseProductStockFromContent(product.content ?? ''),
+      contactFirstName: opts.contactFirstName,
+    });
+    return offer;
   }
 
   sanitizeAiReplyForCatalogQuote(
@@ -320,7 +496,8 @@ export class CatalogSalesService {
       salesMeta.deliveryFee?.trim() ||
       parseProductDeliveryFeeFromContent(product.content) ||
       undefined;
-    const needsAddress = orderRequiresDeliveryAddress(cfg, salesMeta);
+    const isPickup = detectPickupFulfillmentChoice(opts.clientText);
+    const needsAddress = !isPickup && orderRequiresDeliveryAddress(cfg, salesMeta);
     const collectedAddress = opts.structured.collectedAddress?.trim();
     const initialStatus: CatalogSalesOrderStatus =
       needsAddress && !collectedAddress ? 'aguardando_endereco' : 'aguardando_pagamento';
@@ -692,6 +869,7 @@ export class CatalogSalesService {
     clientId: string;
     conversationId: string;
     structured: { collectedAddress?: string };
+    clientText?: string;
   }): Promise<{ quoteSent: boolean; quoteFailed: boolean }> {
     const order = await CatalogSalesOrder.findOne({
       clientId: new mongoose.Types.ObjectId(opts.clientId),
@@ -699,6 +877,22 @@ export class CatalogSalesService {
       status: 'aguardando_endereco',
     }).sort({ updatedAt: -1 });
     if (!order) return { quoteSent: false, quoteFailed: false };
+
+    if (opts.clientText?.trim()) {
+      const incremental = await this.processIncrementalAddressInput({
+        clientId: opts.clientId,
+        conversationId: opts.conversationId,
+        clientText: opts.clientText,
+        cfg: await this.loadCompanyConfig(opts.clientId),
+      });
+      if (incremental.handled) {
+        return {
+          quoteSent: incremental.result.serverQuoteSent,
+          quoteFailed: incremental.result.quoteFailed,
+        };
+      }
+    }
+
     const cfg = await this.loadCompanyConfig(opts.clientId);
     return this.maybeAttachAddressToOrder(order, opts.structured.collectedAddress, cfg);
   }

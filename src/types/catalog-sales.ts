@@ -90,6 +90,8 @@ export interface CatalogSalesCompanyConfig {
   deliveryInstructions?: string;
   /** Endereço base da empresa para cálculo de distância (origem A) — completo: rua, nº, bairro, CEP, cidade, UF, país */
   deliveryOriginAddress?: string;
+  /** Perfil que libera cadastro de produtos na UI (escolha explícita do tenant). */
+  businessCatalogProfile?: 'none' | 'retail_delivery' | 'retail_pickup' | 'catalog_general';
   /** Calcular taxa de entrega por distância (km) */
   useDistanceBasedDelivery?: boolean;
   /** Valores por faixa de km (1 a 8) */
@@ -178,7 +180,8 @@ export function normalizeCatalogSalesConfig(
     responsibleName: raw?.responsibleName?.trim() ?? '',
     internalMessageTemplate: raw?.internalMessageTemplate?.trim() ?? '',
     deliveryInstructions: raw?.deliveryInstructions?.trim() ?? '',
-    requireDeliveryAddress: raw?.requireDeliveryAddress ?? false,
+    requireDeliveryAddress: raw?.requireDeliveryAddress ?? true,
+    businessCatalogProfile: raw?.businessCatalogProfile ?? 'none',
     deliveryOriginAddress: raw?.deliveryOriginAddress?.trim() ?? '',
     useDistanceBasedDelivery: raw?.useDistanceBasedDelivery ?? false,
     deliveryKmRates: normalizeKmRates(raw?.deliveryKmRates),
@@ -285,6 +288,12 @@ export function shouldOpenPixOrderFlow(opts: {
   ) {
     return true;
   }
+  if (
+    detectPickupFulfillmentChoice(opts.clientText) &&
+    /\b(comprar|zaad|produto|pedido|gostaria)\b/i.test(combined)
+  ) {
+    return true;
+  }
   if (detectLinkPurchaseIntent(opts.clientText) && !detectPixPurchaseIntent(opts.clientText)) {
     return false;
   }
@@ -333,6 +342,17 @@ export function detectPurchaseConfirmation(text: string): boolean {
       t,
     ) ||
     /^(sim|ok|pode ser|fechado|confirmo)[\s!.?]*$/i.test(t)
+  );
+}
+
+/** Cliente escolheu retirada na loja. */
+export function detectPickupFulfillmentChoice(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t || t.length > 120) return false;
+  return (
+    /\b(prefiro retirar|quero retirar|vou retirar|retirada|retirar na loja|pegar na loja|buscar na loja|vou buscar)\b/i.test(
+      t,
+    ) || /^(retirar|retirada|buscar)[\s!.?]*$/i.test(t)
   );
 }
 

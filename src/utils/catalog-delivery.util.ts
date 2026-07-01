@@ -8,6 +8,28 @@ import {
   normalizeAddressForGeocode,
   parseDeliveryAddress,
 } from '../types/catalog-delivery-address';
+import { lookupBrCep } from './br-cep.util';
+
+/** Monta endereço completo a partir de CEP (ViaCEP) + número informado pelo cliente. */
+export async function buildDeliveryAddressFromCepAndNumber(
+  cep: string,
+  streetNumber: string,
+): Promise<string | null> {
+  const lookup = await lookupBrCep(cep);
+  if (!lookup) return null;
+  const number = streetNumber.trim().replace(/[^\dA-Za-z]/g, '').slice(0, 10);
+  if (!number) return null;
+  return formatDeliveryAddress({
+    cep: lookup.cep,
+    street: lookup.street.trim() || 'Logradouro',
+    number,
+    neighborhood: lookup.neighborhood.trim() || 'Centro',
+    city: lookup.city,
+    state: lookup.state,
+    country: 'Brasil',
+    complement: lookup.complement,
+  });
+}
 
 export type CatalogDeliveryKmRates = {
   km1?: string;
@@ -414,6 +436,25 @@ export function aiReplyCollectsDeliveryAddress(reply: string): boolean {
   return /\b(cep|endere[cç]o de entrega|endere[cç]o completo|n[uú]mero do seu endere[cç]o|calcular o frete|valor total)\b/i.test(
     reply.trim(),
   );
+}
+
+const AI_PIX_LINE = /\b(pix|chave pix|comprovante|titular)\b/i;
+
+/** Remove instruções PIX da IA quando o endereço ainda não foi coletado/cotado. */
+export function sanitizeAiReplyStripPixBeforeAddress(reply: string): string {
+  const kept = reply
+    .split('\n')
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return true;
+      if (AI_PIX_LINE.test(t) && /r\$\s*[\d.,]+/i.test(t)) return false;
+      if (/^chave pix:/i.test(t)) return false;
+      if (/^titular:/i.test(t)) return false;
+      if (/^para pagar via pix/i.test(t)) return false;
+      return true;
+    });
+  const cleaned = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned.length >= 8 ? cleaned : reply.trim();
 }
 
 export function sanitizeAiReplyWhenServerQuotedDelivery(

@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 import { AiKnowledgeBase, IAiKnowledgeBase } from '@/models/AiKnowledgeBase';
+import { Organization } from '@/models/Organization';
+import {
+  normalizeCatalogSalesConfig,
+} from '@/types/catalog-sales';
 import {
   AI_AUTO_RESOLVE_MIN_SCORE,
   normalizeAiSearchText,
@@ -23,6 +27,12 @@ import {
 
 /** Categoria padrão quando o artigo não tem categoria definida. */
 export const AI_KB_DEFAULT_CATEGORY = 'Geral';
+
+const CATALOG_KB_CATEGORIES = new Set(['Produtos e estoque', 'Pagamentos']);
+
+export function kbCategoryRequiresCatalogModule(category?: string | null): boolean {
+  return CATALOG_KB_CATEGORIES.has(normalizeKbCategory(category));
+}
 
 export type KnowledgeBaseUpsertInput = {
   id?: string;
@@ -187,16 +197,31 @@ export class AiKnowledgeBaseService {
   }
 
   async buildContextBlock(clientId: string, query?: string): Promise<string> {
+    const org = await Organization.findById(clientId).select('catalogSales').lean();
+    const catalogActive = normalizeCatalogSalesConfig(org?.catalogSales).enabled === true;
+
+    const includeRow = (row: Pick<IAiKnowledgeBase, 'category'>) => {
+      if (!catalogActive && kbCategoryRequiresCatalogModule(row.category)) return false;
+      return true;
+    };
+
     const rows = query?.trim()
-      ? (await this.searchRelevant(clientId, query, 5)).map(r => r.row)
-      : await AiKnowledgeBase.find({
-          clientId: new mongoose.Types.ObjectId(clientId),
-          active: true,
-        })
-          .sort({ updatedAt: -1 })
-          .limit(8)
-          .select('title content category links')
-          .lean();
+      ? (await this.searchRelevant(clientId, query, 8))
+          .map(r => r.row)
+          .filter(includeRow)
+          .slice(0, 5)
+      : (
+          await AiKnowledgeBase.find({
+            clientId: new mongoose.Types.ObjectId(clientId),
+            active: true,
+          })
+            .sort({ updatedAt: -1 })
+            .limit(16)
+            .select('title content category links')
+            .lean()
+        )
+          .filter(includeRow)
+          .slice(0, 8);
 
     if (!rows.length) return '';
     return rows.map(r => this.formatContextRow(r)).join('\n\n');

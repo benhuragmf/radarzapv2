@@ -76,6 +76,7 @@ interface CatalogSalesCompanyConfig {
   requireHumanApproval?: boolean
   allowManualResend?: boolean
   requireDeliveryAddress?: boolean
+  businessCatalogProfile?: 'none' | 'retail_delivery' | 'retail_pickup' | 'catalog_general'
   deliveryInstructions?: string
   deliveryOriginAddress?: string
   useDistanceBasedDelivery?: boolean
@@ -765,6 +766,8 @@ export default function AiAtendimento() {
     item => !item._delete && (item.category ?? 'Geral') === PRODUCT_CATEGORY,
   )
   const catalogSales = form.catalogSales ?? {}
+  const catalogProfile = catalogSales.businessCatalogProfile ?? 'none'
+  const productsModuleVisible = catalogProfile !== 'none'
 
   const updateCatalogSales = (patch: Partial<CatalogSalesCompanyConfig>) => {
     setForm(f => (f ? { ...f, catalogSales: { ...f.catalogSales, ...patch } } : f))
@@ -1453,7 +1456,7 @@ export default function AiAtendimento() {
             <label className="flex items-center gap-2 text-sm font-medium">
               <input
                 type="checkbox"
-                checked={form.catalogSales?.requireDeliveryAddress === true}
+                checked={form.catalogSales?.requireDeliveryAddress !== false}
                 onChange={e => {
                   const on = e.target.checked
                   updateCatalogSales({
@@ -1469,7 +1472,7 @@ export default function AiAtendimento() {
                   })
                 }}
               />
-              Requisito de entrega (obrigatório em pedidos PIX)
+              Exigir endereço antes do PIX (padrão ativo — evita enviar chave antes da entrega)
             </label>
             <div
               className={`grid sm:grid-cols-2 gap-3 pt-1 ${
@@ -1525,13 +1528,45 @@ export default function AiAtendimento() {
             </p>
           </div>
 
-          <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 px-4 py-3 text-xs text-[var(--rz-text-secondary)]">
-            Produtos cadastrados aqui aparecem na aba{' '}
-            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('kb')}>
-              Base de conhecimento
-            </button>{' '}
-            com a categoria <strong>Produtos e estoque</strong>. Edite ou exclua abaixo ou gerencie todos
-            os artigos na base.
+          <div className="rounded-lg border border-amber-800/35 bg-amber-950/15 p-4 space-y-3">
+            <h3 className="text-sm font-medium">Perfil comercial do negócio</h3>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              Só libere <strong>Produtos e estoque</strong> se o atendimento vende pelo chat. Negócios de
+              suporte, assinatura ou consultoria devem manter <em>Sem catálogo</em> para a IA não misturar
+              fluxo de entrega/PIX com outros padrões.
+            </p>
+            <label className="block text-sm">
+              <span className="text-[var(--rz-text-secondary)] mb-1 block">Setor / modelo</span>
+              <select
+                className={inputCls}
+                value={catalogProfile}
+                onChange={e => {
+                  const profile = e.target.value as CatalogSalesCompanyConfig['businessCatalogProfile']
+                  const patch: Partial<CatalogSalesCompanyConfig> = {
+                    businessCatalogProfile: profile ?? 'none',
+                  }
+                  if (profile === 'retail_delivery') {
+                    patch.requireDeliveryAddress = true
+                    patch.forceCollectAddress = true
+                  }
+                  if (profile === 'none') {
+                    patch.enabled = false
+                  }
+                  updateCatalogSales(patch)
+                }}
+              >
+                <option value="none">Sem catálogo (suporte, planos, consultoria)</option>
+                <option value="retail_delivery">Varejo com entrega (frete + PIX após endereço)</option>
+                <option value="retail_pickup">Varejo com retirada na loja</option>
+                <option value="catalog_general">Catálogo geral (produtos sem logística obrigatória)</option>
+              </select>
+            </label>
+            {catalogProfile !== 'none' && catalogSales.enabled !== true && (
+              <p className="text-xs text-amber-300/90">
+                Perfil selecionado — ative também <strong>Pedidos via IA/catálogo</strong> abaixo para a IA
+                usar o fluxo de compra.
+              </p>
+            )}
           </div>
 
           <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-2">
@@ -1549,6 +1584,17 @@ export default function AiAtendimento() {
               }
               placeholder="Explique em linguagem simples: o que a empresa vende/faz, para quem atende, região, diferenciais, horários e como contratar."
             />
+          </div>
+
+          {productsModuleVisible ? (
+            <>
+          <div className="rounded-lg border border-brand-800/30 bg-brand-950/15 px-4 py-3 text-xs text-[var(--rz-text-secondary)]">
+            Produtos cadastrados aqui aparecem na aba{' '}
+            <button type="button" className="text-brand-400 hover:underline" onClick={() => setTab('kb')}>
+              Base de conhecimento
+            </button>{' '}
+            com a categoria <strong>Produtos e estoque</strong>. Edite ou exclua abaixo ou gerencie todos
+            os artigos na base.
           </div>
 
           <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-3">
@@ -2089,6 +2135,14 @@ export default function AiAtendimento() {
                 ))}
               </div>
             </div>
+          )}
+            </>
+          ) : (
+            <p className="text-xs text-[var(--rz-text-muted)] rounded-lg border border-dashed border-[var(--rz-border)] p-4">
+              Selecione um perfil comercial acima (ex.: varejo com entrega) para cadastrar produtos, PIX e
+              frete. Enquanto isso, a IA usa apenas o texto &quot;O que a empresa faz&quot; e ignora artigos de
+              Produtos/Pagamentos na base.
+            </p>
           )}
         </Card>
       )}
