@@ -10,7 +10,7 @@ Novo menu **Produtos** no painel tenant, com operação de catálogo/PIX/pedidos
 
 ## 3. Versão final
 
-2.17.53
+2.17.54 (patch entrega/PIX pós-QA WhatsApp)
 
 ## 4. Branch usada
 
@@ -154,8 +154,18 @@ Sem alteração em `CatalogSalesService` inbound; UI reorganizada; gate invalida
 
 ## 33. Pendências
 
-- QA manual A–J (Benhur + celular)
+- QA manual A–J (Benhur + celular) — incluir roteiro **entregue → CEP → PIX** (2.17.54)
 - Código morto legado em `AiAtendimento.tsx` (helpers produto não usados na UI) — limpeza futura opcional
+
+## 33.1 Correção urgente 2.17.54 (pós-deploy 2.17.53)
+
+Teste WhatsApp reproduzido: após *entregue*, sistema enviava PIX sem CEP. Corrigido em `CatalogSalesService.processFulfillmentChoice` + `deliveryFulfillmentNeedsAddress`:
+
+- Entrega pede CEP/endereço antes do PIX (perfil varejo com entrega, frete por km, `requireDeliveryAddress`)
+- Estoque *consulte* / indefinido bloqueia PIX automático
+- `sim` não abre catálogo como nome de produto
+- Perguntas *tem taxa de entrega?* / *meu endereço você não vai pegar?* respondem no fluxo sem repetir PIX
+- Modos `pickup_only` / `delivery_only` / `pickup_and_delivery` via `businessCatalogProfile`
 
 ## 34. Próximo passo recomendado
 

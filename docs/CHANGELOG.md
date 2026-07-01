@@ -20,6 +20,23 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.54] - 2026-07-01
+
+### Fixed
+- Catálogo/PIX: **entrega** (`entregue`, `quero receber`, etc.) pede CEP/endereço antes do PIX — nunca envia chave PIX sem frete calculado quando `requireDeliveryAddress`, frete por km ou perfil **Varejo com entrega**
+- Estoque indefinido ou texto *consulte estoque* bloqueia oferta automática e PIX (`productStockAllowsPixPurchase`)
+- `sim` / `ok` não são tratados como nome de produto (`isBareAffirmationOrNonProductReply`)
+- Perguntas sobre taxa de entrega ou endereço no fluxo respondem no contexto — sem repetir PIX
+- Anti-repetição PIX: reenvio só com pedido explícito (`detectPixResendRequest`)
+- Modos retirada/entrega por perfil: `pickup_only`, `delivery_only`, `pickup_and_delivery` (`resolveCatalogFulfillmentMode`)
+- Texto de oferta sem *e consulte disponibilidade* — estoque numérico ou mensagem de confirmação
+
+### Added
+- Helpers: `deliveryFulfillmentNeedsAddress`, `buildDeliveryAddressStartReply`, `buildDeliveryInquiryReply`, `processPurchaseOfferConfirmation`
+- Testes `catalog-sales.test.ts` (34 cenários) — entrega antes PIX, estoque, afirmações, perfis
+
+---
+
 ## [2.17.53] - 2026-07-01
 
 ### Added

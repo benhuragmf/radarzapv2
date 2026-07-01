@@ -49,6 +49,8 @@ import {
 import {
   detectDeliveryFulfillmentChoice,
   detectPickupFulfillmentChoice,
+  detectDeliveryFeeOrAddressQuestion,
+  detectPurchaseConfirmation,
   extractProductNameFromCatalogOffer,
   buildFulfillmentReminderReply,
   isCatalogPurchaseOfferMessage,
@@ -609,6 +611,33 @@ export class WebChatAiService {
           threadContext: opts.threadContext,
         });
         return { body: '', automatedOnly: true };
+      }
+    }
+
+    if (detectDeliveryFeeOrAddressQuestion(text)) {
+      const deliveryReply = await catalogSvc.buildCatalogDeliveryQuestionReply({
+        clientId: opts.clientId,
+        conversationId: opts.conversationId,
+        clientText: text,
+        contactFirstName,
+      });
+      if (deliveryReply) return { body: deliveryReply };
+    }
+
+    if (
+      isCatalogPurchaseOfferMessage(opts.lastAssistantReply) &&
+      detectPurchaseConfirmation(text)
+    ) {
+      const confirm = await catalogSvc.processPurchaseOfferConfirmation({
+        clientId: opts.clientId,
+        conversation: convRef,
+        clientText: text,
+        threadContext: opts.threadContext,
+        lastAssistantReply: opts.lastAssistantReply,
+        contactFirstName,
+      });
+      if (confirm.handled && confirm.customerReply) {
+        return { body: confirm.customerReply };
       }
     }
 

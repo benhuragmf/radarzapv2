@@ -32,11 +32,17 @@ import {
   parseProductStockFromContent,
   productHasClearPrice,
   productStockIsZero,
+  productStockAllowsPixPurchase,
   renderCatalogCustomerMessage,
   resolveProductSaleMode,
+  resolveCatalogFulfillmentMode,
+  deliveryFulfillmentNeedsAddress,
   shouldOpenPixOrderFlow,
   detectDeliveryFulfillmentChoice,
   detectPickupFulfillmentChoice,
+  detectDeliveryFeeOrAddressQuestion,
+  detectPixResendRequest,
+  detectPurchaseConfirmation,
   extractProductNameFromCatalogOffer,
   extractCatalogProductQueryToken,
   catalogTitleSimilarity,
@@ -45,6 +51,12 @@ import {
   CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
   buildEmptyCatalogReply,
   formatCatalogProductSuggestionLine,
+  buildCatalogPurchaseOfferReply as buildCatalogPurchaseOfferText,
+  buildDeliveryAddressStartReply,
+  buildDeliveryInquiryReply,
+  isCatalogPurchaseOfferMessage,
+  buildFulfillmentReminderReply,
+  formatProductPriceOfferPhrase,
 } from '@/types/catalog-sales';
 import {
   estimateDeliveryFromAddresses,
@@ -229,31 +241,21 @@ export class CatalogSalesService {
     };
   }
 
-  /** Oferta padronizada de compra — retirada ou entrega (sem PIX bruto da KB). */
+  /** Oferta padronizada de compra — delega para helper tipado (perfil retirada/entrega). */
   buildCatalogPurchaseOfferReply(opts: {
     productName: string;
     price?: string | null;
     stock?: string | null;
     contactFirstName?: string;
+    fulfillmentMode?: ReturnType<typeof resolveCatalogFulfillmentMode>;
   }): string {
-    const first = resolveClientFirstName(opts.contactFirstName);
-    const greeting = first ? `Olá, ${first}!` : 'Olá!';
-    const priceRaw = opts.price?.trim();
-    const priceLabel = priceRaw
-      ? priceRaw.includes('R$')
-        ? priceRaw
-        : `R$ ${priceRaw.replace(/^R\$\s*/i, '')}`
-      : 'consulte';
-    const stockRaw = opts.stock?.trim();
-    const stockLabel = stockRaw
-      ? stockRaw.match(/\d/)
-        ? `temos ${stockRaw}`
-        : stockRaw
-      : 'consulte disponibilidade';
-    return (
-      `${greeting} O produto *${opts.productName}* está disponível por ${priceLabel} e ${stockLabel}. ` +
-      'Você gostaria de prosseguir com a compra? Se sim, prefere *retirar* ou que seja *entregue*?'
-    );
+    return buildCatalogPurchaseOfferText({
+      productName: opts.productName,
+      price: opts.price,
+      stock: opts.stock,
+      contactFirstName: opts.contactFirstName,
+      fulfillmentMode: opts.fulfillmentMode,
+    });
   }
 
   async buildPurchaseOfferForInquiry(opts: {
@@ -276,6 +278,8 @@ export class CatalogSalesService {
     const price = parseProductPriceFromContent(product.content ?? '');
     const stock = parseProductStockFromContent(product.content ?? '');
     const salesMeta = normalizeProductSalesMeta(product.salesMeta);
+    const fulfillmentMode = resolveCatalogFulfillmentMode(cfg);
+
     if (productStockIsZero(stock) && !salesMeta.madeToOrder) {
       return this.buildOutOfStockReply({
         clientId: opts.clientId,
@@ -285,11 +289,19 @@ export class CatalogSalesService {
       });
     }
 
+    if (!productStockAllowsPixPurchase(stock, salesMeta.madeToOrder)) {
+      const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
+      return (
+        `${prefix}encontrei o produto *${product.title}* por ${formatProductPriceOfferPhrase(price)}, ` +
+        'mas preciso confirmar a disponibilidade antes de gerar o pagamento. ' +
+        'Vou chamar um atendente para confirmar o estoque.'
+      );
+    }
+
     if (!productHasClearPrice(price) && !salesMeta.madeToOrder) {
       const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
       return (
-        `${prefix}o produto *${product.title}* está no catálogo, mas o preço ainda não está cadastrado ` +
-        'para venda automática. Digite *atendente* para falar com nossa equipe.'
+        `${prefix}encontrei o produto *${product.title}*, mas o preço precisa ser confirmado por um atendente.`
       );
     }
 
@@ -298,6 +310,7 @@ export class CatalogSalesService {
       price,
       stock,
       contactFirstName: opts.contactFirstName,
+      fulfillmentMode,
     });
   }
 
@@ -424,6 +437,22 @@ export class CatalogSalesService {
     const cfg = await this.loadCompanyConfig(opts.clientId);
     if (!cfg.enabled) return { handled: false };
 
+    const fulfillmentMode = resolveCatalogFulfillmentMode(cfg);
+    if (isDelivery && fulfillmentMode === 'pickup_only') {
+      return {
+        handled: true,
+        customerReply:
+          'No momento este produto está disponível apenas para *retirada*. Deseja continuar com retirada?',
+      };
+    }
+    if (isPickup && fulfillmentMode === 'delivery_only') {
+      return {
+        handled: true,
+        customerReply:
+          'Esse produto está disponível apenas para *entrega*. Me envie seu CEP para calcular o frete antes do pagamento.',
+      };
+    }
+
     const product = await this.resolveProductForPurchaseContext({
       clientId: opts.clientId,
       clientText: opts.clientText,
@@ -470,15 +499,45 @@ export class CatalogSalesService {
     }
 
     if (isDelivery) {
-      if (order?.status === 'aguardando_endereco') {
-        return { handled: true, customerReply: CATALOG_DELIVERY_CEP_REQUEST_MESSAGE };
+      const salesMeta = normalizeProductSalesMeta(product.salesMeta);
+      const needsAddress = deliveryFulfillmentNeedsAddress(cfg, salesMeta);
+
+      if (needsAddress) {
+        if (
+          order &&
+          order.status === 'aguardando_pagamento' &&
+          !this.orderHasCompleteDeliveryAddress(order)
+        ) {
+          order.status = 'aguardando_endereco';
+          order.history.push({
+            at: new Date(),
+            action: 'delivery_needs_address',
+            status: 'aguardando_endereco',
+          });
+          await order.save();
+        }
+        if (order?.status === 'aguardando_endereco' || (order && needsAddress)) {
+          return {
+            handled: true,
+            customerReply: buildDeliveryAddressStartReply(order.productName, cfg),
+          };
+        }
       }
-      if (order?.status === 'aguardando_pagamento') {
+
+      if (
+        order?.status === 'aguardando_pagamento' &&
+        this.orderHasCompleteDeliveryAddress(order) &&
+        !needsAddress
+      ) {
         const reply = this.buildDeliveryPaymentReply(order, cfg);
         return { handled: true, customerReply: reply };
       }
+
       if (order) {
-        return { handled: true, customerReply: CATALOG_DELIVERY_CEP_REQUEST_MESSAGE };
+        return {
+          handled: true,
+          customerReply: buildDeliveryAddressStartReply(order.productName, cfg),
+        };
       }
       return {
         handled: true,
@@ -490,6 +549,61 @@ export class CatalogSalesService {
     return { handled: turn.handled ?? false };
   }
 
+  /** Cliente confirmou compra (“sim”) após oferta padronizada. */
+  async processPurchaseOfferConfirmation(opts: {
+    clientId: string;
+    conversation: CatalogSalesConversationRef;
+    clientText: string;
+    threadContext?: string;
+    lastAssistantReply?: string;
+    contactFirstName?: string;
+  }): Promise<{ handled: boolean; customerReply?: string }> {
+    if (!isCatalogPurchaseOfferMessage(opts.lastAssistantReply)) return { handled: false };
+    if (!detectPurchaseConfirmation(opts.clientText)) return { handled: false };
+
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    if (!cfg.enabled) return { handled: false };
+
+    const mode = resolveCatalogFulfillmentMode(cfg);
+    const productName = extractProductNameFromCatalogOffer(opts.lastAssistantReply);
+
+    if (mode === 'delivery_only') {
+      return this.processFulfillmentChoice({
+        ...opts,
+        clientText: 'entrega',
+      });
+    }
+    if (mode === 'pickup_only') {
+      return this.processFulfillmentChoice({
+        ...opts,
+        clientText: 'retirada',
+      });
+    }
+    if (productName) {
+      return {
+        handled: true,
+        customerReply: buildFulfillmentReminderReply(productName, opts.contactFirstName),
+      };
+    }
+    return { handled: false };
+  }
+
+  private orderHasCompleteDeliveryAddress(order: ICatalogSalesOrder): boolean {
+    const addr = order.deliveryAddress?.trim() ?? '';
+    if (!addr) return false;
+    if (/^\d{5}-?\d{3}$/.test(addr.replace(/\s/g, ''))) return false;
+    return addr.length >= 12;
+  }
+
+  catalogOrderPixAlreadySent(order: ICatalogSalesOrder): boolean {
+    return order.history.some(
+      h =>
+        h.action === 'pix_instructions_sent' ||
+        h.action === 'pickup_selected' ||
+        h.action === 'delivery_quote_sent',
+    );
+  }
+
   private buildDeliveryPaymentReply(order: ICatalogSalesOrder, cfg: CatalogSalesCompanyConfig): string {
     const pix = cfg.pixEnabled && cfg.pixInstructions?.trim()
       ? `\n\n*Pagamento PIX:*\n${cfg.pixInstructions.trim()}`
@@ -498,6 +612,41 @@ export class CatalogSalesService {
       `Perfeito! *Entrega* do produto *${order.productName}*.${pix}\n\n` +
       'Envie o comprovante aqui após o pagamento para nossa equipe conferir.'
     );
+  }
+
+  async recordPixInstructionsSent(order: ICatalogSalesOrder): Promise<void> {
+    if (this.catalogOrderPixAlreadySent(order)) return;
+    order.history.push({
+      at: new Date(),
+      action: 'pix_instructions_sent',
+      status: order.status,
+    });
+    await order.save();
+  }
+
+  async buildCatalogDeliveryQuestionReply(opts: {
+    clientId: string;
+    conversationId: string;
+    clientText: string;
+    contactFirstName?: string;
+  }): Promise<string | null> {
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    if (!cfg.enabled) return null;
+    if (!detectDeliveryFeeOrAddressQuestion(opts.clientText)) return null;
+
+    const active = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
+    if (!active) return null;
+    if (active.status !== 'aguardando_endereco' && active.status !== 'aguardando_pagamento') {
+      return null;
+    }
+
+    const partial =
+      Boolean(active.deliveryAddress?.trim()) && !this.orderHasCompleteDeliveryAddress(active);
+    return buildDeliveryInquiryReply({
+      productName: active.productName,
+      hasPartialAddress: partial,
+      contactFirstName: opts.contactFirstName,
+    });
   }
 
   private async preparePickupFulfillmentReply(
@@ -513,6 +662,7 @@ export class CatalogSalesService {
       });
       await order.save();
     }
+    await this.recordPixInstructionsSent(order);
     const org = await Organization.findById(order.clientId).select('address').lean();
     return this.buildPickupFulfillmentReply(order, cfg, org?.address);
   }
@@ -536,9 +686,10 @@ export class CatalogSalesService {
   }
 
   private async sendDeliveryAddressRequestToCustomer(order: ICatalogSalesOrder): Promise<void> {
+    const cfg = await this.loadCompanyConfig(String(order.clientId));
     await this.sendCatalogAutomatedCustomerMessage(
       order,
-      CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
+      buildDeliveryAddressStartReply(order.productName, cfg),
       'catalog-sales-delivery-cep-request',
     );
   }
@@ -630,13 +781,31 @@ export class CatalogSalesService {
     const active = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
     if (active?.status === 'aguardando_endereco') {
       return (
-        `${prefix}para continuar sua compra do *${active.productName}*, envie o *endereço completo* ` +
-        'para entrega (rua, número, bairro e cidade).'
+        `${prefix}para continuar sua compra do *${active.productName}*, envie o *CEP* ` +
+        'ou o endereço completo para calcular a entrega antes do pagamento.'
       );
     }
     if (active?.status === 'aguardando_pagamento') {
+      if (detectDeliveryFeeOrAddressQuestion(opts.clientText)) {
+        return buildDeliveryInquiryReply({
+          productName: active.productName,
+          hasPartialAddress:
+            Boolean(active.deliveryAddress?.trim()) &&
+            !this.orderHasCompleteDeliveryAddress(active),
+          contactFirstName: opts.contactFirstName,
+        });
+      }
+      if (!detectPixResendRequest(opts.clientText)) {
+        if (this.catalogOrderPixAlreadySent(active)) {
+          return (
+            `${prefix}seu pedido de *${active.productName}* segue aguardando pagamento. ` +
+            'Se precisar das instruções PIX novamente, digite *manda o pix*.'
+          );
+        }
+      }
       const pix = cfg.pixInstructions?.trim();
       if (pix) {
+        await this.recordPixInstructionsSent(active);
         return (
           `${prefix}seu pedido de *${active.productName}* está aguardando pagamento.\n\n*PIX:*\n${pix}`
         );
@@ -755,7 +924,7 @@ export class CatalogSalesService {
     }
 
     const stock = parseProductStockFromContent(product.content);
-    if (productStockIsZero(stock) && !salesMeta.madeToOrder) return null;
+    if (!productStockAllowsPixPurchase(stock, salesMeta.madeToOrder)) return null;
 
     const existing = await this.findActiveOrderForConversation(
       opts.clientId,
@@ -776,7 +945,10 @@ export class CatalogSalesService {
       parseProductDeliveryFeeFromContent(product.content) ||
       undefined;
     const isPickup = detectPickupFulfillmentChoice(opts.clientText);
-    const needsAddress = !isPickup && orderRequiresDeliveryAddress(cfg, salesMeta);
+    const isDelivery = detectDeliveryFulfillmentChoice(opts.clientText);
+    const needsAddress = isDelivery
+      ? deliveryFulfillmentNeedsAddress(cfg, salesMeta)
+      : !isPickup && orderRequiresDeliveryAddress(cfg, salesMeta);
     const collectedAddress = opts.structured.collectedAddress?.trim();
     const initialStatus: CatalogSalesOrderStatus =
       needsAddress && !collectedAddress ? 'aguardando_endereco' : 'aguardando_pagamento';
@@ -1862,6 +2034,15 @@ export class CatalogSalesService {
           )
         : this.buildDeliveryQuoteMessage(order, cfg);
     if (!text) return;
+
+    if (kind === 'success') {
+      order.history.push({
+        at: new Date(),
+        action: 'delivery_quote_sent',
+        status: order.status,
+      });
+      await this.recordPixInstructionsSent(order);
+    }
 
     try {
       if (order.channel === 'whatsapp' && order.contactIdentifier?.trim()) {

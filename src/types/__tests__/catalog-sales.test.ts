@@ -1,27 +1,37 @@
 import {
   buildEmptyCatalogReply,
   buildFulfillmentReminderReply,
+  buildCatalogPurchaseOfferReply,
+  buildDeliveryAddressStartReply,
+  buildDeliveryInquiryReply,
   catalogTitleSimilarity,
   CATALOG_EMPTY_REPLY_SUFFIX,
   CATALOG_FUZZY_SUGGEST_MIN_SCORE,
   CATALOG_STRONG_MATCH_MIN_SCORE,
+  detectDeliveryFeeOrAddressQuestion,
   detectDeliveryFulfillmentChoice,
   detectLinkPurchaseIntent,
   detectPickupFulfillmentChoice,
   detectPixPurchaseIntent,
+  detectPixResendRequest,
   detectPurchaseConfirmation,
+  deliveryFulfillmentNeedsAddress,
   extractProductNameFromCatalogOffer,
   extractCatalogProductQueryToken,
   formatCatalogProductSuggestionLine,
   isAmbiguousCatalogFuzzyMatch,
+  isBareAffirmationOrNonProductReply,
   isCatalogPurchaseOfferMessage,
   isStrongCatalogProductTitleMatch,
   looksLikeCatalogProductNameQuery,
   normalizeCatalogCompareText,
   normalizeCatalogSalesConfig,
+  normalizeProductSalesMeta,
   isValidCatalogSalesPhone,
   productHasClearPrice,
+  productStockAllowsPixPurchase,
   productStockIsZero,
+  resolveCatalogFulfillmentMode,
   shouldOpenPixOrderFlow,
 } from '@/types/catalog-sales';
 import {
@@ -106,6 +116,9 @@ describe('catalog-sales types', () => {
     expect(looksLikeCatalogProductNameQuery('ola boa tarde')).toBe(false);
     expect(looksLikeCatalogProductNameQuery('bom dia')).toBe(false);
     expect(looksLikeCatalogProductNameQuery('oi tudo bem')).toBe(false);
+    expect(looksLikeCatalogProductNameQuery('sim')).toBe(false);
+    expect(looksLikeCatalogProductNameQuery('ok')).toBe(false);
+    expect(isBareAffirmationOrNonProductReply('sim')).toBe(true);
     expect(looksLikeCatalogProductNameQuery('zaad')).toBe(true);
   });
 
@@ -121,6 +134,19 @@ describe('catalog-sales types', () => {
     expect(productStockIsZero('0 unidades')).toBe(true);
     expect(productStockIsZero('sob encomenda')).toBe(false);
     expect(productStockIsZero('12 unidades')).toBe(false);
+    expect(productStockAllowsPixPurchase('0 unidades')).toBe(false);
+    expect(productStockAllowsPixPurchase('consulte estoque')).toBe(false);
+    expect(productStockAllowsPixPurchase('')).toBe(false);
+    expect(productStockAllowsPixPurchase(undefined)).toBe(false);
+    expect(productStockAllowsPixPurchase('2 unidades')).toBe(true);
+    expect(productStockAllowsPixPurchase('sob encomenda', true)).toBe(true);
+    expect(productStockAllowsPixPurchase('', true)).toBe(true);
+  });
+
+  it('formata sugestão sem “consulte estoque” como estoque válido', () => {
+    const line = formatCatalogProductSuggestionLine('ZAAd', 'R$ 145,90', 'consulte estoque');
+    expect(line).toContain('disponibilidade a confirmar');
+    expect(line).not.toContain('consulte estoque');
   });
 
   it('produto sem preço — não tem preço claro', () => {
@@ -217,7 +243,7 @@ describe('catalog-sales types', () => {
     ).toBe(false);
   });
 
-  it('entregue com produto em contexto abre PIX quando pix habilitado', () => {
+  it('entregue com produto em contexto pode criar pedido (PIX só após endereço no serviço)', () => {
     expect(
       shouldOpenPixOrderFlow({
         saleMode: 'link_or_pix',
@@ -226,6 +252,97 @@ describe('catalog-sales types', () => {
         catalogOfferProductName: 'ZAAd',
       }),
     ).toBe(true);
+    const cfg = normalizeCatalogSalesConfig({
+      businessCatalogProfile: 'retail_delivery',
+      requireDeliveryAddress: true,
+      useDistanceBasedDelivery: true,
+    });
+    expect(
+      deliveryFulfillmentNeedsAddress(cfg, normalizeProductSalesMeta({})),
+    ).toBe(true);
+    const reply = buildDeliveryAddressStartReply('ZAAd', cfg);
+    expect(reply).toContain('CEP');
+    expect(reply).not.toContain('Chave PIX');
+  });
+
+  it('perguntas sobre taxa/endereço no fluxo de entrega', () => {
+    expect(detectDeliveryFeeOrAddressQuestion('mais tem taxa de entrega?')).toBe(true);
+    expect(detectDeliveryFeeOrAddressQuestion('meu endereço você não vai pegar?')).toBe(true);
+    const inquiry = buildDeliveryInquiryReply({ productName: 'ZAAd' });
+    expect(inquiry).toContain('CEP');
+    expect(inquiry).not.toContain('Chave PIX');
+    const partial = buildDeliveryInquiryReply({
+      productName: 'ZAAd',
+      hasPartialAddress: true,
+    });
+    expect(partial).toContain('número/endereço completo');
+  });
+
+  it('reenvio PIX só com pedido explícito', () => {
+    expect(detectPixResendRequest('manda o pix de novo')).toBe(true);
+    expect(detectPixResendRequest('mais tem taxa de entrega?')).toBe(false);
+  });
+
+  it('modos retirada/entrega por perfil comercial', () => {
+    expect(
+      resolveCatalogFulfillmentMode(
+        normalizeCatalogSalesConfig({ businessCatalogProfile: 'retail_pickup' }),
+      ),
+    ).toBe('pickup_only');
+    expect(
+      resolveCatalogFulfillmentMode(
+        normalizeCatalogSalesConfig({ businessCatalogProfile: 'retail_delivery' }),
+      ),
+    ).toBe('delivery_only');
+    expect(
+      resolveCatalogFulfillmentMode(
+        normalizeCatalogSalesConfig({ businessCatalogProfile: 'catalog_general' }),
+      ),
+    ).toBe('pickup_and_delivery');
+  });
+
+  it('oferta com estoque numérico e retirada+entrega', () => {
+    const offer = buildCatalogPurchaseOfferReply({
+      productName: 'ZAAd',
+      price: 'R$ 145,90',
+      stock: '2 unidades',
+      fulfillmentMode: 'pickup_and_delivery',
+    });
+    expect(offer).toContain('2 unidades');
+    expect(offer).toContain('retirar');
+    expect(offer).not.toContain('consulte disponibilidade');
+  });
+
+  it('oferta com estoque indefinido não promete PIX', () => {
+    const offer = buildCatalogPurchaseOfferReply({
+      productName: 'ZAAd',
+      price: 'R$ 145,90',
+      stock: 'consulte estoque',
+    });
+    expect(offer).toContain('confirmar a disponibilidade');
+    expect(offer).not.toContain('prefere *retirar*');
+  });
+
+  it('oferta pickup_only não menciona entrega', () => {
+    const offer = buildCatalogPurchaseOfferReply({
+      productName: 'ZAAd',
+      price: 'R$ 145,90',
+      stock: '3 unidades',
+      fulfillmentMode: 'pickup_only',
+    });
+    expect(offer).toContain('retirada');
+    expect(offer).not.toContain('entregue');
+  });
+
+  it('oferta delivery_only pede CEP', () => {
+    const offer = buildCatalogPurchaseOfferReply({
+      productName: 'ZAAd',
+      price: 'R$ 145,90',
+      stock: '3 unidades',
+      fulfillmentMode: 'delivery_only',
+    });
+    expect(offer).toContain('CEP');
+    expect(isCatalogPurchaseOfferMessage(offer)).toBe(true);
   });
 
   it('PIX não abre sem produto em contexto na escolha de fulfillment', () => {

@@ -331,6 +331,150 @@ export function productStockIsZero(stock: string | null | undefined): boolean {
   return parseInt(m[1], 10) === 0;
 }
 
+/** Estoque ausente, texto “consulte” ou sem quantidade numérica confirmada. */
+export function productStockIsUncertain(stock: string | null | undefined): boolean {
+  if (!stock?.trim()) return true;
+  const s = stock.toLowerCase();
+  if (s.includes('sob encomenda') || s.includes('encomenda')) return false;
+  if (/consulte|sob consulta|confirmar|verificar|indefinido|a confirmar/i.test(s)) return true;
+  if (!/\d/.test(s)) return true;
+  return false;
+}
+
+/** Só libera PIX automático com estoque numérico > 0 ou produto sob encomenda explícito. */
+export function productStockAllowsPixPurchase(
+  stock: string | null | undefined,
+  madeToOrder?: boolean,
+): boolean {
+  if (madeToOrder) return true;
+  if (productStockIsZero(stock)) return false;
+  if (productStockIsUncertain(stock)) return false;
+  const s = stock!.toLowerCase();
+  if (s.includes('sob encomenda') || s.includes('encomenda')) return true;
+  const m = s.match(/(\d+)/);
+  return m ? parseInt(m[1], 10) > 0 : false;
+}
+
+export type CatalogFulfillmentMode = 'pickup_only' | 'delivery_only' | 'pickup_and_delivery';
+
+/** Modo retirada/entrega derivado do perfil comercial da empresa. */
+export function resolveCatalogFulfillmentMode(
+  companyCfg: CatalogSalesCompanyConfig,
+): CatalogFulfillmentMode {
+  const profile = companyCfg.businessCatalogProfile ?? 'none';
+  if (profile === 'retail_pickup') return 'pickup_only';
+  if (profile === 'retail_delivery') return 'delivery_only';
+  return 'pickup_and_delivery';
+}
+
+/** Endereço obrigatório quando o cliente escolhe entrega (antes do PIX). */
+export function deliveryFulfillmentNeedsAddress(
+  companyCfg: CatalogSalesCompanyConfig,
+  productMeta: CatalogProductSalesMeta,
+): boolean {
+  if (productMeta.requiresDeliveryAddress === true) return true;
+  if (companyCfg.businessCatalogProfile === 'retail_delivery') return true;
+  if (companyCfg.requireDeliveryAddress === true) return true;
+  if (companyCfg.forceCollectAddress === true) return true;
+  if (companyCfg.useDistanceBasedDelivery === true) return true;
+  if (productMeta.requiresDeliveryAddress === false) return false;
+  return false;
+}
+
+const BARE_AFFIRMATION_RE =
+  /^(sim|s|ss|ok|pode|pode ser|confirmo|fechado|isso|certo|claro|beleza|blz|ta|tá|ta bom|tudo bem)[\s!.?]*$/i;
+
+/** “sim”, “ok” etc. — não são nome de produto. */
+export function isBareAffirmationOrNonProductReply(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  if (BARE_AFFIRMATION_RE.test(t)) return true;
+  if (detectPurchaseConfirmation(t)) {
+    const words = t.split(/\s+/).filter(Boolean);
+    if (words.length <= 2) return true;
+  }
+  return false;
+}
+
+/** Cliente pergunta sobre taxa/endereço dentro do fluxo de entrega. */
+export function detectDeliveryFeeOrAddressQuestion(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t || t.length > 300) return false;
+  return (
+    /\b(taxa de entrega|tem entrega|valor da entrega|custo da entrega|quanto (fica|é) o frete|tem frete|valor do frete)\b/i.test(
+      t,
+    ) ||
+    /\b(meu endereço|meu endereco|vai pedir (o )?endereço|vai pedir (o )?endereco|não vai pedir|nao vai pedir|como calcula (a )?entrega|pega (o )?endereço|pega (o )?endereco)\b/i.test(
+      t,
+    )
+  );
+}
+
+/** Cliente pede reenvio explícito das instruções PIX. */
+export function detectPixResendRequest(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  return /\b(manda(r)? (o )?pix|reenvi(ar|e) (o )?pix|chave pix|não achei o pix|nao achei o pix|qual (a )?chave|reenviar pagamento)\b/i.test(
+    t,
+  );
+}
+
+export function formatProductPriceOfferPhrase(price?: string | null): string {
+  const priceRaw = price?.trim();
+  if (!priceRaw || !productHasClearPrice(priceRaw)) return 'preço a confirmar';
+  return priceRaw.includes('R$') ? priceRaw : `R$ ${priceRaw.replace(/^R\$\s*/i, '')}`;
+}
+
+export function formatProductStockOfferPhrase(stock?: string | null): string {
+  const stockRaw = stock?.trim();
+  if (!stockRaw) return 'a disponibilidade precisa ser confirmada';
+  if (productStockIsUncertain(stockRaw)) return 'a disponibilidade precisa ser confirmada';
+  const m = stockRaw.match(/(\d+)/);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (n === 0) return 'sem estoque no momento';
+    return `temos ${n} unidade${n === 1 ? '' : 's'}`;
+  }
+  return stockRaw;
+}
+
+export function buildDeliveryAddressStartReply(
+  productName: string,
+  companyCfg: CatalogSalesCompanyConfig,
+): string {
+  const forceFull =
+    companyCfg.forceCollectAddress === true &&
+    companyCfg.useDistanceBasedDelivery !== true;
+  if (forceFull) {
+    return (
+      `Perfeito, vamos seguir com a entrega do produto *${productName}*.\n\n` +
+      'Me envie o *endereço completo* com CEP, rua, número, bairro e cidade para calcular a entrega antes do pagamento.'
+    );
+  }
+  return (
+    `Perfeito, vamos seguir com a entrega do produto *${productName}*.\n\n` +
+    'Para calcular a entrega e confirmar o valor final, me envie seu *CEP*. ' +
+    'Depois eu peço o número/endereço e te passo o total com frete antes do PIX.'
+  );
+}
+
+export function buildDeliveryInquiryReply(opts: {
+  productName: string;
+  hasPartialAddress?: boolean;
+  contactFirstName?: string;
+}): string {
+  const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
+  if (opts.hasPartialAddress) {
+    return (
+      `${prefix}ainda preciso confirmar o *número/endereço completo* para calcular o frete antes do PIX.`
+    );
+  }
+  return (
+    `${prefix}sim, pode ter taxa de entrega. Para calcular certinho, preciso do seu *CEP/endereço*. ` +
+    'Me envie seu CEP para eu calcular antes de liberar o PIX.'
+  );
+}
+
 /** Normaliza texto para comparação de catálogo (acentos, caixa, hífens, espaços). */
 export function normalizeCatalogCompareText(text: string): string {
   return text
@@ -397,6 +541,14 @@ const PRODUCT_QUERY_STOPWORDS = new Set([
   'comprar',
   'quero',
   'produto',
+  'sim',
+  'ok',
+  'pode',
+  'confirmo',
+  'fechado',
+  'isso',
+  'certo',
+  'claro',
 ]);
 
 /** Extrai token provável de nome de produto em frase curta. */
@@ -419,6 +571,7 @@ export function extractCatalogProductQueryToken(text: string): string | null {
 export function looksLikeCatalogProductNameQuery(text: string): boolean {
   const t = text.trim();
   if (!t || t.length < 2 || t.length > 32 || t.includes('?')) return false;
+  if (isBareAffirmationOrNonProductReply(t)) return false;
   if (detectDeliveryFulfillmentChoice(t) || detectPickupFulfillmentChoice(t)) return false;
   if (/\b(atendente|humano|ajuda|horario|horário|funciona|obrigad|valeu|tchau)\b/i.test(t)) {
     return false;
@@ -438,7 +591,8 @@ export function isAwaitingCatalogFulfillmentChoice(lastAssistantReply?: string):
 }
 
 export const CATALOG_DELIVERY_CEP_REQUEST_MESSAGE =
-  'Perfeito! Para calcular o frete da *entrega*, envie o *CEP* (8 dígitos) do endereço.';
+  'Para calcular a entrega e confirmar o valor final, me envie seu *CEP*. ' +
+  'Depois eu peço o número/endereço e te passo o total com frete antes do PIX.';
 
 export const CATALOG_EMPTY_REPLY_SUFFIX =
   'no momento não encontrei produtos cadastrados no catálogo desta empresa. ' +
@@ -450,19 +604,71 @@ export function formatCatalogProductSuggestionLine(
   price?: string | null,
   stock?: string | null,
 ): string {
-  const priceRaw = price?.trim();
-  const priceLabel = priceRaw
-    ? priceRaw.includes('R$')
-      ? priceRaw
-      : `R$ ${priceRaw.replace(/^R\$\s*/i, '')}`
-    : 'consulte';
+  const priceLabel = productHasClearPrice(price) ? formatProductPriceOfferPhrase(price) : 'preço a confirmar';
+  let stockLabel = 'disponibilidade a confirmar';
   const stockRaw = stock?.trim();
-  const stockLabel = stockRaw
-    ? stockRaw.match(/\d/)
-      ? `${stockRaw} un.`
-      : stockRaw
-    : 'consulte estoque';
+  if (stockRaw) {
+    if (productStockIsZero(stockRaw)) {
+      stockLabel = 'sem estoque';
+    } else if (productStockAllowsPixPurchase(stockRaw)) {
+      const m = stockRaw.match(/(\d+)/);
+      stockLabel = m ? `${m[1]} un.` : stockRaw;
+    } else if (productStockIsUncertain(stockRaw)) {
+      stockLabel = 'disponibilidade a confirmar';
+    } else {
+      stockLabel = stockRaw;
+    }
+  }
   return `*${title}* — ${priceLabel} — ${stockLabel}`;
+}
+
+/** Oferta padronizada de compra — retirada, entrega ou ambos conforme perfil. */
+export function buildCatalogPurchaseOfferReply(opts: {
+  productName: string;
+  price?: string | null;
+  stock?: string | null;
+  contactFirstName?: string;
+  fulfillmentMode?: CatalogFulfillmentMode;
+}): string {
+  const first = opts.contactFirstName?.trim()?.split(/\s+/)[0];
+  const greeting = first ? `Olá, ${first}!` : 'Olá!';
+  const mode = opts.fulfillmentMode ?? 'pickup_and_delivery';
+  const pricePhrase = formatProductPriceOfferPhrase(opts.price);
+
+  if (!productHasClearPrice(opts.price)) {
+    return (
+      `${greeting} Encontrei o produto *${opts.productName}*, mas o preço precisa ser confirmado por um atendente.`
+    );
+  }
+
+  if (!productStockAllowsPixPurchase(opts.stock)) {
+    if (productStockIsZero(opts.stock)) {
+      return (
+        `${greeting} o produto *${opts.productName}* está sem estoque no momento. ` +
+        'Posso chamar um atendente para te avisar quando voltar?'
+      );
+    }
+    return (
+      `${greeting} Encontrei o produto *${opts.productName}* por ${pricePhrase}, mas preciso confirmar a disponibilidade antes de gerar o pagamento. ` +
+      'Vou chamar um atendente para confirmar o estoque.'
+    );
+  }
+
+  const stockPhrase = formatProductStockOfferPhrase(opts.stock);
+  const body = `${greeting} O produto *${opts.productName}* está disponível por ${pricePhrase} e ${stockPhrase}.`;
+
+  if (mode === 'pickup_only') {
+    return `${body} Deseja continuar com a compra para *retirada*?`;
+  }
+  if (mode === 'delivery_only') {
+    return (
+      `${body} Esse produto está disponível para entrega. ` +
+      'Me envie seu CEP para calcular o frete antes do pagamento.'
+    );
+  }
+  return (
+    `${body} Você gostaria de prosseguir com a compra? Se sim, prefere *retirar* ou que seja *entregue*?`
+  );
 }
 
 export function buildEmptyCatalogReply(contactFirstName?: string): string {
@@ -509,16 +715,25 @@ export function detectDeliveryFulfillmentChoice(text: string): boolean {
 const CATALOG_PURCHASE_OFFER_RE =
   /O produto \*([^*]+)\* está disponível por .+ prefere \*retirar\* ou que seja \*entregue\*/i;
 
+const CATALOG_PURCHASE_OFFER_PRODUCT_RE = /(?:O produto|produto) \*([^*]+)\*/i;
+
 /** Mensagem automática de oferta padronizada do catálogo. */
 export function isCatalogPurchaseOfferMessage(text: string | undefined): boolean {
   if (!text?.trim()) return false;
-  return CATALOG_PURCHASE_OFFER_RE.test(text);
+  const t = text.trim();
+  return (
+    CATALOG_PURCHASE_OFFER_RE.test(t) ||
+    /prefere \*retirar\* ou que seja \*entregue\*/i.test(t) ||
+    /continuar com a compra para \*retirada\*/i.test(t) ||
+    /disponível para entrega.*CEP/i.test(t) ||
+    /calcular o frete antes do pagamento/i.test(t)
+  );
 }
 
 /** Extrai o nome do produto da oferta padronizada. */
 export function extractProductNameFromCatalogOffer(text: string | undefined): string | null {
   if (!text?.trim()) return null;
-  const m = text.match(CATALOG_PURCHASE_OFFER_RE);
+  const m = text.match(CATALOG_PURCHASE_OFFER_RE) ?? text.match(CATALOG_PURCHASE_OFFER_PRODUCT_RE);
   return m?.[1]?.trim() || null;
 }
 

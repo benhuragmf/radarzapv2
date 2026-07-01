@@ -56,6 +56,10 @@ Detecção: pedidos de "link", "loja", "site" **não** abrem fluxo PIX. "PIX", "
 ## Endereço e entrega
 
 - Empresa: `requireDeliveryAddress`, `forceCollectAddress` (sincroniza **Dados a coletar → Endereço** no prompt), `deliveryInstructions`
+- Perfil comercial define modo de fulfillment (**2.17.54**): `retail_pickup` → só retirada; `retail_delivery` → só entrega (CEP antes do PIX); `catalog_general` → retirada ou entrega
+- **Regra crítica (2.17.54):** com entrega escolhida e endereço obrigatório, o pedido fica em `aguardando_endereco` até CEP/endereço válido — **nunca** enviar chave PIX antes do frete calculado
+- Estoque indefinido ou *consulte estoque* **não** gera oferta/PIX automático (exceto `madeToOrder`)
+- `sim` / `ok` não são nome de produto; perguntas sobre taxa/endereço no fluxo não repetem PIX
 - Origem A: `deliveryOriginAddress` — **CEP primeiro** no painel (busca automática ViaCEP); formato salvo: `CEP, rua, número, bairro, cidade, UF, Brasil`
 - Taxa por distância: `useDistanceBasedDelivery` + `deliveryKmRates.km1` … `km8` — **rota OSRM** (pela rua) com fallback Haversine; cotação **só no servidor**, mensagem automática ao cliente
 - Produto: `deliveryFee`, `requiresDeliveryAddress`

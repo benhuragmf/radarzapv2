@@ -4,6 +4,8 @@
 
 Centralizar a operação comercial (produtos, estoque, pedidos, PIX, entrega) fora da tela **IA Atendimento**, mantendo a IA focada em perfil comercial, ativação e comportamento.
 
+**Fluxo WhatsApp (2.17.54):** com perfil *Varejo com entrega*, escolha *entregue* pede CEP antes do PIX; estoque *consulte* não gera pagamento automático. Ver [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md).
+
 ## Quando o menu aparece
 
 - `Organization.catalogSales.businessCatalogProfile !== 'none'`

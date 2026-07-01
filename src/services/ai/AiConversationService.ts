@@ -37,6 +37,8 @@ import {
 import {
   detectDeliveryFulfillmentChoice,
   detectPickupFulfillmentChoice,
+  detectDeliveryFeeOrAddressQuestion,
+  detectPurchaseConfirmation,
   extractProductNameFromCatalogOffer,
   buildFulfillmentReminderReply,
   isCatalogPurchaseOfferMessage,
@@ -456,6 +458,12 @@ export class AiConversationService {
       .join(' ');
 
     if (
+      await this.tryCatalogDeliveryQuestionShortCircuit(ctx, inbox, state)
+    ) {
+      return { handled: true };
+    }
+
+    if (
       await this.tryCatalogAddressShortCircuit(ctx, inbox, state)
     ) {
       return { handled: true };
@@ -831,6 +839,38 @@ export class AiConversationService {
     return text.trim();
   }
 
+  private async tryCatalogDeliveryQuestionShortCircuit(
+    ctx: AiInboundContext,
+    inbox: InboxService,
+    state: IAiConversationState,
+  ): Promise<boolean> {
+    const text = ctx.text?.trim() ?? '';
+    if (!detectDeliveryFeeOrAddressQuestion(text)) return false;
+
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    const catalogSvc = CatalogSalesService.getInstance();
+    const reply = await catalogSvc.buildCatalogDeliveryQuestionReply({
+      clientId: ctx.clientId,
+      conversationId: String(ctx.conversation._id),
+      clientText: text,
+      contactFirstName: resolveClientFirstName(state.collectedName),
+    });
+    if (!reply) return false;
+
+    state.aiTurnCount += 1;
+    state.shouldEscalate = false;
+    await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reply);
+    state.status = AiConversationStatus.AI_WAITING_CLIENT;
+    await state.save();
+    await this.syncConversationAi(
+      inbox,
+      ctx.clientId,
+      ctx.conversation._id as mongoose.Types.ObjectId,
+      'ai_waiting_client',
+    );
+    return true;
+  }
+
   private async tryCatalogAddressShortCircuit(
     ctx: AiInboundContext,
     inbox: InboxService,
@@ -962,6 +1002,47 @@ export class AiConversationService {
       String(ctx.conversation._id),
     );
     if (active) return false;
+
+    if (active) return false;
+
+    if (
+      isCatalogPurchaseOfferMessage(lastAssistantReply) &&
+      detectPurchaseConfirmation(ctx.text ?? '')
+    ) {
+      const confirm = await catalogSvc.processPurchaseOfferConfirmation({
+        clientId: ctx.clientId,
+        conversation: {
+          conversationId: String(ctx.conversation._id),
+          channel: 'whatsapp',
+          destinationId: String(ctx.dest._id),
+          contactIdentifier: ctx.conversation.contactIdentifier,
+          contactName: ctx.conversation.contactName,
+        },
+        clientText: ctx.text ?? '',
+        threadContext,
+        lastAssistantReply,
+        contactFirstName: resolveClientFirstName(state.collectedName),
+      });
+      if (confirm.handled && confirm.customerReply) {
+        state.aiTurnCount += 1;
+        state.shouldEscalate = false;
+        await inbox.sendAiReply(
+          ctx.clientId,
+          ctx.conversation,
+          ctx.dest.identifier,
+          confirm.customerReply,
+        );
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return true;
+      }
+    }
 
     if (isCatalogPurchaseOfferMessage(lastAssistantReply)) {
       const offeredProduct = extractProductNameFromCatalogOffer(lastAssistantReply);

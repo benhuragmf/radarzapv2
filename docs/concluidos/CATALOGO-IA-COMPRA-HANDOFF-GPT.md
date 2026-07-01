@@ -1,8 +1,8 @@
 # Catálogo IA — Compra por WhatsApp/WebChat — Handoff para análise (GPT)
 
-**Versão documentada:** `2.17.52` · **Produção base:** `2.17.46` (`0b655f9`) → evoluções `2.17.48`–`2.17.52`  
+**Versão documentada:** `2.17.54` · **Produção base:** `2.17.46` (`0b655f9`) → evoluções `2.17.48`–`2.17.54`  
 **Marca:** RadarChat · **App:** `https://app.radarchat.com.br`  
-**Última revisão:** 2026-06-30
+**Última revisão:** 2026-07-01
 
 Documento para outro modelo/agente auditar o que existe, o que foi melhorado e como o fluxo deve se comportar.  
 Doc operacional: [`docs/CATALOGO-PIX-PEDIDOS.md`](../CATALOGO-PIX-PEDIDOS.md).
@@ -19,6 +19,9 @@ Doc operacional: [`docs/CATALOGO-PIX-PEDIDOS.md`](../CATALOGO-PIX-PEDIDOS.md).
 | 4 | Repetir *"zaad"* reiniciava oferta | `tryCatalogPurchaseOfferShortCircuit` re-ofertava sem checar oferta pendente |
 | 5 | Saudação abria catálogo | `looksLikeCatalogProductNameQuery("ola boa tarde")` = true (2.17.48–49) |
 | 6 | PIX sem produto válido | `shouldOpenPixOrderFlow` exigia palavras no contexto; corrigido com `catalogOfferProductName` + `structured.shouldCreateCatalogOrder` |
+| 7 | *entregue* mandava PIX sem CEP (2.17.53 QA) | `processFulfillmentChoice` enviava PIX em `aguardando_pagamento`; produto `requiresDeliveryAddress: false` bloqueava perfil `retail_delivery` — corrigido **2.17.54** |
+| 8 | *sim* abria catálogo como produto | `looksLikeCatalogProductNameQuery('sim')` = true — corrigido **2.17.54** |
+| 9 | Estoque *consulte* gerava PIX | `productStockIsZero` não cobria indefinido — `productStockAllowsPixPurchase` **2.17.54** |
 
 ---
 
@@ -32,6 +35,7 @@ Doc operacional: [`docs/CATALOGO-PIX-PEDIDOS.md`](../CATALOGO-PIX-PEDIDOS.md).
 | **2.17.50** | `bfef0a1` | Fix saudação não abre catálogo; entrega sempre responde CEP via `sendAiReply`; pedido forçado em fulfillment |
 | **2.17.51** | `715a7eb` | Catálogo vazio honesto; sugestões com preço/estoque; doc handoff |
 | **2.17.52** | (este pacote) | Fuzzy ambíguo exige confirmação; preço obrigatório; doc conclusão produção |
+| **2.17.54** | — | Entrega antes PIX; estoque indefinido; `sim`≠produto; perguntas taxa/endereço; modos retirada/entrega |
 
 ---
 
