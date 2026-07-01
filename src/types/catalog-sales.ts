@@ -415,6 +415,36 @@ export function isAwaitingCatalogFulfillmentChoice(lastAssistantReply?: string):
 export const CATALOG_DELIVERY_CEP_REQUEST_MESSAGE =
   'Perfeito! Para calcular o frete da *entrega*, envie o *CEP* (8 dígitos) do endereço.';
 
+export const CATALOG_EMPTY_REPLY_SUFFIX =
+  'no momento não encontrei produtos cadastrados no catálogo desta empresa. ' +
+  'Posso chamar um atendente para te ajudar? Digite *atendente*.';
+
+/** Linha de sugestão de produto com preço e estoque para o cliente. */
+export function formatCatalogProductSuggestionLine(
+  title: string,
+  price?: string | null,
+  stock?: string | null,
+): string {
+  const priceRaw = price?.trim();
+  const priceLabel = priceRaw
+    ? priceRaw.includes('R$')
+      ? priceRaw
+      : `R$ ${priceRaw.replace(/^R\$\s*/i, '')}`
+    : 'consulte';
+  const stockRaw = stock?.trim();
+  const stockLabel = stockRaw
+    ? stockRaw.match(/\d/)
+      ? `${stockRaw} un.`
+      : stockRaw
+    : 'consulte estoque';
+  return `*${title}* — ${priceLabel} — ${stockLabel}`;
+}
+
+export function buildEmptyCatalogReply(contactFirstName?: string): string {
+  const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
+  return `${prefix}${CATALOG_EMPTY_REPLY_SUFFIX}`;
+}
+
 /** Detecta confirmação de compra no texto do cliente. */
 export function detectPurchaseConfirmation(text: string): boolean {
   const t = text.trim().toLowerCase();
@@ -444,7 +474,7 @@ export function detectDeliveryFulfillmentChoice(text: string): boolean {
   if (!t || t.length > 120) return false;
   if (detectPickupFulfillmentChoice(text)) return false;
   return (
-    /\b(quero que entregue|me entregue|com entrega|para entregar|por entrega|quero entrega|prefiro entrega|manda entregar|enviar pra mim|enviar para mim|delivery)\b/i.test(
+    /\b(quero que entregue|me entregue|com entrega|para entregar|por entrega|quero entrega|prefiro entrega|manda entregar|mandar entregar|enviar pra mim|enviar para mim|quero receber|delivery)\b/i.test(
       t,
     ) ||
     /\b(entregue|entrega|envio|enviar|receber em casa)\b/i.test(t)

@@ -7,6 +7,9 @@ import {
   catalogTitleSimilarity,
   extractCatalogProductQueryToken,
   looksLikeCatalogProductNameQuery,
+  buildEmptyCatalogReply,
+  formatCatalogProductSuggestionLine,
+  CATALOG_EMPTY_REPLY_SUFFIX,
   isValidCatalogSalesPhone,
   normalizeCatalogSalesConfig,
   productHasClearPrice,
@@ -100,6 +103,18 @@ describe('catalog-sales types', () => {
     expect(looksLikeCatalogProductNameQuery('entrega')).toBe(false);
     expect(looksLikeCatalogProductNameQuery('qual o horário?')).toBe(false);
     expect(extractCatalogProductQueryToken('quero o zaad')).toBe('zaad');
+  });
+
+  it('formata sugestão de produto e catálogo vazio', () => {
+    expect(formatCatalogProductSuggestionLine('ZAAd', 'R$ 150,00', '2 unidades')).toContain('ZAAd');
+    expect(formatCatalogProductSuggestionLine('ZAAd', 'R$ 150,00', '2 unidades')).toContain('150');
+    expect(buildEmptyCatalogReply('Benhur')).toContain(CATALOG_EMPTY_REPLY_SUFFIX);
+    expect(buildEmptyCatalogReply('Benhur')).toContain('Benhur');
+  });
+
+  it('detecta variações de entrega', () => {
+    expect(detectDeliveryFulfillmentChoice('quero receber')).toBe(true);
+    expect(detectDeliveryFulfillmentChoice('mandar entregar')).toBe(true);
   });
 
   it('exige preço claro para venda automática', () => {

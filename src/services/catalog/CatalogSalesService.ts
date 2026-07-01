@@ -41,6 +41,8 @@ import {
   extractCatalogProductQueryToken,
   catalogTitleSimilarity,
   CATALOG_DELIVERY_CEP_REQUEST_MESSAGE,
+  buildEmptyCatalogReply,
+  formatCatalogProductSuggestionLine,
 } from '@/types/catalog-sales';
 import {
   estimateDeliveryFromAddresses,
@@ -299,10 +301,25 @@ export class CatalogSalesService {
       excludeTitle: opts.productName,
     });
     if (similar.length > 0) {
-      const lines = similar.map(r => `• *${r.title}*`).join('\n');
+      const lines = similar
+        .map(r =>
+          `• ${formatCatalogProductSuggestionLine(
+            r.title,
+            parseProductPriceFromContent(r.content ?? ''),
+            parseProductStockFromContent(r.content ?? ''),
+          )}`,
+        )
+        .join('\n');
       return (
         `${prefix}o produto *${opts.productName}* está sem estoque no momento. ` +
-        `Temos opções parecidas:\n${lines}\n\nQual você prefere?`
+        `Encontrei opções parecidas:\n${lines}\n\nQual você prefere?`
+      );
+    }
+    const rows = await this.loadCatalogProductRows(opts.clientId);
+    if (rows.length === 0) {
+      return (
+        `${prefix}o produto *${opts.productName}* está sem estoque no momento. ` +
+        'Digite *atendente* se quiser falar com nossa equipe.'
       );
     }
     return (
@@ -334,11 +351,17 @@ export class CatalogSalesService {
   async buildCatalogProductListReply(
     clientId: string,
     contactFirstName?: string,
-  ): Promise<string | null> {
+  ): Promise<string> {
     const rows = await this.loadCatalogProductRows(clientId);
-    if (rows.length === 0) return null;
+    if (rows.length === 0) return buildEmptyCatalogReply(contactFirstName);
     const prefix = contactFirstName?.trim() ? `${contactFirstName.trim()}, ` : '';
-    const lines = rows.slice(0, 8).map(r => `• *${r.title}*`).join('\n');
+    const lines = rows.slice(0, 8).map(r =>
+      `• ${formatCatalogProductSuggestionLine(
+        r.title,
+        parseProductPriceFromContent(r.content ?? ''),
+        parseProductStockFromContent(r.content ?? ''),
+      )}`,
+    ).join('\n');
     return (
       `${prefix}não encontrei esse produto no cadastro. Temos estes disponíveis:\n${lines}\n\n` +
       'Qual você gostaria de adquirir?'
@@ -349,15 +372,26 @@ export class CatalogSalesService {
     clientId: string;
     clientText: string;
     contactFirstName?: string;
-  }): Promise<string | null> {
+  }): Promise<string> {
+    const rows = await this.loadCatalogProductRows(opts.clientId);
+    if (rows.length === 0) return buildEmptyCatalogReply(opts.contactFirstName);
+
     const token = extractCatalogProductQueryToken(opts.clientText) ?? opts.clientText.trim();
     const similar = await this.findSimilarCatalogProducts(opts.clientId, token, 3);
     const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
     if (similar.length > 0) {
-      const lines = similar.map(r => `• *${r.title}*`).join('\n');
+      const lines = similar
+        .map(r =>
+          `• ${formatCatalogProductSuggestionLine(
+            r.title,
+            parseProductPriceFromContent(r.content ?? ''),
+            parseProductStockFromContent(r.content ?? ''),
+          )}`,
+        )
+        .join('\n');
       return (
-        `${prefix}não encontrei *${token}* no cadastro. Você quis dizer:\n${lines}\n\n` +
-        'Qual você gostaria de adquirir?'
+        `${prefix}não encontrei exatamente *${token}*, mas encontrei produtos parecidos:\n${lines}\n\n` +
+        'Deseja comprar algum deles?'
       );
     }
     return this.buildCatalogProductListReply(opts.clientId, opts.contactFirstName);
@@ -386,13 +420,14 @@ export class CatalogSalesService {
       lastAssistantReply: opts.lastAssistantReply,
     });
     if (!product) {
-      const list = await this.buildProductNotFoundReply({
-        clientId: opts.clientId,
-        clientText: opts.clientText,
-        contactFirstName: opts.contactFirstName,
-      });
-      if (list) return { handled: true, customerReply: list };
-      return { handled: false };
+      return {
+        handled: true,
+        customerReply: await this.buildProductNotFoundReply({
+          clientId: opts.clientId,
+          clientText: opts.clientText,
+          contactFirstName: opts.contactFirstName,
+        }),
+      };
     }
 
     const structured: AiStructuredReply = {
@@ -608,13 +643,11 @@ export class CatalogSalesService {
       lastAssistantReply: opts.lastAssistantReply,
     });
     if (!product) {
-      const list = await this.buildProductNotFoundReply({
+      return this.buildProductNotFoundReply({
         clientId: opts.clientId,
         clientText: opts.clientText,
         contactFirstName: opts.contactFirstName,
       });
-      if (list) return list;
-      return `${prefix}posso te ajudar com a compra! Qual produto você gostaria de adquirir?`;
     }
 
     const salesMeta = normalizeProductSalesMeta(product.salesMeta);

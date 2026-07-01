@@ -20,6 +20,19 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.51] - 2026-06-30
+
+### Added
+- Doc handoff GPT: `docs/concluidos/CATALOGO-IA-COMPRA-HANDOFF-GPT.md` (métodos, fluxo, QA, lacunas)
+- Sugestões de produto com **preço e estoque** na mensagem ao cliente
+- `buildEmptyCatalogReply` — catálogo vazio sem loop genérico
+
+### Fixed
+- `buildPurchaseRecoveryReply` usa catálogo vazio/similares em vez de *"Qual produto…"* em loop
+- Detecção de entrega: *quero receber*, *mandar entregar*
+
+---
+
 ## [2.17.50] - 2026-06-30
 
 ### Fixed
