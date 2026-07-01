@@ -3663,6 +3663,9 @@ export class DashboardService {
         const auth = (req as DashboardRequest).auth!;
         const classFilter = parseDestinationClassFilter(req.query.class as string | undefined);
         const registrationFilter = String(req.query.registration ?? 'approved').toLowerCase();
+        const waFilterRaw = req.query.wa as string | undefined;
+        const { parseWaRegistrationFilter } = await import('@/types/wa-registration');
+        const waFilter = parseWaRegistrationFilter(waFilterRaw);
         let findFilter: Record<string, unknown> = { clientId: auth.clientId };
         if (classFilter) {
           const ids = await findDestinationIdsMatchingClassification(
@@ -3687,7 +3690,18 @@ export class DashboardService {
                 if (registrationFilter === 'inbox_only') return st === 'inbox_only';
                 return st === 'approved' || !('crmRegistrationStatus' in d);
               });
-        const enriched = await enrichDestinationsWithClassification(crmFiltered);
+        const { matchesWaRegistrationFilter } = await import(
+          '@/services/destinations/wa-registration-validation.service'
+        );
+        const waFiltered =
+          waFilter == null
+            ? crmFiltered
+            : crmFiltered.filter(d => {
+                if (d.type === 'group') return waFilter !== 'not_on_whatsapp';
+                const st = (d as { waRegistrationStatus?: string }).waRegistrationStatus;
+                return matchesWaRegistrationFilter(st, waFilter);
+              });
+        const enriched = await enrichDestinationsWithClassification(waFiltered);
         res.json(
           enriched.map(d => ({
             ...d,
@@ -3699,6 +3713,9 @@ export class DashboardService {
             hasProfilePicture: Boolean(
               (d as { profilePictureMime?: string }).profilePictureMime?.startsWith('image/'),
             ),
+            waRegistrationStatus:
+              (d as { waRegistrationStatus?: string }).waRegistrationStatus ?? 'pending',
+            waCheckedAt: (d as { waCheckedAt?: Date }).waCheckedAt,
           })),
         );
       } catch (e) {
@@ -3850,6 +3867,74 @@ export class DashboardService {
           force: body.force === true,
         });
         res.json({ ok: true, ...result });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.get('/destinations/wa-registration-stats', requireCapability(Cap.CONSENT_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const { getWaRegistrationStats } = await import(
+          '@/services/destinations/wa-registration-validation.service'
+        );
+        res.json(await getWaRegistrationStats(auth.clientId));
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/destinations/sync-wa-registration', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as { limit?: number; destinationIds?: string[] };
+        const wa = WhatsAppService.getInstance();
+        if (!wa.isClientConnected(auth.clientId)) {
+          return res.status(409).json({
+            error: 'WhatsApp não conectado. Conecte em Sessões para validar números.',
+          });
+        }
+        const { clampWaRegistrationManualLimit } = await import(
+          '@/services/destinations/wa-registration-validation.service'
+        );
+        const result = await wa.syncDestinationWaRegistration(auth.clientId, {
+          limit: clampWaRegistrationManualLimit(body.limit),
+          destinationIds: body.destinationIds,
+        });
+        res.json({ ok: true, ...result });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.post('/destinations/revalidate-whatsapp', requireCapability(Cap.SEND_DESTINATION_MANAGE), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          destinationIds?: string[];
+          runNow?: boolean;
+          limit?: number;
+        };
+        const { requestWaRevalidation, syncWaRegistrationForClient, clampWaRegistrationManualLimit } =
+          await import('@/services/destinations/wa-registration-validation.service');
+        const { queued } = await requestWaRevalidation(auth.clientId, {
+          destinationIds: Array.isArray(body.destinationIds) ? body.destinationIds : undefined,
+        });
+
+        let syncResult:
+          | { verified: number; notOnWhatsApp: number; failed: number; skipped: number }
+          | undefined;
+        if (body.runNow !== false && queued > 0) {
+          const wa = WhatsAppService.getInstance();
+          if (wa.isClientConnected(auth.clientId)) {
+            syncResult = await syncWaRegistrationForClient(auth.clientId, {
+              limit: clampWaRegistrationManualLimit(body.limit),
+              destinationIds: body.destinationIds,
+            });
+          }
+        }
+
+        res.json({ ok: true, queued, sync: syncResult ?? null });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }
@@ -4256,6 +4341,13 @@ export class DashboardService {
             dest.contactGroupIds = validGroups.map(g => g._id as mongoose.Types.ObjectId);
           }
           await dest.save();
+          void WhatsAppService.getInstance()
+            .syncDestinationWaRegistration(auth.clientId, {
+              destinationIds: [String(dest._id)],
+              limit: 1,
+              allowFastSingle: true,
+            })
+            .catch(() => undefined);
         }
 
         res.json({

@@ -12,6 +12,7 @@ import type {
   PhoneQuality,
 } from '@/types/contact-classification';
 import type { CrmRegistrationStatus } from '@/types/inbound-registration-policy';
+import type { WaRegistrationStatus } from '@/types/wa-registration';
 
 const logger = createServiceLogger('DestinationModel');
 
@@ -87,6 +88,11 @@ export interface IDestination extends Document {
   temperature?: ContactTemperature;
   /** Qualidade do número (override manual; senão inferido) */
   phoneQuality?: PhoneQuality;
+  /** Checagem Baileys onWhatsApp — independente da foto de perfil */
+  waRegistrationStatus?: WaRegistrationStatus;
+  waCheckedAt?: Date;
+  /** JID canônico após onWhatsApp (variante BR / LID) */
+  waResolvedJid?: string;
   /**
    * Visibilidade na base CRM (/contact).
    * approved = lista normal; pending = aguarda dono; inbox_only = só Inbox técnico.
@@ -361,6 +367,12 @@ const DestinationSchema = new Schema<IDestination>({
     type: String,
     enum: ['verified', 'attention', 'invalid', 'no_whatsapp', 'duplicate', 'incomplete', 'international', 'suspicious'],
   },
+  waRegistrationStatus: {
+    type: String,
+    enum: ['pending', 'verified', 'not_on_whatsapp', 'check_failed'],
+  },
+  waCheckedAt: { type: Date },
+  waResolvedJid: { type: String, trim: true },
   crmRegistrationStatus: {
     type: String,
     enum: ['approved', 'pending', 'inbox_only'],
@@ -510,6 +522,7 @@ DestinationSchema.statics.createDestination = async function(
     consentStatus: isGroup ? ConsentStatus.ACCEPTED : ConsentStatus.PENDING,
     pendingOutboundCount: 0,
     isActive: true,
+    ...(isGroup ? {} : { waRegistrationStatus: 'pending' as const }),
   });
   
   await destination.save();

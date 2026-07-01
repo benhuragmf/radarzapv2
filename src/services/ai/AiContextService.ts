@@ -2,6 +2,13 @@ import mongoose from 'mongoose';
 import type { IDestination } from '@/models/Destination';
 import type { IAiConversationState } from '@/models/AiConversationState';
 import type { IAiPrompt } from '@/models/AiPrompt';
+import { InboxConversation } from '@/models/InboxConversation';
+import { textLooksLikeGreetingOrNonName } from '@/utils/ai-kb-client.util';
+import {
+  maskContactDisplayName,
+  resolveRegistryNameFromDestination,
+  shouldReconfirmContactName,
+} from '@/utils/ai-name-confirm.util';
 import { resolveContactAddress } from '@/utils/contact-address.util';
 import { listClientFacingTickets } from '@/services/inbox/client-ticket-list';
 
@@ -35,12 +42,12 @@ export class AiContextService {
   ): Promise<AiContactContext> {
     const tickets = await listClientFacingTickets(clientId, dest._id as mongoose.Types.ObjectId);
 
-    const name = dest.name?.trim() || undefined;
+    const name = resolveRegistryNameFromDestination(dest);
     const email = dest.email?.trim() || undefined;
     const address = resolveContactAddress(dest);
 
     return {
-      name: name && name !== dest.identifier ? name : undefined,
+      name,
       email,
       address,
       phone: dest.identifier,
@@ -53,7 +60,7 @@ export class AiContextService {
         status: t.status,
       })),
       knownFields: {
-        name: Boolean(name && name !== dest.identifier),
+        name: Boolean(name),
         email: Boolean(email?.includes('@')),
         address: Boolean(address && address.length >= 20),
       },
@@ -113,10 +120,71 @@ export class AiContextService {
 
   buildNameConfirmationPrompt(registryName?: string): string {
     if (registryName?.trim()) {
-      const first = registryName.trim().split(/\s+/)[0];
-      return `Para confirmar que estou falando com a pessoa certa, você é *${first}*? Responda *sim* ou informe seu nome.`;
+      const masked = maskContactDisplayName(registryName);
+      return `Me confirme seu nome: você é o *${masked}*? Pra continuar, confirme seu nome!`;
     }
     return 'Para começar, qual é o seu *nome completo*?';
+  }
+
+  /** Último contato anterior a esta conversa (Inbox). */
+  async getLastContactAt(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+    excludeConversationId?: mongoose.Types.ObjectId,
+  ): Promise<Date | null> {
+    const filter: Record<string, unknown> = {
+      clientId: new mongoose.Types.ObjectId(clientId),
+      destinationId,
+    };
+    if (excludeConversationId) {
+      filter._id = { $ne: excludeConversationId };
+    }
+    const last = await InboxConversation.findOne(filter)
+      .sort({ lastMessageAt: -1, createdAt: -1 })
+      .select('lastMessageAt createdAt')
+      .lean();
+    if (!last) return null;
+    return last.lastMessageAt ?? last.createdAt ?? null;
+  }
+
+  /** Contato recente (<30d) com nome no cadastro — não precisa reconfirmar. */
+  async shouldAutoConfirmRegistryName(
+    clientId: string,
+    destinationId: mongoose.Types.ObjectId,
+    registryName: string | undefined,
+    excludeConversationId?: mongoose.Types.ObjectId,
+  ): Promise<boolean> {
+    if (!registryName?.trim()) return false;
+    const lastAt = await this.getLastContactAt(clientId, destinationId, excludeConversationId);
+    return !shouldReconfirmContactName(lastAt);
+  }
+
+  async tryAutoConfirmKnownContact(
+    state: IAiConversationState,
+    opts: {
+      clientId: string;
+      destinationId: mongoose.Types.ObjectId;
+      conversationId: mongoose.Types.ObjectId;
+      registryName?: string;
+    },
+  ): Promise<boolean> {
+    if (state.nameConfirmed) return true;
+    const registry = opts.registryName?.trim();
+    if (!registry) return false;
+
+    const recent = await this.shouldAutoConfirmRegistryName(
+      opts.clientId,
+      opts.destinationId,
+      registry,
+      opts.conversationId,
+    );
+    if (!recent) return false;
+
+    state.collectedName = registry;
+    state.nameConfirmed = true;
+    if (!state.registryNameSnapshot) state.registryNameSnapshot = registry;
+    await state.save();
+    return true;
   }
 
   buildEmailCollectionPrompt(name?: string): string {
@@ -202,7 +270,7 @@ export class AiContextService {
   private textLooksLikePersonName(text: string): boolean {
     const t = text.trim();
     if (!t || t.includes('@') || /\d/.test(t)) return false;
-    if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|sim|nao|não)$/i.test(t)) return false;
+    if (textLooksLikeGreetingOrNonName(t)) return false;
     const words = t.split(/\s+/).filter(Boolean);
     return words.length <= 4 && t.length <= 60;
   }

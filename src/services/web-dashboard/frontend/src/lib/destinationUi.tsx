@@ -21,6 +21,7 @@ import { formatContactIdentifier } from './destinationFormat'
 import { ContactAvatar } from '../components/contacts/ContactAvatar'
 import { ContactClassificationBadges } from '../components/contacts/ContactClassificationBadges'
 import { ContactCrmRegistrationBadges } from '../components/contacts/ContactCrmRegistrationBadges'
+import { ContactWaRegistrationBadge } from '../components/contacts/ContactWaRegistrationBadge'
 import { ContactExtraMeta } from './contactMetaUi'
 import type { ContactClassificationView } from './contactClassificationUi'
 
@@ -52,6 +53,8 @@ export interface Destination {
   commercialStatus?: string
   temperature?: string
   crmRegistrationStatus?: 'approved' | 'pending' | 'inbox_only' | string
+  waRegistrationStatus?: 'pending' | 'verified' | 'not_on_whatsapp' | 'check_failed' | string
+  waCheckedAt?: string
 }
 
 export { inputCls, selectCls, textareaCls } from '@/design-system/formClasses'
@@ -221,6 +224,9 @@ export function DestinationRow({
             <p className="text-xs text-[var(--rz-text-muted)] font-mono mt-0.5 truncate">
               {d.type === 'contact' ? formatContactIdentifier(d.identifier, d.name) : d.identifier}
             </p>
+            {d.type === 'contact' && (
+              <ContactWaRegistrationBadge status={d.waRegistrationStatus} compact />
+            )}
             {d.type === 'contact' && d.classification && (
               <ContactClassificationBadges classification={d.classification} compact />
             )}

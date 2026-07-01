@@ -75,9 +75,18 @@ export default function Destinations() {
     | 'blocked'
     | null
   const classParam = searchParams.get('class')
+  const waParam = searchParams.get('wa')
   const classificationFilter: ContactClassificationFilterKey | null =
     classParam && CLASSIFICATION_FILTER_KEYS.includes(classParam as ContactClassificationFilterKey)
       ? (classParam as ContactClassificationFilterKey)
+      : null
+  const waFilter =
+    waParam === 'not_on_whatsapp' ||
+    waParam === 'pending' ||
+    waParam === 'verified' ||
+    waParam === 'check_failed' ||
+    waParam === 'needs_check'
+      ? waParam
       : null
   const isWaitingView = consentFilter === 'waiting'
   const isDiscord = pathname.startsWith('/discord/contact')
@@ -149,14 +158,33 @@ export default function Destinations() {
   const canApproveRenewal = can(me ?? null, 'consent:approve-renewal')
 
   const { data: destinations = [], isLoading } = useQuery<Destination[]>({
-    queryKey: ['destinations', classificationFilter ?? 'all'],
-    queryFn: () =>
-      api.get(
-        classificationFilter
-          ? `/destinations?class=${encodeURIComponent(classificationFilter)}`
-          : '/destinations',
-      ),
+    queryKey: ['destinations', classificationFilter ?? 'all', waFilter ?? 'all'],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (classificationFilter) params.set('class', classificationFilter)
+      if (waFilter) params.set('wa', waFilter)
+      const qs = params.toString()
+      return api.get(qs ? `/destinations?${qs}` : '/destinations')
+    },
     refetchInterval: 30_000,
+  })
+
+  const { data: waRegistrationStats } = useQuery<{
+    pending: number
+    verified: number
+    not_on_whatsapp: number
+    check_failed: number
+    totalContacts: number
+    queueSize: number
+    estimatedHoursRemaining: number
+    estimatedCompletionLabel: string
+    paceHint: string
+    contactsPerHour: number
+  }>({
+    queryKey: ['destinations-wa-registration-stats'],
+    queryFn: () => api.get('/destinations/wa-registration-stats'),
+    enabled: !isDiscord,
+    refetchInterval: 45_000,
   })
 
   const { data: classificationStats } = useQuery<{
@@ -198,6 +226,46 @@ export default function Destinations() {
     },
   })
 
+  const syncWaRegistration = useMutation({
+    mutationFn: (payload: { limit?: number; destinationIds?: string[] }) =>
+      api.post<{ verified: number; notOnWhatsApp: number; failed: number; skipped: number }>(
+        '/destinations/sync-wa-registration',
+        payload,
+      ),
+    onSuccess: () => {
+      invalidateContacts()
+      void qc.invalidateQueries({ queryKey: ['destinations-wa-registration-stats'] })
+    },
+    onError: (err: Error) => {
+      if (!err.message.includes('não conectado')) notifyError(err.message)
+    },
+  })
+
+  const revalidateWhatsApp = useMutation({
+    mutationFn: (payload: { destinationIds?: string[]; runNow?: boolean; limit?: number }) =>
+      api.post<{
+        queued: number
+        sync: { verified: number; notOnWhatsApp: number; failed: number } | null
+      }>('/destinations/revalidate-whatsapp', payload),
+    onSuccess: (result) => {
+      invalidateContacts()
+      void qc.invalidateQueries({ queryKey: ['destinations-wa-registration-stats'] })
+      const s = result.sync
+      if (s) {
+        notifySuccess(
+          `Revalidação (até 3 por vez): ${s.verified} no WhatsApp, ${s.notOnWhatsApp} sem WhatsApp, ${s.failed} falha(s). A fila segue em ritmo gradual.`,
+        )
+      } else if (result.queued > 0) {
+        notifyInfo(
+          `${result.queued} contato(s) na fila. Validação gradual (~1.000 números em até 24 h) — envio bloqueado até cada checagem.`,
+        )
+      } else {
+        notifyInfo('Nenhum contato elegível para revalidação.')
+      }
+    },
+    onError: mutationError,
+  })
+
   const { data: contactGroups = [], isLoading: loadingGroups } = useQuery<ContactGroupItem[]>({
     queryKey: ['contact-groups'],
     queryFn: () => api.get('/contact-groups'),
@@ -207,6 +275,7 @@ export default function Destinations() {
   const invalidateContacts = () => {
     void qc.invalidateQueries({ queryKey: ['destinations'] })
     void qc.invalidateQueries({ queryKey: ['destinations-classification-stats'] })
+    void qc.invalidateQueries({ queryKey: ['destinations-wa-registration-stats'] })
     void qc.invalidateQueries({ queryKey: ['contact-groups'] })
   }
 
@@ -385,6 +454,22 @@ export default function Destinations() {
     else p.delete('class')
     const qs = p.toString()
     navigate({ pathname: basePath, search: qs ? `?${qs}` : '' })
+  }
+
+  const setWaFilter = (key: typeof waFilter) => {
+    const p = new URLSearchParams(searchParams)
+    if (key) p.set('wa', key)
+    else p.delete('wa')
+    const qs = p.toString()
+    navigate({ pathname: basePath, search: qs ? `?${qs}` : '' })
+  }
+
+  const waFilterLabels: Record<string, string> = {
+    not_on_whatsapp: 'Sem WhatsApp',
+    pending: 'Aguardando validação',
+    needs_check: 'Aguardando validação',
+    verified: 'No WhatsApp',
+    check_failed: 'Falha na checagem',
   }
 
   function matchesConsentFilter(d: Destination): boolean {
@@ -620,6 +705,96 @@ export default function Destinations() {
         </p>
       )}
 
+      {!isDiscord && waFilter && (
+        <p className="text-xs text-brand-400/90">
+          Filtro WhatsApp: <strong>{waFilterLabels[waFilter] ?? waFilter}</strong>
+          {' · '}
+          <button
+            type="button"
+            className="underline hover:text-brand-300"
+            onClick={() => setWaFilter(null)}
+          >
+            Ver todos
+          </button>
+        </p>
+      )}
+
+      {!isDiscord && waRegistrationStats && waRegistrationStats.queueSize > 0 && (
+        <Card className="border-amber-800/40 bg-amber-950/20 p-4">
+          <div className="flex gap-3">
+            <AlertCircle className="shrink-0 text-amber-400 mt-0.5" size={18} />
+            <div className="space-y-1 text-sm">
+              <p className="font-medium text-amber-100/95">Validação de números em andamento</p>
+              <p className="text-[var(--rz-text-muted)] text-xs leading-relaxed">
+                {waRegistrationStats.queueSize} contato(s) na fila
+                {waRegistrationStats.estimatedCompletionLabel
+                  ? ` — tempo estimado: ${waRegistrationStats.estimatedCompletionLabel}`
+                  : ''}
+                . Ritmo seguro de ~{waRegistrationStats.contactsPerHour} número(s)/hora
+                (referência: 1.000 contatos em até 24 h).{' '}
+                <strong className="text-amber-200/90 font-normal">
+                  Nenhum envio é liberado antes da checagem de cada número no WhatsApp.
+                </strong>
+              </p>
+              {!waConnected && (
+                <p className="text-xs text-amber-300/80">
+                  Conecte o WhatsApp em Sessões para a fila avançar.
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {!isDiscord && waRegistrationStats && (waRegistrationStats.not_on_whatsapp > 0 || waRegistrationStats.pending > 0) && (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {waRegistrationStats.pending > 0 && (
+            <button
+              type="button"
+              onClick={() => setWaFilter(waFilter === 'needs_check' ? null : 'needs_check')}
+              className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
+                waFilter === 'needs_check' || waFilter === 'pending'
+                  ? 'border-[var(--rz-primary)] bg-[var(--rz-primary)]/10'
+                  : 'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20 hover:border-[var(--rz-primary)]/40'
+              }`}
+            >
+              <span className="text-[var(--rz-text-muted)]">Aguardando validação</span>
+              <span className="ml-2 font-semibold tabular-nums">{waRegistrationStats.pending}</span>
+            </button>
+          )}
+          {waRegistrationStats.not_on_whatsapp > 0 && (
+            <button
+              type="button"
+              onClick={() => setWaFilter(waFilter === 'not_on_whatsapp' ? null : 'not_on_whatsapp')}
+              className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
+                waFilter === 'not_on_whatsapp'
+                  ? 'border-red-500/60 bg-red-950/20'
+                  : 'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20 hover:border-red-500/40'
+              }`}
+            >
+              <span className="text-[var(--rz-text-muted)]">Sem WhatsApp</span>
+              <span className="ml-2 font-semibold tabular-nums text-red-300/90">
+                {waRegistrationStats.not_on_whatsapp}
+              </span>
+            </button>
+          )}
+          {waRegistrationStats.check_failed > 0 && (
+            <button
+              type="button"
+              onClick={() => setWaFilter(waFilter === 'check_failed' ? null : 'check_failed')}
+              className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
+                waFilter === 'check_failed'
+                  ? 'border-orange-500/50 bg-orange-950/20'
+                  : 'border-[var(--rz-border)] bg-[var(--rz-surface-muted)]/20'
+              }`}
+            >
+              <span className="text-[var(--rz-text-muted)]">Falha na checagem</span>
+              <span className="ml-2 font-semibold tabular-nums">{waRegistrationStats.check_failed}</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {!isDiscord && !isWaitingView && classificationFilterSummary && (
         <ContactClassificationFilterBar
           summary={classificationFilterSummary}
@@ -712,6 +887,36 @@ export default function Destinations() {
                 <Button
                   size="sm"
                   variant="ghost"
+                  disabled={syncWaRegistration.isPending || revalidateWhatsApp.isPending}
+                  onClick={() => {
+                    if (selectedIds.size > 0) {
+                      revalidateWhatsApp.mutate({
+                        destinationIds: [...selectedIds],
+                        runNow: true,
+                      })
+                      return
+                    }
+                    revalidateWhatsApp.mutate({ runNow: true })
+                  }}
+                  title={
+                    waConnected
+                      ? selectedIds.size > 0
+                        ? 'Revalidar contatos selecionados no WhatsApp'
+                        : 'Revalidar números marcados como sem WhatsApp ou com falha'
+                      : 'Requer WhatsApp conectado'
+                  }
+                >
+                  <RefreshCw
+                    size={12}
+                    className={
+                      syncWaRegistration.isPending || revalidateWhatsApp.isPending ? 'animate-spin' : ''
+                    }
+                  />{' '}
+                  {revalidateWhatsApp.isPending ? 'Revalidando…' : 'Revalidar WhatsApp'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
                   disabled={syncProfilePhotos.isPending}
                   onClick={() => {
                     syncProfilePhotos.mutate({ limit: 60, force: true }, {
@@ -752,8 +957,8 @@ export default function Destinations() {
       <div className="flex flex-col gap-3 -mt-1">
         {!isDiscord && waConnected && allContacts.length > 0 && (
           <p className="text-[11px] text-[var(--rz-text-muted)]">
-            Fotos de perfil são sincronizadas automaticamente pelo servidor em lotes
-            pequenos — não precisa manter esta página aberta.
+            Números e fotos são validados/sincronizados automaticamente em lotes pelo servidor —
+            não precisa manter esta página aberta.
           </p>
         )}
         {!isDiscord && !waConnected && allContacts.length > 0 && (
@@ -762,7 +967,7 @@ export default function Destinations() {
             <Link to="/sessions" className="text-brand-400 hover:underline">
               Sessões
             </Link>{' '}
-            para o servidor sincronizar fotos de perfil em background.
+            para validar números e sincronizar fotos em background.
           </p>
         )}
       </div>

@@ -188,6 +188,13 @@ export async function importCanonicalContacts(
     erros: report.erros.length,
   });
 
+  if (report.criados > 0 || report.atualizados > 0) {
+    logger.info('Importação enfileirada para validação WhatsApp em ritmo gradual (~1000/24h)', {
+      clientId,
+      novos: report.criados,
+    });
+  }
+
   return report;
 }
 

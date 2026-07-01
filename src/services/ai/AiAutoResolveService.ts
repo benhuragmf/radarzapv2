@@ -2,6 +2,10 @@ import { AiKnowledgeBaseService } from './AiKnowledgeBaseService';
 import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
 import { AI_AUTO_RESOLVE_MIN_SCORE, scoreAiTextMatch } from '@/utils/ai-text-match';
+import {
+  looksLikePurchaseInquiry,
+  sanitizeKnowledgeBaseContentForClient,
+} from '@/utils/ai-kb-client.util';
 import { sanitizeWebChatActionLinks } from '@/utils/webchat-safe-url.util';
 import type { WebChatActionLink } from '@/types/webchat';
 
@@ -37,6 +41,8 @@ export class AiAutoResolveService {
     }
 
     if (/^(sim|nao|não|s|ss|ok|isso|confirmo|correto)$/i.test(query)) return false;
+
+    if (looksLikePurchaseInquiry(query, threadContext)) return false;
 
     const techKeywords =
       /\b(n[aã]o conecta|aplicativo|app|erro|instala[cç][aã]o|configurar|offline|equipamento|sinal|gps|cobran[cç]a|boleto|pagamento|rastreador|rastreadores|parou)\b/i;
@@ -190,7 +196,7 @@ export class AiAutoResolveService {
   private formatReply(body: string, title: string, links?: WebChatActionLink[]): string {
     const validLinks = sanitizeWebChatActionLinks(links ?? []);
     const trimmed = [
-      body.trim(),
+      sanitizeKnowledgeBaseContentForClient(body),
       validLinks.length
         ? `Links úteis:\n${validLinks.map(link => `- ${link.label}: ${link.url}`).join('\n')}`
         : '',

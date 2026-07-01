@@ -421,6 +421,9 @@ export class ConsentService {
       consentStatus: ConsentStatus.ACCEPTED,
       isActive: true,
       crmRegistrationStatus: actions.crmStatus,
+      waRegistrationStatus: 'verified',
+      waCheckedAt: new Date(),
+      phoneQuality: 'verified',
       consent: {
         granted: true,
         grantedAt: new Date(),

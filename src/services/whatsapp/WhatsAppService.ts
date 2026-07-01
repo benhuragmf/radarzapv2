@@ -72,6 +72,10 @@ import {
   userPartFromJid,
 } from '@/utils/whatsapp-phone';
 import { StatusViewService } from '@/services/send/StatusViewService';
+import {
+  WA_REGISTRATION_BACKGROUND_BATCH,
+  WA_REGISTRATION_INTERVAL_MS,
+} from '@/types/wa-registration';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -126,6 +130,9 @@ export class WhatsAppService {
   private profilePictureSyncInterval: NodeJS.Timeout | null = null;
   private profilePictureSyncRunning = false;
   private profilePictureSyncClientCursor = 0;
+  private waRegistrationSyncInterval: NodeJS.Timeout | null = null;
+  private waRegistrationSyncRunning = false;
+  private waRegistrationSyncClientCursor = 0;
   private autoReconnectInterval: NodeJS.Timeout | null = null;
   /** Evita múltiplos createWhatsAppSession simultâneos (causa erro 440) */
   private reconnectingClients = new Set<string>();
@@ -1115,6 +1122,12 @@ export class WhatsAppService {
     if (!destinationDoc) {
       throw new Error('Destination not found or not configured');
     }
+
+    const { assertWaRegistrationSendAllowed } = await import(
+      '@/services/destinations/wa-registration-validation.service'
+    );
+    const waRegErr = assertWaRegistrationSendAllowed(destinationDoc);
+    if (waRegErr) throw new Error(waRegErr);
 
     const jid = this.formatJid(destination, 'contact');
     let resolvedJid = jid;
@@ -2154,6 +2167,9 @@ export class WhatsAppService {
       // Fotos de perfil em background (lotes pequenos, não bloqueia envios)
       this.setupProfilePictureBackgroundSync();
 
+      // Validação onWhatsApp em background (cadastro/import)
+      this.setupWaRegistrationBackgroundSync();
+
       // Sessão WA antes dos workers — evita jobs falhando sem socket no Map
       await this.restoreExistingSessions();
 
@@ -2193,6 +2209,11 @@ export class WhatsAppService {
       if (this.profilePictureSyncInterval) {
         clearInterval(this.profilePictureSyncInterval);
         this.profilePictureSyncInterval = null;
+      }
+
+      if (this.waRegistrationSyncInterval) {
+        clearInterval(this.waRegistrationSyncInterval);
+        this.waRegistrationSyncInterval = null;
       }
 
       if (this.autoReconnectInterval) {
@@ -2369,6 +2390,99 @@ export class WhatsAppService {
     }, INITIAL_DELAY_MS);
 
     this.serviceLogger.info('✅ Profile picture background sync scheduled');
+  }
+
+  /**
+   * Valida números no WhatsApp (onWhatsApp) — ritmo ~1000/24h por cliente.
+   */
+  private setupWaRegistrationBackgroundSync(): void {
+    const INTERVAL_MS = WA_REGISTRATION_INTERVAL_MS;
+    const BATCH_SIZE = WA_REGISTRATION_BACKGROUND_BATCH;
+    const INITIAL_DELAY_MS = 45_000;
+
+    const tick = async (): Promise<void> => {
+      if (this.waRegistrationSyncRunning) return;
+
+      const connected = Array.from(this.sessions.keys()).filter(id =>
+        this.isClientConnected(id),
+      );
+      if (connected.length === 0) return;
+
+      this.waRegistrationSyncRunning = true;
+      try {
+        const idx = this.waRegistrationSyncClientCursor % connected.length;
+        this.waRegistrationSyncClientCursor += 1;
+        const clientId = connected[idx]!;
+        const { syncWaRegistrationForClient } = await import(
+          '@/services/destinations/wa-registration-validation.service'
+        );
+        await syncWaRegistrationForClient(clientId, { limit: BATCH_SIZE });
+      } catch (error) {
+        this.serviceLogger.warn('Background WA registration sync failed:', error);
+      } finally {
+        this.waRegistrationSyncRunning = false;
+      }
+    };
+
+    setTimeout(() => {
+      tick().catch(error => {
+        this.serviceLogger.warn('Initial WA registration sync failed:', error);
+      });
+      this.waRegistrationSyncInterval = setInterval(() => {
+        tick().catch(error => {
+          this.serviceLogger.warn('Scheduled WA registration sync failed:', error);
+        });
+      }, INTERVAL_MS);
+    }, INITIAL_DELAY_MS);
+
+    this.serviceLogger.info('✅ WA registration background sync scheduled');
+  }
+
+  /** Checa se o número existe no WhatsApp (variantes BR). */
+  async checkContactOnWhatsApp(
+    clientId: string,
+    identifier: string,
+  ): Promise<{ exists: boolean; jid?: string }> {
+    const socket = this.sessions.get(String(clientId));
+    if (!socket?.user) {
+      return { exists: false };
+    }
+
+    const plainDigits = this.plainWhatsAppId(identifier);
+    const { brazilPhoneLookupVariants } = await import('@/utils/whatsapp-phone');
+    const lookup = brazilPhoneLookupVariants(plainDigits);
+    const phones = lookup.length > 0 ? lookup : plainDigits ? [plainDigits] : [];
+
+    if (phones.length === 0) {
+      return { exists: false };
+    }
+
+    try {
+      const results = await socket.onWhatsApp(...phones);
+      for (const r of results ?? []) {
+        if (r?.exists && r.jid) {
+          return { exists: true, jid: r.jid };
+        }
+      }
+      return { exists: false };
+    } catch (err) {
+      this.serviceLogger.warn(`checkContactOnWhatsApp falhou para ${identifier}`, err);
+      return { exists: false };
+    }
+  }
+
+  async syncDestinationWaRegistration(
+    clientId: string,
+    options: {
+      limit?: number;
+      destinationIds?: string[];
+      allowFastSingle?: boolean;
+    } = {},
+  ): Promise<{ verified: number; notOnWhatsApp: number; failed: number; skipped: number }> {
+    const { syncWaRegistrationForClient } = await import(
+      '@/services/destinations/wa-registration-validation.service'
+    );
+    return syncWaRegistrationForClient(clientId, options);
   }
 
   /**
@@ -3421,6 +3535,18 @@ export class WhatsAppService {
       const destinationDoc = await Destination.findByIdentifier(destination, clientObjectId);
       if (!destinationDoc) {
         throw new Error('Destination not found or not configured');
+      }
+
+      if (
+        destinationDoc.type === 'contact' &&
+        data.internalAlert !== true &&
+        data.skipWaRegistrationCheck !== true
+      ) {
+        const { assertWaRegistrationSendAllowed } = await import(
+          '@/services/destinations/wa-registration-validation.service'
+        );
+        const waRegErr = assertWaRegistrationSendAllowed(destinationDoc);
+        if (waRegErr) throw new Error(waRegErr);
       }
 
       if (!data.skipConsentCheck) {

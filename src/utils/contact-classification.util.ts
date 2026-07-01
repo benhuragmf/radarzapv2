@@ -11,6 +11,7 @@ import {
   type PhoneQuality,
   type SendPermission,
 } from '@/types/contact-classification';
+import { WA_REGISTRATION_PACE_HINT } from '@/types/wa-registration';
 
 function isValidE164Phone(value: string): boolean {
   const trimmed = value.trim();
@@ -134,6 +135,8 @@ function resolvePhoneQuality(
   stored?: PhoneQuality,
 ): PhoneQuality {
   if (stored) return stored;
+  const waSt = dest.waRegistrationStatus;
+  if (waSt === 'not_on_whatsapp') return 'no_whatsapp';
   if (duplicateIds.has(String(dest._id))) return 'duplicate';
   const id = dest.identifier?.trim() ?? '';
   if (!id || !isValidE164Phone(id.startsWith('+') ? id : `+${id.replace(/\D/g, '')}`)) {
@@ -143,9 +146,24 @@ function resolvePhoneQuality(
   }
   const digits = id.replace(/\D/g, '');
   if (digits && !digits.startsWith('55') && digits.length >= 10) return 'international';
+  if (waSt === 'verified') return 'verified';
   if (dest.hasProfilePicture || dest.phoneType === 'whatsapp') return 'verified';
   if (dest.pendingOutboundCount && dest.pendingOutboundCount >= 2) return 'attention';
+  if (!waSt || waSt === 'pending' || waSt === 'check_failed') return 'attention';
   return 'attention';
+}
+
+function waRegistrationBlockReason(status?: string): string | undefined {
+  if (!status || status === 'pending') {
+    return `Aguardando validação no WhatsApp — envio bloqueado. ${WA_REGISTRATION_PACE_HINT}`;
+  }
+  if (status === 'check_failed') {
+    return `Falha na validação WhatsApp — reconecte ou revalide em Contatos. ${WA_REGISTRATION_PACE_HINT}`;
+  }
+  if (status === 'not_on_whatsapp') {
+    return 'Número não cadastrado no WhatsApp';
+  }
+  return undefined;
 }
 
 function sendBlockReason(
@@ -154,11 +172,15 @@ function sendBlockReason(
   kind: ContactKind,
   consentSt: ConsentStatus,
   pendingOutboundCount: number,
+  waRegistrationStatus?: string,
 ): string | undefined {
+  const waBlock = waRegistrationBlockReason(waRegistrationStatus);
+  if (waBlock) return waBlock;
   if (phoneQuality === 'invalid' || phoneQuality === 'incomplete') {
     return 'Telefone inválido ou incompleto';
   }
   if (phoneQuality === 'duplicate') return 'Número duplicado no cadastro';
+  if (phoneQuality === 'no_whatsapp') return 'Número não cadastrado no WhatsApp';
   if (kind === 'internal') return 'Contato interno / equipe — não use em campanha';
   if (kind === 'partner') return 'Fornecedor / parceiro — campanha comum bloqueada';
   if (kind === 'blocked' || permission === 'blocked') return 'Bloqueado internamente';
@@ -180,8 +202,9 @@ function campaignSelectable(
   kind: ContactKind,
   consentSt: ConsentStatus,
   pendingOutboundCount: number,
+  waRegistrationStatus?: string,
 ): boolean {
-  if (sendBlockReason(permission, phoneQuality, kind, consentSt, pendingOutboundCount)) {
+  if (sendBlockReason(permission, phoneQuality, kind, consentSt, pendingOutboundCount, waRegistrationStatus)) {
     if (permission === 'pending' && canSendPendingAttempt(consentSt, pendingOutboundCount)) {
       return true;
     }
@@ -228,8 +251,22 @@ export function buildContactClassification(
     dest.temperature ?? mapLeadTemperature(lead?.temperature, dest.tags);
   const phoneQuality = resolvePhoneQuality(dest, duplicateIds, dest.phoneQuality);
 
-  const blockReason = sendBlockReason(permission, phoneQuality, kind, consentSt, pending);
-  const selectable = campaignSelectable(permission, phoneQuality, kind, consentSt, pending);
+  const blockReason = sendBlockReason(
+    permission,
+    phoneQuality,
+    kind,
+    consentSt,
+    pending,
+    dest.waRegistrationStatus,
+  );
+  const selectable = campaignSelectable(
+    permission,
+    phoneQuality,
+    kind,
+    consentSt,
+    pending,
+    dest.waRegistrationStatus,
+  );
 
   return {
     kind,

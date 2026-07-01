@@ -59,6 +59,12 @@ import {
 } from '@/utils/ticket-ref';
 import { parseTicketStatusRequest } from '@/types/inbox-ticket';
 import { logger } from '@/utils/logger';
+import {
+  looksLikePurchaseInquiry,
+  resolveClientFirstName,
+  textLooksLikeGreetingOrNonName,
+} from '@/utils/ai-kb-client.util';
+import { resolveRegistryNameFromDestination } from '@/utils/ai-name-confirm.util';
 
 export interface AiInboundResult {
   /** IA processou a mensagem (não chamar bot padrão). */
@@ -140,10 +146,10 @@ export class AiConversationService {
     }
 
     const prompt = await AiPromptBuilderService.getInstance().getOrCreatePrompt(ctx.clientId);
-    const contactCtx = prompt.useSystemContext
-      ? await AiContextService.getInstance().buildContactContext(ctx.clientId, ctx.dest)
-      : undefined;
-    AiContextService.getInstance().seedStateFromContact(state, contactCtx ?? { tags: [], knownFields: { name: false, email: false, address: false }, recentTickets: [] }, prompt);
+    const ctxSvc = AiContextService.getInstance();
+    const contactCtxForCollection = await ctxSvc.buildContactContext(ctx.clientId, ctx.dest);
+    const contactCtx = prompt.useSystemContext ? contactCtxForCollection : undefined;
+    AiContextService.getInstance().seedStateFromContact(state, contactCtxForCollection, prompt);
 
     const hasUninterpretableMedia =
       ctx.hasMedia && (!ctx.text.trim() || ['audio', 'image', 'document', 'video'].includes(ctx.mediaType ?? ''));
@@ -171,7 +177,7 @@ export class AiConversationService {
     if (ctx.isNew && !ctx.text.trim()) {
       const greeting = await AiPromptBuilderService.getInstance().buildGreeting(
         ctx.clientId,
-        contactCtx,
+        contactCtxForCollection,
       );
       await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, greeting);
       state.status = AiConversationStatus.AI_WAITING_CLIENT;
@@ -205,10 +211,6 @@ export class AiConversationService {
       state.repeatedQuestionCount = 0;
       state.lastClientMessage = normalized;
     }
-
-    const ctxSvc = AiContextService.getInstance();
-    const contactCtxForCollection =
-      contactCtx ?? { tags: [], knownFields: { name: false, email: false, address: false }, recentTickets: [] };
 
     if (await this.ensureNameConfirmed(ctx, inbox, state, prompt, contactCtxForCollection, ctxSvc)) {
       return { handled: true };
@@ -252,6 +254,7 @@ export class AiConversationService {
       prompt.autoResolveEnabled &&
       state.nameConfirmed &&
       this.textLooksLikeProblemDescription(ctx.text) &&
+      !looksLikePurchaseInquiry(ctx.text, threadContext) &&
       autoResolveSvc.shouldAttemptAutoResolve(ctx.text, threadContext)
     ) {
       const auto = await autoResolveSvc.tryResolve(ctx.clientId, ctx.text, { threadContext });
@@ -761,6 +764,7 @@ export class AiConversationService {
     const threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
     if (
       !this.textLooksLikeProblemDescription(ctx.text) ||
+      looksLikePurchaseInquiry(ctx.text, threadContext) ||
       !autoResolveSvc.shouldAttemptAutoResolve(ctx.text, threadContext)
     ) {
       return false;
@@ -806,10 +810,35 @@ export class AiConversationService {
       return { handled: true };
     }
 
+    const threadContext = [state.collectedProblem, state.summary].filter(Boolean).join(' ');
+    if (looksLikePurchaseInquiry(ctx.text, threadContext)) {
+      const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+      const purchaseReply = await CatalogSalesService.getInstance().buildPurchaseRecoveryReply({
+        clientId: ctx.clientId,
+        conversationId: String(ctx.conversation._id),
+        clientText: ctx.text,
+        threadContext,
+        contactFirstName: resolveClientFirstName(state.collectedName),
+      });
+      if (purchaseReply) {
+        await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, purchaseReply);
+        state.status = AiConversationStatus.AI_WAITING_CLIENT;
+        state.shouldEscalate = false;
+        await state.save();
+        await this.syncConversationAi(
+          inbox,
+          ctx.clientId,
+          ctx.conversation._id as mongoose.Types.ObjectId,
+          'ai_waiting_client',
+        );
+        return { handled: true };
+      }
+    }
+
     const ticketSaved =
       ticketSavedEarly || (await this.tryTicketUpdateFromClient(ctx, state, emptyAiStructuredReply(), inbox));
 
-    const first = state.collectedName?.trim().split(/\s+/)[0];
+    const first = resolveClientFirstName(state.collectedName);
     const reply = ticketSaved && state.targetTicketRef
       ? this.buildTicketSavedRecoveryReply(first, state.targetTicketRef)
       : first
@@ -1249,7 +1278,22 @@ export class AiConversationService {
   ): Promise<boolean> {
     if (!prompt.collectName || state.nameConfirmed) return false;
 
-    const registry = state.registryNameSnapshot ?? contactCtx.name;
+    const registry =
+      state.registryNameSnapshot ??
+      contactCtx.name ??
+      resolveRegistryNameFromDestination(ctx.dest);
+
+    if (
+      await ctxSvc.tryAutoConfirmKnownContact(state, {
+        clientId: ctx.clientId,
+        destinationId: ctx.dest._id as mongoose.Types.ObjectId,
+        conversationId: ctx.conversation._id as mongoose.Types.ObjectId,
+        registryName: registry,
+      })
+    ) {
+      return false;
+    }
+
     const parsed = ctxSvc.parseNameConfirmation(ctx.text, registry);
 
     if (parsed.denied) {
@@ -1268,7 +1312,7 @@ export class AiConversationService {
       state.collectedName = parsed.name;
       state.nameConfirmed = true;
       await ctxSvc.persistCollectedFields(ctx.dest, { name: parsed.name });
-      const first = parsed.name.split(/\s+/)[0];
+      const first = resolveClientFirstName(parsed.name);
       await inbox.sendAiReply(
         ctx.clientId,
         ctx.conversation,
@@ -1364,7 +1408,7 @@ export class AiConversationService {
   private textLooksLikeName(text: string): boolean {
     const t = text.trim();
     if (!t || t.includes('@') || /\d/.test(t)) return false;
-    if (/^(oi|ola|olá|bom dia|boa tarde|boa noite)$/i.test(t)) return false;
+    if (textLooksLikeGreetingOrNonName(t)) return false;
     const words = t.split(/\s+/).filter(Boolean);
     return words.length <= 3 && t.length <= 40;
   }

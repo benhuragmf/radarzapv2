@@ -18,6 +18,45 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.17.41] - 2026-06-30
+
+### Changed
+- **IA confirmação de nome:** máscara palavra a palavra como cadastrado — 1ª/última letra maiúsculas, `*` proporcional (`Benhur Monteiro` → `B****R M******O`).
+
+## [2.17.40] - 2026-07-01
+
+### Changed
+- **Contatos — validação WhatsApp:** ritmo gradual (~1 número a cada 86s, referência 1.000 contatos em 24h); envio outbound bloqueado até `verified`; banner com ETA na lista de contatos; import sem rajada; revalidação manual limitada a 3 por vez.
+
+## [2.17.39] - 2026-07-01
+
+### Added
+- **Contatos — validação WhatsApp:** `waRegistrationStatus` (`pending` / `verified` / `not_on_whatsapp` / `check_failed`) via Baileys `onWhatsApp`; sync em background; filtro e categoria **Sem WhatsApp** em `/contact`; botão **Revalidar WhatsApp**; bloqueio de campanha até validar; API `GET /destinations/wa-registration-stats`, `POST …/sync-wa-registration`, `POST …/revalidate-whatsapp`.
+
+## [2.17.38] - 2026-06-30
+
+### Fixed
+- **IA confirmação de nome:** máscara proporcional — cada `*` representa exatamente uma letra oculta (`Benhur` → `B****r`, `Aguiar` → `A*****`).
+
+## [2.17.37] - 2026-06-30
+
+### Changed
+- **IA confirmação de nome:** prompt mascarado `Me confirme seu nome: você é o *B***r A****? Pra continuar, confirme seu nome!` (primeiro nome + sobrenome).
+
+## [2.17.36] - 2026-06-30
+
+### Fixed
+- **IA nome / cadastro:** consulta sempre o contato no banco; reutiliza nome se último contato foi há menos de 30 dias; após 30 dias pede confirmação mascarada (`B**r`) em vez do nome completo.
+
+## [2.17.35] - 2026-06-30
+
+### Fixed
+- **IA auto-resolve / KB:** remove linhas internas (`Regra para a IA:`) antes de enviar conteúdo ao cliente no WhatsApp.
+- **IA compra catálogo:** intenção de compra não dispara mais auto-resolve estático; recuperação orienta fluxo PIX/endereço em vez de “instabilidade momentânea”.
+- **IA nome:** cumprimentos (`ola bom dia`) não são aceitos como nome; corrige prefixo duplicado (`BenhurtBenhurt`).
+
 ## [2.17.34] - 2026-06-30
 
 ### Fixed

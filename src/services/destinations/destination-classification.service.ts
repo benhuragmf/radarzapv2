@@ -60,6 +60,7 @@ export function destinationToClassificationInput(
     commercialStatus: d.commercialStatus,
     temperature: d.temperature,
     phoneQuality: d.phoneQuality,
+    waRegistrationStatus: (d as { waRegistrationStatus?: string }).waRegistrationStatus,
   };
 }
 

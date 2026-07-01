@@ -98,6 +98,7 @@ export interface DestinationClassificationInput {
   commercialStatus?: CommercialStatus;
   temperature?: ContactTemperature;
   phoneQuality?: PhoneQuality;
+  waRegistrationStatus?: string;
 }
 
 export interface LeadClassificationHint {

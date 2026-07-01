@@ -49,6 +49,7 @@ import {
 import type { WaInboundLocation } from '@/utils/wa-location.util';
 import { isValidWaCoordinates } from '@/utils/wa-location.util';
 import { deliveryAddressValidationError, isCompleteDeliveryAddress } from '@/types/catalog-delivery-address';
+import { sanitizeKnowledgeBaseContentForClient } from '@/utils/ai-kb-client.util';
 
 const logger = createServiceLogger('CatalogSalesService');
 
@@ -184,6 +185,56 @@ export class CatalogSalesService {
       quoteFailed: quoteResult.quoteFailed,
       useDistanceBasedDelivery: Boolean(cfg.useDistanceBasedDelivery),
     };
+  }
+
+  /** Quando o LLM falha em intenção de compra, orienta o cliente sem mensagem genérica de instabilidade. */
+  async buildPurchaseRecoveryReply(opts: {
+    clientId: string;
+    conversationId: string;
+    clientText: string;
+    threadContext?: string;
+    contactFirstName?: string;
+  }): Promise<string | null> {
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    if (!cfg.enabled) return null;
+
+    const prefix = opts.contactFirstName ? `${opts.contactFirstName}, ` : '';
+    const active = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
+    if (active?.status === 'aguardando_endereco') {
+      return (
+        `${prefix}para continuar sua compra do *${active.productName}*, envie o *endereço completo* ` +
+        'para entrega (rua, número, bairro e cidade).'
+      );
+    }
+    if (active?.status === 'aguardando_pagamento') {
+      const pix = cfg.pixInstructions?.trim();
+      if (pix) {
+        return (
+          `${prefix}seu pedido de *${active.productName}* está aguardando pagamento.\n\n*PIX:*\n${pix}`
+        );
+      }
+      return (
+        `${prefix}seu pedido de *${active.productName}* está aguardando pagamento. ` +
+        'Envie o comprovante aqui quando concluir o PIX.'
+      );
+    }
+
+    const combined = [opts.threadContext, opts.clientText].filter(Boolean).join(' ');
+    const product = await this.guessProductFromText(opts.clientId, combined);
+    if (!product) {
+      return `${prefix}posso te ajudar com a compra! Qual produto você gostaria de adquirir?`;
+    }
+
+    const body = sanitizeKnowledgeBaseContentForClient(product.content ?? '');
+    const salesMeta = normalizeProductSalesMeta(product.salesMeta);
+    const needsAddress = orderRequiresDeliveryAddress(cfg, salesMeta);
+    const nextStep = needsAddress
+      ? 'Para seguir com a compra, envie seu *endereço completo* para entrega.'
+      : cfg.pixEnabled && cfg.pixInstructions?.trim()
+        ? `Para pagar via PIX:\n${cfg.pixInstructions.trim()}`
+        : 'Confirme que deseja comprar para eu registrar seu pedido.';
+
+    return `${prefix}${body ? `${body}\n\n` : ''}${nextStep}`.trim();
   }
 
   sanitizeAiReplyForCatalogQuote(
