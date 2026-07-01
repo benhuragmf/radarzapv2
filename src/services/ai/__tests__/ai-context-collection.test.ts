@@ -45,7 +45,7 @@ describe('AiContextService — coleta de cadastro', () => {
     const state = { collectedEmail: undefined } as IAiConversationState;
     const prompt = { collectEmail: true, skipKnownFields: true } as IAiPrompt;
     expect(
-      svc.needsEmailCollection(state, { tags: [], knownFields: { name: true, email: false }, recentTickets: [] }, prompt),
+      svc.needsEmailCollection(state, { tags: [], knownFields: { name: true, email: false, address: false }, recentTickets: [] }, prompt),
     ).toBe(true);
   });
 });

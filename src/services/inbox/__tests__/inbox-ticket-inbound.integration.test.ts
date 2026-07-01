@@ -127,6 +127,7 @@ describe('InboxService handleTicketInboundMessage (integração)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     svc = freshInboxService();
+    jest.spyOn(svc, 'startClientReplyGraceMonitor' as keyof InboxService).mockImplementation(() => {});
     findOrCreateContact.mockResolvedValue(mockDest());
     shouldDeferToConsentFlow.mockReturnValue(false);
     loadInboxSettingsMock.mockResolvedValue({

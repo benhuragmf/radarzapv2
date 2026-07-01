@@ -129,6 +129,17 @@ describe('InboxService anti-loop peer automatizado', () => {
   });
 
   it('handleInboundMessage suprime eco de outbound (loop bot)', async () => {
+    jest.spyOn(svc, 'findOpenConversationForInbound' as keyof InboxService).mockResolvedValue({
+      _id: new mongoose.Types.ObjectId(),
+      clientId: new mongoose.Types.ObjectId(CLIENT_ID),
+      channel: 'whatsapp',
+      contactIdentifier: '5511999999999@s.whatsapp.net',
+      status: InboxConversationStatus.IN_PROGRESS,
+      save: jest.fn().mockResolvedValue(undefined),
+    } as never);
+    jest.spyOn(svc, 'notifyMessage' as keyof InboxService).mockImplementation(() => {});
+    jest.spyOn(svc, 'notifyConversation' as keyof InboxService).mockImplementation(() => {});
+
     const guard = WaAutomatedPeerGuardService.getInstance();
     guard.recordOutbound(
       CLIENT_ID,

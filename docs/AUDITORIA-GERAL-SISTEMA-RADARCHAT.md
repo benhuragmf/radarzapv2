@@ -43,7 +43,7 @@ O Radar Chat v2 (`2.17.25`) é um **monolito Node.js 24** (Express + Socket.IO n
 | `git checkout -b audit-system-health-docs` | OK — branch criada a partir de `develop` @ `1bd4582` |
 | `npm run typecheck` | **Exit 0** |
 | `npm run build` | **Exit 0** |
-| `npm test` | **Exit 1** — 182 passed, 6 failed, 1058 tests passed (ver § Estabilidade) |
+| `npm test` | **Exit 0** — 188 suites, 1076 testes (após fix 2.17.27) |
 | `npm audit --omit=dev` | **0 vulnerabilities** (runtime) |
 | `npm run pre-push:gate` (ciclo anterior 2.17.25) | **Exit 0** — backend + frontend + Docker frontend-builder |
 
@@ -63,7 +63,7 @@ O Radar Chat v2 (`2.17.25`) é um **monolito Node.js 24** (Express + Socket.IO n
 | A-H02 | Admin | `GET /api/sessions?scope=all` expõe sessões WA de todos os tenants para staff | `DashboardService.ts` ~8412–8444 | **Pendente** — restringir `SYSTEM_ADMIN` + auditoria |
 | A-H03 | Integração | RadarGamer inbound: token Bearer global + `clientId` fixo por env | `radargamer-inbound.service.ts` | **Pendente** — API key por tenant |
 | A-H04 | CSRF | `requireDashboardOrigin` não bloqueia se header `Origin` ausente | `src/middleware/same-origin.ts` | **Pendente** — exigir Origin/Sec-Fetch-Site |
-| A-H05 | Estabilidade | 6 suites Jest de integração falham (worker crash / asserts) | ver lista abaixo | **Pendente** — estabilizar CI |
+| A-H05 | Estabilidade | 6 suites Jest de integração falham | **Corrigido** 2.17.27 |
 
 ### Médias
 
@@ -191,14 +191,7 @@ O Radar Chat v2 (`2.17.25`) é um **monolito Node.js 24** (Express + Socket.IO n
 
 ## Suites Jest ainda falhando (2026-06-30)
 
-1. `inbox-csat-reply.integration.test.ts`
-2. `inbox-automated-peer.integration.test.ts`
-3. `inbox-ticket-inbound.integration.test.ts` (worker crash)
-4. `whatsapp-bridge-commands.service.test.ts`
-5. `webchat-socket-origin.util.test.ts`
-6. `ai-context-collection.test.ts`
-
-**Recomendação:** executar cada suite isolada com `--runInBand` e corrigir em ciclo `fix/integration-tests-gate`.
+*Nenhuma — corrigido em `2.17.27` (branch `audit-system-health-docs`).*
 
 ---
 

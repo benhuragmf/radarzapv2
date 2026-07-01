@@ -23,6 +23,10 @@ jest.mock('@/constants/inbox-triage', () => {
 
 jest.mock('@/models/InboxConversation');
 
+jest.mock('@/models/InboxMessage', () => ({
+  InboxMessage: { create: jest.fn().mockResolvedValue({}) },
+}));
+
 jest.mock('@/services/integrations/WebhookDispatcherService', () => ({
   WebhookDispatcherService: {
     getInstance: () => ({ emit: webhookEmit }),
@@ -99,6 +103,7 @@ describe('InboxService tryHandleCsatReply (integração)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     svc = freshInboxService();
+    jest.spyOn(svc, 'startClientReplyGraceMonitor' as keyof InboxService).mockImplementation(() => {});
     jest.spyOn(svc, 'inboxTriageContextActive' as keyof InboxService).mockResolvedValue(false);
     jest.spyOn(svc, 'sendToContact' as keyof InboxService).mockResolvedValue(undefined);
     jest.spyOn(svc, 'appendSystemMessage' as keyof InboxService).mockResolvedValue(undefined);
@@ -167,6 +172,7 @@ describe('InboxService tryHandleCsatReply (integração)', () => {
       _id: new mongoose.Types.ObjectId(),
       csatPending: true,
       status: InboxConversationStatus.RESOLVED,
+      save: jest.fn().mockResolvedValue(undefined),
     });
 
     const handled = await svc['tryHandleCsatReply'](CLIENT_ID, mockDest(), 'obrigado');
@@ -210,6 +216,7 @@ describe('InboxService handleInboundMessage ordem CSAT', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     svc = freshInboxService();
+    jest.spyOn(svc, 'startClientReplyGraceMonitor' as keyof InboxService).mockImplementation(() => {});
     jest.spyOn(svc, 'inboxTriageContextActive' as keyof InboxService).mockResolvedValue(false);
     jest.spyOn(svc, 'sendToContact' as keyof InboxService).mockResolvedValue(undefined);
     jest.spyOn(svc, 'appendSystemMessage' as keyof InboxService).mockResolvedValue(undefined);
@@ -227,6 +234,17 @@ describe('InboxService handleInboundMessage ordem CSAT', () => {
     findContactDestinationForInbound.mockResolvedValue(mockDest());
     shouldDeferToConsentFlow.mockReturnValue(false);
     acceptInboundInitiated.mockResolvedValue(true);
+
+    jest.spyOn(svc, 'findOpenConversationForInbound' as keyof InboxService).mockResolvedValue({
+      _id: new mongoose.Types.ObjectId(),
+      clientId: new mongoose.Types.ObjectId(CLIENT_ID),
+      channel: 'whatsapp',
+      contactIdentifier: '5511999999999@s.whatsapp.net',
+      status: InboxConversationStatus.CLOSED,
+      save: jest.fn().mockResolvedValue(undefined),
+    } as never);
+    jest.spyOn(svc, 'notifyMessage' as keyof InboxService).mockImplementation(() => {});
+    jest.spyOn(svc, 'notifyConversation' as keyof InboxService).mockImplementation(() => {});
 
     const save = jest.fn().mockResolvedValue(undefined);
     mockPendingFindOne({

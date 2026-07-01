@@ -14,6 +14,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.27] - 2026-06-30
+
+### Fixed
+- **Testes:** 6 suites Jest vermelhas → **188/188 verdes** (integração inbox CSAT/peer/ticket, bridge commands, webchat socket, AI context).
+- **Bridge WA:** `parseCustomWhatsappCommand` retorna `null` quando comando exige TK e argumento ausente (`!2via` sem ref).
+
+---
+
 ## [2.17.26] - 2026-06-30
 
 ### Added

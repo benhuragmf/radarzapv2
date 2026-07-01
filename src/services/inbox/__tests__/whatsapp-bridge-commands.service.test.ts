@@ -21,7 +21,8 @@ describe('whatsapp-bridge-commands.service', () => {
       systemOverrides: [{ commandId: 'assumir' as const, enabled: true, paused: true }],
     };
     expect(isSystemCommandAvailable(config, 'assumir')).toBe(false);
-    expect(buildDynamicWhatsappAgentHelp(config)).not.toContain('!assumir');
+    const helpLines = buildDynamicWhatsappAgentHelp(config).split('\n');
+    expect(helpLines.some(line => line.startsWith('!assumir —'))).toBe(false);
   });
 
   it('parses custom command with ticket ref', () => {

@@ -28,7 +28,7 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 
 | ID | Pendência | P | Impacto | C | Ciclo sugerido | Recomendação |
 |----|-----------|---|---------|---|----------------|--------------|
-| STAB-01 | 6 suites Jest integração falhando | P1 | CI/ gate incompleto | M | `fix-integration-tests` | `--runInBand`, mocks Mongo/Redis |
+| STAB-01 | 6 suites Jest integração falhando | P1 | CI/ gate incompleto | M | `fix-integration-tests` | **Corrigido** 2.17.27 — 188/188 suites |
 | STAB-02 | Testes Vitest sem runner no monorepo root | P2 | Cobertura utils frontend | S | `vitest-setup` | `npm run test:unit` com Vitest ou migrar para Jest |
 | STAB-03 | Presença atendentes in-memory | P2 | Fila errada multi-réplica | L | `presence-redis-cluster` | Estado presença em Redis pub/sub |
 | STAB-04 | `forceExit: true` no Jest mascara handles | P3 | Flaky tests | S | `jest-open-handles` | `--detectOpenHandles` em CI |

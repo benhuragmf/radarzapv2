@@ -190,7 +190,7 @@ export function parseCustomWhatsappCommand(
   if (!cmd) return null;
   const arg = match[2]?.trim();
   if (cmd.requiresTicketRef && !arg) {
-    return { command: cmd, arg: undefined };
+    return null;
   }
   return { command: cmd, arg };
 }
