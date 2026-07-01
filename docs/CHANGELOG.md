@@ -18,6 +18,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.33] - 2026-06-30
+
+### Added
+- **UX-01 (parcial):** Gate `npm run qa:auditoria:gate` — checklist 78 itens (~45 automatizáveis), script `qa-auditoria-geral.mjs`, template JSON, doc `QA-AUDITORIA-GERAL-SISTEMA.md` com coluna Auto.
+- `qa:atendimento:jest` — Jest atendimento sem `qa:prep` (WA físico opcional no gate de auditoria).
+
+### Fixed
+- E2E login/leads/admin/inbox alinhados à UI auth v3 e aba Infra Ops (`Continuar com Google`, heading Inbox no banner, `admin-ops-infra-panel`).
+
+---
+
 ## [2.17.32] - 2026-06-30
 
 ### Added

@@ -24,17 +24,20 @@ test.describe('Leads — painel expandido (mock)', () => {
   });
 
   test('aba Listas e segmentos', async ({ page }) => {
-    await page.getByRole('button', { name: /Listas e segmentos/i }).click();
+    await page.getByRole('main').getByRole('button', { name: 'Listas e segmentos', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Lead', exact: true })).toBeVisible();
     await expect(page.getByText('50%')).toBeVisible();
   });
 
   test('aba Formulários mostra integração e prévia', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
-    await page.getByRole('button', { name: /Formulários/i }).click();
+    await page.getByRole('main').getByRole('button', { name: 'Formulários', exact: true }).click();
     await expect(page.getByText('Por onde começar?')).toBeVisible();
     await expect(page.getByText('Pré-visualização')).toBeVisible();
-    await page.getByRole('button', { name: /Integrar no site/i }).click();
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: 'Integrar no site Copie o script no site', exact: true })
+      .click();
     await expect(page.locator('iframe[title*="Preview"]')).toBeVisible();
   });
 });

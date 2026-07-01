@@ -1,0 +1,948 @@
+{
+  "schema": "radarchat-auditoria-geral-v1",
+  "auditCycle": "audit-system-health-docs",
+  "version": "2.17.33",
+  "date": "2026-07-01",
+  "executedAt": "2026-07-01T03:13:13.153Z",
+  "executor": "qa-auditoria-geral.mjs",
+  "environment": "local",
+  "mode": "full",
+  "overallStatus": "PARTIAL",
+  "summary": {
+    "automated": {
+      "pass": 45,
+      "fail": 0,
+      "skipped": 0,
+      "total": 45
+    },
+    "manual": {
+      "pending": 33,
+      "total": 33
+    }
+  },
+  "gateRuns": [
+    {
+      "gateId": "build",
+      "label": "Build backend + frontend",
+      "ok": true,
+      "ms": 15480,
+      "mode": "executed"
+    },
+    {
+      "gateId": "atendimento",
+      "label": "Jest atendimento (CI — sem qa:prep WA)",
+      "ok": true,
+      "ms": 24096,
+      "mode": "executed"
+    },
+    {
+      "gateId": "jest-webchat-security",
+      "label": "Jest WebChat/CSRF/embed",
+      "ok": true,
+      "ms": 4578,
+      "mode": "executed"
+    },
+    {
+      "gateId": "jest-crm-completeness",
+      "label": "Jest CRM WebChat incompleto",
+      "ok": true,
+      "ms": 3293,
+      "mode": "executed"
+    },
+    {
+      "gateId": "jest-mask-secret",
+      "label": "Jest mascaramento segredos",
+      "ok": true,
+      "ms": 3325,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-login",
+      "label": "Playwright login UI",
+      "ok": true,
+      "ms": 2685,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-cross-tenant",
+      "label": "Playwright cross-tenant",
+      "ok": true,
+      "ms": 2441,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-admin",
+      "label": "Playwright admin dashboard",
+      "ok": true,
+      "ms": 6450,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-lgpd",
+      "label": "Playwright portal LGPD",
+      "ok": true,
+      "ms": 2987,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-fase1",
+      "label": "Playwright fase1 painel",
+      "ok": true,
+      "ms": 3225,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-presence",
+      "label": "Playwright presença",
+      "ok": true,
+      "ms": 2920,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-inbox",
+      "label": "Playwright inbox mock",
+      "ok": true,
+      "ms": 3192,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-leads",
+      "label": "Playwright leads painel",
+      "ok": true,
+      "ms": 2572,
+      "mode": "executed"
+    },
+    {
+      "gateId": "e2e-attendance-modes",
+      "label": "Playwright modos atendimento",
+      "ok": true,
+      "ms": 3106,
+      "mode": "executed"
+    }
+  ],
+  "sections": [
+    {
+      "id": "1",
+      "title": "Login e sessão",
+      "items": [
+        {
+          "id": "1.1",
+          "title": "Login Google (dono)",
+          "expected": "Redireciona ao painel, cookie sessão",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "1.2",
+          "title": "Login Discord (equipe)",
+          "expected": "Acesso conforme papel",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "1.3",
+          "title": "Logout",
+          "expected": "Sessão encerrada, /login",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "1.4",
+          "title": "Sessão expirada",
+          "expected": "Mensagem clara, sem loop",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "1.5",
+          "title": "UI login (botões Google/Discord)",
+          "expected": "Título e CTAs visíveis",
+          "automation": "gate:e2e-login",
+          "status": "pass",
+          "gate": "e2e-login",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Permissões por perfil",
+      "items": [
+        {
+          "id": "2.1",
+          "title": "OWNER — rotas tenant",
+          "expected": "Inbox, Leads, Settings; sem /admin global",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "2.2",
+          "title": "ATTENDANT — escopo limitado",
+          "expected": "Sem admin/billing/equipe",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "2.3",
+          "title": "MANAGER/Supervisor",
+          "expected": "Supervisor, relatórios, transferência",
+          "automation": "gate:e2e-fase1",
+          "status": "pass",
+          "gate": "e2e-fase1",
+          "notes": ""
+        },
+        {
+          "id": "2.4",
+          "title": "VIEWER — somente leitura",
+          "expected": "Mutações bloqueadas 403",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "2.5",
+          "title": "SYSTEM_ADMIN",
+          "expected": "/admin/dashboard, ops, backup",
+          "automation": "gate:e2e-admin",
+          "status": "pass",
+          "gate": "e2e-admin",
+          "notes": ""
+        },
+        {
+          "id": "2.6",
+          "title": "Menu oculto + API 403",
+          "expected": "URL forçada bloqueada",
+          "automation": "gate:e2e-cross-tenant",
+          "status": "pass",
+          "gate": "e2e-cross-tenant",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Admin global",
+      "items": [
+        {
+          "id": "3.1",
+          "title": "/admin/dashboard abas",
+          "expected": "Summary, empresas, segurança, infra",
+          "automation": "gate:e2e-admin",
+          "status": "pass",
+          "gate": "e2e-admin",
+          "notes": ""
+        },
+        {
+          "id": "3.2",
+          "title": "/admin/backup banner dev",
+          "expected": "automationAvailable em local",
+          "automation": "gate:build",
+          "status": "pass",
+          "gate": "build",
+          "notes": ""
+        },
+        {
+          "id": "3.3",
+          "title": "/admin/ops métricas",
+          "expected": "Sem segredos em claro",
+          "automation": "gate:jest-mask-secret",
+          "status": "pass",
+          "gate": "jest-mask-secret",
+          "notes": ""
+        },
+        {
+          "id": "3.4",
+          "title": "Auditoria admin sensível",
+          "expected": "Eventos em audit log",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Dono da empresa",
+      "items": [
+        {
+          "id": "4.1",
+          "title": "/settings/team",
+          "expected": "Convidar, papéis, permissões",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "4.2",
+          "title": "Inbox bot — Cadastro CRM",
+          "expected": "Política por canal",
+          "automation": "gate:e2e-fase1",
+          "status": "pass",
+          "gate": "e2e-fase1",
+          "notes": ""
+        },
+        {
+          "id": "4.3",
+          "title": "/platform/inbox/ia",
+          "expected": "Modos atendimento, catálogo PIX",
+          "automation": "gate:e2e-attendance-modes",
+          "status": "pass",
+          "gate": "e2e-attendance-modes",
+          "notes": ""
+        },
+        {
+          "id": "4.4",
+          "title": "/plans",
+          "expected": "Planos e limites visíveis",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "Supervisor",
+      "items": [
+        {
+          "id": "5.1",
+          "title": "/platform/inbox/supervisor",
+          "expected": "Métricas equipe, presença",
+          "automation": "gate:e2e-fase1",
+          "status": "pass",
+          "gate": "e2e-fase1",
+          "notes": ""
+        },
+        {
+          "id": "5.2",
+          "title": "Reatribuir conversa",
+          "expected": "InboxTransfer + AttendanceEvent",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "5.3",
+          "title": "Monitor WA + WebChat",
+          "expected": "Timeline legível",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Atendente",
+      "items": [
+        {
+          "id": "6.1",
+          "title": "Presença online/ausente/ocupado",
+          "expected": "Fila respeita status",
+          "automation": "gate:e2e-presence",
+          "status": "pass",
+          "gate": "e2e-presence",
+          "notes": ""
+        },
+        {
+          "id": "6.2",
+          "title": "Assumir da fila",
+          "expected": "Conversa atribuída",
+          "automation": "gate:e2e-inbox",
+          "status": "pass",
+          "gate": "e2e-inbox",
+          "notes": ""
+        },
+        {
+          "id": "6.3",
+          "title": "Transferir setor",
+          "expected": "Cliente notificado conforme config",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "6.4",
+          "title": "Só setores permitidos",
+          "expected": "Sem vazamento outras filas",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "title": "WebChat",
+      "items": [
+        {
+          "id": "7.1",
+          "title": "Widget domínio permitido",
+          "expected": "Pré-chat, mensagens",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "7.2",
+          "title": "Domínio não permitido",
+          "expected": "assertOrigin bloqueia",
+          "automation": "gate:jest-webchat-security",
+          "status": "pass",
+          "gate": "jest-webchat-security",
+          "notes": ""
+        },
+        {
+          "id": "7.3",
+          "title": "Anexo imagem/PDF",
+          "expected": "Upload ≤5 MB",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "7.4",
+          "title": "Offline / fora horário",
+          "expected": "Aviso ou fallback WA",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "7.5",
+          "title": "FAQ / TK lookup",
+          "expected": "Chips e consulta token",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "7.6",
+          "title": "Anti-spam honeypot + IP",
+          "expected": "Sessão bloqueada se abuso",
+          "automation": "gate:jest-webchat-security",
+          "status": "pass",
+          "gate": "jest-webchat-security",
+          "notes": ""
+        },
+        {
+          "id": "7.7",
+          "title": "CRM incompleto sem telefone",
+          "expected": "crmIncomplete + Completar cadastro",
+          "automation": "gate:jest-crm-completeness",
+          "status": "pass",
+          "gate": "jest-crm-completeness",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "title": "WhatsApp",
+      "items": [
+        {
+          "id": "8.1",
+          "title": "/sessions QR conecta",
+          "expected": "Status connected",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "8.2",
+          "title": "Mensagem inbound → Inbox",
+          "expected": "Aparece na lista",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "8.3",
+          "title": "Resposta painel → celular",
+          "expected": "Entrega no WA",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "8.4",
+          "title": "Logout celular sem loop",
+          "expected": "Painel desconectado",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "8.5",
+          "title": "!assumir / bridge WebChat",
+          "expected": "Bridge ativa",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "title": "Inbox",
+      "items": [
+        {
+          "id": "9.1",
+          "title": "Lista unificada WA + WebChat",
+          "expected": "Badges canal corretos",
+          "automation": "gate:e2e-inbox",
+          "status": "pass",
+          "gate": "e2e-inbox",
+          "notes": ""
+        },
+        {
+          "id": "9.2",
+          "title": "CSAT ao finalizar",
+          "expected": "Pesquisa enviada",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "9.3",
+          "title": "Chat interno supervisor",
+          "expected": "direction internal só equipe",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "9.4",
+          "title": "Burst mensagens painel",
+          "expected": "Não somem (2.17.24)",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "title": "Leads",
+      "items": [
+        {
+          "id": "10.1",
+          "title": "Captura automática WA/WebChat",
+          "expected": "Lead em /platform/leads",
+          "automation": "gate:e2e-leads",
+          "status": "pass",
+          "gate": "e2e-leads",
+          "notes": ""
+        },
+        {
+          "id": "10.2",
+          "title": "Formulário embed honeypot",
+          "expected": "Bot rejeitado",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "10.3",
+          "title": "Abrir Inbox do lead",
+          "expected": "1 clique, conversa vinculada",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "10.4",
+          "title": "Vincular contato manual",
+          "expected": "Histórico linked_contact",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "title": "Contatos",
+      "items": [
+        {
+          "id": "11.1",
+          "title": "/contact vs Leads",
+          "expected": "Fronteiras claras + badges CRM",
+          "automation": "gate:build",
+          "status": "pass",
+          "gate": "build",
+          "notes": ""
+        },
+        {
+          "id": "11.2",
+          "title": "Classificação ?class=",
+          "expected": "Filtro server-side",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "11.3",
+          "title": "Consentimento LGPD",
+          "expected": "Fluxo renovação",
+          "automation": "gate:e2e-lgpd",
+          "status": "pass",
+          "gate": "e2e-lgpd",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "title": "Tickets",
+      "items": [
+        {
+          "id": "12.1",
+          "title": "Abrir TK bot/painel",
+          "expected": "Número TK-…",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "12.2",
+          "title": "Consulta pública token",
+          "expected": "WebChat/widget lookup",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "12.3",
+          "title": "SLA e status",
+          "expected": "Painel + notificações",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "title": "IA",
+      "items": [
+        {
+          "id": "13.1",
+          "title": "Modo básico vs premium",
+          "expected": "usageKind distinto",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "13.2",
+          "title": "Saldo créditos header",
+          "expected": "Barra IA/LM visível",
+          "automation": "gate:e2e-fase1",
+          "status": "pass",
+          "gate": "e2e-fase1",
+          "notes": ""
+        },
+        {
+          "id": "13.3",
+          "title": "Sem créditos",
+          "expected": "Fallback ou bloqueio claro",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "13.4",
+          "title": "KB sem inventar preços",
+          "expected": "Sem informação confirmada",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "title": "Billing / créditos IA",
+      "items": [
+        {
+          "id": "14.1",
+          "title": "Checkout plano Stripe",
+          "expected": "Test/live conforme env",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "14.2",
+          "title": "Limite mensagens/dia",
+          "expected": "Bloqueio + alerta sino",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "14.3",
+          "title": "Pacote créditos IA",
+          "expected": "Carteira atualizada",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "title": "Upload / comprovantes",
+      "items": [
+        {
+          "id": "15.1",
+          "title": "Comprovante PIX WebChat",
+          "expected": "Pedido atualizado ou órfão",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "15.2",
+          "title": "Comprovante PIX WA",
+          "expected": "CatalogSalesService",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "15.3",
+          "title": "Aprovar/rejeitar pagamento",
+          "expected": "RBAC orders:approve-payment",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "15.4",
+          "title": "Link comprovante HMAC",
+          "expected": "Sem vazar tenant",
+          "automation": "gate:jest-mask-secret",
+          "status": "pass",
+          "gate": "jest-mask-secret",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "title": "Logs e auditoria",
+      "items": [
+        {
+          "id": "16.1",
+          "title": "Logs tenant-scoped",
+          "expected": "Dono vê só sua org",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "16.2",
+          "title": "Logs globais staff",
+          "expected": "Capability + opt-in",
+          "automation": "gate:build",
+          "status": "pass",
+          "gate": "build",
+          "notes": ""
+        },
+        {
+          "id": "16.3",
+          "title": "AttendanceEvent",
+          "expected": "Assign/transfer/ticket",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "17",
+      "title": "Segurança básica",
+      "items": [
+        {
+          "id": "17.1",
+          "title": "API sem cookie 401",
+          "expected": "/api/inbox/* bloqueado",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "17.2",
+          "title": "Cross-tenant ID",
+          "expected": "404/403 URL estrangeira",
+          "automation": "gate:e2e-cross-tenant",
+          "status": "pass",
+          "gate": "e2e-cross-tenant",
+          "notes": ""
+        },
+        {
+          "id": "17.3",
+          "title": "Webhook outbound assinatura",
+          "expected": "X-Radar Chat-Signature",
+          "automation": "gate:atendimento",
+          "status": "pass",
+          "gate": "atendimento",
+          "notes": ""
+        },
+        {
+          "id": "17.4",
+          "title": "X-API-Key por tenant",
+          "expected": "Só chaves da empresa",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "17.5",
+          "title": "CSRF same-origin produção",
+          "expected": "Mutação sem Origin bloqueada",
+          "automation": "gate:jest-webchat-security",
+          "status": "pass",
+          "gate": "jest-webchat-security",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "18",
+      "title": "Multiempresa",
+      "items": [
+        {
+          "id": "18.1",
+          "title": "Usuário em 2 orgs",
+          "expected": "Troca contexto isolado",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        },
+        {
+          "id": "18.2",
+          "title": "Convite outra empresa",
+          "expected": "Não vê dados da primeira",
+          "automation": "gate:e2e-cross-tenant",
+          "status": "pass",
+          "gate": "e2e-cross-tenant",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "19",
+      "title": "Responsividade e UX",
+      "items": [
+        {
+          "id": "19.1",
+          "title": "Inbox 3 colunas desktop",
+          "expected": "Usável",
+          "automation": "gate:e2e-inbox",
+          "status": "pass",
+          "gate": "e2e-inbox",
+          "notes": ""
+        },
+        {
+          "id": "19.2",
+          "title": "Mobile login",
+          "expected": "CTA ≥40px altura",
+          "automation": "gate:e2e-login",
+          "status": "pass",
+          "gate": "e2e-login",
+          "notes": ""
+        },
+        {
+          "id": "19.3",
+          "title": "Estados vazios",
+          "expected": "Texto orienta próximo passo",
+          "automation": "gate:e2e-fase1",
+          "status": "pass",
+          "gate": "e2e-fase1",
+          "notes": ""
+        },
+        {
+          "id": "19.4",
+          "title": "Erros API amigáveis",
+          "expected": "Toast, sem stack trace",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "20",
+      "title": "Fluxo E2E humano completo",
+      "items": [
+        {
+          "id": "20.1",
+          "title": "WebChat → lead → fila → CSAT",
+          "expected": "Fluxo <30 min limpo",
+          "automation": "manual",
+          "status": "pending",
+          "gate": null,
+          "notes": ""
+        }
+      ]
+    }
+  ],
+  "notes": "Itens manual=pending exigem execução humana conforme docs/QA-AUDITORIA-GERAL-SISTEMA.md. Reexecute com npm run qa:auditoria:gate após correções."
+}

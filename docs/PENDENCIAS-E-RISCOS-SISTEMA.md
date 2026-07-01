@@ -50,7 +50,7 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 
 | ID | Pendência | P | Impacto | C | Ciclo sugerido | Recomendação |
 |----|-----------|---|---------|---|----------------|--------------|
-| UX-01 | QA manual Fase 1 não preenchido | P0* | Go-live sem evidência | M | humano | [`QA-AUDITORIA-GERAL-SISTEMA.md`](./QA-AUDITORIA-GERAL-SISTEMA.md) |
+| UX-01 | QA manual Fase 1 não preenchido | P0* | Go-live sem evidência | M | humano + CI | Gate `npm run qa:auditoria:gate` verde (45 auto) — faltam ~33 itens manuais no JSON — [`QA-AUDITORIA-GERAL-SISTEMA.md`](./QA-AUDITORIA-GERAL-SISTEMA.md) |
 | UX-02 | OCR comprovante PIX inexistente | P2 | Conferência 100% manual | L | `pix-ocr-optional` | IA visão opcional pós-aprovação humana |
 | UX-03 | Anti-spam WebChat básico (sem CAPTCHA) | ~~P2~~ ✅ 2.17.31 | Abuso widget público | M | `webchat-abuse` | Honeypot + rate limit IP sessão |
 | UX-04 | `requireHumanApproval` flag não usada no backend | ~~P3~~ ✅ 2.17.31 | Confusão config | S | `catalog-flag-cleanup` | Auto-aprovação quando desligado |

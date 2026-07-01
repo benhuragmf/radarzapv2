@@ -28,7 +28,8 @@ test.describe('Admin Dashboard Ops', () => {
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole('tab', { name: 'Infra' }).click();
-    await expect(page.getByRole('heading', { name: 'Infraestrutura detalhada' })).toBeVisible();
+    await expect(page.getByTestId('admin-ops-infra-panel')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'App (processo Node)' })).toBeVisible();
 
     await page.getByRole('tab', { name: 'Empresas' }).click();
     await expect(page.getByTestId('admin-ops-tenants')).toBeVisible({ timeout: 15_000 });
@@ -299,9 +300,7 @@ test.describe('Admin Dashboard Ops', () => {
 
   test('?tab=infra abre aba Infra diretamente', async ({ page }) => {
     await page.goto('/admin/dashboard?tab=infra');
-    await expect(page.getByRole('heading', { name: 'Infraestrutura detalhada' })).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(page.getByTestId('admin-ops-infra-panel')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('heading', { name: 'Sistema' })).toBeVisible();
   });
 
