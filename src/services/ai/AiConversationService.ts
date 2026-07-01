@@ -48,7 +48,9 @@ import {
 import {
   textIsCepOnly,
   textLooksLikeStreetNumber,
+  textLooksLikeDeliveryAddressInput,
 } from '@/types/catalog-delivery-address';
+import { parseStreetNumberReply } from '@/utils/catalog-delivery.util';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
 import { AiTicketAssistService } from './AiTicketAssistService';
 import type { InboxService } from '@/services/inbox/InboxService';
@@ -777,12 +779,19 @@ export class AiConversationService {
       }
     }
 
-    await inbox.sendAiReply(
-      ctx.clientId,
-      ctx.conversation,
-      ctx.dest.identifier,
-      structured.reply,
-    );
+    const skipLlmReplyBecauseCatalog =
+      catalogTurn.serverQuoteSent === true ||
+      catalogTurn.handled === true ||
+      (catalogTurn.quoteFailed && Boolean(activeCatalogOrder));
+
+    if (!skipLlmReplyBecauseCatalog && structured.reply.trim()) {
+      await inbox.sendAiReply(
+        ctx.clientId,
+        ctx.conversation,
+        ctx.dest.identifier,
+        structured.reply,
+      );
+    }
 
     if (
       escalation.shouldEscalate &&
@@ -877,7 +886,12 @@ export class AiConversationService {
     state: IAiConversationState,
   ): Promise<boolean> {
     const text = ctx.text?.trim() ?? '';
-    if (!textIsCepOnly(text) && !textLooksLikeStreetNumber(text)) return false;
+    const looksAddress =
+      textIsCepOnly(text) ||
+      textLooksLikeStreetNumber(text) ||
+      textLooksLikeDeliveryAddressInput(text) ||
+      parseStreetNumberReply(text) !== null;
+    if (!looksAddress) return false;
 
     const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
     const catalogSvc = CatalogSalesService.getInstance();
@@ -890,19 +904,21 @@ export class AiConversationService {
     );
     if (!active || active.status !== 'aguardando_endereco') return false;
 
-    await catalogSvc.processAiCatalogTurn({
+    const convRef = {
+      conversationId: String(ctx.conversation._id),
+      channel: 'whatsapp' as const,
+      destinationId: String(ctx.dest._id),
+      contactIdentifier: ctx.conversation.contactIdentifier,
+      contactName: ctx.conversation.contactName,
+    };
+
+    const result = await catalogSvc.tryProcessCatalogAddressInput({
       clientId: ctx.clientId,
-      conversation: {
-        conversationId: String(ctx.conversation._id),
-        channel: 'whatsapp',
-        destinationId: String(ctx.dest._id),
-        contactIdentifier: ctx.conversation.contactIdentifier,
-        contactName: ctx.conversation.contactName,
-      },
+      conversation: convRef,
       clientText: text,
-      structured: emptyAiStructuredReply(),
-      threadContext: [state.collectedProblem, state.summary].filter(Boolean).join(' '),
     });
+
+    if (!result.handled) return false;
 
     state.aiTurnCount += 1;
     state.shouldEscalate = false;
@@ -1262,6 +1278,51 @@ export class AiConversationService {
       }
     }
 
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    const catalogSvc = CatalogSalesService.getInstance();
+    const addressAttempt = await catalogSvc.tryProcessCatalogAddressInput({
+      clientId: ctx.clientId,
+      conversation: {
+        conversationId: String(ctx.conversation._id),
+        channel: 'whatsapp',
+        destinationId: String(ctx.dest._id),
+        contactIdentifier: ctx.conversation.contactIdentifier,
+        contactName: ctx.conversation.contactName,
+      },
+      clientText: ctx.text,
+    });
+    if (addressAttempt.handled) {
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      state.shouldEscalate = false;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return { handled: true };
+    }
+
+    const contextual = await catalogSvc.buildContextualRecoveryReply({
+      clientId: ctx.clientId,
+      conversationId: String(ctx.conversation._id),
+      contactFirstName: resolveClientFirstName(state.collectedName),
+    });
+    if (contextual) {
+      await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, contextual);
+      state.status = AiConversationStatus.AI_WAITING_CLIENT;
+      state.shouldEscalate = false;
+      await state.save();
+      await this.syncConversationAi(
+        inbox,
+        ctx.clientId,
+        ctx.conversation._id as mongoose.Types.ObjectId,
+        'ai_waiting_client',
+      );
+      return { handled: true };
+    }
+
     const ticketSaved =
       ticketSavedEarly || (await this.tryTicketUpdateFromClient(ctx, state, emptyAiStructuredReply(), inbox));
 
@@ -1269,8 +1330,8 @@ export class AiConversationService {
     const reply = ticketSaved && state.targetTicketRef
       ? this.buildTicketSavedRecoveryReply(first, state.targetTicketRef)
       : first
-        ? `${first}, tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para falar com nossa equipe.`
-        : 'Tive uma instabilidade momentânea ao processar sua mensagem. Pode repetir em alguns segundos ou digite *atendente* para nossa equipe.';
+        ? `${first}, tive dificuldade em confirmar essa etapa do pedido. Vou chamar um atendente para continuar sem perder seu histórico.`
+        : 'Tive dificuldade em confirmar essa etapa do pedido. Vou chamar um atendente para continuar sem perder seu histórico.';
 
     await inbox.sendAiReply(ctx.clientId, ctx.conversation, ctx.dest.identifier, reply);
     state.status = AiConversationStatus.AI_WAITING_CLIENT;

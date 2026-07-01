@@ -37,6 +37,7 @@ Doc operacional: [`docs/CATALOGO-PIX-PEDIDOS.md`](../CATALOGO-PIX-PEDIDOS.md).
 | **2.17.52** | (este pacote) | Fuzzy ambíguo exige confirmação; preço obrigatório; doc conclusão produção |
 | **2.17.54** | `f0f1d45` | Entrega antes PIX; estoque indefinido; `sim`≠produto; perguntas taxa/endereço; modos retirada/entrega |
 | **2.17.55** | — | UX Produtos; WhatsApps operacionais (loja/conferência/entregadores bloqueado); dashboard e tabelas |
+| **2.17.58** | (local) | Hotfix QA produção: PIX retirada único; retirada exige endereço; endereço livre/pin; fallback contextual — `RADARCHAT-HOTFIX-CATALOGO-WA-ENDERECO-PIX-2.17.58.md` |
 
 ---
 

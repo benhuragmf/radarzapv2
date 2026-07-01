@@ -3,10 +3,14 @@
 import {
   CATALOG_DELIVERY_ADDRESS_HINT,
   deliveryAddressValidationError,
+  formatAddressForGeocodeQuery,
   formatDeliveryAddress,
   isCompleteDeliveryAddress,
+  isGeocodableCustomerAddress,
   normalizeAddressForGeocode,
   parseDeliveryAddress,
+  parseLooseDeliveryAddress,
+  stripStreetTypePrefix,
 } from '../types/catalog-delivery-address';
 import { lookupBrCep } from './br-cep.util';
 
@@ -130,6 +134,24 @@ export interface GeocodeResult {
   displayName?: string;
 }
 
+function buildGeocodeQuery(raw: string, countryCode = 'Brasil'): string {
+  const trimmed = raw.trim();
+  const loose = parseLooseDeliveryAddress(trimmed);
+  if (loose) return formatAddressForGeocodeQuery(loose);
+  return normalizeAddressForGeocode(trimmed, countryCode);
+}
+
+/** Geocodifica endereço do cliente — aceita formato livre (rua+número+cidade+UF). */
+export async function geocodeCustomerAddressFree(
+  query: string,
+  opts?: { countryCode?: string },
+): Promise<GeocodeResult | null> {
+  const q = buildGeocodeQuery(query, opts?.countryCode ?? 'Brasil');
+  if (q.length < 15) return null;
+  if (!isGeocodableCustomerAddress(query) && deliveryAddressValidationError(q)) return null;
+  return geocodeAddressFreeRaw(q);
+}
+
 /** Geocodifica endereço via Nominatim (OSM). Falha silenciosa se rede indisponível. */
 export async function geocodeAddressFree(
   query: string,
@@ -138,6 +160,10 @@ export async function geocodeAddressFree(
   const q = normalizeAddressForGeocode(query, opts?.countryCode ?? 'Brasil');
   if (q.length < 20) return null;
   if (deliveryAddressValidationError(q)) return null;
+  return geocodeAddressFreeRaw(q);
+}
+
+async function geocodeAddressFreeRaw(q: string): Promise<GeocodeResult | null> {
   const params = new URLSearchParams({
     q,
     format: 'json',
@@ -256,6 +282,9 @@ function textHasStreetNumber(text: string): boolean {
   return /(?:^|[\s,])(?:n[ºo°.]?\s*)?\d{1,6}[a-zA-Z]?(?:\s|$|[,.\-])/i.test(` ${t} `);
 }
 
+const STREET_TYPE_PREFIX_RE =
+  /^(?:rua\s*:|r\.\s*|r:\s*|avenida\s*:|av\.\s*|av:\s*|travessa\s*:|tv\.\s*|alameda\s*:|rod\.\s*|estrada\s*:)\s*/i;
+
 export function parseStreetNumberReply(
   text: string,
 ): { street: string; number: string } | null {
@@ -267,13 +296,24 @@ export function parseStreetNumberReply(
       return { street: parsed.street.trim(), number: parsed.number.trim() };
     }
   }
-  const comma = t.match(/^(.+?),\s*(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
-  if (comma) {
-    return { street: comma[1]!.trim(), number: comma[2]!.trim() };
-  }
-  const inline = t.match(/^(.+?)\s+(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
-  if (inline && inline[1]!.trim().length >= 3) {
-    return { street: inline[1]!.trim(), number: inline[2]!.trim() };
+  const candidates = [t, t.replace(STREET_TYPE_PREFIX_RE, '').trim()];
+  for (const candidate of candidates) {
+    const c = candidate.trim();
+    if (!c) continue;
+    const comma = c.match(/^(.+?),\s*(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
+    if (comma) {
+      return {
+        street: stripStreetTypePrefix(comma[1]!.trim()),
+        number: comma[2]!.trim(),
+      };
+    }
+    const inline = c.match(/^(.+?)\s+(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
+    if (inline && inline[1]!.trim().length >= 3) {
+      return {
+        street: stripStreetTypePrefix(inline[1]!.trim()),
+        number: inline[2]!.trim(),
+      };
+    }
   }
   const onlyNum = t.match(/^(?:n[ºo°.]?\s*)?(\d{1,6}[a-zA-Z]?)\s*$/i);
   if (onlyNum) {
@@ -294,23 +334,36 @@ export function mergeLocationConfirmReply(
   const parsed = parseStreetNumberReply(trimmed);
   if (!parsed?.number) return null;
 
-  const street = parsed.street || reverse?.road?.trim() || '';
+  const street = parsed.street || stripStreetTypePrefix(reverse?.road?.trim() ?? '');
   const number = parsed.number;
-  if (!street || !number) return null;
+  if (!street || !number) {
+    if (!number) return null;
+    if (!reverse?.road?.trim()) return null;
+  }
 
-  const cep = reverse?.postcode?.replace(/\D/g, '') ?? '';
-  const neighborhood = reverse?.suburb?.trim() ?? '';
+  const cepDigits = reverse?.postcode?.replace(/\D/g, '') ?? '';
+  const neighborhood = reverse?.suburb?.trim() || reverse?.city?.trim() || 'Centro';
   const city = reverse?.city?.trim() ?? '';
   const stateMatch = reverse?.state?.match(/\b([A-Z]{2})\b/i);
   const state = stateMatch?.[1]?.toUpperCase() ?? '';
 
-  if (!neighborhood || !city || !state || cep.length !== 8) {
-    return null;
+  if (!city || !state) return null;
+
+  if (cepDigits.length === 8) {
+    return formatDeliveryAddress({
+      cep: cepDigits,
+      street: street || reverse!.road!.trim(),
+      number,
+      neighborhood,
+      city,
+      state,
+      country: 'Brasil',
+    });
   }
 
-  return formatDeliveryAddress({
-    cep,
-    street,
+  return formatAddressForGeocodeQuery({
+    cep: '',
+    street: street || reverse!.road!.trim(),
     number,
     neighborhood,
     city,
@@ -393,7 +446,7 @@ export async function estimateDeliveryFromAddresses(opts: {
 } | null> {
   const [origin, dest] = await Promise.all([
     geocodeAddressFree(opts.originAddress, { countryCode: opts.countryCode }),
-    geocodeAddressFree(opts.destinationAddress, { countryCode: opts.countryCode }),
+    geocodeCustomerAddressFree(opts.destinationAddress, { countryCode: opts.countryCode }),
   ]);
   if (!origin || !dest) return null;
 

@@ -1,8 +1,10 @@
 # RadarChat — QA Manual Guiado Pós-2.17.56
 
+> **Reconciliação (2026-07-01):** o pacote **2.17.57** (`d0d3cfb`) foi enviado a `origin/develop` e `origin/main`; deploy [28535749453](https://github.com/benhuragmf/radarzapv2/actions/runs/28535749453) **success**. Seções 7–8 abaixo refletem o estado **antes** desse deploy. Validação pós-produção: [`RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md`](./RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md).
+
 ## 1. Resumo executivo
 
-Rodada de **QA guiado + ajustes locais** após handoff 2.17.56. Revisão estática do módulo Produtos, RBAC e catálogo/PIX; correções em pedidos (ações completas, status), visão geral (KPIs condicionais) e tabela de estoque. **43 testes** e **pre-push gate** verdes. **Sem push, deploy ou produção.**
+Rodada de **QA guiado + ajustes locais** após handoff 2.17.56. Revisão estática do módulo Produtos, RBAC e catálogo/PIX; correções em pedidos (ações completas, status), visão geral (KPIs condicionais) e tabela de estoque. **43 testes** e **pre-push gate** verdes. *Na redação original: sem push/deploy — superseded pelo deploy 2.17.57.*
 
 ## 2. Versão inicial
 

@@ -1,6 +1,6 @@
 # Radar Chat v2 — Índice de documentação
 
-**Versão do produto:** `2.17.57` · **Atualizado:** 2026-07-01
+**Versão do produto:** `2.17.58` · **Atualizado:** 2026-07-01
 
 ### Leitura principal obrigatória
 
@@ -64,8 +64,10 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA e carteira |
 | [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md) | Catálogo, pedidos via IA, PIX e fulfillment |
 | [`PRODUTOS-CATALOGO.md`](./PRODUTOS-CATALOGO.md) | Menu Produtos — estoque, pedidos, PIX, frete, WhatsApps operacionais (2.17.55) |
-| [`concluidos/RADARCHAT-QA-MANUAL-GUIADO-POS-2.17.56.md`](./concluidos/RADARCHAT-QA-MANUAL-GUIADO-POS-2.17.56.md) | **QA manual guiado** pós-2.17.56 — sem produção |
-| [`concluidos/RADARCHAT-HANDOFF-LOCAL-POS-2.17.55.md`](./concluidos/RADARCHAT-HANDOFF-LOCAL-POS-2.17.55.md) | **Handoff local** pós-2.17.55 — QA sem produção |
+| [`concluidos/RADARCHAT-HOTFIX-CATALOGO-WA-ENDERECO-PIX-2.17.58.md`](./concluidos/RADARCHAT-HOTFIX-CATALOGO-WA-ENDERECO-PIX-2.17.58.md) | **Hotfix** catálogo WA — retirada, endereço, PIX duplicado (2.17.58) |
+| [`concluidos/RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md`](./concluidos/RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md) | **Validação pós-produção** 2.17.57 — Git, deploy, bundle, QA pendente |
+| [`concluidos/RADARCHAT-QA-MANUAL-GUIADO-POS-2.17.56.md`](./concluidos/RADARCHAT-QA-MANUAL-GUIADO-POS-2.17.56.md) | QA manual guiado pós-2.17.56 (histórico pré-deploy) |
+| [`concluidos/RADARCHAT-HANDOFF-LOCAL-POS-2.17.55.md`](./concluidos/RADARCHAT-HANDOFF-LOCAL-POS-2.17.55.md) | Handoff local pós-2.17.55 (histórico pré-deploy) |
 | [`concluidos/RADARCHAT-PRODUTOS-UX-WHATSAPPS-CONCLUSAO-2.17.55.md`](./concluidos/RADARCHAT-PRODUTOS-UX-WHATSAPPS-CONCLUSAO-2.17.55.md) | **Conclusão** UX Produtos + WhatsApps operacionais |
 | [`concluidos/RADARCHAT-PRODUTOS-MENU-CATALOGO-CONCLUSAO-2.17.53.md`](./concluidos/RADARCHAT-PRODUTOS-MENU-CATALOGO-CONCLUSAO-2.17.53.md) | **Conclusão** menu Produtos e reorganização catálogo |
 | [`concluidos/CATALOGO-IA-COMPRA-HANDOFF-GPT.md`](./concluidos/CATALOGO-IA-COMPRA-HANDOFF-GPT.md) | Handoff GPT — métodos, fluxo compra WA/WebChat, QA |

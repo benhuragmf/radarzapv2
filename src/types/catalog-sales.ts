@@ -414,9 +414,104 @@ export function detectDeliveryFeeOrAddressQuestion(text: string): boolean {
 export function detectPixResendRequest(text: string): boolean {
   const t = text.trim().toLowerCase();
   if (!t) return false;
-  return /\b(manda(r)? (o )?pix|reenvi(ar|e) (o )?pix|chave pix|não achei o pix|nao achei o pix|qual (a )?chave|reenviar pagamento)\b/i.test(
+  return /\b(manda(r)? (o )?pix|reenvi(ar|e) (o )?pix|chave pix|não achei o pix|nao achei o pix|qual (a )?chave|reenviar pagamento|manda a chave|não achei|nao achei)\b/i.test(
     t,
   );
+}
+
+const GENERIC_PICKUP_HINT_RE =
+  /consulte\s+(nossa\s+)?equipe|endereço de retirada não configurado|a confirmar/i;
+
+/** Endereço de retirada válido (não genérico/placeholder). */
+export function isValidConfiguredPickupAddress(address: string | null | undefined): boolean {
+  const t = address?.trim() ?? '';
+  if (!t || t.length < 12) return false;
+  if (GENERIC_PICKUP_HINT_RE.test(t)) return false;
+  if (/\d{5}-?\d{3}/.test(t) && t.includes(',')) return true;
+  if (/\b(rua|av\.|avenida|rod\.|estrada)\b/i.test(t) && /\d/.test(t)) return true;
+  return t.length >= 20 && /\d/.test(t);
+}
+
+/** Resolve endereço de retirada a partir da config da empresa. */
+export function resolveConfiguredPickupAddress(
+  companyCfg: CatalogSalesCompanyConfig,
+  orgAddress?: string | null,
+): string | null {
+  const candidates = [
+    companyCfg.deliveryOriginAddress?.trim(),
+    orgAddress?.trim(),
+    companyCfg.deliveryInstructions?.trim(),
+  ].filter(Boolean) as string[];
+  for (const c of candidates) {
+    if (isValidConfiguredPickupAddress(c)) return c;
+  }
+  return null;
+}
+
+export function buildPickupWithoutAddressReply(
+  productName: string,
+  contactFirstName?: string,
+): string {
+  const first = contactFirstName?.trim().split(/\s+/)[0];
+  const prefix = first ? `${first}, ` : '';
+  return (
+    `${prefix}Perfeito, encontrei o produto *${productName}*. ` +
+    'Antes de liberar o pagamento, preciso confirmar o endereço de retirada com nossa equipe. ' +
+    'Vou encaminhar seu pedido para conferência.'
+  );
+}
+
+export function buildPickupWithAddressReply(
+  productName: string,
+  pickupAddress: string,
+  pixInstructions?: string,
+): string {
+  const pix =
+    pixInstructions?.trim() ? `\n\n*Pagamento PIX:*\n${pixInstructions.trim()}` : '';
+  return (
+    `Perfeito! Você poderá retirar o produto *${productName}* em:\n${pickupAddress.trim()}${pix}\n\n` +
+    'Envie o comprovante aqui após o pagamento para nossa equipe conferir.'
+  );
+}
+
+/** Fallback contextual no fluxo de catálogo — evita mensagem genérica de instabilidade. */
+export function buildCatalogContextualRecoveryReply(opts: {
+  orderStatus?: CatalogSalesOrderStatus;
+  productName?: string;
+  deliveryLocationPendingConfirm?: boolean;
+  contactFirstName?: string;
+}): string | null {
+  const prefix = opts.contactFirstName?.trim() ? `${opts.contactFirstName.trim()}, ` : '';
+  const product = opts.productName?.trim() ? `*${opts.productName.trim()}*` : 'seu pedido';
+
+  if (opts.deliveryLocationPendingConfirm) {
+    return (
+      `${prefix}Recebi sua localização. Agora preciso apenas da *rua* e *número* do imóvel. ` +
+      'Ex.: Rua das Flores, 123.'
+    );
+  }
+
+  if (opts.orderStatus === 'aguardando_endereco') {
+    return (
+      `${prefix}Ainda preciso confirmar seu CEP/endereço para calcular a entrega antes do PIX. ` +
+      'Pode me enviar o CEP ou rua e número?'
+    );
+  }
+
+  if (opts.orderStatus === 'aguardando_pagamento') {
+    return (
+      `${prefix}seu pedido de ${product} segue aguardando pagamento. ` +
+      'Se precisar das instruções PIX novamente, digite *manda o pix*.'
+    );
+  }
+
+  if (opts.orderStatus === 'pendente_configuracao_whatsapp') {
+    return (
+      `${prefix}Antes de liberar o pagamento, preciso confirmar o endereço de retirada com a equipe.`
+    );
+  }
+
+  return null;
 }
 
 export function formatProductPriceOfferPhrase(price?: string | null): string {

@@ -145,8 +145,8 @@ Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é 
 ## Fluxo resumido
 
 1. Cliente pergunta produto (nome ou intenção de compra) → oferta padronizada: preço, estoque, *retirar* ou *entregue* (sem PIX bruto da KB).
-2. Cliente escolhe **retirar** → pedido `aguardando_pagamento` + mensagem automática com endereço de retirada e PIX.
-3. Cliente escolhe **entregue** → pedido `aguardando_endereco` + pedido de **CEP**; depois número → cotação de frete no servidor → PIX.
+2. Cliente escolhe **retirar** → pedido `aguardando_pagamento` + **uma** mensagem com endereço de retirada e PIX (**2.17.58**: sem duplicar; sem endereço configurado → humano, sem PIX).
+3. Cliente escolhe **entregue** → pedido `aguardando_endereco` + pedido de **CEP** ou endereço completo; pin + rua/número; cotação de frete no servidor → PIX (**2.17.58**: endereço livre sem CEP; fallback contextual sem “instabilidade”).
 4. Produto inexistente ou typo → sugestão de itens parecidos com **preço e estoque** (até 3); match ambíguo **pede confirmação** — não abre pedido/PIX direto (2.17.52).
 5. Catálogo vazio → mensagem honesta + atendente; sem loop *"Qual produto…"* (2.17.51+).
 6. Cliente envia imagem/PDF → `handleInboundProof` → vincula comprovante, notifica WA interno se configurado.

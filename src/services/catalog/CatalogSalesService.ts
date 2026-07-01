@@ -57,6 +57,10 @@ import {
   isCatalogPurchaseOfferMessage,
   buildFulfillmentReminderReply,
   formatProductPriceOfferPhrase,
+  resolveConfiguredPickupAddress,
+  buildPickupWithoutAddressReply,
+  buildPickupWithAddressReply,
+  buildCatalogContextualRecoveryReply,
 } from '@/types/catalog-sales';
 import {
   estimateDeliveryFromAddresses,
@@ -74,6 +78,8 @@ import {
   storedValueIsCepOnly,
   textIsCepOnly,
   textLooksLikeStreetNumber,
+  textLooksLikeDeliveryAddressInput,
+  isGeocodableCustomerAddress,
 } from '@/types/catalog-delivery-address';
 import { formatCepDisplay, normalizeCepDigits } from '@/utils/br-cep.util';
 import { resolveClientFirstName } from '@/utils/ai-kb-client.util';
@@ -216,16 +222,6 @@ export class CatalogSalesService {
     }
 
     const order = await this.maybeCreateOrderFromAiTurn(opts);
-
-    if (order && detectPickupFulfillmentChoice(opts.clientText)) {
-      await this.sendPickupFulfillmentToCustomer(order, cfg);
-      return {
-        serverQuoteSent: false,
-        quoteFailed: false,
-        useDistanceBasedDelivery: Boolean(cfg.useDistanceBasedDelivery),
-        handled: true,
-      };
-    }
 
     const quoteResult = await this.maybeUpdateOrderFromAiTurn({
       clientId: opts.clientId,
@@ -492,7 +488,7 @@ export class CatalogSalesService {
 
     if (isPickup) {
       if (order) {
-        const reply = await this.preparePickupFulfillmentReply(order, cfg);
+        const reply = await this.preparePickupFulfillmentReply(order, cfg, opts.clientText);
         return { handled: true, customerReply: reply };
       }
       return { handled: turn.handled ?? false };
@@ -652,7 +648,39 @@ export class CatalogSalesService {
   private async preparePickupFulfillmentReply(
     order: ICatalogSalesOrder,
     cfg: CatalogSalesCompanyConfig,
+    clientText?: string,
   ): Promise<string> {
+    if (
+      this.catalogOrderPixAlreadySent(order) &&
+      !detectPixResendRequest(clientText ?? '')
+    ) {
+      return (
+        `Seu pedido de *${order.productName}* já está aguardando pagamento. ` +
+        'Se precisar das instruções PIX novamente, digite *manda o pix*.'
+      );
+    }
+
+    const org = await Organization.findById(order.clientId).select('address').lean();
+    const pickupAddress = resolveConfiguredPickupAddress(cfg, org?.address);
+
+    if (!pickupAddress) {
+      order.status = 'pendente_configuracao_whatsapp';
+      order.history.push({
+        at: new Date(),
+        action: 'pickup_address_missing',
+        status: 'pendente_configuracao_whatsapp',
+      });
+      await order.save();
+      await this.escalateConversationToHuman(String(order.clientId), {
+        conversationId: String(order.conversationId),
+        channel: order.channel,
+        destinationId: order.destinationId ? String(order.destinationId) : undefined,
+        contactIdentifier: order.contactIdentifier,
+        contactName: order.contactName,
+      });
+      return buildPickupWithoutAddressReply(order.productName, order.contactName);
+    }
+
     if (order.status !== 'aguardando_pagamento') {
       order.status = 'aguardando_pagamento';
       order.history.push({
@@ -662,27 +690,28 @@ export class CatalogSalesService {
       });
       await order.save();
     }
-    await this.recordPixInstructionsSent(order);
-    const org = await Organization.findById(order.clientId).select('address').lean();
-    return this.buildPickupFulfillmentReply(order, cfg, org?.address);
+
+    const pixBlock =
+      cfg.pixEnabled && cfg.pixInstructions?.trim() ? cfg.pixInstructions.trim() : undefined;
+    if (pixBlock) {
+      await this.recordPixInstructionsSent(order);
+    }
+    return buildPickupWithAddressReply(order.productName, pickupAddress, pixBlock);
   }
 
+  /** @deprecated Resposta via short-circuit — não enviar mensagem automática duplicada. */
   private buildPickupFulfillmentReply(
     order: ICatalogSalesOrder,
     cfg: CatalogSalesCompanyConfig,
     orgAddress?: string | null,
   ): string {
-    const pickupLocation =
-      cfg.deliveryInstructions?.trim() ||
-      orgAddress?.trim() ||
-      'Consulte nossa equipe para o endereço de retirada.';
-    const pix = cfg.pixEnabled && cfg.pixInstructions?.trim()
-      ? `\n\n*Pagamento PIX:*\n${cfg.pixInstructions.trim()}`
-      : '';
-    return (
-      `Perfeito! *Retirada* do produto *${order.productName}* no endereço:\n${pickupLocation}${pix}\n\n` +
-      'Envie o comprovante aqui após o pagamento para nossa equipe conferir.'
-    );
+    const pickupAddress = resolveConfiguredPickupAddress(cfg, orgAddress);
+    if (!pickupAddress) {
+      return buildPickupWithoutAddressReply(order.productName, order.contactName);
+    }
+    const pix =
+      cfg.pixEnabled && cfg.pixInstructions?.trim() ? cfg.pixInstructions.trim() : undefined;
+    return buildPickupWithAddressReply(order.productName, pickupAddress, pix);
   }
 
   private async sendDeliveryAddressRequestToCustomer(order: ICatalogSalesOrder): Promise<void> {
@@ -754,7 +783,85 @@ export class CatalogSalesService {
       };
     }
 
+    if (order.deliveryLocationPendingConfirm) {
+      const locResult = await this.handleInboundLocationStreetConfirm({
+        clientId: opts.clientId,
+        conversation: {
+          conversationId: opts.conversationId,
+          channel: order.channel,
+          destinationId: order.destinationId ? String(order.destinationId) : undefined,
+          contactIdentifier: order.contactIdentifier,
+          contactName: order.contactName,
+        },
+        text,
+      });
+      if (locResult.handled) {
+        return {
+          handled: true,
+          result: {
+            serverQuoteSent: locResult.serverQuoteSent,
+            quoteFailed: locResult.quoteFailed,
+            useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
+            handled: true,
+            needsAddressConfirmation: locResult.needsAddressConfirmation,
+          },
+        };
+      }
+    }
+
+    if (textLooksLikeDeliveryAddressInput(text) && isGeocodableCustomerAddress(text)) {
+      const quoteResult = await this.maybeAttachAddressToOrder(order, text, opts.cfg);
+      return {
+        handled: true,
+        result: {
+          serverQuoteSent: quoteResult.quoteSent,
+          quoteFailed: quoteResult.quoteFailed,
+          useDistanceBasedDelivery: Boolean(opts.cfg.useDistanceBasedDelivery),
+          handled: true,
+        },
+      };
+    }
+
     return { handled: false, result: noop };
+  }
+
+  /** Processa CEP, endereço completo ou rua/número após pin — uma resposta por inbound. */
+  async tryProcessCatalogAddressInput(opts: {
+    clientId: string;
+    conversation: CatalogSalesConversationRef;
+    clientText: string;
+  }): Promise<CatalogAiTurnResult & { handled: boolean }> {
+    const cfg = await this.loadCompanyConfig(opts.clientId);
+    const incremental = await this.processIncrementalAddressInput({
+      clientId: opts.clientId,
+      conversationId: opts.conversation.conversationId,
+      clientText: opts.clientText,
+      cfg,
+    });
+    if (incremental.handled) {
+      return { ...incremental.result, handled: true };
+    }
+    return {
+      handled: false,
+      serverQuoteSent: false,
+      quoteFailed: false,
+      useDistanceBasedDelivery: Boolean(cfg.useDistanceBasedDelivery),
+    };
+  }
+
+  async buildContextualRecoveryReply(opts: {
+    clientId: string;
+    conversationId: string;
+    contactFirstName?: string;
+  }): Promise<string | null> {
+    const active = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
+    if (!active) return null;
+    return buildCatalogContextualRecoveryReply({
+      orderStatus: active.status,
+      productName: active.productName,
+      deliveryLocationPendingConfirm: Boolean(active.deliveryLocationPendingConfirm),
+      contactFirstName: opts.contactFirstName,
+    });
   }
 
   private async sendPickupFulfillmentToCustomer(
@@ -779,6 +886,17 @@ export class CatalogSalesService {
 
     const prefix = opts.contactFirstName ? `${opts.contactFirstName}, ` : '';
     const active = await this.findActiveOrderForConversation(opts.clientId, opts.conversationId);
+    const contextual = active
+      ? buildCatalogContextualRecoveryReply({
+          orderStatus: active.status,
+          productName: active.productName,
+          deliveryLocationPendingConfirm: Boolean(active.deliveryLocationPendingConfirm),
+          contactFirstName: opts.contactFirstName,
+        })
+      : null;
+    if (contextual && !detectPixResendRequest(opts.clientText)) {
+      return contextual;
+    }
     if (active?.status === 'aguardando_endereco') {
       return (
         `${prefix}para continuar sua compra do *${active.productName}*, envie o *CEP* ` +
@@ -1073,7 +1191,9 @@ export class CatalogSalesService {
 
     const rates = normalizeKmRates(cfg.deliveryKmRates);
     const dest = order.deliveryAddress?.trim();
-    const addressComplete = Boolean(dest && !deliveryAddressValidationError(dest));
+    const addressComplete = Boolean(
+      dest && (deliveryAddressValidationError(dest) === null || isGeocodableCustomerAddress(dest)),
+    );
     const destLat = order.deliveryLocationLat;
     const destLng = order.deliveryLocationLng;
     const hasCoords =
@@ -1977,7 +2097,8 @@ export class CatalogSalesService {
     cfg: CatalogSalesCompanyConfig,
   ): Promise<void> {
     const text =
-      'Não consegui identificar a rua e o número. Envie no formato: *Rua das Flores, 123* (ou o endereço completo com CEP).';
+      'Ainda preciso da *rua* e do *número* do imóvel para calcular o frete. ' +
+      'Ex.: *Rua das Flores, 123* ou *Salmen Hanze, 1326*.';
     await this.sendCatalogAutomatedCustomerMessage(order, text, 'catalog-sales-location-retry');
   }
 

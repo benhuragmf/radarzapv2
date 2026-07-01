@@ -1,8 +1,10 @@
 # RadarChat — Handoff Local Pós-2.17.55
 
+> **Reconciliação (2026-07-01):** commits 2.17.56 (`9bf3dec`) e 2.17.57 (`d0d3cfb`) estão na `main` e em produção. Ver [`RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md`](./RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md).
+
 ## 1. Resumo executivo
 
-Etapa de **estabilização local** após entrega 2.17.55, **sem produção, push ou deploy**. Auditoria de código + ajustes finos de UX no módulo Produtos; regras críticas de catálogo/PIX preservadas (testes 43/43); gates locais verdes. Versão incrementada para **2.17.56** com commit **apenas local**.
+Etapa de **estabilização local** após entrega 2.17.55. *Na redação original: sem produção, push ou deploy — superseded.* Auditoria de código + ajustes finos de UX no módulo Produtos; regras críticas de catálogo/PIX preservadas (testes 43/43); gates locais verdes. Versão incrementada para **2.17.56** com commit **apenas local**.
 
 ## 2. Versão inicial
 

@@ -4,6 +4,10 @@ import {
   buildCatalogPurchaseOfferReply,
   buildDeliveryAddressStartReply,
   buildDeliveryInquiryReply,
+  buildCatalogContextualRecoveryReply,
+  buildPickupWithoutAddressReply,
+  buildPickupWithAddressReply,
+  isValidConfiguredPickupAddress,
   catalogTitleSimilarity,
   CATALOG_EMPTY_REPLY_SUFFIX,
   CATALOG_FUZZY_SUGGEST_MIN_SCORE,
@@ -33,7 +37,14 @@ import {
   productStockIsZero,
   resolveCatalogFulfillmentMode,
   shouldOpenPixOrderFlow,
+  resolveConfiguredPickupAddress,
 } from '@/types/catalog-sales';
+import {
+  isGeocodableCustomerAddress,
+  parseLooseDeliveryAddress,
+  textLooksLikeDeliveryAddressInput,
+} from '@/types/catalog-delivery-address';
+import { parseStreetNumberReply } from '@/utils/catalog-delivery.util';
 import {
   buildCatalogPixInstructions,
   enrichCatalogSalesPixFields,
@@ -280,7 +291,56 @@ describe('catalog-sales types', () => {
 
   it('reenvio PIX só com pedido explícito', () => {
     expect(detectPixResendRequest('manda o pix de novo')).toBe(true);
+    expect(detectPixResendRequest('qual a chave pix')).toBe(true);
+    expect(detectPixResendRequest('não achei o pix')).toBe(true);
     expect(detectPixResendRequest('mais tem taxa de entrega?')).toBe(false);
+    expect(detectPixResendRequest('retirar')).toBe(false);
+    expect(detectPixResendRequest('Rua Salmen Hanze 1326')).toBe(false);
+  });
+
+  it('retirada sem endereço configurado — não é endereço válido', () => {
+    expect(isValidConfiguredPickupAddress('Consulte nossa equipe para o endereço de retirada.')).toBe(
+      false,
+    );
+    expect(isValidConfiguredPickupAddress('')).toBe(false);
+    expect(
+      isValidConfiguredPickupAddress('01001-000, Praça da Sé, 100, Sé, São Paulo, SP, Brasil'),
+    ).toBe(true);
+  });
+
+  it('retirada sem endereço — mensagem honesta sem PIX', () => {
+    const msg = buildPickupWithoutAddressReply('ZAAd', 'Benhur');
+    expect(msg).toContain('ZAAd');
+    expect(msg).toContain('endereço de retirada');
+    expect(msg).not.toContain('Chave PIX');
+    expect(msg).not.toContain('Consulte nossa equipe');
+  });
+
+  it('retirada com endereço — mensagem com local e PIX', () => {
+    const addr = 'Rua das Flores, 100, Centro, São Paulo, SP';
+    const msg = buildPickupWithAddressReply('ZAAd', addr, 'Chave PIX: teste@email.com');
+    expect(msg).toContain(addr);
+    expect(msg).toContain('Pagamento PIX');
+    expect(msg).not.toContain('Consulte nossa equipe');
+  });
+
+  it('fallback contextual — aguardando endereço sem instabilidade genérica', () => {
+    const msg = buildCatalogContextualRecoveryReply({
+      orderStatus: 'aguardando_endereco',
+      productName: 'ZAAd',
+      contactFirstName: 'Benhur',
+    });
+    expect(msg).toContain('CEP');
+    expect(msg).not.toContain('instabilidade');
+  });
+
+  it('fallback contextual — pin aguardando rua/número', () => {
+    const msg = buildCatalogContextualRecoveryReply({
+      orderStatus: 'aguardando_endereco',
+      deliveryLocationPendingConfirm: true,
+    });
+    expect(msg).toContain('rua');
+    expect(msg).toContain('número');
   });
 
   it('modos retirada/entrega por perfil comercial', () => {
@@ -368,5 +428,27 @@ describe('catalog-sales types', () => {
         'aguardando_endereco',
       ].includes('comprovante_sem_pedido'),
     ).toBe(true);
+  });
+
+  it('endereço completo sem CEP é reconhecido', () => {
+    const raw = 'Rua: Salmen Hanze, 1326 Vila Birigui, Rondonópolis MT';
+    expect(textLooksLikeDeliveryAddressInput(raw)).toBe(true);
+    const parsed = parseLooseDeliveryAddress(raw);
+    expect(parsed?.street).toContain('Salmen');
+    expect(parsed?.number).toBe('1326');
+    expect(parsed?.city).toMatch(/Rondonópolis/i);
+    expect(parsed?.state).toBe('MT');
+    expect(isGeocodableCustomerAddress(raw)).toBe(true);
+  });
+
+  it('rua e número com prefixo Rua: é aceito', () => {
+    expect(parseStreetNumberReply('Rua: Salmen Hanze, 1326')).toEqual({
+      street: 'Salmen Hanze',
+      number: '1326',
+    });
+    expect(parseStreetNumberReply('R. Salmen Hanze, nº 1326')).toEqual({
+      street: 'Salmen Hanze',
+      number: '1326',
+    });
   });
 });

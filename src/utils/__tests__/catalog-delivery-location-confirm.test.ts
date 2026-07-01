@@ -43,6 +43,10 @@ describe('catalog-delivery location confirm', () => {
       street: 'Rua das Flores',
       number: '123',
     });
+    expect(parseStreetNumberReply('Rua: Salmen Hanze, 1326')).toEqual({
+      street: 'Salmen Hanze',
+      number: '1326',
+    });
     expect(parseStreetNumberReply('45')).toEqual({ street: '', number: '45' });
   });
 

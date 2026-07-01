@@ -20,7 +20,24 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.58] - 2026-07-01
+
+### Fixed
+- Catálogo WA: PIX retirada não duplica; retirada sem endereço configurado não libera PIX (escala humano)
+- Catálogo: endereço completo sem CEP; pin + rua/número (`Rua:`, `nº`); geocode cliente relaxado
+- Catálogo: fallback contextual no fluxo ativo (sem mensagem genérica de instabilidade)
+- Catálogo: suprime resposta LLM quando catálogo já enviou cotação/PIX/endereço
+- WebChat: paridade endereço/retirada
+
+### Docs
+- Hotfix: `concluidos/RADARCHAT-HOTFIX-CATALOGO-WA-ENDERECO-PIX-2.17.58.md`
+
+---
+
 ## [2.17.57] - 2026-07-01
+
+### Docs
+- Validação pós-produção: `concluidos/RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md` — reconciliação Git/deploy/bundle; QA humano pendente
 
 ### Fixed
 - Pedidos: ações pedir novo comprovante e reenviar notificação com RBAC; aprovar/recusar só em status de conferência

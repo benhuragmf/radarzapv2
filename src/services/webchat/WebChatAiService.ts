@@ -61,7 +61,9 @@ import {
 import {
   textIsCepOnly,
   textLooksLikeStreetNumber,
+  textLooksLikeDeliveryAddressInput,
 } from '@/types/catalog-delivery-address';
+import { parseStreetNumberReply } from '@/utils/catalog-delivery.util';
 import { emptyAiStructuredReply } from '@/types/ai-assistant';
 import {
   looksLikePurchaseInquiry,
@@ -597,18 +599,21 @@ export class WebChatAiService {
       opts.visitorName ?? conversation?.visitorName,
     );
 
-    if (textIsCepOnly(text) || textLooksLikeStreetNumber(text)) {
+    if (
+      textIsCepOnly(text) ||
+      textLooksLikeStreetNumber(text) ||
+      textLooksLikeDeliveryAddressInput(text) ||
+      parseStreetNumberReply(text) !== null
+    ) {
       const active = await catalogSvc.findActiveOrderForConversation(
         opts.clientId,
         opts.conversationId,
       );
       if (active?.status === 'aguardando_endereco') {
-        await catalogSvc.processAiCatalogTurn({
+        await catalogSvc.tryProcessCatalogAddressInput({
           clientId: opts.clientId,
           conversation: convRef,
           clientText: text,
-          structured: emptyAiStructuredReply(),
-          threadContext: opts.threadContext,
         });
         return { body: '', automatedOnly: true };
       }
