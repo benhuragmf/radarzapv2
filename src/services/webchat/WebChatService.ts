@@ -449,6 +449,30 @@ export class WebChatService {
     return WebChatConversation.findOne({ visitorTokenHash: hash, status: 'open' });
   }
 
+  /** Valida origem do handshake Socket.IO do visitante (paridade com REST e wcp_*). */
+  async assertVisitorSocketOrigin(
+    conversation: IWebChatConversation,
+    origin?: string | null,
+    referer?: string | null,
+    publicKey?: string | null,
+  ): Promise<void> {
+    const pk = publicKey?.trim();
+    const widget = pk
+      ? await WebChatWidget.findOne({
+          publicKey: pk,
+          active: true,
+          clientId: conversation.clientId,
+          _id: conversation.widgetId,
+        })
+      : await WebChatWidget.findOne({
+          _id: conversation.widgetId,
+          active: true,
+          clientId: conversation.clientId,
+        });
+    if (!widget) throw new Error('Unauthorized');
+    await this.assertOrigin(widget, origin, referer);
+  }
+
   private async departmentNameFor(
     departmentId?: mongoose.Types.ObjectId,
   ): Promise<string | undefined> {

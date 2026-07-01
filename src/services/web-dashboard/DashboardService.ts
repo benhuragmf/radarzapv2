@@ -221,6 +221,7 @@ import helmet from 'helmet';
 import { securityMiddleware } from '../../middleware/security';
 import { rateLimiters } from '../../middleware/rateLimiter';
 import { redactEmail, redactOAuthError, escapeMongoRegex } from '../../utils/redact-sensitive';
+import { maskCrossTenantWaSession } from '../../utils/wa-session-cross-tenant-mask.util';
 import { encryptField } from '../../utils/field-encryption';
 import { requireDashboardOrigin } from '../../middleware/same-origin';
 import { productionSafeError } from '../../middleware/production-safe-error';
@@ -842,6 +843,12 @@ export class DashboardService {
         try {
           const conversation = await WebChatService.getInstance().resolveVisitorToken(visitorToken);
           if (conversation) {
+            await WebChatService.getInstance().assertVisitorSocketOrigin(
+              conversation,
+              origin,
+              referer,
+              publicKey,
+            );
             const convId = String(conversation._id);
             socket.data.webchatConversationId = convId;
             socket.data.webchatClientId = String(conversation.clientId);
@@ -849,7 +856,12 @@ export class DashboardService {
             next();
             return;
           }
-        } catch {
+        } catch (err) {
+          const msg = (err as Error).message ?? '';
+          if (msg.includes('Origem não autorizada') || msg.includes('Forbidden')) {
+            next(new Error('Forbidden origin'));
+            return;
+          }
           /* token inválido — continua só com presença */
         }
       }
@@ -8410,7 +8422,9 @@ export class DashboardService {
     const wa = WhatsAppService.getInstance();
     const auth = req.auth!;
     const scopeAll =
-      auth.isInternalStaff && (req.query as { scope?: string }).scope === 'all';
+      auth.isInternalStaff &&
+      auth.capabilities.includes(Cap.DASHBOARD_GLOBAL) &&
+      (req.query as { scope?: string }).scope === 'all';
 
     if (!scopeAll) {
       return [await this.buildTenantSessionEntry(auth, wa)];
@@ -8457,6 +8471,7 @@ export class DashboardService {
         if (s.clientId === auth.clientId) return true;
         return s.status !== 'disconnected';
       })
+      .map(s => maskCrossTenantWaSession(s, auth.clientId))
       .sort((a, b) => {
       const rank = (s: typeof a) => {
         if (s.status === 'connected') return 0;

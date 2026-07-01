@@ -14,6 +14,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.28] - 2026-06-30
+
+### Security
+- **SEC-01:** Socket.IO visitante `wcv_*` valida origem embed (`assertVisitorSocketOrigin`) — paridade com REST e `wcp_*`.
+- **SEC-02:** `GET /api/sessions?scope=all` exige `dashboard:global`; QR/telefone/avatar de outros tenants mascarados.
+- **SEC-03:** RadarGamer inbound aceita `X-API-Key` por tenant (Bearer legado mantido).
+- **SEC-04:** CSRF produção bloqueia mutações sem `Origin` salvo `Sec-Fetch-Site` same-origin/same-site ou `Referer` do painel.
+
+---
+
 ## [2.17.27] - 2026-06-30
 
 ### Fixed

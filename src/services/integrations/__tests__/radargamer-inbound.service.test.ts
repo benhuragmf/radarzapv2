@@ -7,8 +7,19 @@ import {
   type RadarGamerInboundRequest,
 } from '@/services/integrations/radargamer-inbound.service';
 import { createRadarGamerInboundRouter } from '@/services/integrations/radargamer-inbound.routes';
+import { hashApiKey } from '@/utils/api-key';
+
+jest.mock('@/models/ApiKey', () => ({
+  ApiKey: {
+    findOne: jest.fn(),
+  },
+}));
+
+import { ApiKey } from '@/models/ApiKey';
 
 const CLIENT_ID = new mongoose.Types.ObjectId().toString();
+const API_KEY_ORG_ID = new mongoose.Types.ObjectId().toString();
+const API_KEY_RAW = `rz_${'a'.repeat(40)}`;
 const NOW = new Date('2026-06-30T12:00:00.000Z');
 
 function acceptedDestination() {
@@ -66,6 +77,16 @@ function headers(overrides: Record<string, string | undefined> = {}) {
   };
 }
 
+function apiKeyHeaders(overrides: Record<string, string | undefined> = {}) {
+  return {
+    apiKey: API_KEY_RAW,
+    source: 'radargamer',
+    idempotencyKey: 'evt-api-1',
+    requestId: 'req-api-1',
+    ...overrides,
+  };
+}
+
 function payload(overrides: Partial<RadarGamerInboundRequest> = {}): RadarGamerInboundRequest {
   return {
     recipientPhone: '+5511999999999',
@@ -89,6 +110,8 @@ function payload(overrides: Partial<RadarGamerInboundRequest> = {}): RadarGamerI
 describe('RadarGamerInboundService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    RadarGamerInboundService.resetForTests();
+    (ApiKey.findOne as jest.Mock).mockResolvedValue(null);
   });
 
   it('accepts authenticated payload and enqueues WhatsApp job', async () => {
@@ -133,6 +156,40 @@ describe('RadarGamerInboundService', () => {
     await expect(
       service().acceptMessage(payload(), headers({ authorization: 'Bearer wrong' })),
     ).rejects.toMatchObject({ status: 401, code: 'AUTH_INVALID' });
+  });
+
+  it('accepts X-API-Key and resolves tenant from ApiKey model', async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    (ApiKey.findOne as jest.Mock).mockResolvedValue({
+      organizationId: { toString: () => API_KEY_ORG_ID },
+      save,
+    });
+
+    const deps = buildDeps();
+    const svc = new RadarGamerInboundService(deps as any);
+    const result = await svc.acceptMessage(
+      payload({ sourceEventId: 'evt-api-1', sourceUserId: 'user-api' }),
+      apiKeyHeaders(),
+    );
+
+    expect(ApiKey.findOne).toHaveBeenCalledWith({
+      keyHash: hashApiKey(API_KEY_RAW),
+      active: true,
+    });
+    expect(save).toHaveBeenCalled();
+    expect(result.status).toBe('queued');
+    expect(deps.queueManager.addJob).toHaveBeenCalledWith(
+      'whatsapp-sending',
+      'send-message',
+      expect.objectContaining({ clientId: API_KEY_ORG_ID }),
+      expect.any(Object),
+    );
+  });
+
+  it('rejects invalid X-API-Key format', async () => {
+    await expect(
+      service().acceptMessage(payload(), apiKeyHeaders({ apiKey: 'bad-key' })),
+    ).rejects.toMatchObject({ status: 401, code: 'INVALID_API_KEY' });
   });
 
   it('rejects invalid payload', async () => {

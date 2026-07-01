@@ -2,11 +2,13 @@ import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { QueueManager } from '@/cache/QueueManager';
 import { RedisManager } from '@/cache/RedisManager';
+import { ApiKey } from '@/models/ApiKey';
 import { Destination } from '@/models/Destination';
 import type { IDestination } from '@/models/Destination';
 import { ConsentStatus } from '@/types/consent';
 import { WHATSAPP_LIMITS } from '@/config/limits';
 import { createServiceLogger } from '@/utils/logger';
+import { hashApiKey } from '@/utils/api-key';
 import { redactPhone } from '@/utils/redact-sensitive';
 import type { WhatsAppSendKind } from '@/utils/whatsapp-session-rate-limit';
 
@@ -46,6 +48,7 @@ export interface RadarGamerInboundResponse {
 
 interface RadarGamerInboundHeaders {
   authorization?: string;
+  apiKey?: string;
   idempotencyKey?: string;
   source?: string;
   requestId?: string;
@@ -223,21 +226,26 @@ export class RadarGamerInboundService {
     return RadarGamerInboundService.instance;
   }
 
+  static resetForTests(): void {
+    RadarGamerInboundService.instance = undefined as unknown as RadarGamerInboundService;
+    memoryIdempotency.clear();
+    memoryRateLimit.clear();
+  }
+
   async acceptMessage(
     body: RadarGamerInboundRequest,
     headers: RadarGamerInboundHeaders,
   ): Promise<RadarGamerInboundResponse> {
-    this.assertAuthorized(headers);
+    const clientId = await this.resolveAuthenticatedClientId(headers);
 
     const normalized = this.normalizePayload(body, headers);
-    const clientId = this.resolveClientId();
     const clientObjectId = new mongoose.Types.ObjectId(clientId);
     const correlationId = asTrimmedString(headers.requestId) || this.randomUUID();
     const idempotencyKey =
       asTrimmedString(headers.idempotencyKey) || normalized.sourceEventId;
 
-    await this.assertIdempotent(normalized.source, idempotencyKey);
-    const rateLimit = await this.consumeRateLimit(normalized.source);
+    await this.assertIdempotent(clientId, idempotencyKey);
+    const rateLimit = await this.consumeRateLimit(clientId);
 
     const rendered = this.renderAndValidate(normalized);
     this.assertMessageLength(rendered);
@@ -312,12 +320,17 @@ export class RadarGamerInboundService {
     };
   }
 
-  private assertAuthorized(headers: RadarGamerInboundHeaders): void {
-    const expectedToken = asTrimmedString(this.env.RADARCHAT_API_TOKEN);
-    if (!expectedToken) {
-      throw new RadarGamerInboundError(503, 'RADARCHAT_TOKEN_NOT_CONFIGURED', 'RadarChat API token is not configured');
+  private async resolveAuthenticatedClientId(headers: RadarGamerInboundHeaders): Promise<string> {
+    const apiKey = asTrimmedString(headers.apiKey);
+    if (apiKey) {
+      this.assertSourceAllowed(headers);
+      return this.resolveClientIdFromApiKey(apiKey);
     }
+    this.assertAuthorizedBearer(headers);
+    return this.resolveClientIdFromEnv();
+  }
 
+  private assertSourceAllowed(headers: RadarGamerInboundHeaders): void {
     const source = asTrimmedString(headers.source).toLowerCase();
     const allowedSources = (this.env.RADARCHAT_ALLOWED_SOURCES ?? 'radargamer')
       .split(',')
@@ -326,6 +339,15 @@ export class RadarGamerInboundService {
     if (!source || !allowedSources.includes(source)) {
       throw new RadarGamerInboundError(403, 'SOURCE_NOT_ALLOWED', 'Source is not allowed');
     }
+  }
+
+  private assertAuthorizedBearer(headers: RadarGamerInboundHeaders): void {
+    const expectedToken = asTrimmedString(this.env.RADARCHAT_API_TOKEN);
+    if (!expectedToken) {
+      throw new RadarGamerInboundError(503, 'RADARCHAT_TOKEN_NOT_CONFIGURED', 'RadarChat API token is not configured');
+    }
+
+    this.assertSourceAllowed(headers);
 
     const auth = asTrimmedString(headers.authorization);
     const match = /^Bearer\s+(.+)$/i.exec(auth);
@@ -335,6 +357,32 @@ export class RadarGamerInboundService {
     if (!safeTokenEquals(match[1].trim(), expectedToken)) {
       throw new RadarGamerInboundError(401, 'AUTH_INVALID', 'Bearer token is invalid');
     }
+  }
+
+  private async resolveClientIdFromApiKey(apiKeyRaw: string): Promise<string> {
+    if (!apiKeyRaw.startsWith('rz_') || apiKeyRaw.length < 32) {
+      throw new RadarGamerInboundError(401, 'INVALID_API_KEY', 'Invalid API key format');
+    }
+
+    const keyDoc = await ApiKey.findOne({ keyHash: hashApiKey(apiKeyRaw), active: true });
+    if (!keyDoc) {
+      throw new RadarGamerInboundError(401, 'INVALID_API_KEY', 'API key is invalid or inactive');
+    }
+
+    keyDoc.lastUsedAt = this.now();
+    await keyDoc.save();
+
+    return keyDoc.organizationId.toString();
+  }
+
+  private resolveClientIdFromEnv(): string {
+    const clientId =
+      asTrimmedString(this.env.RADARCHAT_RADARGAMER_CLIENT_ID) ||
+      asTrimmedString(this.env.RADARCHAT_DEFAULT_CLIENT_ID);
+    if (!clientId || !mongoose.Types.ObjectId.isValid(clientId)) {
+      throw new RadarGamerInboundError(503, 'RADARGAMER_TENANT_NOT_CONFIGURED', 'RadarGamer tenant is not configured');
+    }
+    return clientId;
   }
 
   private normalizePayload(
@@ -390,18 +438,8 @@ export class RadarGamerInboundService {
     };
   }
 
-  private resolveClientId(): string {
-    const clientId =
-      asTrimmedString(this.env.RADARCHAT_RADARGAMER_CLIENT_ID) ||
-      asTrimmedString(this.env.RADARCHAT_DEFAULT_CLIENT_ID);
-    if (!clientId || !mongoose.Types.ObjectId.isValid(clientId)) {
-      throw new RadarGamerInboundError(503, 'RADARGAMER_TENANT_NOT_CONFIGURED', 'RadarGamer tenant is not configured');
-    }
-    return clientId;
-  }
-
-  private async assertIdempotent(source: string, idempotencyKey: string): Promise<void> {
-    const key = `radarchat:integration:${source}:idempotency:${sha256(idempotencyKey)}`;
+  private async assertIdempotent(clientId: string, idempotencyKey: string): Promise<void> {
+    const key = `radarchat:integration:radargamer:${clientId}:idempotency:${sha256(idempotencyKey)}`;
     const value = this.now().toISOString();
     if (this.redisManager.isConnected()) {
       const created = await this.redisManager.setIfNotExists(key, value, IDEMPOTENCY_TTL_SECONDS);
@@ -419,14 +457,14 @@ export class RadarGamerInboundService {
     memoryIdempotency.set(key, nowMs + IDEMPOTENCY_TTL_SECONDS * 1000);
   }
 
-  private async consumeRateLimit(source: string): Promise<RadarGamerInboundResponse['rateLimit']> {
+  private async consumeRateLimit(clientId: string): Promise<RadarGamerInboundResponse['rateLimit']> {
     const max = Math.max(
       1,
       Number.parseInt(this.env.RADARCHAT_RADARGAMER_RATE_LIMIT_PER_MINUTE ?? '', 10) ||
         DEFAULT_RATE_LIMIT_PER_MINUTE,
     );
     const windowSeconds = 60;
-    const key = `radarchat:integration:${source}:rate:${Math.floor(this.now().getTime() / 60000)}`;
+    const key = `radarchat:integration:radargamer:${clientId}:rate:${Math.floor(this.now().getTime() / 60000)}`;
 
     if (this.redisManager.isConnected()) {
       const count = await this.redisManager.increment(key, windowSeconds);

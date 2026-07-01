@@ -14,6 +14,7 @@ export function createRadarGamerInboundRouter(
     try {
       const result = await service.acceptMessage(req.body as RadarGamerInboundRequest, {
         authorization: req.get('authorization'),
+        apiKey: req.get('x-api-key'),
         idempotencyKey: req.get('idempotency-key'),
         source: req.get('x-source'),
         requestId: req.get('x-request-id'),
