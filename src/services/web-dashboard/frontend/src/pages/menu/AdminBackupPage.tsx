@@ -9,6 +9,7 @@ import {
   Cloud,
   Clock,
   RefreshCw,
+  Info,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Card } from '../../components/ui/Card'
@@ -60,6 +61,8 @@ type BackupStatus = {
     atlasConfigured: boolean
   }
   scheduleHint: string
+  automationAvailable: boolean
+  localDevMessage: string | null
 }
 
 const WEEKDAYS = [
@@ -193,13 +196,17 @@ export default function AdminBackupPage() {
     )
   }
 
-  const { summary, runs, scheduleHint, lastRun } = data
+  const { summary, runs, scheduleHint, lastRun, localDevMessage, automationAvailable } = data
 
   return (
     <RadarPageShell>
       <PageHeader
         title="Backup MongoDB"
-        subtitle="Retenção em camadas na VPS + espelho Atlas. Distinto do export de contatos por empresa."
+        subtitle={
+          automationAvailable
+            ? 'Retenção em camadas na VPS + espelho Atlas. Distinto do export de contatos por empresa.'
+            : 'Política editável em dev — execução automática só na VPS em produção.'
+        }
         actions={
           <Button variant="secondary" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} />
@@ -207,6 +214,18 @@ export default function AdminBackupPage() {
           </Button>
         }
       />
+
+      {localDevMessage ? (
+        <Card className="p-4 mb-6 border-amber-500/40 bg-amber-500/5">
+          <div className="flex gap-3 text-sm text-[var(--rz-text-secondary)]">
+            <Info className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+            <div>
+              <p className="font-medium text-[var(--rz-text-primary)]">Desenvolvimento local</p>
+              <p className="mt-1">{localDevMessage}</p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3 mb-6">
         <Card className="p-4">
@@ -242,12 +261,21 @@ export default function AdminBackupPage() {
         <p className="font-medium text-[var(--rz-text-primary)] mb-1">Política atual</p>
         <p>{scheduleHint}</p>
         <p className="text-xs text-[var(--rz-text-muted)] mt-2">
-          Cron na VPS executa a cada hora; camadas diária/semanal disparam no horário configurado (
-          {form.timezone}). Clientes exportam contatos em{' '}
-          <Link to="/settings/backup" className="text-[var(--rz-primary)] hover:underline">
-            Empresa → Backup
-          </Link>
-          .
+          {automationAvailable ? (
+            <>
+              Cron na VPS executa a cada hora; camadas diária/semanal disparam no horário configurado (
+              {form.timezone}). Clientes exportam contatos em{' '}
+              <Link to="/settings/backup" className="text-[var(--rz-primary)] hover:underline">
+                Empresa → Backup
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              Em produção na VPS, o cron executa a cada hora conforme esta política. Aqui você só
+              configura e visualiza o histórico vindo do servidor.
+            </>
+          )}
         </p>
       </Card>
 

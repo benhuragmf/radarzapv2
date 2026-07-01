@@ -14,6 +14,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.25] - 2026-06-30
+
+### Fixed
+- **WhatsApp:** logout pelo celular (401) não prende o sistema — para auto-reconnect, marca sessão expirada e falha rápido em `ensureClientReady`.
+- **Redis:** handlers de erro nos clientes pub/sub; config sem `commandTimeout` no subscriber (evita `ECONNRESET` no restart dev).
+- **Admin backup:** `automationAvailable` + banner em desenvolvimento local (cron/scripts só na VPS).
+
+### Changed
+- **Inbox:** `PageHeader` alinhado ao layout de Setores (“Caixa de Entrada”).
+
+---
+
 ## [2.17.24] - 2026-06-30
 
 ### Added

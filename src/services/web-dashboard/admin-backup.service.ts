@@ -11,6 +11,10 @@ import type {
   SystemBackupStatusResponse,
   UpdateSystemBackupSettingsInput,
 } from '@/types/admin-backup';
+import {
+  isSystemBackupAutomationAvailable,
+  systemBackupLocalDevMessage,
+} from '@/utils/system-backup-environment';
 
 const MAX_RUNS_LIST = 50;
 const MAX_RUNS_STORED = 200;
@@ -138,6 +142,8 @@ export async function getSystemBackupStatus(): Promise<SystemBackupStatusRespons
       atlasConfigured: Boolean(process.env.MONGODB_BACKUP_URL?.trim()),
     },
     scheduleHint: buildScheduleHint(settings),
+    automationAvailable: isSystemBackupAutomationAvailable(),
+    localDevMessage: systemBackupLocalDevMessage(),
   };
 }
 

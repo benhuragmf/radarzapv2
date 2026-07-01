@@ -979,9 +979,21 @@ export class WhatsAppService {
    */
   async ensureClientReady(clientId: string, timeoutMs = 45_000): Promise<void> {
     const id = String(clientId);
+    if (await this.shouldSkipWhatsAppSessionRestore(id)) {
+      throw new Error(
+        'WhatsApp desconectado (logout no celular ou sessão expirada). Reconecte em Sessões WhatsApp.',
+      );
+    }
+
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() < deadline) {
+      if (await this.shouldSkipWhatsAppSessionRestore(id)) {
+        throw new Error(
+          'WhatsApp desconectado (logout no celular ou sessão expirada). Reconecte em Sessões WhatsApp.',
+        );
+      }
+
       const socket = this.sessions.get(id);
       if (socket?.user) return;
 
@@ -993,18 +1005,17 @@ export class WhatsAppService {
         !this.sessions.has(id) &&
         !this.manuallyDisconnectedClients.has(id)
       ) {
-        const cached = await this.sessionCache.getWhatsAppSession(id);
-        if (cached?.manualDisconnect) {
-          this.manuallyDisconnectedClients.add(id);
-        } else {
-          try {
-            await this.restoreSession(id);
-          } catch (err) {
-            this.serviceLogger.debug('ensureClientReady restore tentativa', {
-              clientId: id,
-              error: (err as Error).message,
-            });
+        try {
+          await this.restoreSession(id);
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('logged out') || msg.includes('401') || msg.includes('expirada')) {
+            throw err;
           }
+          this.serviceLogger.debug('ensureClientReady restore tentativa', {
+            clientId: id,
+            error: msg,
+          });
         }
       }
 
@@ -2380,16 +2391,16 @@ export class WhatsAppService {
       for (const clientId of clientIds) {
         try {
           if (this.sessions.has(clientId) || this.connectingClients.has(clientId)) continue;
-          const cached = await this.sessionCache.getWhatsAppSession(clientId);
-          if (cached?.manualDisconnect) {
-            this.manuallyDisconnectedClients.add(clientId);
-            continue;
-          }
+          if (await this.shouldSkipWhatsAppSessionRestore(clientId)) continue;
           await this.restoreSession(clientId);
         } catch (error) {
           const msg = (error as Error).message;
           this.serviceLogger.error(`Failed to restore session for client ${clientId}:`, error);
           if (msg.includes('440') || msg.includes('Connection replaced')) {
+            this.manuallyDisconnectedClients.add(clientId);
+            continue;
+          }
+          if (msg.includes('logged out') || msg.includes('401')) {
             this.manuallyDisconnectedClients.add(clientId);
             continue;
           }
@@ -2432,15 +2443,7 @@ export class WhatsAppService {
         continue;
       }
 
-      const cached = await this.sessionCache.getWhatsAppSession(clientId);
-      if (cached?.manualDisconnect) {
-        this.manuallyDisconnectedClients.add(clientId);
-        continue;
-      }
-      if (cached?.statusReason === DisconnectReason.connectionReplaced) {
-        this.manuallyDisconnectedClients.add(clientId);
-        continue;
-      }
+      if (await this.shouldSkipWhatsAppSessionRestore(clientId)) continue;
 
       const state = await this.getConnectionState(clientId);
       if (state.instance.state === 'open') continue;
@@ -2451,9 +2454,45 @@ export class WhatsAppService {
       this.lastReconnectAt.set(clientId, Date.now());
       this.serviceLogger.info(`Auto-reconnecting WhatsApp session: ${clientId}`);
       this.restoreSession(clientId).catch(err => {
-        this.serviceLogger.warn(`Auto-reconnect failed for ${clientId}: ${(err as Error).message}`);
+        const msg = (err as Error).message;
+        if (msg.includes('logged out') || msg.includes('401')) {
+          this.manuallyDisconnectedClients.add(clientId);
+        }
+        this.serviceLogger.warn(`Auto-reconnect failed for ${clientId}: ${msg}`);
       });
     }
+  }
+
+  /** Evita loop de reconexão quando sessão expirou (401) ou foi desligada manualmente. */
+  private async shouldSkipWhatsAppSessionRestore(clientId: string): Promise<boolean> {
+    if (this.manuallyDisconnectedClients.has(clientId)) return true;
+
+    const cached = await this.sessionCache.getWhatsAppSession(clientId);
+    if (cached?.manualDisconnect) {
+      this.manuallyDisconnectedClients.add(clientId);
+      return true;
+    }
+    if (
+      cached?.statusReason === DisconnectReason.connectionReplaced ||
+      cached?.statusReason === DisconnectReason.loggedOut ||
+      cached?.statusReason === DisconnectReason.forbidden ||
+      cached?.statusReason === 401
+    ) {
+      this.manuallyDisconnectedClients.add(clientId);
+      return true;
+    }
+    if (cached?.status === 'disconnected' && cached?.statusReason === 401) {
+      this.manuallyDisconnectedClients.add(clientId);
+      return true;
+    }
+
+    const sessionDoc = await WhatsAppSession.findOne({ clientId }).select('status').lean();
+    if (sessionDoc?.status === 'expired') {
+      this.manuallyDisconnectedClients.add(clientId);
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -2691,7 +2730,7 @@ export class WhatsAppService {
             } else {
               resolved = true;
               clearTimeout(timeout);
-              await this.abortClientConnection(clientId);
+              void this.handleSessionDisconnect(clientId);
               reject(new Error('WhatsApp logged out'));
             }
           }
@@ -3037,6 +3076,14 @@ export class WhatsAppService {
   }
 
   private scheduleReconnect(clientId: string, statusCode?: number): void {
+    if (
+      statusCode === DisconnectReason.loggedOut ||
+      statusCode === DisconnectReason.forbidden
+    ) {
+      void this.handleSessionDisconnect(clientId);
+      return;
+    }
+
     if (statusCode === DisconnectReason.connectionReplaced) {
       this.serviceLogger.warn(
         `Client ${clientId}: conexão substituída (440) — auto-reconexão desativada (evita ban)`,
@@ -3107,9 +3154,10 @@ export class WhatsAppService {
    */
   private async handleSessionDisconnect(clientId: string): Promise<void> {
     try {
-      // Remove from active sessions
-      this.sessions.delete(clientId);
-      this.sessionStates.delete(clientId);
+      this.manuallyDisconnectedClients.add(clientId);
+      this.reconnectAttempts.delete(clientId);
+      this.cancelScheduledReconnect(clientId);
+      await this.abortClientConnection(clientId);
 
       // Update cache
       await this.notifySessionUpdate(clientId, {
@@ -3818,6 +3866,10 @@ export class WhatsAppService {
    * Restore session from database
    */
   private async restoreSession(clientId: string): Promise<void> {
+    if (await this.shouldSkipWhatsAppSessionRestore(clientId)) {
+      throw new Error('WhatsApp session expired or logged out');
+    }
+
     const sessionDir = path.join(process.cwd(), 'sessions', clientId);
 
     if (!fs.existsSync(sessionDir) || !fs.existsSync(path.join(sessionDir, 'creds.json'))) {

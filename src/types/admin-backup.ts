@@ -80,6 +80,9 @@ export interface SystemBackupStatusResponse {
     atlasConfigured: boolean;
   };
   scheduleHint: string;
+  /** false em desenvolvimento local — cron/scripts VPS não rodam. */
+  automationAvailable: boolean;
+  localDevMessage: string | null;
 }
 
 export interface UpdateSystemBackupSettingsInput {

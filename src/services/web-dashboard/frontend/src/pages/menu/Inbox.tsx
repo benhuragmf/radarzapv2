@@ -6,7 +6,7 @@ import { can, getMe, type AuthUser } from '../../lib/auth'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
-import { LoadingState, selectCls, inputCls, searchFieldIconCls, platformPageMaxWidthClass } from '@/design-system'
+import { LoadingState, selectCls, inputCls, searchFieldIconCls, platformPageMaxWidthClass, PageHeader } from '@/design-system'
 import { cn } from '@/lib/utils'
 import {
   MessageSquare,
@@ -947,52 +947,59 @@ export default function Inbox() {
       )}
     >
       <InboxHotkeysHelp open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-      {/* Cabeçalho — mínimo com conversa aberta (título já está no Header global) */}
-      <div className={cn('shrink-0', chatFocus ? 'mb-1' : 'mb-2 space-y-1.5')}>
+      <div className={cn('shrink-0', chatFocus ? 'mb-1' : 'mb-2 space-y-2')}>
         {!chatFocus && (
-          <div className="flex flex-wrap justify-end gap-1.5">
-            <Link to="/platform/inbox/tickets">
-              <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
-                <Ticket size={13} /> Tickets
-              </Button>
-            </Link>
-            {canSupervise && (
-              <Link to="/platform/inbox/supervisor">
-                <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
-                  <Users size={13} /> Supervisor
-                </Button>
-              </Link>
-            )}
-            {can(me ?? null, 'inbox:reports:view') && (
-              <Link to="/platform/inbox/relatorios">
-                <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
-                  <BarChart3 size={13} /> Relatórios
-                </Button>
-              </Link>
-            )}
-            {canManageSectors && (
-              <>
-                <Link to="/platform/inbox/bot">
-                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
-                    <Bot size={13} /> Bot
-                  </Button>
-                </Link>
-                <Link to="/platform/inbox/respostas">
-                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
-                    <Zap size={13} /> Respostas
-                  </Button>
-                </Link>
-                <Link to="/platform/inbox/setores">
-                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
-                    <Settings2 size={13} /> Setores
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
+          <>
+            <PageHeader
+              title="Caixa de Entrada"
+              subtitle="Conversas WhatsApp e chat do site — fila, triagem, atendimento humano e transferências entre setores."
+              compact
+              actions={
+                <>
+                  <Link to="/platform/inbox/tickets">
+                    <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                      <Ticket size={13} /> Tickets
+                    </Button>
+                  </Link>
+                  {canSupervise && (
+                    <Link to="/platform/inbox/supervisor">
+                      <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                        <Users size={13} /> Supervisor
+                      </Button>
+                    </Link>
+                  )}
+                  {can(me ?? null, 'inbox:reports:view') && (
+                    <Link to="/platform/inbox/relatorios">
+                      <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                        <BarChart3 size={13} /> Relatórios
+                      </Button>
+                    </Link>
+                  )}
+                  {canManageSectors && (
+                    <>
+                      <Link to="/platform/inbox/bot">
+                        <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                          <Bot size={13} /> Bot
+                        </Button>
+                      </Link>
+                      <Link to="/platform/inbox/respostas">
+                        <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                          <Zap size={13} /> Respostas
+                        </Button>
+                      </Link>
+                      <Link to="/platform/inbox/setores">
+                        <Button size="sm" variant="secondary" className="h-7 px-2 text-xs">
+                          <Settings2 size={13} /> Setores
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+                </>
+              }
+            />
+            <InboxAtendimentoNav me={me} className="mb-1" />
+          </>
         )}
-
-        {!chatFocus && <InboxAtendimentoNav me={me} compact />}
 
         {!chatFocus && canInboxView && webchatQueueCount > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">

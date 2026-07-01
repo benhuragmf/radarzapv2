@@ -50,11 +50,13 @@ export class RedisManager {
       this.serviceLogger.info('Connecting to Redis...');
 
       // Create main client
-      this.client = this.createRedisClient();
-      
-      // Create pub/sub clients
-      this.subscriber = this.createRedisClient();
-      this.publisher = this.createRedisClient();
+      this.client = this.createRedisClient('main');
+
+      // Pub/sub: sem commandTimeout (subscribe bloqueia) + handlers próprios
+      this.subscriber = this.createRedisClient('pubsub');
+      this.publisher = this.createRedisClient('pubsub');
+      this.attachPubSubClientHandlers(this.subscriber, 'subscriber');
+      this.attachPubSubClientHandlers(this.publisher, 'publisher');
 
       // Setup event handlers
       this.setupEventHandlers();
@@ -86,17 +88,18 @@ export class RedisManager {
   /**
    * Create Redis client with configuration
    */
-  private createRedisClient(): Redis {
+  private createRedisClient(role: 'main' | 'pubsub' = 'main'): Redis {
+    const isPubSub = role === 'pubsub';
     const redisConfig = {
       ...config.REDIS.OPTIONS,
       password: config.REDIS.PASSWORD,
       retryDelayOnFailover: 100,
       enableReadyCheck: false,
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: isPubSub ? null : 3,
       lazyConnect: true,
       keepAlive: 30000,
       connectTimeout: 10000,
-      commandTimeout: 5000,
+      ...(isPubSub ? {} : { commandTimeout: 5000 }),
       retryStrategy: (times: number) => {
         if (times > 8) return null;
         return Math.min(times * 300, 3_000);
@@ -119,6 +122,17 @@ export class RedisManager {
       // Single instance mode
       return new Redis(config.REDIS.URL, redisConfig);
     }
+  }
+
+  private attachPubSubClientHandlers(client: Redis | null, label: 'subscriber' | 'publisher'): void {
+    if (!client) return;
+    client.on('error', (error) => {
+      this.throttledLog(`redis:error:${label}`, 'warn', `Redis ${label} indisponível`, error);
+    });
+    client.on('close', () => {
+      if (this.gaveUpReconnect) return;
+      this.throttledLog(`redis:close:${label}`, 'warn', `Conexão Redis ${label} fechada`);
+    });
   }
 
   /**
