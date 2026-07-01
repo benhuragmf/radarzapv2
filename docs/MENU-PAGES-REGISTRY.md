@@ -25,7 +25,8 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/platform/inbox/tickets/:ref` | `menu/InboxTicketDetail.tsx` | `GET /inbox/tickets/:ref`, `POST …/client-update`, `…/close`, `…/comments`, `PATCH …/status` — regras: `TICKET-ATENDIMENTO.md` |
 | `/platform/inbox/setores` | `menu/InboxSectors.tsx` | `GET/POST/PATCH /inbox/departments`, `GET /inbox/members` |
 | `/platform/inbox/bot` | `menu/InboxBotSettings.tsx` | `GET/PATCH /inbox/settings` — CSAT, SLA ticket, fallback WhatsApp, presença; API presença: `GET/PATCH /inbox/presence/*` |
-| `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings`, KB com keywords/links/sugestão rápida (2.10.71), `DELETE /platform/ai/key`, `POST /platform/ai/test`, `GET /platform/ai/usage`, `GET /platform/ai/balance` (2.11.84, perm `inbox:ai:balance:view`) |
+| `/platform/inbox/ia` | `menu/AiAtendimento.tsx` | `GET/PATCH/POST /platform/ai/settings` — aba **Empresa e IA** (perfil + ativação catálogo); operação em Produtos (2.17.53) |
+| `/platform/produtos` | `menu/Produtos.tsx` | Mesmas APIs de catálogo + `GET/POST /platform/catalog-sales/orders/*` — gate: `catalogSales.enabled` + perfil ≠ `none` · ver `PRODUTOS-CATALOGO.md` |
 | `/platform/inbox/respostas` | `menu/InboxQuickReplies.tsx` | `GET/PATCH /inbox/quick-replies` |
 | `/platform/inbox/supervisor` | `menu/InboxSupervisor.tsx` | `GET /inbox/supervisor/dashboard`, `GET /inbox/supervisor/queue`, `POST /inbox/conversations/:id/reassign`, presença equipe |
 | `/platform/inbox/relatorios` | `menu/InboxReports.tsx` | `GET /inbox/reports?from=&to=` |

@@ -20,6 +20,18 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.53] - 2026-06-30
+
+### Added
+- Menu **Produtos** (`/platform/produtos`) com submenus: visão geral, produtos/estoque, pedidos, comprovantes PIX, entrega/frete e configurações.
+- Feature gate: menu visível quando `businessCatalogProfile ≠ none` e `catalogSales.enabled === true`.
+- Doc [`PRODUTOS-CATALOGO.md`](./PRODUTOS-CATALOGO.md).
+
+### Changed
+- **IA Atendimento → Empresa e IA**: perfil comercial, ativação do catálogo, comportamento da IA e atalhos; operação (CRUD, PIX, pedidos, frete) movida para Produtos.
+
+---
+
 ## [2.17.52] - 2026-07-01
 
 ### Fixed

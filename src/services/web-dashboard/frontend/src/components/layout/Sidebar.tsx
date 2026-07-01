@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Building2, ChevronDown, ChevronLeft, ChevronRight, Radio, Shield, Star } from 'lucide-react'
 import { BrandLogo } from '../brand/BrandLogo'
@@ -22,6 +22,7 @@ import { can } from '../../lib/auth'
 import DiscordGuildPicker from '../discord/DiscordGuildPicker'
 import type { Guild } from '../../lib/guild'
 import { SidebarQuickAccess } from './SidebarQuickAccess'
+import { useCatalogMenuGate } from '../../hooks/useCatalogMenuGate'
 
 const SIDEBAR_COLLAPSED_KEY = 'rz-sidebar-collapsed'
 
@@ -476,6 +477,18 @@ export default function Sidebar({
   const showAdmin = userHasAdminMode(user)
   const tabCount = 1 + (showDiscord ? 1 : 0) + (showAdmin ? 1 : 0)
   const nav = navForUser(user, mode)
+  const platformCatalogGate = mode !== 'discord' && mode !== 'admin'
+  const { menuEnabled: catalogMenuEnabled, showActivationCta: catalogActivationCta } =
+    useCatalogMenuGate(platformCatalogGate)
+  const filteredNav = useMemo(() => {
+    if (!platformCatalogGate) return nav
+    const showProductsNav =
+      catalogMenuEnabled || (catalogActivationCta && can(user, 'inbox:ai:manage'))
+    if (showProductsNav) return nav
+    return nav.filter(
+      entry => !(entry.kind === 'group' && entry.id === 'grp-produtos'),
+    )
+  }, [nav, platformCatalogGate, catalogMenuEnabled, catalogActivationCta, user])
   const { data: navAlertsData } = useDiscordNavAlerts(
     guild?.id,
     mode === 'discord' && guildReady,
@@ -506,9 +519,9 @@ export default function Sidebar({
   const { favoriteIds, isFavorite, toggleFavorite, pruneInvalid } = useNavFavorites(user, mode)
 
   useEffect(() => {
-    const valid = new Set(collectNavLinks(nav).map(l => l.id))
+    const valid = new Set(collectNavLinks(filteredNav).map(l => l.id))
     pruneInvalid(valid)
-  }, [nav, pruneInvalid])
+  }, [filteredNav, pruneInvalid])
 
   useEffect(() => {
     onModeChange(detectNavMode(pathname, hash))
@@ -597,7 +610,7 @@ export default function Sidebar({
           </p>
         )}
         <NavTree
-          entries={nav}
+          entries={filteredNav}
           guildReady={navGuildReady}
           navAlerts={navAlerts}
           collapsed={isCollapsed}

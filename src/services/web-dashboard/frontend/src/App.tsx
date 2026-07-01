@@ -57,6 +57,7 @@ import InboxTicketDetail from './pages/menu/InboxTicketDetail'
 import InboxSupervisor from './pages/menu/InboxSupervisor'
 import WebChat from './pages/menu/WebChat'
 import Leads from './pages/menu/Leads'
+import Produtos from './pages/menu/Produtos'
 import LeadCaptureDetailPage from './pages/menu/LeadCaptureDetailPage'
 import LgpdPortal from './pages/menu/LgpdPortal'
 import AdminMonitoring from './pages/menu/AdminMonitoring'
@@ -210,6 +211,7 @@ export default function App() {
           <Route path="platform/inbox/tickets" element={<Guard user={user} path="/platform/inbox/tickets"><InboxTickets /></Guard>} />
           <Route path="platform/inbox/tickets/:ref" element={<Guard user={user} path="/platform/inbox/tickets"><InboxTicketDetail /></Guard>} />
           <Route path="platform/webchat" element={<Guard user={user} path="/platform/webchat"><WebChat /></Guard>} />
+          <Route path="platform/produtos" element={<Guard user={user} path="/platform/produtos"><Produtos /></Guard>} />
           <Route path="platform/leads" element={<Guard user={user} path="/platform/leads"><Leads /></Guard>} />
           <Route path="platform/leads/:captureId" element={<Guard user={user} path="/platform/leads"><LeadCaptureDetailPage /></Guard>} />
           <Route path="platform/lgpd" element={<Guard user={user} path="/platform/lgpd"><LgpdPortal /></Guard>} />
