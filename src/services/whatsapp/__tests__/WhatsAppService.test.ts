@@ -110,6 +110,12 @@ describe('WhatsAppService', () => {
 
     (Organization.findById as jest.Mock).mockResolvedValue(null);
     (User.findById as jest.Mock).mockResolvedValue(null);
+    (WhatsAppSession.findOne as jest.Mock).mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ status: 'active' }),
+      }),
+    });
+    mockSessionCache.getWhatsAppSession.mockResolvedValue(null);
 
     const rateOk = { allowed: true, tokensRemaining: 19, resetTime: Date.now() + 60_000 };
     mockRateLimiter.checkWhatsAppSendingLimit.mockResolvedValue(rateOk);

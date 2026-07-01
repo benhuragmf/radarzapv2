@@ -2,6 +2,7 @@ import {
   DEFAULT_SYSTEM_BACKUP_SETTINGS,
   SYSTEM_BACKUP_SETTINGS_KEY,
 } from '@/constants/system-backup-defaults';
+import crypto from 'crypto';
 import { SystemBackupRun } from '@/models/SystemBackupRun';
 import { SystemBackupSettings } from '@/models/SystemBackupSettings';
 import type {
@@ -260,8 +261,11 @@ export async function recordSystemBackupRun(input: RecordSystemBackupRunInput): 
 /** Token interno para o cron VPS registrar execuções sem sessão de painel. */
 export function isSystemBackupInternalToken(provided: string | undefined): boolean {
   const expected = process.env.SYSTEM_BACKUP_INTERNAL_TOKEN?.trim();
-  if (!expected || expected.length < 16) return false;
-  return provided === expected;
+  if (!expected || expected.length < 16 || !provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export { buildScheduleHint };

@@ -1,6 +1,6 @@
 # Radar Chat v2 — Índice de documentação
 
-**Versão do produto:** `2.13.2` · **Atualizado:** 2026-06-30
+**Versão do produto:** `2.17.26` · **Atualizado:** 2026-06-30
 
 ### Leitura principal obrigatória
 
@@ -116,6 +116,14 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 ## QA e testes
 
 > **O que falta fechar:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md)
+
+### Auditoria geral (2026-06-30)
+
+| Documento | Descrição |
+|-----------|-----------|
+| [`AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./AUDITORIA-GERAL-SISTEMA-RADARCHAT.md) | Relatório executivo — segurança, estabilidade, dados, UX |
+| [`QA-AUDITORIA-GERAL-SISTEMA.md`](./QA-AUDITORIA-GERAL-SISTEMA.md) | Roteiro manual de validação pós-auditoria |
+| [`PENDENCIAS-E-RISCOS-SISTEMA.md`](./PENDENCIAS-E-RISCOS-SISTEMA.md) | Backlog priorizado de riscos e pendências |
 
 | Documento | Descrição |
 |-----------|-----------|

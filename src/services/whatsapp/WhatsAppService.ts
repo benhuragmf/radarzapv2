@@ -979,6 +979,9 @@ export class WhatsAppService {
    */
   async ensureClientReady(clientId: string, timeoutMs = 45_000): Promise<void> {
     const id = String(clientId);
+    const liveSocket = this.sessions.get(id);
+    if (liveSocket?.user) return;
+
     if (await this.shouldSkipWhatsAppSessionRestore(id)) {
       throw new Error(
         'WhatsApp desconectado (logout no celular ou sessão expirada). Reconecte em Sessões WhatsApp.',
@@ -988,14 +991,14 @@ export class WhatsAppService {
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() < deadline) {
+      const socket = this.sessions.get(id);
+      if (socket?.user) return;
+
       if (await this.shouldSkipWhatsAppSessionRestore(id)) {
         throw new Error(
           'WhatsApp desconectado (logout no celular ou sessão expirada). Reconecte em Sessões WhatsApp.',
         );
       }
-
-      const socket = this.sessions.get(id);
-      if (socket?.user) return;
 
       if (
         !this.connectingClients.has(id) &&

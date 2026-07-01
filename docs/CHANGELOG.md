@@ -14,6 +14,22 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.26] - 2026-06-30
+
+### Added
+- **Docs:** auditoria geral horizontal — `AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`, `QA-AUDITORIA-GERAL-SISTEMA.md`, `PENDENCIAS-E-RISCOS-SISTEMA.md`.
+
+### Fixed
+- **Testes:** Jest ignora suites Vitest (utils catálogo/CEP); mock `WhatsAppSession` em testes WA.
+- **WhatsApp:** `ensureClientReady` retorna imediato se socket já autenticado (envio não bloqueado por sessão expirada em disco).
+- **Admin backup:** comparação de token interno com `timingSafeEqual`.
+
+### Documented
+- Riscos altos: WebChat socket origem, sessions staff cross-tenant, RadarGamer token global, CSRF parcial.
+- 6 suites Jest integração pendentes; presença in-memory em cluster.
+
+---
+
 ## [2.17.25] - 2026-06-30
 
 ### Fixed
