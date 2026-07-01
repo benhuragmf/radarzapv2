@@ -20,6 +20,7 @@ import {
 import { formatContactIdentifier } from './destinationFormat'
 import { ContactAvatar } from '../components/contacts/ContactAvatar'
 import { ContactClassificationBadges } from '../components/contacts/ContactClassificationBadges'
+import { ContactCrmRegistrationBadges } from '../components/contacts/ContactCrmRegistrationBadges'
 import { ContactExtraMeta } from './contactMetaUi'
 import type { ContactClassificationView } from './contactClassificationUi'
 
@@ -50,6 +51,7 @@ export interface Destination {
   contactOrigin?: string
   commercialStatus?: string
   temperature?: string
+  crmRegistrationStatus?: 'approved' | 'pending' | 'inbox_only' | string
 }
 
 export { inputCls, selectCls, textareaCls } from '@/design-system/formClasses'
@@ -221,6 +223,13 @@ export function DestinationRow({
             </p>
             {d.type === 'contact' && d.classification && (
               <ContactClassificationBadges classification={d.classification} compact />
+            )}
+            {d.type === 'contact' && (
+              <ContactCrmRegistrationBadges
+                crmRegistrationStatus={d.crmRegistrationStatus}
+                contactKind={d.contactKind ?? d.classification?.kind}
+                compact
+              />
             )}
             {d.type === 'contact' && (
               <ContactExtraMeta

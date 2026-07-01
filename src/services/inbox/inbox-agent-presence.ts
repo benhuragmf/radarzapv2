@@ -6,6 +6,13 @@ import {
   loadPersistedAgentOperationalStatus,
   persistAgentOperationalStatus,
 } from '@/services/inbox/inbox-agent-presence-persist';
+import {
+  broadcastAgentPresenceSync,
+  registerPresenceRemoteHandler,
+  removeAgentPresenceFromRedis,
+  type PresenceSyncPayload,
+  type RemotePresenceEntry,
+} from '@/services/inbox/inbox-agent-presence-cluster';
 
 /** Presença em tempo real — painel com socket + heartbeat (por tenant). */
 export type AgentPresenceMeta = {
@@ -66,6 +73,44 @@ function touchEntry(entry: AgentPresenceEntry): void {
   entry.lastSeen = Date.now();
 }
 
+function entryToRemote(entry: AgentPresenceEntry): RemotePresenceEntry {
+  return {
+    sockets: entry.sockets,
+    lastSeen: entry.lastSeen,
+    operationalStatus: entry.operationalStatus,
+    statusSource: entry.statusSource,
+    lastManualStatus: entry.lastManualStatus,
+    route: entry.route,
+    viewingConversationId: entry.viewingConversationId,
+  };
+}
+
+function applyRemotePresence(payload: PresenceSyncPayload): void {
+  const { clientId, userId, entry } = payload;
+  let users = onlineByClient.get(clientId);
+  if (!users) {
+    users = new Map();
+    onlineByClient.set(clientId, users);
+  }
+  const local = users.get(userId);
+  if (local && local.lastSeen > entry.lastSeen + 1_500) return;
+  users.set(userId, {
+    sockets: Math.max(entry.sockets, local?.sockets ?? 0),
+    lastSeen: entry.lastSeen,
+    operationalStatus: entry.operationalStatus,
+    statusSource: entry.statusSource,
+    lastManualStatus: entry.lastManualStatus,
+    route: entry.route,
+    viewingConversationId: entry.viewingConversationId,
+  });
+}
+
+function syncPresenceCluster(clientId: string, userId: string, entry: AgentPresenceEntry): void {
+  broadcastAgentPresenceSync(clientId, userId, entryToRemote(entry), presenceTimeoutMs(clientId));
+}
+
+registerPresenceRemoteHandler(applyRemotePresence);
+
 function normalizeRoute(route?: string): string | undefined {
   const r = route?.trim();
   if (!r) return undefined;
@@ -123,6 +168,7 @@ export function agentPresenceConnect(clientId: string, userId: string): void {
   entry.sockets += 1;
   touchEntry(entry);
   users.set(userId, entry);
+  syncPresenceCluster(clientId, userId, entry);
 
   void loadPersistedAgentOperationalStatus(clientId, userId).then(persisted => {
     if (!persisted?.operationalStatus || persisted.operationalStatus === 'offline') {
@@ -131,6 +177,7 @@ export function agentPresenceConnect(clientId: string, userId: string): void {
     entry.operationalStatus = persisted.operationalStatus;
     entry.statusSource = persisted.statusSource ?? 'manual';
     entry.lastManualStatus = persisted.lastManualStatus ?? persisted.operationalStatus;
+    syncPresenceCluster(clientId, userId, entry);
   });
 }
 
@@ -144,8 +191,10 @@ export function agentPresenceDisconnect(clientId: string, userId: string): void 
     entry.operationalStatus = 'offline';
     entry.statusSource = 'auto';
     users.delete(userId);
+    void removeAgentPresenceFromRedis(clientId, userId);
   } else {
     users.set(userId, entry);
+    syncPresenceCluster(clientId, userId, entry);
   }
 }
 
@@ -176,6 +225,7 @@ export function agentPresenceSetStatus(
     });
   }
   users.set(userId, entry);
+  syncPresenceCluster(clientId, userId, entry);
   return getAgentPresence(clientId, userId);
 }
 
@@ -217,6 +267,7 @@ export function agentPresenceHeartbeat(
     }
   }
   users.set(userId, entry);
+  syncPresenceCluster(clientId, userId, entry);
 }
 
 export function getAgentPresence(clientId: string, userId: string): AgentPresenceSnapshot {
@@ -297,6 +348,7 @@ export async function hydrateAgentPresenceFromPersist(
   entry.sockets = Math.max(entry.sockets, 1);
   touchEntry(entry);
   users.set(userId, entry);
+  syncPresenceCluster(clientId, userId, entry);
   return getAgentPresence(clientId, userId);
 }
 

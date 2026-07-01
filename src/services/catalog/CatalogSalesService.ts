@@ -812,8 +812,28 @@ export class CatalogSalesService {
       await this.notifyInternalWhatsapp(opts.clientId, order, cfg, { manual: false });
     }
 
-    if (cfg.enabled && cfg.escalateOnProof) {
+    if (cfg.enabled && cfg.escalateOnProof && cfg.requireHumanApproval !== false) {
       await this.escalateConversationToHuman(opts.clientId, opts.conversation);
+    }
+
+    if (!cfg.requireHumanApproval) {
+      order.status = 'pagamento_aprovado';
+      order.approvedAt = new Date();
+      order.history.push({
+        at: new Date(),
+        action: 'payment_auto_approved',
+        status: 'pagamento_aprovado',
+        note: 'Aprovação automática (requireHumanApproval=false)',
+      });
+      await order.save();
+      await this.clearConversationPixPending(opts.clientId, order);
+      await this.notifyCustomerPaymentUpdate(opts.clientId, order, 'approve', cfg);
+      await AttendanceEvent.create({
+        clientId: new mongoose.Types.ObjectId(opts.clientId),
+        kind: 'catalog_sales.payment_auto_approved',
+        conversationId: order.conversationId,
+        meta: { orderId: String(order._id) },
+      });
     }
 
     return { order, handled: true };

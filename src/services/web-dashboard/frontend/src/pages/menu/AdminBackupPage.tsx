@@ -264,7 +264,11 @@ export default function AdminBackupPage() {
           {automationAvailable ? (
             <>
               Cron na VPS executa a cada hora; camadas diária/semanal disparam no horário configurado (
-              {form.timezone}). Clientes exportam contatos em{' '}
+              {form.timezone}). Ingest headless:{' '}
+              <code className="text-[10px]">POST /api/admin/backup/runs</code> com header{' '}
+              <code className="text-[10px]">X-System-Backup-Token</code> (env{' '}
+              <code className="text-[10px]">SYSTEM_BACKUP_INTERNAL_TOKEN</code>). Clientes exportam
+              contatos em{' '}
               <Link to="/settings/backup" className="text-[var(--rz-primary)] hover:underline">
                 Empresa → Backup
               </Link>

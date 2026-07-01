@@ -26,7 +26,7 @@ Tipos: `src/types/contact-classification.ts` · inferência: `src/utils/contact-
 
 | Área | Comportamento |
 |------|----------------|
-| **Contatos** (`/contact`) | Badges, editor, filtros `?class=`, export CSV filtrado |
+| **Contatos** (`/contact`) | Badges, editor, filtros `?class=`, export CSV filtrado; badges **Só Inbox** / **Cadastro pendente** / **Lead** (`crmRegistrationStatus`, `contactKind`) desde 2.17.31 |
 | **Envio** (`/send`) | Tabela com classificação, segmentos dinâmicos |
 | **Segmentos** (`/platform/segmentos`) | Listas fixas + 5 presets dinâmicos + backfill |
 | **Leads** | Stats CRM, filtros, coluna classificação |

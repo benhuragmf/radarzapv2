@@ -11,6 +11,11 @@ import {
   resolveWebChatVisitorTokenFromRequest,
   type WebChatVisitorTokenResolveOptions,
 } from '@/utils/webchat-visitor-auth.util';
+import {
+  assertWebChatPublicSessionAllowed,
+  isWebChatHoneypotTriggered,
+  WebChatAbuseBlockedError,
+} from './webchat-public-abuse.util';
 
 function visitorTokenFromReq(req: Request, options?: WebChatVisitorTokenResolveOptions): string | undefined {
   const resolved = resolveWebChatVisitorTokenFromRequest(req, options);
@@ -68,6 +73,10 @@ export function createWebChatPublicRouter(): Router {
 
   r.post('/widgets/:publicKey/sessions', async (req, res) => {
     try {
+      if (isWebChatHoneypotTriggered(req.body as Record<string, unknown>)) {
+        return res.status(400).json({ error: 'Não foi possível iniciar a conversa.' });
+      }
+      await assertWebChatPublicSessionAllowed(req.params.publicKey, req.ip);
       const body = req.body as {
         visitorToken?: string;
         visitorName?: string;
@@ -87,6 +96,9 @@ export function createWebChatPublicRouter(): Router {
       res.json(result);
     } catch (e) {
       const msg = (e as Error).message;
+      if (e instanceof WebChatAbuseBlockedError) {
+        return res.status(429).json({ error: msg });
+      }
       const status = msg.includes('não encontrado') ? 404 : msg.includes('Origem') ? 403 : 400;
       res.status(status).json({ error: msg });
     }

@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var WIDGET_BUILD = '2.17.30';
+  var WIDGET_BUILD = '2.17.31';
   var receiptAckTimer = null;
   var REMOTE_TYPING_IDLE_MS = 8000;
   var REMOTE_TYPING_HIDE_GRACE_MS = 2500;
@@ -2381,6 +2381,22 @@
   root.style.cssText = 'position:fixed;z-index:2147483000;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;';
   document.body.appendChild(root);
 
+  var hpInput = document.createElement('input');
+  hpInput.type = 'text';
+  hpInput.id = 'rz-hp-field';
+  hpInput.name = 'company_url';
+  hpInput.tabIndex = -1;
+  hpInput.autocomplete = 'off';
+  hpInput.setAttribute('aria-hidden', 'true');
+  hpInput.style.cssText =
+    'position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+  document.body.appendChild(hpInput);
+
+  function readHoneypotValue() {
+    var el = document.getElementById('rz-hp-field');
+    return el && el.value ? String(el.value) : '';
+  }
+
   function positionStyle() {
     var isLeft = (state.config && state.config.position) === 'left';
     var horizontal = isLeft
@@ -4442,6 +4458,7 @@
         visitorName: state.visitorName || undefined,
         visitorEmail: state.visitorEmail || undefined,
         pageUrl: window.location.href,
+        _radarchat_hp: readHoneypotValue(),
       }),
     })
       .then(function (data) {
@@ -4749,6 +4766,7 @@
       contactReason: state.visitorIntake.contact_reason || undefined,
       pageUrl: window.location.href,
       pageTitle: document.title || '',
+      _radarchat_hp: readHoneypotValue(),
     };
     apiFetch(baseUrl, '/widgets/' + encodeURIComponent(widgetKey) + '/sessions', {
       method: 'POST',

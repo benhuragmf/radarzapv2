@@ -1,6 +1,6 @@
 # Pendências e riscos — Radar Chat
 
-**Atualizado:** 2026-06-30 · **Ciclo:** `audit-system-health-docs` · **Versão ref.:** `2.17.26`  
+**Atualizado:** 2026-06-30 · **Ciclo:** `audit-system-health-docs` · **Versão ref.:** `2.17.31`  
 **Fonte:** [`AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./AUDITORIA-GERAL-SISTEMA-RADARCHAT.md)
 
 Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio · P3 baixo) · **C** complexidade (S/M/L)
@@ -30,7 +30,7 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 |----|-----------|---|---------|---|----------------|--------------|
 | STAB-01 | 6 suites Jest integração falhando | P1 | CI/ gate incompleto | M | `fix-integration-tests` | **Corrigido** 2.17.27 — 188/188 suites |
 | STAB-02 | Testes Vitest sem runner no monorepo root | ~~P2~~ ✅ 2.17.30 | Cobertura utils frontend | S | `vitest-setup` | Migradas para Jest |
-| STAB-03 | Presença atendentes in-memory | P2 | Fila errada multi-réplica | L | `presence-redis-cluster` | Estado presença em Redis pub/sub |
+| STAB-03 | Presença atendentes in-memory | ~~P2~~ ✅ 2.17.31 | Fila errada multi-réplica | L | `presence-redis-cluster` | Pub/sub Redis + snapshot TTL |
 | STAB-04 | `forceExit: true` no Jest mascara handles | ~~P3~~ ✅ 2.17.30 | Flaky tests | S | `jest-open-handles` | `npm run test:handles`; forceExit mantido no CI (leaks mongoose) |
 
 ---
@@ -40,7 +40,7 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 | ID | Pendência | P | Impacto | C | Ciclo sugerido | Recomendação |
 |----|-----------|---|---------|---|----------------|--------------|
 | DATA-01 | WebChat sem telefone: CRM incompleto | P2 | Lead/contato ausente | M | `webchat-anonymous-crm` | Política explícita + UI “completar cadastro” |
-| DATA-02 | Modo `lead` / `inbox_only` confunde Contatos | P2 | Funcionário não acha cliente | S | `crm-ux-clarify` | Badge + doc operacional |
+| DATA-02 | Modo `lead` / `inbox_only` confunde Contatos | ~~P2~~ ✅ 2.17.31 | Funcionário não acha cliente | S | `crm-ux-clarify` | Badges + doc operacional |
 | DATA-03 | `InboxTransfer.toUserId` não preenchido | ~~P3~~ ✅ 2.17.30 | Relatório transferência incompleto | S | `transfer-audit-fields` | Supervisor `reassignConversation` |
 | DATA-04 | `models/index.ts` subset legado | ~~P3~~ ✅ 2.17.30 | Confusão imports | S | `models-index-refresh` | Doc import direto no barrel |
 
@@ -52,8 +52,8 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 |----|-----------|---|---------|---|----------------|--------------|
 | UX-01 | QA manual Fase 1 não preenchido | P0* | Go-live sem evidência | M | humano | [`QA-AUDITORIA-GERAL-SISTEMA.md`](./QA-AUDITORIA-GERAL-SISTEMA.md) |
 | UX-02 | OCR comprovante PIX inexistente | P2 | Conferência 100% manual | L | `pix-ocr-optional` | IA visão opcional pós-aprovação humana |
-| UX-03 | Anti-spam WebChat básico (sem CAPTCHA) | P2 | Abuso widget público | M | `webchat-abuse` | Rate limit IP + honeypot widget |
-| UX-04 | `requireHumanApproval` flag não usada no backend | P3 | Confusão config | S | `catalog-flag-cleanup` | Implementar ou remover da UI |
+| UX-03 | Anti-spam WebChat básico (sem CAPTCHA) | ~~P2~~ ✅ 2.17.31 | Abuso widget público | M | `webchat-abuse` | Honeypot + rate limit IP sessão |
+| UX-04 | `requireHumanApproval` flag não usada no backend | ~~P3~~ ✅ 2.17.31 | Confusão config | S | `catalog-flag-cleanup` | Auto-aprovação quando desligado |
 
 *P0 operacional conforme `ROADMAP-COMPLETUDE.md` gate estabilização.
 
@@ -65,7 +65,7 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 |----|-----------|---|---------|---|--------------|
 | DOC-01 | `SISTEMA-REGISTRO.md` defasado (2.17.22) | P2 | Agente/desenvolvedor desorientado | **Corrigido** neste ciclo → 2.17.26 |
 | DOC-02 | `INDICE-DOCUMENTACAO.md` versão 2.13.2 no header | P2 | Índice desatualizado | **Corrigido** neste ciclo |
-| DOC-03 | Backup cron headless precisa rota sem sessão | P3 | Cron VPS frágil | Documentar ou mover rota ingest |
+| DOC-03 | Backup cron headless precisa rota sem sessão | ~~P3~~ ✅ 2.17.31 | Cron VPS frágil | Documentado: `POST /api/admin/backup/runs` + `X-System-Backup-Token` |
 
 ---
 

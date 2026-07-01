@@ -14,6 +14,19 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.17.31] - 2026-06-30
+
+### Added
+- **DATA-02:** Badges CRM em Contatos (`Só Inbox`, `Cadastro pendente`, `Lead`) via `crmRegistrationStatus` / `contactKind`.
+- **UX-03:** Anti-spam WebChat — honeypot `_radarchat_hp` no widget + rate limit IP na criação de sessão (Redis/memória).
+- **STAB-03:** Presença atendentes espelhada entre réplicas via Redis pub/sub + snapshot TTL.
+- **UX-04:** `requireHumanApproval=false` no catálogo aprova pagamento automaticamente após comprovante.
+- **DOC-03:** Cron headless documentado — `POST /api/admin/backup/runs` com header `X-System-Backup-Token`.
+
+---
+
 ## [2.17.30] - 2026-06-30
 
 ### Fixed
