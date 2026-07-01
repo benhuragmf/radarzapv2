@@ -281,14 +281,35 @@ detect_legacy_volumes() {
   local project
   project="$(docker volume ls --format '{{.Name}}' | grep -E '_radarchat-sessions$' | head -1 || true)"
   if [[ -z "$project" ]]; then
-    project="$(docker volume ls --format '{{.Name}}' | grep -E 'radarchat-sessions' | head -1 || true)"
+    project="$(docker volume ls --format '{{.Name}}' | grep -E 'radarchat-sessions|radarzap-sessions' | head -1 || true)"
   fi
   VOL_SESSIONS="${project:-}"
-  VOL_MONGO="$(docker volume ls --format '{{.Name}}' | grep -E 'mongodb-data' | head -1 || true)"
+
+  # Mongo/Redis: escolhe o volume com mais organizations (dados reais), não o primeiro da lista
+  local lib="${DEPLOY_PATH:-/opt/radarchat}/scripts/vps-mongo-volume-lib.sh"
+  local pw db="${MONGO_DB_NAME:-discord-whatsapp}"
+  pw="${MONGO_PASSWORD:-${SERVICE_PASSWORD_MONGODB:-}}"
+  [[ -z "$pw" ]] && pw="$(grep -E '^MONGO_PASSWORD=' "${DEPLOY_PATH:-/opt/radarchat}/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r"'"'" || true)"
+
+  if [[ -f "$lib" ]]; then
+    # shellcheck source=/dev/null
+    source "$lib"
+    if [[ -z "${docker_cmd+x}" ]]; then
+      if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then docker_cmd() { docker "$@"; }; else docker_cmd() { sudo docker "$@"; }; fi
+    fi
+    local picked
+    picked="$(vps_mongo_pick_richest_volume "$pw" "$db")"
+    VOL_MONGO="${picked%%|*}"
+    log "Volume Mongo (richest orgs): ${VOL_MONGO:-novo} (${picked#*|} organizations)"
+  else
+    VOL_MONGO="$(docker volume ls --format '{{.Name}}' | grep -E 'mongodb-data' | head -1 || true)"
+    log "Volumes legado (fallback): sessions=${VOL_SESSIONS:-novo} mongo=${VOL_MONGO:-novo}"
+  fi
+
   VOL_REDIS="$(docker volume ls --format '{{.Name}}' | grep -E 'redis-data' | head -1 || true)"
-  VOL_MEDIA="$(docker volume ls --format '{{.Name}}' | grep -E 'radarchat-media' | head -1 || true)"
-  VOL_LOGS="$(docker volume ls --format '{{.Name}}' | grep -E 'radarchat-logs' | head -1 || true)"
-  log "Volumes legado: sessions=${VOL_SESSIONS:-novo} mongo=${VOL_MONGO:-novo}"
+  VOL_MEDIA="$(docker volume ls --format '{{.Name}}' | grep -E 'radarchat-media|radarzap-media' | head -1 || true)"
+  VOL_LOGS="$(docker volume ls --format '{{.Name}}' | grep -E 'radarchat-logs|radarzap-logs' | head -1 || true)"
+  log "Volumes legado: sessions=${VOL_SESSIONS:-novo} mongo=${VOL_MONGO:-novo} redis=${VOL_REDIS:-novo}"
 }
 
 prepare_compose_from_template() {

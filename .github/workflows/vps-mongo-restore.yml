@@ -1,0 +1,34 @@
+# Restaura clientes Mongo na VPS (remonta volume com dados reais).
+name: VPS Mongo restore clients
+
+on:
+  workflow_dispatch:
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit + restore Mongo clients via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 25m
+          envs: DEPLOY_PATH,COOLIFY_SERVICE_UUID
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
+            git fetch origin main -q && git reset --hard origin/main -q
+            export COOLIFY_SERVICE_UUID
+            echo "=== Audit ==="
+            sudo -E bash scripts/vps-mongo-audit.sh
+            echo "=== Restore ==="
+            sudo -E bash scripts/vps-mongo-restore-clients.sh
+            echo "=== Verify gate ==="
+            sudo -E bash scripts/vps-coolify-verify.sh
