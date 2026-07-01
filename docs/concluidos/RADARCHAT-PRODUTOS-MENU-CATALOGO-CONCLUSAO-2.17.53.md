@@ -18,7 +18,7 @@ Novo menu **Produtos** no painel tenant, com operação de catálogo/PIX/pedidos
 
 ## 5. Commit final
 
-_(preencher após commit)_
+`8c25148` — feat(products): separa catálogo em menu Produtos 2.17.53
 
 ## 6. Objetivo da entrega
 
