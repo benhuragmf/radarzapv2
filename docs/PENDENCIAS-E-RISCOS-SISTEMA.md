@@ -1,6 +1,6 @@
 # Pendências e riscos — Radar Chat
 
-**Atualizado:** 2026-06-30 · **Ciclo:** `audit-system-health-docs` · **Versão ref.:** `2.17.31`  
+**Atualizado:** 2026-06-30 · **Ciclo:** `audit-system-health-docs` · **Versão ref.:** `2.17.32`  
 **Fonte:** [`AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./AUDITORIA-GERAL-SISTEMA-RADARCHAT.md)
 
 Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio · P3 baixo) · **C** complexidade (S/M/L)
@@ -39,7 +39,7 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 
 | ID | Pendência | P | Impacto | C | Ciclo sugerido | Recomendação |
 |----|-----------|---|---------|---|----------------|--------------|
-| DATA-01 | WebChat sem telefone: CRM incompleto | P2 | Lead/contato ausente | M | `webchat-anonymous-crm` | Política explícita + UI “completar cadastro” |
+| DATA-01 | WebChat sem telefone: CRM incompleto | ~~P2~~ ✅ 2.17.32 | Lead/contato ausente | M | `webchat-anonymous-crm` | Flag `crmIncomplete` + UI completar cadastro |
 | DATA-02 | Modo `lead` / `inbox_only` confunde Contatos | ~~P2~~ ✅ 2.17.31 | Funcionário não acha cliente | S | `crm-ux-clarify` | Badges + doc operacional |
 | DATA-03 | `InboxTransfer.toUserId` não preenchido | ~~P3~~ ✅ 2.17.30 | Relatório transferência incompleto | S | `transfer-audit-fields` | Supervisor `reassignConversation` |
 | DATA-04 | `models/index.ts` subset legado | ~~P3~~ ✅ 2.17.30 | Confusão imports | S | `models-index-refresh` | Doc import direto no barrel |
@@ -74,7 +74,7 @@ Legenda: **P** prioridade (P0 bloqueia go-live declarado · P1 alto · P2 médio
 | ID | Pendência | P | Impacto | C | Recomendação |
 |----|-----------|---|---------|---|--------------|
 | OPS-01 | Validar backup automático só na VPS | P2 | Falso positivo em dev | Banner `automationAvailable` (2.17.25) |
-| OPS-02 | Reconectar WA produção pós-deploy | P1 | Atendimento parado | Runbook `/sessions` |
+| OPS-02 | Reconectar WA produção pós-deploy | ~~P1~~ ✅ 2.17.32 | Atendimento parado | Runbook `/sessions` — `RUNBOOK-RECONEXAO-WA-POS-DEPLOY.md` |
 | OPS-03 | Cloud API Meta stub | P2 | Fase 2 produto | `ROADMAP-COMPLETUDE.md` |
 
 ---

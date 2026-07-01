@@ -65,6 +65,10 @@ export type InboxWebChatListRow = {
   priorityForMe?: boolean;
   canAccept?: boolean;
   canPull?: boolean;
+  /** CRM incompleto — visitante sem telefone ou cadastro só Inbox (DATA-01) */
+  crmIncomplete?: boolean;
+  crmIncompleteReason?: string;
+  crmIncompleteHint?: string;
 };
 
 export function isWebChatInboxId(id: string): boolean {

@@ -120,6 +120,7 @@ Snippet equivalente ao `widget.html`:
 - **Fix modo formulário** (2.10.44): `prechatMode` persistido no servidor + salvamento automático ao trocar modo no painel; widget recarrega `form` corretamente.
 - **Fix IA WebChat** (2.10.45): toggle **Usar IA** de volta na seção de IA (não removido); salvamento automático; contexto da IA usa dados do formulário + campos legados da conversa.
 - **Dados do visitante** (2.10.46): intake não vai mais como mensagem no chat do visitante; vincula contato existente pelo telefone e atualiza perfil/notas; painel Inbox exibe motivo e telefone.
+- **CRM sem telefone** (2.17.32): visitante sem WhatsApp/telefone E.164 válido permanece só na conversa (`crmIncomplete`); atendente usa **Completar cadastro** no Inbox para criar/vincular `Destination` — ver `src/utils/webchat-crm-completeness.util.ts`.
 - **Intake no Inbox** (2.10.47): mensagem `📋 Dados do visitante` visível só no chat do painel (`/platform/inbox`); oculta no widget do visitante.
 
 ## Resposta automática (2.9.4)

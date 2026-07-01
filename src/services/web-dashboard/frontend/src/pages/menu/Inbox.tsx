@@ -39,6 +39,7 @@ import { InboxMessageBubble, formatInboxMsgTime, type InboxMessageView } from '.
 import { InboxComposer, type QuickReplyItem } from '../../components/inbox/InboxComposer'
 import { CatalogSalesOrderPanel } from '../../components/inbox/CatalogSalesOrderPanel'
 import { InboxContactDetailsPanel } from '../../components/inbox/InboxContactDetailsPanel'
+import { InboxWebChatCrmIncompleteBanner } from '../../components/inbox/InboxWebChatCrmIncompleteBanner'
 import type { ContactStats, PreviousConversation } from '../../components/inbox/InboxContactSidebar'
 import ContactEditorModal, { type ContactFormData } from '../../components/contacts/ContactEditorModal'
 import { ContactClassificationBadges } from '../../components/contacts/ContactClassificationBadges'
@@ -133,6 +134,9 @@ interface Conversation {
   departmentClientVisible?: boolean
   departmentInternalRankLabel?: string
   contactClassification?: ContactClassificationView
+  crmIncomplete?: boolean
+  crmIncompleteReason?: string
+  crmIncompleteHint?: string
 }
 
 interface InboxContactInfo {
@@ -189,17 +193,16 @@ function resolveInboxProfileContact(
     contact?.name?.trim() ||
     email ||
     phone ||
-    ''
-  if (!name && !phone && !email) return null
+    'Visitante do site'
   return {
     _id: '',
-    name: name || 'Visitante',
+    name,
     email,
     notes: contact?.notes ?? '',
     organization: contact?.organization ?? '',
     address: contact?.address ?? '',
     taxDocument: contact?.taxDocument ?? '',
-    identifier: phone || contact?.identifier || email,
+    identifier: phone || contact?.identifier || email || '+55',
     contactGroupIds: contact?.contactGroupIds ?? [],
   }
 }
@@ -556,9 +559,7 @@ export default function Inbox() {
     [conv, detail?.contact, isWebChatConv],
   )
   const contactEditorMode: 'create' | 'edit' =
-    isWebChatConv && profileContact && !profileContact._id && !profileContact.identifier
-      ? 'create'
-      : 'edit'
+    isWebChatConv && !detail?.contact?._id ? 'create' : 'edit'
 
   const { data: contactGroups = [] } = useQuery({
     queryKey: ['contact-groups'],
@@ -1271,6 +1272,14 @@ export default function Inbox() {
                                 {c.ticketRef}
                               </Link>
                             )}
+                            {c.crmIncomplete && c.channel === 'webchat_site' && (
+                              <span
+                                className="text-[9px] text-amber-400 bg-amber-500/10 px-1 rounded"
+                                title={c.crmIncompleteHint ?? 'Cadastro CRM incompleto'}
+                              >
+                                CRM
+                              </span>
+                            )}
                             {c.whatsappBridgeActive && (
                               <span
                                 className="inline-flex items-center gap-0.5 text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded"
@@ -1463,7 +1472,7 @@ export default function Inbox() {
                       <button
                         type="button"
                         title="Editar perfil do cliente"
-                        disabled={!profileContact}
+                        disabled={!isWebChatConv && !profileContact}
                         onClick={() => setShowContactEditor(true)}
                         className="p-2 rounded-lg text-[var(--rz-text-muted)] hover:text-green-400 hover:bg-[var(--rz-surface-muted)]/80 border border-[var(--rz-border)]/60 disabled:opacity-40"
                       >
@@ -1618,6 +1627,14 @@ export default function Inbox() {
                   </div>
                 )}
               </header>
+
+              {isWebChatConv && conv.crmIncomplete && conv.crmIncompleteHint && (
+                <InboxWebChatCrmIncompleteBanner
+                  hint={conv.crmIncompleteHint}
+                  reason={conv.crmIncompleteReason}
+                  onComplete={() => setShowContactEditor(true)}
+                />
+              )}
 
               <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2.5 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[var(--rz-surface-muted)]/40 via-transparent to-transparent">
                 {messages.length === 0 ? (
@@ -1780,7 +1797,17 @@ export default function Inbox() {
             onSelectHistory={id => {
               setHistoryConvId(id)
             }}
-            onEditContact={profileContact ? () => setShowContactEditor(true) : undefined}
+            onEditContact={
+              isWebChatConv || profileContact ? () => setShowContactEditor(true) : undefined
+            }
+            crmIncomplete={conv.crmIncomplete}
+            crmIncompleteHint={conv.crmIncompleteHint}
+            crmIncompleteReason={conv.crmIncompleteReason}
+            onCompleteCrm={
+              isWebChatConv && conv.crmIncomplete
+                ? () => setShowContactEditor(true)
+                : undefined
+            }
             onAssign={() => assign.mutate(conv._id)}
             onResolve={() => resolve.mutate(conv._id)}
             onConvertTicket={() => convertTicket.mutate(conv._id)}

@@ -16,6 +16,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+---
+
+## [2.17.32] - 2026-06-30
+
+### Added
+- **DATA-01:** Política CRM WebChat sem telefone — flag `crmIncomplete` na API/Inbox, banner «Completar cadastro», promoção para `approved` ao salvar telefone.
+- **OPS-02:** Runbook `docs/concluidos/operacao/RUNBOOK-RECONEXAO-WA-POS-DEPLOY.md`.
+
+---
+
 ## [2.17.31] - 2026-06-30
 
 ### Added

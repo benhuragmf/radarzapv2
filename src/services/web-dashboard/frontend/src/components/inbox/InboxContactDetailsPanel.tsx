@@ -24,6 +24,7 @@ import type { ContactClassificationView } from '../../lib/contactClassificationU
 import { ContactClassificationCard } from '../contacts/ContactClassificationCard'
 import type { ContactStats, PreviousConversation } from './InboxContactSidebar'
 import type { InboxTicketInternalNote } from '../../lib/inboxTicket'
+import { InboxWebChatCrmIncompleteBanner } from './InboxWebChatCrmIncompleteBanner'
 
 export interface InboxContactDetailsContact {
   _id: string
@@ -58,6 +59,9 @@ export interface InboxContactDetailsConversation {
   visitorIntake?: Record<string, string>
   canAccept?: boolean
   priorityForMe?: boolean
+  crmIncomplete?: boolean
+  crmIncompleteHint?: string
+  crmIncompleteReason?: string
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -88,6 +92,10 @@ interface Props {
   historyConvId: string | null
   onSelectHistory: (id: string | null) => void
   onEditContact?: () => void
+  onCompleteCrm?: () => void
+  crmIncomplete?: boolean
+  crmIncompleteHint?: string
+  crmIncompleteReason?: string
   onAssign?: () => void
   onResolve?: () => void
   onConvertTicket?: () => void
@@ -132,6 +140,10 @@ export function InboxContactDetailsPanel({
   historyConvId,
   onSelectHistory,
   onEditContact,
+  onCompleteCrm,
+  crmIncomplete,
+  crmIncompleteHint,
+  crmIncompleteReason,
   onAssign,
   onResolve,
   onConvertTicket,
@@ -217,6 +229,14 @@ export function InboxContactDetailsPanel({
             </div>
           </div>
 
+          {isWebChat && crmIncomplete && crmIncompleteHint && (
+            <InboxWebChatCrmIncompleteBanner
+              hint={crmIncompleteHint}
+              reason={crmIncompleteReason}
+              onComplete={onCompleteCrm ?? onEditContact}
+            />
+          )}
+
           <div className="mt-4 space-y-2">
             <DetailRow label="E-mail" value={contact?.email} />
             <DetailRow label="Empresa" value={contact?.organization} />
@@ -279,7 +299,8 @@ export function InboxContactDetailsPanel({
 
           {onEditContact && (
             <Button size="sm" variant="secondary" className="w-full mt-3" onClick={onEditContact}>
-              <UserPen size={14} /> {contact?._id ? 'Ver perfil completo' : 'Editar perfil'}
+              <UserPen size={14} />{' '}
+              {crmIncomplete ? 'Completar cadastro' : contact?._id ? 'Ver perfil completo' : 'Editar perfil'}
             </Button>
           )}
         </div>

@@ -79,7 +79,11 @@ import {
   WEBCHAT_CLOSE_GOODBYE,
   WEBCHAT_DEESCALATE_REPLY,
 } from './webchat-visitor-intent.util';
-import { linkWebChatVisitorToDestination, ensureDestinationForWebChatVisitor } from './webchat-destination-link.util';
+import { ensureDestinationForWebChatVisitor, linkWebChatVisitorToDestination } from './webchat-destination-link.util';
+import {
+  evaluateWebChatCrmCompleteness,
+  hasValidWebChatCrmPhone,
+} from '@/utils/webchat-crm-completeness.util';
 import {
   applyContactClassificationPatch,
   attachClassificationToConversationRows,
@@ -127,6 +131,7 @@ import {
   isAgentBusyWithClients,
 } from '../inbox/inbox-queue-priority';
 import { enrichWebChatInboxRow } from './webchat-inbox-enrich.util';
+import { attachWebChatCrmCompletenessToRows } from './webchat-crm-completeness-batch.util';
 import { createServiceLogger } from '../../utils/logger';
 import {
   confirmTicketTokenResendOtp,
@@ -1190,7 +1195,8 @@ export class WebChatService {
         ),
       ),
     );
-    return attachClassificationToConversationRows(clientId, enriched);
+    const withCrm = await attachWebChatCrmCompletenessToRows(clientId, enriched);
+    return attachClassificationToConversationRows(clientId, withCrm);
   }
 
   async getDetailForInbox(
@@ -1371,10 +1377,17 @@ export class WebChatService {
           clientId: new mongoose.Types.ObjectId(clientId),
         })
           .select(
-            'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type',
+            'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type crmRegistrationStatus',
           )
           .lean()
       : null;
+
+    const crmCompleteness = evaluateWebChatCrmCompleteness({
+      visitorPhone: convDoc.visitorPhone,
+      visitorIntake: convDoc.visitorIntake as Record<string, string> | undefined,
+      destinationId: convDoc.destinationId ? String(convDoc.destinationId) : undefined,
+      crmRegistrationStatus: destination?.crmRegistrationStatus,
+    });
 
     const classificationCtx = destination
       ? await loadCampaignClassificationContext(clientId)
@@ -1402,7 +1415,12 @@ export class WebChatService {
       : visitorContact;
 
     return {
-      conversation: { ...conversation, createdAt: convDoc.createdAt.toISOString(), ticketRef: convDoc.ticketRef?.trim() || undefined },
+      conversation: {
+        ...conversation,
+        createdAt: convDoc.createdAt.toISOString(),
+        ticketRef: convDoc.ticketRef?.trim() || undefined,
+        ...crmCompleteness,
+      },
       messages: detail.messages.map(m => ({
         _id: m.id,
         direction: m.direction,
@@ -1538,12 +1556,19 @@ export class WebChatService {
         commercialStatus: data.commercialStatus,
         temperature: data.temperature,
       });
+      if (phoneInput && hasValidWebChatCrmPhone(phoneInput)) {
+        if (dest.crmRegistrationStatus === 'inbox_only' || dest.crmRegistrationStatus === 'pending') {
+          dest.crmRegistrationStatus = 'approved';
+        }
+        if (!dest.contactOrigin) dest.contactOrigin = 'webchat';
+      }
       await dest.save();
     } else if (phoneInput) {
       const ensured = await ensureDestinationForWebChatVisitor(clientId, phoneInput, name, {
         email: data.email,
         notes: data.notes,
         organization: data.organization,
+        crmRegistrationStatus: 'approved',
       });
       if (!ensured) {
         throw new Error(
@@ -1572,21 +1597,32 @@ export class WebChatService {
             .map(id => new mongoose.Types.ObjectId(id));
         }
         applyContactClassificationPatch(dest, {
-          contactKind: data.contactKind,
-          contactOrigin: data.contactOrigin,
+          contactKind: data.contactKind ?? 'client',
+          contactOrigin: data.contactOrigin ?? 'webchat',
           commercialStatus: data.commercialStatus,
           temperature: data.temperature,
         });
+        dest.crmRegistrationStatus = 'approved';
         await dest.save();
       }
     }
 
     await conversation.save();
 
+    const crmCompleteness = evaluateWebChatCrmCompleteness({
+      visitorPhone: conversation.visitorPhone,
+      visitorIntake: conversation.visitorIntake as Record<string, string> | undefined,
+      destinationId: destinationId ? String(destinationId) : undefined,
+      crmRegistrationStatus: destinationId
+        ? (await Destination.findById(destinationId).select('crmRegistrationStatus').lean())
+            ?.crmRegistrationStatus
+        : undefined,
+    });
+
     if (destinationId) {
       const dest = await Destination.findById(destinationId)
         .select(
-          'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type',
+          'name email notes organization identifier contactGroupIds tags lastMessageSent consentStatus consent pendingOutboundCount contactKind contactOrigin commercialStatus temperature phoneQuality phoneType profilePictureMime type crmRegistrationStatus',
         )
         .lean();
       if (dest) {
@@ -1604,12 +1640,14 @@ export class WebChatService {
             lastMessageSent: dest.lastMessageSent,
             classification: classifyDestination(dest, classificationCtx),
           },
+          crmCompleteness,
         };
       }
     }
 
     return {
       contact: this.buildVisitorProfileContact(conversation),
+      crmCompleteness,
     };
   }
 
