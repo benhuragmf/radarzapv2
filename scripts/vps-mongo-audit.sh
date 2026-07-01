@@ -3,11 +3,15 @@
 # Uso: sudo -E bash scripts/vps-mongo-audit.sh
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/vps-mongo-volume-lib.sh
+source "${SCRIPT_DIR}/vps-mongo-volume-lib.sh"
+
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
 DB_NAME="${MONGO_DB_NAME:-discord-whatsapp}"
 
-log() { echo "[mongo-audit] $*"; }
+log() { echo "[mongo-audit] $*" >&2; }
 
 if [[ "${EUID}" -eq 0 ]]; then
   docker_cmd() { docker "$@"; }
@@ -15,71 +19,15 @@ else
   docker_cmd() { sudo docker "$@"; }
 fi
 
-read_env_var() {
-  local file="$1" key="$2"
-  [[ -f "$file" ]] || return 0
-  grep -E "^${key}=" "$file" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r"'"'"
-}
-
-MONGO_PW="$(read_env_var "${COOLIFY_SERVICE_DIR}/.env" SERVICE_PASSWORD_MONGODB)"
-[[ -z "$MONGO_PW" ]] && MONGO_PW="$(read_env_var "${COOLIFY_SERVICE_DIR}/.env" MONGO_PASSWORD)"
-[[ -z "$MONGO_PW" ]] && MONGO_PW="$(read_env_var "${DEPLOY_PATH:-/opt/radarchat}/.env" MONGO_PASSWORD)"
-
-current_mongo_volume() {
-  local cname="${COOLIFY_SERVICE_UUID}-mongodb-1"
-  docker_cmd inspect "$cname" --format '{{range .Mounts}}{{if eq .Destination "/data/db"}}{{.Name}}{{end}}{{end}}' 2>/dev/null || true
-}
-
-count_orgs_in_volume() {
-  local vol="$1" pw="${2:-}"
-  local tmp="mongo-audit-$$-${RANDOM}"
-  local uri count=0
-
-  if ! docker_cmd run -d --name "$tmp" -v "${vol}:/data/db" mongo:7 mongod --bind_ip_all >/dev/null 2>&1; then
-    echo "-1"
-    return
-  fi
-
-  for _ in $(seq 1 20); do
-    if docker_cmd exec "$tmp" mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' 2>/dev/null | grep -q 1; then
-      break
-    fi
-    sleep 1
-  done
-
-  if [[ -n "$pw" ]]; then
-    uri="mongodb://admin:${pw}@127.0.0.1:27017/${DB_NAME}?authSource=admin"
-    count="$(docker_cmd exec "$tmp" mongosh "$uri" --quiet --eval \
-      'try { db.organizations.countDocuments() } catch(e) { -2 }' 2>/dev/null || echo -2)"
-    if [[ "$count" == "-2" || "$count" == "" ]]; then
-      count="$(docker_cmd exec "$tmp" mongosh "$uri" --quiet --eval \
-        'try { db.getSiblingDB("radarchat").organizations.countDocuments() } catch(e) { -2 }' 2>/dev/null || echo -2)"
-    fi
-  else
-    count="$(docker_cmd exec "$tmp" mongosh --quiet --eval \
-      "try { db.getSiblingDB('${DB_NAME}').organizations.countDocuments() } catch(e) { -2 }" 2>/dev/null || echo -2)"
-  fi
-
-  docker_cmd rm -f "$tmp" >/dev/null 2>&1 || true
-  echo "${count:--2}"
-}
+MONGO_PW="$(vps_mongo_load_password "${COOLIFY_SERVICE_DIR}/.env" "${DEPLOY_PATH:-/opt/radarchat}/.env")"
 
 log "=== Auditoria Mongo (db=${DB_NAME}, uuid=${COOLIFY_SERVICE_UUID}) ==="
-log "Senha Mongo: ${MONGO_PW:+configurada}${MONGO_PW:-AUSENTE}"
+log "Senha Mongo: $([ -n "$MONGO_PW" ] && echo configurada || echo AUSENTE)"
 
-cur_vol="$(current_mongo_volume)"
+cur_vol="$(vps_mongo_current_volume "${COOLIFY_SERVICE_UUID}-mongodb-1")"
 log "Volume ativo Coolify: ${cur_vol:-?}"
 
-best_vol="" best_count=-1
-while read -r vol; do
-  [[ -z "$vol" ]] && continue
-  c="$(count_orgs_in_volume "$vol" "$MONGO_PW")"
-  log "  volume=${vol} organizations=${c}"
-  if [[ "$c" =~ ^[0-9]+$ ]] && (( c > best_count )); then
-    best_count="$c"
-    best_vol="$vol"
-  fi
-done < <(docker_cmd volume ls --format '{{.Name}}' | grep -E 'mongodb-data|mongo-data' | sort -u || true)
+IFS='|' read -r best_vol best_count <<< "$(vps_mongo_pick_richest_volume "$MONGO_PW" "$DB_NAME")"
 
 log "---"
 log "Melhor volume: ${best_vol:-nenhum} (${best_count} organizations)"

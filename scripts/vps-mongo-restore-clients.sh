@@ -10,13 +10,17 @@
 # Uso: sudo -E bash scripts/vps-mongo-restore-clients.sh
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/vps-mongo-volume-lib.sh
+source "${SCRIPT_DIR}/vps-mongo-volume-lib.sh"
+
 COOLIFY_SERVICE_UUID="${COOLIFY_SERVICE_UUID:-h143brhw5f8tgfj9trj0f3bd}"
 COOLIFY_SERVICE_DIR="${COOLIFY_SERVICE_DIR:-/data/coolify/services/${COOLIFY_SERVICE_UUID}}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/radarchat}"
 DB_NAME="${MONGO_DB_NAME:-discord-whatsapp}"
 MIN_ORGS_TO_RESTORE="${MIN_ORGS_TO_RESTORE:-1}"
 
-log() { echo "[mongo-restore] $*"; }
+log() { echo "[mongo-restore] $*" >&2; }
 fail() { log "ERRO: $*"; exit 1; }
 
 if [[ "${EUID}" -eq 0 ]]; then
@@ -56,48 +60,19 @@ ensure_mongo_password_in_env() {
 }
 
 current_mongo_volume() {
-  local cname="${COOLIFY_SERVICE_UUID}-mongodb-1"
-  docker_cmd inspect "$cname" --format '{{range .Mounts}}{{if eq .Destination "/data/db"}}{{.Name}}{{end}}{{end}}' 2>/dev/null || true
+  vps_mongo_current_volume "${COOLIFY_SERVICE_UUID}-mongodb-1"
 }
 
 count_orgs_live() {
-  local cname="${COOLIFY_SERVICE_UUID}-mongodb-1"
-  docker_cmd exec "$cname" mongosh \
-    "mongodb://admin:${MONGO_PW}@127.0.0.1:27017/${DB_NAME}?authSource=admin" \
-    --quiet --eval 'db.organizations.countDocuments()' 2>/dev/null || echo 0
+  count_orgs_in_volume "$(current_mongo_volume)"
 }
 
 count_orgs_in_volume() {
-  local vol="$1"
-  local tmp="mongo-restore-audit-$$-${RANDOM}"
-  local count=0
-
-  docker_cmd run -d --name "$tmp" -v "${vol}:/data/db" mongo:7 mongod --bind_ip_all >/dev/null
-  for _ in $(seq 1 25); do
-    docker_cmd exec "$tmp" mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' 2>/dev/null | grep -q 1 && break
-    sleep 1
-  done
-
-  count="$(docker_cmd exec "$tmp" mongosh \
-    "mongodb://admin:${MONGO_PW}@127.0.0.1:27017/${DB_NAME}?authSource=admin" \
-    --quiet --eval 'try { db.organizations.countDocuments() } catch(e) { 0 }' 2>/dev/null || echo 0)"
-  docker_cmd rm -f "$tmp" >/dev/null 2>&1 || true
-  echo "$count"
+  vps_mongo_count_orgs_in_volume "$1" "$MONGO_PW" "$DB_NAME"
 }
 
 pick_best_volume() {
-  best_vol="" best_count=-1
-  while read -r vol; do
-    [[ -z "$vol" ]] && continue
-    local c
-    c="$(count_orgs_in_volume "$vol")"
-    log "  audit ${vol} → ${c} organizations"
-    if [[ "$c" =~ ^[0-9]+$ ]] && (( c > best_count )); then
-      best_count="$c"
-      best_vol="$vol"
-    fi
-  done < <(docker_cmd volume ls --format '{{.Name}}' | grep -E 'mongodb-data|mongo-data' | sort -u || true)
-  echo "${best_vol}|${best_count}"
+  vps_mongo_pick_richest_volume "$MONGO_PW" "$DB_NAME"
 }
 
 patch_compose_mongo_external() {

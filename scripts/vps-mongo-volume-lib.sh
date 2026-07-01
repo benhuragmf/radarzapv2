@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Funções compartilhadas — auditoria volumes Mongo na VPS.
-# Source: source "$(dirname "$0")/vps-mongo-volume-lib.sh"
+# Requer: docker_cmd() e opcional COOLIFY_SERVICE_UUID no ambiente.
 
 vps_mongo_read_env_var() {
   local file="$1" key="$2"
@@ -17,11 +17,28 @@ vps_mongo_load_password() {
   printf '%s' "$pw"
 }
 
+vps_mongo_current_volume() {
+  local cname="$1"
+  docker_cmd inspect "$cname" --format '{{range .Mounts}}{{if eq .Destination "/data/db"}}{{.Name}}{{end}}{{end}}' 2>/dev/null || true
+}
+
 vps_mongo_count_orgs_in_volume() {
   local vol="$1" pw="$2" db="${3:-discord-whatsapp}"
-  local tmp="mongo-vol-audit-$$-${RANDOM}"
-  local count=0
+  local live_c="${COOLIFY_SERVICE_UUID:-}-mongodb-1"
+  local cur_vol count=0 tmp
 
+  if [[ -n "${COOLIFY_SERVICE_UUID:-}" ]]; then
+    cur_vol="$(vps_mongo_current_volume "$live_c")"
+    if [[ -n "$cur_vol" && "$cur_vol" == "$vol" ]] && docker_cmd ps --format '{{.Names}}' | grep -qF "$live_c"; then
+      count="$(docker_cmd exec "$live_c" mongosh \
+        "mongodb://admin:${pw}@127.0.0.1:27017/${db}?authSource=admin" \
+        --quiet --eval 'try { db.organizations.countDocuments() } catch(e) { 0 }' 2>/dev/null || echo 0)"
+      echo "$count"
+      return
+    fi
+  fi
+
+  tmp="mongo-vol-audit-$$-${RANDOM}"
   if ! docker_cmd run -d --name "$tmp" -v "${vol}:/data/db" mongo:7 mongod --bind_ip_all >/dev/null 2>&1; then
     echo "-1"
     return
@@ -51,15 +68,11 @@ vps_mongo_pick_richest_volume() {
   while read -r vol; do
     [[ -z "$vol" ]] && continue
     c="$(vps_mongo_count_orgs_in_volume "$vol" "$pw" "$db")"
+    echo "[mongo-vol] ${vol} → ${c} organizations" >&2
     if [[ "$c" =~ ^[0-9]+$ ]] && (( c > best_n )); then
       best_n="$c"
       best="$vol"
     fi
   done < <(docker_cmd volume ls --format '{{.Name}}' | grep -E 'mongodb-data|mongo-data' | sort -u || true)
   printf '%s|%s' "${best:-}" "${best_n:--1}"
-}
-
-vps_mongo_current_volume() {
-  local cname="$1"
-  docker_cmd inspect "$cname" --format '{{range .Mounts}}{{if eq .Destination "/data/db"}}{{.Name}}{{end}}{{end}}' 2>/dev/null || true
 }
