@@ -20,6 +20,16 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.57] - 2026-07-01
+
+### Fixed
+- Pedidos: ações pedir novo comprovante e reenviar notificação com RBAC; aprovar/recusar só em status de conferência
+- Pedidos: coluna Quando; canal formatado (WhatsApp/WebChat)
+- Visão geral: KPIs de pedidos só com `orders:view`
+- Estoque: coluna Entrega (endereço obrigatório / encomenda)
+
+---
+
 ## [2.17.56] - 2026-07-01
 
 ### Fixed

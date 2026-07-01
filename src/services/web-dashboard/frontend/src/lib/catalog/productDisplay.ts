@@ -63,6 +63,7 @@ export function productRowFromItem(item: KnowledgeBaseItem) {
     aiActive,
     madeToOrder,
     canAutoPix: aiActive && priceStatus === 'ok' && (madeToOrder || stockStatus === 'ok'),
+    requiresDelivery: item.salesMeta?.requiresDeliveryAddress === true,
   }
 }
 

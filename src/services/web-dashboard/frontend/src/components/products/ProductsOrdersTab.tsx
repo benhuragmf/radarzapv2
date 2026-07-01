@@ -56,6 +56,28 @@ const PROOF_STATUSES = [
   'falha_notificacao_whatsapp',
 ]
 
+const PAYMENT_REVIEW_STATUSES = ['comprovante_recebido', 'em_conferencia']
+
+function formatChannel(channel?: string) {
+  if (channel === 'whatsapp') return 'WhatsApp'
+  if (channel === 'webchat') return 'WebChat'
+  return channel ?? '—'
+}
+
+function formatOrderDate(iso?: string) {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
+}
+
 type OrdersFilterProps = {
   proofOnly?: boolean
 }
@@ -93,6 +115,7 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
       qc.invalidateQueries({ queryKey: ['catalog-sales-orders-list'] })
       qc.invalidateQueries({ queryKey: ['catalog-sales-orders-overview'] })
       notifyInfo('Pedido atualizado.')
+      setSelected(null)
     },
     onError: mutationError,
   })
@@ -115,7 +138,16 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
         id: 'channel',
         header: 'Canal',
         cell: ({ row }) => (
-          <span className="text-xs uppercase">{row.original.channel ?? '—'}</span>
+          <span className="text-xs">{formatChannel(row.original.channel)}</span>
+        ),
+      },
+      {
+        id: 'when',
+        header: 'Quando',
+        cell: ({ row }) => (
+          <span className="text-xs text-[var(--rz-text-muted)]">
+            {formatOrderDate(row.original.createdAt ?? row.original.updatedAt)}
+          </span>
         ),
       },
       {
@@ -219,38 +251,6 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
                   <ExternalLink className="w-3.5 h-3.5" /> Abrir no Inbox
                 </Link>
               )}
-              {can(me, 'orders:approve-payment') && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={action.isPending}
-                  onClick={() =>
-                    action.mutate(`/platform/catalog-sales/orders/${selected.id}/approve`)
-                  }
-                >
-                  Aprovar pagamento
-                </Button>
-              )}
-              {can(me, 'orders:reject-payment') && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={action.isPending}
-                  onClick={() => {
-                    const reason = window.prompt('Motivo (opcional):') ?? undefined
-                    void api
-                      .post(`/platform/catalog-sales/orders/${selected.id}/reject`, { reason })
-                      .then(() => {
-                        qc.invalidateQueries({ queryKey: ['catalog-sales-orders-list'] })
-                        qc.invalidateQueries({ queryKey: ['catalog-sales-orders-overview'] })
-                        notifyInfo('Recusado.')
-                      })
-                      .catch(mutationError)
-                  }}
-                >
-                  Recusar
-                </Button>
-              )}
               {can(me, 'orders:view-payment-proof') && selected.proofs?.length ? (
                 <a
                   href={`/api/platform/catalog-sales/orders/${selected.id}/proof`}
@@ -261,6 +261,75 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
                   Ver comprovante
                 </a>
               ) : null}
+              {can(me, 'orders:approve-payment') &&
+                PAYMENT_REVIEW_STATUSES.includes(selected.status) && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={action.isPending}
+                    onClick={() =>
+                      action.mutate(`/platform/catalog-sales/orders/${selected.id}/approve`)
+                    }
+                  >
+                    Aprovar pagamento
+                  </Button>
+                )}
+              {can(me, 'orders:reject-payment') &&
+                PAYMENT_REVIEW_STATUSES.includes(selected.status) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={action.isPending}
+                    onClick={() => {
+                      const reason = window.prompt('Motivo (opcional):') ?? undefined
+                      void api
+                        .post(`/platform/catalog-sales/orders/${selected.id}/reject`, { reason })
+                        .then(() => {
+                          qc.invalidateQueries({ queryKey: ['catalog-sales-orders-list'] })
+                          qc.invalidateQueries({ queryKey: ['catalog-sales-orders-overview'] })
+                          notifyInfo('Recusado.')
+                          setSelected(null)
+                        })
+                        .catch(mutationError)
+                    }}
+                  >
+                    Recusar
+                  </Button>
+                )}
+              {can(me, 'orders:update-status') &&
+                [
+                  'aguardando_pagamento',
+                  'comprovante_recebido',
+                  'em_conferencia',
+                  'pagamento_recusado',
+                ].includes(selected.status) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={action.isPending}
+                    onClick={() =>
+                      action.mutate(
+                        `/platform/catalog-sales/orders/${selected.id}/request-new-proof`,
+                      )
+                    }
+                  >
+                    Pedir novo comprovante
+                  </Button>
+                )}
+              {can(me, 'orders:resend-pix-notification') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={action.isPending}
+                  onClick={() =>
+                    action.mutate(
+                      `/platform/catalog-sales/orders/${selected.id}/resend-notification`,
+                    )
+                  }
+                >
+                  Reenviar notificação
+                </Button>
+              )}
             </div>
           ) : null
         }

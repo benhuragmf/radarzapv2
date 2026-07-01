@@ -71,6 +71,16 @@ export function ProductsItemsTab() {
         ),
       },
       {
+        id: 'fulfillment',
+        header: 'Entrega',
+        cell: ({ row }) => (
+          <span className="text-xs text-[var(--rz-text-secondary)]">
+            {row.original.requiresDelivery ? 'Endereço obrig.' : 'Padrão empresa'}
+            {row.original.madeToOrder ? ' · Encomenda' : ''}
+          </span>
+        ),
+      },
+      {
         id: 'ia',
         header: 'IA',
         cell: ({ row }) => (

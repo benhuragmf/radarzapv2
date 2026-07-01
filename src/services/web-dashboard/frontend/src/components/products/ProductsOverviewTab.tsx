@@ -37,14 +37,14 @@ interface SessionRow {
 export function ProductsOverviewTab() {
   const { productStats, catalogSales, me } = useCatalogForm()
   const fulfillment = fulfillmentModeFromConfig(catalogSales)
+  const canViewOrders = Boolean(me && can(me, 'orders:view'))
+  const canViewWa = Boolean(me && can(me, 'whatsapp:session:view'))
 
   const { data: ordersData } = useQuery({
     queryKey: ['catalog-sales-orders-overview'],
     queryFn: () => api.get<{ orders: CatalogOrderRow[] }>('/platform/catalog-sales/orders?limit=200'),
-    enabled: Boolean(me && can(me, 'orders:view')),
+    enabled: canViewOrders,
   })
-
-  const canViewWa = Boolean(me && can(me, 'whatsapp:session:view'))
 
   const { data: sessions = [] } = useQuery<SessionRow[]>({
     queryKey: ['sessions', 'tenant'],
@@ -113,10 +113,14 @@ export function ProductsOverviewTab() {
               : undefined
           }
         />
-        <MetricCard title="Aguardando pagamento" value={awaitingPayment} icon={CreditCard} />
-        <MetricCard title="Comprovantes pendentes" value={pendingProof} icon={ClipboardList} />
-        <MetricCard title="Aguardando endereço" value={awaitingAddress} icon={MapPin} />
-        <MetricCard title="Aprovados hoje" value={approvedToday} />
+        {canViewOrders && (
+          <>
+            <MetricCard title="Aguardando pagamento" value={awaitingPayment} icon={CreditCard} />
+            <MetricCard title="Comprovantes pendentes" value={pendingProof} icon={ClipboardList} />
+            <MetricCard title="Aguardando endereço" value={awaitingAddress} icon={MapPin} />
+            <MetricCard title="Aprovados hoje" value={approvedToday} />
+          </>
+        )}
       </div>
 
       <SectionCard title="Fluxo operacional">
