@@ -1,6 +1,6 @@
 # Catálogo — pedidos PIX com comprovante e conferência humana
 
-**Versão:** 2.17.12 · **Marca:** RadarChat
+**Versão:** 2.17.49 · **Marca:** RadarChat
 
 ## Objetivo
 
@@ -125,10 +125,22 @@ Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é 
 
 ## Fluxo resumido
 
-1. Cliente pergunta produto → IA usa KNOWLEDGE (preço/estoque cadastrados).
-2. Cliente confirma compra → `CatalogSalesService.maybeCreateOrderFromAiTurn` → status `aguardando_pagamento`.
-3. Cliente envia imagem/PDF → `handleInboundProof` → vincula comprovante, notifica WA (`sendInternalAlert`) se configurado.
-4. Operador aprova/recusa no Inbox (`CatalogSalesOrderPanel`) → mensagem automática ao cliente se configurado.
+1. Cliente pergunta produto (nome ou intenção de compra) → oferta padronizada: preço, estoque, *retirar* ou *entregue* (sem PIX bruto da KB).
+2. Cliente escolhe **retirar** → pedido `aguardando_pagamento` + mensagem automática com endereço de retirada e PIX.
+3. Cliente escolhe **entregue** → pedido `aguardando_endereco` + pedido de **CEP**; depois número → cotação de frete no servidor → PIX.
+4. Produto inexistente ou typo → sugestão de itens parecidos ou lista do catálogo (não loop genérico).
+5. Cliente envia imagem/PDF → `handleInboundProof` → vincula comprovante, notifica WA interno se configurado.
+6. Operador aprova/recusa no Inbox (`CatalogSalesOrderPanel`) → mensagem automática ao cliente se configurado.
+
+**Canais:** WhatsApp (`AiConversationService`) e WebChat (`WebChatAiService`) — atalhos de catálogo antes do LLM.
+
+### Oferta padronizada (2.17.46+)
+
+Texto fixo do servidor, exemplo:
+
+> Olá, {nome}! O produto *{produto}* está disponível por R$ … e temos …. Você gostaria de prosseguir com a compra? Se sim, prefere *retirar* ou que seja *entregue*?
+
+**Perfil comercial** (painel IA Atendimento): varejo/catálogo + ativar pedidos via IA; produtos na categoria **Produtos e estoque**.
 
 ## QA manual (checklist)
 

@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarchat-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.17.33` (`package.json`) · **Última revisão doc:** 2026-06-30
+**Versão atual:** `2.17.49` (`package.json`) · **Última revisão doc:** 2026-06-30
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Auditoria geral:** [`AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./AUDITORIA-GERAL-SISTEMA-RADARCHAT.md) · **Pendências/riscos:** [`PENDENCIAS-E-RISCOS-SISTEMA.md`](./PENDENCIAS-E-RISCOS-SISTEMA.md) · **Mestre:** [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Resultado TOP 01–20:** [`concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARCHAT-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,9 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.17.49** | Catálogo: paridade WebChat (atalhos compra/entrega/retirada); doc `CATALOGO-PIX-PEDIDOS.md` |
+| **2.17.48** | Catálogo WA: fluxo entregue/retirada sem LLM, sugestão produtos parecidos, consulta só pelo nome |
+| **2.17.46** | Catálogo: oferta padronizada, perfil comercial no painel, `requireDeliveryAddress` default |
 | **2.17.33** | UX-01 gate auditoria geral (`qa:auditoria:gate`, checklist JSON, template QA, E2E alinhados) |
 | **2.17.32** | DATA-01 WebChat CRM incompleto + banner Inbox; OPS-02 runbook WA pós-deploy |
 | **2.17.31** | DATA-02 badges CRM; UX-03 WebChat honeypot+IP; STAB-03 presença Redis pub/sub; UX-04 catalog auto-approve; DOC-03 backup cron token |

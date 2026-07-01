@@ -46,6 +46,23 @@ import {
   sanitizePremiumAiResponse,
   shouldEscalatePremiumAiBeforeCall,
 } from '@/types/premium-ai.util';
+import {
+  detectDeliveryFulfillmentChoice,
+  detectPickupFulfillmentChoice,
+  extractProductNameFromCatalogOffer,
+  buildFulfillmentReminderReply,
+  isCatalogPurchaseOfferMessage,
+  looksLikeCatalogProductNameQuery,
+} from '@/types/catalog-sales';
+import {
+  textIsCepOnly,
+  textLooksLikeStreetNumber,
+} from '@/types/catalog-delivery-address';
+import { emptyAiStructuredReply } from '@/types/ai-assistant';
+import {
+  looksLikePurchaseInquiry,
+  resolveClientFirstName,
+} from '@/utils/ai-kb-client.util';
 
 export interface WebChatAiAvailability {
   available: boolean;
@@ -129,7 +146,7 @@ export class WebChatAiService {
       intakeSummary?: string;
       escalationPolicy?: Partial<WebChatAiEscalationPolicy> | null;
     },
-  ): Promise<{ body: string; senderName: string; shouldEscalate?: boolean } | null> {
+  ): Promise<{ body: string; senderName: string; shouldEscalate?: boolean; automatedOnly?: boolean } | null> {
     const availability = await this.getAvailability(clientId);
     if (!availability.available) {
       if (availability.reason?.includes('crédito') || availability.reason?.includes('Saldo')) {
@@ -250,6 +267,36 @@ export class WebChatAiService {
           buildPremiumAiUngroundedReply(org?.name),
           'webchat',
         ),
+        senderName,
+        shouldEscalate: false,
+      };
+    }
+
+    const lastAssistantReply = [...rows]
+      .reverse()
+      .find(m => m.direction === 'outbound')?.body;
+
+    const catalogEarly = await this.tryCatalogWebChatShortCircuit({
+      clientId,
+      conversationId,
+      lastInbound,
+      threadContext,
+      lastAssistantReply,
+      visitorName: opts.visitorName,
+    });
+    if (catalogEarly) {
+      void recordPremiumAiAttendanceEvent({
+        clientId,
+        kind: 'ai.premium.answered',
+        channel: 'webchat',
+        conversationId,
+        meta: { source: 'catalog', grounded: true },
+      });
+      if (catalogEarly.automatedOnly) {
+        return { body: '', senderName, shouldEscalate: false, automatedOnly: true };
+      }
+      return {
+        body: sanitizePremiumAiResponse(catalogEarly.body, 'webchat'),
         senderName,
         shouldEscalate: false,
       };
@@ -513,5 +560,120 @@ export class WebChatAiService {
         { $set: { destinationId: new mongoose.Types.ObjectId(destId) } },
       );
     }
+  }
+
+  private async tryCatalogWebChatShortCircuit(opts: {
+    clientId: string;
+    conversationId: string;
+    lastInbound: string;
+    threadContext: string;
+    lastAssistantReply?: string;
+    visitorName?: string;
+  }): Promise<{ body: string; automatedOnly?: boolean } | null> {
+    const text = opts.lastInbound.trim();
+    if (!text) return null;
+
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    const catalogSvc = CatalogSalesService.getInstance();
+    const cfg = await catalogSvc.loadCompanyConfig(opts.clientId);
+    if (!cfg.enabled) return null;
+
+    const conversation = await WebChatConversation.findById(opts.conversationId)
+      .select('destinationId visitorName visitorPhone visitorEmail')
+      .lean();
+    const convRef = {
+      conversationId: opts.conversationId,
+      channel: 'webchat' as const,
+      destinationId: conversation?.destinationId ? String(conversation.destinationId) : undefined,
+      contactIdentifier:
+        conversation?.visitorPhone ?? conversation?.visitorEmail ?? undefined,
+      contactName: conversation?.visitorName ?? opts.visitorName ?? 'Visitante',
+    };
+    const contactFirstName = resolveClientFirstName(
+      opts.visitorName ?? conversation?.visitorName,
+    );
+
+    if (textIsCepOnly(text) || textLooksLikeStreetNumber(text)) {
+      const active = await catalogSvc.findActiveOrderForConversation(
+        opts.clientId,
+        opts.conversationId,
+      );
+      if (active?.status === 'aguardando_endereco') {
+        await catalogSvc.processAiCatalogTurn({
+          clientId: opts.clientId,
+          conversation: convRef,
+          clientText: text,
+          structured: emptyAiStructuredReply(),
+          threadContext: opts.threadContext,
+        });
+        return { body: '', automatedOnly: true };
+      }
+    }
+
+    if (detectDeliveryFulfillmentChoice(text) || detectPickupFulfillmentChoice(text)) {
+      const result = await catalogSvc.processFulfillmentChoice({
+        clientId: opts.clientId,
+        conversation: convRef,
+        clientText: text,
+        threadContext: opts.threadContext,
+        lastAssistantReply: opts.lastAssistantReply,
+        contactFirstName,
+      });
+      if (!result.handled) return null;
+      if (result.customerReply) return { body: result.customerReply };
+      return { body: '', automatedOnly: true };
+    }
+
+    const productNameQuery =
+      looksLikeCatalogProductNameQuery(text) &&
+      !detectDeliveryFulfillmentChoice(text) &&
+      !detectPickupFulfillmentChoice(text);
+
+    if (
+      (looksLikePurchaseInquiry(text, opts.threadContext) || productNameQuery) &&
+      !detectDeliveryFulfillmentChoice(text) &&
+      !detectPickupFulfillmentChoice(text)
+    ) {
+      if (isCatalogPurchaseOfferMessage(opts.lastAssistantReply)) {
+        const offered = extractProductNameFromCatalogOffer(opts.lastAssistantReply);
+        if (offered && text.toLowerCase() === offered.toLowerCase()) {
+          return {
+            body: buildFulfillmentReminderReply(offered, contactFirstName),
+          };
+        }
+      }
+
+      const offer = await catalogSvc.buildPurchaseOfferForInquiry({
+        clientId: opts.clientId,
+        clientText: text,
+        threadContext: opts.threadContext,
+        contactFirstName,
+        lastAssistantReply: opts.lastAssistantReply,
+      });
+      if (offer) {
+        const lastProduct = extractProductNameFromCatalogOffer(opts.lastAssistantReply);
+        const newProduct = extractProductNameFromCatalogOffer(offer);
+        if (
+          lastProduct &&
+          newProduct &&
+          lastProduct.toLowerCase() === newProduct.toLowerCase() &&
+          isCatalogPurchaseOfferMessage(opts.lastAssistantReply)
+        ) {
+          return null;
+        }
+        return { body: offer };
+      }
+
+      if (productNameQuery) {
+        const notFound = await catalogSvc.buildProductNotFoundReply({
+          clientId: opts.clientId,
+          clientText: text,
+          contactFirstName,
+        });
+        if (notFound) return { body: notFound };
+      }
+    }
+
+    return null;
   }
 }

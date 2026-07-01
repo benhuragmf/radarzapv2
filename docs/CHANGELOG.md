@@ -20,6 +20,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.49] - 2026-06-30
+
+### Added
+- Catálogo: **paridade WebChat** — mesmos atalhos de compra, retirada, entrega e CEP (`WebChatAiService`)
+- Doc `CATALOGO-PIX-PEDIDOS.md` atualizada com fluxo padronizado 2.17.46–48
+
+---
+
 ## [2.17.48] - 2026-06-30
 
 ### Added

@@ -2946,6 +2946,9 @@ export class WebChatService {
         });
       }
       if (ai) {
+        if (ai.automatedOnly) {
+          return replies;
+        }
         body = ai.body;
         senderName = ai.senderName;
         shouldEscalate = Boolean(ai.shouldEscalate);
