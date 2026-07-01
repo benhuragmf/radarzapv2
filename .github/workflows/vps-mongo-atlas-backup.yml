@@ -1,0 +1,37 @@
+# Configura backup ao vivo Mongo local (VPS) → MongoDB Atlas + primeiro sync.
+name: VPS Mongo Atlas backup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure Atlas backup on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          MONGODB_BACKUP_URL: ${{ secrets.MONGODB_BACKUP_URL }}
+          COOLIFY_SERVICE_UUID: h143brhw5f8tgfj9trj0f3bd
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 20m
+          envs: DEPLOY_PATH,MONGODB_BACKUP_URL,COOLIFY_SERVICE_UUID
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:-/opt/radarchat}"
+            git fetch origin main -q && git reset --hard origin/main -q
+            if [[ -z "${MONGODB_BACKUP_URL:-}" ]]; then
+              echo "ERRO: secret MONGODB_BACKUP_URL ausente no GitHub"
+              exit 1
+            fi
+            sudo bash scripts/vps-patch-env-key.sh "${DEPLOY_PATH}/.env" MONGODB_BACKUP_URL "${MONGODB_BACKUP_URL}"
+            export COOLIFY_SERVICE_UUID
+            sudo -E bash scripts/vps-install-mongo-atlas-backup-cron.sh
+            sudo -E bash scripts/vps-mongo-sync-atlas-backup.sh
+            echo "Backup Atlas configurado."
