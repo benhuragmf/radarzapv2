@@ -18,6 +18,17 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.34] - 2026-06-30
+
+### Fixed
+- **Atendimento IA + catálogo:** pin de localização WhatsApp usa coordenadas (reverse geocode + frete) sem abrir ticket por “dados mínimos”; escalação bloqueada enquanto pedido aguarda endereço.
+- **Atendimento IA:** restaurada simulação de digitação nas respostas automáticas (`sendAiReply`).
+
+### Added
+- **IA Empresa/catálogo:** campos explícitos **Chave PIX** e **Titular** na aba `#empresa`, com atalho a partir de “Venda pela IA (opcional)” (`catalog-sales-pix.ts`).
+
+---
+
 ## [2.17.33] - 2026-06-30
 
 ### Added

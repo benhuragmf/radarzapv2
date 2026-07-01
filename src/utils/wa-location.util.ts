@@ -32,3 +32,20 @@ export function formatLocationLabel(lat: number, lng: number, name?: string): st
   if (name?.trim()) return `📍 ${name.trim()} (${coords})`;
   return `📍 Localização enviada (${coords})`;
 }
+
+const LOCATION_INBOUND_RE =
+  /^📍\s*(?:Localização enviada|Localização GPS)\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/i;
+
+/** Texto exibido no Inbox quando o cliente envia pin no WhatsApp. */
+export function isWaLocationInboundText(text: string): boolean {
+  return LOCATION_INBOUND_RE.test(text.trim());
+}
+
+export function parseWaLocationFromInboundText(text: string): { lat: number; lng: number } | null {
+  const m = text.trim().match(LOCATION_INBOUND_RE);
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lng = Number(m[2]);
+  if (!isValidWaCoordinates(lat, lng)) return null;
+  return { lat, lng };
+}

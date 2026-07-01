@@ -6,6 +6,11 @@ import {
   productStockIsZero,
   shouldOpenPixOrderFlow,
 } from '@/types/catalog-sales';
+import {
+  buildCatalogPixInstructions,
+  enrichCatalogSalesPixFields,
+  resolveCatalogPixInstructions,
+} from '@/types/catalog-sales-pix';
 
 describe('catalog-sales types', () => {
   it('normaliza config com defaults de segurança', () => {
@@ -19,6 +24,26 @@ describe('catalog-sales types', () => {
     expect(isValidCatalogSalesPhone('5566999999999')).toBe(true);
     expect(isValidCatalogSalesPhone('66999999999')).toBe(false);
     expect(isValidCatalogSalesPhone('5511')).toBe(false);
+  });
+
+  it('monta instruções PIX a partir de chave e titular', () => {
+    const text = buildCatalogPixInstructions({
+      pixKey: 'benhur@email.com',
+      pixHolderName: 'Benhur Ltda',
+      pixInstructions: 'Envie o comprovante após pagar.',
+    });
+    expect(text).toContain('Chave PIX: benhur@email.com');
+    expect(text).toContain('Titular: Benhur Ltda');
+    expect(text).toContain('comprovante');
+  });
+
+  it('extrai chave PIX legada de pixInstructions', () => {
+    const enriched = enrichCatalogSalesPixFields({
+      pixInstructions: 'Chave PIX: 5566999999999\nTitular: Loja\nPague e envie print.',
+    });
+    expect(enriched.pixKey).toBe('5566999999999');
+    expect(enriched.pixHolderName).toBe('Loja');
+    expect(resolveCatalogPixInstructions(enriched)).toContain('Pague e envie print');
   });
 
   it('detecta confirmação de compra', () => {

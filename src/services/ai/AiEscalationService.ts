@@ -2,6 +2,7 @@ import type { AiTransferRules } from '@/types/ai-assistant';
 import type { IAiConversationState } from '@/models/AiConversationState';
 import type { IAiPrompt } from '@/models/AiPrompt';
 import type { AiStructuredReply } from '@/types/ai-assistant';
+import { isWaLocationInboundText } from '@/utils/wa-location.util';
 
 const HUMAN_KEYWORDS =
   /\b(atendente|humano|pessoa|operador|suporte|representante|especialista|comercial|vendas|financeiro)\b/i;
@@ -32,6 +33,8 @@ export interface EscalationCheckInput {
   state: IAiConversationState;
   prompt: IAiPrompt;
   rules: AiTransferRules;
+  /** Pedido catálogo aguardando endereço — não escalar só por dados mínimos. */
+  catalogAddressPending?: boolean;
 }
 
 export interface EscalationDecision {
@@ -48,10 +51,26 @@ export class AiEscalationService {
   }
 
   check(input: EscalationCheckInput): EscalationDecision {
-    const { clientText, rules, structured, state, prompt, hasUninterpretableMedia } = input;
+    const {
+      clientText,
+      rules,
+      structured,
+      state,
+      prompt,
+      hasUninterpretableMedia,
+      catalogAddressPending,
+    } = input;
     const text = clientText.trim();
+    const locationTurn = isWaLocationInboundText(text);
 
     if (this.clientClosingConversation(text)) {
+      return { shouldEscalate: false };
+    }
+
+    if (catalogAddressPending || locationTurn) {
+      if (rules.onHumanRequest && this.clientRequestsHuman(text)) {
+        return { shouldEscalate: true, reason: 'Cliente solicitou atendente humano' };
+      }
       return { shouldEscalate: false };
     }
 
@@ -124,13 +143,13 @@ export class AiEscalationService {
       checks.push(Boolean(email && email.includes('@') && email.length >= 5));
     }
     if (prompt.collectProblem) {
-      checks.push(
-        Boolean(
-          problem &&
-            problem.length >= 8 &&
-            (!name || problem.toLowerCase() !== name.toLowerCase()),
-        ),
+      const problemOk = Boolean(
+        problem &&
+          problem.length >= 8 &&
+          !isWaLocationInboundText(problem) &&
+          (!name || problem.toLowerCase() !== name.toLowerCase()),
       );
+      checks.push(problemOk);
     }
 
     if (!checks.length) return false;
@@ -216,6 +235,7 @@ export class AiEscalationService {
   isCollectionOnlyTurn(text: string): boolean {
     const t = text.trim();
     if (!t || t.includes('@')) return false;
+    if (isWaLocationInboundText(t)) return true;
     if (this.clientRequestsHuman(t)) return false;
     if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|hey|hello)\b/i.test(t)) return false;
     const words = t.split(/\s+/).filter(Boolean);

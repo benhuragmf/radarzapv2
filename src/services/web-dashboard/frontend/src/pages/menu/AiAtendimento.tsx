@@ -44,6 +44,7 @@ import {
 } from '../../lib/attendanceMode'
 import { notifyInfo, notifyConfigSaved, mutationError, notifyError } from '../../lib/notify'
 import { deliveryAddressValidationError } from '@radarchat-types/catalog-delivery-address'
+import { buildCatalogPixInstructions } from '@radarchat-types/catalog-sales-pix'
 import { DeliveryOriginAddressFields } from '../../components/catalog/DeliveryOriginAddressFields'
 import { inputCls, textareaCls, LoadingState, ConfigSaveFooter } from '@/design-system'
 
@@ -64,6 +65,8 @@ interface CatalogSalesCompanyConfig {
   enabled?: boolean
   pixEnabled?: boolean
   pixInstructions?: string
+  pixKey?: string
+  pixHolderName?: string
   notifyWhatsapp?: boolean
   internalWhatsapp?: string
   responsibleName?: string
@@ -787,6 +790,30 @@ export default function AiAtendimento() {
       }),
     )
   }
+
+  const patchCatalogSalesPix = (patch: Partial<CatalogSalesCompanyConfig>) => {
+    const next = { ...catalogSales, ...patch }
+    const pixInstructions = buildCatalogPixInstructions(next)
+    setForm(f =>
+      f ? { ...f, catalogSales: { ...next, pixInstructions } } : f,
+    )
+    syncPaymentGuideFromPixConfig(pixInstructions)
+  }
+
+  const scrollToCatalogPixConfig = () => {
+    document.getElementById('catalog-pix-config')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const catalogPixExtraNotes = (catalogSales.pixInstructions ?? '')
+    .split('\n')
+    .filter(line => {
+      const t = line.trim()
+      if (!t) return false
+      if (/^chave\s*pix\s*:/i.test(t)) return false
+      if (/^titular\s*:/i.test(t)) return false
+      return true
+    })
+    .join('\n')
 
   const canEditSalesWhatsapp = me ? can(me, 'company:sales-config:update') : false
 
@@ -1613,6 +1640,29 @@ export default function AiAtendimento() {
                 <option value="link_or_pix">Link ou PIX (cliente escolhe)</option>
                 <option value="pix">Só PIX com conferência no chat</option>
               </select>
+              {(productDraft.salesMeta.saleMode === 'pix' ||
+                productDraft.salesMeta.saleMode === 'link_or_pix') && (
+                <div className="rounded-md border border-brand-800/40 bg-brand-950/20 px-3 py-2 text-xs text-[var(--rz-text-secondary)] space-y-1">
+                  <p>
+                    <strong>Chave PIX da empresa</strong> — configure abaixo (não é por produto).
+                  </p>
+                  {catalogSales.pixKey?.trim() ? (
+                    <p>
+                      Configurada: <span className="font-mono text-brand-300">{catalogSales.pixKey}</span>
+                      {catalogSales.pixHolderName ? ` · ${catalogSales.pixHolderName}` : ''}
+                    </p>
+                  ) : (
+                    <p className="text-amber-300/90">Ainda não configurada — a IA não consegue passar PIX ao cliente.</p>
+                  )}
+                  <button
+                    type="button"
+                    className="text-brand-400 hover:underline"
+                    onClick={scrollToCatalogPixConfig}
+                  >
+                    Ir para Chave PIX da empresa ↓
+                  </button>
+                </div>
+              )}
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="flex items-center gap-2 text-xs">
                   <input
@@ -1713,14 +1763,14 @@ export default function AiAtendimento() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-[var(--rz-border)] p-4 space-y-4">
+          <div id="catalog-pix-config" className="rounded-lg border border-[var(--rz-border)] p-4 space-y-4 scroll-mt-24">
             <div>
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <CreditCard className="w-4 h-4" /> PIX, comprovante e conferência
               </h3>
               <p className="text-xs text-[var(--rz-text-muted)] mt-1">
-                Configure como a IA orienta pedidos com PIX e para qual WhatsApp interno o comprovante
-                será enviado para conferência.
+                Chave PIX da empresa (vale para todos os produtos com venda PIX). A IA repassa ao cliente;
+                comprovantes vão para o WhatsApp interno da equipe.
               </p>
             </div>
 
@@ -1794,6 +1844,52 @@ export default function AiAtendimento() {
                   Empresa e catálogo
                 </Link>
               </label>
+            </div>
+
+            <div
+              className={`rounded-lg border border-[var(--rz-border)] p-3 space-y-3 ${
+                catalogSales.pixEnabled ? '' : 'opacity-60'
+              }`}
+            >
+              <p className="text-sm font-medium">Chave PIX da empresa</p>
+              <p className="text-xs text-[var(--rz-text-muted)]">
+                CPF/CNPJ, e-mail, telefone (+55…) ou chave aleatória. Marque também &quot;Ativar pagamento via
+                PIX&quot; acima.
+              </p>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-[var(--rz-text-muted)]">Chave PIX *</label>
+                  <input
+                    className={inputCls}
+                    value={catalogSales.pixKey ?? ''}
+                    disabled={!catalogSales.pixEnabled}
+                    onChange={e => patchCatalogSalesPix({ pixKey: e.target.value })}
+                    placeholder="Ex.: benhur@email.com ou 5566999999999"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-[var(--rz-text-muted)]">Titular (opcional)</label>
+                  <input
+                    className={inputCls}
+                    value={catalogSales.pixHolderName ?? ''}
+                    disabled={!catalogSales.pixEnabled}
+                    onChange={e => patchCatalogSalesPix({ pixHolderName: e.target.value })}
+                    placeholder="Nome de quem recebe o PIX"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[var(--rz-text-muted)]">
+                  Instruções extras para o cliente (opcional)
+                </label>
+                <textarea
+                  className={`${textareaClsAi} min-h-[72px]`}
+                  disabled={!catalogSales.pixEnabled}
+                  value={catalogPixExtraNotes}
+                  onChange={e => patchCatalogSalesPix({ pixInstructions: e.target.value })}
+                  placeholder="Ex.: Enviar comprovante após pagar; não aceitamos cartão neste canal."
+                />
+              </div>
             </div>
 
             <textarea
@@ -1916,16 +2012,6 @@ export default function AiAtendimento() {
                 placeholder="Mensagem ao pedir novo comprovante — variáveis: {{productName}}, {{reason}}"
               />
             </div>
-
-            <textarea
-              className={textareaClsAi}
-              value={catalogSales.pixInstructions ?? paymentGuide?.content ?? ''}
-              onChange={e => {
-                updateCatalogSales({ pixInstructions: e.target.value })
-                syncPaymentGuideFromPixConfig(e.target.value)
-              }}
-              placeholder="Chave PIX, titular, instruções de pagamento para a IA repassar ao cliente."
-            />
 
             <div className="grid gap-2 md:grid-cols-2">
               <input

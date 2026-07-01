@@ -2,6 +2,16 @@
 
 import type { CatalogDeliveryKmRates } from '@/utils/catalog-delivery.util';
 import { normalizeKmRates } from '@/utils/catalog-delivery.util';
+import {
+  enrichCatalogSalesPixFields,
+  resolveCatalogPixInstructions,
+} from '@/types/catalog-sales-pix';
+
+export {
+  buildCatalogPixInstructions,
+  enrichCatalogSalesPixFields,
+  resolveCatalogPixInstructions,
+} from '@/types/catalog-sales-pix';
 
 export const CATALOG_SALES_ORDER_STATUSES = [
   'rascunho',
@@ -52,8 +62,12 @@ export interface CatalogSalesCompanyConfig {
   enabled?: boolean;
   /** Ativar pagamento via PIX */
   pixEnabled?: boolean;
-  /** Instruções de PIX (chave, titular, etc.) */
+  /** Instruções de PIX (chave, titular, etc.) — legado; use pixKey + pixHolderName */
   pixInstructions?: string;
+  /** Chave PIX (CPF/CNPJ, e-mail, telefone ou aleatória) */
+  pixKey?: string;
+  /** Nome do titular da chave PIX */
+  pixHolderName?: string;
   /** Enviar comprovante para WhatsApp interno */
   notifyWhatsapp?: boolean;
   /** Número WhatsApp responsável (E.164) */
@@ -152,10 +166,14 @@ export interface CatalogSalesOrderHistoryEntry {
 export function normalizeCatalogSalesConfig(
   raw?: CatalogSalesCompanyConfig | null,
 ): CatalogSalesCompanyConfig & typeof DEFAULT_CATALOG_SALES_COMPANY_CONFIG {
+  const enriched = enrichCatalogSalesPixFields(raw);
+  const pixInstructions = resolveCatalogPixInstructions(enriched);
   return {
     ...DEFAULT_CATALOG_SALES_COMPANY_CONFIG,
-    ...(raw ?? {}),
-    pixInstructions: raw?.pixInstructions?.trim() ?? '',
+    ...enriched,
+    pixKey: enriched.pixKey?.trim() ?? '',
+    pixHolderName: enriched.pixHolderName?.trim() ?? '',
+    pixInstructions,
     internalWhatsapp: raw?.internalWhatsapp?.replace(/\D/g, '') ?? '',
     responsibleName: raw?.responsibleName?.trim() ?? '',
     internalMessageTemplate: raw?.internalMessageTemplate?.trim() ?? '',

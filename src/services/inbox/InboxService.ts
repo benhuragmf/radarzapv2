@@ -6947,7 +6947,7 @@ export class InboxService {
   ): Promise<void> {
     const safeText = sanitizePremiumAiResponse(text, 'whatsapp');
     try {
-      await this.sendToContact(clientId, contactIdentifier, safeText, { skipHumanize: true });
+      await this.sendToContact(clientId, contactIdentifier, safeText);
     } catch (err) {
       logger.warn('Falha ao enviar mensagem automática do bot ao WhatsApp', {
         clientId,

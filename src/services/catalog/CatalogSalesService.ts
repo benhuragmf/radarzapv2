@@ -84,6 +84,7 @@ export interface CatalogAiTurnResult {
   useDistanceBasedDelivery: boolean;
   needsAddressConfirmation?: boolean;
   handled?: boolean;
+  geocodedAddress?: string;
 }
 
 export class CatalogSalesService {
@@ -500,18 +501,29 @@ export class CatalogSalesService {
       }),
     );
 
-    if (!cfg.requireDeliveryAddress) {
-      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance };
+    const needsFreightFlow = Boolean(cfg.requireDeliveryAddress || useDistance);
+    if (!needsFreightFlow) {
+      return {
+        serverQuoteSent: false,
+        quoteFailed: false,
+        useDistanceBasedDelivery: useDistance,
+        handled: true,
+        geocodedAddress: addressLabel,
+      };
     }
 
-    const order = await CatalogSalesOrder.findOne({
-      clientId: new mongoose.Types.ObjectId(opts.clientId),
-      conversationId: new mongoose.Types.ObjectId(opts.conversation.conversationId),
-      status: 'aguardando_endereco',
-    }).sort({ updatedAt: -1 });
+    const order = await this.findActiveOrderForConversation(
+      opts.clientId,
+      opts.conversation.conversationId,
+    );
 
-    if (!order) {
-      return { serverQuoteSent: false, quoteFailed: false, useDistanceBasedDelivery: useDistance };
+    if (!order || order.status !== 'aguardando_endereco') {
+      return {
+        serverQuoteSent: false,
+        quoteFailed: false,
+        useDistanceBasedDelivery: useDistance,
+        geocodedAddress: addressLabel,
+      };
     }
 
     order.deliveryLocationLat = lat;

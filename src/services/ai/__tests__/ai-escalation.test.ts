@@ -151,6 +151,58 @@ describe('AiEscalationService', () => {
   it('isCollectionOnlyTurn detecta nome curto', () => {
     expect(svc.isCollectionOnlyTurn('Benhur')).toBe(true);
     expect(svc.isCollectionOnlyTurn('quero cancelar meu pedido 12345')).toBe(false);
+    expect(svc.isCollectionOnlyTurn('📍 Localização enviada (-16.45787, -54.64815)')).toBe(true);
+  });
+
+  it('não escala ao receber pin de localização com dados mínimos já coletados', () => {
+    const state = {
+      ...baseState,
+      aiTurnCount: 3,
+      collectedName: 'Benhur',
+      nameConfirmed: true,
+      collectedEmail: 'benhur@example.com',
+      collectedProblem: 'Gostaria de comprar o zaad',
+    } as IAiConversationState;
+    const r = svc.check({
+      clientText: '📍 Localização enviada (-16.45787, -54.64815)',
+      hasUninterpretableMedia: false,
+      structured: {
+        reply: 'Obrigado pela localização.',
+        confidence: 0.9,
+        shouldEscalate: true,
+        parseFailed: false,
+      },
+      state,
+      prompt: basePrompt,
+      rules: { ...DEFAULT_AI_TRANSFER_RULES, onMinDataCollected: true },
+    });
+    expect(r.shouldEscalate).toBe(false);
+  });
+
+  it('não escala durante pedido catálogo aguardando endereço', () => {
+    const state = {
+      ...baseState,
+      aiTurnCount: 3,
+      collectedName: 'Benhur',
+      nameConfirmed: true,
+      collectedEmail: 'benhur@example.com',
+      collectedProblem: 'Compra ZAAd',
+    } as IAiConversationState;
+    const r = svc.check({
+      clientText: '1326',
+      hasUninterpretableMedia: false,
+      structured: {
+        reply: 'Estou transferindo você para um atendente humano.',
+        confidence: 0.9,
+        shouldEscalate: true,
+        parseFailed: false,
+      },
+      state,
+      prompt: basePrompt,
+      rules: { ...DEFAULT_AI_TRANSFER_RULES, onMinDataCollected: true },
+      catalogAddressPending: true,
+    });
+    expect(r.shouldEscalate).toBe(false);
   });
 
   it('não escala em despedida ou agradecimento', () => {

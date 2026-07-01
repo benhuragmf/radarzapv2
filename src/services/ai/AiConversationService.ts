@@ -23,6 +23,14 @@ import type { IAiPrompt } from '@/models/AiPrompt';
 import { AiAutoResolveService } from './AiAutoResolveService';
 import { AiSkillService } from './AiSkillService';
 import { AiMemoryService } from './AiMemoryService';
+import {
+  isWaLocationInboundText,
+  parseWaLocationFromInboundText,
+} from '@/utils/wa-location.util';
+import {
+  buildAddressLabelFromLocation,
+  reverseGeocodeCoords,
+} from '@/utils/catalog-delivery.util';
 import { AiTicketUpdateService } from './AiTicketUpdateService';
 import { AiTicketAssistService } from './AiTicketAssistService';
 import type { InboxService } from '@/services/inbox/InboxService';
@@ -221,8 +229,11 @@ export class AiConversationService {
       ctx = { ...ctx, text: state.collectedProblem.trim() };
     }
 
-    if (
-      await this.tryHandleAiTicketMenuFlow(
+    if (isWaLocationInboundText(ctx.text)) {
+      await this.ingestClientLocationText(ctx, state);
+    }
+
+    if (await this.tryHandleAiTicketMenuFlow(
         ctx,
         inbox,
         state,
@@ -638,6 +649,12 @@ export class AiConversationService {
 
     structured.reply = catalogSvc.sanitizeAiReplyForCatalogQuote(structured.reply, catalogTurn);
 
+    const activeCatalogOrder = await catalogSvc.findActiveOrderForConversation(
+      ctx.clientId,
+      String(ctx.conversation._id),
+    );
+    const catalogAddressPending = activeCatalogOrder?.status === 'aguardando_endereco';
+
     let escalation = escSvc.check({
       clientText: ctx.text,
       hasUninterpretableMedia,
@@ -645,19 +662,24 @@ export class AiConversationService {
       state,
       prompt,
       rules: settings.transferRules,
+      catalogAddressPending,
     });
 
     if (!escalation.shouldEscalate) {
       if (escSvc.isWaitingForPromisedHandoff(ctx.text, lastAssistantBefore?.content)) {
-        escalation = {
-          shouldEscalate: true,
-          reason: 'Cliente aguardando transferência prometida pela IA',
-        };
+        if (!catalogAddressPending) {
+          escalation = {
+            shouldEscalate: true,
+            reason: 'Cliente aguardando transferência prometida pela IA',
+          };
+        }
       } else if (escSvc.aiReplyPromisesTransfer(structured.reply)) {
-        escalation = {
-          shouldEscalate: true,
-          reason: structured.escalationReason ?? 'IA confirmou encaminhamento para humano',
-        };
+        if (!catalogAddressPending) {
+          escalation = {
+            shouldEscalate: true,
+            reason: structured.escalationReason ?? 'IA confirmou encaminhamento para humano',
+          };
+        }
       } else if (structured.shouldEscalate) {
         if (escSvc.clientRequestsHuman(ctx.text) || state.aiTurnCount >= 2) {
           escalation = {
@@ -1365,6 +1387,7 @@ export class AiConversationService {
   private textLooksLikeProblemDescription(text: string): boolean {
     const t = text.trim();
     if (!t || t.includes('@')) return false;
+    if (isWaLocationInboundText(t)) return false;
     if (this.textLooksLikeName(t)) return false;
     if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|preciso de ajuda|sim|nao|não|s|ss|ok)$/i.test(t)) {
       return false;
@@ -1375,6 +1398,33 @@ export class AiConversationService {
     if (/\b(problema|erro|ajuda|n[aã]o conecta|n[aã]o funciona|instala)/i.test(t)) return true;
     const words = t.split(/\s+/).filter(Boolean);
     return words.length >= 3 && t.length >= 12;
+  }
+
+  private async ingestClientLocationText(
+    ctx: AiInboundContext,
+    state: IAiConversationState,
+  ): Promise<void> {
+    const coords = parseWaLocationFromInboundText(ctx.text);
+    if (!coords) return;
+
+    const reverse = await reverseGeocodeCoords(coords.lat, coords.lng);
+    const addressLabel = buildAddressLabelFromLocation({
+      reverseDisplayName: reverse?.displayName,
+      lat: coords.lat,
+      lng: coords.lng,
+    });
+    state.collectedAddress = addressLabel;
+    if (state.collectedProblem?.trim() && isWaLocationInboundText(state.collectedProblem)) {
+      state.collectedProblem = undefined;
+    }
+    await state.save();
+
+    const { CatalogSalesService } = await import('@/services/catalog/CatalogSalesService');
+    await CatalogSalesService.getInstance().maybeUpdateOrderFromAiTurn({
+      clientId: ctx.clientId,
+      conversationId: String(ctx.conversation._id),
+      structured: { collectedAddress: addressLabel },
+    });
   }
 
   private async escalate(

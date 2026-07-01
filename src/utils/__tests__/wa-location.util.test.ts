@@ -1,6 +1,8 @@
 import {
   formatLocationLabel,
   isValidWaCoordinates,
+  isWaLocationInboundText,
+  parseWaLocationFromInboundText,
   waCoordToDegrees,
 } from '../wa-location.util';
 
@@ -19,5 +21,14 @@ describe('wa-location.util', () => {
   it('formata rótulo da mensagem', () => {
     expect(formatLocationLabel(-23.55, -46.63, 'Casa')).toContain('Casa');
     expect(formatLocationLabel(-23.55, -46.63)).toContain('Localização');
+  });
+
+  it('detecta e parseia texto inbound de localização', () => {
+    const label = formatLocationLabel(-16.45787, -54.64815);
+    expect(isWaLocationInboundText(label)).toBe(true);
+    expect(parseWaLocationFromInboundText(label)).toEqual({
+      lat: -16.45787,
+      lng: -54.64815,
+    });
   });
 });
