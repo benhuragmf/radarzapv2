@@ -33,4 +33,10 @@ describe('catalog-menu-gate', () => {
   it('rota bloqueada sem catálogo ativo', () => {
     expect(isCatalogProductsRouteBlocked({ businessCatalogProfile: 'catalog_general' })).toBe(true)
   })
+
+  it('CTA desligado quando catálogo já ativo', () => {
+    expect(
+      canShowCatalogActivationCta({ businessCatalogProfile: 'retail_delivery', enabled: true }),
+    ).toBe(false)
+  })
 })

@@ -1,6 +1,13 @@
 # Catálogo — pedidos PIX com comprovante e conferência humana
 
-**Versão:** 2.17.52 · **Marca:** RadarChat · **App:** `https://app.radarchat.com.br`
+**Versão:** 2.17.53 · **Marca:** RadarChat · **App:** `https://app.radarchat.com.br`
+
+## Painel — onde configurar (2.17.53)
+
+| O quê | Onde no painel |
+|-------|----------------|
+| Perfil comercial, ativar catálogo na IA, comportamento | **IA Atendimento** → **Empresa e IA** (`/platform/inbox/ia#empresa`) |
+| Produtos, estoque, PIX, pedidos, comprovantes, frete | **Produtos** (`/platform/produtos`) — visível quando `catalogSales.enabled` e perfil ≠ `none` |
 
 ## Objetivo
 
@@ -8,7 +15,9 @@ Permitir que empresas vendam via IA/catálogo com pagamento PIX: o cliente confi
 
 ## Configuração (empresa)
 
-Painel → **IA Atendimento** → aba **Empresa e catálogo** → seção **PIX, comprovante e conferência**.
+**Ativação e perfil:** Painel → **IA Atendimento** → **Empresa e IA** — toggle *Permitir pedidos via IA / catálogo* e perfil comercial.
+
+**Operação (PIX, produtos, pedidos, frete):** Painel → **Produtos** → abas **Configurações**, **Produtos e estoque**, **Entrega e frete**, **Pedidos**, **Comprovantes PIX**.
 
 Persistido em `Organization.catalogSales`:
 

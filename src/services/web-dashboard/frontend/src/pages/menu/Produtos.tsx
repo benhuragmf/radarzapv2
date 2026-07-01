@@ -56,19 +56,34 @@ function ProdutosInner() {
   }
 
   if (!canManage) {
+    const orderTabs = TABS.filter(t => t.id === 'pedidos' || t.id === 'comprovantes')
+    const activeTab =
+      tab === 'pedidos' || tab === 'comprovantes' ? tab : 'pedidos'
+
     return (
       <PlatformPage
         title="Produtos"
-        description="Catálogo, estoque, pedidos e PIX."
+        description="Pedidos e comprovantes PIX."
         compact
       >
-        {tab === 'pedidos' || tab === 'comprovantes' ? (
-          <ProductsOrdersTab proofOnly={tab === 'comprovantes'} />
-        ) : (
-          <p className="text-sm text-[var(--rz-text-muted)]">
-            Sem permissão para editar catálogo. Você pode ver pedidos se tiver acesso.
-          </p>
-        )}
+        <nav className="flex flex-wrap gap-1 border-b border-[var(--rz-border)] pb-2 mb-4">
+          {orderTabs.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'px-3 py-1.5 rounded-md text-sm transition-colors',
+                activeTab === t.id
+                  ? 'bg-[var(--rz-sidebar-item-active)] text-[var(--rz-text-primary)] font-medium'
+                  : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+        <ProductsOrdersTab proofOnly={activeTab === 'comprovantes'} />
       </PlatformPage>
     )
   }

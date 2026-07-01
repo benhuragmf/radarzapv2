@@ -505,6 +505,7 @@ export default function AiAtendimento() {
       setForm(res)
       setAttendanceUi(attendanceSelectionFromSettings(res.settings))
       qc.setQueryData(['ai-settings'], res)
+      qc.invalidateQueries({ queryKey: ['ai-settings-catalog-gate'] })
       setApiKeyInput('')
       notifyConfigSaved()
     },
@@ -1452,7 +1453,7 @@ export default function AiAtendimento() {
             <h3 className="text-sm font-medium">Entrega e logística</h3>
             <p className="text-xs text-[var(--rz-text-muted)]">
               Ative o requisito de entrega para pedidos PIX com endereço, frete por distância e cotação
-              automática pelo sistema (aba Empresa e catálogo).
+              automática pelo sistema (menu **Produtos** → Entrega e frete).
             </p>
             <label className="flex items-center gap-2 text-sm font-medium">
               <input

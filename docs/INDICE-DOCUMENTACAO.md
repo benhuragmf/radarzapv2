@@ -1,6 +1,6 @@
 # Radar Chat v2 — Índice de documentação
 
-**Versão do produto:** `2.17.52` · **Atualizado:** 2026-07-01
+**Versão do produto:** `2.17.53` · **Atualizado:** 2026-07-01
 
 ### Leitura principal obrigatória
 
@@ -63,6 +63,8 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulários embed e captura |
 | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA e carteira |
 | [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md) | Catálogo, pedidos via IA, PIX e fulfillment |
+| [`PRODUTOS-CATALOGO.md`](./PRODUTOS-CATALOGO.md) | Menu Produtos — estoque, pedidos, PIX, frete (2.17.53) |
+| [`concluidos/RADARCHAT-PRODUTOS-MENU-CATALOGO-CONCLUSAO-2.17.53.md`](./concluidos/RADARCHAT-PRODUTOS-MENU-CATALOGO-CONCLUSAO-2.17.53.md) | **Conclusão** menu Produtos e reorganização catálogo |
 | [`concluidos/CATALOGO-IA-COMPRA-HANDOFF-GPT.md`](./concluidos/CATALOGO-IA-COMPRA-HANDOFF-GPT.md) | Handoff GPT — métodos, fluxo compra WA/WebChat, QA |
 | [`concluidos/RADARCHAT-CATALOGO-IA-PIX-PRODUCAO-CONCLUSAO-2.17.52.md`](./concluidos/RADARCHAT-CATALOGO-IA-PIX-PRODUCAO-CONCLUSAO-2.17.52.md) | **Conclusão** auditoria catálogo IA/PIX + produção |
 | [`RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`](./RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md) | Modos de atendimento (consolidado) |

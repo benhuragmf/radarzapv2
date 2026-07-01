@@ -20,7 +20,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
-## [2.17.53] - 2026-06-30
+## [2.17.53] - 2026-07-01
 
 ### Added
 - Menu **Produtos** (`/platform/produtos`) com submenus: visão geral, produtos/estoque, pedidos, comprovantes PIX, entrega/frete e configurações.

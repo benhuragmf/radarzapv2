@@ -2,7 +2,7 @@
 
 ## 1. Resumo executivo
 
-Novo menu **Produtos** no painel tenant, com operação de catálogo/PIX/pedidos separada da aba **IA Atendimento → Empresa e IA**. Fluxo catálogo IA 2.17.52 preservado no backend.
+Novo menu **Produtos** no painel tenant, com operação de catálogo/PIX/pedidos separada da aba **IA Atendimento → Empresa e IA**. Fluxo catálogo IA 2.17.52 preservado no backend. **Produção validada em 2026-07-01.**
 
 ## 2. Versão inicial
 
@@ -14,11 +14,15 @@ Novo menu **Produtos** no painel tenant, com operação de catálogo/PIX/pedidos
 
 ## 4. Branch usada
 
-`develop` (local)
+`develop` → fast-forward `main`
 
 ## 5. Commit final
 
-`8c25148` — feat(products): separa catálogo em menu Produtos 2.17.53
+| Commit | Descrição |
+|--------|-----------|
+| `8c25148` | feat(products): separa catálogo em menu Produtos 2.17.53 |
+| `ed3851d` | docs: hash commit na conclusão Produtos 2.17.53 |
+| _(pós-validação)_ | fix(products): invalida gate menu, UX pedidos e docs 2.17.53 |
 
 ## 6. Objetivo da entrega
 
@@ -30,33 +34,37 @@ A aba `#empresa` concentrava CRUD, PIX, frete e pedidos (~600 linhas), dificulta
 
 ## 8. Arquivos analisados
 
-`AiAtendimento.tsx`, `navConfig.ts`, `App.tsx`, `Sidebar.tsx`, `CatalogSalesService.ts`, `catalog-sales.ts`, docs catálogo 2.17.52.
+`AiAtendimento.tsx`, `Produtos.tsx`, `navConfig.ts`, `App.tsx`, `Sidebar.tsx`, `useCatalogMenuGate.ts`, `catalog-menu-gate.ts`, `CatalogSalesService.ts`, docs catálogo.
 
 ## 9. Arquivos alterados
 
-- Frontend: `Produtos.tsx`, `components/products/*`, `components/ai/AiEmpresaCatalogSection.tsx`, `hooks/useCatalogMenuGate.ts`, `lib/catalog/*`, `navConfig.ts`, `App.tsx`, `Sidebar.tsx`, `AiAtendimento.tsx`
+- Frontend: `Produtos.tsx`, `components/products/*`, `AiEmpresaCatalogSection.tsx`, `hooks/useCatalogMenuGate.ts`, `lib/catalog/*`, `navConfig.ts`, `App.tsx`, `Sidebar.tsx`, `AiAtendimento.tsx`
 - Types: `catalog-menu-gate.ts`, `__tests__/catalog-menu-gate.test.ts`
-- Docs: `CHANGELOG.md`, `PRODUTOS-CATALOGO.md`, este arquivo
+- Docs: `CHANGELOG.md`, `PRODUTOS-CATALOGO.md`, `CATALOGO-PIX-PEDIDOS.md`, `SISTEMA-REGISTRO.md`, `INDICE-DOCUMENTACAO.md`, `MENU-PAGES-REGISTRY.md`
 
 ## 10. Novo menu Produtos
 
-Grupo lateral `grp-produtos`, ícone Package.
+Grupo lateral `grp-produtos`, ícone Package, label **Produtos**.
 
 ## 11. Submenus criados
 
-Visão geral, Produtos e estoque, Pedidos, Comprovantes PIX, Entrega e frete, Configurações.
+Visão geral, Produtos e estoque, Pedidos, Comprovantes PIX, Entrega e frete, Configurações — hashes em `/platform/produtos#*`.
 
 ## 12. Feature gate / liberação por catálogo ativo
 
-`isCatalogProductsMenuEnabled`: perfil ≠ `none` e `enabled === true`. Sidebar filtra grupo; URL direta mostra `ProductsGateScreen`.
+`isCatalogProductsMenuEnabled`: `businessCatalogProfile !== 'none'` **e** `catalogSales.enabled === true`.
+
+- Sidebar: oculta grupo se gate falso; admin com perfil e `enabled=false` vê grupo + CTA.
+- URL `/platform/produtos` sem gate → `ProductsGateScreen`.
+- Após salvar na IA, `invalidateQueries(['ai-settings-catalog-gate'])` atualiza menu sem reload (fix pós-validação).
 
 ## 13. Mudanças na tela IA Atendimento
 
-Aba renomeada **Empresa e IA**; mantém perfil comercial, “O que a empresa faz”, toggle pedidos via IA, comportamento IA, alertas e atalhos.
+Aba **Empresa e IA**; perfil comercial, toggle pedidos via IA, comportamento IA, alertas, atalhos. CRUD/PIX/frete movidos para Produtos.
 
 ## 14–18. Produtos, pedidos, PIX, entrega, config
 
-UI movida para `/platform/produtos#*`; dados em `catalogSales` + KB **Produtos e estoque**.
+UI em `/platform/produtos#*`; dados em `catalogSales` + KB **Produtos e estoque**. Atendentes com só `orders:view` veem abas Pedidos/Comprovantes (fix pós-validação).
 
 ## 19. RBAC e permissões
 
@@ -64,72 +72,91 @@ UI movida para `/platform/produtos#*`; dados em `catalogSales` + KB **Produtos e
 
 ## 20. APIs criadas/reutilizadas
 
-Reutilizadas: `PATCH /platform/ai/settings`, `/platform/catalog-sales/orders/*`. Sem endpoints duplicados.
+`PATCH /platform/ai/settings`, `/platform/catalog-sales/orders/*` — sem duplicação.
 
 ## 21. Segurança
 
-Gate por tenant, bloqueio sem catálogo, comprovante protegido.
+Gate tenant, bloqueio sem catálogo, comprovante via rota autenticada + `orders:view-payment-proof`.
 
 ## 22. Compatibilidade com catálogo IA 2.17.52
 
-Backend inalterado; testes `catalog-sales.test.ts` verdes (27+ cenários).
+Backend inalterado; `catalog-sales.test.ts` verde.
 
 ## 23. Testes automatizados
 
-`catalog-menu-gate.test.ts` (4), `catalog-sales.test.ts` (26) — 30 testes passando.
+- `catalog-menu-gate.test.ts` — 5 cenários
+- `catalog-sales.test.ts` — 26 cenários
+- **31 testes** passando (validação 2026-07-01)
 
 ## 24. QA manual executado
 
-Build frontend + backend local; testes Jest catálogo.
+Build backend + frontend; `pre-push:gate` com Docker; smoke HTTP produção (health, bundle, widget).
 
 ## 25. QA manual pendente
 
-Cenários A–J do prompt (WhatsApp/WebChat em produção) — Benhur.
+Cenários A–J com login/celular (ZAAd, PIX WA/WebChat, permissões) — Benhur.
 
 ## 26. Gates executados
 
-`npm test` (catalog), `npm run build`, `npm run build --prefix frontend`.
+```text
+npx jest catalog-menu-gate + catalog-sales  → OK
+npm run build                               → OK
+npm run build --prefix .../frontend         → OK
+npm run pre-push:gate                       → OK (Docker frontend-builder)
+```
+
+Comandos não executados (opcionais): `qa:atendimento:gate`, `qa:auditoria:gate`, `qa:release-gate`.
 
 ## 27. Build Docker/Coolify
 
-`pre-push:gate` — executar antes do merge main.
+- GHCR build: job `build-and-push` run **28532450303** — success (~2m43s)
+- Docker image push OK; `frontend-builder` validado localmente no gate
 
 ## 28. Push
 
-Pendente commit/push.
+- `git push origin develop` — commits `8c25148`, `ed3851d`
+- `git push origin main` — fast-forward `58e8b84..ed3851d`
 
 ## 29. Deploy
 
-Via main → Coolify após gate verde.
+- Workflow: **Deploy** run `28532450403` (push `ed3851d` na `main`)
+- Job `deploy` — **success** (~5m18s), step *Deploy Coolify via SSH*
+- Fluxo: `main` → GitHub Actions → Coolify app-only → `app.radarchat.com.br`
 
 ## 30. Status produção
 
-Aguardando deploy 2.17.53.
+| Check | Resultado |
+|-------|-----------|
+| `GET /api/services/health` | **200** `healthy: true` |
+| Bundle painel | `index-BzUcDRiy.js` (build 2.17.53) |
+| Widget | `WIDGET_BUILD = '2.17.53'` |
+| Strings no JS | `platform/produtos`, `Empresa e IA` presentes |
 
 ## 31. Checklist para Benhur testar
 
-- Catálogo desligado não mostra Produtos
-- Ativar catálogo na IA libera Produtos
-- Tela IA ficou limpa
-- Cadastrar produto ZAAd
-- Testar estoque/preço
-- Testar pedido WhatsApp
-- Testar pedido WebChat
-- Testar entrega
-- Testar retirada
-- Testar comprovante
-- Testar permissões de atendente
-- Testar acesso direto sem permissão
-- Confirmar sem regressão no PIX
+- [ ] Catálogo desligado não mostra Produtos
+- [ ] Ativar catálogo na IA libera Produtos (sem hard refresh)
+- [ ] Tela IA ficou limpa
+- [ ] Cadastrar produto ZAAd
+- [ ] Testar estoque/preço
+- [ ] Testar pedido WhatsApp
+- [ ] Testar pedido WebChat
+- [ ] Testar entrega
+- [ ] Testar retirada
+- [ ] Testar comprovante
+- [ ] Testar permissões de atendente (só pedidos)
+- [ ] Acesso direto sem permissão
+- [ ] Confirmar sem regressão no PIX
 
 ## 32. Riscos mitigados
 
-Sem alteração em `CatalogSalesService` inbound; UI só reorganizada.
+Sem alteração em `CatalogSalesService` inbound; UI reorganizada; gate invalidado após save IA.
 
 ## 33. Pendências
 
-QA manual produção; `pre-push:gate` completo com Docker.
+- QA manual A–J (Benhur + celular)
+- Código morto legado em `AiAtendimento.tsx` (helpers produto não usados na UI) — limpeza futura opcional
 
 ## 34. Próximo passo recomendado
 
-Merge `develop` → `main` após `npm run pre-push:gate` verde e QA smoke em staging/produção.
+Executar checklist §31 em produção; depois considerar remover dead code de produto em `AiAtendimento.tsx`.
