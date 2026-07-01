@@ -12,7 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
-| **2.17.60** | Endereço Entrega v1: normalizador, confirmação, snapshot, frete seguro — **em produção** (`95666e9`, deploy 28547931838); `RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md` |
+| **2.17.60** | Endereço Entrega v1 — **em produção** (`95666e9`, deploy 28547931838); QA humano pendente — `RADARCHAT-QA-REAL-POS-DEPLOY-ENDERECO-V1-2.17.60.md` |
 | **2.17.59** | Hotfix QA real: áudio catálogo, pin+rua, anti-loop, comandos fluxo, Inbox localização, `orderCode` DX — **em produção** (`f1f54ee`, deploy 28542629760); `RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md` |
 | **2.17.58** | Hotfix catálogo WA: PIX retirada único, endereço retirada obrigatório, endereço livre/CEP, pin+rua, fallback contextual; **em produção** (`e3a1415`, deploy 28537807467); deploy `RADARCHAT-DEPLOY-HOTFIX-CATALOGO-2.17.58.md` |
 | **2.17.57** | Produtos pós-QA local: ações pedido com RBAC, KPIs condicionais, coluna entrega; **em produção** (`d0d3cfb`, deploy 28535749453); validação `RADARCHAT-VALIDACAO-POS-PRODUCAO-2.17.57.md` |
