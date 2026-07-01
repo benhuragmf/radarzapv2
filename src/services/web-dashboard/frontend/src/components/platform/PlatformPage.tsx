@@ -10,14 +10,26 @@ interface Props {
   children?: ReactNode
   /** Menos espaçamento vertical — atendimento / IA. */
   compact?: boolean
+  /** Quando a página renderiza seu próprio PageHeader (ex.: Produtos). */
+  hideHeader?: boolean
 }
 
 /** Páginas da área Plataforma (campanhas, modelos, relatórios tenant) */
-export function PlatformPage({ title, description, phase = 'MVP', actions, children, compact }: Props) {
+export function PlatformPage({
+  title,
+  description,
+  phase = 'MVP',
+  actions,
+  children,
+  compact,
+  hideHeader,
+}: Props) {
   if (children) {
     return (
       <RadarPageShell className={compact ? '!space-y-3' : undefined}>
-        <PageHeader title={title} subtitle={description} actions={actions} compact={compact} />
+        {!hideHeader ? (
+          <PageHeader title={title} subtitle={description} actions={actions} compact={compact} />
+        ) : null}
         <div className={compact ? 'space-y-3' : 'space-y-5'}>{children}</div>
       </RadarPageShell>
     )

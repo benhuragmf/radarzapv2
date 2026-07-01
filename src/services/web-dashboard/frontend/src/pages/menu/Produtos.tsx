@@ -7,6 +7,7 @@ import { ProductsItemsTab } from '../../components/products/ProductsItemsTab'
 import { ProductsOrdersTab } from '../../components/products/ProductsOrdersTab'
 import { ProductsSettingsTab } from '../../components/products/ProductsSettingsTab'
 import { ProductsDeliveryTab } from '../../components/products/ProductsDeliveryTab'
+import { ProductsPageHeader } from '../../components/products/ProductsPageHeader'
 import { useCatalogMenuGate } from '../../hooks/useCatalogMenuGate'
 import { can } from '../../lib/auth'
 import { ConfigSaveFooter, LoadingState } from '@/design-system'
@@ -31,6 +32,8 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'configuracoes', label: 'Configurações' },
 ]
 
+const TABS_WITH_SAVE: TabId[] = ['itens', 'entrega', 'configuracoes']
+
 function ProdutosInner() {
   const [tab, setTab] = useUrlHashTab(TAB_IDS, 'visao')
   const { loading, handleSave, saving, canManage, me } = useCatalogForm()
@@ -47,8 +50,9 @@ function ProdutosInner() {
 
   if (!canManage && !canViewOrders) {
     return (
-      <PlatformPage title="Produtos" description="Catálogo, estoque, pedidos e PIX." compact>
-        <p className="text-sm text-[var(--rz-text-muted)]">
+      <PlatformPage title="Produtos" compact hideHeader>
+        <ProductsPageHeader />
+        <p className="text-sm text-[var(--rz-text-muted)] mt-4">
           Você não tem permissão para acessar este módulo.
         </p>
       </PlatformPage>
@@ -61,19 +65,16 @@ function ProdutosInner() {
       tab === 'pedidos' || tab === 'comprovantes' ? tab : 'pedidos'
 
     return (
-      <PlatformPage
-        title="Produtos"
-        description="Pedidos e comprovantes PIX."
-        compact
-      >
-        <nav className="flex flex-wrap gap-1 border-b border-[var(--rz-border)] pb-2 mb-4">
+      <PlatformPage title="Produtos" compact hideHeader>
+        <ProductsPageHeader />
+        <nav className="flex flex-wrap gap-1 border-b border-[var(--rz-border)] pb-2 mb-2 mt-4">
           {orderTabs.map(t => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
               className={cn(
-                'px-3 py-1.5 rounded-md text-sm transition-colors',
+                'px-3 py-2 rounded-md text-sm transition-colors',
                 activeTab === t.id
                   ? 'bg-[var(--rz-sidebar-item-active)] text-[var(--rz-text-primary)] font-medium'
                   : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]',
@@ -88,20 +89,23 @@ function ProdutosInner() {
     )
   }
 
+  const showSaveFooter = TABS_WITH_SAVE.includes(tab)
+
   return (
-    <PlatformPage
-      title="Produtos"
-      description="Catálogo, estoque, pedidos PIX e entrega — operação comercial da empresa."
-      compact
-    >
-      <nav className="flex flex-wrap gap-1 border-b border-[var(--rz-border)] pb-2">
+    <PlatformPage title="Produtos" compact hideHeader>
+      <ProductsPageHeader />
+
+      <nav
+        className="flex flex-wrap gap-1 border-b border-[var(--rz-border)] pb-2 mt-4"
+        aria-label="Abas do módulo Produtos"
+      >
         {TABS.map(t => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={cn(
-              'px-3 py-1.5 rounded-md text-sm transition-colors',
+              'px-3 py-2 rounded-md text-sm transition-colors',
               tab === t.id
                 ? 'bg-[var(--rz-sidebar-item-active)] text-[var(--rz-text-primary)] font-medium'
                 : 'text-[var(--rz-text-muted)] hover:text-[var(--rz-text-primary)]',
@@ -119,7 +123,7 @@ function ProdutosInner() {
       {tab === 'entrega' && <ProductsDeliveryTab />}
       {tab === 'configuracoes' && <ProductsSettingsTab />}
 
-      <ConfigSaveFooter onSave={handleSave} saving={saving} />
+      {showSaveFooter && <ConfigSaveFooter onSave={handleSave} saving={saving} />}
     </PlatformPage>
   )
 }

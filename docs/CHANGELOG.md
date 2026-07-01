@@ -20,6 +20,26 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.55] - 2026-07-01
+
+### Added
+- Menu **Produtos**: UX profissional — dashboard na visão geral (KPIs, fluxo operacional, alertas, atalhos)
+- Formulário de produto colapsável com seções Dados/Venda/Fulfillment/Segurança; listagem em `DataTable` com badges de estoque/PIX
+- Pedidos: filtros por status, drawer de detalhe e ações operacionais
+- Comprovantes PIX: empty state explicativo e fila de conferência
+- Entrega e frete: modo de atendimento (retirada/entrega/ambos) exposto na UI
+- **WhatsApps operacionais** em Configurações: loja (sessão WA), conferência (`internalWhatsapp`), entregadores (bloqueado — em breve)
+- Componentes: `ProductsPageHeader`, `OperationalWhatsAppCards`, `ProductFormPanel`, `productDisplay.ts`
+- Sidebar: labels curtos `Estoque` / `Comprovantes` com tooltip do texto completo
+- `ConfigSaveFooter` só em abas com formulário (itens, entrega, configurações)
+- Testes `product-display.util.test.ts` (UX estoque, fulfillment, entregadores futuro)
+
+### Changed
+- `Produtos.tsx`: header customizado com badges catálogo/PIX/entrega/alertas
+- `navConfig.ts`: `sidebarLabel` opcional em itens do menu Produtos
+
+---
+
 ## [2.17.54] - 2026-07-01
 
 ### Fixed

@@ -185,11 +185,21 @@ export function listProductItems(knowledgeBase: KnowledgeBaseItem[]): KnowledgeB
 export function productStatsFromItems(items: KnowledgeBaseItem[]) {
   let withoutPrice = 0
   let zeroStock = 0
+  let uncertainStock = 0
   for (const item of items) {
     const price = parseProductContentField(item.content ?? '', 'Valor atual:')
     if (!price || !/\d/.test(price)) withoutPrice += 1
     const stock = parseProductContentField(item.content ?? '', 'Estoque disponível:')
+    const madeToOrder = item.salesMeta?.madeToOrder === true
     if (stock && /^0\b|0 un/i.test(stock)) zeroStock += 1
+    else if (
+      !madeToOrder &&
+      (!stock?.trim() ||
+        /consulte|sob consulta|confirmar/i.test(stock) ||
+        (!/\d/.test(stock) && stock.trim()))
+    ) {
+      uncertainStock += 1
+    }
   }
-  return { total: items.length, withoutPrice, zeroStock }
+  return { total: items.length, withoutPrice, zeroStock, uncertainStock }
 }

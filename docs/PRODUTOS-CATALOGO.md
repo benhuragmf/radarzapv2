@@ -4,7 +4,9 @@
 
 Centralizar a operação comercial (produtos, estoque, pedidos, PIX, entrega) fora da tela **IA Atendimento**, mantendo a IA focada em perfil comercial, ativação e comportamento.
 
-**Fluxo WhatsApp (2.17.54):** com perfil *Varejo com entrega*, escolha *entregue* pede CEP antes do PIX; estoque *consulte* não gera pagamento automático. Ver [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md).
+**Fluxo WhatsApp (2.17.54+):** com perfil *Varejo com entrega*, escolha *entregue* pede CEP antes do PIX; estoque *consulte* não gera pagamento automático. Ver [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md).
+
+**UX painel (2.17.55):** dashboard na visão geral, tabelas profissionais, três WhatsApps operacionais em Configurações (entregadores bloqueado). Ver [`concluidos/RADARCHAT-PRODUTOS-UX-WHATSAPPS-CONCLUSAO-2.17.55.md`](./concluidos/RADARCHAT-PRODUTOS-UX-WHATSAPPS-CONCLUSAO-2.17.55.md).
 
 ## Quando o menu aparece
 
@@ -21,12 +23,21 @@ Centralizar a operação comercial (produtos, estoque, pedidos, PIX, entrega) fo
 
 | Hash | Rota | Conteúdo |
 |------|------|----------|
-| (default) `visao` | `/platform/produtos` | KPIs e atalhos |
-| `itens` | `#itens` | CRUD produtos (KB categoria **Produtos e estoque**) |
-| `pedidos` | `#pedidos` | Lista `CatalogSalesOrder` |
-| `comprovantes` | `#comprovantes` | Fila PIX |
-| `entrega` | `#entrega` | Origem, km, instruções |
-| `configuracoes` | `#configuracoes` | PIX, WA interno, mensagens |
+| (default) `visao` | `/platform/produtos` | KPIs, fluxo operacional, alertas e atalhos (2.17.55) |
+| `itens` | `#itens` | CRUD produtos — formulário colapsável + `DataTable` (KB categoria **Produtos e estoque**) |
+| `pedidos` | `#pedidos` | Lista `CatalogSalesOrder` com filtros e drawer de detalhe |
+| `comprovantes` | `#comprovantes` | Fila PIX com empty state explicativo |
+| `entrega` | `#entrega` | Modo atendimento, origem, km, instruções |
+| `configuracoes` | `#configuracoes` | PIX, mensagens, **WhatsApps operacionais** (loja / conferência / entregadores futuro) |
+
+### Labels no menu lateral (2.17.55)
+
+| Label completo (aba) | Sidebar (`sidebarLabel`) |
+|----------------------|--------------------------|
+| Produtos e estoque | Estoque |
+| Comprovantes PIX | Comprovantes |
+
+Tooltip/title mantém o texto completo.
 
 ## Produtos e estoque
 
@@ -47,6 +58,16 @@ UI de `deliveryOriginAddress`, tabela km 1–8, `useDistanceBasedDelivery`. Cál
 ## Configurações
 
 Campos em `Organization.catalogSales` via `PATCH /platform/ai/settings`.
+
+### WhatsApps operacionais (2.17.55)
+
+| Papel | Origem no sistema | Uso |
+|-------|-------------------|-----|
+| **WhatsApp da loja** | Sessão WA conectada (`GET /sessions`) | Cliente compra, IA reserva, coleta endereço, envia PIX, recebe comprovante |
+| **WhatsApp do responsável pela conferência** | `internalWhatsapp` + `notifyWhatsapp` | Recebe pedido + comprovante para conferir pagamento |
+| **WhatsApp dos entregadores** | *Em breve (UI bloqueada)* | Futuro: dados de retirada/entrega após `pagamento_aprovado` — **sem envio nesta versão** |
+
+Diagrama do fluxo na aba Configurações e Visão geral.
 
 ## Permissões/RBAC
 
@@ -70,7 +91,7 @@ Reutilizadas: `/platform/ai/settings`, `/platform/catalog-sales/orders/*`, `look
 
 ## QA manual
 
-Ver checklist em `docs/concluidos/RADARCHAT-PRODUTOS-MENU-CATALOGO-CONCLUSAO-2.17.53.md`.
+Ver checklist em `docs/concluidos/RADARCHAT-PRODUTOS-UX-WHATSAPPS-CONCLUSAO-2.17.55.md` (e base 2.17.53).
 
 ## Limitações conhecidas
 

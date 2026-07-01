@@ -26,6 +26,7 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@radarchat-types/(.*)$': '<rootDir>/src/types/$1',
     // Stub out Baileys and its native deps — tests mock the WhatsApp socket directly
     '^@whiskeysockets/baileys$': '<rootDir>/src/__mocks__/@whiskeysockets/baileys.ts',
   },

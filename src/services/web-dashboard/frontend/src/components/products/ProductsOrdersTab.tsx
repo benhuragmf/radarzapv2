@@ -1,36 +1,60 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import type { ColumnDef } from '@tanstack/react-table'
+import { CreditCard, ExternalLink } from 'lucide-react'
 import { api } from '../../lib/api'
 import { can, getMe } from '../../lib/auth'
-import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
-import { LoadingState, inputCls } from '@/design-system'
+import {
+  LoadingState,
+  inputCls,
+  DataTable,
+  EmptyState,
+  FilterBar,
+  StatusBadge,
+  DetailsDrawer,
+  SectionCard,
+} from '@/design-system'
 import { mutationError, notifyInfo } from '../../lib/notify'
 
 export interface CatalogOrderListItem {
   id: string
   productName: string
   amount?: string
+  subtotalAmount?: string
+  deliveryFee?: string
+  totalAmount?: string
   status: string
   channel?: string
   contactName?: string
   contactIdentifier?: string
   conversationId?: string
+  deliveryAddress?: string
   createdAt?: string
+  updatedAt?: string
   proofs?: Array<{ receivedAt: string }>
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  aguardando_endereco: 'Aguardando endereço',
-  aguardando_pagamento: 'Aguardando pagamento',
-  comprovante_recebido: 'Comprovante recebido',
-  em_conferencia: 'Em conferência',
-  pagamento_aprovado: 'Aprovado',
-  pagamento_recusado: 'Recusado',
-  comprovante_sem_pedido: 'Sem pedido',
-  falha_notificacao_whatsapp: 'Falha WA interno',
+const STATUS_LABEL: Record<string, { text: string; variant: 'info' | 'warning' | 'success' | 'danger' | 'neutral' }> = {
+  aguardando_endereco: { text: 'Aguardando endereço', variant: 'info' },
+  aguardando_pagamento: { text: 'Aguardando pagamento', variant: 'warning' },
+  comprovante_recebido: { text: 'Comprovante recebido', variant: 'info' },
+  em_conferencia: { text: 'Em conferência', variant: 'warning' },
+  pagamento_aprovado: { text: 'Aprovado', variant: 'success' },
+  pagamento_recusado: { text: 'Recusado', variant: 'danger' },
+  pedido_confirmado: { text: 'Confirmado', variant: 'success' },
+  cancelado: { text: 'Cancelado', variant: 'neutral' },
+  comprovante_sem_pedido: { text: 'Sem pedido', variant: 'neutral' },
+  falha_notificacao_whatsapp: { text: 'Falha WA interno', variant: 'danger' },
 }
+
+const PROOF_STATUSES = [
+  'comprovante_recebido',
+  'em_conferencia',
+  'comprovante_sem_pedido',
+  'falha_notificacao_whatsapp',
+]
 
 type OrdersFilterProps = {
   proofOnly?: boolean
@@ -39,15 +63,16 @@ type OrdersFilterProps = {
 export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('')
+  const [channelFilter, setChannelFilter] = useState('')
+  const [selected, setSelected] = useState<CatalogOrderListItem | null>(null)
   const { data: me } = useQuery({ queryKey: ['auth-me'], queryFn: getMe })
 
-  const queryKey = ['catalog-sales-orders-list', statusFilter, proofOnly]
   const { data, isLoading } = useQuery({
-    queryKey,
+    queryKey: ['catalog-sales-orders-list', statusFilter, proofOnly],
     queryFn: () => {
       const p = new URLSearchParams()
       if (statusFilter) p.set('status', statusFilter)
-      p.set('limit', '50')
+      p.set('limit', '80')
       return api.get<{ orders: CatalogOrderListItem[] }>(
         `/platform/catalog-sales/orders?${p.toString()}`,
       )
@@ -56,17 +81,11 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
   })
 
   const orders = useMemo(() => {
-    const raw = data?.orders ?? []
-    if (!proofOnly) return raw
-    return raw.filter(o =>
-      [
-        'comprovante_recebido',
-        'em_conferencia',
-        'comprovante_sem_pedido',
-        'falha_notificacao_whatsapp',
-      ].includes(o.status),
-    )
-  }, [data?.orders, proofOnly])
+    let raw = data?.orders ?? []
+    if (proofOnly) raw = raw.filter(o => PROOF_STATUSES.includes(o.status))
+    if (channelFilter) raw = raw.filter(o => o.channel === channelFilter)
+    return raw
+  }, [data?.orders, proofOnly, channelFilter])
 
   const action = useMutation({
     mutationFn: (path: string) => api.post(path, {}),
@@ -77,20 +96,70 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
     onError: mutationError,
   })
 
+  const columns = useMemo<ColumnDef<CatalogOrderListItem>[]>(
+    () => [
+      {
+        id: 'product',
+        header: 'Produto',
+        cell: ({ row }) => (
+          <div>
+            <p className="font-medium">{row.original.productName}</p>
+            <p className="text-xs text-[var(--rz-text-muted)]">
+              {row.original.contactName ?? row.original.contactIdentifier ?? '—'}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'channel',
+        header: 'Canal',
+        cell: ({ row }) => (
+          <span className="text-xs uppercase">{row.original.channel ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'amount',
+        header: 'Total',
+        cell: ({ row }) => row.original.totalAmount ?? row.original.amount ?? '—',
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const meta = STATUS_LABEL[row.original.status] ?? {
+            text: row.original.status,
+            variant: 'neutral' as const,
+          }
+          return <StatusBadge status={meta.variant} text={meta.text} size="sm" />
+        },
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(row.original)}>
+            Detalhes
+          </Button>
+        ),
+      },
+    ],
+    [],
+  )
+
   if (!me || !can(me, 'orders:view')) {
     return (
-      <Card className="p-6">
+      <SectionCard title="Pedidos">
         <p className="text-sm text-[var(--rz-text-muted)]">Sem permissão para ver pedidos.</p>
-      </Card>
+      </SectionCard>
     )
   }
 
   if (isLoading) return <LoadingState label="Carregando pedidos…" />
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mt-4">
       {!proofOnly && (
-        <div className="flex flex-wrap gap-2 items-center">
+        <FilterBar>
           <select
             className={inputCls}
             value={statusFilter}
@@ -99,87 +168,142 @@ export function ProductsOrdersTab({ proofOnly = false }: OrdersFilterProps) {
             <option value="">Todos os status</option>
             {Object.entries(STATUS_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {v.text}
               </option>
             ))}
           </select>
-        </div>
+          <select
+            className={inputCls}
+            value={channelFilter}
+            onChange={e => setChannelFilter(e.target.value)}
+          >
+            <option value="">Todos os canais</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="webchat">WebChat</option>
+          </select>
+        </FilterBar>
       )}
 
       {orders.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-[var(--rz-text-muted)]">
-          Nenhum pedido encontrado.
-        </Card>
+        <EmptyState
+          icon={CreditCard}
+          title={
+            proofOnly
+              ? 'Nenhum comprovante aguardando conferência'
+              : 'Nenhum pedido encontrado'
+          }
+          description={
+            proofOnly
+              ? 'Quando um cliente enviar comprovante pelo WhatsApp ou WebChat, ele aparecerá aqui para análise.'
+              : 'Pedidos criados pela IA ou operação aparecerão nesta lista.'
+          }
+        />
       ) : (
-        <div className="space-y-2">
-          {orders.map(order => (
-            <Card key={order.id} className="p-4 space-y-2">
-              <div className="flex flex-wrap justify-between gap-2">
-                <div>
-                  <p className="font-medium">{order.productName}</p>
-                  <p className="text-xs text-[var(--rz-text-muted)]">
-                    {STATUS_LABEL[order.status] ?? order.status}
-                    {order.amount ? ` · ${order.amount}` : ''}
-                    {order.channel ? ` · ${order.channel}` : ''}
-                  </p>
-                  {order.contactName && (
-                    <p className="text-xs text-[var(--rz-text-muted)]">{order.contactName}</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {can(me, 'orders:view-payment-proof') && order.proofs?.length ? (
-                    <a
-                      href={`/api/platform/catalog-sales/orders/${order.id}/proof`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs px-2 py-1 border rounded-md hover:bg-[var(--rz-surface-muted)]"
-                    >
-                      Comprovante
-                    </a>
-                  ) : null}
-                  {order.conversationId && (
-                    <Link
-                      to={`/platform/inbox?conv=${order.conversationId}`}
-                      className="text-xs px-2 py-1 border rounded-md hover:bg-[var(--rz-surface-muted)]"
-                    >
-                      Inbox
-                    </Link>
-                  )}
-                  {can(me, 'orders:approve-payment') && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={action.isPending}
-                      onClick={() => action.mutate(`/platform/catalog-sales/orders/${order.id}/approve`)}
-                    >
-                      Aprovar
-                    </Button>
-                  )}
-                  {can(me, 'orders:reject-payment') && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={action.isPending}
-                      onClick={() => {
-                        const reason = window.prompt('Motivo (opcional):') ?? undefined
-                        void api
-                          .post(`/platform/catalog-sales/orders/${order.id}/reject`, { reason })
-                          .then(() => {
-                            qc.invalidateQueries({ queryKey: ['catalog-sales-orders-list'] })
-                            notifyInfo('Recusado.')
-                          })
-                          .catch(mutationError)
-                      }}
-                    >
-                      Recusar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <DataTable columns={columns} data={orders} ariaLabel="Lista de pedidos" />
       )}
+
+      <DetailsDrawer
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected?.productName ?? 'Pedido'}
+        description={selected ? STATUS_LABEL[selected.status]?.text ?? selected.status : undefined}
+        footer={
+          selected ? (
+            <div className="flex flex-wrap gap-2">
+              {selected.conversationId && (
+                <Link
+                  to={`/platform/inbox?conv=${selected.conversationId}`}
+                  className="inline-flex items-center gap-1 text-sm text-brand-400 hover:underline"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Abrir no Inbox
+                </Link>
+              )}
+              {can(me, 'orders:approve-payment') && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={action.isPending}
+                  onClick={() =>
+                    action.mutate(`/platform/catalog-sales/orders/${selected.id}/approve`)
+                  }
+                >
+                  Aprovar pagamento
+                </Button>
+              )}
+              {can(me, 'orders:reject-payment') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={action.isPending}
+                  onClick={() => {
+                    const reason = window.prompt('Motivo (opcional):') ?? undefined
+                    void api
+                      .post(`/platform/catalog-sales/orders/${selected.id}/reject`, { reason })
+                      .then(() => {
+                        qc.invalidateQueries({ queryKey: ['catalog-sales-orders-list'] })
+                        notifyInfo('Recusado.')
+                      })
+                      .catch(mutationError)
+                  }}
+                >
+                  Recusar
+                </Button>
+              )}
+              {can(me, 'orders:view-payment-proof') && selected.proofs?.length ? (
+                <a
+                  href={`/api/platform/catalog-sales/orders/${selected.id}/proof`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm px-3 py-1.5 border rounded-md hover:bg-[var(--rz-surface-muted)]"
+                >
+                  Ver comprovante
+                </a>
+              ) : null}
+            </div>
+          ) : null
+        }
+      >
+        {selected && (
+          <dl className="space-y-3 text-sm">
+            <div>
+              <dt className="text-[var(--rz-text-muted)]">Cliente</dt>
+              <dd>{selected.contactName ?? selected.contactIdentifier ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--rz-text-muted)]">Canal</dt>
+              <dd className="uppercase">{selected.channel ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--rz-text-muted)]">Produto</dt>
+              <dd>{selected.subtotalAmount ?? selected.amount ?? '—'}</dd>
+            </div>
+            {selected.deliveryFee && (
+              <div>
+                <dt className="text-[var(--rz-text-muted)]">Entrega</dt>
+                <dd>{selected.deliveryFee}</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-[var(--rz-text-muted)]">Total</dt>
+              <dd className="font-medium">{selected.totalAmount ?? selected.amount ?? '—'}</dd>
+            </div>
+            {selected.deliveryAddress && (
+              <div>
+                <dt className="text-[var(--rz-text-muted)]">Endereço</dt>
+                <dd>{selected.deliveryAddress}</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-[var(--rz-text-muted)]">Comprovante</dt>
+              <dd>
+                {selected.proofs?.length
+                  ? `${selected.proofs.length} envio(s)`
+                  : 'Nenhum comprovante ainda'}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </DetailsDrawer>
     </div>
   )
 }

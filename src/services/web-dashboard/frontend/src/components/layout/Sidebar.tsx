@@ -106,11 +106,13 @@ function NavLinkItem({
         : 'ring-1 ring-amber-500/40'
       : ''
 
+  const displayLabel = entry.sidebarLabel ?? entry.label
+
   return (
     <div className={`group/navitem flex items-center min-w-0 ${collapsed ? '' : 'pr-0.5'}`}>
       <Link
         to={to}
-        title={collapsed ? entry.label : alert?.summary}
+        title={entry.label}
         onClick={() => onNavigate?.()}
         className={`flex items-center gap-3 ${pad} py-2 touch-target-nav rounded-lg text-sm transition-colors active:scale-[0.98] flex-1 min-w-0 ${alertRing} ${
           active
@@ -130,7 +132,7 @@ function NavLinkItem({
             </span>
           )}
         </span>
-        {!collapsed && <span className="flex-1 truncate">{entry.label}</span>}
+        {!collapsed && <span className="flex-1 truncate">{displayLabel}</span>}
         {!collapsed && alert && <NavAlertDot alert={alert} active={active} />}
         {!collapsed && entry.badge && (
           <span

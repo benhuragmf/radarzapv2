@@ -15,6 +15,8 @@ export type NavLink = {
   kind: 'link'
   id: string
   label: string
+  /** Rótulo curto na sidebar (tooltip mantém `label` completo). */
+  sidebarLabel?: string
   icon: LucideIcon
   to: string
   permission?: string
@@ -42,12 +44,13 @@ function link(
   to: string,
   permission?: string,
   requiresGuild = false,
-  opts?: { search?: string; badge?: string },
+  opts?: { search?: string; badge?: string; sidebarLabel?: string },
 ): NavLink {
   return {
     kind: 'link',
     id,
     label,
+    sidebarLabel: opts?.sidebarLabel,
     icon,
     to,
     permission,
@@ -103,9 +106,13 @@ export const TENANT_PLATFORM_NAV: NavEntry[] = [
   ], 'inbox:ai:manage'),
   group('grp-produtos', 'Produtos', Package, [
     link('produtos-visao', 'Visão geral', LayoutDashboard, '/platform/produtos', 'inbox:ai:manage'),
-    link('produtos-itens', 'Produtos e estoque', Package, '/platform/produtos#itens', 'inbox:ai:manage'),
+    link('produtos-itens', 'Produtos e estoque', Package, '/platform/produtos#itens', 'inbox:ai:manage', false, {
+      sidebarLabel: 'Estoque',
+    }),
     link('produtos-pedidos', 'Pedidos', ClipboardList, '/platform/produtos#pedidos', 'orders:view'),
-    link('produtos-comprovantes', 'Comprovantes PIX', CreditCard, '/platform/produtos#comprovantes', 'orders:view'),
+    link('produtos-comprovantes', 'Comprovantes PIX', CreditCard, '/platform/produtos#comprovantes', 'orders:view', false, {
+      sidebarLabel: 'Comprovantes',
+    }),
     link('produtos-entrega', 'Entrega e frete', Truck, '/platform/produtos#entrega', 'inbox:ai:manage'),
     link('produtos-config', 'Configurações', Settings, '/platform/produtos#configuracoes', 'inbox:ai:manage'),
   ], 'orders:view'),

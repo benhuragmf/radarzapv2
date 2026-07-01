@@ -1,6 +1,6 @@
 # Catálogo IA — Compra por WhatsApp/WebChat — Handoff para análise (GPT)
 
-**Versão documentada:** `2.17.54` · **Produção base:** `2.17.46` (`0b655f9`) → evoluções `2.17.48`–`2.17.54`  
+**Versão documentada:** `2.17.55` · **Produção base:** `2.17.46` (`0b655f9`) → evoluções `2.17.48`–`2.17.55`  
 **Marca:** RadarChat · **App:** `https://app.radarchat.com.br`  
 **Última revisão:** 2026-07-01
 
@@ -35,7 +35,8 @@ Doc operacional: [`docs/CATALOGO-PIX-PEDIDOS.md`](../CATALOGO-PIX-PEDIDOS.md).
 | **2.17.50** | `bfef0a1` | Fix saudação não abre catálogo; entrega sempre responde CEP via `sendAiReply`; pedido forçado em fulfillment |
 | **2.17.51** | `715a7eb` | Catálogo vazio honesto; sugestões com preço/estoque; doc handoff |
 | **2.17.52** | (este pacote) | Fuzzy ambíguo exige confirmação; preço obrigatório; doc conclusão produção |
-| **2.17.54** | — | Entrega antes PIX; estoque indefinido; `sim`≠produto; perguntas taxa/endereço; modos retirada/entrega |
+| **2.17.54** | `f0f1d45` | Entrega antes PIX; estoque indefinido; `sim`≠produto; perguntas taxa/endereço; modos retirada/entrega |
+| **2.17.55** | — | UX Produtos; WhatsApps operacionais (loja/conferência/entregadores bloqueado); dashboard e tabelas |
 
 ---
 

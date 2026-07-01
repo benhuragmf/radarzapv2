@@ -1,6 +1,6 @@
 # Catálogo — pedidos PIX com comprovante e conferência humana
 
-**Versão:** 2.17.53 · **Marca:** RadarChat · **App:** `https://app.radarchat.com.br`
+**Versão:** 2.17.55 · **Marca:** RadarChat · **App:** `https://app.radarchat.com.br`
 
 ## Painel — onde configurar (2.17.53)
 
@@ -18,6 +18,12 @@ Permitir que empresas vendam via IA/catálogo com pagamento PIX: o cliente confi
 **Ativação e perfil:** Painel → **IA Atendimento** → **Empresa e IA** — toggle *Permitir pedidos via IA / catálogo* e perfil comercial.
 
 **Operação (PIX, produtos, pedidos, frete):** Painel → **Produtos** → abas **Configurações**, **Produtos e estoque**, **Entrega e frete**, **Pedidos**, **Comprovantes PIX**.
+
+### WhatsApps operacionais (2.17.55)
+
+1. **Loja** — sessão WhatsApp conectada da empresa (cliente conversa e compra).
+2. **Conferência** — `internalWhatsapp` recebe pedido + comprovante (conferência humana obrigatória se `requireHumanApproval`).
+3. **Entregadores** — recurso futuro; UI bloqueada; nenhum envio nesta versão.
 
 Persistido em `Organization.catalogSales`:
 
