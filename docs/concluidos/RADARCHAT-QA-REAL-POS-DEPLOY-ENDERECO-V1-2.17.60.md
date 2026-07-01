@@ -1,5 +1,7 @@
 # RadarChat — QA Real Pós-Deploy Endereço de Entrega v1 2.17.60
 
+> **Atualização 2026-07-01:** produção evoluiu para **2.17.61** (`4a7c690`) com hotfix R1 e UI localização humana. Doc vigente de QA/congelamento: [`RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md). Este arquivo permanece como registro histórico do QA automatizado 2.17.60.
+
 ## 1. Resumo executivo
 
 Validação **automática** pós-deploy 2.17.60 concluída: produção em `2.17.60` (`95666e9`), health OK, bundle/widget corretos, strings Endereço v1 no bundle. **QA humano WhatsApp, Inbox autenticado, Produtos drawer e WebChat não executado pelo agente** (sem sessão WA, sem login painel). **2.17.60 não está aprovada para congelamento** até Benhur executar checklist §33. **Hotfix 2.17.61 não iniciado** — nenhuma falha confirmada em produção; 1 risco de código documentado no cenário C (correção inline após `não`).

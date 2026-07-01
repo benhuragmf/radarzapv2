@@ -1,6 +1,6 @@
 # Radar Chat v2 — Índice de documentação
 
-**Versão do produto:** `2.17.58` · **Atualizado:** 2026-07-01
+**Versão do produto:** `2.17.61` · **Atualizado:** 2026-07-01
 
 ### Leitura principal obrigatória
 
@@ -65,9 +65,10 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md) | Catálogo, pedidos via IA, PIX e fulfillment |
 | [`PRODUTOS-CATALOGO.md`](./PRODUTOS-CATALOGO.md) | Menu Produtos — estoque, pedidos, PIX, frete, WhatsApps operacionais (2.17.55) |
 | [`concluidos/RADARCHAT-QA-REAL-POS-DEPLOY-ENDERECO-V1-2.17.60.md`](./concluidos/RADARCHAT-QA-REAL-POS-DEPLOY-ENDERECO-V1-2.17.60.md) | **QA real** pós-deploy Endereço v1 2.17.60 — pendente Benhur |
-| [`concluidos/RADARCHAT-HOTFIX-ENDERECO-CORRECAO-INLINE-2.17.61.md`](./concluidos/RADARCHAT-HOTFIX-ENDERECO-CORRECAO-INLINE-2.17.61.md) | **Hotfix R1** correção inline após `não` na confirmação de endereço 2.17.61 — local, sem deploy |
-| [`concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md) | **Fechamento** endereço v1 + localização humana 2.17.61 — entrega local |
-| [`concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md) | **Deploy** fechamento endereço v1 2.17.61 — produção `4a7c690` |
+| [`concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md) | **QA final + congelamento** catálogo/endereço/PIX 2.17.61 — smoke OK; QA humano pendente |
+| [`concluidos/RADARCHAT-HOTFIX-ENDERECO-CORRECAO-INLINE-2.17.61.md`](./concluidos/RADARCHAT-HOTFIX-ENDERECO-CORRECAO-INLINE-2.17.61.md) | **Hotfix R1** correção inline após `não` — incluído em prod `4a7c690` |
+| [`concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md) | **Fechamento** endereço v1 + localização humana — **em produção** |
+| [`concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md) | **Deploy** 2.17.61 — run [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502) |
 | [`concluidos/RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md`](./concluidos/RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md) | **Deploy** Endereço Entrega v1 — produção `95666e9` |
 | [`concluidos/RADARCHAT-ENDERECO-ENTREGA-V1-2.17.60.md`](./concluidos/RADARCHAT-ENDERECO-ENTREGA-V1-2.17.60.md) | **Endereço Entrega v1** — implementação 2.17.60 |
 | [`concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md`](./concluidos/RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md) | **Deploy + QA** hotfix 2.17.59 — produção `f1f54ee` |

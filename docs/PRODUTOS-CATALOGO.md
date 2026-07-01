@@ -12,7 +12,7 @@ Centralizar a operação comercial (produtos, estoque, pedidos, PIX, entrega) fo
 
 **Endereço Entrega v1 (2.17.60):** em produção — ver [`concluidos/RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md`](./concluidos/RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md).
 
-**Fechamento endereço + localização humana (2.17.61):** correção R1, painel operador (endereço × pin, Maps, cópia manual) — local, sem deploy — [`concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md).
+**Fechamento endereço + localização humana (2.17.61):** **em produção** — correção R1, painel operador (endereço × pin, Maps, cópia manual) — [`concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md) · deploy [`concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md) · QA/congelamento [`concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md)
 
 ## Quando o menu aparece
 

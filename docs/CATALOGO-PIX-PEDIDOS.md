@@ -97,7 +97,7 @@ Se o pin **não tiver número confiável** (comum no WhatsApp), o sistema envia 
 
 - Correção inline após `não` na confirmação (`não, é número 120`, CEP, bairro, complemento) — invalida frete anterior; PIX só após novo `sim`
 - Inbox e Produtos/Pedidos: blocos separados **endereço confirmado** × **pin enviado**; alerta se pin e endereço divergem (~400 m); botão **Copiar dados para entrega manual** (sem motoboy automático)
-- Doc: [`concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md)
+- Doc: [`concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md) · QA/congelamento: [`concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md)
 
 ## Mensagens automáticas ao cliente
 
@@ -149,6 +149,8 @@ Base: `/api/platform/catalog-sales`
 Comprovante: rota autenticada; link em notificação WA usa token HMAC (não é URL pública aberta).
 
 **Versão em produção:** `2.17.61` (`4a7c690`, deploy [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502)). Fluxo: CEP/pin/texto → confirmação → frete → PIX; correção inline após `não` (2.17.61).
+
+**Congelamento operacional:** **APROVADO COM RESSALVAS** — smoke automatizado OK; checklist humano §32 pendente — [`concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md) · [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) § P1c.
 
 Pedidos exibem código curto `DX-####` (desde 2.17.59). Deep link: `/platform/produtos#pedidos?order=DX-1045`.
 

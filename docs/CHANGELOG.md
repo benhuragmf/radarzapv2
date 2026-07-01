@@ -33,7 +33,12 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 - Localização humana segura: `CatalogDeliveryHumanPanel` (Inbox + Produtos/Pedidos) — endereço confirmado × pin separados, alerta divergência ~400 m, copiar dados para entrega manual (sem motoboy automático)
 - `catalog-delivery-human.util.ts` — haversine, `evaluatePinAddressDivergence`, `buildManualDeliveryCopyText`
 
----
+### Docs
+- Deploy produção: `concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md` (`4a7c690`, run 28550770502)
+- QA final + congelamento: `concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md` — **APROVADO COM RESSALVAS** (QA humano §32 pendente)
+- Hotfix R1: `concluidos/RADARCHAT-HOTFIX-ENDERECO-CORRECAO-INLINE-2.17.61.md`
+- Fechamento: `concluidos/RADARCHAT-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`
+- Pendências humanas § P1c em `PENDENCIAS-HUMANAS-FASE1.md`
 
 ## [2.17.60] - 2026-07-01
 

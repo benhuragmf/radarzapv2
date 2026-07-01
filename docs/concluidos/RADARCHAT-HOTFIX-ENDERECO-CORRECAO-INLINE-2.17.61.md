@@ -2,7 +2,7 @@
 
 ## 1. Resumo executivo
 
-Hotfix local **2.17.61** corrige o risco **R1** documentado no QA pós-deploy 2.17.60: respostas como `não, é número 120` na confirmação de endereço eram tratadas como negativa simples, pedindo endereço completo em vez de atualizar só o campo corrigido e reconfirmar. Implementação centralizada em `parseInlineAddressCorrectionAfterNo` + `CatalogDeliveryAddressService.applyInlineCorrection`, com testes unitários e gates verdes. **Sem push/deploy nesta etapa.**
+Hotfix **2.17.61** corrige o risco **R1** documentado no QA pós-deploy 2.17.60: respostas como `não, é número 120` na confirmação de endereço eram tratadas como negativa simples, pedindo endereço completo em vez de atualizar só o campo corrigido e reconfirmar. Implementação centralizada em `parseInlineAddressCorrectionAfterNo` + `CatalogDeliveryAddressService.applyInlineCorrection`, com testes unitários e gates verdes. **Incluído em produção** no commit `4a7c690` (deploy [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502)).
 
 ## 2. Versão inicial
 
@@ -10,31 +10,39 @@ Hotfix local **2.17.61** corrige o risco **R1** documentado no QA pós-deploy 2.
 
 ## 3. Versão final
 
-`2.17.61` (local `develop`, não publicada)
+`2.17.61` — produção `4a7c690` (substituiu `2.17.60` / `95666e9`)
 
 ## 4. Branch
 
-`develop`
+`main` e `develop` @ `3aa3910` (docs) · código funcional @ `4a7c690`
 
-## 5. Commit local
+## 5. Commits
 
-`fix(catalog): corrige negativa com ajuste de endereco 2.17.61` (após este documento)
+| SHA | Mensagem |
+|-----|----------|
+| `9b3b637` | `fix(catalog): corrige negativa com ajuste de endereco 2.17.61` (R1) |
+| `4a7c690` | `fix(catalog): fecha endereco v1 e correcao manual segura 2.17.61` (UI + testes) |
 
 ## 6. Produção
 
-Produção não executada nesta etapa.
+| Item | Valor |
+|------|--------|
+| Versão | **2.17.61** |
+| Commit | `4a7c690` |
+| Deploy | [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502) — success |
+| Bundle JS | `index-CZ9OsJHJ.js` |
+| Widget | `2.17.61` |
+| Health | `healthy` (revalidado 2026-07-01T22:39Z) |
 
-- Produção permanece em **2.17.60** (`95666e9`)
-- Bundle produção: `index-D0EQsI0a.js`
-- Widget produção: `2.17.60`
+Anterior: **2.17.60** (`95666e9`, bundle `index-D0EQsI0a.js`)
 
 ## 7. Push/deploy
 
 | Ação | Status |
 |------|--------|
-| Push remoto | **Não executado** |
-| Merge `main` | **Não executado** |
-| Deploy Coolify | **Não executado** |
+| Push `develop` + `main` | ✅ |
+| Deploy Coolify | ✅ run [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502) |
+| Doc deploy | `3aa3910` |
 | Full-republish | **Não executado** |
 
 ## 8. Problema R1
@@ -194,11 +202,10 @@ Validação humana WhatsApp/Inbox/WebChat **pendente Benhur** após deploy autor
 
 ## 29. Próximo passo recomendado
 
-1. Benhur revisar diff local e checklist abaixo
-2. Autorizar `git push origin develop` + merge `main` quando confortável
-3. Deploy controlado 2.17.61
-4. QA humano cenário R1 no WhatsApp real
-5. Marcar QA 2.17.60 como concluído se demais itens passarem
+1. Benhur executar checklist §30 no WhatsApp real (prioridade: `não, é número 120`)
+2. Registrar evidências no doc [`RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md) §32
+3. Se §32 verde → atualizar congelamento para **APROVADO PARA CONGELAMENTO**
+4. Se falha crítica → hotfix local 2.17.62
 
 ## 30. Checklist para Benhur
 

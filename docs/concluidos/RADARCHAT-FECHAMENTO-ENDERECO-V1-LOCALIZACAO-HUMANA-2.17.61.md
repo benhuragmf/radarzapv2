@@ -2,7 +2,7 @@
 
 ## 1. Resumo executivo
 
-Fechamento local do **Endereço de Entrega v1** em **2.17.61**: correção do risco **R1** (negativa com correção inline), invalidação segura de frete/PIX após alteração de endereço, e painel operador **localização humana segura** no Inbox e Produtos/Pedidos — endereço confirmado separado do pin, Google Maps, alerta de divergência (~400 m) e cópia manual para entrega **sem motoboy automático**. Gates verdes; **sem push/deploy** nesta etapa.
+Fechamento do **Endereço de Entrega v1** em **2.17.61**: correção do risco **R1** (negativa com correção inline), invalidação segura de frete/PIX após alteração de endereço, e painel operador **localização humana segura** no Inbox e Produtos/Pedidos — endereço confirmado separado do pin, Google Maps, alerta de divergência (~400 m) e cópia manual para entrega **sem motoboy automático**. **Em produção** desde deploy [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502) (`4a7c690`).
 
 ## 2. Versão inicial
 
@@ -10,28 +10,36 @@ Fechamento local do **Endereço de Entrega v1** em **2.17.61**: correção do ri
 
 ## 3. Versão final
 
-`2.17.61` (local `develop`, não publicada)
+`2.17.61` — produção `4a7c690`
 
 ## 4. Branch
 
-`develop` (2 commits à frente de `origin/develop` após este commit)
+`main` e `develop` @ `3aa3910` (docs) · código @ `4a7c690`
 
-## 5. Commit local
+## 5. Commits
 
 - `9b3b637` — `fix(catalog): corrige negativa com ajuste de endereco 2.17.61` (R1)
-- **Este commit** — `fix(catalog): fecha endereco v1 e correcao manual segura 2.17.61` (UI humana + testes divergência)
+- `4a7c690` — `fix(catalog): fecha endereco v1 e correcao manual segura 2.17.61` (UI humana + testes divergência)
+- `3aa3910` — docs deploy 2.17.61
 
 ## 6. Produção
 
-Produção não executada nesta etapa. Permanece **2.17.60**.
+| Item | Valor |
+|------|--------|
+| Versão | **2.17.61** |
+| Commit | `4a7c690` |
+| Deploy | [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502) |
+| Bundle | `index-CZ9OsJHJ.js` / `index-C7-sdis1.css` |
+| Widget | `2.17.61` |
+| Health | `healthy` (2026-07-01T22:39Z) |
 
 ## 7. Push/deploy
 
 | Ação | Status |
 |------|--------|
-| Push remoto | **Não executado** |
-| Merge `main` | **Não executado** |
-| Deploy Coolify | **Não executado** |
+| Push `develop` + `main` | ✅ |
+| Deploy Coolify | ✅ run 28550770502 |
+| QA humano | ⏳ Benhur — [`RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md) |
 
 ## 8. Problema R1
 
@@ -177,10 +185,10 @@ Checklist Benhur (WhatsApp real, Inbox, WebChat, retirada) — ver seção 35.
 
 ## 34. Próximo passo recomendado
 
-1. Benhur revisar checklist
-2. Autorizar push `develop` + merge `main`
-3. Deploy controlado 2.17.61
-4. QA humano cenários R1 + pin divergente no WhatsApp
+1. Benhur executar checklist §35 no WhatsApp real (prioridade R1 + pin divergente)
+2. Marcar itens em [`RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md) §32
+3. Se verde → **APROVADO PARA CONGELAMENTO** do bloco catálogo/endereço/PIX
+4. Se falha → hotfix 2.17.62 local
 
 ## 35. Checklist para Benhur
 

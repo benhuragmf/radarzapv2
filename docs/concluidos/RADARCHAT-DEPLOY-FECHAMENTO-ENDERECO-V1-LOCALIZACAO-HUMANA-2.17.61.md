@@ -195,7 +195,7 @@ Nenhuma correção de código pós-deploy — apenas push/merge/deploy/doc.
 
 ## 37. Pendências para Benhur
 
-Executar checklist §41 no WhatsApp real, Inbox, Produtos e WebChat.
+Executar checklist §41 no WhatsApp real, Inbox, Produtos e WebChat — **doc mestre:** [`RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md) §32 · resumo operacional: [`PENDENCIAS-HUMANAS-FASE1.md`](../PENDENCIAS-HUMANAS-FASE1.md) § P1c.
 
 ## 38. Riscos encontrados
 
@@ -212,9 +212,9 @@ Executar checklist §41 no WhatsApp real, Inbox, Produtos e WebChat.
 
 ## 40. Próximo passo recomendado
 
-1. Benhur executar QA §41 (prioridade cenário A `não, é número 120`)
+1. Benhur executar QA §41 / doc QA final §32 (prioridade cenário A `não, é número 120`)
 2. Marcar checklist no doc após validação
-3. Se OK, considerar endereço v1 **congelado** para operação
+3. Se OK → atualizar §29 do QA final para **APROVADO PARA CONGELAMENTO**
 
 ## 41. Checklist final
 

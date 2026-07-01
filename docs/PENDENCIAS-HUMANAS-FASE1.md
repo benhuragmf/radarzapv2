@@ -1,6 +1,6 @@
 # Pendências humanas — Fase 1 (única fonte ativa)
 
-**Versão produto:** `2.17.52` (produção Coolify `app.radarchat.com.br`) · **Atualizado:** 2026-07-01
+**Versão produto:** `2.17.61` (produção `app.radarchat.com.br`) · **Atualizado:** 2026-07-01
 
 Este doc lista **somente** o que **não pode** ser fechado por código ou CI — requer browser/celular real (Benhur).  
 Tudo que já está verde automaticamente está em § Gate automático abaixo.
@@ -54,6 +54,24 @@ Checklist 1 página: [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
 | C7 | Estoque 0 / sem preço | Benhur · painel + WA |
 | C8 | Comprovante + notificação WA interno | Benhur · WA + Inbox |
 | C9 | Paridade WebChat (C2–C4) | Benhur · widget |
+
+---
+
+## P1c — Endereço v1 + PIX + localização humana (2.17.61) — **bloqueia congelamento catálogo**
+
+**Roteiro completo:** [`concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md) · deploy: [`concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md`](./concluidos/RADARCHAT-DEPLOY-FECHAMENTO-ENDERECO-V1-LOCALIZACAO-HUMANA-2.17.61.md)
+
+**Veredito técnico (código + CI):** sem bug crítico conhecido; 92 testes catálogo/endereço verdes; produção `healthy`. **Congelamento operacional:** `APROVADO COM RESSALVAS` até checklist §32 humano.
+
+| # | Cenário prioritário | Quem |
+|---|---------------------|------|
+| E1 | CEP → número → confirmação → frete → PIX | Benhur · WA |
+| E2 | **`não, é número 120`** na confirmação (R1) | Benhur · WA |
+| E3 | Pin + rua/número → confirmação | Benhur · WA |
+| E4 | *retirar* — regressão PIX único | Benhur · WA |
+| E5 | Inbox — endereço × pin + copiar entrega manual | Benhur · painel |
+| E6 | Produtos `#pedidos` — drawer + deep link DX | Benhur · painel |
+| E7 | WebChat paridade (se widget ativo) | Benhur · widget |
 
 ---
 
