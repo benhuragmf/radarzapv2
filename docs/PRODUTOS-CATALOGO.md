@@ -10,7 +10,7 @@ Centralizar a operação comercial (produtos, estoque, pedidos, PIX, entrega) fo
 
 **Pedidos (2.17.59):** código curto `DX-####` na lista e drawer; deep link `#pedidos?order=DX-1045`; link Inbox ↔ pedido.
 
-**Endereço Entrega v1 (2.17.60):** objeto `deliveryAddressV1`, snapshot após confirmação+frete, painel Inbox/Produtos com status e ações operador. Ver [`concluidos/RADARCHAT-ENDERECO-ENTREGA-V1-2.17.60.md`](./concluidos/RADARCHAT-ENDERECO-ENTREGA-V1-2.17.60.md).
+**Endereço Entrega v1 (2.17.60):** em produção — ver [`concluidos/RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md`](./concluidos/RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md).
 
 ## Quando o menu aparece
 

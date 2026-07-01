@@ -33,6 +33,7 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ### Docs
 - `concluidos/RADARCHAT-ENDERECO-ENTREGA-V1-2.17.60.md`
+- `concluidos/RADARCHAT-DEPLOY-ENDERECO-ENTREGA-V1-2.17.60.md` — deploy produção (`95666e9`, run 28547931838)
 
 ---
 
