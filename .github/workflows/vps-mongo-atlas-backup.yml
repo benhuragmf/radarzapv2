@@ -31,7 +31,11 @@ jobs:
               exit 1
             fi
             sudo bash scripts/vps-patch-env-key.sh "${DEPLOY_PATH}/.env" MONGODB_BACKUP_URL "${MONGODB_BACKUP_URL}"
-            export COOLIFY_SERVICE_UUID
+            export COOLIFY_SERVICE_UUID MONGODB_BACKUP_URL
             sudo -E bash scripts/vps-install-mongo-atlas-backup-cron.sh
-            sudo -E bash scripts/vps-mongo-sync-atlas-backup.sh
+            sudo -E bash scripts/vps-mongo-sync-atlas-backup.sh || {
+              echo "AVISO: primeiro sync falhou — confira IP da VPS no Atlas Network Access"
+              tail -20 /var/log/radarchat-mongo-atlas-backup.log 2>/dev/null || true
+              exit 1
+            }
             echo "Backup Atlas configurado."

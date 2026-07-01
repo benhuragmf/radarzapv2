@@ -10,7 +10,9 @@ DB_NAME="${MONGO_DB_NAME:-discord-whatsapp}"
 LOG_FILE="${MONGO_ATLAS_BACKUP_LOG:-/var/log/radarchat-mongo-atlas-backup.log}"
 MIN_ORGS="${MONGO_ATLAS_BACKUP_MIN_ORGS:-1}"
 
-log() { echo "[mongo-atlas-backup] $(date -Iseconds) $*" | tee -a "$LOG_FILE"; }
+log() { echo "[mongo-atlas-backup] $(date -Iseconds) $*" | tee -a "$LOG_FILE" 2>/dev/null || echo "[mongo-atlas-backup] $*"; }
+
+touch "$LOG_FILE" 2>/dev/null || LOG_FILE="/tmp/radarchat-mongo-atlas-backup.log"
 
 if [[ "${EUID}" -eq 0 ]]; then
   docker_cmd() { docker "$@"; }
@@ -29,8 +31,9 @@ load_config() {
   MONGO_PW="$(read_env "$coolify_env" SERVICE_PASSWORD_MONGODB)"
   [[ -z "$MONGO_PW" ]] && MONGO_PW="$(read_env "$coolify_env" MONGO_PASSWORD)"
   [[ -z "$MONGO_PW" ]] && MONGO_PW="$(read_env "${DEPLOY_PATH}/.env" MONGO_PASSWORD)"
-  MONGODB_BACKUP_URL="$(read_env "${DEPLOY_PATH}/.env" MONGODB_BACKUP_URL)"
-  [[ -z "$MONGODB_BACKUP_URL" ]] && MONGODB_BACKUP_URL="${MONGODB_BACKUP_URL:-}"
+  if [[ -z "${MONGODB_BACKUP_URL:-}" ]]; then
+    MONGODB_BACKUP_URL="$(read_env "${DEPLOY_PATH}/.env" MONGODB_BACKUP_URL)"
+  fi
 }
 
 mongo_cname="${COOLIFY_SERVICE_UUID}-mongodb-1"
@@ -82,7 +85,7 @@ if [[ ! -s "$archive" ]]; then
 fi
 
 log "mongorestore → Atlas (${DB_NAME})..."
-docker_cmd run --rm \
+if ! docker_cmd run --rm \
   -v "${archive}:/backup.archive.gz:ro" \
   mongo:7 \
   mongorestore \
@@ -90,6 +93,9 @@ docker_cmd run --rm \
   --archive=/backup.archive.gz \
   --gzip \
   --drop \
-  --nsInclude="${DB_NAME}.*"
+  --nsInclude="${DB_NAME}.*" 2>&1 | tee -a "$LOG_FILE"; then
+  log "ERRO: mongorestore Atlas falhou — adicione o IP público da VPS em Atlas → Network Access"
+  exit 1
+fi
 
 log "OK — backup Atlas sincronizado (${org_count} organizations espelhadas)"
