@@ -10,6 +10,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
+import AlphaPhase from './pages/AlphaPhase'
 import DashboardNotifications from './pages/DashboardNotifications'
 import Sessions from './pages/Sessions'
 import Rules from './pages/Rules'
@@ -62,6 +63,7 @@ import LeadCaptureDetailPage from './pages/menu/LeadCaptureDetailPage'
 import LgpdPortal from './pages/menu/LgpdPortal'
 import AdminMonitoring from './pages/menu/AdminMonitoring'
 import AdminErrors from './pages/menu/AdminErrors'
+import AdminAlphaPhaseReports from './pages/menu/AdminAlphaPhaseReportsPage'
 import AdminServers from './pages/menu/AdminServers'
 import AdminAuditPage from './pages/menu/AdminAuditPage'
 import AdminModeration from './pages/menu/AdminModeration'
@@ -159,6 +161,7 @@ export default function App() {
 
           {/* Cliente */}
           <Route path="dashboard" element={<Guard user={user} path="/dashboard"><Dashboard /></Guard>} />
+          <Route path="fase-alfa" element={<Guard user={user} path="/fase-alfa"><AlphaPhase /></Guard>} />
           <Route path="dashboard/notificacoes" element={<Guard user={user} path="/dashboard/notificacoes"><DashboardNotifications /></Guard>} />
           <Route path="platform/templates" element={<Guard user={user} path="/platform/templates"><PlatformTemplates /></Guard>} />
           <Route path="platform/reports" element={<Guard user={user} path="/platform/reports"><PlatformReports /></Guard>} />
@@ -242,6 +245,7 @@ export default function App() {
           <Route path="admin/logs" element={<Guard user={user} path="/admin/logs"><Logs scope="global" /></Guard>} />
           <Route path="admin/monitoring" element={<Guard user={user} path="/admin/monitoring"><AdminMonitoring /></Guard>} />
           <Route path="admin/errors" element={<Guard user={user} path="/admin/errors"><AdminErrors /></Guard>} />
+          <Route path="admin/fase-alfa-reportes" element={<Guard user={user} path="/admin/fase-alfa-reportes"><AdminAlphaPhaseReports /></Guard>} />
           <Route path="admin/plans" element={<Guard user={user} path="/admin/plans"><Plans user={user} admin /></Guard>} />
           <Route path="admin/payments" element={<Guard user={user} path="/admin/payments"><AdminPaymentsPage /></Guard>} />
           <Route path="admin/moderation" element={<Guard user={user} path="/admin/moderation"><AdminModeration /></Guard>} />

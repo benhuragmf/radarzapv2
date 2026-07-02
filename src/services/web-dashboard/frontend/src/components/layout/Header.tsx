@@ -7,6 +7,7 @@ import EventNotificationBell from './EventNotificationBell'
 import { OperationalLockIndicator } from './OperationalLockIndicator'
 import { AgentStatusSelector } from './AgentStatusSelector'
 import { HeaderStatusPills } from './HeaderStatusPills'
+import { AlphaPhaseBadge } from './AlphaPhaseBadge'
 import { useTheme } from '../../context/ThemeContext'
 
 interface Props {
@@ -50,6 +51,7 @@ export default function Header({ user, onLogout, onUserUpdate, menuOpen, onMenuT
         <OrganizationSwitcher user={user} onOrganizationChange={onUserUpdate} />
 
         <OperationalLockIndicator user={user} />
+        <AlphaPhaseBadge />
         <EventNotificationBell />
 
         <AgentStatusSelector user={user} />

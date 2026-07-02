@@ -50,6 +50,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 |------|------------|---------------|
 | `/dashboard` | `Dashboard.tsx` | `GET /stats`, `GET /platform/stats` |
 | `/dashboard/notificacoes` | `DashboardNotifications.tsx` | `GET /panel/notifications`, `POST /panel/notifications/read-all` |
+| `/fase-alfa` | `AlphaPhase.tsx` | `POST /fase-alfa/reports` |
 | `/settings#perfil` | `settings/MyProfilePanel.tsx` | `sessionApi` → `/auth/me/member-profile`, `/auth/me/email/*`, `/auth/me/whatsapp/*` (não usar prefixo `/api`) |
 | `/settings` (seção Empresa) | `settings/BusinessVerticalSettingsSection.tsx` | `GET /onboarding/status`, `GET /onboarding/verticals`, `POST /onboarding/apply-vertical` — wizard modal no 1º acesso (`BusinessVerticalOnboardingGate` em `Layout.tsx`) |
 | `/settings/team` | `TeamMembers.tsx` — aba **Papéis do sistema** (`RolesSystemPanel`) + aba **Equipe** | `GET /team/roles`, `PATCH/DELETE /team/roles/:role`, `POST/PATCH/DELETE /team/custom-roles[/:id]`, `GET/POST/PATCH/DELETE /team/members` (`roleKey`), `PATCH /team/members/:id/profile`, `POST/DELETE /team/members/:id/whatsapp/*`, `GET/PATCH /organization/team-settings` (toggle perfil — dono) |
@@ -68,6 +69,7 @@ Mapa rota → componente → API. Atualizar ao criar novos itens de menu.
 | `/admin/logs` | `Logs.tsx` | `GET /logs` |
 | `/admin/monitoring` | `admin/AdminMonitoring.tsx` | `GET /admin/ops/summary`, `GET /admin/monitoring` |
 | `/admin/errors` | `admin/AdminErrors.tsx` | `GET /admin/ops/summary`, `GET /admin/ops/security-events`, fallback `GET /admin/errors` |
+| `/admin/fase-alfa-reportes` | `admin/AdminAlphaPhaseReports.tsx` | `GET /admin/alpha-phase-reports`, `PATCH /admin/alpha-phase-reports/:id` |
 | `/admin/clients` | `admin/AdminClients.tsx` | `GET /users`; guia → `?tab=tenants` |
 | `/admin/servers` | `admin/AdminServers.tsx` | `GET /admin/ops/summary`, `GET /admin/servers-summary` |
 | `/admin/audit` | `menu/AdminAuditPage.tsx` | `GET /admin/audit-logs` |

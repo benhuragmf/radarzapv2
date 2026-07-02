@@ -247,6 +247,12 @@ import {
   listAdminOpsOrganizations,
 } from './admin-ops-organizations.service';
 import { listAdminOpsSecurityEvents } from './admin-ops-security-events.service';
+import type { AlphaPhaseReportStatus } from '../../models/AlphaPhaseReport';
+import {
+  createAlphaPhaseReport,
+  listAlphaPhaseReportsForAdmin,
+  updateAlphaPhaseReportStatus,
+} from '../platform/alpha-phase-report.service';
 import type { BillingProductStatus } from '@/services/billing/billing-state.util';
 import { AiSettingsService } from '../ai/AiSettingsService';
 import { AiProviderService } from '../ai/AiProviderService';
@@ -1681,6 +1687,71 @@ export class DashboardService {
         res.json({ ok: true });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    // ── Fase Alfa — reportes de teste ───────────────────────────────────────
+    r.post('/fase-alfa/reports', requireCapability(Cap.DASHBOARD_VIEW), async (req, res) => {
+      try {
+        const auth = (req as DashboardRequest).auth!;
+        const body = req.body as {
+          title?: string;
+          summary?: string;
+          expectedBehavior?: string;
+          stepsToReproduce?: string;
+          affectedArea?: string;
+          severity?: 'low' | 'medium' | 'high';
+          pageUrl?: string;
+        };
+        const report = await createAlphaPhaseReport({
+          organizationId: auth.clientId,
+          reporterUserId: auth.userId,
+          reporterUsername: auth.username,
+          reporterEmail: auth.email,
+          input: body,
+        });
+        res.status(201).json({ ok: true, id: String(report._id) });
+      } catch (e) {
+        const msg = (e as Error).message;
+        if (msg.includes('obrigatório') || msg.includes('inválido')) {
+          return res.status(400).json({ error: msg });
+        }
+        res.status(500).json({ error: msg });
+      }
+    });
+
+    r.get('/admin/alpha-phase-reports', requireCapability(Cap.LOGS_GLOBAL), async (req, res) => {
+      try {
+        const statusRaw = String(req.query.status ?? '').trim();
+        const allowed: AlphaPhaseReportStatus[] = ['open', 'reviewing', 'resolved', 'dismissed'];
+        const status = allowed.includes(statusRaw as AlphaPhaseReportStatus)
+          ? (statusRaw as AlphaPhaseReportStatus)
+          : undefined;
+        const limit = parseInt(String(req.query.limit ?? '50'), 10) || 50;
+        const reports = await listAlphaPhaseReportsForAdmin({ status, limit });
+        res.json({ reports, total: reports.length });
+      } catch (e) {
+        res.status(500).json({ error: (e as Error).message });
+      }
+    });
+
+    r.patch('/admin/alpha-phase-reports/:id', requireCapability(Cap.LOGS_GLOBAL), async (req, res) => {
+      try {
+        const body = req.body as { status?: AlphaPhaseReportStatus; adminNotes?: string };
+        if (!body.status) {
+          return res.status(400).json({ error: 'status é obrigatório' });
+        }
+        const updated = await updateAlphaPhaseReportStatus({
+          reportId: req.params.id,
+          status: body.status,
+          adminNotes: body.adminNotes,
+        });
+        if (!updated) return res.status(404).json({ error: 'Reporte não encontrado' });
+        res.json(updated);
+      } catch (e) {
+        const msg = (e as Error).message;
+        if (msg.includes('inválido')) return res.status(400).json({ error: msg });
+        res.status(500).json({ error: msg });
       }
     });
 

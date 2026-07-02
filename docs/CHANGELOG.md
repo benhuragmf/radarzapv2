@@ -22,6 +22,14 @@ Espelho resumido: [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
 
 ---
 
+## [2.17.62] - 2026-07-01
+
+### Added
+- Fase Alfa: badge no header, página `/fase-alfa` com estado do projeto, roadmap e formulário de reporte
+- API `POST /api/fase-alfa/reports` e painel admin `/admin/fase-alfa-reportes` para triagem de feedback dos testadores
+
+---
+
 ## [2.17.61] - 2026-06-30
 
 ### Fixed

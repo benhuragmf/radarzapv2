@@ -2,7 +2,7 @@
 
 > Espelho versionado de `.cursor/rules/radarchat-v2-system-registry.mdc` (pasta `.cursor/` não vai ao git).
 
-**Versão atual:** `2.17.61` (`package.json`) · **Produção:** `2.17.61` (`4a7c690`, deploy [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502)) · **Última revisão doc:** 2026-07-01 · **Congelamento catálogo/endereço/PIX:** APROVADO COM RESSALVAS (QA humano §32 pendente — [`RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md))
+**Versão atual:** `2.17.62` (`package.json`) · **Produção:** `2.17.61` (`4a7c690`, deploy [28550770502](https://github.com/benhuragmf/radarzapv2/actions/runs/28550770502)) · **Última revisão doc:** 2026-07-01 · **Congelamento catálogo/endereço/PIX:** APROVADO COM RESSALVAS (QA humano §32 pendente — [`RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md`](./concluidos/RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md))
 
 Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Auditoria geral:** [`concluidos/RADARCHAT-AUDITORIA-GERAL-SEGURANCA-DADOS-ESTABILIDADE-5-ETAPAS-2.17.62.md`](./concluidos/RADARCHAT-AUDITORIA-GERAL-SEGURANCA-DADOS-ESTABILIDADE-5-ETAPAS-2.17.62.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Mestre:** [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) · **Resultado TOP 01–20:** [`concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) · **QA manual:** [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) · [`concluidos/`](./concluidos/README.md) · [`CHANGELOG.md`](./CHANGELOG.md) · [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) · `MENU-PAGES-REGISTRY.md`, `INBOX-ATENDIMENTO.md`, **`CONTATOS-CLASSIFICACAO.md`**, **`IA-CREDITOS-E-CARTEIRA.md`**, `TICKET-ATENDIMENTO.md`, `WEBCHAT.md`, `RADARCHAT-MODOS-ATENDIMENTO-IMPLEMENTACAO.md`, `EQUIPE-RBAC.md`, `CONSENTIMENTO-LGPD.md`, `RADARCHAT-V2-MIGRACAO.md`, `ROADMAP-COMPLETUDE.md`, **`PREPARACAO-PRODUCAO.md`**, **`PRODUCTION.md`**, `BILLING.md`
 
@@ -12,6 +12,7 @@ Documentação por módulo: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md)
 
 | Versão | Escopo principal |
 |--------|------------------|
+| **2.17.62** | Fase Alfa: badge header, página `/fase-alfa`, reportes testadores → admin `/admin/fase-alfa-reportes` |
 | **2.17.61** | Fechamento endereço v1 + localização humana — **em produção** (`4a7c690`, deploy 28550770502); QA humano pendente — `RADARCHAT-QA-FINAL-CONGELAMENTO-CATALOGO-ENDERECO-PIX-2.17.61.md` · congelamento: **APROVADO COM RESSALVAS** |
 | **2.17.60** | Endereço Entrega v1 — **em produção** (`95666e9`, deploy 28547931838); QA humano pendente — `RADARCHAT-QA-REAL-POS-DEPLOY-ENDERECO-V1-2.17.60.md` |
 | **2.17.59** | Hotfix QA real: áudio catálogo, pin+rua, anti-loop, comandos fluxo, Inbox localização, `orderCode` DX — **em produção** (`f1f54ee`, deploy 28542629760); `RADARCHAT-DEPLOY-HOTFIX-QA-REAL-2.17.59.md` |

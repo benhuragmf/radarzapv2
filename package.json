@@ -1,6 +1,6 @@
 {
   "name": "radarchat",
-  "version": "2.17.61",
+  "version": "2.17.62",
   "private": true,
   "description": "Radar Chat — automação Discord para WhatsApp",
   "main": "dist/index.js",

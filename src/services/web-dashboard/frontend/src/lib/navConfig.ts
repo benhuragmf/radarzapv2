@@ -6,7 +6,7 @@ import {
   Megaphone, Upload, ShieldCheck, UserX, Ban, Repeat, Workflow,
   UserCog, Lock, Database, Building2, Circle, Bot, Eye, BarChart3, Ticket, Clock, Sparkles,
   Inbox, MessageSquareText, PanelTop, UserPlus, Store, ClipboardList,
-  Package, Truck,
+  Package, Truck, FlaskConical,
 } from 'lucide-react'
 import type { AuthUser } from './auth'
 import { can, canAny } from './auth'
@@ -199,6 +199,7 @@ export const ADMIN_RADARCHAT_NAV: NavEntry[] = [
     link('admin-logs', 'Logs globais', ScrollText, '/admin/logs', 'logs:global'),
     link('ops-monitor', 'Monitoramento', Activity, '/admin/monitoring', 'logs:global'),
     link('ops-errors', 'Erros do sistema', Ban, '/admin/errors', 'logs:global'),
+    link('ops-alpha-reports', 'Reportes Fase Alfa', FlaskConical, '/admin/fase-alfa-reportes', 'logs:global'),
     link('admin-api', 'API global', Key, '/admin/api', 'api:global'),
   ]),
 
@@ -284,7 +285,7 @@ const LEGACY_DISCORD_ROUTES = new Set([
 ])
 
 const PLATFORM_ROUTES = new Set([
-  '/dashboard', '/dashboard/notificacoes', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
+  '/dashboard', '/dashboard/notificacoes', '/fase-alfa', '/platform', '/platform/templates', '/platform/reports', '/platform/contacts',
   '/platform/audit', '/platform/campanhas', '/platform/segmentos', '/platform/leads', '/platform/lgpd', '/platform/gatilhos',
   '/platform/wa-logs', '/platform/wa-stories', '/platform/wa-status', '/platform/wa-limits', '/platform/fila',
   '/integrations/playground',
@@ -419,6 +420,7 @@ export function isNavGroupActive(
 export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/dashboard': 'dashboard:view',
   '/dashboard/notificacoes': 'dashboard:view',
+  '/fase-alfa': 'dashboard:view',
   '/platform': 'dashboard:view',
   '/platform/templates': 'send:templates:manage',
   '/platform/reports': 'platform:reports:view',
@@ -507,6 +509,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/audit': 'system:audit:view',
   '/admin/monitoring': 'logs:global',
   '/admin/errors': 'logs:global',
+  '/admin/fase-alfa-reportes': 'logs:global',
   '/admin/api': 'api:global',
   '/admin/settings': 'system:settings:manage',
   '/admin/ai-blueprint': 'system:settings:manage',
@@ -519,6 +522,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
 export const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Visão geral',
   '/dashboard/notificacoes': 'Notificações',
+  '/fase-alfa': 'Fase Alfa',
   '/platform': 'Visão geral',
   '/platform/templates': 'Modelos de mensagem',
   '/platform/reports': 'Relatórios',
@@ -606,6 +610,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/admin/audit': 'Auditoria',
   '/admin/monitoring': 'Monitoramento',
   '/admin/errors': 'Erros do sistema',
+  '/admin/fase-alfa-reportes': 'Reportes Fase Alfa',
   '/admin/api': 'API global',
   '/admin/settings': 'Configurações gerais',
   '/admin/ai-blueprint': 'Modelo global de IA',

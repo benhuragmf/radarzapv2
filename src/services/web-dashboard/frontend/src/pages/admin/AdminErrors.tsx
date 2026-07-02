@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Ban } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -40,6 +41,14 @@ export default function AdminErrors() {
         title="Erros do sistema"
         subtitle="Eventos de erro sanitizados (24h) — feed unificado com a aba Segurança do Dashboard global."
       />
+
+      <Card className="mb-4 text-sm text-[var(--rz-text-secondary)]">
+        Reportes enviados pelos participantes da Fase Alfa ficam em{' '}
+        <Link to="/admin/fase-alfa-reportes" className="text-[var(--rz-primary)] hover:underline">
+          Reportes Fase Alfa
+        </Link>
+        .
+      </Card>
 
       {ops.data ? (
         <>
