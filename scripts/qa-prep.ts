@@ -93,7 +93,7 @@ async function main() {
   }
 
   console.log(
-    '\nDocs: docs/QA-FASE1-KICKOFF.md (start) · docs/QA-FASE1-ROTEIRO.md · docs/QA-FASE1-CHECKLIST.md · docs/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md',
+    '\nDocs: docs/RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md (master) · docs/RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md · legacy/QA-FASE1-ROTEIRO.md · legacy/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md',
   );
 
   await mongoose.disconnect();

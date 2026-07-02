@@ -5,7 +5,7 @@
 Este doc lista **somente** o que **não pode** ser fechado por código ou CI — requer browser/celular real (Benhur).  
 Tudo que já está verde automaticamente está em § Gate automático abaixo.
 
-**Gate § Estabilização:** [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) · **Kickoff:** [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md)
+**Gate § Estabilização:** [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) · **Checklist único:** [`RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md`](./RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md)
 
 ---
 
@@ -35,7 +35,7 @@ Tudo que já está verde automaticamente está em § Gate automático abaixo.
 | 6 | Marcar gate § Estabilização | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) — só após § A–E sem falha crítica | Benhur |
 | **7** | **Fallback fila WA nativa** (2.12.67) | [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) **Parte 3c** · registro [`concluidos/QA-FASE1-RESULTADO-2026-06-28.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-28.md) § Agendado | Benhur · **após deploy 2.12.67** |
 
-Checklist 1 página: [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md)
+Checklist completo: [`RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md`](./RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md) · detalhe Fase 1: [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) · resumo 1 página (arquivo): [`concluidos/QA-FASE1-RAPIDO.md`](./concluidos/QA-FASE1-RAPIDO.md)
 
 ---
 
@@ -103,9 +103,9 @@ Automação local Bloco E: `npm run qa:admin-ops:bloco-e:local` (não substitui 
 | Export por `clientId` dedicado | idem | Parcial — `export-csv` global ✅ |
 | Cloud API Meta | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) § Fase 2 | Stub POST 503 |
 | 21 upgrades produto | [`RADARCHAT-PLANO-UPGRADES.md`](./RADARCHAT-PLANO-UPGRADES.md) | Backlog pós-gate |
-| PREPARACAO-PRODUCAO / PRODUCTION | [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) · [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) · [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) | 🔄 Coolify + branch `layout-v3` |
+| PREPARACAO-PRODUCAO / PRODUCTION | [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) · [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) | Coolify em prod @ `2.17.61` |
 | Branch `layout-v3` | docs `RADARCHAT-LAYOUT-V3-*` | Release alvo UI v3 + deploy Coolify |
-| SECURITY_* (raiz) | `SECURITY_CHECKLIST.md` | Go-live — após Fase 3 |
+| Segurança deploy | [`docs/security/SECURITY_CHECKLIST.md`](./security/SECURITY_CHECKLIST.md) | Go-live — após Fase 3 |
 
 ---
 
@@ -125,5 +125,5 @@ Automação local Bloco E: `npm run qa:admin-ops:bloco-e:local` (não substitui 
 1. Atualizar [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) — marcar gate § Estabilização.
 2. Atualizar [`RADARCHAT-SISTEMA-COMPLETO.md`](./RADARCHAT-SISTEMA-COMPLETO.md) status.
 3. Registrar em [`CHANGELOG.md`](./CHANGELOG.md) + [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md).
-4. Concluir itens restantes em [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) § go-live (domínio, staging, smoke).
+4. Go-live comercial: [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) + [`PRODUCTION.md`](./PRODUCTION.md) — após gate Fase 1 e QA sem críticos.
 5. Seguir [`PRODUCTION.md`](./PRODUCTION.md) para cutover final.

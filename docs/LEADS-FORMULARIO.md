@@ -184,7 +184,7 @@ Chave `lfm_…` gerada ao criar o formulário no painel.
 
 - Rota: `GET /leads/preview.html?key=lfm_…` — simula site externo com embed
 - Setup: `npm run qa:leads:setup` (garante formulário ativo + `localhost` em `allowedDomains`)
-- Checklist: `docs/QA-FASE1-RAPIDO.md` § B.1
+- Checklist: `docs/RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md` Parte B.1
 
 ## Dados capturados
 

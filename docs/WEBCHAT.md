@@ -1,6 +1,6 @@
-﻿# Chat do site (WebChat)
+# Chat do site (WebChat)
 
-**Versão doc:** 2.11.97 (TOP 11)
+**Versão produto:** `2.17.61` · **Doc módulo** (histórico desde TOP 11 / `2.11.97`)
 
 Widget embedável para sites externos, com atendimento em tempo real no painel Radar Chat.
 
@@ -109,7 +109,7 @@ Snippet equivalente ao `widget.html`:
 - **Widget runtime Chat Box** (2.10.93): `widget.js` aplica dimensões, headers compactos/corporativos, glass (Floating Mini), nav inferior (Pocket Chat) e footers de segurança quando `previewTemplateId` é `chatbox-*`.
 - **Widget Chat Box interativo** (2.10.94): chips/CTAs/tiles/sugestões enviam mensagem; Pocket Chat com nav Início/Chat/Ajuda funcional; Workplace Mini com grid 2×2.
 - **Widget Chat Box + FAQ** (2.10.95): itens FAQ do Clean Support e quick replies abrem artigo via `faq-pick`; “Base de conhecimento”/FAQ abre catálogo; “Abrir chamado”/“Ver status” abre consulta TK.
-- **Support Lite busca KB** (2.10.96): campo de busca no widget filtra artigos; live preview usa `widget.html` para modelos Chat Box; QA em `docs/QA-WEBCHAT-CHATBOX-MODELS.md`.
+- **Support Lite busca KB** (2.10.96): campo de busca no widget filtra artigos; live preview usa `widget.html` para modelos Chat Box; QA detalhado em `docs/legacy/QA-WEBCHAT-CHATBOX-MODELS.md`.
 - **Chat Box nas coleções** (2.10.98): modelos free em **Modelos essenciais** e premium na **Coleção Premium** (junto com landings Luxe/Obsidian); uma página sem abas que escondem landings.
 - **Chat Box hierarquia** (2.10.99): **Modelos essenciais** aninhados dentro da seção **Chat Box** (landings + widgets compactos free).
 - **Painel widgets UX** (2.10.100): editor guiado com navegação lateral, modo simples/avançado, visão geral, alterações não salvas, duplicar widget, instalação didática e horários com atalhos.

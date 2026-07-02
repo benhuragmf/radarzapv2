@@ -1,6 +1,6 @@
 /**
  * Perfis e aliases de colunas para importação/exportação CSV de contatos.
- * Spec: docs/CONTATOS-CSV-IMPORTACAO.md
+ * Spec: docs/legacy/CONTATOS-CSV-IMPORTACAO.md · extratos: docs/RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md §5
  */
 
 export type ContactCsvProfile = 'radarchat' | 'google' | 'apple' | 'generic';

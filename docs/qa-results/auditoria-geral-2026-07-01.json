@@ -1,18 +1,18 @@
 {
   "schema": "radarchat-auditoria-geral-v1",
   "auditCycle": "audit-system-health-docs",
-  "version": "2.17.33",
+  "version": "2.17.61",
   "date": "2026-07-01",
-  "executedAt": "2026-07-01T03:13:13.153Z",
+  "executedAt": "2026-07-01T23:04:12.067Z",
   "executor": "qa-auditoria-geral.mjs",
   "environment": "local",
-  "mode": "full",
+  "mode": "quick",
   "overallStatus": "PARTIAL",
   "summary": {
     "automated": {
-      "pass": 45,
+      "pass": 9,
       "fail": 0,
-      "skipped": 0,
+      "skipped": 36,
       "total": 45
     },
     "manual": {
@@ -25,98 +25,28 @@
       "gateId": "build",
       "label": "Build backend + frontend",
       "ok": true,
-      "ms": 15480,
-      "mode": "executed"
-    },
-    {
-      "gateId": "atendimento",
-      "label": "Jest atendimento (CI — sem qa:prep WA)",
-      "ok": true,
-      "ms": 24096,
+      "ms": 38087,
       "mode": "executed"
     },
     {
       "gateId": "jest-webchat-security",
       "label": "Jest WebChat/CSRF/embed",
       "ok": true,
-      "ms": 4578,
+      "ms": 33256,
       "mode": "executed"
     },
     {
       "gateId": "jest-crm-completeness",
       "label": "Jest CRM WebChat incompleto",
       "ok": true,
-      "ms": 3293,
+      "ms": 34275,
       "mode": "executed"
     },
     {
       "gateId": "jest-mask-secret",
       "label": "Jest mascaramento segredos",
       "ok": true,
-      "ms": 3325,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-login",
-      "label": "Playwright login UI",
-      "ok": true,
-      "ms": 2685,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-cross-tenant",
-      "label": "Playwright cross-tenant",
-      "ok": true,
-      "ms": 2441,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-admin",
-      "label": "Playwright admin dashboard",
-      "ok": true,
-      "ms": 6450,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-lgpd",
-      "label": "Playwright portal LGPD",
-      "ok": true,
-      "ms": 2987,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-fase1",
-      "label": "Playwright fase1 painel",
-      "ok": true,
-      "ms": 3225,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-presence",
-      "label": "Playwright presença",
-      "ok": true,
-      "ms": 2920,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-inbox",
-      "label": "Playwright inbox mock",
-      "ok": true,
-      "ms": 3192,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-leads",
-      "label": "Playwright leads painel",
-      "ok": true,
-      "ms": 2572,
-      "mode": "executed"
-    },
-    {
-      "gateId": "e2e-attendance-modes",
-      "label": "Playwright modos atendimento",
-      "ok": true,
-      "ms": 3106,
+      "ms": 14063,
       "mode": "executed"
     }
   ],
@@ -166,7 +96,7 @@
           "title": "UI login (botões Google/Discord)",
           "expected": "Título e CTAs visíveis",
           "automation": "gate:e2e-login",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-login",
           "notes": ""
         }
@@ -199,7 +129,7 @@
           "title": "MANAGER/Supervisor",
           "expected": "Supervisor, relatórios, transferência",
           "automation": "gate:e2e-fase1",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-fase1",
           "notes": ""
         },
@@ -217,7 +147,7 @@
           "title": "SYSTEM_ADMIN",
           "expected": "/admin/dashboard, ops, backup",
           "automation": "gate:e2e-admin",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-admin",
           "notes": ""
         },
@@ -226,7 +156,7 @@
           "title": "Menu oculto + API 403",
           "expected": "URL forçada bloqueada",
           "automation": "gate:e2e-cross-tenant",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-cross-tenant",
           "notes": ""
         }
@@ -241,7 +171,7 @@
           "title": "/admin/dashboard abas",
           "expected": "Summary, empresas, segurança, infra",
           "automation": "gate:e2e-admin",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-admin",
           "notes": ""
         },
@@ -292,7 +222,7 @@
           "title": "Inbox bot — Cadastro CRM",
           "expected": "Política por canal",
           "automation": "gate:e2e-fase1",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-fase1",
           "notes": ""
         },
@@ -301,7 +231,7 @@
           "title": "/platform/inbox/ia",
           "expected": "Modos atendimento, catálogo PIX",
           "automation": "gate:e2e-attendance-modes",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-attendance-modes",
           "notes": ""
         },
@@ -325,7 +255,7 @@
           "title": "/platform/inbox/supervisor",
           "expected": "Métricas equipe, presença",
           "automation": "gate:e2e-fase1",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-fase1",
           "notes": ""
         },
@@ -334,7 +264,7 @@
           "title": "Reatribuir conversa",
           "expected": "InboxTransfer + AttendanceEvent",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -358,7 +288,7 @@
           "title": "Presença online/ausente/ocupado",
           "expected": "Fila respeita status",
           "automation": "gate:e2e-presence",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-presence",
           "notes": ""
         },
@@ -367,7 +297,7 @@
           "title": "Assumir da fila",
           "expected": "Conversa atribuída",
           "automation": "gate:e2e-inbox",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-inbox",
           "notes": ""
         },
@@ -427,7 +357,7 @@
           "title": "Offline / fora horário",
           "expected": "Aviso ou fallback WA",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -436,7 +366,7 @@
           "title": "FAQ / TK lookup",
           "expected": "Chips e consulta token",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -478,7 +408,7 @@
           "title": "Mensagem inbound → Inbox",
           "expected": "Aparece na lista",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -505,7 +435,7 @@
           "title": "!assumir / bridge WebChat",
           "expected": "Bridge ativa",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         }
@@ -520,7 +450,7 @@
           "title": "Lista unificada WA + WebChat",
           "expected": "Badges canal corretos",
           "automation": "gate:e2e-inbox",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-inbox",
           "notes": ""
         },
@@ -529,7 +459,7 @@
           "title": "CSAT ao finalizar",
           "expected": "Pesquisa enviada",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -562,7 +492,7 @@
           "title": "Captura automática WA/WebChat",
           "expected": "Lead em /platform/leads",
           "automation": "gate:e2e-leads",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-leads",
           "notes": ""
         },
@@ -613,7 +543,7 @@
           "title": "Classificação ?class=",
           "expected": "Filtro server-side",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -622,7 +552,7 @@
           "title": "Consentimento LGPD",
           "expected": "Fluxo renovação",
           "automation": "gate:e2e-lgpd",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-lgpd",
           "notes": ""
         }
@@ -637,7 +567,7 @@
           "title": "Abrir TK bot/painel",
           "expected": "Número TK-…",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -646,7 +576,7 @@
           "title": "Consulta pública token",
           "expected": "WebChat/widget lookup",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -670,7 +600,7 @@
           "title": "Modo básico vs premium",
           "expected": "usageKind distinto",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -679,7 +609,7 @@
           "title": "Saldo créditos header",
           "expected": "Barra IA/LM visível",
           "automation": "gate:e2e-fase1",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-fase1",
           "notes": ""
         },
@@ -688,7 +618,7 @@
           "title": "Sem créditos",
           "expected": "Fallback ou bloqueio claro",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -721,7 +651,7 @@
           "title": "Limite mensagens/dia",
           "expected": "Bloqueio + alerta sino",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -745,7 +675,7 @@
           "title": "Comprovante PIX WebChat",
           "expected": "Pedido atualizado ou órfão",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -754,7 +684,7 @@
           "title": "Comprovante PIX WA",
           "expected": "CatalogSalesService",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -805,7 +735,7 @@
           "title": "AttendanceEvent",
           "expected": "Assign/transfer/ticket",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         }
@@ -820,7 +750,7 @@
           "title": "API sem cookie 401",
           "expected": "/api/inbox/* bloqueado",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -829,7 +759,7 @@
           "title": "Cross-tenant ID",
           "expected": "404/403 URL estrangeira",
           "automation": "gate:e2e-cross-tenant",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-cross-tenant",
           "notes": ""
         },
@@ -838,7 +768,7 @@
           "title": "Webhook outbound assinatura",
           "expected": "X-Radar Chat-Signature",
           "automation": "gate:atendimento",
-          "status": "pass",
+          "status": "skipped",
           "gate": "atendimento",
           "notes": ""
         },
@@ -880,7 +810,7 @@
           "title": "Convite outra empresa",
           "expected": "Não vê dados da primeira",
           "automation": "gate:e2e-cross-tenant",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-cross-tenant",
           "notes": ""
         }
@@ -895,7 +825,7 @@
           "title": "Inbox 3 colunas desktop",
           "expected": "Usável",
           "automation": "gate:e2e-inbox",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-inbox",
           "notes": ""
         },
@@ -904,7 +834,7 @@
           "title": "Mobile login",
           "expected": "CTA ≥40px altura",
           "automation": "gate:e2e-login",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-login",
           "notes": ""
         },
@@ -913,7 +843,7 @@
           "title": "Estados vazios",
           "expected": "Texto orienta próximo passo",
           "automation": "gate:e2e-fase1",
-          "status": "pass",
+          "status": "skipped",
           "gate": "e2e-fase1",
           "notes": ""
         },

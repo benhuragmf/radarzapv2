@@ -24,7 +24,7 @@ export function DiscordRoadmapCard() {
       </ul>
       )}
       <p className="mt-2 text-[10px] text-[var(--rz-text-muted)]">
-        Detalhes em <code className="text-brand-400">docs/DISCORD-MONITORAMENTO.md</code>
+        Detalhes em <code className="text-brand-400">docs/legacy/DISCORD-MONITORAMENTO.md</code>
       </p>
     </Card>
   )

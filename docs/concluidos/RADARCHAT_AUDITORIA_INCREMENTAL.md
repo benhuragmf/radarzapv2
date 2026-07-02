@@ -27,9 +27,9 @@ Auditoria **incremental** focada nas modificações após a auditoria funcional 
 |---------|------|--------|------------------|
 | `docs/concluidos/RADARCHAT_WHATSAPP_TICKET_FAQ_AUDIT.md` | 2026-06-19 | Fallback WA, bridge, FAQ, lookup token (2.10.70–2.10.75) | **Base principal** — áreas não modificadas reaproveitadas |
 | `docs/QA-FASE1-CHECKLIST.md` | 2026-06-18+ | Gate estabilização Fase 1 | Referência QA manual |
-| `SECURITY_AUDIT.md` | 2026-06-09 | Segurança OWASP v2.5.1 | Referência riscos conhecidos (não reauditado linha a linha) |
+| [`concluidos/SECURITY_AUDIT.md`](./concluidos/SECURITY_AUDIT.md) | 2026-06-09 | Segurança OWASP v2.5.1 | Referência riscos conhecidos (não reauditado linha a linha) |
 | `docs/concluidos/menu-renaming-audit.md` | 2026-06-19 | Menus 2.10.67 | Reaproveitado |
-| `SECURITY_CHECKLIST.md` | — | Checklist segurança | Referência |
+| [`security/SECURITY_CHECKLIST.md`](../security/SECURITY_CHECKLIST.md) | — | Checklist segurança | Referência |
 
 **Não encontrado:** `AUDITORIA.md`, `docs/audits/*` anterior a este arquivo.
 
@@ -89,7 +89,7 @@ Desde `98b06c3..c978e6d` (**35 arquivos**, 9 commits):
 | WebChat receipts | — | **Sim (novo)** | **Reauditado** | Entrega 2.10.82–2.10.86 |
 | OTP reenvio token | — | **Sim (novo)** | **Reauditado** | 2.10.83–2.10.86 |
 | Menus / nomenclatura | `navConfig.ts` | Não | Reaproveitado | `menu-renaming-audit.md` |
-| Segurança global | `SECURITY_AUDIT.md` | Não | Reaproveitado + spot-check | Achados CSRF/socket ainda relevantes |
+| Segurança global | [`concluidos/SECURITY_AUDIT.md`](./concluidos/SECURITY_AUDIT.md) | Não | Reaproveitado + spot-check | Achados CSRF/socket ainda relevantes |
 | Billing / Discord / Campanhas | vários | Não | Reaproveitado | Sem diff no período |
 
 ---
@@ -170,7 +170,7 @@ Legenda: ✅ confirmado no código/testes · 🟡 parcial · 🧪 precisa teste 
 | QA / Prod | Gate estabilização **não cumprido** | `ROADMAP-COMPLETUDE.md` § Gate | Release prematura | Executar `QA-FASE1-CHECKLIST.md` § A–C |
 | Inbox socket | `useWebChatSocket` faz **patch + invalidate** no mesmo receipt | `useWebChatSocket.ts` L107–117 | Refetch desnecessário; lentidão percebida | Remover `invalidateQueries` após `setQueryData` |
 | Dados legados | Mensagens inbound **antes de 2.10.86** sem `deliveredAt` | `appendMessage` só seta em inbound novo | ✓✓ ausente em histórico antigo | Script backfill opcional ou aceitar só mensagens novas |
-| Segurança (herdado) | GET `/sessions/:id/connect` mutável (CSRF) | `SECURITY_AUDIT.md` §3 | Link externo inicia WA | POST + token anti-CSRF |
+| Segurança (herdado) | GET `/sessions/:id/connect` mutável (CSRF) | [`concluidos/SECURITY_AUDIT.md`](./concluidos/SECURITY_AUDIT.md) §3 | Link externo inicia WA | POST + token anti-CSRF |
 
 ### Médio
 
@@ -369,7 +369,7 @@ Consulta TK+token, FAQ chips, fallback WA, `!assumir`, bridge — implementaçã
 - `docs/WEBCHAT.md` — receipts 2.10.86
 - `docs/ROADMAP-COMPLETUDE.md`
 - `docs/QA-FASE1-CHECKLIST.md`
-- `SECURITY_AUDIT.md`
+- [`concluidos/SECURITY_AUDIT.md`](./concluidos/SECURITY_AUDIT.md)
 
 ---
 

@@ -8,7 +8,9 @@
 2. [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) — **única lista do que falta (QA humano)**
 3. [`concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) — resumo executivo pós-TOP 20
 4. [`concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — **fonte oficial** status, checklists e go-live
-5. [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual A–J
+5. [`RADARCHAT-MAPA-DOCUMENTACAO-VIVA-2.17.61.md`](./RADARCHAT-MAPA-DOCUMENTACAO-VIVA-2.17.61.md) — **o que é vivo vs arquivo**  
+6. [`RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md`](./RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md) — extratos de docs em `legacy/`  
+7. [`RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md`](./RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md) — **QA humano master**
 
 Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md)).
 
@@ -30,13 +32,15 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`VERSIONAMENTO-E-DOCUMENTACAO.md`](./VERSIONAMENTO-E-DOCUMENTACAO.md) | Protocolo de versionamento e documentação |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Changelog append-only |
 | [`SISTEMA-REGISTRO.md`](./SISTEMA-REGISTRO.md) | Registro vivo (espelho versionado) |
-| [`design-system/CONFIG-SAVE-FEEDBACK.md`](./design-system/CONFIG-SAVE-FEEDBACK.md) | Padrão botão Salvar + toast Sonner no painel |
+| [`design-system/CONFIG-SAVE-FEEDBACK.md`](./legacy/design-system/CONFIG-SAVE-FEEDBACK.md) | Padrão botão Salvar + toast Sonner (legacy) |
 | [`ROADMAP-COMPLETUDE.md`](./ROADMAP-COMPLETUDE.md) | Roadmap, gate estabilização |
 | [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) | **Pendências só humanas** — QA manual + Admin VPS |
 | [`concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md`](./concluidos/PLANO-CONSULTA-ATUALIZACAO-APLICACAO.md) | Plano consulta → doc → aplicação (arquivo) |
 | [`concluidos/RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md`](./concluidos/RADARCHAT-VISAO-PRODUTO-DIFERENCIACAO.md) | Visão produto / diferenciação (arquivo) |
-| [`referencias/REFERENCIAS-MERCADO-UPGRADES.md`](./referencias/REFERENCIAS-MERCADO-UPGRADES.md) | Referências mercado (Conecta360, Nextiva, RadarLeads, VoxCRM) — inspiração upgrades |
-| [`RADARCHAT-PLANO-UPGRADES.md`](./RADARCHAT-PLANO-UPGRADES.md) | **Plano 21 upgrades** — backlog pós-gate Fase 1 |
+| [`legacy/referencias/REFERENCIAS-MERCADO-UPGRADES.md`](./legacy/referencias/REFERENCIAS-MERCADO-UPGRADES.md) | Referências mercado (legacy) |
+| [`legacy/RADARCHAT-PLANO-UPGRADES.md`](./legacy/RADARCHAT-PLANO-UPGRADES.md) | Plano 21 upgrades — backlog pós-gate (legacy) |
+| [`legacy/README.md`](./legacy/README.md) | **Índice legacy** — docs nota &lt; 8 + escala 1–10 |
+| [`RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md`](./RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md) | Extratos operacionais dos legacy |
 
 ---
 
@@ -44,10 +48,9 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`RADARCHAT-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md`](./RADARCHAT-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md) | Fase 2 — menu e navegação |
-| [`RADARCHAT-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md`](./RADARCHAT-LAYOUT-V3-07-FASE-3-HEADER-OPERACIONAL.md) | Fase 3 — header operacional |
-| [`RADARCHAT-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md`](./RADARCHAT-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md) | Fase 4 — componentes visuais compartilhados |
-| [`RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | Fase 4.5 — QA visual navegável, marca Radar Chat e domínios |
+| [`legacy/RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./legacy/RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | QA visual Layout v3 (legacy @ 2.12.71) |
+| [`concluidos/RADARCHAT-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md`](./concluidos/RADARCHAT-LAYOUT-V3-06-FASE-2-MENU-E-NAVEGACAO.md) … [`08`](./concluidos/RADARCHAT-LAYOUT-V3-08-FASE-4-COMPONENTES-VISUAIS-COMPARTILHADOS.md) | Entregas fases 2–4 (arquivo) |
+| [`concluidos/RADARCHAT-LAYOUT-V3-01-INVENTARIO-ROTAS-MENUS-RBAC.md`](./concluidos/RADARCHAT-LAYOUT-V3-01-INVENTARIO-ROTAS-MENUS-RBAC.md) … [`05`](./concluidos/RADARCHAT-LAYOUT-V3-05-PROXIMAS-FASES-E-PROMPTS.md) | Pré-implementação (arquivo) |
 
 ---
 
@@ -56,10 +59,10 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | Documento | Descrição |
 |-----------|-----------|
 | [`INBOX-ATENDIMENTO.md`](./INBOX-ATENDIMENTO.md) | Inbox, triagem, fila, CSAT, supervisor |
-| [`MODO-ATENDENTE-DESKTOP.md`](./MODO-ATENDENTE-DESKTOP.md) | PWA, notificações SO e atalhos — posto de atendimento sem app nativo |
+| [`legacy/MODO-ATENDENTE-DESKTOP.md`](./legacy/MODO-ATENDENTE-DESKTOP.md) | PWA atendente (legacy) |
 | [`TICKET-ATENDIMENTO.md`](./TICKET-ATENDIMENTO.md) | Chamados TK, SLA, token público |
 | [`WEBCHAT.md`](./WEBCHAT.md) | Widget, API pública, fila, FAQ |
-| [`ONBOARDING-VERTICAL.md`](./ONBOARDING-VERTICAL.md) | Pré-configuração por tipo de comércio (11 verticais) |
+| [`legacy/ONBOARDING-VERTICAL.md`](./legacy/ONBOARDING-VERTICAL.md) | Pré-config por vertical (legacy) |
 | [`LEADS-FORMULARIO.md`](./LEADS-FORMULARIO.md) | Formulários embed e captura |
 | [`IA-CREDITOS-E-CARTEIRA.md`](./IA-CREDITOS-E-CARTEIRA.md) | Créditos IA e carteira |
 | [`CATALOGO-PIX-PEDIDOS.md`](./CATALOGO-PIX-PEDIDOS.md) | Catálogo, pedidos via IA, PIX e fulfillment |
@@ -92,12 +95,12 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md`](./concluidos/ENTREGA-ADMIN-DASHBOARD-OPS-2.12.37-38.md) | Entrega Etapas 1–3 |
 | [`concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md`](./concluidos/ENTREGA-AUDITORIA-HORIZONTAL-2.12.47-59.md) | Entrega auditoria 2.12.47–63 |
 | [`WEBHOOKS.md`](./WEBHOOKS.md) | Webhooks outbound |
-| [`DISCORD-MONITORAMENTO.md`](./DISCORD-MONITORAMENTO.md) | Discord bot, regras, dry-run, multi-regra, auditoria |
-| [`RADARCHAT_INTEGRATION_CONTRACT.md`](./RADARCHAT_INTEGRATION_CONTRACT.md) | Integração inbound RadarGamer -> RadarChat |
-| [`RADARCHAT_NEXT_PROMPT.md`](./RADARCHAT_NEXT_PROMPT.md) | Prompt de retomada da integração RadarGamer -> RadarChat |
+| [`legacy/DISCORD-MONITORAMENTO.md`](./legacy/DISCORD-MONITORAMENTO.md) | Discord bot (legacy) |
+| [`legacy/RADARCHAT_INTEGRATION_CONTRACT.md`](./legacy/RADARCHAT_INTEGRATION_CONTRACT.md) | RadarGamer inbound — ver também extratos §4 |
+| [`concluidos/RADARCHAT_NEXT_PROMPT.md`](./concluidos/RADARCHAT_NEXT_PROMPT.md) | Prompt Codex integração (arquivo) |
 | [`MENU-PAGES-REGISTRY.md`](./MENU-PAGES-REGISTRY.md) | Rotas → componentes → API |
 | [`MENUS-SISTEMA.md`](./MENUS-SISTEMA.md) | Menus UX do painel |
-| [`CONTATOS-CSV-IMPORTACAO.md`](./CONTATOS-CSV-IMPORTACAO.md) | Import/export contatos |
+| [`legacy/CONTATOS-CSV-IMPORTACAO.md`](./legacy/CONTATOS-CSV-IMPORTACAO.md) | Import/export CSV — extratos §5 |
 | [`CONTATOS-CLASSIFICACAO.md`](./CONTATOS-CLASSIFICACAO.md) | Classificação CRM (tipo, LGPD, funil, campanhas) |
 | [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md) | Tokens `--rz-*`, componentes |
 
@@ -137,26 +140,28 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 > **O que falta fechar:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md)
 
-### Auditoria geral (2026-06-30)
+### Auditoria geral (2026-06-30 — arquivo)
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./AUDITORIA-GERAL-SISTEMA-RADARCHAT.md) | Relatório executivo — segurança, estabilidade, dados, UX |
-| [`QA-AUDITORIA-GERAL-SISTEMA.md`](./QA-AUDITORIA-GERAL-SISTEMA.md) | Roteiro manual de validação pós-auditoria |
-| [`PENDENCIAS-E-RISCOS-SISTEMA.md`](./PENDENCIAS-E-RISCOS-SISTEMA.md) | Backlog priorizado de riscos e pendências |
+| [`concluidos/AUDITORIA-GERAL-SISTEMA-RADARCHAT.md`](./concluidos/AUDITORIA-GERAL-SISTEMA-RADARCHAT.md) | Relatório jun/2026 — **substituído** por auditoria 2.17.62 |
+| [`concluidos/QA-AUDITORIA-GERAL-SISTEMA.md`](./concluidos/QA-AUDITORIA-GERAL-SISTEMA.md) | Roteiro manual jun/2026 — **Parte H** do checklist completo |
+| [`concluidos/PENDENCIAS-E-RISCOS-SISTEMA.md`](./concluidos/PENDENCIAS-E-RISCOS-SISTEMA.md) | Backlog jun/2026 (arquivo) |
+| [`concluidos/RADARCHAT-AUDITORIA-GERAL-SEGURANCA-DADOS-ESTABILIDADE-5-ETAPAS-2.17.62.md`](./concluidos/RADARCHAT-AUDITORIA-GERAL-SEGURANCA-DADOS-ESTABILIDADE-5-ETAPAS-2.17.62.md) | **Auditoria atual** — encerrada 2026-07-01 |
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`QA-FASE1-RESULTADO-TEMPLATE.md`](./QA-FASE1-RESULTADO-TEMPLATE.md) | **Template** — inclui § QA Manual TOP 20 |
-| [`QA-FASE1-ROTEIRO.md`](./QA-FASE1-ROTEIRO.md) | Roteiro passo a passo |
-| [`QA-FASE1-CHECKLIST.md`](./QA-FASE1-CHECKLIST.md) | Checklist imprimível |
-| [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md) | Checklist 1 página |
-| [`QA-FASE1-KICKOFF.md`](./QA-FASE1-KICKOFF.md) | Start gate humano |
-| [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md) | Jest/Playwright vs manual |
-| [`QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Fallback e bridge |
-| [`QA-WEBCHAT-CHATBOX-MODELS.md`](./QA-WEBCHAT-CHATBOX-MODELS.md) | Modelos chat box |
-| [`RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md`](./RADARCHAT-LAYOUT-V3-09-FASE-4-5-QA-VISUAL-NAVEGAVEL.md) | QA visual Layout v3 Fase 4.5 |
-| [`QA-FASE1-RESULTADO-2026-06-22.md`](./concluidos/QA-FASE1-RESULTADO-2026-06-22.md) | Sessão QA anterior (histórico, arquivo) |
+| [`RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md`](./RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md) | **Checklist QA humano master** |
+| [`RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md`](./RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md) | Gates, fallback WA, RadarGamer, CSV — extratos |
+| [`legacy/QA-FASE1-ROTEIRO.md`](./legacy/QA-FASE1-ROTEIRO.md) | Roteiro detalhado (legacy) |
+| [`legacy/QA-FASE1-CHECKLIST.md`](./legacy/QA-FASE1-CHECKLIST.md) | Checklist imprimível (legacy) |
+| [`legacy/QA-FASE1-AUTOMATIZACAO.md`](./legacy/QA-FASE1-AUTOMATIZACAO.md) | Jest/Playwright vs manual (legacy) |
+| [`legacy/QA-FASE1-RESULTADO-TEMPLATE.md`](./legacy/QA-FASE1-RESULTADO-TEMPLATE.md) | Template resultado (legacy) |
+| [`legacy/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md`](./legacy/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md) | Fallback e bridge detalhado (legacy) |
+| [`legacy/QA-WEBCHAT-CHATBOX-MODELS.md`](./legacy/QA-WEBCHAT-CHATBOX-MODELS.md) | Modelos chat box (legacy) |
+| [`concluidos/RADARCHAT-QA-HUMANO-RESULTADO-CATALOGO-ENDERECO-PIX-2.17.61-2026-07-01.md`](./concluidos/RADARCHAT-QA-HUMANO-RESULTADO-CATALOGO-ENDERECO-PIX-2.17.61-2026-07-01.md) | Resultado QA automático catálogo — APROVADO COM RESSALVAS |
+| [`concluidos/RADARCHAT-AUDITORIA-GERAL-SEGURANCA-DADOS-ESTABILIDADE-5-ETAPAS-2.17.62.md`](./concluidos/RADARCHAT-AUDITORIA-GERAL-SEGURANCA-DADOS-ESTABILIDADE-5-ETAPAS-2.17.62.md) | Auditoria segurança 5 etapas — encerrada |
+| [`concluidos/RADARCHAT-POS-SEGURANCA-FECHAMENTO-OPERACIONAL-ROADMAP-2.17.62.md`](./concluidos/RADARCHAT-POS-SEGURANCA-FECHAMENTO-OPERACIONAL-ROADMAP-2.17.62.md) | Pós-segurança — fechamento operacional |
 
 ---
 
@@ -164,12 +169,10 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`PREPARACAO-PRODUCAO.md`](./PREPARACAO-PRODUCAO.md) | Infra, env, deploy |
-| [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) | Deploy Coolify — produção ZAP migrada 2.12.71 |
-| [`concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md`](./concluidos/ENTREGA-COOLIFY-MIGRACAO-2.12.71.md) | Entrega migração sslip.io → Coolify |
-| [`PREPARACAO-PRODUCAO-EXECUCAO.md`](./PREPARACAO-PRODUCAO-EXECUCAO.md) | Tracker vivo — checklist infra + Coolify |
-| [`PRODUCTION.md`](./PRODUCTION.md) | Runbook go-live |
-| [`RADARCHAT-V2-MIGRACAO.md`](./RADARCHAT-V2-MIGRACAO.md) | Migração v1 → v2 |
+| [`COOLIFY-DEPLOY.md`](./COOLIFY-DEPLOY.md) | **Deploy produção** (ativo) |
+| [`legacy/PREPARACAO-PRODUCAO.md`](./legacy/PREPARACAO-PRODUCAO.md) | Infra/env genérico (legacy) |
+| [`legacy/PRODUCTION.md`](./legacy/PRODUCTION.md) | Runbook go-live histórico (legacy) |
+| [`legacy/RADARCHAT-V2-MIGRACAO.md`](./legacy/RADARCHAT-V2-MIGRACAO.md) | Migração v1 → v2 (legacy) |
 
 ---
 
@@ -177,6 +180,7 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 
 | Pasta / doc | Descrição |
 |-------------|-----------|
+| [`legacy/`](./legacy/README.md) | Docs nota &lt; 8 + escala 1–10 |
 | [`concluidos/`](./concluidos/README.md) | Entregas arquivadas (admin, TOP, auditoria horizontal, modos) |
 | [`concluidos/top/`](./concluidos/top/) | TOP 01–21 — auditoria e fechamento |
 | [`concluidos/RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md`](./concluidos/RADARCHAT-AUDITORIA-HORIZONTAL-SEGURANCA-ESTABILIDADE.md) | **Auditoria horizontal** — achados + status 2.12.47–63 |
@@ -184,7 +188,9 @@ Mapa completo abaixo. Novas entregas: atualizar este índice ([`VERSIONAMENTO-E-
 | [`audits/README.md`](./audits/README.md) | Redirect → `concluidos/` |
 | [`concluidos/operacao/RUNBOOK-SPOF-MONGO-REDIS.md`](./concluidos/operacao/RUNBOOK-SPOF-MONGO-REDIS.md) | Runbook SPOF Mongo/Redis (AH-S01) |
 | [`operacao/README.md`](./operacao/README.md) | Redirect → `concluidos/operacao/` |
-| [`security/`](./security/) | Notas de segurança |
+| [`security/`](./security/README.md) | Checklist deploy · [`SECURITY.md`](../SECURITY.md) na raiz |
+| [`legacy/security/`](./legacy/security/) | Fix plan e recomendações (legacy) |
+| [`concluidos/SECURITY_AUDIT.md`](./concluidos/SECURITY_AUDIT.md) | Auditoria OWASP v2.5.1 (arquivo) |
 
 ---
 

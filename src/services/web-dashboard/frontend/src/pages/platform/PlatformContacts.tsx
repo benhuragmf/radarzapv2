@@ -236,7 +236,7 @@ export default function PlatformContacts() {
 
         Especificação:{' '}
 
-        <code className="text-[var(--rz-text-muted)]">docs/CONTATOS-CSV-IMPORTACAO.md</code>
+        <code className="text-[var(--rz-text-muted)]">docs/legacy/CONTATOS-CSV-IMPORTACAO.md</code>
 
         {' · '}
 

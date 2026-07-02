@@ -1,20 +1,18 @@
 # Radar Chat — Documentação Completa do Sistema
 
-**Versão:** `2.12.64` · **Atualizado:** 2026-06-28
+**Versão:** `2.17.61` · **Produção:** `app.radarchat.com.br` · **Atualizado:** 2026-07-01
 
 > **Este é o documento principal do Radar Chat v2.** Leia-o antes de qualquer módulo específico.  
-> Resumo executivo: [`RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) · **Fonte oficial pós-TOP 20:** [`top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md)
+> Resumo executivo: [`RADARCHAT-RESULTADO-FINAL-TOP-01-20.md`](./concluidos/RADARCHAT-RESULTADO-FINAL-TOP-01-20.md) · **Fonte oficial pós-TOP 20:** [`top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md`](./concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) · Índice: [`INDICE-DOCUMENTACAO.md`](./INDICE-DOCUMENTACAO.md) · **Pendências humanas:** [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) · **Checklist QA:** [`RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md`](./RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md)
 
 | Campo | Valor |
 |-------|-------|
-| **Versão final** | `2.12.64` |
-| **Status** | `PRONTO PARA QA MANUAL` |
-| **Gate automático** | ✅ `qa:atendimento:gate` @ 2026-06-28 |
-| **Produção estável** | Não declarada |
-| **Deploy CI/VPS** | Pipeline ativo (`main` → Docker); go-live não declarado |
-| **Stripe live** | Não ativado |
-| **QA manual A–J** | Pendente (Benhur) — ver [`PENDENCIAS-HUMANAS-FASE1.md`](./PENDENCIAS-HUMANAS-FASE1.md) |
-| **Próximo passo** | QA manual § A–J + Admin Bloco E VPS |
+| **Versão produto** | `2.17.61` |
+| **Produção** | `app.radarchat.com.br` — commit `4a7c690` |
+| **Status** | QA humano pendente — gate Fase 1 aberto |
+| **Gate automático** | Revalidar `npm run qa:atendimento:gate` antes de release |
+| **Auditoria segurança** | Encerrada 2.17.62 — [`concluidos/RADARCHAT-AUDITORIA-GERAL-...-2.17.62.md`](./concluidos/RADARCHAT-AUDITORIA-GERAL-SEGURANCA-DADOS-ESTABILIDADE-5-ETAPAS-2.17.62.md) |
+| **Próximo passo** | Checklist completo § A–J + catálogo §32 |
 
 ---
 
@@ -380,7 +378,7 @@ Blocos A–J no doc TOP 19: login, equipe, WebChat, WhatsApp, bridge, tickets, l
 
 Baileys real, bridge em prod, Stripe live, ESLint frontend legado (159), Jest open handles, infra backups/SSL.
 
-Mapas legados: [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md), [`QA-FASE1-RAPIDO.md`](./QA-FASE1-RAPIDO.md).
+Mapas legados: [`QA-FASE1-AUTOMATIZACAO.md`](./QA-FASE1-AUTOMATIZACAO.md), [`RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md`](./RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md).
 
 ---
 

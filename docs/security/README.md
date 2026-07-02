@@ -57,20 +57,20 @@ Staff global: use capability `Cap.*_GLOBAL` e documente o motivo.
 
 ## Variáveis sensíveis
 
-Ver `.env.example` e `docs/PRODUCTION.md`.  
+Ver `.env.example`, [`COOLIFY-DEPLOY.md`](../COOLIFY-DEPLOY.md) e [`legacy/PREPARACAO-PRODUCAO.md`](../legacy/PREPARACAO-PRODUCAO.md).  
 Boot falha em prod se secrets forem default ou `ALLOW_DEV_BILLING=true`.
 
 ---
 
-## Documentos na raiz
+## Documentos de segurança
 
 | Arquivo | Uso |
 |---------|-----|
-| `SECURITY.md` | Como reportar vulnerabilidades |
-| `SECURITY_AUDIT.md` | Relatório completo |
-| `SECURITY_FIX_PLAN.md` | O que corrigir e quando |
-| `SECURITY_CHECKLIST.md` | Antes de deploy |
-| `SECURITY_RECOMMENDATIONS.md` | Roadmap longo prazo |
+| [`SECURITY.md`](../../SECURITY.md) (raiz) | Como reportar vulnerabilidades |
+| [`../concluidos/SECURITY_AUDIT.md`](../concluidos/SECURITY_AUDIT.md) | Relatório completo (arquivo) |
+| [`../legacy/security/SECURITY_FIX_PLAN.md`](../legacy/security/SECURITY_FIX_PLAN.md) | Plano histórico (legacy) |
+| [`SECURITY_CHECKLIST.md`](./SECURITY_CHECKLIST.md) | **Antes de deploy** (ativo) |
+| [`../legacy/security/SECURITY_RECOMMENDATIONS.md`](../legacy/security/SECURITY_RECOMMENDATIONS.md) | Roadmap longo prazo (legacy) |
 
 ---
 

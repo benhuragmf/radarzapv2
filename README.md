@@ -11,11 +11,11 @@ Plataforma SaaS para **atendimento omnicanal** (WhatsApp, WebChat, leads), **Inb
 
 | Campo | Valor |
 |-------|-------|
-| **Versão** | `2.12.64` |
-| **Status** | `PRONTO PARA QA MANUAL` (gate automático ✅) |
-| **Produção estável** | Não declarada |
-| **Deploy CI/VPS** | Pipeline ativo; QA humano Fase 1 pendente |
-| **Próximo passo** | [`PENDENCIAS-HUMANAS-FASE1.md`](docs/PENDENCIAS-HUMANAS-FASE1.md) — QA manual A–J + Admin Bloco E VPS |
+| **Versão** | `2.17.61` (produção `app.radarchat.com.br` @ `4a7c690`) |
+| **Status** | QA humano pendente — gate Fase 1 aberto |
+| **Produção estável** | Não declarada (congelamento catálogo: APROVADO COM RESSALVAS) |
+| **Deploy** | Coolify + `main` — ver [`COOLIFY-DEPLOY.md`](docs/COOLIFY-DEPLOY.md) |
+| **Próximo passo** | [`RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md`](docs/RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md) |
 
 Changelog: [docs/SISTEMA-REGISTRO.md](docs/SISTEMA-REGISTRO.md)
 
@@ -30,7 +30,8 @@ Leia nesta ordem:
 3. [docs/concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md) — status, checklists e go-live
 4. [docs/INDICE-DOCUMENTACAO.md](docs/INDICE-DOCUMENTACAO.md) — mapa de todos os `.md`
 5. [docs/PENDENCIAS-HUMANAS-FASE1.md](docs/PENDENCIAS-HUMANAS-FASE1.md) — **o que falta fechar (só humano)**
-6. [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) — registrar QA manual TOP 20
+6. [docs/RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md](docs/RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md) — **QA humano master**
+7. [docs/RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md](docs/RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md) — gates, fallback WA, integrações (extratos)
 
 ---
 
@@ -72,13 +73,13 @@ Sequência completa e critérios: doc mestre §22.
 
 ## QA manual antes do go-live
 
-O código está congelado em `2.12.6`. Antes de produção:
+O código está em `2.17.61`. Antes de declarar produção estável:
 
-1. Executar blocos **A–J** (login, equipe, WebChat, WhatsApp, bridge, tickets, leads, IA, billing, segurança).
-2. Preencher [docs/QA-FASE1-RESULTADO-TEMPLATE.md](docs/QA-FASE1-RESULTADO-TEMPLATE.md) § Resultado QA Manual TOP 20.
-3. Seguir [docs/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).
+1. Executar blocos **A–J** em [docs/RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md](docs/RADARCHAT-QA-HUMANO-REAL-CHECKLIST-COMPLETO-2.17.61.md).
+2. Registrar resultado em `docs/concluidos/RADARCHAT-QA-HUMANO-RESULTADO-<data>.md` (modelo: [concluidos/RADARCHAT-QA-HUMANO-RESULTADO-CATALOGO-ENDERECO-PIX-2.17.61-2026-07-01.md](docs/concluidos/RADARCHAT-QA-HUMANO-RESULTADO-CATALOGO-ENDERECO-PIX-2.17.61-2026-07-01.md)).
+3. Seguir [docs/concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md](docs/concluidos/top/RADARCHAT-TOP-20-CONGELAMENTO-FINAL-GO-LIVE-CONTROLADO.md).
 
-Roteiro passo a passo: [docs/QA-FASE1-ROTEIRO.md](docs/QA-FASE1-ROTEIRO.md)
+Detalhe QA (legacy): [docs/legacy/QA-FASE1-ROTEIRO.md](docs/legacy/QA-FASE1-ROTEIRO.md) · extratos: [docs/RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md](docs/RADARCHAT-EXTRAIDOS-LEGACY-2.17.61.md)
 
 **Não** marcar produção estável sem QA manual verde.
 
@@ -93,9 +94,9 @@ Roteiro passo a passo: [docs/QA-FASE1-ROTEIRO.md](docs/QA-FASE1-ROTEIRO.md)
 | Inbox | [docs/INBOX-ATENDIMENTO.md](docs/INBOX-ATENDIMENTO.md) |
 | WebChat | [docs/WEBCHAT.md](docs/WEBCHAT.md) |
 | Billing | [docs/BILLING.md](docs/BILLING.md) |
-| Produção | [docs/PREPARACAO-PRODUCAO.md](docs/PREPARACAO-PRODUCAO.md), [docs/PRODUCTION.md](docs/PRODUCTION.md) |
-| TOPs 01–21 | [docs/top/](docs/top/) |
-| Migração v1 | [docs/RADARCHAT-V2-MIGRACAO.md](docs/RADARCHAT-V2-MIGRACAO.md) |
+| Produção | [docs/COOLIFY-DEPLOY.md](docs/COOLIFY-DEPLOY.md) · legacy: [PREPARACAO-PRODUCAO](docs/legacy/PREPARACAO-PRODUCAO.md), [PRODUCTION](docs/legacy/PRODUCTION.md) |
+| TOPs 01–21 | [docs/concluidos/top/](docs/concluidos/top/) |
+| Legacy (nota &lt; 8) | [docs/legacy/README.md](docs/legacy/README.md) |
 
 ---
 

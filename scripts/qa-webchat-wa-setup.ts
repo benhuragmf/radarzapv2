@@ -122,7 +122,7 @@ async function main() {
   console.log(`✓ Widget: ${widget.name ?? 'padrão'} · publicKey=${widget.publicKey}`);
   console.log('\nPróximo passo:');
   console.log('  1. npm run qa:webchat-wa');
-  console.log('  2. docs/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md (§0 já parcialmente feito)\n');
+  console.log('  2. docs/legacy/QA-WEBCHAT-WA-FALLBACK-BRIDGE.md (§0 já parcialmente feito)\n');
 
   await mongoose.disconnect();
 }
